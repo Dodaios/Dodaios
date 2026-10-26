@@ -36,7 +36,17 @@ export interface ReviewFile extends ChangedFile {
   committed?: boolean;
   /** Its diff, sent with the list so the review paints at once; absent = read on demand. */
   diff?: InlineDiff | null;
+  /**
+   * The worktree the agent made and changed it in (its folder's name); empty or
+   * absent for the pane's own folder. Such a file cannot be opened or staged here.
+   */
+  checkout?: string;
+  /** The commit this file is compared with; absent = the list's `base`. */
+  base?: string;
 }
+
+/** One listed file's identity: the same path may be changed in two worktrees. */
+export const reviewFileKey = (file: ReviewFile): string => (file.checkout ? `${file.checkout}:${file.path}` : file.path);
 
 export interface PaneChanges {
   available: boolean;
@@ -218,8 +228,11 @@ export function clearPaneChangesCache(): void {
 }
 
 /** One file's diff: against `base` when the pane route gave one, else against the last commit. */
-export function fetchPaneFileDiff(target: PaneChangesTarget, path: string, base = ""): Promise<FileDiff> {
-  if (base) return read<FileDiff>(`${paneUrl(target, "diff")}?${new URLSearchParams({ path, base }).toString()}`);
+export function fetchPaneFileDiff(target: PaneChangesTarget, path: string, base = "", checkout = ""): Promise<FileDiff> {
+  if (base) {
+    const query = new URLSearchParams(checkout ? { path, base, checkout } : { path, base });
+    return read<FileDiff>(`${paneUrl(target, "diff")}?${query.toString()}`);
+  }
   if (target.folder) {
     return read<FileDiff>(
       `/api/agentic-ide/git/diff?${new URLSearchParams({ folder: target.folder, path }).toString()}`,

@@ -41,6 +41,9 @@ updates:
       default-days: 7
     schedule:
       interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: "Europe/Berlin"
     open-pull-requests-limit: 5
     groups:
       build-toolchain:
@@ -61,6 +64,13 @@ updates:
       time: "07:00"
       timezone: "Europe/Berlin"
     open-pull-requests-limit: 5
+    # One pull request per week for all action bumps: each Dependabot pull
+    # request holds a merge queue slot for a full queue run (~15 min), and on
+    # 2026-10-26 five single-action bumps sat in front of feature work. Still
+    # reviewed per SHA (TRUST_ROOT.md section 7), just in one diff.
+    groups:
+      github-actions:
+        patterns: ["*"]
     labels:
       - dependencies
       - github-actions

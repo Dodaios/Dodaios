@@ -92,9 +92,13 @@ def store_dir() -> Path:
 
 
 def _store_dir() -> Path:
+    from dodaios.core.instance import current_instance
     from dodaios.core.paths import user_data_dir
 
-    return user_data_dir() / "agentic_ide" / "prompt_history"
+    # Per instance: a dev instance's panes are not the main app's, and the
+    # main app's self-building loop reads this folder as the person's prompts.
+    suffix = current_instance().state_file_suffix
+    return user_data_dir() / "agentic_ide" / f"prompt_history{suffix}"
 
 
 def path_for(history_id: str) -> Path:

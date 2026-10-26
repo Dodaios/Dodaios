@@ -53,6 +53,9 @@ interface Marks {
 
 /** A floor ring is seen at the camera's 60° pitch: scale it up so it reads at its size on screen. */
 const FLOOR_SQUASH = Math.sin(Math.PI / 3);
+/** Eye-level view: the beacon's and the floor ring's size in the room, metres. */
+const EYE_BEACON_M = 0.16;
+const EYE_RING_M = 0.9;
 
 export function BeaconsLayer({ runtime, statuses, reduced }: { runtime: StageRuntime; statuses: ReadonlyMap<string, DutyStatus>; reduced: boolean }) {
   const scene = useThree((s) => s.scene);
@@ -82,6 +85,8 @@ export function BeaconsLayer({ runtime, statuses, reduced }: { runtime: StageRun
   useFrame(() => {
     const t = performance.now() / 1000;
     const worldPerPx = 1 / Math.max(1e-3, runtime.view.current.scale);
+    // At eye level the marks have a size in the room and walls hide them; on the plate they keep a size on screen.
+    const eye = !!runtime.eye;
     const stamp = ++frame.current;
     for (const [id, status] of statusRef.current) {
       const style = DUTY[status];
@@ -112,13 +117,16 @@ export function BeaconsLayer({ runtime, statuses, reduced }: { runtime: StageRun
         if (m.beaconColour !== style.beacon) { m.beacon.material.color.set(style.beacon); m.beaconColour = style.beacon; }
         m.beacon.material.opacity = breath;
         m.beacon.position.set(pose.x, pose.y + pose.height + 0.22, pose.z);
-        m.beacon.scale.setScalar(SIZE_PX * worldPerPx);
+        m.beacon.scale.setScalar(eye ? EYE_BEACON_M : SIZE_PX * worldPerPx);
+        m.beacon.material.depthTest = eye;
       }
       const ringColour = style.beacon ?? QUIET[status];
       if (m.ringColour !== ringColour) { m.ring.material.color.set(ringColour); m.ringColour = ringColour; }
       m.ring.material.opacity = style.beacon ? Math.max(0.7, breath) : 0.75;
       // The ring lies on the floor; on screen it is foreshortened like the floor itself.
-      const size = (RING_PX * worldPerPx) / FLOOR_SQUASH;
+      const size = eye ? EYE_RING_M : (RING_PX * worldPerPx) / FLOOR_SQUASH;
+      m.ring.material.depthTest = eye;
+      m.shade.material.depthTest = eye;
       m.ring.position.set(pose.x, pose.y + 0.02, pose.z);
       m.ring.scale.setScalar(size);
       m.shade.position.set(pose.x, pose.y + 0.02, pose.z);

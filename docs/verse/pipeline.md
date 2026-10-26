@@ -29,12 +29,14 @@ under `dodaios/ui/web/frontend/public/verse/` are committed.
 art/verse/
   BRIEF.md TEAM.md LEVELS.md style-bible.md LICENSES.md
   lib/        scene.py cook.py naming.py textures.py   (pipeline)
+              realtime.py lightmap.py                  (realtime export)
               kit.py materials.py                      (kit)
   kit/        modular pieces            lookdev/  material tests
   decks/<id>/ build.py (+ helpers)      characters/  character builders
   schema/     deck.schema.json
   .cache/     blend/ cook/ textures/ logs/ mcp/ notes/ gpu.lock   (git-ignored)
 scripts/verse/  blender.py cook.py package.py validate.py closeup.py mcp_bridge.py textures.py avif_test.py
+                package_realtime.py meshopt_pack.mjs _realtime_entry.py   (realtime export)
 tests/verse/  test_verse_content.py
 dodaios/ui/web/frontend/public/verse/decks/<id>/   cooked deck (committed)
 dodaios/ui/web/frontend/src/components/society/verse/content/manifest.ts
@@ -129,6 +131,10 @@ not decks render like a cook with `configure_render(scene, quality, exposure)`
 and `plate_camera(scene, Bounds(...), px_per_m)`.
 
 ## Cook
+
+The plate cook below; the eye-level (realtime) export of a deck is its own
+stage, `cook.py deck <id> --realtime`, documented in [`realtime.md`](realtime.md).
+A plate cook keeps a deck's `realtime/` folder and manifest block.
 
 ```
 python scripts/verse/cook.py deck <id> [--quality preview|final] [--keep-blend] [--device auto|optix|cuda|cpu]
@@ -271,7 +277,8 @@ No other file changes: the engine discovers decks by id and manifest.
 
 | Gate | Limit | Checked by |
 |---|---|---|
-| Whole `public/verse` | ≤ 90 MB | validator, pytest |
+| Whole `public/verse` | ≤ 160 MB | validator, pytest |
+| Realtime export per deck (`realtime/`: glb, lightmap pages, probes) | ≤ 25 MB | validator |
 | Plate per deck (L0 + M2 + M4 + L1) | ≤ 16 MB | validator |
 | Character `.glb` | ≤ 2 MB each, `SK_`/`SM_`/`A_`/`T_` prefix | validator |
 | Manifest | JSON Schema, ids match folders, tile count and sizes of every level (mips per the contract, no stray files), nav size, occluders without materials and named `UCX_*`, env is Radiance HDR | validator |

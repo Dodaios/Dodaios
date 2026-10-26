@@ -24,6 +24,7 @@ import {
   cachedPaneChanges,
   loadPaneChanges,
   fetchPaneFileDiff,
+  reviewFileKey,
   type ChangeScope,
   type PaneChanges,
   type PaneChangesTarget,
@@ -113,7 +114,7 @@ export function PaneChangesDialog({
     const show = (changes: PaneChanges) => {
       setList({ kind: "ready", changes });
       setDiffs(Object.fromEntries(changes.files.filter((file) => !file.is_directory).map((file) => [
-        file.path,
+        reviewFileKey(file),
         file.diff ? ({ kind: "ready", diff: { workspace_id: workspaceId, path: file.path, ...file.diff } } as DiffState) : ({ kind: "loading" } as DiffState),
       ])));
     };
@@ -133,16 +134,16 @@ export function PaneChangesDialog({
       }
       if (cancelled) return;
       if (changes !== cached) show(changes);
-      const queue = changes.files.filter((file) => !file.is_directory && !file.diff).map((file) => file.path);
+      const queue = changes.files.filter((file) => !file.is_directory && !file.diff);
       const worker = async () => {
-        for (let path = queue.shift(); path !== undefined && !cancelled; path = queue.shift()) {
+        for (let file = queue.shift(); file !== undefined && !cancelled; file = queue.shift()) {
           let next: DiffState;
           try {
-            next = { kind: "ready", diff: await fetchPaneFileDiff(target, path, changes.base) };
+            next = { kind: "ready", diff: await fetchPaneFileDiff(target, file.path, file.base || changes.base, file.checkout) };
           } catch (error) {
             next = { kind: "error", message: error instanceof Error ? error.message : String(error) };
           }
-          const done = path;
+          const done = reviewFileKey(file);
           if (!cancelled) setDiffs((current) => ({ ...current, [done]: next }));
         }
       };
@@ -179,7 +180,7 @@ export function PaneChangesDialog({
   // A worktree's files are relative to that worktree, not to the workspace the
   // editor opens files in, so only the shared folder offers "Open in editor".
   const canOpen = !folder;
-  const openable = (file: ReviewFile) => canOpen && !file.is_directory && file.status !== "deleted";
+  const openable = (file: ReviewFile) => canOpen && !file.checkout && !file.is_directory && file.status !== "deleted";
   // The editor's diff compares against the same base as this review, so work
   // the agent already committed is still marked there.
   const openInEditor = (file: ReviewFile) => {
@@ -329,11 +330,11 @@ export function PaneChangesDialog({
               >
                 <ul data-testid="pane-changes-list">
                   {files.map((file) => (
-                    <li key={file.path}>
+                    <li key={reviewFileKey(file)}>
                       <button
                         type="button"
-                        onClick={() => (openable(file) ? openInEditor(file) : jumpTo(file.path))}
-                        title={openable(file) ? `${file.path} — ${t("pane_review.open_editor")}` : file.path}
+                        onClick={() => (openable(file) ? openInEditor(file) : jumpTo(reviewFileKey(file)))}
+                        title={openable(file) ? `${file.path} — ${t("pane_review.open_editor")}` : reviewFileKey(file)}
                         data-testid="pane-changes-list-item"
                         className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
                       >
@@ -342,8 +343,10 @@ export function PaneChangesDialog({
                           <span className={cn("truncate text-foreground", file.status === "deleted" && "line-through decoration-destructive/60")}>
                             {baseName(file.path)}
                           </span>
-                          {parentPath(file.path) && (
-                            <span className="truncate text-[11px] text-muted-foreground">{parentPath(file.path)}</span>
+                          {(file.checkout || parentPath(file.path)) && (
+                            <span className="truncate text-[11px] text-muted-foreground">
+                              {[file.checkout, parentPath(file.path)].filter(Boolean).join(" · ")}
+                            </span>
                           )}
                         </span>
                         <span
@@ -363,15 +366,15 @@ export function PaneChangesDialog({
               <div className="min-w-0 flex-1 space-y-3 overflow-y-auto p-4 scrollbar-jarvis" data-testid="pane-changes-diffs">
                 {files.map((file) => (
                   <FileCard
-                    key={file.path}
+                    key={reviewFileKey(file)}
                     file={file}
-                    diff={diffs[file.path]}
-                    collapsed={collapsed.has(file.path)}
-                    onToggle={() => toggle(file.path)}
+                    diff={diffs[reviewFileKey(file)]}
+                    collapsed={collapsed.has(reviewFileKey(file))}
+                    onToggle={() => toggle(reviewFileKey(file))}
                     onOpen={openable(file) ? () => openInEditor(file) : undefined}
                     cardRef={(node) => {
-                      if (node) cards.current.set(file.path, node);
-                      else cards.current.delete(file.path);
+                      if (node) cards.current.set(reviewFileKey(file), node);
+                      else cards.current.delete(reviewFileKey(file));
                     }}
                   />
                 ))}
@@ -425,12 +428,12 @@ function FileCard({
           disabled={!onOpen}
           onClick={onOpen}
           data-testid="pane-changes-file-name"
-          title={onOpen ? `${file.path} — ${t("pane_review.open_editor")}` : file.path}
+          title={onOpen ? `${file.path} — ${t("pane_review.open_editor")}` : reviewFileKey(file)}
           className="group/name flex min-w-0 flex-1 items-baseline gap-1.5 rounded text-left font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
         >
-          {parentPath(file.path) && (
+          {(file.checkout || parentPath(file.path)) && (
             <span dir="rtl" className="min-w-0 shrink-[999] truncate text-left text-muted-foreground">
-              <bdi dir="ltr">{parentPath(file.path)}/</bdi>
+              <bdi dir="ltr">{[file.checkout && `[${file.checkout}]`, parentPath(file.path)].filter(Boolean).join(" ")}/</bdi>
             </span>
           )}
           <span className={cn(
