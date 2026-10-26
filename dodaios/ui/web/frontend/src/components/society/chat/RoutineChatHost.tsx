@@ -3,6 +3,7 @@ import { useT } from "@/i18n";
 import { useRoutineNavigation } from "./routineNavigation";
 import { AgentSwatch } from "../AgentSwatch";
 import { useSocietyAgent } from "../data";
+import { markRoutinesSeen } from "../card/routines/routinesApi";
 
 const RoutineChat = lazy(() => import("../card/RoutineChat"));
 
@@ -14,6 +15,8 @@ export function RoutineChatHost({ agentId, onOpen, children }: {
   const close = useRoutineNavigation((state) => state.close);
   const selected = target?.agentId === agentId ? target : null;
   useEffect(() => { if (selected) onOpen(); }, [selected, onOpen]);
+  // Opening a run's transcript is reading its result (away-parking).
+  useEffect(() => { if (selected && selected.kind !== "conversation") markRoutinesSeen(agentId); }, [selected, agentId]);
   useEffect(() => () => {
     if (useRoutineNavigation.getState().target?.agentId === agentId) close();
   }, [close, agentId]);

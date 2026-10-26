@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrandedSelect } from "@/components/ui/select";
 import { useLocaleChunk, useT } from "@/i18n";
+import { useRunLocale } from "@/components/runs/format";
+import { humanSchedule } from "./routines/humanSchedule";
 
 export const TRIGGER_GROUPS = {
   human: ["manual", "chat", "form"],
@@ -22,6 +24,7 @@ export function TriggerBuilder({ onChange, initialValue, timeOnly = false }: {
 }) {
   const t = useT();
   useLocaleChunk("society");
+  const locale = useRunLocale();
   const [group, setGroup] = useState<Group>(() => {
     const kind = String(initialValue?.type ?? "every");
     return (Object.entries(TRIGGER_GROUPS).find(([, kinds]) => (kinds as readonly string[]).includes(kind))?.[0] ?? "time") as Group;
@@ -98,6 +101,7 @@ export function TriggerBuilder({ onChange, initialValue, timeOnly = false }: {
     {kind === "calendar" && input("time", time, setTime, "time")}
     {kind === "cron" && input("expression", expression, setExpression)}
     {(kind === "calendar" || kind === "cron") && input("timezone", timezone, setTimezone)}
+    {value && ["every", "calendar", "cron", "after_delay"].includes(kind) && <p data-testid="trigger-preview" aria-live="polite" className="text-[11px] leading-snug text-foreground-secondary">{humanSchedule(initialValue?.type === value.type ? { ...initialValue, ...value } : value, { t, locale })}</p>}
     {kind === "at_time" && input("date", date, setDate, "datetime-local")}
     {group === "stream" && <>{input("endpoint", endpoint, setEndpoint)}{kind !== "sse" && <>{input("topic", topic, setTopic)}{input("consumer_group", consumerGroup, setConsumerGroup)}</>}<p className="text-[11px] text-muted-foreground">{label("credentials_hint")}</p></>}
     {kind === "file" && <>{input("path", path, setPath)}{input("pattern", pattern, setPattern)}<label className="text-[11px]"><input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} /> {label("recursive")}</label></>}

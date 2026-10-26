@@ -1908,6 +1908,112 @@
       "look_start": "From the start",
       "next_look": "Next look: {0} at level {1}",
       "team_note": "Agents level up from finished work and always wear their best unlocks."
+    },
+    "agent_routines": {
+      "schedule": {
+        "every_minute": "Every minute",
+        "every_minutes": "Every {n} minutes",
+        "every_hour": "Every hour",
+        "every_hour_at": "Every hour at :{minute}",
+        "every_hours": "Every {n} hours",
+        "every_hours_at": "Every {n} hours at :{minute}",
+        "every_day": "Every day",
+        "every_week": "Every week",
+        "daily_at": "Every day at {time}",
+        "every_n_days_at": "Every {n} days at {time}",
+        "weekdays_at": "Weekdays at {time}",
+        "weekends_at": "Weekends at {time}",
+        "days_at": "Every {days} at {time}",
+        "monthly_at": "Monthly on day {days} at {time}",
+        "yearly_at": "Every year on {date} at {time}",
+        "in_months": "{schedule}, only in {months}",
+        "with_days": "{schedule} on {days}",
+        "on_weekdays": "weekdays",
+        "on_weekends": "weekends",
+        "zone_time": "{schedule} ({zone} time)",
+        "converted": "{schedule} · {time} in {zone}",
+        "custom_cron": "Custom schedule: {expression}",
+        "custom": "Schedule: {kind}",
+        "every_duration": "Every {duration}",
+        "n_days": "{n} days",
+        "n_hours": "{n} hours",
+        "n_minutes": "{n} minutes",
+        "n_seconds": "{n} seconds",
+        "once_at": "Once, {when}",
+        "once_in": "Once, in {duration}",
+        "on_event": "When {event} happens",
+        "on_webhook": "When its webhook is called",
+        "on_provider": "On {provider} events",
+        "on_integration": "On the integration event {event}",
+        "on_demand": "When you start it",
+        "on_file": "When files change in {path}",
+        "on_source": "On new {source} messages"
+      },
+      "list": {
+        "running": "Running now",
+        "parked": "Paused while you were away",
+        "test_run": "Test run now",
+        "pause": "Pause",
+        "resume": "Resume",
+        "due_now": "due now",
+        "setup_in_chat": "Set one up in chat",
+        "setup_prompt": "Set up a routine for me: ",
+        "or_chat": "Or describe it in chat",
+        "empty_body": "Jobs this agent runs on its own, like a morning digest or a weekly check.",
+        "active_hint": "Active of all routines"
+      },
+      "parking": {
+        "title": "Paused while you were away",
+        "body": "{count} routines made {unread} results in {days} days that nobody opened, so they were paused to save runs.",
+        "body_one": "This routine made {unread} results in {days} days that nobody opened, so it was paused to save runs.",
+        "keep_running": "Resume",
+        "keep_paused": "Keep paused",
+        "never_ask": "Resume and don't pause again"
+      },
+      "away": {
+        "label": "Pause routines whose results go unread",
+        "never": "Never",
+        "after_days": "After {n} days",
+        "hint": "Applies to scheduled routines of every agent. Runs you start yourself are never paused.",
+        "off_for_agent": "Never paused for this agent",
+        "turn_on": "Turn on"
+      },
+      "detail": {
+        "edit_in_chat": "Edit in chat",
+        "edit_prompt": "Change my routine \"{title}\" ({schedule}): ",
+        "running": "Running now",
+        "parked": "Paused while you were away",
+        "due_now": "due now",
+        "active": "Active",
+        "last_failure": "Last failure",
+        "failed_no_detail": "The run failed without an error message.",
+        "open_failed_run": "Open that run",
+        "instruction": "Instruction",
+        "delete_note": "Future runs stop. Results already delivered stay in the agent's chat."
+      },
+      "runs": {
+        "empty": "No runs yet. Use Test run to try it now.",
+        "manual": "Manual",
+        "included": "Included in your subscription",
+        "skip_away": "Skipped: nobody opened the results for a while, so the routine was paused.",
+        "show_all": "Show all {n}",
+        "show_less": "Show fewer"
+      },
+      "status": {
+        "waiting": "Waiting",
+        "pending": "Deferred",
+        "interrupted": "Interrupted"
+      },
+      "webhook": {
+        "url_help": "POST JSON to this address to start the routine.",
+        "key_help": "Keep it secret. Rotate it if it ever leaks.",
+        "header": "Header",
+        "header_help": "Paste this line into the sending service's request headers.",
+        "reveal": "Show key",
+        "hide": "Hide key",
+        "copy_url": "Copy URL",
+        "copy_header": "Copy header line"
+      }
     }
   }
 }
