@@ -1,4 +1,20 @@
 import { create } from "zustand";
+import {
+  MAX_PANES,
+  evenOut,
+  findLeaf,
+  findLeafByTab,
+  insertBeside,
+  leaf,
+  leaves,
+  parseLayout,
+  prune,
+  removeLeaf,
+  replaceTab,
+  resizeAt,
+  type DropZone,
+  type LayoutNode,
+} from "./sidePanelLayout";
 
 /**
  * The Agentic IDE's right-hand side panel: open or shut, which tabs it holds,
@@ -40,18 +56,11 @@ const OPEN_KEY = "jarvis.agenticIde.sidePanelOpen";
 // every tab they had ever added.
 const TABS_KEY = "jarvis.agenticIde.sidePanelTabs.v5";
 
-const SPLIT_KEY = "jarvis.agenticIde.sidePanelSplit.v1";
+const LAYOUT_KEY = "jarvis.agenticIde.sidePanelLayout.v1";
 
 const DEFAULT_TABS: SidePanelTabId[] = [];
-/** Share of the panel the first column takes while two tabs sit side by side. */
-export const DEFAULT_SPLIT_RATIO = 0.5;
-export const MIN_SPLIT_RATIO = 0.2;
-export const MAX_SPLIT_RATIO = 0.8;
 
-/** The two columns of a split panel: 0 holds `active`, 1 holds `split`. */
-export type SidePanelColumn = 0 | 1;
-
-const clampRatio = (value: number) => Math.min(MAX_SPLIT_RATIO, Math.max(MIN_SPLIT_RATIO, value));
+export type SidePanelLayout = LayoutNode<SidePanelTabId>;
 /** Stand-in for `active` while no tab is open; the panel then shows the launcher. */
 const NO_TAB: SidePanelTabId = "agents";
 
@@ -66,24 +75,29 @@ function storedOpen(): boolean {
   }
 }
 
-function storedSplit(tabs: SidePanelTabId[], active: SidePanelTabId): { split: SidePanelTabId | null; splitRatio: number } {
+function storedLayout(tabs: SidePanelTabId[]): { layout: SidePanelLayout | null; focusedPane: string | null } {
   try {
-    const raw = JSON.parse(localStorage.getItem(SPLIT_KEY) ?? "null") as { split?: unknown; ratio?: unknown } | null;
-    const ratio = typeof raw?.ratio === "number" && Number.isFinite(raw.ratio) ? clampRatio(raw.ratio) : DEFAULT_SPLIT_RATIO;
-    const split = isTabId(raw?.split) && tabs.includes(raw.split) && raw.split !== active ? raw.split : null;
-    return { split, splitRatio: ratio };
+    const raw = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? "null") as { layout?: unknown; focused?: unknown } | null;
+    const layout = keepTwo(prune(parseLayout(raw?.layout, isTabId), (tab) => tabs.includes(tab)));
+    const focused = typeof raw?.focused === "string" && findLeaf(layout, raw.focused) ? raw.focused : leaves(layout)[0]?.id ?? null;
+    return { layout, focusedPane: focused };
   } catch {
-    return { split: null, splitRatio: DEFAULT_SPLIT_RATIO };
+    return { layout: null, focusedPane: null };
   }
 }
 
-function persistSplit(split: SidePanelTabId | null, ratio: number): void {
+function persistLayout(layout: SidePanelLayout | null, focusedPane: string | null): void {
   try {
-    // A shell does not survive a reload, so a split onto one is not kept either.
-    localStorage.setItem(SPLIT_KEY, JSON.stringify({ split: split && isTabId(split) ? split : null, ratio }));
+    // A shell does not survive a reload, so its pane is not kept either.
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ layout: keepTwo(prune(layout, isTabId)), focused: focusedPane }));
   } catch {
     /* a convenience only */
   }
+}
+
+/** One pane left is no split: the panel then shows that tab alone. */
+function keepTwo(layout: SidePanelLayout | null): SidePanelLayout | null {
+  return leaves(layout).length >= 2 ? layout : null;
 }
 
 function storedTabs(): { tabs: SidePanelTabId[]; active: SidePanelTabId } {
@@ -130,26 +144,27 @@ interface IdeSidePanelState {
   addTerminalTab: (workspaceId: string, workspaceName: string, folder?: string) => void;
   setOpen: (open: boolean) => void;
   /**
-   * Second tab shown beside `active` (the panel split into two columns), or
-   * null for one tab at a time.
+   * Several tabs on screen at once: a tree of panes, side by side and on top
+   * of each other. Null shows `active` alone. Persisted.
    */
-  split: SidePanelTabId | null;
-  /** Width share of the first column while split. Persisted. */
-  splitRatio: number;
-  setSplitRatio: (ratio: number) => void;
-  /** Column a tab click or a newly opened tab goes to while split. */
-  focusedColumn: SidePanelColumn;
-  setFocusedColumn: (column: SidePanelColumn) => void;
+  layout: SidePanelLayout | null;
+  /** Pane a tab click fills; its tab is `active`. */
+  focusedPane: string | null;
+  focusPane: (paneId: string) => void;
   /**
-   * Show `id` in `column`, splitting the panel when it was not. The other
-   * column keeps what it showed; when that was `id` itself, the neighbouring
-   * tab fills it. No-op with a single tab open.
+   * A tab dropped on a pane. `center` shows it there (two visible tabs trade
+   * places); an edge splits that pane and puts the tab beside it, moving it
+   * out of its old pane. `paneId` null means the unsplit panel.
    */
-  splitWith: (id: SidePanelTabId, column: SidePanelColumn) => void;
-  /** Split the panel with the tab next to the one in front, or join it back. */
+  dropTab: (id: SidePanelTabId, paneId: string | null, zone: DropZone) => void;
+  /** Take a tab out of the split; it stays open in the strip. */
+  detachTab: (id: SidePanelTabId) => void;
+  /** Split with the tab next to the one in front, or back to one tab. */
   toggleSplit: () => void;
-  /** Back to one tab: the focused column's tab stays in front. */
-  unsplit: () => void;
+  /** Move divider `index` of split `splitId` to `share` of that split. */
+  resizeSplit: (splitId: string, index: number, share: number) => void;
+  /** Give every pane of split `splitId` the same size. */
+  evenOutSplit: (splitId: string) => void;
   /** Open a tab (or bring it forward when it is already open). */
   openTab: (id: SidePanelTabId) => void;
   select: (id: SidePanelTabId) => void;
@@ -174,7 +189,7 @@ interface IdeSidePanelState {
 }
 
 const initialTabs = storedTabs();
-const initialSplit = storedSplit(initialTabs.tabs, initialTabs.active);
+const initialLayout = storedLayout(initialTabs.tabs);
 
 /** The tab beside `id` in the strip: the next one, else the previous one. */
 function neighbour(tabs: SidePanelTabId[], id: SidePanelTabId): SidePanelTabId | null {
@@ -183,26 +198,30 @@ function neighbour(tabs: SidePanelTabId[], id: SidePanelTabId): SidePanelTabId |
 }
 
 export const useIdeSidePanelStore = create<IdeSidePanelState>((set, get) => {
-  const commit = (next: Partial<Pick<IdeSidePanelState, "open" | "tabs" | "active" | "split">>) => {
-    const merged = { open: get().open, tabs: get().tabs, active: get().active, split: get().split, ...next };
-    if (merged.split && (merged.split === merged.active || !merged.tabs.includes(merged.split))) merged.split = null;
-    set(merged.split ? merged : { ...merged, focusedColumn: 0 });
+  type Committed = Pick<IdeSidePanelState, "open" | "tabs" | "active" | "layout" | "focusedPane">;
+  const commit = (next: Partial<Committed>) => {
+    const merged: Committed = {
+      open: get().open, tabs: get().tabs, active: get().active, layout: get().layout, focusedPane: get().focusedPane, ...next,
+    };
+    merged.layout = keepTwo(prune(merged.layout, (tab) => merged.tabs.includes(tab)));
+    if (merged.layout) {
+      const focused = findLeaf(merged.layout, merged.focusedPane ?? "") ?? leaves(merged.layout)[0];
+      merged.focusedPane = focused.id;
+      merged.active = focused.tab;
+    } else {
+      merged.focusedPane = null;
+    }
+    set(merged);
     persist(merged.open, merged.tabs, merged.active);
-    persistSplit(merged.split, get().splitRatio);
+    persistLayout(merged.layout, merged.focusedPane);
   };
-  /** Bring an open tab into view: into the focused column while split. */
+  /** Bring an open tab into view: into the focused pane while split. */
   const show = (id: SidePanelTabId, tabs: SidePanelTabId[]) => {
-    const { split, active, focusedColumn } = get();
-    if (!split) return commit({ open: true, tabs, active: id });
-    if (id === active) {
-      set({ focusedColumn: 0 });
-      return commit({ open: true, tabs });
-    }
-    if (id === split) {
-      set({ focusedColumn: 1 });
-      return commit({ open: true, tabs });
-    }
-    commit(focusedColumn === 1 ? { open: true, tabs, split: id } : { open: true, tabs, active: id });
+    const { layout, focusedPane } = get();
+    if (!layout) return commit({ open: true, tabs, active: id });
+    const visible = findLeafByTab(layout, id);
+    if (visible) return commit({ open: true, tabs, focusedPane: visible.id });
+    commit({ open: true, tabs, layout: replaceTab(layout, focusedPane ?? "", id) });
   };
   return {
     open: storedOpen(),
@@ -229,38 +248,64 @@ export const useIdeSidePanelStore = create<IdeSidePanelState>((set, get) => {
       if (!open) set({ spotlight: null, maximized: false, inUse: false });
       commit({ open });
     },
-    split: initialSplit.split,
-    splitRatio: initialSplit.splitRatio,
-    setSplitRatio: (ratio) => {
-      const splitRatio = clampRatio(ratio);
-      set({ splitRatio });
-      persistSplit(get().split, splitRatio);
+    layout: initialLayout.layout,
+    focusedPane: initialLayout.focusedPane,
+    focusPane: (paneId) => {
+      if (get().focusedPane !== paneId && findLeaf(get().layout, paneId)) commit({ focusedPane: paneId });
     },
-    focusedColumn: 0,
-    setFocusedColumn: (column) => { if (get().split && get().focusedColumn !== column) set({ focusedColumn: column }); },
-    splitWith: (id, column) => {
-      const { tabs, active, split } = get();
+    dropTab: (id, paneId, zone) => {
+      const { tabs, active, layout } = get();
       if (!tabs.includes(id)) return;
-      const first: SidePanelTabId | null = active;
-      const second: SidePanelTabId | null = split ?? (active === id ? neighbour(tabs, id) : active);
-      // The column that does not get `id` keeps its tab; if it held `id`, the
-      // two trade places (or the neighbour steps in when there was no split).
-      const other = column === 0 ? (second === id ? first : second) : (first === id ? second : first);
-      if (!other || other === id) return;
-      set({ focusedColumn: column });
-      commit(column === 0 ? { open: true, active: id, split: other } : { open: true, active: other, split: id });
+      if (!layout) {
+        if (zone === "center") return show(id, tabs);
+        // The tab in front dropped on its own edge: its neighbour fills the other side.
+        const other = id === active ? neighbour(tabs, id) : active;
+        if (!other) return;
+        const base = leaf(other);
+        const added = leaf(id);
+        return commit({ open: true, layout: insertBeside(base, base.id, id, zone, added), focusedPane: added.id });
+      }
+      const target = findLeaf(layout, paneId ?? "");
+      if (!target) return;
+      const source = findLeafByTab(layout, id);
+      if (source?.id === target.id) return commit({ focusedPane: target.id });
+      if (zone === "center") {
+        // Two visible tabs trade places; a hidden one takes the pane over.
+        let next = replaceTab(layout, target.id, id);
+        if (source) next = replaceTab(next, source.id, target.tab);
+        return commit({ open: true, layout: next, focusedPane: target.id });
+      }
+      if (!source && leaves(layout).length >= MAX_PANES) return;
+      const added = leaf(id);
+      const rest = source ? removeLeaf(layout, source.id) : layout;
+      const next = rest ? insertBeside(rest, target.id, id, zone, added) : null;
+      commit({ open: true, layout: next, focusedPane: added.id });
+    },
+    detachTab: (id) => {
+      const { layout, focusedPane } = get();
+      const pane = findLeafByTab(layout, id);
+      if (!layout || !pane) return;
+      const next = removeLeaf(layout, pane.id);
+      const remaining = leaves(next);
+      if (!keepTwo(next)) return commit({ layout: null, active: remaining[0]?.tab ?? get().active });
+      commit({ layout: next, focusedPane: focusedPane === pane.id ? remaining[0].id : focusedPane });
     },
     toggleSplit: () => {
-      const { split, tabs, active } = get();
-      if (split) return get().unsplit();
+      const { layout, tabs, active } = get();
+      if (layout) return commit({ layout: null, active });
       const other = neighbour(tabs, active);
-      if (other) get().splitWith(other, 1);
+      if (!other) return;
+      const base = leaf(active);
+      const added = leaf(other);
+      commit({ open: true, layout: insertBeside(base, base.id, other, "right", added), focusedPane: added.id });
     },
-    unsplit: () => {
-      const { split, active, focusedColumn } = get();
-      if (!split) return;
-      commit({ active: focusedColumn === 1 ? split : active, split: null });
+    resizeSplit: (splitId, index, share) => {
+      const next = resizeAt(get().layout, splitId, index, share);
+      if (next === get().layout) return;
+      set({ layout: next });
+      persistLayout(next, get().focusedPane);
     },
+    evenOutSplit: (splitId) => commit({ layout: evenOut(get().layout, splitId) }),
     openTab: (id) => {
       const { tabs } = get();
       show(id, tabs.includes(id) ? tabs : [...tabs, id]);
@@ -269,14 +314,16 @@ export const useIdeSidePanelStore = create<IdeSidePanelState>((set, get) => {
       if (get().tabs.includes(id)) show(id, get().tabs);
     },
     closeTab: (id) => {
-      const { tabs, active, split } = get();
+      const { tabs, active, layout } = get();
       const index = tabs.indexOf(id);
       if (index < 0) return;
       const rest = tabs.filter((tab) => tab !== id);
       set({ terminals: get().terminals.filter((terminal) => terminal.id !== id) });
-      // Closing either half of a split leaves the other half in front, alone.
-      if (split && id === split) return commit({ tabs: rest, split: null });
-      if (split && id === active) return commit({ tabs: rest, active: split, split: null });
+      // A tab on screen in a split takes its pane with it; the others close up.
+      if (layout && findLeafByTab(layout, id)) {
+        const next = removeLeaf(layout, findLeafByTab(layout, id)!.id);
+        return commit({ tabs: rest, layout: next, active: keepTwo(next) ? active : leaves(next)[0]?.tab ?? active });
+      }
       if (rest.length === 0) {
         set({ spotlight: null, maximized: false });
         commit({ tabs: DEFAULT_TABS, active: NO_TAB });

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Check, Columns2, Maximize2, Minimize2, MoveHorizontal, Plus, SquareTerminal, X } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useResizablePane } from "@/hooks/useResizablePane";
 import { PaneResizer } from "@/components/layout/PaneResizer";
-import { DEFAULT_SPLIT_RATIO, MAX_TERMINAL_TABS, useIdeSidePanelStore, type SidePanelColumn, type SidePanelTabId } from "@/store/ideSidePanel";
+import { MAX_TERMINAL_TABS, useIdeSidePanelStore, type SidePanelTabId } from "@/store/ideSidePanel";
+import { MAX_PANES, columnCount, leaves, placeLayout, type LayoutRect } from "@/store/sidePanelLayout";
 import { useIdeChatStore } from "@/store/ideChat";
 import { WorkspaceTerminal } from "@/components/workspace/WorkspaceTerminal";
 import type { TerminalAppearance } from "../terminalThemes";
@@ -13,6 +14,7 @@ import { usePaneReviewTracking } from "@/store/paneReviews";
 import { SIDE_PANEL_TABS, sidePanelTab } from "./sidePanelTabs";
 import { SurfaceKbd, SurfaceLauncher, surfaceActionForKey, type SurfaceAction } from "./SurfaceLauncher";
 import { SIDE_PANEL_ID } from "./sidePanelIds";
+import { DropPreview, PaneHeader, SplitDividers, paneBox, useDropLabel, useTabDrag, type DragTarget } from "./sidePanelSplit";
 
 const WIDTH_KEY = "jarvis.agenticIde.sidePanelWidth.v1";
 const DEFAULT_PX = 340;
@@ -26,10 +28,8 @@ const MIN_PX = 260;
 const UNMEASURED_MAX_PX = 4096;
 /** The office map needs room to walk around in: its tab opens the panel at least this wide. */
 const OFFICE_MIN_PX = 520;
-/** Two tabs side by side need room for both: splitting widens a narrower panel to this once. */
-const SPLIT_MIN_PX = 720;
-/** How far a pressed tab must travel before it counts as dragged rather than clicked. */
-const TAB_DRAG_SLOP_PX = 6;
+/** Panes side by side need room: each column of a split asks for this much, once. */
+const SPLIT_COLUMN_PX = 360;
 /** Strip of terminal grid kept beside the panel, so its grip always stays reachable. */
 const GRID_RESERVED_PX = 120;
 /** Dragging the grip toward the right edge past this width and letting go closes the panel. */
@@ -64,7 +64,7 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
   const setInUse = useIdeSidePanelStore((state) => state.setInUse);
   const setOpen = useIdeSidePanelStore((state) => state.setOpen);
   const active = useIdeSidePanelStore((state) => state.active);
-  const split = useIdeSidePanelStore((state) => state.split);
+  const layout = useIdeSidePanelStore((state) => state.layout);
   const maximized = useIdeSidePanelStore((state) => state.maximized);
   const hasTerminals = useIdeSidePanelStore((state) => state.terminals.length > 0);
   // Ctrl+click on a path in any terminal opens it in the Explorer tab.
@@ -103,20 +103,20 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
 
   // Bringing the office forward widens a narrow panel once; the user can drag
   // it back and it stays where they left it until the office is picked again.
-  const officeInFront = open && (active === "office" || split === "office");
+  const officeInFront = open && (active === "office" || leaves(layout).some((pane) => pane.tab === "office"));
   const paneRef = useRef(pane);
   paneRef.current = pane;
   useEffect(() => {
     if (officeInFront && paneRef.current.size < OFFICE_MIN_PX) paneRef.current.resize(OFFICE_MIN_PX);
   }, [officeInFront]);
-  // Same for a split: two tabs in a 340px panel would both be cramped.
-  const splitShown = open && !!split;
+  // Same for a split: panes side by side in a 340px panel would all be cramped.
+  const columns = open ? columnCount(layout) : 1;
   const maxRef = useRef(max);
   maxRef.current = max;
   useEffect(() => {
-    const target = Math.min(SPLIT_MIN_PX, maxRef.current);
-    if (splitShown && paneRef.current.size < target) paneRef.current.resize(target);
-  }, [splitShown]);
+    const target = Math.min(columns * SPLIT_COLUMN_PX, maxRef.current);
+    if (columns > 1 && paneRef.current.size < target) paneRef.current.resize(target);
+  }, [columns]);
 
   return (
     <div ref={frame} className="relative flex h-full min-h-0 w-full">
@@ -208,50 +208,49 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
   const closeTab = useIdeSidePanelStore((state) => state.closeTab);
   const maximized = useIdeSidePanelStore((state) => state.maximized);
   const setMaximized = useIdeSidePanelStore((state) => state.setMaximized);
-  const storedSplit = useIdeSidePanelStore((state) => state.split);
-  const splitRatio = useIdeSidePanelStore((state) => state.splitRatio);
-  const focusedColumn = useIdeSidePanelStore((state) => state.focusedColumn);
-  const setFocusedColumn = useIdeSidePanelStore((state) => state.setFocusedColumn);
-  const setSplitRatio = useIdeSidePanelStore((state) => state.setSplitRatio);
-  const splitWith = useIdeSidePanelStore((state) => state.splitWith);
+  const layout = useIdeSidePanelStore((state) => state.layout);
+  const focusedPane = useIdeSidePanelStore((state) => state.focusedPane);
+  const focusPane = useIdeSidePanelStore((state) => state.focusPane);
+  const dropTab = useIdeSidePanelStore((state) => state.dropTab);
+  const detachTab = useIdeSidePanelStore((state) => state.detachTab);
   const toggleSplit = useIdeSidePanelStore((state) => state.toggleSplit);
-  // A split onto a shell of another workspace shows this workspace's tab alone.
-  const split = storedSplit && storedSplit !== active && tabs.includes(storedSplit) ? storedSplit : null;
+  const resizeSplit = useIdeSidePanelStore((state) => state.resizeSplit);
+  const evenOutSplit = useIdeSidePanelStore((state) => state.evenOutSplit);
+  const placed = useMemo(() => placeLayout(layout), [layout]);
+  const split = placed.leaves.length > 1;
+  /** Where each visible tab sits; unsplit, the one in front fills the area. */
+  const rectOf = new Map<SidePanelTabId, LayoutRect>(
+    split ? placed.leaves.map(({ leaf, rect }) => [leaf.tab, rect]) : [[active, { x: 0, y: 0, w: 1, h: 1 }]],
+  );
   const content = useRef<HTMLDivElement>(null);
-  const tabDrag = useTabDrag(content, split ? splitRatio : DEFAULT_SPLIT_RATIO, splitWith);
-  const [resizingSplit, setResizingSplit] = useState(false);
+  const strip = useRef<HTMLDivElement>(null);
+  const tabDrag = useTabDrag({
+    content,
+    strip,
+    panes: split ? placed.leaves.map(({ leaf, rect }) => ({ id: leaf.id, rect })) : [{ id: null, rect: { x: 0, y: 0, w: 1, h: 1 } }],
+    canSplit: (id) => (split ? rectOf.has(id) || placed.leaves.length < MAX_PANES : tabs.length > 1),
+    inSplit: (id) => split && rectOf.has(id),
+    onDrop: (id, target: DragTarget) => {
+      if (target.kind === "detach") detachTab(id);
+      else dropTab(id, target.paneId, target.zone);
+    },
+  });
+  const dropLabel = useDropLabel(tabDrag.target, !!tabDrag.dragging && split && rectOf.has(tabDrag.dragging));
   const [menuOpen, setMenuOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
-  const current = sidePanelTab(active);
   const canAddTerminal = !!workspace && terminalCount < MAX_TERMINAL_TABS;
   const tabLabel = (id: SidePanelTabId) => {
     const terminal = terminals.find((entry) => entry.id === id);
     return terminal ? `${t("ide_side_panel.terminal_label")} ${terminal.number}` : t(sidePanelTab(id)?.labelKey ?? "");
   };
-  /** Where a tab's content sits: the whole area, one of the two columns, or nowhere. */
-  const columnOf = (id: SidePanelTabId): SidePanelColumn | null => (id === active ? 0 : id === split ? 1 : null);
-  const percent = `${splitRatio * 100}%`;
-  const columnStyle = (column: SidePanelColumn | null): CSSProperties | undefined => {
-    if (column === null || !split) return undefined;
-    return column === 0 ? { left: 0, width: `calc(${percent} - 1px)` } : { left: `calc(${percent} + 1px)`, right: 0 };
+  /** A tab's content box: its pane minus the title bar while split, the whole area otherwise. */
+  const boxOf = (id: SidePanelTabId) => {
+    const rect = rectOf.get(id);
+    if (!rect) return undefined;
+    return split ? paneBox(rect, "body") : undefined;
   };
-  const startSplitResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const box = content.current?.getBoundingClientRect();
-    if (!box || event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    setResizingSplit(true);
-    const move = (e: PointerEvent) => setSplitRatio((e.clientX - box.left) / box.width);
-    const end = () => {
-      setResizingSplit(false);
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
-  };
+  const shown = (id: SidePanelTabId) => rectOf.has(id);
+  const bodyClass = split ? "absolute min-h-0" : "absolute inset-0";
   const registryAction = (tab: (typeof SIDE_PANEL_TABS)[number]): SurfaceAction => ({
     id: tab.id, label: t(tab.labelKey), icon: tab.icon, shortcut: tab.shortcut, available: true,
     isOpen: tabs.includes(tab.id), run: () => openTab(tab.id),
@@ -300,21 +299,22 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
       className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border bg-card/40"
     >
       <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border/60 px-2">
-        <div role="tablist" aria-label={t("ide_side_panel.tabs_aria")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        <div ref={strip} role="tablist" aria-label={t("ide_side_panel.tabs_aria")}
+          data-detach-target={tabDrag.target?.kind === "detach" ? "true" : undefined}
+          className={cn("flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-lg transition-colors",
+            tabDrag.target?.kind === "detach" && "bg-accent/15 ring-1 ring-inset ring-accent")}>
           {tabs.map((id) => {
             const tab = sidePanelTab(id);
             const terminal = terminals.find((entry) => entry.id === id);
             if (!tab && !terminal) return null;
             const label = tabLabel(id);
             const Icon = tab?.icon ?? SquareTerminal;
-            const column = columnOf(id);
-            const selected = column !== null;
-            // Split: both visible tabs are lit; the one a click would replace is lit fully.
-            const focused = selected && (!split || column === focusedColumn);
+            const selected = shown(id);
+            // Split: every visible tab is lit; the one a click would replace is lit fully.
+            const focused = selected && id === active;
             return (
               <div
                 key={id}
-                data-column={split && selected ? column : undefined}
                 className={cn(
                   "group/tab flex h-8 min-w-0 shrink-0 touch-none select-none items-center gap-1 rounded-lg pl-2.5 pr-1 text-sm transition-colors",
                   focused ? "bg-secondary text-foreground"
@@ -395,7 +395,7 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
           data-testid="ide-side-panel-split"
           aria-label={t(split ? "ide_side_panel.unsplit" : "ide_side_panel.split")}
           title={t(split ? "ide_side_panel.unsplit" : tabs.length > 1 ? "ide_side_panel.split" : "ide_side_panel.split_needs_two")}
-          aria-pressed={!!split}
+          aria-pressed={split}
           disabled={!split && tabs.length < 2}
           onClick={toggleSplit}
           className={cn(HEADER_BTN, split && "bg-secondary text-foreground")}
@@ -415,195 +415,67 @@ export function IdeSidePanel({ appearance, onScreen = true }: { appearance?: Ter
         </button>
       </div>
       {/* Keyed by tab: Changes and Folder share one component and must not share its state. */}
-      {/* Split, every tab sits in the column it was put in; the same element moves
-          between whole area and column, so a browser page or a chat never reloads. */}
+      {/* Split, every tab sits in its pane; the same element moves between the
+          whole area and a pane, so a browser page or a chat never reloads. */}
       <div ref={content} id={`${SIDE_PANEL_ID}-content`} role="tabpanel" data-testid="ide-side-panel-content"
-        data-split={split ? "true" : undefined}
-        className={cn("relative min-h-0 flex-1", resizingSplit && "cursor-col-resize select-none")}
+        data-split={split ? "true" : undefined} data-panes={split ? placed.leaves.length : undefined}
+        className="relative min-h-0 flex-1"
         onPointerDownCapture={(event) => {
           const box = content.current?.getBoundingClientRect();
-          if (!split || !box || !box.width) return;
-          setFocusedColumn((event.clientX - box.left) / box.width < splitRatio ? 0 : 1);
+          if (!split || !box || !box.width || !box.height) return;
+          const fx = (event.clientX - box.left) / box.width;
+          const fy = (event.clientY - box.top) / box.height;
+          const hit = placed.leaves.find(({ rect }) => fx >= rect.x && fx <= rect.x + rect.w && fy >= rect.y && fy <= rect.y + rect.h);
+          if (hit) focusPane(hit.leaf.id);
         }}>
         {open && tabs.length === 0 && <SurfaceLauncher actions={actions} keysEnabled={onScreen} />}
-        {open && current && !current.keepAlive && (
-          <div key={active} data-testid={`ide-side-panel-column-${active}`} className={split ? "absolute inset-y-0 min-h-0" : "h-full min-h-0"}
-            style={columnStyle(0)}>{current.render()}</div>
-        )}
-        {open && split && sidePanelTab(split) && !sidePanelTab(split)!.keepAlive && (
-          <div key={split} data-testid={`ide-side-panel-column-${split}`} className="absolute inset-y-0 min-h-0" style={columnStyle(1)}>
-            {sidePanelTab(split)!.render()}
-          </div>
-        )}
+        {open && [...rectOf.keys()].map((id) => {
+          const tab = sidePanelTab(id);
+          if (!tab || tab.keepAlive || !tabs.includes(id)) return null;
+          return <div key={id} data-testid={`ide-side-panel-column-${id}`} className={cn(bodyClass, !split && "h-full")} style={boxOf(id)}>{tab.render()}</div>;
+        })}
         {SIDE_PANEL_TABS.filter((tab) => tab.keepAlive && tabs.includes(tab.id)).map((tab) => (
-          <div key={tab.id} hidden={!open || columnOf(tab.id) === null} data-testid={`ide-side-panel-column-${tab.id}`}
-            className={split ? "absolute inset-y-0" : "absolute inset-0"} style={columnStyle(columnOf(tab.id))}>{tab.render()}</div>
+          <div key={tab.id} hidden={!open || !shown(tab.id)} data-testid={`ide-side-panel-column-${tab.id}`}
+            className={bodyClass} style={boxOf(tab.id)}>{tab.render()}</div>
         ))}
-        {terminals.map((terminal) => <div key={terminal.id} hidden={!open || columnOf(terminal.id) === null}
-          className={split ? "absolute inset-y-0" : "absolute inset-0"} style={columnStyle(columnOf(terminal.id))}
+        {terminals.map((terminal) => <div key={terminal.id} hidden={!open || !shown(terminal.id)}
+          className={bodyClass} style={boxOf(terminal.id)}
           data-testid={`ide-side-panel-terminal-${terminal.id}`}>
           {/* A terminal opened on a folder of the tree starts there; `folder` only
               counts when no workspace id is named. */}
           <WorkspaceTerminal paneKey={terminal.id} agentName="shell"
             workspaceId={terminal.folder ? undefined : terminal.workspaceId} folder={terminal.folder}
             title={`${t("ide_side_panel.terminal_label")} ${terminal.number} · ${terminal.workspaceName}`}
-            active={onScreen && open && columnOf(terminal.id) !== null} appearance={appearance} />
+            active={onScreen && open && shown(terminal.id)} appearance={appearance} />
         </div>)}
+        {open && split && placed.leaves.map((pane) => (
+          <PaneHeader
+            key={pane.leaf.id}
+            placed={pane}
+            label={tabLabel(pane.leaf.tab)}
+            icon={sidePanelTab(pane.leaf.tab)?.icon ?? SquareTerminal}
+            focused={pane.leaf.id === focusedPane}
+            onDragStart={(event) => tabDrag.start(event, pane.leaf.tab)}
+            onClick={() => { if (!tabDrag.consumeClick()) focusPane(pane.leaf.id); }}
+            onDetach={() => detachTab(pane.leaf.tab)}
+            onClose={() => closeTab(pane.leaf.tab)}
+          />
+        ))}
         {open && split && (
-          <>
-            {/* Which column a tab click fills: a thin line over the focused one. */}
-            <div aria-hidden className="pointer-events-none absolute top-0 z-10 h-0.5 bg-accent/70" style={columnStyle(focusedColumn)} />
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={t("ide_side_panel.split_resize")}
-              aria-valuenow={Math.round(splitRatio * 100)}
-              aria-valuemin={20}
-              aria-valuemax={80}
-              tabIndex={0}
-              title={t("ide_side_panel.split_resize")}
-              data-testid="ide-side-panel-split-resizer"
-              onPointerDown={startSplitResize}
-              onDoubleClick={() => setSplitRatio(DEFAULT_SPLIT_RATIO)}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowLeft") setSplitRatio(splitRatio - 0.05);
-                else if (event.key === "ArrowRight") setSplitRatio(splitRatio + 0.05);
-                else return;
-                event.preventDefault();
-              }}
-              className="group absolute inset-y-0 z-20 flex w-3 -translate-x-1/2 cursor-col-resize justify-center focus-visible:outline-none"
-              style={{ left: percent }}
-            >
-              <div className={cn("h-full w-px bg-border transition-colors group-hover:bg-accent group-focus-visible:bg-accent",
-                resizingSplit && "bg-accent")} />
-            </div>
-          </>
+          <SplitDividers dividers={placed.dividers} content={content} onResize={resizeSplit} onEvenOut={evenOutSplit}
+            label={t("ide_side_panel.split_resize")} />
         )}
-        {tabDrag.dragging && <TabDropZones column={tabDrag.target} ratio={split ? splitRatio : DEFAULT_SPLIT_RATIO} />}
+        {tabDrag.dragging && <DropPreview target={tabDrag.target} label={dropLabel} />}
       </div>
       {tabDrag.dragging && tabDrag.pointer && (
-        <div aria-hidden className="pointer-events-none fixed z-50 rounded-md border border-border bg-popover px-2 py-1 text-xs font-medium text-foreground shadow-float"
+        <div aria-hidden data-testid="ide-side-panel-drag-ghost"
+          className="pointer-events-none fixed z-50 flex flex-col rounded-md border border-border bg-popover px-2 py-1 text-xs text-foreground shadow-float"
           style={{ left: tabDrag.pointer.x + 12, top: tabDrag.pointer.y + 12 }}>
-          {tabLabel(tabDrag.dragging)}
+          <span className="font-medium">{tabLabel(tabDrag.dragging)}</span>
+          {dropLabel && <span className="text-muted-foreground">{dropLabel}</span>}
         </div>
       )}
     </aside>
   );
 }
 
-/**
- * The two halves a dragged tab can land on. Marked so the native browser window
- * steps aside while they show: it is drawn above the page and would hide them.
- */
-function TabDropZones({ column, ratio }: { column: SidePanelColumn | null; ratio: number }) {
-  const t = useT();
-  const zone = (which: SidePanelColumn) => (
-    <div
-      data-testid={`ide-side-panel-drop-${which === 0 ? "left" : "right"}`}
-      data-over={column === which ? "true" : undefined}
-      className={cn(
-        "absolute inset-y-0 flex items-center justify-center p-2 transition-colors",
-        column === which ? "bg-accent/15" : "bg-background/40",
-      )}
-      style={which === 0 ? { left: 0, width: `${ratio * 100}%` } : { left: `${ratio * 100}%`, right: 0 }}
-    >
-      <div className={cn(
-        "flex h-full w-full items-center justify-center rounded-lg border-2 border-dashed text-sm font-medium transition-colors",
-        column === which ? "border-accent text-foreground" : "border-border text-muted-foreground",
-      )}>
-        {t(which === 0 ? "ide_side_panel.drop_left" : "ide_side_panel.drop_right")}
-      </div>
-    </div>
-  );
-  return (
-    <div data-hides-native-browser="" data-testid="ide-side-panel-drop-zones" className="pointer-events-none absolute inset-0 z-30 backdrop-blur-[1px]">
-      {zone(0)}
-      {zone(1)}
-    </div>
-  );
-}
-
-/**
- * Drag a tab out of the strip onto the left or right half of the panel to see
- * it beside another one. Pointer events rather than HTML drag and drop: those
- * would arm the file drop targets of the terminals, and a release outside the
- * window would never be heard.
- */
-function useTabDrag(
-  content: RefObject<HTMLDivElement | null>,
-  ratio: number,
-  onDrop: (id: SidePanelTabId, column: SidePanelColumn) => void,
-) {
-  const [dragging, setDragging] = useState<SidePanelTabId | null>(null);
-  const [target, setTarget] = useState<SidePanelColumn | null>(null);
-  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
-  const swallowClick = useRef(false);
-  const cleanupRef = useRef<(() => void) | null>(null);
-  const ratioRef = useRef(ratio);
-  ratioRef.current = ratio;
-  const dropRef = useRef(onDrop);
-  dropRef.current = onDrop;
-
-  useEffect(() => () => cleanupRef.current?.(), []);
-
-  const start = (event: ReactPointerEvent<HTMLElement>, id: SidePanelTabId) => {
-    if (event.button !== 0) return;
-    cleanupRef.current?.();
-    const origin = { x: event.clientX, y: event.clientY };
-    let active = false;
-    let over: SidePanelColumn | null = null;
-    const columnAt = (x: number, y: number): SidePanelColumn | null => {
-      const box = content.current?.getBoundingClientRect();
-      if (!box || x < box.left || x > box.right || y < box.top || y > box.bottom || !box.width) return null;
-      return (x - box.left) / box.width < ratioRef.current ? 0 : 1;
-    };
-    const move = (e: PointerEvent) => {
-      if (!active) {
-        if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < TAB_DRAG_SLOP_PX) return;
-        active = true;
-        setDragging(id);
-      }
-      over = columnAt(e.clientX, e.clientY);
-      setTarget(over);
-      setPointer({ x: e.clientX, y: e.clientY });
-    };
-    const finish = (drop: boolean) => {
-      cleanupRef.current?.();
-      if (!active) return;
-      swallowClick.current = true;
-      // The click that follows a drag must not also select the tab.
-      window.setTimeout(() => { swallowClick.current = false; }, 0);
-      setDragging(null);
-      setTarget(null);
-      setPointer(null);
-      if (drop && over !== null) dropRef.current(id, over);
-    };
-    const up = () => finish(true);
-    const cancel = () => finish(false);
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") finish(false); };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", cancel);
-    window.addEventListener("keydown", key);
-    cleanupRef.current = () => {
-      cleanupRef.current = null;
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", cancel);
-      window.removeEventListener("keydown", key);
-    };
-  };
-
-  return {
-    dragging,
-    target,
-    pointer,
-    start,
-    /** True once for the click a finished drag leaves behind. */
-    consumeClick: () => {
-      const swallow = swallowClick.current;
-      swallowClick.current = false;
-      return swallow;
-    },
-  };
-}
