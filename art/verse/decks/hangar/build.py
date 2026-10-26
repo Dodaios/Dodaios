@@ -76,6 +76,19 @@ def _rooms() -> None:
     )
     ax0, ax1, az0, az1 = L.ARMOURY
     kit.room("armoury", "Armoury", L.rect_xy(ax0, ax1, az0 + 0.3, az1), probe_at=probe(89.0, 52.4))
+    # The shuttle's cabin nests in the flight deck; its height band keeps the
+    # hull's outside on the flight deck (lib.cook.in_height_band).
+    from kit.props.industrial import shuttle
+
+    sx, sz = L.SHUTTLE_C
+    kit.room(
+        "shuttle",
+        "Shuttle Cabin",
+        [(sx + x, -sz + y) for x, y in shuttle.cabin_outline()],
+        z=shuttle.CABIN_FLOOR,
+        ceiling=shuttle.CABIN_CEILING_M,
+        probe_at=B(sx, sz - 1.0, shuttle.CABIN_FLOOR + 1.4),
+    )
 
 
 def _yaw_toward(a, b) -> float:

@@ -691,11 +691,31 @@ def _inside_centre(polygon: list[tuple[float, float]]) -> tuple[float, float]:
     return round(float(x), 4), round(float(y), 4)
 
 
-def _room_at(x: float, y: float, rooms: list[Room]) -> str | None:
+def _room_at(x: float, y: float, rooms: list[Room], z: float | None = None) -> str | None:
+    """The smallest room whose outline holds (x, y) and, given z, whose height band holds z.
+
+    Rooms may nest (the shuttle cabin on the flight deck), so the smallest wins.
+    """
+    best = None
     for room in rooms:
-        if _point_in_polygon(x, y, room.polygon):
-            return room.id
-    return None
+        if not _point_in_polygon(x, y, room.polygon):
+            continue
+        if z is not None and not in_height_band(room, z):
+            continue
+        if best is None or room.area < best.area:
+            best = room
+    return best.id if best is not None else None
+
+
+ROOM_BAND_BELOW_M = 0.3  # a room's height band starts this far below its floor
+
+
+def in_height_band(room: Room, z: float) -> bool:
+    """True when z lies in the room's height band; a room without a `ceiling` prop has none."""
+    ceiling = room.props.get("ceiling")
+    if ceiling is None:
+        return True
+    return room.z - ROOM_BAND_BELOW_M <= z <= room.z + float(ceiling)
 
 
 def _main_room(rooms: list[Room]) -> Room:
@@ -747,7 +767,7 @@ def _socket_json(obj: bpy.types.Object, parsed: naming.SocketName, rooms: list[R
     rotation = matrix.to_3x3().normalized()
     position = matrix.translation
     forward = rotation @ Vector((0.0, -1.0, 0.0))
-    room = obj.get("room") or _room_at(position.x, position.y, rooms)
+    room = obj.get("room") or _room_at(position.x, position.y, rooms, position.z)
     entry: dict = {
         "id": parsed.id,
         "kind": parsed.kind,
