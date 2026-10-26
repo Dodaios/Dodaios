@@ -32,9 +32,12 @@ const MODES = [
   { value: "agents", labelKey: "society.roster.title", Icon: Users },
 ] as const;
 
+// Small and three.js-free: the fallback in front of the lazy Verse chunk.
+import { VerseLoadingScreen, preloadLoadingArt } from "@/components/society/verse/VerseLoadingScreen";
+
 const loadWorld = () => import("@/views/DodaiosAgentsView").then((m) => ({ default: m.DodaiosAgentsView }));
 const JarvisAgentsBoard = lazy(loadWorld);
-const preloadWorld = () => { void loadWorld().catch((error) => console.debug("World preload unavailable", error)); };
+const preloadWorld = () => { preloadLoadingArt(); void loadWorld().catch((error) => console.debug("World preload unavailable", error)); };
 
 // Do not evaluate either dialog's 3D dependencies until someone opens it.
 const loadBuildingDialog = () => import("@/components/society/card/BuildingCardOverlay")
@@ -223,7 +226,7 @@ export function SocietyView() {
         <div className={mode === "world" ? "relative flex min-h-0 flex-1" : "hidden"} data-testid="society-world-surface" aria-hidden={mode !== "world"}>
           <div className="min-w-0 flex-1">
             <CanvasActivity.Provider value={mode === "world" && !openPlace}>
-              <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-muted-foreground" role="status">{t("society.office.loading")}</div>}>
+              <Suspense fallback={<div className="relative h-full"><VerseLoadingScreen /></div>}>
                 <JarvisAgentsBoard onSelectAgent={onIslandSelect} onSelectPlace={onIslandPlace} onOpenAgents={() => switchMode("agents")}
                   active={mode === "world"}
                   onCreateAgent={createAgent} onOpenGroup={(groupId) => { selectGroup(groupId); switchMode("agents"); }} />

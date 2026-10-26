@@ -59,6 +59,7 @@ import { DeckTitle, StatsReadout, Toolbar } from "./hud/DeckBar";
 import { LauncherPanel } from "./hud/LauncherPanel";
 import { SimulatorPanel } from "./hud/SimulatorPanel";
 import { StageRuntime } from "./runtime";
+import { VerseLoadingScreen } from "./VerseLoadingScreen";
 import "./verse.css";
 
 export interface VerseStageProps {
@@ -119,6 +120,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const [shownDeck, setShownDeck] = useState<Deck | null>(null);
   const plateReady = !!deck && shownDeck === deck;
   const [failure, setFailure] = useState<Error | null>(null);
+  /** The loading screen stays until the first deck is on screen, then fades out for good. */
+  const [loading, setLoading] = useState(true);
   const [debug, setDebug] = useState(false);
   const [hover, setHover] = useState<Hover>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -569,6 +572,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
           <div className="verse-doors" data-shut={doors !== null} aria-hidden><i /><i /></div>
         </div>
       )}
+      {loading && <VerseLoadingScreen ready={chunkReady && (plateReady || !!problem || !webgl)} onGone={() => setLoading(false)} />}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { Component, Suspense, lazy, type ErrorInfo, type ReactNode } from "react
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { translate, useLocaleChunk } from "@/i18n";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { VerseLoadingScreen } from "@/components/society/verse/VerseLoadingScreen";
 
 // The ship is a WebGL scene with its own chunk: nothing of it loads until
 // someone opens this tab.
@@ -52,7 +53,7 @@ export function OfficeTab() {
     <div data-testid="ide-office-tab" className="h-full min-h-0 w-full">
       <OfficeTabBoundary>
         {ready && (
-          <Suspense fallback={<div className="h-full w-full animate-pulse bg-secondary" aria-hidden />}>
+          <Suspense fallback={<div className="relative h-full w-full"><VerseLoadingScreen /></div>}>
             <VerseStage initialDeck="engineering" compact onOpenLedger={() => openTab("agents")} />
           </Suspense>
         )}

@@ -1062,6 +1062,10 @@
     },
     "office": {
       "title": "Dodaios Verse",
+      "loading_title": "Wird geladen",
+      "loading_tip_1": "Drücke 1 bis 4, um mit dem Turbolift direkt zu einem Deck zu fahren.",
+      "loading_tip_2": "Jeder Coding-Agent, den du startest, arbeitet an einem Terminal auf dem Deck Reaktortechnik.",
+      "loading_tip_3": "Drücke V für die Vogelperspektive über das ganze Deck.",
       "viewport": "Dodaios Verse",
       "loading": "Das Dodaios Verse wird geöffnet…",
       "no_graphics": "3D-Darstellung ist hier nicht verfügbar. Den Status aller Agenten siehst du weiterhin in der Agentenliste.",
