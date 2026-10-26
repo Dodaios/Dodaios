@@ -222,6 +222,7 @@ async def decide(
             if knowledge_id:
                 await rt.memory.dismiss(knowledge_id)
         except MemoryRefused as exc:
+            log.info("society review: share %s not applied: %s", item_id, exc)
             return {"id": item_id, "outcome": "failed", "detail": str(exc)}
         return {"id": item_id, "outcome": "rejected", "detail": ""}
     if kind == "memory":
