@@ -176,7 +176,6 @@ export const NAV_GROUPS: NavItem[][] = [
       // concerned: someone who stepped back into it should still see where
       // they are in the navigation.
       matchIds: ["agentic-ide", "chat-workspace", "agentic-ide-classic"],
-      beta: true,
     },
   ],
   // 3) You — what the assistant knows about the user, and the user's own
