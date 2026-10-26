@@ -38,7 +38,7 @@
   <a href="https://x.com/dodaios">X</a>
 </p>
 
-<p align="center">如果 Dodaios 对你有用，在 GitHub 上点一个 <a href="https://github.com/Dodaios/Dodaios/stargazers">Star</a> 能帮助更多人发现它。</p>
+<p align="center">如果 Dodaios 对你有用，在 GitHub 上点一个 <a href="https://github.com/Dodaios/Dodaios">Star</a> 能帮助更多人发现它。</p>
 
 <p align="center"><sub>有 Claude 或 ChatGPT 订阅，或者有本地模型，就不需要 API 密钥。</sub></p>
 
@@ -183,7 +183,7 @@ https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
 - **命令行工具。** GitHub、Vercel、Supabase、Stripe、Docker、各类云 CLI 等，都能在应用中被检测到并完成登录。
 - **技能。** 可复用的指令，当你的请求合适时 Dodaios 会自动调用。
 - **渠道。** 通过 Telegram 和 Discord 联系 Dodaios。
-- **你自己的脚本。** `jarvis` CLI 和本地 API 让其他程序——以及其他智能体——拥有和你一样的控制能力。
+- **你自己的脚本。** `dodaios` 命令和本地 API 让其他程序——以及其他智能体——拥有和你一样的控制能力。
 
 [插件 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) ·
 [MCP →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) ·

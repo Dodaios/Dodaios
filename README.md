@@ -38,7 +38,7 @@
   <a href="https://x.com/dodaios">X</a>
 </p>
 
-<p align="center">If Dodaios is useful to you, a <a href="https://github.com/Dodaios/Dodaios/stargazers">star on GitHub</a> helps other people find it.</p>
+<p align="center">If Dodaios is useful to you, a <a href="https://github.com/Dodaios/Dodaios">star on GitHub</a> helps other people find it.</p>
 
 <p align="center"><sub>No API key needed if you have a Claude or ChatGPT subscription, or a local model.</sub></p>
 
@@ -208,7 +208,7 @@ and the [dictation guide](https://github.com/Dodaios/Dodaios/blob/main/docs/prod
 - Skills are reusable instructions that Dodaios picks up when your request fits
   one.
 - You can reach Dodaios from Telegram and Discord.
-- The `jarvis` command and a local API give your own scripts, and other agents,
+- The `dodaios` command and a local API give your own scripts, and other agents,
   the same control you have.
 
 Read more about [plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md),
@@ -243,7 +243,8 @@ After the installer has run, open Dodaios from the desktop launcher or from a
 terminal:
 
 ```bash
-jarvis          # full desktop
+dodaios         # full desktop
+jarvis          # the same, under its earlier name
 ```
 
 If you prefer a regular desktop installer, download one here:
