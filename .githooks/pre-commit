@@ -118,6 +118,24 @@ if [ -f "$privkey" ]; then
     fi
 fi
 
+# --- REPO-JUNK gate (FAIL-CLOSED) ---------------------------------------------
+# Films, screen recordings, Blender/Photoshop masters, archives, render and
+# evidence folders, and files over 5 MB never belong in the repo: once
+# committed they stay in the history and every clone pays for them.
+# rc 1 = confirmed block.
+junk="scripts/ci/check_repo_junk.py"
+if [ -f "$junk" ]; then
+    "$PY" "$junk" --staged </dev/null
+    if [ "$?" -eq 1 ]; then
+        echo ""
+        echo "pre-commit BLOCKED: REPO-JUNK gate — this change adds non-product files."
+        echo "  Keep them in a local folder outside the repo. If the product needs"
+        echo "  one, add it to scripts/ci/repo-junk-allowlist.txt with a reason."
+        echo "  Bypass once with:  git commit --no-verify"
+        exit 1
+    fi
+fi
+
 # --- DISTRIBUTION-DENYLIST gate (FAIL-CLOSED on NEW additions) ----------------
 # The denylist withholds paths that must never ship: live-vault captures,
 # internal process docs, personal scratch. It lost its enforcement when the
