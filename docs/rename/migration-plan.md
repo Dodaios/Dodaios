@@ -7,7 +7,7 @@ request.
 Dodaios was called Personal Jarvis until October 2026. Some old names are still
 in use because existing installs, scripts and links depend on them. This plan
 lists how each one can be retired without breaking anyone. The full list of
-remaining mentions is in [personal-jarvis-leftovers.md](personal-jarvis-leftovers.md).
+remaining mentions is in [old-name-leftovers.md](old-name-leftovers.md).
 
 ## Where things stand (checked 2026-10-26, release v4.0.1)
 
