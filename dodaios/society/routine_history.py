@@ -83,7 +83,7 @@ def _ms(step: dict[str, Any]) -> int:
 def _number(value: Any) -> float | None:
     try:
         return None if value is None or isinstance(value, bool) else float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # a non-numeric cost or duration reads as unknown
         return None
 
 
