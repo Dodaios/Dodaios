@@ -205,12 +205,10 @@ https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
 
 **你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
 
-**桌面版下载：** [Dodaios Windows 版（x64）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Setup-x64.exe) ·
-[Dodaios macOS 版（Apple 芯片）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-arm64.dmg) ·
-[Dodaios macOS 版（Intel）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-x64.dmg) ·
-[Dodaios Linux 版（AppImage，x86_64）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Linux-x86_64.AppImage)
-
-为了与现有安装保持兼容，下载文件仍保留原来的 `PersonalJarvis-` 文件名。
+**桌面版下载：** [Dodaios Windows 版（x64）](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Setup-x64.exe) ·
+[Dodaios macOS 版（Apple 芯片）](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-arm64.dmg) ·
+[Dodaios macOS 版（Intel）](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-x64.dmg) ·
+[Dodaios Linux 版（AppImage，x86_64）](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Linux-x86_64.AppImage)
 
 > **Windows：** SignPath Foundation 开源项目批准后，Windows 安装程序将按照[代码签名政策（Code signing policy）](https://github.com/Dodaios/Dodaios/blob/main/docs/code-signing-policy.md)签名。Free code signing provided by SignPath.io, certificate by SignPath Foundation.
 
