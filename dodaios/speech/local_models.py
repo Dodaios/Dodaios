@@ -292,6 +292,7 @@ def _whisper_model_cache_issue(name: str) -> str | None:
                     )
                 )
             except LocalEntryNotFoundError:
+                log.debug("Whisper checkpoint %r has not been downloaded yet", name)
                 return _WHISPER_NOT_DOWNLOADED
         # A snapshot directory alone can be a partial download. The tokenizer
         # must also be local, otherwise the recognizer fetches one during boot.
