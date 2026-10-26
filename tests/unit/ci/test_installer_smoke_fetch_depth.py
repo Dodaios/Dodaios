@@ -16,7 +16,9 @@ def test_forced_installer_smoke_avoids_full_history_checkout() -> None:
     path_gate = next(step for step in steps if step.get("id") == "paths")
     script = path_gate["run"]
     force_short_circuit = script.index('if [ "${{ inputs.force }}" = "true" ]; then')
-    history_fetch = script.index("git fetch --no-tags origin main:refs/remotes/origin/main")
+    event_base_fetch = script.index('git fetch --no-tags --depth=1 origin "$base"')
+    main_fetch = script.index("git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main")
 
-    assert force_short_circuit < history_fetch
-    assert "exit 0" in script[force_short_circuit:history_fetch]
+    assert force_short_circuit < event_base_fetch < main_fetch
+    assert "exit 0" in script[force_short_circuit:event_base_fetch]
+    assert 'github.event.before' in script

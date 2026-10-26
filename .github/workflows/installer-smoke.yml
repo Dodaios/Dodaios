@@ -110,10 +110,16 @@ jobs:
             ""|*[!0]*) : ;;
             *) base="" ;;
           esac
+          if [ -n "$base" ] && ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            # A one-commit checkout does not contain github.event.before (or a
+            # pull request's base SHA). Fetch that exact tree so direct pushes
+            # on main are diffed against the event's actual prior commit.
+            git fetch --no-tags --depth=1 origin "$base" 2>/dev/null || true
+          fi
           if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-            # checkout fetches the event's ref only, so origin/main may not exist
-            # locally yet — same fetch ci.yml's privacy-gate job does.
-            git fetch --no-tags origin main:refs/remotes/origin/main 2>/dev/null || true
+            # Manual non-forced runs may not have an event base; try main, then
+            # fail open below if no usable diff base is available.
+            git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main 2>/dev/null || true
             base="$(git merge-base HEAD refs/remotes/origin/main 2>/dev/null || echo "")"
           fi
           if [ -z "$base" ]; then
