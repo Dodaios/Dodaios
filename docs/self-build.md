@@ -125,7 +125,10 @@ files `typed` (the person's sentence) when the prompt was a brief written
 around it, else the prompt itself; a row whose text is only dropped files'
 contents is skipped. The route tells the loop when such a prompt was stored,
 and each pass reads a history file from where the last one stopped, so a
-prompt is filed once; the maintenance pass catches a missed notice. While the
+prompt is filed once. Only rows the running app announced this way count: the
+maintenance pass and the start only move the read position past the others,
+because a row no notice announced was written by another process (a test run,
+another instance) and is not the person's. While the
 loop is paused or off the read position still moves, so nothing typed then is
 filed later.
 
