@@ -61,6 +61,12 @@ def stations() -> None:
         "master_wall", b(c.MASTER_X, c.FAR_WALL_Z + 0.165, 3.4), 9.4, 2.4,
         station="master", group="wall",
     )  # fmt: skip
+    # The plot table's glass (eng_rooms.plot_table), flat and facing up: the
+    # station's big screen showing every coding pane in a grid.
+    scene.add_screen(
+        "plot_table", b(c.MASTER_X, 9.6, 0.947), 4.5, 2.1, tilt_deg=90.0,
+        station="master", group="plot",
+    )  # fmt: skip
     # Turbolift: the kit door carries SOCKET_lift_main and a spawn point in
     # front of it, which becomes the commander's spawn.
     z1 = c.CONTROL_SOUTH_Z[1]
