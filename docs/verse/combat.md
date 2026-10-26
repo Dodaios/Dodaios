@@ -269,8 +269,8 @@ and returns a `ControlState`, which becomes an InputCommand through the same
 `makeInput` as a person's keys.
 
 **Fair perception (`observe.ts`).** It sees what the person's screen would
-show: the opponent inside the hip camera's view (+-55 deg from the camera
-behind the right shoulder: 70 deg vertical at 16:9 shows +-51 deg, so close
+show: the opponent inside the hip camera's view (+-44 deg from the camera
+behind the right shoulder: 50 deg vertical at 16:9 shows +-40 deg, so close
 by it sees far to the sides, as the screen does) or within 3 m, with a clear
 line to the opponent's head, chest or hips from its eyes or from the camera
 (the shoulder view looks round a right-hand corner before the body leaves
@@ -639,9 +639,10 @@ Presses are latched by the client until the next tick, so a quick tap on a
 ### Camera and aim
 
 - `cameraRigFor(player)` gives the over-the-shoulder rig for the player's
-  state: hip (0.55 m right, 1.68 m up, 2.5 m back, 70 deg), sights (0.42,
-  1.62, 1.3, 50 deg; blended by `player.ads`), sprint (2.9 m back, 76 deg),
-  shield (2.75 m back, 68 deg). Ease between rigs over about 0.15 s; keep the
+  state: hip (0.55 m right, 1.68 m up, 2.5 m back, 50 deg), sights (0.42,
+  1.62, 1.3, 34 deg; blended by `player.ads`), sprint (2.9 m back, 55 deg),
+  shield (2.75 m back, 48 deg).  The angles are vertical, for the default
+  third-person field of view. Ease between rigs over about 0.15 s; keep the
   existing camera collision.
 - `cameraPose(player, rig)` places the camera behind the right shoulder and
   orbits the pivot with the pitch.
@@ -758,7 +759,9 @@ is always fought over the shoulder: first person on the deck switches to the
 duel's camera for the match and back afterwards. It eases the core's rigs
 (`cameraRigFor`: hip, sights, sprint, shield; about 0.15 s) and adds 0.2 m to the side (less in the sights) so the
 body clears the crosshair. The camera's vertical field of view is the rig's
-(70 deg hip, the angle the bot's perception assumes). It is pulled in front of
+(50 deg hip, about 80 deg across a 16:9 frame, the angle the bot's perception
+assumes; 34 deg in the sights), widened or narrowed by the same ratio as the
+person's third-person field of view in the view settings (`duelFov`). It is pulled in front of
 the deck's geometry with the eye view's BVH (`runtime.eye.test`) and eases
 back out. The view follows the blaster's recoil (the screen kicks with every
 shot and settles with it) while the aim sent to the simulation is the mouse's;

@@ -17,6 +17,7 @@ import type { StageRuntime } from "../runtime";
 import { disposeInstance, type CharacterLibrary } from "../actors/characters";
 import { applyLook, type Look } from "../actors/look";
 import { hash32 } from "../life/crew";
+import { CAMERA_RIGS } from "../combat/camera";
 import type { CombatEvent } from "../combat/types";
 import { BOLT_COLOURS } from "./blaster";
 import type { DuelController } from "./duelController";
@@ -119,7 +120,7 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
   useEffect(() => () => { runtime.cameraOverride = null; }, [runtime]);
 
   const scratch = useMemo(() => ({ v: new Vector3(), time: 0, steamAcc: [0, 0] }), []);
-  const override = useMemo(() => ({ position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 }, fovDeg: 70 }), []);
+  const override = useMemo(() => ({ position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 }, fovDeg: CAMERA_RIGS.hip.fovDeg }), []);
 
   useFrame((_, dt) => {
     if (!controller.active) {

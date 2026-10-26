@@ -18,12 +18,12 @@ import type { CombatTuning } from "./tuning";
 import type { BoltKind, BoltState, CombatEvent, MatchPhase, PlayerState } from "./types";
 
 /**
- * Half the horizontal view of the hip camera (70 deg vertical at 16:9 shows
- * +-51 deg), with a little peripheral margin. Measured from the camera, which
+ * Half the horizontal view of the hip camera (50 deg vertical at 16:9 shows
+ * +-40 deg), with a little peripheral margin. Measured from the camera, which
  * sits behind the right shoulder, so close by it shows far more to the sides
  * than this angle from the body would.
  */
-export const VIEW_HALF_DEG = 55;
+export const VIEW_HALF_DEG = 44;
 /** The hip camera's place (camera.ts CAMERA_RIGS.hip): right of, above and behind the feet. */
 const CAM_RIGHT = 0.55;
 const CAM_UP = 1.68;

@@ -118,6 +118,9 @@ describe("deck shader patch", () => {
     expect(fragmentShader).toContain("totalEmissiveRadiance += verseDecode( texture2D( lightMap, vLightMapUv ) ) * verseBakedGain;");
     expect(fragmentShader).toContain("reflectVec = verseBoxProject( reflectVec, roughness );");
     expect(fragmentShader).toContain("float verseJoint = verseSeam( vVerseWorld );");
+    // A fragment just past its room's box grows the box: no jump to the unprojected direction.
+    expect(fragmentShader).toContain("vec3 boxMin = min( verseBoxMin, p - 0.02 );");
+    expect(fragmentShader).not.toMatch(/lessThan\( p, verseBoxMin/);
     // The lightmap never adds irradiance, and the environment adds no diffuse: the bake holds it.
     expect(fragmentShader).not.toContain("#include <lights_fragment_maps>");
     expect(fragmentShader).not.toContain("irradiance += lightMapIrradiance");

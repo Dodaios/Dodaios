@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { createLocalDuel, type LocalDuelOptions } from "../combat/session";
 import type { CombatEvent } from "../combat/types";
 import type { PlayerView, ViewState } from "../combat/view";
-import { DuelCamera, DUEL_CAMERA } from "./duelCamera";
+import { DuelCamera, DUEL_CAMERA, duelFov } from "./duelCamera";
 import { DuelController, type DuelExit } from "./duelController";
 import { buildHudModel, DuelHudFeed, HUD_TIMES } from "./duelHud";
 import { DuelInput, isDuelKey } from "./duelInput";
@@ -138,6 +138,22 @@ describe("duel camera", () => {
     for (let i = 0; i < 60; i++) ads = cam.update(1 / 60, player({ ads: 1 }), 0);
     expect(20 - ads.position.z).toBeLessThan(hipBack);
     expect(ads.fovDeg).toBeLessThan(hipFov);
+  });
+
+  it("keeps a normal shooter's field of view that follows the person's setting", () => {
+    const cam = new DuelCamera();
+    cam.face(0);
+    const hip = cam.update(1 / 60, player(), 0).fovDeg;
+    // About 80 deg across a 16:9 frame: no fish-eye.
+    const across = (2 * Math.atan(Math.tan((hip * Math.PI) / 360) * (16 / 9)) * 180) / Math.PI;
+    expect(hip).toBeGreaterThan(45);
+    expect(hip).toBeLessThan(56);
+    expect(across).toBeLessThan(90);
+    expect(duelFov(50)).toBeCloseTo(50);
+    expect(duelFov(50, 90)).toBeGreaterThan(50);
+    expect(duelFov(50, 55)).toBeLessThan(50);
+    cam.hfovSetting = 90;
+    expect(cam.update(1 / 60, player(), 0).fovDeg).toBeGreaterThan(hip);
   });
 
   it("is pulled in front of a wall behind the player", () => {

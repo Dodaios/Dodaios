@@ -49,16 +49,20 @@ vec3 verseDecode( vec4 t ) {
 }
 
 // Parallax-corrected reflection direction (world space) inside the room's box.
+// A fragment past the box (a doorway, a lift alcove, a sill a hair outside) grows
+// the box to hold it, so the projection never jumps to the unprojected direction:
+// that jump drew lights far from where they hang, cut off at a hard line.
 vec3 verseBoxProject( vec3 dir, float roughness ) {
   if ( verseBoxOn < 0.5 ) return dir;
   vec3 p = vVerseWorld;
-  if ( any( lessThan( p, verseBoxMin - 0.05 ) ) || any( greaterThan( p, verseBoxMax + 0.05 ) ) ) return dir;
+  vec3 boxMin = min( verseBoxMin, p - 0.02 );
+  vec3 boxMax = max( verseBoxMax, p + 0.02 );
   vec3 d = vec3(
     abs( dir.x ) < 1e-5 ? 1e-5 : dir.x,
     abs( dir.y ) < 1e-5 ? 1e-5 : dir.y,
     abs( dir.z ) < 1e-5 ? 1e-5 : dir.z
   );
-  vec3 far = max( ( verseBoxMax - p ) / d, ( verseBoxMin - p ) / d );
+  vec3 far = max( ( boxMax - p ) / d, ( boxMin - p ) / d );
   float t = max( 0.0, min( min( far.x, far.y ), far.z ) );
   vec3 projected = normalize( p + dir * t - verseProbePos );
   return normalize( mix( projected, dir, roughness * roughness ) );
@@ -124,13 +128,14 @@ const DETAIL_PROPERTIES = /* glsl */ `
 const DETAIL_COAT = /* glsl */ `
 #if defined( VERSE_DECK_PLATES ) && defined( USE_CLEARCOAT )
   {
-    // Smudges, wipe marks and dust blur and dim the mirror (as the plate's coat does).
-    vec2 q = vVerseWorld.xz;
-    float smudge = smoothstep( 0.42, 0.78, verseFbm( q * 0.7 ) );
-    float wipe = smoothstep( 0.52, 0.76, verseFbm( vec2( q.x * 2.2, q.y * 15.4 ) ) );
-    float dust = smoothstep( 0.55, 0.8, verseFbm( q * 6.0 + 11.0 ) ) * 0.4;
-    material.clearcoatRoughness = clamp( material.clearcoatRoughness + 0.03 * smudge + 0.04 * wipe + 0.08 * dust - 0.02 + verseCoatBias, 0.02, 1.0 );
-    material.clearcoat *= ( 1.0 - verseJoint ) * mix( 1.0, 0.8, max( smudge * 0.85, wipe * 0.75 ) );
+    // Broad, soft smudges dim the mirror a little and haze it a little. Only
+    // large, rounded patches (a rotated domain, no lattice-aligned cells):
+    // fine noise in the coat's roughness switched the probe's blur level from
+    // one small cell to the next, which drew every light as blocky squares.
+    vec2 q = mat2( 0.8, -0.6, 0.6, 0.8 ) * vVerseWorld.xz;
+    float smudge = smoothstep( 0.35, 0.8, verseFbm( q * 0.45 ) );
+    material.clearcoatRoughness = clamp( material.clearcoatRoughness + 0.025 * smudge + verseCoatBias, 0.02, 1.0 );
+    material.clearcoat *= ( 1.0 - verseJoint ) * mix( 1.0, 0.85, smudge );
   }
 #endif
 `;
