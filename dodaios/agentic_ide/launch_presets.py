@@ -58,7 +58,7 @@ def _clean_preset(raw: Any) -> dict[str, Any] | None:
             continue
         try:
             count = int(entry.get("count", 1))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # A non-numeric count drops only that entry.
             continue
         count = max(0, min(count, MAX_SESSIONS - total))
         if count <= 0:
