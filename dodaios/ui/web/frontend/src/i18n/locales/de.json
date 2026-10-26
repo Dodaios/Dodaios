@@ -7604,6 +7604,13 @@
   "ide_side_panel": {
     "aria": "Seitenleiste",
     "tabs_aria": "Tabs der Seitenleiste",
+    "split": "Teilen: zwei Tabs nebeneinander zeigen",
+    "unsplit": "Zurück zu einem Tab",
+    "split_needs_two": "Öffne einen zweiten Tab, um das Panel zu teilen",
+    "split_resize": "Ziehen, um die Spalten anzupassen (Doppelklick setzt zurück)",
+    "drop_left": "Links öffnen",
+    "drop_right": "Rechts öffnen",
+    "drag_hint": "Auf die linke oder rechte Hälfte ziehen, um zwei Tabs nebeneinander zu sehen",
     "expand": "Seitenleiste öffnen",
     "collapse": "Seitenleiste schließen",
     "resize": "Breite der Seitenleiste ändern",

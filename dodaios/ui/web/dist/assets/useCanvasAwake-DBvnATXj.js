@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/useCanvasAwake-DBvnATXj.js
 import{r as e}from"./index-DuG1Ovqw.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+|||||||| parent of 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/useCanvasAwake-BTB-qZEi.js
+import{r as e}from"./index-durcwvFq.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+========
+import{r as e}from"./index-BTxcVJt0.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+>>>>>>>> 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/useCanvasAwake-DlANNddW.js

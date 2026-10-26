@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/react-three-fiber.esm-lSZR6LUs.js
 import{r as tt,gP as $y,cp as eS,j as Bn}from"./index-DuG1Ovqw.js";/**
+|||||||| parent of 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/react-three-fiber.esm-7KDayA8E.js
+import{r as tt,gP as $y,cp as eS,j as Bn}from"./index-durcwvFq.js";/**
+========
+import{r as tt,gQ as $y,cp as eS,j as Bn}from"./index-BTxcVJt0.js";/**
+>>>>>>>> 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/react-three-fiber.esm-rABYZVpE.js
  * @license
  * Copyright 2010-2026 Three.js Authors
  * SPDX-License-Identifier: MIT

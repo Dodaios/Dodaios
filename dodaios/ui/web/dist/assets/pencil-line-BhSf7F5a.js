@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/pencil-line-BhSf7F5a.js
 import{c as e}from"./index-DuG1Ovqw.js";/**
+|||||||| parent of 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/pencil-line-B0Sw8r-u.js
+import{c as e}from"./index-durcwvFq.js";/**
+========
+import{c as e}from"./index-BTxcVJt0.js";/**
+>>>>>>>> 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/pencil-line-DUa7GKmL.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

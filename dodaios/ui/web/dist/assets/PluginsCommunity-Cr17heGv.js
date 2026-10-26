@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/PluginsCommunity-Cr17heGv.js
 import{c as W,f as m,t as C,r as x,u as _,co as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,cd as A,q as ee,S as te,L as $,cy as U,cw as P,x as ne}from"./index-DuG1Ovqw.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-DmGawhkw.js";import{S as re,C as oe}from"./store-DdOHNcn7.js";/**
+|||||||| parent of 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/PluginsCommunity-BQG_-ykv.js
+import{c as W,f as m,t as C,r as x,u as _,co as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,cd as A,q as ee,S as te,L as $,cy as U,cw as P,x as ne}from"./index-durcwvFq.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-ZEnXs82w.js";import{S as re,C as oe}from"./store-DhfFa6A3.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,co as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,cd as A,q as ee,S as te,L as $,cy as U,cw as P,x as ne}from"./index-BTxcVJt0.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-BVfxHW9y.js";import{S as re,C as oe}from"./store-Bb6xMx7R.js";/**
+>>>>>>>> 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/PluginsCommunity-Ckzbyrfk.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

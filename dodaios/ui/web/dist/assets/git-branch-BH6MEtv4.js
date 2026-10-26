@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/git-branch-BH6MEtv4.js
 import{c}from"./index-DuG1Ovqw.js";/**
+|||||||| parent of 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/git-branch-Ckh5t2c8.js
+import{c}from"./index-durcwvFq.js";/**
+========
+import{c}from"./index-BTxcVJt0.js";/**
+>>>>>>>> 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/git-branch-1Z_6rp3z.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
