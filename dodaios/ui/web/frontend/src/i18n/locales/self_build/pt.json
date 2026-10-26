@@ -1,13 +1,13 @@
 {
   "self_build": {
     "title": "Feito para si",
-    "subtitle": "O que {name} construiu por iniciativa própria, porquê, e como o desfazer.",
     "loading": "A carregar construções…",
     "status": {
-      "running": "Constrói por iniciativa própria",
-      "paused": "Em pausa",
-      "silent": "Só toma notas",
-      "off": "Desligado"
+      "running": "Observando",
+      "paused": "Pausado",
+      "silent": "Aprendendo",
+      "off": "Desligado",
+      "stopped": "Parado"
     },
     "pause": "Pausar construção",
     "resume": "Retomar construção",
@@ -20,9 +20,6 @@
     "cancel": "Cancelar",
     "notes": {
       "paused": "A construção está em pausa. Nada é notado, construído ou concluído até retomar.",
-      "silent": "Os primeiros dias são calmos: {name} anota o que repete e ainda não constrói nada.",
-      "off": "A autoconstrução está desligada. Nada é notado nem construído.",
-      "stopped": "Todos os agentes estão parados. Rotinas e missões ficam paradas até as libertar.",
       "release": "Libertar",
       "turn_on": "Abrir definições"
     },
@@ -37,16 +34,14 @@
       "nothing": "Nada de novo."
     },
     "shelf": {
-      "waiting": "À sua espera",
-      "waiting_hint": "Nada é construído antes de dizer que sim.",
-      "trial": "Em ensaio",
-      "trial_hint": "Ativo e assinalado. Anular remove-o por completo.",
-      "working": "Em construção",
-      "working_hint": "É verificado antes de ficar ativo.",
-      "kept": "Mantidos",
-      "kept_hint": "Mereceu o lugar. Ainda pode ser anulado.",
-      "past": "Arquivados e anulados",
-      "past_hint": "As construções arquivadas podem ser restauradas."
+      "waiting": "Precisa de você",
+      "waiting_hint": "Nada é criado até você dizer sim.",
+      "kept": "Mantido",
+      "kept_hint": "Mereceu seu lugar. Ainda pode ser desfeito.",
+      "past": "Arquivado e desfeito",
+      "past_hint": "Ajudantes arquivados podem ser restaurados.",
+      "live": "Trabalhando para você",
+      "live_hint": "Em teste e identificado. Desfazer remove por completo."
     },
     "show_past": "Mostrar {count}",
     "hide_past": "Ocultar",
@@ -75,7 +70,6 @@
       "trial": "Ensaio",
       "kept": "Mantido"
     },
-    "seen": "visto {count}×",
     "trial_progress": "Dia {days} de {dayLimit} · {uses} de {useLimit} utilizações",
     "action": {
       "accept": "Construir",
@@ -86,7 +80,6 @@
     },
     "no_builder": "{name} ainda não consegue construir este tipo. Fica como sugestão.",
     "detail": {
-      "select": "Escolha uma construção para ver porque existe, como foi verificada e quanto custou.",
       "close": "Fechar",
       "why": "Porquê",
       "noticed": "O que notou",
@@ -119,21 +112,93 @@
       "corrected": "corrigido",
       "ignored": "ignorado"
     },
-    "empty": {
-      "title": "Ainda nada construído",
-      "body": "{name} repara no que faz à mão vezes sem conta. Quando algo se repete, constrói a coisa mais pequena que lhe tira esse trabalho, verifica-a e deixa-o experimentá-la com anulação num clique.",
-      "loop": {
-        "notice": "Reparar",
-        "decide": "Decidir",
-        "build": "Construir",
-        "check": "Verificar",
-        "trial": "Ensaio",
-        "keep": "Manter"
-      }
-    },
     "error": {
       "unavailable": "O registo de construções não está a correr. Reinicie a app para o abrir.",
       "action": "Não resultou: {detail}"
-    }
+    },
+    "hero": {
+      "silent_title": "{name} está conhecendo o seu jeito de trabalhar.",
+      "silent_body": "Quando você pede a mesma coisa várias vezes, {name} cria um pequeno ajudante que faz isso por você. Nos primeiros {days} dias ele só toma notas e pergunta antes de criar qualquer coisa. A partir de {date} pode testar coisas pequenas sozinho, sempre com desfazer.",
+      "silent_body_nodate": "Quando você pede a mesma coisa várias vezes, {name} cria um pequeno ajudante que faz isso por você. Nos primeiros {days} dias ele só toma notas e pergunta antes de criar qualquer coisa.",
+      "running_title": "{name} está atento às repetições.",
+      "running_body": "Quando você pede a mesma coisa em dias diferentes, {name} cria o menor ajudante que tira isso das suas mãos, verifica e deixa você testar com desfazer em um clique.",
+      "ideas_title_one": "{name} tem {count} ideia para você.",
+      "ideas_title_other": "{name} tem {count} ideias para você.",
+      "ideas_body": "Ele percebeu algo que você continua fazendo à mão. Veja abaixo e diga sim ou não. Nada é criado sem você.",
+      "paused_title": "A criação está pausada.",
+      "paused_body": "{name} não está percebendo nem criando nada agora. Os ajudantes que já criou continuam funcionando.",
+      "off_title": "Criar para você está desligado.",
+      "off_body": "Ligue e {name} começa a perceber o que você repete. Você decide até onde ele pode ir.",
+      "stopped_title": "Todos os agentes estão parados.",
+      "stopped_body": "Rotinas, missões e a criação ficam paradas até você liberá-las. Nada foi apagado.",
+      "ring_day": "Dia {day} de {days}",
+      "ring_of_days": "de {days} dias",
+      "ring_live_one": "{count} ajudante ativo",
+      "ring_live_other": "{count} ajudantes ativos",
+      "ring_helper_one": "ajudante",
+      "ring_helper_other": "ajudantes"
+    },
+    "reach": {
+      "title": "O que {name} pode fazer",
+      "off": "Nunca",
+      "suggest": "Pergunta antes",
+      "trial": "Testa, com desfazer",
+      "full": "Faz sozinho"
+    },
+    "kinds": {
+      "memory": "Memórias",
+      "skill": "Habilidades",
+      "routine": "Rotinas",
+      "agent": "Agentes",
+      "code": "Mudanças de código"
+    },
+    "noticed": {
+      "title": "Percebido até agora",
+      "hint": "Só conta o que você mesmo pede.",
+      "empty": "Nada se repetiu ainda.",
+      "empty_hint": "Continue trabalhando normalmente. {name} conta em silêncio neste computador.",
+      "once_one": "{count} pedido anotado uma vez até agora.",
+      "once_other": "{count} pedidos anotados uma vez até agora.",
+      "more": "{count} repetições a mais",
+      "times": "Pedido {count} vezes",
+      "days_one": "em {count} dia",
+      "days_other": "em {count} dias",
+      "quote_open": "“",
+      "quote_close": "”",
+      "progress": "{count} de {total} dias",
+      "more_days_one": "Falta {count} dia",
+      "more_days_other": "Faltam {count} dias",
+      "more_times_one": "Falta {count} vez",
+      "more_times_other": "Faltam {count} vezes",
+      "stage": {
+        "ready": "Pronto. {name} vai olhar em breve",
+        "proposed": "Ver a sugestão",
+        "direct": "{name} responde isso direto",
+        "declined": "Você disse não",
+        "served": "Uma habilidade já faz isso",
+        "nothing": "Nada que valha criar",
+        "ready_paused": "Pronto. Espera você retomar"
+      }
+    },
+    "how": {
+      "title": "Como funciona",
+      "notice_title": "Ele percebe",
+      "notice_body": "Você pede a mesma coisa em dias diferentes. {name} conta, neste computador.",
+      "suggest_title": "Ele sugere",
+      "suggest_body": "O menor ajudante que serve: algo para lembrar, uma habilidade, uma rotina, um agente ou uma mudança de código.",
+      "try_title": "Você testa",
+      "try_body": "Ele roda em um teste identificado. Fique com ele ou desfaça com um clique."
+    },
+    "suggested": {
+      "memory": "Memória sugerida",
+      "skill": "Habilidade sugerida",
+      "routine": "Rotina sugerida",
+      "agent": "Agente sugerido",
+      "code": "Mudança de código sugerida"
+    },
+    "based_on_one": "Com base em {count} pedido",
+    "based_on_other": "Com base em {count} pedidos",
+    "details": "Detalhes",
+    "stop_footer": "Precisa que tudo pare de uma vez?"
   }
 }
