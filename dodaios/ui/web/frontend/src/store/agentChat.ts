@@ -20,7 +20,11 @@ import {
   saveAgentChatApprovalRule,
   answerAgentChatQuestion,
   bindVoiceChat,
+  replyToAgentChatQuestion,
   skipAgentChatQuestion,
+  submitAgentChatQuestion,
+  touchAgentChatQuestion,
+  type QuestionSubmitAnswer,
   resolveAgentChatPlan,
   type PlanDecision,
   type QuestionAnswerInput,
@@ -41,6 +45,7 @@ import {
   type ProviderHealth,
 } from "@/lib/agentChatApi";
 import { EMPTY_TIMELINE, noteApprovalRule, reduceEvent, reduceEvents, settleApproval, type Timeline } from "@/components/agentchat/reduce";
+import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
 import { reuseHistoryRows } from "@/lib/historyRequests";
 
@@ -198,8 +203,25 @@ export interface AgentChatStore {
   saveApprovalRule: (approvalId: string, rule: ApprovalRuleRequest) => Promise<void>;
   /** Answer question `index` of an agent's card in the active session; throws so the card can say why. */
   answerQuestion: (questionId: string, index: number, answer: QuestionAnswerInput) => Promise<void>;
-  /** Close an agent's card so its recommendations apply; throws so the card can say why. */
-  skipQuestion: (questionId: string) => Promise<void>;
+  /**
+   * Close an agent's card so its recommendations apply; with `index`, skip
+   * only that question. Throws so the card can say why.
+   */
+  skipQuestion: (questionId: string, index?: number) => Promise<void>;
+  /**
+   * Send the person's reviewed answers to the whole card at once. Optional:
+   * a store without it gets the answers one question at a time. Throws so the
+   * card can roll back; a card the server no longer holds resolves quietly.
+   */
+  submitQuestion?: (questionId: string, answers: QuestionSubmitAnswer[]) => Promise<void>;
+  /** The person is still answering: the card's quiet window starts again. Never throws. */
+  touchQuestion?: (questionId: string) => Promise<void>;
+  /**
+   * A composer message while a card is open answers it. True when a running
+   * turn took the message as its answer, so nothing else is sent; false sends
+   * it as usual (an end-of-turn card is settled by the same call).
+   */
+  answerByMessage?: (text: string) => Promise<boolean>;
   /** Answer a coding agent's plan card in the active session; throws so the card can say why. */
   resolvePlan: (turnId: string, decision: PlanDecision) => Promise<void>;
   /** Tests and the socket: fold one event into the active timeline. */
@@ -928,10 +950,45 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         await answerAgentChatQuestion(sid, questionId, index, answer);
       },
 
-      skipQuestion: async (questionId) => {
+      skipQuestion: async (questionId, index) => {
         const sid = get().activeSessionId;
         if (!sid) throw new Error("no open chat");
-        await skipAgentChatQuestion(sid, questionId);
+        await skipAgentChatQuestion(sid, questionId, index);
+      },
+
+      submitQuestion: async (questionId, answers) => {
+        const sid = get().activeSessionId;
+        if (!sid) throw new Error("no open chat");
+        try {
+          await submitAgentChatQuestion(sid, questionId, answers);
+        } catch (err) {
+          // 404: the card closed on the server meanwhile (its window ran out,
+          // or the turn ended). Its own closing event says what was chosen.
+          if (err instanceof AgentChatApiError && err.status === 404) return;
+          throw err;
+        }
+      },
+
+      touchQuestion: async (questionId) => {
+        const sid = get().activeSessionId;
+        if (!sid) return;
+        try {
+          await touchAgentChatQuestion(sid, questionId);
+        } catch {
+          /* a lost touch only means the card keeps its first deadline */
+        }
+      },
+
+      answerByMessage: async (text) => {
+        const sid = get().activeSessionId;
+        if (!sid || !text.trim() || !openQuestionOf(get().timeline)) return false;
+        try {
+          const outcome = await replyToAgentChatQuestion(sid, text);
+          return outcome.consumed;
+        } catch {
+          // The route failed: the message still goes out as an ordinary one.
+          return false;
+        }
       },
 
       resolvePlan: async (turnId, decision) => {

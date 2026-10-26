@@ -63,22 +63,36 @@ export interface QuestionOption {
   description: string;
 }
 
+/** How a question is answered: one option, any number of them, or own words. */
+export type QuestionKind = "single" | "multi" | "text";
+
 /** One question of a card. Option 0 is always the agent's recommendation. */
 export interface QuestionItem {
   question: string;
   options: QuestionOption[];
   recommendationReason: string;
+  /** `single` on older events. */
+  kind: QuestionKind;
+  /** The person may type their own answer (always true for `text`). */
+  allowCustom: boolean;
+  /** How many leading options a `multi` question recommends (1 otherwise). */
+  recommendedCount: number;
 }
 
 /**
  * What one question resolved to. `source`: `person`, `timeout` (nobody
- * answered for five minutes), `skipped` (the card was closed), `cancelled`,
- * or `closed` (the turn ended without an answer).
+ * answered in time), `skipped` (the agent was left to decide), `declined`
+ * (the person skipped this one question), `message` (answered from the chat
+ * composer), `moved_on` (the person wrote about something else), `cancelled`,
+ * `unattended`, or `closed` (the turn ended without an answer).
  */
 export interface QuestionAnswerState {
+  /** What the agent reads; a multi answer holds one label per line. */
   text: string;
   optionIndex: number | null;
   source: string;
+  /** The picked options of a multi answer. */
+  optionIndices?: number[];
 }
 
 /**
@@ -453,7 +467,29 @@ function questionOptions(raw: unknown): QuestionOption[] {
 function questionAnswer(raw: unknown): QuestionAnswerState | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
-  return { text: str(row.answer), optionIndex: num(row.option_index), source: str(row.source, "person") };
+  const answer: QuestionAnswerState = { text: str(row.answer), optionIndex: num(row.option_index), source: str(row.source, "person") };
+  const picks = Array.isArray(row.option_indices) ? row.option_indices.filter((i): i is number => typeof i === "number") : [];
+  return picks.length ? { ...answer, optionIndices: picks } : answer;
+}
+
+const QUESTION_KINDS: readonly QuestionKind[] = ["single", "multi", "text"];
+
+/** One question off a `question_required` payload, or null when it is unusable. */
+function questionItem(entry: unknown): QuestionItem | null {
+  if (!entry || typeof entry !== "object") return null;
+  const row = entry as Record<string, unknown>;
+  const text = str(row.question);
+  const options = questionOptions(row.options);
+  const kind = QUESTION_KINDS.includes(row.kind as QuestionKind) ? (row.kind as QuestionKind) : "single";
+  if (!text || (!options.length && kind !== "text")) return null;
+  return {
+    question: text,
+    options,
+    recommendationReason: str(row.recommendation_reason),
+    kind,
+    allowCustom: kind === "text" || row.allow_custom !== false,
+    recommendedCount: kind === "multi" ? Math.max(1, Math.min(options.length, num(row.recommended_count) ?? 1)) : 1,
+  };
 }
 
 /** The answer slots off a progress/resolved payload; older events carried one flat answer. */
@@ -1184,11 +1220,8 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       // Older events carried a single question's fields at the top level.
       const raw = Array.isArray(p.questions) ? p.questions : [p];
       const questions: QuestionItem[] = raw.flatMap((entry) => {
-        if (!entry || typeof entry !== "object") return [];
-        const row = entry as Record<string, unknown>;
-        const options = questionOptions(row.options);
-        const text = str(row.question);
-        return text && options.length ? [{ question: text, options, recommendationReason: str(row.recommendation_reason) }] : [];
+        const item = questionItem(entry);
+        return item ? [item] : [];
       });
       if (!questions.length) return base;
       const question: QuestionState = {
