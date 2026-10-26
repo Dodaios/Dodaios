@@ -259,22 +259,26 @@ def _optional_text(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
-def _cli_credential_env() -> dict[str, str] | None:
+def _cli_credential_env(source: Mapping[str, str] | None = None) -> dict[str, str] | None:
     """Supply the POSIX account name native credential lookups require.
 
     GUI launchers normally set ``USER``, but sanitized app environments may not.
-    Claude's macOS Keychain lookup treats a missing value as logged out. Returning
-    ``None`` preserves normal inheritance when no repair is needed.
+    Claude's macOS Keychain lookup treats a missing value as logged out.
+    ``source`` is the environment the probed CLI runs with (``None`` = this
+    process'). Without a ``source``, ``None`` preserves normal inheritance when
+    no repair is needed.
     """
-    if os.name != "posix" or os.environ.get("USER"):
-        return None
+    env = dict(source) if source is not None else None
+    current: Mapping[str, str] = env if env is not None else os.environ
+    if os.name != "posix" or current.get("USER"):
+        return env
     try:
         user = getpass.getuser().strip()
     except (OSError, KeyError):
-        return None
+        return env
     if not user:
-        return None
-    env = dict(os.environ)
+        return env
+    env = dict(current)
     env["USER"] = user
     return env
 
@@ -519,21 +523,30 @@ class ClaudeAuthService:
         """Shell-free invocation prefix (test seam for Windows npm shims)."""
         return claude_cli_argv_prefix(binary)
 
-    def _probe_cli_auth(self, binary: str) -> ClaudeCliAuthSnapshot | None:
+    def _probe_cli_auth(
+        self, binary: str, *, env: Mapping[str, str] | None = None
+    ) -> ClaudeCliAuthSnapshot | None:
         """Ask the installed CLI for its native auth state, with a short TTL.
 
         A parsed JSON body is authoritative even when the command exits nonzero
         (some CLI releases use that exit status for ``loggedIn: false``). A
         missing command, timeout, or malformed body returns ``None`` so older
-        releases continue through the on-disk compatibility parser.
+        releases continue through the on-disk compatibility parser. ``env`` is
+        the environment of the process that will use the login (its account
+        directory); ``None`` probes this process' own.
         """
         prefix = self._cli_argv_prefix(binary)
+        probe_env = _cli_credential_env(env)
+        account_env: Mapping[str, str] = probe_env if probe_env is not None else os.environ
         cache_key = (
             "\0".join(prefix),
-            os.environ.get("CLAUDE_CONFIG_DIR", ""),
-            os.environ.get("HOME", ""),
-            os.environ.get("USERPROFILE", ""),
-            os.environ.get("USER", ""),
+            account_env.get("CLAUDE_CONFIG_DIR", ""),
+            account_env.get("HOME", ""),
+            account_env.get("USERPROFILE", ""),
+            account_env.get("USER", ""),
+            # A minimal child environment can answer differently from this
+            # process' own (an API key set here, for one).
+            "child" if env is not None else "",
         )
         now = time.monotonic()
         cached = _AUTH_STATUS_CACHE.get(cache_key)
@@ -542,7 +555,7 @@ class ClaudeAuthService:
         try:
             proc = subprocess.run(
                 [*prefix, "auth", "status", "--json"],
-                env=_cli_credential_env(),
+                env=probe_env,
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",
@@ -902,6 +915,36 @@ class ClaudeAuthService:
             return True, None
         except OSError as exc:
             return False, f"could not remove Claude credentials: {exc}"
+
+
+def cli_login_env(env: Mapping[str, str]) -> dict[str, str]:
+    """``env`` plus what the CLI's native credential lookup needs (POSIX ``USER``)."""
+    return _cli_credential_env(env) or dict(env)
+
+
+def native_subscription_login(
+    env: Mapping[str, str],
+) -> tuple[str | None, ClaudeCliAuthSnapshot | None]:
+    """The Claude CLI and its own login state for a process started with ``env``.
+
+    ``(None, None)`` when the CLI is not installed. The snapshot is ``None``
+    when the CLI could not say; otherwise it reports whether ``env``'s account
+    is signed in, and how. Only ``claude auth status`` is asked: no credential
+    file is read and no bearer is returned.
+    """
+    service = ClaudeAuthService()
+    binary = service._resolve_binary()
+    if binary is None:
+        return None, None
+    return binary, service._probe_cli_auth(binary, env=env)
+
+
+def is_subscription_login(snapshot: ClaudeCliAuthSnapshot | None) -> bool:
+    """Whether ``snapshot`` is a signed-in Claude plan, not an API-key login."""
+    if snapshot is None or not snapshot.logged_in:
+        return False
+    method = (snapshot.auth_method or "").lower().replace("-", "_")
+    return not ("api" in method and "key" in method)
 
 
 def usable_native_claude_subscription() -> ClaudeAuthStatus | None:
