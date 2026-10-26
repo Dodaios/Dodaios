@@ -1,6 +1,6 @@
 # Dodaios Control API
 
-A local, authenticated HTTP API that lets Dodaios — and any local agent (Codex
+A local, authenticated HTTP API that lets Dodaios (formerly Personal Jarvis) — and any local agent (Codex
 CLI, Claude Code, a test harness) — do **everything the user can do in the
 desktop app**: read and change settings, switch brain/STT/TTS providers, switch
 the reply language, rotate provider keys, read the providers snapshot. It is the
