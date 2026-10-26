@@ -122,6 +122,27 @@ def test_an_older_run_reads_cost_and_summary_from_its_own_first_turn() -> None:
     assert runs[0].duration_ms == 2000
 
 
+def test_a_run_with_a_summary_step_never_reopens_its_chat() -> None:
+    # CLI seats often report no cost: the history must not re-read that chat
+    # on every poll just because cost_usd stays empty.
+    runs = parse_runs(
+        "t1",
+        _steps(
+            (1, {"event": "run_started"}),
+            (1, {"event": "routine_chat", "session_id": "s1"}),
+            (2, {"event": "routine_summary", "duration_ms": 900, "cost_usd": None}),
+            (3, {"event": "run_completed", "duration_ms": 2000}),
+        ),
+    )
+
+    def explode(session_id: str) -> list[dict[str, Any]]:
+        raise AssertionError("the chat was read")
+
+    enrich_from_chat(runs[0], SimpleNamespace(list_events=explode))
+    assert runs[0].duration_ms == 900 and runs[0].cost_usd is None
+    assert "recorded" not in runs[0].to_dict()
+
+
 def test_a_missing_chat_store_leaves_the_run_as_parsed() -> None:
     run = parse_runs("t1", _steps((1, {"event": "run_started"})))[0]
     enrich_from_chat(run, None)

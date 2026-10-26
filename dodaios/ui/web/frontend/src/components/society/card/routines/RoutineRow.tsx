@@ -3,7 +3,7 @@
  * sentence, when it runs next, how the last run went and what it cost.
  * Pause/resume and a test run sit on the row and appear on hover or focus.
  */
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Pause, Play, Loader2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,7 @@ export function RoutineRow({ routine, lastRun, parked, locale, now, onOpen, onCh
 }) {
   const t = useT();
   const own = (key: string) => t(`society.agent_routines.list.${key}`);
+  const describedBy = useId();
   const [busy, setBusy] = useState<"run" | "toggle" | null>(null);
   const [problem, setProblem] = useState("");
   const title = displayRoutineTitle(routine.title);
@@ -59,11 +60,12 @@ export function RoutineRow({ routine, lastRun, parked, locale, now, onOpen, onCh
   const tool = "rounded-md p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring disabled:opacity-40";
   return <li className="group relative">
     <div className="flex items-start gap-1 rounded-xl transition-colors duration-150 hover:bg-secondary/55 focus-within:bg-secondary/55">
-      <button type="button" aria-label={title} onClick={onOpen}
+      <button type="button" aria-label={title} aria-describedby={describedBy} onClick={onOpen}
         className="flex min-w-0 flex-1 cursor-pointer select-none items-start gap-2.5 rounded-xl px-2 py-2 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring">
         <TriggerIcon trigger={routine.trigger} tone={tone} />
         <span className="min-w-0 flex-1">
           <span className={cn("block truncate text-[13px] font-medium leading-5", tone === "paused" || tone === "parked" ? "text-muted-foreground" : "text-foreground")}>{title}</span>
+          <span id={describedBy} className="contents">
           <span className="block break-words text-[11.5px] leading-snug text-foreground-secondary">{sentence}</span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
             {routine.state === "running" && <span className="font-medium text-primary">{own("running")}</span>}
@@ -77,6 +79,7 @@ export function RoutineRow({ routine, lastRun, parked, locale, now, onOpen, onCh
             </span> : null}
           </span>
           {lastRun?.status === "failed" && lastRun.error && <span className="mt-0.5 block truncate text-[11px] text-destructive/80" title={lastRun.error}>{lastRun.error}</span>}
+          </span>
         </span>
       </button>
       <div className="flex shrink-0 items-center gap-0.5 self-center pr-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
