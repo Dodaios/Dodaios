@@ -7604,6 +7604,13 @@
   "ide_side_panel": {
     "aria": "Painel lateral",
     "tabs_aria": "Separadores do painel lateral",
+    "split": "Dividir: mostrar duas abas lado a lado",
+    "unsplit": "Voltar para uma aba",
+    "split_needs_two": "Abra uma segunda aba para dividir o painel",
+    "split_resize": "Arraste para ajustar as colunas (clique duplo redefine)",
+    "drop_left": "Abrir à esquerda",
+    "drop_right": "Abrir à direita",
+    "drag_hint": "Arraste para a metade esquerda ou direita para ver duas abas lado a lado",
     "expand": "Abrir painel lateral",
     "collapse": "Fechar painel lateral",
     "resize": "Redimensionar painel lateral",

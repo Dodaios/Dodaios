@@ -3785,6 +3785,11 @@ async def _spawn_child(
 
         plan.env[TURN_MARKER_ENV] = uuid4().hex
     try:
+        if runner == "codex-cli" and os.name == "nt":
+            from dodaios.core.path_augment import ensure_cli_paths
+
+            ensure_cli_paths()
+            plan.env["PATH"] = os.environ.get("PATH", "")
         proc = await asyncio.create_subprocess_exec(
             *plan.argv,
             cwd=str(cwd),

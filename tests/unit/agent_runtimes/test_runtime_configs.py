@@ -35,12 +35,10 @@ _GATEWAY = "http://127.0.0.1:47821/api/runtime-gateway/v1"
 def gateway_up(monkeypatch):
     """Jarvis' gateway is listening, and this machine's Agents-tier keys stay out."""
     import dodaios.core.config as config
-    from dodaios.agent_runtimes import gateway, provider_errors
+    from dodaios.agent_runtimes import gateway
 
     monkeypatch.setattr(gateway, "base_url", lambda: _GATEWAY)
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: None)
-    monkeypatch.setattr(provider_errors, "_claude_usage", lambda token: None)
-    monkeypatch.setattr(provider_errors, "_REPORTS", {})
     gateway.reset()
     yield gateway
     gateway.reset()
@@ -385,90 +383,79 @@ def test_a_rate_limited_route_refuses_before_starting_a_runtime(gateway_up):
             route_for(_cfg(), "openai", "m", agent_id="a", session_id="society:a")
 
 
-def test_chat_and_routine_routes_have_stable_separate_failure_scopes(gateway_up):
-    with override_provider_secrets({"openai": _SECRET}):
-        routes = [route_for(_cfg(), "openai", "m", agent_id="a", session_id=sid)
-                  for sid in ("society:a", "society:a:routine:r1", "society:a:routine:r2")]
-    assert routes[0].api_key != routes[1].api_key
-    assert routes[1].api_key == routes[2].api_key
-
-
-def test_a_rate_limited_route_refuses_before_starting_a_runtime(gateway_up):
-    gateway = gateway_up
-    grant = gateway.Grant("a", "openai")
-    gateway._report_failure(
-        grant, "m", gateway.GatewayError("limited", status=429, retry_after=60), None,
-    )
-    with override_provider_secrets({"openai": _SECRET}):
-        with pytest.raises(RouteUnavailable, match="HTTP 429"):
-            route_for(_cfg(), "openai", "m", agent_id="a", session_id="society:a")
-
-
 def test_a_missing_key_is_reported_in_plain_words(gateway_up):
     with override_provider_secrets({"openrouter": None}), pytest.raises(RouteUnavailable) as err:
         route_for(_cfg(), "openrouter", "some/model")
     assert "API key" in str(err.value)
 
 
-def test_a_claude_login_is_not_an_api_key(gateway_up, monkeypatch):
-    import dodaios.agent_runtimes.model_map as model_map
+def _claude_cli(monkeypatch, tmp_path: Path, state: dict) -> Path:
+    """The fake Claude CLI, signed in as ``state`` for the default account."""
+    from dodaios import claude_auth
+    from tests.fakes import fake_claude_cli
 
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
+    launcher = fake_claude_cli.install(tmp_path / "claude-bin")
+    monkeypatch.setattr(
+        claude_auth.ClaudeAuthService, "_resolve_binary", lambda self: str(launcher)
+    )
+    claude_auth.clear_version_cache()
+    account = tmp_path / "claude-account"
+    fake_claude_cli.sign_in(account, state)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(account))
+    return account
+
+
+def test_a_claude_login_is_not_an_api_key(gateway_up, monkeypatch, tmp_path):
+    from tests.fakes import fake_claude_cli
+
+    _claude_cli(monkeypatch, tmp_path, fake_claude_cli.LOGGED_OUT)
     login = "sk-ant-" + "oat01-" + "x" * 20
     with override_provider_secrets({"claude-api": login}), pytest.raises(RouteUnavailable):
         route_for(_cfg(), "claude-api", "claude-sonnet-5")
     with override_provider_secrets({"claude-api": _SECRET}):
         assert route_for(_cfg(), "claude-api", "claude-sonnet-5").transport == "chat_completions"
-        assert model_map.login_token_for("claude-api") is None
 
 
-def test_claude_without_a_key_runs_on_the_claude_code_login(gateway_up, monkeypatch):
-    import dodaios.agent_runtimes.model_map as model_map
+def test_claude_without_a_key_runs_on_the_claude_cli(gateway_up, monkeypatch, tmp_path):
+    from tests.fakes import fake_claude_cli
 
-    live = "sk-ant-" + "oat01-" + "y" * 20
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: live)
+    account = _claude_cli(monkeypatch, tmp_path, fake_claude_cli.SUBSCRIPTION)
     with override_provider_secrets({"claude-api": None}):
         route = route_for(_cfg(), "claude-api", "claude-sonnet-5", agent_id="agent-1")
-        assert model_map.login_token_for("claude-api") == live
-        assert model_map.login_providers() == ["claude-api"]
-    # The runtime only ever holds Jarvis' gateway token, never the login.
-    assert route.transport == "chat_completions" and route.base_url == _GATEWAY
-    assert route.api_key != live
-    assert gateway_up.verify(route.api_key or "") == gateway_up.Grant(
-        "agent-1", "claude-api", "", require_active_turn=True,
-    )
-    # Every other provider keeps needing its own key.
-    assert model_map.login_token_for("openai") is None
+    # The runtime runs the official CLI: no gateway token, no key, no bearer.
+    assert route.transport == "claude_cli" and route.api_key is None
+    assert route.env()["CLAUDE_CONFIG_DIR"] == str(account)
+    assert set(route.env()) <= {"CLAUDE_CONFIG_DIR", "USER"}
+    assert gateway_up._GRANTS == {}
 
 
-def test_an_agent_can_pin_claude_to_the_key_or_the_login(gateway_up, monkeypatch):
-    import dodaios.agent_runtimes.model_map as model_map
+def test_an_agent_can_pin_claude_to_the_key_or_the_subscription(gateway_up, monkeypatch, tmp_path):
     from dodaios.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
+    from dodaios.agent_runtimes import model_map
+    from tests.fakes import fake_claude_cli
 
-    live = "sk-ant-" + "oat01-" + "z" * 20
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: live)
+    account = _claude_cli(monkeypatch, tmp_path, fake_claude_cli.SUBSCRIPTION)
     with override_provider_secrets({"claude-api": _SECRET}):
         # Both ways work: the dialog offers both, the key stays the default.
         assert model_map.access_choices() == {"claude-api": ["api", "subscription"]}
-        assert model_map.login_token_for("claude-api") is None
-        assert model_map.login_token_for("claude-api", API_KEY_ACCOUNT) is None
-        assert model_map.login_token_for("claude-api", SUBSCRIPTION_ACCOUNT) == live
+        assert not model_map.uses_claude_cli("claude-api")
+        assert not model_map.uses_claude_cli("claude-api", API_KEY_ACCOUNT)
+        assert model_map.uses_claude_cli("claude-api", SUBSCRIPTION_ACCOUNT)
         route = route_for(
             _cfg(), "claude-api", "claude-sonnet-5", agent_id="a", account_id=SUBSCRIPTION_ACCOUNT
         )
-        grant = gateway_up.verify(route.api_key or "")
-        assert grant == gateway_up.Grant(
-            "a", "claude-api", SUBSCRIPTION_ACCOUNT, require_active_turn=True,
-        )
+        assert route.transport == "claude_cli"
     with override_provider_secrets({"claude-api": None}):
         assert model_map.access_choices() == {"claude-api": ["subscription"]}
-        assert model_map.login_token_for("claude-api", API_KEY_ACCOUNT) is None
         with pytest.raises(RouteUnavailable, match="API key"):
             route_for(_cfg(), "claude-api", "claude-sonnet-5", account_id=API_KEY_ACCOUNT)
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
+    fake_claude_cli.sign_in(account, fake_claude_cli.LOGGED_OUT)
+    from dodaios import claude_auth
+
+    claude_auth.clear_version_cache()
     with override_provider_secrets({"claude-api": _SECRET}):
         assert model_map.access_choices() == {"claude-api": ["api"]}
-        with pytest.raises(RouteUnavailable, match="Claude Code login"):
+        with pytest.raises(RouteUnavailable, match="not signed in"):
             route_for(_cfg(), "claude-api", "claude-sonnet-5", account_id=SUBSCRIPTION_ACCOUNT)
 
 
