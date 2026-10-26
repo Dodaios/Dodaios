@@ -17,6 +17,8 @@ on engineering).
 | [`art/verse/LEVELS.md`](../../art/verse/LEVELS.md) | The level design of every deck: rooms, sockets, station kinds. |
 | [`art/verse/ART_DIRECTION.md`](../../art/verse/ART_DIRECTION.md) | The art director's standing notes. |
 | [`pipeline.md`](pipeline.md) | The production pipeline: stages, naming, budgets, cook, validation, Blender MCP. |
+| [`realtime.md`](realtime.md) | The eye-level view: realtime export of a deck (lightmaps, probes, glTF), its manifest block, the runtime and the over-the-shoulder camera. |
+| [`combat.md`](combat.md) | The optional reactor duel: the combat core (simulation, netcode, bot, balance) and how it plays in the 3D view (start, controls, camera, effects, HUD, sound). |
 | [`../agent-society/level-system.md`](../agent-society/level-system.md) | Ranks, XP rules, rewards and the service record. |
 
 ## How it is made
@@ -47,9 +49,18 @@ framing at its own size; a low, wide one still shows at least 5 m of floor top
 to bottom. The camera never comes closer than the plate is sharp: an older
 deck cooked at 96 px/m, or a HiDPI screen, stops a little further out.
 
-**V** (or the bird's-eye button on the tool rail) pulls the camera back over
-the whole deck; there WASD pans the map. V again returns to the commander at
-the close zoom. In both views a click on the floor walks there, a click on a
+**Duel.** At any of the four consoles on the reactor's control ring (Reactor
+Engineering) E offers *Start a duel*; the **Duel** button on the tool rail does
+the same from any deck (the turbolift rides down first). Choose normal, hard
+or elite and fight a 1v1 blaster duel against a bot, best of three; Esc pauses,
+Esc again leaves and puts the commander back on the deck. See
+[`combat.md`](combat.md).
+
+**Views.** The tool rail's switch offers the **bird's-eye** view, **third
+person** and **first person**; 1, 2 and 3 pick one and V cycles them (the last
+choice is remembered). The bird's-eye view pulls the camera back over the
+whole deck; there WASD pans the map. Choosing third or first person returns
+to the commander at the close zoom. In both views a click on the floor walks there, a click on a
 crew member selects them, a drag looks around (the camera picks the commander
 up again when they walk) and the wheel or +/- zooms between the whole deck and
 the closest view the plate allows.
@@ -63,9 +74,19 @@ a shared budget (`engine/tiles.ts`, `engine/tileStreamer.ts`,
 `engine/plateLayer.ts`). Older decks without mips stream the overview and L0
 as before.
 
-The deck stays a pre-rendered plate seen from one fixed angle, so the third
-person camera follows from above, not from behind the shoulder; a camera
-behind the commander would need the decks as real-time 3D scenes.
+A deck exported as a real-time 3D scene ([`realtime.md`](realtime.md); the
+bridge so far) is walked at eye level instead on the full-size stage: the
+camera sits behind the commander's shoulder (the commander stands in the
+lower right third of the frame) or, in first person, at their eyes. Both play
+like a shooter: a click on the view takes the mouse, moving it turns the view,
+the left button or E works what the crosshair is on, Esc gives the mouse back
+so the HUD's buttons work. WASD walk relative to the view (A/D strafe) and the
+commander faces it while walking. The wheel moves the third-person camera
+between 1.2 and 5 m; scrolling in past that is first person, scrolling out of
+first person comes back. The camera never passes through walls. The view
+settings set mouse sensitivity, inverted look and the field of view of each
+person. The IDE side panel keeps the plate. Details: [`realtime.md`](realtime.md)
+("Views").
 
 ## Decks
 

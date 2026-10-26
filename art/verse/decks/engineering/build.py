@@ -24,6 +24,7 @@ import eng_common as c  # noqa: E402
 import eng_reactor  # noqa: E402
 import eng_rooms  # noqa: E402
 import eng_sockets  # noqa: E402
+import eng_upper  # noqa: E402
 from lib import scene  # noqa: E402
 
 DECK_ID = "engineering"
@@ -43,6 +44,7 @@ def build() -> None:
         architecture.load_all()
     eng_arch.OCCLUDER_BOXES.clear()
     eng_arch.build()
+    eng_upper.build()
     eng_reactor.build()
     eng_rooms.build()
     eng_sockets.build()

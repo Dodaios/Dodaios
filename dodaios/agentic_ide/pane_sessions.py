@@ -51,14 +51,15 @@ def settings_file() -> Path:
     # Forward slashes: Claude Code runs hook commands through bash on some
     # installs and cmd on others; a quoted forward-slash path works in both.
     command = f'"{_interpreter().as_posix()}" "{script.as_posix()}"'
+    hook = [{"hooks": [{"type": "command", "command": command, "timeout": 10}]}]
     settings = {
         # No renderer override: a pane runs Claude Code the way the person set
         # it up. Forcing the classic renderer (for an exact scrollbar) made new
         # panes look cramped next to full-screen ones (reported 2026-10-20);
         # on the full-screen renderer the scrollbar falls back to app mode.
-        "hooks": {
-            "SessionStart": [{"hooks": [{"type": "command", "command": command, "timeout": 10}]}]
-        }
+        # ``UserPromptSubmit`` records the prompts typed into the pane for the
+        # self-building loop (docs/self-build.md); it prints nothing.
+        "hooks": {"SessionStart": hook, "UserPromptSubmit": hook}
     }
     target = _state_dir().parent / "claude_session_hook.settings.json"
     text = json.dumps(settings, indent=2)
@@ -100,6 +101,11 @@ def latest_session(pane_id: str) -> tuple[str, float] | None:
     return session_id, at
 
 
+def prompts_dir() -> Path:
+    """Where the panes' typed-prompt files live (``<pane>.prompts.jsonl``)."""
+    return _state_dir()
+
+
 def forget(pane_id: str) -> None:
     """Drop a closed pane's record."""
     name = "".join(ch for ch in pane_id if ch.isalnum() or ch in "-_")[:80]
@@ -113,4 +119,4 @@ def forget(pane_id: str) -> None:
         logger.debug("Agentic IDE: pane session record not removed: {}", exc)
 
 
-__all__ = ["forget", "latest_session", "launch_wiring", "settings_file"]
+__all__ = ["forget", "latest_session", "launch_wiring", "prompts_dir", "settings_file"]

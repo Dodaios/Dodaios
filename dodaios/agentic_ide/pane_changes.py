@@ -443,6 +443,88 @@ def generated_paths(folder: str | Path, paths: set[str]) -> set[str]:
     return found
 
 
+def _worktree_roots(root: Path) -> list[Path]:
+    """Every checkout of the repository ``root`` belongs to, per ``git worktree list``."""
+    result = _git(["worktree", "list", "--porcelain"], root)
+    if result is None or result.returncode != 0:
+        return []
+    roots: list[Path] = []
+    for line in result.stdout.splitlines():
+        if line.startswith("worktree "):
+            roots.append(Path(line[len("worktree ") :].strip()).resolve(strict=False))
+    return roots
+
+
+def _path_forms(path: Path) -> list[str]:
+    """How a shell command may spell ``path``: ``C:\\a\\b``, ``C:/a/b``, ``/c/a/b``; lowercase."""
+    text = str(path)
+    slashed = text.replace("\\", "/")
+    forms = {text.lower(), slashed.lower()}
+    if len(slashed) > 2 and slashed[1] == ":":
+        forms.add(f"/{slashed[0]}{slashed[2:]}".lower())
+    return sorted(forms)
+
+
+def _inside(path: Path, root: Path) -> bool:
+    return path.is_relative_to(root)
+
+
+def agent_worktrees(
+    folder: str | Path, events: list[dict[str, Any]], record_folder: str | Path | None = None
+) -> list[tuple[str, Path]]:
+    """``(worktree name, folder)`` of the other checkouts the agent worked in, busiest first.
+
+    An agent may start in the shared folder and then do its work in worktrees
+    of its own (``git worktree add``). Its edits and commits then live there,
+    and the shared folder shows none of them. A checkout counts when the
+    agent's editing tools wrote into it or its shell commands name it. Each
+    answer is the worktree's counterpart of ``folder`` (a workspace below the
+    repository root keeps its place).
+    """
+    root = Path(folder).expanduser().resolve(strict=False)
+    _is_repo, prefix, _reason = _repo_prefix(root)
+    trees = _worktree_roots(root)
+    if len(trees) < 2:
+        return []
+    deepest_first = sorted(trees, key=lambda tree: len(tree.parts), reverse=True)
+    here = next((tree for tree in deepest_first if _inside(root, tree)), None)
+    others = [tree for tree in trees if tree != here]
+    base = Path(record_folder or root).expanduser()
+    scores: dict[Path, int] = dict.fromkeys(others, 0)
+    for raw in change_authors.write_spans(events):
+        candidate = Path(raw.strip().strip('"'))
+        if not candidate.is_absolute():
+            candidate = base / candidate
+        candidate = candidate.resolve(strict=False)
+        # The deepest checkout holding the file owns it: a worktree may sit inside the folder.
+        owner = max(
+            (tree for tree in trees if _inside(candidate, tree)),
+            key=lambda tree: len(tree.parts),
+            default=None,
+        )
+        if owner is not None and owner in scores:
+            scores[owner] += 1
+    forms = {tree: _path_forms(tree) for tree in others}
+    for event in events:
+        payload = event.get("payload") or {}
+        if event.get("kind") != "tool_call":
+            continue
+        if not _SHELL_TOOL.search(str(payload.get("name") or "")):
+            continue
+        text = _command_text(payload.get("input")).lower()
+        if not text:
+            continue
+        for tree in others:
+            if any(form in text for form in forms[tree]):
+                scores[tree] += 1
+    found: list[tuple[str, Path]] = []
+    for tree in sorted(others, key=lambda tree: (-scores[tree], str(tree))):
+        target = tree / prefix if prefix else tree
+        if scores[tree] > 0 and target.is_dir():
+            found.append((tree.name, target))
+    return found
+
+
 def pane_work(
     folder: str | Path, events: list[dict[str, Any]], record_folder: str | Path | None = None
 ) -> PaneWork:
@@ -478,6 +560,7 @@ __all__ = [
     "PaneListing",
     "PaneWork",
     "agent_commit_refs",
+    "agent_worktrees",
     "commit_files",
     "generated_paths",
     "pane_changes",

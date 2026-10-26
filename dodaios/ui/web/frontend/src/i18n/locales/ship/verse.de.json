@@ -5,7 +5,8 @@
       "loading": "Deck wird geladen",
       "unavailable": "Das Schiff braucht WebGL, das dieses Fenster gerade nicht starten kann.",
       "deck_missing": "Dieses Deck ist noch nicht gebaut.",
-      "help": "Third Person: WASD oder Pfeiltasten steuern den Kommandanten, Shift läuft schneller, E benutzt die Station in Reichweite. V schaltet in die Vogelperspektive und zurück. Ziehen verschiebt die Ansicht, Scrollen zoomt. Ein Klick auf das Deck schickt dich dorthin, ein Klick auf ein Crewmitglied öffnet seine Akte."
+      "help": "Third Person: WASD oder Pfeiltasten steuern den Kommandanten, Shift läuft schneller, E benutzt die Station in Reichweite. 1, 2 und 3 wählen Vogelperspektive, Third Person oder Ego-Perspektive; V schaltet der Reihe nach durch. Ziehen verschiebt die Ansicht, Scrollen zoomt. Ein Klick auf das Deck schickt dich dorthin, ein Klick auf ein Crewmitglied öffnet seine Akte.",
+      "help_eye": "Third Person und Ego-Perspektive steuern sich wie ein Shooter: Ein Klick in die Ansicht fängt die Maus, Bewegen dreht die Kamera, Esc gibt sie frei. WASD läuft relativ zur Blickrichtung, Shift läuft schneller; die linke Maustaste oder E benutzt, worauf das Fadenkreuz zeigt (ein Crewmitglied, eine Station), sonst benutzt E die Station in Reichweite. Scrollen holt die Kamera näher heran oder weiter weg: ganz heran ist die Ego-Perspektive, wieder herausscrollen kehrt zurück. 1, 2 und 3 wählen Vogelperspektive, Third Person oder Ego-Perspektive; V schaltet der Reihe nach durch. Der Einstellungsknopf in der Werkzeugleiste regelt Mausempfindlichkeit, umgekehrte Achse, Sichtfeld und Qualität."
     },
     "deck": {
       "label": "Deck {n}",
@@ -90,10 +91,32 @@
       "elsewhere": "Woanders an Bord"
     },
     "tools": {
+      "view": "Ansicht",
+      "follow": "Third Person",
       "overview": "Vogelperspektive",
       "lift": "Turbolift",
       "commander": "Kommandant",
-      "help": "Hilfe"
+      "settings": "Ansichtseinstellungen",
+      "help": "Hilfe",
+      "duel": "Duell",
+      "first": "Ego-Perspektive",
+      "first_unavailable": "Die Ego-Perspektive braucht die 3D-Szene dieses Decks auf der großen Bühne.",
+      "click_to_look": "Klicken zum Umsehen"
+    },
+    "settings": {
+      "title": "Ansichtseinstellungen",
+      "sensitivity": "Mausempfindlichkeit",
+      "invert_y": "Vertikale Mausachse umkehren",
+      "quality": "Grafikqualität",
+      "quality_auto": "Automatisch",
+      "quality_high": "Hoch",
+      "quality_low": "Niedrig",
+      "quality_note": "Automatisch startet hoch und senkt die Qualität, wenn die Grafikkarte keine 45 Bilder pro Sekunde schafft.",
+      "quality_now": "Aktuell: {tier}.",
+      "mouse_lock": "In Third Person und Ego-Perspektive fängt ein Klick in die Ansicht die Maus: Bewegen dreht die Kamera, die linke Maustaste benutzt, worauf das Fadenkreuz zeigt. Esc gibt sie frei; L fängt sie oder gibt sie ebenfalls frei.",
+      "reset": "Zurücksetzen",
+      "fov_third": "Sichtfeld, Third Person",
+      "fov_first": "Sichtfeld, Ego-Perspektive"
     },
     "lift": {
       "title": "Turbolift",
@@ -104,8 +127,11 @@
       "mess_nobody": "Gerade hat niemand dienstfrei.",
       "mess_ended": "Die Crew kehrt zu ihrer Routine zurück.",
       "no_team": "An diesem Tisch trifft sich noch kein Team. Lege eins in der Crewliste an.",
-      "view_overview": "Vogelperspektive: WASD verschiebt die Karte. V bringt dich zurück hinter den Kommandanten.",
-      "view_follow": "Third Person: WASD steuert den Kommandanten, E benutzt die Station in Reichweite. V wechselt in die Vogelperspektive."
+      "view_overview": "Vogelperspektive: WASD verschiebt die Karte. 2 oder 3 bringt dich zurück zum Kommandanten.",
+      "view_follow": "Third Person: WASD steuert den Kommandanten, E benutzt die Station in Reichweite. V schaltet durch die Ansichten.",
+      "view_follow_eye": "Third Person: Die Maus richtet den Blick, WASD läuft, das Mausrad zoomt (ganz heran ist die Ego-Perspektive). Esc gibt die Maus frei.",
+      "mouse_look": "Maussteuerung: Bewege die Maus, um die Kamera zu drehen; ein Klick benutzt, worauf das Fadenkreuz zeigt. Esc gibt die Maus wieder frei.",
+      "view_first": "Ego-Perspektive: Die Maus richtet den Blick, WASD läuft, Herausscrollen kehrt zu Third Person zurück. Esc gibt die Maus frei."
     },
     "screen": {
       "standby": "BEREIT",
@@ -130,6 +156,102 @@
     "games": {
       "title": "Simulatorraum",
       "loading": "Simulation wird geladen …"
+    },
+    "duel": {
+      "tool": "Duell",
+      "terminal": "Duell-Terminal",
+      "start": "Duell starten",
+      "title": "Reaktor-Duell",
+      "intro": "Ein Blaster-Duell eins gegen eins im Reaktorschacht gegen einen Kampfbot. Zwei Gewinnrunden entscheiden; du kannst jederzeit aufhören.",
+      "ride": "Der Turbolift bringt dich zuerst hinunter in die Reaktortechnik.",
+      "choose": "Gegner wählen",
+      "difficulty": {
+        "normal": "Normal",
+        "normal_about": "Blaster, Schild und Entlüften kennenlernen.",
+        "hard": "Schwer",
+        "hard_about": "Ein fairer Kampf für gute Spieler.",
+        "elite": "Elite",
+        "elite_about": "Schnell und präzise: pariert, bestraft Fehler, liest dein Ausweichen."
+      },
+      "controls": {
+        "title": "Steuerung",
+        "move": "Bewegen",
+        "sprint": "Sprinten",
+        "fire": "Feuern",
+        "ads": "Über Kimme und Korn zielen",
+        "shield": "Energieschild (halten)",
+        "dodge": "Ausweichrolle",
+        "vent": "Hitze ablassen; nochmal im Fenster: sofort fertig",
+        "pause": "Pause; nochmal: verlassen",
+        "lmb": "Linke Maustaste",
+        "rmb": "Rechte Maustaste",
+        "space": "Leertaste",
+        "shift": "Umschalt",
+        "esc": "Esc"
+      },
+      "hud": {
+        "you": "Du",
+        "bot": "Bot",
+        "round": "Runde {n}",
+        "health": "Gesundheit",
+        "shield": "Schild",
+        "heat": "Hitze",
+        "roll": "Rolle",
+        "ready": "Bereit",
+        "overheated": "Überhitzt",
+        "venting": "Entlüftet",
+        "vent_hint": "R im goldenen Fenster",
+        "shield_down": "Weg {s} s",
+        "parry_ready": "Parade bereit",
+        "parry_locked": "Parade lädt",
+        "surge": "Reaktorschub: Positionen sichtbar",
+        "fight": "Kampf",
+        "click_to_aim": "Klicken zum Zielen",
+        "vent": "Entlüften"
+      },
+      "callout": {
+        "parry": "Pariert",
+        "parried": "Abgewehrt",
+        "perfect_vent": "Perfekt entlüftet",
+        "vent_miss": "Entlüften verpasst",
+        "overheat": "Überhitzt",
+        "shield_break": "Schild zerstört",
+        "deflect": "Abgelenkt"
+      },
+      "round": {
+        "won": "Runde gewonnen",
+        "lost": "Runde verloren",
+        "draw": "Unentschieden",
+        "kill": "K. o.",
+        "time": "Zeit: mehr Gesundheit gewinnt",
+        "trade": "Beide getroffen"
+      },
+      "pause": {
+        "title": "Pause",
+        "resume": "Weiter",
+        "leave": "Duell verlassen",
+        "hint": "Das Match wartet. Nochmal Esc verlässt es."
+      },
+      "result": {
+        "won": "Sieg",
+        "lost": "Niederlage",
+        "draw": "Unentschieden",
+        "cancelled": "Duell beendet",
+        "rounds": "Runden {me} : {them}",
+        "against": "Gegen den Bot ({tier})",
+        "accuracy": "Trefferquote",
+        "damage": "Schaden verursacht",
+        "headshots": "Kopftreffer",
+        "parries": "Paraden",
+        "blocks": "Blocks",
+        "perfect_vents": "Perfekt entlüftet",
+        "rematch": "Revanche",
+        "leave": "Zurück aufs Schiff"
+      },
+      "notice": {
+        "needs_eye": "Duelle brauchen die 3D-Ansicht in der dritten Person.",
+        "left": "Du hast das Duell verlassen."
+      }
     }
   }
 }

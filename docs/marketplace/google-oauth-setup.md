@@ -1,7 +1,8 @@
 # OAuth app setup for the Asana, Gmail, Drive, Calendar and YouTube Music plugins
 
 > **Google: nothing to set up.** Since 2026-10-05 the app ships the project's
-> shared "Personal Jarvis" Google Desktop client for Gmail, Google Drive,
+> shared Google Desktop client, registered as "Personal Jarvis" (the former
+> name of Dodaios), for Gmail, Google Drive,
 > Google Calendar, YouTube Music, YouTube Studio and Google Cloud. Click
 > **Connect**, sign in at Google in the browser, done. Everything below in
 > Part A is the **expert** path for people who want their own Google client.

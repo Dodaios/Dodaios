@@ -6,7 +6,7 @@ registration, no client id and no client secret.
 
 All seven plugins share one public sign-in that ships with Dodaios
 (`SHIPPED_PUBLIC_CLIENT_IDS` in `dodaios/marketplace/publisher_clients.py`).
-The Entra app is named **Personal Jarvis**. It accepts personal Microsoft
+The Entra app is named **Personal Jarvis**, the former name of Dodaios. It accepts personal Microsoft
 accounts and work or school accounts, uses Authorization Code + PKCE, and
 has no client secret. The only redirect address is
 `http://127.0.0.1:43891/oauth/callback`.
