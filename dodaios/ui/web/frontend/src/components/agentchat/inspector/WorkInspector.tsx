@@ -11,7 +11,7 @@ import { ChatMarkdown } from "../ChatMarkdown";
 import type { SubagentStatus, ToolBlock, TurnItem } from "../reduce";
 import { toolDiff } from "../toolDiff";
 import { CallMark } from "../TraceTimeline";
-import { readableOutput, traceDuration } from "../traceEntries";
+import { plural, readableOutput, traceDuration } from "../traceEntries";
 import { formatTokens, outputTokens } from "../toolView";
 import { inspectorRows, rowCounts, type InspectorRow } from "./inspectorRows";
 import { clampWidth, INSPECTOR_MAX, INSPECTOR_MIN } from "./inspectorWidth";
@@ -83,6 +83,18 @@ export const WorkInspector = memo(function WorkInspector({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+  // Declared first, so it sees the opener before the pane takes focus.
+  // Closing hands focus back to what opened the pane (the "show work" line),
+  // when focus was still in the pane and would otherwise drop to the page.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const node = pane.current;
+    return () => {
+      const focus = document.activeElement;
+      const lost = !focus || focus === document.body || Boolean(node && node.contains(focus));
+      if (lost && opener && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
   // Opening moves focus into the pane, so the keyboard can read it at once.
   useEffect(() => {
     pane.current?.focus({ preventScroll: true });
@@ -113,7 +125,8 @@ export const WorkInspector = memo(function WorkInspector({
       </button>
     </header>
     {helpers.length > 0 ? <InspectorTabs agentName={agentName} turn={turn} helpers={helpers} tab={tab} onTab={setTab} /> : null}
-    <TracePanel key={tab} turn={turn} entry={active} prompt={active ? undefined : prompt} onOpenHelper={setTab} />
+    <TracePanel key={tab} turn={turn} entry={active} prompt={active ? undefined : prompt} onOpenHelper={setTab}
+      label={active ? active.title : agentName} />
   </aside>;
 });
 
@@ -181,8 +194,10 @@ function InspectorTabs({ agentName, turn, helpers, tab, onTab }: {
   </div>;
 }
 
-function TracePanel({ turn, entry, prompt, onOpenHelper }: {
+function TracePanel({ turn, entry, prompt, onOpenHelper, label }: {
   turn: TurnItem; entry: SubagentEntry | null; prompt?: string; onOpenHelper: (id: string) => void;
+  /** Whose trace this is, for the panel's accessible name. */
+  label: string;
 }) {
   const t = useT();
   const lang = t("trace_report.locale");
@@ -201,11 +216,11 @@ function TracePanel({ turn, entry, prompt, onOpenHelper }: {
   const { rootRef, contentRef, follow } = useStickToBottom();
   useEffect(follow, [follow, rows.length]);
   const lead = [
-    counts.steps ? fill(t(`run_view.work.steps_${counts.steps === 1 ? "one" : "other"}`), { count: counts.steps }) : "",
-    counts.thoughts ? fill(t(`run_view.inspector.thoughts_${counts.thoughts === 1 ? "one" : "other"}`), { count: counts.thoughts }) : "",
+    counts.steps ? fill(t(`run_view.work.steps_${plural(lang, counts.steps)}`), { count: counts.steps }) : "",
+    counts.thoughts ? fill(t(`run_view.inspector.thoughts_${plural(lang, counts.thoughts)}`), { count: counts.thoughts }) : "",
     counts.failed ? fill(t("run_view.inspector.failed"), { count: counts.failed }) : "",
   ].filter(Boolean).join(" · ");
-  return <div className="wi-body" role="tabpanel">
+  return <div className="wi-body" role="tabpanel" aria-label={label}>
     <div className="wi-toolbar">
       <span className="min-w-0 truncate">{lead}</span>
       {rows.length > 0 ? <button type="button" className="wi-text-btn" onClick={() => setOpen(allOpen ? new Set() : new Set(rows.map((row) => row.id)))}>

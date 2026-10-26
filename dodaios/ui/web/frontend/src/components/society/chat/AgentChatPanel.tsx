@@ -828,7 +828,9 @@ export function Transcript({
             return (
               <div key={item.id} data-chat-item={item.id} className="flex flex-col gap-2">
                 {stamp ? <TranscriptStamp ms={stamp} /> : null}
-                {live ? <SettleBox active>{body}</SettleBox> : body}
+                {/* A turn always sits in its settle box, so finishing (or a
+                    notice arriving after it) never remounts it mid-flight. */}
+                {item.type === "turn" ? <SettleBox active={live}>{body}</SettleBox> : body}
               </div>
             );
           })}
