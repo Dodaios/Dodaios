@@ -9,26 +9,26 @@ The whole thing is built in-house (MASTERPLAN §10.7).
 
 ---
 
-## 1. Grok Bot, analyzed (docs.x.ai, 2026-09-01)
+## 1. The named-teammate bot pattern, analyzed (2026-09-01)
 
-What xAI ships, in one table, with our verdict per row.
+What a named-teammate bot product typically ships, in one table, with our verdict per row.
 
-| Grok Bot | What it means | Ours |
+| Pattern | What it means | Ours |
 |---|---|---|
 | A Bot = one persistent, named teammate with **name, title, description**; the description holds *durable operating rules*, the chat holds one-off instructions | Three fields, no wizard. "Focused Bots build more useful context than one catch-all Bot." | **Adopt** exactly: `name`, `title` (job line), `description` (standing instructions = the agent's own AGENTS.md). |
-| Bots **message each other**, share context in threads / group chats, `@mention`, **pass ownership**; xAI recommends "message one owner Bot" rather than parallel threads | Coordinator-over-specialists; noisy group chats are a known failure ("repeat each other, start unnecessary loops") | **Adopt the shape, harden the mechanism:** owner = our `orchestrator` tier; typed envelopes instead of prose; rooms capped 2–6 / ≤3 rounds / ≤10 messages. |
+| Bots **message each other**, share context in threads / group chats, `@mention`, **pass ownership**; the guidance is "message one owner Bot" rather than parallel threads | Coordinator-over-specialists; noisy group chats are a known failure ("repeat each other, start unnecessary loops") | **Adopt the shape, harden the mechanism:** owner = our `orchestrator` tier; typed envelopes instead of prose; rooms capped 2–6 / ≤3 rounds / ≤10 messages. |
 | A **handoff** records: output path, what was completed, evidence used, what remains unresolved, which Bot owns the next step | The one durable coordination artifact | **Adopt as the `RESULT` payload schema** (§4.3). |
-| **Skills** = reusable procedure (steps, decision rules, expected output, safety boundaries), invoked with `/`, created from chat, manually, or by *teaching* (recorded browser demo → draft skill) | Their self-improvement loop | We already have `SKILL.md` skills with `draft` lifecycle (AP-15), `/` typeahead, `create-skill` + `run-skill`. **Adopt** per-agent skill enablement; teach-by-demo = M6 stretch. |
+| **Skills** = reusable procedure (steps, decision rules, expected output, safety boundaries), invoked with `/`, created from chat, manually, or by *teaching* (recorded browser demo → draft skill) | The self-improvement loop | We already have `SKILL.md` skills with `draft` lifecycle (AP-15), `/` typeahead, `create-skill` + `run-skill`. **Adopt** per-agent skill enablement; teach-by-demo = M6 stretch. |
 | **Routines** = one Bot + schedule or event trigger; results post into the Bot's chat; 50 per Bot, 20 run records kept; "test the skill on a real one-time task first" | Automations | Our Automations scheduler already does schedules, event triggers, approvals. **Adopt** `[agent:<name>]` routines with results into the canonical chat. |
 | **Connectors / Plugins / MCP servers** are account-wide ("not isolated to one Bot"); prefer a connector over clicking through a website | Capability surface is shared, bots differ by role | **Adopt with a twist:** the capability catalog is global, but each agent has a *grant* (all / allow-list) and a *focus* (§3.2). |
 | One **shared cloud computer** per account; every Bot has its own screen; "do not use separate Bots as a security boundary" | Cheap handoff via shared files/logins | **Do differently:** local-first. Files = the agent's workspace dir; screens = `agent_screen` leases (M6); security boundary = the risk tiers + per-agent grant, not the bot. |
 | **Memory**: stable preferences, role context, summaries of prior work; "context and memory are not the same as a database"; durable work goes to `/workspace` or external systems | Memory is per bot, sharing is by files/messages | **Do differently:** the Obsidian wiki is the shared memory (§5); per-agent memory is a wiki page, not a hidden store. |
 | **Approvals**: Auto-review rules `Require Approval` (always stop) vs `Always Allow` (only if nothing else objects); Require wins; high-risk classes: sending, publishing, purchases, deleting, permissions, production changes, legal terms; "Allow once / Deny"; approval binds to the exact action | Model-based review complementing least privilege | We have `safe / monitor / ask / block` with blacklist > whitelist. **Adopt** per-agent *Require-approval rules* on top of the ceiling (§3.4) and the "binds to the exact action" wording. |
-| **No model picker**, no local models, cloud only, Linux desktop unsupported | Their biggest gap | **Our edge:** provider + model + effort per agent from the existing catalog, local models included, every OS. |
+| **No model picker**, no local models, cloud only, Linux desktop unsupported | The pattern's biggest gap | **Our edge:** provider + model + effort per agent from the existing catalog, local models included, every OS. |
 | 50 Bots + group chats per account; duplicate a Bot copies profile/skills/routines but not memory; hide ≠ pause; share = config only, "strip secrets" | Housekeeping rules | **Adopt** duplicate/hide/archive semantics; sharing = M6 marketplace item with the same "no secrets" rule. |
 | First run: asks which tools you use, then suggests teammates ("Piper — product performance investigator") | Onboarding by tool inventory | **Adopt:** seed agents proposed from *connected* capabilities (a Gmail agent only if the Gmail plugin is connected). |
 
-Net: Grok Bot's product shape is the right floor. What we add is per-agent models, local-first,
+Net: this product shape is the right floor. What we add is per-agent models, local-first,
 structural safety, the wiki as shared memory, and the world.
 
 ---
@@ -71,8 +71,8 @@ card; nothing hidden drives behavior.
   runner it resolves to on this box (`subscription: true|false`) and the accounts stored for
   its CLI; models, efforts and permission ladders come from
   `GET /api/agent-chat/catalog?surface=society`.
-- **The creator lists only connected seats** (maintainer, 2026-09-02, after Grok Bot's "New
-  Bot" sheet): the catalog joined with the Agents tab's credential truth (the same
+- **The creator lists only connected seats** (maintainer, 2026-09-02): the
+  catalog joined with the Agents tab's credential truth (the same
   `joinProviderOptions` join the chat's composer uses), grouped subscription → API key → local,
   with a login picker only when a CLI has more than one signed-in account, the model (a keyed
   row's live list, Ollama's installed models) and the effort. A provider that is not connected

@@ -23,26 +23,26 @@ describe("cron forms", () => {
     ["*/15 * * * *", "Every 15 minutes"],
     ["0/10 * * * *", "Every 10 minutes"],
     ["0 * * * *", "Every hour"],
-    ["30 * * * *", "Every hour at :30"],
+    ["30 * * * *", "Hourly at :30"],
     ["0 */2 * * *", "Every 2 hours"],
     ["15 */6 * * *", "Every 6 hours at :15"],
-    ["0 8 * * *", "Every day at 08:00"],
+    ["0 8 * * *", "Daily at 08:00"],
     ["30 7 * * 1-5", "Weekdays at 07:30"],
     ["0 10 * * 6,0", "Weekends at 10:00"],
     ["0 10 * * SAT,SUN", "Weekends at 10:00"],
-    ["0 9 * * 1", "Every Monday at 09:00"],
-    ["0 9 * * 1,3,5", "Every Monday, Wednesday and Friday at 09:00"],
-    ["0 9 * * 7", "Every Sunday at 09:00"],
-    ["0 9 * * 5-7", "Every Friday, Saturday and Sunday at 09:00"],
-    ["0 9 * * 0-6", "Every day at 09:00"],
+    ["0 9 * * 1", "Weekly on Monday at 09:00"],
+    ["0 9 * * 1,3,5", "Weekly on Monday, Wednesday and Friday at 09:00"],
+    ["0 9 * * 7", "Weekly on Sunday at 09:00"],
+    ["0 9 * * 5-7", "Weekly on Friday, Saturday and Sunday at 09:00"],
+    ["0 9 * * 0-6", "Daily at 09:00"],
     ["*/30 * * * 1-7", "Every 30 minutes"],
-    ["0 8,18 * * *", "Every day at 08:00 and 18:00"],
+    ["0 8,18 * * *", "Daily at 08:00 and 18:00"],
     ["0 9 1 * *", "Monthly on day 1 at 09:00"],
     ["0 9 1,15 * *", "Monthly on day 1 and 15 at 09:00"],
-    ["0 9 1 1 *", "Every year on 1 January at 09:00"],
-    ["0 9 * 6-8 *", "Every day at 09:00, only in June, July and August"],
+    ["0 9 1 1 *", "Yearly on 1 January at 09:00"],
+    ["0 9 * 6-8 *", "Daily at 09:00, only in June, July and August"],
     ["*/30 * * * 1-5", "Every 30 minutes on weekdays"],
-    ["@daily", "Every day at 00:00"],
+    ["@daily", "Daily at 00:00"],
     ["@hourly", "Every hour"],
   ])("%s", (expression, sentence) => {
     expect(say({ type: "cron", expression, timezone: "Europe/Berlin" })).toBe(sentence);
@@ -66,30 +66,30 @@ describe("cron forms", () => {
 describe("time zones", () => {
   test("a clock time moves into the reader's zone and names the routine's own", () => {
     expect(say({ type: "calendar", local_time: "08:00", timezone: "America/New_York" }))
-      .toBe("Every day at 14:00 · 08:00 in New York");
+      .toBe("Daily at 14:00 · 08:00 in New York");
   });
 
   test("weekdays shift with a time that crosses midnight", () => {
     // Monday 22:00 in New York is Tuesday 04:00 in Berlin.
     expect(say({ type: "cron", expression: "0 22 * * 1", timezone: "America/New_York" }))
-      .toBe("Every Tuesday at 04:00 · 22:00 in New York");
+      .toBe("Weekly on Tuesday at 04:00 · 22:00 in New York");
   });
 
   test("daylight saving time is read on the day, not assumed", () => {
     const options = { viewerZone: "UTC" };
-    expect(say({ type: "calendar", local_time: "08:00", timezone: "Europe/Berlin" }, { ...options, now: WINTER })).toBe("Every day at 07:00 · 08:00 in Berlin");
-    expect(say({ type: "calendar", local_time: "08:00", timezone: "Europe/Berlin" }, { ...options, now: SUMMER })).toBe("Every day at 06:00 · 08:00 in Berlin");
+    expect(say({ type: "calendar", local_time: "08:00", timezone: "Europe/Berlin" }, { ...options, now: WINTER })).toBe("Daily at 07:00 · 08:00 in Berlin");
+    expect(say({ type: "calendar", local_time: "08:00", timezone: "Europe/Berlin" }, { ...options, now: SUMMER })).toBe("Daily at 06:00 · 08:00 in Berlin");
   });
 
   test("half-hour zones and month days that would change date keep the routine's zone", () => {
-    expect(say({ type: "calendar", local_time: "08:00", timezone: "Asia/Kolkata" })).toBe("Every day at 03:30 · 08:00 in Kolkata");
+    expect(say({ type: "calendar", local_time: "08:00", timezone: "Asia/Kolkata" })).toBe("Daily at 03:30 · 08:00 in Kolkata");
     expect(say({ type: "calendar", local_time: "03:00", timezone: "Asia/Tokyo", month_days: [1] }))
       .toBe("Monthly on day 1 at 03:00 (Tokyo time)");
   });
 
   test("the same zone reads without any suffix; an unknown zone is named", () => {
-    expect(say({ type: "calendar", local_time: "08:00", timezone: "Europe/Berlin", weekdays: [0, 2] })).toBe("Every Monday and Wednesday at 08:00");
-    expect(say({ type: "calendar", local_time: "08:00", timezone: "Mars/Olympus" })).toBe("Every day at 08:00 (Olympus time)");
+    expect(say({ type: "calendar", local_time: "08:00", timezone: "Europe/Berlin", weekdays: [0, 2] })).toBe("Weekly on Monday and Wednesday at 08:00");
+    expect(say({ type: "calendar", local_time: "08:00", timezone: "Mars/Olympus" })).toBe("Daily at 08:00 (Olympus time)");
     expect(zoneOffsetMinutes("Mars/Olympus", WINTER)).toBeNull();
     expect(zoneOffsetMinutes("Asia/Kolkata", WINTER)).toBe(330);
   });
@@ -116,7 +116,7 @@ describe("other triggers", () => {
   });
 
   test("an anchored daily interval reads its clock time in the reader's zone", () => {
-    expect(say({ type: "every", interval_seconds: 86400, start_at: "2026-01-10T07:00:00Z" })).toBe("Every day at 08:00");
+    expect(say({ type: "every", interval_seconds: 86400, start_at: "2026-01-10T07:00:00Z" })).toBe("Daily at 08:00");
   });
 
   test("a one-time run names its moment", () => {
@@ -141,6 +141,6 @@ describe("other triggers", () => {
 test("other languages read naturally, with their own weekday names", () => {
   const options = { ...inBerlin, t: translator(de), locale: "de-DE" };
   expect(humanSchedule({ type: "cron", expression: "30 7 * * 1-5", timezone: "Europe/Berlin" }, options)).toBe("Werktags um 07:30");
-  expect(humanSchedule({ type: "cron", expression: "0 9 * * 1,3", timezone: "Europe/Berlin" }, options)).toBe("Jeden Montag und Mittwoch um 09:00");
+  expect(humanSchedule({ type: "cron", expression: "0 9 * * 1,3", timezone: "Europe/Berlin" }, options)).toBe("Wöchentlich am Montag und Mittwoch um 09:00"); // i18n-allow: German locale fixture
   expect(humanSchedule({ type: "every", interval_seconds: 900 }, options)).toBe("Alle 15 Minuten");
 });

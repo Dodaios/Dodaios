@@ -52,9 +52,10 @@ _ALLOWED_PATHS: tuple[str, ...] = (
 )
 
 # Product names are matched case-sensitively, so "a linear fade", "the cursor"
-# or "an arc" never count; the verbs around them ignore case.
+# or "an arc" never count; the verbs around them ignore case. "Fabrikam" is a
+# made-up product the tests use, so a fixture never has to name a real one.
 _PRODUCTS = (
-    r"ShareX|CleanShot(?: X)?|Raycast|Alfred|Spotlight|Grok(?: Bot)?"
+    r"ShareX|CleanShot(?: X)?|Raycast|Alfred|Spotlight|Grok|Fabrikam"
     r"|Hermes(?: Agent| Bot| Desktop)?|Nous Research|Codex(?: app| desktop)?"
     r"|Claude(?: app| desktop)?|ChatGPT(?: app)?|Cursor"
     r"|Linear|Notion|Cowork|Superhuman|a dictation app(?: Flow)?|a dictation app|Granola|Arc|Warp"

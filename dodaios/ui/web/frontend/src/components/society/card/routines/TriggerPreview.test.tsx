@@ -18,7 +18,7 @@ test("the trigger editor reads the schedule back as a sentence while typing", ()
   render(<QueryClientProvider client={new QueryClient()}>
     <TriggerBuilder timeOnly initialValue={{ type: "cron", expression: "0 9 * * 1", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }} onChange={() => {}} />
   </QueryClientProvider>);
-  expect(screen.getByTestId("trigger-preview").textContent).toMatch(/^Every Monday at 09:00/);
+  expect(screen.getByTestId("trigger-preview").textContent).toMatch(/^Weekly on Monday at 09:00/);
   fireEvent.change(screen.getByDisplayValue("0 9 * * 1"), { target: { value: "*/15 * * * *" } });
   expect(screen.getByTestId("trigger-preview").textContent).toBe("Every 15 minutes");
 });
