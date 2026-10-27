@@ -95,7 +95,9 @@ export function useCreateSeat() {
   const needsProvider = external && !option;
   // The seats are still being read: creating now would leave the provider to
   // the backend's last chat seat, which may be billed per use.
-  const seatsPending = !option && (menu.loading || (external && runtimes.isLoading));
+  // The runtimes answer which ways of paying work (a plan or only a key), so
+  // the default waits for them on every runtime.
+  const seatsPending = (!option && menu.loading) || runtimes.isLoading;
   const accountBlocked = Boolean(account && accountProvider === option?.seat.provider.id
     && (accountValue !== account || menu.loading || menu.failed));
   const selectedModelsFailed = Boolean(option && menu.modelErrors?.includes(option.seat.provider.id));

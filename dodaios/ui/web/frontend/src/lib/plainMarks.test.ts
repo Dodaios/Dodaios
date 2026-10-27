@@ -8,11 +8,12 @@ describe("stripInlineMarks", () => {
     expect(stripInlineMarks("Wrote qa_note.txt")).toBe("Wrote qa_note.txt");
     expect(stripInlineMarks("call tool_search then my_long_name")).toBe("call tool_search then my_long_name");
     expect(stripInlineMarks("2*3*4")).toBe("2*3*4");
+    expect(stripInlineMarks("Edited __init__.py, then ran __main__")).toBe("Edited __init__.py, then ran __main__");
   });
 
   it("takes off emphasis, code ticks and strike marks", () => {
     expect(stripInlineMarks("**Done** with `qa_note.txt`, _really_ ~~not~~ *yet*")).toBe("Done with qa_note.txt, really not yet");
-    expect(stripInlineMarks("__bold__ and **qa_note.txt**")).toBe("bold and qa_note.txt");
+    expect(stripInlineMarks("__very bold__ and **qa_note.txt**")).toBe("very bold and qa_note.txt");
   });
 });
 
