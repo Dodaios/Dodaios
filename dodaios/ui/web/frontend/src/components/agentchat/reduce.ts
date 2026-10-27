@@ -1312,7 +1312,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             ? (p.usage as Record<string, unknown>)
             : turn.liveUsage,
         costUsd: num(p.cost_usd),
-        error: str(p.error, "") || null,
+        // A runtime's own error event earlier in the turn stays its reason
+        // when the end of the turn names none.
+        error: str(p.error, "") || turn.error || null,
         ...(Array.isArray(p.background) && p.background.length > 0
           ? { background: (p.background as unknown[]).map((name) => str(name)) }
           : {}),

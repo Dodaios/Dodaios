@@ -24,6 +24,7 @@
 import { fill } from "@/i18n";
 import { MCP_TOOLS_SERVER_NAMES } from "@/lib/branding";
 import { cliVendor } from "@/lib/cliVendors";
+import { stripInlineMarks } from "@/lib/plainMarks";
 import { resolveToolBrand } from "@/lib/toolBrand";
 import { describeToolStep } from "@/lib/toolStepLabel";
 import { isCredentialTool, isQuestionTool, type ReasoningBlock, type TextBlock, type ToolBlock, type TurnBlock, type TurnStatus } from "./reduce";
@@ -127,8 +128,14 @@ function oneLine(text: string, max: number): string {
 }
 
 function inputRecord(block: ToolBlock): Record<string, unknown> {
-  return block.input && typeof block.input === "object" && !Array.isArray(block.input)
+  const record = block.input && typeof block.input === "object" && !Array.isArray(block.input)
     ? block.input as Record<string, unknown> : {};
+  // A runtime's permission request nests the tool's own arguments
+  // ({ tool: "write_file", arguments: { path } }): those are what it acts on.
+  const nested = record.arguments;
+  return nested && typeof nested === "object" && !Array.isArray(nested)
+    ? { ...(nested as Record<string, unknown>), ...record }
+    : record;
 }
 
 function firstString(record: Record<string, unknown>, keys: string[]): string {
@@ -143,6 +150,22 @@ function firstString(record: Record<string, unknown>, keys: string[]): string {
 export function shortPath(path: string): string {
   const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
   return parts.length > 3 ? `…/${parts.slice(-3).join("/")}` : path;
+}
+
+/** A bare tool identifier ("write_file", "tool_search"), not a file or a sentence. */
+export function isIdentifier(text: string): boolean {
+  return /^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)+$/i.test(text.trim());
+}
+
+/**
+ * What a call's output says, without a runtime's own receipt words: a first
+ * line that only names the tool ("tool_search result", "✅ patch completed")
+ * and a bare "done" or "failed" stand-in for no output at all.
+ */
+export function outputGist(output: string): string {
+  const text = output.trim();
+  if (/^(?:done|failed)$/i.test(text)) return "";
+  return text.replace(/^(?:✅\s*)?[\w.:-]+ (?:result|completed)\s*(?:\r?\n|$)/i, "").trim();
 }
 
 /** Plumbing calls draw nothing: loading a tool's schema, polling a question card. */
@@ -238,7 +261,7 @@ const GIST_KEYS = ["summary", "message", "result", "status", "title", "answer", 
 
 /** A terse result: a count, the tool's own message, or its first line. */
 function terseResult(block: ToolBlock, t: Translate, lang: string): string {
-  const text = readableOutput(block).trim();
+  const text = outputGist(readableOutput(block));
   if (!text) return "";
   if (text.startsWith("{") || text.startsWith("[")) {
     let parsed: unknown;
@@ -265,7 +288,9 @@ function terseResult(block: ToolBlock, t: Translate, lang: string): string {
     const gist = new RegExp(`["'](?:${GIST_KEYS.join("|")})["']\\s*:\\s*["']([^"']{2,})["']`).exec(top);
     return gist ? oneLine(gist[1], 120) : "";
   }
-  return oneLine(text.split(/\r?\n/).find((line) => line.trim()) ?? "", 120);
+  // A runtime's receipt is Markdown ("- **count:** 3"): its words, not its marks.
+  const first = text.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  return oneLine(stripInlineMarks(first.replace(/^\s*(?:[-*+]|#+)\s+/, "")), 120);
 }
 
 function diffSize(block: ToolBlock): { added: number; removed: number } {
@@ -427,8 +452,10 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
     return { ...base, kind: "search", text, bucket: "search" };
   }
   if (action === "edit" || action === "write") {
-    const path = shortPath(firstString(record, ACTION_KEYS[action]) || description.detail);
-    return { ...base, ...diffSize(block), kind: action, text: tr(t, `call.${action}`, { target: path }), bucket: action };
+    // A runtime that names only its tool ("write_file") never makes that the file.
+    const named = firstString(record, ACTION_KEYS[action]) || (isIdentifier(description.detail) ? "" : description.detail);
+    const text = named ? tr(t, `call.${action}`, { target: shortPath(named) }) : capitalize(tr(t, `act.${action}_one`));
+    return { ...base, ...diffSize(block), kind: action, text, bucket: action };
   }
   const family = description.family;
   const result = status === "done" ? terseResult(block, t, lang) : "";
