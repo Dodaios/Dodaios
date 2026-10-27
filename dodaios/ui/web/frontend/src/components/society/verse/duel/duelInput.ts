@@ -13,6 +13,7 @@
  * | Space        | dodge roll (in the move direction)        |
  * | R            | vent; again inside the window: perfect    |
  * | 2, 3, V      | over the shoulder / through the eyes      |
+ * | Wheel        | in: through the eyes; out: the shoulder   |
  * | Esc          | pause (pointer released); again: leave    |
  *
  * Presses (dodge, vent) are latched until the next `control()` call reads
@@ -85,6 +86,20 @@ export class DuelInput {
     else if (button === 2) this.ads = false;
   }
 
+  /**
+   * The mouse buttons held right now, as a pointer event's `buttons` mask
+   * (1 left, 2 right). Browsers send `pointerdown` only for the first button
+   * of a chord and `pointerup` only for the last; a second button arrives as
+   * a `pointermove` with a changed mask, so the mask is the truth. `presses`
+   * false applies only releases (a move from outside the surface).
+   */
+  mouseButtons(buttons: number, presses = true): void {
+    const fire = (buttons & 1) !== 0;
+    const ads = (buttons & 2) !== 0;
+    if (presses || !fire) this.fire = fire;
+    if (presses || !ads) this.ads = ads;
+  }
+
   /** Everything let go (the window lost focus, the match paused). Latched presses go too. */
   clear(): void {
     this.held.clear();
@@ -140,6 +155,8 @@ export interface DuelInputCallbacks {
   live: () => boolean;
   /** A key that may switch the view (third / first person); returns whether it did. */
   view?: (code: string) => boolean;
+  /** The wheel turned while the match runs: in (true) goes through the eyes, out (false) back over the shoulder. */
+  zoom?: (inward: boolean) => void;
 }
 
 /**
@@ -182,12 +199,18 @@ export function attachDuelInput(el: HTMLElement, input: DuelInput, cb: DuelInput
     if (e.pointerType !== "mouse") return;
     if (!cb.live()) return;
     if (!locked()) cb.relock();
-    input.mouseDown(e.button);
+    input.mouseButtons(e.buttons);
     e.preventDefault();
+  };
+  // A second button pressed (or one let go) while another is held comes only as a pointermove with a new mask.
+  const chord = (e: PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    const onSurface = locked() || el.contains(e.target as Node);
+    input.mouseButtons(e.buttons, onSurface && cb.live());
   };
   const up = (e: PointerEvent) => {
     if (e.pointerType !== "mouse") return;
-    input.mouseUp(e.button);
+    input.mouseButtons(e.buttons, false);
   };
   // Mouse movement anywhere turns the aim while the pointer is locked to the surface; unlocked, over the surface only.
   const move = (e: MouseEvent) => {
@@ -196,11 +219,19 @@ export function attachDuelInput(el: HTMLElement, input: DuelInput, cb: DuelInput
     cb.look(e.movementX || 0, e.movementY || 0);
   };
   const menu = (e: Event) => e.preventDefault();
+  const wheel = (e: WheelEvent) => {
+    e.preventDefault();
+    if (!cb.live() || e.deltaY === 0 || e.ctrlKey) return;
+    cb.zoom?.(e.deltaY < 0);
+  };
+  el.addEventListener("wheel", wheel, { passive: false });
   window.addEventListener("keydown", keyDown, true);
   window.addEventListener("keyup", keyUp, true);
   window.addEventListener("blur", blur);
   el.addEventListener("pointerdown", down);
+  window.addEventListener("pointermove", chord);
   window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
   document.addEventListener("mousemove", move);
   el.addEventListener("contextmenu", menu);
   return () => {
@@ -208,9 +239,12 @@ export function attachDuelInput(el: HTMLElement, input: DuelInput, cb: DuelInput
     window.removeEventListener("keyup", keyUp, true);
     window.removeEventListener("blur", blur);
     el.removeEventListener("pointerdown", down);
+    window.removeEventListener("pointermove", chord);
     window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
     document.removeEventListener("mousemove", move);
     el.removeEventListener("contextmenu", menu);
+    el.removeEventListener("wheel", wheel);
     input.clear();
   };
 }

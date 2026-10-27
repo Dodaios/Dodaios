@@ -61,12 +61,18 @@ export function attachOrbitInput(el: HTMLElement, rig: ShoulderRig, cb: OrbitCal
   const zoom = (factor: number) => { if (cb.zoom) cb.zoom(factor); else rig.zoom(factor); };
   let lockedHoverAt = -Infinity;
 
+  // Mouse buttons held (a pointer event's `buttons` mask). A button pressed while another is held sends no
+  // pointerdown, only a pointermove with a new mask, so the left button is watched there too.
+  let buttons = 0;
+  const aimAtCentre = () => {
+    const c = centre();
+    (cb.aim ?? cb.tap)(c.x, c.y);
+  };
+
   const onDown = (e: PointerEvent) => {
+    if (e.pointerType === "mouse") buttons = e.buttons;
     if (locked()) {
-      if (e.button === 0) {
-        const c = centre();
-        (cb.aim ?? cb.tap)(c.x, c.y);
-      }
+      if (e.button === 0) aimAtCentre();
       return;
     }
     const mouse = e.pointerType === "mouse";
@@ -82,7 +88,10 @@ export function attachOrbitInput(el: HTMLElement, rig: ShoulderRig, cb: OrbitCal
   };
 
   const onMove = (e: PointerEvent) => {
+    const chordLeft = e.pointerType === "mouse" && (e.buttons & 1) !== 0 && (buttons & 1) === 0 && buttons !== 0;
+    if (e.pointerType === "mouse") buttons = e.buttons;
     if (locked()) {
+      if (chordLeft) aimAtCentre();
       rig.look(e.movementX || 0, e.movementY || 0, true);
       const now = performance.now();
       if (now - lockedHoverAt >= LOCKED_HOVER_MS) {
@@ -117,6 +126,7 @@ export function attachOrbitInput(el: HTMLElement, rig: ShoulderRig, cb: OrbitCal
   };
 
   const onUp = (e: PointerEvent) => {
+    if (e.pointerType === "mouse") buttons = e.buttons;
     const press = presses.get(e.pointerId);
     if (!press) return;
     presses.delete(e.pointerId);
@@ -145,7 +155,11 @@ export function attachOrbitInput(el: HTMLElement, rig: ShoulderRig, cb: OrbitCal
   el.addEventListener("pointercancel", onUp);
   el.addEventListener("pointerleave", onLeave);
   el.addEventListener("wheel", onWheel, { passive: false });
+  // With the mouse taken, the right button never opens a menu over the view.
+  const onMenu = (e: Event) => { if (locked()) e.preventDefault(); };
+  el.addEventListener("contextmenu", onMenu);
   return () => {
+    el.removeEventListener("contextmenu", onMenu);
     el.removeEventListener("pointerdown", onDown);
     el.removeEventListener("pointermove", onMove);
     el.removeEventListener("pointerup", onUp);

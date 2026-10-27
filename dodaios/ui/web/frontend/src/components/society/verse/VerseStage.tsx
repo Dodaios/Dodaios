@@ -577,6 +577,11 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
           keyActions.current.showView(next);
           return true;
         },
+        // The wheel hands over too, as it does outside a match; firing never depends on the view.
+        zoom: (inward) => {
+          const next = inward ? "first" : "third";
+          if (viewRef.current !== next) keyActions.current.showView(next);
+        },
       });
     }
     // Third and first person: shooter mouse look (a click takes the mouse), the wheel zooms and hands over between them.

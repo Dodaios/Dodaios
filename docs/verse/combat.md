@@ -745,7 +745,14 @@ stands in the line of fire.
 | Space | dodge roll in the move direction |
 | R | vent; again inside the gold window: perfect vent |
 | 2 / 3, V | fight over the shoulder / through the eyes (V toggles); the bird's-eye view waits for the match's end |
+| Wheel | in: through the eyes; out: back over the shoulder |
 | Esc | pause; again: leave |
+
+The buttons are read from the pointer events' `buttons` mask, not from `pointerdown` /
+`pointerup` alone: a browser sends `pointerdown` only for the first button of
+a chord and `pointerup` only for the last, so the left button pressed while
+the right holds the sights arrives as a `pointermove`. Fire and sights work in
+either order, in both persons.
 
 Presses are latched until the next frame reads them. Keys the duel uses never
 reach the stage's handlers. A click while the pointer is not locked locks it
