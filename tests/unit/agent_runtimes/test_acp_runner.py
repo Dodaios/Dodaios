@@ -56,6 +56,7 @@ def _turn(
     released: list[int] | None = None,
     cancel_on_delta: bool = False,
     provider_failure: Any = None,
+    failure_probe: Any = None,
 ) -> tuple[str | None, list[dict[str, Any]], list[tuple[str, str]], list[str | None]]:
     resumes: list[str | None] = []
 
@@ -81,6 +82,7 @@ def _turn(
             ),
             after_turn=(lambda: released.append(1)) if released is not None else None,
             provider_failure=provider_failure,
+            failure_probe=failure_probe,
         )
 
     monkeypatch.setattr(runner_acp, "plan_runtime_turn", fake_plan)
@@ -585,6 +587,48 @@ def test_a_silent_turn_without_a_gateway_failure_stays_done(monkeypatch, tmp_pat
     from concurrent.futures import Future
 
     events = _turn(monkeypatch, tmp_path, "SILENT", provider_failure=Future())[1]
+    assert _finished(events)["status"] == "done"
+
+
+def test_a_silent_turn_the_runtime_logged_as_failed_is_an_error_with_its_reason(
+    monkeypatch, tmp_path
+):
+    """OpenClaw ends a run that failed inside its Gateway (a context overflow it
+    could not compact away) like a finished one; its own log says why."""
+    from concurrent.futures import Future
+
+    from dodaios.agent_runtimes.openclaw import CONTEXT_FULL_REASON
+
+    asked: list[float] = []
+
+    def probe(since: float) -> str:
+        asked.append(since)
+        return CONTEXT_FULL_REASON
+
+    events = _turn(
+        monkeypatch, tmp_path, "SILENT", provider_failure=Future(), failure_probe=probe
+    )[1]
+    finished = _finished(events)
+    assert (finished["status"], finished["error"]) == ("error", CONTEXT_FULL_REASON)
+    assert len(asked) == 1 and asked[0] > 0
+
+
+def test_the_failure_probe_never_turns_an_answer_into_an_error(monkeypatch, tmp_path):
+    from concurrent.futures import Future
+
+    events = _turn(
+        monkeypatch, tmp_path, "hello", provider_failure=Future(),
+        failure_probe=lambda since: "should not be read",
+    )[1]
+    assert _finished(events)["status"] == "done"
+
+
+def test_a_silent_turn_with_nothing_logged_stays_done(monkeypatch, tmp_path):
+    from concurrent.futures import Future
+
+    events = _turn(
+        monkeypatch, tmp_path, "SILENT", provider_failure=Future(), failure_probe=lambda since: ""
+    )[1]
     assert _finished(events)["status"] == "done"
 
 

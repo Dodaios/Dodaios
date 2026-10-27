@@ -21,7 +21,7 @@ import { MeshBVH } from "three-mesh-bvh";
 import type { RealtimeContent, RealtimeProbe } from "../../content/deck";
 import { fetchImageBitmap } from "../imageFetch";
 import { REALTIME_LAYER } from "../renderOrder";
-import { makeDeckMaterial, type ProbeBinding } from "./deckMaterial";
+import { depthOrder, makeDeckMaterial, type ProbeBinding } from "./deckMaterial";
 
 export interface RealtimeScene {
   group: Group;
@@ -233,6 +233,7 @@ export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeCont
   const group = gltf.scene;
   group.name = "verse-realtime";
   const unused: Material[] = [];
+  const order = depthOrder(Object.keys(content.materials));
   // The baked star cards behind the viewports give way to the real sky (spaceView); the glass shows where they are.
   const windows: Record<"stars" | "viewport" | "clear", Mesh[]> = { stars: [], viewport: [], clear: [] };
   group.traverse((object) => {
@@ -255,7 +256,7 @@ export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeCont
     const key = `${info.material}|${info.room}|${info.page}`;
     let material = materials.get(key);
     if (!material) {
-      material = makeDeckMaterial({ name: key, params, page, range: content.range, probe: probes.get(info.room) ?? null });
+      material = makeDeckMaterial({ name: key, params, page, range: content.range, probe: probes.get(info.room) ?? null, order: order.get(info.material) ?? 0 });
       materials.set(key, material);
     }
     for (const old of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) unused.push(old);

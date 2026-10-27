@@ -389,5 +389,6 @@ def _plan(
         acp=acp,
         after_turn=release,
         provider_failure=failure,
+        failure_probe=getattr(launch, "failure_probe", None),
         proc=launch.proc,
     )

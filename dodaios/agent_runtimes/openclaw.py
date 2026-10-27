@@ -176,10 +176,83 @@ FAILURE_REPLIES: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(r"^(Thinking level \"[^\"]*\" is not supported for \S+\. Use one of: .*)$"),
 )
 
+#: What a turn that failed inside the Gateway reads as. OpenClaw's ACP bridge
+#: ends an errored run like a finished one (``stopReason: end_turn``, no
+#: text), so the reason is only in the Gateway's log.
+CONTEXT_FULL_REASON: Final[str] = (
+    "The conversation no longer fits this model's context window (context window "
+    "exceeded). Start a fresh chat, or pick a model with a larger context window."
+)
+_RUN_FAILED: Final[re.Pattern[str]] = re.compile(r"\bisError=true\b.*?\brawError=(.+)$")
+_OVERFLOW_GIVEN_UP: Final[tuple[str, ...]] = (
+    "exhausted provider overflow recovery",
+    "kind=context_overflow",
+)
+_OVERFLOW_WORDS: Final[tuple[str, ...]] = (
+    "context window exceeded",
+    "context overflow",
+    "context length exceeded",
+    "prompt too large",
+)
+#: How much of the end of the Gateway's log a failed turn reads.
+_PROBE_TAIL_BYTES: Final[int] = 512 * 1024
+_SECRET_SHAPES: Final[re.Pattern[str]] = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{6,}|AIza[0-9A-Za-z_\-]{10,}|[Bb]earer\s+[A-Za-z0-9._\-]{10,}"
+    r"|eyJ[A-Za-z0-9._\-]{20,})"
+)
+
 _INSTALL_URL_PS1: Final[str] = "https://openclaw.ai/install.ps1"
 _INSTALL_URL_SH: Final[str] = "https://openclaw.ai/install.sh"
 #: OpenClaw's user-space installer: a private Node.js under ``--prefix``, no sudo.
 _INSTALL_CLI_URL_SH: Final[str] = "https://openclaw.ai/install-cli.sh"
+
+
+def run_failure(log_path: Path, since: float) -> str:
+    """Why the Gateway's run for a turn started at ``since`` failed ("" = no failure logged).
+
+    Reads the end of the Gateway's log: only lines stamped at or after the
+    turn's start count. A context overflow the Gateway could not compact away
+    reads as :data:`CONTEXT_FULL_REASON`; any other failed run as its own
+    short reason, bounded and with key-shaped text masked.
+    """
+    import datetime as _dt
+
+    try:
+        with log_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _PROBE_TAIL_BYTES))
+            text = handle.read().decode("utf-8", errors="replace")
+    except OSError:  # no readable Gateway log: the caller keeps its generic reason
+        return ""
+    overflow = False
+    failed = ""
+    for line in text.splitlines():
+        stamp, _, rest = line.partition(" ")
+        try:
+            at = _dt.datetime.fromisoformat(stamp).timestamp()
+        except ValueError:  # continuation line without a timestamp: not a turn event
+            continue
+        if at < since - 1.0:
+            continue
+        lowered = rest.lower()
+        if any(marker in rest for marker in _OVERFLOW_GIVEN_UP):
+            overflow = True
+            continue
+        match = _RUN_FAILED.search(rest)
+        if match:
+            raw = match.group(1).strip()
+            if any(word in lowered for word in _OVERFLOW_WORDS):
+                overflow = True
+            failed = raw
+    if overflow:
+        return CONTEXT_FULL_REASON
+    if not failed:
+        return ""
+    reason = _SECRET_SHAPES.sub("[redacted]", " ".join(failed.split()))
+    if len(reason) > 240:
+        reason = reason[:240].rstrip() + "…"
+    return f"OpenClaw ended the run with an error: {reason}"
 
 
 # ------------------------------------------------------------------ install
@@ -589,7 +662,9 @@ class OpenClawRuntime:
             "tools": {
                 "deny": denied,
                 "exec": {"mode": exec_mode},
-                "toolSearch": _tool_search(route.transport),
+                "toolSearch": _tool_search(
+                    route, _inline_catalog_tokens() if turn.mcp_url and turn.control_key else 0
+                ),
             },
             # The agent's log stays in its own folder, never in the shared
             # temp-folder log every OpenClaw on the machine appends to.
@@ -807,6 +882,7 @@ class OpenClawRuntime:
             },
             prompt_meta=prompt_meta(turn),
             failure_replies=FAILURE_REPLIES,
+            failure_probe=lambda since: run_failure(home / "gateway.log", since),
         )
         return launch, gateway
 
@@ -833,7 +909,8 @@ class OpenClawRuntime:
             ).hexdigest()
             current = self._gateways.get(key)
             port = current.port if current is not None and current.alive() else _free_port()
-            config = self.config_for(turn, port=port, token=token)
+            # Off the event loop: the config sizes the live tool catalog.
+            config = await asyncio.to_thread(self.config_for, turn, port=port, token=token)
             changed = await asyncio.to_thread(
                 write_json_if_changed, home / "openclaw.json", config
             )
@@ -895,11 +972,8 @@ class OpenClawRuntime:
                 # The port was taken before the Gateway bound it: once more on a
                 # fresh port.
                 port = _free_port()
-                await asyncio.to_thread(
-                    write_json_if_changed,
-                    home / "openclaw.json",
-                    self.config_for(turn, port=port, token=token),
-                )
+                config = await asyncio.to_thread(self.config_for, turn, port=port, token=token)
+                await asyncio.to_thread(write_json_if_changed, home / "openclaw.json", config)
                 gateway = await self._spawn_until_ready(
                     key, home, port, env_hash, launcher, env, lock, last_try=True
                 )
@@ -1064,23 +1138,77 @@ def _use_claude_cli(config: dict[str, Any], turn: RuntimeTurn) -> None:
         tools["deny"] = [*tools["deny"], "exec", "process"]
 
 
-def _tool_search(transport: str) -> Any:
-    """``tools.toolSearch``: deferred schemas on the ChatGPT subscription only.
+#: Windows below this always get deferred tool schemas: OpenClaw's own system
+#: prompt and native tools already take a large share of them.
+_SMALL_WINDOW: Final = 128_000
+#: The largest share of the window an inline tool catalog may take; the rest
+#: is the conversation, OpenClaw's own prompt and the reply.
+_INLINE_CATALOG_SHARE: Final = 0.25
+#: Characters per token for the catalog estimate (JSON schemas, English text).
+_CHARS_PER_TOKEN: Final = 4
 
-    Every other route gets Jarvis' tools directly (OpenClaw turns tool search
-    on by default for local models; smaller models miss deferred tools). The
-    subscription's backend ends a request carrying the whole inline catalog
-    (live 2026-10-27: ~400 tools, ~580 KB of schemas from the person's
-    connected plugins) as ``response.incomplete`` before any output, on every
-    retry. Size alone is not the trigger (400 synthetic tools at ~210k tokens
-    passed); the failing slices all held the only ``oneOf`` schemas in the
-    catalog, which points at a schema shape the backend refuses inline.
-    Hermes on the same seat defers its tools behind ``tool_search`` and
-    answers. The structured mode keeps every tool callable through
-    ``tool_search`` / ``tool_describe`` / ``tool_call``, and no third-party
-    schema reaches the backend as a function declaration.
+
+def _inline_catalog_tokens() -> int:
+    """An estimate of what Dodaios' MCP tools cost as inline schemas.
+
+    Counted from the live tool catalog (names, descriptions, input schemas),
+    so a person with many connected plugins gets the real size. ``0`` when
+    the catalog cannot be read: nothing is offered then.
     """
-    return {"mode": "tools"} if transport == "responses" else False
+    try:
+        from dodaios.mcp.dodaios_tools_server import offered_tools
+
+        entries = offered_tools()
+    except Exception:  # noqa: BLE001 — an unreadable catalog offers nothing
+        log.debug("agent runtimes: tool catalog size unavailable", exc_info=True)
+        return 0
+    chars = 0
+    for entry in entries:
+        try:
+            schema = json.dumps(getattr(entry, "input_schema", None) or {}, default=str)
+        except (TypeError, ValueError):  # an unserializable schema only counts its name and description
+            schema = ""
+        chars += len(str(entry.name)) * 2 + len(str(entry.description or "")) + len(schema) + 32
+    return chars // _CHARS_PER_TOKEN
+
+
+def _tool_search(route: Any, catalog_tokens: int) -> Any:
+    """``tools.toolSearch``: deferred tool schemas wherever inline ones do not fit.
+
+    Deferred (``{"mode": "tools"}``) keeps every tool callable through
+    ``tool_search`` / ``tool_describe`` / ``tool_call`` behind a bounded
+    directory that OpenClaw sizes to the model's window. It is chosen when:
+
+    - the route is the ChatGPT subscription (``responses``): its backend ends
+      a request carrying the whole inline catalog (live 2026-10-27: ~400
+      tools, ~580 KB of schemas) as ``response.incomplete`` before any output;
+      the failing slices all held the catalog's only ``oneOf`` schemas;
+    - the model runs on the person's own server (Ollama, a local OpenAI
+      server): prefill of a large catalog is slow there, and live 2026-10-27
+      ~239 inline tools estimated 225k tokens against a 64k Ollama window, so
+      even "ok" overflowed and compaction timed out;
+    - the window is small (below :data:`_SMALL_WINDOW`);
+    - the inline catalog would take more than :data:`_INLINE_CATALOG_SHARE`
+      of the window.
+
+    Otherwise a large cloud window gets the schemas directly: no discovery
+    round-trips, and smaller catalogs are cheaper inline. The Claude CLI route
+    runs its own tool surface and keeps direct schemas.
+    """
+    from dodaios.agent_runtimes.model_map import is_local
+
+    transport = getattr(route, "transport", "")
+    if transport == "claude_cli":
+        return False
+    window = int(getattr(route, "context_window", 0) or 0)
+    if (
+        transport == "responses"
+        or is_local(str(getattr(route, "provider", "")))
+        or window < _SMALL_WINDOW
+        or catalog_tokens > window * _INLINE_CATALOG_SHARE
+    ):
+        return {"mode": "tools"}
+    return False
 
 
 def _declared_efforts(turn: RuntimeTurn) -> dict[str, Any]:

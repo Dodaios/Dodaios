@@ -81,12 +81,16 @@ describe("useSocietyWarmup", () => {
     expect(count(TEAMS_URL)).toBe(1);
   });
 
-  it("leaves the teams alone while only the sample roster is known", async () => {
-    agents = [];
+  it("leaves the teams alone, and makes up no roster, while the backend is down", async () => {
+    vi.stubGlobal("fetch", async (url: string) => {
+      calls.push(url);
+      return new Response("restarting", { status: 503 });
+    });
     renderHook(() => useSocietyWarmup(), { wrapper });
 
-    await waitFor(() => expect(client.getQueryData<RosterData>(ROSTER_KEY)?.sample).toBe(true));
+    await waitFor(() => expect(count(ROSTER_URL)).toBe(1));
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(client.getQueryData<RosterData>(ROSTER_KEY)).toBeUndefined();
     expect(count(TEAMS_URL)).toBe(0);
   });
 

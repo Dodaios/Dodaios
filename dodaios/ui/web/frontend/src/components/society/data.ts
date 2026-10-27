@@ -3,10 +3,10 @@
  * reads agents through the hooks in this file and nothing else.
  *
  * Source of truth is `/api/society` (dodaios/ui/web/society_routes.py, rows
- * typed in lib/societyApi.ts). When the backend is unreachable or has no
- * agents yet, the clearly-labeled sample roster stands in and the rail says
- * so — nothing else in the society components may know where agents come
- * from.
+ * typed in lib/societyApi.ts). A failed fetch (the backend restarting, a
+ * dropped connection) never swaps in sample rows: the last known roster
+ * stays on screen, or the rail keeps loading until the backend answers —
+ * nothing else in the society components may know where agents come from.
  *
  * The enums here mirror the roster schema (MASTERPLAN §3.1, agent-definition.md
  * §2); the const arrays in lib/societyApi.ts are pinned to the Python enums by
@@ -27,7 +27,7 @@ import { useEventStore } from "@/store/events";
 import { translate } from "@/i18n";
 
 import { PALETTE_PRESETS, resolvePalette, type FigureRecipe } from "./figures/figureRecipe";
-import { localizeSampleRoster, SAMPLE_ROSTER } from "./mockRoster";
+import { SAMPLE_ROSTER } from "./mockRoster";
 import { beginRetirement, retirementRunning, retirementStageMounted } from "./world/retireStore";
 import { announceSpawn } from "./world/spawnStore";
 
@@ -323,22 +323,26 @@ export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
 const ROSTER_QUERY_KEY = ["society", "roster"] as const;
 const CAPABILITIES_QUERY_KEY = ["society", "capabilities"] as const;
 
-async function fetchSocietyRoster(): Promise<RosterData> {
-  try {
-    const res = await fetch("/api/society/agents");
-    if (res.ok) {
-      const body = (await res.json()) as { agents?: SocietyAgentRow[] };
-      const rows = body.agents ?? [];
-      if (rows.length > 0) {
-        return { agents: rows.map(rowToAgent), sample: false };
-      }
-    }
-  } catch {
-    // Unreachable backend: the sample roster below says so on the rail.
+/**
+ * The roster as the backend has it. A failure throws, so the query keeps the
+ * last roster it had (and retries) instead of showing anything made up; an
+ * empty answer right after a non-empty one is a backend still starting, not
+ * an empty society, and is treated the same way.
+ */
+export async function fetchSocietyRoster(previous?: RosterData): Promise<RosterData> {
+  const res = await fetch("/api/society/agents");
+  if (!res.ok) throw new Error(`GET /api/society/agents answered ${res.status}`);
+  const body = (await res.json()) as { agents?: SocietyAgentRow[] };
+  const rows = body.agents ?? [];
+  if (rows.length === 0 && previous && !previous.sample && previous.agents.length > 0) {
+    throw new Error("GET /api/society/agents answered an empty roster while starting");
   }
-  const rows = [...localizeSampleRoster()].filter((a) => !RETIRED_SAMPLE.has(a.agentId));
-  return { agents: rows, sample: true };
+  return { agents: rows.map(rowToAgent), sample: false };
 }
+
+/** Retry a failed roster fetch calmly (1 s, 2 s, 4 s … at most 10 s apart) until the backend is back. */
+const ROSTER_RETRY = import.meta.env.MODE === "test" ? false : true;
+const rosterRetryDelay = (attempt: number) => Math.min(1_000 * 2 ** attempt, 10_000);
 
 /**
  * Apply a change to the cached roster right away, then refresh it in the
@@ -370,7 +374,11 @@ const WARM_FRESH_MS = 2_000;
 export async function warmSocietyLists(client: QueryClient): Promise<void> {
   // A refetch mid-ceremony would delete the figure being carried to the mine.
   if (retirementRunning()) return;
-  const rosterQuery = { queryKey: ROSTER_QUERY_KEY, queryFn: fetchSocietyRoster, staleTime: WARM_FRESH_MS };
+  const rosterQuery = {
+    queryKey: ROSTER_QUERY_KEY,
+    queryFn: () => fetchSocietyRoster(client.getQueryData<RosterData>(ROSTER_QUERY_KEY)),
+    staleTime: WARM_FRESH_MS,
+  };
   const teams = () => client.prefetchQuery({ ...societyChatGroupsQuery, staleTime: WARM_FRESH_MS });
   // The sample roster has no teams; a roster known to be real asks for both at once.
   const known = client.getQueryData<RosterData>(ROSTER_QUERY_KEY);
@@ -378,8 +386,10 @@ export async function warmSocietyLists(client: QueryClient): Promise<void> {
     await Promise.all([client.prefetchQuery(rosterQuery), teams()]);
     return;
   }
-  const roster = await client.fetchQuery(rosterQuery);
-  if (!roster.sample) await teams();
+  // A warm-up never waits on a backend that is down: the view's own query retries.
+  await client.prefetchQuery(rosterQuery);
+  const roster = client.getQueryData<RosterData>(ROSTER_QUERY_KEY);
+  if (roster && !roster.sample) await teams();
 }
 
 /**
@@ -395,11 +405,14 @@ export function withLeadName(data: RosterData, assistantName: string): RosterDat
 }
 
 export function useSocietyRoster(enabled = true) {
+  const client = useQueryClient();
   const assistantName = useEventStore((s) => s.assistantName) ?? "";
   const select = useCallback((data: RosterData) => withLeadName(data, assistantName), [assistantName]);
   return useQuery({
     queryKey: ROSTER_QUERY_KEY,
-    queryFn: fetchSocietyRoster,
+    queryFn: () => fetchSocietyRoster(client.getQueryData<RosterData>(ROSTER_QUERY_KEY)),
+    retry: ROSTER_RETRY,
+    retryDelay: rosterRetryDelay,
     enabled,
     select,
     staleTime: 15_000,

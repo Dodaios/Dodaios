@@ -19,6 +19,46 @@ HEIGHT_ZERO = 128
 HEIGHT_STEP_M = 0.025
 
 
+def stand_height(
+    floor_z: float,
+    intervals: list[tuple[float, float]],
+    clear_m: float,
+    headroom_m: float,
+    max_step: float = MAX_STEP_M,
+) -> float:
+    """Where a body stands in one column, or NaN when it cannot.
+
+    `floor_z` is the highest walk surface, `intervals` the (low, high) heights
+    solids fill in the column. A solid lower than `clear_m` is stepped over;
+    a solid that stands on the floor and ends at most `max_step` above it (a
+    platform, a grating, a stair tread, a door sill that the builder did not
+    tag as floor) is stepped ONTO, so its top becomes the floor. Everything
+    else inside the headroom above the floor blocks. Thin slabs (a wall face
+    hit at a grazing angle, 2 cm) are never stood on.
+    """
+    # A lone face lying on the floor with its normal flipped down (a plate or a
+    # mat built as one quad) reads as a solid of unknown height: it is flat.
+    intervals = [
+        (low, high)
+        for low, high in intervals
+        if not (high == math.inf and abs(low - floor_z) <= 0.03)
+    ]
+    for _ in range(4):  # a stack of treads at most
+        band_low, band_high = floor_z + clear_m, floor_z + headroom_m
+        blocking = [(low, high) for low, high in intervals if low < band_high and high > band_low]
+        if not blocking:
+            return floor_z
+        steps = [
+            high
+            for low, high in blocking
+            if low <= floor_z + clear_m and high <= floor_z + max_step and high - low > 0.021
+        ]
+        if not steps or max(steps) <= floor_z:
+            return math.nan
+        floor_z = max(steps)  # stand on the tread, then look again from there
+    return math.nan
+
+
 def reduce_samples(samples: np.ndarray, k: int, max_step: float = MAX_STEP_M) -> np.ndarray:
     """(rows*k, cols*k) sample heights -> (rows, cols) cell heights, NaN = blocked.
 

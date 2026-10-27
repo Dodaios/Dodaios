@@ -12,7 +12,8 @@
  * The commander can also be driven directly (third person): while a
  * direction is held the body walks that way over the floor, sliding along
  * walls and stopping short of other people, whatever its goal says; let go
- * and it stands where it is.
+ * and it stands where it is. On the hoverboard (`ride`) the same keys glide
+ * instead of walk: faster, coasting to a stop, lifted off the floor.
  */
 import {
   AnimationMixer, Group, LoopOnce, LoopRepeat, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3,
@@ -29,6 +30,7 @@ import { avoidance, BODY_RADIUS, lerpAngle, PathFollower, sidestep, turnPace, tu
 import { RoomLight } from "./roomLight";
 import { CloakRig } from "./cloak";
 import { aimBone, solveElbow } from "../duel/figure";
+import { absorb, BOARD_PATH_FACTOR, boardLean, deployStep, glide, HoverboardMesh, hoverHeight } from "./hoverboard";
 import { hash32 } from "../life/crew";
 
 export type Goal =
@@ -147,6 +149,20 @@ export class Actor {
   /** Shooter views: the way the body faces while driven (the view, `viewMode.bodyFacing`), and a walk played backwards. */
   private steerFace: { yaw: number; reverse: boolean } | null = null;
   private readonly clipNames: ReadonlySet<string>;
+  /** The hoverboard, made the first time this body rides one. */
+  private board: HoverboardMesh | null = null;
+  private boardOn = false;
+  /** Fold-out share of the board, 0..1. */
+  private boardShare = 0;
+  /** The board's velocity, m/s (it glides, so it is kept between frames). */
+  private readonly boardV = { x: 0, z: 0 };
+  private lean = { pitch: 0, roll: 0 };
+  private turnRate = 0;
+  private hover = 0;
+  private clock = 0;
+  private lastSync = 0;
+  private lastYaw = 0;
+  private reducedMotion = false;
   private readonly shadow: Mesh<PlaneGeometry, MeshBasicMaterial>;
   /** The skin's cloak, when its skeleton carries one (it trails the body's motion). */
   private readonly cloak: CloakRig | null;
@@ -222,6 +238,24 @@ export class Actor {
     this.steerFace = direction ? face : null;
   }
 
+  /** Step onto the hoverboard (true) or fold it away (false). Drones never ride. */
+  ride(on: boolean): void {
+    if (on === this.boardOn) return;
+    if (on && this.isDrone) return;
+    if (on && !this.board) {
+      this.board = new HoverboardMesh();
+      this.light.attach(this.board.materials);
+      this.group.add(this.board.group, this.board.glow);
+    }
+    this.boardOn = on;
+    if (!on) { this.boardV.x = 0; this.boardV.z = 0; }
+  }
+
+  /** On the board (folded out or folding out). */
+  get riding(): boolean {
+    return this.boardOn;
+  }
+
   /** Stop whatever walk or settle is in progress and stand where the body is (until the next goal). */
   halt(): void {
     this.steer = null;
@@ -229,6 +263,8 @@ export class Actor {
     this.settle = null;
     this.phase = "settled";
     this.speed = 0;
+    this.boardV.x = 0;
+    this.boardV.z = 0;
     this.play(this.isDrone ? "hover" : "idle");
   }
 
@@ -277,7 +313,11 @@ export class Actor {
     }
     const goal = this.goal;
     this.moving = false;
-    if (this.steer) {
+    this.clock = ctx.now / 1000;
+    this.reducedMotion = ctx.reduced;
+    this.boardShare = deployStep(this.boardShare, this.boardOn, dtS, ctx.reduced);
+    const coasting = this.boardOn && (this.boardV.x !== 0 || this.boardV.z !== 0);
+    if (this.steer || coasting) {
       this.driven(this.steer, dtS, ctx);
       this.light.update(ctx.deck, this.x, this.y, this.z, dtS);
       this.sync();
@@ -409,7 +449,7 @@ export class Actor {
     this.yaw = turnToward(this.yaw, heading, TURN_RATE, dtS);
     const steer = avoidance({ x: this.x, z: this.z, yaw: this.yaw }, ctx.neighbours(this));
     // Slow into tight turns so the feet stay under the body.
-    this.speed = this.pace * steer.speed * turnPace(this.yaw, heading);
+    this.speed = this.pace * (this.boardOn ? BOARD_PATH_FACTOR : 1) * steer.speed * turnPace(this.yaw, heading);
     let pos = f.advance({ x: this.x, z: this.z }, this.speed * dtS);
     pos = sidestep(this.grid, pos, this.yaw, steer.side * 0.6 * dtS);
     this.x = pos.x;
@@ -417,12 +457,22 @@ export class Actor {
     const ground = floorHeight(this.grid, this.x, this.z);
     this.y += (ground - this.y) * Math.min(1, dtS * 12);
     this.moving = true;
-    if (this.action) this.action.timeScale = this.speed / Math.max(0.1, this.instance.walkSpeed);
+    if (this.boardOn) {
+      // On the board the body stands and the board carries it.
+      this.play("idle");
+      if (this.action) this.action.timeScale = 1;
+    } else {
+      this.play("walk");
+      if (this.action) this.action.timeScale = this.speed / Math.max(0.1, this.instance.walkSpeed);
+    }
     if (f.done) this.arrive(this.goal, ctx);
   }
 
-  /** One frame under direct control: turn toward the held direction and walk it, sliding along walls. */
-  private driven(direction: Point, dtS: number, ctx: ActorContext): void {
+  /**
+   * One frame under direct control: turn toward the held direction and walk it, sliding along walls.
+   * On the board: glide toward it (or coast, with no direction).
+   */
+  private driven(direction: Point | null, dtS: number, ctx: ActorContext): void {
     if (this.phase !== "driven") {
       // The keys take over from any walk or settle in progress.
       this.phase = "driven";
@@ -430,6 +480,8 @@ export class Actor {
       this.settle = null;
       this.oneShotUntil = 0;
     }
+    if (this.boardOn) { this.glideStep(direction, dtS, ctx); return; }
+    if (!direction) return;
     const face = this.steerFace;
     const heading = face ? face.yaw : Math.atan2(direction.x, direction.z);
     this.yaw = turnToward(this.yaw, heading, DRIVE_TURN_RATE, dtS);
@@ -463,6 +515,40 @@ export class Actor {
       this.play(this.isDrone ? "hover" : "idle");
       if (this.action) this.action.timeScale = 1;
     }
+  }
+
+  /** One frame on the board: speed toward the held direction, slide along walls, lose speed against them. */
+  private glideStep(direction: Point | null, dtS: number, ctx: ActorContext): void {
+    const v = glide(this.boardV, direction, this.steerRun, dtS);
+    const fast = Math.hypot(v.x, v.z);
+    const face = this.steerFace;
+    const heading = face ? face.yaw : fast > 0.3 ? Math.atan2(v.x, v.z) : direction ? Math.atan2(direction.x, direction.z) : this.yaw;
+    this.yaw = turnToward(this.yaw, heading, DRIVE_TURN_RATE, dtS);
+    const from = { x: this.x, z: this.z };
+    const near = ctx.neighbours(this);
+    // Nobody rides through a person; drones are small enough to pass.
+    const free: FreeAt = (p) => {
+      for (const n of near) {
+        if (n instanceof Actor && n.isDrone) continue;
+        const d = Math.hypot(n.x - p.x, n.z - p.z);
+        if (d < DRIVE_PERSONAL_SPACE && d < Math.hypot(n.x - from.x, n.z - from.z)) return false;
+      }
+      return true;
+    };
+    const wanted = { x: v.x * dtS, z: v.z * dtS };
+    const to = driveStep(this.grid, from, wanted.x, wanted.z, free);
+    const moved = { x: to.x - from.x, z: to.z - from.z };
+    absorb(v, wanted, moved, dtS);
+    this.x = to.x;
+    this.z = to.z;
+    const ground = floorHeight(this.grid, this.x, this.z);
+    this.y += (ground - this.y) * Math.min(1, dtS * 12);
+    const step = Math.hypot(moved.x, moved.z);
+    const speed = dtS > 0 ? step / dtS : 0;
+    this.speed += (speed - this.speed) * Math.min(1, dtS * 14);
+    this.moving = step > 1e-4;
+    this.play("idle");
+    if (this.action) this.action.timeScale = 1;
   }
 
   private arrive(goal: Goal | null, ctx: ActorContext): void {
@@ -577,8 +663,32 @@ export class Actor {
   }
 
   private sync(): void {
-    this.instance.root.position.set(this.x, this.y, this.z);
-    this.instance.root.rotation.set(0, this.yaw, 0);
+    const board = this.board;
+    if (board && (this.boardShare > 0 || board.group.visible)) {
+      // Lean into speed and turns; the yaw change since the last frame gives the turn rate.
+      const dt = this.clock - this.lastSync;
+      if (dt > 0 && dt < 0.5) {
+        const rate = wrapAngle(this.yaw - this.lastYaw) / dt;
+        this.turnRate += (rate - this.turnRate) * Math.min(1, dt * 6);
+      }
+      const want = boardLean(this.speed, this.turnRate, this.reducedMotion);
+      const k = Math.min(1, Math.max(0, dt) * 6);
+      this.lean.pitch += (want.pitch - this.lean.pitch) * k;
+      this.lean.roll += (want.roll - this.lean.roll) * k;
+      this.hover = hoverHeight(this.boardShare, this.clock, this.speed, this.reducedMotion);
+      const share = Math.min(1, this.boardShare);
+      const pitch = this.lean.pitch * share;
+      const roll = this.lean.roll * share;
+      board.update(this.x, this.y + this.hover, this.y, this.z, this.yaw, this.boardShare, pitch, roll, this.speed, this.clock);
+      this.instance.root.position.set(this.x, this.y + this.hover, this.z);
+      this.instance.root.rotation.set(pitch, this.yaw, roll, "YXZ");
+    } else {
+      this.hover = 0;
+      this.instance.root.position.set(this.x, this.y, this.z);
+      this.instance.root.rotation.set(0, this.yaw, 0);
+    }
+    this.lastYaw = this.yaw;
+    this.lastSync = this.clock;
     const lying = this.motion === "sleep";
     this.shadow.visible = !lying;
     // The root stands on the floor (seated too: the seat height is in the clip), so the shadow goes there.
@@ -590,6 +700,7 @@ export class Actor {
     this.mixer.uncacheRoot(this.instance.root);
     this.shadow.geometry.dispose();
     this.shadow.material.dispose();
+    this.board?.dispose();
     disposeInstance(this.instance);
   }
 }

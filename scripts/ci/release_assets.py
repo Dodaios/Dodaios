@@ -17,7 +17,12 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.ci.release_admit import api_pages, gate_state, run_command  # noqa: E402
+from scripts.ci.release_admit import (  # noqa: E402
+    api_pages,
+    gate_state,
+    on_main_or_bundle,
+    run_command,
+)
 
 PUBLISHERS = ("release.yml", "desktop-installers.yml", "sign-installer.yml")
 PUBLISHER_JOBS = {
@@ -675,7 +680,8 @@ def main(argv: list[str] | None = None) -> int:
         sha = run_command(["git", "rev-parse", f"refs/tags/{args.tag}^{{commit}}"]).stdout.strip()
         if args.sha and sha != args.sha:
             raise ValueError("release tag moved away from the publisher's commit")
-        run_command(["git", "merge-base", "--is-ancestor", sha, "origin/main"])
+        if not on_main_or_bundle(sha):
+            raise ValueError("release tag is neither on main nor its one bundle commit")
         if args.command == "dispatch":
             dispatch_missing_publishers(args.repo, args.tag, sha)
             return 0

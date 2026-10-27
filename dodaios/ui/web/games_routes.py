@@ -9,6 +9,8 @@ Endpoints (mounted by the WebServer in ``_build_app()``):
     PUT    /api/games/{id}/profile     → merge values / keybinds / dpi / notes.
     DELETE /api/games/{id}/profile     → forget the profile (back to defaults).
     PUT    /api/games/dpi              → the default mouse DPI.
+    GET    /api/games/system           → GPU, CPU, RAM, monitors and the
+                                         preset that suits this PC.
     POST   /api/games/convert          → a hip-fire sensitivity in every other
                                          game with the same cm/360.
 
@@ -24,7 +26,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from dodaios.games import sensitivity
-from dodaios.games.catalog import get_game, list_games
+from dodaios.games.catalog import get_game, list_games, load_catalog
 from dodaios.games.store import GameProfileStore, UnknownGameError
 
 router = APIRouter(prefix="/api/games", tags=["games"])
@@ -53,7 +55,17 @@ def games_index() -> dict[str, Any]:
     return {
         "dpi": data["dpi"],
         "games": [_summary(g, data["games"]) for g in list_games()],
+        "presets": load_catalog()["presets"],
     }
+
+
+@router.get("/system")
+def system() -> dict[str, Any]:
+    # Sync on purpose: FastAPI runs it in the threadpool, and the first call
+    # shells out to nvidia-smi / PowerShell (cached after that).
+    from dodaios.games.system import system_info
+
+    return system_info()
 
 
 class DpiBody(BaseModel):
@@ -129,6 +141,9 @@ def game_detail(game_id: str) -> dict[str, Any]:
 class ProfileBody(BaseModel):
     values: dict[str, Any] | None = None
     keybinds: dict[str, str | None] | None = None
+    alt_keybinds: dict[str, str | None] | None = None
+    bind_modes: dict[str, str | None] | None = None
+    custom_binds: list[dict[str, Any]] | None = None
     dpi: int | None = None
     # Distinguishes "dpi": null (follow the default) from leaving dpi out.
     reset_dpi: bool = False
@@ -144,7 +159,14 @@ def save_profile(game_id: str, body: ProfileBody) -> dict[str, Any]:
         dpi = body.dpi
     try:
         profile = _store().update(
-            game_id, values=body.values, keybinds=body.keybinds, dpi=dpi, notes=body.notes
+            game_id,
+            values=body.values,
+            keybinds=body.keybinds,
+            alt_keybinds=body.alt_keybinds,
+            bind_modes=body.bind_modes,
+            custom_binds=body.custom_binds,
+            dpi=dpi,
+            notes=body.notes,
         )
     except UnknownGameError as exc:
         raise HTTPException(status_code=404, detail="Unknown game") from exc

@@ -36,10 +36,12 @@ interface Props {
   initialFocus?: RefObject<HTMLElement | null>;
   /** False when the caller outlives the dialog and puts focus back itself. */
   returnFocus?: boolean;
+  /** False when Escape belongs to what the dialog holds (a taken-over terminal); the close button still closes. */
+  escapeCloses?: boolean;
   children: ReactNode;
 }
 
-export function VerseDialog({ title, closeLabel, onClose, className, initialFocus, returnFocus = true, children }: Props) {
+export function VerseDialog({ title, closeLabel, onClose, className, initialFocus, returnFocus = true, escapeCloses = true, children }: Props) {
   useReturnFocus(returnFocus);
   return (
     <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -55,7 +57,7 @@ export function VerseDialog({ title, closeLabel, onClose, className, initialFocu
           // useReturnFocus puts the opener back; Radix would aim at a trigger these dialogs do not have.
           onCloseAutoFocus={(e) => e.preventDefault()}
           // Escape closes the dialog only, not the stage's selection behind it.
-          onEscapeKeyDown={(e) => e.stopPropagation()}
+          onEscapeKeyDown={(e) => { if (escapeCloses) e.stopPropagation(); else e.preventDefault(); }}
         >
           <header className="verse-dialog-head">
             <Dialog.Title asChild>

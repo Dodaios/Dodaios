@@ -97,7 +97,7 @@ export function WorldStage({ onOpenAgents, onSelectAgent, onSelectPlace }: World
   const shadows = useWorldSettings((s) => s.shadows);
   const roster = useSocietyRoster();
   const agents = roster.data?.agents ?? [];
-  const sample = roster.data?.sample ?? true;
+  const sample = roster.data?.sample === true;
   const [selected, setSelected] = useState<string | null>(null);
   const [openHub, setOpenHub] = useState<KitPlace | null>(null);
   const [questOpen, setQuestOpen] = useState(false);
