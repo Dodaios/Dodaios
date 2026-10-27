@@ -1,7 +1,7 @@
 /**
  * The eye-level views' settings: mouse sensitivity, an inverted vertical
- * axis, the field of view in third and in first person, and the render
- * quality. Changes apply at once and stay in this
+ * axis, the field of view in third and in first person, the sound volume
+ * and the render quality. Changes apply at once and stay in this
  * browser (`viewSettings`).
  */
 import { useId, useRef } from "react";
@@ -25,6 +25,7 @@ export function ViewSettingsPanel({ t, tier, onClose }: Props) {
   const quality = useViewSettings((s) => s.quality);
   const fovThird = useViewSettings((s) => s.fovThird);
   const fovFirst = useViewSettings((s) => s.fovFirst);
+  const volume = useViewSettings((s) => s.volume);
   const set = useViewSettings((s) => s.set);
   const reset = useViewSettings((s) => s.reset);
   const first = useRef<HTMLInputElement>(null);
@@ -80,6 +81,22 @@ export function ViewSettingsPanel({ t, tier, onClose }: Props) {
             />
           </div>
         ))}
+        <div className="verse-field">
+          <label className="verse-setting-head" htmlFor={`${id}-volume`}>
+            <span className="verse-label">{t("verse.settings.volume")}</span>
+            <span className="verse-setting-value">{Math.round(volume * 100)}%</span>
+          </label>
+          <input
+            id={`${id}-volume`}
+            type="range"
+            className="verse-range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            onChange={(e) => set({ volume: Number(e.target.value) })}
+          />
+        </div>
         <div className="verse-field">
           <span className="verse-label" id={`${id}-quality`}>{t("verse.settings.quality")}</span>
           <div className="verse-seg" role="group" aria-labelledby={`${id}-quality`}>
