@@ -69,6 +69,17 @@ describe("tool visual identities", () => {
     expect(amd.mark).toBe("mono");
   });
 
+  it.each(["cursor", "deepseek", "kimi", "opencode", "zai"])(
+    "draws the %s agent glyph from the ledgered folder as a neutral mask",
+    (brand) => {
+      const identity = toolIdentity(row({ id: `cli:${brand}`, brand, label: brand, category: "cli" }));
+      expect(identity.key).toBe(brand);
+      expect(identity.logo).toBeTruthy();
+      expect(identity.logo).not.toMatch(/agent-logos|provider-logos/);
+      expect(identity.mark).toBe("mono");
+    },
+  );
+
   it("has a local mark for every shipped marketplace connector", () => {
     for (const plugin of seedCatalog.plugins) {
       const identity = toolIdentity(

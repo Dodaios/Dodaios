@@ -12,6 +12,8 @@ import type {
   ResumeTerminalOffer,
   ResumeWorkspaceOffer,
 } from "@/lib/agenticIdeApi";
+import claudeLogo from "@/assets/providers/claude.svg?url";
+import openaiLogo from "@/assets/providers/openai.svg?url";
 
 function pane(
   name: string,
@@ -202,13 +204,9 @@ describe("ResumeCard", () => {
     // `data-logo` rather than the <img>: both of these are single-colour marks
     // and are drawn as a CSS mask so they follow the theme's ink.
     const codexMark = screen.getAllByTestId("agent-mark-codex")[0];
-    expect(codexMark.getAttribute("data-logo")).toBe(
-      "/provider-logos/openai.svg",
-    );
+    expect(codexMark.getAttribute("data-logo")).toBe(openaiLogo);
     const claudeMark = screen.getAllByTestId("agent-mark-claude")[0];
-    expect(claudeMark.getAttribute("data-logo")).toBe(
-      "/provider-logos/claude.svg",
-    );
+    expect(claudeMark.getAttribute("data-logo")).toBe(claudeLogo);
   });
 
   it("shows prompt history count and original grid position on each tile", () => {
