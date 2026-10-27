@@ -568,6 +568,9 @@ class CliPlan:
     after_turn: Callable[[], None] | None = None
     #: The local gateway knows failures that a runtime may render as prose.
     provider_failure: Future[str] | None = None
+    #: Why a turn that ended without an answer failed, from the runtime's own
+    #: log (``RuntimeLaunch.failure_probe``), given the turn's wall-clock start.
+    failure_probe: Callable[[float], str] | None = None
     #: A process that is already running (an agent runtime's warm process,
     #: ``agent_runtimes.warm.Lease``): driven instead of spawning ``argv``.
     #: Its owner contains it, so the turn adds no process tree of its own.
@@ -4374,6 +4377,16 @@ async def _drive_cli(
 
         if swallowed := gateway.last_failure(plan.provider_failure):
             status, error_text = "error", swallowed
+        elif plan.failure_probe is not None:
+            # The runtime ended a failed run like a finished one (no HTTP
+            # error ever reached the gateway): its own log says why.
+            try:
+                probed = await asyncio.to_thread(plan.failure_probe, started_at)
+            except Exception:  # noqa: BLE001 — a probe never decides more than the reason
+                log.debug("agent chat %s: failure probe failed", handle.turn_id, exc_info=True)
+                probed = ""
+            if probed:
+                status, error_text = "error", probed
 
     usage = dict(state.usage)
     cost_usd = getattr(state, "cost_usd", None)
