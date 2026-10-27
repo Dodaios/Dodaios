@@ -50,6 +50,8 @@ describe("turnErrorText for a spent allowance and a full context window", () => 
   it("keeps a real short rate limit as sent", () => {
     const limited = "openai returned HTTP 429 (rate limit). Try again in 30 s, or choose another connected model in the agent's settings.";
     expect(turnErrorText(limited, t)).toBe(limited);
+    const subscription = "The ChatGPT subscription returned HTTP 429 (rate limit). Try again in 30 s, or choose another connected model in the agent's settings. No fallback provider was called.";
+    expect(turnErrorText(subscription, t)).toBe(subscription);
   });
 
   it("explains a conversation that no longer fits the model's context window", () => {
