@@ -636,7 +636,9 @@ def _stop_profile_gateway(home: Path) -> bool:
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
         pid = int(record["pid"] if isinstance(record, dict) else record)
-    except (OSError, ValueError, TypeError, KeyError):
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        # No record (older builds, nothing started) or one Hermes is rewriting.
+        log.debug("agent runtimes: no Hermes gateway record in %s: %s", home.name, exc)
         return False
     import psutil
 
