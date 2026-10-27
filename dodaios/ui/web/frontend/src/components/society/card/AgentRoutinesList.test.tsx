@@ -105,13 +105,13 @@ describe("AgentRoutinesList", () => {
     await screen.findByText("No routines yet.");
   });
 
-  test.each(["schedule", "next-run", "icon", "padding"])("opens the routine when clicking %s", async (area) => {
+  test.each(["schedule", "next-run", "padding"])("opens the routine when clicking %s", async (area) => {
     routines[0].due_at_ns = Date.UTC(2026, 8, 13, 8) * 1e6;
     mount();
     const card = await screen.findByRole("button", { name: "Morning inbox" });
     const target = area === "schedule" ? screen.getByText("Every hour")
       : area === "next-run" ? screen.getByText(/^Next run:/)
-      : area === "icon" ? card.querySelector("svg")! : card;
+      : card;
     expect(card.contains(target)).toBe(true);
     fireEvent.click(target);
     expect(await screen.findByTestId("routine-opened")).toBeTruthy();

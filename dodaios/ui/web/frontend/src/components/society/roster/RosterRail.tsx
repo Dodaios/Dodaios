@@ -665,7 +665,7 @@ export function RosterRail({
           onHoverEnd={endHover}
         />
         {options.draggable && groupHover?.kind === "agent" && groupHover.id === agent.agentId && (
-          <span data-testid="society-group-drop-hint" className="pointer-events-none absolute right-2 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">
+          <span data-testid="society-group-drop-hint" className="pointer-events-none absolute right-2 top-1 rounded-full bg-primary px-2 py-0.5 text-[12px] text-primary-foreground">
             {t(groupReady ? "society.groups.release_to_group" : "society.groups.hold_to_group")}
           </span>
         )}

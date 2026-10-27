@@ -905,11 +905,11 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
     </p>;
   }
   if (item.kind === "context_rollover") {
-    return <p className="py-1 text-center text-[11px] text-muted-foreground">{t("society.chat.context_rollover")}</p>;
+    return <p className="py-1 text-center text-[12px] text-muted-foreground">{t("society.chat.context_rollover")}</p>;
   }
   if (item.kind === "runtime_setup") {
     const runtime = String(item.data.runtime ?? "");
-    return <p className="py-1 text-center text-[11px] text-muted-foreground" data-testid="runtime-setup-notice">
+    return <p className="py-1 text-center text-[12px] text-muted-foreground" data-testid="runtime-setup-notice">
       {runtime ? t("society.runtime.setting_up_chat").replace("{0}", t(`society.runtime.${runtime}`)) : item.text}
     </p>;
   }
@@ -923,7 +923,7 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
   }
   if (item.kind === "routine_runtime_fallback") {
     const runtime = String(item.data.runtime ?? "");
-    return <p className="py-1 text-center text-[11px] text-muted-foreground" data-testid="routine-runtime-fallback">
+    return <p className="py-1 text-center text-[12px] text-muted-foreground" data-testid="routine-runtime-fallback">
       {runtime ? t("society.runtime.routine_fallback").replace(/\{0\}/g, t(`society.runtime.${runtime}`)) : item.text}
     </p>;
   }

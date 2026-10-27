@@ -97,7 +97,7 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
     <div data-testid="agent-browser-preview" className={cn(
       "shrink-0", expanded && "fixed inset-4 z-[60] flex flex-col rounded-xl border border-border bg-background p-3 shadow-xl",
     )}>
-      <div className="mb-1 flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
+      <div className="mb-1 flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
         <div className="min-w-0">
           <div className="truncate">{displayName}{running.data?.profileName ? ` · ${running.data.profileName}` : ""} · {status}</div>
         </div>

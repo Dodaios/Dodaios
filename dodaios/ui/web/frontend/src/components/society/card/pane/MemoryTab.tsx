@@ -184,7 +184,7 @@ function ReviewRow({ agentId, item }: { agentId: string; item: ReviewItem }) {
       <div className="flex items-center justify-between gap-2">
         <span className="ap-review-kind">{kind}</span>
         {item.created_ms ? (
-          <time className="text-[11px] text-muted-foreground" dateTime={new Date(item.created_ms).toISOString()}>
+          <time className="text-[12px] text-muted-foreground" dateTime={new Date(item.created_ms).toISOString()}>
             {new Date(item.created_ms).toLocaleDateString(locale, { day: "2-digit", month: "short" })}
           </time>
         ) : null}

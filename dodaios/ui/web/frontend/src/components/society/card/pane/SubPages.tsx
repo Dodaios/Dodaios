@@ -114,13 +114,13 @@ export function FilesPage({ agent }: { agent: SocietyAgent }) {
         <div className="ap-row">
           <span className="min-w-0 flex-1">
             <span className="ap-row-label">{t("society.card.workspace")}</span>
-            <span className="block break-all font-mono text-[11px] text-muted-foreground">{agent.workspaceDir || `society/${agent.agentId}/workspace`}</span>
+            <span className="block break-all font-mono text-[12px] text-muted-foreground">{agent.workspaceDir || `society/${agent.agentId}/workspace`}</span>
           </span>
         </div>
         <div className="ap-row">
           <span className="min-w-0 flex-1">
             <span className="ap-row-label">{t("society.card.wiki")}</span>
-            <span className="block break-all font-mono text-[11px] text-muted-foreground">{agent.wikiNamespace || `society/${agent.agentId}/`}</span>
+            <span className="block break-all font-mono text-[12px] text-muted-foreground">{agent.wikiNamespace || `society/${agent.agentId}/`}</span>
           </span>
         </div>
       </div>

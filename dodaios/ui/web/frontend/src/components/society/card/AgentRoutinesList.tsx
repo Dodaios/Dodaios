@@ -5,7 +5,7 @@
  * pause/test actions, "set one up in chat", and the away-parking note.
  */
 import { useEffect, useMemo, useState } from "react";
-import { MessageSquarePlus, Plus, Sparkles, X } from "lucide-react";
+import { MessageSquarePlus, Plus, X } from "lucide-react";
 import { useLocaleChunk, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
@@ -62,13 +62,13 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
   const activeCount = rows.filter((row) => row.state !== "paused").length;
   return <section className={cn("flex min-h-0 flex-col", className)} data-testid="agent-routines">
     <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-      <h3 className={variant === "sheet" ? "ac-head" : "font-display text-[13px] font-semibold text-foreground"}>
+      <h3 className={variant === "sheet" ? "ac-head" : "px-1 text-[13px] font-medium text-muted-foreground"}>
         {t("society.card.routines")}
         {rows.length > 0 && <span className="ml-1.5 font-normal text-muted-foreground" title={own("active_hint")}>{activeCount === rows.length ? rows.length : `${activeCount}/${rows.length}`}</span>}
       </h3>
       <div className="flex items-center gap-0.5">
-        {!isSample && <button type="button" data-testid="agent-routines-chat" className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" aria-label={own("setup_in_chat")} title={own("setup_in_chat")} onClick={setUpInChat}><MessageSquarePlus size={14} /></button>}
-        <button type="button" data-testid="agent-routines-add" className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" aria-label={t("society.card.routines_add")} aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? <X size={14} /> : <Plus size={14} />}</button>
+        {!isSample && <button type="button" data-testid="agent-routines-chat" className="as-round-button h-7 w-7" aria-label={own("setup_in_chat")} title={own("setup_in_chat")} onClick={setUpInChat}><MessageSquarePlus size={14} /></button>}
+        <button type="button" data-testid="agent-routines-add" className="as-round-button h-7 w-7" aria-label={t("society.card.routines_add")} aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? <X size={14} /> : <Plus size={14} />}</button>
       </div>
     </div>
     {parking?.banner && parking.parked_ids.length > 0 && <ParkingBanner agentId={agentId} parking={parking} onAnswered={() => void refresh()} />}
@@ -77,19 +77,18 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
       <textarea className={cn(field, "resize-y leading-snug")} aria-label={t("society.card.routines_prompt")} placeholder={t("society.card.routines_prompt")} value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} />
       <TriggerBuilder onChange={setSchedule} />
       <div className="flex items-center justify-between gap-2 pt-0.5">
-        {!isSample ? <button type="button" className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => { setOpen(false); setUpInChat(); }}>{own("or_chat")}</button> : <span />}
-        <button type="submit" disabled={saving || !title.trim() || !prompt.trim() || !schedule} className="rounded-lg bg-foreground px-3 py-1 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-40">{t(saving ? "society.card.saving" : "society.card.routines_save")}</button>
+        {!isSample ? <button type="button" className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => { setOpen(false); setUpInChat(); }}>{own("or_chat")}</button> : <span />}
+        <button type="submit" disabled={saving || !title.trim() || !prompt.trim() || !schedule} className="rounded-full bg-foreground px-3.5 py-1.5 text-[13px] font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-40">{t(saving ? "society.card.saving" : "society.card.routines_save")}</button>
       </div>
-      {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-[12px] text-destructive">{error}</p>}
     </form>}
     <ul className="-mx-1 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
       {live.error && !live.data && <li role="alert" className="text-[12px] text-destructive">{t("tasks_view.load_error")}</li>}
       {rows.length === 0 && live.isPending && <li className="text-[12px] text-muted-foreground">{t("society.profile_card.loading")}</li>}
-      {rows.length === 0 && !live.isPending && !live.error && <li className="rounded-xl border border-dashed border-border px-3 py-4 text-center">
-        <Sparkles size={16} aria-hidden className="mx-auto mb-1.5 text-faint-foreground" />
-        <p className="text-[12.5px] font-medium text-foreground">{t("society.card.no_routines")}</p>
-        <p className="mx-auto mt-1 max-w-[30ch] text-[11.5px] leading-snug text-muted-foreground">{own("empty_body")}</p>
-        {!isSample && <button type="button" onClick={setUpInChat} className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11.5px] text-foreground transition-colors hover:bg-secondary"><MessageSquarePlus size={12} />{own("setup_in_chat")}</button>}
+      {rows.length === 0 && !live.isPending && !live.error && <li className="rounded-2xl bg-card px-4 py-5 text-center">
+                <p className="text-[14px] font-medium text-foreground">{t("society.card.no_routines")}</p>
+        <p className="mx-auto mt-1 max-w-[30ch] text-[13px] leading-snug text-muted-foreground">{own("empty_body")}</p>
+        {!isSample && <button type="button" onClick={setUpInChat} className="mt-3 inline-flex items-center rounded-full bg-secondary px-3.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-border">{own("setup_in_chat")}</button>}
       </li>}
       {rows.map((routine) => <RoutineRow key={routine.id} routine={routine} lastRun={lastRunOf(routine)} parked={parked.has(routine.id)}
         locale={locale} now={now} onOpen={() => setSelected(routine.id)} onChanged={() => void refresh()} />)}

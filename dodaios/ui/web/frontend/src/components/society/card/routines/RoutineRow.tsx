@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { runTaskNow, setTaskEnabled } from "@/lib/tasksApi";
 import { BuiltByBadge } from "@/components/selfBuild/BuiltByBadge";
 import { displayRoutineTitle, type LiveRoutine } from "../../cardData";
-import { TriggerIcon, type RoutineTone } from "./TriggerIcon";
+import type { RoutineTone } from "./TriggerIcon";
 import { RunStatusIcon } from "./RunStatus";
 import { humanSchedule, triggerFamily } from "./humanSchedule";
 import { formatCost, relativeTime } from "./format";
@@ -57,17 +57,16 @@ export function RoutineRow({ routine, lastRun, parked, locale, now, onOpen, onCh
   };
   const cost = formatCost(lastRun?.cost_usd, locale);
   const lastAt = lastRun?.finished_ms ?? lastRun?.started_ms ?? null;
-  const tool = "rounded-md p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring disabled:opacity-40";
+  const tool = "rounded-full p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring disabled:opacity-40";
   return <li className="group relative">
-    <div className="flex items-start gap-1 rounded-xl transition-colors duration-150 hover:bg-secondary/55 focus-within:bg-secondary/55">
+    <div className="flex items-start gap-1 rounded-2xl transition-colors duration-150 hover:bg-secondary/55 focus-within:bg-secondary/55">
       <button type="button" aria-label={title} aria-describedby={describedBy} onClick={onOpen}
-        className="flex min-w-0 flex-1 cursor-pointer select-none items-start gap-2.5 rounded-xl px-2 py-2 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring">
-        <TriggerIcon trigger={routine.trigger} tone={tone} />
+        className="flex min-w-0 flex-1 cursor-pointer select-none items-start gap-2.5 rounded-2xl px-3 py-2.5 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring">
         <span className="min-w-0 flex-1">
-          <span className={cn("block truncate text-[13px] font-medium leading-5", tone === "paused" || tone === "parked" ? "text-muted-foreground" : "text-foreground")}>{title}</span>
+          <span className={cn("block truncate text-[14px] font-medium leading-5", tone === "paused" || tone === "parked" ? "text-muted-foreground" : "text-foreground")}>{title}</span>
           <span id={describedBy} className="contents">
-          <span className="block break-words text-[11.5px] leading-snug text-foreground-secondary">{sentence}</span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
+          <span className="block break-words text-[13px] leading-snug text-foreground-secondary">{sentence}</span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] leading-4 text-muted-foreground">
             {routine.state === "running" && <span className="font-medium text-primary">{own("running")}</span>}
             {routine.state === "paused" && <span className={cn("font-medium", parked ? "text-warning" : "")}>{parked ? own("parked") : t("tasks_view.state.paused")}</span>}
             {routine.dueMs && active ? <span title={new Date(routine.dueMs).toLocaleString(locale, { timeZoneName: "short" })}>{t("society.card.next_run")}: {routine.dueMs <= now ? own("due_now") : relativeTime(routine.dueMs, now, locale)}</span> : null}
@@ -78,7 +77,7 @@ export function RoutineRow({ routine, lastRun, parked, locale, now, onOpen, onCh
               {cost && <span className="tabular-nums">· {cost}</span>}
             </span> : null}
           </span>
-          {lastRun?.status === "failed" && lastRun.error && <span className="mt-0.5 block truncate text-[11px] text-destructive/80" title={lastRun.error}>{lastRun.error}</span>}
+          {lastRun?.status === "failed" && lastRun.error && <span className="mt-0.5 block truncate text-[12px] text-destructive/80" title={lastRun.error}>{lastRun.error}</span>}
           </span>
         </span>
       </button>
@@ -94,6 +93,6 @@ export function RoutineRow({ routine, lastRun, parked, locale, now, onOpen, onCh
       {/* Outside the row button: the badge is a link of its own. */}
       <BuiltByBadge compact type="routine" id={routine.id} className="mt-2.5" />
     </div>
-    {problem && <p role="alert" className="px-2 pb-1 text-[11px] text-destructive">{problem}</p>}
+    {problem && <p role="alert" className="px-3 pb-1 text-[12px] text-destructive">{problem}</p>}
   </li>;
 }
