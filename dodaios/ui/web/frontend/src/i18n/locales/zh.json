@@ -3704,6 +3704,8 @@
     "file_truncated": "文件已截断为 1 MiB，请在文件管理器中查看其余内容。",
     "fence_rendered": "渲染",
     "fence_source": "源码",
+    "fence_run_scripts": "运行脚本",
+    "fence_run_scripts_hint": "运行此片段的 JavaScript。运行中的脚本可以访问网址。",
     "open_action": "打开",
     "open_with_title": "打开方式…",
     "open_with_remember": "记住为默认",

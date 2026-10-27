@@ -3704,6 +3704,8 @@
     "file_truncated": "File truncated to 1 MiB — view the rest in the file manager.",
     "fence_rendered": "Rendered",
     "fence_source": "Source",
+    "fence_run_scripts": "Run scripts",
+    "fence_run_scripts_hint": "Run this snippet's JavaScript. A running script can contact a web address.",
     "open_action": "Open",
     "open_with_title": "Open with…",
     "open_with_remember": "Remember as default",
