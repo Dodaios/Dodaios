@@ -11,7 +11,7 @@
  * into a half-float equirect and prefiltered with PMREM.
  */
 import {
-  BufferAttribute, BufferGeometry, Group, HalfFloatType, LinearFilter, LinearMipmapLinearFilter, Mesh, NoColorSpace,
+  Box3, BufferAttribute, BufferGeometry, Group, HalfFloatType, LinearFilter, LinearMipmapLinearFilter, Mesh, NoColorSpace,
   OrthographicCamera, PlaneGeometry, PMREMGenerator, RGBAFormat, Scene, ShaderMaterial, Texture, Vector3, WebGLRenderTarget,
   type Material, type WebGLRenderer,
 } from "three";
@@ -29,6 +29,11 @@ export interface RealtimeScene {
   materials: readonly Material[];
   /** World-space collision of the solid chunks, or null when there are none. */
   collider: MeshBVH | null;
+  /**
+   * Which way the deck's viewports look out (world, horizontal, from the
+   * deck's middle), or null for a deck without any.
+   */
+  outward: Vector3 | null;
   /** Draw chunks and triangles, for the stats. */
   chunks: number;
   triangles: number;
@@ -155,6 +160,44 @@ function buildCollider(meshes: readonly Mesh[]): MeshBVH | null {
   return new MeshBVH(geometry);
 }
 
+/** Area of a mesh's triangles, world space. */
+function meshArea(mesh: Mesh): number {
+  const position = mesh.geometry.getAttribute("position");
+  const index = mesh.geometry.index;
+  const count = index ? index.count : position.count;
+  const a = new Vector3();
+  const b = new Vector3();
+  const c = new Vector3();
+  let area = 0;
+  for (let i = 0; i + 2 < count; i += 3) {
+    a.fromBufferAttribute(position, index ? index.getX(i) : i).applyMatrix4(mesh.matrixWorld);
+    b.fromBufferAttribute(position, index ? index.getX(i + 1) : i + 1).applyMatrix4(mesh.matrixWorld);
+    c.fromBufferAttribute(position, index ? index.getX(i + 2) : i + 2).applyMatrix4(mesh.matrixWorld);
+    area += b.sub(a).cross(c.sub(a)).length() / 2;
+  }
+  return area;
+}
+
+/**
+ * Where the viewports look out, level: from the middle of the deck towards
+ * each window, weighted by its area, so the big forward viewports win over a
+ * small porthole at the back.
+ */
+export function outwardOf(group: Group, windows: readonly Mesh[]): Vector3 | null {
+  if (!windows.length) return null;
+  const deck = new Box3().setFromObject(group).getCenter(new Vector3());
+  const out = new Vector3();
+  const centre = new Vector3();
+  for (const mesh of windows) {
+    new Box3().setFromObject(mesh).getCenter(centre).sub(deck);
+    centre.y = 0;
+    if (centre.lengthSq() < 1e-6) continue;
+    out.addScaledVector(centre.normalize(), meshArea(mesh));
+  }
+  out.y = 0;
+  return out.lengthSq() > 1e-9 ? out.normalize() : null;
+}
+
 export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeContent, signal: AbortSignal): Promise<RealtimeScene> {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
@@ -191,6 +234,8 @@ export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeCont
   group.name = "verse-realtime";
   const unused: Material[] = [];
   const order = depthOrder(Object.keys(content.materials));
+  // The baked star cards behind the viewports give way to the real sky (spaceView); the glass shows where they are.
+  const windows: Record<"stars" | "viewport" | "clear", Mesh[]> = { stars: [], viewport: [], clear: [] };
   group.traverse((object) => {
     const mesh = object as Mesh;
     if (!mesh.isMesh) return;
@@ -201,6 +246,13 @@ export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeCont
       mesh.visible = false;
       return;
     }
+    if (/Starfield/.test(info.material)) {
+      windows.stars.push(mesh);
+      mesh.visible = false;
+      return;
+    }
+    if (/Glass_Viewport/.test(info.material)) windows.viewport.push(mesh);
+    else if (/Glass_Clear/.test(info.material)) windows.clear.push(mesh);
     const key = `${info.material}|${info.room}|${info.page}`;
     let material = materials.get(key);
     if (!material) {
@@ -221,6 +273,7 @@ export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeCont
   const collider = buildCollider(solid);
   return {
     group,
+    outward: outwardOf(group, windows.stars.length ? windows.stars : windows.viewport.length ? windows.viewport : windows.clear),
     materials: [...materials.values()],
     collider,
     chunks,

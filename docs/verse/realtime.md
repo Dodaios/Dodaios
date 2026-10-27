@@ -171,6 +171,7 @@ Code: `src/components/society/verse/engine/realtime/`.
 | `orbitInput.ts` | Mouse: a click on the view takes the mouse (pointer lock); then movement turns the view and the left button works what the crosshair is on; Esc gives it back (the HUD's buttons work again). A drag still turns the view where the lock is refused. Touch and pen: drag turns, pinch zooms, a tap picks. The wheel zooms through the stage, which hands over between third and first person. |
 | `viewSettings.ts` | The person's settings, kept in this browser: sensitivity, inverted look, field of view per person, quality, and the view they last chose. |
 | `eyePick.ts` | Pointer picking at eye level: bodies as upright cylinders (only in front of the deck's geometry), stations near the deck point hit, floor points to walk to. |
+| `spaceView.ts`, `spaceShader.ts` | Outside the hull: the Earth, the sun and the stars behind the deck (below). |
 
 The first-person viewmodel (the commander's own arms and, in a duel, the
 blaster) lives in `src/components/society/verse/viewmodel/` (below).
@@ -226,6 +227,41 @@ envGain, bakedGain, coatBias, exposureBias, materials: { <name prefix>:
 measures it (read every frame; unset, the built-in values apply). Tune
 against Cycles renders from the same camera (`SHOULDER` numbers; ceiling
 ghosts visible), then move the values into the code.
+
+### Outside the hull
+
+The deck's baked star cards (`*Starfield` materials) are hidden at eye level;
+every viewport looks into real space instead, drawn first into the same HDR
+target (`SpacePass` before the deck's `RenderPass`, which then keeps the
+colour and clears only depth), so bloom and AgX treat it like the deck.
+
+- **Camera.** Its own camera at the origin turns with the deck camera and
+  never moves: the planet is thousands of kilometres away, so walking past a
+  window changes the angle, never the parallax. Lengths are Earth radii.
+- **Earth.** One full-screen triangle (`spaceShader.ts`): per pixel the view
+  ray is intersected with the true spheres of the ground, the cloud layer
+  (11 km up, so clouds float over the ground and stand out on the limb) and
+  the atmosphere. Ground: Blue Marble colour (July), terrain slope from GEBCO
+  elevation, sun glint (GGX) on open water, Black Marble city lights on the
+  night side, cloud shadows. Atmosphere: single scattering, Rayleigh + Mie,
+  12 + 12 view samples crowded towards the ray's lowest point and 6 towards
+  the sun; it reddens the terminator and draws the blue limb and the haze over
+  the ground by itself. Sunlight is white-balanced to the zenith sun, as a
+  camera on the ship would see it. Output is premultiplied: the ground is
+  opaque, the thin air over open space only dims the stars.
+- **Placement.** `outwardOf` takes the viewports' direction from the deck's
+  middle, weighted by window area (the bridge's forward band, not its aft
+  portholes). The Earth sits below and ahead of it, turned so the chosen
+  place faces the windows, and turns under the ship at twice orbital speed.
+- **Look.** `SPACE_LOOK` (altitude, how far below the horizon, horizon tilt,
+  place, sun direction, gains, speed). QA hook: `window.__verseSpace =
+  { ...SpaceLook }` overrides it per frame (`planet: 0` drops the planet
+  pass; `outward: [x, z]` forces the direction);
+  `window.__verseSpaceState` says whether the textures arrived.
+- **Textures** (`public/verse/space/`, 11 MB, NASA imagery in the public
+  domain) are baked by `python scripts/verse/earth.py --src <dir> --fetch`:
+  day 8192 (sRGB), clouds 8192 (single channel), night lights and relief
+  4096. A GPU with a smaller texture limit gets them scaled down on load.
 
 ### Views
 

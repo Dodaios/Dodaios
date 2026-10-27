@@ -8,6 +8,9 @@
  * commander's own arms (`runtime.viewmodel`) are drawn last, into the same
  * target with depth cleared.
  *
+ * Behind the deck: the Earth, the sun and the stars (`spaceView`), drawn
+ * first into the same target, so every viewport looks into real space.
+ *
  * Quality tiers: "high" (bloom, 4x MSAA, full resolution) by default; when
  * frames stay slower than ~45 fps the view drops to "low" (no post chain,
  * pixel ratio at most 1) for weak GPUs. The person can pin either tier in
@@ -33,6 +36,7 @@ import { loadRealtimeScene, type RealtimeScene } from "./realtimeScene";
 import { DECK_SHARED } from "./deckMaterial";
 import { verticalFov, type SegmentTest } from "./shoulderRig";
 import type { QualityChoice } from "./viewSettings";
+import { SpacePass, SpaceView, spaceTextureUrls } from "./spaceView";
 import { viewmodelVisibility } from "../../viewmodel/motion";
 import { drawViewmodel, ViewmodelPass } from "../../viewmodel/viewmodelPass";
 
@@ -149,10 +153,33 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
     return c;
   }, []);
 
+  // Space outside the hull: one view for the stage's life, the Earth's textures load in the background.
+  const space = useMemo(() => new SpaceView(12), []);
+  useEffect(() => {
+    const abort = new AbortController();
+    space.load(gl, spaceTextureUrls(import.meta.env.BASE_URL), abort.signal).catch((error: unknown) => {
+      // Without its textures the view keeps the stars and the sun; the deck is unaffected.
+      if (abort.signal.aborted) return;
+      space.state.error = String(error);
+      console.warn("Verse space textures unavailable", error);
+    });
+    // Read by QA runs against built bundles.
+    Object.assign(window, { __verseSpaceState: space.state });
+    return () => { abort.abort(); space.dispose(); };
+  }, [gl, space]);
+  useEffect(() => {
+    if (loaded?.outward) space.setOutward(loaded.outward);
+  }, [loaded, space]);
+
   const { composer, bloom, viewmodelPass } = useMemo(() => {
     const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
     const c = new EffectComposer(gl, target);
-    c.addPass(new RenderPass(scene, camera));
+    const spacePass = new SpacePass();
+    spacePass.view = space;
+    c.addPass(spacePass);
+    const deckPass = new RenderPass(scene, camera);
+    deckPass.clear = false;
+    c.addPass(deckPass);
     // First person: the commander's arms over the deck, before bloom and tone mapping like everything else.
     const vm = new ViewmodelPass();
     c.addPass(vm);
@@ -160,7 +187,7 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
     c.addPass(pass);
     c.addPass(new OutputPass());
     return { composer: c, bloom: pass, viewmodelPass: vm };
-  }, [gl, scene, camera]);
+  }, [gl, scene, camera, space]);
   useEffect(() => () => composer.dispose(), [composer]);
 
   useEffect(() => {
@@ -246,6 +273,7 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
       if (Math.abs(camera.fov - fov) > 1e-3) { camera.fov = fov; camera.updateProjectionMatrix(); }
     }
     camera.updateMatrixWorld();
+    space.update(camera, dt, gl.getPixelRatio());
     const vm = runtime.viewmodel;
     vm?.prepare(camera, dt, scene.environment as Texture | null);
     viewmodelPass.draw = vm;
@@ -264,7 +292,10 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
       composer.render(dt);
     } else {
       gl.setRenderTarget(null);
+      space.render(gl);
+      gl.autoClear = false;
       gl.render(scene, camera);
+      gl.autoClear = true;
       if (vm?.visible) drawViewmodel(gl, vm, null);
     }
     gl.setClearColor(clearColour, clearAlpha);
