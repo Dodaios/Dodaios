@@ -7,7 +7,7 @@
 import type { Deck, Socket } from "../content/deck";
 import type { CastMember } from "../actors/ActorsLayer";
 import type { Look } from "../actors/look";
-import type { CharacterContract } from "../actors/characters";
+import { COMMANDER_SKIN, type CharacterContract } from "../actors/characters";
 import { hash32, type CrewMember } from "./crew";
 import { socketKey, type Placement } from "./planner";
 import { commanderTarget, type CommanderOrders } from "./commander";
@@ -90,7 +90,7 @@ export function buildCast(input: CastInput): CastMember[] {
   }
   const t = commanderTarget(deck, commander.orders);
   cast.push({
-    id: COMMANDER_ID, body: "officer", look: commander.look,
+    id: COMMANDER_ID, body: "officer", model: COMMANDER_SKIN, look: commander.look,
     goal: { kind: "point", x: t.x, z: t.z }, goalKey: `point:${commander.orders.order}:${t.x.toFixed(2)}:${t.z.toFixed(2)}`,
     pace: 1.45, entry: commander.orders.fromLift ? "lift" : "placed",
   });

@@ -148,6 +148,10 @@ const POLE_L = new Vector3();
 export interface ArmColours {
   uniform: string;
   trim: string;
+  /** A cuff of its own colour (the Sovereign's gold); without it the cuff wears the cloth. */
+  cuff?: string;
+  /** Bare hands of this colour instead of the gloves. */
+  skin?: string;
 }
 
 /** The arms' own drawing: the bones of both arms, their skinned mesh and its material. */
@@ -366,7 +370,7 @@ export class Viewmodel {
     const gloves = VIEWMODEL.gloves;
     const cloth = new Color(colours.uniform);
     const tint: Record<ArmSlot, Color> = {
-      uniform: cloth, trim: cloth, skin: gloves ? new Color(gloves) : src.authored.skin, other: src.authored.other,
+      uniform: cloth, trim: colours.cuff ? new Color(colours.cuff) : cloth, skin: colours.skin ? new Color(colours.skin) : gloves ? new Color(gloves) : src.authored.skin, other: src.authored.other,
     };
     const order: ArmSlot[] = ["uniform", "trim", "skin", "other"];
     const attr = arms.mesh.geometry.getAttribute("color") as BufferAttribute;

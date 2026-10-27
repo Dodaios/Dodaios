@@ -5,8 +5,8 @@
       "loading": "Loading deck",
       "unavailable": "The ship needs WebGL, which this window cannot start right now.",
       "deck_missing": "This deck has not been built yet.",
-      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record.",
-      "help_eye": "Third and first person play like a shooter: a click on the view takes the mouse, moving it turns the camera, Esc gives it back. WASD walks relative to the view, Shift hurries; the left button or E works what the crosshair is on (a crew member, a station), else E works the station within reach. Scroll to move the camera in or out: all the way in is first person, scrolling out of it comes back. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. The settings button on the tool rail sets mouse sensitivity, inverted look, field of view and quality."
+      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record. Hold F to unleash Arc Storm, lightning from both hands.",
+      "help_eye": "Third and first person play like a shooter: a click on the view takes the mouse, moving it turns the camera, Esc gives it back. WASD walks relative to the view, Shift hurries; the left button or E works what the crosshair is on (a crew member, a station), else E works the station within reach. Scroll to move the camera in or out: all the way in is first person, scrolling out of it comes back. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. The settings button on the tool rail sets mouse sensitivity, inverted look, field of view and quality. Hold F to unleash Arc Storm, lightning from both hands."
     },
     "deck": {
       "label": "Deck {n}",

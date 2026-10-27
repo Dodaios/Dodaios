@@ -100,6 +100,8 @@ export class StageRuntime {
   viewmodel: ViewmodelDraw | null = null;
   /** A duel holds the commander: the deck neither walks nor shows their usual body. */
   duelActive = false;
+  /** The commander's power (Arc Storm) is held down (the F key), on the deck outside a duel. */
+  power = false;
   /** The duel's hall while a duel runs: crew standing in it are not drawn (nobody walks into the line of fire). */
   duelArea: { x0: number; x1: number; z0: number; z1: number } | null = null;
   /** Put the commander here on the next frame (a duel ended), snapped onto the deck's nav grid. */
