@@ -202,6 +202,11 @@ class RuntimeLaunch:
     #: Replies the runtime itself posts as the assistant's message when a turn
     #: fails before any model call (``acp.AcpTurn.failure_replies``).
     failure_replies: tuple[re.Pattern[str], ...] = ()
+    #: Why a turn that started at the given wall-clock time (``time.time()``)
+    #: ended without an answer, from the runtime's own log ("" = unknown).
+    #: For a runtime that ends a failed run like a finished one over ACP
+    #: (OpenClaw after a context overflow it could not recover from).
+    failure_probe: Callable[[float], str] | None = None
 
 
 class AgentRuntimeDriver(Protocol):

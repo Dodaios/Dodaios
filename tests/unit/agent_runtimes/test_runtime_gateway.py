@@ -439,7 +439,8 @@ def test_subscription_limit_never_uses_the_api_path(fake, guarded, monkeypatch):
     signal = gateway.watch_failure(token)
     answer = _post(guarded, token, {"model": "m", "input": "hello"})
     assert answer.status_code == 429 and answer.headers["Retry-After"] == "120"
-    assert "openai-codex" in signal.result(timeout=1)
+    assert "ChatGPT subscription" in signal.result(timeout=1)
+    assert "usage limit" in signal.result() and "Try again in" not in signal.result()
     _post(guarded, token, {"model": "m", "input": "hello"})
     assert len(fake.calls) == 1
     gateway.check_cooldown("openai-codex", "m", "account-b")

@@ -73,9 +73,15 @@ def _failure(
     code = str(error.get("code") or "")
     if not _SAFE_CODE.fullmatch(code):
         code = "subscription_unavailable"
-    if status == 429 or code in {
+    if code == "rate_limit_exceeded":
+        # A short burst limit, not the plan's allowance: a wait fixes it.
+        status = 429
+        message = (
+            "The selected ChatGPT subscription is receiving too many requests "
+            "right now (rate limit). Try again shortly."
+        )
+    elif status == 429 or code in {
         "usage_limit_reached",
-        "rate_limit_exceeded",
         "subscription_sharing_usage_limit_exceeded",
     }:
         status = 429
@@ -83,6 +89,7 @@ def _failure(
             "The selected ChatGPT subscription reached a usage limit. "
             "Try again after its allowance resets."
         )
+        retry_after = retry_after or _reset_after(error)
     elif status in (401, 403):
         message = (
             "ChatGPT subscription access was rejected. "
@@ -106,6 +113,24 @@ def _failure(
             "Try again later; no API billing fallback was used."
         )
     return SubscriptionReasoningError(message, code=code, status=status, retry_after=retry_after)
+
+
+def _reset_after(error: dict[str, Any]) -> str | None:
+    """Seconds until a spent allowance resets, from the backend's own fields.
+
+    The usage-limit body names the reset as ``resets_in_seconds`` or as the
+    epoch second ``resets_at``; nothing else of the body is read.
+    """
+    import time
+
+    for field_name, relative in (("resets_in_seconds", True), ("resets_at", False)):
+        raw = error.get(field_name)
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            continue
+        seconds = float(raw) if relative else float(raw) - time.time()
+        if 0 <= seconds < 400 * 86400:
+            return str(int(seconds))
+    return None
 
 
 #: Key- and token-shaped strings masked in a logged backend failure.
@@ -182,7 +207,7 @@ async def _http_failure(response: Any) -> SubscriptionReasoningError:
     failure = _failure(response.status_code, payload)
     # Preserve throttling instructions for gateway backoff without copying any
     # other headers. Existing consumers may read this optional exception field.
-    failure.retry_after = response.headers.get("retry-after")
+    failure.retry_after = response.headers.get("retry-after") or failure.retry_after
     log.info(
         "ChatGPT subscription request rejected: status=%s category=%s",
         failure.status,

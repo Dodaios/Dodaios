@@ -75,3 +75,15 @@ describe("retryOf", () => {
     expect(retryOf([user("hi"), turn("error", REASON), user("again", "u2")], send)).toBeNull();
   });
 });
+
+describe("a turn a runtime ended with an error but no HTTP failure", () => {
+  it("is the red failed-turn card with a readable reason and Retry, not a grey 'no answer' line", () => {
+    let retried = 0;
+    const reason = "The conversation no longer fits this model's context window (context window exceeded). Start a fresh chat, or pick a model with a larger context window.";
+    draw(turn("error", reason), () => { retried += 1; });
+    expect(screen.getByTestId("turn-failure-reason").textContent).toContain("context window");
+    expect(screen.queryByText("Finished without an answer")).toBeNull();
+    fireEvent.click(screen.getByTestId("turn-retry"));
+    expect(retried).toBe(1);
+  });
+});

@@ -176,10 +176,83 @@ FAILURE_REPLIES: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(r"^(Thinking level \"[^\"]*\" is not supported for \S+\. Use one of: .*)$"),
 )
 
+#: What a turn that failed inside the Gateway reads as. OpenClaw's ACP bridge
+#: ends an errored run like a finished one (``stopReason: end_turn``, no
+#: text), so the reason is only in the Gateway's log.
+CONTEXT_FULL_REASON: Final[str] = (
+    "The conversation no longer fits this model's context window (context window "
+    "exceeded). Start a fresh chat, or pick a model with a larger context window."
+)
+_RUN_FAILED: Final[re.Pattern[str]] = re.compile(r"\bisError=true\b.*?\brawError=(.+)$")
+_OVERFLOW_GIVEN_UP: Final[tuple[str, ...]] = (
+    "exhausted provider overflow recovery",
+    "kind=context_overflow",
+)
+_OVERFLOW_WORDS: Final[tuple[str, ...]] = (
+    "context window exceeded",
+    "context overflow",
+    "context length exceeded",
+    "prompt too large",
+)
+#: How much of the end of the Gateway's log a failed turn reads.
+_PROBE_TAIL_BYTES: Final[int] = 512 * 1024
+_SECRET_SHAPES: Final[re.Pattern[str]] = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{6,}|AIza[0-9A-Za-z_\-]{10,}|[Bb]earer\s+[A-Za-z0-9._\-]{10,}"
+    r"|eyJ[A-Za-z0-9._\-]{20,})"
+)
+
 _INSTALL_URL_PS1: Final[str] = "https://openclaw.ai/install.ps1"
 _INSTALL_URL_SH: Final[str] = "https://openclaw.ai/install.sh"
 #: OpenClaw's user-space installer: a private Node.js under ``--prefix``, no sudo.
 _INSTALL_CLI_URL_SH: Final[str] = "https://openclaw.ai/install-cli.sh"
+
+
+def run_failure(log_path: Path, since: float) -> str:
+    """Why the Gateway's run for a turn started at ``since`` failed ("" = no failure logged).
+
+    Reads the end of the Gateway's log: only lines stamped at or after the
+    turn's start count. A context overflow the Gateway could not compact away
+    reads as :data:`CONTEXT_FULL_REASON`; any other failed run as its own
+    short reason, bounded and with key-shaped text masked.
+    """
+    import datetime as _dt
+
+    try:
+        with log_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _PROBE_TAIL_BYTES))
+            text = handle.read().decode("utf-8", errors="replace")
+    except OSError:  # no readable Gateway log: the caller keeps its generic reason
+        return ""
+    overflow = False
+    failed = ""
+    for line in text.splitlines():
+        stamp, _, rest = line.partition(" ")
+        try:
+            at = _dt.datetime.fromisoformat(stamp).timestamp()
+        except ValueError:  # continuation line without a timestamp: not a turn event
+            continue
+        if at < since - 1.0:
+            continue
+        lowered = rest.lower()
+        if any(marker in rest for marker in _OVERFLOW_GIVEN_UP):
+            overflow = True
+            continue
+        match = _RUN_FAILED.search(rest)
+        if match:
+            raw = match.group(1).strip()
+            if any(word in lowered for word in _OVERFLOW_WORDS):
+                overflow = True
+            failed = raw
+    if overflow:
+        return CONTEXT_FULL_REASON
+    if not failed:
+        return ""
+    reason = _SECRET_SHAPES.sub("[redacted]", " ".join(failed.split()))
+    if len(reason) > 240:
+        reason = reason[:240].rstrip() + "…"
+    return f"OpenClaw ended the run with an error: {reason}"
 
 
 # ------------------------------------------------------------------ install
@@ -809,6 +882,7 @@ class OpenClawRuntime:
             },
             prompt_meta=prompt_meta(turn),
             failure_replies=FAILURE_REPLIES,
+            failure_probe=lambda since: run_failure(home / "gateway.log", since),
         )
         return launch, gateway
 
