@@ -49,6 +49,14 @@ framing at its own size; a low, wide one still shows at least 5 m of floor top
 to bottom. The camera never comes closer than the plate is sharp: an older
 deck cooked at 96 px/m, or a HiDPI screen, stops a little further out.
 
+B folds out the **hoverboard** under the commander (the tool rail has the same
+button): the movement keys then glide at 5.5 m/s instead of walking at about
+1.3 (Shift boosts to 8.5), the board coasts to a stop when the keys are let
+go and loses its speed against a wall, and a click on the deck rides the path
+at four times the walking pace. The rider stands on it a hand's breadth off
+the floor, leaning into speed and turns; B folds it away. It never comes into
+a duel. Motion and look live in `actors/hoverboard.ts`.
+
 **Duel.** At any of the four consoles on the reactor's control ring (Reactor
 Engineering) E offers *Start a duel*; the **Duel** button on the tool rail does
 the same from any deck (the turbolift rides down first). Choose normal, hard
