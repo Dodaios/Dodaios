@@ -7083,7 +7083,9 @@
       "quest_age_d": "{n} d ago",
       "quest_close": "Close",
       "quest_loading": "Reading the board…",
-      "quest_open_ledger": "Open the agents ledger"
+      "quest_open_ledger": "Open the agents ledger",
+      "mode_label": "Agents view",
+      "mode_map": "Dodaios Verse"
     },
     "style": {
       "modern": "Modern",
@@ -7356,7 +7358,9 @@
       "chat_empty_title": "No conversation yet",
       "chat_empty_hint": "The agent's chat opens here once the society backend binds its session.",
       "chat_bind_failed": "The chat could not be bound.",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "options_collapse": "Hide details",
+      "options_expand": "Show details"
     },
     "figure": {
       "drag_hint": "Drag to turn and tilt · wheel to zoom · double-click to reset",
@@ -7496,6 +7500,45 @@
         "description": "You own the shared memory. You turn finished work into short, sourced wiki notes under your namespace and propose what deserves promotion to shared knowledge.",
         "routine": "Nightly curation pass"
       }
+    },
+    "shell": {
+      "mode_verse": "Verse",
+      "new_agent": "New agent",
+      "roster_collapse": "Fold the agent list",
+      "roster_expand": "Unfold the agent list",
+      "resize_roster": "Resize the agent list",
+      "resize_details": "Resize the details pane",
+      "filter_label": "Show agents",
+      "filter_all": "All",
+      "filter_needs_you": "Needs you",
+      "filter_unread": "Unread",
+      "pinned": "Pinned agents",
+      "section_needs_you": "Needs you",
+      "section_teams": "Teams",
+      "section_agents": "Agents",
+      "team_empty": "No members yet. Hold an agent over this team to add it.",
+      "status_needs_you": "Needs you",
+      "status_waiting": "Waiting for you",
+      "preview_needs_you": "Needs you",
+      "preview_draft": "Draft:",
+      "preview_working": "Working…",
+      "time_now": "now",
+      "pin": "Pin to the top",
+      "unpin": "Unpin",
+      "pin_full": "Eight agents are pinned already. Unpin one first.",
+      "mark_read": "Mark as read",
+      "mark_unread": "Mark as unread",
+      "reorder_keys": "Alt + Shift + Arrow Up / Down moves the agent",
+      "empty_agents": "No agents yet. Your first agent appears here once you give it a job.",
+      "empty_needs_you": "Nothing needs you right now. Questions and approvals show up here.",
+      "empty_unread": "You are all caught up. New results from your agents show up here.",
+      "show_all": "Show all agents",
+      "clear_search": "Clear search",
+      "approval_legacy": "Existing permissions",
+      "approval_confirm": "Click again to allow more without asking"
+    },
+    "profile_card": {
+      "open": "Open profile of {0}"
     }
   },
   "chat_tools": {
@@ -7678,8 +7721,17 @@
       "delegation_continuation_limit": "The delegated work took too many rounds and was stopped. Please ask again.",
       "usage_limit": "This model's plan has used up its usage allowance until it resets. Pick another connected model in the agent's settings to keep going.",
       "usage_limit_until": "This model's plan has used up its usage allowance until it resets at {time}. Pick another connected model in the agent's settings to keep going.",
-      "context_window": "The conversation no longer fits this model's context window. Start a fresh chat, or pick a model with a larger context window."
-    }
+      "context_window": "The conversation no longer fits this model's context window. Start a fresh chat, or pick a model with a larger context window.",
+      "runtime_updating": "The agent runtime is updating its data. Try again in a moment.",
+      "still_starting": "The agent is still starting up. Try again in a moment.",
+      "app_restarted": "The app restarted while this turn was running. Send it again.",
+      "stall": "{runtime} got no reply from the model for {minutes} min, so the turn was stopped. Try again.",
+      "stall_local": "{runtime} got no reply from the local model for {minutes} min, so the turn was stopped. The model may be busy, slow, or still loading behind another model. Try again, or pick a smaller model.",
+      "internal": "{runtime} hit an internal error and stopped this turn. Try again.",
+      "crashed": "{runtime} stopped with an error. Try again.",
+      "the_agent": "The agent"
+    },
+    "technical_details": "Technical details"
   },
   "work_trace": {
     "tool_failed": "A tool action failed",

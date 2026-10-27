@@ -15,7 +15,7 @@ import { SubagentCard } from "@/components/agentic/threads/ThreadSubagents";
 import { isSubagentCall } from "@/components/agentic/threads/subagents";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { turnErrorText } from "./turnError";
+import { turnErrorView, type TurnErrorView } from "./turnError";
 
 /**
  * One agent turn read like a messenger conversation. The agent's messages
@@ -82,7 +82,7 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
       <ActivityLine turn={turn} avatar={avatar} color={color} nameOf={nameOf} peerFace={peerFace} />
       {work}
     </div> : flourish ? <BotStage presence="done" seed={turn.id} avatar={avatar} color={color} /> : null}
-    {failed && <TurnFailure reason={turnErrorText(turn.error, t) || t("thread_turn.failed_no_reason")} onRetry={onRetry} />}
+    {failed && <TurnFailure view={turnErrorView(turn.error, turn.errorDetails, t)} onRetry={onRetry} />}
     {turn.status === "cancelled" && <SystemLine>{t("thread_turn.stopped")}</SystemLine>}
     {turn.status === "done" && !failed && !hasText && !flourish && <SystemLine>{t("thread_turn.no_answer")}</SystemLine>}
     {!running ? work : null}
@@ -119,17 +119,30 @@ export function MessageBubble({ text }: { text: string }) {
   </div>;
 }
 
-/** A failed turn: the reason the runtime gave, and one click to send the message again. */
-export function TurnFailure({ reason, onRetry }: { reason: string; onRetry?: () => void }) {
+/**
+ * A failed turn: a short readable reason, the runtime's raw output (redacted)
+ * folded behind "Technical details", and one click to send the message again
+ * when that can work (not while a spent allowance waits for its reset).
+ */
+export function TurnFailure({ view, onRetry }: { view: TurnErrorView | null; onRetry?: () => void }) {
   const t = useT();
+  const reason = view?.reason || t("thread_turn.failed_no_reason");
+  const details = view?.details ?? null;
+  const retry = view?.retryable === false ? undefined : onRetry;
   return <div role="alert" data-testid="turn-failure"
     className="flex min-w-0 max-w-[min(85%,42rem)] items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
     <CircleAlert aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" />
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
       <span className="font-medium">{t("thread_turn.failed_title")}</span>
       <span className="[overflow-wrap:anywhere] text-destructive/90" data-testid="turn-failure-reason">{reason}</span>
+      {details ? <details className="mt-0.5 min-w-0" data-testid="turn-failure-details">
+        <summary className="cursor-pointer select-none text-destructive/80 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {t("thread_turn.technical_details")}
+        </summary>
+        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-destructive/5 p-2 font-mono text-[11px] leading-snug text-destructive/80 [overflow-wrap:anywhere]">{details}</pre>
+      </details> : null}
     </div>
-    {onRetry ? <button type="button" onClick={onRetry} data-testid="turn-retry"
+    {retry ? <button type="button" onClick={retry} data-testid="turn-retry"
       className="flex shrink-0 items-center gap-1 rounded-md border border-destructive/40 px-2 py-0.5 font-medium transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <RotateCcw aria-hidden className="h-3 w-3" />
       {t("thread_turn.retry")}

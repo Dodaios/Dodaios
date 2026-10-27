@@ -1,9 +1,5 @@
 {
   "society": {
-    "card": {
-      "options_collapse": "Ocultar detalles",
-      "options_expand": "Mostrar detalles"
-    },
     "agent_pane": {
       "tabs": "Detalles del agente",
       "tab_overview": "Detalles",
@@ -246,7 +242,6 @@
       "knowledge_hint": "Cada agente mantiene su propio USER.md para tu perfil y preferencias, y MEMORY.md para conocimientos y experiencia. Las habilidades y los archivos de conversaciones quedan separados.",
       "kind_memory": "Memoria",
       "kind_skills": "Habilidad aprendida · borrador",
-      "open": "Abrir perfil de {0}",
       "subtitle": "Perfil del agente",
       "profile": "Perfil e instrucciones",
       "memory": "Archivos de memoria",
@@ -381,10 +376,8 @@
       "room_reason_silence": "nadie habló",
       "room_reason_user": "la cerraste tú",
       "room_reason_kill_switch": "la sociedad se detuvo",
-      "mode_label": "Vista de agentes",
       "toggle_sections": "Mostrar u ocultar secciones",
       "fullscreen_failed": "No se pudo cambiar la pantalla completa. Los botones Dodaios Verse / Agentes siguen disponibles.",
-      "mode_map": "Dodaios Verse",
       "mode_ledger": "Registro",
       "hud_agents": "{count} agentes",
       "hud_active": "{count} activos",
@@ -2137,42 +2130,6 @@
         "copy_url": "Copiar URL",
         "copy_header": "Copiar línea de cabecera"
       }
-    },
-    "shell": {
-      "mode_verse": "Verse",
-      "new_agent": "Nuevo agente",
-      "roster_collapse": "Plegar la lista de agentes",
-      "roster_expand": "Desplegar la lista de agentes",
-      "resize_roster": "Cambiar el ancho de la lista de agentes",
-      "resize_details": "Cambiar el ancho del panel de detalles",
-      "filter_label": "Mostrar agentes",
-      "filter_all": "Todos",
-      "filter_needs_you": "Te necesita",
-      "filter_unread": "Sin leer",
-      "pinned": "Agentes fijados",
-      "section_needs_you": "Te necesita",
-      "section_teams": "Equipos",
-      "section_agents": "Agentes",
-      "team_empty": "Aún no hay miembros. Mantén un agente sobre este equipo para añadirlo.",
-      "status_needs_you": "Te necesita",
-      "status_waiting": "Esperándote",
-      "preview_needs_you": "Te necesita",
-      "preview_draft": "Borrador:",
-      "preview_working": "Trabajando…",
-      "time_now": "ahora",
-      "pin": "Fijar arriba",
-      "unpin": "Desfijar",
-      "pin_full": "Ya hay ocho agentes fijados. Desfija uno primero.",
-      "mark_read": "Marcar como leído",
-      "mark_unread": "Marcar como no leído",
-      "reorder_keys": "Alt + Mayús + flecha arriba / abajo mueve el agente",
-      "empty_agents": "Aún no hay agentes. Tu primer agente aparecerá aquí en cuanto le des una tarea.",
-      "empty_needs_you": "Ahora mismo nada te necesita. Las preguntas y aprobaciones aparecen aquí.",
-      "empty_unread": "Estás al día. Los nuevos resultados de tus agentes aparecen aquí.",
-      "show_all": "Mostrar todos los agentes",
-      "clear_search": "Borrar búsqueda",
-      "approval_legacy": "Permisos actuales",
-      "approval_confirm": "Vuelve a hacer clic para permitir más sin preguntar"
     }
   }
 }

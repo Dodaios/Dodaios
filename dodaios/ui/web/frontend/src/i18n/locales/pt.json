@@ -7083,7 +7083,9 @@
       "quest_age_d": "há {n} d",
       "quest_close": "Fechar",
       "quest_loading": "A ler o quadro…",
-      "quest_open_ledger": "Abrir o registo de agentes"
+      "quest_open_ledger": "Abrir o registo de agentes",
+      "mode_label": "Vista de agentes",
+      "mode_map": "Dodaios Verse"
     },
     "style": {
       "modern": "Moderno",
@@ -7356,7 +7358,9 @@
       "chat_empty_title": "Ainda sem conversa",
       "chat_empty_hint": "O chat do agente abre aqui assim que o backend da sociedade associar a sessão.",
       "chat_bind_failed": "Não foi possível associar o chat.",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "options_collapse": "Ocultar detalhes",
+      "options_expand": "Mostrar detalhes"
     },
     "figure": {
       "drag_hint": "Arrasta para rodar e inclinar · roda do rato para zoom · duplo clique para repor",
@@ -7496,6 +7500,45 @@
         "description": "A memória partilhada é tua. Transformas o trabalho concluído em notas wiki curtas e com fontes no teu espaço de nomes e propões o que merece ser promovido a conhecimento partilhado.",
         "routine": "Ronda de curadoria noturna"
       }
+    },
+    "shell": {
+      "mode_verse": "Verse",
+      "new_agent": "Novo agente",
+      "roster_collapse": "Recolher a lista de agentes",
+      "roster_expand": "Expandir a lista de agentes",
+      "resize_roster": "Ajustar a largura da lista de agentes",
+      "resize_details": "Ajustar a largura do painel de detalhes",
+      "filter_label": "Mostrar agentes",
+      "filter_all": "Todos",
+      "filter_needs_you": "Precisa de você",
+      "filter_unread": "Não lidos",
+      "pinned": "Agentes fixados",
+      "section_needs_you": "Precisa de você",
+      "section_teams": "Equipes",
+      "section_agents": "Agentes",
+      "team_empty": "Ainda sem membros. Segure um agente sobre esta equipe para adicioná-lo.",
+      "status_needs_you": "Precisa de você",
+      "status_waiting": "Esperando por você",
+      "preview_needs_you": "Precisa de você",
+      "preview_draft": "Rascunho:",
+      "preview_working": "Trabalhando…",
+      "time_now": "agora",
+      "pin": "Fixar no topo",
+      "unpin": "Desafixar",
+      "pin_full": "Já há oito agentes fixados. Desafixe um primeiro.",
+      "mark_read": "Marcar como lido",
+      "mark_unread": "Marcar como não lido",
+      "reorder_keys": "Alt + Shift + seta para cima / baixo move o agente",
+      "empty_agents": "Ainda não há agentes. O seu primeiro agente aparece aqui assim que lhe der uma tarefa.",
+      "empty_needs_you": "Nada precisa de você agora. Perguntas e aprovações aparecem aqui.",
+      "empty_unread": "Você está em dia. Novos resultados dos seus agentes aparecem aqui.",
+      "show_all": "Mostrar todos os agentes",
+      "clear_search": "Limpar busca",
+      "approval_legacy": "Permissões atuais",
+      "approval_confirm": "Clique de novo para permitir mais sem perguntar"
+    },
+    "profile_card": {
+      "open": "Abrir perfil de {0}"
     }
   },
   "chat_tools": {
@@ -7678,8 +7721,17 @@
       "delegation_continuation_limit": "O trabalho delegado precisou de demasiadas rondas e foi parado. Volta a perguntar.",
       "usage_limit": "O plano deste modelo esgotou a cota de uso até ela ser renovada. Escolha outro modelo conectado nas configurações do agente para continuar.",
       "usage_limit_until": "O plano deste modelo esgotou a cota de uso até ela ser renovada às {time}. Escolha outro modelo conectado nas configurações do agente para continuar.",
-      "context_window": "A conversa não cabe mais na janela de contexto deste modelo. Comece um chat novo ou escolha um modelo com uma janela de contexto maior."
-    }
+      "context_window": "A conversa não cabe mais na janela de contexto deste modelo. Comece um chat novo ou escolha um modelo com uma janela de contexto maior.",
+      "runtime_updating": "O ambiente do agente está atualizando os dados. Tente novamente em instantes.",
+      "still_starting": "O agente ainda está iniciando. Tente novamente em instantes.",
+      "app_restarted": "O app reiniciou enquanto este turno estava em andamento. Envie de novo.",
+      "stall": "{runtime} não recebeu resposta do modelo por {minutes} min, então o turno foi interrompido. Tente novamente.",
+      "stall_local": "{runtime} não recebeu resposta do modelo local por {minutes} min, então o turno foi interrompido. O modelo pode estar ocupado, lento ou ainda carregando atrás de outro modelo. Tente novamente ou escolha um modelo menor.",
+      "internal": "{runtime} teve um erro interno e interrompeu este turno. Tente novamente.",
+      "crashed": "{runtime} parou com um erro. Tente novamente.",
+      "the_agent": "O agente"
+    },
+    "technical_details": "Detalhes técnicos"
   },
   "work_trace": {
     "tool_failed": "Uma ação de ferramenta falhou",

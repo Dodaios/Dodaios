@@ -501,7 +501,8 @@ def test_a_silent_model_is_stopped_with_a_plain_reason(monkeypatch, tmp_path):
     events, frames = _run_live(monkeypatch, tmp_path, "SLOW")
     finished = _finished(events)
     assert finished["status"] == "error"
-    assert "stopped responding" in finished["error"]
+    assert "got no reply from the" in finished["error"]
+    assert "-cli" not in finished["error"]
     assert "session/cancel" in _methods(frames)
 
 

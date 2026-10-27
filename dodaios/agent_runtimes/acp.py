@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
 from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.turn_errors import gateway_unavailable_reason
 from dodaios.core.mcp_names import CLI_TOOL_PREFIX, TOOLS_SERVER_NAMES, cli_tool_name
 
 log = logging.getLogger(__name__)
@@ -678,8 +679,12 @@ def _error_text(error: dict[str, Any]) -> str:
                 f"Hermes requires at least {minimum} context tokens; this model has {actual}. "
                 "Increase the model context in Settings or choose a model with a larger window."
             )
+        # A Gateway UNAVAILABLE reply behind the SDK's generic wrapper: the
+        # known conditions as a reason, never the reply itself.
+        if known := gateway_unavailable_reason(detail):
+            return known
     if isinstance(data, str) and data:
-        return f"{message}: {data}"
+        return gateway_unavailable_reason(data) or f"{message}: {data}"
     if isinstance(data, dict) and data.get("message"):
         return f"{message}: {data['message']}"
     return message

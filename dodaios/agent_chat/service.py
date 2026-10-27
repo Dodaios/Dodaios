@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import attachments as chat_attachments
-from dodaios.agent_chat import turn_prompts
+from dodaios.agent_chat import turn_errors, turn_prompts
 from dodaios.agent_chat.approval_bridge import ChatApprovalBridge
 from dodaios.agent_chat.catalog import PROVIDER_ROWS, api_seat, offers, provider_row
 from dodaios.agent_chat.credential_requests import (
@@ -96,10 +96,7 @@ def _stop_caller() -> str:
     )
 
 #: What a turn cut off by a restart says (``_seal_orphaned_turns``).
-_ORPHANED_TURN_ERROR: Final = (
-    "Dodaios restarted while this turn was running. "
-    "Everything after the last step shown here was not captured."
-)
+_ORPHANED_TURN_ERROR: Final = turn_errors.APP_RESTARTED
 
 Subscriber = asyncio.Queue[dict[str, Any]]
 
@@ -1101,6 +1098,8 @@ class AgentChatService:
             if turn_id and self.store.turn_terminal(session_id, turn_id) is not None:
                 log.warning("agent chat: ignored duplicate completion for turn %s", turn_id)
                 return
+        if event.get("kind") in {"turn_finished", "error"}:
+            event = self._readable_error(session_id, event)
         stored = self.store.append_event(session_id, event)
         if event.get("kind") == "turn_finished":
             self._announce_jarvis_turn(session_id, event)
@@ -1117,6 +1116,35 @@ class AgentChatService:
                 # re-syncs from the store when it reconnects.
                 log.debug("agent chat: subscriber queue full for %s — dropping it", session_id)
                 self.unsubscribe(session_id, q)
+
+    def _readable_error(self, session_id: str, event: dict[str, Any]) -> dict[str, Any]:
+        """``event`` with its error as a short reason; a raw dump moves to ``error_details``.
+
+        One place for every runner: a stderr dump, prompt text, an internal
+        URL or a bare "Internal error" never reaches the failed-turn card
+        (``turn_errors.readable_turn_error``).
+        """
+        payload = event.get("payload") or {}
+        field = "error" if event.get("kind") == "turn_finished" else "message"
+        raw = payload.get(field)
+        if not isinstance(raw, str) or not raw.strip():
+            return event
+        session = self.store.get_session(session_id)
+        runtime = session.runtime if session is not None else ""
+        provider = session.provider if session is not None else ""
+        runner = EXTERNAL_RUNTIME_RUNNERS.get(runtime, "")
+        if not runner and provider:
+            row = provider_row(provider)
+            runner = row.runner if row is not None else ""
+        reason, details = turn_errors.readable_turn_error(raw, runner=runner, provider=provider)
+        if reason == raw and details is None:
+            return event
+        if details:
+            log.warning("agent chat %s: turn failed; details: %s", session_id, details)
+        new_payload = {**payload, field: reason}
+        if details:
+            new_payload["error_details"] = details
+        return {**event, "payload": new_payload}
 
     def _announce_jarvis_turn(self, session_id: str, event: dict[str, Any]) -> None:
         """Publish ``JarvisChatTurnFinished`` for a finished turn of a Jarvis chat."""

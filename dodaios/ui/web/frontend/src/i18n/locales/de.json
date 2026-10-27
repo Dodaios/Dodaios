@@ -7083,7 +7083,9 @@
       "quest_age_d": "vor {n} Tagen",
       "quest_close": "Schließen",
       "quest_loading": "Tafel wird gelesen…",
-      "quest_open_ledger": "Agenten-Register öffnen"
+      "quest_open_ledger": "Agenten-Register öffnen",
+      "mode_label": "Agenten-Ansicht",
+      "mode_map": "Dodaios Verse"
     },
     "style": {
       "modern": "Modern",
@@ -7356,7 +7358,9 @@
       "chat_empty_title": "Noch kein Gespräch",
       "chat_empty_hint": "Der Chat des Agenten öffnet sich hier, sobald das Society-Backend seine Sitzung anbindet.",
       "chat_bind_failed": "Der Chat konnte nicht verbunden werden.",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "options_collapse": "Details ausblenden",
+      "options_expand": "Details anzeigen"
     },
     "figure": {
       "drag_hint": "Ziehen zum Drehen und Kippen · Rad zum Zoomen · Doppelklick setzt zurück",
@@ -7496,6 +7500,45 @@
         "description": "Dir gehört das gemeinsame Gedächtnis. Du machst aus fertiger Arbeit kurze Wiki-Notizen mit Quellen in deinem Namensraum und schlägst vor, was ins gemeinsame Wissen aufsteigen sollte.",
         "routine": "Nächtlicher Kuratierungsdurchlauf"
       }
+    },
+    "shell": {
+      "mode_verse": "Verse",
+      "new_agent": "Neuer Agent",
+      "roster_collapse": "Agentenliste einklappen",
+      "roster_expand": "Agentenliste ausklappen",
+      "resize_roster": "Breite der Agentenliste ändern",
+      "resize_details": "Breite des Detailbereichs ändern",
+      "filter_label": "Agenten anzeigen",
+      "filter_all": "Alle",
+      "filter_needs_you": "Braucht dich",
+      "filter_unread": "Ungelesen",
+      "pinned": "Angeheftete Agenten",
+      "section_needs_you": "Braucht dich",
+      "section_teams": "Teams",
+      "section_agents": "Agenten",
+      "team_empty": "Noch keine Mitglieder. Halte einen Agenten über dieses Team, um ihn hinzuzufügen.",
+      "status_needs_you": "Braucht dich",
+      "status_waiting": "Wartet auf dich",
+      "preview_needs_you": "Braucht dich",
+      "preview_draft": "Entwurf:",
+      "preview_working": "Arbeitet…",
+      "time_now": "jetzt",
+      "pin": "Oben anheften",
+      "unpin": "Lösen",
+      "pin_full": "Es sind schon acht Agenten angeheftet. Löse zuerst einen.",
+      "mark_read": "Als gelesen markieren",
+      "mark_unread": "Als ungelesen markieren",
+      "reorder_keys": "Alt + Umschalt + Pfeil hoch / runter verschiebt den Agenten",
+      "empty_agents": "Noch keine Agenten. Dein erster Agent erscheint hier, sobald du ihm eine Aufgabe gibst.",
+      "empty_needs_you": "Gerade braucht dich niemand. Fragen und Freigaben erscheinen hier.",
+      "empty_unread": "Du bist auf dem neuesten Stand. Neue Ergebnisse deiner Agenten erscheinen hier.",
+      "show_all": "Alle Agenten zeigen",
+      "clear_search": "Suche leeren",
+      "approval_legacy": "Bisherige Berechtigungen",
+      "approval_confirm": "Erneut klicken, um mehr ohne Nachfrage zu erlauben"
+    },
+    "profile_card": {
+      "open": "Profil von {0} öffnen"
     }
   },
   "chat_tools": {
@@ -7678,8 +7721,17 @@
       "delegation_continuation_limit": "Die delegierte Arbeit hat zu viele Runden gebraucht und wurde gestoppt. Bitte frag noch einmal.",
       "usage_limit": "Das Kontingent dieses Modells ist aufgebraucht, bis es sich zurücksetzt. Wähle in den Einstellungen des Agenten ein anderes verbundenes Modell, um weiterzumachen.",
       "usage_limit_until": "Das Kontingent dieses Modells ist aufgebraucht, bis es sich um {time} zurücksetzt. Wähle in den Einstellungen des Agenten ein anderes verbundenes Modell, um weiterzumachen.",
-      "context_window": "Das Gespräch passt nicht mehr in das Kontextfenster dieses Modells. Starte einen neuen Chat oder wähle ein Modell mit größerem Kontextfenster."
-    }
+      "context_window": "Das Gespräch passt nicht mehr in das Kontextfenster dieses Modells. Starte einen neuen Chat oder wähle ein Modell mit größerem Kontextfenster.",
+      "runtime_updating": "Die Laufzeit des Agenten aktualisiert gerade ihre Daten. Versuch es gleich noch einmal.",
+      "still_starting": "Der Agent startet noch. Versuch es gleich noch einmal.",
+      "app_restarted": "Die App wurde neu gestartet, während dieser Durchgang lief. Schick die Nachricht noch einmal.",
+      "stall": "{runtime} hat {minutes} Min. lang keine Antwort vom Modell bekommen, deshalb wurde der Durchgang gestoppt. Versuch es noch einmal.",
+      "stall_local": "{runtime} hat {minutes} Min. lang keine Antwort vom lokalen Modell bekommen, deshalb wurde der Durchgang gestoppt. Das Modell ist vielleicht ausgelastet, langsam oder wartet, bis ein anderes Modell fertig geladen ist. Versuch es noch einmal oder wähle ein kleineres Modell.",
+      "internal": "{runtime} hatte einen internen Fehler und hat diesen Durchgang beendet. Versuch es noch einmal.",
+      "crashed": "{runtime} wurde mit einem Fehler beendet. Versuch es noch einmal.",
+      "the_agent": "Der Agent"
+    },
+    "technical_details": "Technische Details"
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",

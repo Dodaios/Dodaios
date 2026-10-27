@@ -7083,7 +7083,9 @@
       "quest_age_d": "{n} 天前",
       "quest_close": "关闭",
       "quest_loading": "正在读取公告板…",
-      "quest_open_ledger": "打开智能体名册"
+      "quest_open_ledger": "打开智能体名册",
+      "mode_label": "智能体视图",
+      "mode_map": "Dodaios Verse"
     },
     "style": {
       "modern": "现代",
@@ -7356,7 +7358,9 @@
       "chat_empty_title": "还没有会话",
       "chat_empty_hint": "社群后端绑定会话后，智能体的对话将在此打开。",
       "chat_bind_failed": "无法绑定对话。",
-      "cancel": "取消"
+      "cancel": "取消",
+      "options_collapse": "隐藏详情",
+      "options_expand": "显示详情"
     },
     "figure": {
       "drag_hint": "拖动以旋转和倾斜 · 滚轮缩放 · 双击重置",
@@ -7496,6 +7500,45 @@
         "description": "你负责共享记忆。你把完成的工作整理成简短、注明来源的 wiki 笔记，存放在你的命名空间下，并提议哪些内容值得提升为共享知识。",
         "routine": "夜间整理"
       }
+    },
+    "shell": {
+      "mode_verse": "Verse",
+      "new_agent": "新建智能体",
+      "roster_collapse": "收起智能体列表",
+      "roster_expand": "展开智能体列表",
+      "resize_roster": "调整智能体列表宽度",
+      "resize_details": "调整详情面板宽度",
+      "filter_label": "显示智能体",
+      "filter_all": "全部",
+      "filter_needs_you": "需要你",
+      "filter_unread": "未读",
+      "pinned": "已置顶的智能体",
+      "section_needs_you": "需要你",
+      "section_teams": "团队",
+      "section_agents": "智能体",
+      "team_empty": "还没有成员。把智能体拖到这个团队上停留片刻即可加入。",
+      "status_needs_you": "需要你",
+      "status_waiting": "正在等你",
+      "preview_needs_you": "需要你",
+      "preview_draft": "草稿：",
+      "preview_working": "工作中…",
+      "time_now": "刚刚",
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "pin_full": "已置顶八个智能体，请先取消一个。",
+      "mark_read": "标为已读",
+      "mark_unread": "标为未读",
+      "reorder_keys": "Alt + Shift + 上/下方向键移动智能体",
+      "empty_agents": "还没有智能体。给第一个智能体分配工作后，它会出现在这里。",
+      "empty_needs_you": "目前没有需要你处理的事。问题和审批会显示在这里。",
+      "empty_unread": "你已全部看完。智能体的新结果会显示在这里。",
+      "show_all": "显示全部智能体",
+      "clear_search": "清除搜索",
+      "approval_legacy": "现有权限",
+      "approval_confirm": "再次点击以允许更多操作而无需询问"
+    },
+    "profile_card": {
+      "open": "打开 {0} 的个人资料"
     }
   },
   "chat_tools": {
@@ -7678,8 +7721,17 @@
       "delegation_continuation_limit": "委派的工作轮次过多，已被停止。请重新提问。",
       "usage_limit": "此模型的套餐用量已用完，需等待额度重置。请在智能体设置中选择另一个已连接的模型以继续。",
       "usage_limit_until": "此模型的套餐用量已用完，将在 {time} 重置。请在智能体设置中选择另一个已连接的模型以继续。",
-      "context_window": "对话已超出此模型的上下文窗口。请开始新的聊天，或选择上下文窗口更大的模型。"
-    }
+      "context_window": "对话已超出此模型的上下文窗口。请开始新的聊天，或选择上下文窗口更大的模型。",
+      "runtime_updating": "智能体运行时正在更新数据。请稍后再试。",
+      "still_starting": "智能体仍在启动中。请稍后再试。",
+      "app_restarted": "此轮运行期间应用已重启。请重新发送。",
+      "stall": "{runtime} 在 {minutes} 分钟内没有收到模型的回复，因此本轮已停止。请重试。",
+      "stall_local": "{runtime} 在 {minutes} 分钟内没有收到本地模型的回复，因此本轮已停止。该模型可能正忙、速度较慢，或仍在等待另一个模型加载完毕。请重试，或选择更小的模型。",
+      "internal": "{runtime} 发生内部错误，已停止本轮。请重试。",
+      "crashed": "{runtime} 因错误而停止。请重试。",
+      "the_agent": "智能体"
+    },
+    "technical_details": "技术详情"
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",

@@ -1,9 +1,5 @@
 {
   "society": {
-    "card": {
-      "options_collapse": "隐藏详情",
-      "options_expand": "显示详情"
-    },
     "agent_pane": {
       "tabs": "智能体详情",
       "tab_overview": "详情",
@@ -246,7 +242,6 @@
       "knowledge_hint": "每个智能体都维护自己的 USER.md（记录你的个人资料和偏好）和 MEMORY.md（记录项目知识和经验）。技能和对话存档单独保存。",
       "kind_memory": "记忆",
       "kind_skills": "学到的技能 · 草稿",
-      "open": "打开 {0} 的个人资料",
       "subtitle": "智能体个人资料",
       "profile": "个人资料与指令",
       "memory": "记忆文件",
@@ -381,10 +376,8 @@
       "room_reason_silence": "没人发言",
       "room_reason_user": "由你关闭",
       "room_reason_kill_switch": "智能体社会已被叫停",
-      "mode_label": "智能体视图",
       "toggle_sections": "显示或隐藏分区",
       "fullscreen_failed": "无法切换全屏。Dodaios Verse / 智能体按钮仍可使用。",
-      "mode_map": "Dodaios Verse",
       "mode_ledger": "名册",
       "hud_agents": "{count} 个智能体",
       "hud_active": "{count} 个活跃",
@@ -2137,42 +2130,6 @@
         "copy_url": "复制 URL",
         "copy_header": "复制请求头"
       }
-    },
-    "shell": {
-      "mode_verse": "Verse",
-      "new_agent": "新建智能体",
-      "roster_collapse": "收起智能体列表",
-      "roster_expand": "展开智能体列表",
-      "resize_roster": "调整智能体列表宽度",
-      "resize_details": "调整详情面板宽度",
-      "filter_label": "显示智能体",
-      "filter_all": "全部",
-      "filter_needs_you": "需要你",
-      "filter_unread": "未读",
-      "pinned": "已置顶的智能体",
-      "section_needs_you": "需要你",
-      "section_teams": "团队",
-      "section_agents": "智能体",
-      "team_empty": "还没有成员。把智能体拖到这个团队上停留片刻即可加入。",
-      "status_needs_you": "需要你",
-      "status_waiting": "正在等你",
-      "preview_needs_you": "需要你",
-      "preview_draft": "草稿：",
-      "preview_working": "工作中…",
-      "time_now": "刚刚",
-      "pin": "置顶",
-      "unpin": "取消置顶",
-      "pin_full": "已置顶八个智能体，请先取消一个。",
-      "mark_read": "标为已读",
-      "mark_unread": "标为未读",
-      "reorder_keys": "Alt + Shift + 上/下方向键移动智能体",
-      "empty_agents": "还没有智能体。给第一个智能体分配工作后，它会出现在这里。",
-      "empty_needs_you": "目前没有需要你处理的事。问题和审批会显示在这里。",
-      "empty_unread": "你已全部看完。智能体的新结果会显示在这里。",
-      "show_all": "显示全部智能体",
-      "clear_search": "清除搜索",
-      "approval_legacy": "现有权限",
-      "approval_confirm": "再次点击以允许更多操作而无需询问"
     }
   }
 }

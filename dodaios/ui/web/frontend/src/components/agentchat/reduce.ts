@@ -303,6 +303,8 @@ export interface TurnItem {
   liveUsage: Record<string, number> | null;
   costUsd: number | null;
   error: string | null;
+  /** The runtime's raw output behind the error, redacted, for "Technical details". */
+  errorDetails?: string | null;
   /** The plan card of a turn that finished in plan mode. */
   plan?: PlanState;
   /**
@@ -1315,6 +1317,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         // A runtime's own error event earlier in the turn stays its reason
         // when the end of the turn names none.
         error: str(p.error, "") || turn.error || null,
+        errorDetails: str(p.error_details, "") || (str(p.error, "") ? null : turn.errorDetails ?? null),
         ...(Array.isArray(p.background) && p.background.length > 0
           ? { background: (p.background as unknown[]).map((name) => str(name)) }
           : {}),
@@ -1343,7 +1346,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       const text = str(p.message);
       if (!text) return base;
       if (turnId && findTurn(base.items, turnId) >= 0) {
-        return updateTurn(base, turnId, (turn) => ({ ...turn, error: text }));
+        return updateTurn(base, turnId, (turn) => ({ ...turn, error: text, errorDetails: str(p.error_details, "") || null }));
       }
       return {
         ...base,

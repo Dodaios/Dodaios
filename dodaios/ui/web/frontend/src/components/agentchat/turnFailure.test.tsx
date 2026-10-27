@@ -87,3 +87,32 @@ describe("a turn a runtime ended with an error but no HTTP failure", () => {
     expect(retried).toBe(1);
   });
 });
+
+describe("the failed-turn card keeps runtime internals out of sight", () => {
+  it("shows a short reason and folds the redacted output behind Technical details", () => {
+    const item = { ...turn("error", "Hermes stopped with an error. Try again."), errorDetails: "boom at https://gw.local/v1?token=x" };
+    draw(item, () => undefined);
+    expect(screen.getByTestId("turn-failure-reason").textContent).toBe("Hermes stopped with an error. Try again.");
+    const details = screen.getByTestId("turn-failure-details");
+    expect(details.textContent).toContain("Technical details");
+    expect(details.textContent).toContain("boom at [url]");
+    expect(details.textContent).not.toContain("token=x");
+    expect((details as HTMLDetailsElement).open).toBe(false);
+  });
+
+  it("carries the backend's details from the turn_finished event", () => {
+    const state = reduceEvents(EMPTY_TIMELINE, [
+      { seq: 1, ts_ms: 1, kind: "turn_started", payload: { turn_id: "t1", provider: "p", model: "" } },
+      { seq: 2, ts_ms: 2, kind: "turn_finished", payload: { turn_id: "t1", status: "error", error: "OpenClaw stopped with an error. Try again.", error_details: "tail" } },
+    ] as never);
+    const finished = state.items.find((item) => item.type === "turn") as TurnItem;
+    expect(finished.errorDetails).toBe("tail");
+  });
+
+  it("offers no Retry for a spent allowance that resets later", () => {
+    const reset = new Date(Date.now() + 7 * 86400 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+    draw(turn("error", `The ChatGPT subscription reached its usage limit: the plan's allowance is used up until it resets (it resets at ${reset}).`), () => undefined);
+    expect(screen.getByTestId("turn-failure")).toBeTruthy();
+    expect(screen.queryByTestId("turn-retry")).toBeNull();
+  });
+});

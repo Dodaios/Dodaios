@@ -4290,16 +4290,18 @@ async def _drive_cli(
                 continue
             if not acp.handshaken:
                 if now - started > _ACP_HANDSHAKE_TIMEOUT_S:
-                    reason = (
-                        f"{runner} did not open its session within "
-                        f"{int(_ACP_HANDSHAKE_TIMEOUT_S // 60)} minutes; the turn was stopped."
-                    )
+                    from dodaios.agent_chat.turn_errors import handshake_reason
+
+                    reason = handshake_reason(runner, _ACP_HANDSHAKE_TIMEOUT_S)
                     break
                 continue
             if now - activity[0] > _ACP_IDLE_TIMEOUT_S:
-                reason = (
-                    f"{runner} stopped responding (nothing for "
-                    f"{int(_ACP_IDLE_TIMEOUT_S // 60)} minutes); the turn was stopped."
+                from dodaios.agent_chat.turn_errors import stall_reason
+
+                # The runtime's display name, and a hint when a local model is
+                # the likely cause (busy, slow, or queued behind another one).
+                reason = stall_reason(
+                    runner, _ACP_IDLE_TIMEOUT_S, provider=str(handle.session.provider or "")
                 )
                 break
         if not reason or acp.saw_result:
@@ -4437,11 +4439,21 @@ async def _drive_cli(
             plan.acp is not None and plan.acp.saw_result
         ):
             status = "error"
+            raw_tail = "\n".join(stderr_tail[-8:]).strip()
+            if raw_tail:
+                from dodaios.agent_chat.turn_errors import redact
+
+                # The raw tail stays in the log, redacted; the card shows a
+                # short reason (``turn_errors.readable_turn_error``).
+                log.warning(
+                    "agent chat %s: %s exited with code %s; stderr tail:\n%s",
+                    handle.turn_id, runner, proc.returncode, redact(raw_tail),
+                )
             error_text = (
                 state.error
                 or getattr(state, "last_error", None)
                 or getattr(state, "last_tool_error", None)
-                or "\n".join(stderr_tail[-8:]).strip()
+                or raw_tail
                 or f"{runner} exited with code {proc.returncode}."
             )
         elif plan.shape == "codex" and state.failed_tools:
