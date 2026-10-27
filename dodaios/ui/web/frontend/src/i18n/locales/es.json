@@ -7675,7 +7675,10 @@
       "mandated_tool_unfulfilled": "El paso necesario no se ejecutó, así que no pude responder con fiabilidad. Inténtalo de nuevo.",
       "unbacked_action_claim": "No pude confirmar que la acción ocurriera de verdad, así que no lo afirmé. Inténtalo de nuevo.",
       "guarded_response": "La respuesta se retuvo porque no se pudo verificar. Inténtalo de nuevo.",
-      "delegation_continuation_limit": "El trabajo delegado necesitó demasiadas rondas y se detuvo. Vuelve a preguntar."
+      "delegation_continuation_limit": "El trabajo delegado necesitó demasiadas rondas y se detuvo. Vuelve a preguntar.",
+      "usage_limit": "El plan de este modelo ha agotado su cuota de uso hasta que se restablezca. Elige otro modelo conectado en la configuración del agente para continuar.",
+      "usage_limit_until": "El plan de este modelo ha agotado su cuota de uso hasta que se restablezca a las {time}. Elige otro modelo conectado en la configuración del agente para continuar.",
+      "context_window": "La conversación ya no cabe en la ventana de contexto de este modelo. Empieza un chat nuevo o elige un modelo con una ventana de contexto más grande."
     }
   },
   "work_trace": {

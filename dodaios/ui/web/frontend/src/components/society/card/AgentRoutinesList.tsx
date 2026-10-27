@@ -83,7 +83,7 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
       {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
     </form>}
     <ul className="-mx-1 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
-      {live.error && <li role="alert" className="text-[12px] text-destructive">{t("tasks_view.load_error")}</li>}
+      {live.error && !live.data && <li role="alert" className="text-[12px] text-destructive">{t("tasks_view.load_error")}</li>}
       {rows.length === 0 && live.isPending && <li className="text-[12px] text-muted-foreground">{t("society.profile_card.loading")}</li>}
       {rows.length === 0 && !live.isPending && !live.error && <li className="rounded-xl border border-dashed border-border px-3 py-4 text-center">
         <Sparkles size={16} aria-hidden className="mx-auto mb-1.5 text-faint-foreground" />

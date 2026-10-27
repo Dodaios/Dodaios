@@ -7675,7 +7675,10 @@
       "mandated_tool_unfulfilled": "Der nötige Schritt ist nicht gelaufen, deshalb konnte ich nicht verlässlich antworten. Bitte versuch es noch einmal.",
       "unbacked_action_claim": "Ich konnte nicht bestätigen, dass die Aktion wirklich passiert ist, deshalb habe ich es nicht behauptet. Bitte versuch es noch einmal.",
       "guarded_response": "Die Antwort wurde zurückgehalten, weil sie sich nicht prüfen ließ. Bitte versuch es noch einmal.",
-      "delegation_continuation_limit": "Die delegierte Arbeit hat zu viele Runden gebraucht und wurde gestoppt. Bitte frag noch einmal."
+      "delegation_continuation_limit": "Die delegierte Arbeit hat zu viele Runden gebraucht und wurde gestoppt. Bitte frag noch einmal.",
+      "usage_limit": "Das Kontingent dieses Modells ist aufgebraucht, bis es sich zurücksetzt. Wähle in den Einstellungen des Agenten ein anderes verbundenes Modell, um weiterzumachen.",
+      "usage_limit_until": "Das Kontingent dieses Modells ist aufgebraucht, bis es sich um {time} zurücksetzt. Wähle in den Einstellungen des Agenten ein anderes verbundenes Modell, um weiterzumachen.",
+      "context_window": "Das Gespräch passt nicht mehr in das Kontextfenster dieses Modells. Starte einen neuen Chat oder wähle ein Modell mit größerem Kontextfenster."
     }
   },
   "work_trace": {

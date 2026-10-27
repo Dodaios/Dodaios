@@ -7675,7 +7675,10 @@
       "mandated_tool_unfulfilled": "The required step did not run, so I could not answer reliably. Please try again.",
       "unbacked_action_claim": "I could not confirm that the action really happened, so I did not claim it. Please try again.",
       "guarded_response": "The answer was held back because it could not be verified. Please try again.",
-      "delegation_continuation_limit": "The delegated work took too many rounds and was stopped. Please ask again."
+      "delegation_continuation_limit": "The delegated work took too many rounds and was stopped. Please ask again.",
+      "usage_limit": "This model's plan has used up its usage allowance until it resets. Pick another connected model in the agent's settings to keep going.",
+      "usage_limit_until": "This model's plan has used up its usage allowance until it resets at {time}. Pick another connected model in the agent's settings to keep going.",
+      "context_window": "The conversation no longer fits this model's context window. Start a fresh chat, or pick a model with a larger context window."
     }
   },
   "work_trace": {

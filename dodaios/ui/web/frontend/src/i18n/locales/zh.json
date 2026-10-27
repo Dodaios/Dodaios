@@ -7675,7 +7675,10 @@
       "mandated_tool_unfulfilled": "必要的步骤没有运行，所以我无法可靠地回答。请再试一次。",
       "unbacked_action_claim": "我无法确认该操作确实已完成，所以没有这样声称。请再试一次。",
       "guarded_response": "由于无法验证，该回答已被拦截。请再试一次。",
-      "delegation_continuation_limit": "委派的工作轮次过多，已被停止。请重新提问。"
+      "delegation_continuation_limit": "委派的工作轮次过多，已被停止。请重新提问。",
+      "usage_limit": "此模型的套餐用量已用完，需等待额度重置。请在智能体设置中选择另一个已连接的模型以继续。",
+      "usage_limit_until": "此模型的套餐用量已用完，将在 {time} 重置。请在智能体设置中选择另一个已连接的模型以继续。",
+      "context_window": "对话已超出此模型的上下文窗口。请开始新的聊天，或选择上下文窗口更大的模型。"
     }
   },
   "work_trace": {
