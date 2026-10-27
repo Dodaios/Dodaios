@@ -188,6 +188,7 @@ MATERIALS: dict[str, RtMaterial] = {
     "M_Plastic_MedWhite": RtMaterial(roughness=0.36),
     "M_Fabric_BunkGrey": RtMaterial(roughness=0.9, specular=0.3),
     "M_Paint_TrimRed": RtMaterial(roughness=0.3),
+    "M_Paint_Hazard": RtMaterial(roughness=0.44, detail="painted"),
     "M_Lacquer_BlackGloss": RtMaterial(roughness=0.07, clearcoat=1.0, clearcoat_roughness=0.03),
     "M_Seat_Upholstery": RtMaterial(roughness=0.4),
     "M_Crate_Paint": RtMaterial(roughness=0.46, detail="painted"),

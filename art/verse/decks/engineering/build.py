@@ -44,9 +44,14 @@ def build() -> None:
         architecture.load_all()
     eng_arch.OCCLUDER_BOXES.clear()
     eng_arch.build()
-    eng_upper.build()
+    fitout = c.KIT_ARCH and c.KIT_REACTOR
+    eng_upper.build(fitout=fitout)
     eng_reactor.build()
     eng_rooms.build()
+    if fitout:
+        import eng_fitout
+
+        eng_fitout.build()
     eng_sockets.build()
     bpy.context.view_layer.update()  # world matrices for the cook's socket export
 

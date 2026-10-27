@@ -1121,6 +1121,28 @@ def _paint_trim_red(g: _Graph) -> None:
     _painted_metal(g, (0.28, 0.012, 0.01), rough=(0.25, 0.35), chip_to=(0.3, 0.3, 0.31), chip=0.2)
 
 
+@material("M_Paint_Hazard", viewport=(0.4, 0.28, 0.03))
+def _paint_hazard(g: _Graph) -> None:
+    """Opaque worn amber/black hazard stripes painted on steel: kerbs, rails,
+    tank plinths and threshold bands. Unlike the M_Deck_Hazard floor decal it
+    has no alpha, so it bakes into the eye-level view."""
+    co = g.coord("object", per_instance=False)
+    x, y, z = g.separate(co)
+    stripe = g.math("GREATER_THAN", g.math("FRACT", g.math("DIVIDE", g.add(x, y, z), 0.2)), 0.5)
+    keep = g.remap(g.noise(co, 7.0, detail=5, rough=0.65), 0.3, 0.42, smooth=True)
+    grime = g.noise(co, 1.3, detail=3)
+    amber = g.mix_color(g.mul(grime, 0.5), (0.29, 0.185, 0.018), (0.17, 0.11, 0.013))
+    paint = g.mix_color(stripe, (0.018, 0.018, 0.019), amber)
+    base = g.mix_color(keep, (0.2, 0.2, 0.21), paint)  # worn through to steel
+    bsdf = g.principled(
+        Base_Color=base,
+        Roughness=g.lerp(keep, 0.32, g.add(0.44, g.mul(grime, 0.16))),
+        Metallic=g.math("SUBTRACT", 1.0, keep),
+        Normal=g.bump(g.mul(keep, 0.4), 0.08, 0.0008),
+    )
+    g.output(bsdf.outputs[0])
+
+
 @material("M_Emit_BacklitPanel", viewport=(0.9, 0.9, 0.85))
 def _emit_backlit_panel(g: _Graph) -> None:
     """Instrument diffuser slats on consoles: dimmer than the wall columns."""

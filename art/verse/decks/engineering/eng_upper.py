@@ -20,7 +20,9 @@ realtime export turns it into normal walls.
 `cladding()` is ordinary Architecture: the plain walls the plate sees only
 edge-on (the west hull wall, lobby | bay, bay | gallery) get the deck's dark
 panelling with a rail, a recessed top and thin light strips, so at eye level
-they are no longer flat light-grey slabs.
+they are no longer flat light-grey slabs. It is the fallback without the
+kits: with them, ``eng_fitout`` clads those walls (and the near wall) in the
+engine-room language instead.
 """
 
 from __future__ import annotations
@@ -79,8 +81,10 @@ def _panels_z(geo: Geo, z0: float, z1: float, x_face: float, y0: float, y1: floa
             lights.box3(la, lb, a - 0.02, a + 0.02, y0 + 0.25, y1 - 0.25, STRIP)
 
 
-def near_wall() -> None:
-    """The near hull wall above the cut, room face at z = SOUTH_HULL_Z[0] facing -z."""
+def near_wall(faces_too: bool = True) -> None:
+    """The near hull wall above the cut, room face at z = SOUTH_HULL_Z[0] facing -z.
+
+    Without `faces_too` only the wall body is built (eng_fitout clads it)."""
     z_face, z_back = c.SOUTH_HULL_Z[0], c.SOUTH_HULL_Z[0] + 0.3
     x_in, x_out = c.WEST_HULL_X[1] - 0.3, c.EAST_HULL_X[0] + 0.3
     top = max(c.GALLERY_H, c.BAY_H, c.LOBBY_H) + 0.1
@@ -97,6 +101,8 @@ def near_wall() -> None:
         _panels_x(faces, x0, x1, z_face, c.CUT_H + 0.12, height - 0.35, -1, lights)
         faces.box3(x0, x1, z_face - 0.03, z_face, height - 0.35, height, RECESS)
     build_into("Ceiling", body, "SM_Eng_NearWallUpper", bevel_width=0.004)
+    if not faces_too:
+        return
     build_into("Ceiling", faces, "SM_Eng_NearWallUpperFaces", bevel_width=0.003)
     build_into("Ceiling", lights, "SM_Eng_NearWallUpperStrips", bevel_width=0.0)
 
@@ -216,10 +222,13 @@ def cladding() -> None:
     kit.tag(obj, nav="none")
 
 
-def build() -> None:
-    cladding()
+def build(fitout: bool = False) -> None:
+    """With `fitout`, eng_fitout dresses the room walls in place of
+    `cladding()` and the near wall's plain panels."""
+    if not fitout:
+        cladding()
     with kit.ghost(c.CUT_H):
-        near_wall()
+        near_wall(faces_too=not fitout)
         hall_skins()
         slits()
         shaft_plenum()

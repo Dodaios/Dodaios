@@ -434,11 +434,18 @@ corrected until the dark areas matched.
 | ops | 17 min (bake 11 min) | 16.2 MB | 0.91 M / 441 | 29.5 px/m | 38-53 % surface |
 
 Closing the rooms at eye level (step 1 below), besides the ceiling ghosts:
-engineering's plain full-height walls (west hull wall, lobby | bay,
-bay | gallery) carry dark panelling with a rail and thin light strips
-(`eng_upper.cladding`, Architecture), the door slots in them have heads,
-and the near hull wall's upper panels are dark paint and charcoal instead
-of flat mid grey; the hangar's front band (booth, crew bay, arrivals, lift
+engineering's control room, lobby, maintenance bay and conduit gallery are
+an engine-room fit-out (`decks/engineering/eng_fitout.py`, 2026-10-27): the
+plain walls carry the shared hall cladding with wall terminals, status
+boards, junction boxes and static heat vents (ghosts); racks, power
+cabinets, pipe manifolds, valve clusters, coolant tanks and case stacks
+stand along the walls (`Props`, nav `block`, lanes and doorways clear);
+grilles, hatches and opaque hazard bands (`M_Paint_Hazard`, which bakes,
+unlike the `M_Deck_Hazard` decal) are flush inlays; pipe runs, cable
+ladders, a duct, a gantry crane and a maintenance gantry hang overhead
+(ghosts). The reactor hall (the duel arena) is untouched. Without the kits
+the walls fall back to `eng_upper.cladding` (dark panelling with a rail and
+thin light strips). The door slots have heads; the hangar's front band (booth, crew bay, arrivals, lift
 lobby, armoury) got the same upper panelling (`hangar_upper`). On the
 bridge (`decks/bridge/cladding.py`) the side hull walls and the aft
 bulkhead's hall face carry charcoal panels with recessed seams, gunmetal
