@@ -56,6 +56,27 @@ PROBE_ALL_TIMEOUT_S = CHECK_TIMEOUT_S + AUTH_TIMEOUT_S + 2 * KILL_WAIT_TIMEOUT_S
 # BUG-189). Six lanes keep a calm sweep under ten seconds and turn the
 # cold-boot burst into a queue.
 PROBE_CONCURRENCY = 6
+# POSIX: every probe leads its own process group, so a stop reaches what the
+# CLI spawned too. ``wrangler --version`` re-launches itself as a child node;
+# killing only the parent left that child running past ``jarvis serve``'s exit
+# and holding the pipes, so the wait timed out and the transport was collected
+# after the loop closed ("Event loop is closed", #534).
+_OWN_GROUP = os.name != "nt"
+
+
+def _kill_probe(proc: asyncio.subprocess.Process) -> None:
+    """SIGKILL the probe's whole process group (POSIX), else just the child."""
+    pid = getattr(proc, "pid", None)
+    killpg = getattr(os, "killpg", None)
+    if _OWN_GROUP and killpg is not None and isinstance(pid, int) and pid > 0:
+        try:
+            killpg(pid, 9)  # SIGKILL; the group id is the leader's pid
+            return
+        except ProcessLookupError:
+            return  # the whole group is already gone
+        except OSError:
+            pass  # not our group after all: fall back to the child alone
+    proc.kill()
 
 
 async def _cancel_probes(tasks: list[asyncio.Future[CliStatus]]) -> None:
@@ -90,9 +111,11 @@ async def _cancel_probes(tasks: list[asyncio.Future[CliStatus]]) -> None:
 
 async def _stop_probe_process(proc: asyncio.subprocess.Process, name: str) -> None:
     """Reap a cancelled or timed-out probe within the existing cleanup budget."""
-    if proc.returncode is None:
+    # Even a child that already exited may have left its own children in the
+    # group (they hold the pipes), so the group is always signalled.
+    if proc.returncode is None or _OWN_GROUP:
         try:
-            proc.kill()
+            _kill_probe(proc)
         except ProcessLookupError:
             pass  # The child exited between the returncode check and kill.
     try:
@@ -194,6 +217,7 @@ class CliStatusProber:
                 stderr=PIPE,
                 env={**os.environ, "CI": "true"},
                 creationflags=NO_WINDOW_CREATIONFLAGS,
+                start_new_session=_OWN_GROUP,
             )
             try:
                 out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=CHECK_TIMEOUT_S)
@@ -239,6 +263,7 @@ class CliStatusProber:
                 stderr=PIPE,
                 env={**os.environ, "CI": "true"},
                 creationflags=NO_WINDOW_CREATIONFLAGS,
+                start_new_session=_OWN_GROUP,
             )
             try:
                 out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=AUTH_TIMEOUT_S)
