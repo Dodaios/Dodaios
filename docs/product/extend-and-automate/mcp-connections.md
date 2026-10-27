@@ -93,7 +93,7 @@ Remote URL-only entries are not imported.
 1. Review the Claude Desktop file first. Import copies each new server's
    command, arguments, and environment entries. Do not import raw credentials.
 2. If the MCP list is empty, select **Import Claude Desktop config**. If a
-   server already appears, use `jarvis mcps import-claude-desktop` instead.
+   server already appears, use `dodaios mcps import-claude-desktop` instead.
 3. Existing Dodaios entries with the same name stay unchanged. Every imported
    server starts disabled.
 4. Open **mcp.json** and review each imported entry before enabling it.
@@ -112,11 +112,11 @@ The command-line interface reaches the same running Dodaios service and is also
 available on a headless host:
 
 ```bash
-jarvis mcps list
-jarvis mcps check trusted-local-server
-jarvis mcps enable trusted-local-server
-jarvis mcps disable trusted-local-server
-jarvis mcps delete trusted-local-server --yes
+dodaios mcps list
+dodaios mcps check trusted-local-server
+dodaios mcps enable trusted-local-server
+dodaios mcps disable trusted-local-server
+dodaios mcps delete trusted-local-server --yes
 ```
 
 `check` starts and stops a disabled server for one handshake and tool-count
@@ -130,13 +130,13 @@ starts it immediately, so an app restart is not normally required.
 
 ## Disable or Remove a Server
 
-Turn off the server's switch, or run `jarvis mcps disable <name>`. Dodaios
+Turn off the server's switch, or run `dodaios mcps disable <name>`. Dodaios
 closes its current session, stops its local stdio process when applicable,
 removes its tools from new assistant requests, and keeps the configuration for
 later.
 
 To remove a server completely, disable it first and then run
-`jarvis mcps delete <name> --yes`. The explicit `--yes` is required because
+`dodaios mcps delete <name> --yes`. The explicit `--yes` is required because
 deletion is destructive. The **MCPs** view has no delete button.
 
 Removing an entry directly in the JSON editor can leave its previously loaded
@@ -212,7 +212,7 @@ A successful custom connection follows this flow:
 ## Check That It Works
 
 1. Enable one trusted server and confirm that its row says **connected**.
-2. Run `jarvis mcps list` and confirm that the server reports at least one tool
+2. Run `dodaios mcps list` and confirm that the server reports at least one tool
    with the expected name.
 3. Ask your assistant for one small, read-only action and name the server explicitly.
 4. Confirm that the response contains the server's result rather than setup

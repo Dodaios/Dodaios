@@ -222,7 +222,7 @@ and settings choose among the available paths.
 With Dodaios running, check the shared service first:
 
 ```text
-jarvis --json system status
+dodaios --json system status
 ```
 
 Success confirms that the command reaches Dodaios, not that every desktop
@@ -230,7 +230,7 @@ capability works.
 
 On a desktop, choose **Settings > Audio devices > Rescan devices** and confirm
 the intended devices appear. Then run the relevant **Test wake word** action,
-check the macOS permissions in **System Settings > Privacy & Security** (or with `jarvis permissions status` when the `jarvis` command is available), or run a reversible Computer Use action.
+check the macOS permissions in **System Settings > Privacy & Security** (or with `dodaios permissions status` when the `dodaios` command is available), or run a reversible Computer Use action.
 
 On headless Linux, open the printed local address and test text chat first.
 Configure authenticated HTTPS access before using a remote browser microphone.
@@ -242,7 +242,7 @@ Configure authenticated HTTPS access before using a remote browser microphone.
 | Python is rejected | Outside 3.11 through 3.14 | Let the installer choose, or install a supported version |
 | Linux opens a server | No X11 or Wayland display | Use the printed address, or install from a graphical session |
 | Linux audio is unavailable | PortAudio, access, or device missing | Install PortAudio, reconnect, then choose **Rescan devices** |
-| A macOS shortcut or screen action fails | Privacy grant missing or declined | Use the button on the short message Dodaios shows (**Open System Settings**), and a restart only when it says so; `jarvis permissions reset` starts over (see [App Permissions](permissions) if the command is not found) |
+| A macOS shortcut or screen action fails | Privacy grant missing or declined | Use the button on the short message Dodaios shows (**Open System Settings**), and a restart only when it says so; `dodaios permissions reset` starts over (see [App Permissions](permissions) if the command is not found) |
 | Linux Computer Use refuses | Wayland or no display | Use X11; text and browser features still work |
 | Linux control names are missing | AT-SPI or its bus is unavailable | Install accessibility packages; pixel fallback may work |
 | A local voice engine is unavailable | No compatible native package | Choose another local, browser, or online speech path |

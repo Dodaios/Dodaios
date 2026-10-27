@@ -5,7 +5,7 @@ Chrome extension connects an existing user's Chrome profile. See
 [browser profiles and shared logins](browser-profiles.md) for setup, assignment
 semantics and the connector's current verification limits.
 
-Jarvis provisions an isolated Browser-Use Python environment and a managed
+Dodaios provisions an isolated Browser-Use Python environment and a managed
 browser automatically during installation and after the server becomes ready.
 Opening an agent subscribes to that agent's actual rendered tab in the right
 Options rail. The browser remains open between tasks. Expand the view and take
@@ -21,7 +21,7 @@ agent workspace boundary. Vision-capable, unrestricted agents receive the
 same complete window image and gated native click/hover/scroll/navigation-key
 tools. Domain-restricted or page-only sessions retain DOM controls.
 
-The Jarvis root chat uses the lead agent's same browser profile and its selected
+The Dodaios root chat uses the lead agent's same browser profile and its selected
 chat model. Its Add picker includes the browser tool. Stopping the browser task
 also stops the owning chat, whether it is the root chat or a specialist session.
 
@@ -45,7 +45,7 @@ never provided to the frontend. The frontend uses the app's authenticated
 WebSocket boundary and short-lived handshake tickets.
 
 Browser-Use cloud sessions, telemetry and automatic browser extensions are
-disabled. Model requests use the existing Jarvis provider interface and
+disabled. Model requests use the existing Dodaios provider interface and
 credentials. A supported text-only subscription or local model can operate
 from DOM observations; a model rejected for image input retries without images.
 Website login, MFA and site-imposed restrictions still require user interaction.
@@ -88,7 +88,7 @@ Subsequent changes must pass the same matrix before integration.
 A full ordinary agent-chat turn selected the browser capability, submitted the
 disposable form and verified its success heading using one existing OpenRouter
 key. The browser job completed in three steps; the chat finished in 23.7 seconds.
-The root Jarvis chat separately completed the same real form workflow through
+The root Dodaios chat separately completed the same real form workflow through
 its selected OpenRouter model in 31.8 seconds, without changing the lead's saved
 provider/model settings. Real file tests also cover upload, completed downloads,
 workspace containment and omission of old downloads from a later task's result.

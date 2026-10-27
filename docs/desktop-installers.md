@@ -30,7 +30,7 @@ lists both names. The Windows setup is signed under its earlier name, which
 the SignPath configuration pins, and copied to `Dodaios-Setup-x64.exe` after
 signing (`scripts/ci/installer_aliases.py`).
 
-The terminal one-liner and `pipx install personal-jarvis` stay supported. They
+The terminal one-liner and `pipx install dodaios` (also published as `personal-jarvis`, its earlier name) stay supported. They
 produce a *managed* or *dev* install, which updates through git - see
 [section 6](#6-how-an-installed-copy-updates-itself).
 
@@ -112,8 +112,8 @@ run npm.
 
 The wizard itself is `packaging/windows/Dodaios.iss`:
 
-- **per-user** (`PrivilegesRequired=lowest`, `{localappdata}\Programs\Personal
-  Jarvis`) - no administrator prompt, exactly like Chrome. This is also what
+- **per-user** (`PrivilegesRequired=lowest`,
+  `{localappdata}\Programs\Dodaios`) - no administrator prompt, exactly like Chrome. This is also what
   lets the in-app updater run the upgrade unattended.
 - a **fixed `AppId` GUID** so every future setup upgrades in place instead of
   adding a second entry to "Installed apps"
@@ -189,7 +189,7 @@ System Settings pane does the asking and the app draws nothing around it. Declin
 a permission degrades that one feature and leaves the rest of the app working; the
 app then shows one short toast with one click to the right System Settings pane.
 The dialog text is German and Spanish on a German or Spanish Mac (the build writes
-the `.lproj` strings before signing). `jarvis permissions reset <permission>` makes
+the `.lproj` strings before signing). `dodaios permissions reset <permission>` makes
 macOS ask again. This is the designed behaviour; it has not been exercised on a real
 Mac yet (unverified). The
 downloaded app and the managed source-install app are separate apps to macOS
@@ -407,7 +407,7 @@ It deliberately keeps **`%LOCALAPPDATA%\Jarvis`** - `jarvis.toml`, memory,
 skills, logs, the chat database. Uninstalling and reinstalling therefore returns
 the user to their own configured app, not to a blank one. The uninstall
 confirmation says so. To remove that too, delete the directory by hand or run
-`jarvis --uninstall` before uninstalling.
+`dodaios --uninstall` before uninstalling.
 
 API keys are not in that directory: they live in the OS credential store
 (Windows Credential Manager / Keychain / Secret Service) and survive both.
@@ -418,15 +418,15 @@ API keys are not in that directory: they live in the OS credential store
 
 ```bash
 # the CLI works from the bundle
-dist/Jarvis/jarvis.exe --version
+dist/Jarvis/dodaios.exe --version
 
 # the backend really boots (Ctrl-C to stop)
-dist/Jarvis/jarvis.exe serve
+dist/Jarvis/dodaios.exe serve
 curl http://127.0.0.1:<admin_api_port>/api/health
 
 # a full install / upgrade / uninstall cycle, unattended
 PersonalJarvis-Setup-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\pj-test" /LOG=install.log
-C:\pj-test\jarvis.exe --version
+C:\pj-test\dodaios.exe --version
 PersonalJarvis-Setup-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\pj-test"   # upgrade in place
 C:\pj-test\unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```

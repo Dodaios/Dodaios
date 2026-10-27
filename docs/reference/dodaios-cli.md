@@ -1,5 +1,5 @@
 ---
-title: "Reference: Jarvis-CLI"
+title: "Reference: Dodaios CLI"
 slug: reference-jarvis-cli
 diataxis: reference
 status: active
@@ -10,10 +10,10 @@ audience: developer
 tags: [cli, jarvis-ask, jarvis-skills, cli-tools]
 ---
 
-# Reference: Jarvis-CLI
+# Reference: Dodaios CLI
 
-Complete reference of all command-line tools shipped with Personal
-Jarvis — the main CLI ``jarvis``, the voice bridge
+Complete reference of all command-line tools shipped with
+Dodaios — the main CLI ``dodaios`` (earlier name ``jarvis``), the voice bridge
 ``jarvis-ask``, the skill runner ``jarvis-skills``, the review-pipeline
 tools ``jarvis-review-eval`` / ``jarvis-review-gc``, plus the catalog of the
 ~20 external CLI tools that the Brain-Manager can dispatch as tools
@@ -21,7 +21,7 @@ tools ``jarvis-review-eval`` / ``jarvis-review-gc``, plus the catalog of the
 
 ## Table of Contents
 
-- [Main CLI: ``jarvis``](#haupt-cli-jarvis)
+- [Main CLI: ``dodaios``](#main-cli-dodaios)
 - [Voice bridge: ``jarvis-ask``](#voice-bridge-jarvis-ask)
 - [Skill runner: ``jarvis-skills``](#skill-runner-jarvis-skills)
 - [Review pipeline: ``jarvis-review-eval`` / ``jarvis-review-gc``](#review-pipeline)
@@ -31,7 +31,7 @@ tools ``jarvis-review-eval`` / ``jarvis-review-gc``, plus the catalog of the
 
 ---
 
-## Main CLI: ``jarvis``
+## Main CLI: ``dodaios``
 
 The main entry point — installed via ``pip install -e .`` from the
 repo root. Presents itself primarily as a tray/setup wrapper; the
@@ -40,7 +40,7 @@ running desktop app is started via ``run.bat``.
 **Synopsis:**
 
 ```bash
-jarvis [-h] [--version] [--wizard] [--check] [--plugins] [--debug]
+dodaios [-h] [--version] [--wizard] [--check] [--plugins] [--debug]
        [--phase5-doctor] [--install-admin-helper]
 ```
 
@@ -58,13 +58,13 @@ jarvis [-h] [--version] [--wizard] [--check] [--plugins] [--debug]
 
 ```bash
 # Initial setup
-jarvis --wizard
+dodaios --wizard
 
 # Hardware check
-jarvis --check
+dodaios --check
 
 # Plugin inventory
-jarvis --plugins
+dodaios --plugins
 ```
 
 **Source:** ``dodaios/__main__.py:main``.
@@ -73,8 +73,8 @@ jarvis --plugins
 
 ## Voice bridge: ``jarvis-ask``
 
-A thin CLI/HTTP bridge over which a Jarvis-Agent (or another
-CLI agent) can ask the user a question **by voice**. Jarvis reads
+A thin CLI/HTTP bridge over which a Dodaios-Agent (or another
+CLI agent) can ask the user a question **by voice**. Dodaios reads
 the question out via TTS, captures the spoken answer, and returns it on
 stdout.
 
@@ -122,7 +122,7 @@ curl -s http://127.0.0.1:47821/api/voice-bridge/health
 
 CLI frontend to the ``SkillRegistry`` — lists, inspects, runs skills,
 imports external `openclaw` (Claude-Code-compatible) skills, and promotes
-Jarvis-Agent-authored drafts to ``state=active``.
+Dodaios-Agent-authored drafts to ``state=active``.
 
 **Synopsis:**
 
@@ -137,7 +137,7 @@ jarvis-skills (--list | --info NAME | --run NAME |
 | ``--info NAME`` | Full detail for a skill: frontmatter, triggers, tools, resources, risk tier. |
 | ``--run NAME`` | Run a skill (requires an MCP connection context). |
 | ``--import-claude-skills PATH`` | Imports skills from the external `openclaw` CLI's skill directory into the user skill repo. |
-| ``--list-drafts`` | List Jarvis-Agent-authored drafts (``state=draft``). |
+| ``--list-drafts`` | List Dodaios-Agent-authored drafts (``state=draft``). |
 | ``--promote SLUG`` | Promote a draft skill to ``state=active`` — user-explicit activation with a security lint of the skill body. |
 
 **Examples:**
@@ -149,7 +149,7 @@ jarvis-skills --list
 # Skill detail
 jarvis-skills --info memory-save
 
-# View sub-Jarvis drafts
+# View Dodaios-Agent drafts
 jarvis-skills --list-drafts
 
 # Promote a draft (Plan §7.5: user-explicit activation)
@@ -224,7 +224,7 @@ jarvis-review-gc --older-than 30d
 ## CLI tool registry (external tools)
 
 A central registry indexes ~20 external CLI tools that the Brain-Manager
-(main Jarvis and Jarvis-Agents) can dispatch as tools. Each
+(main Dodaios and Dodaios-Agents) can dispatch as tools. Each
 entry carries a spec, auth profiles, a risk-tier default, and a probe status.
 
 **Inventory (as of 2026-04-23, ``dodaios/clis/catalog/seed_catalog.json``):**
@@ -331,7 +331,7 @@ Direct modules that can be invoked without an entry-point wrapper:
 
 | Invocation | Purpose |
 |---|---|
-| ``python -m dodaios`` | Identical to ``jarvis`` (tray + setup). |
+| ``python -m dodaios`` | Identical to ``dodaios`` (tray + setup). |
 | ``python -m dodaios.ui.web.launcher`` | Desktop-app launcher directly; accepts ``--headless`` / ``--dev``. |
 | ``python -m dodaios.skills.cli`` | Identical to ``jarvis-skills``. |
 | ``python -m dodaios.hardware.detection`` | Standalone hardware analysis (RAM, CUDA, mic, Whisper recommendation). |

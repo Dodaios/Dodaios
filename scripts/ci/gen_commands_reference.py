@@ -53,15 +53,15 @@ def _build_reference() -> str:
         "Every command below is available on four surfaces backed by the SAME "
         "endpoint and validation chain:",
         "",
-        "- **Voice/chat** — Jarvis's `app-command` tool (say it naturally).",
+        "- **Voice/chat** — Dodaios's `app-command` tool (say it naturally).",
         "- **Desktop UI** — the sidebar section named per command.",
-        "- **CLI** — `jarvis commands list` / `jarvis commands show <id>` to "
-        "browse; execute via the curated command or `jarvis api <tag> <op>`.",
+        "- **CLI** — `dodaios commands list` / `dodaios commands show <id>` to "
+        "browse; execute via the curated command or `dodaios api <tag> <op>`.",
         "- **REST** — the endpoint listed per command "
         "(machine-readable catalog: `GET /api/commands`).",
         "",
         "Commands marked **requires confirmation** never run on a bare voice "
-        "request — Jarvis asks first (two-turn confirm); the CLI needs "
+        "request — Dodaios asks first (two-turn confirm); the CLI needs "
         "`--yes`.",
         "",
     ]

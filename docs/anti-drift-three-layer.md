@@ -208,7 +208,7 @@ Notes specific to this adoption:
 
 [ADR-0017](adr/0017-capability-coupling.md) applies the same
 *versioned contract* philosophy to the **executable surface** of
-Jarvis — the set of things the running instance can actually do.
+Dodaios — the set of things the running instance can actually do.
 
 The parallel is direct:
 

@@ -160,7 +160,7 @@ Most pages should contain zero to three code blocks. A code block must:
 - exclude unrelated setup, generated output, stack traces, and repeated
   alternatives.
 
-Prefer the app or `jarvis` CLI for user actions. Do not teach readers to edit
+Prefer the app or `dodaios` CLI for user actions. Do not teach readers to edit
 `jarvis.toml`, export credentials, or call private REST routes when the product
 provides an in-app path. Put long schemas, complete command catalogs, and
 implementation samples in a linked reference page instead of a task page.

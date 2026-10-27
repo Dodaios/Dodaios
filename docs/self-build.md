@@ -89,7 +89,7 @@ and one undoer for each of the four kinds, and the event subscriptions below.
 | `loop.py` | event intake, the gate, the decide queue, use counting, maintenance |
 
 **Observe.** Inputs are finished voice turns (`VoiceTurnCompleted`), the
-person's own typed turns in the Jarvis chat, agent chats, the IDE's side chat
+person's own typed turns in the Dodaios chat, agent chats, the IDE's side chat
 (channel `side`) and the IDE's agent chat (channel `pane`) (the chat surfaces'
 completion hook; turns an agent or routine started are dropped), and the
 prompts the person gives coding agents in the IDE (channel `pane`).

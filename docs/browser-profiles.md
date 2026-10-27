@@ -29,13 +29,13 @@ The Chrome connector is an initial implementation. Download its ZIP from the
 profile dialog, unpack it, enable Developer mode at `chrome://extensions`, and
 choose **Load unpacked** in the intended Chrome profile. Open the extension
 popup and enter the local server address and five-minute pairing code displayed
-by Jarvis. Refresh the profile list to verify the connection. Chrome Web Store
+by Dodaios. Refresh the profile list to verify the connection. Chrome Web Store
 distribution is not included; the UI does not claim one-click installation.
 
 Each extension installation receives a distinct local pairing identity. Google
 account email, extension ID and tab ID are not used as profile identity. Pairing
 state persists locally, is not synchronized through Chrome Sync, and can be
-revoked from Jarvis. Reinstalling the extension requires pairing again.
+revoked from Dodaios. Reinstalling the extension requires pairing again.
 
 ## Sharing and account changes
 
@@ -48,11 +48,11 @@ affected browser turn and disconnects its old viewer.
 
 A profile has one active owner. Another agent must wait until the current
 task, manual control and open viewer have released it. A profile lock also
-prevents another Jarvis instance from opening the same profile concurrently.
+prevents another Dodaios instance from opening the same profile concurrently.
 Distinct tabs in one Chrome profile are not separate account containers; use
 different profiles for different website accounts.
 
-Removing a profile revokes Jarvis access. It does not log the person out of
+Removing a profile revokes Dodaios access. It does not log the person out of
 their personal Chrome or delete browser cookies. Removed assignments remain
 unavailable until the user chooses a replacement.
 
@@ -60,7 +60,7 @@ unavailable until the user chooses a replacement.
 
 Google may reject a browser controlled by automation. A Google rejection page
 in the managed browser is not evidence that the user's password is wrong.
-On Windows, choose **Sign in** in the managed browser panel. Jarvis closes the
+On Windows, choose **Sign in** in the managed browser panel. Dodaios closes the
 automation connection and opens installed regular Google Chrome with the same
 owned profile inside the existing preview. Mouse and keyboard input come only
 from the person controlling that panel. No extension installation is needed for
@@ -108,7 +108,7 @@ sign-in are different flows; an X task does not require signing into Chrome Sync
 
 Profile assignments and pairing survive application restarts. Managed profile
 directories are stable and are not deleted during browser shutdown. Chrome
-retains its own website sessions independently of Jarvis. No always-running
+retains its own website sessions independently of Dodaios. No always-running
 service is needed to retain the assignment.
 
 Persistent browser data does not guarantee permanent website authentication.
@@ -119,7 +119,7 @@ that a website is logged in.
 For a profile connected through the extension, take manual control to sign in
 directly in Chrome. During that connector's manual login,
 the debugger is detached, captured previews are cleared, and model observations
-stop. Losing the Jarvis viewer does not return control to the agent. Reclaim
+stop. Losing the Dodaios viewer does not return control to the agent. Reclaim
 control in the viewer and explicitly return it when finished.
 
 ## Connector boundaries
@@ -127,13 +127,13 @@ control in the viewer and explicitly return it when finished.
 The extension creates a visible owned tab. It never adopts arbitrary user tabs,
 copies profiles, exports cookies, or exposes arbitrary CDP commands to the
 model. Permitted actions are DOM navigation, clicking, text input, scrolling
-and waiting through the existing Jarvis model and ToolExecutor gates. File
+and waiting through the existing Dodaios model and ToolExecutor gates. File
 upload/download, arbitrary JavaScript, cross-frame automation and switching
 unrelated tabs are not supported by this connector. Managed-browser features
 are unchanged.
 
 The local connection uses exact loopback HTTP/WebSocket endpoints authenticated
-with single-use pairing and installation-bound credentials. The general Jarvis
+with single-use pairing and installation-bound credentials. The general Dodaios
 control key is never supplied to the extension. Website grants, owned-tab and
 foreground checks, locked-desktop checks and single-use observations constrain
 actions. On X, a visible account identity is required for clicks and input and
@@ -147,5 +147,5 @@ do not establish successful Google authentication, real X posting, actual
 PC-reboot persistence, or desktop behavior on every operating system. In-window
 login tests cover process arguments, Chrome identity/version checks, transition
 failures, frame generations and explicit handover without launching a browser.
-Real acceptance checks require the visible Jarvis browser or connected Chrome,
+Real acceptance checks require the visible Dodaios browser or connected Chrome,
 as appropriate, and must not be replaced with hidden/headless browser launches.

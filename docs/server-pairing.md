@@ -1,19 +1,19 @@
-# Connect an independent Jarvis server
+# Connect an independent Dodaios server
 
 In **Settings → Computers → Add computer**, choose **Server address** to
-connect another running Jarvis instance. Choose **SSH** for remote shell,
+connect another running Dodaios instance. Choose **SSH** for remote shell,
 terminal, agent installation, and computer execution features.
 
 On the target instance, open the same Server address form and expand
-**Allow another computer to connect to this Jarvis**. Generate a pairing code.
-The code grants access to that instance's Jarvis interface, expires after five
+**Allow another computer to connect to this Dodaios**. Generate a pairing code.
+The code grants access to that instance's Dodaios interface, expires after five
 minutes, and can be used once. Enter the target's HTTPS address and code on
 the connecting computer, or paste the pairing URL. HTTP is accepted only for
 direct loopback connections, such as an SSH tunnel. Generating a code does not
 open network ports, change the bind address, or configure a reverse proxy.
 Both instances must support the `jarvis-pairing-v1` protocol.
 
-A successful exchange adds the server to the **Jarvis servers** list. **Open
+A successful exchange adds the server to the **Dodaios servers** list. **Open
 server** obtains a one-minute, single-use link and opens the server's normal
 authenticated interface in the browser. Checks verify the saved credential
 without invoking a model. The last check's result is displayed explicitly;
@@ -33,7 +33,7 @@ Use SSH for those workflows, or run work from the paired server's own UI.
 
 The mounted `computer-pairing` API group exposes code creation, redemption,
 server listing/checking/opening, and client revocation through the dynamic
-Jarvis CLI. Supply secrets through stdin or request-body files, never command
+Dodaios CLI. Supply secrets through stdin or request-body files, never command
 arguments. Code, credential, and ticket responses use `Cache-Control: no-store`.
 
 Validation includes two-sided ASGI HTTP tests through the application's

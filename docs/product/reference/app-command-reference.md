@@ -52,8 +52,8 @@ arguments, confirmation marker, sidebar section ID, and first English alias.
 For the exact catalog shipped with your running installation, use the CLI:
 
 ```powershell
-jarvis commands list
-jarvis commands show providers-list
+dodaios commands list
+dodaios commands show providers-list
 ```
 
 `list` returns the complete catalog served by the running instance. `show`
@@ -86,7 +86,7 @@ discovery and authentication.
 | `ui_section` | Stable internal ID of the sidebar section associated with the action |
 | `voice_aliases` | Example input phrases for German, English, and Spanish; not guaranteed triggers or valid argument values |
 
-The generated catalog is a compact summary. Use `jarvis commands show` or the
+The generated catalog is a compact summary. Use `dodaios commands show` or the
 live REST entry when exact defaults, limits, every alias, or Dodaios-Agent
 eligibility matters.
 
@@ -128,7 +128,7 @@ path, and OpenAPI metadata.
 |---|---|---|
 | Voice or chat | Ask naturally; a tool-capable Brain path can select the command's tool | An `ask` decision waits for a separate yes-or-no turn; runtime policy can approve, add confirmation, or block |
 | Desktop | Use the normal feature control associated with `ui_section` | The feature's own dialog and safety behavior apply; there is no separate catalog screen |
-| CLI | Browse with `commands list/show`; execute through a curated feature command or `jarvis api` | The executing CLI path applies its own `--yes` rules; browsing never executes the action |
+| CLI | Browse with `commands list/show`; execute through a curated feature command or `dodaios api` | The executing CLI path applies its own `--yes` rules; browsing never executes the action |
 | REST | Read the catalog routes, then call the listed endpoint | Catalog metadata does not open a confirmation prompt; direct mutations run with the global API boundary and that route's checks |
 | Mission worker | Use only a `worker_allowed` command included in a supervisor grant | The broker must be available; dangerous and configuration-changing commands are excluded |
 
@@ -140,7 +140,7 @@ turn an unavailable feature into a working one.
 
 1. The registry maps a curated action to a stable ID, conversational schema,
    default risk tier, sidebar section ID, and existing REST operation.
-2. `GET /api/commands` and `jarvis commands` expose that metadata for discovery.
+2. `GET /api/commands` and `dodaios commands` expose that metadata for discovery.
 3. Voice and chat load one tool per registry entry. The tool validates its
    schema and calls the listed route through the running app.
 4. Desktop controls and feature-specific CLI commands do not dispatch through
@@ -160,7 +160,7 @@ broader HTTP surface from which registry commands select their endpoints.
 With Dodaios running, inspect one read-only entry:
 
 ```powershell
-jarvis --json commands show providers-list
+dodaios --json commands show providers-list
 ```
 
 The result has `"id": "providers-list"`, uses the `GET` method, marks
@@ -172,7 +172,7 @@ App Command, or changing settings.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| `Unknown command id` or `404` | The ID is misspelled or not present in this installed version | Run `jarvis commands list`, then copy the exact `id` |
+| `Unknown command id` or `404` | The ID is misspelled or not present in this installed version | Run `dodaios commands list`, then copy the exact `id` |
 | The public catalog and live catalog differ | GitHub `main` and the installed release contain different registry versions | Use the live entry for current behavior and update Dodaios only through the supported release path |
 | Dodaios answers in prose but no action runs | The Brain could not use the conversational tool path or did not select a command | Check the exact command with the CLI, then retry a concrete request or use the matching desktop control |
 | Dodaios asks for confirmation | The command's default tier or the current safety and plausibility checks require review | Review the exact action and inputs, then approve or deny the pending request |

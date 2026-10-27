@@ -70,7 +70,7 @@ a few seconds — especially right after the WikiCurator adds a new
 page during a conversation.
 
 If Dodaios search is stale, use **Rebuild index** in the Wiki health panel
-or run `jarvis wiki reindex`. The command rebuilds the derived FTS index
+or run `dodaios wiki reindex`. The command rebuilds the derived FTS index
 from the configured vault and does not modify Markdown pages.
 
 ## Where the vault lives

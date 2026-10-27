@@ -1,8 +1,8 @@
-# Jarvis Board — Federation Protocol v1
+# Dodaios Board — Federation Protocol v1
 
 > Wire-format specification for alternative backend implementations.
 > If you rewrite the backend in Go, Rust, or Elixir and want to federate
-> with existing Jarvis Boards, this is your RFC.
+> with existing Dodaios Boards, this is your RFC.
 
 ---
 
@@ -487,7 +487,7 @@ every hour (instead of nightly), so that a 24-h story stays visible for
 - No notification-push routes → the server pushes nothing; everything is pull.
 
 An alternative implementation **must not add** these fields
-without breaking the Plan §0 contract with existing Jarvis Boards.
+without breaking the Plan §0 contract with existing Dodaios Boards.
 If you want that: major-bump to v2 with a clear opt-in.
 
 ---

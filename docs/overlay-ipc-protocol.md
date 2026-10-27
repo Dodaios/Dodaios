@@ -1,6 +1,6 @@
 # Overlay IPC Protocol
 
-> Reference for the inter-process communication between Hauptjarvis (Python) and the
+> Reference for the inter-process communication between the main Dodaios process (Python) and the
 > Overlay process (Qt/WebView). Extracted from `OS-Level/OS-LEVEL_PLAN.md` §10
 > (IPC Protocol), §10.4 (Backpressure), §10.5 (Reconnection), §10.6 (Channel-Routing)
 > and AD-5 (Triple-Channel Design).
@@ -16,8 +16,8 @@ falls back automatically; the protocol on the wire is identical across channels.
 | **Shared Memory** (`jarvis-cursor-{8 hex chars}`, 32 B block) | High-frequency cursor stream (60 Hz) — bypasses the WS-event-loop entirely | ~480 B/s |
 | **Named Pipe** (`\\.\pipe\jarvis-overlay`) | Fallback for the WS channel if loopback-binding is blocked (corp AV / locked-down environments) | Same envelope as WS |
 
-The Hauptjarvis process is always the **server** for WS + Named-Pipe; the Overlay
-is always the **client**. The cursor SHM block is **single-writer** (Hauptjarvis) /
+The main Dodaios process is always the **server** for WS + Named-Pipe; the Overlay
+is always the **client**. The cursor SHM block is **single-writer** (main process) /
 **single-reader** (Overlay) with a Seqlock pattern (Plan §11.3 / §11.4).
 
 ---
@@ -128,7 +128,7 @@ shared-memory block (32 B, 60 Hz, see Plan §11) for zero-IPC-overhead transfer.
 }
 ```
 
-### 3.7 `config` (Hauptjarvis → Overlay, on config reload)
+### 3.7 `config` (main process → Overlay, on config reload)
 ```json
 {
   "theme": { "yellow_primary": "#FFC700" },
@@ -145,10 +145,10 @@ shared-memory block (32 B, 60 Hz, see Plan §11) for zero-IPC-overhead transfer.
 }
 ```
 
-Hauptjarvis filters `jarvis.toml` so only the `[overlay]` subset reaches the
+The main process filters `jarvis.toml` so only the `[overlay]` subset reaches the
 Overlay process (Plan §18.4 — secrets never leak).
 
-### 3.8 `ack` (Overlay → Hauptjarvis, optional)
+### 3.8 `ack` (Overlay → main process, optional)
 ```json
 {
   "ack_id": "01HX9...ULID",
@@ -193,9 +193,9 @@ is optional and present only when measurable from the renderer.
 - **Heartbeat timeout:** 3 s.
 - **Reconnect-backoff:** `0.5 s, 1 s, 2 s, 4 s, 8 s, 30 s` (cap), reset on
   successful heartbeat.
-- **Direction:** Initial connection is always Overlay → Hauptjarvis. If the WS
+- **Direction:** Initial connection is always Overlay → main process. If the WS
   drops, the Overlay attempts reconnect.
-- **State-resync after reconnect:** Hauptjarvis sends the current `state`
+- **State-resync after reconnect:** The main process sends the current `state`
   message **as the first message** after a reconnect — the Overlay re-renders
   from a known-good baseline.
 

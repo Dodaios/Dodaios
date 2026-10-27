@@ -9,7 +9,7 @@ never diagnose a cross-device defect without stating which layer it is.
 
 ---
 
-## Why a second device is never "the same Jarvis"
+## Why a second device is never "the same Dodaios"
 
 The dev box runs the live working tree: every fix takes effect immediately,
 including uncommitted ones, on top of a configuration that has grown for
@@ -57,7 +57,7 @@ user this reads as "the feature is broken on this device".
 
 - **The one-call answer: `GET /api/setup-report`** on each running instance
   (`?format=text` for a human-readable version; also reachable as
-  `jarvis api setup-report get-setup-report`). It is share-safe by
+  `dodaios api setup-report get-setup-report`). It is share-safe by
   construction — key **presence** booleans only, never values — and its
   `summary` lines are ordered for line-by-line diffing between two devices;
   `degradations` names every tier that quietly fell back or lacks a key.

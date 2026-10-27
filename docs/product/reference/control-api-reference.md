@@ -142,8 +142,8 @@ routes refuse protected secret paths.
 | Surface | How it maps to REST | Safety and discovery behavior |
 |---|---|---|
 | Desktop app | A labeled control calls its mounted feature route with an app session | Shows feature-specific validation and visible state |
-| Curated CLI | A maintained `jarvis <group> <command>` wraps a common route | Uses readable arguments and an explicit danger policy |
-| Dynamic CLI | `jarvis api <tag> <operation>` is generated from live or cached OpenAPI | Creates commands for described GET, POST, PUT, PATCH, and DELETE operations |
+| Curated CLI | A maintained `dodaios <group> <command>` wraps a common route | Uses readable arguments and an explicit danger policy |
+| Dynamic CLI | `dodaios api <tag> <operation>` is generated from live or cached OpenAPI | Creates commands for described GET, POST, PUT, PATCH, and DELETE operations |
 | App Command | One stable catalog entry maps to exactly one route | Shared by supported voice, chat, desktop, CLI, and REST paths |
 | Raw REST client | Calls the mounted route directly | Must implement credential handling, review, retries, and response parsing |
 
@@ -153,7 +153,7 @@ checks require feature route modules to be mounted and tagged, but the running
 OpenAPI document is the source of truth for that instance.
 
 The CLI caches the schema for 24 hours and may use an older cache while offline.
-Run `jarvis refresh` before the next `jarvis api` call when a route is missing.
+Run `dodaios refresh` before the next `dodaios api` call when a route is missing.
 Generated commands send JSON and expect finite responses. Multipart uploads,
 binary downloads, HTML, XML, and WebSockets need a dedicated client.
 
@@ -256,7 +256,7 @@ business logic.
 With Dodaios running, use the CLI's read-only authentication check:
 
 ```powershell
-jarvis --json auth status
+dodaios --json auth status
 ```
 
 Success returns the selected base URL with `"reachable": true`. This verifies
@@ -267,10 +267,10 @@ prove that every provider, permission, or desktop-only capability is ready.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| Authentication status reports `reachable: false` | The server is stopped, the target is wrong, or the key was rejected | Confirm the intended instance is running, then use the hidden `jarvis auth login` flow for that target |
+| Authentication status reports `reachable: false` | The server is stopped, the target is wrong, or the key was rejected | Confirm the intended instance is running, then use the hidden `dodaios auth login` flow for that target |
 | `Invalid or missing Dodaios credential` or `Invalid or missing Dodaios Control API key` | The outer guard or a key-only control route rejected the credential | Re-authenticate without printing or logging the key |
 | `Untrusted Host header` or `Untrusted Origin header` | The request names an unconfigured host or comes from a foreign browser origin | Use the configured private address and trusted browser origin; do not weaken the guard |
-| The `jarvis api` group or a new operation is missing | No schema is cached, the server is unreachable, or the 24-hour cache is older than the target | Run `jarvis refresh`, then invoke `jarvis api` while the intended server is reachable |
+| The `dodaios api` group or a new operation is missing | No schema is cached, the server is unreachable, or the 24-hour cache is older than the target | Run `dodaios refresh`, then invoke `dodaios api` while the intended server is reachable |
 | Confirmation returns `410` | The pending change expired, was already used, or belonged to a previous process | Submit the original change again and review the new values and ID |
 | A listed operation returns `503` on a headless host | The route exists, but its subsystem is still warming or needs a desktop capability | Check feature readiness and use a supported headless alternative where available |
 

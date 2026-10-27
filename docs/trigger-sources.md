@@ -58,7 +58,7 @@ push with a verified service-account identity and audience, then decodes the
 notification's history id. These are notification inputs; fetching account
 content still requires the agent's normal integration and permissions.
 
-Jarvis does not create provider subscriptions, Gmail watches, renewals, broker
+Dodaios does not create provider subscriptions, Gmail watches, renewals, broker
 resources, public tunnels or DNS records. A callback needs a reachable HTTPS
 endpoint. Generic authenticated webhooks and named integration events remain
 available for other providers.

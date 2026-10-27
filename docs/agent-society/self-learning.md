@@ -11,7 +11,7 @@ paced and kept tidy instead of firing after every answer:
   language choice, a correction or frustration, detected without a model),
   after 6 of their turns, after 8 tool steps, or on the next turn once the
   window is older than 12 hours. There is no timer: an idle agent costs
-  nothing. Turns started by Jarvis, teammates or routines keep their per-turn
+  nothing. Turns started by Dodaios, teammates or routines keep their per-turn
   review. Board messages in the window never count as the person's words.
 - **Better review rules** (`dodaios/society/review.py`, `_LEARNING_RULES`). A
   correction is the strongest signal; a lesson is one rule plus one clause of
@@ -40,7 +40,7 @@ agent's own seat.
 > learning snapshot and `tests/contract/test_agent_learning_loop.py`) is not
 > in the current tree; a history reconciliation merge removed it. Society
 > agents learn through their `USER.md`/`MEMORY.md` notebooks and the turn
-> review in `dodaios/society/review.py`. Jarvis' own learning is
+> review in `dodaios/society/review.py`. Dodaios' own learning is
 > `docs/dodaios-learning.md`.
 >
 > **Seat rule (2026-09-30):** an agent's turn review and skill learning run
@@ -52,13 +52,13 @@ agent's own seat.
 > stored on the review row, so neither a burst of turns nor a restart adds
 > calls; concurrent drain requests are coalesced into one extra pass.
 
-Tier: **T3 capability**. Jarvis and every Society agent use the same portable
+Tier: **T3 capability**. Dodaios and every Society agent use the same portable
 learning loop, with separate ownership, files, review locks and provider scopes.
 
 ## Behavior
 
 1. Each completed or failed chat turn enters the durable review queue. Voice
-   completion queues Jarvis' own user feedback without waiting for a model.
+   completion queues Dodaios' own user feedback without waiting for a model.
 2. Failed tool results produce conservative warnings even if no review model
    is available. These warnings never claim that a remedy was verified.
 3. The existing provider-independent reviewer extracts useful facts, corrections,
@@ -66,13 +66,13 @@ learning loop, with separate ownership, files, review locks and provider scopes.
    single actual source of the appropriate class. Assistant prose is not proof.
 4. Later chat turns retrieve applicable private lessons and record their IDs
    against the turn receipt. Existing facts and private draft skills remain
-   available. Jarvis' chat now participates in the same completion lifecycle.
+   available. Dodaios' chat now participates in the same completion lifecycle.
 5. Explicit user corrections can retire an obsolete lesson. Explicit negative
    evaluations can suspend reuse. Merely retrieving a lesson or finishing a
    turn does **not** increase its measured benefit.
 
 Voice uses an IO-free cached snapshot populated after runtime startup and after
-Jarvis reviews. It takes effect on the next existing realtime instruction refresh
+Dodaios reviews. It takes effect on the next existing realtime instruction refresh
 or new session; it does not force an extra provider connection or interrupt speech.
 Voice completion lacks verified tool outputs, so it learns direct user feedback
 but cannot manufacture a successful procedure from tool names alone.
@@ -89,17 +89,17 @@ The application data directory contains these additional private files:
 | `learning/journal.lock` | OS-released interprocess write lock |
 | `skills/` | Existing private procedural skills, still drafts |
 
-Jarvis owns the reserved identity `jarvis`; its multiple chats and voice sessions
-share that identity. No ordinary agent retrieves Jarvis' learning or another
+Dodaios owns the reserved identity `jarvis`; its multiple chats and voice sessions
+share that identity. No ordinary agent retrieves Dodaios' learning or another
 agent's facts, lessons or skills. Agent IDs are validated without lossy slug
 normalization. Linked namespaces, linked journals and cross-owner journal copies
 are refused. Private memory read/modify/write operations also use a file lock.
 
 The shared BrainManager also enforces the boundary: Society turns receive only
-their own briefing, written-response style and turn language. Jarvis' global
+their own briefing, written-response style and turn language. Dodaios' global
 profile, core memory, ambient wiki and pending global skill triggers are excluded,
-and Society turns cannot feed Jarvis' global curator. Missing private briefings
-fail closed on both API and CLI seats rather than falling back to Jarvis' identity.
+and Society turns cannot feed Dodaios' global curator. Missing private briefings
+fail closed on both API and CLI seats rather than falling back to Dodaios' identity.
 
 The conversation database is the existing durable queue, scoped by session and
 explicit owner. Different agents review concurrently; turns of one owner are
@@ -126,7 +126,7 @@ live probe demonstrates one controlled project-specific planning improvement.
 
 - Contract: `tests/contract/test_agent_learning_loop.py`, including restart,
   strict scope, concurrent writers, poisoned input, corrections, negative
-  feedback, failed turns, independent reviews and Jarvis chat/voice integration.
+  feedback, failed turns, independent reviews and Dodaios chat/voice integration.
 - Regression: the Society, agent-chat and realtime session suites, plus existing
   conversation-continuity contracts.
 - Opt-in live proof: `python scripts/verify_agent_learning.py --provider grok`.
@@ -180,7 +180,7 @@ Reference inspected: [NousResearch/hermes-agent](https://github.com/NousResearch
 HEAD `44945d224c2ccd6e0a55f16223c7ab0dd39331bf` (2026-09-19), and its
 [persistent-memory documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory/).
 Relevant ideas are private profiles, concise persistent memory, source recall,
-and procedural skill reuse. Jarvis extends these ideas with per-owner concurrent
+and procedural skill reuse. Dodaios extends these ideas with per-owner concurrent
 review, failure learning, exact-source checks, correction retirement, replay-safe
 receipts and explicit reuse measurements. Since 2026-10-05 a few well-separated
 portions are adapted from the upstream project under its MIT License; each

@@ -51,8 +51,8 @@ conversation, the ratio between Dodaios words and user words, and the first day
 in the local summary store.
 
 The chart and calendar are primarily visual. They do not currently provide a
-keyboard-readable list of every point. Use `jarvis board summary` or
-`jarvis board heatmap` when you need the same information as structured text.
+keyboard-readable list of every point. Use `dodaios board summary` or
+`dodaios board heatmap` when you need the same information as structured text.
 
 These values are estimates, not a transcript or productivity rating. Missing
 session data, a disabled recorder, unsupported activity, or a failed local
@@ -66,7 +66,7 @@ is saved once in the local Board database. If the app is connected to its local
 event stream, a new unlock also appears as an **Achievement:** notification.
 
 The current Board view does not show the achievement grid or earlier unlocks.
-Run `jarvis board achievements` while Dodaios is running to see locked and
+Run `dodaios board achievements` while Dodaios is running to see locked and
 unlocked entries, including saved unlock times and evidence.
 
 ## Share a Snapshot
@@ -99,9 +99,9 @@ development notes.
 
 | Part | What works now | What is missing from Board |
 |---|---|---|
-| Achievements | Local evaluation, one-time persistence, notifications, API, and `jarvis board achievements` | The achievement grid and history view |
-| AI profile | Local history, scheduled generation, API, and the `jarvis board bio` commands | The profile card and feedback buttons; generated text currently uses a German prompt regardless of the app language |
-| Records and tools | Local records and detailed tool endpoints, plus `jarvis board records` | Personal-record cards and the detailed per-tool chart |
+| Achievements | Local evaluation, one-time persistence, notifications, API, and `dodaios board achievements` | The achievement grid and history view |
+| AI profile | Local history, scheduled generation, API, and the `dodaios board bio` commands | The profile card and feedback buttons; generated text currently uses a German prompt regardless of the app language |
+| Records and tools | Local records and detailed tool endpoints, plus `dodaios board records` | Personal-record cards and the detailed per-tool chart |
 | Federation | A separate self-hosted backend, signed proxy routes, and unfinished interface components exist | Supported setup, automatic sync startup, pairing, friends, feed, stories, reactions, and a durable disconnect control |
 
 Federation means exchanging selected Board data through a separate service.
@@ -147,15 +147,15 @@ only for the current process.
 
 ## Use Board from the Command Line
 
-The curated `jarvis board` commands call the same local API as the app. Dodaios
+The curated `dodaios board` commands call the same local API as the app. Dodaios
 must be running and reachable.
 
-- `jarvis board summary` shows totals and streaks.
-- `jarvis board heatmap` returns the daily activity cells.
-- `jarvis board records` shows personal records that are hidden in the view.
-- `jarvis board achievements` shows locked and unlocked achievements.
-- `jarvis board bio` shows the latest generated AI profile.
-- `jarvis board bio-regenerate` asks the configured brain provider for a new
+- `dodaios board summary` shows totals and streaks.
+- `dodaios board heatmap` returns the daily activity cells.
+- `dodaios board records` shows personal records that are hidden in the view.
+- `dodaios board achievements` shows locked and unlocked achievements.
+- `dodaios board bio` shows the latest generated AI profile.
+- `dodaios board bio-regenerate` asks the configured brain provider for a new
   profile and can therefore send the facts prompt outside your device.
 
 The mounted Board API also includes category totals, a detailed tool histogram,
@@ -200,7 +200,7 @@ publishing anything or requiring a federation service.
 |---|---|---|
 | **Could not load stats** | The local Board store did not finish starting | Wait for Dodaios startup to finish, select **Refresh**, then use the main troubleshooting guide if the message remains. |
 | Totals stay at zero or recent words are missing | No supported voice turn was recorded, the session is still open, or the recorder is unavailable | End the voice conversation, check that it appears in the Sessions view, then refresh Board. |
-| An achievement notification appeared but no history is visible | The evaluator works, but its grid is not mounted in Board | Run `jarvis board achievements` to inspect the saved list. |
+| An achievement notification appeared but no history is visible | The evaluator works, but its grid is not mounted in Board | Run `dodaios board achievements` to inspect the saved list. |
 | **Copy Image** saves a file instead | The browser cannot copy PNG images directly | Use the saved PNG and attach it in the destination you choose. |
 | **Share on X** does not open a composer | The app shell or browser blocked the new window | Save the PNG, open the service yourself, and review the post before attaching it. |
 

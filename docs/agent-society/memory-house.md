@@ -19,12 +19,12 @@ House on the island, and when an agent uses the memory it walks there."*
 
 ## 1. How memory works today (the deep dive)
 
-Jarvis itself has four memory layers; the society uses one of them, thinly.
+Dodaios itself has four memory layers; the society uses one of them, thinly.
 
 | Layer | Where | Who writes | Who reads | Society agents today |
 |---|---|---|---|---|
-| **Core memory** (persona, user facts, ~1.5 k tokens, always in the prompt) | `data/core_memory.json` (`dodaios/memory/core_memory.py`) | the `remember` tool, the wizard | every brain call of Jarvis | not in their prompt; `remember` is a core tool they *can* call, which would write Jarvis' facts, not theirs |
-| **Recall** (conversation log + awareness episodes, FTS5/BM25) | `data/jarvis.db` (`dodaios/memory/recall.py`) | the message recorder, awareness | `awareness-recall`, `awareness-snapshot` | Jarvis' episodes only; agent chats are not recorded there |
+| **Core memory** (persona, user facts, ~1.5 k tokens, always in the prompt) | `data/core_memory.json` (`dodaios/memory/core_memory.py`) | the `remember` tool, the wizard | every brain call of Dodaios | not in their prompt; `remember` is a core tool they *can* call, which would write Dodaios' facts, not theirs |
+| **Recall** (conversation log + awareness episodes, FTS5/BM25) | `data/jarvis.db` (`dodaios/memory/recall.py`) | the message recorder, awareness | `awareness-recall`, `awareness-snapshot` | Dodaios' episodes only; agent chats are not recorded there |
 | **The wiki** (the long-term store: entities, concepts, projects, sessions; two-stage LLM curator; FTS5 index; a per-turn context injector with relevance gates) | `wiki/obsidian-vault/` (`dodaios/memory/wiki/*`, `dodaios/brain/wiki_context.py`) | the curator, `wiki-ingest`, the user in Obsidian | `wiki-recall`, `wiki-page-read`, `wiki-list`, the injector | **read**: the three tools when granted. **write**: only `society_wiki_note` into `society/<id>/` (a memory page + dated notes), with a `knowledge` staging row per write. `wiki-ingest` is denied |
 | **Skills** (procedural memory) | `skills/`, `data/society/<id>/skills/` (`dodaios/society/learning.py`) | the learning pass | the briefing, `society_run_skill` | built in the last wave; private per agent, promotion as draft |
 
@@ -136,7 +136,7 @@ unchanged and lands with the five-layer change it needs.
 ### 3.5 The Memory House on the island
 
 - Replaces the primitive Archive tower on the archive plot at the island's north end (behind
-  the Jarvis Hub, on the axis, reached by the archive road that goes round the hub);
+  the Dodaios Hub, on the axis, reached by the archive road that goes round the hub);
   the `archive` place keeps its id, so the walkers, the labels and the checkpoint enum need no
   new value.
 - Built by `scripts/world/kit_memory_house.py` on the helpers of `build_world_kit.py` (the Blender

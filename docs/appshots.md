@@ -465,7 +465,7 @@ and served with `Cache-Control: no-store`.
 ## Settings
 
 `[appshot]` in `jarvis.toml`, written only through the app or
-`jarvis api appshot put-settings`:
+`dodaios api appshot put-settings`:
 
 | Key | Default | Meaning |
 |---|---|---|

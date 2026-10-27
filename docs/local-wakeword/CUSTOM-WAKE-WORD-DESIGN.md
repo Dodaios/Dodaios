@@ -4,7 +4,8 @@
 > "degrade to a branded fallback" behavior described below were removed — the
 > wake system is fully generic now. See
 > `docs/superpowers/specs/2026-07-07-one-full-install-generic-wake-design.md`.
-> Kept for historical context.
+> Kept for historical context. The project was then called Personal Jarvis;
+> Dodaios ships no default wake word, the user always picks their own.
 
 **Date:** 2026-05-29
 **Status:** Design accepted → implementation in progress on branch `feat/jarvis-system-cursor`

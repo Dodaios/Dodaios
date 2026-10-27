@@ -27,7 +27,7 @@ registry with extra steps.
 Every skill card shows the commands that actually work for it, as tabs:
 
 ```
-jarvis marketplace install <name>              # this app
+dodaios marketplace install <name>             # this app
 npx skills add <owner>/<repo> --skill <name>   # every other agent
 ```
 

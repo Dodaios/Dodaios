@@ -7,7 +7,7 @@
 
 Status: **building.** Wave landings use the standard Git workflow; a product
 release stays explicit and separate. Working
-codename: `society`; the section keeps the name "Jarvis Agents" (§10).
+codename: `society`; the section keeps the name "Dodaios Agents" (§10).
 
 Progress (2026-09-01/02): **M1 done** — `dodaios/society/` substrate, `/api/society`, the
 headless contract test. **M2 backend done** — the `society` chat surface with per-agent hands
@@ -27,7 +27,7 @@ and `society-status` (ADR-0011 amendment). **Agent mechanics wave (2026-09-02):*
 has its own contained shell and file hands, its own persistent browser through browser-use
 (out of process, login sessions for the user's accounts, attach mode), and learns
 automatically — finished tasks become skills in its own namespace (see
-`agent-definition.md` §3.1). **The lead knows the society (2026-09-03):** Jarvis' prompt
+`agent-definition.md` §3.1). **The lead knows the society (2026-09-03):** Dodaios' prompt
 carries the team card (roster + hands, byte-stable, current on the next turn after any roster
 write), the router's decision table has a DELEGATE way ahead of `spawn_worker`, the realtime
 session gets a names directive and the turn planner a `SOCIETY` reason, `delegate_to_agent`
@@ -47,10 +47,10 @@ cost model), and the [gap check](research/gap-check.md) that found the contradic
 
 ## 1. Vision
 
-Replace the current "Jarvis Agents" board with a real agent society: the user creates and fully
+Replace the current "Dodaios Agents" board with a real agent society: the user creates and fully
 customizes named, persistent agents (model/provider per agent — any connected provider incl. local
 models — tools, plugins, permissions, avatar, a "model card" profile). Agents work autonomously in
-the background, message each other, and form a small hierarchy with Jarvis as the voice-steered
+the background, message each other, and form a small hierarchy with Dodaios as the voice-steered
 lead. The signature surface is a **3D retro pixel world** (bird's-eye/isometric, Minecraft-like
 voxel figures) where the society visibly lives and works: desks for missions, a meeting table for
 group discussions, an archive for the shared knowledge store, a gate for routines and outbound
@@ -84,7 +84,7 @@ binding; changing one means editing this section first.
    content does not belong in system config; avoids AP-16/AP-31 traps). Existing agent-account
    directories (CLI seats) stay what they are — runner plumbing referenced *by* a roster row.
 5. **Hierarchy: three tiers; dispatch is a scheduler privilege, not a tool.** Tiers: `lead`
-   (Jarvis, exactly one) → `orchestrator` → `specialist`. Only lead and orchestrators may emit
+   (Dodaios, exactly one) → `orchestrator` → `specialist`. Only lead and orchestrators may emit
    `ASSIGN`; the **society scheduler** (trusted Python, not an LLM) translates ASSIGN into worker
    spawns and refuses ASSIGN from specialists. No spawn tool ever appears in any agent tool set
    (AP-5/AP-14 stand unchanged); maximum delegation depth is 2; no recursion. The society cannot
@@ -102,7 +102,7 @@ binding; changing one means editing this section first.
    LLM ticks. Curation runs event-driven (after RESULT events, batched), on a local model when one
    is installed, else within an explicit opt-in cloud budget. An idle society costs $0.
 9. **Approvals: queue as data, chat cards as projection.** Unattended `ask`-tier actions land in
-   one approvals table with expiry; the agent's chat card, the world's gate icon, the Jarvis bar
+   one approvals table with expiry; the agent's chat card, the world's gate icon, the Dodaios Bar
    badge, and voice ("Scout wartet auf deine Freigabe") are projections of that queue. Expiry
    NEVER silently drops work — the task parks as `blocked` and re-surfaces on the next app focus
    or voice turn.
@@ -115,11 +115,11 @@ binding; changing one means editing this section first.
       itself, asks what it is for and proposes an `identity` (name, title, description). The
       first identity of a fresh agent applies at once with an undo chip; later identity changes
       are confirmation cards like every other proposal. Focus is re-derived on apply.
-    - *One endless chat per created agent.* `society:<id>` is the only session. Work from Jarvis,
+    - *One endless chat per created agent.* `society:<id>` is the only session. Work from Dodaios,
       teammates and routines lands in that chat as a folded delegation card (sender, task,
       outcome), never in a side chat. Old `:with:` / `:routine:` chats stay readable in the
       archive. A message sent while the agent is busy is queued for the next round boundary
-      instead of being refused. Jarvis (the lead) keeps its multi-chat history.
+      instead of being refused. Dodaios (the lead) keeps its multi-chat history.
     - *Self-learning loop.* One review path (no second learning trigger), run on a cadence
       (memory every few user turns or at once on a clear correction; skills after enough tool
       work since the last skill write) on the agent's own seat. Background writes may only touch
@@ -161,7 +161,7 @@ Branch B's verified finding: ~80 % of the substrate exists. We add a durable lay
 A working agent = a mission/fan-out worker with the roster row's provider/model/tool grants.
 Per-agent model choice rides the existing `agent_chat` catalog (API families, CLI seats, local
 brain) — capability-gated, never provider-name-gated (AP-21/22); any single key must yield a
-working society. Voice stays Jarvis-only; society agents are reached via Jarvis or typed chat.
+working society. Voice stays Dodaios-only; society agents are reached via Dodaios or typed chat.
 
 **Router contract (T3):** one new router-tier tool (evolution of `spawn-worker`, e.g.
 `delegate-to-agent`) added via an ADR-0011 amendment + `test_routing.py`. It ACKs within the
@@ -194,7 +194,7 @@ The world is an **open island** (maintainer decision 2026-09-01 — not a single
 checkpoints as places: a **workshop** with a desk row (agent at its desk + glowing screen =
 mission running), a **meeting pavilion** (bounded rooms, visible round counter "Runde 2/3"), an
 **archive house** (knowledge writes), a **harbor gate** (routines firing / outbound actions /
-pending approvals), and **Jarvis' lighthouse** (the lead agent, mapped to the voice orb). Idle
+pending approvals), and **Dodaios' lighthouse** (the lead agent, mapped to the voice orb). Idle
 agents wander the island client-side (rest-biased, exponential dwell).
 Click a figure → model card. HUD: active count, today's cost (from the costs ledger, §5), "Active
 now" face strip.
@@ -332,7 +332,7 @@ add the four controls it lacked: authenticated writes (chokepoint), bounded non-
 - **Language:** runtime output language comes from `turn_language.py` once per turn — agent chats,
   self-introductions, routine results included. All UI strings via the hand-formatted locale files
   (insert as text; en.json duplicate-key trap), German CI gate respected.
-- **Headless / no-GPU (T3):** full REST + `jarvis` CLI parity for create/assign/inspect/kill; the
+- **Headless / no-GPU (T3):** full REST + `dodaios` CLI parity for create/assign/inspect/kill; the
   Ledger tab is the official non-WebGL representation; `agent_screen` backends per-OS behind
   capability probes; `docs/os-parity.md` updated in the same change.
 - **VRAM coexistence:** the world pauses/degrades while local inference is hot (known 1-FPS
@@ -346,7 +346,7 @@ add the four controls it lacked: authenticated writes (chokepoint), bounded non-
   Honest UX copy + missed-routine catch-up policy (run-once-on-next-boot per routine, opt-in).
 - **Accessibility:** `prefers-reduced-motion` → static world or Ledger; keyboard/screen-reader path
   = Ledger + model cards (declared equivalent); no strobe/flash effects.
-- **Notifications:** finished/blocked agents surface via the existing Jarvis bar + badge counts +
+- **Notifications:** finished/blocked agents surface via the existing Dodaios Bar + badge counts +
   voice announcements; an expired approval re-asks on next focus (§2.9).
 - **Third-party code with attribution (maintainer decision 2026-10-05, supersedes the
   2026-09-01 "no Hermes code" rule):** well-separated code from NousResearch/hermes-agent (MIT)
@@ -383,7 +383,7 @@ add the four controls it lacked: authenticated writes (chokepoint), bounded non-
   play out on the island, on integrated graphics, with WebGL forced off falling back cleanly.*
 - **M4 — Society dynamics (T2/T3 for voice).** Bounded group rooms (meeting table), curator +
   taint + wiki review gate, `delegate-to-agent` router tool + ADR amendment + voice status/ack
-  paths, notifications. *Exit: the spoken request "Jarvis, lass Scout und Archivist das zusammen klären" (i18n-allow: quoted German voice example)
+  paths, notifications. *Exit: the spoken request "Dodaios, lass Scout und Archivist das zusammen klären" (i18n-allow: quoted German voice example)
   works end to end, costs a visible bounded amount, and the meeting shows in the world.*
 - **M5 — Hardening & migration.** Old DodaiosAgentsView/AgentsView slots replaced (deep links
   redirected, history visible in Ledger), first-run seed (a starter coordinator + one specialist),
@@ -420,7 +420,7 @@ tests/contract/ + tests/unit/society/
 
 Decided 2026-09-01:
 
-1. **Name:** the section keeps the name **Jarvis Agents** (codename `society` stays internal).
+1. **Name:** the section keeps the name **Dodaios Agents** (codename `society` stays internal).
 2. **World V1 scope:** an **open island** (not a single room) — M3 sized accordingly.
 3. **Avatar style:** **low-poly figures with pixel-art textures** (not Minecraft-skin voxels) —
    one shared base rig, swappable parts, texture/palette variants (§4.2).
@@ -438,7 +438,7 @@ Decided 2026-09-01:
     a comic-village ring around the central market square (4 × 4 of 10 × 10 fields), steep
     bird's-eye camera, fine pixel grain, three zoom steps + minimap — see
     [`world-art-direction.md`](world-art-direction.md) (binding for M3 world work). V1 of the
-    island ships as the World face of the Jarvis Agents section with the board as its Ledger.
+    island ships as the World face of the Dodaios Agents section with the board as its Ledger.
 9. **Agent definition & ecosystem wiring:** see [`agent-definition.md`](agent-definition.md)
    (binding). Highlights: full customization per agent (brain, grant/focus/deny over ONE
    capability catalog of plugins + CLIs + MCPs + skills, approval rules, budget, workspace);
