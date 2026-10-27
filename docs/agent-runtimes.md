@@ -356,8 +356,23 @@ replayed during `session/load` is swallowed because the chat already shows it.
   model to search, describe and call through `tool_search` / `tool_describe` /
   `tool_call` and to answer greetings directly; a resumed session's pinned
   eager tool catalog is invalidated first (`tool_snapshot.py`) so the deferred
-  configuration takes effect. OpenClaw still offers the tools directly
-  (`tools.toolSearch: false`): a 9B local model never found deferred tools there.
+  configuration takes effect. OpenClaw offers the tools directly
+  (`tools.toolSearch: false`) on every route but the ChatGPT subscription: a
+  9B local model never found deferred tools there. On the subscription it uses
+  OpenClaw's structured Tool Search (`tools.toolSearch: {mode: "tools"}`):
+  ChatGPT's backend accepted a turn carrying the whole inline catalog (~400
+  tools, ~580 KB of schemas) with HTTP 200 and then ended it as
+  `response.incomplete` (`max_output_tokens`, zero usage) on every retry.
+  Size alone is not the trigger: 400 synthetic tools (~210k tokens) passed,
+  while every failing slice of the live catalog held its only `oneOf` schemas
+  (Linear's `save_*` tools), so deferring keeps third-party schema shapes off
+  the backend's function list.
+- **Subscription stream failures:** a failure the backend reports inside an
+  accepted stream (`error`, `response.failed`, `response.incomplete`) is logged
+  with its event type, code, reason and a short redacted message
+  (`ChatGPT subscription stream failed: ...`, repeated on the gateway's
+  `subscription call failed` line); the runtime only sees fixed wording. An
+  incomplete stream ends the turn (`incomplete`) instead of being resent.
 - **Not yet covered:** Hermes discovers ambient credentials (for example the
   GitHub CLI's `gh auth token` for Copilot) into each profile's credential
   pool. Dodaios' config never routes a model call to them; switching the

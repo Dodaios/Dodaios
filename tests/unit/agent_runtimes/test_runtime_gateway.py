@@ -610,6 +610,38 @@ def test_a_subscription_overflow_mid_stream_keeps_its_code(fake, guarded, monkey
     assert failed[0]["response"]["error"]["code"] == "context_length_exceeded"
 
 
+def test_an_incomplete_subscription_stream_ends_the_turn_with_its_reason(
+    fake, guarded, monkeypatch, caplog
+):
+    """Live 2026-10-27: ChatGPT accepted an OpenClaw turn (HTTP 200,
+    ``response.created``) and ended it as ``response.incomplete`` before any
+    output; the gateway called that ``subscription_unavailable`` and OpenClaw
+    resent the same request three times."""
+    async def incomplete(**kwargs):
+        yield {"type": "response.created", "response": {"id": "r1"}}
+        raise SubscriptionReasoningError(
+            "ChatGPT stopped this request before it finished.",
+            code="max_output_tokens",
+            detail="event=response.incomplete code=max_output_tokens reason=max_output_tokens",
+        )
+
+    monkeypatch.setattr(fake, "stream", incomplete)
+    token = gateway.grant_token("agent-1", "openai-codex")
+    signal = gateway.watch_failure(token)
+    with caplog.at_level("WARNING"):
+        answer = _post(guarded, token, {"model": "m", "input": "hello", "stream": True})
+    failed = [json.loads(line[5:]) for line in answer.text.splitlines()
+              if line.startswith("data:") and "response.failed" in line]
+    error = failed[0]["response"]["error"]
+    assert error["code"] == "incomplete"
+    assert "will not help" in error["message"]
+    # Terminal: the Jarvis turn ends instead of the runtime resending it.
+    assert signal.done()
+    # The backend's own reason reaches the log.
+    assert "reason=max_output_tokens" in caplog.text
+    gateway.unwatch_failure(token, signal)
+
+
 async def test_a_claude_subscription_seat_is_refused_not_billed(monkeypatch) -> None:
     """No API key saved: the seat is the Claude subscription, which only the
     Claude CLI may use. The gateway says so instead of sending the login to
