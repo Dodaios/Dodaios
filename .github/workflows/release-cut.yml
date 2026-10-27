@@ -9,7 +9,10 @@
 #      Conventional Commits since the last tag),
 #   3. checks the version commit through a candidate PR, then lands it through
 #      main's merge queue and waits for the landed commit,
-#   4. pushes the annotated tag; the three publishing workflows (PyPI, desktop
+#   4. builds the frontend bundle from that commit (a job without secrets),
+#      commits it on top as the tag's only extra commit, so the tag carries a
+#      bundle built from its own sources while main need not track one, and
+#      pushes the annotated tag; the three publishing workflows (PyPI, desktop
 #      installers, signed installer) run on it. Each of them starts with
 #      release-gate.yml, which waits for CI on the release commit.
 #   5. publishes the GitHub Release with the notes and the resumable
@@ -19,7 +22,7 @@
 #      users.
 #   6. runs release-smoke.yml against the published release (read-only).
 #
-# Release bot. The `cut` job runs in the `release-cut` environment, which only
+# Release bot. The `cut` and `tag` jobs run in the `release-cut` environment, which only
 # main may deploy to. That environment holds the private key of the release
 # bot GitHub App (secret RELEASE_APP_PRIVATE_KEY, variable RELEASE_APP_ID). The
 # job mints short-lived installation tokens from it to push the candidate
@@ -75,8 +78,7 @@ jobs:
       checks: read
     outputs:
       version: ${{ steps.bump.outputs.version || steps.resume.outputs.version }}
-      # The public v* tag exists from here on (pushed now or by an earlier run).
-      tagged: ${{ steps.tag.outcome == 'success' }}
+      sha: ${{ steps.admit.outputs.sha }}
     env:
       # Reads and dispatches use GITHUB_TOKEN. Each write step overrides
       # GH_TOKEN with a bot token minted right before it: an installation
@@ -239,6 +241,7 @@ jobs:
           # main drops it while it still waits for a runner.
           GH_TOKEN="$DISPATCH_TOKEN" gh workflow run ci.yml --ref main -f full=true -f include_macos=true
       - name: Admit the release commit
+        id: admit
         env:
           V: ${{ steps.bump.outputs.version || steps.resume.outputs.version }}
         run: |
@@ -247,6 +250,98 @@ jobs:
           actual="$(python -c 'from scripts.ci.release_admit import versions; print(versions()[0])')"
           [ "$actual" = "$V" ] || { echo "::error::Merged package version changed."; exit 1; }
           python scripts/ci/release_admit.py --ci-only --sha "$sha" --repo "$GITHUB_REPOSITORY"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  # The frontend bundle the release ships, built from the admitted commit.
+  # No secrets and a read-only token: npm runs here and nowhere near the
+  # release bot key. The tag job below commits the result on top of the
+  # release commit, so the tag (what the updater, the installers and PyPI
+  # read) always carries a bundle built from its own sources, while main does
+  # not have to track one.
+  bundle:
+    name: build the release frontend bundle
+    needs: cut
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Move to the admitted commit, which must be on main
+        env:
+          SHA: ${{ needs.cut.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Not a commit SHA."; exit 1; }
+          # Only reviewed code that landed on main gets built here.
+          git fetch --quiet --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$SHA" origin/main
+          git checkout --quiet --detach "$SHA"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          # No dependency cache: a release build must not read or seed a
+          # cache other runs share (CodeQL actions/cache-poisoning).
+          package-manager-cache: false
+      - name: Build
+        working-directory: dodaios/ui/web/frontend
+        # `npm run build` empties dist/ first, so it holds exactly this build.
+        run: |
+          npm ci
+          npm run build
+      - name: Startup bundle budget
+        run: python3 scripts/ci/check_frontend_bundle_budget.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-frontend-bundle
+          path: dodaios/ui/web/dist
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  tag:
+    name: tag release
+    needs: [cut, bundle]
+    # Holds the release bot key; its deployment policy admits main only.
+    environment: release-cut
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      # The public v* tag exists from here on (pushed now or by an earlier run).
+      tagged: ${{ steps.tag.outcome == 'success' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TOKEN_IS_BOT: ${{ vars.RELEASE_APP_ID == '' }}
+      V: ${{ needs.cut.outputs.version }}
+      SHA: ${{ needs.cut.outputs.sha }}
+      DIST: dodaios/ui/web/dist
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.cut.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Let git push with the step's token
+        run: gh auth setup-git --hostname github.com
+      - name: Put the release bundle in place
+        run: |
+          set -euo pipefail
+          [ "$(git rev-parse HEAD)" = "$SHA" ] || { echo "::error::Checkout is not the admitted commit."; exit 1; }
+          rm -rf "$DIST"
+          mkdir -p "$DIST"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-frontend-bundle
+          path: dodaios/ui/web/dist
       - name: Mint a release bot token for the tag
         id: tag-token
         if: vars.RELEASE_APP_ID != ''
@@ -258,25 +353,49 @@ jobs:
       - name: Tag the admitted release
         id: tag
         env:
-          V: ${{ steps.bump.outputs.version || steps.resume.outputs.version }}
           # The "release tags" ruleset lets only the release bot and admins
           # create v* tags.
           GH_TOKEN: ${{ steps.tag-token.outputs.token || github.token }}
         run: |
-          sha="$(git rev-parse HEAD)"
+          set -euo pipefail
           git config user.name "jarvis-release[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git show-ref --verify --quiet "refs/tags/v$V"; then
-            [ "$(git rev-parse "v$V^{}")" = "$sha" ] || { echo "::error::The tag already names another commit."; exit 1; }
+            # A resumed cut: the tag names the admitted commit itself (older
+            # releases) or its one bundle commit.
+            tagged="$(git rev-parse "v$V^{}")"
+            if [ "$tagged" != "$SHA" ] && [ "$(git rev-parse "$tagged^")" != "$SHA" ]; then
+              echo "::error::The tag already names another commit."
+              exit 1
+            fi
             echo 'pushed=false' >> "$GITHUB_OUTPUT"
-          else
-            git tag -a "v$V" -m "v$V"
-            git push origin "v$V"
-            echo 'pushed=true' >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # -f: main may ignore dist/; the tag still has to carry it.
+          git add -f -A -- "$DIST"
+          outside=""
+          while IFS= read -r path; do
+            case "$path" in
+              "" | "$DIST"/*) ;;
+              *) outside="$outside$path"$'\n' ;;
+            esac
+          done < <(git diff --cached --name-only)
+          if [ -n "$outside" ]; then
+            echo "::error::The bundle touched files outside $DIST:"
+            echo "$outside"
+            exit 1
+          fi
+          if ! git diff --cached --quiet; then
+            python3 scripts/ci/check_dist_consistency.py --staged --prune
+            python3 scripts/ci/check_dist_consistency.py --staged
+            git diff --cached --shortstat
+            git commit -q -m "chore(release): frontend bundle for v$V"
+          fi
+          git tag -a "v$V" -m "v$V"
+          git push origin "v$V"
+          echo 'pushed=true' >> "$GITHUB_OUTPUT"
       - name: Dispatch the publishing workflows on the tag
         env:
-          V: ${{ steps.bump.outputs.version || steps.resume.outputs.version }}
           TAG_PUSHED: ${{ steps.tag.outputs.pushed }}
         run: |
           # ci.yml has no tag trigger; dispatch full CI on the immutable tag.
@@ -290,7 +409,7 @@ jobs:
 
   publish:
     name: publish GitHub Release
-    needs: cut
+    needs: [cut, tag]
     concurrency:
       group: release-finalize-v${{ needs.cut.outputs.version }}
       cancel-in-progress: false
@@ -329,8 +448,8 @@ jobs:
   # with the recovery steps.
   stranded:
     name: report a stranded tag
-    needs: [cut, publish]
-    if: always() && needs.cut.outputs.tagged == 'true' && needs.publish.result != 'success'
+    needs: [cut, tag, publish]
+    if: always() && needs.tag.outputs.tagged == 'true' && needs.publish.result != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

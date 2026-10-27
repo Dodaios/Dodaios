@@ -915,6 +915,14 @@ def test_workflow_security_policy_and_mutation_regressions():
             {"uses": "actions/checkout@v4"}
         ),
         lambda w: w["release-cut.yml"]["jobs"]["cut"].pop("environment"),
+        lambda w: w["release-cut.yml"]["jobs"]["tag"].pop("environment"),
+        lambda w: w["release-cut.yml"]["jobs"]["bundle"].update({"environment": "release-cut"}),
+        lambda w: w["release-cut.yml"]["jobs"]["bundle"]["permissions"].update(
+            {"contents": "write"}
+        ),
+        lambda w: w["release-cut.yml"]["jobs"]["bundle"]["steps"][0].update(
+            {"env": {"KEY": "${{ secrets.MERGE_APP_PRIVATE_KEY }}"}}
+        ),
         lambda w: _release_cut_step(w, "Tag the admitted release")["env"].update(
             {"GH_TOKEN": "${{ github.token }}"}
         ),
@@ -928,30 +936,38 @@ def test_workflow_security_policy_and_mutation_regressions():
 
 
 def _release_cut_step(definitions: dict, name: str) -> dict:
-    steps = definitions["release-cut.yml"]["jobs"]["cut"]["steps"]
+    jobs = definitions["release-cut.yml"]["jobs"]
+    steps = [step for job in jobs.values() for step in job.get("steps", [])]
     return next(step for step in steps if step.get("name") == name)
 
 
 def test_release_cut_writes_with_fresh_bot_tokens_and_reads_with_github_token():
     definitions = workflows()
-    cut = definitions["release-cut.yml"]["jobs"]["cut"]
-    assert cut["environment"] == "release-cut"
-    assert cut["env"]["GH_TOKEN"] == "${{ github.token }}"  # noqa: S105 - expression
-    assert cut["env"]["TOKEN_IS_BOT"] == "${{ vars.RELEASE_APP_ID == '' }}"  # noqa: S105
-    checkout = cut["steps"][0]
-    assert checkout["uses"].startswith("actions/checkout@")
-    assert checkout["with"]["persist-credentials"] is False
+    jobs = definitions["release-cut.yml"]["jobs"]
+    for job in (jobs["cut"], jobs["tag"]):
+        assert job["environment"] == "release-cut"
+        assert job["env"]["GH_TOKEN"] == "${{ github.token }}"  # noqa: S105 - expression
+        assert job["env"]["TOKEN_IS_BOT"] == "${{ vars.RELEASE_APP_ID == '' }}"  # noqa: S105
+        checkout = job["steps"][0]
+        assert checkout["uses"].startswith("actions/checkout@")
+        assert checkout["with"]["persist-credentials"] is False
     # Every write step mints its own token right before it (one-hour lifetime).
-    for writer, minter in (
-        ("Open the candidate PR", "candidate-token"),
-        ("Land the candidate", "land-token"),
-        ("Tag the admitted release", "tag-token"),
+    for job, writer, minter in (
+        ("cut", "Open the candidate PR", "candidate-token"),
+        ("cut", "Land the candidate", "land-token"),
+        ("tag", "Tag the admitted release", "tag-token"),
     ):
-        names = [step.get("name") for step in cut["steps"]]
-        assert cut["steps"][names.index(writer) - 1].get("id") == minter
+        steps = jobs[job]["steps"]
+        names = [step.get("name") for step in steps]
+        assert steps[names.index(writer) - 1].get("id") == minter
         token = _release_cut_step(definitions, writer)["env"]["GH_TOKEN"]
         assert token == f"${{{{ steps.{minter}.outputs.token || github.token }}}}"
-    minters = [s for s in cut["steps"] if s.get("id", "").endswith("-token")]
+    minters = [
+        s
+        for job in (jobs["cut"], jobs["tag"])
+        for s in job["steps"]
+        if s.get("id", "").endswith("-token")
+    ]
     assert len(minters) == 3
     for step in minters:
         assert step["uses"].startswith("actions/create-github-app-token@")
@@ -989,8 +1005,10 @@ def test_release_tag_ci_is_excluded_from_branch_cancellation():
 
 
 def test_release_cut_lands_through_protection_and_tags_the_merge_commit():
-    cut = workflows()["release-cut.yml"]["jobs"]["cut"]
-    commands = "\n".join(step.get("run", "") for step in cut["steps"])
+    jobs = workflows()["release-cut.yml"]["jobs"]
+    commands = "\n".join(
+        step.get("run", "") for job in jobs.values() for step in job.get("steps", [])
+    )
     assert "git push origin HEAD:main" not in commands
     merge = 'gh pr merge "$CANDIDATE" --merge --match-head-commit "$CANDIDATE_SHA"'
     assert merge in commands
@@ -1407,3 +1425,55 @@ def test_producers_cannot_edit_visibility_or_replace_assets():
         upload = next(s for s in steps if "release_assets.py upload" in s.get("run", ""))
         assert "--clobber" not in upload["run"]
     assert definitions["sign-installer.yml"]["jobs"]["provenance"]["with"]["upload-assets"] is False
+
+
+def _git_history(tmp_path, *, extra_path: str | None = None):
+    """main with one commit, plus a bundle commit on top that only touches dist."""
+    import shutil
+
+    if shutil.which("git") is None:
+        pytest.skip("git is required")
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "base")
+    base = git("rev-parse", "HEAD")
+    dist = tmp_path / "dodaios" / "ui" / "web" / "dist"
+    dist.mkdir(parents=True)
+    (dist / "index.html").write_text("<html></html>\n", encoding="utf-8")
+    if extra_path:
+        (tmp_path / extra_path).write_text("smuggled\n", encoding="utf-8")
+    git("checkout", "-q", "--detach")
+    git("add", "-A")
+    git("commit", "-q", "-m", "bundle")
+    return base, git("rev-parse", "HEAD")
+
+
+def _run_in(tmp_path):
+    def command(args, *, check=True):
+        return subprocess.run(args, cwd=tmp_path, capture_output=True, text=True, check=check)
+
+    return command
+
+
+def test_bundle_commit_on_main_is_admitted(monkeypatch, tmp_path):
+    base, bundle = _git_history(tmp_path)
+    monkeypatch.setattr(release_admit, "run_command", _run_in(tmp_path))
+    assert release_admit.on_main_or_bundle(base, "main")
+    assert release_admit.on_main_or_bundle(bundle, "main")
+
+
+def test_bundle_commit_that_touches_code_is_refused(monkeypatch, tmp_path):
+    _base, bundle = _git_history(tmp_path, extra_path="app.py")
+    monkeypatch.setattr(release_admit, "run_command", _run_in(tmp_path))
+    assert not release_admit.on_main_or_bundle(bundle, "main")

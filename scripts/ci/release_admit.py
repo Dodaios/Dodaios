@@ -8,7 +8,9 @@ runs this first through ``.github/workflows/release-gate.yml``. It checks:
    ``dodaios.__version__``;
 2. ``CHANGELOG.md`` has a ``## [X.Y.Z]`` section;
 3. the tagged commit is reachable from ``origin/main`` (no release from an
-   unmerged branch);
+   unmerged branch), or is the one bundle commit release-cut puts on top of
+   such a commit: a single parent on main and changes only under
+   ``dodaios/ui/web/dist/``;
 4. the latest trusted CI workflow run on that exact commit concluded success,
    including ``CI gate`` and release-only qualification. Release-cut dispatches
    full CI on the immutable tag and admission waits while it is still running.
@@ -37,6 +39,8 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 GATE_CHECK = "CI gate"
 QUALIFICATION_CHECK = "release qualification"
 CI_WORKFLOW = ".github/workflows/ci.yml"
+#: The only path the release bundle commit on top of a main commit may touch.
+BUNDLE_PREFIX = "dodaios/ui/web/dist/"
 
 
 def versions(root: Path = REPO_ROOT) -> tuple[str, str]:
@@ -161,10 +165,36 @@ def check_commit(tag: str, sha: str) -> list[str]:
         tagged = run_command(["git", "rev-parse", f"refs/tags/{tag}^{{commit}}"]).stdout.strip()
         if head != sha or tagged != sha:
             return ["checkout, release tag and requested SHA do not identify the same commit"]
-        run_command(["git", "merge-base", "--is-ancestor", sha, "origin/main"])
+        if not on_main_or_bundle(sha):
+            return ["release commit is neither on origin/main nor its one bundle commit"]
     except (subprocess.SubprocessError, OSError):
         return ["cannot verify release ancestry against freshly fetched origin/main"]
     return []
+
+
+def on_main_or_bundle(sha: str, main: str = "origin/main") -> bool:
+    """True for a commit on ``main``, or for release-cut's bundle commit on one.
+
+    The bundle commit has exactly one parent, that parent is on ``main``, and
+    every path it changes sits under :data:`BUNDLE_PREFIX`. Anything else
+    could smuggle code into a release that main's CI never saw.
+    """
+    if _is_ancestor(sha, main):
+        return True
+    parents = run_command(["git", "rev-list", "--parents", "-n", "1", sha]).stdout.split()[1:]
+    if len(parents) != 1 or not _is_ancestor(parents[0], main):
+        return False
+    changed = run_command(
+        ["git", "diff-tree", "-r", "--no-commit-id", "--name-only", "--no-renames", parents[0], sha]
+    ).stdout.splitlines()
+    return bool(changed) and all(path.startswith(BUNDLE_PREFIX) for path in changed)
+
+
+def _is_ancestor(sha: str, main: str) -> bool:
+    proc = run_command(["git", "merge-base", "--is-ancestor", sha, main], check=False)
+    if proc.returncode not in (0, 1):
+        raise subprocess.CalledProcessError(proc.returncode, proc.args, proc.stdout, proc.stderr)
+    return proc.returncode == 0
 
 
 def wait_for_ci(
