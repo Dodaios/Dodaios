@@ -7744,7 +7744,11 @@
       "write_other": "创建了多个文件",
       "image_one": "查看了一张图片",
       "image_other": "查看了多张图片",
-      "used": "使用了 {what}"
+      "used": "使用了 {what}",
+      "lookup_one": "查找了工具",
+      "lookup_other": "查找了工具",
+      "asked_one": "向你提问",
+      "asked_other": "向你提问"
     },
     "call": {
       "read": "读取了 {target}",
@@ -7752,7 +7756,9 @@
       "search": "搜索了 {pattern}",
       "search_in": "在 {path} 中搜索了 {pattern}",
       "edit": "编辑了 {target}",
-      "write": "创建了 {target}"
+      "write": "创建了 {target}",
+      "lookup": "查找了工具",
+      "asked": "向你提问"
     },
     "state": {
       "running": "运行中",

@@ -292,6 +292,7 @@
       "send": "发送",
       "test_started": "测试运行已开始。",
       "active": "已启用",
+      "paused": "已暂停",
       "delete": "删除",
       "test": "测试运行",
       "delete_confirm": "删除此例程及其所有计划和执行历史？",

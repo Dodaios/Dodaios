@@ -317,6 +317,71 @@ export function ownServerTool(name: string): string | null {
   return MCP_TOOLS_SERVER_NAMES.includes(name.slice(0, slash).toLowerCase()) ? name.slice(slash + 1) : null;
 }
 
+/** Hermes's road to the app's own server: "mcp_dodaios_<tool>" (one underscore). */
+const OWN_SINGLE = new RegExp(`^mcp_(?:${MCP_TOOLS_SERVER_NAMES.join("|")})_(?!_)`, "i");
+
+/**
+ * A tool's own name past the road it came by: "mcp__dodaios__society_ask_user",
+ * "mcp_dodaios_society_ask_user" and "dodaios/society_ask_user" are all
+ * "society_ask_user"; another server's tool keeps only its tool part.
+ */
+export function bareToolName(name: string): string {
+  const raw = name.trim();
+  if (OWN_SINGLE.test(raw)) return raw.replace(OWN_SINGLE, "");
+  const routed = traceToolName(raw);
+  const slash = routed.lastIndexOf("/");
+  return slash >= 0 ? routed.slice(slash + 1) : routed;
+}
+
+/**
+ * A tool id a person can read: "mcp__linear__list_issues" → "List issues",
+ * "mcp__dodaios__society_ask_user" → "Ask user" (the agents' own namespace
+ * is the road too).
+ */
+export function readableToolName(name: string): string {
+  const bare = bareToolName(name);
+  return humanize(bare.replace(/^society_(?=.)/i, "")) || humanize(bare) || name;
+}
+
+type InternalTool = "lookup" | "asked";
+
+/**
+ * The app's internal tools, which speak in the product's words instead of
+ * their ids. Keys are bare names, lowercase, without "-" or "_".
+ */
+const INTERNAL_TOOLS: Record<string, InternalTool> = {
+  toolsearch: "lookup", tooldescribe: "lookup", describetool: "lookup", searchtools: "lookup",
+  listtools: "lookup", toolslist: "lookup", toolsearchresult: "lookup", gettoolschema: "lookup",
+  societyaskuser: "asked", askuser: "asked", askuserquestion: "asked", requestuserinput: "asked",
+};
+
+/** Which internal tool a call is, when it comes by no server or the app's own. */
+export function internalTool(name: string): InternalTool | null {
+  const raw = name.trim();
+  const routed = traceToolName(raw);
+  const own = OWN_SINGLE.test(raw) || !routed.includes("/") || ownServerTool(routed) !== null;
+  if (!own) return null;
+  return INTERNAL_TOOLS[bareToolName(raw).toLowerCase().replace(/[-_\s]/g, "")] ?? null;
+}
+
+/** The tools a lookup named, readable: "select:mcp__dodaios__society_ask_user" → "Society ask user". */
+function lookupDetail(record: Record<string, unknown>): string {
+  const query = firstString(record, ["query", "name", "tool", "tool_name", "names", "tools"]);
+  if (!query) return "";
+  const select = /^select:/i.test(query);
+  const names = query.replace(/^select:/i, "").split(",").map((part) => part.trim()).filter(Boolean);
+  // Tool ids read as names; a free-text search ("send an email") stays as typed.
+  const ids = select || (names.length > 0 && names.every((part) => /^[\w./-]+$/.test(part) && /[_/]/.test(part)));
+  return oneLine(ids ? names.map(readableToolName).join(", ") : query, 100);
+}
+
+/** The first question an "ask the person" call carried. */
+function askedDetail(record: Record<string, unknown>): string {
+  const questions = Array.isArray(record.questions) ? record.questions : [];
+  const first = questions[0] && typeof questions[0] === "object" ? questions[0] as Record<string, unknown> : {};
+  return oneLine(firstString(first, ["question", "header"]) || firstString(record, ["question", "prompt", "message"]), 100);
+}
+
 /** One finished or running call as its line. */
 export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: string): Call {
   const view = traceToolIdentity(block);
@@ -328,6 +393,13 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
   const description = own && (FAMILIES.has(own.family) || own.family === "shell") ? own : view.description;
   const action = view.action === "memory" ? null : view.action;
   const base = { id: block.callId, block, status, reason, added: 0, removed: 0, result: "", detail: "", brand: null as string | null };
+
+  // The app's internal tools say what they did for the person, never their ids.
+  const internal = internalTool(block.name);
+  if (internal !== null) {
+    const detail = internal === "lookup" ? lookupDetail(record) : askedDetail(record);
+    return { ...base, kind: "tool", text: tr(t, `call.${internal}`), detail, bucket: internal };
+  }
 
   // The app's CLI wrappers ("mcp__dodaios__cli_jarvisctl") run a command line.
   const wrapper = ownTool !== null && /^cli_/i.test(ownTool) && firstString(record, ACTION_KEYS.command);
@@ -375,8 +447,8 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
     const label = humanize(rest);
     return { ...base, kind: "tool", text: label, detail: oneLine(own.detail, 100), result, bucket: `used:${label}` };
   }
-  const raw = description.label || view.service || block.name;
-  const label = /[A-Z]/.test(raw) ? raw : humanize(raw);
+  const raw = OWN_SINGLE.test(block.name) ? bareToolName(block.name) : description.label || view.service || block.name;
+  const label = /[A-Z]/.test(raw) ? raw : humanize(bareToolName(raw));
   if (view.integration || family === "mcp" || family === "service") {
     const service = view.service || label;
     return { ...base, kind: "service", text: label, detail: oneLine(description.detail, 100), result, bucket: `used:${service}`, brand: view.identity.logo ? view.identity.key ?? service : null };

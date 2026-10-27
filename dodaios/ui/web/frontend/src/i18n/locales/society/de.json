@@ -292,6 +292,7 @@
       "send": "Senden",
       "test_started": "Testlauf gestartet.",
       "active": "Aktiv",
+      "paused": "Pausiert",
       "delete": "Löschen",
       "test": "Testlauf",
       "delete_confirm": "Diese Routine mit allen Zeitplänen und ihrem Ausführungsverlauf löschen?",

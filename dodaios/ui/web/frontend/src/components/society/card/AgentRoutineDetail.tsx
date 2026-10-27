@@ -171,7 +171,7 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
         </div>
         <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground"><Switch aria-label={label("active")} checked={active} disabled={pending || !editable} onCheckedChange={(enabled) => void act(async () => {
           for (const detail of details) if (detail && !terminal.includes(detail.state) && (detail.state === "paused") === enabled) await setTaskEnabled(detail.id, enabled);
-        })} /><span className="sr-only sm:not-sr-only">{label("active")}</span></label>
+        })} /><span className="sr-only sm:not-sr-only" aria-hidden data-testid="routine-switch-state">{label((ready ? active : routine.state !== "paused") ? "active" : "paused")}</span></label>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <button type="button" className={primary} disabled={!canTest} onClick={() => void act(async () => {
