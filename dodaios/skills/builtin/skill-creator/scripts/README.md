@@ -3,16 +3,16 @@
 Executable helper scripts for the skill. The runner can launch them via
 ``subprocess`` or Python import.
 
-**Jarvis adaptation note:** Anthropic's original ships 8 Claude-Code-specific
+**Dodaios adaptation note:** Anthropic's original ships 8 Claude-Code-specific
 Python files here (``run_eval.py``, ``aggregate_benchmark.py``, …). They are
-not ported to Jarvis — they assume the Claude Code subagent API, which we
+not ported to Dodaios — they assume the Claude Code subagent API, which we
 don't have. This folder is intentionally empty; add your own helpers when you
 need them.
 
-**Example ideas for Jarvis scripts:**
+**Example ideas for Dodaios scripts:**
 - `validate_skill.py` — pydantic dry-run against a SKILL.md
 - `package_skill.py` — zips the entire skill bundle for sharing
 - `trigger_test.py` — fires a skill manually through the runner
 
 Naming convention: snake_case.py. The entry function should be named `main()`
-so the Jarvis runner can find it via reflection.
+so the Dodaios runner can find it via reflection.

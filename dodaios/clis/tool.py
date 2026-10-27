@@ -113,7 +113,7 @@ class CliTool:
         # discovering it through `--help` rounds (2026-08-18: three such rounds
         # ate a 45 s tool budget). Static data, parity-tested against the live
         # Typer app — never an import of the CLI on the brain build path.
-        if spec.binary_name == "jarvisctl":
+        if spec.name == "jarvisctl":
             try:
                 from dodaios.cli_ctl.command_index import render_command_index
 

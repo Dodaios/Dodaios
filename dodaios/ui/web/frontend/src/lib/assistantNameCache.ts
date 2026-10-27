@@ -5,7 +5,7 @@
  * "Nico" / "Athena"). It lives authoritatively on the backend and is fetched by
  * `useAssistantNameSeed` after mount. That fetch is asynchronous, so during the
  * first paint the store would otherwise fall back to a hardcoded placeholder —
- * which MUST NEVER be a trademarked name such as "Jarvis" (Marvel), because the
+ * which MUST NEVER be a trademarked name, because the
  * placeholder is briefly visible before the real name resolves. A single frame
  * of a trademarked character name is a real legal exposure for redistributors,
  * so the placeholder is always trademark-free.

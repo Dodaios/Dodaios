@@ -24,8 +24,12 @@ def _entries() -> list[dict]:
 def test_jarvisctl_entry_present_and_self_control() -> None:
     entry = next((e for e in _entries() if e["name"] == "jarvisctl"), None)
     assert entry is not None, "jarvisctl missing from seed catalog"
-    assert entry["binary_name"] == "jarvisctl"
-    assert entry["check_command"] == ["jarvisctl", "version"]
+    # The entry keeps its persistent name (the tool id ``cli_jarvisctl``) and
+    # runs the current command; the earlier command stays installed as an alias.
+    assert entry["binary_name"] == "dodaiosctl"
+    assert entry["check_command"] == ["dodaiosctl", "version"]
+    patterns = entry["risk"]["blacklist_patterns"] + entry["risk"]["whitelist_patterns"]
+    assert all(p.startswith("dodaiosctl ") for p in patterns)
     caps = entry["capabilities"][0]
     assert "jarvis-control" in caps["domains"]
     blacklist = entry["risk"]["blacklist_patterns"]

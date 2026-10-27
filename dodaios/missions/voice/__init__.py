@@ -4,7 +4,7 @@ Re-exports of the public API.
 
 Foundation: ADR-0009 §"Open" — voice readback on MissionApproved/Failed
 uses the PhrasePicker pattern (anti-repeat window). Tone from
-`dodaios/brain/DODAIOS_PERSONA.md`: butler register, never "Sir". The
+`dodaios/brain/DODAIOS_PERSONA.md`: concierge register, never "Sir". The
 mission-status templates are name-neutral (they carry no hardcoded owner
 name) so a fresh clone never speaks the maintainer's name.
 """

@@ -469,11 +469,11 @@ def _effective_primary_voice(family: str, tts_cfg: Any) -> str | None:
         return voice_de if voice_de in _GEMINI_VOICES else "Charon"
     if family == "elevenlabs":
         try:
-            from dodaios.plugins.tts.elevenlabs_tts import JARVIS_VOICE_DANIEL
+            from dodaios.plugins.tts.elevenlabs_tts import ELEVENLABS_VOICE_DANIEL
         except ImportError:
             return None
         cleaned = _without_foreign_voice(tts_cfg, "elevenlabs")
-        return (getattr(cleaned, "voice_de", None) or "").strip() or JARVIS_VOICE_DANIEL
+        return (getattr(cleaned, "voice_de", None) or "").strip() or ELEVENLABS_VOICE_DANIEL
     if family == "openrouter":
         try:
             from dodaios.plugins.tts.openrouter_speech_models import (
@@ -664,7 +664,7 @@ def _build_provider(tts_cfg: Any, provider: str) -> Any:
     if provider in ("elevenlabs", "eleven-labs", "eleven_labs", "11labs"):
         try:
             from dodaios.plugins.tts.elevenlabs_tts import (
-                JARVIS_VOICE_DANIEL,
+                ELEVENLABS_VOICE_DANIEL,
                 ElevenLabsTTS,
                 coerce_elevenlabs_model,
             )
@@ -683,7 +683,7 @@ def _build_provider(tts_cfg: Any, provider: str) -> Any:
         eleven_cfg = _without_foreign_voice(tts_cfg, "elevenlabs")
         return ElevenLabsTTS(
             model=coerce_elevenlabs_model(tts_cfg.model),
-            default_voice=eleven_cfg.voice_de or JARVIS_VOICE_DANIEL,
+            default_voice=eleven_cfg.voice_de or ELEVENLABS_VOICE_DANIEL,
             language_code=tts_cfg.language_code or "de-DE",
             stability=tts_cfg.stability,
             similarity_boost=tts_cfg.similarity_boost,

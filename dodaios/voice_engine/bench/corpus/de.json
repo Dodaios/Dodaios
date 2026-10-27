@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "system_prompt": "Du bist Jarvis, ein Sprachassistent. Antworte auf Deutsch in ein bis zwei kurzen Sätzen. Nutze die Werkzeuge für Aktionen und aktuelle Informationen; behaupte nie, etwas getan zu haben, ohne das passende Werkzeug aufzurufen. Für Unterhaltung und Allgemeinwissen antworte direkt.",
+  "system_prompt": "Du bist ein Sprachassistent. Antworte auf Deutsch in ein bis zwei kurzen Sätzen. Nutze die Werkzeuge für Aktionen und aktuelle Informationen; behaupte nie, etwas getan zu haben, ohne das passende Werkzeug aufzurufen. Für Unterhaltung und Allgemeinwissen antworte direkt.",
   "roundtrip": [
     "Wie wird das Wetter morgen in München?",
     "Spiel bitte die Playlist Focus auf Spotify.",
@@ -605,7 +605,7 @@
     {
       "tool": "end_call",
       "templates": [
-        "Tschüss Jarvis.",
+        "Tschüss, das war's.",
         "Leg auf.",
         "Beende das Gespräch.",
         "Okay, das war's, bis später.",

@@ -384,7 +384,7 @@
     "cx_agent_show": "显示说明",
     "cx_agent_hide": "隐藏说明",
     "cx_agent_step2": "在那台电脑上，把说明粘贴到 Claude Code、Codex 或其他编程智能体中。它会开启 SSH 并添加 {name} 的密钥。",
-    "cx_agent_step3": "智能体最后会输出一行以 JARVIS-CONNECT 开头的内容。把这一行粘贴到上方的“服务器地址”中。",
+    "cx_agent_step3": "智能体最后会输出一行以 DODAIOS-CONNECT 开头的内容。把这一行粘贴到上方的“服务器地址”中。",
     "cx_agent_done": "已收到智能体输出的那一行：{name} 的密钥已在那台电脑上。点击“连接”。",
     "cx_connect_hint": "测试成功前不会保存任何内容。",
     "cx_check_failed": "连接还不能正常工作",

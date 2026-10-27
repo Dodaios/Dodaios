@@ -5236,7 +5236,7 @@ class DesktopApp:
             # silent drops").
             logger.opt(exception=exc).error(
                 "VOICE OFFLINE — Speech-Pipeline crashed at startup; "
-                "'Hey Jarvis' will not respond until restart."
+                "the wake word will not respond until restart."
             )
             try:
                 from dodaios.audio.alerts import play_voice_offline_alert

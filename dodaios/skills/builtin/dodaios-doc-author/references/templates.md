@@ -393,9 +393,9 @@ demand it in agreement, it is here — everything else is taste.
    — STT OK after that.
 10. **Consistent terminology.** One concept = one word. "Skill" OR
     "Plugin", not both for the same thing. If the term is already taken in
-    Jarvis (see master plan / AGENTS.md), adopt it.
+    Dodaios (see master plan / AGENTS.md), adopt it.
 
-**Bonus mandate for Jarvis** (not in the external style guides, derived
+**Bonus mandate for Dodaios** (not in the external style guides, derived
 from user preferences in MEMORY.md):
 
 - **Code identifiers in English, prose in English.** "The ``BrainManager`` builds
@@ -423,14 +423,14 @@ from user preferences in MEMORY.md):
 | **AP-D-12** | **A concept explained twice in different places** | Drift guaranteed. One place explains, all others link. |
 | **AP-D-13** | **Frontmatter ``title`` too long (>60 characters)** — gets truncated in sidebar/recent/search results | User mandate 2026-04-29: the complete wording must be readable in the DocsView sidebar. The long explanation belongs in the body H1, not in the display title. Max 50 characters recommended. |
 
-**Plus 5 Jarvis-specific anti-patterns** (derived from the master-plan
+**Plus 5 Dodaios-specific anti-patterns** (derived from the master-plan
 mandates):
 
 | ID | Anti-pattern | Why it's bad |
 |---|---|---|
 | **AP-J-1** | **How-to without a verification section** | Violates the verify-before-ship mandate. The doc delivers steps but no test. |
 | **AP-J-2** | **Germanized code identifier** ("der Hirn-Verwalter" instead of ``BrainManager``) | Breaks the user preference. Identifiers are standard Python English. |
-| **AP-J-3** | **Voice example without a language tag** ("Jarvis, mach X" — without a hint whether DE or EN) | Bilingual default means both are equivalent — the example must be clearly attributed. |
+| **AP-J-3** | **Voice example without a language tag** ("Dodaios, mach X" — without a hint whether DE or EN) | Bilingual default means both are equivalent — the example must be clearly attributed. |
 | **AP-J-4** | **TODO/FIXME/TBD in the body when ``status: active``** | If it's a stub: ``status: draft`` in the frontmatter — otherwise the status lies. |
 | **AP-J-5** | **Filler intro** ("Welcome to this document about X.") | Breaks the 1-2-sentence intro standard. Get straight to the point. |
 

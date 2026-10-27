@@ -12,7 +12,7 @@ where a setting lives, what a feature does exactly) stays in the curated
 from __future__ import annotations
 
 PRODUCT_BRIEF = (
-    "Product: Dodaios (formerly Personal Jarvis), an open-source agent OS for the user's "
+    "Product: Dodaios, an open-source agent OS for the user's "
     "desktop (Windows, macOS, Linux); you are its voice, and 'this app' means Dodaios. The "
     "user picks the AI providers: keys, subscriptions or local models. Areas: Chats, Voice, "
     "Agents (background missions), Agentic IDE (coding agents in terminal panes), Computer "

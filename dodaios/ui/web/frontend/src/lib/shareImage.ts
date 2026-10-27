@@ -134,7 +134,7 @@ export async function shareToX(
   // the click gesture while still including the image. A pending render cannot
   // use this route because creating the File after awaiting it loses activation.
   if (image instanceof Blob) {
-    const file = new File([image], "jarvis-stats.png", { type: "image/png" });
+    const file = new File([image], "dodaios-stats.png", { type: "image/png" });
     const nav = navigator as Navigator & {
       canShare?: (data: { files?: File[] }) => boolean;
     };

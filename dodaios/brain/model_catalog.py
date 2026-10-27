@@ -389,7 +389,7 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
             [
                 ("onwK4e9ZLuTAKqWW03F9", "Daniel — British, authoritative (default)"),
                 ("JBFqnCBsd6RMkjVDRZzb", "George — British, deep narrator"),
-                ("IKne3meq5aSn9XLyUdCD", "Charlie — British, mature butler"),
+                ("IKne3meq5aSn9XLyUdCD", "Charlie — British, mature and warm"),
                 ("nPczCjzI2devNBz1zQrb", "Brian — American, deep narrator"),
                 ("pNInz6obpgDQGcFmaJgB", "Adam — American, classic AI voice"),
             ]

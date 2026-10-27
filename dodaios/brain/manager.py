@@ -2174,7 +2174,7 @@ def normalize_reply_language(value: object) -> str:
 # Spoken fallback when the ENTIRE provider chain fails (no key, depleted
 # credits, all rate-limited). The detailed provider/billing diagnostic
 # (``_format_provider_chain_error``) is developer-facing and must NEVER reach
-# the voice path — a butler does not read "Account-Problem bei grok …
+# the voice path — a concierge does not read "Account-Problem bei grok …
 # console.x.ai/team/billing" aloud (live complaint 2026-06-01). Instead we
 # speak a short, provider-agnostic apology in the user's SELECTED reply
 # language (de/en/es/pt; "auto" → German, the default locale). Three variants

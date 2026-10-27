@@ -202,7 +202,7 @@ function spacedAtSeam(snapshot: EditSnapshot, text: string): string {
 export function deliverDictationText(text: string): DictationDelivery {
   if (!text.trim()) return "none";
   if (typeof document === "undefined") return "none";
-  // A single server event reaches every open Jarvis tab/window. Only the
+  // A single server event reaches every open app tab/window. Only the
   // foreground document may turn that broadcast into an edit; all others are
   // observers. Checking again at the last possible moment closes the race where
   // focus moves after the WebSocket handler starts but before insertion.

@@ -7,7 +7,7 @@
     {
       "plugin_id": "github",
       "result": "BLOCKED",
-      "config_fingerprint": "3110b4a0e8b6efb3807fd3f30b9efd2c9dec5dd7a810e6d4eb650ed08bed45f3",
+      "config_fingerprint": "a71ee6394d4ded1499db960cd11418bf363908f11466d9e610163878a5441823",
       "initial_state": "existing_connection_retained",
       "evidence": {
         "ui": {

@@ -25,7 +25,7 @@
         "auth_header_template": "Authorization: Bearer ${plugin_zapier_access_token}",
         "risk_tier": "ask"
       },
-      "post_install_hint_md": "Sign in with Zapier. Jarvis sees only the actions you enabled in your Zapier MCP settings; each one asks for approval first."
+      "post_install_hint_md": "Sign in with Zapier. Dodaios sees only the actions you enabled in your Zapier MCP settings; each one asks for approval first."
     }
   }
 }

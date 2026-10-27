@@ -1,7 +1,7 @@
 # Diataxis Quadrants — Deep Reference
 
 Source: https://diataxis.fr/ (Daniele Procida).
-Adopted by Canonical/Ubuntu, Cloudflare, Gatsby, among others. In the Jarvis
+Adopted by Canonical/Ubuntu, Cloudflare, Gatsby, among others. In the Dodaios
 documentation it is the hard classification anchor per doc.
 
 ## The two axes
@@ -31,7 +31,7 @@ person, concrete steps with expected output after each step.
 - Explaining concepts — that is the explanation quadrant.
 - Becoming abstract — everything is concrete and executable.
 
-**Example titles in the Jarvis context:**
+**Example titles in the Dodaios context:**
 - "Bring up Phase 6 locally from scratch"
 - "Get the first voice session running"
 - "A new skill from idea to active"
@@ -56,7 +56,7 @@ knowledge clearly marked. End state defined.
 - Drifting away from the main question.
 - Code without a clear end state ("then everything is finished").
 
-**Example titles in the Jarvis context:**
+**Example titles in the Dodaios context:**
 - "Add a brain provider"
 - "Promote a skill from draft to active"
 - "Switch the TTS provider by voice"
@@ -81,7 +81,7 @@ example (1-3 lines is enough). Grouped alphabetically or logically.
 - Leaving gaps — if a field exists, it belongs in the reference.
 - Omitting examples — 1 mini snippet per entry is mandatory.
 
-**Example titles in the Jarvis context:**
+**Example titles in the Dodaios context:**
 - "EventBus event catalog"
 - "jarvis.toml schema"
 - "ROUTER_TOOLS / SUB_TOOLS tool list"
@@ -107,10 +107,10 @@ front-loaded (conclusion first).
   that is a reference doc.
 - Having the reader solve tasks ("to achieve X, do Y").
 
-**Example titles in the Jarvis context:**
+**Example titles in the Dodaios context:**
 - "BrainManager routing discipline"
 - "Risk-tier system"
-- "Why sub-Jarvis spawn instead of tool call"
+- "Why sub-agent spawn instead of tool call"
 - "Self-healing worker-critic architecture"
 
 ## ADR — the special fifth case
@@ -143,7 +143,7 @@ Treat troubleshooting as its own doc type in the frontmatter
 (``diataxis: troubleshooting``) — not as reference, because the reader is
 not looking for a fact but for a fix.
 
-In the Jarvis repo: the model is the ``BUG-001..BUG-005`` list in
+In the Dodaios repo: the model is the ``BUG-001..BUG-005`` list in
 ``MEMORY.md`` (each bug = one entry with symptom, cause, fix). A
 troubleshooting doc bundles several such entries.
 
@@ -183,9 +183,9 @@ If you are unsure what you are currently writing:
 - Explanation ages more slowly and is checked manually when the
   architecture drifts.
 
-## Quadrant mapping for Jarvis modules (short list)
+## Quadrant mapping for Dodaios modules (short list)
 
-| Jarvis module | Probably needs... |
+| Dodaios module | Probably needs... |
 |---|---|
 | ``BrainManager`` (routing logic) | concept (why a smart fallback chain) + reference (tier list, routing patterns) |
 | ``EventBus`` | reference (event catalog) + concept (patterns: subscribe_all, _safe_dispatch) |

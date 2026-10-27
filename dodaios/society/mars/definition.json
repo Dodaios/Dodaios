@@ -208,7 +208,7 @@
   "buildings": [
     {
       "id": "jarvis-hub",
-      "name": "Jarvis Hub",
+      "name": "Command Hub",
       "district_id": "central",
       "position": [
         0,

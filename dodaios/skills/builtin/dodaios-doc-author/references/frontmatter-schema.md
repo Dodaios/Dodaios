@@ -1,6 +1,6 @@
-# Frontmatter schema for Jarvis docs
+# Frontmatter schema for Dodaios docs
 
-Every Jarvis doc under ``docs/`` (and siblings) carries a YAML
+Every Dodaios doc under ``docs/`` (and siblings) carries a YAML
 frontmatter between two ``---`` lines at the start of the file. The
 required fields are hard — if one is missing, the future doc linter / the
 future stale detection fails.
@@ -76,7 +76,7 @@ sidebar.
 
 | Bad (too long, truncated) | Good (compact, fully readable) |
 |---|---|
-| ``"ADR-0001 — IPC between Jarvis App and Admin Helper: Named Pipe + HMAC"`` (69) | ``"ADR-0001: IPC via Named Pipe + HMAC"`` (35) |
+| ``"ADR-0001 — IPC between Dodaios App and Admin Helper: Named Pipe + HMAC"`` (69) | ``"ADR-0001: IPC via Named Pipe + HMAC"`` (35) |
 | ``"ADR-0008 — Computer-Use harness runs in-process (exception to the subprocess pattern)"`` (85) | ``"ADR-0008: Computer-Use in-process"`` (33) |
 | ``"ADR-0009 — Self-Healing Worker-Critic loop with an action/observation invariant"`` (79) | ``"ADR-0009: Self-Healing Worker-Critic"`` (37) |
 | ``"How-To: Add a new Brain provider to jarvis.toml and register it"`` (63) | ``"How-To: Add a new Brain provider"`` (32) |
@@ -160,7 +160,7 @@ not been reviewed since the last phase test report").
 
 Who is the target audience? Values:
 
-- ``developer`` — yourself, sub-Jarvis, other code authors.
+- ``developer`` — yourself, sub-agent, other code authors.
 - ``operator`` — you when you use the tool (UI docs, voice commands).
 - ``end-user`` — future multi-user phase, rare at the moment.
 
@@ -179,7 +179,7 @@ only 1 doc would have this tag, you probably don't need it.
 
 ### ``related`` (list of slugs)
 
-Cross-refs to other Jarvis docs. A list of slugs (not paths —
+Cross-refs to other Dodaios docs. A list of slugs (not paths —
 slug resolution allows file renames without breaking links, as long as the
 slug-append-only rule holds).
 
@@ -338,8 +338,8 @@ two status sets.
 
 ## Migrating existing docs
 
-Current Jarvis docs (``docs/adr/0001-..0012-*.md``, ``docs/phase*-*.md``,
-``Latenz/*.md``, ``Jarvis Long-Term Memory/*.md``) follow heterogeneous
+Current Dodaios docs (``docs/adr/0001-..0012-*.md``, ``docs/phase*-*.md``,
+``Latenz/*.md``, ``Dodaios Long-Term Memory/*.md``) follow heterogeneous
 patterns. **A big-bang migration is an anti-pattern** — existing files
 stay as they are until they get touched anyway. From now on:
 

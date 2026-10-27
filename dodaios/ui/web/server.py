@@ -3020,7 +3020,7 @@ class WebServer:
             start_learning(self.cfg, self.bus)
         except Exception as exc:  # noqa: BLE001
             logger.opt(exception=exc).warning(
-                "Jarvis learning loop init failed — Jarvis will not learn this run"
+                "Learning loop init failed — the assistant will not learn this run"
             )
 
         # Reconcile the derived FTS5 index after readiness. This repairs stale
@@ -4247,7 +4247,7 @@ class WebServer:
 
             await stop_learning()
         except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
-            logger.opt(exception=exc).debug("Jarvis learning loop stop failed")
+            logger.opt(exception=exc).debug("Learning loop stop failed")
 
         team_threads = getattr(self.app.state, "team_threads", None)
         if team_threads is not None:

@@ -16,7 +16,7 @@ It is an art-direction input, not a runtime texture. No external stock assets
 are used in the model. Preserve rounded graphite housing, yellow eyes with
 pupils, a small mouth, sensor pods, small arms and a continuous toothed hem.
 Resolve contradictory body-symbol tiles by omitting all body emblems. The
-separate Jarvis wordmark is outside this redesign. Rear service panel and
+separate Dodaios wordmark is outside this redesign. Rear service panel and
 underside emitter are authored consistently from the same closed geometry.
 
 ## Scale, material and budget targets

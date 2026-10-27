@@ -145,7 +145,7 @@ def test_cli_prompt_puts_current_empty_state_after_stale_history():
 
     prompt = _build_cli_prompt(req)
 
-    assert "CURRENT JARVIS.MD STATE" in prompt
+    assert "CURRENT STANDING INSTRUCTIONS STATE" in prompt
     assert "No active user preferences are currently set" in prompt
     assert "do not continue or imitate" in prompt
     assert prompt.rfind("No active user preferences") > prompt.rfind("Assistant: schef")

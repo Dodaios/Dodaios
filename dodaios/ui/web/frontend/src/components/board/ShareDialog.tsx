@@ -48,7 +48,7 @@ export function ShareDialog({ open, onOpenChange, stats }: Props) {
   // After a desktop save, surface the same "Show in folder" / "Open" toast the
   // transcript downloads use, so the share card is reachable the same way.
   const saveCard = async (): Promise<void> => {
-    const filename = "jarvis-stats.png";
+    const filename = "dodaios-stats.png";
     const savedPath = await saveOrDownload({
       filename,
       blob: await ensureBlob(),

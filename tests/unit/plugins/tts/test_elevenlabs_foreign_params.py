@@ -17,10 +17,9 @@ from typing import Any
 import dodaios.plugins.tts as tts_pkg
 from dodaios.plugins.tts.elevenlabs_tts import (
     DEFAULT_MODEL,
-    JARVIS_VOICE_DANIEL,
+    ELEVENLABS_VOICE_DANIEL,
     coerce_elevenlabs_model,
 )
-
 
 # --- coerce_elevenlabs_model: foreign model ids fall back to the default ------
 
@@ -78,7 +77,7 @@ def test_build_drops_cartesia_model_and_gemini_voice() -> None:
     assert inst._model == DEFAULT_MODEL
     assert inst._model.startswith("eleven")
     # The foreign Gemini voice name must NOT survive as a bogus ElevenLabs id.
-    assert inst._default_voice == JARVIS_VOICE_DANIEL
+    assert inst._default_voice == ELEVENLABS_VOICE_DANIEL
     assert inst._default_voice != "Kore"
 
 

@@ -2067,8 +2067,8 @@ _TTS_DEFAULTS: dict[str, dict[str, str]] = {
     "elevenlabs": {
         # model + voice from dodaios/plugins/tts/elevenlabs_tts.py:
         #   model = tts_cfg.model or "eleven_flash_v2_5"
-        #   default_voice = tts_cfg.voice_de or JARVIS_VOICE_DANIEL
-        #   JARVIS_VOICE_DANIEL = "onwK4e9ZLuTAKqWW03F9"
+        #   default_voice = tts_cfg.voice_de or ELEVENLABS_VOICE_DANIEL
+        #   ELEVENLABS_VOICE_DANIEL = "onwK4e9ZLuTAKqWW03F9"
         "model": "eleven_flash_v2_5",
         "voice_de": "onwK4e9ZLuTAKqWW03F9",  # Daniel
         "voice_en": "onwK4e9ZLuTAKqWW03F9",

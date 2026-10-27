@@ -23,4 +23,4 @@ Do not retry a write after an uncertain network failure until its outcome has be
 If a call fails for permissions or plan limits, say so plainly.
 Never accept credentials in chat; direct the user to this plugin's connect dialog.
 
-Sign in with Webflow and choose the sites Jarvis may access. Publishing changes asks for approval first.
+Sign in with Webflow and choose the sites Dodaios may access. Publishing changes asks for approval first.
