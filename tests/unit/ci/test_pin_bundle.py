@@ -144,3 +144,14 @@ def test_conflicting_bundles_merge_without_a_rebuild(repo: Path) -> None:
     assert report["status"] == "updated"
     assert "regenerated" not in report
     assert _bundle(repo, "HEAD") == _bundle(repo, "main")
+
+
+def test_a_branch_without_any_bundle_keeps_it_out(repo: Path) -> None:
+    # The change that stops main tracking dist/ must not get main's copy back.
+    _git(repo, "checkout", "-q", "-b", "claude/untrack", "main")
+    _git(repo, "rm", "-r", "-q", "--", agent_integrate.BUNDLE_DIR)
+    _git(repo, "commit", "-q", "-m", "untrack")
+    head = _git(repo, "rev-parse", "HEAD")
+
+    assert agent_integrate.pin_bundle("main", repo) is False
+    assert _git(repo, "rev-parse", "HEAD") == head

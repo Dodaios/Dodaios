@@ -238,6 +238,10 @@ def pin_bundle(onto: str, cwd: Path, branch: str = "") -> bool:
     del branch
     if not git("diff", "--quiet", onto, "HEAD", "--", BUNDLE_DIR, check=False, cwd=cwd).returncode:
         return False
+    if not _in_tree("HEAD", BUNDLE_DIR, cwd):
+        # This branch has no bundle at all: it is the one that stops main
+        # tracking it, or it was cut after that. Never put main's copy back.
+        return False
     git("rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", BUNDLE_DIR, cwd=cwd)
     if _in_tree(onto, BUNDLE_DIR, cwd):
         git("checkout", onto, "--", BUNDLE_DIR, cwd=cwd)
@@ -245,7 +249,7 @@ def pin_bundle(onto: str, cwd: Path, branch: str = "") -> bool:
         "commit",
         "-q",
         "-m",
-        "chore: keep main's frontend bundle, it is rebuilt on main after the merge",
+        "chore: drop the frontend bundle, main does not track it",
         check=False,
         cwd=cwd,
     )
