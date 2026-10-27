@@ -6,7 +6,7 @@
 #
 # Output (per the release contract):
 #   dist/installers/Dodaios-Linux-x86_64.AppImage
-#   dist/installers/personal-jarvis_<version>_amd64.deb   (when dpkg-deb exists)
+#   dist/installers/dodaios_<version>_amd64.deb           (when dpkg-deb exists)
 #
 # The installed names are already the current ones: the Debian package
 # "dodaios" (it replaces the earlier "personal-jarvis" package), /opt/Dodaios,
@@ -296,9 +296,9 @@ elif ! command -v dpkg-deb >/dev/null 2>&1; then
 else
   VERSION="$("${PYTHON}" -c "import sys; sys.path.insert(0, '${REPO_ROOT}'); import dodaios; print(dodaios.__version__)")"
   DEB_ROOT="${DIST_DIR}/deb-root"
-  # The release asset keeps its earlier file name (see the header); the
-  # package inside it is DEB_PACKAGE_NAME.
-  DEB_PATH="${OUT_DIR}/personal-jarvis_${VERSION}_amd64.deb"
+  # Named after the package inside it, as Debian names its files. Releases
+  # up to 4.1.2 called the file personal-jarvis_<version>_amd64.deb.
+  DEB_PATH="${OUT_DIR}/${DEB_PACKAGE_NAME}_${VERSION}_amd64.deb"
   log "building ${DEB_PATH}"
   run rm -rf "${DEB_ROOT}"
   run mkdir -p "${DEB_ROOT}/DEBIAN" \

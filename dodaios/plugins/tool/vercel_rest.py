@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
 _VERCEL_BASE = "https://api.vercel.com"
@@ -75,7 +76,7 @@ class VercelRestTool:
         token = self._token_provider()
         if not token:
             return None
-        return {"Authorization": f"Bearer {token}", "User-Agent": "Personal-Jarvis/1.0"}
+        return {"Authorization": f"Bearer {token}", "User-Agent": HTTP_USER_AGENT}
 
     async def _get(self, path: str, params: dict[str, Any], headers: dict[str, str]):
         client = self._pool.client()

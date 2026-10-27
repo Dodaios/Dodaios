@@ -28,6 +28,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
 _API = "https://api.spotify.com/v1"
@@ -233,7 +234,7 @@ class SpotifyRestTool:
         token = self._token_provider()
         if not token:
             return None
-        return {"Authorization": f"Bearer {token}", "User-Agent": "Personal-Jarvis/1.0"}
+        return {"Authorization": f"Bearer {token}", "User-Agent": HTTP_USER_AGENT}
 
     async def _with_auth_retry(
         self, do_call: Callable[[dict[str, str]], Awaitable[Any]]

@@ -13,12 +13,13 @@ Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 
 | Artifact | Platform | Signed by |
 | --- | --- | --- |
-| `PersonalJarvis-Setup-x64.exe` | Windows 10/11 x64 | SignPath Foundation certificate, via SignPath.io |
+| `Dodaios-Setup-x64.exe` | Windows 10/11 x64 | SignPath Foundation certificate, via SignPath.io |
 
-The setup is signed under that name because the artifact configuration below
-pins it. After signing, the release publishes the same signed file a second
-time as `Dodaios-Setup-x64.exe`; the two downloads are byte-identical, so both
-carry this signature.
+The setup's product name is `Dodaios`. After signing, the release publishes
+the same signed file a second time as `PersonalJarvis-Setup-x64.exe`, the
+name installs from before the rename look for; the two downloads are
+byte-identical, so both carry this signature. That copy has a planned end
+(`PUBLISH_EARLIER_INSTALLER_NAMES` in `scripts/ci/release_assets.py`).
 
 Only files built from this repository's source code by the
 [`Desktop installers`](../.github/workflows/desktop-installers.yml) GitHub Actions
@@ -93,12 +94,22 @@ artifact configuration wraps the setup file in a ZIP and pins its metadata:
 ```xml
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
   <zip-file>
-    <pe-file path="PersonalJarvis-Setup-x64.exe" product-name="Personal Jarvis">
+    <pe-file path="Dodaios-Setup-x64.exe" product-name="Dodaios">
       <authenticode-sign />
     </pe-file>
   </zip-file>
 </artifact-configuration>
 ```
+
+The file name and the product name are pinned in three places that must
+always agree: this configuration, `SignedSetupBaseName` and
+`SignedProductName` in `packaging/windows/Dodaios.iss`, and `SIGNED_SETUP_NAME`
+in the `windows` job of `.github/workflows/desktop-installers.yml`
+(`tests/unit/ci/test_installer_aliases.py` checks the repository side).
+Releases up to 4.1.2 built the setup as `PersonalJarvis-Setup-x64.exe` with
+the product name `Personal Jarvis`; no release was signed under that name, so
+a configuration entered in SignPath before this change must be updated to the
+values above before the first signed release.
 
 Without these settings the workflow prints a notice and publishes an unsigned
 installer. If both SignPath and Azure Trusted Signing are configured, SignPath

@@ -330,7 +330,7 @@ def _build_setup(iscc: Path, fake_exe: Path, version: str, work: Path) -> Path:
         check=True,
         timeout=600,
     )
-    setup = out / "PersonalJarvis-Setup-x64.exe"
+    setup = out / "Dodaios-Setup-x64.exe"
     assert setup.is_file()
     return setup
 
