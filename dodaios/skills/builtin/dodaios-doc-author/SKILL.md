@@ -3,7 +3,7 @@ schema_version: "1"
 name: dodaios-doc-author
 version: "1.0.0"
 description: >-
-  Authoritative skill for writing internal Dodaios docs under
+  Authoritative skill for writing internal Personal-Jarvis docs under
   ``docs/`` and sibling directories. Enforces a Diataxis-compliant
   classification (concept/how-to/tutorial/reference/troubleshooting/adr),
   a uniform YAML frontmatter schema, a style canon (active voice,
@@ -11,7 +11,7 @@ description: >-
   quadrant mixing, no filler intros, no "Click here"). Use when writing
   or fundamentally reworking any Markdown doc under ``docs/``.
 when_to_use: >-
-  Use when the user or a worker creates a new Dodaios doc, reworks an
+  Use when the user or a worker creates a new Jarvis doc, reworks an
   existing one, writes an ADR, or produces a phase/test report — even
   without the word "doc" ("dokumentier mal X", "schreib eine Anleitung",
   "fass das als ADR zusammen", "write me a Phase 7 report"). Not for code
@@ -42,9 +42,9 @@ config:
 token_budget_estimate: 8000
 ---
 
-# Dodaios Doc Author
+# Jarvis Doc Author
 
-When a Dodaios doc is written, the rule is: **classify first, then
+When a Jarvis doc is written, the rule is: **classify first, then
 structure, then phrase, then self-check.** Not the other way around.
 
 This skill provides the scaffolding. It does not replace thinking — it enforces
@@ -55,16 +55,16 @@ GitHub Docs).
 ## When to trigger
 
 Activate this skill when the user (via voice or chat) or a
-sub-agent explicitly or implicitly wants to write a **new doc** or
+Sub-Jarvis explicitly or implicitly wants to write a **new doc** or
 **structurally** rework an existing doc. Concrete examples:
 
 - "Schreib ein Doc ueber den BrainManager-Routing-Discipline-Mechanismus." (Write a doc about the BrainManager routing discipline mechanism.)
-- "Leg ein ADR an fuer die sub-agent-Hard-Cap-Entscheidung." (Create an ADR for the sub-agent hard-cap decision.)
+- "Leg ein ADR an fuer die Sub-Jarvis-Hard-Cap-Entscheidung." (Create an ADR for the Sub-Jarvis hard-cap decision.)
 - "Dokumentiere wie man einen neuen Brain-Provider hinzufuegt." (Document how to add a new brain provider.)
 - "Fass die Phase-6-Ergebnisse als Test-Report zusammen." (Summarize the Phase 6 results as a test report.)
 - "Mach mir eine How-To fuer das Voice-Bridge-Setup." (Create a how-to for the voice-bridge setup.)
-- A sub-agent receives the task from the main assistant "schreib das in
-  ``docs/...`` rein" (write this into ``docs/...``) — then the sub-agent consults this skill before
+- A Sub-Jarvis receives the task from the main Jarvis "schreib das in
+  ``docs/...`` rein" (write this into ``docs/...``) — then the Sub-Jarvis consults this skill before
   writing.
 
 Do NOT trigger on:
@@ -124,7 +124,7 @@ one is ``ADR-0013``.
 
 ### 3. Fill in the frontmatter schema
 
-Every Dodaios doc carries a YAML frontmatter with **7 mandatory fields**:
+Every Jarvis doc carries a YAML frontmatter with **7 mandatory fields**:
 
 ```yaml
 ---
@@ -207,7 +207,7 @@ frontmatter + first 20 lines of body, ask once, then write.
 
 ## What the skill deliberately omits
 
-Kept deliberately small — Dodaios is a single-user project. The following
+Kept deliberately small — Personal-Jarvis is a single-user project. The following
 is **not** the job of this skill:
 
 - **Multi-version docs / i18n.** All new docs are English (project policy); no translation workflow, no version switch.
@@ -227,7 +227,7 @@ file whose topic is currently being asked about — not all of them on spec.
 
 - ``references/diataxis-quadrants.md`` — deep definition of the 4 quadrants,
   tutorial-vs-how-to test, reference-vs-explanation test, mapping onto
-  Dodaios modules.
+  Jarvis modules.
 - ``references/frontmatter-schema.md`` — all frontmatter fields (mandatory
   and optional), rationale, examples per doc type, slug rules.
 - ``references/templates.md`` — complete skeletons for all 6 doc types,

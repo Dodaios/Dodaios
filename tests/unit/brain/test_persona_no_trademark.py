@@ -121,6 +121,11 @@ _LEGACY_DATA_FILES = {
         "the control CLI entry keeps its persistent name and parses the version "
         "line of earlier releases"
     ),
+    "dodaios/skills/builtin/dodaios-doc-author/SKILL.md": (
+        "its text is pinned by the retirement hash of the old jarvis-doc-author "
+        "copy (dodaios.skills.bootstrap._RETIRED_SHIPPED_HASHES); edit it together "
+        "with that retirement"
+    ),
 }
 
 
