@@ -1,39 +1,36 @@
 /**
- * The pane's first tab: who this agent is, what it runs on, and its anatomy
- * in six counted rows that each open where that part is managed. A short list
- * of next steps sits on top while there is something worth doing; each one
- * can be dismissed for good.
+ * The pane's Details tab, as a few calm cards: its instructions, what it
+ * thinks with and how freely it may act, its routines with a switch each,
+ * rows to everything else, and its record in one line. A short list of next
+ * steps sits on top while there is something worth doing; each one can be
+ * dismissed for good. Name and role are edited in the pane header.
  */
-import { useMemo, useState } from "react";
-import {
-  BookOpen,
-  CalendarClock,
-  FolderOpen,
-  Lightbulb,
-  Sparkles,
-  Wrench,
-  X,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 
-import { ProviderLogo } from "@/components/providers/ProviderLogo";
+import { AgentChatStoreProvider } from "@/components/agentchat/AgentChatStoreContext";
 import { useRunLocale } from "@/components/runs/format";
+import { Switch } from "@/components/ui/switch";
 import { useLocaleChunk, useT } from "@/i18n";
-import { societyDisplayName } from "@/lib/societyDisplayName";
+import { setTaskEnabled } from "@/lib/tasksApi";
 import { resolveToolBrand } from "@/lib/toolBrand";
-import { useEventStore } from "@/store/events";
+import { useAgentChatStore } from "@/store/agentChat";
 
-import { RuntimeMark } from "../../RuntimeBadge";
-import { useAgentRoutines, useAgentSkills } from "../../cardData";
-import { useSocietyCapabilities, useUpdateAgentConfig, type SocietyAgent } from "../../data";
-import { useAgentKnowledge } from "../AgentKnowledge";
-import { LeadBrain } from "../LeadSections";
+import { displayRoutineTitle, useAgentRoutines, useAgentSkills, type LiveRoutine } from "../../cardData";
+import { useSocietyCapabilities, type SocietyAgent } from "../../data";
+import { useSocietyChatStore } from "../../chat/AgentChatPanel";
+import { AgentModelPicker } from "../../chat/AgentModelPicker";
+import { ApprovalModePicker } from "../AgentHeader";
+import { humanSchedule } from "../routines/humanSchedule";
 import { useDismissedSuggestions, type PanePage, type PaneTab } from "./paneState";
 import type { ReviewQueue } from "./reviewQueue";
-import { AnatomyRow, InlineEdit, PaneHint, PaneSection } from "./ui";
+import { AnatomyRow, PaneHint, PaneSection } from "./ui";
 
 /** More lines than this and the instructions preview fades into "open to read all". */
 const PREVIEW_LINES = 5;
 const MAX_SUGGESTIONS = 3;
+/** Routines listed with a switch; the Tasks tab has the rest. */
+const MAX_ROUTINES = 5;
 
 export interface OverviewTabProps {
   agent: SocietyAgent;
@@ -41,6 +38,8 @@ export interface OverviewTabProps {
   queue: ReviewQueue | undefined;
   onTab: (tab: PaneTab) => void;
   onPage: (page: PanePage) => void;
+  /** Reports a model save in flight so the composer holds Send meanwhile. */
+  onModelSavingChange?: (saving: boolean) => void;
 }
 
 interface Suggestion {
@@ -49,29 +48,22 @@ interface Suggestion {
   go: () => void;
 }
 
-export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTabProps) {
+export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSavingChange }: OverviewTabProps) {
   const t = useT();
   useLocaleChunk("society");
   const locale = useRunLocale();
   const lead = agent.tier === "lead";
-  const assistantName = useEventStore((s) => s.assistantName);
-  const update = useUpdateAgentConfig();
-  const knowledge = useAgentKnowledge(agent.agentId, sample);
   const skills = useAgentSkills(sample ? null : agent.agentId);
   const routines = useAgentRoutines(sample ? null : agent.agentId);
   const capabilities = useSocietyCapabilities(!sample && !lead);
+  const busy = useSocietyChatStore((state) => state.busy && state.activeSessionId === agent.chatSessionId);
   const [dismissed, dismiss] = useDismissedSuggestions(agent.agentId);
   const [expanded, setExpanded] = useState(false);
 
-  const memoryFiles = (knowledge.data?.files ?? []).filter((f) => f.kind === "memory");
-  const learnedRules = knowledge.data?.learned_instructions ?? [];
   const skillCount = skills.data?.length ?? 0;
   const routineRows = routines.data ?? [];
   const routineCount = sample ? agent.routines.length : routineRows.length;
-  const nextRun = routineRows.map((r) => r.dueMs).filter((ms): ms is number => typeof ms === "number").sort((a, b) => a - b)[0];
   const pendingReview = queue?.total ?? 0;
-  // Proposals and share requests are decisions; notebook writes are not.
-  const decisions = (queue?.counts?.proposal ?? 0) + (queue?.counts?.memory_share ?? 0);
 
   const byId = useMemo(() => new Map((capabilities.data ?? []).map((c) => [c.id, c])), [capabilities.data]);
   const disconnected = agent.focus.filter((id) => byId.get(id)?.connected === false);
@@ -122,74 +114,32 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
   const spent = agent.stats.spentTodayUsd;
   const share = capped ? Math.min(1, spent / agent.dailyBudgetUsd) : 0;
   const lastActive = agent.stats.lastActiveMs
-    ? new Date(agent.stats.lastActiveMs).toLocaleDateString(locale, { day: "2-digit", month: "short" })
+    ? new Date(agent.stats.lastActiveMs).toLocaleDateString(locale, { day: "numeric", month: "short" })
     : t("society.card.never");
 
   return (
     <div className="ap-body" data-testid="agent-pane-overview">
       {visible.length > 0 ? (
-        <PaneSection title={t("society.agent_pane.next_steps")} testId="agent-pane-suggestions">
-          <div className="flex flex-col gap-1.5">
-            {visible.map((s) => (
-              <div key={s.id} className="ap-suggest" data-testid={`agent-pane-suggestion-${s.id.split(":")[0]}`}>
-                <button type="button" className="ap-suggest-go" onClick={s.go}>
-                  {s.text}
-                </button>
-                <button
-                  type="button"
-                  className="ap-icon-btn h-6 w-6"
-                  aria-label={t("society.agent_pane.dismiss")}
-                  title={t("society.agent_pane.dismiss")}
-                  onClick={() => dismiss(s.id)}
-                >
-                  <X className="h-3 w-3" aria-hidden />
-                </button>
-              </div>
-            ))}
-          </div>
-        </PaneSection>
-      ) : null}
-
-      <PaneSection title={t("society.agent_pane.identity")}>
-        <div className="flex flex-col gap-1.5">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="w-14 shrink-0 truncate text-xs text-muted-foreground">{t("society.profile_card.name")}</span>
-            {lead ? (
-              <span className="truncate text-sm font-medium" title={t("society.agent_pane.lead_name_hint")}>
-                {societyDisplayName(agent, assistantName)}
-              </span>
-            ) : (
-              <InlineEdit
-                value={agent.name}
-                label={t("society.agent_pane.rename")}
-                maxLength={40}
-                disabled={sample}
-                className="text-sm font-medium"
-                testId="agent-pane-name"
-                onSave={async (name) => {
-                  if (!name) throw new Error(t("society.agent_pane.name_required"));
-                  await update(agent, { name });
-                }}
-              />
-            )}
-          </div>
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="w-14 shrink-0 truncate text-xs text-muted-foreground">{t("society.agent_pane.role")}</span>
-            <InlineEdit
-              value={agent.title}
-              label={t("society.agent_pane.edit_role")}
-              placeholder={t("society.agent_pane.role_placeholder")}
-              maxLength={120}
-              disabled={sample || lead}
-              className="text-sm"
-              testId="agent-pane-role"
-              onSave={async (title) => {
-                await update(agent, { title });
-              }}
-            />
-          </div>
+        <div className="flex flex-col gap-2" data-testid="agent-pane-suggestions" aria-label={t("society.agent_pane.next_steps")}>
+          {visible.map((s) => (
+            <div key={s.id} className="ap-suggest" data-testid={`agent-pane-suggestion-${s.id.split(":")[0]}`}>
+              <button type="button" className="ap-suggest-go" onClick={s.go}>
+                {s.text}
+              </button>
+              <button
+                type="button"
+                className="ap-round-btn"
+                data-size="sm"
+                aria-label={t("society.agent_pane.dismiss")}
+                title={t("society.agent_pane.dismiss")}
+                onClick={() => dismiss(s.id)}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
+          ))}
         </div>
-      </PaneSection>
+      ) : null}
 
       <PaneSection
         title={t("society.agent_pane.instructions")}
@@ -217,132 +167,173 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
         )}
       </PaneSection>
 
-      <PaneSection title={t("society.agent_pane.runs_on")}>
+      <PaneSection title={t("society.agent_pane.runs_on")} testId="agent-pane-seat">
         {lead ? (
-          <LeadBrain />
+          <LeadModelRow />
         ) : (
-          <div className="ap-seat" data-testid="agent-pane-seat">
-            <span className="ap-seat-pill" title={t(`society.runtime.${agent.runtime ?? "jarvis"}_hint`)}>
-              <RuntimeMark runtime={agent.runtime ?? "jarvis"} label={t(`society.runtime.${agent.runtime ?? "jarvis"}`)} />
-              <span className="truncate">{t(`society.runtime.${agent.runtime ?? "jarvis"}`)}</span>
-            </span>
-            {agent.provider ? (
-              <span className="ap-seat-pill">
-                <ProviderLogo providerId={agent.provider} label={agent.providerLabel || agent.provider} size="sm" />
-                <span className="truncate">{agent.providerLabel || agent.provider}</span>
+          <div className="ap-card">
+            <AgentChatStoreProvider store={useSocietyChatStore}>
+              <AgentModelPicker key={agent.agentId} agent={agent} busy={busy} onSavingChange={(saving) => onModelSavingChange?.(saving)}
+                triggerClassName="ap-line" />
+            </AgentChatStoreProvider>
+            {!sample ? <ApprovalModePicker agent={agent} /> : null}
+            <div className="ap-line" data-static="true">
+              <span className="ap-line-label">{t("society.agent_pane.runtime")}</span>
+              <span className="ap-line-value" title={t(`society.runtime.${agent.runtime ?? "jarvis"}_hint`)}>
+                {t(`society.runtime.${agent.runtime ?? "jarvis"}`)}
+                {agent.executionEnvironment === "sandbox" ? ` · ${t("society.sandbox.code")}` : ""}
               </span>
-            ) : (
-              <span className="ap-seat-pill px-2">{t("society.card.default_brain")}</span>
-            )}
-            {agent.model ? <span className="truncate font-mono text-[11px]">{agent.model}</span> : null}
-            {agent.effort ? <span>· {agent.effort}</span> : null}
-            {agent.executionEnvironment === "sandbox" ? <span>· {t("society.sandbox.code")}</span> : null}
+            </div>
           </div>
         )}
-        {lead ? null : <PaneHint>{t("society.agent_pane.seat_hint")}</PaneHint>}
       </PaneSection>
 
-      <PaneSection title={t("society.agent_pane.anatomy")} testId="agent-pane-anatomy">
-        <div className="ap-rows">
+      {sample || routineRows.length > 0 ? (
+        <PaneSection
+          title={t("society.agent_pane.routines")}
+          testId="agent-pane-routines"
+          action={routineCount > MAX_ROUTINES ? (
+            <button type="button" className="ap-link" onClick={() => onTab("tasks")}>{t("society.agent_pane.see_all")}</button>
+          ) : undefined}
+        >
+          {sample ? (
+            <PaneHint>{agent.routines.length ? agent.routines.map((r) => r.label).join(", ") : t("society.agent_pane.routines_none")}</PaneHint>
+          ) : (
+            <div className="ap-card">
+              {routineRows.slice(0, MAX_ROUTINES).map((routine) => (
+                <RoutineSwitchRow key={routine.id} routine={routine} locale={locale} onOpen={() => onTab("tasks")}
+                  onChanged={() => void routines.refetch()} />
+              ))}
+            </div>
+          )}
+        </PaneSection>
+      ) : null}
+
+      <PaneSection title={t("society.agent_pane.more")} testId="agent-pane-anatomy">
+        <div className="ap-card">
           <AnatomyRow
-            icon={BookOpen}
-            label={t("society.agent_pane.instructions")}
-            detail={
-              learnedRules.length
-                ? t("society.agent_pane.instructions_learned").replace("{0}", String(learnedRules.length))
-                : agent.description.trim() || lead
-                  ? t("society.agent_pane.instructions_written")
-                  : t("society.agent_pane.instructions_none")
-            }
-            onOpen={instructionsPage}
-            testId="agent-pane-row-instructions"
-          />
-          <AnatomyRow
-            icon={Lightbulb}
-            label={t("society.agent_pane.memory")}
-            detail={
-              pendingReview
-                ? t("society.agent_pane.memory_waiting").replace("{0}", String(pendingReview))
-                : t("society.agent_pane.memory_detail")
-            }
-            count={sample ? null : pendingReview > 0 ? pendingReview : memoryFiles.length}
-            attention={decisions > 0}
-            onOpen={() => onTab("memory")}
-            testId="agent-pane-row-memory"
-          />
-          <AnatomyRow
-            icon={Sparkles}
-            label={t("society.agent_pane.skills")}
-            detail={skillCount ? (skills.data ?? []).map((s) => s.name).join(", ") : t("society.agent_pane.skills_none")}
-            count={sample ? null : skillCount}
-            onOpen={() => onPage({ id: "skills", title: t("society.agent_pane.skills") })}
-            testId="agent-pane-row-skills"
-          />
-          <AnatomyRow
-            icon={CalendarClock}
-            label={t("society.agent_pane.routines")}
-            detail={
-              nextRun
-                ? t("society.agent_pane.routines_next").replace(
-                    "{0}",
-                    new Date(nextRun).toLocaleString(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" }),
-                  )
-                : routineCount
-                  ? t("society.agent_pane.routines_idle")
-                  : t("society.agent_pane.routines_none")
-            }
-            count={routineCount}
-            onOpen={() => onTab("tasks")}
-            testId="agent-pane-row-routines"
-          />
-          <AnatomyRow
-            icon={Wrench}
-            label={t("society.agent_pane.tools")}
+            label={t("society.agent_pane.tab_tools")}
             detail={toolsDetail}
-            count={lead ? null : agent.focus.length || null}
             attention={disconnected.length > 0}
             onOpen={() => onTab("tools")}
             testId="agent-pane-row-tools"
           />
           <AnatomyRow
-            icon={FolderOpen}
+            label={t("society.agent_pane.skills")}
+            detail={skillCount ? (skills.data ?? []).map((s) => s.name).join(", ") : t("society.agent_pane.skills_none")}
+            count={sample || !skillCount ? null : skillCount}
+            onOpen={() => onPage({ id: "skills", title: t("society.agent_pane.skills") })}
+            testId="agent-pane-row-skills"
+          />
+          <AnatomyRow
             label={t("society.agent_pane.files")}
             detail={agent.workspaceDir || `society/${agent.agentId}/`}
             onOpen={filesPage}
             testId="agent-pane-row-files"
           />
+          {lead ? (
+            <AnatomyRow
+              label={t("society.agent_pane.tab_history")}
+              detail={t("society.agent_pane.history_detail")}
+              onOpen={() => onTab("history")}
+              testId="agent-pane-row-history"
+            />
+          ) : null}
         </div>
       </PaneSection>
 
-      <PaneSection title={t("society.card.record")}>
-        <div className="ap-stats">
-          <div className="ap-stat">
-            <span className="ap-stat-label">{t("society.card.runs")}</span>
-            <span className="ap-stat-value">{agent.stats.runs}</span>
-          </div>
-          <div className="ap-stat">
-            <span className="ap-stat-label">{t("society.card.cost")}</span>
-            <span className="ap-stat-value">${agent.stats.totalCostUsd.toFixed(2)}</span>
-          </div>
-          <div className="ap-stat">
-            <span className="ap-stat-label">{t("society.card.last_active")}</span>
-            <span className="ap-stat-value">{lastActive}</span>
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>{t("society.card.meter_today")}</span>
-          <span className="tabular-nums">
-            {capped
-              ? t("society.card.spent_of").replace("{0}", spent.toFixed(2)).replace("{1}", agent.dailyBudgetUsd.toFixed(2))
-              : `$${spent.toFixed(2)} · ${t("society.card.no_cap")}`}
-          </span>
-        </div>
+      <div className="ap-record" data-testid="agent-pane-record">
+        <p>
+          {t("society.agent_pane.record_line")
+            .replace("{0}", String(agent.stats.runs))
+            .replace("{1}", `$${agent.stats.totalCostUsd.toFixed(2)}`)
+            .replace("{2}", lastActive)}
+        </p>
+        <p>
+          {t("society.card.meter_today")}:{" "}
+          {capped
+            ? t("society.card.spent_of").replace("{0}", spent.toFixed(2)).replace("{1}", agent.dailyBudgetUsd.toFixed(2))
+            : `$${spent.toFixed(2)} · ${t("society.card.no_cap")}`}
+        </p>
         {capped ? (
           <div className="ap-meter" data-full={share >= 1 ? "true" : undefined} role="img" aria-label={`${t("society.card.meter_today")}: $${spent.toFixed(2)}`}>
             <span className="ap-meter-fill" style={{ width: `${Math.round(share * 100)}%` }} />
           </div>
         ) : null}
-      </PaneSection>
+      </div>
+    </div>
+  );
+}
+
+/** The lead thinks with the app's own model choice; shown here, changed in its chat. */
+function LeadModelRow() {
+  const t = useT();
+  const draft = useAgentChatStore((s) => s.draft);
+  const providerById = useAgentChatStore((s) => s.providerById);
+  const loadCatalog = useAgentChatStore((s) => s.loadCatalog);
+  const catalog = useAgentChatStore((s) => s.catalog);
+  const catalogStale = useAgentChatStore((s) => s.catalogStale);
+  useEffect(() => {
+    if (!catalog || catalogStale) void loadCatalog();
+  }, [catalog, catalogStale, loadCatalog]);
+  const provider = providerById(draft.provider);
+  return (
+    <>
+      <div className="ap-card">
+        <div className="ap-line" data-static="true">
+          <span className="ap-line-label">{t("society.chat.model")}</span>
+          <span className="ap-line-value">
+            {[provider?.label ?? t("society.card.default_brain"), draft.model || t("society.chat.model_provider_default")].join(" · ")}
+          </span>
+        </div>
+      </div>
+      <PaneHint>{t("society.card.brain_shared_hint")}</PaneHint>
+    </>
+  );
+}
+
+const ROUTINE_ACTIVE = ["scheduled", "active", "enabled", ""];
+const ROUTINE_TERMINAL = ["completed", "failed", "cancelled", "interrupted"];
+
+/** One routine: its name and schedule, and a switch that pauses or resumes every part of it. */
+function RoutineSwitchRow({ routine, locale, onOpen, onChanged }: {
+  routine: LiveRoutine; locale: string; onOpen: () => void; onChanged: () => void;
+}) {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const title = displayRoutineTitle(routine.title);
+  const on = routine.state !== "paused";
+  const canToggle = routine.state === "paused" || (ROUTINE_ACTIVE.includes(routine.state) && routine.state !== "running");
+  const sentence = humanSchedule(routine.trigger, { t, locale }) || routine.schedule;
+  const toggle = async (next: boolean) => {
+    setBusy(true);
+    setProblem("");
+    try {
+      for (const member of routine.members ?? [routine]) {
+        if (ROUTINE_TERMINAL.includes(member.state)) continue;
+        if ((member.state === "paused") === next) await setTaskEnabled(member.id, next);
+      }
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+      onChanged();
+    }
+  };
+  return (
+    <div className="ap-routine" data-testid={`agent-pane-routine-${routine.id}`}>
+      <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
+        <span className="ap-row-label">{title}</span>
+        <span className="ap-row-detail">{sentence}</span>
+        {problem ? <span role="alert" className="ap-row-detail text-destructive">{problem}</span> : null}
+      </button>
+      <Switch
+        checked={on}
+        disabled={busy || !canToggle}
+        onCheckedChange={(next) => void toggle(next)}
+        aria-label={`${title}: ${t(on ? "society.agent_routines.list.pause" : "society.agent_routines.list.resume")}`}
+      />
     </div>
   );
 }

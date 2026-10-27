@@ -40,7 +40,8 @@ export interface RetireButtonProps {
    * tooltip. `rail` is the chat face's options column, which has room for the
    * sentence explaining what the button does.
    */
-  variant?: "bar" | "rail";
+  /** "menu": a plain text row for the details pane's "…" menu. */
+  variant?: "bar" | "rail" | "menu";
 }
 
 export function RetireButton({ agent, onRetired, variant = "bar" }: RetireButtonProps) {
@@ -71,8 +72,8 @@ export function RetireButton({ agent, onRetired, variant = "bar" }: RetireButton
   }, [armed]);
 
   if (isLead) {
-    if (variant === "rail") {
-      return <p className="text-xs text-muted-foreground">{t("society.card.retire_lead_blocked")}</p>;
+    if (variant === "rail" || variant === "menu") {
+      return <p className={variant === "menu" ? "px-2.5 py-2 text-[13px] leading-snug text-muted-foreground" : "text-xs text-muted-foreground"}>{t("society.card.retire_lead_blocked")}</p>;
     }
     return (
       <button
@@ -124,6 +125,19 @@ export function RetireButton({ agent, onRetired, variant = "bar" }: RetireButton
       {label}
     </button>
   );
+
+  if (variant === "menu") {
+    return (
+      <>
+        <button type="button" role="menuitem" className="ap-menu-item text-destructive" data-armed={armed || undefined}
+          disabled={busy} title={hint} onClick={() => void run()} data-testid="agent-card-retire">
+          {label}
+        </button>
+        {armed ? <p className="px-2.5 pb-1.5 text-[13px] leading-snug text-muted-foreground">{hint}</p> : null}
+        {error ? <p role="alert" className="px-2.5 pb-1.5 text-[13px] text-destructive">{error}</p> : null}
+      </>
+    );
+  }
 
   if (variant === "bar") {
     return (

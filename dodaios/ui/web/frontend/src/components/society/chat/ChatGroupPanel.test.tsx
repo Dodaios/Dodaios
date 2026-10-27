@@ -49,7 +49,7 @@ it("opens two existing agent chats in separate stores and keeps each pane indepe
   expect(within(left).getByRole("heading", { name: "hdckjashx" })).toBeTruthy();
   expect(within(right).getByRole("heading", { name: "Test" })).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "hdckjashx + Test" })).toBeNull();
-  expect(screen.getByTestId("society-group-split").className).toContain("divide-x-2");
+  expect(screen.getByTestId("society-group-split").className).toContain("divide-x");
   expect(within(left).getByTestId("chat-other")).toBeTruthy();
   expect(within(right).getByTestId("chat-test")).toBeTruthy();
   fireEvent.click(within(left).getByRole("button", { name: "Open hdckjashx" }));

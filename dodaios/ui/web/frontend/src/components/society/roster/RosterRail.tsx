@@ -1,15 +1,17 @@
 /**
- * The roster: the Agents section's navigation. One dense row per agent, each
- * with a corner status mark and a single preview line, plus the groups that
- * keep a long list calm:
+ * The roster: the Agents section's navigation, kept quiet on purpose. Two
+ * round buttons at the top (search, and "+" for a new agent or team), the
+ * lead large and centred under them, then one plain list: a face, a name and
+ * one muted preview line per row. Order carries the grouping, without
+ * headings:
  *
- *   - pinned agents as a four-up grid of faces at the top,
- *   - "Needs you" for every agent that waits on the person (it beats unread),
- *   - teams, with a visible "New team" action,
+ *   - pinned agents as a four-up grid of faces,
+ *   - every agent that waits on the person (a ring on its face says why),
+ *   - teams, as rows with their members' faces stacked,
  *   - everyone else, in the person's own drag order.
  *
- * A search box and a filter (all / needs you / unread) narrow the list. The
- * roster can fold to an avatar rail; the frame decides when it must.
+ * Search opens from its button and narrows the list. The roster can fold to
+ * an avatar rail; the frame decides when it must.
  *
  * Reordering is press-and-drag: pressing anywhere on a row and moving it
  * files the agent before or after the row under the pointer. A small
@@ -22,9 +24,8 @@
  * then the rest in list order. Holding the modifier shows the numbers.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { Eye, PanelLeftClose, PanelLeftOpen, Plus, Search, UsersRound, X } from "lucide-react";
+import { PanelLeftOpen, Plus, Search } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useT, useUiLanguage } from "@/i18n";
 import { societyDisplayName } from "@/lib/societyDisplayName";
@@ -41,10 +42,9 @@ import { GroupRosterActions } from "./GroupRosterActions";
 import { useRosterUnreadState } from "./useRosterUnread";
 import { ChatGroupDialog } from "../chat/ChatGroupDialog";
 import { RosterRow, StatusMark } from "./RosterRow";
-import { RosterSection } from "./RosterSection";
 import { RosterHoverCard, type HoverCardData } from "./RosterHoverCard";
 import { formatRelative, needsYou, rosterPreview, rosterStatus, waitingReasonOf } from "./rosterPreview";
-import { HIDDEN_AGENTS_KEY, MAX_PINNED, ORDER_KEY, PINNED_KEY, togglePin, usePersistedIds, useRosterFilter, writeIdList, type RosterFilter } from "./rosterPrefs";
+import { HIDDEN_AGENTS_KEY, MAX_PINNED, ORDER_KEY, PINNED_KEY, togglePin, usePersistedIds, writeIdList } from "./rosterPrefs";
 import type { RosterActivityMap } from "./useRosterActivity";
 
 /** How far the pointer must travel before a press becomes a drag. */
@@ -140,7 +140,9 @@ export function RosterRail({
   const t = useT();
   const language = useUiLanguage();
   const [query, setQuery] = useState("");
-  const [chosenFilter, setFilter] = useRosterFilter();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const addRef = useRef<HTMLDivElement>(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [hiddenIds, setHiddenIds] = usePersistedIds(HIDDEN_AGENTS_KEY);
@@ -212,31 +214,29 @@ export function RosterRail({
     const agent = agents.find((row) => row.agentId === id);
     return agent ? display(agent) : id;
   };
-  // The folded rail has no search box or filter on screen, so it lists
-  // everyone; the person's choice comes back with the rows.
-  const filter: RosterFilter = collapsed ? "all" : chosenFilter;
+  // The folded rail has no search box on screen, so it lists everyone; the
+  // search comes back with the rows.
   const q = collapsed ? "" : query.trim().toLowerCase();
-  const browsing = q === "" && filter === "all";
-  const visibleGroups = filter === "all"
-    ? groups.filter((group) => `${group.name} ${group.members.map(memberName).join(" ")}`.toLowerCase().includes(q))
-    : [];
+  const browsing = q === "";
+  const visibleGroups = groups.filter((group) => `${group.name} ${group.members.map(memberName).join(" ")}`.toLowerCase().includes(q));
 
-  const { pinned, attention, leadRow, rows } = useMemo(() => {
+  const { heroLead, pinned, attention, leadRow, rows } = useMemo(() => {
     const isHidden = (a: SocietyAgent) => !showHidden && hiddenIds.includes(a.agentId);
     const matches = (a: SocietyAgent) => !q || `${a.name} ${display(a)} ${a.title}`.toLowerCase().includes(q);
-    const passes = (a: SocietyAgent) => filter === "all" || (filter === "needs-you" ? needsYou(a) : unread.has(a.agentId));
-    const shown = (a: SocietyAgent) => !isHidden(a) && matches(a) && passes(a);
+    const shown = (a: SocietyAgent) => !isHidden(a) && matches(a);
+    // The lead stands apart, large, above the list while nothing is searched.
+    const hero = browsing && lead && !isHidden(lead) ? lead : null;
     // Pins are an arrangement of the whole list; while a search or filter
     // narrows it, they fold back into the excerpt.
     const pinnedRows = browsing
-      ? pinIds.map((id) => agents.find((a) => a.agentId === id)).filter((a): a is SocietyAgent => Boolean(a) && !isHidden(a!))
+      ? pinIds.map((id) => agents.find((a) => a.agentId === id)).filter((a): a is SocietyAgent => Boolean(a) && !isHidden(a!) && a!.agentId !== hero?.agentId)
       : [];
     const pinnedSet = new Set(pinnedRows.map((a) => a.agentId));
     // Team members wait on the person too; they surface here even though
     // their team keeps them out of the plain list.
-    const waiting = agents.filter((a) => shown(a) && needsYou(a) && !pinnedSet.has(a.agentId));
+    const waiting = agents.filter((a) => shown(a) && needsYou(a) && !pinnedSet.has(a.agentId) && a.agentId !== hero?.agentId);
     const waitingSet = new Set(waiting.map((a) => a.agentId));
-    const leadShown = lead && shown(lead) && !pinnedSet.has(lead.agentId) && !waitingSet.has(lead.agentId) ? lead : null;
+    const leadShown = !hero && lead && shown(lead) && !pinnedSet.has(lead.agentId) && !waitingSet.has(lead.agentId) ? lead : null;
     // Until the teams have answered, a member would be listed on its own and
     // jump into its team a moment later; the list waits for the answer instead.
     const rest = teamsPending ? [] : agents.filter((a) => a.agentId !== lead?.agentId && !groupedIds.has(a.agentId)
@@ -258,8 +258,8 @@ export function RosterRail({
       }
       return rank[a.tier] - rank[b.tier];
     });
-    return { pinned: pinnedRows, attention: waiting, leadRow: leadShown, rows: rest };
-  }, [agents, browsing, display, filter, groupedIds, hiddenIds, lead, orderIds, pinIds, q, showHidden, teamsPending, unread]);
+    return { heroLead: hero, pinned: pinnedRows, attention: waiting, leadRow: leadShown, rows: rest };
+  }, [agents, browsing, display, groupedIds, hiddenIds, lead, orderIds, pinIds, q, showHidden, teamsPending]);
 
   // While searching or filtering, the list is an excerpt — dragging there
   // would file agents by where they happen to sit in it, so rows stay put.
@@ -267,8 +267,8 @@ export function RosterRail({
 
   /** Every agent in the order the person sees them: the keyboard walks this. */
   const navOrder = useMemo(
-    () => [...pinned, ...attention, ...(leadRow ? [leadRow] : []), ...rows].map((a) => a.agentId),
-    [attention, leadRow, pinned, rows],
+    () => [...(heroLead ? [heroLead] : []), ...pinned, ...attention, ...(leadRow ? [leadRow] : []), ...rows].map((a) => a.agentId),
+    [attention, heroLead, leadRow, pinned, rows],
   );
   const shortcutIds = navOrder.slice(0, 9);
   const shortcutOf = (agentId: string) => {
@@ -614,9 +614,24 @@ export function RosterRail({
   };
 
   const hiddenCount = agents.filter((agent) => hiddenIds.includes(agent.agentId)).length;
-  const needsYouCount = agents.filter(needsYou).length;
-  const unreadCount = agents.filter((agent) => unread.has(agent.agentId)).length;
   const canCreateTeam = !sample && Boolean(onOpenGroup);
+
+  // The "+" menu closes on a press outside it or on Escape.
+  useEffect(() => {
+    if (!addOpen) return;
+    const onDown = (event: PointerEvent) => {
+      if (!addRef.current?.contains(event.target as Node)) setAddOpen(false);
+    };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setAddOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [addOpen]);
 
   const renderRow = (agent: SocietyAgent, options: { draggable: boolean }) => {
     const facts = activity.get(agent.agentId);
@@ -631,7 +646,6 @@ export function RosterRail({
           displayName={display(agent)}
           status={rosterStatus(agent, isUnread)}
           preview={rosterPreview({ agent, draft: facts?.draft, lastMessage: facts?.lastMessage })}
-          timeLabel={timeLabel(agent.agentId)}
           active={agent.agentId === activeAgentId}
           unread={isUnread}
           hidden={hiddenIds.includes(agent.agentId)}
@@ -694,18 +708,18 @@ export function RosterRail({
   );
 
   if (collapsed) {
-    const railAgents = [...pinned, ...attention, ...(leadRow ? [leadRow] : []), ...rows];
+    const railAgents = [...(heroLead ? [heroLead] : []), ...pinned, ...attention, ...(leadRow ? [leadRow] : []), ...rows];
     return (
       <aside ref={railRef} data-testid="society-roster-rail" data-collapsed="true" aria-label={t("society.roster.title")} className={asideClass}>
         <div className="flex flex-col items-center gap-1.5 px-2 pb-2 pt-3">
           {onToggleCollapsed ? (
             <button type="button" onClick={onToggleCollapsed} aria-label={t("society.shell.roster_expand")} title={t("society.shell.roster_expand")}
-              className="as-ghost-button h-8 w-8 px-0" data-testid="roster-expand">
+              className="as-round-button" data-testid="roster-expand">
               <PanelLeftOpen className="h-4 w-4" aria-hidden />
             </button>
           ) : null}
           <button type="button" onClick={onCreate} aria-label={t("society.shell.new_agent")} title={t("society.shell.new_agent")}
-            className="as-ink-button h-8 w-8 justify-center rounded-full px-0" data-testid="society-create-button">
+            className="as-round-button" data-testid="society-create-button">
             <Plus className="h-4 w-4" aria-hidden />
           </button>
         </div>
@@ -726,7 +740,6 @@ export function RosterRail({
                 </button>
               </li>
             ))}
-            {visibleGroups.length > 0 ? <li aria-hidden className="my-1 w-6 border-t border-border" /> : null}
             {visibleGroups.map((group) => (
               <li key={group.group_id}>
                 <button type="button" data-group-id={group.group_id} onClick={() => onOpenGroup?.(group.group_id)}
@@ -744,76 +757,86 @@ export function RosterRail({
     );
   }
 
-  const filterButton = (value: RosterFilter, label: string, count?: number) => (
-    <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}
-      className="as-seg-item" data-testid={`roster-filter-${value}`}>
-      <span className="truncate">{label}</span>
-      {count ? <span className={value === "needs-you" ? "as-seg-count" : "as-seg-count text-muted-foreground"}>{count}</span> : null}
-    </button>
-  );
-
-  const nothingListed = !leadRow && rows.length === 0 && attention.length === 0 && pinned.length === 0 && visibleGroups.length === 0;
+  const nothingListed = !heroLead && !leadRow && rows.length === 0 && attention.length === 0 && pinned.length === 0 && visibleGroups.length === 0;
   const showLoading = (teamsPending && rows.length === 0) || (loading && agents.length === 0);
+  const closeSearch = () => {
+    setQuery("");
+    setSearchOpen(false);
+  };
 
   return (
-    <aside ref={railRef} data-testid="society-roster-rail" className={asideClass}>
+    <aside ref={railRef} data-testid="society-roster-rail" aria-label={t("society.roster.title")} className={asideClass}>
       {header}
-      <div className="flex h-12 shrink-0 items-center gap-1.5 pl-4 pr-2.5">
-        <h2 className="truncate font-display text-[13px] font-semibold tracking-tight text-foreground-strong">
-          {t("society.roster.title")}
-        </h2>
+      <div className="as-roster-top">
         {sample ? (
-          <Badge variant="outline" className="text-xs">
-            {t("society.sample_badge")}
-          </Badge>
+          <span className="mr-auto pl-1 text-[13px] text-muted-foreground">{t("society.sample_badge")}</span>
         ) : null}
-        <span className="ml-auto" />
-        {onToggleCollapsed ? (
-          <button type="button" onClick={onToggleCollapsed} aria-label={t("society.shell.roster_collapse")} title={t("society.shell.roster_collapse")}
-            className="as-ghost-button h-7 w-7 px-0" data-testid="roster-collapse">
-            <PanelLeftClose className="h-4 w-4" aria-hidden />
-          </button>
-        ) : null}
-        <button type="button" className="as-ink-button" onClick={onCreate} data-testid="society-create-button" title={t("society.shell.new_agent")}>
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-          {t("society.roster.create")}
+        <button type="button" className="as-round-button" aria-label={t("society.roster.search")} title={t("society.roster.search")}
+          aria-pressed={searchOpen} data-testid="roster-search-toggle"
+          onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}>
+          <Search className="h-4 w-4" aria-hidden />
         </button>
+        <div ref={addRef} className="relative">
+          <button type="button" className="as-round-button" data-testid="society-create-button"
+            aria-label={t("society.shell.new_agent")} title={t("society.shell.new_agent")}
+            aria-haspopup={canCreateTeam ? "menu" : undefined} aria-expanded={canCreateTeam ? addOpen : undefined}
+            onClick={() => (canCreateTeam ? setAddOpen((value) => !value) : onCreate())}>
+            <Plus className={cn("h-4 w-4 transition-transform duration-200 motion-reduce:transition-none", addOpen && "rotate-45")} aria-hidden />
+          </button>
+          {addOpen ? (
+            <div role="menu" aria-label={t("society.shell.new_agent")} className="as-menu absolute right-0 top-full z-40 mt-2 w-52">
+              <button type="button" role="menuitem" className="as-menu-row" data-testid="roster-new-agent"
+                onClick={() => { setAddOpen(false); onCreate(); }}>
+                {t("society.shell.new_agent")}
+              </button>
+              <button type="button" role="menuitem" className="as-menu-row" data-testid="society-create-group-button"
+                onClick={() => { setAddOpen(false); setCreatingGroup(true); }}>
+                {t("society.groups.create")}
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
-      <div className="flex flex-col gap-2 px-3">
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      {searchOpen ? (
+        <div className="px-3 pb-2">
           <input
             type="search"
+            autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape" && query) {
-                e.preventDefault();
-                setQuery("");
-              }
+              if (e.key !== "Escape") return;
+              e.preventDefault();
+              if (query) setQuery("");
+              else closeSearch();
             }}
             placeholder={t("society.roster.search")}
             aria-label={t("society.roster.search")}
-            className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-2 text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="as-search"
+            data-testid="roster-search"
           />
-        </label>
-        {agents.length > 1 ? (
-          <div role="group" aria-label={t("society.shell.filter_label")} className="as-seg">
-            {filterButton("all", t("society.shell.filter_all"))}
-            {filterButton("needs-you", t("society.shell.filter_needs_you"), needsYouCount)}
-            {filterButton("unread", t("society.shell.filter_unread"), unreadCount)}
-          </div>
-        ) : null}
-        {hiddenCount > 0 && <button type="button" onClick={() => setShowHidden((value) => !value)}
-          className="-mx-1 flex items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Eye className="h-3.5 w-3.5" aria-hidden />
-          {t(showHidden ? "society.roster.hide_hidden" : "society.roster.show_hidden").replace("{0}", String(hiddenCount))}
-        </button>}
-      </div>
-      <ScrollArea className="mt-2 min-h-0 flex-1">
-        <div className="flex flex-col gap-2.5 px-2 pb-3">
+        </div>
+      ) : null}
+      {heroLead ? (
+        <div className="flex justify-center px-3 pb-3 pt-1">
+          <button type="button" className="as-hero" style={agentTint(heroLead)}
+            onClick={() => openAgent(heroLead.agentId)} onContextMenu={(event) => openMenu(event, heroLead.agentId)}
+            aria-current={heroLead.agentId === activeAgentId ? "true" : undefined}
+            data-active={heroLead.agentId === activeAgentId ? "true" : undefined}
+            data-testid="roster-lead">
+            <span className="as-avatar">
+              <AgentSwatch agent={heroLead} size={56} />
+              <StatusMark status={rosterStatus(heroLead, unread.has(heroLead.agentId))} />
+              {shortcutOf(heroLead.agentId) !== null ? <span className="as-shortcut-badge" aria-hidden>{shortcutOf(heroLead.agentId)}</span> : null}
+            </span>
+            <span className="as-hero-name">{display(heroLead)}</span>
+          </button>
+        </div>
+      ) : null}
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-0.5 px-2 pb-3">
           {pinned.length > 0 ? (
-            <div className="as-pins" role="list" aria-label={t("society.shell.pinned")} data-testid="roster-pins">
+            <div className="as-pins mb-1" role="list" aria-label={t("society.shell.pinned")} data-testid="roster-pins">
               {pinned.map((agent) => (
                 <button key={agent.agentId} type="button" role="listitem" data-pinned-id={agent.agentId}
                   onClick={() => openAgent(agent.agentId)} onContextMenu={(event) => openMenu(event, agent.agentId)}
@@ -832,83 +855,60 @@ export function RosterRail({
             </div>
           ) : null}
           {attention.length > 0 ? (
-            <RosterSection id="needs-you" title={t("society.shell.section_needs_you")} count={attention.length} tone="attention">
-              <ul className="flex flex-col gap-1" data-testid="roster-needs-you">
-                {attention.map((agent) => renderRow(agent, { draggable: false }))}
-              </ul>
-            </RosterSection>
+            <ul className="flex flex-col gap-0.5" data-testid="roster-needs-you" aria-label={t("society.shell.section_needs_you")}>
+              {attention.map((agent) => renderRow(agent, { draggable: false }))}
+            </ul>
           ) : null}
-          {(visibleGroups.length > 0 || (canCreateTeam && browsing)) ? (
-            <RosterSection id="teams" title={t("society.shell.section_teams")} count={visibleGroups.length || undefined}>
-              <ul className="flex flex-col gap-1">
-                {visibleGroups.map((group) => {
-                  const hovered = groupHover?.kind === "group" && groupHover.id === group.group_id;
-                  const members = group.members.filter((id) => agents.some((agent) => agent.agentId === id));
-                  return (
-                    <li key={group.group_id}>
-                      <button type="button" data-group-id={group.group_id} onClick={() => onOpenGroup?.(group.group_id)} onContextMenu={(event) => openGroupMenu(event, group.group_id)} aria-current={activeGroupId === group.group_id ? "true" : undefined}
-                        data-active={activeGroupId === group.group_id ? "true" : undefined}
-                        data-group-ready={hovered && groupReady ? "true" : undefined}
-                        data-drop={hovered && !groupReady ? "true" : undefined}
-                        className="as-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        data-testid={`society-group-${group.group_id}`}>
-                        <span className="flex w-9 shrink-0 items-center justify-center">
-                          <GroupFaces group={group} agents={agents} size={24} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="as-row-name block">{group.name}</span>
-                          <span className="as-row-preview">{hovered
-                            ? t(groupReady ? "society.groups.release_to_group" : "society.groups.hold_to_group")
-                            : members.length === 0
-                              ? t("society.shell.team_empty")
-                              : group.lead_agent_id
-                                ? `${t("society.lead.rail").replace("{0}", memberName(group.lead_agent_id))} · ${group.members.filter((id) => id !== group.lead_agent_id).map(memberName).join(", ")}`
-                                : group.members.map(memberName).join(", ")}</span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-                {canCreateTeam && browsing ? (
-                  <li>
-                    <button type="button" onClick={() => setCreatingGroup(true)} data-testid="society-create-group-button"
-                      className="flex h-9 w-full items-center gap-2 rounded-[10px] px-2.5 text-left text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <span className="grid h-6 w-6 place-items-center rounded-full border border-dashed border-border-strong">
-                        <UsersRound className="h-3.5 w-3.5" aria-hidden />
+          {visibleGroups.length > 0 ? (
+            <ul className="flex flex-col gap-0.5" aria-label={t("society.shell.section_teams")} data-testid="roster-teams">
+              {visibleGroups.map((group) => {
+                const hovered = groupHover?.kind === "group" && groupHover.id === group.group_id;
+                const members = group.members.filter((id) => agents.some((agent) => agent.agentId === id));
+                return (
+                  <li key={group.group_id}>
+                    <button type="button" data-group-id={group.group_id} onClick={() => onOpenGroup?.(group.group_id)} onContextMenu={(event) => openGroupMenu(event, group.group_id)} aria-current={activeGroupId === group.group_id ? "true" : undefined}
+                      data-active={activeGroupId === group.group_id ? "true" : undefined}
+                      data-group-ready={hovered && groupReady ? "true" : undefined}
+                      data-drop={hovered && !groupReady ? "true" : undefined}
+                      className="as-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      data-testid={`society-group-${group.group_id}`}>
+                      <span className="flex w-10 shrink-0 items-center justify-center">
+                        <GroupFaces group={group} agents={agents} size={24} />
                       </span>
-                      {t("society.groups.create")}
+                      <span className="min-w-0 flex-1">
+                        <span className="as-row-name block">{group.name}</span>
+                        <span className="as-row-preview">{hovered
+                          ? t(groupReady ? "society.groups.release_to_group" : "society.groups.hold_to_group")
+                          : members.length === 0
+                            ? t("society.shell.team_empty")
+                            : members.map(memberName).join(", ")}</span>
+                      </span>
                     </button>
                   </li>
-                ) : null}
-              </ul>
-            </RosterSection>
+                );
+              })}
+            </ul>
           ) : null}
-          {(leadRow || rows.length > 0) ? (
-            <RosterSection id="agents" title={t("society.shell.section_agents")} count={rows.length + (leadRow ? 1 : 0)}>
-              {leadRow ? (
-                <ul className="flex flex-col gap-1">
-                  {renderRow(leadRow, { draggable: false })}
-                </ul>
-              ) : null}
-              <ul ref={listRef} className={cn("flex flex-col gap-1", leadRow && rows.length > 0 && "mt-1")}>
-                {rows.map((agent) => renderRow(agent, { draggable: true }))}
-              </ul>
-            </RosterSection>
-          ) : <ul ref={listRef} className="hidden" />}
+          {leadRow ? (
+            <ul className="flex flex-col gap-0.5">
+              {renderRow(leadRow, { draggable: false })}
+            </ul>
+          ) : null}
+          <ul ref={listRef} className="flex flex-col gap-0.5" aria-label={t("society.shell.section_agents")} data-testid="roster-agents">
+            {rows.map((agent) => renderRow(agent, { draggable: true }))}
+          </ul>
+          {hiddenCount > 0 ? (
+            <button type="button" onClick={() => setShowHidden((value) => !value)} className="as-quiet-link mt-2 self-start">
+              {t(showHidden ? "society.roster.hide_hidden" : "society.roster.show_hidden").replace("{0}", String(hiddenCount))}
+            </button>
+          ) : null}
           {showLoading ? (
-            <p className="px-2 py-3 text-xs text-muted-foreground">{t("society.roster.loading")}</p>
+            <p className="px-3 py-3 text-[13px] text-muted-foreground">{t("society.roster.loading")}</p>
           ) : null}
-          {/* Under "All" with no search, an empty list means everyone is
-              hidden; the show-hidden control above already says so. */}
-          {!showLoading && !loading && nothingListed && (agents.length === 0 || q !== "" || filter !== "all") ? (
-            <EmptyState
-              filter={filter}
-              searching={q !== ""}
-              noAgents={agents.length === 0}
-              onShowAll={() => setFilter("all")}
-              onClearSearch={() => setQuery("")}
-              onCreate={onCreate}
-            />
+          {/* With no search, an empty list means everyone is hidden; the
+              show-hidden link above already says so. */}
+          {!showLoading && !loading && nothingListed && (agents.length === 0 || q !== "") ? (
+            <EmptyState noAgents={agents.length === 0} onClearSearch={closeSearch} onCreate={onCreate} />
           ) : null}
         </div>
       </ScrollArea>
@@ -925,14 +925,12 @@ function GroupFaces({ group, agents, size }: { group: SocietyChatGroup; agents: 
     .filter((agent): agent is SocietyAgent => Boolean(agent))
     .slice(0, 3);
   if (members.length === 0) {
-    return <span className="grid place-items-center rounded-full border border-dashed border-border-strong text-muted-foreground" style={{ width: size, height: size }}>
-      <UsersRound className="h-3 w-3" aria-hidden />
-    </span>;
+    return <span className="rounded-full border border-dashed border-border-strong" style={{ width: size, height: size }} aria-hidden />;
   }
   return (
     <span className="flex items-center">
       {members.map((member, index) => (
-        <span key={member.agentId} className={cn("rounded-full ring-2 ring-sidebar", index > 0 && "-ml-2.5")}>
+        <span key={member.agentId} className={cn("rounded-full ring-2 ring-sidebar", index > 0 && "-ml-4")}>
           <AgentSwatch agent={member} size={size} />
         </span>
       ))}
@@ -941,11 +939,8 @@ function GroupFaces({ group, agents, size }: { group: SocietyChatGroup; agents: 
 }
 
 /** One sentence and one action: what would appear here and how it gets there. */
-function EmptyState({ filter, searching, noAgents, onShowAll, onClearSearch, onCreate }: {
-  filter: RosterFilter;
-  searching: boolean;
+function EmptyState({ noAgents, onClearSearch, onCreate }: {
   noAgents: boolean;
-  onShowAll: () => void;
   onClearSearch: () => void;
   onCreate: () => void;
 }) {
@@ -954,26 +949,14 @@ function EmptyState({ filter, searching, noAgents, onShowAll, onClearSearch, onC
     return (
       <div className="as-empty" data-testid="roster-empty">
         <p>{t("society.shell.empty_agents")}</p>
-        <button type="button" className="as-ink-button" onClick={onCreate}>
-          <Plus className="h-3.5 w-3.5" aria-hidden />{t("society.shell.new_agent")}
-        </button>
-      </div>
-    );
-  }
-  if (searching) {
-    return (
-      <div className="as-empty" data-testid="roster-empty">
-        <p>{t("society.roster.empty")}</p>
-        <button type="button" className="as-ghost-button -ml-2" onClick={onClearSearch}>
-          <X className="h-3.5 w-3.5" aria-hidden />{t("society.shell.clear_search")}
-        </button>
+        <button type="button" className="as-pill-button" data-tone="ink" onClick={onCreate}>{t("society.shell.new_agent")}</button>
       </div>
     );
   }
   return (
     <div className="as-empty" data-testid="roster-empty">
-      <p>{t(filter === "needs-you" ? "society.shell.empty_needs_you" : "society.shell.empty_unread")}</p>
-      <button type="button" className="as-ghost-button -ml-2" onClick={onShowAll}>{t("society.shell.show_all")}</button>
+      <p>{t("society.roster.empty")}</p>
+      <button type="button" className="as-pill-button" onClick={onClearSearch}>{t("society.shell.clear_search")}</button>
     </div>
   );
 }

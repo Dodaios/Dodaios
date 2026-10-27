@@ -1,16 +1,16 @@
 {
   "society": {
     "card": {
-      "options_collapse": "收起选项",
-      "options_expand": "展开选项"
+      "options_collapse": "隐藏详情",
+      "options_expand": "显示详情"
     },
     "agent_pane": {
       "tabs": "智能体详情",
-      "tab_overview": "概览",
+      "tab_overview": "详情",
       "tab_tools": "工具与权限",
       "tab_memory": "记忆",
       "tab_tasks": "任务",
-      "tab_browser": "浏览器",
+      "tab_browser": "电脑",
       "tab_history": "历史",
       "back": "返回",
       "next_steps": "下一步",
@@ -30,7 +30,7 @@
       "open": "打开",
       "instructions_empty": "还没有固定指令。在这里或聊天中告诉它它的工作是什么。",
       "runs_on": "运行于",
-      "seat_hint": "在聊天的模型选择器中更换模型。运行环境在智能体的整个生命周期内保持不变。",
+      "seat_hint": "可在这里或聊天的 + 菜单中更换模型。运行环境在智能体的整个生命周期内保持不变。",
       "anatomy": "它的组成",
       "instructions_learned": "已写好，另有 {0} 条学到的规则",
       "instructions_written": "它的工作方式",
@@ -119,7 +119,13 @@
       "keep_private": "保持私有",
       "keep": "保留",
       "forget": "忘记",
-      "more_lines": "还有 {0} 行"
+      "more_lines": "还有 {0} 行",
+      "close": "关闭详情",
+      "more": "更多",
+      "runtime": "运行环境",
+      "see_all": "查看全部",
+      "history_detail": "聊天和通话",
+      "record_line": "{0} 次运行 · 已花费 {1} · 最近活跃 {2}"
     },
     "browser_profiles": {
       "profile_unavailable": "配置文件已断开 — 请选择一个配置文件",

@@ -1,10 +1,10 @@
 import { createContext, useContext } from "react";
 
 /**
- * Set when the chat header carries the agent's brain picker. The composer
- * then leaves its own copy out and holds Send while the header saves a new
- * model, exactly as it did while its own picker saved. Where no header
- * provides it (team panes, older mounts) the composer keeps its picker.
+ * Set when another surface beside the chat carries a brain picker of its own
+ * (the details pane's Details tab). The composer keeps its own picker in its
+ * "+" menu either way, and holds Send while the other picker saves a new
+ * model, exactly as it does while its own picker saves.
  */
 export interface HeaderModelSlot {
   saving: boolean;

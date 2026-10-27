@@ -12,8 +12,7 @@
  * Every region stays mounted: folding the pane must not reset a browser
  * stream, a routine draft or the chat's unsent text.
  */
-import { useCallback, useEffect, useId, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref, type RefObject } from "react";
 
 import { useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -41,6 +40,23 @@ export interface RosterSlotState {
   onToggleCollapsed: () => void;
 }
 
+/** What the chat header needs to open and close the details pane from its name pill. */
+export interface DetailsControl {
+  open: boolean;
+  toggle: () => void;
+  /** The pane's element id, for `aria-controls`. */
+  controlsId: string;
+  /** The pill's ref: a press on it must not count as a press outside the pane's sheet. */
+  ref: Ref<HTMLButtonElement>;
+}
+
+/** Lets the pane's own close button reach the layout that owns its open state. */
+const DetailsPaneContext = createContext<{ close: () => void } | null>(null);
+
+export function useDetailsPane(): { close: () => void } | null {
+  return useContext(DetailsPaneContext);
+}
+
 export interface AgentChatLayoutProps {
   /** The chat column. */
   children: ReactNode;
@@ -48,8 +64,8 @@ export interface AgentChatLayoutProps {
   options: ReactNode;
   /** The roster column; without it the frame is chat | details only. */
   roster?: (state: RosterSlotState) => ReactNode;
-  /** The chat header, handed the details toggle to place. Without it a slim bar carries the toggle. */
-  header?: (detailsToggle: ReactNode) => ReactNode;
+  /** The chat header, handed the details control for its name pill. Without it a slim bar carries a text toggle. */
+  header?: (details: DetailsControl) => ReactNode;
   /** Closes the sheets when it changes (the open agent's id). */
   resetKey?: string;
 }
@@ -135,7 +151,6 @@ export function AgentChatLayout({ children, options, roster, header, resetKey }:
 
   const paneVisible = layout.paneOpen || paneSheet;
   const toggleLabel = t(paneVisible ? "society.card.options_collapse" : "society.card.options_expand");
-  const ToggleIcon = paneVisible ? PanelRightClose : PanelRightOpen;
   const togglePane = useCallback(() => {
     if (layout.paneForced) setPaneSheet((value) => !value);
     else {
@@ -225,22 +240,13 @@ export function AgentChatLayout({ children, options, roster, header, resetKey }:
     />
   );
 
-  const detailsToggle = (
-    <button
-      ref={toggleRef}
-      type="button"
-      onClick={togglePane}
-      title={toggleLabel}
-      aria-label={toggleLabel}
-      aria-expanded={paneVisible}
-      aria-controls={panelId}
-      data-testid="shell-details-toggle"
-      className="as-header-control"
-    >
-      <ToggleIcon aria-hidden className="h-4 w-4" />
-      {header ? null : <span>{t("society.card.options")}</span>}
-    </button>
-  );
+  const closePane = useCallback(() => {
+    if (paneSheet) setPaneSheet(false);
+    else dispatch({ type: "set-pane-open", open: false });
+    toggleRef.current?.focus();
+  }, [paneSheet]);
+  const paneContext = useMemo(() => ({ close: closePane }), [closePane]);
+  const details: DetailsControl = { open: paneVisible, toggle: togglePane, controlsId: panelId, ref: toggleRef };
 
   const columns = roster
     ? `${rosterWidth}px minmax(0, 1fr) ${layout.paneWidth}px`
@@ -266,9 +272,14 @@ export function AgentChatLayout({ children, options, roster, header, resetKey }:
           {layout.roster === "full" ? separator("roster", rosterWidth) : null}
         </div>
       ) : null}
-      <div className={cn("as-region as-stage", roster && "border-l border-border")} data-testid="shell-stage">
-        {header ? header(detailsToggle) : (
-          <div className="flex shrink-0 justify-end border-b border-border px-2 py-1">{detailsToggle}</div>
+      <div className="as-region as-stage" data-testid="shell-stage">
+        {header ? header(details) : (
+          <div className="flex shrink-0 justify-end px-3 py-2">
+            <button ref={toggleRef} type="button" onClick={togglePane} aria-expanded={paneVisible} aria-controls={panelId}
+              aria-label={toggleLabel} data-testid="shell-details-toggle" className="as-pill-button">
+              {t("society.card.options")}
+            </button>
+          </div>
         )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       </div>
@@ -282,7 +293,7 @@ export function AgentChatLayout({ children, options, roster, header, resetKey }:
         data-testid="shell-details"
       >
         {layout.paneOpen && !paneSheet ? separator("pane", layout.paneWidth) : null}
-        {options}
+        <DetailsPaneContext.Provider value={paneContext}>{options}</DetailsPaneContext.Provider>
       </div>
     </div>
   );

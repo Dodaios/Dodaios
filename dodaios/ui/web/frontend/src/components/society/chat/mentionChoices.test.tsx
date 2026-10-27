@@ -93,7 +93,7 @@ it("uses Add to select a real branded chip and preserves the existing pin protoc
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: "society.chat.more" }));
-  fireEvent.click(screen.getByRole("button", { name: "chat_tools.all" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "chat_tools.all" }));
   fireEvent.click(await screen.findByRole("option", { name: /@\s*gmail/ }));
   const input = screen.getByRole("textbox");
   expect(input.querySelector('[data-brand="gmail"] img')).not.toBeNull();
@@ -124,7 +124,7 @@ it("sends the selected plugin ID when an agent has the same name", async () => {
     busy={false} sessionId="society:test" cwd="" provider="openai" surface="society"
     onSend={send} onCancel={async () => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "society.chat.more" }));
-  fireEvent.click(screen.getByRole("button", { name: "chat_tools.all" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "chat_tools.all" }));
   fireEvent.click(await screen.findByRole("option", { name: /@plugin:gmail/ }));
   fireEvent.click(screen.getByRole("button", { name: "society.chat.send" }));
   await waitFor(() => expect(send).toHaveBeenCalledOnce());
@@ -138,7 +138,7 @@ it("does not send pins for a chip removed from the draft", async () => {
     busy={false} sessionId="society:test" cwd="" provider="openai" surface="society"
     onSend={send} onCancel={async () => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "society.chat.more" }));
-  fireEvent.click(screen.getByRole("button", { name: "chat_tools.all" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "chat_tools.all" }));
   fireEvent.click(await screen.findByRole("option", { name: /@gmail/ }));
   const box = screen.getByRole("textbox");
   box.textContent = "Explain this instead";

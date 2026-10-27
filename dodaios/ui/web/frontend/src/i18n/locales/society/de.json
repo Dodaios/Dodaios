@@ -1,16 +1,16 @@
 {
   "society": {
     "card": {
-      "options_collapse": "Optionen einklappen",
-      "options_expand": "Optionen ausklappen"
+      "options_collapse": "Details ausblenden",
+      "options_expand": "Details anzeigen"
     },
     "agent_pane": {
       "tabs": "Agentendetails",
-      "tab_overview": "Übersicht",
+      "tab_overview": "Details",
       "tab_tools": "Werkzeuge & Zugriff",
       "tab_memory": "Gedächtnis",
       "tab_tasks": "Aufgaben",
-      "tab_browser": "Browser",
+      "tab_browser": "Computer",
       "tab_history": "Verlauf",
       "back": "Zurück",
       "next_steps": "Nächste Schritte",
@@ -30,7 +30,7 @@
       "open": "Öffnen",
       "instructions_empty": "Noch keine festen Anweisungen. Sag ihm, was seine Aufgabe ist, hier oder im Chat.",
       "runs_on": "Läuft auf",
-      "seat_hint": "Das Modell wechselst du in der Modellauswahl des Chats. Die Laufzeit bleibt für das ganze Leben des Agenten gleich.",
+      "seat_hint": "Ändere das Modell hier oder im +-Menü des Chats. Die Laufzeit bleibt für das ganze Leben des Agenten gleich.",
       "anatomy": "Woraus er besteht",
       "instructions_learned": "Geschrieben, dazu {0} gelernte Regeln",
       "instructions_written": "Wie er arbeitet",
@@ -119,7 +119,13 @@
       "keep_private": "Privat behalten",
       "keep": "Behalten",
       "forget": "Vergessen",
-      "more_lines": "+{0} weitere Zeilen"
+      "more_lines": "+{0} weitere Zeilen",
+      "close": "Details schließen",
+      "more": "Mehr",
+      "runtime": "Laufzeit",
+      "see_all": "Alle anzeigen",
+      "history_detail": "Chats und Anrufe",
+      "record_line": "{0} Läufe · {1} ausgegeben · zuletzt aktiv {2}"
     },
     "browser_profiles": {
       "profile_unavailable": "Profil getrennt — bitte ein Profil auswählen",

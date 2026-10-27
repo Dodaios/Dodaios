@@ -8,7 +8,6 @@
  * composer to step in.
  */
 import { useEffect, useState } from "react";
-import { MessagesSquare } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useRoutineNavigation } from "./routineNavigation";
@@ -69,14 +68,11 @@ export function AgentConversationsBar({ agentId, agentName, displayName }: {
   if (!rows.length) return null;
   return (
     <div
-      className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-border px-3 py-1.5"
+      className="flex shrink-0 items-center justify-center gap-1.5 overflow-x-auto px-4 pb-2 [scrollbar-width:none]"
       data-testid="agent-conversations"
       title={t("society.conversations.hint")}
     >
-      <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-        <MessagesSquare className="h-3.5 w-3.5" aria-hidden />
-        {t("society.conversations.label")}
-      </span>
+      <span className="sr-only">{t("society.conversations.label")}</span>
       {rows.map((row) => {
         const name = displayName(row.counterpart_id, row.counterpart_name);
         return (
@@ -98,8 +94,8 @@ export function AgentConversationsBar({ agentId, agentName, displayName }: {
             data-state={row.waiting ? "waiting" : row.running ? "running" : "idle"}
             title={row.waiting ? t("society.conversations.waiting") : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              row.waiting ? "border-warning text-warning" : "border-border text-foreground",
+              "flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              row.waiting ? "bg-warning/10 text-warning" : "bg-secondary/60 text-muted-foreground",
             )}
           >
             <span

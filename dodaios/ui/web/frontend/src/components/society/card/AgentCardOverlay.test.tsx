@@ -1,7 +1,7 @@
 /**
  * The workspace wires the frame together: roster, header and chat in one
- * grid, the brain picker handed from the composer to the header, and the
- * keyboard shortcuts live only while the section is on screen.
+ * grid, a model save in the details pane held against the composer's Send,
+ * and the keyboard shortcuts live only while the section is on screen.
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,7 +12,11 @@ import { useHeaderModelSlot } from "./headerModelSlot";
 import { AgentCardOverlay } from "./AgentCardOverlay";
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useLocaleChunk: () => true, useUiLanguage: () => "en" }));
-vi.mock("./OptionsRail", () => ({ OptionsRail: ({ agent }: { agent: SocietyAgent }) => <aside aria-label="Details">{agent.name}</aside> }));
+vi.mock("./OptionsRail", () => ({
+  OptionsRail: ({ agent, onModelSavingChange }: { agent: SocietyAgent; onModelSavingChange?: (saving: boolean) => void }) => (
+    <aside aria-label="Details">{agent.name}<button type="button" onClick={() => onModelSavingChange?.(true)}>save model</button></aside>
+  ),
+}));
 vi.mock("../chat/AgentModelPicker", () => ({ AgentModelPicker: () => <button type="button">brain</button> }));
 const renders = vi.hoisted(() => ({ chat: 0 }));
 vi.mock("../chat/AgentChatPanel", async () => {
@@ -21,7 +25,7 @@ vi.mock("../chat/AgentChatPanel", async () => {
   function ChatProbe({ agent }: { agent: SocietyAgent }) {
     renders.chat += 1;
     const slot = useHeaderModelSlot();
-    return <div data-testid="chat-probe" data-header-picker={slot ? "yes" : "no"}>{agent.name}</div>;
+    return <div data-testid="chat-probe" data-saving={slot?.saving ? "yes" : "no"}>{agent.name}</div>;
   }
   return { AgentChatPanel: ChatProbe, useSocietyChatStore: store };
 });
@@ -61,22 +65,24 @@ describe("AgentCardOverlay", () => {
     mount();
     expect(screen.getByTestId("society-roster-rail")).toBeTruthy();
     expect(screen.getByTestId("agent-header-name").textContent).toBe("Alpha");
-    expect(screen.getByRole("complementary", { name: "Details" }).textContent).toBe("Alpha");
+    // The details pane is mounted but closed: the section opens on a plain chat.
+    expect(screen.getByRole("complementary", { name: "Details", hidden: true }).textContent).toContain("Alpha");
+    expect(screen.getByTestId("shell-details").hidden).toBe(true);
     expect(renders.chat).toBeLessThan(5);
   });
 
-  it("moves the brain picker into the header for a specialist", () => {
+  it("keeps the header free of pickers and holds Send while the details pane saves a model", () => {
     mount();
-    expect(screen.getByTestId("chat-probe").dataset.headerPicker).toBe("yes");
-    expect(screen.getByRole("button", { name: "brain" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "brain" })).toBeNull();
+    expect(screen.getByTestId("chat-probe").dataset.saving).toBe("no");
+    fireEvent.click(screen.getByRole("button", { name: "save model", hidden: true }));
+    expect(screen.getByTestId("chat-probe").dataset.saving).toBe("yes");
   });
 
-  it("leaves the lead's chat its own model controls", () => {
-    const roster = [agent({ agentId: "lead", name: "Lead", tier: "lead" })];
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) })));
-    const client = new QueryClient();
-    render(<QueryClientProvider client={client}><AgentCardOverlay embedded agent={roster[0]} roster={roster} onClose={() => undefined} /></QueryClientProvider>);
-    expect(screen.getByTestId("chat-probe").dataset.headerPicker).toBe("no");
+  it("opens the details pane from the name pill", () => {
+    mount();
+    fireEvent.click(screen.getByTestId("shell-details-toggle"));
+    expect(screen.getByTestId("shell-details").hidden).toBe(false);
   });
 
   it("steps to the next agent with Alt + Arrow Down only while active", () => {

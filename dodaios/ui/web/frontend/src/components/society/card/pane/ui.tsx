@@ -4,7 +4,7 @@
  * with an add field. Styling lives in `agentPane.css` and uses theme tokens only.
  */
 import { useRef, useState, type ReactNode } from "react";
-import { ChevronRight, Plus, X, type LucideIcon } from "lucide-react";
+import { Plus, X, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -38,9 +38,8 @@ export function PaneHint({ children, className }: { children: ReactNode; classNa
   return <p className={cn("ap-hint", className)}>{children}</p>;
 }
 
-/** One line of the agent's anatomy: what it is, how much of it there is, and where it lives. */
+/** One text row in a pane card: what it is, one muted line about it, and a count when there is one. */
 export function AnatomyRow({
-  icon: Icon,
   label,
   detail,
   count,
@@ -48,7 +47,6 @@ export function AnatomyRow({
   onOpen,
   testId,
 }: {
-  icon: LucideIcon;
   label: string;
   detail: string;
   count?: string | number | null;
@@ -59,19 +57,14 @@ export function AnatomyRow({
 }) {
   const body = (
     <>
-      <span className="ap-row-icon" aria-hidden>
-        <Icon className="h-3.5 w-3.5" />
-      </span>
       <span className="min-w-0 flex-1">
         <span className="ap-row-label">{label}</span>
         <span className="ap-row-detail">{detail}</span>
       </span>
       {count !== undefined && count !== null ? (
-        <span className="ap-row-count" data-attention={attention ? "true" : undefined}>
-          {count}
-        </span>
+        <span className="ap-row-count">{count}</span>
       ) : null}
-      {onOpen ? <ChevronRight className="ap-row-chevron h-3.5 w-3.5" aria-hidden /> : null}
+      {attention ? <span className="ap-row-dot" aria-hidden /> : null}
     </>
   );
   return onOpen ? (

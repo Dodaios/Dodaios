@@ -6,7 +6,7 @@
  * the agent can walk the person through the list in conversation instead.
  */
 import { useState } from "react";
-import { BookUser, Check, FileText, MessageSquare, NotebookPen, Sparkles, X } from "lucide-react";
+import { Check, MessageSquare, X } from "lucide-react";
 
 import { useRunLocale } from "@/components/runs/format";
 import { useLocaleChunk, useT } from "@/i18n";
@@ -106,7 +106,6 @@ export function MemoryTab({
             {files.map((file) => (
               <AnatomyRow
                 key={file.path}
-                icon={file.name === "USER.md" ? BookUser : file.name === "MEMORY.md" ? NotebookPen : file.kind === "skills" ? Sparkles : FileText}
                 label={file.name === "USER.md" ? t("society.profile_card.user_book") : file.name === "MEMORY.md" ? t("society.profile_card.memory_book") : file.name}
                 detail={file.path}
                 onOpen={() => onPage({ id: `file:${file.path}`, title: file.name })}

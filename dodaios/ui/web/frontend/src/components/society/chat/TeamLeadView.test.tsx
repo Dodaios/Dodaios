@@ -128,7 +128,8 @@ it("is the lead's own chat, marked as the lead's, with the team beside it", () =
   expect(screen.getByTestId("chat-boss")).toBeTruthy();
   expect(chat.namespaces).toEqual(["group:team:lead"]);
   expect(screen.getByText("Boss")).toBeTruthy();
-  expect(screen.getByText("society.lead.role")).toBeTruthy();
+  // The lead's role names the pill on hover; no badge in the header.
+  expect(screen.getByTitle("society.lead.role").textContent).toContain("Boss");
   expect(screen.getByTestId("team-lead-status").textContent).toBe("society.lead.status_idle");
   expect(screen.getByTestId("team-lead-panel")).toBeTruthy();
   // The chat is the one place to write: the view adds no goal form of its own.
@@ -183,6 +184,14 @@ it("says in one line what the team is doing and what waits for the person", () =
   api.team = team({ lead_available: false });
   mount();
   expect(screen.getByTestId("team-lead-status").textContent).toBe("society.lead.unavailable");
+});
+
+it("starts with the team panel closed for a new person", () => {
+  window.localStorage.clear();
+  api.team = team();
+  mount();
+  expect(screen.queryByTestId("team-lead-panel")).toBeNull();
+  expect(screen.getByTestId("team-lead-panel-toggle").getAttribute("aria-pressed")).toBe("false");
 });
 
 it("folds the team panel away and remembers it; the closed panel still counts open work", () => {

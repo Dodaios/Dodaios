@@ -1,16 +1,16 @@
 {
   "society": {
     "card": {
-      "options_collapse": "Collapse Options",
-      "options_expand": "Expand Options"
+      "options_collapse": "Hide details",
+      "options_expand": "Show details"
     },
     "agent_pane": {
       "tabs": "Agent details",
-      "tab_overview": "Overview",
+      "tab_overview": "Details",
       "tab_tools": "Tools & access",
       "tab_memory": "Memory",
       "tab_tasks": "Tasks",
-      "tab_browser": "Browser",
+      "tab_browser": "Computer",
       "tab_history": "History",
       "back": "Back",
       "next_steps": "Next steps",
@@ -30,7 +30,7 @@
       "open": "Open",
       "instructions_empty": "No standing instructions yet. Tell it what its job is, here or in the chat.",
       "runs_on": "Runs on",
-      "seat_hint": "Change the model in the chat's model picker. The runtime stays the same for the agent's whole life.",
+      "seat_hint": "Change the model here or in the chat's + menu. The runtime stays the same for the agent's whole life.",
       "anatomy": "What it is made of",
       "instructions_learned": "Written, plus {0} learned rules",
       "instructions_written": "How it works",
@@ -119,7 +119,13 @@
       "keep_private": "Keep private",
       "keep": "Keep",
       "forget": "Forget",
-      "more_lines": "+{0} more lines"
+      "more_lines": "+{0} more lines",
+      "close": "Close details",
+      "more": "More",
+      "runtime": "Runtime",
+      "see_all": "See all",
+      "history_detail": "Chats and calls",
+      "record_line": "{0} runs · {1} spent · last active {2}"
     },
     "browser_profiles": {
       "profile_unavailable": "Profile disconnected — choose a profile",

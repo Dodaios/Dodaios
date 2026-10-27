@@ -1,21 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { create } from "zustand";
 
 import type { SocietyAgent } from "../data";
 import { modeSupported, runnerFor } from "./approvalModes";
-import { AgentHeader } from "./AgentHeader";
+import { AgentHeader, ApprovalModePicker } from "./AgentHeader";
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useUiLanguage: () => "en" }));
-vi.mock("../chat/AgentModelPicker", () => ({
-  AgentModelPicker: ({ agent }: { agent: SocietyAgent }) => <button type="button">model:{agent.model || "default"}</button>,
-}));
-const chatStore = vi.hoisted(() => ({ hook: null as unknown }));
-vi.mock("../chat/AgentChatPanel", () => {
-  chatStore.hook = create(() => ({ busy: false, activeSessionId: null }));
-  return { useSocietyChatStore: chatStore.hook };
-});
 
 function agent(over: Partial<SocietyAgent> = {}): SocietyAgent {
   return {
@@ -65,8 +56,12 @@ function json(body: unknown, status = 200) {
 function mount(row: SocietyAgent, fetcher = vi.fn(async (url: string) => (String(url).endsWith("/providers") ? json({ providers }) : json({})))) {
   vi.stubGlobal("fetch", fetcher);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><AgentHeader agent={row} detailsToggle={<button type="button">details</button>} /></QueryClientProvider>);
-  return { fetcher, client };
+  const toggle = vi.fn();
+  render(<QueryClientProvider client={client}>
+    <AgentHeader agent={row} details={{ open: false, toggle, controlsId: "pane", ref: { current: null } }} />
+    <ApprovalModePicker agent={row} />
+  </QueryClientProvider>);
+  return { fetcher, client, toggle };
 }
 
 afterEach(() => {
@@ -94,13 +89,23 @@ describe("approval mode support", () => {
   });
 });
 
-describe("AgentHeader", () => {
-  it("shows identity, the live phrase, the brain picker and the details toggle", () => {
-    mount(agent({ state: "working" }));
+describe("AgentHeader and the approval picker", () => {
+  it("is one name pill that opens the details, with the live phrase only while it works", () => {
+    const { toggle } = mount(agent({ state: "working" }));
     expect(screen.getByTestId("agent-header-name").textContent).toBe("Scout");
     expect(screen.getByTestId("agent-header-status").textContent).toBe("society.shell.preview_working");
-    expect(screen.getByRole("button", { name: "model:gpt-x" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "details" })).toBeTruthy();
+    const pill = screen.getByTestId("shell-details-toggle");
+    expect(pill.getAttribute("aria-expanded")).toBe("false");
+    expect(pill.getAttribute("aria-controls")).toBe("pane");
+    fireEvent.click(pill);
+    expect(toggle).toHaveBeenCalledTimes(1);
+    // No pickers in the header any more: model and permissions live in the composer and the Details tab.
+    expect(screen.getByTestId("agent-header").querySelectorAll("button")).toHaveLength(1);
+  });
+
+  it("says nothing more than the name while the agent is idle", () => {
+    mount(agent({ state: "idle" }));
+    expect(screen.getByTestId("agent-header-status").textContent).toBe("");
   });
 
   it("says why the agent waits when the backend names a reason", () => {
@@ -108,15 +113,9 @@ describe("AgentHeader", () => {
     expect(screen.getByTestId("agent-header-status").textContent).toBe("society.shell.preview_needs_you · Send the invoice?");
   });
 
-  it("shows no brain or approval picker for the lead, whose chat follows the app's own choice", () => {
-    mount(agent({ tier: "lead", agentId: "jarvis", name: "Jarvis" }));
-    expect(screen.queryByTestId("agent-header-model")).toBeNull();
-    expect(screen.queryByTestId("agent-header-approval")).toBeNull();
-  });
-
   it("offers only the modes the runner can honour", async () => {
     mount(agent({ provider: "claude-api", approvalMode: "ask" }));
-    fireEvent.click(screen.getByTestId("agent-header-approval"));
+    fireEvent.click(screen.getByTestId("agent-approval-mode"));
     await waitFor(() => expect((screen.getByTestId("approval-mode-ask") as HTMLButtonElement).disabled).toBe(false));
     expect((screen.getByTestId("approval-mode-always_ask") as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId("approval-mode-bypass") as HTMLButtonElement).disabled).toBe(false);
@@ -124,7 +123,7 @@ describe("AgentHeader", () => {
 
   it("lets a Hermes agent ask but not always ask", async () => {
     mount(agent({ provider: "codex", runtime: "hermes", approvalMode: "bypass" }));
-    fireEvent.click(screen.getByTestId("agent-header-approval"));
+    fireEvent.click(screen.getByTestId("agent-approval-mode"));
     await waitFor(() => expect((screen.getByTestId("approval-mode-ask") as HTMLButtonElement).disabled).toBe(false));
     expect((screen.getByTestId("approval-mode-always_ask") as HTMLButtonElement).disabled).toBe(true);
   });
@@ -138,13 +137,13 @@ describe("AgentHeader", () => {
     mount(agent({ approvalMode: "ask" }), fetcher);
     const patches = () => fetcher.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH");
 
-    fireEvent.click(screen.getByTestId("agent-header-approval"));
+    fireEvent.click(screen.getByTestId("agent-approval-mode"));
     await waitFor(() => expect((screen.getByTestId("approval-mode-always_ask") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId("approval-mode-always_ask"));
     await waitFor(() => expect(patches()).toHaveLength(1));
     expect(JSON.parse(String((patches()[0][1] as RequestInit).body))).toEqual({ approval_mode: "always_ask" });
 
-    fireEvent.click(screen.getByTestId("agent-header-approval"));
+    fireEvent.click(screen.getByTestId("agent-approval-mode"));
     fireEvent.click(await screen.findByTestId("approval-mode-bypass"));
     expect(patches()).toHaveLength(1);
     expect(screen.getByTestId("approval-mode-bypass").textContent).toContain("society.shell.approval_confirm");
@@ -160,7 +159,7 @@ describe("AgentHeader", () => {
       return json({});
     });
     mount(agent({ approvalMode: "bypass" }), fetcher);
-    fireEvent.click(screen.getByTestId("agent-header-approval"));
+    fireEvent.click(screen.getByTestId("agent-approval-mode"));
     await waitFor(() => expect((screen.getByTestId("approval-mode-ask") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId("approval-mode-ask"));
     expect((await screen.findByRole("alert")).textContent).toContain("cannot provide");

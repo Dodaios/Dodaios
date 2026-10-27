@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Activity, Crown, Lightbulb, ListChecks, Loader2, PanelRightClose, PanelRightOpen, Rocket } from "lucide-react";
+import { Crown, Loader2 } from "lucide-react";
 import { runningTurn } from "@/components/agentchat/reduce";
 import { Button } from "@/components/ui/button";
 import { BrandedSelect } from "@/components/ui/select";
@@ -34,25 +34,17 @@ import { AgentChatPanel, CHAT_MEASURE } from "./AgentChatPanel";
 import { TeamLeadPanel, initiativeMode } from "./TeamLeadPanel";
 
 /** What only a lead is asked: each sends its sentence as the person's message. */
-const LEAD_ACTIONS = [
-  { id: "status", Icon: ListChecks },
-  { id: "next", Icon: Lightbulb },
-  { id: "check", Icon: Activity },
-  { id: "drive", Icon: Rocket },
-] as const;
+const LEAD_ACTIONS = ["status", "next", "check", "drive"] as const;
 
 const PANEL_KEY = "society.lead.panel";
-/** Below this width the panel lies over the conversation (`max-xl`), so it starts closed. */
-const PANEL_MIN_WIDTH = 1280;
-
+/** The team panel starts closed, like an agent's details: the chat comes first. */
 function readPanelOpen(): boolean {
   try {
-    const saved = window.localStorage.getItem(PANEL_KEY);
-    if (saved === "open" || saved === "closed") return saved === "open";
+    return window.localStorage.getItem(PANEL_KEY) === "open";
   } catch {
-    // Storage is unavailable (a private window): the width decides.
+    // Storage is unavailable (a private window): closed.
+    return false;
   }
-  return window.innerWidth >= PANEL_MIN_WIDTH;
 }
 
 function LeadActions({ store, sessionId, leadName }: { store: AgentChatStoreHook; sessionId: string | null; leadName: string }) {
@@ -65,11 +57,11 @@ function LeadActions({ store, sessionId, leadName }: { store: AgentChatStoreHook
     <div className="shrink-0 px-4 pt-1 sm:px-6">
       <div role="group" aria-label={t("society.lead.actions_label").replace("{0}", leadName)}
         className={cn(CHAT_MEASURE, "flex flex-wrap gap-1.5")} data-testid="team-lead-actions">
-        {LEAD_ACTIONS.map(({ id, Icon }) => <button key={id} type="button" disabled={busy || !ready}
+        {LEAD_ACTIONS.map((id) => <button key={id} type="button" disabled={busy || !ready}
           data-testid={`team-lead-action-${id}`} title={t(`society.lead.action_${id}_prompt`)}
           onClick={() => void store.getState().send(t(`society.lead.action_${id}_prompt`))}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50">
-          <Icon className="h-3.5 w-3.5" aria-hidden />{t(`society.lead.action_${id}`)}
+          className="as-pill-button h-8 bg-transparent px-3.5 font-normal text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))] hover:text-foreground disabled:pointer-events-none disabled:opacity-50">
+          {t(`society.lead.action_${id}`)}
         </button>)}
       </div>
     </div>
@@ -199,37 +191,33 @@ export function TeamLeadView({ group, roster, onOpenAgent }: Props) {
     : paused ? t("society.lead.status_paused").replace("{0}", paused.title)
     : t("society.lead.status_idle").replace("{0}", leadName);
   const mode = initiativeMode(team);
-  const PanelIcon = panelOpen ? PanelRightClose : PanelRightOpen;
 
   return (
     <section className="flex min-h-0 flex-1 flex-col bg-background" data-testid="team-lead-view">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
-        <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary">
-          {lead ? <AgentSwatch agent={lead} size={34} /> : <Crown className="h-5 w-5" aria-hidden />}
-          {lead && <span className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full border border-border bg-card text-foreground">
-            <Crown className="h-3 w-3" aria-hidden />
-          </span>}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2">
-            <span className="truncate text-base font-semibold text-foreground">{leadName}</span>
-            <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("society.lead.role")}</span>
-          </p>
+      {/* Like an agent's chat: one name pill in the middle; the team's two
+          controls sit quietly on the right as words. */}
+      <header className="relative flex h-14 shrink-0 items-center justify-center gap-2 px-4">
+        <div className="as-name-pill" title={t("society.lead.role")}>
+          <span className="as-avatar">{lead ? <AgentSwatch agent={lead} size={24} /> : null}</span>
+          <span className="as-pill-name">{leadName}</span>
           <p role="status" data-testid="team-lead-status"
-            className={cn("truncate text-xs", !team.lead_available ? "text-destructive" : asking ? "font-medium text-warning" : "text-muted-foreground")}>
+            className={cn("as-pill-status", !team.lead_available ? "text-destructive" : asking ? "text-warning" : "")}>
             {status}
           </p>
         </div>
-        <button type="button" onClick={openSetup} data-testid="team-lead-initiative" data-mode={mode}
-          title={t(`society.lead.initiative_${mode}_hint`).replace("{0}", leadName)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:border-border-strong hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <i className={cn("h-1.5 w-1.5 rounded-full", mode === "off" ? "bg-muted-foreground/40" : "bg-success")} aria-hidden />
-          {t(`society.lead.initiative_${mode}`)}
-        </button>
-        <Button size="sm" variant="ghost" aria-pressed={panelOpen} onClick={() => togglePanel(!panelOpen)} data-testid="team-lead-panel-toggle">
-          <PanelIcon aria-hidden />{t("society.lead.panel_title")}
-          {!panelOpen && open.length > 0 && <span className={cn("rounded-full px-1.5 text-[11px]", asking ? "bg-warning/20 text-warning" : "bg-secondary text-muted-foreground")}>{open.length}</span>}
-        </Button>
+        <div className="absolute right-4 flex items-center gap-1.5">
+          <button type="button" onClick={openSetup} data-testid="team-lead-initiative" data-mode={mode}
+            title={t(`society.lead.initiative_${mode}_hint`).replace("{0}", leadName)}
+            className="as-pill-button h-8 bg-transparent px-3 font-normal text-muted-foreground hover:text-foreground">
+            <i className={cn("h-1.5 w-1.5 rounded-full", mode === "off" ? "bg-muted-foreground/40" : "bg-success")} aria-hidden />
+            {t(`society.lead.initiative_${mode}`)}
+          </button>
+          <button type="button" aria-pressed={panelOpen} onClick={() => togglePanel(!panelOpen)} data-testid="team-lead-panel-toggle"
+            className={cn("as-pill-button h-8 px-3", !panelOpen && "bg-transparent font-normal text-muted-foreground hover:text-foreground")}>
+            {t("society.lead.panel_title")}
+            {!panelOpen && open.length > 0 && <span className={cn("rounded-full px-1.5 text-[12px]", asking ? "bg-warning/20 text-warning" : "bg-secondary text-muted-foreground")}>{open.length}</span>}
+          </button>
+        </div>
       </header>
 
       {problem && <p role="alert" className="shrink-0 border-b border-border px-4 py-2 text-sm text-destructive">{problem}</p>}

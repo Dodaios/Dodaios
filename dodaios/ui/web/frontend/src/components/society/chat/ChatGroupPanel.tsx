@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { BrandedSelect } from "@/components/ui/select";
@@ -19,14 +18,9 @@ import { TeamLeadView } from "./TeamLeadView";
 /** What the team's main column shows. */
 type GroupView = "lead" | "meeting" | "individual";
 
-/** The active view reads as selected; both states keep the same box size. */
+/** The team's three views as words on one soft track. */
 function viewToggle(active: boolean): string {
-  return cn(
-    "rounded-md border px-3 py-2 text-sm transition-colors",
-    active
-      ? "border-border-strong bg-secondary text-foreground"
-      : "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
-  );
+  return cn("as-seg-pill", active && "as-seg-pill-on");
 }
 
 interface Props {
@@ -88,12 +82,12 @@ export function ChatGroupPanel({
     <section key={side} data-testid={`society-group-pane-${side}`} className="flex min-h-0 min-w-0 flex-col bg-background">
       {agent ? <>
         <header data-testid={`society-group-identity-${side}`}
-          className="flex shrink-0 items-center gap-3 border-b border-border-strong bg-secondary/25 px-4 py-3">
-          <span data-testid={`society-group-avatar-${side}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary">
-            <AgentSwatch agent={agent} size={38} />
+          className="flex shrink-0 items-center gap-3 px-4 py-3">
+          <span data-testid={`society-group-avatar-${side}`} className="grid shrink-0 place-items-center">
+            <AgentSwatch agent={agent} size={36} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="sr-only">
               {t(side === "left" ? "society.groups.left_chat" : "society.groups.right_chat")}
             </p>
             {members.length > 2 ? <BrandedSelect
@@ -108,7 +102,7 @@ export function ChatGroupPanel({
             <p className="truncate text-xs text-muted-foreground">{agent.title}</p>
           </div>
           <button type="button" onClick={() => onOpenAgent(agent.agentId)}
-            className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="as-pill-button h-8 px-3 font-normal"
             aria-label={t("society.groups.open_individual").replace("{0}", societyDisplayName(agent, assistantName))}>
             {t("society.groups.open")}
           </button>
@@ -121,52 +115,53 @@ export function ChatGroupPanel({
     </section>
   );
 
-  const teamFooter = <div className="shrink-0 border-t border-border bg-sidebar px-3 py-3">
+  const teamFooter = <div className="shrink-0 px-3 py-3">
     {confirmUngroup ? <div role="alertdialog" aria-label={t("society.groups.delete")}
-      className="space-y-3 text-xs text-foreground">
+      className="space-y-3 text-[13px] text-foreground">
       <p>{t("society.groups.delete_confirm")}</p>
       <div className="flex justify-end gap-2">
         <button type="button" onClick={() => setConfirmUngroup(false)} disabled={removing}
-          className="rounded-md px-2 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">
+          className="as-pill-button h-8 px-3 font-normal">
           {t("society.groups.cancel")}
         </button>
         <button type="button" onClick={() => void remove()} disabled={removing}
-          className="rounded-md bg-destructive px-2 py-1.5 font-medium text-destructive-foreground disabled:opacity-50">
+          className="as-pill-button h-8 bg-destructive px-3 text-destructive-foreground hover:bg-destructive disabled:opacity-50">
           {t("society.groups.delete")}
         </button>
       </div>
     </div> : <div className="flex items-center gap-2">
       <button type="button" onClick={() => setEditing(true)}
-        className="inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground">
-        <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        className="as-pill-button h-8 min-w-0 flex-1 px-3 font-normal">
         <span className="truncate">{t("society.groups.edit")}</span>
       </button>
       <button type="button" onClick={() => setConfirmUngroup(true)}
-        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-        <Trash2 className="h-3.5 w-3.5" aria-hidden />{t("society.groups.delete")}
+        className="as-pill-button h-8 shrink-0 bg-transparent px-3 font-normal text-muted-foreground hover:text-destructive">
+        {t("society.groups.delete")}
       </button>
     </div>}
     {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
   </div>;
 
-  return <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,300px)_minmax(0,1fr)] bg-card" data-testid="society-group-chat">
+  return <div className="agent-section grid min-h-0 flex-1 grid-cols-[minmax(240px,300px)_minmax(0,1fr)] bg-background" data-testid="society-group-chat">
     <RosterRail agents={roster} groups={groups} activeGroupId={group.group_id} activeAgentId={null}
       onOpen={onOpenAgent} onOpenGroup={onOpenGroup} onCreate={onCreateAgent}
       onGroupAgents={onGroupAgents} onAddAgentToGroup={onAddAgentToGroup}
       loading={false} sample={false} side="left" className="w-full border-0 jarvis-nav-surface"
       footer={teamFooter} />
-    <div className="flex min-h-0 min-w-0 flex-col border-l border-border">
-      <div className="flex shrink-0 gap-2 border-b border-border p-2">
+    <div className="flex min-h-0 min-w-0 flex-col">
+      <div className="flex shrink-0 justify-center px-4 pt-3">
+        <div className="as-seg-pills" role="group" aria-label={group.name}>
         <button type="button" aria-pressed={view === "lead"} onClick={() => setView("lead")}
           className={viewToggle(view === "lead")}>{t("society.lead.tab")}</button>
         <button type="button" aria-pressed={view === "meeting"} onClick={() => setView("meeting")}
           className={viewToggle(view === "meeting")}>{t("society.meeting.title")}</button>
         <button type="button" aria-pressed={view === "individual"} onClick={() => setView("individual")}
           className={viewToggle(view === "individual")}>{t("society.meeting.individual")}</button>
+        </div>
       </div>
       {view === "lead" ? <TeamLeadView key={group.group_id} group={group} roster={roster} onOpenAgent={onOpenAgent} />
         : view === "meeting" ? <MeetingChat key={group.group_id} group={group} roster={roster} />
-        : <div className="grid min-h-0 min-w-0 flex-1 grid-cols-2 divide-x-2 divide-border-strong overflow-hidden bg-background"
+        : <div className="grid min-h-0 min-w-0 flex-1 grid-cols-2 divide-x divide-border overflow-hidden bg-background"
           data-testid="society-group-split">
           {pane("left", left)}
           {pane("right", right)}

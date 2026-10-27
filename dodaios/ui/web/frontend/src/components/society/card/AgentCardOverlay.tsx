@@ -112,13 +112,11 @@ export function AgentCardOverlay({
             keyboard={active}
           />
         )}
-        header={(detailsToggle) => (
-          <AgentHeader agent={agent} sample={sample} detailsToggle={detailsToggle} onModelSavingChange={setModelSaving} />
-        )}
-        options={<OptionsRail agent={agent} onRetired={onClose} sample={sample} />}
+        header={(details) => <AgentHeader agent={agent} details={details} />}
+        options={<OptionsRail agent={agent} onRetired={onClose} sample={sample} onModelSavingChange={setModelSaving} />}
       >
         <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={t("society.card.chat")} data-testid="agent-card-chat">
-          <HeaderModelSlotContext.Provider value={agent.tier === "lead" ? null : { saving: modelSaving }}>
+          <HeaderModelSlotContext.Provider value={{ saving: modelSaving }}>
             <AgentChatPanel key={agent.agentId} agent={agent} roster={roster} />
           </HeaderModelSlotContext.Provider>
         </section>

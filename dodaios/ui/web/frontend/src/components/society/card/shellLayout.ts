@@ -15,6 +15,9 @@
  *
  * Only what the person chose is persisted. A pane the window closed comes
  * back by itself once the window is wide enough again.
+ *
+ * The details pane starts closed: the section opens on a plain chat, and the
+ * pane stays open across visits only once the person opened it themselves.
  */
 
 export const ROSTER_MIN = 240;
@@ -28,7 +31,9 @@ export const PANE_DEFAULT = 320;
 /** The chat never gets narrower than this while anything else can give way. */
 export const CHAT_MIN = 424;
 
-const STORAGE_KEY = "society.shell.layout.v1";
+const STORAGE_KEY = "society.shell.layout.v2";
+/** The first layout key opened the pane by default; its widths carry over, its open pane does not. */
+const LEGACY_STORAGE_KEY = "society.shell.layout.v1";
 
 export interface ShellPrefs {
   rosterWidth: number;
@@ -40,7 +45,7 @@ export interface ShellPrefs {
 export const DEFAULT_SHELL_PREFS: ShellPrefs = {
   rosterWidth: ROSTER_DEFAULT,
   rosterCollapsed: false,
-  paneOpen: true,
+  paneOpen: false,
   paneWidth: PANE_DEFAULT,
 };
 
@@ -110,7 +115,7 @@ function sanitize(value: unknown): ShellPrefs {
   return {
     rosterWidth: clampRoster(num(raw.rosterWidth, ROSTER_DEFAULT)),
     rosterCollapsed: raw.rosterCollapsed === true,
-    paneOpen: raw.paneOpen !== false,
+    paneOpen: raw.paneOpen === true,
     paneWidth: clampPane(num(raw.paneWidth, PANE_DEFAULT)),
   };
 }
@@ -118,7 +123,9 @@ function sanitize(value: unknown): ShellPrefs {
 export function readShellPrefs(): ShellPrefs {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? sanitize(JSON.parse(stored)) : { ...DEFAULT_SHELL_PREFS };
+    if (stored) return sanitize(JSON.parse(stored));
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    return legacy ? { ...sanitize(JSON.parse(legacy)), paneOpen: false } : { ...DEFAULT_SHELL_PREFS };
   } catch {
     return { ...DEFAULT_SHELL_PREFS };
   }

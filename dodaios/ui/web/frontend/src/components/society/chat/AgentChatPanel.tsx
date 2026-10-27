@@ -38,7 +38,7 @@ import { notifyRoutineChanged } from "../cardData";
 import { routineTaskId } from "./routineExecution";
 import { RoutineChatHost } from "./RoutineChatHost";
 import { AgentConversationsBar } from "./AgentConversations";
-import { MessageSquare, Mic, Paperclip, Plus, RotateCcw, Send, Square } from "lucide-react";
+import { Plus, RotateCcw, Send, Square } from "lucide-react";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
 
 import { AgentChatStoreProvider, useAgentChat, useAgentChatApi } from "@/components/agentchat/AgentChatStoreContext";
@@ -415,10 +415,8 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
   if (mode === "voice") {
     return (
       <div className="flex h-full min-h-0 flex-col" data-testid="society-chat" data-mode="voice">
-        <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-border px-3 py-2">
-          <span className="min-w-0 truncate text-xs text-muted-foreground" title={t("society.chat.voice_note")}>
-            {t("society.chat.voice_note")}
-          </span>
+        <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2">
+          <span className="sr-only">{t("society.chat.voice_note")}</span>
           <JarvisModeSwitch mode={mode} onPick={pickMode} />
           <span aria-hidden />
         </div>
@@ -428,7 +426,7 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
   }
 
   const header = (
-    <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-border px-3 py-2">
+    <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2">
       <div className="flex min-w-0 items-center gap-2">
         <ModelPicker />
         <EffortPicker />
@@ -440,7 +438,7 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
           onClick={startFresh}
           title={t("society.chat.new_chat")}
           aria-label={t("society.chat.new_chat")}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="as-round-button"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -492,19 +490,15 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
  */
 function JarvisModeSwitch({ mode, onPick }: { mode: JarvisCardMode; onPick: (m: JarvisCardMode) => void }) {
   const t = useT();
-  const tab = (value: JarvisCardMode, icon: React.ReactNode, label: string) => (
+  const tab = (value: JarvisCardMode, label: string) => (
     <button
       type="button"
       role="tab"
       aria-selected={mode === value}
       data-testid={`society-jarvis-mode-${value}`}
       onClick={() => onPick(value)}
-      className={cn(
-        "flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        mode === value ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
-      )}
+      className="as-seg-pill"
     >
-      {icon}
       {label}
     </button>
   );
@@ -512,10 +506,10 @@ function JarvisModeSwitch({ mode, onPick }: { mode: JarvisCardMode; onPick: (m: 
     <div
       role="tablist"
       aria-label={t("society.chat.mode_hint")}
-      className="grid shrink-0 grid-cols-2 gap-0.5 rounded-md border border-border bg-background p-0.5"
+      className="as-seg-pills"
     >
-      {tab("voice", <Mic aria-hidden className="h-3 w-3" />, t("society.chat.mode_voice"))}
-      {tab("chat", <MessageSquare aria-hidden className="h-3 w-3" />, t("society.chat.mode_chat"))}
+      {tab("voice", t("society.chat.mode_voice"))}
+      {tab("chat", t("society.chat.mode_chat"))}
     </div>
   );
 }
@@ -580,14 +574,13 @@ function ModelPicker() {
           setProviderId(current?.id ?? providers[0]?.id ?? null);
           setOpen((v) => !v);
         }}
-        className="flex max-w-[260px] items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs text-foreground hover:bg-secondary disabled:opacity-60"
+        className="as-pill-button max-w-[320px] bg-transparent px-3 font-normal text-muted-foreground hover:text-foreground disabled:opacity-60"
       >
-        {current ? <ProviderLogo providerId={current.id} label={current.label} size="sm" /> : null}
         <span className="truncate">{label}</span>
-        <span className="truncate font-mono text-xs text-muted-foreground">{modelLabel}</span>
+        <span className="truncate">{modelLabel}</span>
       </button>
       {open ? (
-        <div className="absolute left-0 top-full z-20 mt-1 flex w-[440px] max-w-[80vw] overflow-hidden rounded-lg border border-border bg-popover shadow-float">
+        <div className="as-menu absolute left-0 top-full z-20 mt-2 flex w-[460px] max-w-[80vw] overflow-hidden p-1.5">
           <ul className="max-h-72 w-1/2 overflow-y-auto border-r border-border py-1">
             {providers.map((p) => (
               <li key={p.id}>
@@ -654,37 +647,65 @@ function ModelPicker() {
   );
 }
 
+/** How hard the lead thinks: one quiet word that opens the levels. */
 function EffortPicker() {
   const t = useT();
   const draft = useAgentChat((s) => s.draft);
   const providerById = useAgentChat((s) => s.providerById);
   const setDraft = useAgentChat((s) => s.setDraft);
   const locks = useAgentChat((s) => s.locks);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const provider = providerById(draft.provider);
   const levels = provider?.effort_levels ?? [];
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: PointerEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
   if (levels.length === 0) return null;
+  const current = draft.effort || "";
   return (
-    <div role="radiogroup" aria-label={t("society.chat.effort")} className="inline-flex rounded-full border border-border p-0.5">
-      {levels.map((level) => {
-        const value = level || "";
-        const on = (draft.effort || "") === value;
-        return (
-          <button
-            key={level || "default"}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            disabled={Boolean(locks?.effort)}
-            onClick={() => void setDraft({ effort: value })}
-            className={cn(
-              "rounded-full px-2 py-0.5 text-xs capitalize transition-colors disabled:opacity-60",
-              on ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {level || t("society.chat.effort_default")}
-          </button>
-        );
-      })}
+    <div ref={ref} className="relative">
+      <button type="button" aria-haspopup="menu" aria-expanded={open} disabled={Boolean(locks?.effort)}
+        aria-label={`${t("society.chat.effort")}: ${current || t("society.chat.effort_default")}`}
+        onClick={() => setOpen((value) => !value)}
+        className="as-pill-button bg-transparent px-3 font-normal capitalize text-muted-foreground hover:text-foreground disabled:opacity-60">
+        {current || t("society.chat.effort_default")}
+      </button>
+      {open ? (
+        <div role="radiogroup" aria-label={t("society.chat.effort")} className="as-menu absolute left-0 top-full z-20 mt-2 w-44">
+          {levels.map((level) => {
+            const value = level || "";
+            const on = current === value;
+            return (
+              <button
+                key={level || "default"}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  setOpen(false);
+                  void setDraft({ effort: value });
+                }}
+                className={cn("as-menu-row capitalize", on && "bg-secondary")}
+              >
+                {level || t("society.chat.effort_default")}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1267,6 +1288,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
     ...readComposerDraft(chatStore, sessionId), text,
   });
   const [plusOpen, setPlusOpen] = useState(false);
+  const plusRef = useRef<HTMLDivElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -1446,6 +1468,21 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
   };
 
   const pickerOpen = mentionOpen;
+  useEffect(() => {
+    if (!plusOpen) return;
+    const onDown = (event: PointerEvent) => {
+      if (!plusRef.current?.contains(event.target as Node)) setPlusOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlusOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [plusOpen]);
 
   return (
     <div className="shrink-0 px-4 pb-4 pt-2 sm:px-6">
@@ -1470,7 +1507,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
         ref={composerRef}
         className={cn(
           CHAT_MEASURE,
-          "relative flex items-end gap-1 rounded-[24px] border border-border bg-secondary px-2 py-1.5 focus-within:border-border-strong",
+          "as-composer relative flex items-end gap-1.5",
           attachments.dragging && "border-border-strong",
           // The whole composer reads as armed while the mic is open, not just
           // the 32px button someone has to go looking for.
@@ -1478,53 +1515,48 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
         )}
         {...attachments.dragHandlers}
       >
-        <div className="relative">
+        <div className="relative" ref={plusRef}>
           <button
             type="button"
             onClick={() => setPlusOpen((v) => !v)}
             aria-label={t("society.chat.more")}
             aria-expanded={plusOpen}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-haspopup="menu"
+            data-testid="composer-plus"
+            className="as-round-button"
           >
-            <Plus className={cn("h-4 w-4 transition-transform", plusOpen && "rotate-45")} aria-hidden />
+            <Plus className={cn("h-4 w-4 transition-transform duration-200 motion-reduce:transition-none", plusOpen && "rotate-45")} aria-hidden />
           </button>
           {plusOpen ? (
-            <div className="absolute bottom-full left-0 z-20 mb-1 w-52 overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-float">
-              <button type="button" onClick={() => {
+            <div role="menu" aria-label={t("society.chat.more")} className="as-menu absolute bottom-full left-0 z-20 mb-2 w-64" data-testid="composer-plus-menu">
+              {surface === "society" ? (
+                <button type="button" role="menuitem" className="as-menu-row" data-testid="composer-model-row" onClick={() => {
+                  setPlusOpen(false);
+                  composerRef.current?.querySelector<HTMLButtonElement>("[data-chat-model-trigger]")?.click();
+                }}>
+                  <span className="min-w-0 flex-1 truncate">{t("society.chat.model")}</span>
+                  <span className="as-menu-row-value">{agent.model || agent.providerLabel || t("society.chat.model_default")}</span>
+                </button>
+              ) : null}
+              <button type="button" role="menuitem" className="as-menu-row" onClick={() => {
+                setPlusOpen(false);
+                fileInput.current?.click();
+              }}>
+                {t("society.chat.attach")}
+              </button>
+              <button type="button" role="menuitem" className="as-menu-row" onClick={() => {
                 setPlusOpen(false);
                 fieldRef.current?.insertText("@");
                 fieldRef.current?.focus();
-              }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground hover:bg-secondary">
-                <Plus className="h-3.5 w-3.5" aria-hidden />{t("chat_tools.all")}
+              }}>
+                {t("chat_tools.all")}
               </button>
-              <button type="button" onClick={() => {
+              <button type="button" role="menuitem" className="as-menu-row" onClick={() => {
                 setPlusOpen(false);
                 fieldRef.current?.insertText("@coding/");
                 fieldRef.current?.focus();
-              }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground hover:bg-secondary">
-                <MessageSquare className="h-3.5 w-3.5" aria-hidden />{t("society.chat.mention_group_coding")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPlusOpen(false);
-                  fileInput.current?.click();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground hover:bg-secondary"
-              >
-                <Paperclip className="h-3.5 w-3.5" aria-hidden />
-                {t("society.chat.attach")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPlusOpen(false);
-                  dictation.toggle();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground hover:bg-secondary"
-              >
-                <Mic className="h-3.5 w-3.5" aria-hidden />
-                {dictation.dictating ? t("society.chat.stop_recording") : t("society.chat.record")}
+              }}>
+                {t("society.chat.mention_group_coding")}
               </button>
             </div>
           ) : null}
@@ -1584,11 +1616,12 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
           }}
           className="max-h-[180px]"
         />
-        {/* Hidden, not unmounted, while recording: the pill needs the room,
-            and a save in flight must still report back. */}
-        {surface === "society" && !headerModel ? <div className={cn("h-8 min-w-0 max-w-[40%] shrink-0 items-center", dictation.dictating ? "hidden" : "flex")}>
-          <AgentModelPicker key={agent.agentId} agent={agent} busy={busy} onSavingChange={setModelSaving} />
-        </div> : null}
+        {/* The brain picker has no chip of its own: the "+" menu's Model row
+            and "/model" press its hidden trigger, and its menu opens over the
+            composer. It stays mounted so a save in flight still reports back. */}
+        {surface === "society" ? (
+          <AgentModelPicker key={agent.agentId} agent={agent} busy={busy} onSavingChange={setModelSaving} anchorRef={composerRef} bare />
+        ) : null}
         <DictationButton
           dictating={dictation.dictating}
           onToggle={dictation.toggle}
@@ -1598,7 +1631,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
         />
         {(busy || live) && <button type="button" onClick={() => void onCancel()}
           aria-label={t("society.chat.stop")} data-testid="composer-cancel"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background hover:bg-foreground/90">
+          className="as-round-button" data-tone="ink">
           <Square className="h-3.5 w-3.5" aria-hidden />
         </button>}
         {(
@@ -1610,7 +1643,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
             disabled={!sessionReady || modelSaving || attachments.analyzing > 0 || (!value.trim() && messageDraft.choices.length === 0 && attachments.attachments.length === 0 && !dictation.dictating)}
             aria-label={t("society.chat.send")}
             data-testid="composer-send"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[hsl(var(--chat-send-background))] text-[hsl(var(--chat-send-foreground))] disabled:[&_svg]:opacity-40"
+            className="as-round-button" data-tone="send"
           >
             <Send className="h-3.5 w-3.5" aria-hidden />
           </button>

@@ -1,7 +1,8 @@
 /**
- * One dense roster row: a 36px face with a corner status mark, the name with a
- * relative time, and one preview line. The avatar opens the agent's profile,
- * the rest of the row opens its chat, and the whole row is the drag handle.
+ * One roster row: a 40px face, the name, and one muted preview line. The face
+ * carries a mark only when it says something (working, unread, waiting on
+ * the person). The avatar opens the agent's profile, the rest of the row
+ * opens its chat, and the whole row is the drag handle.
  */
 import type {
   KeyboardEvent,
@@ -14,7 +15,6 @@ import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import { AgentSwatch } from "../AgentSwatch";
-import { RuntimeMark } from "../RuntimeBadge";
 import { agentTint } from "../agentTint";
 import type { SocietyAgent } from "../data";
 import type { RosterPreview, RosterStatus } from "./rosterPreview";
@@ -78,7 +78,6 @@ export interface RosterRowProps {
   displayName: string;
   status: RosterStatus;
   preview: RosterPreview;
-  timeLabel?: string;
   active: boolean;
   unread: boolean;
   hidden: boolean;
@@ -104,7 +103,6 @@ export function RosterRow({
   displayName,
   status,
   preview,
-  timeLabel,
   active,
   unread,
   hidden,
@@ -124,7 +122,6 @@ export function RosterRow({
   onHoverEnd,
 }: RosterRowProps) {
   const t = useT();
-  const external = agent.runtime && agent.runtime !== "jarvis" ? agent.runtime : null;
   return (
     <div
       data-agent-id={agent.agentId}
@@ -157,7 +154,7 @@ export function RosterRow({
         aria-label={t("society.profile_card.open").replace("{0}", displayName)}
         className="as-avatar rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <AgentSwatch agent={agent} size={36} />
+        <AgentSwatch agent={agent} size={40} />
         <StatusMark status={status} />
         {shortcut !== null ? <span className="as-shortcut-badge" aria-hidden>{shortcut}</span> : null}
       </button>
@@ -167,20 +164,7 @@ export function RosterRow({
         aria-current={active ? "true" : undefined}
         className="flex min-w-0 flex-1 select-none flex-col justify-center gap-0.5 self-stretch rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className={cn("as-row-name", unread && "font-semibold text-foreground-strong")}>{displayName}</span>
-          {external ? (
-            <span className="inline-flex shrink-0 [&_img]:size-3.5" title={t(`society.runtime.${external}`)}>
-              <RuntimeMark runtime={external} label={t(`society.runtime.${external}`)} />
-            </span>
-          ) : null}
-          {agent.tier === "lead" ? (
-            <span className="shrink-0 rounded-[5px] bg-secondary px-1.5 text-[10px] font-medium leading-4 text-muted-foreground">
-              {t("society.tier.lead")}
-            </span>
-          ) : null}
-          {timeLabel ? <span className="as-row-time ml-auto pl-1">{timeLabel}</span> : null}
-        </span>
+        <span className={cn("as-row-name", unread && "font-semibold text-foreground-strong")}>{displayName}</span>
         {" "}
         <PreviewLine preview={preview} />
       </button>
@@ -194,7 +178,7 @@ export function RosterRow({
           event.stopPropagation();
           onContextMenu(event);
         }}
-        className="as-reveal as-ghost-button -mr-1 h-7 min-w-7 shrink-0 px-0"
+        className="as-reveal as-round-button -mr-1 shrink-0" data-size="sm"
         data-testid="roster-row-more"
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden />

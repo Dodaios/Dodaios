@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -281,6 +281,7 @@ describe("RosterRail reorder", () => {
 
   it("locks rows while searching so the excerpt cannot file the order", () => {
     renderRail(trio());
+    fireEvent.click(screen.getByTestId("roster-search-toggle"));
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "a" } });
     expect(rowOf("A").className).not.toContain("cursor-grab");
     expect(localStorage.getItem(ORDER_KEY)).toBeNull();
@@ -449,8 +450,12 @@ it("shows and finds the lead by the wake-word name", () => {
   render(<QueryClientProvider client={client}>
     <RosterRail {...baseProps} agents={[agent({ agentId: "jarvis", name: "Jarvis", tier: "lead" })]} activeAgentId={null} />
   </QueryClientProvider>);
-  expect(screen.getByText("Hanna")).toBeTruthy();
+  // Large and centred above the list while nothing is searched ...
+  expect(screen.getByTestId("roster-lead").textContent).toBe("Hanna");
+  // ... and an ordinary row among the results while searching.
+  fireEvent.click(screen.getByTestId("roster-search-toggle"));
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "hanna" } });
+  expect(screen.queryByTestId("roster-lead")).toBeNull();
   expect(screen.getByText("Hanna")).toBeTruthy();
 });
 
@@ -473,7 +478,7 @@ describe("RosterRail shell", () => {
     expect(screen.getByLabelText("society.shell.status_needs_you")).toBeTruthy();
   });
 
-  it("previews a draft before the last message, then the last message with its time", () => {
+  it("previews a draft before the last message, then the last message, without a time column", () => {
     const now = Date.now();
     renderRail([agent({ agentId: "a", name: "A" }), agent({ agentId: "b", name: "B" })], {
       activity: new Map([
@@ -486,7 +491,7 @@ describe("RosterRail shell", () => {
     expect(previews[0].textContent).toBe("society.shell.preview_draft check the invoices");
     expect(previews[1].dataset.kind).toBe("message");
     expect(previews[1].textContent).toBe("All three reports are in.");
-    expect(screen.getByText(/^5\s?m/)).toBeTruthy();
+    expect(screen.queryByText(/^5\s?m/)).toBeNull();
   });
 
   it("pins an agent into the face grid and remembers it", () => {
@@ -501,16 +506,27 @@ describe("RosterRail shell", () => {
     expect(screen.getByTestId("roster-pins").textContent).toContain("B");
   });
 
-  it("filters to the agents that need the person and offers a way back when none do", () => {
-    renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })]);
-    fireEvent.click(screen.getByTestId("roster-filter-needs-you"));
-    expect(screen.queryByText("A")).toBeNull();
-    expect(screen.getByText("B")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("roster-filter-unread"));
-    expect(screen.getByTestId("roster-empty").textContent).toContain("society.shell.empty_unread");
-    fireEvent.click(screen.getByRole("button", { name: "society.shell.show_all" }));
+  it("keeps the top calm: two round buttons, no filter tabs and no section headings", () => {
+    renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })], { onOpenGroup: () => undefined });
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    expect(screen.queryByTestId("roster-filter-needs-you")).toBeNull();
+    expect(screen.queryByText("society.shell.section_agents")).toBeNull();
+    expect(screen.queryByText("society.shell.section_needs_you")).toBeNull();
+    // Waiting agents still come first, marked on their face.
+    expect(screen.getByTestId("roster-needs-you").textContent).toContain("B");
+  });
+
+  it("opens search from its button and closes it again with Escape", () => {
+    renderRail([agent({ agentId: "a", name: "A" }), agent({ agentId: "b", name: "B" })]);
+    fireEvent.click(screen.getByTestId("roster-search-toggle"));
+    const box = screen.getByRole("searchbox");
+    fireEvent.change(box, { target: { value: "zzz" } });
+    expect(screen.getByTestId("roster-empty").textContent).toContain("society.roster.empty");
+    fireEvent.keyDown(box, { key: "Escape" });
+    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("");
+    fireEvent.keyDown(screen.getByRole("searchbox"), { key: "Escape" });
+    expect(screen.queryByRole("searchbox")).toBeNull();
     expect(screen.getByText("A")).toBeTruthy();
-    expect(localStorage.getItem("society.roster.filter.v1")).toBe("all");
   });
 
   it("marks an agent unread from its menu", () => {
@@ -567,13 +583,10 @@ describe("RosterRail shell", () => {
     expect(onToggleCollapsed).toHaveBeenCalled();
   });
 
-  it("lists everyone on the folded rail even while a filter is chosen", () => {
-    localStorage.setItem("society.roster.filter.v1", "needs-you");
+  it("lists everyone on the folded rail", () => {
     renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })], { collapsed: true });
     expect(screen.getByRole("button", { name: "A" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "B" })).toBeTruthy();
-    // The choice itself is kept for when the rows come back.
-    expect(localStorage.getItem("society.roster.filter.v1")).toBe("needs-you");
   });
 
   it("does not let pins of retired agents fill the pinned places", () => {
@@ -596,13 +609,27 @@ describe("RosterRail shell", () => {
   it("says what to do when there are no agents yet", () => {
     const onCreate = vi.fn();
     renderRail([], { onCreate });
-    expect(screen.getByTestId("roster-empty").textContent).toContain("society.shell.empty_agents");
-    fireEvent.click(screen.getByRole("button", { name: "society.shell.new_agent" }));
+    const empty = screen.getByTestId("roster-empty");
+    expect(empty.textContent).toContain("society.shell.empty_agents");
+    fireEvent.click(within(empty).getByRole("button", { name: "society.shell.new_agent" }));
     expect(onCreate).toHaveBeenCalled();
   });
 
-  it("offers a visible New team action", () => {
-    renderRail([agent({ agentId: "a", name: "A" })], { onOpenGroup: () => undefined });
+  it("offers New agent and New team from the round + button", () => {
+    const onCreate = vi.fn();
+    renderRail([agent({ agentId: "a", name: "A" })], { onOpenGroup: () => undefined, onCreate });
+    expect(screen.queryByTestId("society-create-group-button")).toBeNull();
+    fireEvent.click(screen.getByTestId("society-create-button"));
     expect(screen.getByTestId("society-create-group-button").textContent).toContain("society.groups.create");
+    fireEvent.click(screen.getByTestId("roster-new-agent"));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("creates an agent straight from + where teams are not available", () => {
+    const onCreate = vi.fn();
+    renderRail([agent({ agentId: "a", name: "A" })], { onCreate });
+    fireEvent.click(screen.getByTestId("society-create-button"));
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,7 +15,8 @@ import {
   type ShellPrefs,
 } from "./shellLayout";
 
-const prefs = (over: Partial<ShellPrefs> = {}): ShellPrefs => ({ ...DEFAULT_SHELL_PREFS, ...over });
+// Most cases measure an open pane; the shipped default (closed) has its own test.
+const prefs = (over: Partial<ShellPrefs> = {}): ShellPrefs => ({ ...DEFAULT_SHELL_PREFS, paneOpen: true, ...over });
 
 afterEach(() => localStorage.clear());
 
@@ -90,14 +91,23 @@ describe("shell preferences", () => {
     expect(state.rosterCollapsed).toBe(false);
   });
 
+  it("starts with the details pane closed, also for a layout saved before that default", () => {
+    expect(DEFAULT_SHELL_PREFS.paneOpen).toBe(false);
+    expect(readShellPrefs().paneOpen).toBe(false);
+    localStorage.setItem("society.shell.layout.v1", JSON.stringify({ rosterWidth: 320, paneWidth: 400, paneOpen: true }));
+    expect(readShellPrefs()).toMatchObject({ rosterWidth: 320, paneWidth: 400, paneOpen: false });
+    writeShellPrefs(prefs({ paneOpen: true }));
+    expect(readShellPrefs().paneOpen).toBe(true);
+  });
+
   it("persists across reloads and survives bad storage", () => {
     writeShellPrefs(prefs({ rosterWidth: 333, paneWidth: 401, paneOpen: false, rosterCollapsed: true }));
     expect(readShellPrefs()).toEqual({ rosterWidth: 333, paneWidth: 401, paneOpen: false, rosterCollapsed: true });
 
-    localStorage.setItem("society.shell.layout.v1", "{not json");
+    localStorage.setItem("society.shell.layout.v2", "{not json");
     expect(readShellPrefs()).toEqual(DEFAULT_SHELL_PREFS);
 
-    localStorage.setItem("society.shell.layout.v1", JSON.stringify({ rosterWidth: 5000, paneWidth: "wide" }));
+    localStorage.setItem("society.shell.layout.v2", JSON.stringify({ rosterWidth: 5000, paneWidth: "wide" }));
     expect(readShellPrefs()).toMatchObject({ rosterWidth: ROSTER_MAX, paneWidth: DEFAULT_SHELL_PREFS.paneWidth });
   });
 });

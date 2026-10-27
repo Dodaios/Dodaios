@@ -1,16 +1,16 @@
 {
   "society": {
     "card": {
-      "options_collapse": "Recolher opções",
-      "options_expand": "Expandir opções"
+      "options_collapse": "Ocultar detalhes",
+      "options_expand": "Mostrar detalhes"
     },
     "agent_pane": {
       "tabs": "Detalhes do agente",
-      "tab_overview": "Visão geral",
+      "tab_overview": "Detalhes",
       "tab_tools": "Ferramentas e acesso",
       "tab_memory": "Memória",
       "tab_tasks": "Tarefas",
-      "tab_browser": "Navegador",
+      "tab_browser": "Computador",
       "tab_history": "Histórico",
       "back": "Voltar",
       "next_steps": "Próximos passos",
@@ -30,7 +30,7 @@
       "open": "Abrir",
       "instructions_empty": "Ainda não há instruções fixas. Diga qual é o trabalho dele, aqui ou no chat.",
       "runs_on": "Roda em",
-      "seat_hint": "Troque o modelo no seletor de modelo do chat. O ambiente de execução é o mesmo durante toda a vida do agente.",
+      "seat_hint": "Mude o modelo aqui ou no menu + do chat. O ambiente continua o mesmo durante toda a vida do agente.",
       "anatomy": "Do que ele é feito",
       "instructions_learned": "Escritas, mais {0} regras aprendidas",
       "instructions_written": "Como ele trabalha",
@@ -119,7 +119,13 @@
       "keep_private": "Manter privado",
       "keep": "Manter",
       "forget": "Esquecer",
-      "more_lines": "+{0} linhas"
+      "more_lines": "+{0} linhas",
+      "close": "Fechar detalhes",
+      "more": "Mais",
+      "runtime": "Ambiente",
+      "see_all": "Ver tudo",
+      "history_detail": "Conversas e chamadas",
+      "record_line": "{0} execuções · {1} gasto · última atividade {2}"
     },
     "browser_profiles": {
       "profile_unavailable": "Perfil desligado — escolhe um perfil",

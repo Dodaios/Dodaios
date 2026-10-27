@@ -1,7 +1,8 @@
 /**
- * The agent pane beside the chat: tabs that persist, an Overview with the
- * six-part anatomy, in-pane drill-down with Back, the review queue with
- * "Review in chat", Retire behind ⋯ (still two-press), and a switch of agent
+ * The agent pane beside the chat: word tabs that persist, a calm Details tab
+ * (instructions, model and permissions, routines with a switch, a few rows),
+ * in-pane drill-down with Back, the review queue with "Review in chat", look,
+ * share and Retire behind ⋯ (Retire still two-press), and a switch of agent
  * that swaps everything.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -46,6 +47,10 @@ function agent(over: Partial<SocietyAgent> = {}): SocietyAgent {
 }
 
 function mount(row: SocietyAgent, onRetired = vi.fn()) {
+  // The pane starts closed for a new person; these cases look inside it.
+  if (!window.localStorage.getItem("society.shell.layout.v2")) {
+    window.localStorage.setItem("society.shell.layout.v2", JSON.stringify({ paneOpen: true }));
+  }
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, refetchInterval: false } },
   });
@@ -155,18 +160,41 @@ describe("OptionsRail (agent pane)", () => {
     vi.unstubAllGlobals();
   });
 
-  test("opens on the Overview with the six-part anatomy and a calm header", async () => {
+  test("opens on Details: word tabs, a few rows, routines with a switch, actions behind ⋯", async () => {
     mount(agent());
-    const anatomy = await screen.findByTestId("agent-pane-anatomy");
-    for (const row of ["instructions", "memory", "skills", "routines", "tools", "files"]) {
+    await screen.findByTestId("agent-pane-anatomy");
+    await waitFor(() => expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Details", "Memory", "Tasks", "Computer"]));
+    for (const row of ["tools", "skills", "files"]) {
       expect(screen.getByTestId(`agent-pane-row-${row}`)).toBeTruthy();
     }
-    await waitFor(() => expect(screen.getByTestId("agent-pane-row-routines").textContent).toContain("1"));
-    await waitFor(() => expect(screen.getByTestId("agent-pane-row-memory").textContent).toContain("2 waiting"));
-    expect(anatomy).toBeTruthy();
+    const routine = await screen.findByTestId("agent-pane-routine-gm1");
+    expect(routine.textContent).toContain("Inbox sweep");
+    expect(within(routine).getByRole("switch").getAttribute("aria-checked")).toBe("true");
+    // No icons in the tabs or rows.
+    expect(screen.getByRole("tablist").querySelector("svg")).toBeNull();
+    expect(screen.getByTestId("agent-pane-anatomy").querySelector("svg")).toBeNull();
+    expect(screen.queryByTestId("edit-agent-appearance")).toBeNull();
+    fireEvent.click(screen.getByTestId("agent-card-options-more"));
     expect(screen.getByTestId("edit-agent-appearance")).toBeTruthy();
     expect(screen.getByTestId("share-agent")).toBeTruthy();
-    expect(screen.queryByTestId("agent-card-retire")).toBeNull();
+    expect(screen.getByTestId("agent-card-retire")).toBeTruthy();
+  });
+
+  test("a routine switch pauses every part of the routine", async () => {
+    mount(agent());
+    const routine = await screen.findByTestId("agent-pane-routine-gm1");
+    fireEvent.click(within(routine).getByRole("switch"));
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([url, init]) => String(url) === "/api/tasks/gm1" && (init as RequestInit)?.method === "PATCH");
+      expect(JSON.parse(String((call?.[1] as RequestInit).body))).toEqual({ enabled: false });
+    });
+  });
+
+  test("name and role are edited in the pane header", async () => {
+    mount(agent());
+    expect(screen.getByTestId("agent-pane-name").textContent).toBe("Gamil agent");
+    fireEvent.click(screen.getByTestId("agent-pane-role"));
+    expect((screen.getByTestId("agent-pane-role-input") as HTMLInputElement).value).toBe("Specialist");
   });
 
   test("Retire lives behind ⋯ and still only arms on the first press", async () => {
@@ -192,9 +220,10 @@ describe("OptionsRail (agent pane)", () => {
 
   test("folding the pane keeps routine and chat drafts", async () => {
     window.localStorage.setItem("society.agentPane.tab", "tasks");
+    window.localStorage.setItem("society.shell.layout.v2", JSON.stringify({ paneOpen: true }));
     mount(agent());
     await screen.findByText("Inbox sweep");
-    const toggle = await screen.findByRole("button", { name: "Collapse Options" });
+    const toggle = await screen.findByRole("button", { name: "Hide details" });
     const panel = document.getElementById(toggle.getAttribute("aria-controls")!)!;
     fireEvent.click(screen.getByTestId("agent-routines-add"));
     const title = screen.getByRole("textbox", { name: "Title" }) as HTMLInputElement;
@@ -205,7 +234,7 @@ describe("OptionsRail (agent pane)", () => {
     fireEvent.click(toggle);
     expect(panel.hidden).toBe(true);
     expect(chat.value).toBe("Unsent message");
-    fireEvent.click(screen.getByRole("button", { name: "Expand Options" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
     expect(panel.hidden).toBe(false);
     expect(screen.getByRole("textbox", { name: "Title" })).toBe(title);
     expect(title.value).toBe("Unsaved routine");
@@ -230,9 +259,9 @@ describe("OptionsRail (agent pane)", () => {
     await waitFor(() => expect(screen.getByTestId("agent-browser-preview")).toBeTruthy());
   });
 
-  test("an anatomy row drills down in place and Back returns", async () => {
+  test("instructions open in place and Back returns", async () => {
     mount(agent());
-    fireEvent.click(await screen.findByTestId("agent-pane-row-instructions"));
+    fireEvent.click(await screen.findByTestId("agent-pane-edit-instructions"));
     const input = (await screen.findByTestId("agent-pane-instructions-input")) as HTMLTextAreaElement;
     expect(input.value).toBe("Look after the mail.");
     expect(screen.getByTestId("agent-pane-subpage").textContent).toContain("Instructions");
@@ -290,12 +319,12 @@ describe("OptionsRail (agent pane)", () => {
 
   test("only real decisions mark the Memory tab, and the review nudge can be dismissed", async () => {
     const first = mount(agent());
-    await waitFor(() => expect(screen.getByTestId("agent-pane-row-memory").textContent).toContain("2 waiting"));
+    await waitFor(() => expect(screen.getByTestId("agent-pane-suggestion-review").textContent).toContain("2"));
     expect(screen.getByTestId("agent-pane-tab-memory").querySelector(".ap-tab-badge")).toBeTruthy();
     first.unmount();
 
     mount(agent({ agentId: "notes-agent", chatSessionId: "society:notes-agent" }));
-    await waitFor(() => expect(screen.getByTestId("agent-pane-row-memory").textContent).toContain("1 waiting"));
+    await waitFor(() => expect(screen.getByTestId("agent-pane-suggestion-review").textContent).toContain("1"));
     // A notebook write is listed, but it does not raise a mark on the tab.
     expect(screen.getByTestId("agent-pane-tab-memory").querySelector(".ap-tab-badge")).toBeNull();
     const nudge = await screen.findByTestId("agent-pane-suggestion-review");
@@ -303,9 +332,13 @@ describe("OptionsRail (agent pane)", () => {
     await waitFor(() => expect(screen.queryByTestId("agent-pane-suggestion-review")).toBeNull());
   });
 
-  test("the lead gets a History tab and no Share", async () => {
+  test("the lead gets a History row that opens with a way back, and no Share", async () => {
     mount(agent({ agentId: "jarvis", name: "Jarvis", tier: "lead", chatSessionId: null }));
-    expect(await screen.findByTestId("agent-pane-tab-history")).toBeTruthy();
+    fireEvent.click(await screen.findByTestId("agent-pane-row-history"));
+    expect(screen.getByTestId("agent-pane-subpage").textContent).toContain("History");
+    fireEvent.click(screen.getByTestId("agent-pane-back"));
+    expect(screen.queryByTestId("agent-pane-subpage")).toBeNull();
+    fireEvent.click(screen.getByTestId("agent-card-options-more"));
     expect(screen.queryByTestId("share-agent")).toBeNull();
   });
 });

@@ -1,38 +1,27 @@
 /**
  * The agent's home beside its chat: one details pane with the same anatomy
- * for every agent, in tabs that remember where the person was.
+ * for every agent. It is closed until the person opens it from the name pill
+ * in the chat header.
  *
- *  - Overview: identity (name, role, instructions edited in place), what it
- *    runs on, its six-part anatomy as counted rows, and a few next steps.
- *  - Tools & access: reach, tools, approvals and rules, limits, its browser
- *    and where it works, saved together; widening changes ask first.
- *  - Memory: its notebooks, learned rules and skills, plus the review queue
- *    of what it learned or proposed, with "Review in chat".
- *  - Tasks: its routines. Browser: its live screen. History: the lead's chats
- *    and calls.
+ * On top: the agent's face and name, large and centred, with "…" (look,
+ * share, pause, retire) and close as two round buttons. Below: four tabs as
+ * plain words that remember where the person was.
  *
- * Drill-downs (instructions, a memory file, skills, files) open IN the pane
- * with a Back button instead of stacking a modal. Look and Share are header
- * actions; Pause and Retire live in the header's "…" menu. The file keeps its
- * historical name and export: the layout mounts `<OptionsRail …>`.
+ *  - Details: name and role, instructions, its model and permissions, its
+ *    routines with a switch each, a few rows to everything else, and a
+ *    one-line record.
+ *  - Memory: its notebooks, learned rules and skills, plus the review queue.
+ *  - Tasks: its routines in full. Computer: its live browser screen.
+ *
+ * Tools & access (and the lead's History) open from rows in Details as a
+ * page with a way back; they stay mounted once visited so unsaved access
+ * edits survive. Drill-downs (instructions, a memory file, skills, files)
+ * open in the pane the same way. The file keeps its historical name and
+ * export: the layout mounts `<OptionsRail …>`.
  */
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import {
-  ChevronLeft,
-  History,
-  LayoutGrid,
-  Lightbulb,
-  ListChecks,
-  Monitor,
-  MoreHorizontal,
-  Palette,
-  Pause,
-  Play,
-  Share2,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronLeft, MoreHorizontal, X } from "lucide-react";
 
 import { useLocaleChunk, useT } from "@/i18n";
 import { societyDisplayName } from "@/lib/societyDisplayName";
@@ -40,9 +29,10 @@ import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 
 import { AgentSwatch } from "../AgentSwatch";
-import { useSetAgentPaused, type SocietyAgent } from "../data";
+import { useSetAgentPaused, useUpdateAgentConfig, type SocietyAgent } from "../data";
 import { DodaiosHistoryRail } from "../chat/DodaiosHistoryRail";
 import { AgentBrowserPreview } from "./AgentBrowserPreview";
+import { useDetailsPane } from "./AgentChatLayout";
 import { AgentRoutinesList } from "./AgentRoutinesList";
 import { RetireButton } from "./RetireButton";
 import { MemoryTab } from "./pane/MemoryTab";
@@ -50,6 +40,7 @@ import { OverviewTab } from "./pane/OverviewTab";
 import { usePaneStack, usePaneTab, type PaneTab } from "./pane/paneState";
 import { useReviewQueue } from "./pane/reviewQueue";
 import { FilesPage, InstructionsPage, MemoryFilePage, SkillsPage } from "./pane/SubPages";
+import { InlineEdit } from "./pane/ui";
 import { ToolsTab } from "./pane/ToolsTab";
 import "./pane/agentPane.css";
 
@@ -61,24 +52,21 @@ export interface OptionsRailProps {
   onRetired: () => void;
   /** True when rows come from the sample roster rather than society.db. */
   sample?: boolean;
-  /** The width the layout gives the pane, in px; the pane adapts its tab labels to it. */
+  /** The width the layout gives the pane, in px. */
   width?: number;
+  /** Reports a model save from the Details tab, so the composer holds Send meanwhile. */
+  onModelSavingChange?: (saving: boolean) => void;
 }
 
-const TAB_ICONS: Record<PaneTab, LucideIcon> = {
-  overview: LayoutGrid,
-  tools: Wrench,
-  memory: Lightbulb,
-  tasks: ListChecks,
-  browser: Monitor,
-  history: History,
-};
+/** The tabs shown as words; the others open from rows in Details. */
+const PRIMARY_TABS: readonly PaneTab[] = ["overview", "memory", "tasks", "browser"];
 
-export function OptionsRail({ agent, onRetired, sample = false, width }: OptionsRailProps) {
+export function OptionsRail({ agent, onRetired, sample = false, width, onModelSavingChange }: OptionsRailProps) {
   const t = useT();
   useLocaleChunk("society");
   const lead = agent.tier === "lead";
   const assistantName = useEventStore((s) => s.assistantName);
+  const pane = useDetailsPane();
   const available: PaneTab[] = lead
     ? ["overview", "tools", "memory", "tasks", "browser", "history"]
     : ["overview", "tools", "memory", "tasks", "browser"];
@@ -92,6 +80,7 @@ export function OptionsRail({ agent, onRetired, sample = false, width }: Options
   // agent's routine notebook writes wait quietly in the list.
   const pending = (queue.data?.counts?.proposal ?? 0) + (queue.data?.counts?.memory_share ?? 0);
   const { reset } = stack;
+  const name = societyDisplayName(agent, assistantName);
 
   useEffect(() => {
     setAppearanceOpen(false);
@@ -110,6 +99,7 @@ export function OptionsRail({ agent, onRetired, sample = false, width }: Options
 
   const page = stack.page;
   const tabLabel = (id: PaneTab) => t(`society.agent_pane.tab_${id}`);
+  const secondary = !PRIMARY_TABS.includes(tab);
 
   return (
     <aside
@@ -122,38 +112,35 @@ export function OptionsRail({ agent, onRetired, sample = false, width }: Options
       <PaneHeader
         agent={agent}
         sample={sample}
-        name={societyDisplayName(agent, assistantName)}
+        name={name}
         onLook={() => setAppearanceOpen(true)}
         onShare={() => setShareOpen(true)}
         onRetired={onRetired}
+        onClose={pane?.close}
       />
       <Tabs.Root value={tab} onValueChange={(value) => choose(value as PaneTab)} className="flex min-h-0 flex-1 flex-col">
         <Tabs.List className="ap-tabs" aria-label={t("society.agent_pane.tabs")}>
-          {available.map((id) => {
-            const Icon = TAB_ICONS[id];
-            return (
-              <Tabs.Trigger
-                key={id}
-                value={id}
-                className="ap-tab"
-                aria-label={tabLabel(id)}
-                title={tabLabel(id)}
-                data-testid={`agent-pane-tab-${id}`}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span className="ap-tab-label">{tabLabel(id)}</span>
-                {id === "memory" && pending > 0 ? <span className="ap-tab-badge" aria-hidden /> : null}
-              </Tabs.Trigger>
-            );
-          })}
+          {PRIMARY_TABS.map((id) => (
+            <Tabs.Trigger key={id} value={id} className="ap-tab" data-testid={`agent-pane-tab-${id}`}>
+              {tabLabel(id)}
+              {id === "memory" && pending > 0 ? <span className="ap-tab-badge" aria-hidden /> : null}
+            </Tabs.Trigger>
+          ))}
         </Tabs.List>
 
-        {page ? (
+        {page || secondary ? (
           <div className="ap-sub" data-testid="agent-pane-subpage">
-            <button type="button" className="ap-icon-btn" onClick={stack.back} aria-label={t("society.agent_pane.back")} title={t("society.agent_pane.back")} data-testid="agent-pane-back">
+            <button
+              type="button"
+              className="ap-icon-btn"
+              onClick={page ? stack.back : () => choose("overview")}
+              aria-label={t("society.agent_pane.back")}
+              title={t("society.agent_pane.back")}
+              data-testid="agent-pane-back"
+            >
               <ChevronLeft className="h-4 w-4" aria-hidden />
             </button>
-            <span className="truncate">{page.title}</span>
+            <span className="truncate">{page ? page.title : tabLabel(tab)}</span>
           </div>
         ) : null}
         {page ? (
@@ -181,7 +168,8 @@ export function OptionsRail({ agent, onRetired, sample = false, width }: Options
               className={cn("min-h-0 flex-1 flex-col outline-none", active ? "flex" : "hidden")}
             >
               {id === "overview" ? (
-                <OverviewTab key={agent.agentId} agent={agent} sample={sample} queue={queue.data} onTab={choose} onPage={stack.push} />
+                <OverviewTab key={agent.agentId} agent={agent} sample={sample} queue={queue.data} onTab={choose} onPage={stack.push}
+                  onModelSavingChange={onModelSavingChange} />
               ) : id === "tools" ? (
                 <ToolsTab key={agent.agentId} agent={agent} sample={sample} />
               ) : id === "memory" ? (
@@ -222,6 +210,7 @@ function PaneHeader({
   onLook,
   onShare,
   onRetired,
+  onClose,
 }: {
   agent: SocietyAgent;
   sample: boolean;
@@ -229,10 +218,12 @@ function PaneHeader({
   onLook: () => void;
   onShare: () => void;
   onRetired: () => void;
+  onClose?: () => void;
 }) {
   const t = useT();
   const lead = agent.tier === "lead";
   const setPaused = useSetAgentPaused();
+  const update = useUpdateAgentConfig();
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -273,55 +264,83 @@ function PaneHeader({
 
   return (
     <header className="ap-head">
-      <span className="ap-avatar">
-        <AgentSwatch agent={agent} size={30} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h2 className="ap-name" title={name}>{name}</h2>
-        <div className="ap-meta">
-          <span className="ap-dot" data-state={agent.state} aria-hidden />
-          <span className="shrink-0">{t(`society.state.${agent.state}`)}</span>
-          {agent.title && agent.title !== name ? <span className="truncate">· {agent.title}</span> : null}
-        </div>
-      </div>
-      <button type="button" className="ap-icon-btn" onClick={onLook} aria-label={t("society.companion.appearance")} title={t("society.companion.appearance")} data-testid="edit-agent-appearance">
-        <Palette className="h-4 w-4" aria-hidden />
-      </button>
-      {/* The lead is every install's own assistant and sample rows are not real agents: neither is shareable. */}
-      {!lead && !sample ? (
-        <button type="button" className="ap-icon-btn" onClick={onShare} aria-label={t("society.share.cta")} title={t("society.share.cta_hint")} data-testid="share-agent">
-          <Share2 className="h-4 w-4" aria-hidden />
-        </button>
-      ) : null}
-      <div ref={moreRef} className="relative">
-        <button
-          ref={triggerRef}
-          type="button"
-          className="ap-icon-btn"
-          aria-label={t("society.card.options_more")}
-          aria-expanded={more}
-          aria-haspopup="menu"
-          onClick={() => setMore((v) => !v)}
-          data-testid="agent-card-options-more"
-        >
-          <MoreHorizontal className="h-4 w-4" aria-hidden />
-        </button>
-        {more ? (
-          <div role="menu" className="ap-menu shadow-float">
-            {!lead ? (
-              <>
+      <div className="ap-head-actions">
+        <div ref={moreRef} className="relative">
+          <button
+            ref={triggerRef}
+            type="button"
+            className="ap-round-btn"
+            aria-label={t("society.card.options_more")}
+            title={t("society.card.options_more")}
+            aria-expanded={more}
+            aria-haspopup="menu"
+            onClick={() => setMore((v) => !v)}
+            data-testid="agent-card-options-more"
+          >
+            <MoreHorizontal className="h-4 w-4" aria-hidden />
+          </button>
+          {more ? (
+            <div role="menu" className="ap-menu shadow-float">
+              <button type="button" role="menuitem" className="ap-menu-item" data-testid="edit-agent-appearance"
+                onClick={() => { setMore(false); onLook(); }}>
+                {t("society.companion.appearance")}
+              </button>
+              {/* The lead is every install's own assistant and sample rows are not real agents: neither is shareable. */}
+              {!lead && !sample ? (
+                <button type="button" role="menuitem" className="ap-menu-item" data-testid="share-agent" title={t("society.share.cta_hint")}
+                  onClick={() => { setMore(false); onShare(); }}>
+                  {t("society.share.cta")}
+                </button>
+              ) : null}
+              {!lead ? (
                 <button type="button" role="menuitem" className="ap-menu-item" disabled={busy} onClick={() => void togglePause()} data-testid="agent-pane-pause">
-                  {paused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
                   {paused ? t("society.card.action_resume") : t("society.card.action_pause")}
                 </button>
-                <div className="ap-menu-sep" role="separator" />
-              </>
-            ) : null}
-            <div className="p-2">
-              <RetireButton agent={agent} onRetired={onRetired} variant="rail" />
+              ) : null}
+              <div className="ap-menu-sep" role="separator" />
+              <RetireButton agent={agent} onRetired={onRetired} variant="menu" />
             </div>
-          </div>
+          ) : null}
+        </div>
+        {onClose ? (
+          <button type="button" className="ap-round-btn" onClick={onClose} aria-label={t("society.agent_pane.close")}
+            title={t("society.agent_pane.close")} data-testid="agent-pane-close">
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         ) : null}
+      </div>
+      <span className="ap-avatar">
+        <AgentSwatch agent={agent} size={72} />
+      </span>
+      {/* Name and role are edited in place, right where they are read. */}
+      <h2 className="ap-name" title={lead ? t("society.agent_pane.lead_name_hint") : name}>
+        {lead || sample ? name : (
+          <InlineEdit
+            value={agent.name}
+            label={t("society.agent_pane.rename")}
+            maxLength={40}
+            className="ap-head-edit"
+            testId="agent-pane-name"
+            onSave={async (next) => {
+              if (!next) throw new Error(t("society.agent_pane.name_required"));
+              await update(agent, { name: next });
+            }}
+          />
+        )}
+      </h2>
+      <div className="ap-meta">
+        {paused ? <span className="block">{t("society.state.paused")}</span> : null}
+        {sample || lead ? (agent.title && agent.title !== name ? <span>{agent.title}</span> : null) : <InlineEdit
+          value={agent.title}
+          label={t("society.agent_pane.edit_role")}
+          placeholder={t("society.agent_pane.role_placeholder")}
+          maxLength={120}
+          className="ap-head-edit"
+          testId="agent-pane-role"
+          onSave={async (title) => {
+            await update(agent, { title });
+          }}
+        />}
       </div>
     </header>
   );

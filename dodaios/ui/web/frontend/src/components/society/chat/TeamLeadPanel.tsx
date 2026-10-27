@@ -78,8 +78,8 @@ function StateChip({ state, label }: { state: string; label: string }) {
 function Section({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title}{count ? <span className="rounded-full bg-secondary px-1.5 text-[11px] normal-case tracking-normal">{count}</span> : null}
+      <h3 className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+        {title}{count ? <span className="rounded-full bg-secondary px-1.5 text-[12px]">{count}</span> : null}
       </h3>
       {children}
     </section>
@@ -93,7 +93,7 @@ function Fold({ title, open, onToggle, testId, children }: {
   return (
     <section className="flex flex-col gap-2" data-testid={testId}>
       <button type="button" aria-expanded={open} onClick={onToggle}
-        className="flex items-center gap-1 rounded-sm text-left text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        className="flex items-center gap-1 rounded-sm text-left text-[13px] font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !open && "-rotate-90")} aria-hidden />{title}
       </button>
       {open ? children : null}

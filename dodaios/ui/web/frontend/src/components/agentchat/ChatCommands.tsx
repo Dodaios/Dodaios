@@ -186,7 +186,7 @@ export function ChatCommandPanel({ control, anchorRef }: { control: ReturnType<t
   const goal = control.state?.goal;
   return <div className="relative text-xs" data-testid="chat-commands">
     {control.state?.mode === "plan" ? <div className="mb-2 rounded-md border border-border bg-secondary px-3 py-2">{t("slash.plan_active")}</div> : null}
-    {control.state?.mode === "build" ? <div className="mb-2 px-1 text-muted-foreground">{t("slash.build_active")}</div> : null}
+    {/* Build is the ordinary mode: only Plan, the exception, gets a banner. */}
     {goal && goal.status !== "cleared" ? <div className="mb-2 rounded-lg border border-border bg-card p-3" data-testid="chat-goal">
       <div className="flex items-center gap-2"><span className="font-medium">{t(`slash.goal_${goal.status}`)}</span>
         <span className="ml-auto text-muted-foreground">{goal.steps} {t("slash.steps")}</span>
