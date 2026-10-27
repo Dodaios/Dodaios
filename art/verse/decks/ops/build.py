@@ -21,7 +21,7 @@ DECK_ID = "ops"
 
 
 def build() -> None:
-    from decks.ops import arch, dressing, facade, mats
+    from decks.ops import arch, cladding, dressing, facade, fitout, mats
     from decks.ops import layout as L
 
     mats.ensure()
@@ -32,6 +32,9 @@ def build() -> None:
     arch.build(cavities=facade.cavities())
     bays = facade.build()
     dressing.build(bays)
+    # Eye-level detail: fit-out props and services, then the wall cladding
+    # (which keeps its terminals off the walls the props stand against).
+    cladding.build(fitout.build())
 
 
 if __name__ == "__main__":
