@@ -8,8 +8,8 @@ import type { ApprovalState, ToolBlock } from "../reduce";
 import { ToolChoiceIcon } from "../ToolChoiceChips";
 import type { ToolChoice } from "../toolChoices";
 import { ActionCard, type ActionSpec, type SettledSpec } from "./ActionCard";
-import { approvalTitle, cardInfoOf, outcomeLabel, outcomeTone, ruleSentence, savedRuleSentence, sourceLabel } from "./approvalCopy";
-import type { ApprovalCardInfo, ApprovalRuleOffer, RuleBreadth, RuleScope } from "./approvalInfo";
+import { approvalTitle, cardInfoOf, narrowSentence, outcomeLabel, outcomeTone, ruleSentence, savedRuleSentence, shownSummary, sourceLabel } from "./approvalCopy";
+import type { ApprovalCardInfo, ApprovalRuleOffer, RuleBreadth, RuleNarrow, RuleScope } from "./approvalInfo";
 import { claimKeyboardTarget, TARGET_PRIORITY } from "./keyboardTarget";
 
 /** How a surface answers an approval: by its id, the decision, and where an "always" lives. */
@@ -19,9 +19,10 @@ type T = (key: string) => string;
 
 /**
  * A tool approval on the action card. Open, it asks in plain words with
- * "Allow once" first; an "Always allow" that can become a standing rule opens
- * a small chooser (this agent or this chat, this action or the whole app)
- * before it saves. Answered, it stays in the chat as one line that says what
+ * "Allow once" first (it answers at once); "Always allow" never saves on its
+ * own: it opens a small rule editor (the rule as a sentence; this agent or
+ * this chat; this action or the whole app, this folder or this command) and
+ * only its Save answers. Answered, it stays in the chat as one line that says what
  * happened, rebuilt from the event log after a reload.
  */
 export const ApprovalActionCard = memo(function ApprovalActionCard({ block, onDecide }: { block: ToolBlock; onDecide?: ApprovalDecide }) {
@@ -65,8 +66,8 @@ function subtitleLines(info: ApprovalCardInfo, approval: ApprovalState, title: s
     lines.push(fill(t(kind === "browser" ? "action_card.field.on" : "action_card.field.in"), { where: info.where }));
   }
   // A command is read in its own block below; a summary that only repeats it says nothing new.
-  const what = approval.summary.trim();
-  const repeatsCommand = kind === "terminal" && Boolean(info.detail) && info.detail.startsWith(what);
+  const what = shownSummary(info, approval.summary);
+  const repeatsCommand = kind === "terminal" && Boolean(info.detail) && info.detail.startsWith(approval.summary.trim());
   if (what && !repeatsCommand && kind !== "plan" && what !== title) lines.push(<span className="text-foreground-secondary">{what}</span>);
   if (info.why) lines.push(fill(t("action_card.field.why"), { why: info.why }));
   return lines;
@@ -94,7 +95,6 @@ function OpenApproval({ block, approval, info, onDecide }: {
   const kind = info.source.kind;
   const isPlan = kind === "plan";
   const offer = isPlan ? null : info.rule;
-  const withChooser = Boolean(offer?.scopes.includes("agent"));
   const title = approvalTitle(info, t);
 
   const decide = async (decision: ApprovalDecision, rule?: ApprovalRuleChoice) => {
@@ -130,8 +130,8 @@ function OpenApproval({ block, approval, info, onDecide }: {
     : [
       { id: "allow", label: t("action_card.allow_once"), tone: "primary", onSelect: () => void decide("allow"), disabled: !onDecide, reason: elsewhere, testId: "action-card-allow" },
       ...(offer ? [{
-        id: "allow_always", label: withChooser ? t("action_card.always_allow_more") : t("action_card.always_allow"), tone: "secondary" as const,
-        onSelect: () => (withChooser ? setChoosing(true) : void decide("allow_always", offer.scopes.includes("chat") ? { scope: "chat" } : undefined)),
+        id: "allow_always", label: t("action_card.always_allow_more"), tone: "secondary" as const,
+        onSelect: () => setChoosing(true),
         disabled: !onDecide, reason: elsewhere, hint: chatHint, testId: "action-card-always",
       }] : []),
       { id: "deny", label: t("action_card.deny"), tone: "tertiary", onSelect: () => void decide("deny"), disabled: !onDecide, reason: elsewhere, hint: t("action_card.deny_esc"), keyShortcut: "Escape", testId: "action-card-deny" },
@@ -162,39 +162,78 @@ function OpenApproval({ block, approval, info, onDecide }: {
   </ActionCard>;
 }
 
-/** "Make it a rule": where the "always" lives and how wide it reaches, read back as a sentence. */
+/** How far a chat rule reaches: one narrow option, or the whole tool / chat. */
+type Reach = RuleNarrow | "tool";
+
+/** The rule as one sentence, for the scope and reach picked in the editor. */
+export function editorSentence(offer: ApprovalRuleOffer, scope: RuleScope, breadth: RuleBreadth, reach: Reach, t: T): string {
+  if (scope === "agent") return ruleSentence("always_allow", offer.app, breadth === "action" ? offer.verb : "", t);
+  const narrow = reach === "tool" ? null : offer.narrow.find((option) => option.kind === reach);
+  if (narrow) return narrowSentence(narrow.kind, narrow.label, t);
+  if (offer.chat === "all") return t("action_card.rule.always_everything");
+  return ruleSentence("always_allow", offer.app, "", t);
+}
+
+function whereLine(offer: ApprovalRuleOffer, scope: RuleScope, reach: Reach, t: T): string {
+  if (scope === "agent") return t("action_card.rule.where_agent");
+  if (reach === "tool" && offer.chat === "all") return t("action_card.rule.chat_all");
+  return t("action_card.rule.where_chat");
+}
+
+/**
+ * "Always allow" as a small rule editor: the rule read back as a sentence,
+ * where it lives (this agent / this chat) and how far it reaches (one
+ * action or the whole app on the agent; only this folder or this command,
+ * or the whole tool, in the chat). Nothing is saved until Save; Cancel goes
+ * back to the card's three answers. The narrowest reach is picked first.
+ */
 export function RuleChooser({ offer, pending, onSave, onBack }: {
   offer: ApprovalRuleOffer; pending: boolean; onSave: (choice: ApprovalRuleChoice) => void; onBack: () => void;
 }) {
   const t = useT();
-  const [scope, setScope] = useState<RuleScope>(offer.scopes.includes("agent") ? "agent" : "chat");
+  // "This chat" is always possible: a runtime that remembers its own "always"
+  // remembers it for this chat, and a surface without its own memory stops
+  // asking in this chat (the sentence says which).
+  const scopes: RuleScope[] = offer.scopes.includes("agent") ? ["agent", "chat"] : ["chat"];
+  const [scope, setScope] = useState<RuleScope>(scopes[0]);
   const [breadth, setBreadth] = useState<RuleBreadth>("action");
-  const verb = scope === "agent" && breadth === "action" ? offer.verb : "";
-  const sentence = scope === "chat"
-    ? ruleSentence("always_allow", offer.app, "", t)
-    : ruleSentence("always_allow", offer.app, verb, t);
+  const [reach, setReach] = useState<Reach>(offer.narrow[0]?.kind ?? "tool");
+  const sentence = editorSentence(offer, scope, breadth, reach, t);
+  const wideLabel = offer.chat === "all"
+    ? t("action_card.rule.reach_everything")
+    : offer.app ? fill(t("action_card.rule.breadth_app"), { app: offer.app }) : t("action_card.rule.reach_tool_plain");
+  const save = () => {
+    if (scope === "agent") onSave({ scope, breadth });
+    else onSave(reach === "tool" ? { scope, breadth: "action" } : { scope, breadth: "action", narrow: reach });
+  };
   return <div className="action-card-rule" data-testid="action-card-rule">
     <p className="m-0 text-xs font-medium text-foreground">{t("action_card.rule.heading")}</p>
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <Segments label={t("action_card.rule.scope_label")} value={scope} onChange={setScope}
-        options={offer.scopes.map((s) => ({ value: s, label: t(`action_card.rule.scope_${s}`) }))} />
+        options={scopes.map((s) => ({ value: s, label: t(`action_card.rule.scope_${s}`) }))} />
       {scope === "agent" && offer.verb ? <Segments label={t("action_card.rule.breadth_label")} value={breadth} onChange={setBreadth}
         options={[
           { value: "action", label: fill(t("action_card.rule.breadth_action"), { verb: offer.verb }) },
           { value: "app", label: fill(t("action_card.rule.breadth_app"), { app: offer.app }) },
         ]} /> : null}
+      {scope === "chat" && offer.narrow.length ? <Segments label={t("action_card.rule.breadth_label")} value={reach} onChange={setReach}
+        options={[
+          ...offer.narrow.map((option) => ({ value: option.kind as Reach, label: t(`action_card.rule.reach_${option.kind}`) })),
+          { value: "tool" as Reach, label: wideLabel },
+        ]} /> : null}
     </div>
-    <p className="mt-2.5 text-sm font-medium text-foreground-strong" data-testid="action-card-rule-text">{sentence}</p>
-    <p className="m-0 mt-0.5 text-xs leading-5 text-muted-foreground">
-      {t(scope === "agent" ? "action_card.rule.where_agent" : "action_card.rule.where_chat")}
+    <p className="mt-2.5 break-words text-sm font-medium text-foreground-strong" data-testid="action-card-rule-text">{sentence}</p>
+    <p className="m-0 mt-0.5 text-xs leading-5 text-muted-foreground" data-testid="action-card-rule-where">
+      {whereLine(offer, scope, reach, t)}
     </p>
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <button type="button" className="action-card-button" data-tone="primary" disabled={pending} data-testid="action-card-rule-save"
-        onClick={() => onSave({ scope, breadth: scope === "agent" ? breadth : "action" })}>
+        onClick={save}>
         {t("action_card.rule.save_allow")}
       </button>
-      <button type="button" className="action-card-button" data-tone="tertiary" disabled={pending} onClick={onBack}>
-        {t("action_card.rule.back")}
+      <button type="button" className="action-card-button" data-tone="tertiary" disabled={pending} onClick={onBack}
+        data-testid="action-card-rule-cancel">
+        {t("action_card.rule.cancel")}
       </button>
     </div>
   </div>;
@@ -257,14 +296,14 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
   }
   const savedText = saved
     ? saved.scope === "chat"
-      ? fill(t("action_card.rule.saved_chat"), { app: saved.app || title })
+      ? fill(t("action_card.rule.saved_chat"), { app: saved.narrow && saved.target ? savedRuleSentence(saved, t) : saved.app || title })
       : fill(t("action_card.rule.saved"), { rule: savedRuleSentence(saved, t) })
     : "";
   const note = decision === "expired" || decision === "cancel" || decision === "deny" ? t(`action_card.outcome_note.${decision}`) : "";
   const settled: SettledSpec = {
     tone: outcomeTone(decision),
     label: outcomeLabel(decision, t),
-    detail: approval.summary.trim() || title,
+    detail: shownSummary(info, approval.summary) || title,
     actions,
     receipt: saved ? <span className="action-card-receipt" title={savedText} data-testid="action-card-rule-saved">
       <Check aria-hidden />{t("action_card.rule.saved_short")}

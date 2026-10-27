@@ -1,6 +1,6 @@
 import { fill } from "@/i18n";
 import type { ToolBlock } from "../reduce";
-import type { ApprovalCardInfo, ApprovalSourceKind, RuleBreadth, RuleKind, SavedApprovalRule } from "./approvalInfo";
+import type { ApprovalCardInfo, ApprovalSourceKind, RuleBreadth, RuleKind, RuleNarrow, SavedApprovalRule } from "./approvalInfo";
 import { maskText, maskedRequest } from "./redact";
 
 type T = (key: string) => string;
@@ -20,7 +20,7 @@ function humanize(raw: string): string {
  */
 export function cardInfoOf(block: ToolBlock): ApprovalCardInfo {
   const known = block.approval?.card;
-  if (known) return { ...known, detail: maskText(known.detail) };
+  if (known) return { ...known, where: shortenHome(known.where), detail: maskText(known.detail) };
   const name = block.name || "";
   const input = block.input && typeof block.input === "object" ? (block.input as Record<string, unknown>) : {};
   let kind: ApprovalSourceKind = "tool";
@@ -35,7 +35,7 @@ export function cardInfoOf(block: ToolBlock): ApprovalCardInfo {
     app = humanize(OWN_SERVER.test(name) ? tool : server);
   } else if (typeof input.command === "string") kind = "terminal";
   else app = name;
-  const where = (kind === "terminal" || kind === "files") && typeof input.cwd === "string" ? input.cwd : "";
+  const where = (kind === "terminal" || kind === "files") && typeof input.cwd === "string" ? shortenHome(input.cwd) : "";
   const why = typeof input.description === "string" ? maskText(input.description) : "";
   return {
     source: { kind, app, verb: typeof input.action === "string" && /^[a-z][a-z0-9_.-]{0,39}$/.test(input.action) ? input.action : "" },
@@ -43,8 +43,9 @@ export function cardInfoOf(block: ToolBlock): ApprovalCardInfo {
     why,
     caution: null,
     detail: kind === "plan" ? "" : maskedRequest(block.input),
+    brief: "",
     // An older card cannot say what its "always" saves; it does what it always did.
-    rule: kind === "plan" ? null : { scopes: [], chat: "", app: "", verb: "", pattern: "", broad: "" },
+    rule: kind === "plan" ? null : { scopes: [], chat: "", app: "", verb: "", pattern: "", broad: "", narrow: [] },
   };
 }
 
@@ -90,7 +91,35 @@ export function ruleSentence(kind: RuleKind, app: string, verb: string, t: T): s
 }
 
 export function savedRuleSentence(rule: SavedApprovalRule, t: T): string {
+  if (rule.narrow && rule.target) return narrowSentence(rule.narrow, rule.target, t);
   return ruleSentence(rule.kind, rule.app, rule.verb, t);
+}
+
+/** A narrow chat rule as the person reads it: "Always allow changes to files in src". */
+export function narrowSentence(narrow: RuleNarrow, target: string, t: T): string {
+  return narrow === "folder"
+    ? fill(t("action_card.rule.always_folder"), { folder: target })
+    : fill(t("action_card.rule.always_command"), { command: target });
+}
+
+/** A user-profile folder, Windows or POSIX; system profiles are left alone. */
+const WIN_HOME = /\b[A-Za-z]:[\\/]Users[\\/](?!(?:Public|Default|All Users)(?:[\\/]|$))[^\\/\s"'`]+(?=[\\/]|$|[\s"'`),;])/gi;
+const POSIX_HOME = /(^|[\s"'`(=:])\/(?:Users|home)\/(?!Shared(?:\/|$))[^/\s"'`]+(?=\/|$|[\s"'`),;])/g;
+
+/**
+ * `text` with the person's home folder shown as `~`: the card's visible
+ * lines never spell out the profile folder (the backend also makes paths
+ * relative to the workspace; this covers events written before it did). The
+ * full path stays in the details disclosure.
+ */
+export function shortenHome(text: string): string {
+  if (!text) return text;
+  return text.replace(WIN_HOME, "~").replace(POSIX_HOME, "$1~");
+}
+
+/** The summary a card shows: the backend's short-path brief, else the summary with `~`. */
+export function shownSummary(info: ApprovalCardInfo, summary: string): string {
+  return (info.brief || shortenHome(summary)).trim();
 }
 
 /** The verb a rule of this breadth is about. */

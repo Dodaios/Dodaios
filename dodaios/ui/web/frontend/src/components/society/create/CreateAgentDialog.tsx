@@ -184,7 +184,8 @@ function CreateAgentDialog() {
       if (mode === "starter" && starter && copy) {
         const result = await installStarter({
           starterId: starter.id,
-          name: starterName,
+          // The name is optional: an emptied field keeps the starter's own.
+          name: starterName.trim() || copy.name,
           tools: [...picked],
           withRoutine: Boolean(starter.routine && routineOn),
           seat: starterSeat(seat.pick, companion),
@@ -195,7 +196,7 @@ function CreateAgentDialog() {
       if (mode === "import" && imported.template) {
         const result = await installStarter({
           template: imported.template,
-          name: importName,
+          name: importName.trim() || imported.preview?.template?.name || "",
           tools: [...importPicked],
           seat: starterSeat(seat.pick, companion),
         });
@@ -346,6 +347,7 @@ function CreateAgentDialog() {
                     <TemplatePreviewCard
                       icon={<StarterIcon name={starter.icon} />}
                       name={starterName}
+                      defaultName={copy.name}
                       onNameChange={setStarterName}
                       outcome={copy.outcome}
                       summary={starter.summary}
@@ -375,6 +377,7 @@ function CreateAgentDialog() {
                     <TemplatePreviewCard
                       icon={<FileInput />}
                       name={importName}
+                      defaultName={imported.preview.template.name}
                       onNameChange={setImportName}
                       outcome={imported.preview.template.title || t("agent_create.import.no_title")}
                       summary={imported.preview.summary}

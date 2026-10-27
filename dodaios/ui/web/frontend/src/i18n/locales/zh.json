@@ -10783,7 +10783,15 @@
       "saved_chat": "已在此对话中允许：{app}",
       "saved_short": "规则已保存",
       "still_asks": "仍有更严格的规则会先询问。",
-      "save_failed": "无法保存规则。"
+      "save_failed": "无法保存规则。",
+      "always_folder": "始终允许修改 {folder} 中的文件",
+      "always_command": "始终允许命令 {command}",
+      "always_everything": "在此聊天中始终允许一切",
+      "reach_folder": "仅此文件夹",
+      "reach_command": "仅此命令",
+      "reach_everything": "此聊天中的一切",
+      "reach_tool_plain": "整个工具",
+      "cancel": "取消"
     }
   }
 }

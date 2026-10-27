@@ -118,16 +118,37 @@ export function blockedReasonKey(code: string): string {
     : "society.create_agent.access_blocked";
 }
 
-/** The access to use: ``kind`` when it can be picked, else the first that can. */
+/**
+ * What an access costs on top of what is already paid for: 0 a plan (a
+ * subscription billed to the plan), 1 a model on this machine, 2 billed per
+ * use (an API key, or Claude's login on Hermes / OpenClaw, which Anthropic
+ * charges as extra usage). A fresh agent never starts on a 2 while a 0 or a 1
+ * is connected.
+ */
+export function costRank(option: AccessOption): number {
+  if (option.kind === "subscription" && !option.extraUsage) return 0;
+  if (option.kind === "local") return 1;
+  return 2;
+}
+
+/** True when this access bills every use: the dialog then says so in plain sight. */
+export function billedPerUse(option: AccessOption | null): boolean {
+  return Boolean(option && costRank(option) === 2);
+}
+
+/** The access to use: ``kind`` when it can be picked, else the cheapest that can. */
 export function pickableOption(choice: ProviderChoice | null, kind = ""): AccessOption | null {
   const open = choice?.options.filter((option) => !option.blocked) ?? [];
-  return open.find((option) => option.kind === kind) ?? open[0] ?? null;
+  const asked = open.find((option) => option.kind === kind);
+  if (asked) return asked;
+  return open.reduce<AccessOption | null>((best, option) => (!best || costRank(option) < costRank(best) ? option : best), null);
 }
 
 /**
- * The providers to offer, best access first: a provider with a subscription
- * comes before one with only an API key (a plan already paid for beats a
- * metered key — the maintainer's stated preference), then by name.
+ * The providers to offer, cheapest access first: a provider with a plan
+ * already paid for comes before a local model, and both before anything
+ * billed per use (an API key, a subscription charged as extra usage), then by
+ * name. The first entry is what a fresh agent starts on.
  */
 export function providerChoices(
   seats: BrainSeat[],
@@ -159,7 +180,7 @@ export function providerChoices(
   }
   // A provider whose every access is refused right now sorts last.
   const best = (choice: ProviderChoice) => Math.min(
-    ...choice.options.map((option) => (option.blocked ? 10 : 0) + KIND_ORDER[option.kind]));
+    ...choice.options.map((option) => (option.blocked ? 10 : 0) + costRank(option)));
   return [...byBrand.values()]
     .filter((choice) => choice.options.length > 0)
     .map((choice) => ({ ...choice, options: [...choice.options].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) }))

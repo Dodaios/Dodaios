@@ -4,6 +4,7 @@ import type { AgentChatEvent } from "@/lib/agentChatApi";
 import { claimKeyboardTarget, TARGET_PRIORITY } from "./keyboardTarget";
 import { maskedRequest, maskText } from "./redact";
 import { parseApprovalCard, parseSavedRule } from "./approvalInfo";
+import { shortenHome } from "./approvalCopy";
 
 let seq = 0;
 const ev = (kind: string, payload: Record<string, unknown>): AgentChatEvent => ({ seq: ++seq, ts_ms: seq, kind, payload } as AgentChatEvent);
@@ -121,5 +122,30 @@ describe("the reducer and the card fields", () => {
       rule: { kind: "always_allow", scope: "agent", pattern: "plugin:gmail", stillAsks: true },
     });
     expect(tl.pendingApprovals).toEqual([]);
+  });
+});
+
+describe("short paths and narrow rules", () => {
+  it("shows the home folder as ~ and leaves other paths alone", () => {
+    const win = String.raw`Edit C:\Users\Ada\Desktop\a.py`;
+    expect(shortenHome(win)).toBe(String.raw`Edit ~\Desktop\a.py`);
+    expect(shortenHome("open c:/users/ada/notes.md")).toBe("open ~/notes.md");
+    expect(shortenHome("cat /home/bob/x.txt and /Users/eve")).toBe("cat ~/x.txt and ~");
+    expect(shortenHome(String.raw`C:\Users\Public\x`)).toBe(String.raw`C:\Users\Public\x`);
+    expect(shortenHome("/srv/home/bob")).toBe("/srv/home/bob");
+    expect(shortenHome("")).toBe("");
+  });
+
+  it("parses narrow options and a saved narrow rule, tolerating junk", () => {
+    const info = parseApprovalCard({
+      source: { kind: "files" }, brief: "Edit src/a.py",
+      rule: { scopes: [], chat: "runtime", narrow: [{ kind: "folder", label: "src" }, { kind: "disk", label: "x" }, "junk", { kind: "command" }] },
+    });
+    expect(info?.brief).toBe("Edit src/a.py");
+    expect(info?.rule?.narrow).toEqual([{ kind: "folder", label: "src" }]);
+    expect(parseApprovalCard({ source: { kind: "files" }, rule: { scopes: [] } })?.rule?.narrow).toEqual([]);
+    expect(parseSavedRule({ rule_kind: "always_allow", scope: "chat", narrow: "command", target: "npm test" }))
+      .toMatchObject({ narrow: "command", target: "npm test" });
+    expect(parseSavedRule({ rule_kind: "always_allow", scope: "chat", narrow: "planet" })?.narrow).toBeUndefined();
   });
 });
