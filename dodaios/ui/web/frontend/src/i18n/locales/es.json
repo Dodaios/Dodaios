@@ -7744,7 +7744,11 @@
       "write_other": "creó archivos",
       "image_one": "vio una imagen",
       "image_other": "vio imágenes",
-      "used": "usó {what}"
+      "used": "usó {what}",
+      "lookup_one": "consultó herramientas",
+      "lookup_other": "consultó herramientas",
+      "asked_one": "te preguntó",
+      "asked_other": "te preguntó"
     },
     "call": {
       "read": "Leyó {target}",
@@ -7752,7 +7756,9 @@
       "search": "Buscó {pattern}",
       "search_in": "Buscó {pattern} en {path}",
       "edit": "Editó {target}",
-      "write": "Creó {target}"
+      "write": "Creó {target}",
+      "lookup": "Consultó herramientas",
+      "asked": "Te preguntó"
     },
     "state": {
       "running": "En curso",

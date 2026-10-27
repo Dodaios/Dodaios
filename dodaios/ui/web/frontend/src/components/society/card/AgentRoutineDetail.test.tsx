@@ -96,8 +96,11 @@ test("latest means the newest execution even when only an older run has a separa
 test("pauses every timing, tests once, and requires a delete confirmation", async () => {
   const { fetcher, onClose } = setup(true);
   await waitFor(() => expect((screen.getByRole("switch") as HTMLButtonElement).disabled).toBe(false));
+  expect(screen.getByTestId("routine-switch-state").textContent).toBe("Active");
   fireEvent.click(screen.getByRole("switch"));
   await waitFor(() => expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("false"));
+  // The switch's words follow its state: a paused routine never reads "Active".
+  await waitFor(() => expect(screen.getByTestId("routine-switch-state").textContent).toBe("Paused"));
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(2);
   fireEvent.click(screen.getByText("Test run"));
   await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url.endsWith("/run"))).toHaveLength(1));

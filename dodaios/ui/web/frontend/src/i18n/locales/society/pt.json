@@ -292,6 +292,7 @@
       "send": "Enviar",
       "test_started": "Execução de teste iniciada.",
       "active": "Ativa",
+      "paused": "Pausada",
       "delete": "Eliminar",
       "test": "Execução de teste",
       "delete_confirm": "Eliminar esta rotina, todos os seus agendamentos e o histórico de execuções?",

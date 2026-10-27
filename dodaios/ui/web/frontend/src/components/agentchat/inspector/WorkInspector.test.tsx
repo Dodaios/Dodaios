@@ -116,6 +116,39 @@ describe("inspectorRows", () => {
     expect(inspectorRows(turn.blocks, { t, lang: "en", status: turn.status }).map((row) => row.kind)).toEqual(["reply"]);
   });
 
+  it("internal tools read in the product's words, never as raw ids", () => {
+    const turn = turnOf([
+      ev("turn_started", { turn_id: "t5", provider: "openrouter", runner: "hermes-cli" }),
+      ev("tool_call", { turn_id: "t5", call_id: "d1", name: "tool_describe", input: { name: "mcp_dodaios_society_ask_user" } }),
+      ev("tool_result", { turn_id: "t5", call_id: "d1", output: "tool_search result: schema", is_error: false }),
+      ev("tool_call", { turn_id: "t5", call_id: "s1", name: "tool_search", input: { query: "ask the person" } }),
+      ev("tool_result", { turn_id: "t5", call_id: "s1", output: "[]", is_error: false }),
+      ev("tool_call", { turn_id: "t5", call_id: "a1", name: "mcp_dodaios_society_ask_user", input: { questions: [{ question: "Which repo?" }] } }),
+      ev("tool_result", { turn_id: "t5", call_id: "a1", output: "main", is_error: false }),
+      ev("tool_call", { turn_id: "t5", call_id: "x1", name: "mcp_dodaios_society_status_board", input: {} }),
+      ev("tool_result", { turn_id: "t5", call_id: "x1", output: "ok", is_error: false }),
+      ev("turn_finished", { turn_id: "t5", status: "done", duration_ms: 1_000 }),
+    ]);
+    const rows = inspectorRows(turn.blocks, { t, lang: "en", status: turn.status });
+    expect(rows.map((row) => [row.label, row.preview])).toEqual([
+      ["Looked up tools", "Ask user"],
+      ["Looked up tools", "ask the person"],
+      ["Asked you", "Which repo?"],
+      ["Society status board", "ok"],
+    ]);
+  });
+
+  it("a call's own words keep their underscores in the preview", () => {
+    const turn = turnOf([
+      ev("turn_started", { turn_id: "t6", provider: "openai", runner: "brain" }),
+      ev("tool_call", { turn_id: "t6", call_id: "g1", name: "Grep", input: { pattern: "my_flag_name" } }),
+      ev("tool_result", { turn_id: "t6", call_id: "g1", output: "", is_error: false }),
+      ev("turn_finished", { turn_id: "t6", status: "done", duration_ms: 1_000 }),
+    ]);
+    const rows = inspectorRows(turn.blocks, { t, lang: "en", status: turn.status });
+    expect(rows[0].label).toContain("my_flag_name");
+  });
+
   it("previews take the first meaningful line, capped", () => {
     expect(previewOf("## Title\n\nbody")).toBe("Title");
     expect(previewOf("x".repeat(200)).length).toBe(80);

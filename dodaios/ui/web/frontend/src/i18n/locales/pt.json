@@ -7744,7 +7744,11 @@
       "write_other": "criou ficheiros",
       "image_one": "viu uma imagem",
       "image_other": "viu imagens",
-      "used": "usou {what}"
+      "used": "usou {what}",
+      "lookup_one": "consultou ferramentas",
+      "lookup_other": "consultou ferramentas",
+      "asked_one": "perguntou a você",
+      "asked_other": "perguntou a você"
     },
     "call": {
       "read": "Leu {target}",
@@ -7752,7 +7756,9 @@
       "search": "Pesquisou {pattern}",
       "search_in": "Pesquisou {pattern} em {path}",
       "edit": "Editou {target}",
-      "write": "Criou {target}"
+      "write": "Criou {target}",
+      "lookup": "Consultou ferramentas",
+      "asked": "Perguntou a você"
     },
     "state": {
       "running": "Em execução",

@@ -96,8 +96,12 @@ export const WorkInspector = memo(function WorkInspector({
     };
   }, []);
   // Opening moves focus into the pane, so the keyboard can read it at once.
+  // Following a new turn never takes focus from someone typing elsewhere.
   useEffect(() => {
-    pane.current?.focus({ preventScroll: true });
+    const focus = document.activeElement as HTMLElement | null;
+    const node = pane.current;
+    const typing = Boolean(focus && !node?.contains(focus) && focus.closest("input, textarea, select, [contenteditable='true']"));
+    if (!typing) node?.focus({ preventScroll: true });
   }, [turn.id]);
 
   const tokens = outputTokens(turn.usage ?? turn.liveUsage);

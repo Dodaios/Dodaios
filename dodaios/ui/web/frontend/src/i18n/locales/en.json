@@ -7744,7 +7744,11 @@
       "write_other": "created files",
       "image_one": "viewed an image",
       "image_other": "viewed images",
-      "used": "used {what}"
+      "used": "used {what}",
+      "lookup_one": "looked up tools",
+      "lookup_other": "looked up tools",
+      "asked_one": "asked you",
+      "asked_other": "asked you"
     },
     "call": {
       "read": "Read {target}",
@@ -7752,7 +7756,9 @@
       "search": "Searched for {pattern}",
       "search_in": "Searched for {pattern} in {path}",
       "edit": "Edited {target}",
-      "write": "Created {target}"
+      "write": "Created {target}",
+      "lookup": "Looked up tools",
+      "asked": "Asked you"
     },
     "state": {
       "running": "Running",
