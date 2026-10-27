@@ -55,8 +55,10 @@ interface ToolProps {
   t: (key: string) => string;
   /** The view on screen: bird's-eye, third or first person. */
   view: VerseView;
-  /** First person needs the deck's eye-level scene on the full-size stage. */
+  /** First person needs the deck's eye-level scene on the full-size stage or a roomy enough side panel. */
   firstAvailable: boolean;
+  /** Why first person is off, when it is not the default reason (a side panel too small). */
+  firstUnavailable?: string;
   onView: (view: VerseView) => void;
   onLift: () => void;
   onCommander: () => void;
@@ -77,7 +79,7 @@ const VIEW_LOOKS: Readonly<Record<VerseView, { label: string; path: string }>> =
   first: { label: "verse.tools.first", path: "M1 6.5c1.6-2.6 3.4-3.9 5.5-3.9s3.9 1.3 5.5 3.9c-1.6 2.6-3.4 3.9-5.5 3.9S2.6 9.1 1 6.5zM6.5 5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0-3" },
 };
 
-export function Toolbar({ t, view, firstAvailable, onView, onLift, onCommander, onSettings, onDuel, onHelp }: ToolProps) {
+export function Toolbar({ t, view, firstAvailable, firstUnavailable, onView, onLift, onCommander, onSettings, onDuel, onHelp }: ToolProps) {
   return (
     <nav className="verse-tools" aria-label={t("verse.stage.title")}>
       {/* The three views side by side, the one on screen pressed; 1, 2 and 3 pick one, V cycles them. */}
@@ -95,7 +97,7 @@ export function Toolbar({ t, view, firstAvailable, onView, onLift, onCommander, 
               aria-pressed={view === v}
               disabled={off}
               onClick={() => onView(v)}
-              title={off ? t("verse.tools.first_unavailable") : `${t(look.label)} (${key}, V)`}
+              title={off ? firstUnavailable ?? t("verse.tools.first_unavailable") :`${t(look.label)} (${key}, V)`}
             >
               {icon(look.path)}
               <span className="verse-tool-text">{t(look.label)}</span>

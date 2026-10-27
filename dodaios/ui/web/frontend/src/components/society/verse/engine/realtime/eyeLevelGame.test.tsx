@@ -14,7 +14,7 @@ import { StageRuntime, type FrameStats } from "../../runtime";
 import { syntheticDeck } from "../../testing/syntheticDeck";
 import { worldToPlate } from "../plateMath";
 import { plateToScreen } from "../view";
-import { eyeCapable, stageView } from "../stageView";
+import { COMPACT_EYE_MIN, eyeCapable, stageView } from "../stageView";
 import { CommanderControl, stationWithin } from "../../life/control";
 import type { Station } from "../../content/deck";
 import { FloatingLabels, PROMPT_AT } from "../../hud/FloatingLabels";
@@ -151,7 +151,21 @@ describe("which view the stage shows", () => {
     expect(stageView({ ...base, mode: "overview" })).toBe("plate");
   });
 
-  it("keeps the IDE panel, decks without an export and failed decks on the plate", () => {
+  it("walks a roomy IDE side panel at eye level too, a small or unmeasured one stays on the plate", () => {
+    const min = COMPACT_EYE_MIN;
+    expect(min).toEqual({ width: 480, height: 360 });
+    expect(stageView({ ...base, compact: true, width: min.width, height: min.height, mode: "follow" })).toBe("eye");
+    expect(eyeCapable({ ...base, compact: true, width: 900, height: 700 })).toBe(true);
+    expect(eyeCapable({ ...base, compact: true, width: min.width - 1, height: 700 })).toBe(false);
+    expect(eyeCapable({ ...base, compact: true, width: 900, height: min.height - 1 })).toBe(false);
+    expect(eyeCapable({ ...base, compact: true })).toBe(false);
+    expect(eyeCapable({ ...base, compact: true, width: 900, height: 700, failed: true })).toBe(false);
+    expect(eyeCapable({ ...base, compact: true, width: 900, height: 700, realtime: false })).toBe(false);
+    // The full-size stage never asks for a size.
+    expect(eyeCapable({ ...base, width: 10, height: 10 })).toBe(true);
+  });
+
+  it("keeps a small IDE panel, decks without an export and failed decks on the plate", () => {
     expect(stageView({ ...base, compact: true, mode: "follow" })).toBe("plate");
     expect(stageView({ ...base, realtime: false, mode: "follow" })).toBe("plate");
     expect(stageView({ ...base, failed: true, mode: "follow" })).toBe("plate");

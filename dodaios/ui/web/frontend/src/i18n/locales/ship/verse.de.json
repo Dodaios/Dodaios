@@ -101,7 +101,9 @@
       "duel": "Duell",
       "first": "Ego-Perspektive",
       "first_unavailable": "Die Ego-Perspektive braucht die 3D-Szene dieses Decks auf der großen Bühne.",
-      "click_to_look": "Klicken zum Umsehen"
+      "click_to_look": "Klicken zum Umsehen",
+      "first_too_small": "Für Schulter- und Ego-Perspektive braucht dieses Panel mindestens {width} × {height}.",
+      "click_for_keys": "Hier klicken, damit die Tasten das Schiff steuern"
     },
     "settings": {
       "title": "Ansichtseinstellungen",
