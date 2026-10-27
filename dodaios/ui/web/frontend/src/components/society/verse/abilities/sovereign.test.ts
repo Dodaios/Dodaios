@@ -79,3 +79,12 @@ describe("the Sovereign's cloak", () => {
     expect(CloakRig.find(root)).toBeNull();
   });
 });
+
+describe("character file URLs", () => {
+  it("carry the file size as a version", async () => {
+    const { versionedUrl } = await import("../actors/characters");
+    expect(versionedUrl("/verse/a.glb", 123)).toBe("/verse/a.glb?v=123");
+    expect(versionedUrl("/verse/a.glb?x=1", 5)).toBe("/verse/a.glb?x=1&v=5");
+    expect(versionedUrl("/verse/a.glb", undefined)).toBe("/verse/a.glb");
+  });
+});
