@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { idleInput, RETRO_STEP, seededRandom, type RetroInput } from "../retroGame";
 import game, {
-  AMMO, BATTERY_X, BATTERY_Y, BLAST_R, BLAST_S, CITY_X, GROUND_Y, WIDTH,
-  addWarhead, blastRadius, citiesStanding, firingBattery, multiplier, type DefenseState,
+  BOLT_R, COOL_RATE, DOME_BONUS, DOME_X, FULL_COLONY_BONUS, GROUND_Y, HEAT_BOLT, HEAT_PULSE, PULSE_R, RING_S, SEEDER_POINTS,
+  SHARD_POINTS, SPARE_DOME_EVERY, TOWER_X, TOWER_Y, WIDTH,
+  addShard, canFire, domesStanding, multiplier, ringRadius, type DefenseState,
 } from "./cityDefense";
 
 const rnd = seededRandom(17);
@@ -13,10 +14,10 @@ const run = (s: DefenseState, input: RetroInput, seconds: number) => {
 const quiet = (): DefenseState => {
   const s = game.create(seededRandom(4));
   run(s, idleInput(), 2);
-  for (const w of s.warheads) w.active = false;
+  for (const w of s.shards) w.active = false;
   s.toLaunch = 5;
   s.salvoTimer = 999;
-  s.flyerTimer = 999;
+  s.seederTimer = 999;
   return s;
 };
 const pressA = (): RetroInput => {
@@ -32,8 +33,8 @@ const pressB = (): RetroInput => {
   return input;
 };
 const click = (x: number, y: number): RetroInput => ({ ...idleInput(), pointer: { x, y, down: true, clicked: true } });
-const activeMissiles = (s: DefenseState) => s.missiles.filter((m) => m.active);
-const activeWarheads = (s: DefenseState) => s.warheads.filter((w) => w.active).length;
+const activeBolts = (s: DefenseState) => s.bolts.filter((m) => m.active);
+const activeShards = (s: DefenseState) => s.shards.filter((w) => w.active).length;
 
 function fakeContext(): { ctx: CanvasRenderingContext2D; depth: () => number; rects: () => number } {
   let depth = 0, rects = 0;
@@ -57,22 +58,23 @@ function fakeContext(): { ctx: CanvasRenderingContext2D; depth: () => number; re
 }
 
 describe("city defense", () => {
-  it("starts with six cities, three full batteries and a short pause", () => {
+  it("starts with four domes, a cold tower and a short pause", () => {
     const s = game.create(seededRandom(1));
     expect(game.pointer).toBe(true);
-    expect(game.status(s)).toEqual({ score: 0, lives: 6, level: 1, over: false });
-    expect(s.batteries.map((b) => b.ammo)).toEqual([AMMO, AMMO, AMMO]);
+    expect(DOME_X).toHaveLength(4);
+    expect(game.status(s)).toEqual({ score: 0, lives: 4, level: 1, over: false });
+    expect([s.heat, s.jammed]).toEqual([0, false]);
     expect(s.phase).toBe("ready");
     run(s, idleInput(), 2);
     expect(s.phase).toBe("play");
   });
 
-  it("a click aims there and fires from the nearest battery", () => {
+  it("a click aims there and fires a bolt from the tower, warming it", () => {
     const s = quiet();
     game.step(s, click(290, 90), RETRO_STEP, rnd);
-    expect(s.batteries.map((b) => b.ammo)).toEqual([AMMO, AMMO, AMMO - 1]);
-    const [m] = activeMissiles(s);
-    expect([m.ox, m.tx, m.ty]).toEqual([BATTERY_X[2], 290, 90]);
+    const [b] = activeBolts(s);
+    expect([b.ox, b.oy, b.tx, b.ty, b.r]).toEqual([TOWER_X, TOWER_Y, 290, 90, BOLT_R]);
+    expect(s.heat).toBeCloseTo(HEAT_BOLT, 6);
   });
 
   it("a resting mouse does not undo keyboard aiming", () => {
@@ -82,140 +84,166 @@ describe("city defense", () => {
     expect(s.cx).toBeGreaterThan(160);
   });
 
-  it("the keyboard moves the crosshair and fires with the action button", () => {
+  it("the keyboard moves the reticle and fires with the action button", () => {
     const s = quiet();
     run(s, { ...idleInput(), left: true, up: true }, 2);
     expect(s.cx).toBeLessThan(10);
     game.step(s, pressA(), RETRO_STEP, rnd);
-    expect(s.batteries[0].ammo).toBe(AMMO - 1);
-    expect(activeMissiles(s)).toHaveLength(1);
+    expect(activeBolts(s)).toHaveLength(1);
   });
 
-  it("an empty or wrecked battery hands over to the next nearest one", () => {
+  it("rapid fire overheats and jams the tower until it has fully cooled", () => {
     const s = quiet();
-    s.batteries[0].ammo = 0;
-    s.cx = 20;
-    expect(firingBattery(s)).toBe(1);
-    s.batteries[1].alive = false;
-    expect(firingBattery(s)).toBe(2);
-    s.batteries[2].ammo = 0;
-    expect(firingBattery(s)).toBe(-1);
-    game.step(s, pressA(), RETRO_STEP, rnd);
-    expect(activeMissiles(s)).toHaveLength(0);
+    s.cx = 160; s.cy = 40;
+    let fired = 0;
+    for (let i = 0; i < 8; i += 1) {
+      const before = activeBolts(s).length;
+      game.step(s, pressA(), RETRO_STEP, rnd);
+      if (activeBolts(s).length > before) fired += 1;
+    }
+    // The cooling between shots buys at most one extra bolt before the jam.
+    expect(fired).toBeGreaterThanOrEqual(Math.round(1 / HEAT_BOLT));
+    expect(fired).toBeLessThanOrEqual(Math.round(1 / HEAT_BOLT) + 1);
+    expect(s.jammed).toBe(true);
+    expect(canFire(s, false)).toBe(false);
+    // Half cooled is not enough: a jam lasts until the heat is all gone.
+    run(s, idleInput(), 0.5 / COOL_RATE);
+    expect(s.jammed).toBe(true);
+    run(s, idleInput(), 0.6 / COOL_RATE);
+    expect(s.jammed).toBe(false);
+    expect(canFire(s, false)).toBe(true);
   });
 
-  it("the secondary button forces a battery, cycling back to nearest", () => {
+  it("the secondary button fires a wide pulse that costs more heat", () => {
     const s = quiet();
-    s.cx = 300;
+    s.cx = 160; s.cy = 100;
     game.step(s, pressB(), RETRO_STEP, rnd);
-    expect(s.selected).toBe(0);
-    game.step(s, pressA(), RETRO_STEP, rnd);
-    expect(s.batteries[0].ammo).toBe(AMMO - 1);
-    game.step(s, pressB(), RETRO_STEP, rnd);
-    game.step(s, pressB(), RETRO_STEP, rnd);
-    game.step(s, pressB(), RETRO_STEP, rnd);
-    expect(s.selected).toBe(-1);
-    expect(firingBattery(s)).toBe(2);
+    const [b] = activeBolts(s);
+    expect(b.r).toBe(PULSE_R);
+    expect(s.heat).toBeCloseTo(HEAT_PULSE, 2);
+    // Too warm for a second pulse right away, but a bolt still fits.
+    game.step(s, idleInput(), RETRO_STEP, rnd);
+    expect(canFire(s, true)).toBe(false);
+    expect(canFire(s, false)).toBe(true);
   });
 
-  it("a counter-missile bursts at the aim point and its blast destroys a warhead", () => {
+  it("a bolt bursts at the aim point and its ring shatters a shard", () => {
     const s = quiet();
     s.cx = 160;
     s.cy = 120;
-    addWarhead(s, 160, 118, 160, GROUND_Y, 1, false);
+    addShard(s, 160, 118, 160, GROUND_Y, 1);
     game.step(s, pressA(), RETRO_STEP, rnd);
     run(s, idleInput(), 0.6);
-    expect(activeWarheads(s)).toBe(0);
-    expect(s.score).toBe(25 * multiplier(1));
+    expect(activeShards(s)).toBe(0);
+    expect(s.score).toBe(SHARD_POINTS * multiplier(1));
   });
 
-  it("blasts grow, hold and fade", () => {
-    expect(blastRadius(0, BLAST_R)).toBe(0);
-    expect(blastRadius(0.5, BLAST_R)).toBe(BLAST_R);
-    expect(blastRadius(BLAST_S, BLAST_R)).toBeCloseTo(0, 6);
+  it("rings grow, hold and fade", () => {
+    expect(ringRadius(0, BOLT_R)).toBe(0);
+    expect(ringRadius(0.5, BOLT_R)).toBe(BOLT_R);
+    expect(ringRadius(RING_S, BOLT_R)).toBeCloseTo(0, 6);
   });
 
-  it("a destroyed warhead's own blast catches the next one (chain reaction)", () => {
+  it("a shattered shard's own ring catches the next one (chain reaction)", () => {
     const s = quiet();
     s.cx = 100;
     s.cy = 100;
-    // The second warhead is out of reach of our blast but within the first one's.
-    addWarhead(s, 112, 100, 112, GROUND_Y, 0.01, false);
-    addWarhead(s, 124, 100, 124, GROUND_Y, 0.01, false);
-    expect(124 - 100).toBeGreaterThan(BLAST_R);
+    // The second shard is out of reach of our ring but within the first one's.
+    addShard(s, 111, 100, 111, GROUND_Y, 0.01);
+    addShard(s, 122, 100, 122, GROUND_Y, 0.01);
+    expect(122 - 100).toBeGreaterThan(BOLT_R);
     game.step(s, click(100, 100), RETRO_STEP, rnd);
     run(s, idleInput(), 1.5);
-    expect(activeWarheads(s)).toBe(0);
-    expect(s.score).toBe(50);
+    expect(activeShards(s)).toBe(0);
+    expect(s.score).toBe(2 * SHARD_POINTS);
   });
 
-  it("a warhead reaching a city wrecks it", () => {
+  it("a shard reaching a dome breaks it", () => {
     const s = quiet();
-    addWarhead(s, CITY_X[0], GROUND_Y - 4, CITY_X[0], GROUND_Y, 60, false);
+    addShard(s, DOME_X[0], GROUND_Y - 4, DOME_X[0], GROUND_Y, 60);
     run(s, idleInput(), 0.3);
-    expect(s.cities[0]).toBe(0);
-    expect(game.status(s).lives).toBe(5);
+    expect(s.domes[0]).toBe(0);
+    expect(game.status(s).lives).toBe(3);
   });
 
-  it("a warhead on a battery wrecks it and its ammo", () => {
+  it("a shard striking the tower jams it but does not destroy it", () => {
     const s = quiet();
-    addWarhead(s, BATTERY_X[1], BATTERY_Y, BATTERY_X[1], BATTERY_Y + 4, 60, false);
-    run(s, idleInput(), 0.3);
-    expect(s.batteries[1]).toMatchObject({ alive: false, ammo: 0 });
+    addShard(s, TOWER_X, TOWER_Y, TOWER_X, TOWER_Y + 4, 60);
+    run(s, idleInput(), 0.2);
+    expect(s.jammed).toBe(true);
+    expect(domesStanding(s)).toBe(4);
+    run(s, idleInput(), 1.2 / COOL_RATE);
+    expect(s.jammed).toBe(false);
   });
 
-  it("later waves split warheads mid-air", () => {
+  it("weaving shards swing side to side around their path", () => {
     const s = quiet();
-    s.wave = 5;
-    addWarhead(s, 160, 40, 160, GROUND_Y, 60, true, 50);
-    run(s, idleInput(), 0.3);
-    expect(activeWarheads(s)).toBeGreaterThanOrEqual(3);
+    addShard(s, 160, 20, 160, GROUND_Y, 20, 14);
+    let left = 160, right = 160;
+    for (let t = 0; t < 2; t += RETRO_STEP) {
+      game.step(s, idleInput(), RETRO_STEP, rnd);
+      const w = s.shards.find((x) => x.active);
+      if (!w) break;
+      left = Math.min(left, w.x);
+      right = Math.max(right, w.x);
+    }
+    expect(left).toBeLessThan(150);
+    expect(right).toBeGreaterThan(170);
   });
 
-  it("a bomber caught in a blast is worth extra", () => {
+  it("a seeder caught in a ring is worth extra", () => {
     const s = quiet();
-    s.flyer.active = true;
-    s.flyer.x = 150;
-    s.flyer.y = 60;
-    s.flyer.speed = 0;
-    s.flyer.dropTimer = 99;
+    s.seeder.active = true;
+    s.seeder.x = 150;
+    s.seeder.y = 60;
+    s.seeder.vx = 0;
+    s.seeder.vy = 0;
+    s.seeder.dropTimer = 99;
     game.step(s, click(150, 60), RETRO_STEP, rnd);
     run(s, idleInput(), 1);
-    expect(s.flyer.active).toBe(false);
-    expect(s.score).toBe(100);
+    expect(s.seeder.active).toBe(false);
+    expect(s.score).toBe(SEEDER_POINTS);
   });
 
-  it("the wave ends with a bonus for ammo and cities, then the next wave refills", () => {
+  it("the wave ends with a bonus per dome, plus extra when the colony stayed whole", () => {
     const s = quiet();
     s.toLaunch = 0;
-    s.batteries[0].ammo = 4;
-    s.cities[5] = 0;
     run(s, idleInput(), 0.1);
     expect(s.phase).toBe("bonus");
-    expect(s.score).toBe((4 + AMMO * 2) * 5 + 5 * 100);
+    expect(s.score).toBe(4 * DOME_BONUS + FULL_COLONY_BONUS);
     run(s, idleInput(), 3);
     expect(s.wave).toBe(2);
-    expect(s.batteries.map((b) => b.ammo)).toEqual([AMMO, AMMO, AMMO]);
-    expect(citiesStanding(s)).toBe(5);
+    expect([s.heat, s.jammed]).toEqual([0, false]);
+
+    const t = quiet();
+    t.toLaunch = 0;
+    t.domes[3] = 0;
+    run(t, idleInput(), 0.1);
+    expect(t.score).toBe(3 * DOME_BONUS);
+    expect(t.bonusFull).toBe(false);
   });
 
-  it("a banked bonus city rebuilds a lost one", () => {
+  it("a spare dome earned by points rebuilds a lost one", () => {
     const s = quiet();
-    s.score = 9990;
+    s.score = SPARE_DOME_EVERY - 10;
     s.toLaunch = 0;
-    s.cities[2] = 0;
+    s.domes[2] = 0;
     run(s, idleInput(), 0.1);
-    expect(s.banked).toBe(1);
+    expect(s.spares).toBe(1);
     run(s, idleInput(), 3);
-    expect(citiesStanding(s)).toBe(6);
-    expect(s.banked).toBe(0);
+    expect(domesStanding(s)).toBe(4);
+    expect(s.spares).toBe(0);
   });
 
-  it("losing every city ends the run", () => {
+  it("the multiplier steps up every three waves, up to four", () => {
+    expect([1, 3, 4, 6, 7, 10, 30].map(multiplier)).toEqual([1, 1, 2, 2, 3, 4, 4]);
+  });
+
+  it("losing every dome ends the run", () => {
     const s = quiet();
-    s.cities.fill(0);
-    s.cities[3] = 1;
-    addWarhead(s, CITY_X[3], GROUND_Y - 2, CITY_X[3], GROUND_Y, 60, false);
+    s.domes.fill(0);
+    s.domes[3] = 1;
+    addShard(s, DOME_X[3], GROUND_Y - 2, DOME_X[3], GROUND_Y, 60);
     run(s, idleInput(), 3);
     expect(game.status(s)).toMatchObject({ lives: 0, over: true });
   });
@@ -225,7 +253,8 @@ describe("city defense", () => {
     s.wave = 6;
     for (let i = 0; i < 60 * 90 && s.phase !== "over" && s.wave === 6; i += 1) {
       game.step(s, idleInput(), RETRO_STEP, rnd);
-      expect(s.warheads.length).toBe(40);
+      expect(s.shards.length).toBe(40);
+      for (const w of s.shards) if (w.active) expect(w.x >= 0 && w.x <= WIDTH).toBe(true);
     }
     expect(s.wave === 7 || s.phase === "over" || s.phase === "lost").toBe(true);
   });
@@ -243,26 +272,27 @@ describe("city defense", () => {
       expect(fake.rects()).toBeGreaterThan(50);
     }
     run(s, idleInput(), 2);
-    addWarhead(s, 100, 10, 120, GROUND_Y, 30, true, 80);
+    addShard(s, 100, 10, 120, GROUND_Y, 30, 12);
     game.step(s, click(200, 80), RETRO_STEP, rnd);
-    s.flyer.active = true;
-    s.flyer.x = 80;
-    s.flyer.y = 60;
+    game.step(s, pressB(), RETRO_STEP, rnd);
+    s.seeder.active = true;
+    s.seeder.x = 80;
+    s.seeder.y = 60;
     run(s, idleInput(), 0.3);
     s.shake = 0.3;
-    s.selected = 1;
-    s.banked = 2;
-    for (const kind of [0, 1] as const) {
-      s.flyer.kind = kind;
-      game.draw(fakeContext().ctx, s, { time: 2, reduced: false, idle: false });
-      game.draw(fakeContext().ctx, s, { time: 2, reduced: true, idle: false });
-    }
-    s.cities[1] = 0;
-    s.batteries[2].alive = false;
+    s.spares = 2;
+    s.jammed = true;
+    game.draw(fakeContext().ctx, s, { time: 2, reduced: false, idle: false });
+    game.draw(fakeContext().ctx, s, { time: 2, reduced: true, idle: false });
+    s.domes[1] = 0;
+    s.phase = "ready";
+    game.draw(fakeContext().ctx, s, { time: 2, reduced: false, idle: false });
     s.phase = "bonus";
+    s.bonusFull = true;
     game.draw(fakeContext().ctx, s, { time: 2, reduced: false, idle: false });
     s.phase = "over";
     game.draw(fakeContext().ctx, s, { time: 2, reduced: false, idle: false });
     expect(WIDTH).toBe(game.width);
   });
 });
+

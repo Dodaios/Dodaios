@@ -52,17 +52,17 @@ export const ARCADE_GAMES: readonly ArcadeGameInfo[] = [
   { id: "paddle-duel", title: "Paddle Duel", key: "paddle_duel", kind: "retro",
     look: { body: "#e8e4d8", trim: "#2a2a2e", marquee: "#151518", marqueeText: "#f5f5f0", accent: "#9aa3ff" } },
   { id: "block-drop", title: "Block Drop", key: "block_drop", kind: "retro",
-    look: { body: "#14224a", trim: "#0a1126", marquee: "#0b1433", marqueeText: "#7cc4ff", accent: "#3fa2ff" } },
+    look: { body: "#1f1d1a", trim: "#0e0d0c", marquee: "#121110", marqueeText: "#e9b949", accent: "#c9973a" } },
   { id: "maze-muncher", title: "Maze Muncher", key: "maze_muncher", kind: "retro",
-    look: { body: "#2b1f05", trim: "#120d02", marquee: "#100c02", marqueeText: "#ffd23f", accent: "#ffb800" } },
+    look: { body: "#1a1430", trim: "#0c0a18", marquee: "#0e0b1c", marqueeText: "#5ef2c2", accent: "#8f6bff" } },
   { id: "desert-dash", title: "Desert Dash", key: "desert_dash", kind: "retro",
     look: { body: "#5a3416", trim: "#2a180a", marquee: "#2b1607", marqueeText: "#ffb36b", accent: "#ff8a3d" } },
   { id: "pixel-raiders", title: "Pixel Raiders", key: "pixel_raiders", kind: "retro",
     look: { body: "#1a1035", trim: "#0c0719", marquee: "#0d0820", marqueeText: "#c58bff", accent: "#a855f7" } },
   { id: "road-hopper", title: "Road Hopper", key: "road_hopper", kind: "retro",
-    look: { body: "#123a2e", trim: "#081a14", marquee: "#071b14", marqueeText: "#b6f36b", accent: "#7ed957" } },
+    look: { body: "#14262a", trim: "#0a1416", marquee: "#0a1618", marqueeText: "#f0c25e", accent: "#2fd3c4" } },
   { id: "city-defense", title: "City Defense", key: "city_defense", kind: "retro",
-    look: { body: "#3b0d0d", trim: "#1a0505", marquee: "#1c0404", marqueeText: "#ffcf5a", accent: "#ff4b2b" } },
+    look: { body: "#1b1636", trim: "#0c0a1a", marquee: "#0d0b1e", marqueeText: "#e9b949", accent: "#6be3d6" } },
 ];
 
 const BY_ID = new Map<string, ArcadeGameInfo>(ARCADE_GAMES.map((g) => [g.id, g]));

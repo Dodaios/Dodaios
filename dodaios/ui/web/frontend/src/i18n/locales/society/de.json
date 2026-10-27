@@ -1805,8 +1805,8 @@
           "how": "←/→ bewegen · ↑/Leertaste drehen · ↓ schneller fallen · Shift sofort ablegen · P Pause · Esc verlassen"
         },
         "maze_muncher": {
-          "tagline": "Futtere jeden Punkt und überliste vier Glitch-Käfer.",
-          "how": "Pfeiltasten lenken (Abbiegen wird vorgemerkt) · Kraftkugeln machen die Käfer essbar · P Pause · Esc verlassen"
+          "tagline": "Sauge jeden Punkt auf und überliste vier Glitch-Käfer.",
+          "how": "Pfeiltasten lenken (Abbiegen wird vorgemerkt) · Kraftkugeln legen die Käfer lahm, dann kannst du sie zappen · P Pause · Esc verlassen"
         },
         "desert_dash": {
           "tagline": "Sprinte über die Dünen: spring über Kakteen, duck dich vor Vögeln.",
@@ -1817,12 +1817,12 @@
           "how": "←/→ bewegen · Leertaste feuern · P Pause · Esc verlassen"
         },
         "road_hopper": {
-          "tagline": "Hüpf über Straße und Fluss nach Hause.",
+          "tagline": "Steuere den Kurier-Bot über Straße und Kanal zu den Landeplätzen auf dem Dach.",
           "how": "Pfeiltasten hüpfen · P Pause · Esc verlassen"
         },
         "city_defense": {
-          "tagline": "Schieß die Sprengköpfe ab, bevor sie deine Städte treffen.",
-          "how": "Maus zielen + Klick feuern · Pfeiltasten zielen · Leertaste feuern · Shift Batterie wählen · P Pause · Esc verlassen"
+          "tagline": "Zerschlage die fallenden Splitter, bevor sie deine Kuppeln zerbrechen.",
+          "how": "Maus zielen + Klick feuern · Pfeiltasten zielen · Leertaste feuern · Shift Impuls (breit, mehr Hitze) · P Pause · Esc verlassen"
         }
       }
     },

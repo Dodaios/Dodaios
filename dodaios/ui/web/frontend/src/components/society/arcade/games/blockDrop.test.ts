@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RETRO_STEP, idleInput, seededRandom, type RetroInput } from "../retroGame";
 import blockDrop, {
-  ARR, CLEAR_TIME, COLS, DAS, HIDDEN, LINE_SCORES, LOCK_DELAY, MAX_LOCK_RESETS, PIECE_COUNT, PIECE_I, PIECE_O, PIECE_T, ROWS, SHAPES,
+  ARR, CLEAR_TIME, COLS, DAS, HIDDEN, LINES_PER_LEVEL, LINE_SCORES, LOCK_DELAY, MAX_LOCK_RESETS, PIECE_COUNT, PIECE_I, PIECE_O, PIECE_T, ROWS, SHAPES,
   createBlockDrop, fits, gravityInterval, spawnPiece, tryRotate, type BlockDropState,
 } from "./blockDrop";
 
@@ -59,6 +59,17 @@ describe("block drop", () => {
     expect(s.queue.length).toBeGreaterThanOrEqual(PIECE_COUNT);
     expect(blockDrop.status(s)).toEqual({ score: 0, level: 1, over: false });
     expect(blockDrop.width).toBeGreaterThan(0);
+  });
+
+  it("has its own wide well, scoring table and level pace", () => {
+    expect([COLS, ROWS - HIDDEN]).toEqual([12, 22]);
+    expect(LINE_SCORES).toEqual([0, 50, 150, 350, 1000]);
+    expect(LINES_PER_LEVEL).toBe(12);
+    // New pieces appear centred in the wider well.
+    const s = blockDrop.create(seededRandom(7));
+    const xs = cellsOf(s).map(([x]) => x);
+    expect(Math.min(...xs) + Math.max(...xs)).toBeGreaterThanOrEqual(COLS - 2);
+    expect(Math.min(...xs) + Math.max(...xs)).toBeLessThanOrEqual(COLS);
   });
 
   it("deals every one of the seven pieces once per bag", () => {
