@@ -62,6 +62,29 @@ FINAL_COMPUTE = "int8_float16"
 #: final pass is read once after release and can afford the search.
 FINAL_BEAM_SIZE = 5
 
+#: Decode speed (seconds of decode per second of audio) above which a beam
+#: decode counts as running on a CONTENDED card. An idle mid-range card reads a
+#: turbo beam-5 pass at well under 0.1; a card another program saturates
+#: (a renderer, a local LLM) read 0.9 live on 2026-10-27, so a 15 s dictation
+#: waited 13 s after release. Above this line the next calls decode greedily,
+#: which measured roughly twice as fast on the same saturated card.
+CONTENDED_BEAM_RTF = 0.2
+
+#: Greedy decode speed below which the card counts as free again, and the
+#: beam search comes back. Lower than the line above on purpose (hysteresis),
+#: so one quick call on a still-busy card does not flip the width back.
+UNCONTENDED_GREEDY_RTF = 0.06
+
+#: How long a busy card hands dictations to the cloud provider behind it before
+#: the local engine is tried again. The retry is what notices the card is free
+#: once the other program finishes; it decodes greedily, so it costs at most
+#: the greedy wait on a card that is still busy.
+_BUSY_RECHECK_S = 90.0
+
+#: Audio shorter than this never moves the decode width: a one-word clip is
+#: dominated by fixed per-call overhead and says nothing about the card.
+_MIN_RTF_SAMPLE_S = 2.0
+
 #: Free accelerator memory the spawn asks for by default — the turbo weights
 #: plus a CUDA context, with a little headroom.
 DEFAULT_MIN_FREE_GB = 1.5
@@ -134,6 +157,13 @@ class LocalFinalSTT:
         self._compute = compute
         self._allow_cpu = allow_cpu
         self._beam_size = max(1, int(beam_size))
+        #: True after a decode measured the card as contended; the next calls
+        #: decode greedily until a greedy decode measures it free again.
+        self._contended = False
+        self._contended_at = 0.0
+        #: Set by the dictation lane: True when a cloud provider stands behind
+        #: this one in the chain. Only then may a busy card hand calls over.
+        self.cloud_behind = False
         self._worker: Any = None
         self._device = ""
         self._engine_compute = ""
@@ -236,9 +266,7 @@ class LocalFinalSTT:
             )
         if not self._call_lock.acquire(blocking=False):
             if self.is_loading:
-                raise LocalEngineUnavailable(
-                    "the local dictation engine is still starting"
-                )
+                raise LocalEngineUnavailable("the local dictation engine is still starting")
             await asyncio.to_thread(self.recover)
             raise LocalEngineUnavailable(
                 "a previous call is still waiting on the dictation worker; "
@@ -276,6 +304,16 @@ class LocalFinalSTT:
             raise
 
     def _transcribe_blocking(self, pcm_bytes: bytes, language: str | None) -> Transcript:
+        if (
+            self._contended
+            and self.cloud_behind
+            and time.monotonic() - self._contended_at < _BUSY_RECHECK_S
+        ):
+            # A saturated card decodes at speech speed: the cloud behind us
+            # answers in about a second. Crossable, so the chain moves on.
+            raise LocalEngineUnavailable(
+                "the card is busy with another program; the next provider takes this dictation"
+            )
         worker = self._ensure_worker(blocking=False)
         if worker is None:
             raise LocalEngineUnavailable(self._last_refusal or "no local dictation worker")
@@ -283,11 +321,10 @@ class LocalFinalSTT:
 
         samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
         asked_for = _concrete_language(language)
+        beam_size = self.current_beam_size
         started = time.perf_counter()
         try:
-            segments, info = worker.transcribe(
-                samples, language=asked_for, beam_size=self._beam_size
-            )
+            segments, info = worker.transcribe(samples, language=asked_for, beam_size=beam_size)
         except Exception as exc:  # noqa: BLE001 — classified as crossable below
             failure = f"{type(exc).__name__}: {exc}"
             with self._spawn_lock:
@@ -319,12 +356,16 @@ class LocalFinalSTT:
             confidence = float(getattr(info, "language_probability", 0.0) or 0.0)
         except (TypeError, ValueError):
             confidence = 0.0
-        log.debug(
-            "Local dictation final pass: %.1fs of audio in %.2fs on %s (%s).",
-            len(pcm_bytes) / 32_000.0,
-            time.perf_counter() - started,
+        audio_s = len(pcm_bytes) / 32_000.0
+        decode_s = time.perf_counter() - started
+        self._note_decode_speed(audio_s, decode_s, beam_size)
+        log.info(
+            "Local dictation final pass: %.1fs of audio in %.2fs on %s (%s, beam %d).",
+            audio_s,
+            decode_s,
             self._device,
             self._engine_compute,
+            beam_size,
         )
         from dodaios.plugins.stt.transcript_filter import clean_stt_text
 
@@ -340,6 +381,43 @@ class LocalFinalSTT:
     # ------------------------------------------------------------------
     # Worker ownership
     # ------------------------------------------------------------------
+
+    @property
+    def current_beam_size(self) -> int:
+        """Beam width the next decode uses: greedy while the card is contended."""
+        return 1 if self._contended else self._beam_size
+
+    def _note_decode_speed(self, audio_s: float, decode_s: float, beam_size: int) -> None:
+        """Move the decode width from how fast the last decode actually ran.
+
+        Measured rather than probed: asking the driver for its utilisation took
+        0.3-0.7 s on a saturated card, which is longer than the saving on a
+        short clip. The decode we just ran is free and says exactly how busy
+        the card is for THIS model.
+        """
+        if audio_s < _MIN_RTF_SAMPLE_S or self._beam_size <= 1:
+            return
+        rtf = decode_s / audio_s
+        if self._contended and beam_size == 1 and rtf >= UNCONTENDED_GREEDY_RTF:
+            self._contended_at = time.monotonic()  # still busy: hand over again
+        elif not self._contended and beam_size > 1 and rtf > CONTENDED_BEAM_RTF:
+            self._contended = True
+            self._contended_at = time.monotonic()
+            log.info(
+                "Local dictation: the card is busy (%.1fs of audio took %.1fs); "
+                "%s until it is free again.",
+                audio_s,
+                decode_s,
+                "the cloud provider takes dictations" if self.cloud_behind else "decoding greedily",
+            )
+        elif self._contended and beam_size == 1 and rtf < UNCONTENDED_GREEDY_RTF:
+            self._contended = False
+            log.info(
+                "Local dictation: the card is free again (%.1fs of audio in "
+                "%.2fs); beam search is back.",
+                audio_s,
+                decode_s,
+            )
 
     def _ensure_worker(self, *, blocking: bool = True) -> Any:
         """The live worker, spawning one when allowed; ``None`` when declined.
@@ -460,10 +538,12 @@ class LocalFinalSTT:
 
 
 __all__ = [
+    "CONTENDED_BEAM_RTF",
     "DEFAULT_FINAL_MODEL",
     "DEFAULT_MIN_FREE_GB",
     "FINAL_BEAM_SIZE",
     "FINAL_COMPUTE",
     "LocalEngineUnavailable",
     "LocalFinalSTT",
+    "UNCONTENDED_GREEDY_RTF",
 ]
