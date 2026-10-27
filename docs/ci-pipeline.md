@@ -438,8 +438,11 @@ A release happens **only** when the maintainer asks for one.
   duplicate PyPI publication is dispatched. Without the bot
   (`RELEASE_APP_ID` unset) the job falls back to `GITHUB_TOKEN`, dispatches
   the publishers itself, and a maintainer must open the candidate PR, since
-  `GITHUB_TOKEN` may not open pull requests here. Resume support accepts an
-  already merged version commit.
+  `GITHUB_TOKEN` may not open pull requests here. Resume (`resume_sha`)
+  finishes an already merged version commit: the commit whose parent still
+  has the previous version. A later commit with the same version is refused,
+  and the run names the version commit, because tagging it would ship changes
+  that no CHANGELOG section lists.
 * **`release-gate.yml`** is the first job of `release.yml` (PyPI),
   `desktop-installers.yml` and `sign-installer.yml`. It admits a tag only
   when tag, versions and CHANGELOG agree, the commit is on main, and

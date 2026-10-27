@@ -296,6 +296,7 @@ If you installed before 3.2.0, run the installer once more (see the 3.2.0 notes)
 ### Fixed
 
 - Never report a stopped event loop as stalled (#523)
+- Follow the registry's GitHub Pages hosts to the Dodaios organization (#525)
 
 ---
 

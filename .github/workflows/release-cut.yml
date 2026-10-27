@@ -49,7 +49,7 @@ on:
         required: false
         default: ""
       resume_sha:
-        description: "Already merged and CI-qualified version commit to finish (optional full SHA)"
+        description: "Already merged and CI-qualified commit that introduced the version, to finish (optional full SHA)"
         required: false
         default: ""
 
@@ -113,6 +113,16 @@ jobs:
           git checkout --detach "$RESUME_SHA"
           actual="$(python -c 'from scripts.ci.release_admit import versions; print(versions()[0])')"
           [ "$actual" = "$expected" ] || { echo "::error::Resume cannot select an older version."; exit 1; }
+          # Only the commit that introduced the version may be tagged. A later
+          # commit with the same version would ship changes that no CHANGELOG
+          # section lists, and the next cut starts after the tag (#529).
+          before="$(git show "$RESUME_SHA^:pyproject.toml" \
+            | python -c 'import sys, tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])')"
+          if [ "$before" = "$actual" ]; then
+            echo "::error::$RESUME_SHA does not introduce v$actual; resume the version commit instead:"
+            git log --format='%H %s' -S"## [$actual]" "$RESUME_SHA" -- CHANGELOG.md
+            exit 1
+          fi
           echo "version=$actual" >> "$GITHUB_OUTPUT"
       - name: Bump version + CHANGELOG
         id: bump

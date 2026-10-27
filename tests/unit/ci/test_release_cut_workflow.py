@@ -22,6 +22,7 @@ git() {
       else printf '%s\n' "$TAG_SHA"; fi ;;
     merge-base) return "$ANCESTOR_EXIT" ;;
     show-ref) return "$TAG_EXISTS" ;;
+    show) printf '[project]\n' ;;
     checkout) : > checked-out ;;
   esac
   return 0
@@ -46,8 +47,12 @@ gh() {
 python() {
   printf 'python %s\n' "$*" >> "$TRACE_FILE"
   if [ "$1" = -c ]; then
-    if [ -f checked-out ]; then printf '%s\n' "$RESUME_VERSION";
-    else printf '%s\n' "$BASE_VERSION"; fi
+    case "$2" in
+      # The version in the resumed commit's parent, read from stdin.
+      *stdin*) printf '%s\n' "$PARENT_VERSION" ;;
+      *) if [ -f checked-out ]; then printf '%s\n' "$RESUME_VERSION";
+         else printf '%s\n' "$BASE_VERSION"; fi ;;
+    esac
   else return "$ADMIT_EXIT"; fi
 }
 """
@@ -106,6 +111,7 @@ def _exercise(
             "RESUME_SHA": _SHA,
             "BASE_VERSION": "1.2.3",
             "RESUME_VERSION": "1.2.3",
+            "PARENT_VERSION": "1.2.2",
             "RELEASE_REF": "refs/tags/v1.2.3",
             "TAG_EXISTS": "1",
             "TAG_SHA": _SHA,
@@ -289,6 +295,8 @@ def test_only_a_green_candidate_can_land_and_publish(tmp_path, overrides, succes
         ({"RESUME_SHA": "refs/heads/unmerged"}, False),
         ({"ANCESTOR_EXIT": "1"}, False),
         ({"RESUME_VERSION": "1.2.2"}, False),
+        # A later commit on top of the version commit keeps the version (#529).
+        ({"PARENT_VERSION": "1.2.3"}, False),
         ({"ADMIT_EXIT": "1"}, False),
         ({"TAG_EXISTS": "0", "TAG_SHA": "2" * 40}, False),
     ],
@@ -312,3 +320,13 @@ def test_resume_requires_merged_current_version_and_admission(tmp_path, override
     else:
         assert not any(command.startswith("git tag ") for command in commands)
         assert "git push origin v1.2.3" not in commands
+
+
+def test_resume_names_the_version_commit_when_given_a_later_one(tmp_path):
+    result, commands = _exercise(
+        tmp_path, ["Select an already merged version commit"], PARENT_VERSION="1.2.3"
+    )
+    assert result.returncode != 0
+    assert "does not introduce v1.2.3" in result.stdout
+    assert f"git log --format=%H %s -S## [1.2.3] {_SHA} -- CHANGELOG.md" in commands
+    assert not (tmp_path / "outputs.txt").exists()
