@@ -202,7 +202,10 @@ async def test_history_is_the_sessions_own_log_in_prose(
     history = kw["history_override"]
     assert [m.role for m in history] == ["user", "assistant"]
     assert history[0].content == "first question"
-    assert "[used tool Read: a.py]" in history[1].content and "It prints 1." in history[1].content
+    assert "[used tool" not in history[1].content, "no imitable call marker (#978)"
+    assert "Tool record of this turn" in history[1].content
+    assert "- Read (a.py) returned: print(1)" in history[1].content
+    assert history[1].content.endswith("It prints 1.")
     assert all(isinstance(m.content, str) for m in history), "prose only, no foreign tool ids"
 
 
