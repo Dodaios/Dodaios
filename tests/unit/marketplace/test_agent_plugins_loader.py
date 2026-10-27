@@ -207,6 +207,14 @@ def test_unpinned_stdio_package_rejected() -> None:
         ("uvx", ["--with", "evil-pkg", "todofox-mcp==1.2.0"], "uvx option"),
         ("uvx", ["--from", "git+https://evil.example/x.git", "todofox"], "pinned"),
         ("uvx", ["--from=git+https://evil.example/x.git", "todofox"], "pinned"),
+        # Options after a pinned --from are still uv options, not the tool's.
+        ("uvx", ["--from", "todofox-mcp==1.2.0", "--with", "evil-pkg", "todofox"], "uvx option"),
+        (
+            "uvx",
+            ["--from", "todofox-mcp==1.2.0", "--index-url=https://evil.example/simple", "x"],
+            "uvx option",
+        ),
+        ("uvx", ["--from", "todofox-mcp==1.2.0"], "entry point"),
         # A container that can read and write the user's whole machine.
         ("docker", ["run", "-v", "/:/host", "--privileged", "alpine:3.19"], "docker option"),
         ("docker", ["run", "--network=host", "todofox/mcp:1.2"], "docker option"),
@@ -233,6 +241,7 @@ def test_launcher_option_that_would_run_anything_is_rejected(
         ("npx", ["-y", "@todofox/mcp-server@1.2.0", "--verbose"]),
         ("uvx", ["todofox-mcp==1.2.0"]),
         ("uvx", ["--from", "todofox-mcp==1.2.0", "todofox-server"]),
+        ("uvx", ["--from=todofox-mcp==1.2.0", "todofox-server", "--verbose"]),
         ("docker", ["run", "-i", "--rm", "todofox/mcp:1.2.0"]),
         ("docker", ["run", "-i", "--rm", "-e", "TODOFOX_TOKEN", "todofox/mcp:1.2.0"]),
         ("docker", ["run", "--rm", f"todofox/mcp@sha256:{'a' * 64}"]),

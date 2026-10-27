@@ -341,6 +341,7 @@ def _validate_stdio_args(server: str, launcher: str, args: list[str]) -> None:
 
     if launcher == "uvx":
         index = 0
+        from_package = False
         while index < len(args) and args[index].startswith("-"):
             flag, sep, inline = args[index].partition("=")
             if flag not in _UVX_FLAGS:
@@ -360,7 +361,15 @@ def _validate_stdio_args(server: str, launcher: str, args: list[str]) -> None:
                     f"{value!r} is not a pinned PyPI package — use "
                     "`--from my-mcp==1.2.0`, never a git ref, URL or path"
                 )
-            # `--from` names the package; what follows is the entry point.
+            # `--from` names the package; the entry point follows. Keep
+            # checking: uv still reads options (`--with`, `--index-url`)
+            # placed between `--from` and that entry point.
+            from_package = True
+        if from_package:
+            if index >= len(args):
+                raise fail(
+                    "uvx --from needs an entry point, e.g. `--from my-mcp==1.2.0 my-mcp`"
+                )
             return
         if index >= len(args):
             raise fail("uvx needs a package to run, e.g. `uvx my-mcp==1.2.0`")
