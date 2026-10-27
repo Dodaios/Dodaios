@@ -8,10 +8,12 @@ The plate pipeline photographs a deck from one fixed angle. The realtime
 export turns the same Blender scene into a 3D scene the browser walks through
 at eye level, so the person steers the commander in third person from behind
 their shoulder or in first person through their eyes, with shooter mouse look,
-as in a game. The plate stays: it is the bird's-eye view (key 1) and the IDE
-side panel's view.
+as in a game. The plate stays: it is the bird's-eye view (key 1) and the view
+of an IDE side panel smaller than 480 × 360 CSS px (`COMPACT_EYE_MIN` in
+`engine/stageView.ts`); a larger side panel walks at eye level like the
+full-size stage, on the low quality tier while the setting is "auto".
 
-| | Plate (bird's-eye, compact panel) | Realtime (full-size stage, third or first person) |
+| | Plate (bird's-eye, small panel) | Realtime (full-size stage or roomy panel, third or first person) |
 |---|---|---|
 | Camera | orthographic, 60° down, fixed | perspective, over the shoulder or at eye height, shooter mouse look |
 | Light | Cycles path tracing, baked into the photograph | Cycles bake of the diffuse light into lightmaps + live reflections |

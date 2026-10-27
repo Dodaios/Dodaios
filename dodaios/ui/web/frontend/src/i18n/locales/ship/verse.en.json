@@ -101,7 +101,9 @@
       "duel": "Duel",
       "first": "First person",
       "first_unavailable": "First person needs this deck's eye-level scene on the full-size stage.",
-      "click_to_look": "Click to look around"
+      "click_to_look": "Click to look around",
+      "first_too_small": "Make this panel at least {width} × {height} for third and first person.",
+      "click_for_keys": "Click here so the keys reach the ship"
     },
     "settings": {
       "title": "View settings",
