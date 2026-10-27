@@ -130,9 +130,21 @@
 
 /* --- The steps: stacked in one cell, so the card never jumps ------------- */
 
+/* The frame eases to the measured height of the steps (QuestionCard). */
+.qc-steps-frame {
+  overflow: clip;
+  overflow-clip-margin: 6px;
+  transition: height 220ms var(--qc-ease-std);
+}
+
 .qc-steps {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* The review takes its own height, not the tallest question's. */
+.qc-steps[data-reviewing] > .qc-step:not([data-active]) {
+  display: none;
 }
 
 .qc-step {
@@ -442,21 +454,32 @@
   gap: 5px;
 }
 
+/* Open: a hollow ring. Answered: a filled dot. On screen: a wide pill. */
 .qc-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  background: hsl(var(--border-strong));
-  transition: width 200ms var(--qc-ease-std), background-color 200ms;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px hsl(var(--border-strong));
+  transition: width 200ms var(--qc-ease-std), background-color 200ms, box-shadow 200ms;
 }
 
-.qc-dot[data-done] {
-  background: hsl(var(--muted-foreground));
-}
-
-.qc-dot[data-on] {
-  width: 16px;
+.qc-dot[data-state="done"] {
   background: var(--qc-tint);
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.qc-dot[data-state="current"] {
+  width: 18px;
+  background: var(--qc-tint);
+  box-shadow: none;
+}
+
+/* The step on screen still open: the pill stays hollow until it is answered. */
+.qc-dot[data-state="current"]:not([data-done]) {
+  background: color-mix(in srgb, var(--qc-tint) 22%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--qc-tint);
 }
 
 .qc-btn {
@@ -700,23 +723,7 @@
   }
 }
 
-/* --- Answered from the chat: a plain question and the person's reply ---- */
-
-.qc-asked {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.qc-asked-bubble {
-  min-width: 0;
-  max-width: min(85%, 42rem);
-  padding: 8px 14px;
-  border-radius: 18px;
-  font-size: 14px;
-  line-height: 21px;
-  overflow-wrap: anywhere;
-}
+/* --- Answered from the chat: the person's reply below the settled card -- */
 
 .qc-reply {
   display: flex;

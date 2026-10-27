@@ -469,8 +469,9 @@ class SocietyStatusTool:
                 output={
                     "agents": rows,
                     "measurement_note": (
-                        "Runs count recorded RESULT events, including failures; costs are "
-                        "recorded costs only. No independent quality rating is available."
+                        "Runs count recorded RESULT events and finished chat turns, once "
+                        "each and including failures; costs are recorded costs only. No "
+                        "independent quality rating is available."
                     ),
                 },
             )

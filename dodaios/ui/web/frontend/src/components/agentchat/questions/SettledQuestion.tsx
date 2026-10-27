@@ -41,8 +41,9 @@ function useNoteText() {
 /**
  * A question card after it settled: one quiet line, "prompt → chosen answers",
  * that opens into a read-only review of every step. A card nobody answered
- * reads muted with a dotted chip; a card answered from the chat reads as the
- * plain question followed by the person's reply.
+ * reads muted with a dotted chip. A card answered from the chat settles the
+ * same way (the typed reply as its answer chip, under the option's letter when
+ * it named one) and keeps the person's reply as their bubble below it.
  */
 export function SettledQuestion({
   question,
@@ -68,8 +69,6 @@ export function SettledQuestion({
     return () => window.clearTimeout(id);
   }, [copied]);
 
-  if (answeredByMessage(question)) return <AnsweredInChat question={question} agent={agent} style={style} />;
-
   const total = question.questions.length;
   const dismissed = isDismissed(question);
   const expanded = draft.expanded;
@@ -86,13 +85,14 @@ export function SettledQuestion({
     ? t("question_card.title_many").replace("{agent}", agentName).replace("{count}", String(total))
     : question.questions[0].question;
 
-  return (
+  const card = (
     <div
       className="qc"
       data-settled=""
       data-dismissed={dismissed ? "" : undefined}
       data-testid="question-card"
       data-state={sources}
+      data-in-chat={answeredByMessage(question) ? "" : undefined}
       style={style}
     >
       <div className="flex items-center">
@@ -185,6 +185,14 @@ export function SettledQuestion({
       </div>
     </div>
   );
+  const reply = chatReply(question);
+  if (!reply) return card;
+  return (
+    <div className="flex w-full flex-col gap-1.5" data-testid="question-answered-in-chat">
+      {card}
+      <div className="qc-reply"><div className="qc-reply-bubble">{reply}</div></div>
+    </div>
+  );
 }
 
 function answerChips(item: QuestionItem, answer: QuestionState["answers"][number], index: number, skippedLabel: string) {
@@ -201,35 +209,55 @@ function answerChips(item: QuestionItem, answer: QuestionState["answers"][number
   return chips;
 }
 
-/** Progress dots of a series: a pill for the step on screen, darker for done ones. */
-export function Dots({ total, current, done, label }: { total: number; current: number; done: number | readonly boolean[]; label: string }) {
+/**
+ * Progress dots of a series, one per question: a wide pill for the step on
+ * screen, a filled dot for an answered one, a hollow ring for one still open.
+ * On the review step (`current === total`) every dot reads by its own state.
+ */
+export function Dots({
+  total,
+  current,
+  done,
+  label,
+  progressLabel,
+}: {
+  total: number;
+  current: number;
+  done: number | readonly boolean[];
+  label: string;
+  /** "{answered} of {total} answered", read out beside the step. */
+  progressLabel?: string;
+}) {
   const isDone = (i: number) => (typeof done === "number" ? i < done : Boolean(done[i]));
-  const text = label.replace("{current}", String(Math.min(current + 1, total))).replace("{total}", String(total));
+  const answered = Array.from({ length: total }, (_, i) => isDone(i)).filter(Boolean).length;
+  const onStep = current < total;
+  const stepText = label.replace("{current}", String(Math.min(current + 1, total))).replace("{total}", String(total));
+  const progressText = progressLabel?.replace("{answered}", String(answered)).replace("{total}", String(total)) ?? "";
+  const text = [onStep ? stepText : "", progressText].filter(Boolean).join(", ") || stepText;
   return (
-    <span className="qc-dots" role="img" aria-label={text}>
-      {Array.from({ length: total }, (_, i) => (
-        <span key={i} className="qc-dot" data-on={i === current ? "" : undefined} data-done={isDone(i) && i !== current ? "" : undefined} />
-      ))}
+    <span className="qc-dots" role="img" aria-label={text} data-testid="question-dots">
+      {Array.from({ length: total }, (_, i) => {
+        const state = i === current ? "current" : isDone(i) ? "done" : "open";
+        return (
+          <span
+            key={i}
+            className="qc-dot"
+            data-state={state}
+            data-on={state === "current" ? "" : undefined}
+            data-done={isDone(i) ? "" : undefined}
+          />
+        );
+      })}
     </span>
   );
 }
 
-/** The person answered in the chat: the question reads as the agent's message, the reply as theirs. */
-function AnsweredInChat({ question, agent, style }: { question: QuestionState; agent: SocietyAgent | null; style: CSSProperties | undefined }) {
-  const t = useT();
-  const index = question.answers.findIndex((a) => a?.source === "message");
-  const reply = question.answers[index]?.text ?? "";
-  return (
-    <div className="flex w-full flex-col gap-1.5" data-testid="question-card" data-state="message" style={style}>
-      <div className="qc-asked">
-        <AskerMark agent={agent} size={20} />
-        <div className="qc-asked-bubble jarvis-chat-in">
-          <span className="qc-sr">{t("question_card.asked")}</span>
-          {question.questions.map((item, i) => <p key={i}>{item.question}</p>)}
-        </div>
-      </div>
-      {/* An end-of-turn card's reply went out as an ordinary message, which the chat shows itself. */}
-      {question.deferred || !reply ? null : <div className="qc-reply"><div className="qc-reply-bubble">{reply}</div></div>}
-    </div>
-  );
+/**
+ * The reply the person typed into the chat to answer a live card. The chat
+ * sent no message of its own for it, so the card keeps it as their bubble;
+ * an end-of-turn card's reply went out as an ordinary message instead.
+ */
+function chatReply(question: QuestionState): string {
+  if (question.deferred) return "";
+  return question.answers.find((a) => a?.source === "message")?.text ?? "";
 }
