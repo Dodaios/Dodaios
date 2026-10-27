@@ -343,7 +343,7 @@ corrected until the dark areas matched.
 
 | Deck | Export | `realtime/` | Triangles / chunks | Density (weight 1) | Pages in use |
 |---|---|---|---|---|---|
-| bridge | 17 min (bake 13 min) | 19.3 MB | 1.07 M / 356 | 37.6 px/m | 4 pages (wall cladding 2026-10-26) |
+| bridge | 15 min (bake 11.5 min) | 19.4 MB | 1.07 M / 360 | 37.6 px/m | 4 pages (wall cladding 2026-10-26, ready room corner wall 2026-10-27) |
 | engineering | 11 min (bake 7.5 min) | 21.2 MB | 1.56 M / 206 | 29.5 px/m | 25-41 % surface, 82 % in rectangles |
 | hangar | 12 min (bake 9 min) | 18.7 MB | 1.09 M / 197 | 27.7 px/m | 21-54 % surface, 80 % in rectangles |
 | ops | 17 min (bake 11 min) | 16.2 MB | 0.91 M / 441 | 29.5 px/m | 38-53 % surface |
@@ -359,10 +359,16 @@ bridge (`decks/bridge/cladding.py`) the side hull walls and the aft
 bulkhead's hall face carry charcoal panels with recessed seams, gunmetal
 ribs every 4.8 m with dash lamps, light columns in alternating bays, louvre
 vents, a conduit bundle on a rail and a recessed cornice; the aft rooms'
-walls carry the light-grey room panelling with a light channel. All of it is
+walls carry the light-grey room panelling with a light channel (one lamp of
+half the bay's length per 2.4 m bay, so the rooms read no brighter than the
+hall's sparse lamps). All of it is
 ceiling ghosts built below the lowest floor (nothing clipped; the bulkhead's
 room faces, which the plate sees below the cut, are clipped at it), so the
-plate, nav grid and occluders keep their shape.
+plate, nav grid and occluders keep their shape. The one exception is the
+ready room's diagonal corner wall with its two slit windows: the plate sees
+it whole, so its panelling (`cladding.window_wall`: gunmetal jambs, sill and
+head around each slit) is real geometry, built inside the wall's former
+volume so nav and occluders stay the same.
 
 "Surface" is the share of each page the lightmap UVs cover; before the
 packing rebuild the bridge's pages held 3-15 %. The bridge numbers in

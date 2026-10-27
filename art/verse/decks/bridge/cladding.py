@@ -15,7 +15,11 @@ language (style bible 2.4, 2.9, 2.14; ART_DIRECTION 2):
   (every third rib a red strip higher up).
 * Room walls (3.6 m): the light-grey secondary panelling: dark base band with
   vents, light-grey panels with access hatches, a light channel with a hidden
-  fixture under its lip, mid-grey upper panels, gunmetal pilasters.
+  fixture under its lip (one lamp of half the bay's length per 2.4 m bay, so
+  the rooms read no brighter than the hall's sparse lamps), mid-grey upper
+  panels, gunmetal pilasters. ``window_wall`` frames the same panelling
+  around slit windows (the ready room's corner viewport, which ``aft.py``
+  builds as real plate geometry).
 
 Everything is a ceiling ghost (``kit.ghost``): invisible to the plate camera
 and to shadow rays, nav ``none``, no occluders, so the plate, the nav grid and
@@ -415,13 +419,87 @@ def room_wall(
     _box(B.panels, t0, t1, BACK, 0.1, c1 - 0.07, c1, MID)
     _box(B.flat, t0, t1, BACK, BACK + 0.006, c0 + 0.05, c1 - 0.07, LIGHT)
     for a, b in _modules(t0, t1, 2.4):
-        _box(B.lamps, a + 0.06, b - 0.06, 0.03, 0.09, c1 - 0.074, c1 - 0.07, STRIP)
+        _channel_lamp(B, a, b)
     _box(B.struct, t0, t1, BACK, 0.04, top - 0.04, top, GUNMETAL)
     for p in pilasters:
         if t0 < p < t1:
             _box(B.struct, p - 0.15, p + 0.15, BACK, 0.1, base_from, top, GUNMETAL)
             _box(B.struct, p - 0.08, p + 0.08, 0.1, 0.12, base_from + 0.3, top - 0.3, GUNMETAL)
             _box(B.flat, p - 0.02, p + 0.02, 0.12, 0.122, 0.9, c0 - 0.2, RECESS)
+
+
+def _channel_lamp(B: Builders, a: float, b: float) -> None:
+    """The light channel's fixture in one bay: a strip of half the bay's
+    length, centred, so the channel reads as a rhythm of lamps no brighter
+    than the hall's sparse fixtures rather than one continuous line."""
+    c1 = ROOM_CHANNEL[1]
+    cu, half = (a + b) / 2, (b - a) / 4
+    _box(B.lamps, cu - half, cu + half, 0.03, 0.09, c1 - 0.074, c1 - 0.07, STRIP)
+
+
+@dataclass
+class Window:
+    u0: float
+    u1: float
+    sill: float
+    head: float
+
+
+JAMB = 0.15  # width of the gunmetal jambs that frame a slit window
+
+
+def window_wall(
+    B: Builders,
+    t0: float,
+    t1: float,
+    *,
+    windows: list[Window],
+    top: float = L.ROOM_CEILING,
+) -> None:
+    """``room_wall``'s light-grey panelling on a wall pierced by tall slit
+    windows. Each slit sits in a gunmetal bay: two pilaster jambs from floor to
+    cornice, a dark base panel under a brushed sill, a head plate and a
+    mid-grey panel above. The spans between the bays carry the base band
+    (vents in the outer spans), the light-grey panels (a hatch in the middle
+    span), the light channel with one lamp per span, and the upper panels."""
+    c0, c1 = ROOM_CHANNEL
+    bays = [(w.u0 - JAMB, w.u1 + JAMB) for w in windows]
+    spans = _subtract(t0, t1, bays)
+    mid = len(spans) // 2
+    for k, (a, b) in enumerate(spans):
+        _box(B.flat, a, b, 0.0, BACK, 0.0, top, RECESS)
+        _box(B.panels, a + SEAM / 2, b - SEAM / 2, BACK, BACK + 0.022,
+             0.0, ROOM_BASE - 0.025, DARK)  # fmt: skip
+        hatch = len(spans) % 2 == 1 and k == mid
+        if not hatch and b - a > 0.8:
+            _louvre(B, (a + b) / 2, 0.14, w=0.6, h=0.3)
+        _box(B.struct, a, b, BACK, 0.05, ROOM_BASE - 0.025, ROOM_BASE, STEEL)
+        _panel(B, a, b, ROOM_BASE, c0, LIGHT, inset=hatch)
+        if hatch:
+            cu = (a + b) / 2
+            _box(B.struct, cu - 0.09, cu + 0.09, PANEL_V, PANEL_V + 0.01, 2.1, 2.15, STEEL)
+        # Light channel as in room_wall, stopped by the jambs.
+        _box(B.struct, a, b, BACK, 0.065, c0, c0 + 0.05, STEEL)
+        _box(B.panels, a, b, BACK, 0.1, c1 - 0.07, c1, MID)
+        _box(B.flat, a, b, BACK, BACK + 0.006, c0 + 0.05, c1 - 0.07, LIGHT)
+        _channel_lamp(B, a, b)
+        _panel(B, a, b, c1, top - 0.04, MID, inset=False)
+    for w, (j0, j1) in zip(windows, bays, strict=True):
+        # Dark backing, base panel, sill, head plate and upper panel between
+        # the jambs; the slit itself stays open.
+        for h0, h1 in ((0.0, w.sill), (w.head, top)):
+            _box(B.flat, w.u0, w.u1, 0.0, BACK, h0, h1, RECESS)
+        _panel(B, w.u0, w.u1, 0.0, w.sill - 0.06, DARK, inset=False, v=BACK + 0.022)
+        _box(B.struct, w.u0 - 0.03, w.u1 + 0.03, BACK, 0.09, w.sill - 0.06, w.sill, STEEL)
+        _box(B.struct, w.u0, w.u1, BACK, 0.07, w.head, w.head + 0.06, GUNMETAL)
+        _panel(B, w.u0, w.u1, w.head + 0.06, top - 0.04, MID, inset=False)
+        # Pilaster jambs with a recessed groove, as room_wall's pilasters.
+        for p0, p1 in ((j0, w.u0), (w.u1, j1)):
+            pm = (p0 + p1) / 2
+            _box(B.struct, p0, p1, BACK, 0.1, 0.0, top, GUNMETAL)
+            _box(B.struct, pm - 0.04, pm + 0.04, 0.1, 0.12, 0.3, top - 0.3, GUNMETAL)
+            _box(B.flat, pm - 0.012, pm + 0.012, 0.12, 0.122, 0.9, c0 - 0.2, RECESS)
+    _box(B.struct, t0, t1, BACK, 0.04, top - 0.04, top, GUNMETAL)
 
 
 # ---------------------------------------------------------------- the deck
@@ -505,7 +583,7 @@ def room_side_walls() -> None:
         for end, x, sign in (("w", x0, 1), ("e", x1, -1)):
             a = z0
             if room == "ready" and end == "e":
-                a = z0 + 3.9  # past the corner viewport
+                a = z0 + 3.7  # past the corner viewport
             B = Builders().at(run_matrix("z", x, sign))
             room_wall(B, (room, end), a, z1, pilasters=[zm] if z1 - a > 7.0 else [])
             B.finish(f"SM_clad_{room}_{end}")
@@ -533,7 +611,7 @@ def bulkhead_room_faces() -> None:
     }
     for room, (x0, x1) in ROOMS:
         if room == "ready":
-            x1 = L.READY_X[1] - 3.9  # the corner viewport takes the rest
+            x1 = L.READY_X[1] - 3.7  # the corner viewport takes the rest
         B = Builders().at(run_matrix("x", L.BULKHEAD_Z[1], 1))
         room_wall(B, (room, "fwd"), x0, x1, openings=door_spans[room], base_from=L.CUT_H - 0.1)
         B.finish(f"SM_clad_{room}_fwd")
