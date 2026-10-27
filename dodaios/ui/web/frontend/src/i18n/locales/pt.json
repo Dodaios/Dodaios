@@ -202,10 +202,10 @@
     "save_changes": "Guardar alterações"
   },
   "input_isolation": {
-    "title": "As ferramentas de ditado e escrita não chegam a esta janela",
+    "title": "As apps de ditado e escrita não conseguem escrever nesta janela enquanto corre como administrador.",
     "impact": "Esta aplicação está a correr com direitos de administrador, por isso o Windows impede outros programas de escrever nela. Apps de ditado, expansores de texto, ferramentas de área de transferência e o preenchimento automático de gestores de palavras-passe parecerão não fazer nada aqui, embora continuem a funcionar em todas as outras aplicações.",
     "manual_hint": "Esta aplicação não consegue largar os direitos de administrador sozinha nesta conta do Windows. Fecha-a e volta a iniciá-la normalmente — sem “Executar como administrador”.",
-    "restart_now": "Reiniciar sem direitos de admin",
+    "restart_now": "Reiniciar normalmente",
     "restarting": "A reiniciar…",
     "restart_failed": "Não foi possível reiniciar a aplicação sem direitos de administrador.",
     "dismiss": "Ocultar este aviso"

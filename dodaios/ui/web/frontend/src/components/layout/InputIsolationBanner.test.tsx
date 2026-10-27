@@ -34,6 +34,7 @@ function blocked(overrides: Partial<InputIsolationReport> = {}): InputIsolationR
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   mockReport = null;
@@ -59,7 +60,10 @@ describe("InputIsolationBanner", () => {
 
     expect(screen.getByTestId("input-isolation-banner")).toBeDefined();
     expect(screen.getByText("input_isolation.title")).toBeDefined();
-    expect(screen.getByText("input_isolation.impact")).toBeDefined();
+    // The long explanation lives in a tooltip, not in the strip.
+    expect(screen.getByTestId("input-isolation-banner").getAttribute("title")).toBe(
+      "input_isolation.impact",
+    );
     expect(screen.getByText("input_isolation.restart_now")).toBeDefined();
   });
 
@@ -84,7 +88,9 @@ describe("InputIsolationBanner", () => {
     mockReport = blocked({ can_restart_unelevated: false });
     render(<InputIsolationBanner />);
 
-    expect(screen.getByText("input_isolation.manual_hint")).toBeDefined();
+    expect(
+      screen.getByTestId("input-isolation-banner").getAttribute("title"),
+    ).toContain("input_isolation.manual_hint");
     expect(screen.queryByText("input_isolation.restart_now")).toBeNull();
   });
 
@@ -134,6 +140,16 @@ describe("InputIsolationBanner", () => {
     render(<InputIsolationBanner />);
 
     fireEvent.click(screen.getByLabelText("input_isolation.dismiss"));
+    expect(screen.queryByTestId("input-isolation-banner")).toBeNull();
+  });
+
+  it("stays hidden on the next start once the user dismissed it", () => {
+    mockReport = blocked();
+    render(<InputIsolationBanner />);
+    fireEvent.click(screen.getByLabelText("input_isolation.dismiss"));
+    cleanup();
+
+    render(<InputIsolationBanner />);
     expect(screen.queryByTestId("input-isolation-banner")).toBeNull();
   });
 });

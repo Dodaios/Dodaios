@@ -239,6 +239,24 @@ class TestBootTimeDeescalation:
         )
         assert calls == []
 
+    def test_an_elevated_shell_skips_the_pointless_relaunch(self, monkeypatch):
+        """With Explorer elevated every ordinary token is elevated: the child
+        would come back elevated, after paying for a whole extra boot."""
+        monkeypatch.setattr("sys.platform", "win32")
+        calls: list = []
+
+        assert (
+            maybe_relaunch_unelevated(
+                ["py"],
+                cwd=".",
+                _elevated=lambda: True,
+                _shell_elevated=lambda: True,
+                _spawn=_spawner(calls),
+            )
+            is None
+        )
+        assert calls == []
+
     def test_a_refused_handover_is_reported_not_swallowed(self, monkeypatch):
         """The caller must be able to tell "exit now" from "boot elevated and
         warn", so a failure has to come back as a result, never as ``None``."""

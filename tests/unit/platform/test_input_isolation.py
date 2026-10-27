@@ -25,10 +25,11 @@ from dodaios.platform.input_isolation import (
 )
 
 
-def _report(platform: str, elevated: bool | None):
+def _report(platform: str, elevated: bool | None, shell_elevated: bool | None = False):
     return describe_input_isolation(
         _platform=lambda: platform,
         _elevated=lambda: elevated,
+        _shell_elevated=lambda: shell_elevated,
         _euid=lambda: 1000,
     )
 
@@ -53,6 +54,21 @@ class TestWindows:
         # Unknown is not a defect claim: we do not nag the user on a guess.
         assert report.blocked is False
         assert report.can_restart_unelevated is False
+
+
+class TestElevatedSession:
+    """Built-in Administrator account or UAC off: Explorer itself is elevated,
+    so every app the user starts shares our level. Live report 2026-10-27:
+    the warning showed on every start and its restart button changed nothing."""
+
+    def test_elevated_shell_is_not_a_block(self):
+        report = _report("win32", True, shell_elevated=True)
+        assert report.blocked is False
+        assert report.can_restart_unelevated is False
+
+    def test_unknown_shell_state_never_nags(self):
+        report = _report("win32", True, shell_elevated=None)
+        assert report.blocked is False
 
 
 class TestPosix:
