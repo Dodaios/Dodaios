@@ -31,6 +31,7 @@ Builds are deterministic (no random numbers, fixed iteration order). Run
 | `looks.py`, `looks_gear.py` | what the atlases show (faces, hair, tailoring, armour, drones) |
 | `anim.py`, `posing.py` | clips |
 | `qa.py`, `lookdev.py`, `check_glb.mjs` | checks and look-development renders |
+| `sovereign.py`, `looks_sovereign.py`, `sovereign_qa.py` | the Sovereign skin, its atlas, its look-dev renders |
 
 Human base body: Blender Studio "Human Base Meshes" v1.4.1 (CC0, see
 `art/verse/LICENSES.md`), realistic male and female bodies at their base level only.
@@ -44,6 +45,7 @@ SHA-256.
 | `SK_Officer_M.glb`, `SK_Officer_F.glb` | Officer, male 1.78 m / female 1.68 m |
 | `SK_Technician.glb` | Engineering technician (male skeleton) |
 | `SK_Trooper.glb` | Armoured marine, ambient patrols (male skeleton) |
+| `SK_Sovereign.glb` | The commander's default skin: hooded cowl, robe, open cloak (male skeleton + six cloak bones), see `docs/verse/sovereign.md` |
 | `SK_Drone_Companion.glb` | The commander's hovering companion drone (own rig + clips) |
 | `SK_Drone_Utility.glb` | Ambient floor drone (own rig + clips) |
 | `A_Human_M.glb`, `A_Human_F.glb` | Skeleton + every human clip, per body variant |

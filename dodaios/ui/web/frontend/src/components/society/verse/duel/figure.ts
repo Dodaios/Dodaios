@@ -20,6 +20,7 @@ import type { Deck } from "../content/deck";
 import { disposeInstance, type CharacterInstance } from "../actors/characters";
 import { clipFor } from "../actors/clips";
 import { RoomLight } from "../actors/roomLight";
+import { CloakRig } from "../actors/cloak";
 import type { PlayerView } from "../combat/view";
 import { buildBlaster, type Blaster } from "./blaster";
 
@@ -61,7 +62,7 @@ const tmpQ2 = new Quaternion();
 const tmpP = new Quaternion();
 
 /** Turn `bone` so the line from it to `child` points at `target` (world). The bone's parents must be up to date. */
-function aimBone(bone: Object3D, child: Object3D, target: Vector3): void {
+export function aimBone(bone: Object3D, child: Object3D, target: Vector3): void {
   const from = bone.getWorldPosition(tmpA);
   const cur = child.getWorldPosition(tmpB).sub(from);
   const want = target.clone().sub(from);
@@ -99,6 +100,8 @@ export class DuelFigure {
   readonly group = new Group();
   readonly blaster: Blaster;
   private readonly mixer: AnimationMixer;
+  /** The skin's cloak, when it has one. */
+  private readonly cloak: CloakRig | null;
   private readonly light = new RoomLight();
   private idle: AnimationAction | null = null;
   private walk: AnimationAction | null = null;
@@ -124,6 +127,7 @@ export class DuelFigure {
 
   constructor(readonly instance: CharacterInstance, look: FigureLook, shadow: Texture) {
     this.mixer = new AnimationMixer(instance.root);
+    this.cloak = CloakRig.find(instance.root);
     this.walkSpeed = instance.walkSpeed || 1.4;
     for (const name of ["Hips", "Spine", "Chest", "Neck", "Head", "UpperArm_R", "ForeArm_R", "Hand_R", "UpperArm_L", "ForeArm_L", "Hand_L"]) {
       const o = instance.root.getObjectByName(name) as Bone | undefined;
@@ -310,6 +314,7 @@ export class DuelFigure {
     }
     this.blaster.setHeat(p.heat, p.venting, p.overheated, timeS);
 
+    if (!p.dodging && p.alive) this.cloak?.update(dt, x, z, this.legsYaw);
     this.shadow.position.set(x, floorY + 0.008, z);
     this.shadow.scale.setScalar(p.alive ? 0.95 : 1.6);
     if (deck) this.light.update(deck, x, floorY, z, dt);

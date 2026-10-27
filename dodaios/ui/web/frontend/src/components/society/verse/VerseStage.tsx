@@ -662,16 +662,18 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       else if (e.code === "KeyV" && !e.repeat) keyActions.current.cycle();
       else if (e.code === "KeyE" && !e.repeat) keyActions.current.interact();
       else if (e.code === "KeyL" && !e.repeat) keyActions.current.lockPointer();
+      else if (e.code === "KeyF") { e.preventDefault(); runtime.power = true; }
       else if (e.code === "F9" && import.meta.env.DEV) setDebug((d) => !d);
     };
     const up = (e: KeyboardEvent) => {
       if (e.key === "Shift") runtime.control.run = false;
+      if (e.code === "KeyF") runtime.power = false;
       const key = PAN_KEYS[e.code];
       if (!key) return;
       runtime.view.setKey(key, false, e.shiftKey);
       runtime.control.setKey(key, false, e.shiftKey);
     };
-    const blur = () => { runtime.view.clearKeys(); runtime.control.clearKeys(); };
+    const blur = () => { runtime.view.clearKeys(); runtime.control.clearKeys(); runtime.power = false; };
     window.addEventListener("keydown", escape, true);
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);

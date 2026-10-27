@@ -116,8 +116,8 @@ export const CUT = {
 const SLOT_CODES: ArmSlot[] = ["uniform", "trim", "skin", "other"];
 
 function slotOf(name: string): ArmSlot {
-  if (name === "M_Uniform" || name === "M_Undersuit") return "uniform";
-  if (name === "M_Trim") return "trim";
+  if (name === "M_Uniform" || name === "M_Undersuit" || name === "M_SovRobe") return "uniform";
+  if (name === "M_Trim" || name === "M_SovTrim") return "trim";
   if (name === "M_Skin" || name === "M_Gloves") return "skin";
   return "other";
 }

@@ -9,7 +9,9 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { CanvasTexture, type Texture } from "three";
+import { CanvasTexture, Vector3, type Texture } from "three";
+import { ArcStorm } from "../abilities/arcStorm";
+import { ArcSound } from "../abilities/arcSound";
 import type { Deck } from "../content/deck";
 import type { StageRuntime } from "../runtime";
 import { seatedCrew } from "../../crewFeeds/seated";
@@ -91,6 +93,19 @@ function spawnPoint(deck: Deck, entry: CastMember["entry"]): Pose | null {
 
 export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced, saluteAt }: Props) {
   const scene = useThree((s) => s.scene);
+  const gl = useThree((s) => s.gl);
+  // The commander's power: the bolts, their light and their sound.
+  const power = useMemo(() => ({
+    storm: new ArcStorm(), sound: new ArcSound(), aim: new Vector3(), left: new Vector3(), right: new Vector3(), hands: [] as Vector3[],
+  }), []);
+  useEffect(() => {
+    scene.add(power.storm.group);
+    return () => {
+      scene.remove(power.storm.group);
+      power.storm.dispose();
+      power.sound.dispose();
+    };
+  }, [scene, power]);
   const actors = useRef(new Map<string, Actor>());
   const loading = useRef(new Set<string>());
   /** Cast members who walked off on purpose (to the lift) and must not be spawned again for the same goal. */
@@ -220,6 +235,18 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
     }
     // In a duel the duellist's own body stands in for the commander's.
     if (lead) lead.group.visible = !runtime.duelActive && !(runtime.eye && runtime.commanderHidden);
+    // Arc Storm: held, the arms rise toward the aim (the view's at eye level, the body's facing on the plate).
+    const held = runtime.power && !runtime.duelActive && !!lead;
+    const level = power.storm.rise(dtS, held);
+    if (lead) {
+      if (runtime.eye) {
+        const sh = runtime.shoulder;
+        power.aim.set(Math.sin(sh.yaw) * Math.cos(sh.pitch), -Math.sin(sh.pitch), Math.cos(sh.yaw) * Math.cos(sh.pitch));
+      } else {
+        power.aim.set(Math.sin(lead.yaw), -0.06, Math.cos(lead.yaw));
+      }
+      lead.cast = level > 0 ? { level, aim: power.aim } : null;
+    }
     const area = runtime.duelActive ? runtime.duelArea : null;
     for (const actor of actors.current.values()) {
       actor.update(dtS, ctx);
@@ -244,6 +271,18 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
       if (at && at.kind === "seat" && screenSeats.has(at.id)) seatedCrew.add(actor.id);
       else seatedCrew.delete(actor.id);
     }
+    power.hands.length = 0;
+    const eyeCam = runtime.eye?.camera;
+    if (lead && level > 0 && eyeCam && runtime.shoulder.firstShare > 0.5) {
+      // First person: from where the person's own hands are on screen, low left and right of the view.
+      eyeCam.updateMatrixWorld();
+      power.left.set(-0.2, -0.2, -0.5).applyMatrix4(eyeCam.matrixWorld);
+      power.right.set(0.2, -0.2, -0.5).applyMatrix4(eyeCam.matrixWorld);
+      power.hands.push(power.left, power.right);
+    } else if (lead && level > 0 && lead.fingertips(power.left, power.right)) power.hands.push(power.left, power.right);
+    // Seen from far above (the plate) the bolts are drawn thicker to read at that scale.
+    power.storm.update(dtS, held, power.hands, power.aim, lead?.y ?? 0, gl, runtime.eye ? 1 : 3);
+    power.sound.update(reduced ? level * 0.6 : level, held);
     runtime.stats.actors = actors.current.size;
     // The third-person camera stays on the commander, leading them a little while they walk and easing back onto
     // them when they stop; a drag looks around until they walk again.
