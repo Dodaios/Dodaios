@@ -87,6 +87,25 @@ def model_capabilities(provider: str, model: str) -> tuple[bool | None, bool | N
     return reasons, vision
 
 
+def runtime_effort(provider: str, picked: str, model_efforts: tuple[str, ...] | None) -> str:
+    """The level a runtime turn runs on: the provider's fold, then the model's own.
+
+    ``model_efforts`` is the model's ladder from its catalog (``None`` = not
+    listed: the provider ladder alone applies). A level the model lists passes
+    as is; any other folds to the highest one it lists below, else its
+    lightest. ``""`` stays the model's own default.
+    """
+    from dodaios.agent_chat.effort import normalize_effort, snap_to_ladder
+
+    level = (picked or "").strip().lower()
+    if model_efforts is not None and level in model_efforts:
+        return level
+    effort = normalize_effort(provider, level)
+    if model_efforts is None or not effort:
+        return effort
+    return snap_to_ladder(effort, model_efforts)
+
+
 def _denied_native(agent: Any, plan_mode: bool) -> frozenset[str]:
     grants = set(agent.grants or [])
     denies = set(agent.denies or [])
@@ -146,7 +165,6 @@ async def _runtime_turn(
 ) -> RuntimeTurn:
     """The runtime's view of one turn; raises ``RouteUnavailable``."""
     from dodaios.agent_chat import dodaios_harness
-    from dodaios.agent_chat.effort import normalize_effort
 
     route = await prepare_route(
         _config(), session.provider, session.model,
@@ -156,6 +174,11 @@ async def _runtime_turn(
     )
     plan_mode = session.permission_mode in ("plan", "read-only")
     reasoning, vision = await asyncio.to_thread(model_capabilities, route.provider, route.model)
+    if route.efforts is not None:
+        # The provider's own per-model effort list is the stronger statement:
+        # a model listing a level above "none" reasons; one listing none (or
+        # only "none") does not.
+        reasoning = any(level and level != "none" for level in route.efforts)
     return RuntimeTurn(
         agent_id=agent.agent_id,
         agent_name=agent.name,
@@ -167,8 +190,11 @@ async def _runtime_turn(
         mcp_url=dodaios_harness.endpoint() if tools else None,
         control_key=dodaios_harness.control_key() if tools else None,
         denied_native=_denied_native(agent, plan_mode),
-        effort=normalize_effort(session.provider, getattr(session, "effort", "") or ""),
+        effort=runtime_effort(
+            session.provider, getattr(session, "effort", "") or "", route.efforts
+        ),
         reasoning=reasoning,
+        efforts=route.efforts,
         vision=vision,
         warm=warm,
     )
@@ -346,6 +372,7 @@ def _plan(
         report_session=launch.vendor_session,
         session_meta=launch.session_meta,
         prompt_meta=launch.prompt_meta,
+        failure_replies=tuple(getattr(launch, "failure_replies", ()) or ()),
     )
     if launch.proc is not None:
         # The agent's warm process: initialized, maybe with the session open.

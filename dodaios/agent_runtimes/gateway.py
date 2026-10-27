@@ -274,6 +274,20 @@ async def refresh_model_limits(grant: Grant, model: str, config: Any) -> ModelLi
     return resolve_limits(config, grant.provider, model, metadata)
 
 
+def declared_efforts(grant: Grant, model: str) -> tuple[str, ...] | None:
+    """The effort levels the provider's catalog lists for ``model`` (``None`` = none listed).
+
+    Read from the facts :func:`refresh_model_limits` just remembered; no
+    request of its own. A runtime that validates levels per model (OpenClaw)
+    needs them, or it refuses every level but "off".
+    """
+    cached = _METADATA.get((grant.provider, grant.account_id, model))
+    efforts = getattr(cached[1], "efforts", None) if cached is not None else None
+    if not isinstance(efforts, list | tuple):
+        return None
+    return tuple(str(level) for level in efforts if isinstance(level, str))
+
+
 def _metadata_refreshed(key: tuple[str, str, str], task: asyncio.Task[Any]) -> None:
     _METADATA_REFRESH.pop(key, None)
     if not task.cancelled() and task.exception() is not None:

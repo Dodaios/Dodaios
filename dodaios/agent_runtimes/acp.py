@@ -178,6 +178,11 @@ class AcpTurn:
     #: (OpenClaw: this prompt's thinking level).
     session_meta: dict[str, Any] | None = None
     prompt_meta: dict[str, Any] | None = None
+    #: Replies the runtime posts as the assistant's message when the turn
+    #: failed before any model call (OpenClaw: an unsupported thinking level,
+    #: an interruption). The first group of a match is the reason; such a
+    #: reply ends the turn as an error instead of showing as the answer.
+    failure_replies: tuple[re.Pattern[str], ...] = ()
 
     # --- fields the CLI runner reads after the turn ---
     vendor_session: str | None = None
@@ -205,6 +210,7 @@ class AcpTurn:
     _tool_names: dict[str, str] = field(default_factory=dict, init=False)
     _tool_started: dict[str, float] = field(default_factory=dict, init=False)
     _finished_tools: set[str] = field(default_factory=set, init=False)
+    _failure_reply: str = field(default="", init=False)
 
     # ------------------------------------------------------------------ frames
 
@@ -346,6 +352,9 @@ class AcpTurn:
             res = result if isinstance(result, dict) else {}
             self.stop_reason = str(res.get("stopReason") or "")
             self._take_usage(res.get("usage"))
+            if self._failure_reply:
+                self._fail(self._failure_reply.strip())
+                return
             if self.stop_reason == "refusal" and not self.emitted_text:
                 self._fail("The model refused this request.")
             elif self.stop_reason in _STOPPED_EARLY and not self.emitted_text:
@@ -435,6 +444,15 @@ class AcpTurn:
         if kind == "agent_message_chunk":
             await self._flush_thought(io)
             text = _content_text(update.get("content"))
+            if self._failure_reply:
+                # The rest of a failure notice that arrived in several chunks.
+                self._failure_reply += text
+                return
+            reason = _failure_reason(text, self.failure_replies)
+            if reason:
+                # The runtime's own failure notice, not the model's answer.
+                self._failure_reply = reason
+                return
             if text:
                 if not self._text_id:
                     self._text_id = f"acp-{self.turn_id}-{uuid.uuid4().hex[:8]}"
@@ -615,6 +633,16 @@ def _tool_name(update: dict[str, Any]) -> str:
         if head and _IDENTIFIER.match(head):
             return head
     return str(update.get("kind") or "tool")
+
+
+def _failure_reason(text: str, patterns: tuple[re.Pattern[str], ...]) -> str:
+    """The reason in ``text`` when it is one of the runtime's failure replies ("" otherwise)."""
+    stripped = text.strip()
+    for pattern in patterns:
+        match = pattern.match(stripped)
+        if match:
+            return (match.group(1) if match.groups() else stripped).strip()
+    return ""
 
 
 def _error_text(error: dict[str, Any]) -> str:

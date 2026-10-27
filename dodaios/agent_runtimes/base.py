@@ -166,6 +166,9 @@ class RuntimeTurn:
     #: it reasons / it reads images. Never inferred from a provider or model name.
     reasoning: bool | None = None
     vision: bool | None = None
+    #: The model's own effort levels as its provider's catalog lists them
+    #: (``ModelRoute.efforts``); ``None`` = the catalog lists none.
+    efforts: tuple[str, ...] | None = None
     #: Run on the agent's warm process (``warm.WarmPool``). ``False`` for a
     #: turn whose process runs elsewhere (another computer over SSH).
     warm: bool = True
@@ -196,6 +199,9 @@ class RuntimeLaunch:
     #: ``_meta`` for ``session/new`` and for ``session/prompt``.
     session_meta: dict[str, Any] | None = None
     prompt_meta: dict[str, Any] | None = None
+    #: Replies the runtime itself posts as the assistant's message when a turn
+    #: fails before any model call (``acp.AcpTurn.failure_replies``).
+    failure_replies: tuple[re.Pattern[str], ...] = ()
 
 
 class AgentRuntimeDriver(Protocol):

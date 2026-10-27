@@ -545,7 +545,7 @@ def test_hermes_writes_the_agents_effort(tmp_path, effort, expected):
 def test_openclaw_sends_the_agents_thinking_with_each_prompt(tmp_path, effort, expected):
     from dodaios.agent_runtimes import openclaw
 
-    turn = _turn(tmp_path, effort=effort)
+    turn = _turn(tmp_path, effort=effort, reasoning=True)
     meta = openclaw.prompt_meta(turn)
     assert (meta or {}).get("thinking") == expected
     # Never in the config: a changed effort must not restart the Gateway.
@@ -595,3 +595,117 @@ def test_capabilities_come_from_the_catalog_never_the_name(monkeypatch):
     assert runner_acp.model_capabilities("ollama", "plain") == (False, False)
     # A name that "sounds" capable but has no catalog entry stays unknown.
     assert runner_acp.model_capabilities("openai", "gpt-vision-reasoner") == (None, None)
+
+
+def _codex_turn(tmp_path: Path, **overrides) -> RuntimeTurn:
+    """An OpenClaw turn on the ChatGPT subscription seat (``gpt-6-luna``)."""
+    route = ModelRoute(
+        provider="openai-codex",
+        model="gpt-6-luna",
+        base_url=_GATEWAY,
+        transport="responses",
+        api_key=_TOKEN,
+        efforts=("low", "medium", "high", "xhigh", "max"),
+    )
+    values = {"route": route, "efforts": route.efforts, "reasoning": True}
+    values.update(overrides)
+    return _turn(tmp_path, **values)
+
+
+@pytest.mark.parametrize("effort", ["low", "medium", "high", "xhigh", "max"])
+def test_openclaw_accepts_every_level_the_subscription_model_lists(tmp_path, effort):
+    """Live 2026-10-27: gpt-6-luna on the ChatGPT seat refused "medium" and
+    "max" (OpenClaw offered "off, ultra") because the model was not declared
+    to reason. Every level the model's catalog lists is declared and sent."""
+    from dodaios.agent_runtimes import openclaw
+
+    turn = _codex_turn(tmp_path, effort=effort)
+    model = OpenClawRuntime().config_for(turn, port=1, token=_TOKEN)["models"]["providers"][
+        "jarvis"
+    ]["models"][0]
+    assert model["reasoning"] is True
+    assert model["compat"] == {
+        "supportedReasoningEfforts": ["low", "medium", "high", "xhigh", "max"]
+    }
+    assert openclaw.prompt_meta(turn) == {"thinking": effort}
+
+
+@pytest.mark.parametrize(
+    ("effort", "efforts", "expected"),
+    [
+        ("max", None, "high"),  # reasoning, no listed ladder: off..high only
+        ("xhigh", ("low", "medium", "high"), "high"),
+        ("ultra", ("low", "medium", "high", "xhigh", "max", "ultra"), "max"),
+        ("none", ("low", "medium"), "off"),
+    ],
+)
+def test_openclaw_folds_a_level_it_would_refuse(tmp_path, effort, efforts, expected):
+    from dodaios.agent_runtimes import openclaw
+
+    turn = _codex_turn(tmp_path, effort=effort, efforts=efforts)
+    meta = openclaw.prompt_meta(turn)
+    assert meta == {"thinking": expected}
+
+
+@pytest.mark.parametrize("effort", ["low", "medium", "high", "max"])
+def test_openclaw_sends_no_level_to_a_model_not_declared_to_reason(tmp_path, effort):
+    """OpenClaw offers such a model only "off" (and its own ultra mode): any
+    other level fails the turn. The gateway still applies the agent's effort."""
+    from dodaios.agent_runtimes import openclaw
+
+    for reasoning in (None, False):
+        turn = _turn(tmp_path, effort=effort, reasoning=reasoning)
+        assert openclaw.thinking_levels(turn) == ("none",)
+        assert openclaw.prompt_meta(turn) is None
+    assert openclaw.prompt_meta(_turn(tmp_path, effort="none")) == {"thinking": "off"}
+
+
+def test_openclaw_never_sends_a_level_outside_what_it_offers(tmp_path):
+    """Exhaustive: whatever the pick and the model's listed levels, the level
+    sent is one OpenClaw offers for the model as Dodaios declares it."""
+    from itertools import combinations
+
+    from dodaios.agent_chat.effort import ORDER
+    from dodaios.agent_runtimes import openclaw
+
+    ladders = [None, ()] + [
+        tuple(combo) for size in (1, 2, 3) for combo in combinations(ORDER, size)
+    ]
+    for reasoning in (None, False, True):
+        for efforts in ladders:
+            for effort in ("", *ORDER):
+                turn = _codex_turn(tmp_path, effort=effort, efforts=efforts, reasoning=reasoning)
+                meta = openclaw.prompt_meta(turn)
+                if meta is None:
+                    continue
+                levels = openclaw.thinking_levels(turn)
+                offered = {"off" if lvl == "none" else lvl for lvl in levels}
+                assert meta["thinking"] in offered, (reasoning, efforts, effort, meta)
+
+
+def test_runtime_effort_folds_onto_the_models_own_levels():
+    from dodaios.agent_chat.runner_acp import runtime_effort
+
+    luna = ("low", "medium", "high", "xhigh", "max")
+    assert runtime_effort("openai-codex", "medium", luna) == "medium"
+    assert runtime_effort("openai-codex", "ultra", luna) == "max"
+    assert runtime_effort("openai-codex", "", luna) == ""
+    assert runtime_effort("openai-codex", "max", ("low", "medium", "high")) == "high"
+    assert runtime_effort("openai-codex", "high", ()) == ""  # no effort knob
+    # Not listed: the provider ladder alone applies, as before.
+    assert runtime_effort("openai-codex", "max", None) == "max"
+    assert runtime_effort("gemini", "xhigh", None) == "high"
+
+
+def test_the_route_carries_the_subscription_models_listed_levels(gateway_up):
+    from dodaios.agent_runtimes.gateway import Grant
+
+    grant = Grant(agent_id="a", provider="openai-codex", account_id="acct")
+    gateway_up._METADATA[("openai-codex", "acct", "gpt-6-luna")] = (
+        0.0,
+        SimpleNamespace(id="gpt-6-luna", efforts=["low", "medium", "max"]),
+    )
+    assert gateway_up.declared_efforts(grant, "gpt-6-luna") == ("low", "medium", "max")
+    assert gateway_up.declared_efforts(grant, "unknown") is None
+    gateway_up._METADATA[("openai-codex", "acct", "bare")] = (0.0, SimpleNamespace(id="bare"))
+    assert gateway_up.declared_efforts(grant, "bare") is None

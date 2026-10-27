@@ -374,7 +374,22 @@ replayed during `session/load` is swallowed because the chat already shows it.
   names the conversation in its `_meta` (`sessionKey: agent:main:main`, and
   `resetSession: true` for a fresh conversation), and each `session/prompt`
   carries the agent's thinking level (`_meta.thinking`), so one bridge serves
-  every turn and a changed effort never restarts the Gateway. No hand-written
+  every turn and a changed effort never restarts the Gateway. OpenClaw checks
+  that level against the model as its config declares it and fails the whole
+  turn for one outside that set, so Dodaios declares what the catalog knows:
+  `reasoning: true` when the catalog says the model reasons (or lists effort
+  levels; the ChatGPT subscription lists them per model) and
+  `compat.supportedReasoningEfforts` with the listed levels. OpenClaw then
+  offers `off`..`high` plus each listed `xhigh` / `max`; a model not declared
+  to reason gets `off` only. The agent's effort folds onto that set before it
+  is sent (`openclaw.prompt_meta`): `none` -> `off`; a listed level passes;
+  any other level -> the highest offered level below it (`ultra` -> `max`,
+  `max` without a listed `max` -> `high`); a model not declared to reason
+  gets no level at all. The upstream model still runs on the agent's own
+  effort, which Dodaios' gateway applies per turn and snaps to the model's
+  levels. A failure notice OpenClaw posts as the assistant's reply (an
+  unsupported level, `[OpenClaw interruption] ...`) ends the turn as an error
+  (`acp.AcpTurn.failure_replies`), never as an answer. No hand-written
   Gateway WebSocket client: its wire protocol requires an exact version match.
 - **Warm-up run.** A fresh Gateway sets its agent loop up on its first run
   (session lifecycle, SQLite store, harness and context assembly, the MCP
