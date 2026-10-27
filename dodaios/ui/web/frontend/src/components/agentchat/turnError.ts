@@ -80,7 +80,10 @@ export function redactDetails(text: string): string {
     .replace(/<(jarvis_[a-z_]+|system|system_prompt|instructions)>[\s\S]*?(?:<\/\1>|(?=\n[ \t]*\d{4}-\d\d-\d\d[ T]\d\d:\d\d)|$(?![\s\S]))/g, "[agent instructions removed]")
     .replace(/\b(?:sk|pk|rk|ghp|gho|xox[abp])[-_][A-Za-z0-9_-]{8,}|\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, "[redacted]")
     .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s'"<>)]+/gi, "[url]")
+    // A profile folder may contain spaces ("C:\Users\First Last\...").
+    .replace(/\b[A-Z]:[\\/]+Users[\\/]+[^\\/\r\n'"<>|:*?]+(?=[\\/])/gi, "~")
     .replace(/\b[A-Z]:[\\/]+Users[\\/]+[^\\/\s'"]+/gi, "~")
+    .replace(/\/(?:home|Users)\/[^/\r\n'"<>|:*?]+(?=\/)/g, "~")
     .replace(/\/(?:home|Users)\/[^/\s'"]+/g, "~");
   out = out.split(/\r?\n/).map((line) => line.trimEnd()).join("\n").trim();
   return out.length > DETAILS_MAX ? `…${out.slice(-DETAILS_MAX)}` : out;

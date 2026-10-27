@@ -71,6 +71,25 @@ _URL = re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s'\"<>)]+", re.IGNORECASE)
 _SECRET = re.compile(
     r"(?i)\b(?:sk|pk|rk|ghp|gho|xox[abp])[-_][A-Za-z0-9_-]{8,}|\bBearer\s+[A-Za-z0-9._~+/=-]{8,}"
 )
+#: A spent plan allowance, in the words the card recognises
+#: (``turnError.ts`` USAGE_LIMIT); a dump that carries one keeps that meaning.
+_USAGE_LIMIT = re.compile(
+    r"usage[ _]limit|allowance (?:is )?used up|allowance resets", re.IGNORECASE
+)
+_RESET_AT = re.compile(r"resets at (\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d)?Z)")
+_TRY_AGAIN_AT = re.compile(
+    r"try again at ([A-Z][a-z]{2,8} \d{1,2}(?:st|nd|rd|th)?, \d{4} \d{1,2}:\d\d(?: ?[AP]M)?)"
+)
+#: A conversation longer than the model's window (``turnError.ts`` CONTEXT_FULL).
+_CONTEXT_FULL = re.compile(
+    r"context window exceeded|no longer fits this model's context window|"
+    r"context[ _]length[ _]exceeded|context overflow|prompt is too long|"
+    r"exceeds the model's context",
+    re.IGNORECASE,
+)
+#: What the card says for a dump that names a spent allowance / a full window.
+USAGE_LIMIT_REACHED: Final = "The usage limit for this model is used up."
+CONTEXT_FULL: Final = "The conversation no longer fits this model's context window."
 #: How much of a raw dump the details keep.
 _DETAILS_MAX_CHARS: Final = 2000
 
@@ -144,8 +163,11 @@ def redact(text: str) -> str:
     out = _URL.sub("[url]", out)
     for home in _home_dirs():
         out = re.sub(re.escape(home), "~", out, flags=re.IGNORECASE)
-    # A Windows profile path the env did not name (another account, a short name).
+    # A profile path the env did not name (another account, a short name); a
+    # profile folder may contain spaces ("C:\Users\First Last\...").
+    out = re.sub(r"(?i)\b[A-Z]:[\\/]+Users[\\/]+[^\\/\r\n'\"<>|:*?]+(?=[\\/])", "~", out)
     out = re.sub(r"(?i)\b[A-Z]:[\\/]+Users[\\/]+[^\\/\s'\"]+", "~", out)
+    out = re.sub(r"/(?:home|Users)/[^/\r\n'\"<>|:*?]+(?=/)", "~", out)
     out = re.sub(r"/(?:home|Users)/[^/\s'\"]+", "~", out)
     out = "\n".join(line.rstrip() for line in out.splitlines()).strip()
     if len(out) > _DETAILS_MAX_CHARS:
@@ -170,6 +192,25 @@ def gateway_unavailable_reason(text: str) -> str:
     return ""
 
 
+def _known_meaning(text: str) -> str:
+    """A short reason for a dump that names a spent allowance or a full window ("" = none).
+
+    The card turns these into an actionable sentence (and hides Retry until
+    the allowance resets), so the meaning and the reset time must survive.
+    """
+    if _USAGE_LIMIT.search(text):
+        iso = _RESET_AT.search(text)
+        if iso:
+            return f"{USAGE_LIMIT_REACHED} It resets at {iso.group(1)}."
+        vendor = _TRY_AGAIN_AT.search(text)
+        if vendor:
+            return f"{USAGE_LIMIT_REACHED} You can try again at {vendor.group(1)}."
+        return USAGE_LIMIT_REACHED
+    if _CONTEXT_FULL.search(text):
+        return CONTEXT_FULL
+    return ""
+
+
 def readable_turn_error(
     error: str | None, *, runner: str = "", provider: str = ""
 ) -> tuple[str | None, str | None]:
@@ -191,6 +232,8 @@ def readable_turn_error(
         seconds = int(stall.group("minutes")) * 60
         return stall_reason(stall.group("runner"), seconds, provider=provider), None
     internal = _INTERNAL_ERROR.match(text)
+    if (internal or looks_raw(text)) and (known := _known_meaning(text)):
+        return known, redact(text) or None
     if internal:
         rest = (internal.group("rest") or "").strip()
         return (
