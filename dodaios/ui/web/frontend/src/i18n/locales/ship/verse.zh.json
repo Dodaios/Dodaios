@@ -260,6 +260,14 @@
     "board": {
       "on": "悬浮板已展开：WASD 滑行，Shift 加速。按 B 收起。",
       "off": "悬浮板已收起。"
+    },
+    "takeover": {
+      "title": "终端",
+      "action": "接管终端",
+      "keys": "键盘输入给代理",
+      "hint_live": "按键直接发送给代理：输入文字，Enter 发送，Esc 中断，Ctrl+V 粘贴。Ctrl+Q 离开终端。",
+      "placeholder": "给这个代理的提示",
+      "send": "发送"
     }
   }
 }

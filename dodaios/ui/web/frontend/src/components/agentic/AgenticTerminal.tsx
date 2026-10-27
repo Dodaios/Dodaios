@@ -2804,7 +2804,7 @@ export function AgenticTerminal({
       const detail = (event as CustomEvent<PaneInputDetail>).detail;
       if (detail?.pane !== name || (workspaceId && detail.workspaceId !== workspaceId)) return;
       termRef.current?.input(detail.data);
-      termRef.current?.focus();
+      if (detail.focus !== false) termRef.current?.focus();
     };
     window.addEventListener(PANE_INPUT_EVENT, onInput);
     return () => window.removeEventListener(PANE_INPUT_EVENT, onInput);
