@@ -344,10 +344,11 @@ async def prepare_history(
         tail: list[dict[str, Any]] = []
         tail_size = 0
         for event in reversed(remaining):
-            # The API history renderer does not replay raw tool results.
-            # Charging their full size here displaced the latest user request
-            # even when the actual conversational tail easily fit the budget.
-            cost = 0 if event.get("kind") == "tool_result" else len(event_text(event)) + 32
+            # The API history renderer keeps only a short excerpt of each tool
+            # result. Charging the full size here displaced the latest user
+            # request even when the actual conversational tail easily fit.
+            text_len = len(event_text(event))
+            cost = (min(text_len, 320) if event.get("kind") == "tool_result" else text_len) + 32
             if tail_size + cost > budget // 2:
                 break
             tail.append(event)
