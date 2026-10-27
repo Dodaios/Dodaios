@@ -63,9 +63,13 @@ export function isCodingPane(pane: WorkspacePaneRow): boolean {
  * stands at its desk; `PaneOccupant.dot` / `stateKey` still say "error", so
  * the panel and name plate can show that word instead of "waiting".
  * idle / done / exited → "idle": it wanders.
+ * A pane whose turn ended while its background tasks (sub-agents, a shell, a
+ * monitor) still run is not done: it stays "working" at its desk until the
+ * last of them reports back, as long as its process is alive.
  */
 export function paneRunState(pane: WorkspacePaneRow, dot: AgentDotKind = dotKindFor(pane)): AgentRunState {
   if (dot === "working") return "working";
+  if (dot === "idle" && (pane.background_tasks ?? 0) > 0 && pane.status === "live") return "working";
   if (dot === "idle") return "idle";
   return "waiting";
 }

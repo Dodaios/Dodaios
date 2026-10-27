@@ -183,3 +183,58 @@ async def test_claude_timing_footer_cannot_erase_an_interruption(pane, monkeypat
     }, {"timestamp": at, "type": "system", "subtype": "turn_duration"})
     await task_state.refresh(registry)
     assert activity.read_activity(term) == "stopped"
+
+
+
+@pytest.mark.asyncio
+async def test_background_tasks_keep_a_finished_turn_unfinished_until_they_report(
+    pane, monkeypatch
+):
+    term, registry, path = pane
+    term.agent = "claude"
+    monkeypatch.setattr(task_state.agent_transcript, "_claude_file", lambda *_: path)
+    at = datetime.now(UTC).isoformat()
+    shell = {"command": "x", "run_in_background": True}
+    launch = {
+        "timestamp": at, "type": "assistant",
+        "message": {"content": [
+            {"type": "tool_use", "id": "toolu_shell", "name": "Bash", "input": shell},
+            {"type": "tool_use", "id": "toolu_watch", "name": "Monitor", "input": {}},
+            {"type": "tool_use", "id": "toolu_plain", "name": "Bash", "input": {"command": "y"}},
+        ]},
+    }
+    end_turn = {
+        "timestamp": at, "type": "assistant",
+        "message": {"content": [{"type": "text", "text": "ok"}], "stop_reason": "end_turn"},
+    }
+    append(path, launch, end_turn)
+    await task_state.refresh(registry)
+    assert task_state.evidence(term).state == "completed"
+    assert task_state.background_tasks(term) == 2
+
+    notice = (
+        "<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>toolu_shell</tool-use-id>\n"
+        "<status>completed</status>\n</task-notification>"
+    )
+    append(path, {"type": "queue-operation", "operation": "enqueue", "timestamp": at,
+                  "content": notice})
+    await task_state.refresh(registry)
+    assert task_state.background_tasks(term) == 1
+
+    failed = {"type": "tool_result", "tool_use_id": "toolu_watch", "is_error": True,
+              "content": "failed"}
+    append(path, {"timestamp": at, "type": "user", "message": {"content": [failed]}})
+    await task_state.refresh(registry)
+    assert task_state.background_tasks(term) == 0
+
+
+def test_a_running_notice_or_a_sidechain_launch_changes_nothing():
+    running = (
+        "<task-notification><tool-use-id>toolu_a</tool-use-id>"
+        "<status>running</status></task-notification>"
+    )
+    assert task_state.background_endings(running, {}) == []
+    side = {"type": "assistant", "isSidechain": True, "message": {"content": [
+        {"type": "tool_use", "id": "toolu_b", "name": "Monitor", "input": {}},
+    ]}}
+    assert task_state.background_launches(side) == []

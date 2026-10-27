@@ -109,6 +109,15 @@ describe("coding floor roster", () => {
     expect(paneRunState(pane("T1", "w1", { status: "exited", activity: "exited" }))).toBe("idle");
   });
 
+  it("keeps a pane at its desk while its background tasks (sub-agents, shells, monitors) still run", () => {
+    expect(paneRunState(pane("T1", "w1", { status: "live", activity: "waiting", background_tasks: 2 }))).toBe("working");
+    expect(paneRunState(pane("T1", "w1", { status: "live", activity: "waiting", background_tasks: 0 }))).toBe("idle");
+    // A process that is gone runs nothing, whatever its record still counts.
+    expect(paneRunState(pane("T1", "w1", { status: "exited", activity: "exited", background_tasks: 1 }))).toBe("idle");
+    // A question still needs the person.
+    expect(paneRunState(pane("T1", "w1", { status: "live", activity: "asking", background_tasks: 1 }))).toBe("waiting");
+  });
+
   it("dresses each pane randomly but stably", () => {
     expect(paneFigure("abc")).toEqual(paneFigure("abc"));
     const looks = Array.from({ length: 24 }, (_, i) => toyLookFor(paneFigure(`h${i}`), `pane:w:h${i}`));
