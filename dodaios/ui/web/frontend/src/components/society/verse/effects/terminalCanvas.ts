@@ -137,7 +137,10 @@ function cursorHidden(term: Terminal): boolean {
   return core?.coreService?.isCursorHidden ?? true;
 }
 
-/** The live screen of a pane's xterm, read-only. */
+/** Lines of scrollback kept above the screen, so a monitor taller than the pane's screen is still full. */
+export const SNAPSHOT_HISTORY = 200;
+
+/** The live screen of a pane's xterm with up to SNAPSHOT_HISTORY lines of scrollback above it, read-only. */
 export function snapshotXterm(term: Terminal): TermSnapshot {
   const theme = term.options.theme ?? {};
   const ground = opaque(theme.background, "#121212");
@@ -147,11 +150,13 @@ export function snapshotXterm(term: Terminal): TermSnapshot {
   const cols = term.cols;
   const lines: CellRun[][] = [];
   const reuse = buffer.getNullCell();
-  for (let y = 0; y < term.rows; y += 1) {
-    const line = buffer.getLine(buffer.baseY + y);
+  const start = Math.max(0, buffer.baseY - SNAPSHOT_HISTORY);
+  for (let y = start; y < buffer.baseY + term.rows; y += 1) {
+    const line = buffer.getLine(y);
     lines.push(line ? lineRuns((x) => line.getCell(x, reuse), cols, palette, ink, ground) : []);
   }
-  const cursor: [number, number] | null = cursorHidden(term) ? null : [buffer.cursorY, buffer.cursorX];
+  const above = buffer.baseY - start;
+  const cursor: [number, number] | null = cursorHidden(term) ? null : [above + buffer.cursorY, buffer.cursorX];
   return { cols, lines, cursor, ground, ink, cursorColor: theme.cursor ?? ink };
 }
 
@@ -260,7 +265,6 @@ export function drawGlyph(ctx: CanvasRenderingContext2D, ch: string, x: number, 
 
 export const LINE_RATIO = 1.22;
 const MIN_FONT = 5;
-const MAX_FONT = 30;
 
 const TONE_DOT: Readonly<Record<ScreenTone, string>> = { live: "#4ade80", attention: "#fbbf24", fault: "#f87171", standby: "#6b7280" };
 const SANS = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif";
@@ -284,19 +288,20 @@ export interface TileHeader {
 }
 
 /**
- * A monitor always shows at least this many columns: a narrow pane (a side
- * split, a small IDE window) was blown up to a few huge words per line, so one
- * desk looked zoomed in and the next zoomed out. A narrower terminal keeps the
- * same text size and leaves the rest of its row dark.
+ * A monitor shows at least this many rows. The text grows until the pane's
+ * width fills the screen (Claude Code and Codex wrap their own text to the
+ * pane, so a narrow pane cannot be re-wrapped wider), but never so far that
+ * fewer rows than this fit: a narrow pane then sits centred with a little
+ * margin instead of showing a few huge words.
  */
-export const MIN_SHOWN_COLS = 110;
+export const MIN_SHOWN_ROWS = 18;
 
-/** Font and rows for a terminal `cols` wide in a body `w` x `h`. Pure. */
-export function fitTerminal(cols: number, w: number, h: number, ratio: number): { font: number; cellW: number; lineH: number; fit: number } {
-  const font = Math.max(MIN_FONT, Math.min(MAX_FONT, w / (Math.max(MIN_SHOWN_COLS, cols) * ratio)));
+/** Font, rows that fit and the left margin (centring) for a terminal `cols` wide in a body `w` x `h`. Pure. */
+export function fitTerminal(cols: number, w: number, h: number, ratio: number): { font: number; cellW: number; lineH: number; fit: number; left: number } {
+  const font = Math.max(MIN_FONT, Math.min(w / (Math.max(20, cols) * ratio), h / (MIN_SHOWN_ROWS * LINE_RATIO)));
   const cellW = font * ratio;
   const lineH = font * LINE_RATIO;
-  return { font, cellW, lineH, fit: Math.max(1, Math.floor(h / lineH)) };
+  return { font, cellW, lineH, fit: Math.max(1, Math.floor(h / lineH)), left: Math.max(0, Math.floor((w - cols * cellW) / 2)) };
 }
 
 /** One pane: a slim title row over its terminal, inside the rectangle. */
@@ -339,7 +344,8 @@ export function paintTerminalTile(
   ctx.fillText(title, x + headH, y + headH / 2 + 1);
 
   const pad = Math.max(2, Math.round(Math.min(w, h) * 0.015));
-  const bx = x + pad, by = y + headH + pad, bw = w - 2 * pad, bh = h - headH - 2 * pad;
+  let bx = x + pad;
+  const by = y + headH + pad, bw = w - 2 * pad, bh = h - headH - 2 * pad;
   if (!snap) {
     ctx.fillStyle = mix(ground, ink, 0.25);
     ctx.font = `500 ${Math.round(Math.min(bh * 0.3, bw * 0.12))}px ${TERMINAL_FONT_STACK}`;
@@ -349,7 +355,9 @@ export function paintTerminalTile(
     return;
   }
   const ratio = charRatio(ctx);
-  const { font, cellW, lineH, fit } = fitTerminal(snap.cols, bw, bh, ratio);
+  const fitted = fitTerminal(snap.cols, bw, bh, ratio);
+  const { font, cellW, lineH, fit } = fitted;
+  bx += fitted.left;
   const { first, end } = shownRows(snap, fit);
   const top = by;
   ctx.textBaseline = "middle";
