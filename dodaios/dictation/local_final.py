@@ -75,15 +75,17 @@ CONTENDED_BEAM_RTF = 0.2
 #: so one quick call on a still-busy card does not flip the width back.
 UNCONTENDED_GREEDY_RTF = 0.06
 
-#: How long a busy card hands dictations to the cloud provider behind it before
-#: the local engine is tried again. The retry is what notices the card is free
-#: once the other program finishes; it decodes greedily, so it costs at most
-#: the greedy wait on a card that is still busy.
-_BUSY_RECHECK_S = 90.0
+#: How often a busy card is measured again while the cloud provider behind it
+#: takes the dictations. The measurement is a greedy decode of the dictation
+#: that was just handed over, run in the BACKGROUND after the cloud answered,
+#: so nobody waits on it. (The first version retried a real dictation locally
+#: every 90 s; with a dictation every couple of minutes that made every
+#: dictation a slow one — live logs 2026-10-27.)
+_BUSY_RECHECK_S = 60.0
 
 #: Audio shorter than this never moves the decode width: a one-word clip is
 #: dominated by fixed per-call overhead and says nothing about the card.
-_MIN_RTF_SAMPLE_S = 2.0
+_MIN_RTF_SAMPLE_S = 1.0
 
 #: Free accelerator memory the spawn asks for by default — the turbo weights
 #: plus a CUDA context, with a little headroom.
@@ -164,6 +166,8 @@ class LocalFinalSTT:
         #: Set by the dictation lane: True when a cloud provider stands behind
         #: this one in the chain. Only then may a busy card hand calls over.
         self.cloud_behind = False
+        #: True while a background measurement holds the call lock.
+        self._probe_running = False
         self._worker: Any = None
         self._device = ""
         self._engine_compute = ""
@@ -265,6 +269,11 @@ class LocalFinalSTT:
                 f"the dictation worker takes 16 kHz audio, not {sample_rate} Hz"
             )
         if not self._call_lock.acquire(blocking=False):
+            if self._probe_running:
+                # Only ever set while the card is busy and a cloud is behind.
+                raise LocalEngineUnavailable(
+                    "the card is busy with another program; the next provider takes this dictation"
+                )
             if self.is_loading:
                 raise LocalEngineUnavailable("the local dictation engine is still starting")
             await asyncio.to_thread(self.recover)
@@ -304,13 +313,11 @@ class LocalFinalSTT:
             raise
 
     def _transcribe_blocking(self, pcm_bytes: bytes, language: str | None) -> Transcript:
-        if (
-            self._contended
-            and self.cloud_behind
-            and time.monotonic() - self._contended_at < _BUSY_RECHECK_S
-        ):
+        if self._contended and self.cloud_behind:
             # A saturated card decodes at speech speed: the cloud behind us
             # answers in about a second. Crossable, so the chain moves on.
+            if time.monotonic() - self._contended_at >= _BUSY_RECHECK_S:
+                self._start_background_probe(pcm_bytes, language)
             raise LocalEngineUnavailable(
                 "the card is busy with another program; the next provider takes this dictation"
             )
@@ -381,6 +388,37 @@ class LocalFinalSTT:
     # ------------------------------------------------------------------
     # Worker ownership
     # ------------------------------------------------------------------
+
+    def _start_background_probe(self, pcm_bytes: bytes, language: str | None) -> None:
+        """Measure the card again on this audio, after the caller has moved on.
+
+        Runs on its own thread once the current call has released the lock, so
+        the dictation itself goes to the cloud without waiting. A greedy decode
+        that is fast again brings the local engine back for the next press.
+        """
+        self._contended_at = time.monotonic()  # one probe per interval
+
+        def probe() -> None:
+            if not self._call_lock.acquire(timeout=5.0):
+                return
+            self._probe_running = True
+            try:
+                worker = self._worker
+                if worker is None:
+                    return
+                import numpy as np
+
+                samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+                started = time.perf_counter()
+                worker.transcribe(samples, language=_concrete_language(language), beam_size=1)
+                self._note_decode_speed(len(pcm_bytes) / 32_000.0, time.perf_counter() - started, 1)
+            except Exception as exc:  # noqa: BLE001 — a failed probe just waits for the next
+                log.debug("local dictation: busy-card probe failed (%s)", exc)
+            finally:
+                self._probe_running = False
+                self._call_lock.release()
+
+        threading.Thread(target=probe, name="dictation-busy-probe", daemon=True).start()
 
     @property
     def current_beam_size(self) -> int:

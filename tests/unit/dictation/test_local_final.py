@@ -598,8 +598,8 @@ def test_a_short_clip_never_moves_the_decode_width(
     _clock, worker = _clocked
     stt = LocalFinalSTT()
 
-    asyncio.run(stt.transcribe_pcm(_pcm(1.0), language="de"))
-    asyncio.run(stt.transcribe_pcm(_pcm(1.0), language="de"))
+    asyncio.run(stt.transcribe_pcm(_pcm(0.5), language="de"))
+    asyncio.run(stt.transcribe_pcm(_pcm(0.5), language="de"))
 
     assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, FINAL_BEAM_SIZE]
 
@@ -617,12 +617,55 @@ def test_a_busy_card_hands_dictations_to_the_cloud_behind_it(
     assert is_crossable_failure(classify_stt_failure(caught.value))
     assert len(worker.calls) == 1
 
-    # After the recheck interval the local engine is tried again, greedily.
-    clock.now += local_final_mod._BUSY_RECHECK_S + 1
-    worker.rtf = {FINAL_BEAM_SIZE: 0.04, 1: 0.02}
+
+def test_a_busy_card_is_measured_again_in_the_background(
+    _clocked: tuple[_Clock, _TimedWorker], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nobody waits on the re-measurement: the dictation still goes to the
+    cloud, and a greedy decode of the same audio runs after it."""
+    clock, worker = _clocked
+    started: list[threading.Thread] = []
+    real_thread = threading.Thread
+
+    def _thread(*args: Any, **kwargs: Any) -> threading.Thread:
+        t = real_thread(*args, **kwargs)
+        if kwargs.get("name") == "dictation-busy-probe":
+            started.append(t)
+        return t
+
+    monkeypatch.setattr(local_final_mod.threading, "Thread", _thread)
+    stt = LocalFinalSTT()
+    stt.cloud_behind = True
     asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    clock.now += local_final_mod._BUSY_RECHECK_S + 1
+    worker.rtf = {FINAL_BEAM_SIZE: 0.04, 1: 0.02}  # the render finished
+
+    with pytest.raises(LocalEngineUnavailable):
+        asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    assert len(started) == 1
+    started[0].join(timeout=5)
+
+    assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, 1]
     asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
     assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, 1, FINAL_BEAM_SIZE]
+
+
+def test_a_dictation_during_the_probe_goes_to_the_cloud_without_killing_the_worker(
+    _clocked: tuple[_Clock, _TimedWorker],
+) -> None:
+    _clock, worker = _clocked
+    stt = LocalFinalSTT()
+    stt.cloud_behind = True
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    assert stt._call_lock.acquire(blocking=False)
+    stt._probe_running = True
+    try:
+        with pytest.raises(LocalEngineUnavailable):
+            asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    finally:
+        stt._probe_running = False
+        stt._call_lock.release()
+    assert stt._worker is worker and not worker.closed
 
 
 def test_without_a_cloud_behind_a_busy_card_still_decodes_locally(
