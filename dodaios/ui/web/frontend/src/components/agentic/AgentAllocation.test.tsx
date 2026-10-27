@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentAccount } from "@/lib/agentAccountsApi";
 import type { AgentStatus } from "@/lib/agenticIdeApi";
 import { AgentAllocation, type PlannedTerminal } from "./AgentAllocation";
+import kimiLogo from "@/assets/agents/kimi.svg?url";
+import opencodeLogo from "@/assets/agents/opencode.svg?url";
+import zaiLogo from "@/assets/agents/zai.svg?url";
+import claudeLogo from "@/assets/providers/claude.svg?url";
+import openaiLogo from "@/assets/providers/openai.svg?url";
+import xaiLogo from "@/assets/providers/xai.svg?url";
 
 const COPY: Record<string, string> = {
   "workspace_launcher.agents.all": "All",
@@ -160,39 +166,19 @@ describe("AgentAllocation", () => {
 
     // `data-logo` rather than the <img>: a single-colour mark is drawn as a
     // CSS mask so it can follow the theme, and jsdom does not model masks.
+    // Every file comes from the ledgered asset folders, not a public copy.
+    const logo = (agent: string) =>
+      screen.getByTestId(`agent-mark-${agent}`).getAttribute("data-logo");
     const claudeMark = screen.getByTestId("agent-mark-claude");
-    expect(claudeMark.getAttribute("data-logo")).toBe(
-      "/provider-logos/claude.svg",
-    );
-    expect(
-      screen.getByTestId("agent-mark-codex").getAttribute("data-logo"),
-    ).toBe("/provider-logos/openai.svg");
-    expect(
-      screen
-        .getByTestId("agent-mark-opencode")
-        .querySelector("img")
-        ?.getAttribute("src"),
-    ).toBe("/agent-logos/opencode.svg");
-    expect(
-      screen
-        .getByTestId("agent-mark-kimi")
-        .querySelector("img")
-        ?.getAttribute("src"),
-    ).toBe("/agent-logos/kimi.svg");
-    expect(
-      screen
-        .getByTestId("agent-mark-glm")
-        .querySelector("img")
-        ?.getAttribute("src"),
-    ).toBe("/agent-logos/zai.svg");
-    expect(
-      screen.getByTestId("agent-mark-grok-build").getAttribute("data-logo"),
-    ).toBe("/provider-logos/grok.svg");
+    expect(claudeMark.getAttribute("data-logo")).toBe(claudeLogo);
+    expect(logo("codex")).toBe(openaiLogo);
+    expect(logo("opencode")).toBe(opencodeLogo);
+    expect(logo("kimi")).toBe(kimiLogo);
+    expect(logo("glm")).toBe(zaiLogo);
+    expect(logo("grok-build")).toBe(xaiLogo);
 
     fireEvent.click(screen.getAllByRole("button", { name: "All" })[0]);
-    expect(claudeMark.getAttribute("data-logo")).toBe(
-      "/provider-logos/claude.svg",
-    );
+    expect(claudeMark.getAttribute("data-logo")).toBe(claudeLogo);
   });
 
   it("presents a wide keyboard-friendly count field without native spinners", () => {

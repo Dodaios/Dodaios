@@ -19,7 +19,7 @@
 
 import { CLI_VENDOR_LOGOS, cliVendor } from "./cliVendors";
 
-const BUNDLED_BRAND_LOGOS = import.meta.glob("../assets/brands/*.svg", {
+const BUNDLED_BRAND_LOGOS = import.meta.glob("../assets/brands/*.{svg,png}", {
   eager: true,
   query: "?url",
   import: "default",
@@ -67,7 +67,7 @@ function humanise(tokens: string[]): string {
 /** Every bundled brand, most specific (most tokens, then longest) first. */
 const BRANDS: Brand[] = Object.entries(BUNDLED_BRAND_LOGOS)
   .map(([path, logoUrl]) => {
-    const id = path.replace(/^.*\//, "").replace(/\.svg$/, "");
+    const id = path.replace(/^.*\//, "").replace(/\.(svg|png)$/, "");
     const tokens = id.split("_");
     return {
       id,
@@ -78,7 +78,11 @@ const BRANDS: Brand[] = Object.entries(BUNDLED_BRAND_LOGOS)
   })
   .concat(
     Object.entries(CLI_VENDOR_LOGOS)
-      .filter(([id]) => !BUNDLED_BRAND_LOGOS[`../assets/brands/${id}.svg`])
+      .filter(
+        ([id]) =>
+          !BUNDLED_BRAND_LOGOS[`../assets/brands/${id}.svg`] &&
+          !BUNDLED_BRAND_LOGOS[`../assets/brands/${id}.png`],
+      )
       .map(([id, spec]) => ({
         id,
         tokens: id.split(/[-_]/),

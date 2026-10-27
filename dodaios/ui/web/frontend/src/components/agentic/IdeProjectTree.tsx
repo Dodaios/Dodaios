@@ -724,7 +724,7 @@ export function IdeProjectTree() {
     const items: TreeMenuItem[] = found.editors.map((editor) => {
       const installed = editor.installed !== false;
       return {
-        id: `editor-${editor.id}`, label: fill(t("ide_projects.open_in"), { editor: editor.label }), icon: SquareCode, image: EDITOR_LOGOS[editor.id],
+        id: `editor-${editor.id}`, label: fill(t("ide_projects.open_in"), { editor: editor.label }), icon: SquareCode, image: EDITOR_LOGOS[editor.id], imageMono: MONO_EDITOR_LOGOS.has(editor.id),
         testId: `ide-${scope}-menu-editor-${editor.id}`, disabled: !installed, hint: installed ? undefined : t("ide_projects.not_installed"),
         onSelect: run(() => void openIn(project.id, editor.id, editor.label)),
       };
@@ -913,6 +913,8 @@ const FILE_MANAGER_LABEL = (() => {
 const TREE_MENU_MARGIN = 8;
 /** Each featured editor's own app icon, in its real colours. */
 const EDITOR_LOGOS: Record<string, string> = { code: vscodeLogo, cursor: cursorLogo };
+/** Single-colour editor glyphs (src/assets/editors/LOGOS.md), drawn in the text ink. */
+const MONO_EDITOR_LOGOS = new Set(["cursor"]);
 
 /** One row of the sidebar's action menu. */
 interface TreeMenuItem {
@@ -921,6 +923,8 @@ interface TreeMenuItem {
   icon: LucideIcon;
   /** A brand mark drawn instead of `icon`; greyed out with the item when disabled. */
   image?: string;
+  /** The mark is a single-colour glyph: drawn as a mask over the text ink, never recoloured. */
+  imageMono?: boolean;
   testId: string;
   onSelect: () => void;
   disabled?: boolean;
@@ -1042,7 +1046,16 @@ function TreeContextMenu({
                     : "text-foreground hover:bg-muted focus-visible:bg-muted"
                 }`}
               >
-                {item.image
+                {item.image && item.imageMono
+                  ? <span aria-hidden data-testid={`${item.testId}-logo`} data-logo={item.image}
+                      className={`h-4 w-4 shrink-0 bg-foreground ${item.disabled ? "grayscale" : ""}`}
+                      style={{
+                        WebkitMaskImage: `url("${item.image}")`, maskImage: `url("${item.image}")`,
+                        WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat",
+                        WebkitMaskPosition: "center", maskPosition: "center",
+                        WebkitMaskSize: "contain", maskSize: "contain",
+                      }} />
+                  : item.image
                   ? <img src={item.image} alt="" aria-hidden draggable={false} data-testid={`${item.testId}-logo`}
                       className={`h-4 w-4 shrink-0 object-contain ${item.disabled ? "grayscale" : ""}`} />
                   : <Icon aria-hidden className={`h-4 w-4 shrink-0 ${item.destructive ? "" : "text-muted-foreground"}`} />}

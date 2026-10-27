@@ -5,7 +5,8 @@ come from gilbarbara/logos; single-colour glyphs come from Simple Icons.
 Retrieved 2026-09-07 from the Simple Icons npm package, version 16.30.0.
 The glyphs are CC0; the brand names and trademarks belong to their owners.
 These marks identify services and do not imply endorsement. Single-colour
-glyphs use each service's hue; neutral glyphs follow the light/dark theme.
+glyphs render in neutral monochrome (the current text ink, so they follow the
+light/dark theme); they are never tinted with a palette colour of ours.
 
 | Asset | Source | License |
 | --- | --- | --- |

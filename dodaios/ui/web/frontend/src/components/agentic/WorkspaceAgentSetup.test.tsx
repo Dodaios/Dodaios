@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentStatus } from "@/lib/agenticIdeApi";
 import { WorkspaceAgentSetup } from "./WorkspaceAgentSetup";
+import openaiLogo from "@/assets/providers/openai.svg?url";
 
 vi.mock("@/lib/agenticIdeApi", () => ({
   fetchLaunchPresets: vi.fn().mockResolvedValue({ presets: [], stored: true }),
@@ -26,7 +27,7 @@ describe("Workspace agent selection", () => {
   it("chooses a logo tile and expands that choice with the count buttons", () => {
     render(<Setup />);
     const codex = screen.getByRole("button", { name: "Codex" });
-    expect(within(codex).getByTestId("agent-mark-codex").getAttribute("data-logo")).toBe("/provider-logos/openai.svg");
+    expect(within(codex).getByTestId("agent-mark-codex").getAttribute("data-logo")).toBe(openaiLogo);
     fireEvent.click(codex);
     fireEvent.click(screen.getByRole("button", { name: "6 sessions" }));
     expect(screen.getByTestId("plan").textContent).toBe(Array(6).fill("codex").join(","));

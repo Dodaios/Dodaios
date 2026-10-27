@@ -6,6 +6,8 @@ import type { Capability } from "@/components/society/data";
 
 import { MentionPicker } from "./MentionPicker";
 import { buildMentionCatalog, filterMentions } from "./mentionItems";
+import claudeLogo from "@/assets/providers/claude.svg?url";
+import openaiLogo from "@/assets/providers/openai.svg?url";
 
 afterEach(cleanup);
 
@@ -36,8 +38,8 @@ describe("MentionPicker", () => {
     render(<><div ref={anchor} /><MentionPicker anchorRef={anchor} open items={items} loading={false}
       activeIndex={0} onHover={() => {}} onPick={(item) => picked.push(item.value)} /></>);
     expect(screen.getByText("Coding Agents")).toBeTruthy();
-    expect(screen.getByTestId("agent-mark-codex").getAttribute("data-logo")).toBe("/provider-logos/openai.svg");
-    expect(screen.getByTestId("agent-mark-claude").getAttribute("data-logo")).toBe("/provider-logos/claude.svg");
+    expect(screen.getByTestId("agent-mark-codex").getAttribute("data-logo")).toBe(openaiLogo);
+    expect(screen.getByTestId("agent-mark-claude").getAttribute("data-logo")).toBe(claudeLogo);
     expect(screen.getByTestId("agent-mark-custom-cli").getAttribute("data-logo")).toBe("/uploads/custom.svg");
     const missing = screen.getByText("Missing CLI").closest('[role="option"]')!;
     expect(missing.getAttribute("aria-disabled")).toBe("true");

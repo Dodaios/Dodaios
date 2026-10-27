@@ -2,6 +2,15 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AgentMark } from "./AgentMark";
+import cursorLogo from "@/assets/agents/cursor.svg?url";
+import deepseekLogo from "@/assets/agents/deepseek.svg?url";
+import kimiLogo from "@/assets/agents/kimi.svg?url";
+import opencodeLogo from "@/assets/agents/opencode.svg?url";
+import zaiLogo from "@/assets/agents/zai.svg?url";
+import antigravityLogo from "@/assets/providers/antigravity.svg?url";
+import claudeLogo from "@/assets/providers/claude.svg?url";
+import openaiLogo from "@/assets/providers/openai.svg?url";
+import xaiLogo from "@/assets/providers/xai.svg?url";
 
 afterEach(cleanup);
 
@@ -12,7 +21,7 @@ afterEach(cleanup);
  * started as, and on the light theme the restore screen showed seven terminals
  * with no sign of which CLI each was running (maintainer, 2026-08-11). The
  * marks are not all broken the same way, so what is pinned here is the routing:
- * which file gets redrawn in the theme's ink, which one keeps its colours and
+ * which file is drawn in the theme's ink, which one keeps its colours and
  * gets the dark ground it was painted against, and which one is left alone.
  *
  * `data-ground` and `data-logo` are asserted rather than the DOM shape, because
@@ -24,74 +33,42 @@ function mark(agent: string): HTMLElement {
 }
 
 describe("AgentMark", () => {
-  it("redraws a single-colour silhouette in the theme's own ink", () => {
-    // Claude and OpenAI ship as one near-white fill. Nothing about that colour
-    // is brand, so the mark is a mask and follows light/dark by itself.
-    const { unmount } = render(<AgentMark agent="claude" label="Claude Code" />);
-    expect(mark("claude").getAttribute("data-ground")).toBe("ink");
-    expect(mark("claude").getAttribute("data-logo")).toBe(
-      "/provider-logos/claude.svg",
-    );
-    // The <img> is what made it invisible on paper; it must be gone.
-    expect(mark("claude").querySelector("img")).toBeNull();
-    unmount();
-
-    const grok = render(<AgentMark agent="grok-build" label="Grok Build" />);
-    expect(mark("grok-build").getAttribute("data-ground")).toBe("ink");
-    expect(mark("grok-build").getAttribute("data-logo")).toBe(
-      "/provider-logos/grok.svg",
-    );
-    expect(mark("grok-build").querySelector("img")).toBeNull();
-    grok.unmount();
-
-    render(<AgentMark agent="antigravity" label="Antigravity" />);
-    expect(mark("antigravity").getAttribute("data-ground")).toBe("ink");
-    expect(mark("antigravity").getAttribute("data-logo")).toBe(
-      "/provider-logos/antigravity.svg",
-    );
-    expect(mark("antigravity").querySelector("img")).toBeNull();
-
-    const cursor = render(<AgentMark agent="cursor" label="Cursor CLI" />);
-    expect(mark("cursor").getAttribute("data-ground")).toBe("ink");
-    expect(mark("cursor").getAttribute("data-logo")).toBe(
-      "/agent-logos/cursor.svg",
-    );
-    expect(mark("cursor").querySelector("img")).toBeNull();
-    cursor.unmount();
+  it.each([
+    ["codex", openaiLogo],
+    ["grok-build", xaiLogo],
+    ["cursor", cursorLogo],
+    ["deepseek-harness", deepseekLogo],
+    ["kimi", kimiLogo],
+    ["opencode", opencodeLogo],
+    ["glm", zaiLogo],
+  ])("draws the single-colour %s glyph in the theme's own ink", (agent, file) => {
+    // A mono glyph is a mask over the text ink: neutral monochrome that follows
+    // light/dark by itself, never a palette colour of ours.
+    render(<AgentMark agent={agent} label={agent} />);
+    expect(mark(agent).getAttribute("data-ground")).toBe("ink");
+    expect(mark(agent).getAttribute("data-logo")).toBe(file);
+    // The <img> is what made a mono mark invisible on paper; it must be gone.
+    expect(mark(agent).querySelector("img")).toBeNull();
   });
 
-  it("knows the harness whose own interface is not the terminal", () => {
-    // Registered like every other CLI, so the picker must not fall back to a
-    // two-letter monogram for it — an unbranded tile in a list of brands reads
-    // as the entry being half-finished.
-    render(<AgentMark agent="deepseek-harness" label="DeepSeek Harness" />);
-    expect(mark("deepseek-harness").getAttribute("data-ground")).toBe("ink");
-    expect(mark("deepseek-harness").getAttribute("data-logo")).toBe(
-      "/agent-logos/deepseek.svg",
-    );
-    expect(mark("deepseek-harness").querySelector("img")).toBeNull();
+  it.each([
+    ["claude", claudeLogo],
+    ["antigravity", antigravityLogo],
+  ])("draws the %s mark in its own colours, untouched", (agent, file) => {
+    // A full-colour mark on a transparent ground reads on both themes; it is
+    // shown exactly as the vendor drew it rather than flattened to a silhouette.
+    render(<AgentMark agent={agent} label={agent} />);
+    expect(mark(agent).getAttribute("data-ground")).toBe("any");
+    expect(mark(agent).querySelector("img")?.getAttribute("src")).toBe(file);
+    expect(mark(agent).className).not.toContain("bg-scrim");
   });
 
-  it("gives a lockup with a white background the dark ground it was drawn on", () => {
-    // OpenCode is a white square with a dark inner shape. On paper the square
-    // IS the paper and the mark collapsed to an unlabelled grey dot.
-    render(<AgentMark agent="opencode" label="OpenCode" />);
-    expect(mark("opencode").getAttribute("data-ground")).toBe("dark");
-    expect(mark("opencode").querySelector("img")?.getAttribute("src")).toBe(
-      "/agent-logos/opencode.svg",
-    );
-    expect(mark("opencode").className).toContain("bg-scrim");
-  });
-
-  it("leaves a lockup that carries its own ground untouched", () => {
-    // Z.ai is already a dark tile with a white glyph, so it reads on either
-    // theme — a canvas behind it would only be a box inside a box.
-    render(<AgentMark agent="glm" label="GLM" />);
-    expect(mark("glm").getAttribute("data-ground")).toBe("any");
-    expect(mark("glm").querySelector("img")?.getAttribute("src")).toBe(
-      "/agent-logos/zai.svg",
-    );
-    expect(mark("glm").className).not.toContain("bg-scrim");
+  it("never points at an unsourced public copy", () => {
+    for (const agent of ["claude", "codex", "cursor", "glm", "grok-build", "kimi", "opencode"]) {
+      const { unmount } = render(<AgentMark agent={agent} label={agent} />);
+      expect(mark(agent).getAttribute("data-logo")).not.toMatch(/provider-logos|agent-logos/);
+      unmount();
+    }
   });
 
   it("does not guess a ground for a logo the user uploaded", () => {
@@ -113,7 +90,7 @@ describe("AgentMark", () => {
     expect(mark("mystery").textContent).toBe("MY");
   });
 
-  it("keeps the plain variant tile-free unless the mark needs a canvas", () => {
+  it("keeps the plain variant tile-free for colour and ink marks alike", () => {
     const { unmount } = render(
       <AgentMark agent="claude" label="Claude Code" variant="plain" />,
     );
@@ -121,6 +98,6 @@ describe("AgentMark", () => {
     unmount();
 
     render(<AgentMark agent="kimi" label="Kimi" variant="plain" />);
-    expect(mark("kimi").className).toContain("bg-scrim");
+    expect(mark("kimi").className).not.toContain("bg-scrim");
   });
 });
