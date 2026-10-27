@@ -96,8 +96,8 @@ OLD_PACKAGE = "jarvis"
 NEW_PACKAGE = "dodaios"
 RENAME_SCRIPT = "scripts/rename/rewrite_package.py"
 BUNDLE_DIR = "dodaios/ui/web/dist"
-# A branch that would still carry a bundle (the retired Frontend bundle
-# workflow's). main tracks none: release tags carry their own build.
+# The retired Frontend bundle workflow's branch. main tracks no bundle (release
+# tags carry their own build), so pin_bundle drops it there too.
 BUNDLE_BOT_BRANCH = "bot/frontend-bundle"
 AGENT_BRANCH_PREFIXES = ("codex/", "claude/", "agent/", "agents/", "gemini/", "cursor/", "bot/")
 OPT_OUT_LABELS = {"no-auto-merge", "do-not-merge", "wip", "needs-human"}
@@ -231,12 +231,11 @@ def pin_bundle(onto: str, cwd: Path, branch: str = "") -> bool:
     main tracks no bundle (release tags carry one built from their own
     sources), so this drops any copy a branch still carries, for example one
     cut before main stopped tracking it. A branch that carries its own build
-    would conflict with every other frontend pull request.
+    would conflict with every other frontend pull request. No branch is
+    exempt, the retired rebuild bot's included: its pull request must never
+    bring the bundle back. ``branch`` is kept for the callers' signature.
     """
-    if not branch:
-        branch = git("rev-parse", "--abbrev-ref", "HEAD", check=False, cwd=cwd).stdout.strip()
-    if branch == BUNDLE_BOT_BRANCH:
-        return False
+    del branch
     if not git("diff", "--quiet", onto, "HEAD", "--", BUNDLE_DIR, check=False, cwd=cwd).returncode:
         return False
     git("rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", BUNDLE_DIR, cwd=cwd)
