@@ -1,33 +1,29 @@
 # Verse capital ship: interior style bible
 
-Status: v1, 2026-10-19. This is the art-direction source of truth for the interior decks of the
-Dodaios capital ship. The ship is 1.6 km long. The decks are seen top-down at about 60° as cut-away
+Status: v2, 2026-10-27. This is the art-direction source of truth for the interior decks of the
+Dodaios capital ship. The ship is 2.4 km long. The decks are seen top-down at about 60° as cut-away
 plates: pre-rendered Blender Cycles backgrounds with realtime characters on top.
 
-The look is **fleet-navy brutalist industrial**. It descends from the capital-ship interiors of a
-classic space-opera film series and its recent prequel series, which this document calls "the
-reference films". Every rule below is written so that an artist who has never seen those films
-can build the look from numbers.
+The look is **Dodaios fleet style**: brutalist industrial architecture in charcoal, graphite and
+gunmetal, cold light from the structure itself, and brand gold as the one warm signature. It is an
+original design language for this project. Every rule below is written as numbers, so an artist can
+build the look from this document alone.
 
-**Legal rule.** This file and every file in the repository describe the style generically.
+**Legal rule.** This file and every file in the repository describe only our own design.
 
-- They never name the franchise, its ships, factions, characters, studios, alphabets or titles.
-- They never reproduce its insignia, rank-tile grids, helmet faces or vehicle silhouettes.
-- Where the reference has an iconic element, this bible specifies an original variant.
-- Reference images stay on the art lead's machine and are never committed.
+- They never name or point to a film, series, game or other franchise as a source or reference.
+- They never reproduce third-party insignia, rank-tile grids, helmet faces, costumes or vehicle silhouettes.
+- Mood boards stay on the art lead's machine and are never committed.
 
-**Confidence tags** on numbers:
-
-- **[S]** stated by a production, vendor or replica source.
-- **[E]** estimated from film frames against human scale (a crew member is 1.75 m).
-- **[D]** a design decision for this project, chosen to evoke the reference while reading well top-down.
+Every value in this document is a design decision for this project, made on the 0.6 m grid to read
+well from a 60° top-down camera.
 
 ---
 
 ## 0. The look in six sentences
 
 1. The architecture is a disciplined grid of chamfered rectangles: 45° corners, elongated hexagons and trapezoids, never organic curves. The only curved forms are cylinders and big circular rooms.
-2. Colour is almost absent. Black, graphite, cool grey and white carry 95% of every frame. Light, not paint, does the work.
+2. Colour is almost absent. Charcoal, graphite, gunmetal and cool grey carry 95% of every frame; brand gold is the one warm signature, used sparingly. Light, not paint, does the work.
 3. Light comes **from the architecture**: panels set into walls, ceilings, floors, console faces and rim copings. There are no visible lamps, no glowing lines added for decoration, and no omni fill.
 4. Floors are either **black mirror gloss** (command, ceremony, hangar) or **pale satin grey plate** (working decks). The gloss floor doubles every light and makes the room feel twice as tall and twice as cold.
 5. Accents are small, rectangular and functional: grids of white and red square indicators, a few amber and blue screens. A rare warm wall panel marks a control room. Every accent means something.
@@ -37,17 +33,17 @@ can build the look from numbers.
 
 ## 1. Scale, grid and deck heights
 
-| Item | Value | Tag |
-|---|---|---|
-| Ship length | 1,600 m | [D] (the reference ship class is 1,600 m [S]) |
-| Base module | **0.6 m**. Every panel, tile and light dimension is a multiple or simple fraction of it. | [D] |
-| Major bay | **2.4 m** (4 modules): wall bay, light-panel rhythm, floor-plate rhythm on working decks | [D] |
-| Structural frame spacing | **4.8 m** (2 bays): portal frames, ribs, buttresses | [D] |
-| Standard deck, floor to floor | **4.2 m**: 3.0 m clear plus 1.2 m service plenum | [D] |
-| Command and ceremony deck clear height | 4.8–6.0 m | [D] |
-| Hangar clear height | 24 m main bay, 12 m secondary bay | [D] (the reference stage was 13.7 m to the grid, with mattes above [S]) |
-| Average crew height | 1.75 m; armoured marine 1.85 m; tallest robot 1.72 m | [E] |
-| Eye height (standing / seated) | 1.62 m / 1.20 m | [D] |
+| Item | Value |
+|---|---|
+| Ship length | 2,400 m |
+| Base module | **0.6 m**. Every panel, tile and light dimension is a multiple or simple fraction of it. |
+| Major bay | **2.4 m** (4 modules): wall bay, light-panel rhythm, floor-plate rhythm on working decks |
+| Structural frame spacing | **4.8 m** (2 bays): portal frames, ribs, buttresses |
+| Standard deck, floor to floor | **4.2 m**: 3.0 m clear plus 1.2 m service plenum |
+| Command and ceremony deck clear height | 4.8–6.0 m |
+| Hangar clear height | 24 m main bay, 12 m secondary bay |
+| Average crew height | 1.75 m; armoured marine 1.85 m; tallest robot 1.90 m |
+| Eye height (standing / seated) | 1.62 m / 1.20 m |
 
 **Rule:** if a dimension is not in this document, snap it to the 0.6 m grid. Snap sub-module details
 to 0.15 m, 0.3 m or 0.05 m.
@@ -86,7 +82,7 @@ TYPE A  SPINE CORRIDOR (main circulation)            TYPE B  HEX TUBE (connector
 
 | Parameter | A Spine | B Hex tube | C Panel corridor | D Clinical corridor |
 |---|---|---|---|---|
-| Clear width at floor | 4.2 m [D] (reference set about 4–5 m [E]) | 1.6 m [D] | 3.6 m [D] (3.0–3.6 m [E]) | 3.0 m [D] |
+| Clear width at floor | 4.2 m | 1.6 m | 3.6 m | 3.0 m |
 | Maximum width | 4.8 m between wall faces | 2.8 m at mid height | 3.6 m | 3.0 m |
 | Height | 3.3 m under portal header, 3.6 m to ceiling soffit, ducts below the soffit to 3.0 m | 2.8 m | 3.0 m | 2.7 m |
 | Wall profile | Vertical panels between portals | Lower 45° chamfer from floor to 0.6 m; vertical from 0.6 to 2.2 m; upper 45° chamfer from 2.2 to 2.8 m | Vertical | Vertical |
@@ -109,14 +105,14 @@ The Type B tube is the most recognisable silhouette, so keep it short. A 30 m tu
 
 ### 2.4 Wall panel system
 
-- **Panel field sizes.** Horizontal panels 1.2 × 0.6 m on working decks; vertical panels 0.6 × 2.4 m on command decks. [D] (reference corridor panels read about 1.2 × 0.6 m [E])
+- **Panel field sizes.** Horizontal panels 1.2 × 0.6 m on working decks; vertical panels 0.6 × 2.4 m on command decks.
 - **Seams.**
   - 6 mm wide × 4 mm deep square reveal between panels.
   - Every panel edge has a 3 mm × 45° bevel; this is what catches the light.
   - Major joints between bays are 20 mm wide × 15 mm deep.
 - **Inset fields.** One panel in four carries a recessed field: inset 20 mm, with a 50 mm border, often a tapered trapezoid (wider at the bottom, top 70% of bottom width).
 - **Base.** A 0.3 m tall plinth or vent strip at floor level, recessed 20 mm, with horizontal slots 0.15 × 0.012 m at 25 mm pitch. A 0.05 m cornice return sits at the ceiling line.
-- **Wall-light unit** (signature panel) [S size, D pattern]:
+- **Wall-light unit** (signature panel):
   - Size 0.6 × 2.3 m: a dark panel holding three columns of vertical pill-shaped lamps.
   - Each lamp is 40 mm wide, 80–320 mm long, with full round ends.
   - Arrange the lamps in a **non-repeating pattern of three lengths** (80, 160, 320 mm), 60 mm column gap, 40 mm vertical gap.
@@ -127,7 +123,7 @@ The Type B tube is the most recognisable silhouette, so keep it short. A 30 m tu
 
 | Floor type | Plate size | Seams | Finish | Where |
 |---|---|---|---|---|
-| **Black mirror gloss** | 1.2 × 1.2 m (rooms), 2.4 × 2.4 m (hangars and halls) [E: about 2.4 m in hangar frames] | 3 mm dark seam, plus a 6 mm brushed-steel inlay on every 4th line; 40 × 40 mm steel corner stud at inlay crossings | Roughness 0.06–0.12, clearcoat | Bridge walkway, briefing, hangar, ceremonial halls, panel corridors |
+| **Black mirror gloss** | 1.2 × 1.2 m (rooms), 2.4 × 2.4 m (hangars and halls) | 3 mm dark seam, plus a 6 mm brushed-steel inlay on every 4th line; 40 × 40 mm steel corner stud at inlay crossings | Roughness 0.06–0.12, clearcoat | Bridge walkway, briefing, hangar, ceremonial halls, panel corridors |
 | **Pale satin grey plate** | 1.2 × 1.2 m | 5 mm recessed seam | Roughness 0.45 | Spine corridors, pit floors, engineering, mess |
 | **Grating** | 0.9 × 2.4 m panels | 25 mm bar pitch, 5 mm bars, 40 mm deep, black | Roughness 0.5, metallic | Corridor strips, catwalks, reactor galleries, hex tube walkway (warm-lit from below) |
 | **White clinical tile** | 0.6 × 0.6 m | 4 mm grey seam | Roughness 0.25 | Medical, simulator, detention cells |
@@ -156,8 +152,8 @@ Flush details sit at 1 per 2–3 plates on working floors:
 
 | Door | Clear opening | Leaf design | Frame |
 |---|---|---|---|
-| Personnel sliding door | 1.8 × 2.5 m [D] (reference about 1.8–2.2 × 2.5–2.7 m [E]) | Two leaves split vertically; each leaf has a vertical light slot (0.04 × 1.2 m) at the meeting edge | Chamfered head 0.3 m; frame 0.3 m face, 0.4 m deep |
-| **Diagonal blast door** | 3.0 × 3.0 m [D] | Two leaves meeting on a 45° diagonal seam, each with a 0.2 m raised diagonal rib along the seam and one 0.3 m square hazard plate | Recessed 0.6 m into the wall; cylindrical pilasters Ø 0.6 m either side |
+| Personnel sliding door | 1.8 × 2.5 m | Two leaves split vertically; each leaf has a vertical light slot (0.04 × 1.2 m) at the meeting edge | Chamfered head 0.3 m; frame 0.3 m face, 0.4 m deep |
+| **Diagonal blast door** | 3.0 × 3.0 m | Two leaves meeting on a 45° diagonal seam, each with a 0.2 m raised diagonal rib along the seam and one 0.3 m square hazard plate | Recessed 0.6 m into the wall; cylindrical pilasters Ø 0.6 m either side |
 | Hatch door (hex) | 1.2 × 2.2 m elongated hexagon | Single leaf sliding up into the head | Lit-edge variant for command |
 | Cargo shutter | 6.0 × 4.8 m | Horizontal slats 0.3 m with a black/hazard-yellow diagonal band on the bottom slat | Splayed-foot portal |
 | Hangar magnetic aperture | Up to 72 × 18 m, rounded-rectangle opening, corner radius 3 m | No leaf: a field plane with faint blue-white surface sheen (alpha 3–6%) | A **glowing white frame band 1.2 m wide**, the only large continuous emitter in the ship |
@@ -167,10 +163,10 @@ Locked doors show a single red 0.1 × 0.1 m lamp on the frame at 1.4 m height.
 
 ### 2.8 Railings and edges
 
-The reference is notably **railing-poor**. Danger edges (crew pits, reactor catwalks, chasms) are mostly
-unprotected, which is part of the cold, inhuman feel.
+Railings are sparse and thin. They guard the edges people walk along and stay out of the
+composition everywhere else; a bare edge is marked with light, not with a barrier.
 
-- **Crew pit coping:** 0.3 m wide brushed-steel or pale-grey lip, 0.05 m upstand, no railing.
+- **Crew pit coping:** 0.3 m wide brushed-steel or pale-grey lip, 0.05 m upstand, with a single thin rail at deck level along the walkway side.
 - **Galleries above hangars and work halls:** a single thin rail, Ø 0.04 m tube at 1.0 m, with a mid rail at 0.5 m and posts every 2.4 m. Graphite. No glass.
 - **Reactor catwalks: no railings at all.** Edges are marked with a 0.05 m white edge line and nothing else.
 - Stairs get one handrail only, Ø 0.04 m at 0.9 m.
@@ -188,26 +184,23 @@ unprotected, which is part of the cold, inhuman feel.
 
 These are the heart of the command bridge, and also used in control rooms.
 
-| Parameter | Value | Tag |
-|---|---|---|
-| Depth below walkway | **1.7 m**. Seated crew eye height (1.20 m) sits 0.5 m below walkway level, so officers look down onto heads. | [S fan analysis] |
-| Pit floor width | 3.6 m | [E] |
-| Plan shape | Long rectangle with 45° chamfered ends (octagonal); the inner long side follows the walkway | [E] |
-| Pit wall consoles | Full-height cabinets, 1.7 m (floor to coping), 0.6 m deep, bays 0.6 m wide; vertical white light bar (0.05 × 0.9 m) between every 2 bays | [E] |
-| Freestanding duty consoles | 6 per pit side (reference: 6 [S fan]); 2.4 m pitch along the pit | [S]/[D] |
-| Console orientation | Facing the bow (perpendicular to the walkway) on the main bridge; parallel to the walkway in secondary control rooms | [S]/[D] |
-| Access | Straight stair at the aft end of each pit: 9 risers × 0.19 m, treads 0.28 m, width 1.2 m | [D] |
-| Coping | 0.3 m wide, 0.05 m upstand, brushed steel or pale grey; **lit underside** (a 0.02 m white strip under the lip washing the cabinet faces) | [E] |
-| Population | 6–12 seated crew, 1–2 standing supervisors, 2 armoured guards at the pit entrance | [S fan] |
+| Parameter | Value |
+|---|---|
+| Depth below walkway | **1.4 m**. Seated crew sit below walkway level, so officers on the walkway look down onto the console tops. |
+| Pit floor width | 3.6 m |
+| Plan shape | Long rectangle with 45° chamfered ends (octagonal); the inner long side follows the walkway |
+| Pit wall consoles | Full-height cabinets, 1.4 m (floor to coping), 0.6 m deep, bays 0.6 m wide; vertical white light bar (0.05 × 0.9 m) between every 2 bays |
+| Duty consoles | 8 per pit, in two rows of 4, facing the far wall |
+| Access | Stepped access from the walkway: 7 risers × 0.2 m, treads 0.28 m, width 1.2 m |
+| Coping | 0.3 m wide, 0.05 m upstand, brushed steel or pale grey; **lit underside** (a 0.02 m white strip under the lip washing the cabinet faces) |
+| Population | Up to 8 seated crew per pit (one per agent console), 1–2 standing supervisors |
 
 ### 2.11 Command walkway and viewports
 
 - **Walkway.** 3.6 m wide, running from the rear foyer to the viewport sill. Black mirror gloss in 1.2 m tiles with steel inlays. A 2-lamp white marker (0.04 × 0.15 m each, 0.1 m apart) sits flush in the floor every 2.4 m along both edges.
-- **Viewport wall** (the bow):
-  - A shallow arc (half-ellipse in plan) of **7 or 9 panes**.
-  - Panes are trapezoids alternating upright and inverted, about 2.0 m tall [S fan] and 2.4 m wide at the wide edge.
-  - Sill at 1.0–1.1 m above the walkway [S fan / E].
-  - Mullions 0.6 m wide, stepped in 3 risers of 0.1 m.
+- **Viewport wall** (the far wall):
+  - A straight band of 4.8 m modules, each with two large panes leaning back 12° between thick gunmetal mullions.
+  - Pane openings have chamfered corners; the sill is a charcoal block with a brushed ledge at 1.0 m.
   - A console shelf 0.6 m deep runs along the whole sill at 1.0 m with short indicator rows.
 - **Glass.** Nearly invisible. Reflections only at grazing angles (fresnel), with a faint cool tint. The exterior (starfield, planet limb, escorting hulls) must be visible and dark.
 
@@ -275,7 +268,7 @@ These are the heart of the command bridge, and also used in control rooms.
   - Ships sit on pads in a strict grid; nose to the aperture.
   - Containers in orderly rows 1.2 m apart, never randomly scattered.
   - Fuel lines run in floor trenches with grating covers 0.6 m wide.
-- **Ordnance and parts racks:** wall-mounted overhead racks for small craft (rail at 14 m with 6 m spacing). Use a generic original craft silhouette; do not reproduce any reference fighter.
+- **Ordnance and parts racks:** wall-mounted overhead racks for small craft (rail at 14 m with 6 m spacing). Use an original Dodaios craft silhouette (faceted, swept wings).
 
 ### 2.17 Reactor shaft features
 
@@ -284,7 +277,7 @@ These are the heart of the command bridge, and also used in control rooms.
   - Segmented into 4.8 m tall drums with 0.3 m recessed bands.
   - At reactor level: an energy aperture, a horizontal ring gap 1.2 m tall, emitting cold white-blue (9000 K).
 - **Catwalks** radiate from the wall gallery to the core:
-  - 1.2 m wide grating, **no railings**, 0.05 m white edge line. [E: the reference ledge about 0.4–0.5 m, catwalks about 1.2–1.5 m]
+  - 1.2 m wide grating, **no railings**, 0.05 m white edge line.
   - A gallery ring around the shaft wall every 4.8 m of height, 2.4 m deep.
 - **Shaft wall:** tall vertical slabs 2.4 m wide, with a horizontal band of small blue pin lamps (Ø 0.04 m, 0.3 m pitch) every 9.6 m, plus conduit bundles running vertically.
 - **Power terminal:** octagonal pedestal 2.4 m across, 3.0 m tall, on a platform at a catwalk end. Recessed control face. A vertical beam of light above it.
@@ -315,11 +308,12 @@ Roughness and metallic values are the centre of the range. Always add a roughnes
 | Black grating | #16171A | 0.008, 0.009, 0.010 | 0.8 | 0.5 | 0 | Real geometry, not a normal map | Grime 10% |
 | Screen glass | #06080B | 0.002, 0.002, 0.003 | 0 | 0.05 | 1.0 | None | None; emission texture under glass at strength 2–4 |
 | Viewport glass | #FFFFFF | — | 0 | 0.0 | — | — | Transmission 1.0, IOR 1.5, tint 0.92/0.95/0.98; reflections only at grazing angles |
-| Officer uniform wool, olive-grey | #5E6253 | 0.112, 0.122, 0.087 | 0 | 0.8 | 0 | Twill weave 2 mm | Sheen 0.3, sheen tint 0.5 |
-| Black uniform | #17181A | 0.009, 0.009, 0.010 | 0 | 0.75 | 0 | Twill | Sheen 0.4 |
+| Line tunic wool, slate | #34404F | 0.034, 0.051, 0.078 | 0 | 0.8 | 0 | Twill weave 2 mm | Sheen 0.3, sheen tint 0.5 |
+| Command tunic, charcoal | #24262B | 0.018, 0.019, 0.024 | 0 | 0.75 | 0 | Twill | Sheen 0.4 |
+| Flag tunic, oxblood | #4A1D24 | 0.069, 0.012, 0.018 | 0 | 0.75 | 0 | Gabardine | Sheen 0.3 |
 | Technician jumpsuit, cool light grey | #9AA3AA | 0.323, 0.366, 0.402 | 0 | 0.75 | 0 | Poplin | Sheen 0.25; slight knee and elbow darkening |
-| Staff / intelligence tunic, off-white | #E4E1D8 | 0.776, 0.753, 0.687 | 0 | 0.7 | 0 | Gabardine | Sheen 0.3 |
-| **White armour plastic** | #E6E6E2 | 0.791, 0.791, 0.761 | 0 | 0.28 | 0.4, coat roughness 0.15 | Subtle panel undulation 0.01 | Scuffs 3% on knees and shins; slight warm yellowing toward the edges |
+| **Marine armour, painted gunmetal** | #3A3D42 | 0.042, 0.047, 0.054 | 0.55 | 0.36 | 0.45, coat roughness 0.15 | Subtle panel undulation 0.01 | Scuffs 3% on knees and shins, bright metal at worn edges |
+| Brand gold (piping, unit bands, marks) | #C8A24A | 0.578, 0.361, 0.069 | 0.8 | 0.4 | 0 | None | None |
 | Black helmet gloss | #0E0F11 | 0.004, 0.005, 0.006 | 0 | 0.1 | 1.0 | None | Fine swirl marks |
 | Leather boots and belts | #121212 | 0.006, 0.006, 0.006 | 0 | 0.32 | 0.5, coat roughness 0.2 | Leather grain 0.5 mm, creases at the ankle | Polish highlights; dust on soles only |
 | Hangar marking paint | #C9CCC8 | 0.584, 0.604, 0.578 | 0 | 0.7 | — | Paint edge 1 mm | Tyre and boot wear, 10–25% erosion along paths |
@@ -384,7 +378,7 @@ Material rules:
 | Reactor core | Energy ring at the core aperture | 9000 | Blue haze bounce | Blue pin lamp bands; green-white terminal light (#C8F0D8) at the terminal only | 0.006 | Light shafts in haze; the bottom fades to black. |
 | Engineering control | Console banks and wall display | 6500 | Low | Amber warning tiles (more amber than elsewhere, 15%) | 0.001 | Faces lit from the console front. |
 | Main hangar | Aperture frame band (huge soft source), buttress dash lamps, floor pin lights | 6500 | Large cool overhead area light, 20% (stands in for the high ceiling grid) | Control gallery warm windows 4000 K; hazard markings | 0.004 | The floor markings must read; marking paint is the brightest diffuse surface. |
-| Turbolift lobby | Wall-light units, plus a lit ring around each lift door | 6500 | Low | Floor medallion line | 0 | Symmetric, ceremonial. |
+| Lift lobby | Wall-light units, plus a lit ring around each lift door | 6500 | Low | Floor medallion line | 0 | Symmetric, ceremonial. |
 
 ---
 
@@ -404,7 +398,7 @@ Material rules:
 | Amber (lamps, screens) | #F2A33A | ≤ 0.8% |
 | Info blue (screens) | #4D86D9 | ≤ 0.8% |
 | Status green (rare) | #4FB86A | ≤ 0.3% |
-| Brand gold (project rule: only on flag-tier rank pips, the commander's station rim and the commander's floor mark) | #C8A24A | ≤ 0.5% |
+| Brand gold (project rule: flag-tier rank pips, command and flag piping, marine unit bands, technician helmet marks, the commander's station rim and floor mark) | #C8A24A | ≤ 0.5% |
 
 ### 5.2 Per-room palettes
 
@@ -470,47 +464,38 @@ The camera looks down at about 60° from horizontal onto a deck plate whose wall
 
 ## 7. Characters and dress
 
-All designs below are **original variants** that evoke the reference silhouettes without copying
-its insignia, plaque layout, helmet faces or armour sculpt.
+All designs below are original Dodaios fleet designs.
 
 ### 7.1 Officers
 
 - **Tunic.**
   - Fitted, hip-length (hem at 0.25 m below the waist).
   - Stand collar 40 mm.
-  - **Asymmetric front closure**: a straight vertical flap edge 70 mm to the wearer's right of the centre line, with hidden fasteners.
+  - **Asymmetric front closure**: a straight vertical flap edge 70 mm to the wearer's right of the centre line, with hidden fasteners, finished with a raised bead in the trim colour.
   - Two welt chest slits (no flaps), set-in sleeves, no epaulettes, no visible buttons.
-- **Trousers.** Riding-cut: flared at the thigh by 0.06 m per side, narrow at the knee, tucked into boots.
-- **Boots.** Knee-high black riding boots, shaft top at 0.48 m, a 25 mm heel, polished (see materials).
-- **Belt.** 45 mm black leather. Buckle plate **64 × 44 mm brushed steel with two horizontal grooves** (original). A small black holster on the right hip for security officers only.
-- **Cap.**
-  - **Flat-crown service cap**: crown 85 mm tall, slightly larger than the band, with a 35 mm rigid visor raked 20° down, in the tunic colour.
-  - Front badge: an 18 mm steel elongated-hexagon disc with one horizontal bar (original).
-  - Worn by officers and pit crew.
+- **Trousers.** Tapered, tucked into high boots.
+- **Boots.** Black high boots, shaft top at 0.48 m, a 25 mm heel, polished (see materials).
+- **Belt.** 45 mm black leather. Buckle plate **64 × 44 mm brushed steel with two horizontal grooves**. A small black holster on the right hip for security officers only.
+- **Headwear.** None: the whole crew goes bareheaded, so faces and hair carry the person. (The character files still carry a `Cap` mesh for compatibility; every tier hides it.)
 - **Uniform by rank tier.** This follows the four tiers of the Verse level system (`docs/agent-society/level-system.md`, section 4) and must stay in step with it.
 
   | Tier (ranks) | Uniform | Trousers and boots |
   |---|---|---|
-  | `deck`, enlisted ratings (Recruit to Senior Technician) | Charcoal work jumpsuit #3B3F47, black 40 mm belt, service cap | Ankle boots |
-  | `line`, officers (Ensign to Captain) | Olive-grey tunic #5E6253 with cap | Olive-grey riding trousers, knee boots |
-  | `command` (Line Captain, Commodore) | Black tunic #17181A with cap | Black riding trousers, knee boots |
-  | `flag` (Rear Admiral to Fleet Admiral) | Off-white tunic #E4E1D8 with cap | Black riding trousers, knee boots |
+  | `deck`, enlisted ratings (Recruit to Senior Technician) | Charcoal work jumpsuit #3B3F47, black 40 mm belt | Ankle boots |
+  | `line`, officers (Ensign to Captain) | Slate tunic #34404F | Slate trousers #2A3340, high boots |
+  | `command` (Line Captain, Commodore) | Charcoal tunic #24262B with brand-gold piping #A8873E | Charcoal trousers, high boots |
+  | `flag` (Rear Admiral to Fleet Admiral) | Oxblood tunic #4A1D24 with brand-gold piping #C8A24A | Charcoal trousers, high boots |
 
   Gloves: black leather for security posts only.
 - **Rank tier dress cues.**
-  - Deck ratings and junior line officers wear the cap at all times.
-  - Command and flag officers may go bareheaded on the bridge.
-  - Flag officers are the only figures in white. Keep them rare (1–2 per scene) so white reads as authority.
+  - Gold piping marks the senior tiers; the flag tier is the only colour that is not grey.
+  - Keep flag officers rare (1–2 per scene) so oxblood and gold read as authority.
 
 ### 7.2 Rank plate (original rendering of the level-system plate)
 
-**What the reference does, and must not be copied.** It uses a chest plaque of square, internally lit
-tiles in mixed red and blue rows.
-
 **What the level system specifies, and stays.** A steel chest plate with **six slots in two rows of
 three**, one lit pattern per rank (`plateTiles(rankId)`), and one tile colour per tier: steel (deck),
-blue (line), red (command), gold (flag). The art keeps that data model exactly and renders it in an
-original way:
+blue (line), copper (command), gold (flag). The art renders that data model like this:
 
 - **Plate.** Brushed steel #A9ADB2, 54 × 22 × 3 mm, with **45° chamfered ends** (an elongated-hexagon outline, not a rectangle). Pinned on the left chest at the height of the second rib. Two 3 mm steel pin heads, one at each end.
 - **Slots.** Six **elongated-hexagon sockets**, 12 × 7 mm, recessed 1 mm, in two rows of three. Pitch 15 mm horizontally and 9 mm vertically. Unlit slots are empty dark sockets (#2A2D31).
@@ -520,58 +505,53 @@ original way:
   |---|---|
   | Steel | #A9ADB2 |
   | Blue | #4D86D9 |
-  | Red | #E3242B |
+  | Copper | #C27A3A |
   | Gold | #C8A24A |
 
-  - **One colour per plate, never mixed.** The reference mixes two colours on one plaque; ours never does.
+  - **One colour per plate, never mixed.**
   - Pips are enamel with a satin finish (roughness 0.35). They are **not emissive**: no glow, no backlight.
 - **Readability.** In the overview a character is 60–90 px tall and the plate is one or two pixels; the **uniform colour** carries the tier. At the close follow camera (§7.7) the plate is about 12 px wide and its lit pips read.
-- **Access tabs** (replacing the reference's chest cylinders): up to two **flat steel key-tabs**, 45 × 12 × 3 mm, clipped vertically into a slot pocket on the upper left sleeve, not on the chest. Close range only.
+- **Access tabs:** up to two **flat steel key-tabs**, 45 × 12 × 3 mm, clipped vertically into a slot pocket on the upper left sleeve, not on the chest. Close range only.
 - **Collar pin.** One 12 mm steel hexagon on the right collar point for officers on duty.
 - **Ribbons** (level-system rewards): a single row of 30 × 8 mm ribbon bars directly above the plate, with at most 4. Each is a flat two-tone stripe from the palette, without metallic thread.
 
-### 7.3 Crew, technicians and gunners
+### 7.3 Crew and technicians
 
 - **Deck ratings, pit crew and technicians.**
   - One-piece charcoal work jumpsuit #3B3F47 (the `deck` tier uniform) with a black 40 mm belt and steel plate buckle.
-  - Black service cap; black ankle boots.
+  - Bareheaded; black ankle boots.
   - A small square branch patch, 50 × 50 mm, on the left upper arm, showing the hex-bar mark (7.6).
   - Headset with a single boom mic for console operators.
   - In crowd scenes a deck-tier extra may wear a cool light-grey duty overall #9AA3AA instead. This breaks up large crews and still reads as "not an officer".
-- **Gunners and reactor crew.**
-  - Black jumpsuit with a black utility harness.
-  - **Original helmet**: a black gloss **rounded dome with a flat 40 mm brim all round, sloped 15° down**, and a smoked full-face visor ending at the chin.
-  - The dome has two parallel raised ridges front to back, 30 mm apart, and one small white rectangular unit mark 30 × 12 mm on the left side.
-  - Total helmet height 0.30 m, brim width 0.36 m.
-- **Deck security (navy guards).**
-  - Black uniform.
-  - Black gloss **open-face helmet** with cheek guards, a raised brow ridge and a short neck flare 40 mm.
-  - Chin strap; a sidearm on the hip.
-  - They stand in pairs at pit entrances and lift lobbies.
+- **Engineering technicians and reactor crew.**
+  - Black work suit with a chest instrument box and a black utility belt.
+  - **Helmet**: a black gloss **rounded dome closed by a rolled lower edge** (no brim) and a smoked full-face visor ending at the chin.
+  - The dome has two parallel raised ridges front to back, 30 mm apart, and one small **brand-gold** unit mark 30 × 12 mm on the left side.
+  - Total helmet height 0.28 m.
+- **Deck security.** Marines (7.4) with a sidearm instead of the rifle, in pairs at lift lobbies and on high-security decks.
 
-### 7.4 Armoured marines (original variation of the white-armour look)
+### 7.4 Armoured marines
 
-- **Overall.** Off-white hard armour #E6E6E2 over a graphite under-suit #2A2D31. Total height 1.85 m. Plates have bevelled 4 mm edges and a satin finish with clear coat.
-- **Helmet** (original):
-  - Smooth **ovoid shell** 0.30 m tall.
+- **Overall.** Painted gunmetal hard armour #3A3D42 (metallic fleck under a satin coat) over a graphite under-suit #2A2D31, with **brand-gold** accents. Total height 1.85 m. Plates have bevelled 4 mm edges.
+- **Helmet:**
+  - Smooth **ovoid shell** 0.30 m tall with a plain rounded jaw.
   - A **horizontal smoked visor band** 35 mm tall wrapping 180°, at eye level.
-  - A vertical chin ridge with two small horizontal grille slots.
   - A graphite neck seal.
-  - **No** eye lenses, no mouth frown, no cheek tubes, no brow ridge.
+  - **No** eye lenses, no mouth or chin ridge, no grille, no cheek tubes, no brow ridge.
 - **Torso:** chest plate with three horizontal raised ribs (6 mm), separate abdomen plate, back plate with a flat pack 0.3 × 0.2 × 0.08 m.
 - **Shoulders:** a rounded shoulder bell on each side, 0.15 m, rim slightly flared.
 - **Limbs:** forearm, thigh and shin shells. Graphite gaps at the joints: elbow, knee 40 mm.
-- **Belt:** graphite utility belt with six small bevelled pouches 50–60 × 46 × 28 mm and an off-white buckle plate.
-- **Unit mark:** a 30 mm coloured band around the left upper arm. Gold for the commander's guard, red for shipboard security, blue for the engineering detail.
-- **Weapon:** an original compact rifle, 0.65 m long, graphite. Keep the silhouette simple, with no recognisable reference weapon.
+- **Belt:** graphite utility belt with six small bevelled pouches 50–60 × 46 × 28 mm and a gunmetal buckle plate.
+- **Unit mark:** a 30 mm band around the left upper arm, brand gold by default.
+- **Weapon:** an original compact rifle, 0.65 m long, graphite, with a simple silhouette.
 
 ### 7.5 Service robots aboard
 
 | Robot | Size | Look | Behaviour |
 |---|---|---|---|
-| Floor courier | 0.48 L × 0.30 W × 0.24 H m [reference small box robot is 0.25 m tall S] | Black satin box with 45° chamfered top edges, hidden wheels, one amber status pip at the front | Darts along wall edges at 1.2 m/s, stops, turns 90°, continues |
+| Floor courier | 0.48 L × 0.30 W × 0.24 H m | Black satin box with 45° chamfered top edges, hidden wheels, one amber status pip at the front | Darts along wall edges at 1.2 m/s, stops, turns 90°, continues |
 | Hover sentinel | Ø 0.40 m sphere | Black gloss, six radial seams, one red lens Ø 40 mm, two folding manipulator arms | Hovers at 1.6 m, slow patrol in security zones |
-| Humanoid liaison | 1.72 m tall [reference 1.7 m S fan] | Matte gunmetal #3B3F47, slim, horizontal-rib abdomen, capsule head with two round amber sensors Ø 30 mm, no face grille | Walks with officers, stands at consoles |
+| Humanoid liaison | 1.90 m tall | Matte gunmetal #3B3F47 with gold joint rings, slim, horizontal-rib abdomen, capsule head with one horizontal amber sensor slit, no face grille | Walks with officers, stands at consoles |
 | Maintenance crawler | 0.7 × 0.5 × 0.6 m | Tracked graphite crate, one folding 1.1 m arm, hazard-yellow band 50 mm | Works at wall bays, hangar service points |
 | Cargo sled | 2.4 × 1.2 m deck, 0.3 m float height | Flat graphite pallet with rear operator post 1.1 m and four corner lamps | Moves containers in hangars |
 | Deck cleaner | Ø 0.6 × 0.12 m disc | Dark grey, a ring of white pips | Slow spirals on gloss floors (leaves a fresh-gloss trail) |
@@ -599,10 +579,10 @@ At that size a pixel is 5 mm, so the crew carry painted detail (one texture atla
   in visible locks; a side parting for men, a centre parting and a bun for women.
 - **Tailoring.** Seams 4–7 mm wide (princess, side, set-in sleeve, centre back, outer leg),
   welt chest slits, stitched collar, cuffs, belt edges and skirt hem, folds at elbows, waist
-  and over the boots. On the black tiers the detail lives in relief and gloss, not colour.
+  and over the boots. On the dark tiers the detail lives in relief and gloss, not colour.
 - **Armour and drones.** Panel lines, vents and inset panels on every plate; the hex-bar
   mark (7.6) on the companion's top and back and on the floor courier's deck.
-- **Tintable.** Uniform, trousers, trim, cap and accent stay neutral in the atlas, so the
+- **Tintable.** Uniform, trousers, trim and accent stay neutral in the atlas, so the
   rank tier still sets their colour.
 
 ---
@@ -637,7 +617,7 @@ Sizes are W × D × H in metres unless noted.
 | 22 | Crew locker | 0.6 × 0.6 × 2.1 | Number plate |
 | 23 | Officer cabin desk | 1.4 × 0.7 × 0.74 | Wall-hung |
 | 24 | Officer bunk | 2.1 × 1.0 × 0.5 | Integrated drawer |
-| 25 | Armour stand | 0.6 × 0.6 × 1.9 | Holds a full white armour set |
+| 25 | Armour stand | 0.6 × 0.6 × 1.9 | Holds a full gunmetal marine armour set |
 | 26 | Rifle rack | 2.4 × 0.4 × 1.8 | 12 rifles, locking bar |
 | 27 | Issue cage counter | 4.8 × 0.9 × 1.1 | Mesh above to 2.4 m |
 | 28 | Helmet shelf | 2.4 × 0.4 × 0.4 | 6 helmets |
@@ -690,19 +670,19 @@ The camera is at 60° in all sheets. "N" is the bow direction or the room's main
 - **Footprint.** 30 × 18 m, plus a rear foyer of 10 × 9.6 m. Clear height 4.8 m over the walkway.
 - **Layout.**
   - The central **command walkway** (3.6 m wide) runs 24 m from the foyer to the bow.
-  - Two **crew pits** flank it. Each is 4.8 m wide (3.6 m clear floor) × 18 m long × 1.7 m deep, with chamfered ends converging toward the bow.
-  - Each pit has 6 duty consoles facing the bow, wall cabinets along the outer side, and 9 steps at the aft end.
-  - The bow: an arc of 9 trapezoid viewports, sill 1.0 m, with a console shelf.
+  - Two **crew pits** flank it. Each is 4.8 m wide (3.6 m clear floor) × 18 m long × 1.4 m deep, with chamfered ends.
+  - Each pit has 8 duty consoles in two rows of four facing the far wall, wall cabinets along the outer side, and stepped access from the walkway.
+  - The far wall: a band of slanted viewport modules (two panes each) with a console shelf on the sill.
   - Port and starboard alcoves (3.6 × 3.6 m) hold the weapons and defence stations, each with a standing console and a small window.
   - **Rear foyer:**
     - Holo-table centred on the axis.
-    - Communications console arc (5 seats) on one side; a turbolift (Ø 2.4 m) on the other.
+    - Communications console arc (5 seats) on one side; a lift (Ø 2.4 m) on the other.
     - Access doors to the spine corridor.
     - Two guards at the pit stairs.
 - **Materials.** Black mirror walkway and foyer; pale-grey pit floors; graphite structure; brushed copings.
 - **Lighting.** Section 4.2.
-- **Top-down read.** A black spine with two bright-rimmed dark trenches pointing at a starfield arc.
-- **Population.** 12–18 crew, 3–5 officers, 2–4 guards, the commander (the player) on the walkway.
+- **Top-down read.** A black spine with two bright-rimmed dark trenches leading to a lit window wall.
+- **Population.** Up to 16 crew at the consoles, a few officers, the commander (the player) on the walkway.
 - **Gold.** Only the commander's floor mark (a 0.6 m hex-bar inlay at the walkway's bow end), the commander's station rim and flag-tier rank pips.
 
 ### 9.2 Main corridor (spine)
@@ -755,10 +735,10 @@ The camera is at 60° in all sheets. "N" is the bow direction or the room's main
 - **Footprint.** 18 × 12 m, height 3.6 m.
 - **Layout.**
   - Issue cage counter (4.8 m) across the entry third.
-  - Behind it, 3 aisles of armour stands (8 per row, white armour sets) and rifle racks on the walls.
+  - Behind it, 3 aisles of armour stands (8 per row, gunmetal marine sets) and rifle racks on the walls.
   - Helmet shelves; crates on a 1.2 m grid.
   - Diagonal paired light strips over the racks, following the 45° grammar.
-- **Top-down read.** White armour figures in exact rows inside a dark cage, a bright counter edge, red lock pips.
+- **Top-down read.** Gunmetal armour sets with gold bands in exact rows inside a dark cage, a bright counter edge, red lock pips.
 
 ### 9.7 Records / rank hall
 
@@ -806,7 +786,7 @@ The camera is at 60° in all sheets. "N" is the bow direction or the room's main
 - **Footprint.** 96 × 48 m, height 24 m. Aperture 72 × 18 m on one long side.
 - **Layout.**
   - Two landing pads (24 m octagons) on the axis.
-  - A shuttle (about 20 m, original folding-wing design) on pad 1, ramp down.
+  - A shuttle (about 20 m, original faceted gunship with swept wings) on pad 1, ramp down.
   - Pad 2 empty with a crew formation (armoured marines in 4 × 12 blocks).
   - Cargo containers in orderly rows along the rear wall.
   - Gantry crane across the bay; fuel pedestals in wall bays.
@@ -817,9 +797,9 @@ The camera is at 60° in all sheets. "N" is the bow direction or the room's main
   - Chevron arrows from the aperture to each pad.
   - Taxi dashes.
   - Hazard thresholds at the blast doors.
-- **Top-down read.** A black mirror field printed with huge pale geometry, a white-glowing aperture edge, blocks of white figures.
+- **Top-down read.** A black mirror field printed with huge pale geometry, a white-glowing aperture edge, blocks of gunmetal figures.
 
-### 9.12 Turbolift lobby
+### 9.12 Lift lobby
 
 - **Footprint.** 12 × 9.6 m, height 3.6 m. Type C panel walls.
 - **Layout.**
@@ -851,12 +831,12 @@ The camera is at 60° in all sheets. "N" is the bow direction or the room's main
 | 14 | Bloom halos swallowing the image | Bloom threshold above 1.0 linear and small radius; a lamp tile's glow must not exceed one tile width. |
 | 15 | Fog everywhere at the same density | Haze only in big volumes (hangar, reactor, bridge); zero in rooms and corridors. |
 | 16 | Railings on every edge, safety yellow everywhere | Danger edges are cold and bare. Yellow only at thresholds and lift edges. |
-| 17 | Generic military camo or brown palettes | Uniform colours are olive-grey, black, light grey and off-white only. |
+| 17 | Generic military camo or brown palettes | Uniform colours are charcoal, slate, oxblood and gunmetal, with brand-gold piping only. |
 
-How the reference avoids slop: it was built physically. Lights are real fixtures inside real panels,
-and floors are real lacquered boards that reflect them. Furniture is real office and industrial hardware
-painted grey, and repetition comes from casting the same panel many times. Imitate that logic: **build
-like a set, not like a texture**.
+How to avoid slop: build it the way a physical set is built. Lights are real fixtures inside real
+panels, and floors are real lacquered boards that reflect them. Furniture is real office and
+industrial hardware painted grey, and repetition comes from casting the same panel many times:
+**build like a set, not like a texture**.
 
 ---
 
@@ -872,19 +852,6 @@ A reviewer can check these on any plate:
 6. **Bevels.** No visible hard-surface edge without a highlight at 1:1 crop.
 7. **Text.** Only Latin capitals and digits; no franchise marks, no invented glyphs.
 8. **Scale.** A door, a console and a person each measure true to this document within 5%.
-9. **Insignia.** No square-tile rank grid, no cog emblem, no reference helmet face.
+9. **Insignia.** No square-tile rank grid, no cog emblem, no third-party helmet face or costume.
 10. **Symmetry.** The main room axis is mirrored except for listed functional exceptions.
 
----
-
-## Appendix: confidence summary
-
-- **Values with a stated source:**
-  - Ship length 1,600 m.
-  - Wall-light unit about 2.30 × 0.61 m (replica builders).
-  - Crew-pit depth about 1.7 m, 6 consoles per pit, viewport panes about 2 m tall from about 1 m above the deck (fan technical analysis of the reference films).
-  - Small courier robot 0.25 m tall; humanoid robot 1.7 m.
-  - Original-era hangar stage 76 × 37 × 13.7 m.
-  - Rank-tile lens 18 mm (so our 10 × 6 mm pips are deliberately different).
-- **Values estimated from frames (crew = 1.75 m):** corridor widths and heights, door sizes, pit floor width, briefing-table diameter, hangar plate size, catwalk widths.
-- **Everything else is a design decision [D],** made on the 0.6 m grid to read well from a 60° top-down camera.

@@ -50,6 +50,8 @@ PAINTERS = {
 }
 
 # Reference colours per rank tier (sRGB hex). The runtime tints by material name.
+# The Dodaios fleet palette: charcoal and slate with brand-gold piping on the senior
+# tiers. Nobody wears the service cap (the `Cap` mesh stays in the file, hidden).
 TIERS = {
     "deck": {
         "M_Uniform": "#3b3f47",
@@ -60,28 +62,28 @@ TIERS = {
         "cap": False,
     },
     "line": {
-        "M_Uniform": "#5e6253",
-        "M_Trousers": "#5e6253",
-        "M_Trim": "#50544a",
-        "M_Cap": "#5e6253",
+        "M_Uniform": "#34404f",
+        "M_Trousers": "#2a3340",
+        "M_Trim": "#262f3b",
+        "M_Cap": "#34404f",
         "tile": "#4d86d9",
-        "cap": True,
+        "cap": False,
     },
     "command": {
-        "M_Uniform": "#17181a",
-        "M_Trousers": "#17181a",
-        "M_Trim": "#0f1012",
-        "M_Cap": "#17181a",
-        "tile": "#e3242b",
-        "cap": True,
+        "M_Uniform": "#24262b",
+        "M_Trousers": "#1b1c20",
+        "M_Trim": "#a8873e",
+        "M_Cap": "#24262b",
+        "tile": "#c27a3a",
+        "cap": False,
     },
     "flag": {
-        "M_Uniform": "#e4e1d8",
-        "M_Trousers": "#17181a",
-        "M_Trim": "#d6d3c9",
-        "M_Cap": "#e4e1d8",
+        "M_Uniform": "#4a1d24",
+        "M_Trousers": "#1b1c20",
+        "M_Trim": "#c8a24a",
+        "M_Cap": "#4a1d24",
         "tile": "#c8a24a",
-        "cap": True,
+        "cap": False,
     },
 }
 TILE_UNLIT = "#2a2d31"
@@ -91,6 +93,8 @@ DEFAULTS = {
     # Gunner black, lifted a touch so the suit's seams, harness and pads still read at
     # the close game camera under dim room light.
     "SK_Technician": {"M_Uniform": "#1f2124", "M_Trim": "#34373c"},
+    # Marines: brand-gold unit band on the gunmetal armour.
+    "SK_Trooper": {"M_Accent": "#c8a24a"},
     # pale, aged skin under the hood
     "SK_Sovereign": {"M_Skin": "#b9a99c"},
 }

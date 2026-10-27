@@ -65,7 +65,7 @@
         "action": "Neuen Offizier an Bord holen"
       },
       "lift": {
-        "name": "Turbolift",
+        "name": "Aufzug",
         "action": "Zu einem anderen Deck fahren"
       }
     },
@@ -94,7 +94,7 @@
       "view": "Ansicht",
       "follow": "Third Person",
       "overview": "Vogelperspektive",
-      "lift": "Turbolift",
+      "lift": "Aufzug",
       "commander": "Kommandant",
       "settings": "Ansichtseinstellungen",
       "help": "Hilfe",
@@ -123,7 +123,7 @@
       "volume": "Lautstärke"
     },
     "lift": {
-      "title": "Turbolift",
+      "title": "Aufzug",
       "switch": "Deck wechseln",
       "here": "Dieses Deck"
     },
@@ -168,7 +168,7 @@
       "start": "Duell starten",
       "title": "Reaktor-Duell",
       "intro": "Ein Blaster-Duell eins gegen eins im Reaktorschacht gegen einen Kampfbot. Zwei Gewinnrunden entscheiden; du kannst jederzeit aufhören.",
-      "ride": "Der Turbolift bringt dich zuerst hinunter in die Reaktortechnik.",
+      "ride": "Der Aufzug bringt dich zuerst hinunter in die Reaktortechnik.",
       "choose": "Gegner wählen",
       "difficulty": {
         "normal": "Normal",
