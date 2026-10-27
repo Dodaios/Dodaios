@@ -1092,7 +1092,7 @@ def _inline_catalog_tokens() -> int:
     for entry in entries:
         try:
             schema = json.dumps(getattr(entry, "input_schema", None) or {}, default=str)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # an unserializable schema only counts its name and description
             schema = ""
         chars += len(str(entry.name)) * 2 + len(str(entry.description or "")) + len(schema) + 32
     return chars // _CHARS_PER_TOKEN
