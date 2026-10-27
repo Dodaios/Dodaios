@@ -12,7 +12,6 @@ export function ToolChoiceIcon({ row, size = 20 }: { row: ToolChoice; size?: num
   return (
     <span
       className="tool-choice-icon"
-      data-plate={mark === "plate"}
       style={{ width: size, height: size }}
       aria-hidden
     >

@@ -138,7 +138,6 @@
       "category": "Messaging",
       "logo_slug": "slack",
       "logo_color": "4A154B",
-      "logo_url": "/plugin-assets/slack-logo.svg",
       "featured": true,
       "longevity": "self_renewing",
       "oauth_client_family": "slack",

@@ -77,9 +77,9 @@ and the companion share it, so a rank means the same on every name plate.
 | Tier | Ranks (first level) | Pip colour | Uniform |
 |---|---|---|---|
 | `deck` (enlisted ratings) | Recruit 1, Deckhand 3, Technician 5, Senior Technician 8 | steel | charcoal work uniform |
-| `line` (officers) | Ensign 11, Lieutenant 14, Senior Lieutenant 17, Commander 21, Captain 25 | blue | olive-grey tunic with cap |
-| `command` | Line Captain 29, Commodore 33 | red | black tunic with cap |
-| `flag` | Rear Admiral 37, Vice Admiral 41, Admiral 45, Fleet Admiral 50 | gold | off-white tunic with cap |
+| `line` (officers) | Ensign 11, Lieutenant 14, Senior Lieutenant 17, Commander 21, Captain 25 | blue | slate tunic |
+| `command` | Line Captain 29, Commodore 33 | copper | charcoal tunic with gold piping |
+| `flag` | Rear Admiral 37, Vice Admiral 41, Admiral 45, Fleet Admiral 50 | gold | oxblood tunic with gold piping |
 
 Ids are snake_case (`senior_lieutenant`, `fleet_admiral`, …). The first
 promotion comes on day one; each one after takes a little longer than the one
@@ -90,8 +90,8 @@ plate, 54 × 22 mm with 45° chamfered ends, worn on the left chest and held by
 a pin head at each end, with six elongated-hexagon sockets (12 × 7 mm) in two
 rows of three. Slot index, seen facing the wearer: top row 0 1 2, bottom row
 3 4 5 (the character's material slots `M_RankTile_1..6`). A lit slot holds a
-satin enamel pip in the tier colour (steel #A9ADB2, blue #4D86D9, red
-#E3242B, gold #C8A24A), one colour per plate and never emissive; an empty
+satin enamel pip in the tier colour (steel #A9ADB2, blue #4D86D9, copper
+#C27A3A, gold #C8A24A), one colour per plate and never emissive; an empty
 socket is dark (#2A2D31). Each rank lights its own left-right-symmetric
 pattern, so no two ranks share a plate even without the colour: deck ratings
 build from the bottom row, line officers from the top, the command ranks and

@@ -28,13 +28,13 @@
         "deck": "Uniforme de faena",
         "line": "Guerrera de línea",
         "command": "Guerrera de mando",
-        "flag": "Blanco de bandera"
+        "flag": "Gala de bandera"
       },
       "uniform_note": {
         "deck": "Uniforme de faena gris carbón, entregado tu primer día a bordo.",
-        "line": "Guerrera gris oliva y gorra de oficial con despacho.",
-        "command": "Guerrera negra y gorra de quienes mandan una nave.",
-        "flag": "Guerrera blanca y gorra de oficial de bandera."
+        "line": "Guerrera gris pizarra de oficial con despacho.",
+        "command": "Guerrera gris carbón con vivos dorados de quienes mandan una nave.",
+        "flag": "Guerrera granate con vivos dorados de oficial de bandera."
       },
       "ribbon": {
         "ribbon_good_conduct": "Cinta de buena conducta",

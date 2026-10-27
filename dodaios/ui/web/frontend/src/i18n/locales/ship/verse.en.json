@@ -65,7 +65,7 @@
         "action": "Bring a new officer aboard"
       },
       "lift": {
-        "name": "Turbolift",
+        "name": "Lift",
         "action": "Ride to another deck"
       }
     },
@@ -94,7 +94,7 @@
       "view": "View",
       "follow": "Third person",
       "overview": "Bird's-eye",
-      "lift": "Turbolift",
+      "lift": "Lift",
       "commander": "Commander",
       "settings": "View settings",
       "help": "Help",
@@ -123,7 +123,7 @@
       "volume": "Sound volume"
     },
     "lift": {
-      "title": "Turbolift",
+      "title": "Lift",
       "switch": "Change deck",
       "here": "This deck"
     },
@@ -168,7 +168,7 @@
       "start": "Start a duel",
       "title": "Reactor duel",
       "intro": "A one-on-one blaster duel in the Reactor Shaft against a combat bot. Best of three rounds; leave at any time.",
-      "ride": "The turbolift takes you down to Reactor Engineering first.",
+      "ride": "The lift takes you down to Reactor Engineering first.",
       "choose": "Choose the opponent",
       "difficulty": {
         "normal": "Normal",

@@ -71,23 +71,23 @@ export interface TierStyle {
 /**
  * Pip colours are the style bible's (§7.2): satin enamel, never emissive, one
  * colour per plate. Deck ratings wear steel pips, line officers blue, command
- * red, flag officers gold (the only gold on any figure). Uniforms: deck =
- * charcoal work uniform, line = olive-grey tunic with cap, command = black
- * tunic with cap, flag = off-white tunic with cap.
+ * copper, flag officers gold. Uniforms (the Dodaios fleet palette, bareheaded):
+ * deck = charcoal work uniform, line = slate tunic, command = charcoal tunic
+ * with gold piping, flag = oxblood tunic with gold piping.
  */
 export const TIER_STYLE: Readonly<Record<RankTier, TierStyle>> = {
   deck: { tile: "#a9adb2", uniform: "deck" },
   line: { tile: "#4d86d9", uniform: "line" },
-  command: { tile: "#e3242b", uniform: "command" },
+  command: { tile: "#c27a3a", uniform: "command" },
   flag: { tile: "#c8a24a", uniform: "flag" },
 };
 
 /** Uniform cloth colours (style bible §7.1), for swatches and the figures. */
 export const UNIFORM_CLOTH: Readonly<Record<UniformId, string>> = {
   deck: "#3b3f47",
-  line: "#5e6253",
-  command: "#17181a",
-  flag: "#e4e1d8",
+  line: "#34404f",
+  command: "#24262b",
+  flag: "#4a1d24",
 };
 
 /** The brushed-steel plate, its edge and pin heads, and an empty socket. */

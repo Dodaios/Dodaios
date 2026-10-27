@@ -256,3 +256,26 @@ def test_the_subscription_client_waits_for_long_thinking() -> None:
         assert client._pool._timeout_s == gateway._HOSTED_READ_TIMEOUT_S
     finally:
         gateway.reset()
+
+
+async def test_an_open_model_call_is_visible_to_the_stall_watchdog(plugins) -> None:
+    # The runner's watchdog asks the gateway before it calls a silent
+    # runtime hung: the model may still be reading or thinking (#978).
+    grant = gateway.Grant("agent-1", "openai", scope="s1")
+    token = gateway.grant_token("agent-1", "openai", scope="s1")
+    signal = gateway.watch_failure(token)
+    seen: list[bool] = []
+
+    class _Thinking(_Brain):
+        async def complete(self, request: BrainRequest) -> AsyncIterator[BrainDelta]:
+            seen.append(gateway.model_call_open(signal))
+            yield BrainDelta(content="ok", finish_reason="stop")
+
+    import dodaios.agent_chat.runner_api as runner_api
+
+    runner_api.build_brain = _Thinking  # restored by the fixture's monkeypatch
+    assert not gateway.model_call_open(signal)
+    await _call(grant)
+    assert seen == [True]
+    assert not gateway.model_call_open(signal)
+    gateway.unwatch_failure(token, signal)

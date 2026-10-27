@@ -841,7 +841,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "trooper",
-      "label": "Trooper",
+      "label": "Marine",
       "styles": [
         "scifi"
       ],
@@ -853,16 +853,16 @@
         "eyes": "#1b2427",
         "primary": "#2b3a4a",
         "primary_shade": "#1c2733",
-        "secondary": "#e6eaec",
-        "secondary_shade": "#9aa3a8",
-        "accent": "#d84b3a",
+        "secondary": "#4a4f57",
+        "secondary_shade": "#33373d",
+        "accent": "#c8a24a",
         "metal": "#6f797f",
         "leather": "#5b4130",
         "fur": "#b87556",
         "fur_shade": "#8d4c39",
         "shoes": "#2b2320",
         "eye_white": "#f4f7f8",
-        "emissive": "#ff6a4d"
+        "emissive": "#ffc95a"
       },
       "family": "jarvis-biped",
       "fitSize": "broad",
