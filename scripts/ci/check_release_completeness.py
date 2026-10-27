@@ -198,7 +198,9 @@ def check_dist_freshness(root: Path) -> tuple[bool, str]:
     if src_ts is None:
         return True, "no committed frontend sources - dist check not applicable"
     if dist_ts is None:
-        return False, "frontend sources are committed but no dist/ bundle is"
+        # main does not track the bundle; release-cut builds it from the
+        # release commit and the tag carries it.
+        return True, "dist/ is built by the release cut, not tracked on main"
     if src_ts > dist_ts:
         return False, (
             "frontend sources changed AFTER the last dist/ rebuild - run "

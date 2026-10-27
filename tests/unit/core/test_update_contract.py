@@ -81,7 +81,11 @@ def test_the_rollback_hook_is_a_file_this_tree_tracks() -> None:
 def test_the_contract_points_at_files_this_tree_really_has() -> None:
     contract = read_update_contract(REPO)
 
-    assert (REPO / contract.ui_bundle_dir / "index.html").is_file()
+    # main tracks no bundle (release tags carry it): the contract names the
+    # directory the frontend build writes, next to its sources.
+    bundle = REPO / contract.ui_bundle_dir
+    vite = (bundle.parent / "frontend" / "vite.config.ts").read_text(encoding="utf-8")
+    assert f'outDir: "../{bundle.name}"' in vite
     assert (REPO / (contract.launcher_module.replace(".", "/") + ".py")).is_file()
 
     version_text = (REPO / contract.version_file).read_text(encoding="utf-8")
@@ -99,7 +103,9 @@ def test_a_package_move_publishes_a_contract_this_reader_follows() -> None:
     package = dodaios.__name__
     moved = "pkg_after_the_move"
     layout = ["__init__.py", "ui/web/launcher.py", "ui/web/dist/index.html"]
-    assert all((REPO / package / path).is_file() for path in layout)
+    # The bundle is only built, never tracked on main; its sources are.
+    assert all((REPO / package / path).is_file() for path in layout[:2])
+    assert (REPO / package / "ui/web/frontend/package.json").is_file()
     shipped = (REPO / CONTRACT_PATH).read_bytes()
 
     published = codemod.Rewriter(package, moved, layout).transform(CONTRACT_PATH, shipped)
