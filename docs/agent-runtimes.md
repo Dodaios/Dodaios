@@ -305,6 +305,19 @@ replayed during `session/load` is swallowed because the chat already shows it.
   otherwise syncs its dependency environment, and retries a pending source
   update tail, in front of the turn (60-190 s measured on Windows). Only the
   setup job (`prepare_command`) runs without it.
+- **Gateway daemon (Hermes after 0.21):** `hermes acp` is only a viewer; the
+  session runs in a gateway daemon it starts detached, which keeps the
+  environment it was started with. A profile served by the data root's
+  multiplexer reads its credentials from files only, so the gateway token
+  (process environment only) never reached the model call and every turn
+  ended "custom rejected your API key". Every agent profile is therefore
+  `gateway.standalone: true` (its own daemon, started from its own launch
+  environment), the daemons' host record lives in `<data root>/gateway-locks`
+  (`HERMES_GATEWAY_LOCK_DIR`, so the person's own Hermes gateway never meets
+  them), and a daemon started for a different launch (another token, URL,
+  profile or Hermes build, or left by an earlier app run) is stopped before
+  the turn, as are an agent's daemons when Dodaios stops its runtime. Older
+  builds run the session in-process and ignore all three.
 - **Profiles of one Dodaios data root:** every agent folder is a Hermes profile,
   `HERMES_HOME=<runtimes_root>/hermes-home/profiles/<agent>`. Hermes keeps its
   Python dependency environment (about 700 MB) per *data root*, and a profile
@@ -332,8 +345,8 @@ replayed during `session/load` is swallowed because the chat already shows it.
   `computer_use`, `cronjob` and `skills` toolsets always disabled (Dodaios has
   a visible browser, its own routines and its own skills; Hermes' browser is a
   headless Chromium, and its skill listing was a third of every prompt), and
-  `SOUL.md` = the agent's Dodaios briefing. The only key is the gateway token,
-  in the process environment.
+  `SOUL.md` = the agent's Dodaios briefing, `gateway.standalone: true` (see
+  above). The only key is the gateway token, in the process environment.
 - **Dodaios tools:** passed per session in `session/new` / `session/load`
   `mcpServers` (HTTP with headers); `HERMES_ACP_SKIP_CONFIGURED_MCP=1` keeps
   any configured servers out. The server is mounted as `dodaios`, so Hermes
