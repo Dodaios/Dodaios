@@ -201,7 +201,7 @@
     "details": "Details",
     "stop_footer": "Soll alles auf einmal anhalten?",
     "page": {
-      "subtitle": "Wenn du {name} immer wieder um dasselbe bittest, bietet {name} dir an, dafür einen kleinen Helfer einzurichten.",
+      "subtitle": "Wenn du {name} immer wieder um dasselbe bittest, bekommst du das Angebot, dafür einen kleinen Helfer einzurichten.",
       "learning_title": "Lernt, wie du arbeitest · Tag {day} von {days}",
       "learning_body": "Vorschläge kann es ab {date} geben. Bis dahin macht sich {name} nur Notizen.",
       "learning_body_nodate": "In den ersten {days} Tagen macht sich {name} nur Notizen.",
