@@ -140,6 +140,47 @@ async def test_an_install_runs_the_official_command_and_logs_it(fakes):
     assert fakes["hermes"].refreshed >= 1
 
 
+async def test_a_job_reads_finished_only_after_its_post_run_refresh(fakes, monkeypatch):
+    """A poller that sees the job finished also sees the refreshed status (#704)."""
+    import threading
+
+    refreshing = threading.Event()
+    release = threading.Event()
+
+    def _slow_refresh() -> None:
+        refreshing.set()
+        release.wait(10)
+
+    monkeypatch.setattr(manager, "_refresh_path", _slow_refresh)
+    await manager.start("hermes", "install")
+    assert await asyncio.to_thread(refreshing.wait, 10)
+    # The installer has exited, the PATH refresh and re-detect are still owed.
+    current = manager.job("hermes")
+    assert current is not None
+    assert current.state == "running" and current.finished_ms is None
+    release.set()
+    done = await _finish("hermes")
+    assert done.state == "done"
+    assert fakes["hermes"].refreshed >= 1
+
+
+async def test_a_cancelled_job_never_looks_alive(fakes, monkeypatch):
+    slow = [sys.executable, "-c", "import time; time.sleep(30)"]
+    monkeypatch.setattr(fakes["hermes"], "install_command", lambda revision=None: slow)
+    started = await manager.start("hermes", "install")
+    task = manager._TASKS["hermes"]
+    log_file = manager._log_path("hermes")
+    for _ in range(200):  # inside the job: the installer's log line is written
+        if log_file.exists() and log_file.read_text(encoding="utf-8").startswith("$ "):
+            break
+        await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert started.state == "failed" and started.finished_ms is not None
+    assert "interrupted" in started.message
+
+
 async def test_an_update_stops_the_runtime_first_and_reports_a_failure(fakes):
     await manager.start("openclaw", "update")
     done = await _finish("openclaw")
