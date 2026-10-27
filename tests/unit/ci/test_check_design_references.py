@@ -24,7 +24,7 @@ import check_design_references as gate  # noqa: E402
         "Draw traces the way the Codex app does",
         "A quiet, Claude-style front page: one greeting, one composer.",
         "// Rows read like the Claude app's column: regular weight",
-        "* Left, top to bottom (maintainer, modelled on Grok Bot's New Bot dialog)",
+        "* Left, top to bottom (maintainer, modelled on Fabrikam's New Bot dialog)",
         "How it works (the idea is borrowed from Hermes Agent's per-file runner):",
         "Rebuilt after a pipeline inspired by Hermes Agent",
         "The quick switcher is a Spotlight-style launcher.",

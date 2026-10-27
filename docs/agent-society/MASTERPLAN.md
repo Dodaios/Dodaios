@@ -38,7 +38,7 @@ world** is the maintainer's parallel track. Open in M4: rooms live under the sch
 curator.
 
 The research behind every claim here lives in [`research/`](research/):
-[Branch A — product & UI](research/branch-a-product-ui.md) (Hermes Agent, Grok Bot, 3D stack,
+[Branch A — product & UI](research/branch-a-product-ui.md) (Hermes Agent, the named-teammate bot pattern, 3D stack,
 codebase reuse map), [Branch B — societies, memory, cost, safety](research/branch-b-society-memory-cost.md)
 (DeepMind/Hutter paper, the reported OpenAI/Hugging Face incident, frameworks, knowledge store,
 cost model), and the [gap check](research/gap-check.md) that found the contradictions §2 resolves.
@@ -58,7 +58,7 @@ actions. All agents share one knowledge store. The system accumulates skills and
 (artifact self-improvement, never uncontrolled). It must be cheap to run on consumer token budgets,
 and it must be **harmless by construction — it never attacks, spams, or harms anyone or anything.**
 
-Competitive frame (verified 2026-09-01): Hermes Bot Mode and Grok Bot both ship "named bots +
+Competitive frame (verified 2026-09-01): agent products, Hermes Bot Mode among them, ship "named bots +
 canonical chat + routines". Nobody ships the world. The flat list is their face; visible life is ours.
 
 ## 2. Decision memo — the nine contradictions, resolved
@@ -445,7 +445,7 @@ Decided 2026-09-01:
    a "Gmail agent" is `grant_mode=all` + `focus=[plugin:gmail]` derived from its description;
    the **Obsidian wiki is the society's shared memory** (namespaced `society/<agent>/` writes,
    reviewed promotion to `society/shared/`) — the `knowledge` table of §3.1 becomes the
-   staging/provenance layer, not the truth. Grok Bot re-analyzed there as the product floor.
+   staging/provenance layer, not the truth. The named-teammate bot pattern re-analyzed there as the product floor.
 
 Still open:
 
