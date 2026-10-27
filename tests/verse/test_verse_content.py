@@ -292,3 +292,51 @@ def test_validator_rejects_a_nav_grid_without_walkable_cells(tmp_path: Path) -> 
     manifest["nav"]["walkable_cells"] = 0
     (deck / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     assert any("walkable_cells" in p for p in validate.validate_deck_dir(deck))
+
+
+def test_hangar_shuttle_cabin_is_walkable_from_the_ramp() -> None:
+    """Up the ramp, through the corridor and the troop bay, up the steps into the cockpit."""
+    from collections import deque
+
+    import numpy as np
+    from PIL import Image
+
+    deck_dir = validate.PUBLIC_VERSE / "decks" / "hangar"
+    if not (deck_dir / "manifest.json").is_file():
+        pytest.skip("hangar not cooked")
+    manifest = json.loads((deck_dir / "manifest.json").read_text(encoding="utf-8"))
+    nav = manifest["nav"]
+    img = np.array(Image.open(deck_dir / nav.get("url", "nav.png")))
+    img = img[..., 0] if img.ndim == 3 else img
+    heights = np.where(
+        img > 0, (img.astype(float) - nav["height_zero"]) * nav["height_step"], np.nan
+    )
+    cell = nav["cell"]
+
+    def cell_of(x: float, z: float) -> tuple[int, int]:
+        return int((z - nav["origin_z"]) / cell), int((x - nav["origin_x"]) / cell)
+
+    arrival = next(s for s in manifest["sockets"] if s["id"] == "arrival")["position"]
+    start = cell_of(arrival[0], arrival[2])
+    reached = np.zeros(img.shape, dtype=bool)
+    reached[start] = True
+    queue = deque([start])
+    while queue:
+        r, c = queue.popleft()
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            rr, cc = r + dr, c + dc
+            if not (0 <= rr < img.shape[0] and 0 <= cc < img.shape[1]) or reached[rr, cc]:
+                continue
+            if np.isnan(heights[rr, cc]) or abs(heights[rr, cc] - heights[r, c]) > nav["max_step"]:
+                continue
+            reached[rr, cc] = True
+            queue.append((rr, cc))
+    cabin = next(r for r in manifest["rooms"] if r["id"] == "shuttle")
+    xs = [p[0] for p in cabin["polygon"]]
+    zs = [p[1] for p in cabin["polygon"]]
+    r0, c0 = cell_of(min(xs), min(zs))
+    r1, c1 = cell_of(max(xs), max(zs))
+    inside = reached[r0 : r1 + 1, c0 : c1 + 1]
+    floors = heights[r0 : r1 + 1, c0 : c1 + 1][inside]
+    assert np.count_nonzero((floors > 1.5) & (floors < 1.7)) * cell * cell > 6.0  # bay floor
+    assert np.count_nonzero(floors > 1.9) * cell * cell > 2.0  # cockpit floor
