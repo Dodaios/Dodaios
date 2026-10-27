@@ -450,3 +450,35 @@ def test_routes_list_items_and_take_the_focus_report(client: Any) -> None:
     assert ok.json() == {"ok": True}
     gate = attention_of(svc).gate
     assert gate.looking_at("scout") and "brain" in gate.focus.muted
+
+
+class _UnopenedApprovals:
+    async def pending(self) -> list[_Row]:
+        raise RuntimeError("SocietyStore: call open() before use")
+
+
+class _BuiltButNotStartedSociety(_Society):
+    """The runtime exists (built lazily) but ensure_started() has not run yet."""
+
+    started = False
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.approvals = _UnopenedApprovals()
+
+
+async def test_a_society_that_is_not_started_yet_adds_nothing_and_logs_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    svc = _service()
+    attention = install(svc, society=_BuiltButNotStartedSociety)
+    await svc._emit(
+        "society:scout", _ev("approval_required", approval_id="a", name="x", summary="Live")
+    )
+    await _settle(attention)
+
+    with caplog.at_level("WARNING", logger="dodaios.agent_chat.attention"):
+        items = await attention.items()
+
+    assert [item.ref_id for item in items] == ["a"]
+    assert "society items unavailable" not in caplog.text

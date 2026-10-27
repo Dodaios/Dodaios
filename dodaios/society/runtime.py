@@ -531,6 +531,15 @@ class SocietyRuntime:
     def data_dir(self) -> Path:
         return self._data_dir
 
+    @property
+    def started(self) -> bool:
+        """True between ensure_started() and close(): the store is open.
+
+        The runtime is built lazily before it starts, so a reader that does
+        not start it itself must check this before touching the store.
+        """
+        return self._started and not self._closing
+
     def chat_service(self) -> Any | None:
         """The agent-chat service, when the app has one (None in the bare runtime)."""
         return self._get_chat()

@@ -630,7 +630,9 @@ class Attention:
         """Proposals and parked unattended approvals; empty until the society is up."""
         rt = self._society()
         approvals = getattr(rt, "approvals", None)
-        if approvals is None:
+        # A runtime built on first use exists before its store opens; reading
+        # it then raised "SocietyStore: call open() before use".
+        if approvals is None or not getattr(rt, "started", True):
             return []
         from dodaios.society.proposals import kind_of
 
