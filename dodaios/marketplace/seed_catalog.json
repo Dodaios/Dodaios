@@ -26,7 +26,7 @@
       },
       "fallback_auth": {
         "mode": "pat_paste",
-        "token_creation_url": "https://github.com/settings/tokens/new?scopes=repo,workflow,read:user&description=Personal+Jarvis",
+        "token_creation_url": "https://github.com/settings/tokens/new?scopes=repo,workflow,read:user&description=Dodaios",
         "token_prefix": "ghp",
         "token_prefixes": [
           "github_pat_"

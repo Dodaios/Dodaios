@@ -366,7 +366,7 @@ class JarvisLearningLoop:
                     outcome = "dropped"
                     log.warning(
                         "learning: dropped %d turn(s) of %s after %d failed reviews; "
-                        "only the Jarvis provider's seats are asked",
+                        "only the assistant provider's seats are asked",
                         count,
                         key,
                         conversation.failures + 1,

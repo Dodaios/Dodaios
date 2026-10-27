@@ -12,7 +12,7 @@ card is `SKILL.md` and is deliberately short, because a spoken "create a skill
 that …" is answered by ONE `create-skill` tool call, not by an interview. Differences that matter when you read the guide against this
 runtime:
 
-1. **Frontmatter schema:** Jarvis requires more than Anthropic's minimal
+1. **Frontmatter schema:** Dodaios requires more than Anthropic's minimal
    `name` + `description` — see `references/dodaios-schema.md` for the full
    `SkillFrontmatter` with triggers, risk tiers and tool requirements.
 2. **Skill location:** finished skills land in the user skills directory
@@ -20,7 +20,7 @@ runtime:
 3. **Eval framework:** the `scripts/`, `agents/`, `assets/` folders and
    `eval-viewer/generate_review.py` are NOT ported — qualitative testing via
    `python -m dodaios.skills.cli --run <name>` is the MVP path.
-4. **Runner:** where the guide says `claude-with-access-to-the-skill`, Jarvis
+4. **Runner:** where the guide says `claude-with-access-to-the-skill`, Dodaios
    means the `SkillRunner` via the brain's `run-skill` tool.
 
 ---
@@ -367,7 +367,7 @@ Create 20 eval queries — a mix of should-trigger and should-not-trigger. Save 
 ]
 ```
 
-The queries must be realistic and something a Jarvis user would actually type. Not abstract requests, but requests that are concrete and specific and have a good amount of detail. For instance, file paths, personal context about the user's job or situation, column names and values, company names, URLs. A little bit of backstory. Some might be in lowercase or contain abbreviations or typos or casual speech. Use a mix of different lengths, and focus on edge cases rather than making them clear-cut (the user will get a chance to sign off on them).
+The queries must be realistic and something a Dodaios user would actually type. Not abstract requests, but requests that are concrete and specific and have a good amount of detail. For instance, file paths, personal context about the user's job or situation, column names and values, company names, URLs. A little bit of backstory. Some might be in lowercase or contain abbreviations or typos or casual speech. Use a mix of different lengths, and focus on edge cases rather than making them clear-cut (the user will get a chance to sign off on them).
 
 Bad: `"Format this data"`, `"Extract text from PDF"`, `"Create a chart"`
 

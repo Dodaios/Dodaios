@@ -207,7 +207,7 @@ def _is_diagnostic_noise(text: str) -> bool:
     profile`` stats run (``_CU_TELEMETRY_RE`` — matched by SHAPE so it still trips
     after the "[cu] mission profile:" prefix has been stripped off), and a leaked
     filesystem / screenshot path (``_CU_PATH_ARTIFACT_RE``). Pure regex, no LLM
-    (AP-11): the answer is "is this a sentence a butler would say, or a developer
+    (AP-11): the answer is "is this a sentence a concierge would say, or a developer
     log line?" — the user's "if you see that junk, you know not to speak it".
     """
     return bool(

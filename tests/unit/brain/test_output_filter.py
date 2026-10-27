@@ -32,7 +32,7 @@ POSITIVE_CASES = [
     ),
     pytest.param("Soll ich den Termin verschieben?", id="shall-i-question"),  # i18n-allow
     pytest.param("Es ist warm draussen.", id="weather-fact"),  # i18n-allow
-    pytest.param("Goodbye, Ruben.", id="hangup-contract"),
+    pytest.param("Goodbye.", id="hangup-contract"),
 ]
 
 

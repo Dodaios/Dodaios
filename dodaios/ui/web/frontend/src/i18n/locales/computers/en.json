@@ -384,7 +384,7 @@
     "cx_agent_show": "Show them",
     "cx_agent_hide": "Hide them",
     "cx_agent_step2": "On that computer, paste them into Claude Code, Codex or another coding agent. It turns on SSH and adds {name}'s key.",
-    "cx_agent_step3": "The agent ends with one line that starts with JARVIS-CONNECT. Paste that line into “Server address” above.",
+    "cx_agent_step3": "The agent ends with one line that starts with DODAIOS-CONNECT. Paste that line into “Server address” above.",
     "cx_agent_done": "The agent's line is in: {name}'s key is on that computer. Press Connect.",
     "cx_connect_hint": "Nothing is saved until the test works.",
     "cx_check_failed": "The connection does not work yet",

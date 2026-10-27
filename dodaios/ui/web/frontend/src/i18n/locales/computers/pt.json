@@ -384,7 +384,7 @@
     "cx_agent_show": "Mostrar",
     "cx_agent_hide": "Ocultar",
     "cx_agent_step2": "Nesse computador, cola-as no Claude Code, Codex ou outro agente de programação. Ele ativa o SSH e adiciona a chave de {name}.",
-    "cx_agent_step3": "O agente termina com uma linha que começa por JARVIS-CONNECT. Cola essa linha em “Endereço do servidor” acima.",
+    "cx_agent_step3": "O agente termina com uma linha que começa por DODAIOS-CONNECT. Cola essa linha em “Endereço do servidor” acima.",
     "cx_agent_done": "A linha do agente foi introduzida: a chave de {name} está nesse computador. Prime Ligar.",
     "cx_connect_hint": "Nada é guardado até o teste funcionar.",
     "cx_check_failed": "A ligação ainda não funciona",

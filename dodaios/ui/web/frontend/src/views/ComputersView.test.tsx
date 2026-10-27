@@ -364,7 +364,7 @@ describe("ComputersView", () => {
     fireEvent.click(screen.getByTestId("cx-method-agent"));
     expect(screen.getByTestId("cx-copy-prompt")).toBeTruthy();
     fireEvent.change(screen.getByTestId("cx-address"), {
-      target: { value: "Done.\nJARVIS-CONNECT ruben@192.168.1.20:22" },
+      target: { value: "Done.\nDODAIOS-CONNECT dev@192.168.1.20:22" },
     });
     expect(screen.getByTestId("cx-agent").textContent).toMatch(/key is on that computer/);
 

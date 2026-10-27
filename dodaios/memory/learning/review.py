@@ -362,12 +362,12 @@ def seat_choices(config: Any) -> list[SeatChoice]:
     seat = jarvis_seat(config)
     billing = _billing(seat)
     if billing != BILLING_METERED:
-        return [SeatChoice(seat, billing, "the Jarvis seat")]
+        return [SeatChoice(seat, billing, "the assistant seat")]
     twin = subscription_twin(seat)
     if twin is None:
         return [SeatChoice(seat, billing, "no subscription of this provider is signed in")]
     return [
-        SeatChoice(twin, BILLING_SUBSCRIPTION, "the Jarvis provider's subscription"),
+        SeatChoice(twin, BILLING_SUBSCRIPTION, "the assistant provider's subscription"),
         SeatChoice(seat, billing, "the subscription did not answer"),
     ]
 
@@ -418,7 +418,7 @@ class ModelReviewer:
         try:
             choices = await asyncio.to_thread(seat_choices, config)
         except SeatUnavailable as exc:
-            log.info("learning review: the Jarvis seat is unavailable (%s)", exc)
+            log.info("learning review: the assistant seat is unavailable (%s)", exc)
             return None
         for choice in choices:
             self.last_choice = choice

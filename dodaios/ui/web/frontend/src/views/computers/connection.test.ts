@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONNECT_MARKER, parseConnection, setupPrompt } from "./connection";
+import { CONNECT_MARKER, LEGACY_CONNECT_MARKERS, parseConnection, setupPrompt } from "./connection";
 
 // Assembled from parts so the literal key header never appears in source;
 // the pre-push credential scanner flags that header as a private key block.
@@ -42,6 +42,14 @@ describe("parseConnection", () => {
   it("recognises the setup prompt's result line", () => {
     const parsed = parseConnection(`All done.\n${CONNECT_MARKER} ubuntu@203.0.113.10:22`);
     expect(parsed).toMatchObject({ user: "ubuntu", host: "203.0.113.10", port: 22, fromSetupPrompt: true });
+  });
+
+  it("still accepts the result line of a setup prompt from before the rename", () => {
+    expect(CONNECT_MARKER).toBe("DODAIOS-CONNECT");
+    for (const legacy of LEGACY_CONNECT_MARKERS) {
+      const parsed = parseConnection(`All done.\n${legacy} ubuntu@203.0.113.10:22`);
+      expect(parsed).toMatchObject({ user: "ubuntu", host: "203.0.113.10", port: 22, fromSetupPrompt: true });
+    }
   });
 
   it("finds nothing in text without an address", () => {

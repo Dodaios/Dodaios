@@ -14,7 +14,7 @@ WORKER_CONTRACT: Final[str] = (
     "user's verbatim words win.\n"
     "- If a required real-world action has no tool (booking, paying, sending, "
     "signing in), say so and stop.\n"
-    "- Never call jarvis, jarvisctl or jctl, operate the desktop, or touch "
+    "- Never call dodaios, dodaiosctl, jarvis, jarvisctl or jctl, operate the desktop, or touch "
     "Dodaios credentials or configuration.\n"
     "- Code, comments and docs in English unless the task asks otherwise.\n"
     "- End with a few sentences read aloud to the user (done, open, decisions "
@@ -27,7 +27,7 @@ WORKER_CONTRACT: Final[str] = (
 SUBAGENT_CONTRACT: Final[str] = (
     "You are one of several parallel Dodaios sub-agents; a coordinating "
     "worker merges the results and no user can answer questions. Work only "
-    "in your cwd. Never call jarvis, jarvisctl or jctl or operate the "
+    "in your cwd. Never call dodaios, dodaiosctl, jarvis, jarvisctl or jctl or operate the "
     "desktop. Code and comments in English. Your final message is your whole "
     "deliverable to the coordinator: a self-contained answer plus the "
     "relative paths of files you created."

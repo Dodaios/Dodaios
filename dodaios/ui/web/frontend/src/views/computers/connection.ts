@@ -10,7 +10,10 @@
  */
 
 /** The single line the setup prompt asks the agent to finish with. */
-export const CONNECT_MARKER = "JARVIS-CONNECT";
+export const CONNECT_MARKER = "DODAIOS-CONNECT";
+/** The marker setup prompts from before the rename asked for. A line an agent
+ * printed from such a prompt is still accepted when pasted. */
+export const LEGACY_CONNECT_MARKERS = ["JARVIS-CONNECT"] as const;
 
 export interface ParsedConnection {
   user: string | null;
@@ -28,7 +31,7 @@ export interface ParsedConnection {
 export const PRIVATE_KEY_PLACEHOLDER = ["-----BEGIN OPENSSH", "PRIVATE KEY-----"].join(" ");
 
 const PRIVATE_KEY_RE = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/;
-const MARKER_RE = new RegExp(`${CONNECT_MARKER}\\s+(\\S+)`);
+const MARKER_RE = new RegExp(`(?:${[CONNECT_MARKER, ...LEGACY_CONNECT_MARKERS].join("|")})\\s+(\\S+)`);
 const SSH_LINE_RE = /(?:^|\s)ssh\s+([^\n]+)/;
 const IPV4 = "(?:\\d{1,3}\\.){3}\\d{1,3}";
 const HOSTNAME = "(?:[A-Za-z0-9-]+\\.)+[A-Za-z]{2,}";

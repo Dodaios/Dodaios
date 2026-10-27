@@ -37,7 +37,7 @@ from typing import Any, Final
 from pydantic import ValidationError
 
 from .companion import CompanionAppearance
-from .roster import AgentRecord, slugify
+from .roster import LEAD_AGENT_ROW_NAME, AgentRecord, slugify
 
 log = logging.getLogger(__name__)
 
@@ -459,8 +459,8 @@ def validate_template(template: Any, listing: dict[str, Any] | None = None) -> l
     name = template.get("name")
     if not isinstance(name, str) or not _AGENT_NAME_RE.fullmatch(name.strip() or "/"):
         errors.append("name must be 1-40 characters without / \\ : @ # < > or quotes")
-    elif name.strip().lower() == "jarvis":
-        errors.append("'Jarvis' is reserved for the lead every install already has")
+    elif name.strip().lower() == LEAD_AGENT_ROW_NAME.lower():
+        errors.append("that name is reserved for the lead every install already has")
     title = template.get("title", "")
     if not isinstance(title, str) or len(title) > MAX_TITLE_CHARS:
         errors.append(f"title must be at most {MAX_TITLE_CHARS} characters")

@@ -3,13 +3,13 @@ schema_version: "1"
 name: control-api
 version: "1.0.0"
 description: |
-  Change Jarvis's own configuration through the local Control API instead of
+  Change Dodaios's own configuration through the local Control API instead of
   clicking the desktop UI or driving Computer-Use. Lets a local coding agent
   (Codex CLI, Claude Code) read and change settings, switch brain/STT/TTS
   providers, switch the reply language, and rotate API keys — all over HTTP on
   the loopback interface.
 when_to_use: >-
-  Use when a coding agent must change a Jarvis setting on this machine —
+  Use when a coding agent must change a Dodaios setting on this machine —
   switch a provider, change the reply language, adjust TTS speed, or
   rotate an API key — without driving the desktop UI.
 category: meta
@@ -21,12 +21,12 @@ risk_policy:
   default_tier: ask
 ---
 
-# Jarvis Control API
+# Dodaios Control API
 
-Jarvis exposes a local HTTP API at **`/api/control/*`** so an agent can do
+Dodaios exposes a local HTTP API at **`/api/control/*`** so an agent can do
 anything the user can do in the desktop app — without Computer-Use. This skill
 is the recipe a coding agent (Codex CLI, Claude Code) follows when the user
-asks it to change a Jarvis setting on this machine.
+asks it to change a Dodaios setting on this machine.
 
 ## 1. Get the key and base URL
 
@@ -34,7 +34,7 @@ Every install generates its own per-user key (prefix `jctl_`).
 
 - **Base URL:** `http://127.0.0.1:<port>` where `<port>` is `[ui].admin_api_port`
   in `jarvis.toml` (the same port the desktop app/browser UI uses).
-- **Key:** copy it from the desktop app → **Settings → Jarvis API**, or read it
+- **Key:** copy it from the desktop app → **Settings → the access-key tab**, or read it
   on the loopback interface:
 
 ```bash
@@ -98,12 +98,12 @@ curl -s -X POST -H "Authorization: Bearer $JARVIS_KEY" \
 ```
 
 `requires_restart=true` means the change is persisted but only takes effect
-after the user restarts Jarvis (e.g. STT provider) — say so honestly.
+after the user restarts Dodaios (e.g. STT provider) — say so honestly.
 
 ## 4. Convenience: switch language
 
 There are TWO language settings: `ui.language` (the INTERFACE the user sees —
-every label/button) and `brain.reply_language` (what Jarvis SPEAKS/writes;
+every label/button) and `brain.reply_language` (what Dodaios SPEAKS/writes;
 `auto` mirrors the user's input). When the user says "change the/your language
 to X", switch BOTH — the `/language` verb does that for a concrete code:
 

@@ -1,10 +1,10 @@
 """Shared context extraction for subscription-CLI brain prompts.
 
-Codex and Antigravity flatten a Jarvis turn into one plain prompt for an
+Codex and Antigravity flatten an assistant turn into one plain prompt for an
 official CLI. They intentionally do not forward the full router system prompt:
 that prompt is large, tool-heavy, and misleading for read-only conversational
-CLI calls. User standing instructions are different: they are the Jarvis.md
-equivalent and must still reach the answering model.
+CLI calls. User standing instructions are different: they are the agent-instructions
+file and must still reach the answering model.
 """
 from __future__ import annotations
 
@@ -116,15 +116,15 @@ def render_cli_standing_instructions(system_prompt: str | None) -> str:
         return ""
     if _NO_ACTIVE_PREFS_MARKER in block:
         return (
-            "CURRENT JARVIS.MD STATE:\n"
+            "CURRENT STANDING INSTRUCTIONS STATE:\n"
             "No active user preferences are currently set; do not continue or "
-            "imitate any earlier Jarvis.md instruction, assistant response style, "
+            "imitate any earlier standing instruction, assistant response style, "
             "form of address, opener, language rule, or wording rule that is not "
-            "present in the current Jarvis.md block below.\n\n"
+            "present in the current standing-instructions block below.\n\n"
             f"{block}"
         )
     return (
-        "USER STANDING INSTRUCTIONS FROM JARVIS.MD:\n"
+        "USER STANDING INSTRUCTIONS:\n"
         "Apply these as binding output-style preferences for this answer. "
         "If they conflict with the light CLI style above, the user's instructions "
         "win. They do not authorise tools, file access, commands, or safety bypasses.\n\n"

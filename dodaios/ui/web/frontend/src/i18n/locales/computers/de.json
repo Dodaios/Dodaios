@@ -384,7 +384,7 @@
     "cx_agent_show": "Anzeigen",
     "cx_agent_hide": "Ausblenden",
     "cx_agent_step2": "Füge sie auf dem anderen Computer in Claude Code, Codex oder einen anderen Coding-Agenten ein. Er schaltet SSH ein und hinterlegt den Schlüssel von {name}.",
-    "cx_agent_step3": "Der Agent endet mit einer Zeile, die mit JARVIS-CONNECT beginnt. Füge diese Zeile oben bei „Server-Adresse“ ein.",
+    "cx_agent_step3": "Der Agent endet mit einer Zeile, die mit DODAIOS-CONNECT beginnt. Füge diese Zeile oben bei „Server-Adresse“ ein.",
     "cx_agent_done": "Die Zeile des Agenten ist drin: Der Schlüssel von {name} liegt auf dem Computer. Jetzt auf Verbinden drücken.",
     "cx_connect_hint": "Gespeichert wird erst, wenn der Test klappt.",
     "cx_check_failed": "Die Verbindung klappt noch nicht",

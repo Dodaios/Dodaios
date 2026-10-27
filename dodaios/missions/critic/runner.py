@@ -1436,7 +1436,7 @@ class CriticRunner:
         except OSError as exc:
             logger.warning(
                 "CriticRunner: openclaw.json write failed (%s) — critic "
-                "spawn will fall back to the Jarvis-Agent worker's own auto-registration",
+                "spawn will fall back to the agent worker's own auto-registration",
                 exc,
             )
 
@@ -1668,7 +1668,7 @@ class CriticRunner:
         if claude_cli_viable and not claude_cli_attempted:
             logger.info(
                 "CriticRunner: API critic families are exhausted; grading "
-                "the Jarvis-Agent output with the claude critic model %r.",
+                "the agent output with the claude critic model %r.",
                 model,
             )
             return await self._invoke_via_claude_direct(

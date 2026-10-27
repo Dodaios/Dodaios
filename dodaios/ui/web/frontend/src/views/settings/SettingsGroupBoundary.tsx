@@ -53,7 +53,7 @@ export class SettingsGroupBoundary extends Component<
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
-    console.error("Jarvis settings group crashed", {
+    console.error("Dodaios settings group crashed", {
       group: this.props.group,
       error,
       componentStack: info.componentStack,

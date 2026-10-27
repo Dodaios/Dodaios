@@ -45,7 +45,13 @@ from .learning import AgentSkills, LearningPass, TurnDigest, default_creator_fac
 from .memory import SocietyMemory
 from .quests import Quests
 from .rooms import Rooms
-from .roster import LEAD_AGENT_ID, AgentRecord, Roster, conversation_session_id
+from .roster import (
+    LEAD_AGENT_ID,
+    LEAD_AGENT_ROW_NAME,
+    AgentRecord,
+    Roster,
+    conversation_session_id,
+)
 from .scheduler import DeliverHook, SocietyScheduler
 from .seeds import seed_first_run
 from .store import SocietyStore
@@ -839,15 +845,15 @@ class SocietyRuntime:
         self.scheduler._deliver = deliver  # noqa: SLF001 — the runtime owns its scheduler
 
     async def seed_lead(self) -> AgentRecord:
-        """Jarvis is always on the roster as the one lead."""
+        """The assistant is always on the roster as the one lead."""
         lead, _ = await self.roster.create(
-            name="Jarvis",
+            name=LEAD_AGENT_ROW_NAME,
             title="Lead",
             description=(
                 "The voice-steered lead of the society. Delegates, never does the work itself."
             ),
             tier=Tier.LEAD,
-            # Jarvis is Gigi, the app's own mascot (character-pipeline.md, spirit archetype).
+            # The lead is Gigi, the app's own mascot (character-pipeline.md, spirit archetype).
             avatar={"contract": 1, "archetype": "spirit", "base": "gigi", "parts": {}},
         )
         return lead

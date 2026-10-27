@@ -24,7 +24,7 @@
         "url": "https://mcp.miro.com/",
         "auth_header_template": "Authorization: Bearer ${plugin_miro_access_token}"
       },
-      "post_install_hint_md": "Sign in with Miro and choose the team Jarvis may access."
+      "post_install_hint_md": "Sign in with Miro and choose the team Dodaios may access."
     }
   }
 }

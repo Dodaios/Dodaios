@@ -72,6 +72,8 @@ export interface SkillDetail extends SkillSummary {
 interface SkillsListResponse {
   skills: SkillSummary[];
   total: number;
+  /** The resolved skills folder on this machine. Absent on an older backend. */
+  skills_dir?: string;
 }
 
 async function fetchSkills(): Promise<SkillsListResponse> {

@@ -1,8 +1,8 @@
-"""Voice-comparison test for the JARVIS voice.
+"""Voice-comparison test for the assistant voice.
 
 Generates the same test phrase with all male, deep-voiced Gemini voices and
 plays them back one after another with a 0.7 s pause. Listen and decide which
-one best matches the calm, formal assistant tone of the Jarvis voice.
+one best matches the calm, clear assistant tone you want.
 
 Usage:
     python -m dodaios.speech.voice_compare
@@ -22,7 +22,7 @@ except Exception:  # noqa: BLE001 — sounddevice/PortAudio (libportaudio2) abse
     sd = None  # type: ignore[assignment]
 
 # Candidate voices — male/deep/authoritative per the Gemini voice docs
-JARVIS_CANDIDATES: tuple[str, ...] = (
+VOICE_CANDIDATES: tuple[str, ...] = (
     "Charon",       # informative/calm
     "Fenrir",       # excitable, deep
     "Orus",         # firm, authoritative
@@ -97,13 +97,13 @@ def _play(pcm_bytes: bytes, sample_rate: int = 24_000) -> None:
 async def main() -> None:
     _setup()
     print("=" * 64)
-    print(f"  Dodaios Voice-Comparison — {len(JARVIS_CANDIDATES)} candidates")
+    print(f"  Dodaios Voice-Comparison — {len(VOICE_CANDIDATES)} candidates")
     print("=" * 64)
     print(f"Phrase: \"{TEST_PHRASE}\"\n")
 
     # Generate all first (so playback is smooth)
     print("Generating all samples (in parallel)...")
-    tasks = [_synth(v, TEST_PHRASE) for v in JARVIS_CANDIDATES]
+    tasks = [_synth(v, TEST_PHRASE) for v in VOICE_CANDIDATES]
     pcms = await asyncio.gather(*tasks, return_exceptions=True)
     print("Done.\n")
 
@@ -124,7 +124,7 @@ async def main() -> None:
             wf.setframerate(24_000)
             wf.writeframes(pcm)
 
-    for voice, pcm in zip(JARVIS_CANDIDATES, pcms, strict=True):
+    for voice, pcm in zip(VOICE_CANDIDATES, pcms, strict=True):
         if isinstance(pcm, Exception):
             print(f"  ! {voice}: ERROR {pcm}")
             continue
@@ -132,7 +132,7 @@ async def main() -> None:
         await asyncio.to_thread(_write_wav, p, pcm)
 
     # Play back one after another, with an announcement
-    for voice, pcm in zip(JARVIS_CANDIDATES, pcms, strict=True):
+    for voice, pcm in zip(VOICE_CANDIDATES, pcms, strict=True):
         if isinstance(pcm, Exception):
             continue
         duration = len(pcm) / 2 / 24_000

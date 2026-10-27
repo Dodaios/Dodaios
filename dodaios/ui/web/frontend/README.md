@@ -1,4 +1,4 @@
-# Jarvis Frontend (Phase 1a)
+# Dodaios Frontend (Phase 1a)
 
 Vite + React 18 + TypeScript + TailwindCSS + shadcn/ui.
 

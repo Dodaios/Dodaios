@@ -834,10 +834,10 @@ class SpawnWorkerTool:
             # the Voice-Listener will then publish JarvisAgentBackgroundCompleted.
             await kontrollierer.run_mission(mission_id)
         except asyncio.CancelledError:
-            log.info("Jarvis-Agent background dispatch cancelled (app shutdown)")
+            log.info("Agent background dispatch cancelled (app shutdown)")
             raise  # Propagieren, damit Loop sauber aufraeumt.
         except BaseException as exc:  # noqa: BLE001
-            log.exception("Background Jarvis-Agent dispatch crashed")
+            log.exception("Background agent dispatch crashed")
             await self._publish_dispatch_failure(
                 utterance, f"{type(exc).__name__}: {exc}",
             )

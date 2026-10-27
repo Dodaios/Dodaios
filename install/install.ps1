@@ -1,4 +1,4 @@
-# Personal Jarvis - Windows quick-install bootstrap (Stage 1)
+# Dodaios - Windows quick-install bootstrap (Stage 1)
 #
 # Usage (from PowerShell):
 #   irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
@@ -61,7 +61,7 @@ $Gut = "$Dim$([char]0x2502)$Rst"   # dim gutter bar
 
 # ----------------------------------------------------------------- helpers
 function Write-Banner {
-    # The mascot is the REAL Jarvis logo (the gold-eyed ghost), machine-
+    # The mascot is the real Dodaios logo (the gold-eyed ghost), machine-
     # generated as xterm-256 half-block pixel art from the brand PNG and
     # stored base64-encoded (the decoded UTF-8 carries real ESC bytes) so
     # this source file stays ASCII. Regenerate from a new logo file rather
@@ -711,9 +711,9 @@ if ($null -eq $prerequisites) {
 $pythonExe = $prerequisites.Python.Exe
 $pythonVer = "Python $($prerequisites.Python.Version)"
 
-# Node.js 18+ -- powers only the OPTIONAL Jarvis-Agent worker CLIs (Claude
+# Node.js 18+ -- powers only the OPTIONAL agent worker CLIs (Claude
 # Code / Codex) that heavy missions delegate to, plus the Node-based
-# marketplace integrations. Everything else in Jarvis runs without it, so a
+# marketplace integrations. Everything else in Dodaios runs without it, so a
 # missing Node must NEVER turn a new user away at the door: we note it and
 # continue -- the worker CLI can be added later in-app once Node is installed.
 # Skipped entirely on the headless / tiny-VPS path (--headless): a cloud-only
@@ -974,7 +974,7 @@ function Update-LegacyOrigin {
     }
 }
 
-# Stop any Jarvis still running out of THIS install. Called before the
+# Stop any Dodaios still running out of THIS install. Called before the
 # checkout is replaced and again before its environment is rebuilt: a release
 # may move or delete files the live app still loads, and an app left running
 # across that keeps serving a half-old, half-new program until it falls over.
@@ -1213,7 +1213,7 @@ Write-Phase '3/6' 'Python environment'
 $VenvPath = Join-Path $InstallDir '.venv'
 $VenvPython = Join-Path $VenvPath 'Scripts\python.exe'
 
-# Update runs: stop any Jarvis still running out of THIS install before we
+# Update runs: stop any Dodaios still running out of THIS install before we
 # touch its environment. A live app (often revived by the login autostart)
 # keeps serving stale, half-updated features while pip rewrites the venv
 # under it - the "app is already open but nothing works yet" field report

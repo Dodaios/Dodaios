@@ -56,7 +56,7 @@ def test_cli_prompt_includes_standing_instructions_without_heavy_router_prompt()
     prompt = _build_cli_prompt(req)
 
     assert "Always start every sentence with schef." in prompt
-    assert "Jarvis.md" in prompt
+    assert "USER STANDING INSTRUCTIONS" in prompt
     assert "REGISTRIERTE WERKZEUGE" not in prompt
     assert "STATIC PERSONA BLOCK" not in prompt
 
@@ -97,7 +97,7 @@ def test_cli_prompt_puts_current_empty_state_after_stale_history() -> None:
 
     prompt = _build_cli_prompt(req)
 
-    assert "CURRENT JARVIS.MD STATE" in prompt
+    assert "CURRENT STANDING INSTRUCTIONS STATE" in prompt
     assert "No active user preferences are currently set" in prompt
     assert "do not continue or imitate" in prompt
     assert prompt.rfind("No active user preferences") > prompt.rfind("Assistant: schef")

@@ -1,4 +1,4 @@
-# Jarvis Skill Frontmatter Schema
+# Dodaios Skill Frontmatter Schema
 
 Authoritative reference for the frontmatter block in every ``SKILL.md``.
 Source: ``dodaios.skills.schema.SkillFrontmatter`` (Pydantic, ``extra="forbid"``).
@@ -52,11 +52,11 @@ triggers:
 
 **Hotkey combos:**
 - Safe defaults: `ctrl+right_alt+<letter>`. Avoid Alt+F4, Ctrl+C, Win+*.
-- Cross-platform note irrelevant: Jarvis is Windows-only.
+- Cross-platform note irrelevant: Dodaios is Windows-only.
 
 **Schedule crons:**
 - Standard 5-field cron: `minute hour day-of-month month day-of-week`.
-- The scheduler runs in local time (not UTC) — the user timezone is the Jarvis timezone.
+- The scheduler runs in local time (not UTC) — the user timezone is the Dodaios timezone.
 
 ## SkillRiskPolicy
 
@@ -86,7 +86,7 @@ let tier-`ask` tools run without asking, per fnmatch pattern.
   ```
   TOOL: gmail-mcp/list_unread {"limit": 5}
   ```
-- **Make fallbacks explicit:** What does Jarvis say when a tool fails?
+- **Make fallbacks explicit:** What does Dodaios say when a tool fails?
 - **No walls of text:** Voice output is spoken, not read — short sentences.
 
 ## Bundle resources (sibling folders)
@@ -102,7 +102,7 @@ Analogous to Anthropic's structure, a skill folder may have sibling directories:
 └── agents/           (Sub-Agent-Personas als Markdown)
 ```
 
-The Jarvis loader lists these files automatically in the skill detail panel. Access
+The Dodaios loader lists these files automatically in the skill detail panel. Access
 from the runner: ``<skill_root>/scripts/my_helper.py`` — the runtime knows
 ``<skill_root>`` as the ``parent`` of the SKILL.md.
 

@@ -67,13 +67,13 @@ export class ViewErrorBoundary extends Component<
       // Expected during a rebuild, and the recovery is already under way.
       // Logging it as a crash is what makes a routine rebuild look like a bug
       // in whichever section the user happened to open.
-      console.info("Jarvis view is running an old bundle", {
+      console.info("Dodaios view is running an old bundle", {
         view: this.props.viewName,
         error,
       });
       return;
     }
-    console.error("Jarvis view crashed", {
+    console.error("Dodaios view crashed", {
       view: this.props.viewName,
       error,
       componentStack: info.componentStack,

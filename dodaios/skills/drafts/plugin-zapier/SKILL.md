@@ -23,4 +23,4 @@ Do not retry a write after an uncertain network failure until its outcome has be
 If a call fails for permissions or plan limits, say so plainly.
 Never accept credentials in chat; direct the user to this plugin's connect dialog.
 
-Sign in with Zapier. Jarvis sees only the actions you enabled in your Zapier MCP settings; each one asks for approval first.
+Sign in with Zapier. Dodaios sees only the actions you enabled in your Zapier MCP settings; each one asks for approval first.
