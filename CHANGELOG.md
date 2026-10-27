@@ -9,6 +9,10 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [4.1.2] — 2026-10-27
+
 If your install is on version 3.1.1 or older, the in-app update no longer sees
 new releases. Run the one-line installer again to update.
 

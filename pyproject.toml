@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 # transition (scripts/ci/build_distributions.py). Keep the self-references in
 # the extras below spelled with this name: that script rewrites them together.
 name = "dodaios"
-version = "4.1.1"
+version = "4.1.2"
 description = "Turn your computer into an AI agent that coordinates apps, tools, models, and other agents"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
