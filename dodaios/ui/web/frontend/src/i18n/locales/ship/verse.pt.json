@@ -101,7 +101,9 @@
       "duel": "Duelo",
       "first": "Primeira pessoa",
       "first_unavailable": "A primeira pessoa precisa da cena 3D deste convés no palco completo.",
-      "click_to_look": "Clique para olhar"
+      "click_to_look": "Clique para olhar",
+      "first_too_small": "Aumente este painel para pelo menos {width} × {height} para a terceira e a primeira pessoa.",
+      "click_for_keys": "Clique aqui para que as teclas cheguem à nave"
     },
     "settings": {
       "title": "Ajustes de visualização",

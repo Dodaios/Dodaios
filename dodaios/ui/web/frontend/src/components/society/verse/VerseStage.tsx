@@ -4,10 +4,12 @@
  * Each deck is a photograph rendered offline (the plate); the stage puts the
  * live crew, their screens and the ship's small lights into it with a camera
  * that matches the photograph exactly (BRIEF §3). Decks exported as eye-level
- * scenes (docs/verse/realtime.md) are walked on the full-size stage in third
- * person (over the commander's shoulder) or first person (through their
- * eyes), both with shooter mouse look; the plate stays the bird's-eye view
- * and the IDE panel's view. V cycles the three views, 1/2/3 pick one, and
+ * scenes (docs/verse/realtime.md) are walked on the full-size stage, and in
+ * an IDE side panel of at least COMPACT_EYE_MIN, in third person (over the
+ * commander's shoulder) or first person (through their eyes), both with
+ * shooter mouse look; the plate stays the bird's-eye view and the view of a
+ * smaller panel. A press on the stage takes the keyboard focus (the IDE's
+ * terminal usually holds it), so the keys reach the ship. V cycles the three views, 1/2/3 pick one, and
  * the wheel hands third person over to first. The person is the commanding
  * officer, steered in third or first person (the keys walk them, the camera
  * follows) or sent by clicks from a bird's-eye view; the agents are officers
@@ -43,7 +45,8 @@ import { hasMouseLook, releaseMouseLook, requestMouseLook } from "./engine/realt
 import { controlModeOf, cycleView, isShooterView, resolveView, viewForKey, type Person, type VerseView } from "./engine/realtime/viewMode";
 import { eyePick } from "./engine/realtime/eyePick";
 import { useViewSettings } from "./engine/realtime/viewSettings";
-import { eyeCapable as canWalkAtEyeLevel } from "./engine/stageView";
+import { COMPACT_EYE_MIN, eyeCapable as canWalkAtEyeLevel } from "./engine/stageView";
+import { typesText, useStageFocus } from "./engine/stageFocus";
 import { pickBody, pickStation } from "./engine/picking";
 import { worldToPlate } from "./engine/plateMath";
 import { screenToPlate } from "./engine/view";
@@ -130,11 +133,6 @@ function duelAnyDeck(): boolean {
   }
 }
 
-function typesText(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  return !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
-}
-
 const sameHover = (a: Hover, b: Hover) => a === b || (!!a && !!b && a.kind === b.kind && a.id === b.id);
 
 export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenGroup, initialDeck, compact = false, active = true }: VerseStageProps) {
@@ -144,6 +142,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const surfaceRef = useRef<HTMLDivElement>(null);
   const visible = useCanvasAwake(hostRef);
   const awake = active && visible;
+  // A press on the stage takes the keys from the terminal beside it (stageFocus.ts); the hint says so until then.
+  const { keysReach, onPointerDownCapture } = useStageFocus(hostRef, awake);
   const reduced = useReducedMotion() ?? false;
   const { generation } = useWebglSurface(hostRef);
   const webgl = useWebglSupported();
@@ -230,8 +230,27 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   // The view (viewMode.ts): bird's-eye (the keys pan over the whole deck), third or first person (the keys walk the
   // commander, the camera follows). The person's last choice is kept in this browser.
   const chosenView = useViewSettings((s) => s.view);
-  // The full-size stage walks an exported deck at eye level; the plate stays the bird's-eye view and the compact view.
-  const eyeCapable = !!deck && canWalkAtEyeLevel({ compact, realtime: !!deck.realtime, failed: eyeFailed.has(deck.id) });
+  // The compact stage's size decides whether it is roomy enough to walk at eye level.
+  const [stageSize, setStageSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!compact || !el) return;
+    const measure = () => {
+      const width = Math.round(el.clientWidth), height = Math.round(el.clientHeight);
+      setStageSize((s) => (s.width === width && s.height === height ? s : { width, height }));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [compact]);
+  // The full-size stage, and a side panel of at least COMPACT_EYE_MIN, walk an exported deck at eye level; the plate
+  // stays the bird's-eye view and the view of a smaller panel.
+  const eyeCapable = !!deck && canWalkAtEyeLevel({
+    compact, width: stageSize.width, height: stageSize.height, realtime: !!deck.realtime, failed: eyeFailed.has(deck.id),
+  });
+  const tooSmall = compact && !!deck?.realtime && !eyeFailed.has(deck.id) && !eyeCapable;
   const view = resolveView(chosenView, eyeCapable);
   const mode = controlModeOf(view);
   const eyeOn = eyeCapable && mode === "follow";
@@ -258,7 +277,9 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   // The person's mouse settings turn the eye-level camera; the quality goes to its renderer.
   const sensitivity = useViewSettings((s) => s.sensitivity);
   const invertY = useViewSettings((s) => s.invertY);
-  const quality = useViewSettings((s) => s.quality);
+  // The side panel shares the GPU with the IDE beside it: on "auto" it renders at the low tier.
+  const chosenQuality = useViewSettings((s) => s.quality);
+  const quality = compact && chosenQuality === "auto" ? "low" : chosenQuality;
   const fovThird = useViewSettings((s) => s.fovThird);
   const fovFirst = useViewSettings((s) => s.fovFirst);
   useEffect(() => {
@@ -860,7 +881,15 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const fallback = <div className="verse-fallback" role="status">{chunkReady ? t("verse.stage.unavailable") : null}</div>;
 
   return (
-    <div ref={hostRef} className="verse-stage" data-compact={compact} tabIndex={-1} aria-label={chunkReady ? t("verse.stage.title") : undefined}>
+    <div
+      ref={hostRef}
+      className="verse-stage"
+      data-compact={compact}
+      data-keys={keysReach ? "stage" : "elsewhere"}
+      tabIndex={-1}
+      aria-label={chunkReady ? t("verse.stage.title") : undefined}
+      onPointerDownCapture={onPointerDownCapture}
+    >
       {!webgl ? fallback : (
         <RenderBoundary key={generation} fallback={fallback}>
           <div ref={surfaceRef} className="verse-surface">
@@ -907,6 +936,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
             t={t}
             view={view}
             firstAvailable={eyeCapable}
+            firstUnavailable={tooSmall ? fill(t("verse.tools.first_too_small"), COMPACT_EYE_MIN) : undefined}
             onView={showView}
             onLift={() => setPanel("lift")}
             onCommander={() => { if (runtime.control.mode === "follow") runtime.control.reframe = true; else focusOn(COMMANDER_ID); }}
@@ -915,8 +945,12 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
             onHelp={() => say(t(eyeOn ? "verse.stage.help_eye" : "verse.stage.help"), HELP_MS)}
           />}
           {shooter && !dueling && <div className="verse-reticle" data-locked={locked} data-on={hover ? "" : undefined} aria-hidden />}
-          {shooter && !dueling && !locked && !panel && plateReady && (
+          {shooter && !dueling && !locked && !panel && plateReady && keysReach && (
             <div className="verse-look-hint" aria-hidden>{t("verse.tools.click_to_look")}</div>
+          )}
+          {/* The keys go elsewhere (the IDE's terminal): one click on the stage brings them here. */}
+          {!keysReach && !locked && !panel && plateReady && (
+            <div className="verse-look-hint verse-keys-hint" role="status">{t("verse.tools.click_for_keys")}</div>
           )}
           {dueling && (
             <DuelHud runtime={runtime} controller={duel} phase={duelPhase} locked={locked} t={t}

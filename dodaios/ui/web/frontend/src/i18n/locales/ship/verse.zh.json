@@ -101,7 +101,9 @@
       "duel": "决斗",
       "first": "第一人称",
       "first_unavailable": "第一人称需要在完整舞台上加载本甲板的 3D 场景。",
-      "click_to_look": "点击以环顾"
+      "click_to_look": "点击以环顾",
+      "first_too_small": "将此面板调整到至少 {width} × {height} 才能使用第三人称和第一人称。",
+      "click_for_keys": "点击此处，让按键控制飞船"
     },
     "settings": {
       "title": "视角设置",

@@ -85,7 +85,10 @@ commander faces it while walking. The wheel moves the third-person camera
 between 1.2 and 5 m; scrolling in past that is first person, scrolling out of
 first person comes back. The camera never passes through walls. The view
 settings set mouse sensitivity, inverted look and the field of view of each
-person. The IDE side panel keeps the plate. Details: [`realtime.md`](realtime.md)
+person. The IDE side panel offers all three views once it is at least
+480 × 360 CSS px (rendered at the low quality tier unless the person pins
+high); a smaller panel keeps the plate. A click on the panel takes the keys
+from the terminal beside it. Details: [`realtime.md`](realtime.md)
 ("Views").
 
 ## Decks

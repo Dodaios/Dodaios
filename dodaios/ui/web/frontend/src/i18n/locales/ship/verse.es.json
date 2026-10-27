@@ -101,7 +101,9 @@
       "duel": "Duelo",
       "first": "Primera persona",
       "first_unavailable": "La primera persona necesita la escena 3D de esta cubierta en el escenario completo.",
-      "click_to_look": "Haz clic para mirar"
+      "click_to_look": "Haz clic para mirar",
+      "first_too_small": "Amplía este panel a al menos {width} × {height} para la tercera y la primera persona.",
+      "click_for_keys": "Haz clic aquí para que las teclas lleguen a la nave"
     },
     "settings": {
       "title": "Ajustes de vista",
