@@ -908,6 +908,39 @@ def _handover_windows(
 MACOS_OPEN = "/usr/bin/open"
 
 
+#: Pauses before re-trying an ``hdiutil attach`` that failed only because the
+#: disk-image machinery was busy (EAGAIN, "Resource temporarily unavailable").
+_ATTACH_BUSY_RETRY_DELAYS_S = (2.0, 5.0)
+_ATTACH_BUSY_MARKER = "resource temporarily unavailable"
+
+
+def _attach_dmg(dmg: Path, mountpoint: Path, runner: CommandRunner) -> tuple[int, str]:
+    """``hdiutil attach`` the image read-only; a busy refusal is tried again.
+
+    macOS answers an attach with EAGAIN while diskarbitrationd is still busy
+    with another image (seen on CI runners right after one was detached). It
+    is transient, so it gets a short bounded retry instead of failing the
+    update. Every other error is final at once. Returns ``(rc, stderr)``.
+    """
+    command = [
+        "hdiutil",
+        "attach",
+        str(dmg),
+        "-nobrowse",
+        "-readonly",
+        "-mountpoint",
+        str(mountpoint),
+    ]
+    rc, _out, err = runner.run(command, timeout_s=180.0)
+    for delay in _ATTACH_BUSY_RETRY_DELAYS_S:
+        if rc == 0 or _ATTACH_BUSY_MARKER not in err.lower() or _is_mounted(mountpoint):
+            break
+        log.info("[update] hdiutil is busy, attaching %s again in %.0fs", dmg.name, delay)
+        time.sleep(delay)
+        rc, _out, err = runner.run(command, timeout_s=180.0)
+    return rc, err
+
+
 def _is_mounted(path: Path) -> bool:
     """Whether a volume is mounted at ``path`` (a seam for the tests)."""
     return os.path.ismount(path)
@@ -961,18 +994,7 @@ def _handover_macos(
     mountpoint = Path(tempfile.mkdtemp(prefix="jarvis-dmg-"))
     attached = False
     try:
-        rc, _out, err = runner.run(
-            [
-                "hdiutil",
-                "attach",
-                str(dmg),
-                "-nobrowse",
-                "-readonly",
-                "-mountpoint",
-                str(mountpoint),
-            ],
-            timeout_s=180.0,
-        )
+        rc, err = _attach_dmg(dmg, mountpoint, runner)
         if rc != 0:
             raise InstallerUpdateError(
                 f"could not mount {dmg.name}: {err.strip()[:200] or 'hdiutil failed'}"
