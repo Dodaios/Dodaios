@@ -1,13 +1,20 @@
 /**
- * "City Defense": warheads rain down on six cities and three missile
- * batteries. Aim the crosshair (mouse, or arrow keys) and fire: a
- * counter-missile flies from the nearest battery with ammo to that point and
- * bursts into a blast that grows and fades. Any warhead caught in a blast
- * blows up too, and its blast can catch the next one (chain reactions).
- * Later waves bring warheads that split mid-air and a fast bomber or
- * satellite that drops more. Each wave ends with a bonus for unused ammo and
- * surviving cities; every 10,000 points banks a city that rebuilds a lost
- * one. When the last city falls and none is banked, the run is over.
+ * "City Defense": crystal shards fall on four glass habitat domes. One lance
+ * tower in the middle of the colony shoots them down: aim the reticle (mouse,
+ * or arrow keys) and fire a bolt that bursts into a ring at that point. Any
+ * shard caught in a ring shatters, and its own smaller ring can catch the
+ * next one (chain reactions).
+ *
+ * The tower has no ammunition; it has heat. Every bolt warms it, it cools
+ * down on its own, and a tower pushed past its limit jams until it has fully
+ * cooled. The secondary button fires a pulse: a slower, much wider ring that
+ * costs a lot of heat. A shard striking the tower jams it at once.
+ *
+ * Later waves bring weaving shards that swing side to side, and a drifting
+ * seeder that sows more of them. Each wave ends with a bonus per dome still
+ * standing (and extra for a full colony); every 7,500 points earns a spare
+ * dome that rebuilds a lost one. When the last dome falls and no spare is
+ * waiting, the run is over.
  */
 import type { RetroDrawInfo, RetroGame, RetroInput, RetroStatus } from "../retroGame";
 import {
@@ -18,52 +25,63 @@ import {
 export const WIDTH = 320;
 export const HEIGHT = 240;
 export const GROUND_Y = 222;
-/** The crosshair stays in the sky. */
+/** The reticle stays in the sky. */
 const AIM_TOP = 10;
-const AIM_BOTTOM = 196;
+const AIM_BOTTOM = 190;
 const AIM_SPEED = 170;
 
-export const CITY_X: readonly number[] = [64, 92, 120, 200, 228, 256];
-export const BATTERY_X: readonly number[] = [24, 160, 296];
-/** Where counter-missiles leave a battery (the top of its mound). */
-export const BATTERY_Y = 204;
-export const AMMO = 10;
-/** The centre battery fires faster missiles. */
-const MISSILE_SPEED = [170, 260, 170] as const;
+export const DOME_X: readonly number[] = [52, 116, 204, 268];
+const DOME_R = 13;
+export const TOWER_X = WIDTH / 2;
+/** Where bolts leave the tower (the tip of its spire). */
+export const TOWER_Y = 196;
 
-const BLAST_GROW = 0.45;
-const BLAST_HOLD = 0.25;
-const BLAST_SHRINK = 0.45;
-export const BLAST_S = BLAST_GROW + BLAST_HOLD + BLAST_SHRINK;
-export const BLAST_R = 16;
-/** A warhead destroyed in the air bursts into a slightly smaller blast of its own. */
-export const CHAIN_R = 13;
-const IMPACT_R = 11;
-/** How close to a city or battery an impact must be to wreck it. */
-const CITY_HIT = 12;
-const BATTERY_HIT = 14;
+/** Heat added by one bolt and by one pulse; the tower jams at 1. */
+export const HEAT_BOLT = 0.2;
+export const HEAT_PULSE = 0.55;
+/** Heat shed per second. */
+export const COOL_RATE = 0.35;
+const BOLT_SPEED = 230;
+const PULSE_SPEED = 150;
 
-const MAX_MISSILES = 10;
-const MAX_WARHEADS = 40;
-const MAX_BLASTS = 48;
+const RING_GROW = 0.4;
+const RING_HOLD = 0.2;
+const RING_FADE = 0.5;
+export const RING_S = RING_GROW + RING_HOLD + RING_FADE;
+export const BOLT_R = 15;
+export const PULSE_R = 30;
+/** A shard shattered in the air bursts into a smaller ring of its own. */
+export const CHAIN_R = 12;
+const IMPACT_R = 10;
+/** How close to a dome or the tower an impact must be to break it. */
+const DOME_HIT = 14;
+const TOWER_HIT = 10;
 
-const WARHEAD_POINTS = 25;
-const FLYER_POINTS = 100;
-const AMMO_BONUS = 5;
-const CITY_BONUS = 100;
-export const BONUS_CITY_EVERY = 10000;
+const MAX_BOLTS = 8;
+const MAX_SHARDS = 40;
+const MAX_RINGS = 48;
+
+export const SHARD_POINTS = 20;
+export const SEEDER_POINTS = 150;
+export const DOME_BONUS = 150;
+/** Extra at the end of a wave in which no dome was lost. */
+export const FULL_COLONY_BONUS = 500;
+export const SPARE_DOME_EVERY = 7500;
 const READY_S = 1.6;
 const BONUS_S = 2.6;
 const LOST_S = 2.2;
 
 export type DefensePhase = "ready" | "play" | "bonus" | "lost" | "over";
 
-export interface Battery { x: number; ammo: number; alive: boolean }
-export interface Counter { active: boolean; ox: number; oy: number; x: number; y: number; tx: number; ty: number; vx: number; vy: number; left: number }
-export interface Warhead { active: boolean; ox: number; oy: number; x: number; y: number; vx: number; vy: number; ty: number; mirv: boolean; splitY: number }
-/** A blast: `friendly` ones (ours and chains) destroy what they touch in the air; impacts only wreck the ground. */
-export interface Blast { active: boolean; x: number; y: number; age: number; r: number; friendly: boolean }
-export interface Flyer { active: boolean; kind: 0 | 1; x: number; y: number; dir: 1 | -1; speed: number; dropTimer: number }
+export interface Bolt { active: boolean; ox: number; oy: number; x: number; y: number; tx: number; ty: number; vx: number; vy: number; left: number; r: number }
+/**
+ * A falling shard. It travels along a straight base path (`bx`, `y`); a
+ * weaving shard swings `weave` pixels either side of it.
+ */
+export interface Shard { active: boolean; bx: number; x: number; y: number; vx: number; vy: number; ty: number; weave: number; phase: number }
+/** A ring: `friendly` ones (ours and chains) shatter what they touch in the air; impacts only break the ground. */
+export interface Ring { active: boolean; x: number; y: number; age: number; r: number; friendly: boolean }
+export interface Seeder { active: boolean; x: number; y: number; vx: number; vy: number; dropTimer: number; t: number }
 
 export interface DefenseState {
   phase: DefensePhase;
@@ -72,78 +90,87 @@ export interface DefenseState {
   elapsed: number;
   score: number;
   wave: number;
-  nextCityAt: number;
-  /** Bonus cities waiting to rebuild a destroyed one at the next wave. */
-  banked: number;
+  nextSpareAt: number;
+  /** Spare domes waiting to rebuild a lost one at the end of the wave. */
+  spares: number;
   cx: number;
   cy: number;
   /** Last pointer position seen, so a resting mouse does not undo keyboard aiming. */
   lastPx: number;
   lastPy: number;
-  /** The battery forced with `b`, or -1 for "nearest with ammo". */
-  selected: number;
-  cities: Uint8Array;
-  batteries: Battery[];
-  missiles: Counter[];
-  warheads: Warhead[];
-  blasts: Blast[];
-  flyer: Flyer;
-  /** Warheads (including the flyer's drops) still to come this wave. */
+  /** Tower heat, 0 cold to 1 jammed. */
+  heat: number;
+  /** The tower is jammed and will not fire until it has fully cooled. */
+  jammed: boolean;
+  domes: Uint8Array;
+  /** Domes standing when the wave began, for the full-colony bonus. */
+  domesAtStart: number;
+  bolts: Bolt[];
+  shards: Shard[];
+  rings: Ring[];
+  seeder: Seeder;
+  /** Shards (including the seeder's) still to come this wave. */
   toLaunch: number;
   salvoTimer: number;
-  flyerTimer: number;
+  seederTimer: number;
   /** The last wave's bonus tally, for the bonus screen. */
-  bonusAmmo: number;
-  bonusCities: number;
+  bonusDomes: number;
+  bonusFull: boolean;
   particles: Particle[];
   shake: number;
 }
 
-/** Score multiplier: ×1 for waves 1–2, ×2 for 3–4 … up to ×6. */
+/** Score multiplier: ×1 for waves 1–3, ×2 for 4–6 … up to ×4. */
 export function multiplier(wave: number): number {
-  return Math.min(6, 1 + Math.floor((wave - 1) / 2));
+  return Math.min(4, 1 + Math.floor((wave - 1) / 3));
 }
 
-export function warheadSpeed(wave: number): number {
-  return Math.min(70, 16 + wave * 4);
+export function shardSpeed(wave: number): number {
+  return Math.min(64, 18 + wave * 3.5);
 }
 
 function wavePayload(wave: number): number {
-  return Math.min(36, 10 + wave * 2);
+  return Math.min(32, 8 + wave * 2);
 }
 
-/** Radius of a blast at a given age: it grows, holds and shrinks away. */
-export function blastRadius(age: number, max: number): number {
-  if (age < BLAST_GROW) return (max * age) / BLAST_GROW;
-  if (age < BLAST_GROW + BLAST_HOLD) return max;
-  return Math.max(0, max * (1 - (age - BLAST_GROW - BLAST_HOLD) / BLAST_SHRINK));
+/** Radius of a ring at a given age: it grows, holds and fades. */
+export function ringRadius(age: number, max: number): number {
+  if (age < RING_GROW) return (max * age) / RING_GROW;
+  if (age < RING_GROW + RING_HOLD) return max;
+  return Math.max(0, max * (1 - (age - RING_GROW - RING_HOLD) / RING_FADE));
+}
+
+export function domesStanding(state: DefenseState): number {
+  let n = 0;
+  for (const d of state.domes) n += d;
+  return n;
 }
 
 function startWave(state: DefenseState, random: () => number): void {
   state.phase = "ready";
   state.timer = READY_S;
-  for (const b of state.batteries) { b.alive = true; b.ammo = AMMO; }
-  for (const m of state.missiles) m.active = false;
-  for (const w of state.warheads) w.active = false;
-  for (const b of state.blasts) b.active = false;
-  state.flyer.active = false;
+  state.heat = 0;
+  state.jammed = false;
+  for (const b of state.bolts) b.active = false;
+  for (const s of state.shards) s.active = false;
+  for (const r of state.rings) r.active = false;
+  state.seeder.active = false;
   state.toLaunch = wavePayload(state.wave);
   state.salvoTimer = 0.4;
-  state.flyerTimer = 8 + random() * 8;
-  state.selected = -1;
+  state.seederTimer = 9 + random() * 8;
+  state.domesAtStart = domesStanding(state);
 }
 
 function create(random: () => number): DefenseState {
   const state: DefenseState = {
-    phase: "ready", timer: 0, elapsed: 0, score: 0, wave: 1, nextCityAt: BONUS_CITY_EVERY, banked: 0,
-    cx: WIDTH / 2, cy: 110, lastPx: -1, lastPy: -1, selected: -1,
-    cities: new Uint8Array(CITY_X.length).fill(1),
-    batteries: BATTERY_X.map((x) => ({ x, ammo: AMMO, alive: true })),
-    missiles: Array.from({ length: MAX_MISSILES }, () => ({ active: false, ox: 0, oy: 0, x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, left: 0 })),
-    warheads: Array.from({ length: MAX_WARHEADS }, () => ({ active: false, ox: 0, oy: 0, x: 0, y: 0, vx: 0, vy: 0, ty: 0, mirv: false, splitY: 0 })),
-    blasts: Array.from({ length: MAX_BLASTS }, () => ({ active: false, x: 0, y: 0, age: 0, r: 0, friendly: false })),
-    flyer: { active: false, kind: 0, x: 0, y: 0, dir: 1, speed: 0, dropTimer: 0 },
-    toLaunch: 0, salvoTimer: 0, flyerTimer: 0, bonusAmmo: 0, bonusCities: 0,
+    phase: "ready", timer: 0, elapsed: 0, score: 0, wave: 1, nextSpareAt: SPARE_DOME_EVERY, spares: 0,
+    cx: WIDTH / 2, cy: 110, lastPx: -1, lastPy: -1, heat: 0, jammed: false,
+    domes: new Uint8Array(DOME_X.length).fill(1), domesAtStart: DOME_X.length,
+    bolts: Array.from({ length: MAX_BOLTS }, () => ({ active: false, ox: 0, oy: 0, x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, left: 0, r: 0 })),
+    shards: Array.from({ length: MAX_SHARDS }, () => ({ active: false, bx: 0, x: 0, y: 0, vx: 0, vy: 0, ty: 0, weave: 0, phase: 0 })),
+    rings: Array.from({ length: MAX_RINGS }, () => ({ active: false, x: 0, y: 0, age: 0, r: 0, friendly: false })),
+    seeder: { active: false, x: 0, y: 0, vx: 0, vy: 0, dropTimer: 0, t: 0 },
+    toLaunch: 0, salvoTimer: 0, seederTimer: 0, bonusDomes: 0, bonusFull: false,
     particles: makeParticles(160),
     shake: 0,
   };
@@ -153,222 +180,194 @@ function create(random: () => number): DefenseState {
 
 function addScore(state: DefenseState, points: number): void {
   state.score += points;
-  while (state.score >= state.nextCityAt) {
-    state.banked += 1;
-    state.nextCityAt += BONUS_CITY_EVERY;
+  while (state.score >= state.nextSpareAt) {
+    state.spares += 1;
+    state.nextSpareAt += SPARE_DOME_EVERY;
   }
 }
 
-function spawnBlast(state: DefenseState, x: number, y: number, r: number, friendly: boolean): void {
-  let slot: Blast | undefined;
-  for (const b of state.blasts) if (!b.active) { slot = b; break; }
+function spawnRing(state: DefenseState, x: number, y: number, r: number, friendly: boolean): void {
+  let slot: Ring | undefined;
+  for (const b of state.rings) if (!b.active) { slot = b; break; }
   if (!slot) return;
   slot.active = true; slot.x = x; slot.y = y; slot.age = 0; slot.r = r; slot.friendly = friendly;
 }
 
 /**
- * Send a warhead from (x, y) to the ground at `tx` (to the battery top when it
- * aims at a battery). Returns false when the sky is full.
+ * Send a shard from (x, y) towards (tx, ty) on the ground; `weave` > 0 makes
+ * it swing side to side. Returns false when the sky is full.
  */
-export function addWarhead(state: DefenseState, x: number, y: number, tx: number, ty: number, speed: number, mirv: boolean, splitY = 0): boolean {
-  let w: Warhead | undefined;
-  for (const c of state.warheads) if (!c.active) { w = c; break; }
-  if (!w) return false;
+export function addShard(state: DefenseState, x: number, y: number, tx: number, ty: number, speed: number, weave = 0): boolean {
+  let s: Shard | undefined;
+  for (const c of state.shards) if (!c.active) { s = c; break; }
+  if (!s) return false;
   const dx = tx - x, dy = ty - y;
   const len = Math.max(1, Math.hypot(dx, dy));
-  w.active = true; w.ox = x; w.oy = y; w.x = x; w.y = y;
-  w.vx = (dx / len) * speed; w.vy = (dy / len) * speed;
-  w.ty = ty; w.mirv = mirv; w.splitY = splitY;
+  s.active = true; s.bx = x; s.x = x; s.y = y;
+  s.vx = (dx / len) * speed; s.vy = (dy / len) * speed;
+  s.ty = ty; s.weave = weave; s.phase = 0;
   return true;
 }
 
-/** A target on the ground: a standing city or battery most of the time, sometimes open ground. */
+/** A target on the ground: a standing dome most of the time, sometimes the tower or open ground. */
 function pickTarget(state: DefenseState, random: () => number, out: number[]): void {
-  let standing = 0;
-  for (const c of state.cities) standing += c;
-  for (const b of state.batteries) if (b.alive) standing += 1;
-  if (standing === 0 || random() < 0.15) {
+  const standing = domesStanding(state);
+  const roll = random();
+  if (standing === 0 || roll < 0.12) {
     out[0] = 12 + random() * (WIDTH - 24);
     out[1] = GROUND_Y;
     return;
   }
-  let pick = Math.floor(random() * standing);
-  for (let i = 0; i < CITY_X.length; i += 1) {
-    if (state.cities[i] && pick-- === 0) { out[0] = CITY_X[i]; out[1] = GROUND_Y; return; }
+  if (roll < 0.22) {
+    out[0] = TOWER_X; out[1] = TOWER_Y + 4;
+    return;
   }
-  for (const b of state.batteries) {
-    if (b.alive && pick-- === 0) { out[0] = b.x; out[1] = BATTERY_Y + 4; return; }
+  let pick = Math.floor(random() * standing);
+  for (let i = 0; i < DOME_X.length; i += 1) {
+    if (state.domes[i] && pick-- === 0) { out[0] = DOME_X[i]; out[1] = GROUND_Y; return; }
   }
 }
 const target = [0, 0];
 
 function launchFromSky(state: DefenseState, random: () => number): void {
   pickTarget(state, random, target);
-  const mirvChance = state.wave >= 3 ? Math.min(0.35, 0.06 * (state.wave - 2)) : 0;
-  const mirv = random() < mirvChance;
-  if (addWarhead(state, 8 + random() * (WIDTH - 16), 0, target[0], target[1], warheadSpeed(state.wave), mirv, 50 + random() * 70)) {
+  const weaveChance = state.wave >= 3 ? Math.min(0.4, 0.08 * (state.wave - 2)) : 0;
+  const weave = random() < weaveChance ? 10 + random() * 10 : 0;
+  // A weaver's base path is kept inside the screen so its swing never leaves it.
+  const x = clamp(8 + random() * (WIDTH - 16), 8 + weave, WIDTH - 8 - weave);
+  if (addShard(state, x, 0, clamp(target[0], 8 + weave, WIDTH - 8 - weave), target[1], shardSpeed(state.wave), weave)) {
     state.toLaunch -= 1;
   }
 }
 
-/** Split a MIRV: two or three new warheads leave from where it is now; the original flies on. */
-function split(state: DefenseState, w: Warhead, random: () => number): void {
-  w.mirv = false;
-  const count = 2 + (random() < 0.4 ? 1 : 0);
-  const speed = Math.hypot(w.vx, w.vy);
-  for (let i = 0; i < count; i += 1) {
-    pickTarget(state, random, target);
-    addWarhead(state, w.x, w.y, target[0], target[1], speed, false);
-  }
+/**
+ * Whether the tower may fire now: a bolt whenever it is not jammed (the bolt
+ * that pushes it past its limit jams it), a pulse only while it is cool
+ * enough to take the pulse's heat.
+ */
+export function canFire(state: DefenseState, pulse: boolean): boolean {
+  return !state.jammed && (!pulse || state.heat + HEAT_PULSE <= 1 + 1e-9);
 }
 
-/** The battery that would fire at the crosshair now: the forced one if it can, else the nearest with ammo; -1 if none. */
-export function firingBattery(state: DefenseState): number {
-  const forced = state.selected >= 0 ? state.batteries[state.selected] : null;
-  if (forced && forced.alive && forced.ammo > 0) return state.selected;
-  let best = -1, bestD = Infinity;
-  for (let i = 0; i < state.batteries.length; i += 1) {
-    const b = state.batteries[i];
-    if (!b.alive || b.ammo <= 0) continue;
-    // Ties go to the centre battery, whose missiles are faster.
-    const d = Math.abs(b.x - state.cx) - (i === 1 ? 0.5 : 0);
-    if (d < bestD) { bestD = d; best = i; }
-  }
-  return best;
-}
-
-function fire(state: DefenseState): boolean {
-  const i = firingBattery(state);
-  if (i < 0) return false;
-  let m: Counter | undefined;
-  for (const c of state.missiles) if (!c.active) { m = c; break; }
-  if (!m) return false;
-  const b = state.batteries[i];
-  b.ammo -= 1;
-  const dx = state.cx - b.x, dy = state.cy - BATTERY_Y;
+function fire(state: DefenseState, pulse: boolean): boolean {
+  if (!canFire(state, pulse)) return false;
+  const cost = pulse ? HEAT_PULSE : HEAT_BOLT;
+  let b: Bolt | undefined;
+  for (const c of state.bolts) if (!c.active) { b = c; break; }
+  if (!b) return false;
+  state.heat += cost;
+  if (state.heat >= 1 - 1e-9) { state.heat = 1; state.jammed = true; }
+  const speed = pulse ? PULSE_SPEED : BOLT_SPEED;
+  const dx = state.cx - TOWER_X, dy = state.cy - TOWER_Y;
   const len = Math.max(1, Math.hypot(dx, dy));
-  m.active = true; m.ox = b.x; m.oy = BATTERY_Y; m.x = b.x; m.y = BATTERY_Y;
-  m.tx = state.cx; m.ty = state.cy; m.left = len;
-  m.vx = (dx / len) * MISSILE_SPEED[i]; m.vy = (dy / len) * MISSILE_SPEED[i];
+  b.active = true; b.ox = TOWER_X; b.oy = TOWER_Y; b.x = TOWER_X; b.y = TOWER_Y;
+  b.tx = state.cx; b.ty = state.cy; b.left = len; b.r = pulse ? PULSE_R : BOLT_R;
+  b.vx = (dx / len) * speed; b.vy = (dy / len) * speed;
   return true;
 }
 
-/** Cycle the forced battery: nearest → left → centre → right → nearest, skipping empty ones. */
-function cycleBattery(state: DefenseState): void {
-  for (let n = 0; n < 4; n += 1) {
-    state.selected = state.selected >= 2 ? -1 : state.selected + 1;
-    if (state.selected < 0) return;
-    const b = state.batteries[state.selected];
-    if (b.alive && b.ammo > 0) return;
-  }
-}
-
-/** A warhead reached the ground: wreck what stands there. */
+/** A shard reached the ground: break what stands there. */
 function impact(state: DefenseState, x: number, y: number, random: () => number): void {
-  spawnBlast(state, x, y, IMPACT_R, false);
-  emitBurst(state.particles, x, y, 12, 60, "#ff7a3a", random, 0.7);
-  for (let i = 0; i < CITY_X.length; i += 1) {
-    if (state.cities[i] && Math.abs(CITY_X[i] - x) <= CITY_HIT) {
-      state.cities[i] = 0;
+  spawnRing(state, x, y, IMPACT_R, false);
+  emitBurst(state.particles, x, y, 12, 60, "#ff9a4a", random, 0.7);
+  for (let i = 0; i < DOME_X.length; i += 1) {
+    if (state.domes[i] && Math.abs(DOME_X[i] - x) <= DOME_HIT) {
+      state.domes[i] = 0;
       state.shake = 0.35;
-      emitBurst(state.particles, CITY_X[i], GROUND_Y - 4, 24, 80, "#7ff0ff", random, 1);
+      emitBurst(state.particles, DOME_X[i], GROUND_Y - 6, 24, 80, "#bff6ff", random, 1);
     }
   }
-  for (const b of state.batteries) {
-    if (b.alive && Math.abs(b.x - x) <= BATTERY_HIT) {
-      b.alive = false;
-      b.ammo = 0;
-      state.shake = 0.35;
-      emitBurst(state.particles, b.x, BATTERY_Y, 20, 70, "#ffd35a", random, 0.9);
-    }
+  if (Math.abs(TOWER_X - x) <= TOWER_HIT) {
+    // The tower is armoured: a hit jams it instead of destroying it.
+    state.heat = 1;
+    state.jammed = true;
+    state.shake = 0.3;
+    emitBurst(state.particles, TOWER_X, TOWER_Y, 16, 60, "#ffd35a", random, 0.8);
   }
 }
 
-export function citiesStanding(state: DefenseState): number {
-  let n = 0;
-  for (const c of state.cities) n += c;
-  return n;
-}
-
-/** Everything in the air moves; blasts grow, catch warheads and fade. */
+/** Everything in the air moves; rings grow, catch shards and fade. */
 function stepWorld(state: DefenseState, dt: number, random: () => number): void {
   const mult = multiplier(state.wave);
-  for (const m of state.missiles) {
-    if (!m.active) continue;
-    const travel = Math.hypot(m.vx, m.vy) * dt;
-    if (travel >= m.left) {
-      m.active = false;
-      spawnBlast(state, m.tx, m.ty, BLAST_R, true);
+  state.heat = Math.max(0, state.heat - COOL_RATE * dt);
+  if (state.jammed && state.heat <= 0) state.jammed = false;
+  for (const b of state.bolts) {
+    if (!b.active) continue;
+    const travel = Math.hypot(b.vx, b.vy) * dt;
+    if (travel >= b.left) {
+      b.active = false;
+      spawnRing(state, b.tx, b.ty, b.r, true);
       continue;
     }
-    m.left -= travel;
-    m.x += m.vx * dt;
-    m.y += m.vy * dt;
+    b.left -= travel;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
   }
-  for (const w of state.warheads) {
-    if (!w.active) continue;
-    w.x += w.vx * dt;
-    w.y += w.vy * dt;
-    if (w.mirv && w.y >= w.splitY) split(state, w, random);
-    if (w.y >= w.ty) {
-      w.active = false;
-      impact(state, w.x, w.ty, random);
+  for (const s of state.shards) {
+    if (!s.active) continue;
+    s.bx += s.vx * dt;
+    s.y += s.vy * dt;
+    s.phase += dt * 3;
+    s.x = s.bx + Math.sin(s.phase) * s.weave;
+    if (s.y >= s.ty) {
+      s.active = false;
+      impact(state, s.x, s.ty, random);
     }
   }
-  const f = state.flyer;
+  const f = state.seeder;
   if (f.active) {
-    f.x += f.dir * f.speed * dt;
-    if (f.x < -24 || f.x > WIDTH + 24) f.active = false;
-    else if ((f.dropTimer -= dt) <= 0 && state.toLaunch > 0 && f.x > 16 && f.x < WIDTH - 16) {
+    f.t += dt;
+    f.x += f.vx * dt;
+    f.y += f.vy * dt;
+    if (f.x < -20 || f.x > WIDTH + 20) f.active = false;
+    else if ((f.dropTimer -= dt) <= 0 && state.toLaunch > 0 && f.x > 20 && f.x < WIDTH - 20) {
       pickTarget(state, random, target);
-      if (addWarhead(state, f.x, f.y + 4, target[0], target[1], warheadSpeed(state.wave), false)) state.toLaunch -= 1;
-      f.dropTimer = 1.1 + random() * 1.2;
+      if (addShard(state, f.x, f.y + 6, clamp(target[0], 20, WIDTH - 20), target[1], shardSpeed(state.wave) * 0.9, 12)) state.toLaunch -= 1;
+      f.dropTimer = 1.4 + random() * 1.2;
     }
   }
-  for (const b of state.blasts) {
-    if (!b.active) continue;
-    b.age += dt;
-    if (b.age >= BLAST_S) { b.active = false; continue; }
-    if (!b.friendly) continue;
-    const r = blastRadius(b.age, b.r);
-    const r2 = r * r;
-    for (const w of state.warheads) {
-      if (!w.active) continue;
-      const dx = w.x - b.x, dy = w.y - b.y;
+  for (const r of state.rings) {
+    if (!r.active) continue;
+    r.age += dt;
+    if (r.age >= RING_S) { r.active = false; continue; }
+    if (!r.friendly) continue;
+    const rad = ringRadius(r.age, r.r);
+    const r2 = rad * rad;
+    for (const s of state.shards) {
+      if (!s.active) continue;
+      const dx = s.x - r.x, dy = s.y - r.y;
       if (dx * dx + dy * dy <= r2) {
-        w.active = false;
-        addScore(state, WARHEAD_POINTS * mult);
-        spawnBlast(state, w.x, w.y, CHAIN_R, true);
-        emitBurst(state.particles, w.x, w.y, 8, 50, "#ffe9a8", random, 0.5);
+        s.active = false;
+        addScore(state, SHARD_POINTS * mult);
+        spawnRing(state, s.x, s.y, CHAIN_R, true);
+        emitBurst(state.particles, s.x, s.y, 8, 50, "#ffc4f0", random, 0.5);
       }
     }
     if (f.active) {
-      const dx = f.x - b.x, dy = f.y - b.y;
-      if (dx * dx + dy * dy <= (r + 5) * (r + 5)) {
+      const dx = f.x - r.x, dy = f.y - r.y;
+      if (dx * dx + dy * dy <= (rad + 6) * (rad + 6)) {
         f.active = false;
-        addScore(state, FLYER_POINTS * mult);
-        spawnBlast(state, f.x, f.y, BLAST_R, true);
-        emitBurst(state.particles, f.x, f.y, 20, 80, "#c8f0ff", random, 0.8);
+        addScore(state, SEEDER_POINTS * mult);
+        spawnRing(state, f.x, f.y, BOLT_R, true);
+        emitBurst(state.particles, f.x, f.y, 20, 80, "#b6fff0", random, 0.8);
       }
     }
   }
 }
 
 function airborne(state: DefenseState): boolean {
-  if (state.flyer.active) return true;
-  for (const m of state.missiles) if (m.active) return true;
-  for (const w of state.warheads) if (w.active) return true;
-  for (const b of state.blasts) if (b.active) return true;
+  if (state.seeder.active) return true;
+  for (const b of state.bolts) if (b.active) return true;
+  for (const s of state.shards) if (s.active) return true;
+  for (const r of state.rings) if (r.active) return true;
   return false;
 }
 
 function endWave(state: DefenseState): void {
   const mult = multiplier(state.wave);
-  let ammo = 0;
-  for (const b of state.batteries) ammo += b.ammo;
-  state.bonusAmmo = ammo;
-  state.bonusCities = citiesStanding(state);
-  addScore(state, (ammo * AMMO_BONUS + state.bonusCities * CITY_BONUS) * mult);
+  state.bonusDomes = domesStanding(state);
+  state.bonusFull = state.bonusDomes === DOME_X.length && state.domesAtStart === DOME_X.length;
+  addScore(state, (state.bonusDomes * DOME_BONUS + (state.bonusFull ? FULL_COLONY_BONUS : 0)) * mult);
   state.phase = "bonus";
   state.timer = BONUS_S;
 }
@@ -402,11 +401,11 @@ function step(state: DefenseState, input: RetroInput, dt: number, random: () => 
   }
   if (state.phase === "bonus") {
     if ((state.timer -= dt) <= 0) {
-      // Banked cities rebuild lost ones; with none standing and none banked the run is over.
-      for (let i = 0; i < state.cities.length && state.banked > 0; i += 1) {
-        if (!state.cities[i]) { state.cities[i] = 1; state.banked -= 1; }
+      // Spare domes rebuild lost ones; with none standing and no spare the run is over.
+      for (let i = 0; i < state.domes.length && state.spares > 0; i += 1) {
+        if (!state.domes[i]) { state.domes[i] = 1; state.spares -= 1; }
       }
-      if (citiesStanding(state) === 0) {
+      if (domesStanding(state) === 0) {
         state.phase = "over";
         return;
       }
@@ -422,30 +421,31 @@ function step(state: DefenseState, input: RetroInput, dt: number, random: () => 
     return;
   }
 
-  if (input.pressed.b) cycleBattery(state);
-  if (input.pressed.a || input.pointer?.clicked) fire(state);
+  if (input.pressed.b) fire(state, true);
+  else if (input.pressed.a || input.pointer?.clicked) fire(state, false);
 
-  // The attack: salvoes from the top, and now and then a flyer.
+  // The attack: salvoes from the top, and now and then a seeder.
   if (state.toLaunch > 0) {
     if ((state.salvoTimer -= dt) <= 0) {
-      const size = Math.min(state.toLaunch, 1 + Math.floor(random() * Math.min(4, 1 + state.wave / 2)));
+      const size = Math.min(state.toLaunch, 1 + Math.floor(random() * Math.min(3, 1 + state.wave / 3)));
       for (let i = 0; i < size; i += 1) launchFromSky(state, random);
-      state.salvoTimer = Math.max(1.2, 3.4 - state.wave * 0.2) + random() * 0.8;
+      state.salvoTimer = Math.max(1.1, 3 - state.wave * 0.18) + random() * 0.9;
     }
-    if (state.wave >= 2 && !state.flyer.active && (state.flyerTimer -= dt) <= 0) {
-      const f = state.flyer;
+    if (state.wave >= 2 && !state.seeder.active && (state.seederTimer -= dt) <= 0) {
+      const f = state.seeder;
       f.active = true;
-      f.kind = random() < 0.5 ? 0 : 1;
-      f.dir = random() < 0.5 ? 1 : -1;
-      f.x = f.dir > 0 ? -16 : WIDTH + 16;
-      f.y = 44 + random() * 50;
-      f.speed = f.kind === 0 ? 58 : 76;
-      f.dropTimer = 0.8 + random();
-      state.flyerTimer = 12 + random() * 10;
+      const dir = random() < 0.5 ? 1 : -1;
+      f.x = dir > 0 ? -16 : WIDTH + 16;
+      f.y = 24 + random() * 20;
+      f.vx = dir * (34 + random() * 14);
+      f.vy = 6 + random() * 6;
+      f.t = 0;
+      f.dropTimer = 1 + random();
+      state.seederTimer = 13 + random() * 9;
     }
   }
 
-  if (citiesStanding(state) === 0 && state.banked === 0) {
+  if (domesStanding(state) === 0 && state.spares === 0) {
     state.phase = "lost";
     state.timer = LOST_S;
     return;
@@ -454,208 +454,253 @@ function step(state: DefenseState, input: RetroInput, dt: number, random: () => 
 }
 
 function status(state: DefenseState): RetroStatus {
-  return { score: state.score, lives: citiesStanding(state), level: state.wave, over: state.phase === "over" };
+  return { score: state.score, lives: domesStanding(state), level: state.wave, over: state.phase === "over" };
 }
 
 // ---- Drawing --------------------------------------------------------------
 
-const SKY = ["#05061a", "#080a24", "#0c0d2e", "#120f36", "#1a1240", "#24154a"] as const;
-const STARS = starField(60, WIDTH, 150, 23);
-const CITY_SPRITES = [
-  sprite(["....##..............", "....##.....###......", ".####.#...####..##..", ".####.##..####.###..", "#########.########.#", "####################", "####################", "####################"]),
-  sprite([".........##.........", "..###....##...##....", "..###...####..##.##.", "######..####.#######", "######.#############", "####################", "####################", "####################"]),
-  sprite(["...##...............", "...##.......####....", "######.....######...", "######.##..######.##", "#########.##########", "####################", "####################", "####################"]),
-];
-const RUBBLE = sprite(["......#.......#.....", "..#..###...#.###....", ".####.####.#######..", "####################"]);
-const BOMBER = sprite(["......##........", ".....####.......", "################", ".##############.", "....######......", ".....##........."]);
-const SATELLITE = sprite(["###.......###", "###..###..###", "#############", "###..###..###", "###.......###"]);
+const SKY = ["#041416", "#06191d", "#081e25", "#0c202d", "#121f35", "#1a1d3a"] as const;
+const STARS = starField(50, WIDTH, 150, 41);
+const SEEDER = sprite([
+  "...#####...",
+  ".#########.",
+  "###.###.###",
+  "###########",
+  ".#.#.#.#.#.",
+  "#..#..#..#.",
+  ".#..#..#..#",
+]);
 
-function drawSky(ctx: CanvasRenderingContext2D): void {
+function drawSky(ctx: CanvasRenderingContext2D, info: RetroDrawInfo): void {
   const band = Math.ceil(GROUND_Y / SKY.length);
   for (let i = 0; i < SKY.length; i += 1) {
     ctx.fillStyle = SKY[i];
     ctx.fillRect(0, i * band, WIDTH, band);
   }
+  // A faint aurora ribbon high in the sky; it holds still under reduced motion.
+  const t = info.reduced ? 0 : info.time;
+  ctx.fillStyle = "#1f6a5c";
+  ctx.globalAlpha = 0.35;
+  for (let x = 0; x < WIDTH; x += 4) {
+    const y = 34 + Math.sin(x * 0.03 + t * 0.4) * 8 + Math.sin(x * 0.011 - t * 0.25) * 6;
+    ctx.fillRect(x, Math.round(y), 4, 3);
+  }
+  ctx.globalAlpha = 1;
 }
 
-function drawGround(ctx: CanvasRenderingContext2D, state: DefenseState): void {
-  ctx.fillStyle = "#6b4a1e";
+function drawGround(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = "#1c1b22";
   ctx.fillRect(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y);
-  ctx.fillStyle = "#d4a843";
+  ctx.fillStyle = "#2fd3b5";
   ctx.fillRect(0, GROUND_Y, WIDTH, 1);
-  for (const b of state.batteries) {
-    // A stepped mound under each battery.
-    for (let s = 0; s < 4; s += 1) {
-      const half = 22 - s * 4;
-      ctx.fillStyle = s === 3 ? "#d4a843" : "#8c6a2a";
-      ctx.fillRect(b.x - half, GROUND_Y - (s + 1) * 4, half * 2, 4);
-    }
-  }
+  ctx.fillStyle = "#2a2932";
+  for (let x = 6; x < WIDTH; x += 14) ctx.fillRect(x, GROUND_Y + 6 + (x % 3) * 3, 6, 2);
 }
 
-function drawBatteries(ctx: CanvasRenderingContext2D, state: DefenseState, info: RetroDrawInfo): void {
-  for (const b of state.batteries) {
-    if (!b.alive) {
-      ctx.fillStyle = "#2a1a0c";
-      ctx.fillRect(b.x - 8, BATTERY_Y + 2, 16, 3);
-      continue;
-    }
-    // Ammo as rows of little missiles: 4, 3, 2, 1 from the bottom.
-    ctx.fillStyle = "#7ff0ff";
-    let left = b.ammo;
-    for (let row = 0; row < 4 && left > 0; row += 1) {
-      const n = 4 - row;
-      for (let k = 0; k < n && left > 0; k += 1, left -= 1) ctx.fillRect(b.x - n * 3 + k * 6 + 2, BATTERY_Y + 12 - row * 4 - 3, 2, 3);
-    }
-  }
-  const firing = firingBattery(state);
-  if (firing >= 0 && state.phase !== "over") {
-    const x = state.batteries[firing].x;
-    const bob = info.reduced ? 0 : Math.round(Math.sin(info.time * 5));
-    ctx.fillStyle = state.selected >= 0 ? "#ffd35a" : "#9aa3c7";
-    ctx.fillRect(x - 2, BATTERY_Y - 10 + bob, 5, 1);
-    ctx.fillRect(x - 1, BATTERY_Y - 9 + bob, 3, 1);
-    ctx.fillRect(x, BATTERY_Y - 8 + bob, 1, 1);
-  }
+function drawTower(ctx: CanvasRenderingContext2D, state: DefenseState, info: RetroDrawInfo): void {
+  // A slim stepped spire with a glowing tip.
+  ctx.fillStyle = "#3a3540";
+  ctx.fillRect(TOWER_X - 9, GROUND_Y - 6, 18, 6);
+  ctx.fillStyle = "#c9a227";
+  ctx.fillRect(TOWER_X - 5, GROUND_Y - 16, 10, 10);
+  ctx.fillRect(TOWER_X - 3, TOWER_Y + 2, 6, GROUND_Y - 16 - TOWER_Y - 2);
+  ctx.fillStyle = "#e0c25a";
+  ctx.fillRect(TOWER_X - 1, TOWER_Y + 2, 2, GROUND_Y - 6 - TOWER_Y - 2);
+  const blink = state.jammed && !info.reduced && Math.floor(info.time * 6) % 2 === 0;
+  ctx.fillStyle = state.jammed ? (blink ? "#ff5a4a" : "#7a2a24") : "#fff4c8";
+  ctx.fillRect(TOWER_X - 1, TOWER_Y - 1, 3, 3);
+  // The heat meter beside the tower: teal when cool, through amber to red.
+  const h = clamp(state.heat, 0, 1);
+  const meterX = TOWER_X + 12, meterTop = GROUND_Y - 22, meterH = 20;
+  ctx.fillStyle = "#0b0b10";
+  ctx.fillRect(meterX, meterTop, 4, meterH);
+  ctx.fillStyle = state.jammed ? "#ff5a4a" : h > 0.6 ? "#ffb347" : "#2fd3b5";
+  const fill = Math.round(meterH * h);
+  ctx.fillRect(meterX, meterTop + meterH - fill, 4, fill);
 }
 
-function drawCities(ctx: CanvasRenderingContext2D, state: DefenseState): void {
-  for (let i = 0; i < CITY_X.length; i += 1) {
-    const x = CITY_X[i] - 10;
-    if (state.cities[i]) {
-      ctx.fillStyle = "#3fb6d9";
-      drawSprite(ctx, CITY_SPRITES[i % CITY_SPRITES.length], x, GROUND_Y - 8);
-      // Lit windows, a fixed pattern per city.
-      ctx.fillStyle = "#ffe08a";
-      for (let k = 0; k < 6; k += 1) ctx.fillRect(x + 2 + ((k * 7 + i * 3) % 16), GROUND_Y - 4 + (k % 2) * 2, 1, 1);
+function drawDomes(ctx: CanvasRenderingContext2D, state: DefenseState): void {
+  for (let i = 0; i < DOME_X.length; i += 1) {
+    const x = DOME_X[i];
+    if (state.domes[i]) {
+      ctx.fillStyle = "#7fe8ff";
+      ctx.globalAlpha = 0.25;
+      ctx.beginPath();
+      ctx.arc(x, GROUND_Y, DOME_R, Math.PI, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "#a8f2ff";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, GROUND_Y, DOME_R, Math.PI, 0);
+      ctx.stroke();
+      // Ribs and a few lit gardens inside.
+      ctx.fillStyle = "#a8f2ff";
+      ctx.fillRect(x, GROUND_Y - DOME_R, 1, DOME_R);
+      ctx.fillRect(x - DOME_R + 1, GROUND_Y - 6, DOME_R * 2 - 2, 1);
+      ctx.fillStyle = "#7ed957";
+      for (let k = 0; k < 4; k += 1) ctx.fillRect(x - 8 + k * 5, GROUND_Y - 3, 3, 3);
     } else {
-      ctx.fillStyle = "#5a3328";
-      drawSprite(ctx, RUBBLE, x, GROUND_Y - 4);
+      // A broken dome: a jagged stub of glass on a dark base.
+      ctx.fillStyle = "#2a2932";
+      ctx.fillRect(x - DOME_R, GROUND_Y - 2, DOME_R * 2, 2);
+      ctx.fillStyle = "#4a6a74";
+      for (let k = 0; k < 5; k += 1) ctx.fillRect(x - DOME_R + 2 + k * 5, GROUND_Y - 3 - ((k * 3 + i) % 4), 2, 2 + ((k * 3 + i) % 4));
     }
   }
 }
 
-function drawCross(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
-  ctx.fillRect(x - size, y, size - 1, 1);
-  ctx.fillRect(x + 2, y, size - 1, 1);
-  ctx.fillRect(x, y - size, 1, size - 1);
-  ctx.fillRect(x, y + 2, 1, size - 1);
+function drawReticle(ctx: CanvasRenderingContext2D, x: number, y: number, ready: boolean): void {
+  ctx.strokeStyle = ready ? "#ffffff" : "#ff8a6a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x + 0.5, y + 0.5, 5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = ready ? "#ffffff" : "#ff8a6a";
+  ctx.fillRect(x, y, 1, 1);
+  ctx.fillRect(x - 9, y, 3, 1);
+  ctx.fillRect(x + 7, y, 3, 1);
+  ctx.fillRect(x, y - 9, 1, 3);
+  ctx.fillRect(x, y + 7, 1, 3);
 }
 
 function draw(ctx: CanvasRenderingContext2D, state: DefenseState, info: RetroDrawInfo): void {
-  drawSky(ctx);
-  drawStars(ctx, STARS, info.time, info.reduced);
+  drawSky(ctx, info);
+  drawStars(ctx, STARS, info.time, info.reduced, "#bfe8e0");
 
   ctx.save();
   if (state.shake > 0 && !info.reduced) {
     ctx.translate(Math.round(Math.sin(info.time * 77) * state.shake * 6), Math.round(Math.cos(info.time * 91) * state.shake * 4));
   }
-  drawGround(ctx, state);
-  drawCities(ctx, state);
-  drawBatteries(ctx, state, info);
+  drawGround(ctx);
+  drawDomes(ctx, state);
+  drawTower(ctx, state, info);
 
-  // Trails: incoming in red, ours in blue.
+  // Shards: a magenta crystal with a short fading tail.
   ctx.lineWidth = 1;
-  ctx.strokeStyle = "#ff5a4a";
-  ctx.globalAlpha = 0.75;
+  ctx.strokeStyle = "#ff5fd2";
+  ctx.globalAlpha = 0.6;
   ctx.beginPath();
-  for (const w of state.warheads) {
-    if (!w.active) continue;
-    ctx.moveTo(w.ox, w.oy);
-    ctx.lineTo(w.x, w.y);
-  }
-  ctx.stroke();
-  ctx.strokeStyle = "#5ab8ff";
-  ctx.beginPath();
-  for (const m of state.missiles) {
-    if (!m.active) continue;
-    ctx.moveTo(m.ox, m.oy);
-    ctx.lineTo(m.x, m.y);
+  for (const s of state.shards) {
+    if (!s.active) continue;
+    ctx.moveTo(s.x - s.vx * 0.35, s.y - s.vy * 0.35);
+    ctx.lineTo(s.x, s.y);
   }
   ctx.stroke();
   ctx.globalAlpha = 1;
-  ctx.fillStyle = "#fff4d0";
-  for (const w of state.warheads) if (w.active) ctx.fillRect(Math.round(w.x) - 1, Math.round(w.y) - 1, 2, 2);
-  for (const m of state.missiles) {
-    if (!m.active) continue;
-    ctx.fillStyle = "#e6f6ff";
-    ctx.fillRect(Math.round(m.x) - 1, Math.round(m.y) - 1, 2, 2);
-    ctx.fillStyle = "#5ab8ff";
-    // The target mark: a small x where the missile will burst.
-    const tx = Math.round(m.tx), ty = Math.round(m.ty);
-    for (let k = -2; k <= 2; k += 1) {
-      ctx.fillRect(tx + k, ty + k, 1, 1);
-      ctx.fillRect(tx + k, ty - k, 1, 1);
-    }
+  ctx.fillStyle = "#ffd6f5";
+  for (const s of state.shards) {
+    if (!s.active) continue;
+    const x = Math.round(s.x), y = Math.round(s.y);
+    ctx.fillRect(x, y - 2, 1, 5);
+    ctx.fillRect(x - 1, y - 1, 3, 3);
   }
 
-  const f = state.flyer;
-  if (f.active) {
-    ctx.fillStyle = f.kind === 0 ? "#c8d0e0" : "#ffd35a";
-    if (f.kind === 0) drawSprite(ctx, BOMBER, f.x - 8, f.y - 3, 1, f.dir < 0);
-    else drawSprite(ctx, SATELLITE, f.x - 6, f.y - 2);
-  }
-
-  // Blasts: a warm outer ball with a hot core; steady colours (no strobing).
-  for (const b of state.blasts) {
+  // Our bolts: a gold beam from the tower tip, and a diamond where each will burst.
+  ctx.strokeStyle = "#e0a93b";
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  for (const b of state.bolts) {
     if (!b.active) continue;
-    const r = blastRadius(b.age, b.r);
-    if (r <= 0.5) continue;
-    ctx.fillStyle = b.friendly ? "#ff9f43" : "#ff5a3a";
-    ctx.globalAlpha = 0.85;
+    ctx.moveTo(b.ox, b.oy);
+    ctx.lineTo(b.x, b.y);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  for (const b of state.bolts) {
+    if (!b.active) continue;
+    ctx.fillStyle = "#fff4c8";
+    ctx.fillRect(Math.round(b.x) - 1, Math.round(b.y) - 1, b.r > BOLT_R ? 3 : 2, b.r > BOLT_R ? 3 : 2);
+    ctx.fillStyle = "#e0a93b";
+    const tx = Math.round(b.tx), ty = Math.round(b.ty);
+    ctx.fillRect(tx, ty - 3, 1, 1);
+    ctx.fillRect(tx - 3, ty, 1, 1);
+    ctx.fillRect(tx + 3, ty, 1, 1);
+    ctx.fillRect(tx, ty + 3, 1, 1);
+  }
+
+  const f = state.seeder;
+  if (f.active) {
+    ctx.fillStyle = "#9b7bff";
+    const bob = info.reduced ? 0 : Math.round(Math.sin(f.t * 4) * 1.5);
+    drawSprite(ctx, SEEDER, f.x - 5, f.y - 3 + bob);
+    ctx.fillStyle = "#d8ccff";
+    ctx.fillRect(Math.round(f.x) - 2, Math.round(f.y) - 1 + bob, 1, 1);
+    ctx.fillRect(Math.round(f.x) + 2, Math.round(f.y) - 1 + bob, 1, 1);
+  }
+
+  // Rings: a bright edge around a soft tinted disc; steady colours (no strobing).
+  for (const r of state.rings) {
+    if (!r.active) continue;
+    const rad = ringRadius(r.age, r.r);
+    if (rad <= 0.5) continue;
+    ctx.fillStyle = r.friendly ? "#2fd3b5" : "#ff7a3a";
+    ctx.globalAlpha = 0.22;
     ctx.beginPath();
-    ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+    ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = b.friendly ? "#fff3c4" : "#ffd27a";
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = r.friendly ? "#c8fff2" : "#ffc27a";
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(b.x, b.y, r * 0.55, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(r.x, r.y, rad, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.globalAlpha = 1;
   }
+  ctx.lineWidth = 1;
   drawParticles(ctx, state.particles);
   ctx.restore();
 
-  // Crosshair; on the attract screen it drifts lazily across the sky.
+  // The reticle; on the attract screen it drifts lazily across the sky.
   let ax = state.cx, ay = state.cy;
   if (info.idle && state.elapsed === 0 && !info.reduced) {
     ax = WIDTH / 2 + Math.sin(info.time * 0.7) * 90;
     ay = 100 + Math.sin(info.time * 1.1) * 40;
   }
-  ctx.fillStyle = "#ffffff";
-  drawCross(ctx, Math.round(ax), Math.round(ay), 6);
+  drawReticle(ctx, Math.round(ax), Math.round(ay), canFire(state, false));
 
-  // Score, wave and banked cities.
-  ctx.fillStyle = "#ffcf5a";
+  // Score, wave and spare domes.
+  ctx.fillStyle = "#e0a93b";
   drawNumber(ctx, state.score, 6, 5, 2);
-  ctx.fillStyle = "#ff8a6a";
+  ctx.fillStyle = "#2fd3b5";
   drawNumber(ctx, state.wave, WIDTH - 6, 5, 2, "right");
-  ctx.fillStyle = "#3fb6d9";
-  for (let i = 0; i < Math.min(state.banked, 5); i += 1) ctx.fillRect(WIDTH - 10 - i * 6, 18, 4, 3);
+  ctx.fillStyle = "#a8f2ff";
+  for (let i = 0; i < Math.min(state.spares, 5); i += 1) {
+    ctx.beginPath();
+    ctx.arc(WIDTH - 9 - i * 9, 22, 3, Math.PI, 0);
+    ctx.fill();
+  }
 
   if (state.phase === "ready") {
-    ctx.fillStyle = "#ffcf5a";
+    ctx.fillStyle = "#e0a93b";
     drawNumber(ctx, state.wave, WIDTH / 2, 80, 5, "center");
+    // The multiplier as that many small diamonds under the wave number.
     const mult = multiplier(state.wave);
-    // "×n" as a pixel cross and the digit.
-    ctx.fillStyle = "#ff8a6a";
-    for (let k = 0; k < 5; k += 1) {
-      ctx.fillRect(WIDTH / 2 - 10 + k * 2, 112 + k * 2, 2, 2);
-      ctx.fillRect(WIDTH / 2 - 2 - k * 2, 112 + k * 2, 2, 2);
+    ctx.fillStyle = "#2fd3b5";
+    for (let k = 0; k < mult; k += 1) {
+      const x = WIDTH / 2 - (mult - 1) * 6 + k * 12;
+      ctx.fillRect(x - 1, 112, 3, 1);
+      ctx.fillRect(x - 2, 113, 5, 1);
+      ctx.fillRect(x - 1, 114, 3, 1);
     }
-    drawNumber(ctx, mult, WIDTH / 2 + 4, 112, 2);
   } else if (state.phase === "bonus") {
-    // The tally: missiles left and cities saved, each with its points.
+    // The tally: domes saved with their points, and the full-colony star when earned.
     const mult = multiplier(state.wave);
-    ctx.fillStyle = "#7ff0ff";
-    ctx.fillRect(WIDTH / 2 - 60, 84, 2, 5);
-    drawNumber(ctx, state.bonusAmmo, WIDTH / 2 - 50, 84, 1);
-    ctx.fillStyle = "#ffcf5a";
-    drawNumber(ctx, state.bonusAmmo * AMMO_BONUS * mult, WIDTH / 2 + 60, 84, 1, "right");
-    ctx.fillStyle = "#3fb6d9";
-    ctx.fillRect(WIDTH / 2 - 62, 100, 6, 5);
-    drawNumber(ctx, state.bonusCities, WIDTH / 2 - 50, 100, 1);
-    ctx.fillStyle = "#ffcf5a";
-    drawNumber(ctx, state.bonusCities * CITY_BONUS * mult, WIDTH / 2 + 60, 100, 1, "right");
+    ctx.fillStyle = "#a8f2ff";
+    ctx.beginPath();
+    ctx.arc(WIDTH / 2 - 56, 90, 5, Math.PI, 0);
+    ctx.fill();
+    drawNumber(ctx, state.bonusDomes, WIDTH / 2 - 44, 84, 1);
+    ctx.fillStyle = "#e0a93b";
+    drawNumber(ctx, state.bonusDomes * DOME_BONUS * mult, WIDTH / 2 + 60, 84, 1, "right");
+    if (state.bonusFull) {
+      ctx.fillStyle = "#2fd3b5";
+      ctx.fillRect(WIDTH / 2 - 57, 100, 3, 7);
+      ctx.fillRect(WIDTH / 2 - 59, 102, 7, 3);
+      ctx.fillStyle = "#e0a93b";
+      drawNumber(ctx, FULL_COLONY_BONUS * mult, WIDTH / 2 + 60, 100, 1, "right");
+    }
   }
 }
 

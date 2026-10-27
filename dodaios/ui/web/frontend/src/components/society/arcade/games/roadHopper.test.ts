@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { idleInput, RETRO_STEP, seededRandom, type RetroButtons, type RetroInput } from "../retroGame";
 import game, {
-  BAY_X, CELL, HOME_ROW, LANES, LIFE_TIME, START_ROW, START_X,
-  diveState, itemX, levelFactor, platformAt, vehicleAt, type HopperState,
+  BATTERY_POINTS, BATTERY_TIME, CELL, HEIGHT, HOME_ROW, LANES, LEVEL_POINTS, PAD_POINTS, PAD_X, PARCEL_BONUS, QUAY_ROW, ROW_POINTS,
+  START_ROW, START_X, WIDTH, carrierAt, itemX, levelFactor, sinkState, vehicleAt, type HopperState,
 } from "./roadHopper";
 
 const rnd = seededRandom(11);
@@ -27,7 +27,7 @@ const parkItem = (s: HopperState, lane: number, x: number): number => {
 };
 const fresh = (): HopperState => {
   const s = game.create(seededRandom(5));
-  s.flyTimer = 999;
+  s.parcelTimer = 999;
   return s;
 };
 
@@ -53,11 +53,21 @@ function fakeContext(): { ctx: CanvasRenderingContext2D; depth: () => number; re
 }
 
 describe("road hopper", () => {
-  it("starts on the bottom bank with three lives and a full clock", () => {
+  it("has its own field: a wide screen, four canal lanes, four road lanes, three pads", () => {
+    expect([WIDTH, HEIGHT]).toEqual([game.width, game.height]);
+    expect(WIDTH).toBeGreaterThan(HEIGHT);
+    expect(LANES.filter((l) => l.kind === "barge" || l.kind === "floe")).toHaveLength(4);
+    expect(LANES.filter((l) => l.row > QUAY_ROW)).toHaveLength(4);
+    expect(PAD_X).toHaveLength(3);
+    // Every pad is reachable in whole hops from the start column.
+    for (const x of PAD_X) expect(Math.abs(x - START_X) % CELL).toBe(0);
+  });
+
+  it("starts on the street with three lives and a full battery", () => {
     const s = fresh();
     expect(game.status(s)).toEqual({ score: 0, lives: 3, level: 1, over: false });
-    expect([s.x, s.row, s.timeLeft]).toEqual([START_X, START_ROW, LIFE_TIME]);
-    expect(Array.from(s.bays)).toEqual([0, 0, 0, 0, 0]);
+    expect([s.x, s.row, s.battery]).toEqual([START_X, START_ROW, BATTERY_TIME]);
+    expect(Array.from(s.pads)).toEqual([0, 0, 0]);
   });
 
   it("hops one cell per press; holding the key does not keep hopping", () => {
@@ -80,22 +90,22 @@ describe("road hopper", () => {
     expect(s.x).toBe(START_X + 2 * CELL);
   });
 
-  it("a vehicle squashes the frog", () => {
+  it("a vehicle wrecks the bot", () => {
     const s = fresh();
-    const row = 10, lane = laneOf(row);
+    const row = 9, lane = laneOf(row);
     parkItem(s, lane, 100);
     s.row = row;
-    s.x = 108;
+    s.x = 110;
     expect(vehicleAt(s, row, s.x)).toBe(true);
     game.step(s, idleInput(), RETRO_STEP, rnd);
     expect(s.phase).toBe("dying");
-    expect(s.deathKind).toBe("splat");
+    expect(s.deathKind).toBe("crash");
     expect(s.lives).toBe(2);
     run(s, idleInput(), 1.5);
     expect([s.phase, s.row, s.x]).toEqual(["play", START_ROW, START_X]);
   });
 
-  it("a log carries the frog along", () => {
+  it("a hover barge carries the bot along", () => {
     const s = fresh();
     const row = 4, lane = laneOf(row);
     const len = parkItem(s, lane, 60);
@@ -107,128 +117,136 @@ describe("road hopper", () => {
     expect(Math.abs(s.x - (60 + len / 2) - LANES[lane].speed * 0.5)).toBeLessThan(2);
   });
 
-  it("open water drowns the frog", () => {
+  it("open water sinks the bot", () => {
     const s = fresh();
     const row = 2;
     let x = 20;
-    while (platformAt(s, row, x)) x += 4;
+    while (carrierAt(s, row, x)) x += 4;
     s.row = row;
     s.x = x;
     game.step(s, idleInput(), RETRO_STEP, rnd);
     expect(s.phase).toBe("dying");
-    expect(s.deathKind).toBe("splash");
+    expect(s.deathKind).toBe("sink");
   });
 
-  it("a diving turtle drops the frog in the water", () => {
+  it("a floe that cracks and sinks drops the bot in the water", () => {
     const s = fresh();
     const row = 3, lane = laneOf(row);
-    // Group 1 of this lane dives; find a moment it is under.
+    // Floe 1 of this lane sinks; find a moment it is gone.
     let clock = 0;
-    while (diveState(lane, 1, clock) !== 2) clock += 0.1;
-    s.diveClock = clock;
+    while (sinkState(lane, 1, clock) !== 2) clock += 0.1;
+    s.sinkClock = clock;
     s.row = row;
-    const x0 = itemX(lane, 1, s.shifts[lane]);
-    s.x = x0 + 16;
+    s.x = itemX(lane, 1, s.shifts[lane]) + 16;
     game.step(s, idleInput(), RETRO_STEP, rnd);
     expect(s.phase).toBe("dying");
+    // A cracking floe still holds.
+    while (sinkState(lane, 1, clock) !== 1) clock += 0.1;
+    const t = fresh();
+    t.sinkClock = clock;
+    t.row = row;
+    t.x = itemX(lane, 1, t.shifts[lane]) + 16;
+    expect(carrierAt(t, row, t.x)).toBe(true);
   });
 
   it("being carried off the edge costs a life", () => {
     const s = fresh();
     const row = 2, lane = laneOf(row);
-    parkItem(s, lane, 180);
+    parkItem(s, lane, 210);
     s.row = row;
-    s.x = 214;
+    s.x = WIDTH - 10;
     run(s, idleInput(), 1);
     expect(s.phase).toBe("dying");
     expect(s.lives).toBe(2);
   });
 
-  it("filling a bay scores the time left and sends a new frog", () => {
+  it("lighting a pad scores the battery left and sends a new bot", () => {
     const s = fresh();
     s.row = 2;
-    s.x = BAY_X[0];
+    s.x = PAD_X[0];
     game.step(s, press("up"), RETRO_STEP, rnd);
     run(s, idleInput(), 0.2);
-    expect(s.bays[0]).toBe(1);
-    expect(s.score).toBeGreaterThanOrEqual(50 + 10 * 29);
+    expect(s.pads[0]).toBe(1);
+    expect(s.score).toBeGreaterThanOrEqual(PAD_POINTS + BATTERY_POINTS * (BATTERY_TIME - 1));
     expect([s.row, s.x, s.phase]).toEqual([START_ROW, START_X, "play"]);
   });
 
-  it("the hedge between bays and a filled bay both kill", () => {
+  it("the live fence between pads and a lit pad both zap", () => {
     const s = fresh();
     s.row = 2;
-    s.x = (BAY_X[0] + BAY_X[1]) / 2;
+    s.x = (PAD_X[0] + PAD_X[1]) / 2;
     game.step(s, press("up"), RETRO_STEP, rnd);
     run(s, idleInput(), 0.2);
     expect(s.phase).toBe("dying");
     expect(s.row).toBe(HOME_ROW);
 
     const t = fresh();
-    t.bays[2] = 1;
+    t.pads[2] = 1;
     t.row = 2;
-    t.x = BAY_X[2];
+    t.x = PAD_X[2];
     game.step(t, press("up"), RETRO_STEP, rnd);
     run(t, idleInput(), 0.2);
     expect(t.phase).toBe("dying");
   });
 
-  it("a fly in a bay is worth a bonus", () => {
+  it("a parcel waiting on a pad is worth a bonus", () => {
     const s = fresh();
-    s.flyBay = 1;
-    s.flyLeft = 5;
+    s.parcelPad = 1;
+    s.parcelLeft = 5;
     s.row = 2;
-    s.x = BAY_X[1];
+    s.x = PAD_X[1];
     game.step(s, press("up"), RETRO_STEP, rnd);
     run(s, idleInput(), 0.2);
-    expect(s.score).toBeGreaterThanOrEqual(50 + 200 + 10 * 29);
-    expect(s.flyBay).toBe(-1);
+    expect(s.score).toBeGreaterThanOrEqual(PAD_POINTS + PARCEL_BONUS + BATTERY_POINTS * (BATTERY_TIME - 1));
+    expect(s.parcelPad).toBe(-1);
   });
 
-  it("filling all five bays starts a faster level", () => {
+  it("lighting all three pads starts a faster level", () => {
     const s = fresh();
-    s.bays.set([1, 1, 1, 1, 0]);
+    s.pads.set([1, 1, 0]);
     s.row = 2;
-    s.x = BAY_X[4];
+    s.x = PAD_X[2];
     game.step(s, press("up"), RETRO_STEP, rnd);
     run(s, idleInput(), 0.2);
     expect(s.phase).toBe("levelup");
-    expect(s.score).toBeGreaterThanOrEqual(1000);
+    expect(s.score).toBeGreaterThanOrEqual(LEVEL_POINTS);
     run(s, idleInput(), 2.5);
     expect(game.status(s).level).toBe(2);
-    expect(Array.from(s.bays)).toEqual([0, 0, 0, 0, 0]);
+    expect(Array.from(s.pads)).toEqual([0, 0, 0]);
     expect(levelFactor(2)).toBeGreaterThan(levelFactor(1));
   });
 
-  it("the clock running out costs a life", () => {
+  it("a flat battery costs a life", () => {
     const s = fresh();
-    run(s, idleInput(), LIFE_TIME - 1);
+    run(s, idleInput(), BATTERY_TIME - 1);
     expect(s.phase).toBe("play");
     run(s, idleInput(), 1.5);
     expect(s.phase).toBe("dying");
-    expect(s.deathKind).toBe("time");
+    expect(s.deathKind).toBe("drained");
     expect(s.lives).toBe(2);
   });
 
   it("the last life ends the run", () => {
     const s = fresh();
     s.lives = 1;
-    run(s, idleInput(), LIFE_TIME + 2);
+    run(s, idleInput(), BATTERY_TIME + 2);
     expect(game.status(s)).toMatchObject({ lives: 0, over: true });
   });
 
   it("forward hops score once per new row", () => {
     const s = fresh();
-    s.row = 7; // the middle bank
-    s.bestRow = 7;
+    s.row = QUAY_ROW;
+    s.bestRow = QUAY_ROW;
     game.step(s, press("down"), RETRO_STEP, rnd);
     run(s, idleInput(), 0.15);
     expect(s.score).toBe(0);
 
     const t = fresh();
+    // Park the nearest vehicle far from the start column so the hop is safe.
+    parkItem(t, laneOf(START_ROW - 1), 40);
     game.step(t, press("up"), RETRO_STEP, rnd);
     run(t, idleInput(), 0.15);
-    expect(t.score).toBe(10);
+    expect(t.score).toBe(ROW_POINTS);
   });
 
   it("draws every phase without throwing, idle and reduced included", () => {
@@ -243,13 +261,13 @@ describe("road hopper", () => {
       expect(fake.depth()).toBe(0);
       expect(fake.rects()).toBeGreaterThan(100);
     }
-    s.bays.set([1, 0, 1, 0, 0]);
-    s.flyBay = 3;
+    s.pads.set([1, 0, 0]);
+    s.parcelPad = 2;
     game.step(s, press("left"), RETRO_STEP, rnd);
     game.draw(fakeContext().ctx, s, { time: 2, reduced: false, idle: false });
-    s.timeLeft = 3;
+    s.battery = 3;
     game.draw(fakeContext().ctx, s, { time: 2, reduced: true, idle: false });
-    for (const kind of ["splat", "splash", "time"] as const) {
+    for (const kind of ["crash", "sink", "drained"] as const) {
       s.phase = "dying";
       s.deathKind = kind;
       s.timer = 0.5;
@@ -261,3 +279,4 @@ describe("road hopper", () => {
     game.draw(fakeContext().ctx, s, { time: 2, reduced: true, idle: false });
   });
 });
+

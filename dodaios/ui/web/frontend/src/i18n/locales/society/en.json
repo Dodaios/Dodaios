@@ -1805,8 +1805,8 @@
           "how": "←/→ move · ↑/Space rotate · ↓ soft drop · Shift hard drop · P pause · Esc leave"
         },
         "maze_muncher": {
-          "tagline": "Munch every dot and outsmart four glitch bugs.",
-          "how": "Arrows steer (turns are buffered) · power orbs make the bugs edible · P pause · Esc leave"
+          "tagline": "Vacuum up every dot and outsmart four glitch bugs.",
+          "how": "Arrows steer (turns are buffered) · power orbs short the bugs out so you can zap them · P pause · Esc leave"
         },
         "desert_dash": {
           "tagline": "Dash across the dunes: jump the cacti, duck the birds.",
@@ -1817,12 +1817,12 @@
           "how": "←/→ move · Space fire · P pause · Esc leave"
         },
         "road_hopper": {
-          "tagline": "Hop across the traffic and the river to get home.",
+          "tagline": "Steer the courier bot across the traffic and the canal to the rooftop pads.",
           "how": "Arrows hop · P pause · Esc leave"
         },
         "city_defense": {
-          "tagline": "Shoot down the warheads before they reach your cities.",
-          "how": "Mouse aim + click fire · Arrows aim · Space fire · Shift pick battery · P pause · Esc leave"
+          "tagline": "Shatter the falling shards before they break your domes.",
+          "how": "Mouse aim + click fire · Arrows aim · Space fire · Shift pulse (wide, more heat) · P pause · Esc leave"
         }
       }
     },
