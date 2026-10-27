@@ -81,7 +81,8 @@ degrees) at 96 px/m plus a 3x crop, and the reactor and hangar vignettes;
 | SM_Hangar_FloorLight | 0.6 x 0.6 | none | - | round recessed up-light |
 | SM_Hangar_PortalGantry | 17.2 x 3.6 x 11 | block legs, none bridge | - | portal crane, span 16, height 10, on rails |
 | SM_Hangar_GantryRail | 0.36 x 12 | none | - | flush crane rail along local Y |
-| SM_Hangar_FuelHydrant / FuelCart / ToolCart | 1.2 x 1.2 x 0.95 / 2.85 x 1.2 x 1.25 / 1.22 x 0.7 x 1.0 | block | - | fuel manifold, bowser, tool cart |
+| SM_Hangar_FuelHydrant / FuelCart / ToolCart | 1.2 x 1.2 x 0.95 / 2.85 x 1.2 x 1.25 / 1.22 x 0.7 x 1.0 | block | - | fuel manifold, towable fuel cart, tool cart |
+| SM_Hangar_FuelBowser | 7.4 x 2.52 x 3.2 | block | - | six-wheel fuel truck of the crew bay: wedge cab, armoured octagonal tank, roof walkway, rear hose reel; cab at +X |
 | SM_Hangar_BlastDoor_56 | 56 x 1.6 x 18.4 | block | - | 51.2 x 16 opening, continuous frame light band |
 | SM_Hangar_ArmourRack | 2.5 x 0.68 x 2.3 | block | - | four generic armour sets |
 | SM_Hangar_StorageRack | 4.9 x 1.2 x 4.6 | block | - | pallet racking with crates |

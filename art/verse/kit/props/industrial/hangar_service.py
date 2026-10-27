@@ -7,6 +7,8 @@ Piece-local frame: centred on X, deck at Z = 0, -Y toward the camera.
 
 from __future__ import annotations
 
+import math
+
 from lib import kit as K
 from mathutils import Vector
 
@@ -269,6 +271,207 @@ def build_tool_cart():
     K.occluder(((-0.6, -0.35, 0.0), (0.62, 0.35, 1.0)), nav="block")
 
 
+# --------------------------------------------------------------------------
+# Fuel bowser: the crew bay's self-driving refuelling truck
+# --------------------------------------------------------------------------
+
+# Octagonal tank section (y, z): 2.1 m wide, 1.0..2.75 m high, 0.34 m chamfers.
+_TANK_Y, _TANK_Z0, _TANK_Z1, _TANK_C = 1.05, 1.0, 2.75, 0.34
+
+
+def _octagon(scale=1.0, grow=0.0):
+    """Tank cross-section around its axis, scaled and grown outward by ``grow``."""
+    zc = (_TANK_Z0 + _TANK_Z1) / 2
+    hy = _TANK_Y * scale + grow
+    hz = (_TANK_Z1 - _TANK_Z0) / 2 * scale + grow
+    c = _TANK_C * scale + grow * 0.41
+    return [
+        (-hy + c, zc - hz),
+        (hy - c, zc - hz),
+        (hy, zc - hz + c),
+        (hy, zc + hz - c),
+        (hy - c, zc + hz),
+        (-hy + c, zc + hz),
+        (-hy, zc + hz - c),
+        (-hy, zc - hz + c),
+    ]
+
+
+def _bowser_wheel(mb, x, side):
+    """Tyre, hub and hub cap on the ``side`` (-1 camera side, +1 far side)."""
+    r, zc = 0.44, 0.44
+    mb.tube((x, side * 0.84, zc), (x, side * 1.14, zc), r, m("rubber"), 28)
+    mb.tube((x, side * 1.14, zc), (x, side * 1.155, zc), 0.27, m("gunmetal"), 24)
+    mb.tube((x, side * 1.155, zc), (x, side * 1.175, zc), 0.11, m("dark_steel"), 16)
+    for k in range(6):  # wheel nuts
+        a = math.radians(60.0 * k)
+        px, pz = x + math.cos(a) * 0.18, zc + math.sin(a) * 0.18
+        mb.tube((px, side * 1.155, pz), (px, side * 1.17, pz), 0.022, m("dark_steel"), 8)
+
+
+def _bowser_arch(mb, x0, x1, r=0.6):
+    """Armoured fender over the wheels from ``x0`` to ``x1`` (one axle when
+    equal, a tandem otherwise), both sides: two quarter arcs and a flat top."""
+    white = m("hull_paint")
+    for side in (-1, 1):
+        y0, y1 = sorted((side * 0.82, side * 1.24))
+        for x, a0, a1 in ((x0, 90.0, 180.0), (x1, 0.0, 90.0)):
+            with G.xf(mb, G.T(x, y1, 0.44) @ G.Rx(90.0)):
+                G.ring(mb, r, r + 0.08, 0.0, y1 - y0, white, 16, a0, a1)
+        if x1 > x0:
+            mb.box((x0, y0, 0.44 + r), (x1, y1, 0.52 + r), white)
+        mb.box((x0 - r - 0.08, y0, 0.36), (x0 - r, y1, 0.44), white)
+        mb.box((x1 + r, y0, 0.36), (x1 + r + 0.08, y1, 0.44), white)
+
+
+def build_fuel_bowser():
+    """Self-driving fuel bowser of the ground crew: a wedge cab with a dark
+    canopy, an armoured octagonal tank in white plates and gunmetal bands,
+    a railed walkway on top, a rear hose reel and valve manifold, six wheels
+    under armoured arches.
+
+    Long axis on X with the cab at +X; 7.3 x 2.5 x 3.2 m.
+    """
+    body, frame, lamps, decal = K.MeshBuilder(), K.MeshBuilder(), K.MeshBuilder(), K.MeshBuilder()
+    white, metal, steel = m("hull_paint"), m("gunmetal"), m("dark_steel")
+    dark, glass = m("panel_dark"), m("glass_dark")
+
+    # Chassis spine, bumpers and the running gear.
+    G.chamfer_box(frame, (-3.55, -0.95, 0.3), (3.5, 0.95, 0.66), 0.12, steel)
+    G.chamfer_box(frame, (3.45, -1.15, 0.36), (3.66, 1.15, 0.72), 0.08, metal)  # front bumper
+    G.chamfer_box(frame, (-3.7, -1.15, 0.36), (-3.5, 1.15, 0.7), 0.08, metal)  # rear bumper
+    frame.box((-3.71, -1.0, 0.4), (-3.7, 1.0, 0.48), m("hazard"))  # thin worn band
+    wheel_xs = (-2.95, -1.8, 2.45)
+    for x in wheel_xs:
+        for side in (-1, 1):
+            _bowser_wheel(frame, x, side)
+        frame.tube((x, -0.84, 0.44), (x, 0.84, 0.44), 0.07, steel, 10)  # axle
+    _bowser_arch(body, -2.95, -1.8)
+    _bowser_arch(body, 2.45, 2.45)
+    # Skirts between the arches and the fender line above them.
+    for side in (-1, 1):
+        y0, y1 = sorted((side * 0.96, side * 1.24))
+        for x0, x1 in ((-1.12, 1.77), (3.13, 3.45)):
+            body.box((x0, y0, 0.36), (x1, y1, 1.08), white)
+        body.box((-3.6, y0, 1.08), (3.45, y1, 1.16), metal)  # fender rail
+        # Equipment lockers in the skirt: dark doors with steel pulls.
+        d0, d1 = sorted((side * 1.235, side * 1.245))
+        p0, p1 = sorted((side * 1.245, side * 1.26))
+        for lx in (-0.95, 0.05, 1.0):
+            body.box((lx, d0, 0.48), (lx + 0.7, d1, 0.98), dark)
+            frame.box((lx + 0.25, p0, 0.86), (lx + 0.45, p1, 0.9), steel)
+
+    # Cab: one wedge profile, dark canopy, roof sensor bar and beacon.
+    cab = [
+        (1.78, 0.66),
+        (3.5, 0.66),
+        (3.62, 1.2),
+        (3.48, 1.42),
+        (2.98, 2.5),
+        (2.6, 2.78),
+        (1.78, 2.78),
+    ]
+    body.prism_y(cab, -1.18, 1.18, white)
+    # Canopy glass sits proud of the slope, framed by a dark visor band.
+    slope = [(3.5, 1.46), (3.0, 2.52), (2.98, 2.5)]
+    n = Vector((slope[1][1] - slope[0][1], -(slope[1][0] - slope[0][0]))).normalized()
+    a0 = Vector(slope[0]) + n * 0.012
+    a1 = Vector(slope[1]) + n * 0.012
+    canopy = [tuple(a0), tuple(a1), tuple(a1 + n * 0.03), tuple(a0 + n * 0.03)]
+    body.prism_y(canopy, -1.02, 1.02, glass)
+    pillar = [
+        tuple(a0 + n * 0.02),
+        tuple(a1 + n * 0.02),
+        tuple(a1 + n * 0.05),
+        tuple(a0 + n * 0.05),
+    ]
+    body.prism_y(pillar, -0.04, 0.04, white)  # centre pillar
+    visor = [tuple(a1 - n * 0.01), (2.6, 2.79), (2.62, 2.84), tuple(a1 + n * 0.06)]
+    body.prism_y(visor, -1.12, 1.12, dark)
+    for side in (-1, 1):  # side windows and a thin red trim line
+        y0, y1 = sorted((side * 1.18, side * 1.195))
+        body.box((2.0, y0, 1.78), (2.8, y1, 2.5), glass)
+        body.box((1.85, y0, 1.6), (3.3, y1, 1.63), "M_Light_RedTrim")
+        d0, d1 = sorted((side * 1.18, side * 1.2))
+        for dx in (1.92, 2.92):  # door seams and sill
+            body.box((dx, d0, 0.95), (dx + 0.02, d1, 2.6), dark)
+        body.box((1.92, d0, 0.95), (2.94, d1, 0.97), dark)
+        body.box((2.12, d0 - 0.01 * (side < 0), 1.38), (2.3, d1 + 0.01 * (side > 0), 1.42), steel)
+    G.chamfer_box(body, (2.0, -0.9, 2.78), (2.45, 0.9, 2.9), 0.06, dark)  # sensor bar
+    G.tube_z(lamps, 0.07, 2.9, 3.04, m("lamp_amber"), 14, x=2.22, y=0.55)
+    G.tube_z(frame, 0.012, 2.9, 3.2, steel, 6, x=2.1, y=-0.75)  # antenna
+    for k in range(5):  # intake slats on the sloped nose
+        z = 0.8 + k * 0.07
+        x = 3.5 + 0.12 * (z - 0.66) / 0.54
+        body.box((x - 0.02, -0.72, z), (x + 0.02, 0.72, z + 0.035), dark)
+    for sy in (-1, 1):  # head and tail lights
+        y0, y1 = sorted((sy * 0.62, sy * 1.0))
+        lamps.box((3.63, y0, 1.2), (3.64, y1, 1.27), m("lamp_white"))
+        lamps.box((-3.715, y0, 0.56), (-3.705, y1, 0.62), m("lamp_red"))
+
+    # Tank: octagonal body with chamfered ends, gunmetal bands, dark side panels.
+    sections = []
+    for x, s in ((-3.42, 0.8), (-3.22, 1.0), (1.42, 1.0), (1.62, 0.82)):
+        sections.append([(x, y, z) for y, z in _octagon(s)])
+    G.loft(body, sections, white)
+    for bx in (-2.38, -0.82, 0.74):
+        G.wedge_x(frame, _octagon(1.0, 0.035), bx - 0.09, bx + 0.09, metal)
+    for side in (-1, 1):
+        y0, y1 = sorted((side * _TANK_Y, side * (_TANK_Y + 0.008)))
+        for p0, p1 in ((-3.0, -2.55), (-2.2, -1.0), (-0.64, 0.56), (0.92, 1.3)):
+            body.box((p0, y0, 1.42), (p1, y1, 1.86), dark)
+        # Level gauge: a column of five lit cells, the top one dark (part full).
+        for k in range(5):
+            z = 1.5 + k * 0.15
+            g0, g1 = sorted((side * (_TANK_Y + 0.008), side * (_TANK_Y + 0.014)))
+            target, mat = (lamps, m("lamp_white")) if k < 4 else (body, dark)
+            target.box((1.05, g0, z), (1.18, g1, z + 0.1), mat)
+        # Two service pipes along the tank's lower chamfer.
+        for dz, rr in ((1.12, 0.05), (1.26, 0.035)):
+            frame.tube((-3.4, side * 1.0, dz), (1.5, side * 1.0, dz), rr, metal, 10)
+    ink, face = m("stencil_dark"), _TANK_Y + 0.012
+    G.text(decal, "FUEL", 0.34, ink, G.on_face((-1.6, -face, 2.13), "-Y"))
+    G.text(decal, "B-02", 0.2, ink, G.on_face((-0.1, -face, 2.13), "-Y"))
+    G.text(decal, "FUEL", 0.34, ink, G.on_face((-1.6, face, 2.13), "+Y"))
+
+    # Walkway on the tank roof with rails, and a filler hatch.
+    top = _TANK_Z1
+    frame.box((-3.0, -0.45, top), (1.1, 0.45, top + 0.05), m("tread"))
+    for side in (-1, 1):
+        y = side * 0.42
+        frame.tube((-2.9, y, top + 0.95), (1.0, y, top + 0.95), 0.022, steel, 8)
+        frame.tube((-2.9, y, top + 0.5), (1.0, y, top + 0.5), 0.016, steel, 8)
+        for px in (-2.9, -1.6, -0.3, 1.0):
+            frame.tube((px, y, top + 0.05), (px, y, top + 0.97), 0.022, steel, 8)
+    with G.xf(frame, G.T(-0.95, 0.0, top + 0.05)):
+        G.lathe(frame, [(0.0, 0.16), (0.24, 0.14), (0.3, 0.06), (0.3, 0.0)], metal, 24)
+    lamps.box((1.0, -0.06, top + 0.98), (1.06, 0.06, top + 1.02), m("lamp_red"))
+
+    # Rear service end: hose reel, valve manifold, ladder to the walkway.
+    with G.xf(frame, G.T(-3.55, 0.0, 1.1) @ G.Rx(90.0)):
+        G.ring(frame, 0.16, 0.36, -0.55, 0.55, m("rubber"), 28)
+        G.ring(frame, 0.36, 0.39, -0.6, -0.54, metal, 28)
+        G.ring(frame, 0.36, 0.39, 0.54, 0.6, metal, 28)
+    frame.tube((-3.55, -0.62, 1.1), (-3.55, 0.62, 1.1), 0.05, steel, 10)
+    G.chamfer_box(frame, (-3.62, 0.62, 0.7), (-3.32, 1.0, 1.0), 0.04, dark)
+    for k, vz in enumerate((0.78, 0.92)):
+        frame.tube((-3.62, 0.7 + k * 0.16, vz), (-3.72, 0.7 + k * 0.16, vz), 0.035, metal, 10)
+        with G.xf(frame, G.T(-3.73, 0.7 + k * 0.16, vz) @ G.Ry(90.0)):
+            G.ring(frame, 0.05, 0.065, -0.01, 0.01, m("stencil_red"), 16)
+    for ly in (-0.95, -0.6):
+        frame.tube((-3.48, ly, 0.7), (-3.48, ly, top + 0.98), 0.02, steel, 8)
+    for k in range(9):
+        z = 0.95 + k * 0.24
+        frame.tube((-3.48, -0.95, z), (-3.48, -0.6, z), 0.016, steel, 6)
+
+    body.build("SM_fuelbowser_body", bevel_width=0.01)
+    frame.build("SM_fuelbowser_frame", bevel_width=0.004)
+    lamps.build("SM_fuelbowser_lamps", bevel_width=0.0, nav="none")
+    decal.build("SM_fuelbowser_stencil", bevel_width=0.0, nav="none")
+    K.occluder(((-3.75, -1.26, 0.0), (3.67, 1.26, 3.0)), nav="block")
+
+
+K.register_variant("SM_Hangar_FuelBowser", build_fuel_bowser, dims=(7.4, 2.52, 3.2))
 K.register_variant("SM_Hangar_FuelHydrant", build_fuel_hydrant, dims=(1.2, 1.2, 0.95))
 K.register_variant("SM_Hangar_FuelCart", build_fuel_cart, dims=(2.85, 1.2, 1.25))
 K.register_variant("SM_Hangar_ToolCart", build_tool_cart, dims=(1.22, 0.7, 1.0))
