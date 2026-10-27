@@ -18411,7 +18411,7 @@ class SpeechPipeline:
     }
 
     _BCP47: dict[str, str] = {
-        "de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT",
+        "de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT", "fr": "fr-FR",
     }
 
     @classmethod

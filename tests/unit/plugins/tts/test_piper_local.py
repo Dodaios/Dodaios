@@ -31,7 +31,14 @@ class _FakeEngine:
         self.model_id = model_id
         self.spoken: list[str] = []
 
-    def generate(self, text: str, speaker_id: int, speed: float) -> _FakeAudio:
+    def generate(
+        self,
+        text: str,
+        speaker_id: int | object,
+        speed: float | None = None,
+        *,
+        callback=None,
+    ) -> _FakeAudio:
         self.spoken.append(text)
         return _FakeAudio()
 
@@ -177,7 +184,7 @@ def test_callback_capable_engine_yields_incremental_audio(
     class StreamingEngine:
         sample_rate = 22_050
 
-        def generate(self, _text, _speaker, _speed, *, callback):
+        def generate(self, _text, _speaker, _speed=None, *, callback):
             callback(np.full(100, 0.1, dtype=np.float32), 0.5)
             callback(np.full(100, 0.2, dtype=np.float32), 1.0)
             return _FakeAudio(seconds=0.0)

@@ -22,14 +22,19 @@ maps it to the matching voice. That mapping is the whole reason the local voice
 can honour the runtime-language doctrine instead of answering German text in an
 English accent.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import queue
+import re
+import shutil
+import subprocess
 import threading
 from collections.abc import AsyncIterator
 from contextlib import suppress
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any
 
@@ -65,7 +70,7 @@ class PiperLocalTTS:
         voice: str | None = None,
         gender: str | None = None,
         num_threads: int = 2,
-        speed: float = _DEFAULT_SPEED,
+        speed: float | None = None,
     ) -> None:
         self._preferred_voice = (voice or "").strip() or None
         # Voice PROFILE rather than a single voice id: the pipeline may switch
@@ -74,21 +79,19 @@ class PiperLocalTTS:
         # the BUG-086 complaint in a different provider.
         self._gender = (gender or "").strip().lower() or "masculine"
         self._num_threads = max(1, int(num_threads))
-        self._speed = float(speed) if speed and speed > 0 else _DEFAULT_SPEED
+        self._speed = float(speed) if speed is not None and speed > 0 else _DEFAULT_SPEED
+        self._speed_explicit = speed is not None
         #: model_id -> loaded engine. Voices load lazily and stay cached; a
         #: German-only conversation never pays for the Spanish voice.
         self._engines: dict[str, Any] = {}
         self._load_lock = asyncio.Lock()
+        self._workers: set[asyncio.Task[Any]] = set()
 
     # -- voice selection ----------------------------------------------------
     def _catalog(self) -> dict[str, Any]:
         from dodaios.speech.local_models import SHERPA_BUNDLES
 
-        return {
-            model_id: bundle
-            for model_id, bundle in SHERPA_BUNDLES.items()
-            if bundle.language
-        }
+        return {model_id: bundle for model_id, bundle in SHERPA_BUNDLES.items() if bundle.language}
 
     def _installed_voices(self) -> dict[str, Any]:
         """Catalogued voices whose files are actually on this machine.
@@ -104,9 +107,7 @@ class PiperLocalTTS:
             if bundle_present(model_id)
         }
 
-    def _resolve_voice(
-        self, voice: str | None, language_code: str | None
-    ) -> str | None:
+    def _resolve_voice(self, voice: str | None, language_code: str | None) -> str | None:
         """Pick the voice for ONE turn: explicit request, else language + profile.
 
         Returns None when nothing is installed — the caller then raises the
@@ -137,9 +138,7 @@ class PiperLocalTTS:
             )
             candidates = list(installed)
         # Same speaker profile across languages where possible.
-        preferred = [
-            m for m in candidates if installed[m].gender == self._gender
-        ]
+        preferred = [m for m in candidates if installed[m].gender == self._gender]
         return (preferred or candidates)[0]
 
     def list_voices(self, language: str | None = None) -> list[str]:
@@ -163,9 +162,7 @@ class PiperLocalTTS:
         from dodaios.speech.sherpa_models import model_paths
 
         paths = model_paths(model_id)
-        onnx = next(
-            (p for name, p in paths.items() if name.endswith(".onnx")), None
-        )
+        onnx = next((p for name, p in paths.items() if name.endswith(".onnx")), None)
         tokens = paths.get("tokens.txt")
         data_dir = paths.get("espeak-ng-data")
         if onnx is None or tokens is None or data_dir is None:
@@ -176,6 +173,14 @@ class PiperLocalTTS:
                 f"The voice '{model_id}' is not fully downloaded (missing: "
                 f"{', '.join(missing)}). Download it from the API-Keys view."
             )
+
+        # sherpa-onnx >= 2.0 needs explicit phonemes for legacy Piper voices.
+        if int(package_version("sherpa-onnx").split(".", 1)[0]) >= 2:
+            if shutil.which("espeak-ng") is None:
+                raise RuntimeError(
+                    "Piper with sherpa-onnx 2 requires eSpeak NG for "
+                    "text phonemization. Install espeak-ng to enable local TTS."
+                )
 
         log.info("Loading local Piper voice %s", model_id)
         config = sherpa_onnx.OfflineTtsConfig(
@@ -192,6 +197,50 @@ class PiperLocalTTS:
             ),
         )
         return sherpa_onnx.OfflineTts(config)
+
+    @staticmethod
+    def _phonemize(text: str, language_code: str) -> list[list[int]]:
+        """Run an external eSpeak NG frontend for sherpa-onnx 2.x.
+
+        Reject unknown IPA characters rather than emitting silent audio.
+        This synchronous helper runs in the existing synthesis worker thread.
+        """
+        language = language_code.lower().replace("_", "-")
+        voice_language = language.split("-", 1)[0]
+        if shutil.which("espeak-ng") is None:
+            raise RuntimeError("eSpeak NG is required for local Piper TTS.")
+        result = subprocess.run(  # noqa: S603 - fixed executable and arguments
+            ["espeak-ng", "-q", "-v", voice_language, "--ipa", text],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+        # sherpa-onnx expects one outer group per synthesis segment.
+        # Supplying one group per word can terminate playback after the first.
+        ipa = "".join(char for char in result.stdout if not char.isspace() and char not in "ˈˌ")
+        if not ipa:
+            raise RuntimeError("eSpeak NG did not return phonemes for Piper.")
+        return [[ord(char) for char in ipa]]
+
+    @staticmethod
+    def _prosody_segments(text: str) -> list[tuple[str, int]]:
+        """Split on clause punctuation; delay is milliseconds AFTER segment.
+
+        Never split on whitespace: sherpa 2 needs one phoneme group per
+        generated clause, not one group per individual word.
+        """
+        protected = re.sub(r"(?<=\d)\.(?=\d)", "∯", text)
+        parts = re.findall(r"[^,;:!?。！？.]+[,;:!?。！？.]?|[^,;:!?。！？.]+$", protected)
+        segments: list[tuple[str, int]] = []
+        for part in parts:
+            chunk = part.replace("∯", ".").strip()
+            if not chunk:
+                continue
+            punctuation = chunk[-1]
+            pause = 310 if punctuation in ".!?。！？" else 170 if punctuation in ",;:" else 0
+            segments.append((chunk, pause))
+        return segments or [(text, 0)]
 
     async def _engine_for(self, model_id: str) -> Any:
         engine = self._engines.get(model_id)
@@ -223,6 +272,9 @@ class PiperLocalTTS:
                 "voice output to a provider you have a key for."
             )
         engine = await self._engine_for(model_id)
+        from dodaios.speech.local_models import SHERPA_BUNDLES
+
+        model_language = SHERPA_BUNDLES[model_id].language
         sample_rate = int(getattr(engine, "sample_rate", 0) or 0)
         chunks: queue.Queue[bytes | object] = queue.Queue(maxsize=8)
         end = object()
@@ -234,9 +286,7 @@ class PiperLocalTTS:
             values = np.asarray(samples, dtype=np.float32)
             if values.size == 0:
                 return b""
-            return (
-                np.clip(values, -1.0, 1.0) * _INT16_FULL_SCALE
-            ).astype(np.int16).tobytes()
+            return (np.clip(values, -1.0, 1.0) * _INT16_FULL_SCALE).astype(np.int16).tobytes()
 
         def _put(value: bytes | object) -> bool:
             while not stopped.is_set():
@@ -248,52 +298,104 @@ class PiperLocalTTS:
                     continue
             return False
 
-        def _callback(samples: Any, _progress: float) -> int:
-            data = _pcm(samples)
-            if data:
-                emitted.set()
-                if not _put(data):
-                    return 1
-            return 1 if stopped.is_set() else 0
-
         nonlocal_rate = [sample_rate]
 
         def _generate() -> None:
             try:
-                try:
-                    audio = engine.generate(
-                        spoken, 0, self._speed, callback=_callback
-                    )
-                except TypeError as exc:
-                    # Older sherpa-onnx builds and lightweight test engines do
-                    # not expose the callback overload. Keep the compatible
-                    # whole-sentence path instead of failing silent.
-                    detail = str(exc).lower()
-                    if not any(
-                        marker in detail
-                        for marker in (
-                            "callback",
-                            "incompatible function arguments",
-                            "unexpected keyword",
+                sherpa2 = int(package_version("sherpa-onnx").split(".", 1)[0]) >= 2
+                segments = (
+                    self._prosody_segments(spoken)
+                    if sherpa2 and model_language == "fr"
+                    else [(spoken, 0)]
+                )
+                for index, (segment, pause_ms) in enumerate(segments):
+                    if stopped.is_set():
+                        break
+                    segment_emitted = threading.Event()
+
+                    def segment_callback(
+                        samples: Any,
+                        progress: float,
+                        segment_emitted: threading.Event = segment_emitted,
+                    ) -> int:
+                        data = _pcm(samples)
+                        if data:
+                            emitted.set()
+                            segment_emitted.set()
+                            if not _put(data):
+                                return 0
+                        # sherpa-onnx: 1 continues generation, 0 cancels it.
+                        return 0 if stopped.is_set() else 1
+
+                    if sherpa2:
+                        import sherpa_onnx  # only required for real sherpa 2 engines
+
+                        options = sherpa_onnx.GenerationConfig()
+                        options.speed = (
+                            0.90
+                            if model_language == "fr" and not self._speed_explicit
+                            else self._speed
                         )
-                    ):
-                        raise
-                    audio = engine.generate(spoken, 0, self._speed)
-                if not sample_rate:
-                    rate = int(getattr(audio, "sample_rate", 0) or 0)
-                    if rate:
-                        nonlocal_rate[0] = rate
-                if not emitted.is_set():
-                    data = _pcm(getattr(audio, "samples", ()))
-                    if data:
-                        emitted.set()
-                        _put(data)
+                        options.phoneme_codepoints = self._phonemize(segment, model_language)
+                        try:
+                            audio = engine.generate(segment, options, callback=segment_callback)
+                        except TypeError as exc:
+                            if not any(
+                                m in str(exc).lower()
+                                for m in (
+                                    "callback",
+                                    "incompatible function arguments",
+                                    "unexpected keyword",
+                                )
+                            ):
+                                raise
+                            audio = engine.generate(segment, options)
+                    else:
+                        try:
+                            audio = engine.generate(
+                                segment, 0, self._speed, callback=segment_callback
+                            )
+                        except TypeError as exc:
+                            if not any(
+                                m in str(exc).lower()
+                                for m in (
+                                    "callback",
+                                    "incompatible function arguments",
+                                    "unexpected keyword",
+                                )
+                            ):
+                                raise
+                            audio = engine.generate(segment, 0, self._speed)
+
+                    if not sample_rate:
+                        rate = int(getattr(audio, "sample_rate", 0) or 0)
+                        if rate:
+                            nonlocal_rate[0] = rate
+                    if not segment_emitted.is_set():
+                        data = _pcm(getattr(audio, "samples", ()))
+                        if data:
+                            emitted.set()
+                            segment_emitted.set()
+                            _put(data)
+                    if not segment_emitted.is_set():
+                        raise RuntimeError(
+                            f"Local Piper voice '{model_id}' generated no audio "
+                            f"for segment {index + 1}."
+                        )
+                    # Pauses between completed clauses only; trailing pause is unnecessary.
+                    if index + 1 < len(segments) and pause_ms and not stopped.is_set():
+                        rate = nonlocal_rate[0] or int(getattr(engine, "sample_rate", 0) or 0)
+                        if rate <= 0:
+                            raise RuntimeError("Cannot insert speech pause without sample rate.")
+                        _put(bytes(int(rate * pause_ms / 1000) * 2))
             except Exception as exc:  # noqa: BLE001 - forwarded to async owner
                 failure.append(exc)
             finally:
                 _put(end)
 
         worker = asyncio.create_task(asyncio.to_thread(_generate), name="piper-tts")
+        self._workers.add(worker)
+        worker.add_done_callback(self._workers.discard)
         self.last_voice = model_id
         self.last_voice_provider = self.name
         try:
@@ -302,9 +404,7 @@ class PiperLocalTTS:
                 if item is end:
                     break
                 assert isinstance(item, bytes)
-                rate = nonlocal_rate[0] or int(
-                    getattr(engine, "sample_rate", 0) or 0
-                )
+                rate = nonlocal_rate[0] or int(getattr(engine, "sample_rate", 0) or 0)
                 if rate <= 0:
                     raise RuntimeError("The local voice returned no sample rate.")
                 yield AudioChunk(
@@ -316,8 +416,11 @@ class PiperLocalTTS:
             await worker
             if failure:
                 raise failure[0]
-            if not emitted.is_set() and chunks.empty():
-                log.warning("Local voice %s produced no audio for the turn.", model_id)
+            if not emitted.is_set():
+                raise RuntimeError(
+                    f"Local Piper voice '{model_id}' generated no audio. "
+                    "Check its phonemization frontend, lexicon and model."
+                )
         finally:
             stopped.set()
             if not worker.done():
@@ -341,6 +444,10 @@ class PiperLocalTTS:
 
     async def aclose(self) -> None:
         """Drop the loaded voices so a switched-away provider frees its memory."""
+        # Native generation must finish before releasing engine references.
+        # A cancelled caller may have left the worker draining in the background.
+        if self._workers:
+            await asyncio.gather(*tuple(self._workers), return_exceptions=True)
         self._engines.clear()
 
 

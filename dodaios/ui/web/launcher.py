@@ -398,6 +398,9 @@ async def _run_headless(args) -> int:
     the heavy ``import fastapi`` (~450 ms) + load_config + the _init chain OFF the
     time-to-serving path.
     """
+    # This launcher never constructs a native SpeechPipeline. Browser audio
+    # loads its own engines on demand; do not wait for a native warm-up event.
+    os.environ["JARVIS_VOICE"] = "0"
     _bp = os.environ.get("JARVIS_BOOT_PROFILE") == "1"
     _bp_last = time.perf_counter()
 

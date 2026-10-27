@@ -54,8 +54,8 @@ _SPEECH_STACK_UNAVAILABLE_REASON = (
     "provider is missing. Check API Keys."
 )
 
-# BCP-47 from the canonical per-turn resolver (de/en/es/pt).
-_LANG_MAP = {"de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT"}
+# BCP-47 from the canonical per-turn resolver, including pinned French.
+_LANG_MAP = {"de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT", "fr": "fr-FR"}
 
 
 def browser_voice_enabled(cfg: Any) -> bool:

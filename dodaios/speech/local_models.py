@@ -617,6 +617,14 @@ SHERPA_BUNDLES: dict[str, SherpaBundle] = {
         language="pt",
         gender="masculine",
     ),
+    # French is opt-in until a sherpa-onnx 2.x-compatible phonemizer is wired.
+    # Upstream archive: k2-fsa/sherpa-onnx tts-models release.
+    "vits-piper-fr_FR-siwis-medium": _piper_bundle(
+        "vits-piper-fr_FR-siwis-medium",
+        label="Siwis (French)",
+        language="fr",
+        gender="feminine",
+    ),
     "vits-piper-de_DE-ramona-low": _piper_bundle(
         "vits-piper-de_DE-ramona-low",
         label="Ramona (German)",

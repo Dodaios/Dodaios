@@ -73,7 +73,8 @@ TURN_LANGUAGE: ContextVar[str | None] = ContextVar("jarvis.turn_language", defau
 
 #: The codes an explicit ``brain.reply_language`` pin may carry (``"auto"`` is
 #: deliberately absent — it means "no pin, mirror the input").
-_REPLY_PINS: frozenset[str] = frozenset(SUPPORTED_LOCALES)
+# Speech languages need not have a translated interface or system catalog.
+_REPLY_PINS: frozenset[str] = frozenset((*SUPPORTED_LOCALES, "fr"))
 
 #: A turn with at most this many word tokens is a "thin" turn — a one- or
 #: two-word interjection ("Now", "Stop now", "jetzt", a lone loanword). A thin
@@ -728,7 +729,7 @@ def _has_language_switch_evidence(text: str, detected: str) -> bool:
     language without translated phrases carries its own evidence: the
     detector only names it on several matching words or its own script.
     """
-    if detected not in _REPLY_PINS:
+    if detected not in SUPPORTED_LOCALES:
         return detected != "unknown" and _detect_other_language(text or "")[0] == detected
     tokens = {token.lower() for token in _TOKEN_RE.findall(text or "")}
     scores = {code: len(tokens & vocabulary) for code, vocabulary in _SETS}

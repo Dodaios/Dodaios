@@ -296,6 +296,27 @@ async def run_search(
     serp = await ddg_serp_search(query, max_results, searcher=searcher)
     if serp.status == "ok" and serp.results:
         return serp
+
+    # Retry Yahoo individually when DDGS multi-engine search fails.
+    # Keep injected searchers deterministic for existing tests.
+    if searcher is None:
+        def yahoo_search(q: str, limit: int) -> list[dict[str, Any]]:
+            from ddgs import DDGS
+
+            with DDGS(timeout=_DDGS_TIMEOUT_S) as ddgs:
+                return list(ddgs.text(
+                    q,
+                    backend="yahoo",
+                    region="wt-wt",
+                    safesearch="moderate",
+                    max_results=limit,
+                ) or [])
+
+        yahoo = await ddg_serp_search(
+            query, max_results, searcher=yahoo_search
+        )
+        if yahoo.status == "ok" and yahoo.results:
+            return yahoo
     saw_empty = saw_empty or serp.status == "empty"
 
     instant = await ddg_instant_search(query, max_results, client)

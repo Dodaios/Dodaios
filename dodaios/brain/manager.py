@@ -2010,8 +2010,9 @@ def _extract_leaked_tool_call(text: str) -> tuple[str, dict[str, Any]] | None:
 # Single source of truth for the reply-language vocabulary (Python ↔ REST ↔ TS).
 # "auto" = mirror the user's input language; the rest hard-pin that language.
 SUPPORTED_REPLY_LANGUAGES: tuple[str, ...] = ("auto", *SUPPORTED_LOCALES)
-_REPLY_LANGS: frozenset[str] = frozenset(SUPPORTED_REPLY_LANGUAGES)
-_REPLY_LANG_NAMES: dict[str, str] = dict(SUPPORTED_LANGUAGE_NAMES)
+# French speech can be pinned in configuration without adding a translated UI.
+_REPLY_LANGS: frozenset[str] = frozenset((*SUPPORTED_REPLY_LANGUAGES, "fr"))
+_REPLY_LANG_NAMES: dict[str, str] = {**SUPPORTED_LANGUAGE_NAMES, "fr": "French"}
 
 # Spoken confirmation for a deterministic reply-language switch (the
 # voice_command_gate "language_switch" path). Keyed by target code and phrased
@@ -10220,9 +10221,9 @@ class BrainManager:
             if fast:
                 chain.append((active, fast))
 
-        # Model-less local providers own model discovery. Keep the selected
-        # provider on the chain so its plugin can choose an installed model.
-        if not fast and not deep and active in ("ollama", "local-openai"):
+        # A registered provider may own its default model (local discovery or
+        # a subscription CLI's account default). Keep that choice on the chain.
+        if not fast and not deep and active in self._registry.available():
             chain.append((active, None))
 
         # 2. Explicit tier fallbacks from jarvis.toml. These must run before

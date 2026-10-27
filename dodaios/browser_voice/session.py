@@ -182,7 +182,12 @@ class BrowserVoiceSession:
             # rate-mismatched blob across a reconnect / rate change.
             self._endpointer.reset()
             lang = msg.get("language")
-            if isinstance(lang, str) and lang:
+            # The browser's UI locale is a hint, never an override of the
+            # configured spoken language resolved when this session was built.
+            pin = str(
+                getattr(getattr(self._config, "brain", None), "reply_language", "auto") or ""
+            ).strip().lower()
+            if isinstance(lang, str) and lang and pin in {"", "auto"}:
                 self.language_code = lang
             await self._send_json({"type": "audio_ready"})
         elif kind == "barge_in":
