@@ -30,6 +30,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import socket
 import time
@@ -38,6 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
+from dodaios.agent_chat.effort import ORDER, snap_to_ladder
 from dodaios.agent_runtimes import base, versions
 from dodaios.agent_runtimes.base import (
     DetectCache,
@@ -154,6 +156,21 @@ _CONTROL_KEY_ENV: Final[str] = "JARVIS_CONTROL_API_KEY"
 #: ``agents.defaults.thinkingDefault`` levels OpenClaw accepts ("none" -> "off").
 _THINKING_LEVELS: Final[frozenset[str]] = frozenset(
     {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
+)
+#: The levels OpenClaw (2026.9) offers a model of a provider it has no
+#: policy for, as Dodaios' ``jarvis`` provider is: ``off`` .. ``high`` when the
+#: model is declared to reason, plus each of ``xhigh`` / ``max`` the model's
+#: ``compat.supportedReasoningEfforts`` names; ``off`` alone otherwise. A
+#: per-prompt level outside that set fails the turn ("Thinking level ... is not
+#: supported"), so :func:`prompt_meta` never sends one.
+_BASE_THINKING: Final[tuple[str, ...]] = ("none", "minimal", "low", "medium", "high")
+_DECLARED_EFFORTS: Final[tuple[str, ...]] = ("minimal", "low", "medium", "high", "xhigh", "max")
+#: What OpenClaw posts as the assistant's reply when a turn fails before any
+#: model call (no tokens, no answer): shown as the turn's error, not as an
+#: answer. The first group is the reason.
+FAILURE_REPLIES: Final[tuple[re.Pattern[str], ...]] = (
+    re.compile(r"^\[OpenClaw interruption\]\s*(.+)$", re.DOTALL),
+    re.compile(r"^(Thinking level \"[^\"]*\" is not supported for \S+\. Use one of: .*)$"),
 )
 
 _INSTALL_URL_PS1: Final[str] = "https://openclaw.ai/install.ps1"
@@ -512,6 +529,7 @@ class OpenClawRuntime:
                     # (no reasoning, text only) stand for an unknown model.
                     "input": ["text", "image"] if turn.vision else ["text"],
                     **({"reasoning": True} if turn.reasoning else {}),
+                    **_declared_efforts(turn),
                     "contextWindow": route.context_window,
                     **({"maxTokens": route.max_output_tokens}
                        if route.max_output_tokens is not None else {}),
@@ -783,6 +801,7 @@ class OpenClawRuntime:
                 "resetSession": turn.resume is None,
             },
             prompt_meta=prompt_meta(turn),
+            failure_replies=FAILURE_REPLIES,
         )
         return launch, gateway
 
@@ -1040,12 +1059,51 @@ def _use_claude_cli(config: dict[str, Any], turn: RuntimeTurn) -> None:
         tools["deny"] = [*tools["deny"], "exec", "process"]
 
 
+def _declared_efforts(turn: RuntimeTurn) -> dict[str, Any]:
+    """The model's ``compat`` entry: the effort levels its catalog lists.
+
+    Without it OpenClaw offers a reasoning model ``off`` .. ``high`` only and
+    refuses ``xhigh`` / ``max`` although the model takes them."""
+    if not turn.reasoning or not turn.efforts:
+        return {}
+    levels = [level for level in _DECLARED_EFFORTS if level in turn.efforts]
+    return {"compat": {"supportedReasoningEfforts": levels}} if levels else {}
+
+
+def thinking_levels(turn: RuntimeTurn) -> tuple[str, ...]:
+    """The levels OpenClaw accepts for this turn's model, on Dodaios' ladder
+    (``none`` = OpenClaw's ``off``), as :meth:`OpenClawRuntime.config_for`
+    declares the model."""
+    if turn.route.transport == "claude_cli":
+        # OpenClaw's own Claude policy answers for the Claude CLI route.
+        return ("none", *sorted(_THINKING_LEVELS - {"off"}, key=ORDER.index))
+    if not turn.reasoning:
+        return ("none",)
+    declared = _declared_efforts(turn).get("compat", {}).get("supportedReasoningEfforts", [])
+    return (*_BASE_THINKING, *(level for level in ("xhigh", "max") if level in declared))
+
+
 def prompt_meta(turn: RuntimeTurn) -> dict[str, Any] | None:
     """``session/prompt`` ``_meta``: the agent's thinking level for this prompt.
 
     Per prompt, not ``thinkingDefault`` in the config: a changed effort then
-    never restarts the Gateway. No level = the model's own default."""
-    thinking = "off" if turn.effort == "none" else turn.effort
+    never restarts the Gateway. No level = the model's own default.
+
+    OpenClaw refuses the whole turn for a level the model does not offer (in
+    its view), so the effort folds onto :func:`thinking_levels` first: the
+    highest level at or below the pick (``ultra`` -> the highest one), never
+    a level outside the set. A model not declared to reason gets no level
+    unless the pick is "none". The upstream model still runs on the agent's
+    own effort: Dodaios' gateway applies it per turn (``watch_failure``).
+    """
+    effort = (turn.effort or "").strip().lower()
+    if effort not in ORDER:
+        return None
+    levels = thinking_levels(turn)
+    if levels == ("none",) and effort != "none":
+        return None
+    level = snap_to_ladder(effort, levels)
+    thinking = "off" if level == "none" else level
     return {"thinking": thinking} if thinking in _THINKING_LEVELS else None
 
 
