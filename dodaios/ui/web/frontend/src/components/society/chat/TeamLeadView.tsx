@@ -195,8 +195,10 @@ export function TeamLeadView({ group, roster, onOpenAgent }: Props) {
   return (
     <section className="flex min-h-0 flex-1 flex-col bg-background" data-testid="team-lead-view">
       {/* Like an agent's chat: one name pill in the middle; the team's two
-          controls sit quietly on the right as words. */}
-      <header className="relative flex h-14 shrink-0 items-center justify-center gap-2 px-4">
+          controls sit quietly on the right as words. They share the row in
+          flow, so a long status truncates instead of running under them. */}
+      <header className="flex h-14 shrink-0 items-center gap-2 px-4">
+        <div className="flex min-w-0 flex-1 justify-center">
         <div className="as-name-pill" title={t("society.lead.role")}>
           <span className="as-avatar">{lead ? <AgentSwatch agent={lead} size={24} /> : null}</span>
           <span className="as-pill-name">{leadName}</span>
@@ -205,7 +207,8 @@ export function TeamLeadView({ group, roster, onOpenAgent }: Props) {
             {status}
           </p>
         </div>
-        <div className="absolute right-4 flex items-center gap-1.5">
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
           <button type="button" onClick={openSetup} data-testid="team-lead-initiative" data-mode={mode}
             title={t(`society.lead.initiative_${mode}_hint`).replace("{0}", leadName)}
             className="as-pill-button h-8 bg-transparent px-3 font-normal text-muted-foreground hover:text-foreground">

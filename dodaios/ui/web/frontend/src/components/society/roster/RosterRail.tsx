@@ -824,8 +824,8 @@ export function RosterRail({
             aria-current={heroLead.agentId === activeAgentId ? "true" : undefined}
             data-active={heroLead.agentId === activeAgentId ? "true" : undefined}
             data-testid="roster-lead">
-            <span className="as-avatar">
-              <AgentSwatch agent={heroLead} size={56} />
+            <span className="as-avatar as-hero-face">
+              <AgentSwatch agent={heroLead} size={60} />
               <StatusMark status={rosterStatus(heroLead, unread.has(heroLead.agentId))} />
               {shortcutOf(heroLead.agentId) !== null ? <span className="as-shortcut-badge" aria-hidden>{shortcutOf(heroLead.agentId)}</span> : null}
             </span>

@@ -68,7 +68,7 @@ export function AgentConversationsBar({ agentId, agentName, displayName }: {
   if (!rows.length) return null;
   return (
     <div
-      className="flex shrink-0 items-center justify-center gap-1.5 overflow-x-auto px-4 pb-2 [scrollbar-width:none]"
+      className="as-chip-strip flex shrink-0 items-center gap-1.5 overflow-x-auto px-4 pb-2 [scrollbar-width:none]"
       data-testid="agent-conversations"
       title={t("society.conversations.hint")}
     >
@@ -94,17 +94,14 @@ export function AgentConversationsBar({ agentId, agentName, displayName }: {
             data-state={row.waiting ? "waiting" : row.running ? "running" : "idle"}
             title={row.waiting ? t("society.conversations.waiting") : undefined}
             className={cn(
-              "flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               row.waiting ? "bg-warning/10 text-warning" : "bg-secondary/60 text-muted-foreground",
             )}
           >
-            <span
-              aria-hidden
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                row.waiting ? "bg-warning" : row.running ? "bg-success" : "bg-muted-foreground/50",
-              )}
-            />
+            {/* A dot only when it says something: waiting on you, or working. */}
+            {row.waiting || row.running ? (
+              <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", row.waiting ? "bg-warning" : "bg-success")} />
+            ) : null}
             {t("society.conversations.with").replace("{0}", name)}
             {row.waiting ? <span className="sr-only">{t("society.conversations.waiting")}</span>
               : row.running ? <span className="sr-only">{t("society.conversations.running")}</span> : null}

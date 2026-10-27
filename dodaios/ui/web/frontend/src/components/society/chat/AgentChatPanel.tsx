@@ -415,10 +415,12 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
   if (mode === "voice") {
     return (
       <div className="flex h-full min-h-0 flex-col" data-testid="society-chat" data-mode="voice">
-        <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2">
+        {/* A flex row, not the chat header's grid: the screen-reader note is
+            absolutely positioned, so in a grid the switch fell into the first
+            1fr track and stretched across it. */}
+        <div className="flex shrink-0 justify-center px-4 pb-2">
           <span className="sr-only">{t("society.chat.voice_note")}</span>
           <JarvisModeSwitch mode={mode} onPick={pickMode} />
-          <span aria-hidden />
         </div>
         <VoiceStage />
       </div>
@@ -426,8 +428,8 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
   }
 
   const header = (
-    <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2">
-      <div className="flex min-w-0 items-center gap-2">
+    <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 pb-2">
+      <div className="flex min-w-0 items-center gap-1">
         <ModelPicker />
         <EffortPicker />
       </div>
@@ -588,7 +590,7 @@ function ModelPicker() {
                   type="button"
                   onClick={() => setProviderId(p.id)}
                   className={cn(
-                    "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-secondary",
+                    "flex w-full items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left text-[13px] hover:bg-secondary",
                     chosen?.id === p.id && "bg-secondary",
                     !p.connected && "opacity-50",
                   )}
@@ -610,7 +612,7 @@ function ModelPicker() {
                     setOpen(false);
                   }}
                   className={cn(
-                    "w-full px-2.5 py-1.5 text-left text-xs hover:bg-secondary",
+                    "w-full rounded-[10px] px-2.5 py-1.5 text-left text-[13px] hover:bg-secondary",
                     draft.provider === chosen.id && !draft.model && "bg-secondary",
                   )}
                 >
@@ -628,7 +630,7 @@ function ModelPicker() {
                   }}
                   title={m.note}
                   className={cn(
-                    "w-full px-2.5 py-1.5 text-left text-xs hover:bg-secondary",
+                    "w-full rounded-[10px] px-2.5 py-1.5 text-left text-[13px] hover:bg-secondary",
                     draft.provider === chosen?.id && draft.model === m.id && "bg-secondary",
                   )}
                 >

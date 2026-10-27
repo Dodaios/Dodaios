@@ -19,7 +19,7 @@
  * open in the pane the same way. The file keeps its historical name and
  * export: the layout mounts `<OptionsRail …>`.
  */
-import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { ChevronLeft, MoreHorizontal, X } from "lucide-react";
 
@@ -107,7 +107,6 @@ export function OptionsRail({ agent, onRetired, sample = false, width, onModelSa
       aria-label={t("society.card.options")}
       data-testid="agent-card-options"
       data-width={width}
-      style={{ "--ap-agent": agent.palette.primary } as CSSProperties}
     >
       <PaneHeader
         agent={agent}

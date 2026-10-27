@@ -87,8 +87,8 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
     : state.connected && state.ready
     ? t(state.manual ? "society.browser_live.manual" : "society.browser_live.live")
     : t(managedRuntime && install.data && !install.data.installed ? "society.card.browser_setting_up" : "society.card.browser_connecting");
-  const buttonClass = "rounded px-2 py-1 text-xs hover:bg-secondary disabled:opacity-40";
-  const signInClass = "rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40";
+  const buttonClass = "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-3 text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40";
+  const signInClass = "inline-flex h-8 items-center rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40";
   const enterUrl = () => {
     const url = /^https?:\/\//i.test(address) ? address : "https://" + address;
     control("navigate", { url });
@@ -97,9 +97,9 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
     <div data-testid="agent-browser-preview" className={cn(
       "shrink-0", expanded && "fixed inset-4 z-[60] flex flex-col rounded-xl border border-border bg-background p-3 shadow-xl",
     )}>
-      <div className="mb-1 flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
+      <div className="mb-2 flex items-center justify-between gap-1 pl-1 text-[13px] text-muted-foreground">
         <div className="min-w-0">
-          <div className="truncate">{displayName}{running.data?.profileName ? ` · ${running.data.profileName}` : ""} · {status}</div>
+          <div className="leading-snug">{displayName}{running.data?.profileName ? ` · ${running.data.profileName}` : ""} · {status}</div>
         </div>
         <button className={buttonClass} onClick={() => setExpanded((v) => !v)}
           aria-label={t(expanded ? "society.browser_live.collapse" : "society.browser_live.expand")}>
@@ -120,7 +120,7 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
             onValueChange={(target) => control("tab", { target })} />
         </div>
       )}
-      <div className={cn("relative flex items-center justify-center overflow-hidden rounded-lg bg-muted",
+      <div className={cn("relative flex items-center justify-center overflow-hidden rounded-[18px] bg-muted",
         expanded ? "min-h-0 flex-1" : "aspect-[16/10]")}>
         <canvas ref={canvas} width={1280} height={800} tabIndex={live && state.manual && !state.previewPaused ? 0 : -1}
           aria-label={t("society.browser_live.screen").replace("{0}", displayName)}
@@ -181,33 +181,33 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
         {(!state.fullWindow || state.pointer?.native_window === true) && (
           <AgentCursor pointer={state.ready && state.connected && !state.manual ? state.pointer : undefined} />
         )}
-        {!live && <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted p-3 text-center text-xs text-muted-foreground">
+        {!live && <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted p-4 text-center text-[13px] leading-snug text-muted-foreground">
           <p>{profileUnavailable ? t("society.browser_profiles.profile_unavailable") : chromeDisconnected ? t("society.browser_profiles.disconnected")
             : movedTo ? t("society.browser_live.moved").replace("{0}", movedTo) : t("society.browser_live.off_hint").replace("{0}", displayName)}</p>
           {!profileUnavailable && <button type="button" data-testid="agent-browser-open"
-            className="rounded-md border border-border bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary"
+            className="inline-flex h-8 items-center rounded-full bg-background px-4 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:bg-secondary"
             disabled={chromeDisconnected} onClick={open}>
             {t(movedTo ? "society.browser_live.open_here" : "society.browser_live.open")}
           </button>}
         </div>}
-        {live && !state.ready && !state.previewPaused && state.busy && <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted p-3 text-center text-xs text-muted-foreground">
+        {live && !state.ready && !state.previewPaused && state.busy && <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted p-4 text-center text-[13px] leading-snug text-muted-foreground">
           <p>{t("society.browser_live.busy_task").replace(/\{0\}/g, state.busy.holderName)}</p>
           {state.busy.running && state.busy.holderId && <button type="button"
-            className="rounded-md border border-border bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary"
+            className="inline-flex h-8 items-center rounded-full bg-background px-4 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:bg-secondary"
             onClick={stopHolder}>
             {t("society.browser_live.stop_holder").replace("{0}", state.busy.holderName)}
           </button>}
         </div>}
-        {live && !state.ready && !state.previewPaused && !state.busy && <div className="absolute inset-0 grid place-items-center bg-muted p-3 text-center text-xs text-muted-foreground">
+        {live && !state.ready && !state.previewPaused && !state.busy && <div className="absolute inset-0 grid place-items-center bg-muted p-4 text-center text-[13px] leading-snug text-muted-foreground">
           {chromeDisconnected ? t("society.browser_profiles.disconnected") : (managedRuntime && install.data?.detail) || status}
           {managedRuntime && install.data?.running && <span>{install.data.percent}%</span>}
         </div>}
-        {state.previewPaused && <div className="absolute inset-0 grid place-items-center bg-muted p-4 text-center text-xs text-muted-foreground">
+        {state.previewPaused && <div className="absolute inset-0 grid place-items-center bg-muted p-4 text-center text-[13px] leading-snug text-muted-foreground">
           {t("society.browser_profiles.preview_paused")}
         </div>}
         {state.ready && !state.connected && <div className="absolute bottom-2 rounded bg-background/90 px-2 py-1 text-xs">{status}</div>}
       </div>
-      <div className="mt-2 flex flex-wrap justify-center gap-1">
+      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
         <BrowserProfilesButton agentId={agent.agentId} />
         {live && <BrowserRecoveryControls key={agent.agentId} agentId={agent.agentId}
           canReload={state.connected && state.manual && !state.controlPending && !state.previewPaused

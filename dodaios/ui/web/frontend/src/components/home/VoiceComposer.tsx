@@ -141,9 +141,9 @@ export function VoiceComposer({ hint, onExit }: { hint: string; onExit?: () => v
           onClick={() => setActiveSection("apikeys")}
           title={t("home.model_hint")}
           data-testid="voice-engine"
-          className="inline-flex max-w-[320px] items-center gap-1.5 rounded-md px-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex max-w-[320px] items-center gap-1.5 rounded-full px-2 text-xs font-normal text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="truncate font-medium text-foreground/80">{engine.providerLabel}</span>
+          <span className="truncate">{engine.providerLabel}</span>
           {engine.model && <span className="truncate">{engine.model}</span>}
         </button>
       </div>
