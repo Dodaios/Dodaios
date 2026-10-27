@@ -119,7 +119,8 @@
       "mouse_lock": "In Third Person und Ego-Perspektive fängt ein Klick in die Ansicht die Maus: Bewegen dreht die Kamera, die linke Maustaste benutzt, worauf das Fadenkreuz zeigt. Esc gibt sie frei; L fängt sie oder gibt sie ebenfalls frei.",
       "reset": "Zurücksetzen",
       "fov_third": "Sichtfeld, Third Person",
-      "fov_first": "Sichtfeld, Ego-Perspektive"
+      "fov_first": "Sichtfeld, Ego-Perspektive",
+      "volume": "Lautstärke"
     },
     "lift": {
       "title": "Turbolift",

@@ -72,6 +72,7 @@ import { CrewCard, type CrewCardInfo } from "./hud/CrewCard";
 import { LiftPanel } from "./hud/LiftPanel";
 import { TakeoverPanel } from "./hud/TakeoverPanel";
 import { isTerminalFace } from "./effects/ScreensLayer";
+import { useStageAudio } from "./audio/useStageAudio";
 import { DeckTitle, StatsReadout, Toolbar } from "./hud/DeckBar";
 import { LauncherPanel } from "./hud/LauncherPanel";
 import { SimulatorPanel } from "./hud/SimulatorPanel";
@@ -186,6 +187,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const [messUntil, setMessUntil] = useState(0);
   const [orders, setOrders] = useState<CommanderOrders>({ target: null, order: 0, fromLift: false });
 
+  useStageAudio({ awake, deckId, doors, panel, dueling });
   useSyncCompanionPet();
   useProgressionSync(awake, deckId);
   const library = useCharacterLibrary(awake);

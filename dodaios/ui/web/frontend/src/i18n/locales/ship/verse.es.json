@@ -119,7 +119,8 @@
       "mouse_lock": "En tercera y primera persona un clic en la vista captura el ratón: moverlo gira la cámara y el botón izquierdo usa lo que señala la mira. Esc lo libera; L también lo captura o lo libera.",
       "reset": "Restablecer",
       "fov_third": "Campo de visión, tercera persona",
-      "fov_first": "Campo de visión, primera persona"
+      "fov_first": "Campo de visión, primera persona",
+      "volume": "Volumen del sonido"
     },
     "lift": {
       "title": "Turboascensor",

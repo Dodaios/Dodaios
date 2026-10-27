@@ -1,9 +1,9 @@
 /**
  * The person's own settings for the eye-level views: mouse sensitivity, an
  * inverted vertical axis, the field of view in third and in first person,
- * the render quality, and the view they last chose (bird's-eye, third or
- * first person). Cosmetic and local to this browser (localStorage, every
- * access guarded); never synced. Without storage the defaults apply and
+ * the render quality, the view they last chose (bird's-eye, third or
+ * first person) and the Verse's sound volume. Cosmetic and local to this
+ * browser (localStorage, every access guarded); never synced. Without storage the defaults apply and
  * changes last for the session.
  */
 import { create } from "zustand";
@@ -23,6 +23,8 @@ export interface ViewPrefs {
   /** Horizontal field of view in third and in first person, degrees (SHOULDER.minHfovDeg–maxHfovDeg). */
   fovThird: number;
   fovFirst: number;
+  /** The Verse's sound level, 0 (silent) to 1. */
+  volume: number;
   /** The view the person last chose. */
   view: VerseView;
 }
@@ -34,7 +36,7 @@ export interface ViewSettings extends ViewPrefs {
 
 export const VIEW_SETTINGS_KEY = "dodaios.verse.view.v1";
 export const VIEW_DEFAULTS: Readonly<ViewPrefs> = {
-  sensitivity: 1, invertY: false, quality: "auto", fovThird: SHOULDER.hfovDeg, fovFirst: SHOULDER.firstHfovDeg, view: "third",
+  sensitivity: 1, invertY: false, quality: "auto", fovThird: SHOULDER.hfovDeg, fovFirst: SHOULDER.firstHfovDeg, volume: 0.7, view: "third",
 };
 
 /** Whatever was stored (or nothing), as valid settings. Pure. */
@@ -49,6 +51,7 @@ export function normalizeViewPrefs(raw: unknown): ViewPrefs {
     quality: o.quality === "high" || o.quality === "low" ? o.quality : "auto",
     fovThird: typeof o.fovThird === "number" ? clampHfov(o.fovThird, VIEW_DEFAULTS.fovThird) : VIEW_DEFAULTS.fovThird,
     fovFirst: typeof o.fovFirst === "number" ? clampHfov(o.fovFirst, VIEW_DEFAULTS.fovFirst) : VIEW_DEFAULTS.fovFirst,
+    volume: typeof o.volume === "number" && Number.isFinite(o.volume) ? Math.min(1, Math.max(0, o.volume)) : VIEW_DEFAULTS.volume,
     view: normalizeView(o.view),
   };
 }
@@ -71,7 +74,7 @@ function write(prefs: ViewPrefs): void {
 }
 
 const prefsOf = (s: ViewPrefs): ViewPrefs => ({
-  sensitivity: s.sensitivity, invertY: s.invertY, quality: s.quality, fovThird: s.fovThird, fovFirst: s.fovFirst, view: s.view,
+  sensitivity: s.sensitivity, invertY: s.invertY, quality: s.quality, fovThird: s.fovThird, fovFirst: s.fovFirst, volume: s.volume, view: s.view,
 });
 
 export const useViewSettings = create<ViewSettings>((set, get) => ({

@@ -250,11 +250,11 @@ describe("view settings", () => {
 
   it("reads anything stored as valid settings", () => {
     expect(normalizeViewPrefs(null)).toEqual(VIEW_DEFAULTS);
-    expect(normalizeViewPrefs({ sensitivity: 99, invertY: "yes", quality: "ultra", fovThird: 400, fovFirst: "wide", view: "top" })).toEqual({
-      ...VIEW_DEFAULTS, sensitivity: LOOK_SENSITIVITY.max, fovThird: SHOULDER.maxHfovDeg,
+    expect(normalizeViewPrefs({ sensitivity: 99, invertY: "yes", quality: "ultra", fovThird: 400, fovFirst: "wide", volume: 7, view: "top" })).toEqual({
+      ...VIEW_DEFAULTS, sensitivity: LOOK_SENSITIVITY.max, fovThird: SHOULDER.maxHfovDeg, volume: 1,
     });
-    expect(normalizeViewPrefs({ sensitivity: 0.5, invertY: true, quality: "low", fovThird: 64, fovFirst: 95, view: "first" })).toEqual({
-      sensitivity: 0.5, invertY: true, quality: "low", fovThird: 64, fovFirst: 95, view: "first",
+    expect(normalizeViewPrefs({ sensitivity: 0.5, invertY: true, quality: "low", fovThird: 64, fovFirst: 95, volume: 0.25, view: "first" })).toEqual({
+      sensitivity: 0.5, invertY: true, quality: "low", fovThird: 64, fovFirst: 95, volume: 0.25, view: "first",
     });
   });
 
