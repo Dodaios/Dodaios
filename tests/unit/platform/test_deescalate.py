@@ -140,6 +140,10 @@ def _clean_deescalation_env(monkeypatch):
     """Neither guard variable may leak in from the host running the tests."""
     monkeypatch.delenv(DEESCALATION_ATTEMPTED_ENV, raising=False)
     monkeypatch.delenv(KEEP_ELEVATION_ENV, raising=False)
+    # Nor the host's desktop shell: CI runners often run Explorer elevated.
+    monkeypatch.setattr(
+        "dodaios.platform.input_isolation.windows_shell_is_elevated", lambda: False
+    )
 
 
 class TestBootTimeDeescalation:
