@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import stat
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -140,6 +141,43 @@ def test_ui_bundle_check_accepts_complete_entry_set(
     monkeypatch.setattr(installer, "repo_root", lambda: tmp_path)
 
     assert installer.step_ui_bundle_check() is True
+
+
+def test_ui_bundle_check_builds_a_missing_bundle_with_npm(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # main tracks no bundle: a branch install builds one when npm is there.
+    frontend = tmp_path / "dodaios" / "ui" / "web" / "frontend"
+    frontend.mkdir(parents=True)
+    (frontend / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    dist = tmp_path / "dodaios" / "ui" / "web" / "dist"
+    calls: list[list[str]] = []
+
+    def fake_build(cmd, *, label, cwd=None, timeout=None):
+        calls.append(cmd[1:])
+        if cmd[1:] == ["run", "build"]:
+            (dist / "assets").mkdir(parents=True)
+            (dist / "index.html").write_text(
+                '<script type="module" src="/assets/app.js"></script>', encoding="utf-8"
+            )
+            (dist / "assets" / "app.js").write_text("export {};\n", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(installer, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(installer.shutil, "which", lambda name: "npm")
+    monkeypatch.setattr(installer, "run_captured", fake_build)
+
+    assert installer.step_ui_bundle_check() is True
+    assert calls == [["ci"], ["run", "build"]]
+
+
+def test_ui_bundle_check_without_npm_reports_a_missing_bundle(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(installer, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(installer.shutil, "which", lambda name: None)
+
+    assert installer.step_ui_bundle_check() is False
 
 
 def test_desktop_registration_failure_is_install_failure(

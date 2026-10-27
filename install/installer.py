@@ -750,6 +750,29 @@ def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
     return False
 
 
+def _build_ui_bundle(index: Path) -> bool:
+    """Build the UI for a checkout that has none (main tracks no bundle).
+
+    Release tags carry a built bundle, so this only runs for an install of a
+    branch. It needs npm; without it the caller says so and stops.
+    """
+    npm = shutil.which("npm")
+    frontend = index.parent.parent / "frontend"
+    if npm is None or not (frontend / "package-lock.json").is_file():
+        return False
+    for args, label in (
+        (["ci"], "installing the UI build tools (npm ci)"),
+        (["run", "build"], "building the UI (npm run build)"),
+    ):
+        try:
+            result = run_captured([npm, *args], cwd=frontend, label=label, timeout=1800)
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        if result.returncode != 0:
+            return False
+    return index.is_file()
+
+
 def step_ui_bundle_check() -> bool:
     """Honest packaging check: the shipped UI build must be present + intact.
 
@@ -759,9 +782,10 @@ def step_ui_bundle_check() -> bool:
     """
     dist = repo_root() / "dodaios" / "ui" / "web" / "dist"
     index = dist / "index.html"
-    if not index.is_file():
-        note("no prebuilt UI found (dev clone?) - the app will serve a minimal page")
-        note("public installs always ship the UI; if you used the one-liner, please report this")
+    if not index.is_file() and not _build_ui_bundle(index):
+        note("no prebuilt UI found and Node.js/npm is not installed to build one")
+        note("release installs always ship the UI; a checkout of main needs "
+             "`npm run build` in dodaios/ui/web/frontend")
         return False
     import re
 

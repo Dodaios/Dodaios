@@ -99,20 +99,20 @@ def test_nothing_to_do_when_the_branch_has_mains_bundle(repo: Path) -> None:
     assert _git(repo, "rev-parse", "HEAD") == head
 
 
-def test_the_rebuild_branch_keeps_its_build(repo: Path) -> None:
+def test_the_retired_rebuild_branch_loses_its_build_too(repo: Path) -> None:
+    # main tracks no bundle any more: the old bot's pull request must not
+    # bring one back.
     _branch_with_own_build(repo, agent_integrate.BUNDLE_BOT_BRANCH)
-    head = _git(repo, "rev-parse", "HEAD")
 
-    assert agent_integrate.pin_bundle("main", repo) is False
-    assert _git(repo, "rev-parse", "HEAD") == head
+    assert agent_integrate.pin_bundle("main", repo) is True
+    assert _bundle(repo, "HEAD") == _bundle(repo, "main")
 
 
-def test_detached_train_worktree_uses_the_given_branch(repo: Path) -> None:
+def test_detached_train_worktree_drops_the_build_for_any_branch(repo: Path) -> None:
     _branch_with_own_build(repo, agent_integrate.BUNDLE_BOT_BRANCH)
     _git(repo, "checkout", "-q", "--detach")
 
-    assert agent_integrate.pin_bundle("main", repo, agent_integrate.BUNDLE_BOT_BRANCH) is False
-    assert agent_integrate.pin_bundle("main", repo, "claude/other") is True
+    assert agent_integrate.pin_bundle("main", repo, agent_integrate.BUNDLE_BOT_BRANCH) is True
     assert _bundle(repo, "HEAD") == _bundle(repo, "main")
 
 
@@ -144,3 +144,14 @@ def test_conflicting_bundles_merge_without_a_rebuild(repo: Path) -> None:
     assert report["status"] == "updated"
     assert "regenerated" not in report
     assert _bundle(repo, "HEAD") == _bundle(repo, "main")
+
+
+def test_a_branch_without_any_bundle_keeps_it_out(repo: Path) -> None:
+    # The change that stops main tracking dist/ must not get main's copy back.
+    _git(repo, "checkout", "-q", "-b", "claude/untrack", "main")
+    _git(repo, "rm", "-r", "-q", "--", agent_integrate.BUNDLE_DIR)
+    _git(repo, "commit", "-q", "-m", "untrack")
+    head = _git(repo, "rev-parse", "HEAD")
+
+    assert agent_integrate.pin_bundle("main", repo) is False
+    assert _git(repo, "rev-parse", "HEAD") == head

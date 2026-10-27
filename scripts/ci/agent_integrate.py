@@ -96,8 +96,8 @@ OLD_PACKAGE = "jarvis"
 NEW_PACKAGE = "dodaios"
 RENAME_SCRIPT = "scripts/rename/rewrite_package.py"
 BUNDLE_DIR = "dodaios/ui/web/dist"
-# The one branch that does carry a bundle: the Frontend bundle workflow's
-# rebuild of main (.github/workflows/frontend-bundle.yml).
+# The retired Frontend bundle workflow's branch. main tracks no bundle (release
+# tags carry their own build), so pin_bundle drops it there too.
 BUNDLE_BOT_BRANCH = "bot/frontend-bundle"
 AGENT_BRANCH_PREFIXES = ("codex/", "claude/", "agent/", "agents/", "gemini/", "cursor/", "bot/")
 OPT_OUT_LABELS = {"no-auto-merge", "do-not-merge", "wip", "needs-human"}
@@ -228,17 +228,19 @@ def pin_bundle(onto: str, cwd: Path, branch: str = "") -> bool:
     """Give HEAD the frontend bundle of ``onto`` and commit that if it changes
     anything. Returns whether a commit was made.
 
-    The bundle is built from main by the Frontend bundle workflow after each
-    merge. A branch that carries its own build conflicts with every other
-    frontend pull request the moment one of them lands, and the merge queue
-    ejects it, so its copy is dropped here. The workflow's own branch keeps
-    its build: that build is the point of it.
+    main tracks no bundle (release tags carry one built from their own
+    sources), so this drops any copy a branch still carries, for example one
+    cut before main stopped tracking it. A branch that carries its own build
+    would conflict with every other frontend pull request. No branch is
+    exempt, the retired rebuild bot's included: its pull request must never
+    bring the bundle back. ``branch`` is kept for the callers' signature.
     """
-    if not branch:
-        branch = git("rev-parse", "--abbrev-ref", "HEAD", check=False, cwd=cwd).stdout.strip()
-    if branch == BUNDLE_BOT_BRANCH:
-        return False
+    del branch
     if not git("diff", "--quiet", onto, "HEAD", "--", BUNDLE_DIR, check=False, cwd=cwd).returncode:
+        return False
+    if not _in_tree("HEAD", BUNDLE_DIR, cwd):
+        # This branch has no bundle at all: it is the one that stops main
+        # tracking it, or it was cut after that. Never put main's copy back.
         return False
     git("rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", BUNDLE_DIR, cwd=cwd)
     if _in_tree(onto, BUNDLE_DIR, cwd):
@@ -247,7 +249,7 @@ def pin_bundle(onto: str, cwd: Path, branch: str = "") -> bool:
         "commit",
         "-q",
         "-m",
-        "chore: keep main's frontend bundle, it is rebuilt on main after the merge",
+        "chore: drop the frontend bundle, main does not track it",
         check=False,
         cwd=cwd,
     )

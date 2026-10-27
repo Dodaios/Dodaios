@@ -46,11 +46,10 @@ htmlcov/
 node_modules/
 dist/
 build/
-# EXCEPTION: the built web UI ships IN the repo — a fresh clone/installer must
-# have a servable frontend without a Node toolchain (public installs relied on
-# this on every v1.0.x release). Rebuilt + committed as part of each release.
-!dodaios/ui/web/dist/
-!dodaios/ui/web/dist/**
+# The built web UI (dodaios/ui/web/dist) is NOT tracked on main: it was most
+# of the repo history. Each release tag carries one built from its own sources
+# (release-cut.yml, `bundle` + `tag` jobs), which is what installs, the updater
+# and PyPI read. A checkout of main builds it with `npm run build`.
 dodaios/ui/web/.frontend-*
 
 # Installer-managed-install marker: written by install/installer.py at install
