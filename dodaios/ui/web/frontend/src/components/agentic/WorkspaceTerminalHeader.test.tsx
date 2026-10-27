@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { WorkspaceTerminalHeader } from "./WorkspaceTerminalHeader";
 import { PANE_BRAND, PANE_CHROME, PANE_TILE, themeFor } from "./terminalThemes";
+import openaiLogo from "@/assets/providers/openai.svg?url";
 
 const BASE = { name: "Dana", agent: "codex", displayName: "Codex", appearance: "dark" as const, status: "live" as const };
 
@@ -73,7 +74,7 @@ describe("compact workspace terminal header", () => {
     expect(header.className).toContain("h-9");
     expect(within(header).getByText("Dana")).toBeTruthy();
     expect(within(header).getByRole("img", { name: "Dana: live" }).style.background).toBeTruthy();
-    expect(screen.getByTestId("agent-mark-codex").dataset.logo).toContain("openai.svg");
+    expect(screen.getByTestId("agent-mark-codex").dataset.logo).toBe(openaiLogo);
     expect(within(header).getAllByRole("button")).toHaveLength(5);
     expect(screen.queryByRole("menu")).toBeNull();
   });
