@@ -64,6 +64,17 @@ or elite and fight a 1v1 blaster duel against a bot, best of three; Esc pauses,
 Esc again leaves and puts the commander back on the deck. See
 [`combat.md`](combat.md).
 
+**Taking over a terminal.** Every desk monitor in Reactor Engineering that
+shows a coding pane is a station: within reach, E offers *Take over the
+terminal* and opens the pane's screen large (`hud/TakeoverPanel.tsx`). For a
+pane the IDE has mounted, every key goes straight to the agent as typed in the
+IDE (Enter, arrows, Tab, Esc interrupts, Ctrl+C, a paste arrives bracketed),
+through the IDE's own pane-input event with `focus: false`, so the hidden pane
+never steals the keyboard; Ctrl+Q or the close button leaves. A pane the IDE
+has not mounted shows the server's replay and takes a whole prompt per send
+(`/api/agentic-ide/terminals/{name}/prompt`, uncomposed). The master station's
+grid screens are not stations: they show every pane at once.
+
 **Views.** The tool rail's switch offers the **bird's-eye** view, **third
 person** and **first person**; 1, 2 and 3 pick one and V cycles them (the last
 choice is remembered). The bird's-eye view pulls the camera back over the

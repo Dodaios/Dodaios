@@ -260,6 +260,14 @@
     "board": {
       "on": "Hoverboard aberto: WASD desliza, Shift dá impulso. B o recolhe.",
       "off": "Hoverboard recolhido."
+    },
+    "takeover": {
+      "title": "Terminal",
+      "action": "Assumir o terminal",
+      "keys": "Teclado para o agente",
+      "hint_live": "Suas teclas vão direto para o agente: digite, Enter envia, Esc o interrompe, Ctrl+V cola. Ctrl+Q sai do terminal.",
+      "placeholder": "Prompt para este agente",
+      "send": "Enviar"
     }
   }
 }

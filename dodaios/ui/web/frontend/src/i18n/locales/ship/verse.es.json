@@ -260,6 +260,14 @@
     "board": {
       "on": "Hoverboard desplegado: WASD planea, Shift da impulso. B lo pliega.",
       "off": "Hoverboard plegado."
+    },
+    "takeover": {
+      "title": "Terminal",
+      "action": "Tomar el terminal",
+      "keys": "Teclado al agente",
+      "hint_live": "Tus teclas van directamente al agente: escribe, Intro envía, Esc lo interrumpe, Ctrl+V pega. Ctrl+Q sale del terminal.",
+      "placeholder": "Prompt para este agente",
+      "send": "Enviar"
     }
   }
 }

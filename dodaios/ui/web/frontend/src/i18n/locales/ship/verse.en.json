@@ -260,6 +260,14 @@
     "board": {
       "on": "Hoverboard out: WASD glides, Shift boosts. B folds it away.",
       "off": "Hoverboard folded away."
+    },
+    "takeover": {
+      "title": "Terminal",
+      "action": "Take over the terminal",
+      "keys": "Keyboard to the agent",
+      "hint_live": "Your keys go straight to the agent: type, Enter sends, Esc interrupts it, Ctrl+V pastes. Ctrl+Q leaves the terminal.",
+      "placeholder": "Prompt for this agent",
+      "send": "Send"
     }
   }
 }

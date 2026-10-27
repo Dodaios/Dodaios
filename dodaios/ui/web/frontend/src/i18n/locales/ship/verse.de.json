@@ -260,6 +260,14 @@
     "board": {
       "on": "Hoverboard ausgeklappt: WASD gleitet, Shift gibt Schub. B klappt es wieder ein.",
       "off": "Hoverboard eingeklappt."
+    },
+    "takeover": {
+      "title": "Terminal",
+      "action": "Terminal übernehmen",
+      "keys": "Tastatur an den Agenten",
+      "hint_live": "Deine Tasten gehen direkt an den Agenten: tippen, Enter schickt ab, Esc unterbricht ihn, Strg+V fügt ein. Strg+Q verlässt das Terminal.",
+      "placeholder": "Prompt für diesen Agenten",
+      "send": "Senden"
     }
   }
 }
