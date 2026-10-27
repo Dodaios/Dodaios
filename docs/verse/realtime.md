@@ -263,19 +263,30 @@ mid-thigh up, the room at eye level in depth.
 
 ### First-person viewmodel
 
-In first person the commander sees their own arms: gloved hands at the
-bottom of the frame on the deck, and in a duel fought through the eyes the
-blaster in the right hand with the left supporting it. Code:
+In first person the commander sees their own arms, cut from their own body
+with its real skin weights: gloved hands at the bottom of the frame on the
+deck, and in a duel fought through the eyes the blaster in the right hand
+with the left supporting it. Code:
 `src/components/society/verse/viewmodel/`.
 
 | File | Role |
 |---|---|
 | `motion.ts` | Pure: who is drawn (`viewmodelVisibility`: arms in exactly where the third-person body goes out, past 30 % of the blend; the body also goes when a wall pushes the shoulder camera within 0.55 m), the walk bob (a dip per footfall, a sway per stride, scaled by ground speed / walk speed up to 1.7), idle breathing, look lag (the arms trail a turn by up to 0.07 rad and settle in ~0.1 s) and the recoil spring (a shot kicks the blaster back ~2 cm and the muzzle up ~2.5°, settling in ~0.25 s). prefers-reduced-motion drops bob, sway and lag and halves the recoil. |
-| `arms.ts` | The arms, procedural: sleeves in the commander's uniform colour (the rank tier's `M_Uniform`), a gauntleted glove (rounded palm, armoured knuckle plate, a panel in the uniform's trim, two-segment lathe-turned fingers and thumb), a hand pose (`HandPose`: the three outer fingers, the index finger and the thumb apart, so the right index rests on the trigger), two-bone IK from shoulder to wrist (`solveElbow`), the forearm turned so its back follows the back of the hand. The left forearm carries the shield emitter. |
-| `viewmodel.ts` | The rig, its own scene and camera, posed every frame in the camera's space; the layout (`VIEWMODEL`: poses, holds, hand poses, shoulders, field of view, light). |
-| `rigMesh.ts` | One draw for the whole rig: `RigBuilder` bakes every part into one skinned geometry on its bone, `RigPalette` holds every surface as a texel of three float textures under one material; `chamferBox` (44 triangles). |
+| `armMesh.ts` | The arms cut from the commander's own body (`cutArms`): the officer the deck and the duel draw for them (`SK_Officer_M`/`_F`, chosen by id), every triangle hanging at least half on an arm bone (upper arm to fingertips: sleeve, cuff, hand) with its painted atlas UVs, baked occlusion and the body's own skin weights. The shared skeleton has one bone for the four fingers and one for the thumb, so the cut re-rigs the hand from its geometry: finger vertices are sorted into index, middle, ring and little finger across the hand (1-D k-means), each finger's axis and length are measured, and the finger bone's weight is shared out along three phalanges (joints at 47 % and 75 % of the finger, blended over ±6.5 %), the thumb's along three bones of its own. The forearm gets a twist bone (its weight runs from the elbow's hinge to the wrist's twist), so turning the hand over rolls the forearm as a radius does. 19 bones per arm. |
+| `arms.ts` | One arm's bones (`ViewArm`): two-bone IK from shoulder to wrist with the body's own lengths (`solveElbow`; a wrist out of reach draws the shoulder after it, never the hand off the sleeve), the forearm's hinge in the elbow's plane and its twist following the back of the hand, and a hand pose (`HandPose`: the three outer fingers, the index finger and the thumb apart; each finger curls through all three joints, the end joint following the middle one). |
+| `viewmodel.ts` | The rig, its own scene and camera, posed every frame in the camera's space; the layout (`VIEWMODEL`: poses, holds, hand poses, gloves, shoulders, field of view, light). Holds say where the held part sits in the hand's frame; `solveHolds` closes the hands on the blaster by searching each hold's knuckle and middle joints so every finger's joints and tip rest a finger's thickness off the grip (a raked box) or the shroud (a cylinder), and rests the right index finger's pad on the trigger. |
+| `rigMesh.ts` | The blaster and the shield emitter as one skinned mesh: `RigBuilder` bakes every part into one geometry on its bone, `RigPalette` holds every surface as a texel of three float textures under one material; `chamferBox` (44 triangles). |
 | `viewmodelPass.ts` | The draw: a pass in the eye view's post chain after the deck's render pass, into the same multisampled HDR target with depth cleared first (so the arms get the deck's anti-aliasing, bloom and AgX and never meet a wall); on the low tier the same draw straight to the screen. No full-screen pass of its own. |
-| `ViewmodelLayer.tsx` | Mounts the viewmodel on a stage with an eye-level view (`runtime.viewmodel`) and tells it each frame what to show: the deck's hands, the duel's blaster, or nothing. |
+| `ViewmodelLayer.tsx` | Mounts the viewmodel on a stage with an eye-level view (`runtime.viewmodel`), cuts the arms from the commander's body once the character library has it (`attachArms`; until then only the blaster shows), and tells it each frame what to show: the deck's hands, the duel's blaster, or nothing. |
+
+The arms wear the body's atlas under one material: the material colours
+multiply into the vertex colours over the baked occlusion (the sleeves in the
+rank tier's `M_Uniform`, repainted on a promotion; the cuff's trim band in
+the same cloth, because a hand's breadth from the eye its sawtooth edge
+would show as a change of tone, and lifted 1.8 mm off the sleeve it cuts
+through). The officer's bare hands are gloved (`VIEWMODEL.gloves`, dark
+leather multiplied into the hands' painted atlas, so knuckles and tendons
+keep their relief; `null` shows the skin).
 
 The viewmodel camera takes the eye camera's orientation but sits at the
 origin with its own near plane (1 cm) and a fixed horizontal field of view
@@ -301,20 +312,24 @@ dodge dips the arms. Each shot kicks the recoil spring and flashes at the
 muzzle (a sprite and a short light on the hands); the world's own muzzle
 flash and vent steam for the person are skipped in first person.
 
-Budget: both arms and the blaster are one skinned mesh (`rigMesh.ts`): every
-rigid part is baked into one geometry with each vertex bound at full weight
-to the bone it moves with (sleeves, forearm, gauntlet, hand, each finger
-segment, the blaster), and every surface is a texel of a small float palette
-(albedo, roughness and metalness, emission) under one material. The
-blaster's glowing parts copy its heat colours into the palette each frame;
-on the deck its vertices collapse to a point. That is one draw on the deck
-and two or three in a duel (the rig, the sight's reticle, the muzzle flash),
-about 2,900 triangles (chamfered boxes are 44 triangles each). The rig test
-holds it to 3 draws and 3,000 triangles.
+Budget: both arms are one skinned mesh under one material (about 3,070
+triangles from the officer body); the blaster and the shield emitter are a
+second (`rigMesh.ts`: every rigid part baked into one geometry at full weight
+on its bone, every surface a texel of a small float palette; about 1,100
+triangles). The blaster's glowing parts copy its heat colours into the
+palette each frame; on the deck its vertices collapse to a point. That is two
+draws on the deck and four in a duel (the arms, the blaster, the sight's
+reticle, the muzzle flash), about 4,200 triangles. The rig test holds it to
+4 draws and 6,000 triangles; the cut's tests hold every vertex to four
+normalised weights on its own arm, blended elbows, wrists and knuckles, three
+weighted phalanges per finger and thumb, the fingers sorted across the hand,
+the bind pose reproduced exactly, and a bent elbow with a closed fist that
+neither tears nor collapses a triangle.
 
 Development handle (dev builds only): `window.__verseViewmodel = { layout,
-arm, motion, retune(), viewmodel }` tunes the layout live: change `layout`
-(or `arm`), then `retune()`.
+arm, cut, motion, retune(), viewmodel }` tunes the layout live: change
+`layout` (or `arm`), then `retune()` (it repaints and closes the hands
+again); `cut` takes effect when the arms are next cut.
 
 QA hook (every build): `window.__verseView = { set(view), look(dx, dy),
 zoom(factor), state() }` switches views, turns and zooms without a mouse
