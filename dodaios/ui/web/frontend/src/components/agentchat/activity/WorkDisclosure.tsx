@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { ChevronRight, ListTree } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import type { TurnItem } from "../reduce";
 import { plural, traceDuration } from "../traceEntries";
@@ -35,7 +35,6 @@ export const WorkDisclosure = memo(function WorkDisclosure({ turn, open, onOpen 
   return <button type="button" className="run-work" onClick={onOpen} aria-expanded={open}
     aria-label={`${label}. ${t("run_view.work.open")}`} title={t("run_view.work.open")}
     data-testid="work-disclosure" data-turn={turn.id}>
-    <ListTree aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
     <span className="min-w-0 truncate">
       {lead.map((part, i) => <span key={i}>
         {i > 0 ? <span className="run-work-sep" aria-hidden> · </span> : null}{part}

@@ -1,17 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  ArrowUpRight,
-  Bell,
-  BellOff,
-  Check,
-  Inbox,
-  KeyRound,
-  MessageCircleQuestion,
-  ShieldAlert,
-  SlidersHorizontal,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { Bell, BellOff, SlidersHorizontal, X } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -20,7 +8,7 @@ import { AgentSwatch } from "@/components/society/AgentSwatch";
 import { useSocietyRoster, type SocietyAgent } from "@/components/society/data";
 import { openAgent } from "@/views/society/agentNavigation";
 
-import { quickActionsFor, runQuickAction, type AttentionItem, type AttentionKind, type QuickAction } from "./attentionApi";
+import { quickActionsFor, runQuickAction, type AttentionItem, type QuickAction } from "./attentionApi";
 import {
   desktopNotificationsSupported,
   desktopPermission,
@@ -40,16 +28,12 @@ import { useAgentAttention, type AttentionGroup } from "./useAgentAttention";
  * one-pick question, an approval, a proposed change) and every row opens its
  * card in the agent's chat. Nothing in this list ever widens a permission:
  * "allow" here always means this once.
+ *
+ * Calm like the rest of the Agent section: words instead of kind icons,
+ * rows that separate by space, round buttons, nothing below 12px.
  */
 
 const LETTERS = "ABCD";
-
-const KIND_ICON: Record<AttentionKind, typeof ShieldAlert> = {
-  question: MessageCircleQuestion,
-  approval: ShieldAlert,
-  credential: KeyRound,
-  proposal: Sparkles,
-};
 
 /** A clock that ticks every `ms` while something on screen depends on it. */
 function useNow(ms: number): number {
@@ -96,10 +80,10 @@ export function AttentionInbox({ onClose, className }: { onClose?: () => void; c
 
   return (
     <div className={cn("flex max-h-[min(70vh,560px)] min-h-0 flex-col", className)} data-testid="attention-inbox">
-      <header className="flex items-center gap-2 border-b border-border px-4 pb-2.5 pt-3">
-        <h2 className="m-0 text-sm font-semibold text-foreground-strong">{t("agent_attention.title")}</h2>
+      <header className="flex items-center gap-2 px-4 pb-2 pt-3.5">
+        <h2 className="m-0 text-[15px] font-semibold text-foreground-strong">{t("agent_attention.title")}</h2>
         {count > 0 && (
-          <span className="rounded-full bg-secondary px-1.5 text-xs font-medium tabular-nums text-muted-foreground" data-testid="attention-inbox-count">
+          <span className="text-[13px] tabular-nums text-muted-foreground" data-testid="attention-inbox-count">
             {count}
           </span>
         )}
@@ -110,35 +94,31 @@ export function AttentionInbox({ onClose, className }: { onClose?: () => void; c
           aria-expanded={settings}
           aria-label={t("agent_attention.settings")}
           title={t("agent_attention.settings")}
-          className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150",
-            "hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            settings && "bg-secondary text-foreground",
-          )}
+          className={cn(ROUND_ICON, settings && "bg-secondary text-foreground")}
         >
-          <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
+          <SlidersHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden />
         </button>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
             aria-label={t("agent_attention.close")}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={ROUND_ICON}
           >
-            <X className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
+            <X className="h-4 w-4" strokeWidth={1.8} aria-hidden />
           </button>
         )}
       </header>
       {settings && <NotificationSettings />}
       <div className="chat-scroller min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {isLoading && groups.length === 0 ? (
-          <p role="status" className="px-3 py-6 text-center text-xs text-muted-foreground">{t("agent_attention.loading")}</p>
+          <p role="status" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{t("agent_attention.loading")}</p>
         ) : isError && groups.length === 0 ? (
-          <p role="alert" className="px-3 py-6 text-center text-xs text-muted-foreground">{t("agent_attention.unavailable")}</p>
+          <p role="alert" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{t("agent_attention.unavailable")}</p>
         ) : groups.length === 0 ? (
           <EmptyInbox />
         ) : (
-          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {groups.map((group) => (
               <AgentGroupRow key={group.agentId} group={group} agent={agents.get(group.agentId)} now={now} onOpened={onClose} />
             ))}
@@ -152,12 +132,9 @@ export function AttentionInbox({ onClose, className }: { onClose?: () => void; c
 function EmptyInbox() {
   const t = useT();
   return (
-    <div className="flex flex-col items-center gap-2 px-6 py-8 text-center" data-testid="attention-inbox-empty">
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-        <Inbox className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-      </span>
-      <p className="m-0 text-sm font-medium text-foreground">{t("agent_attention.empty_title")}</p>
-      <p className="m-0 max-w-[260px] text-xs leading-relaxed text-muted-foreground">{t("agent_attention.empty_body")}</p>
+    <div className="flex flex-col items-center gap-1.5 px-6 py-10 text-center" data-testid="attention-inbox-empty">
+      <p className="m-0 text-[14px] font-medium text-foreground">{t("agent_attention.empty_title")}</p>
+      <p className="m-0 max-w-[260px] text-[13px] leading-relaxed text-muted-foreground">{t("agent_attention.empty_body")}</p>
     </div>
   );
 }
@@ -170,15 +147,15 @@ function AgentGroupRow({ group, agent, now, onOpened }: {
   const name = agent?.name || group.agentId;
   const muteLabel = fill(t(muted ? "agent_attention.unmute" : "agent_attention.mute"), { agent: name });
   return (
-    <li className="group/agent rounded-lg" data-testid="attention-group" data-agent-id={group.agentId}>
-      <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
-        {agent ? <AgentSwatch agent={agent} size={20} /> : <span aria-hidden className="h-5 w-5 rounded-full bg-secondary" />}
-        <span className="min-w-0 truncate text-xs font-semibold text-foreground">{name}</span>
-        <span className="text-xs tabular-nums text-muted-foreground">
+    <li className="group/agent" data-testid="attention-group" data-agent-id={group.agentId}>
+      <div className="flex items-center gap-2.5 px-2 pb-1 pt-1">
+        {agent ? <AgentSwatch agent={agent} size={24} /> : <span aria-hidden className="h-6 w-6 rounded-full bg-secondary" />}
+        <span className="min-w-0 truncate text-[14px] font-semibold text-foreground">{name}</span>
+        <span className="text-[13px] tabular-nums text-muted-foreground">
           {fill(t("agent_attention.waiting_count"), { count: group.items.length })}
         </span>
         <span className="flex-1" />
-        {muted && <span className="text-xs text-muted-foreground">{t("agent_attention.muted")}</span>}
+        {muted && <span className="text-[13px] text-muted-foreground">{t("agent_attention.muted")}</span>}
         <button
           type="button"
           onClick={() => toggleAgentMuted(group.agentId)}
@@ -186,15 +163,14 @@ function AgentGroupRow({ group, agent, now, onOpened }: {
           aria-label={muteLabel}
           title={muteLabel}
           className={cn(
-            "inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[opacity,color,background-color] duration-150",
-            "hover:bg-secondary hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            ROUND_ICON, "transition-[opacity,color,background-color] focus-visible:opacity-100",
             muted ? "opacity-100" : "opacity-0 group-hover/agent:opacity-100",
           )}
         >
           {muted ? <BellOff className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden /> : <Bell className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />}
         </button>
       </div>
-      <ul className="m-0 flex list-none flex-col p-0">
+      <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0">
         {group.items.map((item) => (
           <AttentionRow key={`${item.sessionId}:${item.refId}`} item={item} now={now} onOpened={onOpened} />
         ))}
@@ -214,8 +190,6 @@ function AttentionRow({ item, now, onOpened }: { item: AttentionItem; now: numbe
   const [error, setError] = useState(false);
   const [done, setDone] = useState(false);
   const actions = quickActionsFor(item);
-  const Icon = KIND_ICON[item.kind] ?? MessageCircleQuestion;
-  const live = item.source === "chat";
 
   const run = async (action: QuickAction, index: number) => {
     if (busy !== null) return;
@@ -245,75 +219,59 @@ function AttentionRow({ item, now, onOpened }: { item: AttentionItem; now: numbe
   return (
     <li
       className={cn(
-        "group/item relative flex gap-2.5 rounded-lg px-2 py-2 transition-[background-color,opacity] duration-200",
+        "relative rounded-[18px] bg-secondary/50 px-3.5 py-3 transition-[background-color,opacity] duration-200",
         "hover:bg-secondary focus-within:bg-secondary",
-        done && "opacity-60",
+        done && "opacity-50",
       )}
       data-testid="attention-item"
       data-kind={item.kind}
       data-ref={item.refId}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary group-hover/item:bg-background",
-          live ? "text-warning" : "text-muted-foreground",
-        )}
-      >
-        {done ? <Check className="h-3.5 w-3.5 text-foreground" strokeWidth={2.2} /> : <Icon className="h-3.5 w-3.5" strokeWidth={1.9} />}
-      </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <button
           type="button"
           onClick={() => open(item, onOpened)}
-          className="block w-full rounded-sm text-left text-sm leading-snug text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="block w-full rounded-md text-left text-[14px] leading-snug text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="line-clamp-2 [overflow-wrap:anywhere]">{item.summary || kindLabel(t, item)}</span>
         </button>
-        <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+        <p className="m-0 mt-1 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
           {meta.map((part, index) => (
             <span key={index} className="inline-flex items-center gap-1.5">
-              {index > 0 && <span aria-hidden className="text-border-strong">·</span>}
+              {index > 0 && <span aria-hidden>·</span>}
               {part}
             </span>
           ))}
         </p>
         {actions.length > 0 && !done && (
-          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t("agent_attention.quick_answer")}>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t("agent_attention.quick_answer")}>
             {actions.map((action, index) => (
               <QuickButton key={index} item={item} action={action} index={index} busy={busy} onRun={run} />
             ))}
           </div>
         )}
         {error && (
-          <p role="alert" className="m-0 mt-1.5 text-xs text-destructive">{t("agent_attention.failed")}</p>
+          <p role="alert" className="m-0 mt-2 text-[13px] text-destructive">{t("agent_attention.failed")}</p>
         )}
       </div>
-      <button
-        type="button"
-        onClick={() => open(item, onOpened)}
-        aria-label={t("agent_attention.open_card")}
-        title={t("agent_attention.open_card")}
-        className={cn(
-          "mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-[opacity,color] duration-150",
-          "opacity-0 hover:text-foreground group-hover/item:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        )}
-      >
-        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
-      </button>
     </li>
   );
 }
 
 const QUIET_BUTTON =
-  "inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs text-foreground " +
-  "transition-colors duration-150 hover:border-border-strong hover:bg-surface-raised disabled:opacity-50 " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-background px-3.5 text-[13px] font-medium text-foreground " +
+  "shadow-[inset_0_0_0_1px_hsl(var(--border)/0.7)] transition-colors duration-150 hover:bg-surface-raised disabled:opacity-50 " +
+  "motion-safe:active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 const INK_BUTTON =
-  "inline-flex h-7 items-center gap-1.5 rounded-md bg-foreground px-2.5 text-xs font-medium text-background " +
-  "transition-opacity duration-150 hover:opacity-90 disabled:opacity-50 " +
+  "inline-flex h-8 items-center gap-1.5 rounded-full bg-foreground px-4 text-[13px] font-medium text-background " +
+  "transition-opacity duration-150 hover:opacity-90 disabled:opacity-50 motion-safe:active:scale-[0.97] " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
+
+/** The round icon buttons: settings, close, mute. */
+const ROUND_ICON =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 " +
+  "hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function QuickButton({ item, action, index, busy, onRun }: {
   item: AttentionItem;
@@ -329,7 +287,7 @@ function QuickButton({ item, action, index, busy, onRun }: {
     return (
       <button type="button" disabled={disabled} onClick={() => onRun(action, index)} className={QUIET_BUTTON}
         aria-label={label} data-testid="attention-option">
-        <span aria-hidden className="font-mono text-xs text-muted-foreground">{LETTERS[action.index]}</span>
+        <span aria-hidden className="text-[13px] text-muted-foreground">{LETTERS[action.index]}</span>
         <span className="truncate">{label}</span>
       </button>
     );
@@ -360,7 +318,7 @@ function NotificationSettings() {
       : t("agent_attention.desktop_hint");
   const switching = useRef(false);
   return (
-    <section className="flex flex-col gap-3 border-b border-border bg-sidebar px-4 py-3" aria-label={t("agent_attention.settings")}
+    <section className="mx-3 mb-1 flex flex-col gap-3 rounded-[18px] bg-secondary/50 px-4 py-3.5" aria-label={t("agent_attention.settings")}
       data-testid="attention-settings">
       <SettingRow
         id="attention-desktop"
@@ -394,8 +352,8 @@ function SettingRow({ id, label, hint, checked, disabled = false, onChange }: {
   return (
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
-        <label htmlFor={id} className="block text-xs font-medium text-foreground">{label}</label>
-        <p id={`${id}-hint`} className="m-0 mt-0.5 text-xs leading-relaxed text-muted-foreground">{hint}</p>
+        <label htmlFor={id} className="block text-[14px] font-medium text-foreground">{label}</label>
+        <p id={`${id}-hint`} className="m-0 mt-0.5 text-[13px] leading-relaxed text-muted-foreground">{hint}</p>
       </div>
       <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} aria-describedby={`${id}-hint`} />
     </div>

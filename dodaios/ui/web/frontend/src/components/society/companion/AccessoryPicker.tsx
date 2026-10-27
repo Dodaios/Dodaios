@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Lock, Shuffle, Sparkles, X } from "lucide-react";
+import { Lock } from "lucide-react";
+import "../calmSheet.css";
 import { useT } from "@/i18n";
 import { AgentSymbol } from "../AgentSymbol";
 import { ACCESSORY_IDS_BY_SLOT, OFFERED_SLOTS, randomAccessories, type AccessoryChoice, type AccessorySlot } from "./accessories";
@@ -32,22 +33,21 @@ export function AccessoryPicker({ value, onChange, agentId }: { value: Companion
     const rolled = randomAccessories();
     onChange(Object.fromEntries(Object.entries(rolled).filter(([, id]) => id && wearable(id))) as AccessoryChoice);
   };
-  const tile = "relative grid h-[84px] w-[84px] place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const tile = "calm-tile relative h-[84px] w-[84px]";
   return <div data-testid="accessory-picker">
     <div className="mb-2 flex items-center justify-between gap-2">
-      <span className="text-sm font-medium">{t("society.companion.accessories")}</span>
+      <span className="text-[14px] font-medium">{t("society.companion.accessories")}</span>
       <div className="flex gap-1">
-        <button type="button" onClick={surprise} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground">
-          <Shuffle size={14} />{t("society.companion.randomize")}
+        <button type="button" onClick={surprise} className="cs-chip">
+          {t("society.companion.randomize")}
         </button>
-        <button type="button" disabled={!Object.keys(worn).length} onClick={() => onChange({})} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40">
-          <X size={14} />{t("society.companion.remove_all")}
+        <button type="button" disabled={!Object.keys(worn).length} onClick={() => onChange({})} className="cs-chip disabled:opacity-40">
+          {t("society.companion.remove_all")}
         </button>
       </div>
     </div>
     {looks.unlocks && (
-      <p className="mb-3 flex items-center gap-1.5 rounded-lg bg-secondary/60 px-3 py-2 text-xs text-muted-foreground" data-testid="look-progress">
-        <Sparkles size={14} className="shrink-0 text-primary" aria-hidden />
+      <p className="mb-3 rounded-2xl bg-secondary/50 px-4 py-2.5 text-[13px] text-muted-foreground" data-testid="look-progress">
         {upcoming
           ? t("society.companion.next_look").replace("{0}", String(looks.level)).replace("{1}", t(`society.companion.items.${upcoming.id}`)).replace("{2}", String(upcoming.level))
           : t("society.companion.all_looks_open")}
@@ -58,7 +58,7 @@ export function AccessoryPicker({ value, onChange, agentId }: { value: Companion
       marked={new Set(PICKER_SLOTS.filter(s => worn[s]))} /></div>
     <div className="flex flex-wrap gap-2" role="group" aria-label={t(`society.companion.slots.${slot}`)}>
       <button type="button" aria-pressed={!worn[slot]} aria-label={t("society.companion.none")} title={t("society.companion.none")} onClick={() => choose(undefined)}
-        className={`${tile} text-xs text-muted-foreground ${!worn[slot] ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
+        className={`${tile} text-[13px] text-muted-foreground`} data-on={!worn[slot]}>
         {t("society.companion.none")}
       </button>
       {/* Open looks first, then the rest in the order the agent will earn them. */}
@@ -70,7 +70,7 @@ export function AccessoryPicker({ value, onChange, agentId }: { value: Companion
         const label = open ? name : `${name} · ${t("society.companion.unlocks_at").replace("{0}", String(at))}`;
         return <button key={id} type="button" aria-pressed={active} aria-label={label} title={label} disabled={!open} onClick={() => choose(id)}
           data-locked={open ? undefined : "true"}
-          className={`${tile} ${active ? "border-foreground bg-secondary" : open ? "border-border hover:bg-secondary" : "cursor-not-allowed border-dashed border-border"}`}>
+          className={`${tile} ${open ? "" : "cursor-not-allowed"}`} data-on={active}>
           <span className={open ? undefined : "opacity-35 grayscale"}>
             <AgentSymbol shape={value.shape} color={value.color} eyes={value.eyes} skin={value.skin} accessories={{ ...worn, [slot]: id }} size={68} />
           </span>

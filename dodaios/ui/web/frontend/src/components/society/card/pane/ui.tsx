@@ -3,8 +3,8 @@
  * anatomy row that opens somewhere, a compact segmented control, a chip list
  * with an add field. Styling lives in `agentPane.css` and uses theme tokens only.
  */
-import { useRef, useState, type ReactNode } from "react";
-import { Plus, X, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Check, ChevronDown, Plus, X, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -93,6 +93,7 @@ export function Segmented<T extends string>({
   onChange,
   label,
   size = "md",
+  fill = false,
   disabled = false,
   testId,
 }: {
@@ -101,11 +102,13 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
   label: string;
   size?: "sm" | "md";
+  /** Stretch across the row, each choice taking an equal share. */
+  fill?: boolean;
   disabled?: boolean;
   testId?: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="ap-seg" data-size={size} data-testid={testId}>
+    <div role="radiogroup" aria-label={label} className="ap-seg" data-size={size} data-fill={fill || undefined} data-testid={testId}>
       {options.map((option) => {
         const Icon = option.icon;
         const checked = option.value === value;
@@ -130,6 +133,101 @@ export function Segmented<T extends string>({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * One round pill that names the current choice and opens a short menu of the
+ * others: a single quiet control per row where a segmented control would
+ * repeat three small buttons down a long list.
+ */
+export function ChoicePill<T extends string>({
+  value,
+  shownLabel,
+  options,
+  onChange,
+  label,
+  disabled = false,
+}: {
+  value: T;
+  /** What the pill says for `value` (it may differ from the option's verb). */
+  shownLabel: string;
+  options: SegmentOption<T>[];
+  onChange: (value: T) => void;
+  /** What the pill chooses, for assistive technology ("Gmail"). */
+  label: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setOpen(false);
+        root.current?.querySelector<HTMLButtonElement>(".ap-pill")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape, true);
+    // The checked item takes focus, so arrow keys and Enter work at once.
+    root.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]')?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", escape, true);
+    };
+  }, [open]);
+  const move = (event: { key: string; preventDefault: () => void }) => {
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const items = [...(root.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not(:disabled)') ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    items[(at + step + items.length) % items.length]?.focus();
+  };
+  return (
+    <span ref={root} className="relative shrink-0">
+      <button
+        type="button"
+        className="ap-pill"
+        data-value={value}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${label}: ${shownLabel}`}
+        disabled={disabled}
+        onClick={() => setOpen((was) => !was)}
+      >
+        {shownLabel}
+        <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
+      </button>
+      {open ? (
+        <div role="menu" aria-label={label} className="ap-menu ap-pill-menu shadow-float" onKeyDown={move}>
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={option.value === value}
+              data-value={option.value}
+              disabled={option.disabled}
+              title={option.title}
+              className="ap-menu-item"
+              onClick={() => {
+                setOpen(false);
+                if (option.value !== value) onChange(option.value);
+              }}
+            >
+              <span className="flex-1">{option.label}</span>
+              {option.value === value ? <Check className="h-3.5 w-3.5" aria-hidden /> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </span>
   );
 }
 

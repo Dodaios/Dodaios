@@ -31,11 +31,14 @@ export function ComputerPicker({
   value,
   onChange,
   labelClass,
+  layout = "field",
   testId = "society-computer-picker",
 }: {
   value: string;
   onChange: (computerId: string) => void;
   labelClass?: string;
+  /** "row": a pane card line, label left and a quiet picker right, the hint below. */
+  layout?: "field" | "row";
   testId?: string;
 }) {
   const t = useT();
@@ -45,9 +48,12 @@ export function ComputerPicker({
   const rows = (computers.data ?? []).filter((c) => c.enabled !== false || c.id === value);
   const chosen = rows.find((c) => c.id === value);
 
+  const row = layout === "row";
   return (
     <div data-testid={testId}>
-      <span className={labelClass}>{t("society.create.runs_on")}</span>
+      <div className={row ? "ap-line" : undefined}>
+      <span className={row ? "ap-line-label" : labelClass}>{t("society.create.runs_on")}</span>
+      <span className={row ? "ml-auto min-w-0 shrink-0" : undefined}>
       <Combobox
         value={value}
         groups={[
@@ -70,8 +76,13 @@ export function ComputerPicker({
         ]}
         onChange={onChange}
         ariaLabel={t("society.create.runs_on")}
+        className={row ? "ap-pick" : undefined}
+        triggerIcon={!row}
+        triggerHint={!row}
       />
-      <p className="mt-1 text-xs text-muted-foreground">
+      </span>
+      </div>
+      <p className={row ? "ap-hint px-3 pb-2 pt-1" : "mt-1 text-xs text-muted-foreground"}>
         {chosen
           ? chosen.health.status === "online"
             ? t("society.create.runs_on_remote_hint")

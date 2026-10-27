@@ -58,6 +58,7 @@
       "tool_block": "Sperren",
       "tool_on": "An",
       "tool_first": "Zuerst nutzen",
+      "tool_blocked": "Gesperrt",
       "show_all": "Alle {0} zeigen",
       "show_less": "Weniger zeigen",
       "approvals": "Berechtigungen",

@@ -14,11 +14,10 @@
  * (fixed for the agent's life) and any connected provider. Mounted once
  * (App.tsx); every plus opens it through `useCreateAgentDialog`.
  */
-import { useEffect, useMemo, useRef, useState, Suspense, lazy, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense, lazy, type KeyboardEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FileInput, LayoutGrid, Loader2, PencilLine, TriangleAlert, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -33,19 +32,15 @@ import { EMPTY_IMPORT, ImportTemplatePane, type ImportState } from "./ImportTemp
 import { SeatFields, SeatSummary, useCreateSeat, type SeatPick } from "./SeatFields";
 import { StarterGallery } from "./StarterGallery";
 import { defaultTools, starterCopy, type AreaFilter } from "./starterFilters";
-import { StarterIcon } from "./starterIcons";
 import { installStarter, useStarters, type InstallStarterResult, type Starter, type StarterSeat } from "./startersApi";
 import { TemplatePreviewCard } from "./TemplatePreviewCard";
+import "../calmSheet.css";
 
 const CompanionEditor = lazy(() =>
   import("../companion/CompanionEditor").then((m) => ({ default: m.CompanionEditor })),
 );
 
-const MODES: readonly { id: CreateAgentMode; icon: ReactNode }[] = [
-  { id: "quick", icon: <PencilLine className="size-3.5" aria-hidden /> },
-  { id: "starter", icon: <LayoutGrid className="size-3.5" aria-hidden /> },
-  { id: "import", icon: <FileInput className="size-3.5" aria-hidden /> },
-];
+const MODES: readonly { id: CreateAgentMode }[] = [{ id: "quick" }, { id: "starter" }, { id: "import" }];
 
 /** A new agent starts as a pixel creature; the shape underneath is there for a change of mind. */
 function randomCompanion(): CompanionAppearance {
@@ -233,22 +228,22 @@ function CreateAgentDialog() {
           aria-describedby={undefined}
           className={cn(
             "fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden",
-            "rounded-[18px] border border-border bg-popover text-foreground shadow-float",
+            "cs-sheet",
             mode === "quick" ? "w-[min(880px,calc(100vw-24px))]" : "h-[min(720px,92dvh)] w-[min(960px,calc(100vw-24px))]",
           )}
         >
-          <header className="flex shrink-0 flex-col gap-3 border-b border-border px-5 pb-3 pt-4">
-            <div className="flex items-start gap-3">
+          <header className="cs-head">
+            <div className="cs-head-row">
               <div className="min-w-0 flex-1">
-                <Dialog.Title className="text-lg font-semibold text-foreground-strong">{t("society.create_agent.title")}</Dialog.Title>
-                <p className="text-sm text-muted-foreground" data-testid="create-agent-subtitle">{t(`agent_create.mode.${mode}_hint`)}</p>
+                <Dialog.Title className="cs-title">{t("society.create_agent.title")}</Dialog.Title>
+                <p className="cs-sub" data-testid="create-agent-subtitle">{t(`agent_create.mode.${mode}_hint`)}</p>
               </div>
               <button type="button" aria-label={t("society.card.close")} onClick={() => { if (!saving) (created ? finish(created.agent) : cancel()); }}
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <X size={18} />
+                className="cs-close">
+                <X size={16} aria-hidden />
               </button>
             </div>
-            <div role="tablist" aria-label={t("agent_create.mode.label")} className="flex w-full gap-1 rounded-[10px] border border-border bg-background/60 p-1 sm:w-auto sm:self-start">
+            <div role="tablist" aria-label={t("agent_create.mode.label")} className="cs-tabs">
               {MODES.map((entry, index) => {
                 const on = entry.id === mode;
                 return (
@@ -263,13 +258,8 @@ function CreateAgentDialog() {
                     disabled={saving || Boolean(created)}
                     onClick={() => { setMode(entry.id); setError(null); }}
                     data-testid={`create-agent-mode-${entry.id}`}
-                    className={cn(
-                      "inline-flex flex-1 items-center justify-center gap-1.5 rounded-[7px] px-3 py-1.5 text-sm transition-colors duration-150 sm:flex-none",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-                      on ? "bg-secondary text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
+                    className="cs-tab"
                   >
-                    {entry.icon}
                     {t(`agent_create.mode.${entry.id}`)}
                   </button>
                 );
@@ -280,9 +270,9 @@ function CreateAgentDialog() {
           <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
             {mode === "quick" ? (
               <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-2 md:overflow-hidden">
-                <div className="flex min-h-0 flex-col gap-5 p-5 md:overflow-y-auto">
-                  <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="font-medium">{t("society.create_agent.name_label")}</span>
+                <div className="flex min-h-0 flex-col gap-5 px-6 pb-6 pt-3 md:overflow-y-auto">
+                  <label className="flex flex-col gap-2">
+                    <span className="cs-label">{t("society.create_agent.name_label")}</span>
                     <Input
                       autoFocus
                       value={name}
@@ -293,10 +283,10 @@ function CreateAgentDialog() {
                       data-testid="create-agent-name"
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-sm">
+                  <label className="flex flex-col gap-2">
                     <span className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium">{t("agent_create.quick.job_label")}</span>
-                      <span className="text-xs text-foreground-faint">{t("agent_create.quick.optional")}</span>
+                      <span className="cs-label">{t("agent_create.quick.job_label")}</span>
+                      <span className="cs-hint">{t("agent_create.quick.optional")}</span>
                     </span>
                     <Input
                       value={job}
@@ -306,24 +296,24 @@ function CreateAgentDialog() {
                       disabled={saving}
                       data-testid="create-agent-job"
                     />
-                    <span className="text-xs text-muted-foreground">{t("agent_create.quick.job_hint")}</span>
+                    <span className="cs-hint">{t("agent_create.quick.job_hint")}</span>
                   </label>
-                  <div className="flex flex-col gap-1.5 text-sm">
-                    <span className="font-medium">{t("society.create_agent.companion_label")}</span>
-                    <div className="-mx-5">
+                  <div className="flex flex-col gap-2">
+                    <span className="cs-label">{t("society.create_agent.companion_label")}</span>
+                    <div className="-mx-4">
                       <Suspense fallback={null}>
                         <CompanionEditor value={companion} onChange={setCompanion} disabled={saving} />
                       </Suspense>
                     </div>
                   </div>
                 </div>
-                <div className="min-h-0 border-t border-border p-5 md:overflow-y-auto md:border-l md:border-t-0">
+                <div className="min-h-0 px-6 pb-6 pt-3 md:overflow-y-auto">
                   <SeatFields seat={seat} disabled={saving} />
                 </div>
               </div>
             ) : mode === "starter" ? (
               <div className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)]">
-                <div className={cn("flex min-h-0 flex-col p-4 md:border-r md:border-border", mobilePreview && "hidden md:flex")}>
+                <div className={cn("flex min-h-0 flex-col px-4 pb-4 pt-2", mobilePreview && "hidden md:flex")}>
                   <StarterGallery
                     starters={starterList}
                     areas={starters.data?.areas ?? []}
@@ -338,14 +328,14 @@ function CreateAgentDialog() {
                     onSelect={pickStarter}
                   />
                 </div>
-                <div className={cn("flex min-h-0 flex-col gap-4 overflow-y-auto p-5", !mobilePreview && "hidden md:flex")}>
-                  <button type="button" onClick={() => setMobilePreview(false)}
-                    className="inline-flex items-center gap-1.5 self-start rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden">
-                    <ArrowLeft className="size-3.5" aria-hidden /> {t("agent_create.gallery.back")}
-                  </button>
+                <div className={cn("flex min-h-0 flex-col gap-5 overflow-y-auto px-6 pb-6 pt-2", !mobilePreview && "hidden md:flex")}>
+                  <div className="md:hidden">
+                    <button type="button" onClick={() => setMobilePreview(false)} className="cs-link">
+                      <ArrowLeft className="size-3.5" aria-hidden /> {t("agent_create.gallery.back")}
+                    </button>
+                  </div>
                   {starter && copy ? (
                     <TemplatePreviewCard
-                      icon={<StarterIcon name={starter.icon} />}
                       name={starterName}
                       defaultName={copy.name}
                       onNameChange={setStarterName}
@@ -369,13 +359,12 @@ function CreateAgentDialog() {
               </div>
             ) : (
               <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:overflow-hidden">
-                <div className="min-h-0 p-5 md:overflow-y-auto md:border-r md:border-border">
+                <div className="min-h-0 px-6 pb-6 pt-3 md:overflow-y-auto">
                   <ImportTemplatePane text={importText} onTextChange={setImportText} onChange={setImported} disabled={saving} />
                 </div>
-                <div className="flex min-h-0 flex-col gap-4 p-5 md:overflow-y-auto">
+                <div className="flex min-h-0 flex-col gap-5 px-6 pb-6 pt-3 md:overflow-y-auto">
                   {imported.preview?.template && imported.preview.summary ? (
                     <TemplatePreviewCard
-                      icon={<FileInput />}
                       name={importName}
                       defaultName={imported.preview.template.name}
                       onNameChange={setImportName}
@@ -386,7 +375,7 @@ function CreateAgentDialog() {
                       picked={importPicked}
                       onToggleTool={(id) => setImportPicked((current) => toggle(current, id))}
                       disabled={saving || Boolean(created)}
-                      note={<p className="text-xs text-foreground-faint">{t("agent_create.import.design_only")}</p>}
+                      note={<p className="cs-hint">{t("agent_create.import.design_only")}</p>}
                     />
                   ) : (
                     <EmptyPreview text={t("agent_create.import.empty_preview")} />
@@ -396,26 +385,25 @@ function CreateAgentDialog() {
               </div>
             )}
 
-            <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-3">
+            <footer className="cs-foot">
               {created ? (
-                <p role="alert" className="mr-auto flex items-center gap-1.5 text-sm text-warning" data-testid="create-agent-routine-error">
-                  <TriangleAlert className="size-4 shrink-0" aria-hidden />
+                <p role="alert" className="cs-foot-note cs-hint" data-tone="warn" data-testid="create-agent-routine-error">
                   {fill(t("agent_create.routine_failed"), { agent: created.agent.name })}
                 </p>
               ) : error ? (
-                <p role="alert" className="mr-auto text-sm text-destructive">{error}</p>
+                <p role="alert" className="cs-foot-note cs-hint" data-tone="error">{error}</p>
               ) : (
-                <p className="mr-auto hidden text-xs text-muted-foreground sm:block">{t(`agent_create.footer.${mode}`)}</p>
+                <p className="cs-foot-note hidden sm:block">{t(`agent_create.footer.${mode}`)}</p>
               )}
               {!created ? (
-                <Button type="button" variant="ghost" onClick={() => cancel()} disabled={saving}>
+                <button type="button" className="cs-btn" data-variant="ghost" onClick={() => cancel()} disabled={saving}>
                   {t("society.create_agent.cancel")}
-                </Button>
+                </button>
               ) : null}
-              <Button type="submit" disabled={!created && !canCreate} data-testid="create-agent-submit">
-                {saving ? <Loader2 className="animate-spin" aria-hidden /> : null}
+              <button type="submit" className="cs-btn" data-variant="primary" disabled={!created && !canCreate} data-testid="create-agent-submit">
+                {saving ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
                 {submitLabel}
-              </Button>
+              </button>
             </footer>
           </form>
         </Dialog.Content>
@@ -426,9 +414,8 @@ function CreateAgentDialog() {
 
 function EmptyPreview({ text }: { text: string }) {
   return (
-    <div className="flex min-h-[220px] flex-1 flex-col items-center justify-center gap-2 rounded-[12px] border border-dashed border-border px-6 text-center" data-testid="create-agent-empty-preview">
-      <LayoutGrid className="size-5 text-foreground-faint" aria-hidden />
-      <p className="max-w-[28ch] text-sm text-muted-foreground">{text}</p>
+    <div className="cs-empty" data-testid="create-agent-empty-preview">
+      <p className="max-w-[30ch]">{text}</p>
     </div>
   );
 }

@@ -6,10 +6,10 @@
  * message would fail.
  */
 import { useId, useRef, type KeyboardEvent } from "react";
-import { TriangleAlert } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { blockedReasonKey, type AccessOption } from "./seatChoice";
+import "../calmSheet.css";
 
 export function AccessChoice({ options, value, hint, warn = false, disabled, onChange }: {
   options: AccessOption[];
@@ -39,10 +39,11 @@ export function AccessChoice({ options, value, hint, warn = false, disabled, onC
   }
 
   return (
-    <div className="flex flex-col gap-1.5 text-sm">
-      <span className="font-medium" id={`${id}-label`}>{t("society.create_agent.access_label")}</span>
+    <div className="flex flex-col gap-2">
+      <span className="cs-label" id={`${id}-label`}>{t("society.create_agent.access_label")}</span>
       <div
-        className="flex gap-1 rounded-lg border border-border p-1"
+        className="cs-tabs"
+        data-fill="true"
         role="radiogroup"
         aria-labelledby={`${id}-label`}
         aria-describedby={hint ? `${id}-hint` : undefined}
@@ -62,14 +63,7 @@ export function AccessChoice({ options, value, hint, warn = false, disabled, onC
               disabled={disabled || Boolean(entry.blocked)}
               onClick={() => onChange(entry.kind)}
               onKeyDown={(event) => onKeyDown(event, entry.kind)}
-              className={cn(
-                "min-w-0 flex-1 truncate rounded-md px-3 py-1.5 text-sm transition-colors disabled:opacity-50",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                checked
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                entry.blocked && "line-through hover:bg-transparent hover:text-muted-foreground",
-              )}
+              className={cn("cs-tab", entry.blocked && "line-through")}
             >
               {t(`society.create.kind_${entry.kind}`)}
             </button>
@@ -77,14 +71,13 @@ export function AccessChoice({ options, value, hint, warn = false, disabled, onC
         })}
       </div>
       {hint ? (
-        <p id={`${id}-hint`} className={cn("flex items-start gap-1.5 text-xs", warn ? "text-warning" : "text-muted-foreground")}
+        <p id={`${id}-hint`} className="cs-hint" data-tone={warn ? "warn" : undefined}
           data-testid={warn ? "create-agent-access-cost" : undefined}>
-          {warn ? <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden /> : null}
-          <span>{hint}</span>
+          {hint}
         </p>
       ) : null}
       {options.filter((entry) => entry.blocked).map((entry) => (
-        <p key={entry.kind} id={`${id}-blocked-${entry.kind}`} role="note" className="text-xs text-warning"
+        <p key={entry.kind} id={`${id}-blocked-${entry.kind}`} role="note" className="cs-hint" data-tone="warn"
           data-testid={`create-agent-access-blocked-${entry.kind}`}>
           {t(blockedReasonKey(entry.blocked ?? ""))}
         </p>

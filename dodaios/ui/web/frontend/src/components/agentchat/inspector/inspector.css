@@ -1,6 +1,8 @@
 /*
  * The work inspector pane. Neutral chrome from the theme ladder; the agent's
- * colour (--agent) marks only the selected tab and live rows.
+ * colour (--agent) marks only live rows. Calm like the agent pane: no rules
+ * between header, tabs and rows, round buttons and tab chips, and nothing
+ * below 12px.
  */
 
 .work-inspector {
@@ -12,8 +14,8 @@
   min-height: 0;
   height: 100%;
   max-width: 100%;
-  border-left: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
+  border-left: 1px solid hsl(var(--border) / 0.6);
+  background: hsl(var(--sidebar));
   color: hsl(var(--foreground));
   outline: none;
   animation: wi-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -59,29 +61,28 @@
 .wi-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 10px 10px 14px;
-  border-bottom: 1px solid hsl(var(--border));
+  gap: 12px;
+  padding: 14px 12px 8px 18px;
 }
 .wi-head-mark {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  color: hsl(var(--muted-foreground));
+  width: 32px;
+  height: 32px;
 }
 .wi-title {
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 18px;
+  line-height: 20px;
+  color: hsl(var(--foreground-strong));
 }
 .wi-meta {
   overflow: hidden;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 13px;
+  line-height: 18px;
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -91,13 +92,16 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: hsl(var(--secondary));
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5);
   color: hsl(var(--muted-foreground));
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
 }
-.wi-icon-btn:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+.wi-icon-btn:hover { color: hsl(var(--foreground)); }
+.wi-icon-btn:active { transform: scale(0.94); }
 .wi-icon-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
 
 /* ---- tabs ----------------------------------------------------------------- */
@@ -106,8 +110,7 @@
   display: flex;
   gap: 2px;
   overflow-x: auto;
-  padding: 6px 8px 0;
-  border-bottom: 1px solid hsl(var(--border));
+  padding: 4px 12px 6px;
   scrollbar-width: none;
 }
 .wi-tabs::-webkit-scrollbar { display: none; }
@@ -117,33 +120,25 @@
   max-width: 220px;
   flex: none;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px 8px;
-  border-radius: 6px 6px 0 0;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
   color: hsl(var(--muted-foreground));
-  font-size: 12.5px;
-  line-height: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
   transition: color 150ms ease, background-color 150ms ease;
 }
-.wi-tab[data-depth] { padding-left: 14px; }
-.wi-tab:hover { color: hsl(var(--foreground)); background: hsl(var(--secondary)); }
+.wi-tab[data-depth] { padding-left: 16px; }
+.wi-tab:hover { color: hsl(var(--foreground)); }
 .wi-tab:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var(--ring)); }
-.wi-tab[aria-selected="true"] { color: hsl(var(--foreground)); font-weight: 500; }
-.wi-tab[aria-selected="true"]::after {
-  content: "";
-  position: absolute;
-  inset: auto 8px -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--agent);
-}
+.wi-tab[aria-selected="true"] { background: hsl(var(--secondary)); color: hsl(var(--foreground-strong)); }
 .wi-tab-kind {
   flex: none;
-  padding: 0 5px;
-  border-radius: 6px;
-  background: hsl(var(--secondary));
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 400;
 }
 .wi-dot {
   flex: none;
@@ -179,11 +174,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 34px;
-  padding: 6px 10px 4px 14px;
+  min-height: 36px;
+  padding: 6px 12px 4px 18px;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 13px;
+  line-height: 18px;
   font-variant-numeric: tabular-nums;
 }
 .wi-text-btn {
@@ -191,11 +186,12 @@
   flex: none;
   align-items: center;
   gap: 5px;
-  padding: 3px 7px;
-  border-radius: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
   color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
   transition: background-color 150ms ease, color 150ms ease;
 }
 .wi-text-btn:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
@@ -204,7 +200,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 2px 6px 16px;
+  padding: 2px 10px 20px;
 }
 .wi-empty {
   padding: 28px 16px;
@@ -222,11 +218,11 @@
   display: flex;
   width: 100%;
   min-width: 0;
-  min-height: 32px;
+  min-height: 36px;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 12px;
   text-align: left;
   font-size: 13px;
   line-height: 18px;
@@ -284,17 +280,13 @@
 .wi-time {
   flex: none;
   color: hsl(var(--muted-foreground));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11.5px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .wi-state {
   flex: none;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: hsl(var(--secondary));
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
 }
 .wi-state[data-state="waiting"] { color: hsl(var(--warning)); }
@@ -312,9 +304,11 @@
 /* ---- detail --------------------------------------------------------------- */
 
 .wi-detail {
-  margin: 2px 0 8px 15px;
-  padding: 6px 4px 4px 17px;
-  border-left: 1px solid hsl(var(--border));
+  margin: 2px 0 10px 4px;
+  padding: 10px 12px 12px;
+  border-radius: 16px;
+  background: hsl(var(--card));
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5);
   animation: wi-detail-in 160ms ease-out both;
 }
 @keyframes wi-detail-in {
@@ -323,27 +317,25 @@
 }
 .wi-sections { display: flex; flex-direction: column; gap: 10px; }
 .wi-section-label {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: hsl(var(--muted-foreground));
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 14px;
-  text-transform: uppercase;
+  line-height: 16px;
 }
 .wi-tool-name {
   color: hsl(var(--muted-foreground));
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11.5px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .wi-pre,
 .wi-diff {
   max-height: 18rem;
   overflow: auto;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: hsl(var(--surface-raised));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: hsl(var(--secondary) / 0.7);
   color: hsl(var(--foreground-secondary));
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
@@ -368,12 +360,12 @@
 .wi-prose > :first-child { margin-top: 0; }
 .wi-prose > :last-child { margin-bottom: 0; }
 .wi-text { font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
-.wi-note { color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 17px; }
+.wi-note { color: hsl(var(--muted-foreground)); font-size: 13px; line-height: 18px; }
 .wi-qa { display: flex; flex-direction: column; gap: 8px; }
 .wi-answer {
   margin-top: 2px;
   color: hsl(var(--muted-foreground));
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 18px;
 }
 .wi-answer::before { content: "→ "; }
@@ -382,7 +374,7 @@
   .work-inspector, .wi-detail { animation: none; }
   .wi-dot[data-state="running"] { animation: none; }
   .wi-live { animation: none; background-image: none; color: hsl(var(--foreground)); }
-  .wi-chev, .wi-row-btn, .wi-edge::after { transition: none; }
+  .wi-chev, .wi-row-btn, .wi-edge::after, .wi-tab, .wi-icon-btn { transition: none; }
 }
 @keyframes wi-sweep {
   from { background-position: 100% 0; }

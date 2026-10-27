@@ -58,6 +58,7 @@
       "tool_block": "屏蔽",
       "tool_on": "开启",
       "tool_first": "优先使用",
+      "tool_blocked": "已屏蔽",
       "show_all": "显示全部 {0} 个",
       "show_less": "收起",
       "approvals": "权限",

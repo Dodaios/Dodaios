@@ -58,6 +58,7 @@
       "tool_block": "Bloquear",
       "tool_on": "Ligada",
       "tool_first": "Usar primeiro",
+      "tool_blocked": "Bloqueada",
       "show_all": "Mostrar todas as {0}",
       "show_less": "Mostrar menos",
       "approvals": "Permissões",

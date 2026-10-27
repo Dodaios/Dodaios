@@ -10,6 +10,7 @@ import { CreatureStage } from "./PixelCreature";
 import { growsCreature, useCreatureDefault } from "./creatureDefault";
 import { DesignPicker } from "./DesignPicker";
 import { SegmentedChoice } from "./SegmentedChoice";
+import "../calmSheet.css";
 import { PetSprite } from "@/components/pets/PetSprite";
 import { usePets } from "@/hooks/usePets";
 import gigiMark from "@/assets/gigi-companion-avatar.png";
@@ -50,43 +51,43 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
     if (kind === "pet" && !value.pet && firstPet) onChange({ ...value, pet: firstPet });
   }, [kind, value, firstPet, onChange]);
   return <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-5 p-4" data-testid="companion-editor">
-    <div className="flex items-center gap-5 rounded-xl bg-secondary/50 p-5">
+    <div className="flex items-center gap-5 rounded-[20px] bg-secondary/50 p-5">
       {lead ? <img src={gigiMark} width={88} height={88} alt="" /> : <CompanionMark appearance={value} size={88} mood={kind === "creature" ? mood : undefined} />}
       {/* A previewed state plays its sign beside the head; keep the text clear of it. */}
       {!lead && kind === "creature" && <span aria-hidden className="w-2 shrink-0" />}
-      <div><h3 className="font-medium">{t("society.companion.title")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("society.companion.hint")}</p></div>
+      <div><h3 className="text-[14px] font-medium">{t("society.companion.title")}</h3><p className="mt-1 text-[13px] leading-snug text-muted-foreground">{t("society.companion.hint")}</p></div>
     </div>
     {/* A creature previews on a plain canvas, so it shows without a WebGL context; shapes and pets turn in the 3D studio. */}
     {preview3d && (!lead && kind === "creature"
       ? <CreatureStage creature={creature} state={mood} />
       : <Suspense fallback={null}><CompanionPreview appearance={value} lead={lead} /></Suspense>)}
     {/* One switch across the full width, like the access switch of the create dialog. */}
-    {!lead && <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.look")}</span>
+    {!lead && <div className="flex flex-col gap-2"><span className="text-[14px] font-medium">{t("society.companion.look")}</span>
       <SegmentedChoice label={t("society.companion.look")} value={kind} onChange={choose}
         options={(["creature", "shape", "pet"] as const).map(id => ({ id, label: t(`society.companion.look_${id}`) }))} />
     </div>}
-    {!lead && kind !== "pet" && <label className="flex items-start justify-between gap-3 text-sm">
-      <span>{t("society.companion.creature.by_default")}<span className="mt-0.5 block text-xs text-muted-foreground">{t("society.companion.creature.by_default_hint")}</span></span>
+    {!lead && kind !== "pet" && <label className="flex items-start justify-between gap-3 text-[14px]">
+      <span>{t("society.companion.creature.by_default")}<span className="mt-0.5 block text-[13px] leading-snug text-muted-foreground">{t("society.companion.creature.by_default_hint")}</span></span>
       <Switch checked={creaturesByDefault} onCheckedChange={setCreaturesByDefault} aria-label={t("society.companion.creature.by_default")} />
     </label>}
     {!lead && kind === "creature" && <CreaturePicker value={creature} onChange={wear} mood={mood} onMood={setMood} />}
-    {!lead && kind === "pet" && <div data-testid="companion-pet-picker"><span className="mb-1 block text-sm font-medium">{t("society.companion.pet")}</span>
-      <p className="mb-2 text-xs text-muted-foreground">{pets.length || petsQuery.isLoading ? t("society.companion.pet_hint") : t("society.companion.no_pets")}</p>
+    {!lead && kind === "pet" && <div data-testid="companion-pet-picker"><span className="mb-1 block text-[14px] font-medium">{t("society.companion.pet")}</span>
+      <p className="mb-2 text-[13px] text-muted-foreground">{pets.length || petsQuery.isLoading ? t("society.companion.pet_hint") : t("society.companion.no_pets")}</p>
       <div className="flex flex-wrap gap-2">{pets.map(pet => <button key={pet.id} type="button" title={pet.name}
         aria-label={pet.name} aria-pressed={value.pet === pet.id} onClick={() => update({ pet: pet.id })}
-        className={`grid h-14 w-14 place-items-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.pet === pet.id ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
+        className="calm-tile h-14 w-14" data-on={value.pet === pet.id}>
         <PetSprite pet={pet} state={value.pet === pet.id ? "success" : "idle"} px={44} />
       </button>)}</div>
     </div>}
-    {!lead && kind === "shape" && <><div><span className="mb-2 block text-sm font-medium">{t("society.companion.shape")}</span>
+    {!lead && kind === "shape" && <><div><span className="mb-2 block text-[14px] font-medium">{t("society.companion.shape")}</span>
       <div className="flex flex-wrap gap-2">{COMPANION_SHAPES.map(shape => <button key={shape} type="button"
         aria-label={t(`society.companion.shapes.${shape}`)} aria-pressed={value.shape === shape}
         title={t(`society.companion.shapes.${shape}`)}
-        onClick={() => update({ shape })} className={`grid h-16 w-16 place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.shape === shape ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
+        onClick={() => update({ shape })} className="calm-tile h-16 w-16" data-on={value.shape === shape}>
         <AgentSymbol shape={shape} color={value.color} eyes={value.eyes} accessories={value.accessories} skin={value.skin} size={52} />
       </button>)}</div>
     </div>
-    <div className="flex flex-col gap-1.5 text-sm"><span className="font-medium">{t("society.companion.eyes")}</span>
+    <div className="flex flex-col gap-2"><span className="text-[14px] font-medium">{t("society.companion.eyes")}</span>
       {/* Plain toggles: a popup menu inside a modal dialog can strand its pointer lock. */}
       <SegmentedChoice label={t("society.companion.eyes")} value={value.eyes} onChange={eyes => update({ eyes })}
         options={(["dots", "lines"] as const).map(id => ({ id, label: t(`society.companion.${id}`) }))} />
@@ -94,15 +95,15 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
     <AccessoryPicker value={value} onChange={accessories => update({ accessories })} agentId={agentId} />
     </>}
     {/* A shape is painted in the agent's colour; a pet brings its own colours. */}
-    {!lead && kind === "shape" && <div><span className="mb-2 block text-sm font-medium">{t("society.companion.color")}</span>
+    {!lead && kind === "shape" && <div><span className="mb-2 block text-[14px] font-medium">{t("society.companion.color")}</span>
       {/* Two rows across the full width: the swatches scale with the dialog instead of leaving a gap on the right. */}
       <div className="grid w-full grid-cols-12 items-center gap-2">{COMPANION_COLORS.map(color => <button key={color} type="button" aria-label={`${t("society.companion.color")} ${color}`} aria-pressed={value.color === color}
-        onClick={() => update({ color })} className={`aspect-square w-full rounded-full border border-border ring-offset-2 ring-offset-popover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.color === color ? "ring-2 ring-foreground" : ""}`} style={{ background: color }} />)}
-        <input type="color" aria-label={t("society.companion.custom_color")} value={value.color} onChange={e => update({ color: e.target.value })} className="aspect-square h-auto w-full rounded border border-border bg-background" />
+        onClick={() => update({ color })} className={`aspect-square w-full rounded-full shadow-[inset_0_0_0_1px_hsl(var(--border)/0.6)] ring-offset-2 ring-offset-popover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value.color === color ? "ring-2 ring-foreground" : ""}`} style={{ background: color }} />)}
+        <input type="color" aria-label={t("society.companion.custom_color")} value={value.color} onChange={e => update({ color: e.target.value })} className="aspect-square h-auto w-full rounded-full border-0 bg-transparent p-0" />
       </div>
     </div>}
     {!lead && kind === "shape" && <DesignPicker skin={value.skin} color={value.color} onChange={(skin, color) => update({ skin, color })} />}
-    <label className="flex items-center justify-between gap-3 text-sm">{t("society.companion.visible")}
+    <label className="flex items-center justify-between gap-3 text-[14px]">{t("society.companion.visible")}
       <Switch checked={value.enabled} onCheckedChange={enabled => update({ enabled })} aria-label={t("society.companion.visible")} />
     </label>
   </fieldset>;

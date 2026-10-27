@@ -340,6 +340,8 @@ button.ap-line:disabled { opacity: 0.55; }
   font-size: 14px;
   color: hsl(var(--foreground));
 }
+/* A line whose value is a picker: the label gives way (wraps) before the picker does. */
+.ap-line:has(.ap-pick) .ap-line-label { min-width: 0; flex-shrink: 1; line-height: 1.3; }
 .ap-field .ap-line-label { font-size: 13px; color: hsl(var(--muted-foreground)); }
 .ap-line-value {
   min-width: 0;
@@ -506,19 +508,23 @@ button.ap-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var
   flex-wrap: wrap;
   gap: 2px;
   border-radius: 999px;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  padding: 2px;
+  background: hsl(var(--secondary) / 0.7);
+  padding: 3px;
 }
+.ap-seg[data-fill="true"] { display: flex; flex-wrap: nowrap; }
+.ap-seg[data-fill="true"] .ap-seg-item { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* In dark the track sits below the rail and the chosen chip rises above it. */
+.dark .ap-seg { background: hsl(var(--background) / 0.75); box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5); }
+.dark .ap-seg-item[aria-checked="true"] { background: hsl(var(--secondary)); }
 .ap-seg-item {
   display: inline-flex;
-  height: 24px;
+  height: 30px;
   align-items: center;
   justify-content: center;
   gap: 5px;
   border-radius: 999px;
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0 12px;
+  font-size: 13px;
   font-weight: 500;
   color: hsl(var(--muted-foreground));
   transition: background-color 120ms ease, color 120ms ease;
@@ -526,9 +532,9 @@ button.ap-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var
 .ap-seg[data-size="sm"] .ap-seg-item { height: 22px; min-width: 24px; padding: 0 5px; }
 .ap-seg-item:hover:not(:disabled) { color: hsl(var(--foreground)); }
 .ap-seg-item[aria-checked="true"] {
-  background: hsl(var(--secondary));
+  background: hsl(var(--popover));
   color: hsl(var(--foreground-strong));
-  box-shadow: inset 0 1px 0 rgb(var(--sheen-rgb) / 0.05), 0 0 0 1px hsl(var(--border-strong) / 0.5);
+  box-shadow: 0 1px 2px rgb(var(--scrim-rgb) / 0.12), inset 0 0 0 1px hsl(var(--border) / 0.6);
 }
 .ap-seg-item[aria-checked="true"][data-value="blocked"] { color: hsl(var(--destructive)); }
 .ap-seg-item:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -539,18 +545,19 @@ button.ap-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var
 .ap-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid hsl(var(--border));
+  gap: 8px;
   border-radius: 999px;
-  background: hsl(var(--background));
-  padding: 0 8px;
+  background: hsl(var(--secondary) / 0.75);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.45);
+  padding: 0 14px;
 }
+.ap-search:focus-within { box-shadow: inset 0 0 0 1px hsl(var(--border-strong)), 0 0 0 3px hsl(var(--ring) / 0.18); }
 .ap-search input {
-  height: 30px;
+  height: 38px;
   min-width: 0;
   flex: 1;
   background: transparent;
-  font-size: 13px;
+  font-size: 14px;
   color: hsl(var(--foreground));
   outline: none;
 }
@@ -558,38 +565,22 @@ button.ap-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var
 .ap-tools { display: flex; flex-direction: column; }
 .ap-tool {
   display: flex;
-  min-height: 36px;
+  min-height: 54px;
   align-items: center;
-  gap: 8px;
-  border-radius: 8px;
-  padding: 3px 4px 3px 6px;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 7px 8px 7px 12px;
+  transition: background-color 150ms ease;
 }
-.ap-tool:hover { background: hsl(var(--secondary)); }
-.ap-tool[data-state="blocked"] .ap-tool-name { text-decoration: line-through; opacity: 0.6; }
+.ap-tool:hover { background: hsl(var(--secondary) / 0.6); }
+.ap-tool[data-state="blocked"] .ap-tool-name { color: hsl(var(--muted-foreground)); }
 .ap-tool[data-state="off"] .ap-tool-name { color: hsl(var(--muted-foreground)); }
-.ap-tool-mark {
-  display: inline-flex;
-  height: 22px;
-  width: 22px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 6px;
-  background: hsl(var(--plugin-icon-surface, var(--card)));
-  border: 1px solid hsl(var(--border));
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: hsl(var(--muted-foreground));
-}
-.ap-tool-mark img { height: 100%; width: 100%; object-fit: contain; padding: 3px; }
 .ap-tool-name {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 14px;
   color: hsl(var(--foreground));
 }
 .ap-tool-sub {
@@ -597,10 +588,60 @@ button.ap-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 13px;
   color: hsl(var(--muted-foreground));
 }
 .ap-tool-sub[data-off="true"] { color: hsl(var(--warning)); }
+
+/* The one control on a tool row: a round pill naming its state. */
+.ap-pill {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: hsl(var(--secondary));
+  padding: 0 10px 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+.ap-pill:hover:not(:disabled) { background: hsl(var(--secondary) / 0.7); }
+.ap-pill:active:not(:disabled) { transform: scale(0.96); }
+.ap-pill:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.ap-pill:disabled { opacity: 0.5; }
+.ap-pill[data-value="first"] { color: hsl(var(--foreground-strong)); }
+.ap-pill[data-value="on"] { background: transparent; color: hsl(var(--muted-foreground)); }
+.ap-pill[data-value="on"]:hover:not(:disabled) { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+.ap-pill[data-value="off"] { background: transparent; color: hsl(var(--muted-foreground)); box-shadow: inset 0 0 0 1px hsl(var(--border)); }
+.ap-pill[data-value="blocked"] { background: hsl(var(--destructive) / 0.1); color: hsl(var(--destructive)); }
+.ap-pill-menu { width: 184px; }
+.ap-menu-item[aria-checked="true"] { color: hsl(var(--foreground-strong)); font-weight: 500; }
+
+/* A quiet picker at the end of a card line: the value and a chevron, no field. */
+.ap-root .ap-pick,
+.ap-pick {
+  width: auto;
+  max-width: 100%;
+  min-height: 0;
+  gap: 4px;
+  border-radius: 999px;
+  background: transparent;
+  padding: 5px 8px 5px 12px;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+.ap-pick:hover:not(:disabled) { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+
+/* A small heading inside a card: "Always ask before", "Allowed sites". */
+.ap-sublabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+.ap-card.ap-card-pad { gap: 8px; padding: 12px 14px 14px; }
 
 /* --------------------------------------------------------------- chips */
 
@@ -608,52 +649,53 @@ button.ap-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var
 .ap-chip {
   display: inline-flex;
   max-width: 100%;
+  min-height: 28px;
   align-items: center;
   gap: 4px;
-  border: 1px solid hsl(var(--border));
   border-radius: 999px;
-  background: hsl(var(--card));
-  padding: 1px 4px 1px 9px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
+  background: hsl(var(--secondary));
+  padding: 2px 4px 2px 12px;
+  font-size: 13px;
   color: hsl(var(--foreground));
 }
 .ap-chip-x {
   display: inline-flex;
-  height: 18px;
-  width: 18px;
+  height: 22px;
+  width: 22px;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   color: hsl(var(--muted-foreground));
 }
-.ap-chip-x:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+.ap-chip-x:hover { background: hsl(var(--background) / 0.6); color: hsl(var(--foreground)); }
 .ap-chip-add { display: flex; align-items: center; gap: 4px; }
 .ap-chip-suggest {
   gap: 4px;
-  padding: 1px 9px 1px 6px;
+  padding: 2px 12px 2px 8px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
   color: hsl(var(--muted-foreground));
-  border-style: dashed;
 }
-.ap-chip-suggest:hover { color: hsl(var(--foreground)); border-style: solid; }
+.ap-chip-suggest:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); box-shadow: none; }
 
 .ap-input {
-  height: 34px;
+  height: 36px;
   min-width: 0;
   flex: 1;
-  border: 1px solid hsl(var(--border));
-  border-radius: 12px;
-  background: hsl(var(--background));
-  padding: 0 9px;
-  font-size: 13px;
+  border: 0;
+  border-radius: 999px;
+  background: hsl(var(--secondary) / 0.75);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.45);
+  padding: 0 14px;
+  font-size: 14px;
   color: hsl(var(--foreground));
   outline: none;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
-.ap-input:focus { border-color: hsl(var(--border-strong)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.18); }
+.ap-input:focus { box-shadow: inset 0 0 0 1px hsl(var(--border-strong)), 0 0 0 3px hsl(var(--ring) / 0.18); }
 .ap-input:disabled { opacity: 0.55; }
-textarea.ap-input { height: auto; padding: 8px 10px; line-height: 1.5; resize: vertical; }
-.ap-input[type="number"] { width: 84px; flex: none; font-variant-numeric: tabular-nums; }
+textarea.ap-input { height: auto; border-radius: 16px; padding: 10px 14px; line-height: 1.5; resize: vertical; }
+.ap-input[type="number"] { width: 84px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ------------------------------------------------------------ save bar */
 
@@ -701,7 +743,7 @@ textarea.ap-input { height: auto; padding: 8px 10px; line-height: 1.5; resize: v
   flex-direction: column;
   gap: 4px;
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   color: hsl(var(--foreground));
 }
 .ap-widen ul { display: flex; flex-direction: column; gap: 2px; padding-left: 14px; list-style: disc; }
@@ -713,13 +755,13 @@ textarea.ap-input { height: auto; padding: 8px 10px; line-height: 1.5; resize: v
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border: 1px solid hsl(var(--border));
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.55);
   border-radius: var(--ap-radius-lg);
   background: hsl(var(--card));
   padding: 9px 10px;
 }
 .ap-review-kind {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: hsl(var(--muted-foreground));
 }
@@ -766,5 +808,7 @@ textarea.ap-input { height: auto; padding: 8px 10px; line-height: 1.5; resize: v
   .ap-seg-item,
   .ap-icon-btn,
   .ap-round-btn,
-  .ap-meter-fill { transition: none; }
+  .ap-meter-fill,
+  .ap-tool,
+  .ap-pill { transition: none; }
 }

@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Check, Circle, Search, Star } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
 import { useLocaleChunk, useT } from "@/i18n";
@@ -46,7 +46,7 @@ import {
   type ToolState,
   type Widening,
 } from "./accessDraft";
-import { ChipList, PaneHint, PaneSection, Segmented, type SegmentOption } from "./ui";
+import { ChipList, ChoicePill, PaneHint, PaneSection, Segmented, type SegmentOption } from "./ui";
 
 /** Rows shown before "Show all": enough for the tools an agent really uses. */
 const TOOL_PREVIEW = 8;
@@ -138,6 +138,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
           <>
             <PaneSection title={t("society.agent_pane.reach")}>
               <Segmented<GrantMode>
+                fill
                 label={t("society.agent_pane.reach")}
                 value={draft.grantMode}
                 disabled={disabled}
@@ -167,6 +168,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
           {!lead ? (
             <>
               <Segmented<AgentApprovalMode>
+                fill
                 label={t("society.approval_mode.title")}
                 value={draft.approvalMode}
                 disabled={disabled}
@@ -188,9 +190,10 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
             </>
           ) : null}
           {lead || !agent.approvalMode ? (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">{t("society.approval_mode.legacy_ceiling")}</span>
+            <div className="flex flex-col gap-2">
+              <span className="ap-sublabel">{t("society.approval_mode.legacy_ceiling")}</span>
               <Segmented<PermissionCeiling>
+                fill
                 label={t("society.approval_mode.legacy_ceiling")}
                 value={draft.permissionCeiling}
                 disabled={disabled}
@@ -204,8 +207,8 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
 
         {!lead ? (
           <PaneSection title={t("society.card.approval_rules")} testId="agent-pane-rules">
-            <PaneHint>{t("society.agent_pane.rules_hint")}</PaneHint>
-            <span className="text-xs font-medium text-foreground">{t("society.card.require_approval")}</span>
+            <div className="ap-card ap-card-pad">
+            <span className="ap-sublabel">{t("society.card.require_approval")}</span>
             <ChipList
               items={draft.requireApproval}
               onChange={(items) => setDraft((d) => ({ ...d, requireApproval: items }))}
@@ -217,7 +220,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
               emptyText={t("society.agent_pane.rules_none")}
               testId="agent-pane-require"
             />
-            <span className="mt-1 text-xs font-medium text-foreground">{t("society.card.always_allow")}</span>
+            <span className="ap-sublabel mt-3">{t("society.card.always_allow")}</span>
             <ChipList
               items={draft.alwaysAllow}
               onChange={(items) => setDraft((d) => ({ ...d, alwaysAllow: items }))}
@@ -229,26 +232,20 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
               emptyText={t("society.agent_pane.rules_none")}
               testId="agent-pane-allow"
             />
+            </div>
+            <PaneHint>{t("society.agent_pane.rules_hint")}</PaneHint>
           </PaneSection>
         ) : null}
 
         <PaneSection title={t("society.card.limits")} testId="agent-pane-limits">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex flex-col gap-1.5">
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Switch
-                  checked={draft.budgetOn}
-                  onCheckedChange={(on) => setDraft((d) => ({ ...d, budgetOn: on }))}
-                  disabled={disabled}
-                  aria-label={t("society.card.budget_cap")}
-                  data-testid="agent-budget-switch"
-                />
-                {t("society.card.budget_cap")}
-              </span>
-              {draft.budgetOn ? (
-                <span className="flex items-center gap-1 text-sm">
-                  <span className="text-muted-foreground">$</span>
-                  <input
+          <div className="ap-card">
+            <div className="ap-line">
+              <span className="ap-line-label">{t("society.card.budget_cap")}</span>
+              <span className="ml-auto flex items-center gap-2">
+                {draft.budgetOn ? (
+                  <span className="flex items-center gap-1 text-[14px]">
+                    <span className="text-muted-foreground">$</span>
+                    <input
                     type="number"
                     min={0}
                     step={0.5}
@@ -260,13 +257,21 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
                     aria-label={t("society.card.budget_cap")}
                     className="ap-input"
                   />
-                </span>
-              ) : (
-                <span className="py-1 text-sm text-muted-foreground">{t("society.card.no_cap")}</span>
-              )}
+                  </span>
+                ) : (
+                  <span className="ap-line-value">{t("society.card.no_cap")}</span>
+                )}
+                <Switch
+                  checked={draft.budgetOn}
+                  onCheckedChange={(on) => setDraft((d) => ({ ...d, budgetOn: on }))}
+                  disabled={disabled}
+                  aria-label={t("society.card.budget_cap")}
+                  data-testid="agent-budget-switch"
+                />
+              </span>
             </div>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">{t("society.card.jobs_at_once")}</span>
+            <label className="ap-line">
+              <span className="ap-line-label">{t("society.card.jobs_at_once")}</span>
               <input
                 type="number"
                 min={1}
@@ -277,7 +282,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
                 value={draft.jobs}
                 onChange={(e) => setDraft((d) => ({ ...d, jobs: e.target.value }))}
                 data-testid="agent-jobs-input"
-                className="ap-input"
+                className="ap-input ml-auto"
               />
             </label>
           </div>
@@ -286,6 +291,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
 
         <PaneSection title={t("society.agent_pane.browser")} testId="agent-pane-browser-access">
           <Segmented<BrowserMode>
+            fill
             label={t("society.agent_pane.browser")}
             value={draft.browserMode}
             disabled={disabled}
@@ -297,7 +303,8 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
             onChange={(mode) => setDraft((d) => ({ ...d, browserMode: mode }))}
           />
           <PaneHint>{t(draft.browserMode === "own" ? "society.agent_pane.browser_own_hint" : "society.agent_pane.browser_attach_hint")}</PaneHint>
-          <span className="text-xs font-medium text-foreground">{t("society.agent_pane.sites")}</span>
+          <div className="ap-card ap-card-pad">
+          <span className="ap-sublabel">{t("society.agent_pane.sites")}</span>
           <ChipList
             items={draft.domains}
             onChange={(items) => setDraft((d) => ({ ...d, domains: items }))}
@@ -309,13 +316,16 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
             emptyText={t("society.agent_pane.sites_any")}
             testId="agent-pane-sites"
           />
+          </div>
         </PaneSection>
 
         {!lead && !sample ? (
           <PaneSection title={t("society.card.where")} testId="agent-pane-placement">
+            <div className="ap-card">
+              <AgentSandboxSection agent={agent} show="choice" layout="row" />
+              {agent.executionEnvironment !== "sandbox" ? <RunsOn agent={agent} /> : null}
+            </div>
             <PaneHint>{t("society.agent_pane.placement_hint")}</PaneHint>
-            <AgentSandboxSection agent={agent} show="choice" />
-            {agent.executionEnvironment !== "sandbox" ? <RunsOn agent={agent} /> : null}
           </PaneSection>
         ) : null}
       </div>
@@ -323,7 +333,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
       {confirm ? (
         <div className="ap-savebar" data-tone="warn" role="alertdialog" aria-label={t("society.agent_pane.widen_title")} data-testid="agent-pane-widen">
           <div className="ap-widen">
-            <strong className="text-xs font-semibold">{t("society.agent_pane.widen_title").replace("{0}", societyDisplayName(agent, assistantName))}</strong>
+            <strong className="text-[13px] font-semibold">{t("society.agent_pane.widen_title").replace("{0}", societyDisplayName(agent, assistantName))}</strong>
             <ul>
               {confirm.map((w) => (
                 <li key={w.key}>{wideningText(w, t, labelOf)}</li>
@@ -341,9 +351,9 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
       ) : dirty || error ? (
         <div className="ap-savebar" data-testid="agent-pane-savebar">
           {error ? (
-            <span role="alert" className="min-w-0 flex-1 truncate text-xs text-destructive" title={error}>{error}</span>
+            <span role="alert" className="min-w-0 flex-1 truncate text-[13px] text-destructive" title={error}>{error}</span>
           ) : (
-            <span className="min-w-0 flex-1 text-xs text-muted-foreground">{t("society.agent_pane.unsaved")}</span>
+            <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">{t("society.agent_pane.unsaved")}</span>
           )}
           <button type="button" className="ap-btn" data-variant="ghost" disabled={saving} onClick={() => { setDraft(base); setError(""); }}>
             {t("society.agent_pane.discard")}
@@ -439,17 +449,23 @@ function ToolList({
   const shown = needle || all ? filtered : filtered.slice(0, TOOL_PREVIEW);
 
   const options: SegmentOption<ToolState>[] = [
+    { value: "first", label: t("society.agent_pane.tool_first") },
+    { value: "on", label: t("society.agent_pane.tool_on") },
     allowlist
-      ? { value: "off", label: t("society.agent_pane.tool_off"), icon: Circle }
-      : { value: "blocked", label: t("society.agent_pane.tool_block"), icon: Ban },
-    { value: "on", label: t("society.agent_pane.tool_on"), icon: Check },
-    { value: "first", label: t("society.agent_pane.tool_first"), icon: Star },
+      ? { value: "off", label: t("society.agent_pane.tool_off") }
+      : { value: "blocked", label: t("society.agent_pane.tool_block") },
   ];
+  const stateLabel: Record<ToolState, string> = {
+    first: t("society.agent_pane.tool_first"),
+    on: t("society.agent_pane.tool_on"),
+    off: t("society.agent_pane.tool_off"),
+    blocked: t("society.agent_pane.tool_blocked"),
+  };
 
   return (
     <PaneSection title={t("society.agent_pane.tools")} testId="agent-pane-tool-list">
       <label className="ap-search">
-        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <input
           type="search"
           value={query}
@@ -461,7 +477,7 @@ function ToolList({
       {loading ? <PaneHint>{t("society.profile_card.loading")}</PaneHint> : null}
       {failed ? <PaneHint>{t("society.agent_pane.tools_unavailable")}</PaneHint> : null}
       {!loading && filtered.length === 0 ? <PaneHint>{t("society.profile_card.no_results")}</PaneHint> : null}
-      <ul className="ap-tools">
+      {shown.length ? <ul className="ap-card ap-tools">
         {shown.map((c) => {
           const state = toolState(draft, c.id);
           const brand = resolveToolBrand(c.tool_name || capabilityName(c.id));
@@ -469,19 +485,16 @@ function ToolList({
           const shownState = allowlist && state === "blocked" ? "off" : state;
           return (
             <li key={c.id} className="ap-tool" data-state={state} data-testid={`agent-pane-tool-${c.id}`}>
-              <span className="ap-tool-mark" aria-hidden>
-                {brand.logoUrl ? <img src={brand.logoUrl} alt="" draggable={false} /> : brand.monogram}
-              </span>
               <span className="min-w-0 flex-1" title={c.one_liner || c.id}>
                 <span className="ap-tool-name">{label}</span>
                 <span className="ap-tool-sub" data-off={c.connected ? undefined : "true"}>
                   {c.connected ? (c.one_liner || c.id) : t("society.card.not_connected")}
                 </span>
               </span>
-              <Segmented<ToolState>
+              <ChoicePill<ToolState>
                 label={label}
-                size="sm"
                 value={shownState}
+                shownLabel={stateLabel[shownState]}
                 disabled={disabled}
                 options={options}
                 onChange={(next) => onChange(c.id, next)}
@@ -489,7 +502,7 @@ function ToolList({
             </li>
           );
         })}
-      </ul>
+      </ul> : null}
       {!needle && filtered.length > TOOL_PREVIEW ? (
         <button type="button" className="ap-link self-start" onClick={() => setAll((v) => !v)}>
           {all ? t("society.agent_pane.show_less") : t("society.agent_pane.show_all").replace("{0}", String(filtered.length))}
@@ -510,10 +523,10 @@ function RunsOn({ agent }: { agent: SocietyAgent }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   return (
-    <div className="flex flex-col gap-2" data-testid="agent-runs-on">
+    <div className="flex flex-col" data-testid="agent-runs-on">
       <ComputerPicker
         value={agent.computerId ?? ""}
-        labelClass="text-xs text-muted-foreground mb-1 block"
+        layout="row"
         testId="agent-runs-on-picker"
         onChange={(id) => {
           if (saving || id === (agent.computerId ?? "")) return;
@@ -524,8 +537,8 @@ function RunsOn({ agent }: { agent: SocietyAgent }) {
             .finally(() => setSaving(false));
         }}
       />
-      {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
-      {saving ? <p className="text-xs text-muted-foreground">{t("society.card.runs_on_saving")}</p> : null}
+      {error ? <p role="alert" className="ap-hint px-3 pb-2 text-destructive">{error}</p> : null}
+      {saving ? <p className="ap-hint px-3 pb-2">{t("society.card.runs_on_saving")}</p> : null}
     </div>
   );
 }

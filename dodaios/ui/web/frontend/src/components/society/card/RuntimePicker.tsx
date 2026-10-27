@@ -161,17 +161,14 @@ export function RuntimeChoice({ value, onChange, disabled = false }: {
               onClick={() => onChange(runtime)}
               onKeyDown={(event) => onKeyDown(event, runtime)}
               className={cn(
-                "flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex min-w-0 flex-col items-start gap-0.5 rounded-2xl px-3.5 py-3 text-left transition-[background-color,box-shadow] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 value === runtime
-                  ? "border-border-strong bg-secondary text-foreground"
-                  : "border-border text-muted-foreground hover:bg-secondary",
+                  ? "bg-secondary text-foreground shadow-[inset_0_0_0_1.5px_hsl(var(--foreground)/0.55)]"
+                  : "bg-secondary/45 text-muted-foreground hover:bg-secondary/80",
               )}
             >
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <RuntimeMark runtime={runtime} label={label} />
-                {label}
-              </span>
-              <span id={`${id}-state-${runtime}`} className="inline-flex items-center gap-1 text-xs leading-snug">
+              <span className="w-full text-[14px] font-medium leading-snug text-foreground">{label}</span>
+              <span id={`${id}-state-${runtime}`} className="inline-flex items-center gap-1 text-[13px] leading-snug">
                 {state === "setting_up" ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
                 {t(
                   state === null
@@ -187,7 +184,7 @@ export function RuntimeChoice({ value, onChange, disabled = false }: {
           );
         })}
       </div>
-      <p id={`${id}-hint`} className="text-xs text-muted-foreground">{t(`society.runtime.${value}_hint`)}</p>
+      <p id={`${id}-hint`} className="text-[13px] leading-snug text-muted-foreground">{t(`society.runtime.${value}_hint`)}</p>
       {value !== "jarvis" ? (
         <RuntimeSetupNote status={chosen} error={error} onRetry={() => void ensure(value)} />
       ) : null}

@@ -58,6 +58,7 @@
       "tool_block": "Block",
       "tool_on": "On",
       "tool_first": "Reach first",
+      "tool_blocked": "Blocked",
       "show_all": "Show all {0}",
       "show_less": "Show fewer",
       "approvals": "Permissions",

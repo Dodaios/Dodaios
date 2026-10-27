@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import {
-  Bot, Brain, ChevronRight, ChevronsDownUp, ChevronsUpDown, CircleX, KeyRound, ListTree,
+  Bot, Brain, ChevronRight, CircleX, KeyRound, ListTree,
   Loader2, MessageCircleQuestion, MessageSquareText, ShieldQuestion, User, X,
 } from "lucide-react";
 import { fill, useT } from "@/i18n";
@@ -118,7 +118,7 @@ export const WorkInspector = memo(function WorkInspector({
     data-testid="work-inspector" data-turn={turn.id}>
     <ResizeEdge width={width} onWidth={onWidth} />
     <header className="wi-head">
-      <span className="wi-head-mark" aria-hidden>{avatar ?? <ListTree className="h-4 w-4" />}</span>
+      {avatar ? <span className="wi-head-mark" aria-hidden>{avatar}</span> : null}
       <div className="min-w-0 flex-1">
         <h2 id={titleId} className="wi-title">{t("run_view.inspector.title")}</h2>
         <p className="wi-meta">{meta.join(" · ")}</p>
@@ -228,7 +228,6 @@ function TracePanel({ turn, entry, prompt, onOpenHelper, label }: {
     <div className="wi-toolbar">
       <span className="min-w-0 truncate">{lead}</span>
       {rows.length > 0 ? <button type="button" className="wi-text-btn" onClick={() => setOpen(allOpen ? new Set() : new Set(rows.map((row) => row.id)))}>
-        {allOpen ? <ChevronsDownUp aria-hidden className="h-3.5 w-3.5" /> : <ChevronsUpDown aria-hidden className="h-3.5 w-3.5" />}
         {t(allOpen ? "run_view.inspector.collapse_all" : "run_view.inspector.expand_all")}
       </button> : null}
     </div>
@@ -358,7 +357,7 @@ function RowDetail({ row, onOpenHelper }: { row: InspectorRow; onOpenHelper: (id
       {task ? <Section label={t("run_view.section.task")}><Prose text={task} /></Section> : null}
       {sub?.summary ? <Section label={t("run_view.section.answer")}><Prose text={sub.summary} /></Section> : null}
       <button type="button" className="wi-text-btn self-start" onClick={() => onOpenHelper(block.callId)}>
-        <Bot aria-hidden className="h-3.5 w-3.5" />{t("run_view.inspector.open_helper")}
+        {t("run_view.inspector.open_helper")}
       </button>
     </div>;
   }

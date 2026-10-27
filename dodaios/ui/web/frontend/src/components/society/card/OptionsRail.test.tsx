@@ -294,7 +294,9 @@ describe("OptionsRail (agent pane)", () => {
     mount(agent({ denies: ["plugin:gmail"] }));
     const row = await screen.findByTestId("agent-pane-tool-plugin:gmail");
     expect(row.getAttribute("data-state")).toBe("blocked");
-    fireEvent.click(row.querySelector('[data-value="on"]')!);
+    // One round pill names the state; it opens a short menu of the others.
+    fireEvent.click(row.querySelector('button[aria-haspopup="menu"]')!);
+    fireEvent.click(within(row).getByRole("menuitemradio", { name: "On" }));
     fireEvent.click(await screen.findByTestId("agent-pane-save"));
     const confirm = await screen.findByTestId("agent-pane-widen");
     await waitFor(() => expect(confirm.textContent).toContain("Gmail"));

@@ -96,7 +96,7 @@ export function AttentionBell({ className }: { className?: string }) {
           <span
             aria-hidden
             data-testid="attention-bell-count"
-            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold leading-none tabular-nums text-background ring-2 ring-background"
+            className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-warning px-1 text-[12px] font-semibold leading-none tabular-nums text-background ring-2 ring-background"
           >
             {count > 9 ? "9+" : count}
           </span>
@@ -110,7 +110,7 @@ export function AttentionBell({ className }: { className?: string }) {
           tabIndex={-1}
           style={{ left, width: `min(${PANEL_W}px, calc(100vw - ${EDGE * 2}px))` }}
           className={cn(
-            "fixed top-10 z-[150] overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-float outline-none",
+            "fixed top-10 z-[150] overflow-hidden rounded-[24px] bg-popover text-popover-foreground shadow-float outline-none ring-1 ring-inset ring-border/50",
             "origin-top motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-150",
           )}
         >

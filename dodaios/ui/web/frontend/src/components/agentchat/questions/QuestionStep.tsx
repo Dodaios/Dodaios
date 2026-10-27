@@ -1,5 +1,5 @@
 import { forwardRef, useId, useState } from "react";
-import { ChevronDown, Info } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useT } from "@/i18n";
 import type { QuestionItem } from "../reduce";
 import { OptionRow, OwnAnswerRow } from "./OptionRow";
@@ -62,7 +62,6 @@ export const QuestionStep = forwardRef<HTMLTextAreaElement, {
       {item.recommendationReason && item.options.length ? (
         <>
           <button type="button" className="qc-why" aria-expanded={why} aria-controls={reasonId} onClick={() => setWhy((open) => !open)}>
-            <Info aria-hidden className="h-3.5 w-3.5" />
             <span>{t("question_card.why_toggle")}</span>
             <ChevronDown aria-hidden className="qc-chevron h-3 w-3" style={why ? { transform: "rotate(180deg)" } : undefined} />
           </button>

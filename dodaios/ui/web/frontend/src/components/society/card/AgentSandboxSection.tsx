@@ -14,19 +14,34 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function SandboxChoice({ value, onChange, disabled = false }: {
+export function SandboxChoice({ value, onChange, disabled = false, layout = "field" }: {
   value: "local" | "sandbox"; onChange: (value: "local" | "sandbox") => void; disabled?: boolean;
+  /** "row": a label on the left and a quiet picker on the right, as a line of a pane card. */
+  layout?: "field" | "row";
 }) {
   const t = useT();
-  return <div className="flex flex-col gap-2 text-sm">
-    <span className="font-medium">{t("society.sandbox.environment")}</span>
+  if (layout === "row") {
+    return <div className="ap-line">
+      <span className="ap-line-label">{t("society.sandbox.environment")}</span>
+      <span className="ml-auto shrink-0">
+        <BrandedSelect ariaLabel={t("society.sandbox.environment")} value={value} disabled={disabled} className="ap-pick"
+          onValueChange={(next) => onChange(next as "local" | "sandbox")}
+          options={[
+            { value: "local", label: t("society.sandbox.local") },
+            { value: "sandbox", label: t("society.sandbox.code") },
+          ]} />
+      </span>
+    </div>;
+  }
+  return <div className="flex flex-col gap-2">
+    <span className="text-[14px] font-medium">{t("society.sandbox.environment")}</span>
     <BrandedSelect ariaLabel={t("society.sandbox.environment")} value={value} disabled={disabled}
       onValueChange={(next) => onChange(next as "local" | "sandbox")}
       options={[
         { value: "local", label: t("society.sandbox.local") },
         { value: "sandbox", label: t("society.sandbox.code") },
       ]} />
-    {value === "sandbox" ? <span className="text-xs text-muted-foreground">{t("society.sandbox.scope")}</span> : null}
+    {value === "sandbox" ? <span className="text-[13px] leading-snug text-muted-foreground">{t("society.sandbox.scope")}</span> : null}
   </div>;
 }
 
@@ -35,7 +50,7 @@ export function SandboxChoice({ value, onChange, disabled = false }: {
  * section), `files` the sandbox file browser alone (its Files page), `all`
  * both, as the create dialog and older surfaces use it.
  */
-export function AgentSandboxSection({ agent, show = "all" }: { agent: SocietyAgent; show?: "all" | "choice" | "files" }) {
+export function AgentSandboxSection({ agent, show = "all", layout = "field" }: { agent: SocietyAgent; show?: "all" | "choice" | "files"; layout?: "field" | "row" }) {
   const t = useT();
   const client = useQueryClient();
   const [error, setError] = useState("");
@@ -68,17 +83,17 @@ export function AgentSandboxSection({ agent, show = "all" }: { agent: SocietyAge
     });
     await client.invalidateQueries({ queryKey: ["society", "roster"] });
   });
-  return <section className="flex flex-col gap-3" data-testid="agent-sandbox">
-    {show !== "files" ? <SandboxChoice value={enabled ? "sandbox" : "local"} disabled={busy || agent.runtime !== "jarvis" && !!agent.runtime}
+  return <section className={layout === "row" ? "flex flex-col" : "flex flex-col gap-3"} data-testid="agent-sandbox">
+    {show !== "files" ? <SandboxChoice layout={layout} value={enabled ? "sandbox" : "local"} disabled={busy || agent.runtime !== "jarvis" && !!agent.runtime}
       onChange={(value) => {
         if (enabled && value === "local") setConfirmLocal(true);
         else place(value);
       }} /> : null}
-    {confirmLocal ? <div role="alertdialog" aria-label={t("society.agent_pane.leave_sandbox")} className="flex flex-col gap-2 rounded-lg border border-warning p-3 text-xs" data-testid="agent-sandbox-confirm-local">
+    {confirmLocal ? <div role="alertdialog" aria-label={t("society.agent_pane.leave_sandbox")} className="m-1 flex flex-col gap-2 rounded-2xl bg-warning/10 p-3 text-[13px]" data-testid="agent-sandbox-confirm-local">
       <p className="text-foreground">{t("society.agent_pane.leave_sandbox_body")}</p>
       <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={() => setConfirmLocal(false)}>{t("society.agent_pane.go_back")}</Button>
-        <Button size="sm" onClick={() => place("local")} data-testid="agent-sandbox-confirm-local-yes">{t("society.agent_pane.allow_and_save")}</Button>
+        <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setConfirmLocal(false)}>{t("society.agent_pane.go_back")}</Button>
+        <Button size="sm" className="rounded-full" onClick={() => place("local")} data-testid="agent-sandbox-confirm-local-yes">{t("society.agent_pane.allow_and_save")}</Button>
       </div>
     </div> : null}
     {enabled && show !== "choice" ? <>

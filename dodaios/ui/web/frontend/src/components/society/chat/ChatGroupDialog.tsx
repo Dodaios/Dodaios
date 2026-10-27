@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { Check, X } from "lucide-react";
 import { useT } from "@/i18n";
 import { createSocietyChatGroup, updateSocietyChatGroup, type SocietyChatGroup } from "@/lib/societyChatGroups";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { useEventStore } from "@/store/events";
 import type { SocietyAgent } from "../data";
 import { AgentSwatch } from "../AgentSwatch";
+import "../calmSheet.css";
 
 interface Props {
   group?: SocietyChatGroup;
@@ -48,29 +50,45 @@ export function ChatGroupDialog({ group, agents, onClose, onSaved }: Props) {
   return <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
     <Dialog.Portal>
       <Dialog.Overlay className="fixed inset-0 z-[150] bg-scrim/60" />
-      <Dialog.Content className="fixed left-1/2 top-1/2 z-[151] flex max-h-[80vh] w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border bg-card p-5 text-foreground shadow-xl">
-        <Dialog.Title className="font-display text-lg font-semibold">{t(group ? "society.groups.edit" : "society.groups.create")}</Dialog.Title>
-        <Dialog.Description className="mt-1 text-sm text-muted-foreground">{t("society.groups.description")}</Dialog.Description>
-        <form onSubmit={(event) => void submit(event)} className="mt-4 flex min-h-0 flex-col gap-3">
-          <label className="text-sm font-medium">{t("society.groups.name")}
-            <input autoFocus maxLength={80} value={name} onChange={(event) => setName(event.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-foreground" />
-          </label>
-          <p className="text-sm font-medium">{t("society.groups.members")} ({members.length})</p>
-          <div className="min-h-0 overflow-y-auto rounded-md border border-border p-1">
-            {choices.map((agent) => <label key={agent.agentId} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-secondary">
-              <input type="checkbox" checked={members.includes(agent.agentId)} onChange={() => setMembers((current) => current.includes(agent.agentId) ? current.filter((id) => id !== agent.agentId) : [...current, agent.agentId])} />
-              <AgentSwatch agent={agent} size={28} />
-              <span className="min-w-0 flex-1 truncate text-sm">{societyDisplayName(agent, assistantName)}</span>
-              {group?.lead_agent_id === agent.agentId && <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{t("society.lead.role")}</span>}
-            </label>)}
+      <Dialog.Content className="cs-sheet fixed left-1/2 top-1/2 z-[151] flex max-h-[80vh] w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden">
+        <header className="cs-head">
+          <div className="cs-head-row">
+            <div className="min-w-0 flex-1">
+              <Dialog.Title className="cs-title">{t(group ? "society.groups.edit" : "society.groups.create")}</Dialog.Title>
+              <Dialog.Description className="cs-sub">{t("society.groups.description")}</Dialog.Description>
+            </div>
+            <button type="button" aria-label={t("society.groups.cancel")} onClick={onClose} className="cs-close"><X size={16} aria-hidden /></button>
           </div>
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="rounded-md px-3 py-2 text-sm hover:bg-secondary">{t("society.groups.cancel")}</button>
+        </header>
+        <form onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pb-2 pt-2">
+            <label className="flex flex-col gap-2">
+              <span className="cs-label">{t("society.groups.name")}</span>
+              <input autoFocus maxLength={80} value={name} onChange={(event) => setName(event.target.value)}
+                className="w-full text-foreground" />
+            </label>
+            <div className="flex min-h-0 flex-col gap-2">
+              <p className="cs-label">{t("society.groups.members")} <span className="font-normal text-muted-foreground">{members.length}</span></p>
+              <div className="cs-card">
+                {choices.map((agent) => {
+                  const on = members.includes(agent.agentId);
+                  return <label key={agent.agentId} className="cs-row min-h-[52px]">
+                    <input type="checkbox" className="peer sr-only" checked={on} onChange={() => setMembers((current) => current.includes(agent.agentId) ? current.filter((id) => id !== agent.agentId) : [...current, agent.agentId])} />
+                    <AgentSwatch agent={agent} size={30} />
+                    <span className="cs-row-text">{societyDisplayName(agent, assistantName)}</span>
+                    {group?.lead_agent_id === agent.agentId && <span className="cs-row-end">{t("society.lead.role")}</span>}
+                    <span className="cs-tick peer-focus-visible:ring-2 peer-focus-visible:ring-ring" data-on={on} aria-hidden>{on ? <Check className="size-3.5" strokeWidth={3} /> : null}</span>
+                  </label>;
+                })}
+              </div>
+            </div>
+            {error && <p role="alert" className="cs-hint" data-tone="error">{error}</p>}
+          </div>
+          <footer className="cs-foot">
+            <button type="button" onClick={onClose} className="cs-btn" data-variant="ghost">{t("society.groups.cancel")}</button>
             <button type="submit" disabled={busy || !name.trim() || members.length < 2}
-              className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50">{t("society.groups.save")}</button>
-          </div>
+              className="cs-btn" data-variant="primary">{t("society.groups.save")}</button>
+          </footer>
         </form>
       </Dialog.Content>
     </Dialog.Portal>

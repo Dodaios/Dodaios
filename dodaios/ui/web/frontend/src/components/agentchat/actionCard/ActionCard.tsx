@@ -104,16 +104,16 @@ function OpenCard({
         <SourceChip icon={source.icon} label={source.label} showLabel={source.showLabel !== false} />
         {trailing ? <div className="-mr-1.5 ml-auto flex shrink-0 items-center">{trailing}</div> : null}
       </div>
-      <h3 id={titleId} className="mt-2 text-sm font-semibold leading-5 text-foreground-strong [overflow-wrap:anywhere]">{title}</h3>
+      <h3 id={titleId} className="mt-2 text-[14px] font-semibold leading-5 text-foreground-strong [overflow-wrap:anywhere]">{title}</h3>
       {lines?.filter(Boolean).length ? <div className="mt-0.5 space-y-0.5">
-        {lines.filter(Boolean).map((line, i) => <p key={i} className="m-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">{line}</p>)}
+        {lines.filter(Boolean).map((line, i) => <p key={i} className="m-0 text-[13px] leading-5 text-muted-foreground [overflow-wrap:anywhere]">{line}</p>)}
       </div> : null}
       {disclosure?.text ? <Disclosure {...disclosure} /> : null}
       {children ? <div className="mt-2.5 min-w-0">{children}</div> : null}
-      {failure ? <p role="alert" className="mt-2.5 flex items-start gap-1.5 text-xs leading-5 text-destructive">
+      {failure ? <p role="alert" className="mt-2.5 flex items-start gap-1.5 text-[13px] leading-5 text-destructive">
         <CircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{failure}</span>
       </p> : null}
-      {note ? <p className="mt-2 text-xs leading-5 text-muted-foreground">{note}</p> : null}
+      {note ? <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{note}</p> : null}
       {actions.length ? <div className="mt-3 flex flex-wrap items-center gap-2">
         {lead.map((a) => <ActionButton key={a.id} action={a} pending={pending} />)}
         {tail.length ? <div className="ml-auto flex flex-wrap items-center gap-1">
@@ -156,15 +156,15 @@ function SettledCard({ id, source, ariaLabel, lines, disclosure, children, settl
         {expandable
           ? <button type="button" onClick={toggle} aria-expanded={open} aria-controls={bodyId}
             title={open ? t("action_card.collapse") : t("action_card.expand")}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {sentence}
             <ChevronDown aria-hidden className={cn("ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150", open && "rotate-180")} />
           </button>
-          : <p className="m-0 flex min-w-0 flex-1 items-center gap-2 text-xs">{sentence}</p>}
+          : <p className="m-0 flex min-w-0 flex-1 items-center gap-2 text-[13px]">{sentence}</p>}
         {extras}
       </div>
       {expandable && open ? <div id={bodyId} className="action-card-settled-body">
-        {lines?.filter(Boolean).map((line, i) => <p key={i} className="m-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">{line}</p>)}
+        {lines?.filter(Boolean).map((line, i) => <p key={i} className="m-0 text-[13px] leading-5 text-muted-foreground [overflow-wrap:anywhere]">{line}</p>)}
         {disclosure?.text ? <Disclosure {...disclosure} defaultOpen /> : null}
         {children}
         {settled.body}
@@ -176,7 +176,7 @@ function SettledCard({ id, source, ariaLabel, lines, disclosure, children, settl
 export function SourceChip({ icon, label, showLabel = true }: { icon: ReactNode; label: string; showLabel?: boolean }) {
   return <span className="flex min-w-0 items-center gap-1.5" title={showLabel ? undefined : label}>
     <span className="action-card-tile" aria-hidden>{icon}</span>
-    {showLabel ? <span className="truncate text-xs font-medium text-muted-foreground">{label}</span> : <span className="sr-only">{label}</span>}
+    {showLabel ? <span className="truncate text-[13px] font-medium text-muted-foreground">{label}</span> : <span className="sr-only">{label}</span>}
   </span>;
 }
 
@@ -199,7 +199,7 @@ function Disclosure({ text, showLabel, hideLabel, defaultOpen = false }: NonNull
   const id = useId();
   return <div className="mt-2.5 min-w-0">
     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={id}
-      className="flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      className="flex items-center gap-1 rounded-md text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-150", !open && "-rotate-90")} />
       {open ? hideLabel : showLabel}
     </button>

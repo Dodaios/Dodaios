@@ -209,7 +209,7 @@ export function RuleChooser({ offer, pending, onSave, onBack }: {
     else onSave(reach === "tool" ? { scope, breadth: "action" } : { scope, breadth: "action", narrow: reach });
   };
   return <div className="action-card-rule" data-testid="action-card-rule">
-    <p className="m-0 text-xs font-medium text-foreground">{t("action_card.rule.heading")}</p>
+    <p className="m-0 text-[13px] font-medium text-foreground">{t("action_card.rule.heading")}</p>
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <Segments label={t("action_card.rule.scope_label")} value={scope} onChange={setScope}
         options={scopes.map((s) => ({ value: s, label: t(`action_card.rule.scope_${s}`) }))} />
@@ -225,7 +225,7 @@ export function RuleChooser({ offer, pending, onSave, onBack }: {
         ]} /> : null}
     </div>
     <p className="mt-2.5 break-words text-sm font-medium text-foreground-strong" data-testid="action-card-rule-text">{sentence}</p>
-    <p className="m-0 mt-0.5 text-xs leading-5 text-muted-foreground" data-testid="action-card-rule-where">
+    <p className="m-0 mt-0.5 text-[13px] leading-5 text-muted-foreground" data-testid="action-card-rule-where">
       {whereLine(offer, scope, reach, t)}
     </p>
     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -309,11 +309,11 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
     actions,
     receipt: saved ? <span className="action-card-receipt" title={savedText} data-testid="action-card-rule-saved">
       <Check aria-hidden />{t("action_card.rule.saved_short")}
-    </span> : error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null,
+    </span> : error ? <span role="alert" className="text-[13px] text-destructive">{error}</span> : null,
     body: <>
-      {note ? <p className="m-0 text-xs leading-5 text-muted-foreground">{note}</p> : null}
-      {savedText ? <p className="m-0 text-xs leading-5 text-foreground-secondary">{savedText}</p> : null}
-      {saved?.stillAsks ? <p className="m-0 text-xs leading-5 text-warning">{t("action_card.rule.still_asks")}</p> : null}
+      {note ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{note}</p> : null}
+      {savedText ? <p className="m-0 text-[13px] leading-5 text-foreground-secondary">{savedText}</p> : null}
+      {saved?.stillAsks ? <p className="m-0 text-[13px] leading-5 text-warning">{t("action_card.rule.still_asks")}</p> : null}
     </>,
   };
   return <ActionCard

@@ -18,7 +18,7 @@
   background: hsl(var(--card));
   color: hsl(var(--foreground));
   box-shadow:
-    0 0 0 1px hsl(var(--border)),
+    0 0 0 1px hsl(var(--border) / 0.6),
     0 1px 2px rgb(var(--scrim-rgb) / 0.06),
     0 10px 28px -14px rgb(var(--scrim-rgb) / 0.28);
 }
@@ -224,11 +224,11 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid hsl(var(--border-strong));
-  border-radius: 7px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
   background: hsl(var(--secondary));
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.7);
   font-size: 12px;
   font-weight: 500;
   line-height: 1;
@@ -241,18 +241,17 @@
 }
 
 .qc-keycap[data-on] {
-  border-color: transparent;
   background: var(--qc-tint);
   color: var(--qc-tint-ink);
-  box-shadow: inset 0 1px 0 rgb(var(--sheen-rgb) / 0.12);
+  box-shadow: none;
   transform: scale(1.04);
 }
 
 .qc-keycap[data-size="sm"] {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  font-size: 10.5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  font-size: 12px;
 }
 
 .qc-row-body {
@@ -270,7 +269,7 @@
 
 .qc-desc {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 18px;
   color: hsl(var(--muted-foreground));
   overflow-wrap: anywhere;
@@ -282,7 +281,7 @@
   border-radius: 999px;
   padding: 1px 7px;
   background: hsl(var(--secondary));
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
   color: hsl(var(--muted-foreground));
 }
@@ -585,7 +584,7 @@
 
 .qc-menu-hint {
   display: block;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 16px;
   color: hsl(var(--muted-foreground));
 }

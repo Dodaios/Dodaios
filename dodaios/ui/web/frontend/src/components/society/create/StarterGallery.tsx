@@ -1,14 +1,12 @@
 /**
- * The starter list: a search, one chip per area with its live count, and
- * dense rows (icon, name, the outcome in one line). Arrow keys move through
+ * The starter list: a search, one round chip per area with its live count,
+ * and plain rows (the name, the outcome in one line). Arrow keys move through
  * the rows; the picked row carries the selection wash.
  */
 import { useMemo, useRef, type KeyboardEvent } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useT } from "@/i18n";
-import { cn } from "@/lib/utils";
-import { AreaIcon, StarterIcon } from "./starterIcons";
 import { areaCounts, filterStarters, starterCopy, type AreaFilter } from "./starterFilters";
 import type { Starter, StarterArea } from "./startersApi";
 
@@ -63,18 +61,16 @@ export function StarterGallery(props: Props) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3" data-testid="starter-gallery">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-foreground-faint" aria-hidden />
+      <div className="cs-search">
         <Input
           value={props.query}
           onChange={(event) => props.onQueryChange(event.target.value)}
           placeholder={t("agent_create.gallery.search")}
           aria-label={t("agent_create.gallery.search")}
-          className="pl-9"
           data-testid="starter-search"
         />
       </div>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("agent_create.gallery.areas")}>
+      <div className="flex flex-wrap gap-1" role="group" aria-label={t("agent_create.gallery.areas")}>
         {chips.map((area) => {
           const on = props.area === area;
           return (
@@ -84,17 +80,10 @@ export function StarterGallery(props: Props) {
               aria-pressed={on}
               onClick={() => props.onAreaChange(area)}
               data-testid={`starter-area-${area}`}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                on
-                  ? "border-foreground/30 bg-secondary text-foreground"
-                  : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground",
-              )}
+              className="cs-chip"
             >
-              <AreaIcon area={area} className="size-3.5" />
               {t(`agent_create.area.${area}`)}
-              <span className="tabular-nums text-foreground-faint">{counts[area] ?? 0}</span>
+              <span className="cs-chip-count">{counts[area] ?? 0}</span>
             </button>
           );
         })}
@@ -108,7 +97,7 @@ export function StarterGallery(props: Props) {
         ) : props.failed ? (
           <div className="flex flex-col items-start gap-2 px-2 py-6 text-sm">
             <p role="alert" className="text-destructive">{t("agent_create.gallery.failed")}</p>
-            <button type="button" onClick={props.onRetry} className="rounded-full border border-border px-2.5 py-1 text-xs hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <button type="button" onClick={props.onRetry} className="cs-btn" data-variant="soft" data-size="sm">
               {t("agent_create.gallery.retry")}
             </button>
           </div>
@@ -130,21 +119,11 @@ export function StarterGallery(props: Props) {
                     onClick={() => props.onSelect(starter)}
                     onKeyDown={(event) => onRowKey(event, index)}
                     data-testid={`starter-${starter.id}`}
-                    className={cn(
-                      "group flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left transition-colors duration-150",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      selected ? "bg-accent-soft" : "hover:bg-secondary/70",
-                    )}
+                    className="cs-row"
                   >
-                    <span className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-[8px] border transition-colors",
-                      selected ? "border-accent/40 bg-background text-accent" : "border-border bg-secondary/60 text-foreground-secondary group-hover:text-foreground",
-                    )}>
-                      <StarterIcon name={starter.icon} className="size-4" />
-                    </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-foreground">{copy.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{copy.outcome}</span>
+                      <span className="cs-row-name">{copy.name}</span>
+                      <span className="cs-row-detail">{copy.outcome}</span>
                     </span>
                   </button>
                 </li>

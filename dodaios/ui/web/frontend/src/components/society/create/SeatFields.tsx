@@ -7,7 +7,7 @@
  * on any runtime and any provider exactly like a blank agent.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { BrandedSelect } from "@/components/ui/select";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
@@ -21,6 +21,7 @@ import { modelSeats, runtimeSeats } from "../chat/modelChoices";
 import { useModelMenuData } from "../chat/useModelMenuData";
 import { accountChoice, accountHint } from "./brainPicker";
 import { AccessChoice } from "./AccessChoice";
+import "../calmSheet.css";
 import { accessModels, billedPerUse, defaultModel, pickableOption, providerChoices, type AccessBlocked, type AccessOption, type ProviderChoice } from "./seatChoice";
 
 /** A model list this long gets a search field. */
@@ -157,17 +158,17 @@ export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boo
   const t = useT();
   const { chosen, option, choices, menu, runtimes, models, accounts } = seat;
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">{t("society.create_agent.type_label")}</span>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <span className="cs-label">{t("society.create_agent.type_label")}</span>
         <RuntimeChoice value={seat.runtime} onChange={seat.setRuntime} disabled={disabled} />
-        <p className="text-xs text-muted-foreground" data-testid="create-agent-runtime-note">
+        <p className="cs-hint" data-testid="create-agent-runtime-note">
           {t(`agent_create.runtime_note.${seat.runtime}`)}
         </p>
       </div>
 
-      <div className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">{t("society.create_agent.provider_label")}</span>
+      <div className="flex flex-col gap-2">
+        <span className="cs-label">{t("society.create_agent.provider_label")}</span>
         {chosen ? (
           <BrandedSelect
             value={chosen.id}
@@ -185,7 +186,7 @@ export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boo
             }))}
           />
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="cs-hint">
             {menu.loading
               ? t("society.create.catalog_loading")
               : t(seat.external ? "society.create_agent.no_provider" : "society.create_agent.no_provider_jarvis")}
@@ -206,8 +207,8 @@ export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boo
 
       {!seat.external ? <SandboxChoice value={seat.executionEnvironment} onChange={seat.setExecutionEnvironment} disabled={disabled} /> : null}
       {chosen && option && accounts.length ? (
-        <div className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">{t("society.create_agent.account_label")}</span>
+        <div className="flex flex-col gap-2">
+          <span className="cs-label">{t("society.create_agent.account_label")}</span>
           <BrandedSelect
             value={seat.accountValue}
             onValueChange={seat.setAccount}
@@ -223,12 +224,12 @@ export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boo
       ) : null}
 
       {chosen && option ? (
-        <div className="flex flex-col gap-1.5 text-sm">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium">{t("society.create_agent.model_label")}</span>
+            <span className="cs-label">{t("society.create_agent.model_label")}</span>
             <button type="button" disabled={disabled || menu.refreshing} onClick={() => void Promise.all([menu.refresh(), runtimes.refetch()])}
               aria-label={t("society.chat.model_refresh")} title={t("society.chat.model_refresh")}
-              className="rounded p-1 text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+              className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
               {menu.refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
             </button>
           </div>
@@ -245,9 +246,9 @@ export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boo
               label: entry.label || entry.id || seat.defaultModelLabel,
             }))}
           />
-          <p className="text-xs text-muted-foreground">{t("society.create_agent.model_hint")}</p>
-          {menu.refreshing ? <p role="status" className="text-xs text-muted-foreground">{t("society.chat.models_loading")}</p> : null}
-          {menu.refreshFailed || seat.selectedModelsFailed ? <p role="alert" className="text-xs text-destructive">{t("society.chat.model_load_failed")}</p> : null}
+          <p className="cs-hint">{t("society.create_agent.model_hint")}</p>
+          {menu.refreshing ? <p role="status" className="cs-hint">{t("society.chat.models_loading")}</p> : null}
+          {menu.refreshFailed || seat.selectedModelsFailed ? <p role="alert" className="cs-hint" data-tone="error">{t("society.chat.model_load_failed")}</p> : null}
         </div>
       ) : null}
     </div>
@@ -272,39 +273,33 @@ export function SeatSummary({ seat, disabled }: { seat: CreateSeat; disabled: bo
   // Still reading the seats: not a missing choice, just a moment.
   const blocked = !seat.ready && !seat.seatsPending;
   return (
-    <section className="rounded-[10px] border border-border bg-sheen/[0.02]" data-testid="create-agent-seat-summary">
+    <section className="cs-card" data-testid="create-agent-seat-summary">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         disabled={disabled}
-        className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="cs-row"
       >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background">
-          {chosen?.mark
-            ? <AgentMark agent={chosen.mark} label={chosen.label} logoUrl={chosen.logoUrl} variant="plain" size="sm" />
-            : chosen ? <ProviderLogo providerId={chosen.logo} label={chosen.label} size="sm" /> : null}
-        </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-xs text-muted-foreground">{t("agent_create.seat.runs_on")}</span>
-          <span className={cn("block truncate text-sm", blocked ? "text-warning" : "text-foreground")}>
+          <span className="cs-row-detail">{t("agent_create.seat.runs_on")}</span>
+          <span className={cn("block truncate text-[14px]", blocked ? "text-warning" : "text-foreground")}>
             {seat.seatsPending ? t("society.create.catalog_loading") : blocked ? t("agent_create.seat.needs_choice") : parts.join(" · ")}
           </span>
         </span>
-        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+        <span className="cs-row-end flex items-center gap-1">
           {t(open ? "agent_create.seat.hide" : "agent_create.seat.change")}
           <ChevronDown className={cn("size-3.5 transition-transform duration-200 motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
         </span>
       </button>
       {billedPerUse(option) && option ? (
         // Billed per use: said in plain sight, not only behind "Change".
-        <p className="flex items-start gap-1.5 border-t border-border px-3 py-2 text-xs text-warning" data-testid="create-agent-seat-cost">
-          <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
-          <span>{accessHint(t, option)}</span>
+        <p className="cs-hint px-3 pb-2.5" data-tone="warn" data-testid="create-agent-seat-cost">
+          {accessHint(t, option)}
         </p>
       ) : null}
       {open || blocked ? (
-        <div className="border-t border-border px-3 py-4">
+        <div className="px-3 pb-4 pt-3">
           <SeatFields seat={seat} disabled={disabled} />
         </div>
       ) : null}

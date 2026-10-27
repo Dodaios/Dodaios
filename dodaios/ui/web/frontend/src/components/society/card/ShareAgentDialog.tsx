@@ -15,23 +15,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  Check,
-  Copy,
-  Download,
-  ExternalLink,
-  FileJson,
-  Github,
-  Loader2,
-  Lock,
-  ShieldCheck,
-  Sparkles,
-  UploadCloud,
-  X,
-} from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   GithubSignInDialog,
   PublisherAvatar,
@@ -55,9 +40,9 @@ import {
 } from "@/lib/agentShare";
 import { robustCopy } from "@/lib/clipboard";
 import { openExternalUrl } from "@/lib/openExternal";
-import { cn } from "@/lib/utils";
 
 import { AgentSwatch } from "../AgentSwatch";
+import "../calmSheet.css";
 import { useSocietyChatStore } from "../chat/AgentChatPanel";
 import type { SocietyAgent } from "../data";
 
@@ -165,37 +150,38 @@ export function ShareAgentDialog({ agent, onClose }: { agent: SocietyAgent; onCl
         <Dialog.Overlay className="fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm" />
         <Dialog.Content
           data-testid="share-agent-dialog"
-          className="fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[min(1040px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-popover text-foreground shadow-float focus:outline-none"
+          className="cs-sheet fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[min(1040px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden focus:outline-none"
         >
-          <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
-            <AgentSwatch agent={agent} size={40} />
-            <div className="min-w-0 flex-1">
-              <Dialog.Title className="truncate font-display text-base font-semibold tracking-tight">
-                {fill(t("society.share.title"), { agent: agent.name })}
-              </Dialog.Title>
-              <Dialog.Description className="text-xs text-muted-foreground">
-                {t("society.share.subtitle")}
-              </Dialog.Description>
+          <header className="cs-head">
+            <div className="cs-head-row items-center">
+              <AgentSwatch agent={agent} size={40} />
+              <div className="min-w-0 flex-1">
+                <Dialog.Title className="cs-title truncate">
+                  {fill(t("society.share.title"), { agent: agent.name })}
+                </Dialog.Title>
+                <Dialog.Description className="cs-sub">
+                  {t("society.share.subtitle")}
+                </Dialog.Description>
+              </div>
+              <button
+                type="button"
+                aria-label={t("society.card.close")}
+                onClick={onClose}
+                className="cs-close"
+              >
+                <X size={16} aria-hidden />
+              </button>
             </div>
-            <button
-              type="button"
-              aria-label={t("society.card.close")}
-              onClick={onClose}
-              className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </header>
 
           {draftQuery.isLoading && (
-            <p className="flex items-center gap-2 px-5 py-10 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <p className="flex items-center gap-2 px-6 py-10 text-[14px] text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               {t("society.share.loading")}
             </p>
           )}
           {draftQuery.error && (
-            <p role="alert" className="flex items-center gap-2 px-5 py-10 text-sm text-destructive">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+            <p role="alert" className="px-6 py-10 text-[14px] text-destructive">
               {(draftQuery.error as Error).message}
             </p>
           )}
@@ -203,7 +189,7 @@ export function ShareAgentDialog({ agent, onClose }: { agent: SocietyAgent; onCl
           {draft && form && (
             <>
               <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:overflow-hidden">
-                <section className="min-h-0 space-y-5 px-5 py-4 md:overflow-y-auto" aria-label={t("society.share.public_version")}>
+                <section className="min-h-0 space-y-6 px-6 pb-6 pt-2 md:overflow-y-auto" aria-label={t("society.share.public_version")}>
                   <PolishBar
                     agent={agent}
                     draft={draft}
@@ -219,9 +205,9 @@ export function ShareAgentDialog({ agent, onClose }: { agent: SocietyAgent; onCl
                   />
 
                   <label className="block">
-                    <span className="mb-1 flex items-baseline justify-between text-xs font-medium text-foreground">
+                    <span className="cs-label mb-2 flex items-baseline justify-between">
                       {t("society.share.summary")}
-                      <span className="tabular-nums text-muted-foreground">{form.summary.length}/500</span>
+                      <span className="cs-hint tabular-nums">{form.summary.length}/500</span>
                     </span>
                     <textarea
                       value={form.summary}
@@ -230,45 +216,45 @@ export function ShareAgentDialog({ agent, onClose }: { agent: SocietyAgent; onCl
                       onChange={(e) => edit({ summary: e.target.value })}
                       placeholder={t("society.share.summary_placeholder")}
                       data-testid="share-summary"
-                      className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-faint-foreground focus:border-border-strong"
+                      className="w-full resize-none text-foreground outline-none placeholder:text-faint-foreground"
                     />
                   </label>
 
                   <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
                     <label className="block min-w-0">
-                      <span className="mb-1 block text-xs font-medium text-foreground">{t("society.share.listing_name")}</span>
+                      <span className="cs-label mb-2 block">{t("society.share.listing_name")}</span>
                       <input
                         value={form.listingName}
                         onChange={(e) => edit({ listingName: e.target.value })}
                         spellCheck={false}
-                        className="h-9 w-full rounded-md border border-border bg-background px-3 font-mono text-xs text-foreground outline-none focus:border-border-strong"
+                        className="w-full font-mono !text-[13px] text-foreground outline-none"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-1 block text-xs font-medium text-foreground">{t("society.share.version")}</span>
+                      <span className="cs-label mb-2 block">{t("society.share.version")}</span>
                       <input
                         value={form.version}
                         onChange={(e) => edit({ version: e.target.value })}
                         spellCheck={false}
-                        className="h-9 w-full rounded-md border border-border bg-background px-3 font-mono text-xs tabular-nums text-foreground outline-none focus:border-border-strong"
+                        className="w-full font-mono !text-[13px] tabular-nums text-foreground outline-none"
                       />
                     </label>
                   </div>
 
                   <label className="block">
-                    <span className="mb-1 block text-xs font-medium text-foreground">{t("society.share.categories")}</span>
+                    <span className="cs-label mb-2 block">{t("society.share.categories")}</span>
                     <input
                       value={form.categories}
                       onChange={(e) => edit({ categories: e.target.value })}
                       placeholder={t("society.share.categories_placeholder")}
-                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none placeholder:text-faint-foreground focus:border-border-strong"
+                      className="w-full text-foreground outline-none placeholder:text-faint-foreground"
                     />
                   </label>
 
                   <PrivacyCheck findings={draft.findings} />
                 </section>
 
-                <section className="flex min-h-[18rem] flex-col border-t border-border bg-background/40 px-5 py-4 md:min-h-0 md:border-l md:border-t-0" aria-label={t("society.share.template")}>
+                <section className="flex min-h-[18rem] flex-col px-6 pb-6 pt-2 md:min-h-0" aria-label={t("society.share.template")}>
                   <TemplateCode
                     fileName={templateFileName(draft.listing)}
                     json={json}
@@ -316,31 +302,30 @@ function PolishBar({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-3">
+    <div className="cs-card" data-pad="true">
       <div className="flex items-start gap-3">
-        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">
+          <p className="cs-label">
             {draft.polished_by
               ? fill(t("society.share.polished_by"), { agent: draft.polished_by })
               : fill(t("society.share.polish_title"), { agent: agent.name })}
           </p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+          <p className="cs-hint mt-1">
             {waiting
               ? fill(t("society.share.polish_waiting"), { agent: agent.name })
               : chatReady
                 ? fill(t("society.share.polish_hint"), { agent: agent.name })
                 : t("society.share.polish_unavailable")}
           </p>
-          {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
+          {error && <p role="alert" className="cs-hint mt-1" data-tone="error">{error}</p>}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <Button size="sm" variant="outline" onClick={() => void ask()} disabled={!chatReady || waiting} data-testid="share-polish">
-            {waiting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+          <button type="button" className="cs-btn" data-variant="soft" data-size="sm" onClick={() => void ask()} disabled={!chatReady || waiting} data-testid="share-polish">
+            {waiting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
             {fill(t("society.share.polish_cta"), { agent: agent.name })}
-          </Button>
+          </button>
           {draft.polished_by && !waiting && (
-            <button type="button" onClick={onReset} className="text-micro text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+            <button type="button" onClick={onReset} className="cs-link m-0">
               {t("society.share.reset")}
             </button>
           )}
@@ -360,20 +345,19 @@ function PrivacyCheck({ findings }: { findings: ShareFinding[] }) {
   );
   return (
     <div className="space-y-3" data-testid="share-privacy">
-      <div className="rounded-lg border border-border bg-card px-3 py-3">
-        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+      <div className="cs-card" data-pad="true">
+        <p className="cs-label">
           {sorted.length === 0
             ? t("society.share.privacy_clean")
             : fill(t("society.share.privacy_removed"), { count: sorted.length })}
         </p>
         {sorted.length === 0 ? (
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t("society.share.privacy_clean_hint")}</p>
+          <p className="cs-hint">{t("society.share.privacy_clean_hint")}</p>
         ) : (
           <ul className="mt-2 space-y-1">
             {sorted.map((finding, index) => (
-              <li key={`${finding.kind}-${finding.hint}-${index}`} className="flex items-baseline gap-2 text-xs text-muted-foreground">
-                <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-micro font-medium text-foreground">
+              <li key={`${finding.kind}-${finding.hint}-${index}`} className="cs-hint flex items-baseline gap-2">
+                <span className="shrink-0 font-medium text-foreground">
                   {t(`society.share.finding_${finding.kind}`)}
                 </span>
                 <span className="min-w-0 truncate">
@@ -387,12 +371,9 @@ function PrivacyCheck({ findings }: { findings: ShareFinding[] }) {
           </ul>
         )}
       </div>
-      <div className="rounded-lg bg-secondary px-3 py-2.5">
-        <p className="flex items-center gap-2 text-xs font-medium text-foreground">
-          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-          {t("society.share.never_title")}
-        </p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t("society.share.never_body")}</p>
+      <div className="px-1">
+        <p className="cs-label">{t("society.share.never_title")}</p>
+        <p className="cs-hint mt-1">{t("society.share.never_body")}</p>
       </div>
     </div>
   );
@@ -409,24 +390,21 @@ function TemplateCode({ fileName, json, saving }: { fileName: string; json: stri
       window.setTimeout(() => setCopied(false), 1500);
     });
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-muted/40" data-testid="share-template-code">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-muted/30 px-3 py-1.5">
-        <FileJson className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{fileName}</span>
-        {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-label={t("society.card.saving")} />}
-        <button type="button" onClick={copy} className="flex items-center gap-1 rounded px-1.5 py-1 text-micro text-muted-foreground hover:bg-muted hover:text-foreground">
-          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] bg-secondary/45" data-testid="share-template-code">
+      <div className="flex shrink-0 items-center gap-1 px-4 pb-1 pt-3">
+        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-muted-foreground">{fileName}</span>
+        {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-label={t("society.card.saving")} />}
+        <button type="button" onClick={copy} className="cs-chip h-8">
           {copied ? t("society.share.copied") : t("society.share.copy")}
         </button>
-        <button type="button" onClick={() => downloadTemplate(fileName, json)} className="flex items-center gap-1 rounded px-1.5 py-1 text-micro text-muted-foreground hover:bg-muted hover:text-foreground" data-testid="share-export">
-          <Download className="h-3 w-3" />
+        <button type="button" onClick={() => downloadTemplate(fileName, json)} className="cs-chip h-8" data-testid="share-export">
           {t("society.share.export")}
         </button>
       </div>
       {/* Wrapped, not scrolled sideways: the instructions are one long JSON
           string, and reading them is the point of showing the template. */}
-      <div className="min-h-0 flex-1 overflow-auto [&_pre]:!whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere]">
-        <Suspense fallback={<pre className="m-0 px-3 py-2 text-xs text-foreground/90"><code>{json}</code></pre>}>
+      <div className="min-h-0 flex-1 overflow-auto px-1 pb-2 [&_pre]:!whitespace-pre-wrap [&_pre]:!bg-transparent [&_pre]:[overflow-wrap:anywhere]">
+        <Suspense fallback={<pre className="m-0 px-3 py-2 text-[13px] text-foreground/90"><code>{json}</code></pre>}>
           <CodeBlock language="json" code={json} chrome={false} />
         </Suspense>
       </div>
@@ -493,30 +471,27 @@ function PublishBar({
   if (result) {
     const url = result.issue_url ?? result.pr_url ?? result.url ?? null;
     return (
-      <footer className="shrink-0 space-y-2 border-t border-border bg-card px-5 py-3" data-testid="share-published">
+      <footer className="cs-foot flex-col items-stretch" data-testid="share-published">
         <div className="flex flex-wrap items-center gap-3">
-          <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary", live ? "text-foreground-strong" : "text-foreground")}>
-            {live ? <Check className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
-          </span>
+          {live ? null : <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">
+            <p className="cs-label">
               {live
                 ? fill(t("society.share.live_title"), { entry: result.name, version: result.version })
                 : fill(t("society.share.submitted_title"), { entry: result.name, version: result.version })}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="cs-hint">
               {live ? t("society.share.live_body") : t("society.share.submitted_body")}
             </p>
           </div>
           {url && (
-            <Button size="sm" variant="outline" onClick={() => openExternalUrl(url)}>
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+            <button type="button" className="cs-btn" data-variant="soft" data-size="sm" onClick={() => openExternalUrl(url)}>
               {t("society.share.view_submission")}
-            </Button>
+            </button>
           )}
         </div>
         {result.install?.cli && (
-          <code className="block rounded-md border border-border bg-muted px-2.5 py-1.5 font-mono text-xs text-foreground">
+          <code className="block rounded-2xl bg-secondary/60 px-4 py-2.5 font-mono text-[13px] text-foreground">
             {result.install.cli}
           </code>
         )}
@@ -525,53 +500,51 @@ function PublishBar({
   }
 
   return (
-    <footer className="shrink-0 space-y-2 border-t border-border bg-card px-5 py-3">
+    <footer className="cs-foot flex-col items-stretch">
       {draft.errors.length > 0 && (
-        <p role="alert" className="flex items-start gap-2 text-xs text-destructive">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p role="alert" className="cs-hint" data-tone="error">
           {draft.errors[0]}
         </p>
       )}
       {failure && (
-        <p role="alert" className="flex items-start gap-2 text-xs text-destructive">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p role="alert" className="cs-hint" data-tone="error">
           {browserFallback ? t("society.share.fallback_hint") : failure.message}
         </p>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground">
+        <p className="cs-hint min-w-0 flex-1">
           {draft.published
             ? fill(t("society.share.published_before"), { version: draft.published.version })
             : t("society.share.publish_hint")}
         </p>
         {browserFallback && (
-          <Button size="sm" variant="outline" onClick={fileByHand}>
-            <Github className="mr-1.5 h-3.5 w-3.5" />
+          <button type="button" className="cs-btn" data-variant="soft" onClick={fileByHand}>
             {t("society.share.fallback_cta")}
-          </Button>
+          </button>
         )}
         {!enabled ? (
-          <span className="text-xs text-muted-foreground">{t("society.share.publish_disabled")}</span>
+          <span className="cs-hint">{t("society.share.publish_disabled")}</span>
         ) : !signedIn ? (
-          <Button size="sm" onClick={() => setSignInOpen(true)} disabled={identity.isLoading} data-testid="share-sign-in">
-            <Github className="mr-1.5 h-3.5 w-3.5" />
+          <button type="button" className="cs-btn" data-variant="primary" onClick={() => setSignInOpen(true)} disabled={identity.isLoading} data-testid="share-sign-in">
             {t("society.share.sign_in")}
-          </Button>
+          </button>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="cs-hint flex items-center gap-1.5">
               <PublisherAvatar login={identity.data?.login} url={identity.data?.avatar_url} size={20} />
               @{identity.data?.login}
             </span>
-            <Button
-              size="sm"
+            <button
+              type="button"
+              className="cs-btn"
+              data-variant="primary"
               onClick={() => publish.mutate()}
               disabled={publish.isPending || saving || draft.errors.length > 0}
               data-testid="share-publish"
             >
-              {publish.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="mr-1.5 h-3.5 w-3.5" />}
+              {publish.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
               {t("society.share.publish")}
-            </Button>
+            </button>
           </div>
         )}
       </div>

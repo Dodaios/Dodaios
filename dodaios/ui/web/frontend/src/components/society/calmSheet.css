@@ -1,0 +1,375 @@
+/*
+ * The Agent section's dialogs and popovers: one calm sheet.
+ *
+ * The same quiet language as the agent pane (`card/pane/agentPane.css`): a
+ * soft rounded sheet with no rules between its parts, plain word tabs on one
+ * round track, fields that are round and filled instead of outlined, rows that
+ * separate by space, fully round buttons, 14px primary and 13px secondary
+ * text (never below 12px), theme tokens only so light and dark both follow
+ * the app, and short motion that switches off under reduced motion.
+ */
+
+.cs-sheet {
+  --cs-radius-sm: 12px;
+  --cs-radius: 16px;
+  --cs-radius-lg: 20px;
+  --cs-radius-sheet: 26px;
+  border: 0 !important;
+  border-radius: var(--cs-radius-sheet) !important;
+  background: hsl(var(--popover));
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--border) / 0.55),
+    0 2px 8px rgb(var(--scrim-rgb) / 0.12),
+    0 24px 64px rgb(var(--scrim-rgb) / 0.28);
+  color: hsl(var(--foreground));
+}
+
+/* ------------------------------------------------------------ head / foot */
+
+.cs-head {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px 12px;
+}
+.cs-head-row { display: flex; align-items: flex-start; gap: 12px; }
+.cs-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground-strong));
+}
+.cs-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+.cs-foot {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 24px 20px;
+}
+.cs-foot-note {
+  margin-right: auto;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* The one round close button in a sheet's corner. */
+.cs-close {
+  display: inline-flex;
+  height: 34px;
+  width: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--muted-foreground));
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+.cs-close:hover { color: hsl(var(--foreground)); }
+.cs-close:active { transform: scale(0.94); }
+.cs-close:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+
+/* ------------------------------------------------------------------ tabs */
+
+/* Words on one round track; the chosen one sits on a lifted chip. */
+.cs-tabs {
+  display: inline-flex;
+  max-width: 100%;
+  align-self: flex-start;
+  gap: 2px;
+  border-radius: 999px;
+  background: hsl(var(--secondary) / 0.7);
+  padding: 3px;
+}
+.cs-tabs[data-fill="true"] { display: flex; align-self: stretch; }
+.cs-tab {
+  display: inline-flex;
+  min-width: 0;
+  height: 32px;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.cs-tab:hover:not(:disabled) { color: hsl(var(--foreground)); }
+.cs-tab:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.cs-tab:disabled { opacity: 0.45; cursor: not-allowed; }
+.cs-tab:is([aria-selected="true"], [aria-checked="true"], [aria-pressed="true"]) {
+  background: hsl(var(--popover));
+  color: hsl(var(--foreground-strong));
+  box-shadow: 0 1px 2px rgb(var(--scrim-rgb) / 0.12), inset 0 0 0 1px hsl(var(--border) / 0.6);
+}
+/* In dark the track sinks below the sheet and the chosen chip rises above it. */
+.dark .cs-tabs { background: hsl(var(--background) / 0.75); box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5); }
+.dark .cs-tab:is([aria-selected="true"], [aria-checked="true"], [aria-pressed="true"]) { background: hsl(var(--secondary)); }
+
+/* ----------------------------------------------------------------- text */
+
+.cs-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+.cs-section-title {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+.cs-hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+.cs-hint[data-tone="warn"] { color: hsl(var(--warning)); }
+.cs-hint[data-tone="error"] { color: hsl(var(--destructive)); }
+
+/* ---------------------------------------------------------------- fields */
+
+/* Fields are round and filled: no outline at rest, a soft ring on focus. */
+.cs-sheet :is(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]), [role="combobox"]) {
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: hsl(var(--secondary) / 0.75);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5);
+  padding-left: 16px;
+  padding-right: 14px;
+  font-size: 14px;
+}
+.cs-sheet textarea {
+  border: 0;
+  border-radius: var(--cs-radius);
+  background: hsl(var(--secondary) / 0.75);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5);
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.cs-sheet :is(input, textarea, [role="combobox"]):focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px hsl(var(--border-strong)), 0 0 0 3px hsl(var(--ring) / 0.22);
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+}
+.cs-sheet .cs-search { position: relative; }
+
+/* Colour wells are round swatches, not boxed native pickers. */
+.cs-sheet input[type="color"] { -webkit-appearance: none; appearance: none; border: 0; padding: 0; cursor: pointer; }
+.cs-sheet input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.cs-sheet input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 999px; box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.7); }
+.cs-sheet input[type="color"]::-moz-color-swatch { border: 0; border-radius: 999px; }
+.cs-sheet .cs-search > input { padding-left: 16px; }
+
+/* ----------------------------------------------------------------- cards */
+
+/* One soft rounded surface; rows inside separate by space, not rules. */
+.cs-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--cs-radius-lg);
+  background: hsl(var(--card));
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.55);
+  padding: 4px;
+}
+.cs-card[data-pad="true"] { padding: 14px 16px; gap: 6px; }
+
+.cs-row {
+  display: flex;
+  min-height: 48px;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border-radius: 14px;
+  padding: 8px 12px;
+  text-align: left;
+  transition: background-color 150ms ease;
+}
+:is(button, label).cs-row { cursor: pointer; }
+:is(button, label).cs-row:hover { background: hsl(var(--secondary) / 0.7); }
+.cs-row:is([aria-selected="true"], [aria-checked="true"]) { background: hsl(var(--secondary)); }
+.cs-row:focus-visible,
+.cs-row:focus-within:has(:focus-visible) { outline: none; box-shadow: inset 0 0 0 2px hsl(var(--ring)); }
+.cs-row-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+/* A row's plain words: the regular weight of a list, not a heading. */
+.cs-row-text {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: hsl(var(--foreground));
+}
+.cs-row-detail {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+.cs-row-end {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+.cs-row-end[data-tone="warn"] { color: hsl(var(--warning)); }
+
+/* A round tick: the row reads as chosen without a box. */
+.cs-tick {
+  display: inline-flex;
+  height: 22px;
+  width: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px hsl(var(--border-strong));
+  color: hsl(var(--background));
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+.cs-tick[data-on="true"] {
+  background: hsl(var(--foreground));
+  box-shadow: none;
+}
+
+/* ----------------------------------------------------------------- chips */
+
+.cs-chip {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.cs-chip:hover { background: hsl(var(--secondary) / 0.7); color: hsl(var(--foreground)); }
+.cs-chip:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.cs-chip[aria-pressed="true"] {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground-strong));
+}
+.cs-chip-count { font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); font-weight: 400; }
+
+/* --------------------------------------------------------------- buttons */
+
+.cs-btn {
+  display: inline-flex;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  transition: background-color 150ms ease, opacity 150ms ease, transform 100ms ease;
+}
+.cs-btn[data-size="sm"] { height: 32px; padding: 0 14px; font-size: 13px; }
+.cs-btn:active:not(:disabled) { transform: scale(0.97); }
+.cs-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.cs-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.cs-btn[data-variant="primary"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.cs-btn[data-variant="primary"]:hover:not(:disabled) { opacity: 0.9; }
+.cs-btn[data-variant="soft"] { background: hsl(var(--secondary)); }
+.cs-btn[data-variant="soft"]:hover:not(:disabled) { background: hsl(var(--secondary) / 0.7); }
+.cs-btn[data-variant="ghost"]:hover:not(:disabled) { background: hsl(var(--secondary)); }
+.cs-btn[data-variant="danger"] { background: hsl(var(--destructive)); color: hsl(var(--destructive-foreground)); }
+
+/* A quiet text action: "Read the instructions", "Change". */
+.cs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 4px 10px;
+  margin: -4px -10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.cs-link:hover:not(:disabled) { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+.cs-link:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+
+/* An empty state: words alone, centred, no frame. */
+.cs-empty {
+  display: flex;
+  min-height: 220px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--cs-radius-lg);
+  background: hsl(var(--secondary) / 0.35);
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-tab,
+  .cs-row,
+  .cs-chip,
+  .cs-btn,
+  .cs-close,
+  .cs-tick { transition: none; }
+}
+
+/* A picture choice (a figure, a pet, a shape): a soft round tile, ringed when chosen. */
+.calm-tile {
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: hsl(var(--secondary) / 0.45);
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+.calm-tile:hover:not(:disabled) { background: hsl(var(--secondary) / 0.85); }
+.calm-tile:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.calm-tile[data-on="true"] {
+  background: hsl(var(--secondary));
+  box-shadow: inset 0 0 0 1.5px hsl(var(--foreground) / 0.6);
+}
+.calm-tile:disabled { background: hsl(var(--secondary) / 0.25); }
+
+@media (prefers-reduced-motion: reduce) {
+  .calm-tile { transition: none; }
+}

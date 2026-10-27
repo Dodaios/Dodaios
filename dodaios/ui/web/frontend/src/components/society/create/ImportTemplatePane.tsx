@@ -6,7 +6,8 @@
  * Create.
  */
 import { useEffect, useRef, useState } from "react";
-import { FileJson, Loader2, ShieldAlert, Upload } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import "../calmSheet.css";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n";
 import { readFileText } from "@/lib/agentShare";
@@ -96,15 +97,17 @@ export function ImportTemplatePane({ text, onTextChange, onChange, disabled }: P
   return (
     <div className="flex flex-col gap-3" data-testid="import-pane">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor="agent-import-text" className="text-sm font-medium">{t("agent_create.import.paste_label")}</label>
+        <label htmlFor="agent-import-text" className="cs-label">{t("agent_create.import.paste_label")}</label>
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
           disabled={disabled}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          className="cs-btn"
+          data-variant="soft"
+          data-size="sm"
           data-testid="import-open-file"
         >
-          <Upload className="size-3.5" aria-hidden /> {t("agent_create.import.open_file")}
+          {t("agent_create.import.open_file")}
         </button>
         <input
           ref={fileInput}
@@ -122,29 +125,25 @@ export function ImportTemplatePane({ text, onTextChange, onChange, disabled }: P
         placeholder={t("agent_create.import.paste_placeholder")}
         disabled={disabled}
         spellCheck={false}
-        className="min-h-[120px] font-mono text-sm"
+        className="min-h-[180px] font-mono text-[13px]"
         data-testid="import-text"
       />
       {checking ? (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+        <p className="cs-hint flex items-center gap-2" role="status">
           <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("agent_create.import.checking")}
         </p>
       ) : null}
-      {problem ? <p role="alert" className="text-xs text-destructive">{problem}</p> : null}
+      {problem ? <p role="alert" className="cs-hint" data-tone="error">{problem}</p> : null}
       {errors.length ? (
-        <div role="alert" className="flex flex-col gap-1 rounded-[10px] border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs" data-testid="import-errors">
-          <p className="flex items-center gap-1.5 font-medium text-destructive">
-            <ShieldAlert className="size-3.5" aria-hidden /> {t("agent_create.import.errors_title")}
-          </p>
-          <ul className="list-disc pl-5 text-foreground-secondary">
+        <div role="alert" className="cs-card gap-1.5 bg-destructive/5" data-pad="true" data-testid="import-errors">
+          <p className="cs-label text-destructive">{t("agent_create.import.errors_title")}</p>
+          <ul className="cs-hint list-disc pl-5">
             {errors.map((error) => <li key={error}>{error}</li>)}
           </ul>
         </div>
       ) : null}
       {!text.trim() ? (
-        <p className="flex items-start gap-2 text-xs text-muted-foreground">
-          <FileJson className="mt-0.5 size-3.5 shrink-0" aria-hidden /> {t("agent_create.import.safety_note")}
-        </p>
+        <p className="cs-hint">{t("agent_create.import.safety_note")}</p>
       ) : null}
     </div>
   );
