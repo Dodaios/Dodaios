@@ -181,7 +181,7 @@ def robe_skirt(ctx: O.Ctx, belt_z: float):
     )
     Vg = ctx.V[pelvis] + ctx.N[pelvis] * 0.012
     c = Vg[:, :2].mean(axis=0)
-    na = 64
+    na = 48
     zs = [belt_z - 0.01]
     z_low = 0.03
     rows = 18
@@ -370,7 +370,7 @@ def mantle(ctx: O.Ctx):
         (neck_z - 0.262 * s, 0.350, 0.242, 0.209, ccy, 18.0, 0.118),
         (neck_z - 0.278 * s, 0.352, 0.243, 0.210, ccy, 18.0, 0.120),
     ]
-    na = 64
+    na = 48
     rows = []
     rim_rows = []
     nlow = len(spec)
@@ -453,7 +453,7 @@ def cloak(ctx: O.Ctx, belt_z: float):
     z_top = neck_z - 0.13 * s
     z_hem = 0.006
     rows_n = 26
-    na = 72
+    na = 56
     rows = []
     for k in range(rows_n):
         u = k / (rows_n - 1)
