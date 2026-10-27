@@ -223,7 +223,7 @@ def run_failure(log_path: Path, since: float) -> str:
             size = handle.tell()
             handle.seek(max(0, size - _PROBE_TAIL_BYTES))
             text = handle.read().decode("utf-8", errors="replace")
-    except OSError:
+    except OSError:  # no readable Gateway log: the caller keeps its generic reason
         return ""
     overflow = False
     failed = ""
@@ -231,7 +231,7 @@ def run_failure(log_path: Path, since: float) -> str:
         stamp, _, rest = line.partition(" ")
         try:
             at = _dt.datetime.fromisoformat(stamp).timestamp()
-        except ValueError:
+        except ValueError:  # continuation line without a timestamp: not a turn event
             continue
         if at < since - 1.0:
             continue
