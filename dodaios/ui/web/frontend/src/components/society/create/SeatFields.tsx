@@ -7,7 +7,7 @@
  * on any runtime and any provider exactly like a blank agent.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import { ChevronDown, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { BrandedSelect } from "@/components/ui/select";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
@@ -21,7 +21,7 @@ import { modelSeats, runtimeSeats } from "../chat/modelChoices";
 import { useModelMenuData } from "../chat/useModelMenuData";
 import { accountChoice, accountHint } from "./brainPicker";
 import { AccessChoice } from "./AccessChoice";
-import { accessModels, defaultModel, pickableOption, providerChoices, type AccessBlocked, type AccessOption } from "./seatChoice";
+import { accessModels, billedPerUse, defaultModel, pickableOption, providerChoices, type AccessBlocked, type AccessOption } from "./seatChoice";
 
 /** A model list this long gets a search field. */
 const SEARCH_FROM = 12;
@@ -119,6 +119,11 @@ export function useCreateSeat() {
 
 export type CreateSeat = ReturnType<typeof useCreateSeat>;
 
+/** The sentence that explains how the picked access pays. */
+function accessHint(t: (key: string) => string, option: AccessOption): string {
+  return t(option.extraUsage ? "society.create_agent.access_extra_usage" : `society.create_agent.access_hint_${option.kind}`);
+}
+
 /** The full choice: runtime cards, provider, access, login and model. */
 export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boolean }) {
   const t = useT();
@@ -164,7 +169,8 @@ export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boo
         <AccessChoice
           options={chosen.options}
           value={option?.kind ?? ""}
-          hint={option ? t(option.extraUsage ? "society.create_agent.access_extra_usage" : `society.create_agent.access_hint_${option.kind}`) : ""}
+          hint={option ? accessHint(t, option) : ""}
+          warn={billedPerUse(option)}
           disabled={disabled}
           onChange={seat.setAccess}
         />
@@ -261,6 +267,13 @@ export function SeatSummary({ seat, disabled }: { seat: CreateSeat; disabled: bo
           <ChevronDown className={cn("size-3.5 transition-transform duration-200 motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
         </span>
       </button>
+      {billedPerUse(option) && option ? (
+        // Billed per use: said in plain sight, not only behind "Change".
+        <p className="flex items-start gap-1.5 border-t border-border px-3 py-2 text-xs text-warning" data-testid="create-agent-seat-cost">
+          <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+          <span>{accessHint(t, option)}</span>
+        </p>
+      ) : null}
       {open || blocked ? (
         <div className="border-t border-border px-3 py-4">
           <SeatFields seat={seat} disabled={disabled} />

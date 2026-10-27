@@ -23,14 +23,23 @@ event has none of them and the card falls back to the tool name and summary.
 ``detail``   the exact command or request for the card's disclosure, with
              every secret masked. The raw ``input`` stays as it always was.
 ``rule``     what "Always allow" saves (:func:`rule_offer`), or ``None`` when
-             the card offers no "Always allow" at all (a plan).
+             the card offers no "Always allow" at all (a plan). ``rule.narrow``
+             lists the narrower chat rules this call allows (:func:`narrow_options`):
+             only this folder, only this exact command.
+``brief``    the summary as the card's one-line outcome shows it: paths inside
+             the chat's folder relative to it, the home folder as ``~``
+             (:func:`display_paths`). The full path stays in ``detail``.
+
+``where`` and ``why`` are shortened the same way.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -161,15 +170,157 @@ def _describe(
     verb = action_verb(args)
     if kind == "connector" and verb:
         source = {**source, "verb": verb}
+    if rule is not None and kind != "plan":
+        narrow = narrow_options(kind, args, cwd)
+        if narrow:
+            rule = {**rule, "narrow": narrow}
     fields: dict[str, Any] = {
         "source": source,
-        "where": _where(kind, args, cwd),
-        "why": _why(args),
+        "where": display_paths(_where(kind, args, cwd), cwd),
+        "why": display_paths(_why(args), cwd),
         "caution": caution_of(kind, command, verb),
         "detail": "" if kind == "plan" else request_detail(args, command),
         "rule": None if kind == "plan" else rule,
+        "brief": display_paths(redact_secrets(summary or ""), cwd)[:_LINE_CHARS],
     }
     return fields
+
+
+# ------------------------------------------------------------ paths as shown
+
+_SEP: Final[str] = r"[\\/]"
+_PATH_END: Final[str] = r"(?=[\\/]|$|[\s\"'`)\],;:])"
+
+
+def _path_pattern(folder: str) -> re.Pattern[str] | None:
+    """``folder`` as a regex that accepts either slash (and any case on Windows)."""
+    text = folder.strip()
+    parts = [p for p in re.split(r"[\\/]+", text) if p]
+    if not parts:
+        return None
+    body = (_SEP + "+").join(re.escape(p) for p in parts)
+    lead = _SEP if text[:1] in ("\\", "/") else ""
+    flags = re.IGNORECASE if os.name == "nt" or re.match(r"^[A-Za-z]:", text) else 0
+    return re.compile(lead + body + _PATH_END, flags)
+
+
+def _same_folder(a: str, b: str) -> bool:
+    return os.path.normcase(os.path.normpath(a)) == os.path.normcase(os.path.normpath(b))
+
+
+def display_paths(text: str, cwd: str = "", home: str | None = None) -> str:
+    """``text`` with paths shortened for the card's visible lines.
+
+    A path inside the chat's folder reads relative to it (``src/app.py``), the
+    home folder reads as ``~``. Display only: the stored input, the request
+    detail and every policy keep the full path.
+    """
+    if not text:
+        return text
+    out = text
+    folder = (cwd or "").strip().rstrip("\\/")
+    home_dir = (home if home is not None else str(Path.home())).strip().rstrip("\\/")
+    if len(folder) > 3 and not (home_dir and _same_folder(folder, home_dir)):
+        inside = _path_pattern(folder)
+        if inside is not None:
+            # "<cwd>/src/x" -> "src/x"; the folder alone stays and is shortened below.
+            out = re.sub(inside.pattern + _SEP + r"+(?=\S)", "", out, flags=inside.flags)
+    if len(home_dir) > 3:
+        at_home = _path_pattern(home_dir)
+        if at_home is not None:
+            out = at_home.sub("~", out)
+    return out
+
+
+#: The argument names a file tool passes its path in.
+_PATH_KEYS: Final[tuple[str, ...]] = (
+    "file_path",
+    "path",
+    "filePath",
+    "notebook_path",
+    "target_file",
+)
+_NARROW_COMMAND_CHARS: Final[int] = 400
+
+
+def _call_paths(args: dict[str, Any]) -> list[str]:
+    return [v.strip() for k in _PATH_KEYS if isinstance(v := args.get(k), str) and v.strip()]
+
+
+def _absolute(path: str, cwd: str) -> str:
+    raw = Path(path)
+    if not raw.is_absolute() and cwd:
+        raw = Path(cwd) / raw
+    return os.path.normpath(str(raw))
+
+
+def _holds_home(folder: str, home: str | None = None) -> bool:
+    """Whether ``folder`` is the home folder or one above it: far too wide to
+    read as "only this folder"."""
+    home_dir = home if home is not None else str(Path.home())
+    if not home_dir:
+        return False
+    root = os.path.normcase(os.path.normpath(folder))
+    try:
+        return os.path.commonpath([root, os.path.normcase(os.path.normpath(home_dir))]) == root
+    except ValueError:  # another drive
+        return False
+
+
+def narrow_options(
+    kind: str, args: dict[str, Any], cwd: str = "", home: str | None = None
+) -> list[dict[str, str]]:
+    """The narrower chat rules a card may save for this call.
+
+    ``folder``: this tool, for files inside the folder of the path it touches
+    (never the home folder itself or one above it).
+    ``command``: this exact command, nothing else. ``value`` is what a later
+    call is matched against; ``label`` is how the card shows it.
+    """
+    out: list[dict[str, str]] = []
+    if kind == "files":
+        paths = _call_paths(args)
+        if paths:
+            folder = os.path.dirname(_absolute(paths[0], cwd))
+            if folder and folder != os.path.dirname(folder) and not _holds_home(folder, home):
+                shown = display_paths(folder, cwd, home)
+                out.append({"kind": "folder", "value": folder, "label": shown[:_LINE_CHARS]})
+    elif kind == "terminal":
+        command = " ".join(_command_text(args).split())
+        if command and len(command) <= _NARROW_COMMAND_CHARS:
+            label = display_paths(redact_secrets(command), cwd)[:_LINE_CHARS]
+            out.append({"kind": "command", "value": command, "label": label})
+    return out
+
+
+def narrow_tool(name: str) -> str:
+    """The tool name a narrow chat rule is saved under and matched against."""
+    return own_cli_tool(name) or name
+
+
+def narrow_matches(rule: dict[str, str], name: str, args: dict[str, Any], cwd: str = "") -> bool:
+    """Whether a saved narrow chat rule covers this call (same tool, same reach)."""
+    if str(rule.get("tool") or "").lower() != narrow_tool(name).lower():
+        return False
+    value = str(rule.get("value") or "")
+    if not value:
+        return False
+    if rule.get("kind") == "command":
+        return " ".join(_command_text(args).split()) == value
+    if rule.get("kind") == "folder":
+        paths = _call_paths(args)
+        if not paths:
+            return False
+        root = os.path.normcase(os.path.normpath(value))
+        for path in paths:
+            full = os.path.normcase(_absolute(path, cwd))
+            try:
+                if os.path.commonpath([root, full]) != root:
+                    return False
+            except ValueError:  # another drive
+                return False
+        return True
+    return False
 
 
 def source_of(name: str, args: dict[str, Any]) -> dict[str, str]:
@@ -350,7 +501,11 @@ __all__ = [
     "app_label",
     "caution_of",
     "describe_call",
+    "display_paths",
     "mask_secrets",
+    "narrow_matches",
+    "narrow_options",
+    "narrow_tool",
     "request_detail",
     "rule_offer",
     "source_of",

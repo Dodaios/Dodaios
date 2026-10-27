@@ -6,16 +6,19 @@
  * message would fail.
  */
 import { useId, useRef, type KeyboardEvent } from "react";
+import { TriangleAlert } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { blockedReasonKey, type AccessOption } from "./seatChoice";
 
-export function AccessChoice({ options, value, hint, disabled, onChange }: {
+export function AccessChoice({ options, value, hint, warn = false, disabled, onChange }: {
   options: AccessOption[];
   /** The picked kind; "" when no access can be picked. */
   value: string;
   /** The sentence under the group that explains the picked access. */
   hint: string;
+  /** The picked access bills every use: the hint reads as a warning. */
+  warn?: boolean;
   disabled: boolean;
   onChange: (kind: string) => void;
 }) {
@@ -73,7 +76,13 @@ export function AccessChoice({ options, value, hint, disabled, onChange }: {
           );
         })}
       </div>
-      {hint ? <p id={`${id}-hint`} className="text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p id={`${id}-hint`} className={cn("flex items-start gap-1.5 text-xs", warn ? "text-warning" : "text-muted-foreground")}
+          data-testid={warn ? "create-agent-access-cost" : undefined}>
+          {warn ? <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden /> : null}
+          <span>{hint}</span>
+        </p>
+      ) : null}
       {options.filter((entry) => entry.blocked).map((entry) => (
         <p key={entry.kind} id={`${id}-blocked-${entry.kind}`} role="note" className="text-xs text-warning"
           data-testid={`create-agent-access-blocked-${entry.kind}`}>

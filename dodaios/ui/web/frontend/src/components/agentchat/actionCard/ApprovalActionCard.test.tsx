@@ -133,9 +133,12 @@ describe("the approval action card", () => {
       ev("approval_required", { turn_id: "t1", approval_id: "a1", call_id: "c1", name: "Bash", input: { command: "ls" }, summary: "ls" }),
     ]);
     expect(screen.getByRole("heading", { name: "Run this command?" })).toBeTruthy();
-    expect(screen.getByTestId("action-card-always").textContent).toBe("Always allow");
+    // Even an old card never saves on the first click: the editor asks first.
     await act(async () => { fireEvent.click(screen.getByTestId("action-card-always")); });
-    expect(onDecide).toHaveBeenCalledWith("a1", "allow_always");
+    expect(onDecide).not.toHaveBeenCalled();
+    expect(screen.getByTestId("action-card-rule-text").textContent).toBe("Always allow this");
+    await act(async () => { fireEvent.click(screen.getByTestId("action-card-rule-save")); });
+    expect(onDecide).toHaveBeenCalledWith("a1", "allow_always", { scope: "chat", breadth: "action" });
   });
 
   it("says why an answer was not sent and lets the person try again", async () => {
@@ -144,6 +147,114 @@ describe("the approval action card", () => {
     await act(async () => { fireEvent.click(screen.getByTestId("action-card-allow")); });
     expect(screen.getByRole("alert").textContent).toContain("server error");
     expect((screen.getByTestId("action-card-allow") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+const EDIT_CARD = {
+  source: { kind: "files" }, where: "~\\Desktop\\proj", why: "", caution: "",
+  detail: "{\n  \"file_path\": \"C:\\\\Users\\\\Ada\\\\Desktop\\\\proj\\\\src\\\\app.py\"\n}",
+  brief: "Edit src\\app.py",
+  rule: { scopes: [], chat: "runtime", narrow: [{ kind: "folder", label: "src" }] },
+};
+
+function editAsking(): AgentChatEvent[] {
+  return [
+    ev("tool_call", { turn_id: "t1", call_id: "c1", name: "Edit", input: { file_path: "C:\\Users\\Ada\\Desktop\\proj\\src\\app.py" } }),
+    ev("approval_required", {
+      turn_id: "t1", approval_id: "a1", call_id: "c1", name: "Edit",
+      input: { file_path: "C:\\Users\\Ada\\Desktop\\proj\\src\\app.py" },
+      summary: "Edit C:\\Users\\Ada\\Desktop\\proj\\src\\app.py", ...EDIT_CARD,
+    }),
+  ];
+}
+
+describe("Always allow as a rule editor", () => {
+  it("never saves on the first click, and Cancel saves nothing", async () => {
+    const { onDecide } = drawTurn(editAsking());
+    await act(async () => { fireEvent.click(screen.getByTestId("action-card-always")); });
+    expect(onDecide).not.toHaveBeenCalled();
+    expect(screen.getByTestId("action-card-rule")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("action-card-rule-cancel"));
+    expect(screen.queryByTestId("action-card-rule")).toBeNull();
+    expect(onDecide).not.toHaveBeenCalled();
+    expect(screen.getByTestId("action-card-allow")).toBeTruthy();
+  });
+
+  it("offers this folder first and saves it only on Save", async () => {
+    const { onDecide } = drawTurn(editAsking());
+    fireEvent.click(screen.getByTestId("action-card-always"));
+    expect(screen.getByRole("radio", { name: "Only this folder" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByTestId("action-card-rule-text").textContent).toBe("Always allow changes to files in src");
+    expect(screen.getByTestId("action-card-rule-where").textContent).toBe("Stops asking in this chat until the app restarts.");
+    fireEvent.click(screen.getByRole("radio", { name: "This whole tool" }));
+    expect(screen.getByTestId("action-card-rule-text").textContent).toBe("Always allow this");
+    fireEvent.click(screen.getByRole("radio", { name: "Only this folder" }));
+    await act(async () => { fireEvent.click(screen.getByTestId("action-card-rule-save")); });
+    expect(onDecide).toHaveBeenCalledWith("a1", "allow_always", { scope: "chat", breadth: "action", narrow: "folder" });
+  });
+
+  it("offers this exact command on a terminal card", async () => {
+    const { onDecide } = drawTurn([
+      ev("approval_required", {
+        turn_id: "t1", approval_id: "a1", call_id: "c1", name: "Bash", input: { command: "npm test" },
+        summary: "npm test", source: { kind: "terminal" }, where: "", why: "", caution: "", detail: "npm test",
+        rule: { scopes: ["chat"], chat: "all", narrow: [{ kind: "command", label: "npm test" }] },
+      }),
+    ]);
+    fireEvent.click(screen.getByTestId("action-card-always"));
+    expect(screen.getByTestId("action-card-rule-text").textContent).toBe("Always allow the command npm test");
+    fireEvent.click(screen.getByRole("radio", { name: "Everything in this chat" }));
+    expect(screen.getByTestId("action-card-rule-text").textContent).toBe("Always allow everything in this chat");
+    expect(screen.getByTestId("action-card-rule-where").textContent).toBe("Stops asking for anything in this chat.");
+    fireEvent.click(screen.getByRole("radio", { name: "Only this command" }));
+    await act(async () => { fireEvent.click(screen.getByTestId("action-card-rule-save")); });
+    expect(onDecide).toHaveBeenCalledWith("a1", "allow_always", { scope: "chat", breadth: "action", narrow: "command" });
+  });
+
+  it("reads a saved narrow rule back on the outcome line", () => {
+    drawTurn([
+      ...editAsking(),
+      ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow_always", scope: "chat" }),
+      ev("notice", {
+        kind: "approval_rule", turn_id: "t1", approval_id: "a1", rule_kind: "always_allow", scope: "chat",
+        pattern: "folder:C:\\Users\\Ada\\Desktop\\proj\\src", app: "Edit", verb: "", still_asks: false,
+        narrow: "folder", target: "src",
+      }),
+    ]);
+    const outcome = screen.getByTestId("approval-outcome");
+    expect(outcome.textContent).toContain("Always allowed");
+    expect(screen.getByTestId("action-card-rule-saved").getAttribute("title"))
+      .toBe("Allowed in this chat: Always allow changes to files in src");
+  });
+});
+
+describe("paths on an approval card", () => {
+  it("shows them short on the card and on its outcome line, in full only in the details", () => {
+    const { rerender } = drawTurn(editAsking());
+    const card = screen.getByTestId("thread-approval");
+    expect(card.textContent).toContain("Edit src\\app.py");
+    expect(card.textContent).toContain("In ~\\Desktop\\proj");
+    expect(card.textContent).not.toContain("C:\\Users\\Ada");
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByTestId("action-card-detail").textContent).toContain("Users");
+    rerender([...editAsking(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow" })]);
+    const outcome = screen.getByTestId("approval-outcome");
+    expect(outcome.textContent).toContain("Edit src\\app.py");
+    expect(outcome.textContent).not.toContain("C:\\Users\\Ada");
+  });
+
+  it("hides the home folder on an event written before the backend shortened paths", () => {
+    drawTurn([
+      ev("approval_required", {
+        turn_id: "t1", approval_id: "a1", call_id: "c1", name: "Write",
+        input: { file_path: "C:\\Users\\Ada\\notes.md", cwd: "C:\\Users\\Ada\\proj" },
+        summary: "Write C:\\Users\\Ada\\notes.md",
+      }),
+    ]);
+    const card = screen.getByTestId("thread-approval");
+    expect(card.textContent).toContain("Write ~\\notes.md");
+    expect(card.textContent).toContain("In ~\\proj");
+    expect(card.textContent).not.toContain("C:\\Users\\Ada");
   });
 });
 

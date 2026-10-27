@@ -553,14 +553,19 @@ async def remember_always_allow(session: Any, tool_name: str, args: dict[str, An
     """The card's "Always allow" on a society session writes the agent's OWN
     rule (``approval_rules.always_allow``: ``capability`` or ``capability:verb``)
     instead of flipping the session to auto. Returns False when this is not a
-    society session or the tool has no capability id, so the caller falls back.
+    society session or the tool is not one the agent's own rules govern (a
+    runtime's own ``Edit`` or ``Bash`` has no catalog row: writing
+    ``plugin:edit`` for it would read as a rule and govern nothing), so the
+    caller falls back.
     """
+    from .approvals import card_rule
+
     rt = current_runtime()
     agent_id = agent_id_of(getattr(session, "session_id", "") or "")
     if rt is None or agent_id is None:
         return False
     cap_id = capability_id_for_tool(tool_name)
-    if cap_id is None:
+    if cap_id is None or card_rule(tool_name, args or {}) is None:
         return False
     agent = await rt.roster.get(agent_id)
     if agent is None:

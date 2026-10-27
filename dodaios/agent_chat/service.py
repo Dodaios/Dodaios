@@ -171,6 +171,9 @@ DECISIONS: tuple[str, ...] = ("allow", "allow_always", "deny")
 RULE_SCOPES: tuple[str, ...] = ("agent", "chat")
 #: How far an agent rule from the card reaches: this action, or the whole app.
 RULE_BREADTHS: tuple[str, ...] = ("action", "app")
+#: How narrow a chat rule from the card is: only this folder, only this command
+#: (approval_card.narrow_options). Empty: the whole tool, as before.
+RULE_NARROWS: tuple[str, ...] = ("folder", "command")
 
 
 class SessionBusy(RuntimeError):
@@ -494,8 +497,12 @@ class AgentChatService:
         # card, a mail send included.
         self._always_allowed: dict[str, set[str]] = {}
         # Where an "Always allow" from the card is to live, by approval id:
-        # ``(scope, breadth)`` as the card's rule chooser sent it.
-        self._approval_choice: dict[str, tuple[str, str]] = {}
+        # ``(scope, breadth, narrow)`` as the card's rule editor sent it.
+        self._approval_choice: dict[str, tuple[str, str, str]] = {}
+        # Narrow chat rules from the card ("only this folder", "only this
+        # command"), per session: a matching call runs without a card. They
+        # live as long as the app runs, like the chat's other "always".
+        self._narrow_rules: dict[str, list[dict[str, str]]] = {}
         # Tools whose "Always allow" the card just saved on the society agent,
         # by session: the approval bridge must not also wave the whole tool
         # through for the chat (a rule for one action would read wider).
@@ -2122,6 +2129,9 @@ class AgentChatService:
     ) -> str:
         # The same tool call asked again after a restart answers on the card
         # the person already sees (_hold_unanswered_approvals).
+        if self._narrow_allows(session_id, name, args):
+            # The person's own narrow rule from an earlier card covers this call.
+            return "allow"
         held = self._unanswered.pop((session_id, turn_id, call_id), "") if call_id else ""
         approval_id = held if held and held not in self._approvals else uuid.uuid4().hex
         loop = asyncio.get_running_loop()
@@ -2179,19 +2189,36 @@ class AgentChatService:
         if decision == "allow_always":
             session = self.store.get_session(session_id)
             if choice is not None and session is not None:
+                scope, breadth, narrow = choice
                 try:
                     saved = await self._rule_from_card(
-                        session, approval_id, turn_id, name, args, "always_allow", *choice
+                        session,
+                        approval_id,
+                        turn_id,
+                        name,
+                        args,
+                        "always_allow",
+                        scope,
+                        breadth,
+                        narrow,
                     )
                 except Exception:  # noqa: BLE001 — falls back to the surface's own "always"
                     log.warning("agent chat: rule from the card failed for %s", name, exc_info=True)
                     saved = None
                 if saved is not None:
+                    if narrow:
+                        # Only the narrow rule was asked for: the runtime that
+                        # asked must not widen it to the whole tool.
+                        return "allow"
                     if choice[0] == "agent":
                         from .approval_bridge import _bare
 
                         self._ruled_on_agent.setdefault(session_id, set()).add(_bare(name))
                     return decision
+                if narrow:
+                    # A narrow rule that could not be saved never widens to the
+                    # whole tool or the whole chat: this call runs once.
+                    return "allow"
             handled = False
             hook = kit_for(session.surface).session_always_allow if session is not None else None
             if hook is not None:
@@ -2203,7 +2230,10 @@ class AgentChatService:
                     log.warning("agent chat: always-allow hook failed for %s", name, exc_info=True)
             if handled:
                 pass
-            elif session is not None and session.surface == "jarvis":
+            elif session is not None and session.surface in ("jarvis", "society"):
+                # A society chat whose tool no agent rule governs (a runtime's
+                # own Edit or Bash) stops asking for that one tool, never for
+                # the whole chat.
                 self._always_allowed.setdefault(session_id, set()).add(name)
             else:
                 self.store.update_session(session_id, permission_mode="auto")
@@ -2224,22 +2254,28 @@ class AgentChatService:
         *,
         scope: str = "",
         breadth: str = "",
+        narrow: str = "",
     ) -> bool:
         """Answer an open card. ``scope``/``breadth`` say where an "Always allow"
-        lives (the card's rule chooser); without them it does what it always did."""
+        lives (the card's rule editor), ``narrow`` how far a chat rule reaches;
+        without them it does what it always did."""
         if decision not in DECISIONS:
             raise ValueError(f"decision must be one of {DECISIONS}")
         if scope and scope not in RULE_SCOPES:
             raise ValueError(f"scope must be one of {RULE_SCOPES}")
         if breadth and breadth not in RULE_BREADTHS:
             raise ValueError(f"breadth must be one of {RULE_BREADTHS}")
+        if narrow and narrow not in RULE_NARROWS:
+            raise ValueError(f"narrow must be one of {RULE_NARROWS}")
+        if narrow and scope != "chat":
+            raise ValueError("a narrow rule lives in this chat")
         if self._approval_session.get(approval_id) != session_id:
             return False
         fut = self._approvals.get(approval_id)
         if fut is None or fut.done():
             return False
         if decision == "allow_always" and scope:
-            self._approval_choice[approval_id] = (scope, breadth or "action")
+            self._approval_choice[approval_id] = (scope, breadth or "action", narrow)
         fut.set_result(decision)
         return True
 
@@ -2274,6 +2310,7 @@ class AgentChatService:
         kind: str,
         scope: str,
         breadth: str,
+        narrow: str = "",
     ) -> dict[str, Any] | None:
         """Save the rule a card asked for and note it on the card; ``None`` if none fits.
 
@@ -2286,7 +2323,9 @@ class AgentChatService:
         from .approval_card import app_label
 
         rule: dict[str, Any] | None = None
-        if scope == "agent" and session.surface == "society":
+        if narrow:
+            rule = self._narrow_rule_from_card(session, name, args or {}, kind, scope, narrow)
+        elif scope == "agent" and session.surface == "society":
             from dodaios.society.approvals import save_card_rule
 
             rule = await save_card_rule(
@@ -2316,10 +2355,64 @@ class AgentChatService:
                     "app": rule.get("app", ""),
                     "verb": rule.get("verb", ""),
                     "still_asks": bool(rule.get("still_asks")),
+                    **(
+                        {"narrow": rule["narrow"], "target": rule.get("target", "")}
+                        if rule.get("narrow")
+                        else {}
+                    ),
                 },
             ),
         )
         return rule
+
+    def _narrow_rule_from_card(
+        self,
+        session: Any,
+        name: str,
+        args: dict[str, Any],
+        kind: str,
+        scope: str,
+        narrow: str,
+    ) -> dict[str, Any] | None:
+        """Remember "only this folder" / "only this command" for this chat."""
+        from .approval_card import app_label, narrow_options, narrow_tool, source_of
+
+        if kind != "always_allow" or scope != "chat":
+            return None
+        cwd = str(session.cwd or "")
+        offered = narrow_options(source_of(name, args)["kind"], args, cwd)
+        match = next((o for o in offered if o["kind"] == narrow), None)
+        if match is None:
+            return None
+        # The same name narrow_matches compares against later.
+        bare = narrow_tool(name)
+        rules = self._narrow_rules.setdefault(session.session_id, [])
+        entry = {"tool": bare, "kind": narrow, "value": match["value"]}
+        if entry not in rules:
+            rules.append(entry)
+        return {
+            "kind": kind,
+            "pattern": f"{narrow}:{match['value']}",
+            "app": app_label(bare),
+            "verb": "",
+            "narrow": narrow,
+            "target": match["label"],
+        }
+
+    def _narrow_allows(self, session_id: str, name: str, args: dict[str, Any]) -> bool:
+        """Whether a narrow chat rule saved from an earlier card covers this call."""
+        rules = self._narrow_rules.get(session_id)
+        if not rules:
+            return False
+        from .approval_card import narrow_matches
+
+        session = self.store.get_session(session_id)
+        cwd = str(session.cwd or "") if session is not None else ""
+        try:
+            return any(narrow_matches(rule, name, args or {}, cwd) for rule in rules)
+        except Exception:  # noqa: BLE001 — no match: the card asks as usual
+            log.warning("agent chat: narrow rule check failed for %s", name, exc_info=True)
+            return False
 
     async def save_approval_rule(
         self,
@@ -2329,12 +2422,15 @@ class AgentChatService:
         kind: str,
         scope: str,
         breadth: str = "action",
+        narrow: str = "",
     ) -> dict[str, Any]:
         """A rule from a card already answered (or expired): "Allow every
         time", "Check with me every time". Raises KeyError for an unknown
         card and LookupError when no rule fits that card in that scope."""
         if scope not in RULE_SCOPES:
             raise ValueError(f"scope must be one of {RULE_SCOPES}")
+        if narrow and narrow not in RULE_NARROWS:
+            raise ValueError(f"narrow must be one of {RULE_NARROWS}")
         session = self.store.get_session(session_id)
         if session is None:
             raise KeyError(session_id)
@@ -2358,6 +2454,7 @@ class AgentChatService:
             kind,
             scope,
             breadth,
+            narrow,
         )
         if rule is None:
             raise LookupError("no rule fits this card")

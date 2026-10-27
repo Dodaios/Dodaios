@@ -23,6 +23,9 @@ export interface PreviewRoutine {
 interface Props {
   icon: ReactNode;
   name: string;
+  /** The starter's or template's own name: the field starts with it, and an
+   *  emptied field falls back to it. */
+  defaultName?: string;
   onNameChange: (name: string) => void;
   outcome: string;
   summary: TemplateSummary;
@@ -75,20 +78,29 @@ export function TemplatePreviewCard(props: Props) {
           {props.icon}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor={nameId} className="sr-only">{t("agent_create.preview.name_label")}</label>
-          <Input
-            id={nameId}
-            value={props.name}
-            maxLength={40}
-            onChange={(event) => props.onNameChange(event.target.value)}
-            disabled={props.disabled}
-            data-testid="template-preview-name"
-            className="h-9 border-transparent bg-transparent px-2 -mx-2 text-lg font-semibold text-foreground-strong hover:border-border focus-visible:border-accent"
-          />
+          <h2 className="truncate text-lg font-semibold text-foreground-strong" data-testid="template-preview-title">
+            {props.name.trim() || props.defaultName || t("agent_create.preview.name_label")}
+          </h2>
           <p className="text-sm text-foreground-secondary">{props.outcome}</p>
           {props.note}
         </div>
       </header>
+
+      <div className="flex flex-col gap-1.5 text-sm">
+        <span className="flex items-baseline justify-between gap-2">
+          <label htmlFor={nameId} className="font-medium">{t("agent_create.preview.name_label")}</label>
+          <span className="text-xs text-foreground-faint">{t("agent_create.quick.optional")}</span>
+        </span>
+        <Input
+          id={nameId}
+          value={props.name}
+          maxLength={40}
+          onChange={(event) => props.onNameChange(event.target.value)}
+          placeholder={props.defaultName}
+          disabled={props.disabled}
+          data-testid="template-preview-name"
+        />
+      </div>
 
       <section aria-label={t("agent_create.preview.brings")} className="flex flex-col gap-2">
         <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("agent_create.preview.brings")}</h3>

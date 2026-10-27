@@ -291,7 +291,10 @@ def test_acp_request_permission_asks_on_the_same_card(tmp_path: Path):
         assert payload["source"]["kind"] == "terminal"
         assert payload["caution"] == "irreversible"
         # A runtime's own tool: its "always" stays the runtime's to remember.
-        assert payload["rule"] == {"scopes": [], "chat": "runtime"}
+        offer = payload["rule"]
+        assert (offer["scopes"], offer["chat"]) == ([], "runtime")
+        # ...and the card may still narrow it to this one command for this chat.
+        assert payload["rule"]["narrow"][0]["kind"] == "command"
         svc.resolve_approval(session.session_id, payload["approval_id"], "allow_always")
         assert await asyncio.wait_for(answering, 2) == {"outcome": "selected", "optionId": "o2"}
 
@@ -667,3 +670,244 @@ def test_the_rule_route(tmp_path: Path):
             json={"decision": "allow_always", "scope": "agent", "breadth": "planet"},
         )
         assert bad_breadth.status_code == 400
+
+
+# ------------------------------------------------------------ narrow rules, short paths
+
+WIN_HOME = "C:\\Users\\Ada"
+WIN_CWD = "C:\\Users\\Ada\\Desktop\\proj"
+
+
+def test_display_paths_shortens_the_workspace_and_the_home_folder():
+    from dodaios.agent_chat.approval_card import display_paths
+
+    text = f"Edit {WIN_CWD}\\src\\a.py and C:/Users/ada/Downloads/x.txt"
+    assert display_paths(text, WIN_CWD, WIN_HOME) == "Edit src\\a.py and ~/Downloads/x.txt"
+    # The workspace itself reads from the home folder; no path, no change.
+    assert display_paths(WIN_CWD, WIN_CWD, WIN_HOME) == "~\\Desktop\\proj"
+    assert display_paths("echo hi", WIN_CWD, WIN_HOME) == "echo hi"
+    assert display_paths("/home/bob/code/x.py", "/home/bob/code", "/home/bob") == "x.py"
+    assert display_paths("cat /home/bob/notes.md", "", "/home/bob") == "cat ~/notes.md"
+    # A folder that only starts like the home folder is left alone.
+    assert display_paths("C:\\Users\\Adam\\x", "", WIN_HOME) == "C:\\Users\\Adam\\x"
+
+
+def test_narrow_options_and_matches():
+    from dodaios.agent_chat.approval_card import narrow_matches, narrow_options
+
+    folder = narrow_options("files", {"file_path": f"{WIN_CWD}\\src\\a.py"}, WIN_CWD)
+    assert folder == [{"kind": "folder", "value": f"{WIN_CWD}\\src", "label": "src"}] or (
+        # POSIX normpath keeps backslashes as part of the name; the label still shortens.
+        folder and folder[0]["kind"] == "folder"
+    )
+    command = narrow_options("terminal", {"command": "npm   test"}, WIN_CWD)
+    assert command == [{"kind": "command", "value": "npm test", "label": "npm test"}]
+    assert narrow_options("connector", {"action": "send"}, WIN_CWD) == []
+    assert narrow_options("terminal", {"command": "x" * 500}, WIN_CWD) == []
+
+    rule = {"tool": "Bash", "kind": "command", "value": "npm test"}
+    assert narrow_matches(rule, "Bash", {"command": "npm  test"})
+    assert not narrow_matches(rule, "Bash", {"command": "npm test && rm -rf /"})
+    assert not narrow_matches(rule, "RunCommand", {"command": "npm test"})
+
+
+def test_a_folder_rule_covers_only_that_folder(tmp_path: Path):
+    from dodaios.agent_chat.approval_card import narrow_matches
+
+    root = tmp_path / "src"
+    rule = {"tool": "Edit", "kind": "folder", "value": str(root)}
+    assert narrow_matches(rule, "Edit", {"file_path": str(root / "a" / "b.py")})
+    assert narrow_matches(rule, "Edit", {"file_path": "src/c.py"}, str(tmp_path))
+    assert not narrow_matches(rule, "Edit", {"file_path": str(tmp_path / "other.py")})
+    assert not narrow_matches(rule, "Edit", {"file_path": str(root / ".." / "escape.py")})
+    assert not narrow_matches(rule, "Write", {"file_path": str(root / "a.py")})
+    assert not narrow_matches(rule, "Edit", {})
+
+
+def test_the_card_shows_short_paths_and_offers_narrow_rules(tmp_path: Path):
+    target = tmp_path / "src" / "app.py"
+    fields = describe_call(
+        "Edit",
+        {"file_path": str(target), "old_string": "a", "new_string": "b"},
+        f"Edit {target}",
+        cwd=str(tmp_path),
+        rule={"scopes": ["chat"], "chat": "tool", "app": "Edit"},
+    )
+    assert str(tmp_path) not in fields["brief"]
+    assert fields["brief"].replace("\\", "/") == "Edit src/app.py"
+    # The full path stays in the disclosure.
+    assert str(target).replace("\\", "\\\\") in fields["detail"] or str(target) in fields["detail"]
+    narrow = fields["rule"]["narrow"]
+    assert narrow[0]["kind"] == "folder" and narrow[0]["value"] == str(target.parent)
+    assert narrow[0]["label"] == "src"
+    # A plan offers nothing; a connector offers no narrow rule.
+    assert describe_call("ExitPlanMode", {"plan": "x"}, rule={"scopes": []})["rule"] is None
+    gmail = describe_call("gmail", {"action": "send"}, rule={"scopes": ["chat"]})
+    assert "narrow" not in gmail["rule"]
+
+
+def test_a_narrow_command_rule_allows_only_that_command(tmp_path: Path):
+    async def scenario() -> None:
+        svc, session = _service(tmp_path)
+        sid = session.session_id
+        q = svc.subscribe(sid)
+        asking = asyncio.create_task(
+            svc._ask(sid, "t1", "c1", "Bash", {"command": "npm test"}, "npm test")  # noqa: SLF001
+        )
+        payload = (await _next(q, "approval_required"))["payload"]
+        assert payload["rule"]["narrow"] == [
+            {"kind": "command", "value": "npm test", "label": "npm test"}
+        ]
+        assert svc.resolve_approval(
+            sid, payload["approval_id"], "allow_always", scope="chat", narrow="command"
+        )
+        # The runtime hears a plain yes: it must not widen the rule to the tool.
+        assert await asyncio.wait_for(asking, 2) == "allow"
+        resolved = (await _next(q, "approval_resolved"))["payload"]
+        assert resolved["decision"] == "allow_always" and resolved["scope"] == "chat"
+        notice = (await _next(q, "notice"))["payload"]
+        assert notice["narrow"] == "command" and notice["target"] == "npm test"
+        assert "Bash" not in svc.always_allowed(sid)
+        assert svc.store.get_session(sid).permission_mode == "ask"  # type: ignore[union-attr]
+        # The same command runs without a card; another one still asks.
+        assert await svc._ask(sid, "t1", "c2", "Bash", {"command": "npm test"}, "") == "allow"  # noqa: SLF001
+        other = asyncio.create_task(
+            svc._ask(sid, "t1", "c3", "Bash", {"command": "rm -rf dist"}, "")  # noqa: SLF001
+        )
+        again = (await _next(q, "approval_required"))["payload"]
+        assert again["input"] == {"command": "rm -rf dist"}
+        svc.resolve_approval(sid, again["approval_id"], "deny")
+        assert await asyncio.wait_for(other, 2) == "deny"
+
+    asyncio.run(scenario())
+
+
+def test_a_narrow_folder_rule_allows_only_that_folder(tmp_path: Path):
+    async def scenario() -> None:
+        svc, session = _service(tmp_path, surface="society", session_id="society:ada")
+        sid = session.session_id
+        q = svc.subscribe(sid)
+        inside = str(tmp_path / "docs" / "a.md")
+        asking = asyncio.create_task(
+            svc._ask(sid, "t1", "c1", "Edit", {"file_path": inside}, "")  # noqa: SLF001
+        )
+        payload = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(
+            sid, payload["approval_id"], "allow_always", scope="chat", narrow="folder"
+        )
+        assert await asyncio.wait_for(asking, 2) == "allow"
+        later = str(tmp_path / "docs" / "deep" / "b.md")
+        assert await svc._ask(sid, "t1", "c2", "Edit", {"file_path": later}, "") == "allow"  # noqa: SLF001
+        outside = asyncio.create_task(
+            svc._ask(sid, "t1", "c3", "Edit", {"file_path": str(tmp_path / "x.md")}, "")  # noqa: SLF001
+        )
+        again = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(sid, again["approval_id"], "deny")
+        assert await asyncio.wait_for(outside, 2) == "deny"
+
+    asyncio.run(scenario())
+
+
+def test_narrow_is_validated(tmp_path: Path):
+    svc, session = _service(tmp_path)
+    with pytest.raises(ValueError):
+        svc.resolve_approval(session.session_id, "a1", "allow_always", scope="chat", narrow="disk")
+    with pytest.raises(ValueError):
+        svc.resolve_approval(
+            session.session_id, "a1", "allow_always", scope="agent", narrow="folder"
+        )
+
+
+def test_an_always_without_a_choice_never_writes_a_rule_for_a_runtime_tool(
+    tmp_path: Path, society_runtime
+):
+    """An older client's bare "Always allow" on Claude's own Edit: no
+    ``plugin:edit`` on the agent, no chat-wide auto, only that tool in this chat."""
+
+    async def scenario() -> None:
+        from dodaios.society.surface import remember_always_allow
+
+        svc, session = _service(tmp_path, surface="society", session_id="society:ada")
+        sid = session.session_id
+        q = svc.subscribe(sid)
+        assert await remember_always_allow(session, "Edit", {"file_path": "a.py"}) is False
+        asking = asyncio.create_task(
+            svc._ask(sid, "t1", "c1", "Edit", {"file_path": "a.py"}, "")  # noqa: SLF001
+        )
+        payload = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(sid, payload["approval_id"], "allow_always")
+        assert await asyncio.wait_for(asking, 2) == "allow_always"
+        assert society_runtime.roster.agent.approval_rules["always_allow"] == []
+        assert "Edit" in svc.always_allowed(sid)
+        assert svc.store.get_session(sid).permission_mode == "ask"  # type: ignore[union-attr]
+
+    asyncio.run(scenario())
+
+
+def test_the_route_takes_a_narrow_rule(tmp_path: Path):
+    app = _app(tmp_path)
+    svc: AgentChatService = app.state.agent_chat
+    session = svc.store.create_session(
+        provider="claude-api", model="m", effort="medium", cwd=str(tmp_path), surface="jarvis"
+    )
+    with TestClient(app) as client:
+        url = f"/api/agent-chat/sessions/{session.session_id}/approvals/a1"
+        bad = client.post(url, json={"decision": "allow_always", "scope": "chat", "narrow": "x"})
+        assert bad.status_code == 400
+        wrong_scope = client.post(
+            url, json={"decision": "allow_always", "scope": "agent", "narrow": "folder"}
+        )
+        assert wrong_scope.status_code == 400
+
+
+def test_a_narrow_rule_that_cannot_be_saved_never_widens(tmp_path: Path):
+    """"Only this folder" on a call that has no folder: this call runs once,
+    the tool and the chat keep asking."""
+
+    async def scenario() -> None:
+        svc, session = _service(tmp_path)
+        sid = session.session_id
+        q = svc.subscribe(sid)
+        asking = asyncio.create_task(
+            svc._ask(sid, "t1", "c1", "Bash", {"command": "npm test"}, "npm test")  # noqa: SLF001
+        )
+        payload = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(
+            sid, payload["approval_id"], "allow_always", scope="chat", narrow="folder"
+        )
+        assert await asyncio.wait_for(asking, 2) == "allow"
+        assert "Bash" not in svc.always_allowed(sid)
+        assert svc.store.get_session(sid).permission_mode == "ask"  # type: ignore[union-attr]
+        again = asyncio.create_task(
+            svc._ask(sid, "t1", "c2", "Bash", {"command": "npm test"}, "")  # noqa: SLF001
+        )
+        card = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(sid, card["approval_id"], "deny")
+        assert await asyncio.wait_for(again, 2) == "deny"
+
+    asyncio.run(scenario())
+
+
+def test_a_narrow_rule_on_an_own_server_tool_matches_its_later_calls():
+    from dodaios.agent_chat.approval_card import narrow_matches, narrow_tool
+
+    rule = {"tool": narrow_tool("mcp__dodaios__shell"), "kind": "command", "value": "ls"}
+    assert narrow_matches(rule, "mcp__jarvis__shell", {"command": "ls"})
+    other = {"tool": narrow_tool("mcp__fs__shell"), "kind": "command", "value": "ls"}
+    assert narrow_matches(other, "mcp__fs__shell", {"command": "ls"})
+    assert not narrow_matches(other, "mcp__evil__shell", {"command": "ls"})
+
+
+def test_the_home_folder_is_never_offered_as_only_this_folder(tmp_path: Path):
+    from dodaios.agent_chat.approval_card import narrow_options
+
+    home = str(tmp_path / "home")
+    at_home = narrow_options("files", {"file_path": str(tmp_path / "home" / "x.txt")}, "", home)
+    assert at_home == []
+    above = narrow_options("files", {"file_path": str(tmp_path / "y.txt")}, "", home)
+    assert above == []
+    deeper = narrow_options(
+        "files", {"file_path": str(tmp_path / "home" / "proj" / "z.txt")}, "", home
+    )
+    assert deeper and deeper[0]["value"] == str(tmp_path / "home" / "proj")
+    assert deeper[0]["label"].replace("\\", "/") == "~/proj"

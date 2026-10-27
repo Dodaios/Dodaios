@@ -13,6 +13,15 @@ export type RuleScope = "agent" | "chat";
 export type RuleBreadth = "action" | "app";
 export type RuleKind = "always_allow" | "require_approval";
 
+/** A narrower chat rule the call allows: only this folder, only this command. */
+export type RuleNarrow = "folder" | "command";
+
+export interface NarrowOption {
+  kind: RuleNarrow;
+  /** How the card shows it: a path relative to the workspace, or with `~`. */
+  label: string;
+}
+
 /** What "Always allow" saves on this card. */
 export interface ApprovalRuleOffer {
   scopes: RuleScope[];
@@ -22,6 +31,8 @@ export interface ApprovalRuleOffer {
   verb: string;
   pattern: string;
   broad: string;
+  /** Narrower chat rules this call allows; empty when the payload has none. */
+  narrow: NarrowOption[];
 }
 
 export interface ApprovalCardInfo {
@@ -32,6 +43,8 @@ export interface ApprovalCardInfo {
   caution: ApprovalCaution | null;
   /** The exact command or request, secrets masked by the backend. */
   detail: string;
+  /** The summary with short paths (workspace-relative, `~` for home); "" on older events. */
+  brief: string;
   /** `null`: the card offers no "Always allow" (a plan). */
   rule: ApprovalRuleOffer | null;
 }
@@ -45,11 +58,15 @@ export interface SavedApprovalRule {
   verb: string;
   /** A broader "ask first" rule keeps asking anyway. */
   stillAsks: boolean;
+  /** A narrow chat rule: what it covers, as the card showed it. */
+  narrow?: RuleNarrow;
+  target?: string;
 }
 
 const KINDS = new Set<ApprovalSourceKind>(["terminal", "files", "browser", "computer", "plan", "agent", "connector", "tool"]);
 const CAUTIONS = new Set<ApprovalCaution>(["irreversible", "security", "data_leaves"]);
 const SCOPES = new Set<RuleScope>(["agent", "chat"]);
+const NARROWS = new Set<RuleNarrow>(["folder", "command"]);
 
 const text = (v: unknown): string => (typeof v === "string" ? v : "");
 const record = (v: unknown): Record<string, unknown> | null =>
@@ -66,6 +83,7 @@ export function parseApprovalCard(payload: Record<string, unknown>): ApprovalCar
     why: text(payload.why),
     caution: CAUTIONS.has(caution) ? caution : null,
     detail: text(payload.detail),
+    brief: text(payload.brief),
     rule: parseRuleOffer(payload.rule),
   };
 }
@@ -82,6 +100,14 @@ function parseRuleOffer(raw: unknown): ApprovalRuleOffer | null {
     verb: text(rule.verb),
     pattern: text(rule.pattern),
     broad: text(rule.broad),
+    narrow: Array.isArray(rule.narrow)
+      ? rule.narrow.flatMap((raw) => {
+        const entry = record(raw);
+        const kind = text(entry?.kind) as RuleNarrow;
+        const label = text(entry?.label);
+        return NARROWS.has(kind) && label ? [{ kind, label }] : [];
+      })
+      : [],
   };
 }
 
@@ -96,5 +122,8 @@ export function parseSavedRule(payload: Record<string, unknown>): SavedApprovalR
     app: text(payload.app),
     verb: text(payload.verb),
     stillAsks: payload.still_asks === true,
+    ...(NARROWS.has(text(payload.narrow) as RuleNarrow)
+      ? { narrow: text(payload.narrow) as RuleNarrow, target: text(payload.target) }
+      : {}),
   };
 }

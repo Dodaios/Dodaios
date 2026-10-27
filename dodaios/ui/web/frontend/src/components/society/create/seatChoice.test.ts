@@ -8,7 +8,9 @@ import type { BrainSeat } from "./brainPicker";
 import {
   accessModels,
   API_KEY_ACCOUNT,
+  billedPerUse,
   blockedReasonKey,
+  costRank,
   defaultModel,
   pickableOption,
   providerChoices,
@@ -113,8 +115,35 @@ describe("providerChoices", () => {
     expect(choice.options.map((o) => [o.kind, o.accountId])).toEqual([["subscription", ""]]);
   });
 
-  it("lists providers with a subscription before key-only and local ones", () => {
-    expect(providerChoices([ollama, openai, claude]).map((c) => c.id)).toEqual(["claude", "openai", "ollama"]);
+  it("lists a plan first, then a local model, then anything billed per use", () => {
+    expect(providerChoices([ollama, openai, claude]).map((c) => c.id)).toEqual(["claude", "ollama", "openai"]);
+  });
+
+  it("never starts a Hermes / OpenClaw agent on Claude's extra usage while a plan is connected", () => {
+    // Codex on ChatGPT reaches Hermes through the subscription gateway.
+    const seats = runtimeSeats([claude, codex, openai], ["claude-api", "openai-codex", "openai"], ["openai-codex"], ["claude-api"]);
+    const choices = providerChoices(seats, { "claude-api": ["api", "subscription"] }, true);
+    expect(choices[0].id).toBe("openai");
+    const picked = pickableOption(choices[0]);
+    expect([picked?.kind, picked?.seat.provider.id, billedPerUse(picked)]).toEqual(["subscription", "openai-codex", false]);
+    const claudeChoice = choices.find((c) => c.id === "claude")!;
+    expect(billedPerUse(pickableOption(claudeChoice))).toBe(true);
+  });
+
+  it("prefers a local model over a per-use one, and says when only per-use is left", () => {
+    const seats = runtimeSeats([claude, ollama], ["claude-api", "ollama"], [], ["claude-api"]);
+    const choices = providerChoices(seats, { "claude-api": ["subscription"] }, true);
+    expect(choices.map((c) => c.id)).toEqual(["ollama", "claude"]);
+    expect(costRank(pickableOption(choices[0])!)).toBe(1);
+    const only = providerChoices(runtimeSeats([claude], ["claude-api"], [], ["claude-api"]), { "claude-api": ["subscription"] }, true);
+    expect(billedPerUse(pickableOption(only[0]))).toBe(true);
+  });
+
+  it("picks a provider's cheapest open access unless one is asked for", () => {
+    const [choice] = providerChoices([codex, openai]);
+    expect(pickableOption(choice)?.kind).toBe("subscription");
+    expect(pickableOption(choice, "api")?.kind).toBe("api");
+    expect(billedPerUse(null)).toBe(false);
   });
 
   it("shows a refused Claude login with its reason but never picks it", () => {

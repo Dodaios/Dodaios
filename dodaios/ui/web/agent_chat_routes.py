@@ -79,6 +79,7 @@ from dodaios.agent_chat.permissions import (
 from dodaios.agent_chat.service import (
     DECISIONS,
     RULE_BREADTHS,
+    RULE_NARROWS,
     RULE_SCOPES,
     AgentChatService,
     NoSuchSession,
@@ -279,12 +280,16 @@ class ApprovalBody(BaseModel):
     #: Where an "Always allow" lives (the card's rule chooser); empty = as before.
     scope: str = ""
     breadth: str = ""
+    #: A narrower chat rule: ``folder`` (only this folder) or ``command``
+    #: (only this exact command); empty = the whole tool.
+    narrow: str = ""
 
 
 class ApprovalRuleBody(BaseModel):
     kind: str
     scope: str
     breadth: str = "action"
+    narrow: str = ""
 
 
 class CredentialBody(BaseModel):
@@ -1378,8 +1383,19 @@ async def resolve_approval(
         raise HTTPException(
             status_code=400, detail=f"breadth must be one of {list(RULE_BREADTHS)}"
         )
+    if body.narrow and body.narrow not in RULE_NARROWS:
+        raise HTTPException(
+            status_code=400, detail=f"narrow must be one of {list(RULE_NARROWS)}"
+        )
+    if body.narrow and body.scope != "chat":
+        raise HTTPException(status_code=400, detail="a narrow rule needs scope chat")
     ok = svc.resolve_approval(
-        session_id, approval_id, body.decision, scope=body.scope, breadth=body.breadth
+        session_id,
+        approval_id,
+        body.decision,
+        scope=body.scope,
+        breadth=body.breadth,
+        narrow=body.narrow,
     )
     if not ok:
         if await svc.close_stale_approval(session_id, approval_id):
@@ -1408,7 +1424,12 @@ async def save_approval_rule(
         raise HTTPException(status_code=400, detail="breadth must be action or app")
     try:
         rule = await svc.save_approval_rule(
-            session_id, approval_id, kind=body.kind, scope=body.scope, breadth=body.breadth
+            session_id,
+            approval_id,
+            kind=body.kind,
+            scope=body.scope,
+            breadth=body.breadth,
+            narrow=body.narrow,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

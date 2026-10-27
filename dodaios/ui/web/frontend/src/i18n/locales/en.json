@@ -10783,7 +10783,15 @@
       "saved_chat": "Allowed in this chat: {app}",
       "saved_short": "Rule saved",
       "still_asks": "A stricter rule still asks first.",
-      "save_failed": "Could not save the rule."
+      "save_failed": "Could not save the rule.",
+      "always_folder": "Always allow changes to files in {folder}",
+      "always_command": "Always allow the command {command}",
+      "always_everything": "Always allow everything in this chat",
+      "reach_folder": "Only this folder",
+      "reach_command": "Only this command",
+      "reach_everything": "Everything in this chat",
+      "reach_tool_plain": "This whole tool",
+      "cancel": "Cancel"
     }
   }
 }
