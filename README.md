@@ -17,7 +17,7 @@
 
 <p align="center">Formerly <strong>Personal Jarvis</strong>. Same project, same license, new name (<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">why</a>).</p>
 
-https://github.com/user-attachments/assets/3364aa29-8f38-4d3e-b148-184ad16669ff
+https://github.com/user-attachments/assets/3cbe1d63-0ad4-4f39-88e9-9b56ede17f1c
 
 <p align="center">
   <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
@@ -107,16 +107,24 @@ routines on a schedule and puts what it makes in Artifacts, with every tool call
 visible. Agents can also run on Hermes and OpenClaw.
 [Agents guide](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md)
 
-## And the rest
+## Everything else
 
 <table>
-  <tr><td><b>Voice</b></td><td>Your own wake phrase, live two-way conversations, dictation into any app and phone calls. Speech can run fully offline. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md">Voice guide</a></td></tr>
-  <tr><td><b>Computer use</b></td><td>Clicks, types and reads your desktop and browser when you ask it to. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md">Computer use</a></td></tr>
-  <tr><td><b>Memory</b></td><td>A local wiki that your agents read, write and cite. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md">Memory</a></td></tr>
-  <tr><td><b>Plugins, MCP and skills</b></td><td>More than 40 one-click integrations, any MCP server, command-line tools like GitHub and Vercel, and reusable skills. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md">Plugins</a></td></tr>
-  <tr><td><b>You stay in control</b></td><td>Every action passes a risk check (safe, monitor, ask, block), every run is recorded, and keys stay in your system's credential store. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md">Safety and approvals</a></td></tr>
-  <tr><td><b>Works with</b></td><td>OpenAI, Claude, Gemini, OpenRouter, NVIDIA, Ollama and any OpenAI-compatible server; Claude Code, Codex, OpenCode, Kimi Code, GLM, Grok Build, Antigravity, Cursor CLI and DeepSeek Harness.</td></tr>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/verse.jpg" alt="Verse" width="100%" /><br /><b>Verse</b><br />Your agents live on a ship you can walk through, see who is on duty and who needs you. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/verse/README.md">Verse</a></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/memory.png" alt="Memory" width="100%" /><br /><b>Memory</b><br />A local wiki that your agents read, write and cite, with a map of everything it knows. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md">Memory</a></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/plugins.png" alt="Plugins, MCP and skills" width="100%" /><br /><b>Plugins, MCP and skills</b><br />More than 40 one-click integrations, any MCP server, command-line tools and reusable skills. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md">Plugins</a></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/artifacts.png" alt="Artifacts" width="100%" /><br /><b>Artifacts</b><br />Every page, report and dashboard your agents make, in one wall. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md">Agents guide</a></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/built-for-you.png" alt="Built for you" width="100%" /><br /><b>Built for you</b><br />Dodaios notices what you keep doing and builds what takes it off you: a skill, a routine or an agent. You can see and undo all of it. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/self-build.md">How it works</a></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/marketplace.png" alt="Marketplace" width="100%" /><br /><b>Marketplace</b><br />Agents, skills and plugins from the community, installed with one click. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/marketplace/community-registry.md">Marketplace</a></td>
+  </tr>
 </table>
+
+Also built in: **voice** with your own wake phrase, live conversations, dictation and phone calls ([voice guide](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md)); **computer use** for your desktop and browser ([computer use](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md)); and **approvals**: every action passes a risk check (safe, monitor, ask, block) and every run is recorded ([safety](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md)). Works with OpenAI, Claude, Gemini, OpenRouter, NVIDIA, Ollama and any OpenAI-compatible server, and with Claude Code, Codex, OpenCode, Kimi Code, GLM, Grok Build, Antigravity, Cursor CLI and DeepSeek Harness.
 
 ## More ways to install
 
