@@ -9,6 +9,7 @@ import { ToolChoiceIcon } from "./ToolChoiceChips";
 import type { ToolChoice } from "./toolChoices";
 import { toolIdentity, toolIdentityStyle } from "./toolIdentity";
 import { traceToolIdentity } from "./traceActivity";
+import { flattenMarks } from "@/lib/plainMarks";
 import type { TraceMessage } from "./turnMessages";
 import {
   buildTimeline, readableOutput, traceDuration, tr,
@@ -250,7 +251,7 @@ function CallDetails({ call, renderers }: { call: Call; renderers: TimelineRende
 export function TraceMessageLine({ message }: { message: TraceMessage }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const preview = message.text.replace(/[`*_#>]/g, "").replace(/\s+/g, " ").trim();
+  const preview = flattenMarks(message.text);
   return <div className="min-w-0" data-trace-entry="message" data-outgoing={message.outgoing ? "" : undefined}>
     <button type="button" className={lineButton} aria-expanded={open} onClick={() => setOpen(!open)}>
       <MessagesSquare aria-hidden className={glyph} strokeWidth={1.75} />

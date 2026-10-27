@@ -61,7 +61,7 @@ describe("rosterStatus", () => {
 describe("previewText", () => {
   it("drops ask blocks, routing markers, code and markdown", () => {
     const raw = "Here is the **plan**.\n[to jarvis]\n```ts\nconst x = 1;\n```\nSee [the doc](https://example.test).\n```jarvis-ask\n{\"questions\": []}\n```";
-    expect(previewText(raw)).toBe("Here is the plan . See the doc.");
+    expect(previewText(raw)).toBe("Here is the plan. See the doc.");
   });
 
   it("keeps a line that merely starts with a link", () => {

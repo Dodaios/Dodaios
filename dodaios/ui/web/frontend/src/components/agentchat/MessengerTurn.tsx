@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
-import { BookmarkPlus, CircleAlert, Clock3, Feather, NotebookPen, SlidersHorizontal } from "lucide-react";
+import { BookmarkPlus, CircleAlert, Clock3, Feather, NotebookPen, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
 import { QuestionCard } from "./QuestionCard";
@@ -28,7 +28,7 @@ import { turnErrorText } from "./turnError";
  * quiet line under the turn (WorkDisclosure) opens the whole trace in the
  * work inspector.
  */
-export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, onDecide, memoryLinks, nameOf, peerFace, onShowWork, workOpen = false }: {
+export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, onDecide, memoryLinks, nameOf, peerFace, onShowWork, workOpen = false, onRetry }: {
   turn: TurnItem;
   /** The agent's face at 30 px; it plays the scenes. */
   avatar: ReactNode;
@@ -45,12 +45,17 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
   onShowWork?: () => void;
   /** The inspector shows this turn right now. */
   workOpen?: boolean;
+  /** Sends the person's last message again; a failed turn offers it as "Retry". */
+  onRetry?: () => void;
 }) {
   const t = useT();
   const textLength = useMemo(() => turn.blocks.reduce((n, block) => n + (block.kind === "text" ? block.text.length : 0), 0), [turn.blocks]);
   const hasText = textLength > 0 && turn.blocks.some((block) => block.kind === "text" && block.text.trim());
   const flourish = useDoneFlourish(turn.status === "running", turn.status === "done");
   const running = turn.status === "running";
+  // A turn the runtime ended with an error, or that ended silent with an
+  // error on record, failed: it says why, whatever runtime ran it.
+  const failed = turn.status === "error" || (turn.status === "done" && !hasText && Boolean(turn.error));
   const work = onShowWork ? <WorkDisclosure turn={turn} open={workOpen} onOpen={onShowWork} /> : null;
   let noteIndex = 0;
   return <div className="flex min-w-0 flex-col gap-1.5" data-testid="messenger-turn" data-status={turn.status}>
@@ -77,14 +82,9 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
       <ActivityLine turn={turn} avatar={avatar} color={color} nameOf={nameOf} peerFace={peerFace} />
       {work}
     </div> : flourish ? <BotStage presence="done" seed={turn.id} avatar={avatar} color={color} /> : null}
-    {turn.status === "error" && (
-      <p role="alert" className="mx-auto flex max-w-[85%] items-center gap-1.5 py-1 text-center text-xs text-destructive">
-        <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
-        <span>{turnErrorText(turn.error, t) || t("thread_turn.failed")}</span>
-      </p>
-    )}
+    {failed && <TurnFailure reason={turnErrorText(turn.error, t) || t("thread_turn.failed_no_reason")} onRetry={onRetry} />}
     {turn.status === "cancelled" && <SystemLine>{t("thread_turn.stopped")}</SystemLine>}
-    {turn.status === "done" && !hasText && !flourish && <SystemLine>{t("thread_turn.no_answer")}</SystemLine>}
+    {turn.status === "done" && !failed && !hasText && !flourish && <SystemLine>{t("thread_turn.no_answer")}</SystemLine>}
     {!running ? work : null}
   </div>;
 });
@@ -116,6 +116,24 @@ export function MessageBubble({ text }: { text: string }) {
     <div className="jarvis-chat-in min-w-0 max-w-[min(85%,42rem)] rounded-[20px] px-4 py-2.5">
       <div className={cn(PROSE, THREAD_MEDIA, "py-0")}><ChatMarkdown text={text} /></div>
     </div>
+  </div>;
+}
+
+/** A failed turn: the reason the runtime gave, and one click to send the message again. */
+export function TurnFailure({ reason, onRetry }: { reason: string; onRetry?: () => void }) {
+  const t = useT();
+  return <div role="alert" data-testid="turn-failure"
+    className="flex min-w-0 max-w-[min(85%,42rem)] items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+    <CircleAlert aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" />
+    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="font-medium">{t("thread_turn.failed_title")}</span>
+      <span className="[overflow-wrap:anywhere] text-destructive/90" data-testid="turn-failure-reason">{reason}</span>
+    </div>
+    {onRetry ? <button type="button" onClick={onRetry} data-testid="turn-retry"
+      className="flex shrink-0 items-center gap-1 rounded-md border border-destructive/40 px-2 py-0.5 font-medium transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <RotateCcw aria-hidden className="h-3 w-3" />
+      {t("thread_turn.retry")}
+    </button> : null}
   </div>;
 }
 

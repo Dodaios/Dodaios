@@ -21,7 +21,7 @@ import { modelSeats, runtimeSeats } from "../chat/modelChoices";
 import { useModelMenuData } from "../chat/useModelMenuData";
 import { accountChoice, accountHint } from "./brainPicker";
 import { AccessChoice } from "./AccessChoice";
-import { accessModels, billedPerUse, defaultModel, pickableOption, providerChoices, type AccessBlocked, type AccessOption } from "./seatChoice";
+import { accessModels, billedPerUse, defaultModel, pickableOption, providerChoices, type AccessBlocked, type AccessOption, type ProviderChoice } from "./seatChoice";
 
 /** A model list this long gets a search field. */
 const SEARCH_FROM = 12;
@@ -46,6 +46,9 @@ export function useCreateSeat() {
   const [executionEnvironment, setExecutionEnvironment] = useState<"local" | "sandbox">("local");
   const [providerId, setProviderId] = useState("");
   const [access, rememberAccess] = useModelAccess();
+  // The access picked in THIS dialog. A remembered one (from the chat's model
+  // picker) never moves a fresh agent onto a seat billed per use.
+  const [pickedAccess, setPickedAccess] = useState<Record<string, string>>({});
   const [model, setModel] = useState("");
   const [account, setAccount] = useState("");
   const [accountProvider, setAccountProvider] = useState("");
@@ -75,7 +78,7 @@ export function useCreateSeat() {
   const chosen = choices.find((choice) => choice.id === providerId)
     ?? choices.find((choice) => pickableOption(choice)) ?? choices[0] ?? null;
   // A refused access is listed with its reason but never picked.
-  const option: AccessOption | null = pickableOption(chosen, chosen ? access[chosen.id] : undefined);
+  const option: AccessOption | null = chosen ? startingOption(chosen, pickedAccess[chosen.id], access[chosen.id]) : null;
   const models = accessModels(option);
   const accounts = accountChoice(option?.seat ?? null);
   const modelValue = models.some((entry) => entry.id === model) ? model : defaultModel(option);
@@ -90,10 +93,15 @@ export function useCreateSeat() {
   // first turn waits for the setup (agent_runtimes.manager). A Jarvis agent
   // with nothing connected yet still starts: it takes the last chat seat.
   const needsProvider = external && !option;
+  // The seats are still being read: creating now would leave the provider to
+  // the backend's last chat seat, which may be billed per use.
+  // The runtimes answer which ways of paying work (a plan or only a key), so
+  // the default waits for them on every runtime.
+  const seatsPending = (!option && menu.loading) || runtimes.isLoading;
   const accountBlocked = Boolean(account && accountProvider === option?.seat.provider.id
     && (accountValue !== account || menu.loading || menu.failed));
   const selectedModelsFailed = Boolean(option && menu.modelErrors?.includes(option.seat.provider.id));
-  const ready = !needsProvider && !accountBlocked && !selectedModelsFailed && (!option || models.length > 0);
+  const ready = !needsProvider && !seatsPending && !accountBlocked && !selectedModelsFailed && (!option || models.length > 0);
 
   const pick: SeatPick = {
     runtime,
@@ -106,11 +114,17 @@ export function useCreateSeat() {
 
   return {
     runtimes, menu, choices, chosen, option, models, accounts, modelValue, accountValue,
-    runtime, external, executionEnvironment, ready, accountBlocked, selectedModelsFailed, pick, modelLabel,
+    runtime, external, executionEnvironment, ready, seatsPending, accountBlocked, selectedModelsFailed, pick, modelLabel,
     defaultModelLabel,
     setRuntime: (next: AgentRuntime) => { setRuntimeState(next); setAccount(""); },
     setProvider: (next: string) => { setProviderId(next); setAccount(""); },
-    setAccess: (kind: string) => { if (chosen) rememberAccess(chosen.id, kind as ModelAccess); setAccount(""); },
+    setAccess: (kind: string) => {
+      if (chosen) {
+        setPickedAccess((known) => ({ ...known, [chosen.id]: kind }));
+        rememberAccess(chosen.id, kind as ModelAccess);
+      }
+      setAccount("");
+    },
     setAccount: (next: string) => { if (option) setAccountProvider(option.seat.provider.id); setAccount(next); setModel(""); },
     setModel,
     setExecutionEnvironment,
@@ -118,6 +132,20 @@ export function useCreateSeat() {
 }
 
 export type CreateSeat = ReturnType<typeof useCreateSeat>;
+
+/**
+ * The access a fresh agent starts on: the one picked in this dialog, else a
+ * remembered one unless it bills per use while a plan or a local model is
+ * there, else the cheapest (`pickableOption`). Blank, starter and template
+ * agents all start here, so each gets the same cost-safe default.
+ */
+export function startingOption(choice: ProviderChoice, picked?: string, remembered?: string): AccessOption | null {
+  if (picked) return pickableOption(choice, picked);
+  const cheapest = pickableOption(choice);
+  const recalled = remembered ? pickableOption(choice, remembered) : null;
+  if (recalled && cheapest && billedPerUse(recalled) && !billedPerUse(cheapest)) return cheapest;
+  return recalled ?? cheapest;
+}
 
 /** The sentence that explains how the picked access pays. */
 function accessHint(t: (key: string) => string, option: AccessOption): string {
@@ -241,7 +269,8 @@ export function SeatSummary({ seat, disabled }: { seat: CreateSeat; disabled: bo
     option ? seat.modelLabel : null,
     option ? t(`society.create.kind_${option.kind}`) : null,
   ].filter(Boolean);
-  const blocked = !seat.ready;
+  // Still reading the seats: not a missing choice, just a moment.
+  const blocked = !seat.ready && !seat.seatsPending;
   return (
     <section className="rounded-[10px] border border-border bg-sheen/[0.02]" data-testid="create-agent-seat-summary">
       <button
@@ -259,7 +288,7 @@ export function SeatSummary({ seat, disabled }: { seat: CreateSeat; disabled: bo
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-muted-foreground">{t("agent_create.seat.runs_on")}</span>
           <span className={cn("block truncate text-sm", blocked ? "text-warning" : "text-foreground")}>
-            {blocked ? t("agent_create.seat.needs_choice") : parts.join(" · ")}
+            {seat.seatsPending ? t("society.create.catalog_loading") : blocked ? t("agent_create.seat.needs_choice") : parts.join(" · ")}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">

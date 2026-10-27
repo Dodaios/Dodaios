@@ -1,4 +1,5 @@
 import type { WorkspacePaneRow } from "@/lib/agenticIdeApi";
+import { stripInlineMarks } from "@/lib/plainMarks";
 
 /**
  * What a session is called in a list of them: what it is ABOUT, not which
@@ -57,9 +58,7 @@ const SECTION_LABELS = new Set([
 
 /** A line without its heading marks and emphasis, whitespace collapsed. */
 function bare(row: string): string {
-  return row
-    .replace(/^\s*#{1,6}\s*/, "")
-    .replace(/[*_`]{1,3}/g, "")
+  return stripInlineMarks(row.replace(/^\s*#{1,6}\s*/, ""))
     .replace(/\s+/g, " ")
     .trim();
 }
