@@ -135,6 +135,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expect-setup-failure", default="", metavar="TEXT")
     args = parser.parse_args(argv)
 
+    # Runtime output (setup log tails, error copy) carries non-ASCII text such
+    # as arrows; a Windows runner's console code page cannot print it.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+    os.environ["PYTHONIOENCODING"] = "utf-8"
     os.environ["PATH"] = desktop_path()
     sys.path.insert(0, str(REPO_ROOT))
     env = dict(os.environ)
