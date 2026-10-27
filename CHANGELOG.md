@@ -12,6 +12,14 @@ versioning per [SemVer](https://semver.org/).
 If your install is on version 3.1.1 or older, the in-app update no longer sees
 new releases. Run the one-line installer again to update.
 
+### Security
+
+- The in-app updater of an installed app now installs an update only when the
+  release's update manifest is signed by the Dodaios release key (Ed25519) and
+  names exactly the version being installed, so neither swapped release files
+  nor an older release served as a newer one get installed. Releases built from
+  now on carry `installers-update-manifest.json` and its signature (#810).
+
 ---
 
 ## [4.1.1] — 2026-10-26
