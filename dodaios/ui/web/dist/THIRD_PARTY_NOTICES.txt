@@ -553,6 +553,15 @@ Vendor names and trademarks belong to their owners.
 
 ----------------------------------------------------------------------
 
+Verse sound effects
+
+The recordings under public/verse/audio come from Freesound.org and the
+Kenney.nl Impact Sounds and RPG Audio packs, all released under CC0 1.0
+(https://creativecommons.org/publicdomain/zero/1.0/). Each source, its
+author and page are listed in public/verse/audio/CREDITS.md.
+
+----------------------------------------------------------------------
+
 Bundled production packages (including web workers and font assets)
 
 ----------------------------------------------------------------------
