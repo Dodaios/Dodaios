@@ -1,18 +1,23 @@
 /**
- * Mounts the first-person viewmodel on a stage with an eye-level view: makes
- * the arms in the commander's uniform, hands them to the eye view
- * (`runtime.viewmodel`), and every frame tells them what to show: the deck's
- * empty hands while the commander walks in first person, the blaster while a
- * duel is fought through the eyes, nothing in third person or bird's-eye.
+ * Mounts the first-person viewmodel on a stage with an eye-level view: cuts
+ * the arms from the commander's own body (the officer the deck and the duel
+ * draw for them) once the character library has it, dresses them in the
+ * commander's uniform, hands them to the eye view (`runtime.viewmodel`), and
+ * every frame tells them what to show: the deck's empty hands while the
+ * commander walks in first person, the blaster while a duel is fought
+ * through the eyes, nothing in third person or bird's-eye.
  */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
+import type { SkinnedMesh } from "three";
 import type { Deck } from "../content/deck";
 import type { StageRuntime } from "../runtime";
-import type { CharacterLibrary } from "../actors/characters";
+import { disposeInstance, type CharacterLibrary } from "../actors/characters";
 import type { Look } from "../actors/look";
 import type { DuelController } from "../duel/duelController";
 import { OWN_ACCENT } from "../duel/DuelLayer";
+import { hash32 } from "../life/crew";
+import { CUT, cutArms } from "./armMesh";
 import { ARM } from "./arms";
 import { MOTION, viewmodelVisibility } from "./motion";
 import { Viewmodel, VIEWMODEL, type ArmColours, type ViewmodelFrame } from "./viewmodel";
@@ -39,20 +44,39 @@ export function armColours(library: CharacterLibrary | null, look: Look): ArmCol
 export function ViewmodelLayer({ runtime, duel, deck, library, commanderId, commanderLook }: Props) {
   const { uniform, trim } = armColours(library, commanderLook);
   const vmRef = useRef<Viewmodel | null>(null);
+  const [vm, setVm] = useState<Viewmodel | null>(null);
   useEffect(() => {
-    const vm = new Viewmodel(FALLBACK, OWN_ACCENT);
-    vmRef.current = vm;
-    runtime.viewmodel = vm;
+    const made = new Viewmodel(FALLBACK, OWN_ACCENT);
+    vmRef.current = made;
+    runtime.viewmodel = made;
+    setVm(made);
     // Development handle: tune the layout live (edit `layout`, then `retune()`).
-    if (import.meta.env.DEV) Object.assign(window, { __verseViewmodel: { layout: VIEWMODEL, arm: ARM, motion: MOTION, retune: () => vm.retune(), viewmodel: vm } });
+    if (import.meta.env.DEV) Object.assign(window, { __verseViewmodel: { layout: VIEWMODEL, arm: ARM, cut: CUT, motion: MOTION, retune: () => made.retune(), viewmodel: made } });
     return () => {
-      if (runtime.viewmodel === vm) runtime.viewmodel = null;
-      if (vmRef.current === vm) vmRef.current = null;
-      vm.dispose();
+      if (runtime.viewmodel === made) runtime.viewmodel = null;
+      if (vmRef.current === made) vmRef.current = null;
+      made.dispose();
     };
   }, [runtime]);
+  // The arms are the commander's own: the officer body the deck and the duel draw for them (same choice by id).
+  useEffect(() => {
+    if (!library || !vm) return;
+    const model = library.model("officer", undefined, hash32(commanderId));
+    if (!model) return;
+    let alive = true;
+    library.instantiate(model).then((instance) => {
+      try {
+        if (alive && vmRef.current === vm) vm.attachArms(cutArms(instance.meshes.filter((m): m is SkinnedMesh => (m as SkinnedMesh).isSkinnedMesh)));
+      } catch (error: unknown) {
+        console.warn("Verse first-person arms unavailable", error);
+      }
+      // The cut copied what it needs; the atlas it keeps is shared with the body.
+      disposeInstance(instance);
+    }, (error: unknown) => console.warn("Verse first-person arms unavailable", error));
+    return () => { alive = false; };
+  }, [vm, library, commanderId]);
   // The sleeves wear the commander's uniform (a promotion repaints them).
-  useEffect(() => { vmRef.current?.setColours({ uniform, trim }); }, [runtime, uniform, trim]);
+  useEffect(() => { vm?.setColours({ uniform, trim }); }, [vm, uniform, trim]);
 
   const frame = useMemo<ViewmodelFrame>(() => ({
     visibility: { arms: false, mode: "deck", hideOwnBody: false, raise: 0 },
