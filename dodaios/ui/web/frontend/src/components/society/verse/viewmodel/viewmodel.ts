@@ -9,9 +9,14 @@
  * field of view, and the pass clears depth before it draws, so the arms never
  * sink into a wall and never stretch with a wide field-of-view setting.
  *
- * Both arms and the blaster are one skinned mesh under one palette material
- * (`rigMesh.ts`): one draw call, plus the sight's reticle and the muzzle
- * flash in a duel.
+ * The arms are the commander's own, cut from their body (`armMesh.ts`): one
+ * skinned mesh under one material with the body's painted atlas, its sleeves
+ * in the rank tier's uniform, its real skin weights bending elbows, wrists and
+ * knuckles. They arrive once the body has loaded (`attachArms`); until then
+ * only the blaster shows. The blaster and the shield emitter on the left
+ * forearm are a second skinned mesh under a palette material (`rigMesh.ts`).
+ * Two draws on the deck; four in a duel with the sight's reticle and the
+ * muzzle flash.
  *
  * The rig is posed in the camera's space every frame (x right, y up, −z ahead):
  * on the deck both hands hang loose low in the frame and swing with the walk;
@@ -25,8 +30,9 @@
  * the muzzle and lights the hands. The frame path allocates nothing.
  */
 import {
-  AdditiveBlending, Bone, CanvasTexture, Color, DirectionalLight, Euler, Group, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
-  PerspectiveCamera, PointLight, Quaternion, Scene, Sprite, SpriteMaterial, Vector3, type SkinnedMesh, type Texture,
+  AdditiveBlending, Bone, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DirectionalLight, DoubleSide, Euler, Group, Matrix4, Mesh,
+  MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, PointLight, Quaternion, Scene, Skeleton, SkinnedMesh, Sprite, SpriteMaterial,
+  Vector3, type Texture,
 } from "three";
 import type { Deck } from "../content/deck";
 import { RoomLight } from "../actors/roomLight";
@@ -34,7 +40,8 @@ import type { PlayerView } from "../combat/view";
 import { buildBlaster, type Blaster } from "../duel/blaster";
 import { radialTexture } from "../duel/effects";
 import { verticalFov } from "../engine/realtime/shoulderRig";
-import { copyHand, handPose, lerpHand, ViewArm, type ArmSlots, type HandPose } from "./arms";
+import { fingerBone, type ArmsSource, type ArmSlot } from "./armMesh";
+import { copyHand, handPose, lerpHand, ViewArm, type HandPose } from "./arms";
 import { turnBetween, ViewmodelMotion, type Visibility } from "./motion";
 import { chamferBox, RigBuilder, RigPalette, type Slot } from "./rigMesh";
 
@@ -46,12 +53,16 @@ export interface GunPose { x: number; y: number; z: number; pitch: number; yaw: 
  * (`window.__verseViewmodel` in development builds, then `retune()`).
  */
 export const VIEWMODEL = {
+  /** Gloves over the body's hands (a CSS colour multiplied into the hands' painted atlas), or null for bare hands. */
+  gloves: "#1e1f23" as string | null,
   /** Horizontal field of view of the viewmodel camera, degrees (fixed: the arms keep their shape whatever the person's setting). */
   hfovDeg: 88,
   /** ... and while aiming down the sights (the sight comes a little closer). */
   adsHfovDeg: 76,
   near: 0.01,
   far: 4,
+  /** A gloved finger's half thickness: how far off a held surface the closed fingers' joints and tips rest, metres. */
+  fingerRadius: 0.0085,
   /** The blaster's size in the hands, relative to the duel's model. */
   gunScale: 0.6,
   /** Distance from the eye to the sight's window when aiming down the sights, metres. */
@@ -67,7 +78,7 @@ export const VIEWMODEL = {
    * A soft key light over the shoulder (in the view's frame, so the arms always read): divided by the deck's
    * exposure, it lights the arms the same on every deck.
    */
-  fill: 1.2,
+  fill: 0.9,
   /**
    * The blaster at the hip (low on the right, the muzzle toward the crosshair, the centre clear), lowered and canted
    * in a sprint (still in view), lowered behind the shield, rolled over to vent, dropped when knocked out.
@@ -80,7 +91,7 @@ export const VIEWMODEL = {
   /** The left wrist with the shield up, camera space. */
   shieldWrist: { x: -0.13, y: -0.07, z: -0.42 },
   /** The wrists on the deck (the left mirrors x), camera space. */
-  deckWrist: { x: 0.2, y: -0.2, z: -0.42 },
+  deckWrist: { x: 0.19, y: -0.2, z: -0.47 },
   /**
    * Shoulders, below and behind the eyes, and the elbows' pull (down and out). The support arm's shoulder sits in
    * toward the middle and low, so its forearm comes up from the bottom edge to the shroud instead of across the screen.
@@ -90,28 +101,33 @@ export const VIEWMODEL = {
   poleR: new Vector3(1, -0.6, 0.1),
   poleL: new Vector3(-0.4, -1, 0.2),
   /**
-   * The hands: the right hand's hold on the grip (along the grip, along the knuckles, out to the side), the left's
-   * beside the shroud (out to its left, up, ahead), hand frames as knuckle and back-of-hand directions, and the hand
-   * poses (`HandPose`: three fingers, the index finger, the thumb).
+   * The hands. Holds say where the held part sits in the hand's own frame (x toward the thumb on the right hand,
+   * y the back of the hand, z the knuckles; metres from the wrist): the grip's centre across the right palm, the
+   * shroud's axis over the left palm, the receiver's side under the slapping palm. Hand frames are knuckle and
+   * back-of-hand directions in the blaster's frame (+Z the muzzle, +X its left) or the camera's; hand poses are
+   * `HandPose` (three fingers, the index finger, the thumb). The right index finger's two joints are solved so its
+   * pad rests on the trigger.
    */
   hands: {
-    grip: [-0.03, -0.075, 0.036],
-    /** The right hand on the grip: three fingers wrapped, the index finger straight along the guard onto the trigger, the thumb over the far side. */
-    gripPose: handPose(1.5, 1.4, 0.75, [0, 1.5], 0.15),
-    fore: [0.042, 0.012, -0.06],
-    foreKnuckles: [-0.15, 0.25, 1],
-    foreBack: [1, -0.15, 0],
-    /** The left hand under the shroud: fingers curled round it, the thumb along its top. */
-    forePose: handPose(1.25, 1.0, 0.35, [1.1, 0.9], -0.2),
+    grip: [0.056, -0.032, 0.072],
+    /** The right hand on the grip: three fingers wrapped round its front, the thumb over its far side. */
+    gripPose: handPose(1.45, 1.5, 0.7, [0.4, 1.0], 0.35),
+    fore: [-0.004, -0.04, 0.112],
+    /** The left hand under the shroud: the knuckles along the barrel, the back of the hand down and out. */
+    foreKnuckles: [0, 0.12, 1],
+    foreBack: [0.55, -0.85, 0],
+    /** The fingers curled up round the shroud's right side, the thumb along its left. */
+    forePose: handPose(1.1, 1.0, 0.45, [0.95, 0.85], 0.1),
+    vent: [0.0, -0.016, 0.07],
     ventKnuckles: [0, 0.35, 1],
     ventBack: [1, 0.1, 0],
     /** The open hand slapping the receiver, and raised palm forward behind the shield. */
     ventPose: handPose(0.35, 0.3, 0.1, [0.3, 0.25], -0.3),
     shieldPose: handPose(0.15, 0.1, 0.2, [0.1, 0.05], -0.4),
-    deckKnuckles: [-0.35, 0.25, -1],
-    deckBack: [0.35, 1, 0.1],
+    deckKnuckles: [-0.25, 0.05, -1],
+    deckBack: [0.55, 0.85, 0],
     /** Relaxed hands: the index a little straighter than the rest, the thumb resting along it. */
-    deckPose: handPose(1.3, 1.15, 0.6, [1.05, 0.95], 0),
+    deckPose: handPose(0.35, 0.55, 0.3, [0.25, 0.4], 0),
     shieldKnuckles: [0.15, 1, -0.2],
     shieldBack: [0.2, 0.15, 1],
   },
@@ -125,10 +141,22 @@ const SHOULDER_L = new Vector3();
 const POLE_R = new Vector3();
 const POLE_L = new Vector3();
 
-/** The person's colours for the arms: the uniform's cloth and trim (CSS colours). */
+/**
+ * The person's colours for the arms: the uniform's cloth and trim (CSS colours). Up close the sleeves and their cuffs
+ * wear the cloth; the trim is kept for the layer's contract.
+ */
 export interface ArmColours {
   uniform: string;
   trim: string;
+}
+
+/** The arms' own drawing: the bones of both arms, their skinned mesh and its material. */
+interface Arms {
+  right: ViewArm;
+  left: ViewArm;
+  mesh: SkinnedMesh;
+  material: MeshStandardMaterial;
+  source: ArmsSource;
 }
 
 export interface ViewmodelFrame {
@@ -186,19 +214,22 @@ export class Viewmodel {
   readonly camera: PerspectiveCamera;
   /** Draw the pass this frame (set by `prepare`). */
   visible = false;
-  /** Both arms and the blaster: one skinned mesh. */
+  /** The blaster and the shield emitter: one skinned mesh under the palette. */
   readonly mesh: SkinnedMesh;
   private readonly rig = new Group();
-  private readonly right: ViewArm;
-  private readonly left: ViewArm;
+  /** The commander's arms, once their body has loaded. */
+  private arms: Arms | null = null;
   private readonly blaster: Blaster;
   private readonly gun = new Group();
   /** The blaster's bone (inside its scaled group): collapsed to a point when the hands are empty. */
   private readonly gunBone = new Bone();
+  /** The shield emitter's bone: on the left forearm once the arms are in, collapsed until then. */
+  private readonly housingBone = new Bone();
   /** A landmark on the trigger, in the blaster's frame. */
   readonly trigger = new Group();
   private readonly palette = new RigPalette("M_View_Rig");
-  private readonly slots: ArmSlots;
+  private readonly slots: { housing: Slot; emitter: Slot };
+  private colours: ArmColours;
   private readonly glows: Glow[] = [];
   private readonly reticle: MeshBasicMaterial;
   private readonly flash: Sprite;
@@ -208,7 +239,6 @@ export class Viewmodel {
   private readonly motion = new ViewmodelMotion();
   private readonly textures: Texture[] = [];
   private readonly emitterColour = new Color(0.35, 0.75, 1.6);
-  private readonly tmpColour = new Color();
   private frame: ViewmodelFrame | null = null;
   private shots = 0;
   private flashT = 0;
@@ -222,6 +252,11 @@ export class Viewmodel {
   private readonly pose: GunPose = { ...VIEWMODEL.hip };
   private readonly ads: GunPose = { ...VIEWMODEL.hip };
   private readonly handL: HandPose = handPose(0, 0, 0);
+  /** The hands closed on the blaster (`solveHolds`): the right on the grip, its index on the trigger; the left on the shroud. */
+  private readonly gripHand: HandPose = handPose(0, 0, 0);
+  private readonly foreHand: HandPose = handPose(0, 0, 0);
+  /** How far the solved index finger's pad is from the trigger, metres (for checks). */
+  triggerReach = Infinity;
   private readonly euler = new Euler(0, 0, 0, "YXZ");
   private readonly qGun = new Quaternion();
   private readonly qTmp = new Quaternion();
@@ -246,17 +281,17 @@ export class Viewmodel {
     this.camera = new PerspectiveCamera(60, 1, VIEWMODEL.near, VIEWMODEL.far);
     this.scene.name = "Viewmodel";
     const pal = this.palette;
-    this.slots = {
-      sleeve: pal.slot("sleeve"), trim: pal.slot("trim"), glove: pal.slot("glove"), housing: pal.slot("housing"), emitter: pal.slot("emitter"),
-    };
-    pal.surface(this.slots.glove, new Color(0x2b2c31), 0.46, 0.05);
+    this.slots = { housing: pal.slot("housing"), emitter: pal.slot("emitter") };
     pal.surface(this.slots.housing, new Color(0x2a2e34), 0.35, 0.85);
     pal.surface(this.slots.emitter, new Color(0x050505), 0.4, 0);
-    this.setColours(colours);
+    this.colours = { ...colours };
 
     const rig = new RigBuilder();
-    this.right = new ViewArm("right", rig, this.slots);
-    this.left = new ViewArm("left", rig, this.slots);
+    // The shield emitter: a flat housing along the back of the left forearm with a glowing strip and a lens.
+    rig.add(chamferBox(0.046, 0.12, 0.016, 0.005), this.housingBone, this.slots.housing);
+    rig.add(chamferBox(0.011, 0.092, 0.004, 0.0015), this.housingBone, this.slots.emitter, new Matrix4().makeTranslation(0, -0.005, 0.009));
+    rig.add(new CylinderGeometry(0.01, 0.012, 0.006, 10).rotateX(Math.PI / 2), this.housingBone, this.slots.emitter, new Matrix4().makeTranslation(0, 0.046, 0.01));
+    this.housingBone.scale.setScalar(1e-5);
 
     // The blaster: the duel's model (chamfered for the close view). Its parts are baked into the rig on the gun's
     // bone; the stock stays out (it would hide the right hand); the sight's pane becomes a see-through reticle.
@@ -304,7 +339,7 @@ export class Viewmodel {
     bg.add(this.flashLight);
     this.flashLight.position.copy(this.blaster.muzzle);
 
-    this.rig.add(this.right.group, this.left.group, this.gun, this.key, this.key.target);
+    this.rig.add(this.gun, this.housingBone, this.key, this.key.target);
     this.key.position.set(-0.4, 1, 0.5);
     this.mesh = rig.build(pal.material);
     // The mesh stays at the origin: its vertices follow the bones in the rig.
@@ -321,8 +356,91 @@ export class Viewmodel {
 
   /** The person's colours changed (a promotion): repaint the sleeves. */
   setColours(colours: ArmColours): void {
-    this.palette.surface(this.slots.sleeve, this.tmpColour.set(colours.uniform), 0.78, 0);
-    this.palette.surface(this.slots.trim, this.tmpColour.set(colours.trim), 0.55, 0.2);
+    this.colours = { ...colours };
+    const arms = this.arms;
+    if (!arms) return;
+    // The atlas multiplies the material colour (as on the body): the uniform by the tier, the hands gloved (or the skin
+    // as authored), each over the body's baked occlusion. The cuff's trim band wears the cloth too: up close its
+    // sawtooth edge (`CUT.trimLift`) would show as a change of tone.
+    const src = arms.source;
+    const gloves = VIEWMODEL.gloves;
+    const cloth = new Color(colours.uniform);
+    const tint: Record<ArmSlot, Color> = {
+      uniform: cloth, trim: cloth, skin: gloves ? new Color(gloves) : src.authored.skin, other: src.authored.other,
+    };
+    const order: ArmSlot[] = ["uniform", "trim", "skin", "other"];
+    const attr = arms.mesh.geometry.getAttribute("color") as BufferAttribute;
+    const c = attr.array as Float32Array;
+    for (let i = 0; i < src.occlusion.length; i++) {
+      const t = tint[order[src.slots[i]]];
+      const ao = src.occlusion[i];
+      c[i * 3] = t.r * ao;
+      c[i * 3 + 1] = t.g * ao;
+      c[i * 3 + 2] = t.b * ao;
+    }
+    attr.needsUpdate = true;
+  }
+
+  /** The arms are in (the body has loaded). */
+  get hasArms(): boolean {
+    return this.arms !== null;
+  }
+
+  /** The bones of the right and left arm (null before the body has loaded). */
+  get right(): ViewArm | null {
+    return this.arms?.right ?? null;
+  }
+
+  get left(): ViewArm | null {
+    return this.arms?.left ?? null;
+  }
+
+  /** The arms' skinned mesh (null before the body has loaded). */
+  get armsMesh(): SkinnedMesh | null {
+    return this.arms?.mesh ?? null;
+  }
+
+  /**
+   * The commander's body has loaded: rig and draw the arms cut from it (`cutArms`). The cut's geometry is taken over
+   * (disposed with the viewmodel); its atlas stays the body's. Replaces arms attached before.
+   */
+  attachArms(source: ArmsSource): void {
+    this.detachArms();
+    const right = new ViewArm(source.right);
+    const left = new ViewArm(source.left);
+    const material = new MeshStandardMaterial({
+      name: "M_View_Arms", map: source.map, normalMap: source.normalMap, roughnessMap: source.roughnessMap,
+      vertexColors: true, roughness: 1, metalness: 0, side: DoubleSide,
+    });
+    material.normalScale.set(source.normalScale[0], source.normalScale[1]);
+    const mesh = new SkinnedMesh(source.geometry, material);
+    mesh.name = "ViewmodelArms";
+    mesh.frustumCulled = false;
+    const skeleton = new Skeleton([...right.bones, ...left.bones], [...right.inverses(), ...left.inverses()]);
+    mesh.bind(skeleton, new Matrix4());
+    this.rig.add(right.group, left.group);
+    this.rig.traverse((o) => { o.frustumCulled = false; });
+    this.scene.add(mesh);
+    // The emitter rides on the left forearm.
+    left.emitter.add(this.housingBone);
+    this.housingBone.scale.setScalar(1);
+    this.arms = { right, left, mesh, material, source };
+    this.light.attach([material]);
+    this.retune();
+  }
+
+  private detachArms(): void {
+    const arms = this.arms;
+    if (!arms) return;
+    this.rig.add(this.housingBone);
+    this.housingBone.scale.setScalar(1e-5);
+    this.housingBone.position.set(0, 0, 0);
+    this.rig.remove(arms.right.group, arms.left.group);
+    this.scene.remove(arms.mesh);
+    arms.mesh.geometry.dispose();
+    arms.mesh.skeleton.dispose();
+    arms.material.dispose();
+    this.arms = null;
   }
 
   /** This frame's state (the layer fills it before the eye view renders). */
@@ -345,33 +463,33 @@ export class Viewmodel {
   retune(): void {
     const s = VIEWMODEL.gunScale;
     this.blaster.group.scale.setScalar(s);
+    this.setColours(this.colours);
     SHOULDER_R.copy(VIEWMODEL.shoulderR);
     SHOULDER_L.copy(VIEWMODEL.shoulderL);
     POLE_R.copy(VIEWMODEL.poleR).normalize();
     POLE_L.copy(VIEWMODEL.poleL).normalize();
-    // Right hand: the grip's axis runs up and back (the grip rakes 0.28 rad); the back of the hand faces the
-    // blaster's right (−X), the knuckles wrap the grip's front and the fingers curl round to its left side.
-    const up = new Vector3(0, Math.cos(0.28), -Math.sin(0.28));
-    const backR = new Vector3(-1, 0, 0);
-    const knR = new Vector3().crossVectors(up, backR);
     const h = VIEWMODEL.hands;
     const vec = (a: readonly number[]) => new Vector3(a[0], a[1], a[2]);
-    const grip = new Vector3(0, -0.06, -0.01).multiplyScalar(this.blasterScale() * s);
-    this.holdR.at.copy(grip).addScaledVector(up, h.grip[0]).addScaledVector(knR, h.grip[1]).addScaledVector(backR, h.grip[2]);
-    ViewArm.handFrame(knR, backR, this.holdR.q);
-    // Left hand: a clamp on the shroud from its left, the thumb over the top, the knuckles along the barrel, the back
-    // of the hand outward; the fingers curl in under the shroud.
-    const fore = this.blaster.fore.clone().multiplyScalar(s);
-    const knL = vec(h.foreKnuckles).normalize();
-    const backL = vec(h.foreBack).normalize();
-    this.holdL.at.set(fore.x + h.fore[0], fore.y + h.fore[1], fore.z + h.fore[2]).addScaledVector(knL, -0.05);
-    ViewArm.handFrame(knL, backL, this.holdL.q);
+    const bs = this.blasterScale() * s;
+    // A hold: the wrist where the held point sits at `at` in the hand's frame `q`.
+    const hold = (out: { at: Vector3; q: Quaternion }, point: Vector3, at: readonly number[]) => {
+      out.at.copy(point).sub(vec(at).applyQuaternion(out.q));
+    };
+    // Right hand: the grip's axis runs up and back (the grip rakes 0.28 rad) along the hand's width (the thumb's side
+    // up); the back of the hand faces the blaster's right (−X), the knuckles wrap the grip's front and the fingers
+    // curl round to its left side.
+    const up = new Vector3(0, Math.cos(0.28), -Math.sin(0.28));
+    const backR = new Vector3(-1, 0, 0);
+    ViewArm.handFrame(new Vector3().crossVectors(up, backR), backR, this.holdR.q);
+    hold(this.holdR, new Vector3(0, -0.06, -0.01).multiplyScalar(bs), h.grip);
+    // Left hand: under the shroud, the knuckles along the barrel, the back of the hand down and out to the left; the
+    // fingers curl up round the shroud's right side, the thumb lies along its left.
+    ViewArm.handFrame(vec(h.foreKnuckles), vec(h.foreBack), this.holdL.q);
+    hold(this.holdL, new Vector3(0, 0.012 * this.blasterScale(), this.blaster.fore.z).multiplyScalar(s), h.fore);
     // Venting: the left hand leaves the shroud and slaps the receiver's side, palm flat against it.
-    const vents = new Vector3(0.05, 0.02, 0.12).multiplyScalar(this.blasterScale() * s);
-    const knV = vec(h.ventKnuckles).normalize();
-    const backV = vec(h.ventBack).normalize();
-    this.ventL.at.copy(vents).addScaledVector(backV, 0.018).addScaledVector(knV, -0.05);
-    ViewArm.handFrame(knV, backV, this.ventL.q);
+    ViewArm.handFrame(vec(h.ventKnuckles), vec(h.ventBack), this.ventL.q);
+    hold(this.ventL, new Vector3(0.03, 0.0, 0.07).multiplyScalar(bs), h.vent);
+    this.solveHolds();
     // On the deck: relaxed hands, knuckles ahead, the backs of the hands up and out (the left mirrors the right).
     const dk = vec(h.deckKnuckles);
     const db = vec(h.deckBack);
@@ -388,6 +506,107 @@ export class Viewmodel {
     this.ads.pitch = 0;
     this.ads.yaw = 0;
     this.ads.roll = 0;
+  }
+
+  /**
+   * Close the hands on the blaster (the holds are fixed in its frame, so this holds for every pose): a search over
+   * the knuckle and middle joints of the fingers, so each finger's joints and tip rest on the held part's surface
+   * without sinking in (the right hand's three outer fingers round the grip, the left hand's four round the shroud),
+   * and the right index finger's pad on the trigger. Without arms: the layout's hand poses.
+   */
+  private solveHolds(): void {
+    copyHand(this.gripHand, VIEWMODEL.hands.gripPose);
+    copyHand(this.foreHand, VIEWMODEL.hands.forePose);
+    const arms = this.arms;
+    if (!arms) return;
+    const bs = this.blasterScale() * VIEWMODEL.gunScale;
+    // The grip: a box raked back 0.28 rad. The shroud: a cylinder along the barrel.
+    const gripC = new Vector3(0, -0.06, -0.01).multiplyScalar(bs);
+    const gripH = new Vector3(0.017, 0.0525, 0.021).multiplyScalar(bs);
+    const unrake = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), 0.28);
+    const q = new Vector3();
+    const grip = (p: Vector3): number => {
+      q.subVectors(p, gripC).applyQuaternion(unrake);
+      const x = Math.abs(q.x) - gripH.x;
+      const y = Math.abs(q.y) - gripH.y;
+      const z = Math.abs(q.z) - gripH.z;
+      return Math.hypot(Math.max(x, 0), Math.max(y, 0), Math.max(z, 0)) + Math.min(Math.max(x, y, z), 0);
+    };
+    const shroudY = 0.012 * bs;
+    const shroudR = 0.028 * bs;
+    const shroud = (p: Vector3): number => Math.hypot(p.x, p.y - shroudY) - shroudR;
+    const right = arms.right;
+    this.wrap(right, this.holdR, this.gripHand.fingers, [1, 2, 3], grip);
+    this.wrap(arms.left, this.holdL, this.foreHand.fingers, [1, 2, 3], shroud);
+    this.wrap(arms.left, this.holdL, this.foreHand.index, [0], shroud);
+    // The right index finger onto the trigger.
+    const target = this.trigger.position.clone().multiplyScalar(VIEWMODEL.gunScale);
+    const hand = new Matrix4().compose(this.holdR.at, this.holdR.q, new Vector3(1, 1, 1));
+    const chain = [0, 1, 2].map((j) => right.bones[fingerBone(0) + j]);
+    const m = new Matrix4();
+    const tip = new Vector3();
+    let best = Infinity;
+    let ba = this.gripHand.index[0];
+    let bb = this.gripHand.index[1];
+    for (let a = 0; a <= 1.6; a += 0.02) {
+      for (let b = 0; b <= 1.8; b += 0.02) {
+        this.gripHand.index[0] = a;
+        this.gripHand.index[1] = b;
+        right.curl(this.gripHand);
+        // The finger's pad (`indexTip`, on its end bone) against the trigger.
+        m.copy(hand);
+        for (const bone of chain) {
+          bone.updateMatrix();
+          m.multiply(bone.matrix);
+        }
+        const d = tip.copy(right.indexTip.position).applyMatrix4(m).distanceTo(target);
+        if (d < best) {
+          best = d;
+          ba = a;
+          bb = b;
+        }
+      }
+    }
+    this.gripHand.index[0] = ba;
+    this.gripHand.index[1] = bb;
+    right.curl(this.gripHand);
+    this.triggerReach = best;
+  }
+
+  /**
+   * Curl `fingers` of `arm` (holding at `hold`, in the blaster's frame) by the shared knuckle and middle joint
+   * angles `out` that rest them on the surface `sdf` (signed distance, metres): each joint and the tip a finger's
+   * thickness off it, sinking in costing eight times a gap.
+   */
+  private wrap(arm: ViewArm, hold: { at: Vector3; q: Quaternion }, out: [number, number], fingers: number[], sdf: (p: Vector3) => number): void {
+    const hand = new Matrix4().compose(hold.at, hold.q, new Vector3(1, 1, 1));
+    const pose = handPose(0, 0, 0);
+    const pts = [new Vector3(), new Vector3(), new Vector3(), new Vector3()];
+    let best = Infinity;
+    let ba = out[0];
+    let bb = out[1];
+    for (let a = 0; a <= 1.7; a += 0.025) {
+      for (let b = 0; b <= 1.9; b += 0.025) {
+        pose.fingers[0] = pose.index[0] = a;
+        pose.fingers[1] = pose.index[1] = b;
+        arm.curl(pose);
+        let cost = 0;
+        for (const f of fingers) {
+          arm.fingerPoints(f, pts);
+          for (const p of pts) {
+            const gap = sdf(p.applyMatrix4(hand)) - VIEWMODEL.fingerRadius;
+            cost += gap < 0 ? 64 * gap * gap : gap * gap;
+          }
+        }
+        if (cost < best) {
+          best = cost;
+          ba = a;
+          bb = b;
+        }
+      }
+    }
+    out[0] = ba;
+    out[1] = bb;
   }
 
   /**
@@ -471,6 +690,7 @@ export class Viewmodel {
     }
     // The room's reflections: the deck's environment is captured in the open room, the hands are in the body's shade.
     this.palette.material.envMapIntensity = VIEWMODEL.envGain;
+    if (this.arms) this.arms.material.envMapIntensity = VIEWMODEL.envGain;
     if (f.deck) this.light.update(f.deck, f.x, f.y, f.z, step);
   }
 
@@ -497,13 +717,14 @@ export class Viewmodel {
     this.wristR.copy(this.holdR.at).applyQuaternion(this.qGun).add(this.gun.position);
     this.qHandR.copy(this.qGun).multiply(this.holdR.q);
     const h = VIEWMODEL.hands;
-    this.right.curl(h.gripPose);
-    this.right.pose(SHOULDER_R, this.wristR, this.qHandR, POLE_R);
+    const arms = this.arms;
+    arms?.right.curl(this.gripHand);
+    arms?.right.pose(SHOULDER_R, this.wristR, this.qHandR, POLE_R);
 
     // Left hand: on the shroud, against the receiver while venting, up before the face behind the shield.
     this.wristL.copy(this.holdL.at).applyQuaternion(this.qGun).add(this.gun.position);
     this.qHandL.copy(this.qGun).multiply(this.holdL.q);
-    const hand = copyHand(this.handL, h.forePose);
+    const hand = copyHand(this.handL, this.foreHand);
     if (w.vent > 1e-3) {
       // A slap: the hand swings out and in against the receiver in the first quarter second, then rests there.
       const t = Math.min(1, this.ventT / 0.2);
@@ -522,26 +743,29 @@ export class Viewmodel {
       lerpHand(hand, h.shieldPose, w.shield);
     }
     if (w.down > 1e-3) this.wristL.y -= w.down * 0.5;
-    this.left.curl(hand);
-    this.left.pose(SHOULDER_L, this.wristL, this.qHandL, POLE_L);
+    arms?.left.curl(hand);
+    arms?.left.pose(SHOULDER_L, this.wristL, this.qHandL, POLE_L);
   }
 
   private poseDeck(o: { x: number; y: number; z: number; pitch: number; yaw: number; roll: number }, dip: number): void {
     // Loose hands low in the frame; while walking they swing against each other with the stride.
     const swing = Math.sin(this.motion.phase) * 0.05 * Math.min(1, this.motion.bob);
     const c = VIEWMODEL.hands.deckPose;
-    this.right.curl(c);
-    this.left.curl(c);
+    const arms = this.arms;
+    if (!arms) return;
+    arms.right.curl(c);
+    arms.left.curl(c);
     const d = VIEWMODEL.deckWrist;
     // The deck's arms hang from the shoulders' usual place (the duel's support shoulder sits in for the hold).
     this.v.set(-VIEWMODEL.shoulderR.x, VIEWMODEL.shoulderR.y, VIEWMODEL.shoulderR.z);
     this.wristR.set(d.x + o.x, d.y + o.y - dip + Math.abs(swing) * 0.2, d.z + o.z - swing);
     this.wristL.set(-d.x + o.x, d.y + o.y - dip + Math.abs(swing) * 0.2, d.z + o.z + swing);
-    this.right.pose(SHOULDER_R, this.wristR, this.qDeckR, POLE_R);
-    this.left.pose(this.v, this.wristL, this.qDeckL, DECK_POLE_L.set(-POLE_R.x, POLE_R.y, POLE_R.z));
+    arms.right.pose(SHOULDER_R, this.wristR, this.qDeckR, POLE_R);
+    arms.left.pose(this.v, this.wristL, this.qDeckL, DECK_POLE_L.set(-POLE_R.x, POLE_R.y, POLE_R.z));
   }
 
   dispose(): void {
+    this.detachArms();
     this.mesh.geometry.dispose();
     this.mesh.skeleton.dispose();
     this.palette.dispose();
