@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
+
+STATE_DIR="$XDG_RUNTIME_DIR/dodaios-gaming"
+STATE="$STATE_DIR/was-active"
+LOCK="$STATE_DIR/control.lock"
+TIMER="dodaios-game-resume.timer"
+SERVICE="dodaios.service"
+
+mkdir -p "$STATE_DIR"
+
+log() {
+    printf '%s %s\n' "$(date -Is)" "$*" \
+        >> "$HOME/gamemode-dodaios.log"
+}
+
+game_status() {
+    gamemoded -s 2>&1
+}
+
+# A parked stop may still be running (the unit allows up to TimeoutStopSec).
+# Starting during it would only queue behind it, so wait, bounded.
+wait_until_stopped() {
+    local tries=60
+    while (( tries-- > 0 )); do
+        [[ "$(systemctl --user is-active "$SERVICE" 2>/dev/null || true)" == deactivating ]] \
+            || return 0
+        sleep 1
+    done
+    log "RESUME - Dodaios still stopping after 60s, starting anyway"
+}
+
+# Never resume when GameMode cannot be queried.
+game_inactive() {
+    local status
+    status="$(game_status)" || return 1
+    [[ "$status" == *"gamemode is inactive"* ]]
+}
+
+exec 9>"$LOCK"
+flock -x 9
+
+case "${1:-}" in
+    start)
+        systemctl --user stop "$TIMER"
+
+        if systemctl --user is-active --quiet "$SERVICE"; then
+            # Remember that it must be restarted later.
+            touch "$STATE"
+            log "GAME START - stopping Dodaios"
+            # Do not wait for the stop: GameMode kills hooks after
+            # script_timeout, and the end hook needs this lock.
+            systemctl --user stop --no-block "$SERVICE"
+        else
+            log "GAME START - Dodaios already stopped"
+        fi
+        ;;
+
+    end)
+        if [[ -f "$STATE" ]]; then
+            # An extra check prevents premature recovery.
+            systemctl --user restart "$TIMER"
+            log "GAME END - recovery timer reset to 120s"
+        else
+            log "GAME END - nothing to resume"
+        fi
+        ;;
+
+    resume)
+        if [[ ! -f "$STATE" ]]; then
+            log "RESUME - no saved active service"
+            exit 0
+        fi
+
+        if ! game_inactive; then
+            log "RESUME - cancelled, GameMode still active"
+            exit 0
+        fi
+
+        wait_until_stopped
+        log "RESUME - starting Dodaios"
+        systemctl --user start "$SERVICE"
+
+        if systemctl --user is-active --quiet "$SERVICE"; then
+            rm -f "$STATE"
+            log "RESUME - Dodaios running"
+        else
+            log "RESUME - startup failed"
+            exit 1
+        fi
+        ;;
+
+    status)
+        echo "=== Dodaios ==="
+        systemctl --user is-active "$SERVICE" || true
+
+        echo "=== GameMode ==="
+        game_status || true
+
+        echo "=== Restart pending ==="
+        if [[ -f "$STATE" ]]; then
+            echo "yes"
+        else
+            echo "no"
+        fi
+
+        systemctl --user list-timers --all "$TIMER"
+        ;;
+
+    *)
+        echo "Usage: $0 start|end|resume|status"
+        exit 2
+        ;;
+esac
