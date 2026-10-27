@@ -99,7 +99,7 @@ def test_takes_last_occurrence() -> None:
 
 def test_renders_empty_state_as_current_state_not_binding_preferences() -> None:
     rendered = render_cli_standing_instructions(_empty_state_block())
-    assert "CURRENT JARVIS.MD STATE" in rendered
+    assert "CURRENT STANDING INSTRUCTIONS STATE" in rendered
     assert "No active user preferences are currently set" in rendered
     assert "do not continue or imitate" in rendered
     assert "Apply these as binding output-style preferences" not in rendered
