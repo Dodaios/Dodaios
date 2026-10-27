@@ -71,6 +71,8 @@ KNOWN: frozenset[str] = frozenset(
         "marketplace",
         # My Pets: the desktop pet, its look, and the pets the user created.
         "pets",
+        # Game settings: per-game sensitivity, keybinds, audio and video.
+        "games",
         # Keyboard shortcuts: every shortcut in one place, with a key tester.
         "shortcuts",
         # Built for you: what the self-building loop made, with keep and undo.
@@ -277,6 +279,14 @@ _ALIASES: dict[str, str] = {
     # is already the section id, and anything broader ("animals") would pull
     # ordinary questions about animals onto a settings page.
     "my pets": "pets",
+    "game settings": "games",
+    "gaming settings": "games",
+    "games": "games",
+    "sensitivity converter": "games",
+    "spiele": "games",  # i18n-allow: input vocab
+    "spieleinstellungen": "games",  # i18n-allow: input vocab
+    "spiel einstellungen": "games",  # i18n-allow: input vocab
+    "ajustes de juegos": "games",  # i18n-allow: input vocab
     "my pet": "pets",
     "desktop pet": "pets",
     "desktop pets": "pets",

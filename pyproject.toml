@@ -922,6 +922,9 @@ dodaios = [
     "agent_runtimes/runtime-versions.json",
     # Translated system phrases, one file per language (dodaios/i18n/catalog.py).
     "i18n/locales/*.json",
+    # The researched settings of every game in Settings -> Game settings
+    # (dodaios/games/catalog.py reads it via Path(__file__)).
+    "games/catalog.json",
     # Seed catalogs (CLI tools / skills / marketplace plugins) — named
     # explicitly rather than a repo-wide "**/*.json" glob, which would also
     # sweep in dodaios/ui/web/frontend's SOURCE config (package.json,
