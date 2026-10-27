@@ -1069,9 +1069,13 @@ def _tool_search(transport: str) -> Any:
     subscription's backend ends a request carrying the whole inline catalog
     (live 2026-10-27: ~400 tools, ~580 KB of schemas from the person's
     connected plugins) as ``response.incomplete`` before any output, on every
-    retry; Hermes on the same seat defers its tools behind ``tool_search`` and
+    retry. Size alone is not the trigger (400 synthetic tools at ~210k tokens
+    passed); the failing slices all held the only ``oneOf`` schemas in the
+    catalog, which points at a schema shape the backend refuses inline.
+    Hermes on the same seat defers its tools behind ``tool_search`` and
     answers. The structured mode keeps every tool callable through
-    ``tool_search`` / ``tool_describe`` / ``tool_call``.
+    ``tool_search`` / ``tool_describe`` / ``tool_call``, and no third-party
+    schema reaches the backend as a function declaration.
     """
     return {"mode": "tools"} if transport == "responses" else False
 

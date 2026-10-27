@@ -634,7 +634,7 @@ def test_an_incomplete_subscription_stream_ends_the_turn_with_its_reason(
               if line.startswith("data:") and "response.failed" in line]
     error = failed[0]["response"]["error"]
     assert error["code"] == "incomplete"
-    assert "too large" in error["message"]
+    assert "will not help" in error["message"]
     # Terminal: the Jarvis turn ends instead of the runtime resending it.
     assert signal.done()
     # The backend's own reason reaches the log.

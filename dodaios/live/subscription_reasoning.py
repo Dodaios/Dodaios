@@ -90,8 +90,8 @@ def _failure(
         )
     elif code in _STOPPED_EARLY:
         message = (
-            "ChatGPT stopped this request before it finished (its output limit was reached). "
-            "A very large request, such as one carrying hundreds of tool schemas, can cause this."
+            "ChatGPT stopped this request before it finished (incomplete). "
+            "Resending it unchanged will not help; a tool schema it carries can cause this."
         )
     elif status in (400, 404, 413, 422):
         if code not in _REQUEST_FAILURES:

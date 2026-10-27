@@ -363,6 +363,10 @@ replayed during `session/load` is swallowed because the chat already shows it.
   ChatGPT's backend accepted a turn carrying the whole inline catalog (~400
   tools, ~580 KB of schemas) with HTTP 200 and then ended it as
   `response.incomplete` (`max_output_tokens`, zero usage) on every retry.
+  Size alone is not the trigger: 400 synthetic tools (~210k tokens) passed,
+  while every failing slice of the live catalog held its only `oneOf` schemas
+  (Linear's `save_*` tools), so deferring keeps third-party schema shapes off
+  the backend's function list.
 - **Subscription stream failures:** a failure the backend reports inside an
   accepted stream (`error`, `response.failed`, `response.incomplete`) is logged
   with its event type, code, reason and a short redacted message
