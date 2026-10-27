@@ -34,3 +34,5 @@ export const XRAY_LAYER = 1;
 export const DEBUG_LAYER = 2;
 /** The eye-level deck (realtime geometry); only the eye-level renderer draws it. */
 export const REALTIME_LAYER = 5;
+/** The eye-level deck's see-through chunks again (also on REALTIME_LAYER), for the hull mask alone. */
+export const GLASS_LAYER = 6;
