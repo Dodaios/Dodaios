@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchGame,
   fetchGames,
+  fetchSystem,
   resetGameProfile,
   saveDefaultDpi,
   saveGameProfile,
@@ -26,6 +27,16 @@ export function useGameDetail(gameId: string | null) {
     queryKey: gameKeys.detail(gameId ?? ""),
     queryFn: () => fetchGame(gameId as string),
     enabled: Boolean(gameId),
+  });
+}
+
+/** This PC's GPU, CPU, RAM and monitors; read once, it does not change. */
+export function useGameSystem() {
+  return useQuery({
+    queryKey: ["games", "system"],
+    queryFn: fetchSystem,
+    staleTime: Infinity,
+    retry: false,
   });
 }
 

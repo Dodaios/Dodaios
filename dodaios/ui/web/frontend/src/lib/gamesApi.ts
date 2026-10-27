@@ -7,7 +7,52 @@
 
 export type GameSettingType = "slider" | "number" | "select" | "toggle" | "text";
 export type GameSettingValue = number | string | boolean;
-export type GameSectionId = "mouse" | "audio" | "video" | "gameplay";
+export type GameSectionId =
+  | "perf_display"
+  | "perf_rendering"
+  | "perf_detail"
+  | "perf_raytracing"
+  | "perf_effects"
+  | "mouse"
+  | "audio"
+  | "video"
+  | "gameplay";
+
+export type BindMode = "hold" | "toggle";
+
+export interface CustomBind {
+  id: string;
+  action: string;
+  key: string;
+  alt: string;
+}
+
+export interface GamePreset {
+  id: "competitive" | "balanced" | "quality" | "epic";
+  /** "monitor" in perf_fps_cap means: the detected monitor's refresh rate. */
+  values: Record<string, GameSettingValue>;
+}
+
+export interface MonitorInfo {
+  name: string;
+  primary: boolean;
+  width: number;
+  height: number;
+  refresh_hz: number;
+  max_width: number;
+  max_height: number;
+  max_refresh_hz: number;
+}
+
+export interface SystemInfo {
+  os: string;
+  cpu: string | null;
+  ram_gb: number | null;
+  gpus: { name: string; vram_gb: number | null }[];
+  monitors: MonitorInfo[];
+  gpu_tier: "entry" | "mid" | "high" | "enthusiast" | null;
+  recommended_preset: GamePreset["id"] | null;
+}
 
 export interface GameSetting {
   key: string;
@@ -46,6 +91,9 @@ export interface GameDefinition {
 export interface GameProfile {
   values: Record<string, GameSettingValue>;
   keybinds: Record<string, string>;
+  alt_keybinds: Record<string, string>;
+  bind_modes: Record<string, BindMode>;
+  custom_binds: CustomBind[];
   dpi: number | null;
   notes: string;
   updated_at: string | null;
@@ -63,6 +111,7 @@ export interface GameSummary {
 export interface GamesIndex {
   dpi: number;
   games: GameSummary[];
+  presets: GamePreset[];
 }
 
 export interface GameDetail {
@@ -74,6 +123,9 @@ export interface GameDetail {
 export interface ProfilePatch {
   values?: Record<string, GameSettingValue | null>;
   keybinds?: Record<string, string | null>;
+  alt_keybinds?: Record<string, string | null>;
+  bind_modes?: Record<string, BindMode | null>;
+  custom_binds?: CustomBind[];
   dpi?: number;
   reset_dpi?: boolean;
   notes?: string;
@@ -134,6 +186,10 @@ export function saveGameProfile(gameId: string, patch: ProfilePatch): Promise<{ 
 
 export function resetGameProfile(gameId: string): Promise<{ removed: boolean }> {
   return request(`/api/games/${encodeURIComponent(gameId)}/profile`, { method: "DELETE" });
+}
+
+export function fetchSystem(): Promise<SystemInfo> {
+  return request<SystemInfo>("/api/games/system");
 }
 
 export function saveDefaultDpi(dpi: number): Promise<{ dpi: number }> {

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { keyConflicts, keyNameFromCode, mouseButtonName, wheelName } from "@/lib/gameKeys";
+import {
+  bindUsesKey,
+  comboName,
+  comboParts,
+  keyConflicts,
+  keyNameFromCode,
+  mouseButtonName,
+  wheelName,
+} from "@/lib/gameKeys";
 
 describe("game key names", () => {
   it("names keys the way game menus print them", () => {
@@ -36,5 +44,21 @@ describe("keyConflicts", () => {
     expect(conflicts.get("vault")).toEqual(["Jump"]);
     expect(conflicts.has("crouch")).toBe(false);
     expect(conflicts.has("a")).toBe(false);
+  });
+});
+
+describe("combinations", () => {
+  it("orders modifiers and never repeats the main key as a modifier", () => {
+    expect(comboName({ ctrl: true, shift: true, alt: false }, "Mouse 4")).toBe("Ctrl + Shift + Mouse 4");
+    expect(comboName({ ctrl: false, shift: true, alt: false }, "Left Shift")).toBe("Left Shift");
+    expect(comboName({ ctrl: true, shift: false, alt: false }, "Left Shift")).toBe("Ctrl + Left Shift");
+    expect(comboParts("Alt + E")).toEqual(["Alt", "E"]);
+  });
+
+  it("matches a physical key inside a combo", () => {
+    expect(bindUsesKey("Ctrl + F", "Left Ctrl")).toBe(true);
+    expect(bindUsesKey("Ctrl + F", "F")).toBe(true);
+    expect(bindUsesKey("Left Shift", "Right Shift")).toBe(false);
+    expect(bindUsesKey("", "F")).toBe(false);
   });
 });

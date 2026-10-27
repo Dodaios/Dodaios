@@ -1,18 +1,27 @@
 /**
- * The building blocks of Settings → Game settings: one row per game setting
- * (slider, number, choice, switch or text) and the keybind capture button.
+ * The building blocks of Settings → Game settings: one row per setting
+ * (segmented choice, filled slider, number, switch, text) and the keybind
+ * capture button that records combinations ("Shift + Mouse 4").
  *
  * Rows keep a local draft while the user drags or types and hand the value
  * up only when it is settled (pointer up, blur, Enter), so a slider drag is
  * one save, not fifty.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { BrandedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useT } from "@/i18n";
-import { keyNameFromCode, mouseButtonName, wheelName } from "@/lib/gameKeys";
+import {
+  MODIFIER_CODES,
+  comboName,
+  comboParts,
+  keyNameFromCode,
+  mouseButtonName,
+  wheelName,
+  type HeldModifiers,
+} from "@/lib/gameKeys";
 import type { GameSetting, GameSettingValue } from "@/lib/gamesApi";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +30,59 @@ function formatDefault(setting: GameSetting, t: (key: string) => string): string
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "boolean") return value ? t("games.on") : t("games.off");
   return String(value);
+}
+
+/** A choice short enough to show every option at once instead of a dropdown. */
+export function fitsSegmented(options: readonly string[]): boolean {
+  return options.length >= 2 && options.length <= 7 && options.join("").length <= 64;
+}
+
+export function Segmented({
+  options,
+  value,
+  onChange,
+  label,
+  className,
+}: {
+  options: readonly { value: string; label: string }[];
+  value: string | null;
+  onChange: (value: string) => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cn(
+        "inline-flex max-w-full flex-wrap gap-0.5 rounded-lg border border-border bg-background/60 p-0.5",
+        className,
+      )}
+    >
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs font-medium transition-all",
+              // Inside a game's page the active segment wears the game's hue;
+              // anywhere else it falls back to the app's signal colour.
+              active
+                ? "bg-[var(--game-accent,hsl(var(--accent)))] font-semibold text-black shadow-[0_0_12px_var(--game-accent-glow,hsl(var(--accent)/0.45))]"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function SettingShell({
@@ -39,14 +101,12 @@ function SettingShell({
   return (
     <div
       data-testid={`game-setting-${setting.key}`}
-      className="flex flex-col gap-2 border-b border-border/60 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-6"
+      className="group flex flex-col gap-2 border-b border-border/50 py-3 last:border-b-0 md:flex-row md:items-center md:gap-6"
     >
-      <div className="min-w-0 sm:w-[42%]">
+      <div className="min-w-0 md:w-[38%]">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">{setting.label}</span>
-          {saved && (
-            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-          )}
+          {saved && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
         </div>
         {(setting.note || fallback) && (
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -82,7 +142,7 @@ function toNumber(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function NumberField({
+export function NumberField({
   value,
   setting,
   onCommit,
@@ -120,6 +180,55 @@ function NumberField({
   );
 }
 
+/**
+ * A range input whose track fills up to the thumb in the signal colour. The
+ * fill is a background gradient driven by one CSS variable, so it follows
+ * the drag without React re-rendering the track.
+ */
+export function FilledRange({
+  min,
+  max,
+  step,
+  value,
+  label,
+  dim,
+  onDraft,
+  onCommit,
+}: {
+  min: number;
+  max: number;
+  step?: number;
+  value: number;
+  label: string;
+  dim?: boolean;
+  onDraft: (value: number) => void;
+  onCommit: () => void;
+}) {
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step ?? "any"}
+      value={value}
+      aria-label={label}
+      onChange={(event) => onDraft(Number(event.currentTarget.value))}
+      onPointerUp={onCommit}
+      onKeyUp={onCommit}
+      onBlur={onCommit}
+      style={{ "--fill": `${pct}%` } as CSSProperties}
+      className={cn(
+        "h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full",
+        "bg-[linear-gradient(to_right,hsl(var(--accent))_var(--fill),hsl(var(--border))_var(--fill))]",
+        "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-accent [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow-[0_0_10px_hsl(var(--accent)/0.6)]",
+        "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-accent [&::-moz-range-thumb]:bg-background",
+        dim && "opacity-50",
+      )}
+    />
+  );
+}
+
 export function GameSettingRow({
   setting,
   value,
@@ -148,16 +257,27 @@ export function GameSettingRow({
   }
 
   if (setting.type === "select") {
+    const options = setting.options ?? [];
+    const current = typeof effective === "string" ? effective : null;
     return (
       <SettingShell setting={setting} saved={saved} onReset={reset}>
-        <BrandedSelect
-          value={typeof effective === "string" ? effective : ""}
-          options={(setting.options ?? []).map((option) => ({ value: option, label: option }))}
-          onValueChange={(next) => onChange(next)}
-          ariaLabel={setting.label}
-          placeholder={t("games.unset")}
-          className="h-8 w-full max-w-xs"
-        />
+        {fitsSegmented(options) ? (
+          <Segmented
+            label={setting.label}
+            value={current}
+            options={options.map((option) => ({ value: option, label: option }))}
+            onChange={(next) => onChange(next)}
+          />
+        ) : (
+          <BrandedSelect
+            value={current ?? ""}
+            options={options.map((option) => ({ value: option, label: option }))}
+            onValueChange={(next) => onChange(next)}
+            ariaLabel={setting.label}
+            placeholder={t("games.unset")}
+            className="h-8 w-full max-w-xs"
+          />
+        )}
       </SettingShell>
     );
   }
@@ -180,7 +300,12 @@ export function GameSettingRow({
       {setting.type === "slider" ? (
         <SliderField setting={setting} value={numeric} saved={saved} onCommit={onChange} />
       ) : (
-        <NumberField setting={setting} value={saved ? numeric : null} onCommit={onChange} className="max-w-[10rem]" />
+        <NumberField
+          setting={setting}
+          value={saved ? numeric : null}
+          onCommit={onChange}
+          className="max-w-[10rem]"
+        />
       )}
     </SettingShell>
   );
@@ -202,28 +327,24 @@ function SliderField({
   const [draft, setDraft] = useState<number>(value ?? min);
   const dirty = useRef(false);
   useEffect(() => setDraft(value ?? min), [value, min]);
-  const commit = () => {
-    if (!dirty.current) return;
-    dirty.current = false;
-    onCommit(draft);
-  };
   return (
     <div className="flex items-center gap-3">
-      <input
-        type="range"
+      <FilledRange
         min={min}
         max={max}
-        step={setting.step ?? "any"}
+        step={setting.step}
         value={draft}
-        aria-label={setting.label}
-        onChange={(event) => {
+        label={setting.label}
+        dim={!saved && value === null}
+        onDraft={(next) => {
           dirty.current = true;
-          setDraft(Number(event.currentTarget.value));
+          setDraft(next);
         }}
-        onPointerUp={commit}
-        onKeyUp={commit}
-        onBlur={commit}
-        className={cn("h-1 min-w-0 flex-1 cursor-pointer accent-primary", !saved && value === null && "opacity-50")}
+        onCommit={() => {
+          if (!dirty.current) return;
+          dirty.current = false;
+          onCommit(draft);
+        }}
       />
       <NumberField
         setting={setting}
@@ -261,83 +382,134 @@ function TextField({
   );
 }
 
+/** A bind drawn as keycaps: "Shift + Mouse 4" → [Shift] + [Mouse 4]. */
+export function Keycaps({ combo, empty }: { combo: string; empty: string }) {
+  const parts = comboParts(combo);
+  if (parts.length === 0) return <span className="text-muted-foreground">{empty}</span>;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {parts.map((part, index) => (
+        <span key={`${part}-${index}`} className="inline-flex items-center gap-1">
+          {index > 0 && <span className="text-muted-foreground/60">+</span>}
+          <kbd className="rounded border border-border-strong bg-background px-1.5 py-0.5 font-mono text-[11px] text-foreground shadow-[inset_0_-2px_0_hsl(var(--border))]">
+            {part}
+          </kbd>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /**
- * A button that shows the bound key; click it, then press a key, click a
- * mouse button or turn the wheel to bind. Escape cancels. While listening,
- * the press is swallowed so app shortcuts do not fire.
+ * A button that shows the bound key; click it, then press a key, a mouse
+ * button or turn the wheel — while holding Ctrl / Shift / Alt for a
+ * combination. A modifier pressed and released alone binds itself ("Left
+ * Shift" for sprint). Escape cancels. While listening, presses are swallowed
+ * so app shortcuts do not fire.
  */
 export function KeyCaptureButton({
   value,
   label,
   onCapture,
+  compact,
 }: {
   value: string;
   label: string;
   onCapture: (key: string) => void;
+  compact?: boolean;
 }) {
   const t = useT();
   const [listening, setListening] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [held, setHeld] = useState<HeldModifiers>({ ctrl: false, shift: false, alt: false });
+  const captureRef = useRef(onCapture);
+  captureRef.current = onCapture;
 
   useEffect(() => {
     if (!listening) return;
+    let mods: HeldModifiers = { ctrl: false, shift: false, alt: false };
+    let lastModifier: string | null = null;
     const finish = (key: string | null) => {
       setListening(false);
-      if (key) onCapture(key);
+      setHeld({ ctrl: false, shift: false, alt: false });
+      if (key) captureRef.current(key);
     };
-    const onKey = (event: KeyboardEvent) => {
+    const swallow = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      swallow(event);
       if (event.code === "Escape") return finish(null);
-      finish(keyNameFromCode(event.code));
+      if (MODIFIER_CODES.has(event.code)) {
+        mods = { ctrl: event.ctrlKey, shift: event.shiftKey, alt: event.altKey };
+        lastModifier = keyNameFromCode(event.code);
+        setHeld(mods);
+        return;
+      }
+      const name = keyNameFromCode(event.code);
+      if (name) finish(comboName({ ctrl: event.ctrlKey, shift: event.shiftKey, alt: event.altKey }, name));
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      swallow(event);
+      // A modifier pressed and let go on its own binds the modifier itself.
+      if (MODIFIER_CODES.has(event.code) && lastModifier === keyNameFromCode(event.code)) {
+        const others = { ...mods };
+        if (/Ctrl$/.test(lastModifier ?? "")) others.ctrl = false;
+        if (/Shift$/.test(lastModifier ?? "")) others.shift = false;
+        if (/Alt$/.test(lastModifier ?? "")) others.alt = false;
+        finish(comboName(others, lastModifier as string));
+      }
     };
     const onMouse = (event: MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      finish(mouseButtonName(event.button));
+      swallow(event);
+      const name = mouseButtonName(event.button);
+      if (name) finish(comboName({ ctrl: event.ctrlKey, shift: event.shiftKey, alt: event.altKey }, name));
     };
     const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.deltaY !== 0) finish(wheelName(event.deltaY));
-    };
-    const block = (event: Event) => {
-      event.preventDefault();
-      event.stopPropagation();
+      swallow(event);
+      if (event.deltaY !== 0) {
+        finish(comboName({ ctrl: event.ctrlKey, shift: event.shiftKey, alt: event.altKey }, wheelName(event.deltaY)));
+      }
     };
     // Registered on the next tick so the click that started listening is not
     // itself taken as the binding.
     const timer = window.setTimeout(() => {
-      window.addEventListener("keydown", onKey, true);
+      window.addEventListener("keydown", onKeyDown, true);
+      window.addEventListener("keyup", onKeyUp, true);
       window.addEventListener("mousedown", onMouse, true);
       window.addEventListener("wheel", onWheel, { capture: true, passive: false });
-      window.addEventListener("contextmenu", block, true);
+      window.addEventListener("contextmenu", swallow, true);
     }, 0);
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("mousedown", onMouse, true);
       window.removeEventListener("wheel", onWheel, true);
-      window.removeEventListener("contextmenu", block, true);
+      window.removeEventListener("contextmenu", swallow, true);
     };
-  }, [listening, onCapture]);
+  }, [listening]);
 
+  const heldText = comboParts(comboName(held, "")).join(" + ");
   return (
     <button
-      ref={buttonRef}
       type="button"
       aria-label={`${label}: ${value || t("games.keybind_unbound")}`}
       aria-pressed={listening}
       onClick={() => setListening(true)}
       className={cn(
-        "flex h-8 min-w-[7.5rem] items-center justify-center rounded-md border px-3 font-mono text-xs transition-colors",
+        "flex h-9 items-center justify-center rounded-md border px-2.5 text-xs transition-all",
+        compact ? "min-w-[6.5rem]" : "min-w-[9rem]",
         listening
-          ? "border-primary bg-primary/10 text-foreground"
-          : "border-border bg-muted text-foreground hover:border-border-strong",
-        !value && !listening && "text-muted-foreground",
+          ? "animate-pulse border-accent bg-accent/10 text-foreground shadow-[0_0_14px_hsl(var(--accent)/0.5)]"
+          : "border-border bg-muted/60 hover:border-border-strong hover:bg-muted",
       )}
     >
-      {listening ? t("games.keybind_press") : value || t("games.keybind_unbound")}
+      {listening ? (
+        <span className="font-mono">{heldText ? `${heldText} + …` : t("games.keybind_press")}</span>
+      ) : (
+        <Keycaps combo={value} empty={t("games.keybind_unbound")} />
+      )}
     </button>
   );
 }

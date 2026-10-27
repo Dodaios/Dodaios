@@ -94,3 +94,50 @@ export function keyConflicts(
   }
   return out;
 }
+
+/** The browser codes of modifier keys; held, they become part of a combo. */
+export const MODIFIER_CODES = new Set([
+  "ShiftLeft",
+  "ShiftRight",
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "MetaLeft",
+  "MetaRight",
+]);
+
+export interface HeldModifiers {
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+}
+
+/** "Ctrl + Shift + Mouse 4": modifiers in a fixed order, then the main input. */
+export function comboName(mods: HeldModifiers, main: string): string {
+  const parts: string[] = [];
+  if (mods.ctrl && !/Ctrl$/.test(main)) parts.push("Ctrl");
+  if (mods.shift && !/Shift$/.test(main)) parts.push("Shift");
+  if (mods.alt && !/Alt$/.test(main)) parts.push("Alt");
+  return [...parts, main].join(" + ");
+}
+
+/** The single inputs of a bind: "Ctrl + F" → ["Ctrl", "F"]. */
+export function comboParts(combo: string): string[] {
+  return combo
+    .split(" + ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Does a bind use this physical key? A combo's bare "Ctrl" counts for both
+ * Ctrl keys; "Left Shift" only for the left one.
+ */
+export function bindUsesKey(combo: string, keyName: string): boolean {
+  return comboParts(combo).some((part) => {
+    if (part === keyName) return true;
+    const generic = /^(Left|Right) (Ctrl|Shift|Alt)$/.exec(keyName);
+    return generic !== null && part === generic[2];
+  });
+}
