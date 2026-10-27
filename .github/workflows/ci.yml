@@ -520,7 +520,8 @@ jobs:
             --shard "$SHARD/$total" \
             --report "out/test-report-linux-$SHARD.json" \
             --junit-out "out/junit-linux-$SHARD.xml" \
-            --durations-out "out/durations-linux-$SHARD.json"
+            --durations-out "out/durations-linux-$SHARD.json" \
+            --deadline-minutes 22
       - name: Ratchet (a failure not in the baseline blocks)
         env:
           SHARD: ${{ matrix.shard }}
@@ -575,7 +576,8 @@ jobs:
             --durations test_durations_windows.json \
             --report "out/test-report-windows-$SHARD.json" \
             --junit-out "out/junit-windows-$SHARD.xml" \
-            --durations-out "out/durations-windows-$SHARD.json"
+            --durations-out "out/durations-windows-$SHARD.json" \
+            --deadline-minutes 32
       - name: Ratchet (a failure not in the baseline blocks)
         env:
           SHARD: ${{ matrix.shard }}
@@ -619,6 +621,7 @@ jobs:
           python scripts/ci/run_tests_parallel.py tests --shard ${{ matrix.shard }}/3
           --report out/test-report-macos-${{ matrix.shard }}.json
           --junit-out out/junit-macos-${{ matrix.shard }}.xml
+          --deadline-minutes 50
       - name: Ratchet (a failure not in the baseline blocks)
         run: python scripts/ci/ratchet_tests.py check --baseline scripts/ci/test-baseline-macos.json out/test-report-macos-${{ matrix.shard }}.json
       - name: Upload shard report
@@ -667,7 +670,8 @@ jobs:
           python scripts/ci/run_tests_parallel.py tests --files-from mac_tests.txt \
             --shard "$SHARD/$total" \
             --report "out/test-report-macos-impact-$SHARD.json" \
-            --junit-out "out/junit-macos-impact-$SHARD.xml"
+            --junit-out "out/junit-macos-impact-$SHARD.xml" \
+            --deadline-minutes 32
       - name: Ratchet (a failure not in the baseline blocks)
         env:
           SHARD: ${{ matrix.shard }}

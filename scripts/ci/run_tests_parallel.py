@@ -346,6 +346,13 @@ class Runner:
         self.gate = gate or MemoryGate()
         self._seq = 0
         self._lock = threading.Lock()
+        # The whole shard's wall clock. Batch budget plus isolation and retry
+        # runs can outlast the CI job's timeout; the job is then cancelled with
+        # no report and no log, so a hang names nothing (merge-queue run
+        # 40485520423, tests-windows (6)). Past the deadline nothing new starts
+        # and a running process is stopped: the report still gets written.
+        minutes = getattr(args, "deadline_minutes", None)
+        self.deadline = time.monotonic() + 60 * minutes if minutes else None
 
     def _next_id(self) -> int:
         with self._lock:
@@ -353,6 +360,18 @@ class Runner:
             return self._seq
 
     def run(self, files: list[str], timeout: float) -> RunResult:
+        if self.deadline is not None:
+            left = self.deadline - time.monotonic()
+            if left <= 0:
+                return RunResult(
+                    files,
+                    -1,
+                    0.0,
+                    True,
+                    [f"{f}::<shard deadline>" for f in files],
+                    log_tail="not started: the shard's deadline had passed",
+                )
+            timeout = min(timeout, left)
         run_id = self._next_id()
         junit = self.workdir / f"run-{run_id:05d}.xml"
         log = self.workdir / f"run-{run_id:05d}.log"
@@ -484,6 +503,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", type=Path, default=Path("test-report.json"))
     parser.add_argument("--junit-out", type=Path, default=Path("report.xml"))
     parser.add_argument("--list", action="store_true", help="Print the shard's files and exit.")
+    parser.add_argument(
+        "--deadline-minutes",
+        type=float,
+        help="Wall clock for the whole shard; keep it under the CI job's timeout.",
+    )
     args = parser.parse_args(argv)
     # Windows consoles default to cp1252; a test log with box-drawing
     # characters must never crash the runner that is reporting it (AP-1).
