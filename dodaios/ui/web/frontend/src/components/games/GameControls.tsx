@@ -7,7 +7,7 @@
  * up only when it is settled (pointer up, blur, Enter), so a slider drag is
  * one save, not fifty.
  */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { BrandedSelect } from "@/components/ui/select";
@@ -180,10 +180,19 @@ export function NumberField({
   );
 }
 
+/** How long after the last change a slider value is saved on its own. */
+const SETTLE_MS = 500;
+
 /**
  * A range input whose track fills up to the thumb in the signal colour. The
- * fill is a background gradient driven by one CSS variable, so it follows
- * the drag without React re-rendering the track.
+ * fill is a background gradient driven by one CSS variable.
+ *
+ * A drag ends wherever the mouse is let go, not only on the slider: the
+ * release is caught on the window, so a drag that drifts up off the track
+ * still saves when the mouse is let go. While
+ * dragging, text selection is blocked so the page does not start selecting
+ * and shift. A change that never sees a release (keyboard, a lost pointer)
+ * saves itself once it has been still for a moment.
  */
 export function FilledRange({
   min,
@@ -204,6 +213,51 @@ export function FilledRange({
   onDraft: (value: number) => void;
   onCommit: () => void;
 }) {
+  const commitRef = useRef(onCommit);
+  commitRef.current = onCommit;
+  const settleTimer = useRef<number | null>(null);
+  const endDrag = useRef<(() => void) | null>(null);
+
+  const clearSettle = () => {
+    if (settleTimer.current !== null) window.clearTimeout(settleTimer.current);
+    settleTimer.current = null;
+  };
+  const commit = () => {
+    clearSettle();
+    commitRef.current();
+  };
+
+  useEffect(
+    () => () => {
+      endDrag.current?.();
+      // Leaving with an unsaved change (tab switch mid-drag) still saves it.
+      if (settleTimer.current !== null) commit();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount only
+    [],
+  );
+
+  const startDrag = (_event: ReactPointerEvent<HTMLInputElement>) => {
+    endDrag.current?.();
+    const noSelect = (e: Event) => e.preventDefault();
+    const finish = () => {
+      window.removeEventListener("pointerup", finish, true);
+      window.removeEventListener("pointercancel", finish, true);
+      document.removeEventListener("selectstart", noSelect, true);
+      endDrag.current = null;
+      commit();
+    };
+    window.addEventListener("pointerup", finish, true);
+    window.addEventListener("pointercancel", finish, true);
+    document.addEventListener("selectstart", noSelect, true);
+    endDrag.current = () => {
+      window.removeEventListener("pointerup", finish, true);
+      window.removeEventListener("pointercancel", finish, true);
+      document.removeEventListener("selectstart", noSelect, true);
+      endDrag.current = null;
+    };
+  };
+
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
   return (
     <input
@@ -213,13 +267,20 @@ export function FilledRange({
       step={step ?? "any"}
       value={value}
       aria-label={label}
-      onChange={(event) => onDraft(Number(event.currentTarget.value))}
-      onPointerUp={onCommit}
-      onKeyUp={onCommit}
-      onBlur={onCommit}
+      onPointerDown={startDrag}
+      onChange={(event) => {
+        onDraft(Number(event.currentTarget.value));
+        clearSettle();
+        // During a drag the release saves; otherwise settle after a pause.
+        if (endDrag.current === null) settleTimer.current = window.setTimeout(commit, SETTLE_MS);
+      }}
+      onKeyUp={commit}
+      onBlur={() => {
+        if (endDrag.current === null) commit();
+      }}
       style={{ "--fill": `${pct}%` } as CSSProperties}
       className={cn(
-        "h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full",
+        "h-1.5 min-w-0 flex-1 cursor-pointer touch-none select-none appearance-none rounded-full",
         "bg-[linear-gradient(to_right,hsl(var(--accent))_var(--fill),hsl(var(--border))_var(--fill))]",
         "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-accent [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow-[0_0_10px_hsl(var(--accent)/0.6)]",
         "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-accent [&::-moz-range-thumb]:bg-background",
@@ -325,8 +386,16 @@ function SliderField({
   const min = setting.min ?? 0;
   const max = setting.max ?? 100;
   const [draft, setDraft] = useState<number>(value ?? min);
+  const [touched, setTouched] = useState(false);
+  // The commit can run from a window listener registered when the drag
+  // began, so it reads the latest draft from a ref, never a stale closure.
+  const draftRef = useRef(draft);
   const dirty = useRef(false);
-  useEffect(() => setDraft(value ?? min), [value, min]);
+  useEffect(() => {
+    if (dirty.current) return;
+    setDraft(value ?? min);
+    draftRef.current = value ?? min;
+  }, [value, min]);
   return (
     <div className="flex items-center gap-3">
       <FilledRange
@@ -335,21 +404,31 @@ function SliderField({
         step={setting.step}
         value={draft}
         label={setting.label}
-        dim={!saved && value === null}
+        dim={!saved && !touched && value === null}
         onDraft={(next) => {
           dirty.current = true;
+          draftRef.current = next;
+          setTouched(true);
           setDraft(next);
         }}
         onCommit={() => {
           if (!dirty.current) return;
           dirty.current = false;
-          onCommit(draft);
+          onCommit(draftRef.current);
         }}
       />
+      {/* The number follows the thumb while dragging, not only after release. */}
       <NumberField
         setting={setting}
-        value={saved ? value : null}
-        onCommit={onCommit}
+        value={saved || touched ? draft : null}
+        onCommit={(next) => {
+          if (next !== null) {
+            setTouched(true);
+            setDraft(next);
+            draftRef.current = next;
+          }
+          onCommit(next);
+        }}
         className="w-24 shrink-0"
       />
     </div>
