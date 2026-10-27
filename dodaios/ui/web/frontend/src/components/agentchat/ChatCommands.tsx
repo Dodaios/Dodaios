@@ -214,7 +214,7 @@ export function ChatCommandPanel({ control, anchorRef }: { control: ReturnType<t
         onMouseEnter={() => control.setActiveIndex(index)} onMouseDown={(e) => e.preventDefault()} onClick={() => control.select(row)}
         className={cn("block w-full rounded-lg px-3 py-2 text-left", index === control.activeIndex && "bg-secondary", !row.available && "opacity-50")}>
         <span className="font-medium">/{row.name}</span><span className="ml-3 text-muted-foreground">{t(`slash.commands.${row.name}`)}</span>
-        <span className="mt-0.5 block text-[11px] text-muted-foreground">{row.available ? row.example : row.reason}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{row.available ? row.example : row.reason}</span>
       </button>)}
     </div>, anchorRef.current?.closest<HTMLElement>('[role="dialog"]') ?? document.body) : null}
   </div>;

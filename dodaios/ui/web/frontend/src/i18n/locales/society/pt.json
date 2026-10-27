@@ -2083,8 +2083,7 @@
         "setup_in_chat": "Configurar no chat",
         "setup_prompt": "Cria-me uma rotina: ",
         "or_chat": "Ou descreva-a no chat",
-        "empty_body": "Tarefas que este agente faz sozinho, como um resumo da manhã ou uma verificação semanal.",
-        "active_hint": "Ativas de todas as rotinas"
+        "empty_body": "Tarefas que este agente faz sozinho, como um resumo da manhã ou uma verificação semanal."
       },
       "parking": {
         "title": "Em pausa: resultados não lidos",

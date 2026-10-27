@@ -370,14 +370,14 @@ export function AgentModelPicker({ agent, busy, onSavingChange, anchorRef, bare 
             <div className="sticky top-0 z-10 flex items-center gap-1 bg-popover px-3 pb-1 pt-3">
               {foldable && isRouter ? <button type="button" data-menu-choice disabled={busy || saving}
                 onClick={toggle} aria-label={title} aria-expanded={isExpanded} aria-controls={choicesId}
-                className="flex min-w-0 flex-1 items-center gap-1 rounded text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                className="flex min-w-0 flex-1 items-center gap-1 rounded text-left text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                 {isExpanded ? <ChevronDown className="h-3 w-3 shrink-0" aria-hidden /> : <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />}
                 <span className="truncate">{title}</span><span className="ml-auto">{models.length}</span>
-              </button> : <span className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" title={title}>{title}</span>}
+              </button> : <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground" title={title}>{title}</span>}
               {seat.accounts.length ? <button type="button" disabled={busy || saving} data-menu-choice
                 aria-label={`${t("society.chat.model_account")}: ${title}`} aria-haspopup="menu" aria-expanded={submenu?.provider === seat.key && !submenu.model}
                 onClick={(event) => setSubmenu({ provider: seat.key, anchor: event.currentTarget.getBoundingClientRect() })}
-                className="flex max-w-[140px] items-center gap-1 rounded px-1 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                className="flex max-w-[140px] items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                 <Users className="h-3 w-3 shrink-0" aria-hidden /><span className="truncate">{seat.accounts.find((account) => account.id === currentAccount(seat))?.label ?? t("society.chat.model_active_account")}</span><ChevronDown className="h-2.5 w-2.5 shrink-0" aria-hidden />
               </button> : null}
             </div>
@@ -413,7 +413,7 @@ export function AgentModelPicker({ agent, busy, onSavingChange, anchorRef, bare 
       </div>
       {open && submenu && sideSeat ? <div ref={sidePanel} style={sideStyle} role="menu" aria-label={t(submenu.model ? "society.chat.effort" : "society.chat.model_account")}
         className="z-[81] overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-float" onKeyDown={(event) => moveFocus(event, sidePanel.current)}>
-        <p className="px-3 py-2 text-[11px] font-semibold uppercase text-muted-foreground">{submenu.model ? t("society.chat.effort") : t("society.chat.model_account")}</p>
+        <p className="px-3 py-2 text-xs font-medium text-muted-foreground">{submenu.model ? t("society.chat.effort") : t("society.chat.model_account")}</p>
         {submenu.model ? effortsFor(sideSeat, submenu.model.id).map((effort) => <button key={effort} type="button" role="menuitemradio" data-menu-choice
           aria-checked={effort === preferredEffort(sideSeat, submenu.model!)} disabled={busy || saving}
           onClick={() => void save(sideSeat, submenu.model!, effort)} className={menuRow}>

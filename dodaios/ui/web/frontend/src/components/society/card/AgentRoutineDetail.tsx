@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Clock, Loader2, MessageSquareText, Play, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { Switch } from "@/components/ui/switch";
@@ -22,7 +22,7 @@ import { SourceControls } from "./SourceControls";
 import { RoutineSeatPicker, type RoutineSeat } from "./RoutineSeatPicker";
 import { useRoutineNavigation } from "../chat/routineNavigation";
 import { routineSkipReason } from "@/lib/skipReasons";
-import { TriggerIcon, type RoutineTone } from "./routines/TriggerIcon";
+import type { RoutineTone } from "./routines/TriggerIcon";
 import { humanSchedule } from "./routines/humanSchedule";
 import { fill, formatDuration, relativeTime } from "./routines/format";
 import { markRoutinesSeen, useRoutineRuns } from "./routines/routinesApi";
@@ -34,9 +34,9 @@ import { useNow } from "./routines/useNow";
 export { routineRuns } from "./routines/runs";
 
 const field = "w-full rounded-lg border border-border bg-background px-3 py-2 text-[12px] text-foreground transition-colors focus:border-border-strong focus:outline-none disabled:opacity-60";
-const button = "inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12px] font-medium text-foreground transition-colors duration-150 hover:bg-secondary disabled:opacity-40";
-const primary = "inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-[12px] font-medium text-background transition-colors duration-150 hover:bg-foreground/90 disabled:opacity-40";
-const heading = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
+const button = "inline-flex items-center gap-1.5 rounded-full bg-secondary px-3.5 py-1.5 text-[13px] font-medium text-foreground transition-colors duration-150 hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
+const primary = "inline-flex items-center gap-1.5 rounded-full bg-foreground px-3.5 py-1.5 text-[13px] font-medium text-background transition-colors duration-150 hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
+const heading = "text-xs font-medium text-muted-foreground";
 const recurring = ["every", "calendar", "cron", "webhook", "event_hook", "source", "on_event"];
 const terminal = ["completed", "failed", "cancelled", "interrupted"];
 const timeKinds = ["every", "calendar", "cron"];
@@ -162,24 +162,23 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
   return <section className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4 text-foreground" data-testid="agent-routine-detail">
     <button type="button" className="-ml-1 flex items-center gap-1 rounded-md px-1 py-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground" disabled={pending} onClick={onClose}><ArrowLeft size={14} />{t("society.card.routines")}</button>
 
-    <header className="rounded-2xl border border-border bg-card p-3 shadow-[0_1px_2px_rgb(var(--scrim-rgb)/0.05),0_6px_16px_-10px_rgb(var(--scrim-rgb)/0.18)]">
+    <header className="rounded-2xl bg-card p-4">
       <div className="flex items-start gap-3">
-        <TriggerIcon trigger={headTrigger} tone={tone} size="lg" />
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-[14px] font-semibold leading-5 text-foreground-strong" title={saved.title}>{saved.title}</h3>
           {sentence && <p className="text-[12px] leading-snug text-foreground-secondary" data-testid="routine-schedule-sentence">{sentence}</p>}
-          <p className={cn("mt-0.5 text-[11px] leading-4", tone === "parked" ? "text-warning" : tone === "running" ? "text-primary" : "text-muted-foreground")}
+          <p className={cn("mt-0.5 text-xs leading-4", tone === "parked" ? "text-warning" : tone === "running" ? "text-primary" : "text-muted-foreground")}
             title={nextMs ? new Date(nextMs).toLocaleString(locale, { timeZoneName: "short" }) : undefined}>{status}</p>
         </div>
-        <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground"><Switch aria-label={label("active")} checked={shownActive} disabled={pending || !editable} onCheckedChange={(enabled) => void act(async () => {
+        <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><Switch aria-label={label("active")} checked={shownActive} disabled={pending || !editable} onCheckedChange={(enabled) => void act(async () => {
           for (const detail of details) if (detail && !terminal.includes(detail.state) && (detail.state === "paused") === enabled) await setTaskEnabled(detail.id, enabled);
         })} /><span className="sr-only sm:not-sr-only" aria-hidden data-testid="routine-switch-state">{label(shownActive ? "active" : "paused")}</span></label>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <button type="button" className={primary} disabled={!canTest} onClick={() => void act(async () => {
           await runTaskNow(routine.id); setNotice(label("test_started"));
-        })}>{running ? <Loader2 size={13} className="motion-safe:animate-spin" /> : <Play size={13} />}{label("test")}</button>
-        <button type="button" className={button} onClick={editInChat}><MessageSquareText size={13} />{own("edit_in_chat")}</button>
+        })}>{running ? <Loader2 size={13} className="motion-safe:animate-spin" /> : null}{label("test")}</button>
+        <button type="button" className={button} onClick={editInChat}>{own("edit_in_chat")}</button>
       </div>
     </header>
 
@@ -189,30 +188,30 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
     {notice && <p role="status" className="text-[12px] text-success">{notice}</p>}
 
     {showFailure && <div className="rounded-xl border border-destructive/30 bg-destructive/[0.05] p-3" data-testid="routine-last-failure">
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-destructive">
-        <AlertTriangle size={13} aria-hidden />{own("last_failure")}
+      <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+        {own("last_failure")}
         <span className="ml-auto font-normal normal-case tracking-normal text-muted-foreground">{relativeTime(showFailure.finishedMs ?? showFailure.timestamp, now, locale)}</span>
       </div>
       <p className="mt-1.5 break-words text-[12px] leading-snug text-foreground-secondary">{runReason(t, showFailure) || own("failed_no_detail")}</p>
-      <button type="button" className="mt-2 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => openRun(showFailure)}>{own("open_failed_run")}</button>
+      <button type="button" className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => openRun(showFailure)}>{own("open_failed_run")}</button>
     </div>}
 
     <section className="space-y-2">
       <h4 className={heading}>{own("instruction")}</h4>
-      <label className="block space-y-1 text-[11px] text-muted-foreground">{label("name")}<input className={field} aria-label={label("name")} maxLength={200} disabled={pending || !editable || Boolean(editing)} value={values.title} onChange={(event) => setDraft({ ...values, title: event.target.value })} /></label>
-      <label className="block space-y-1 text-[11px] text-muted-foreground">{label("prompt")}<textarea className={cn(field, "resize-y leading-relaxed")} aria-label={label("prompt")} maxLength={16000} rows={6} disabled={pending || !editable || Boolean(editing) || (first?.spec?.action as { kind?: string } | undefined)?.kind !== "agent"} value={values.prompt} onChange={(event) => setDraft({ ...values, prompt: event.target.value })} /></label>
+      <label className="block space-y-1 text-xs text-muted-foreground">{label("name")}<input className={field} aria-label={label("name")} maxLength={200} disabled={pending || !editable || Boolean(editing)} value={values.title} onChange={(event) => setDraft({ ...values, title: event.target.value })} /></label>
+      <label className="block space-y-1 text-xs text-muted-foreground">{label("prompt")}<textarea className={cn(field, "resize-y leading-relaxed")} aria-label={label("prompt")} maxLength={16000} rows={6} disabled={pending || !editable || Boolean(editing) || (first?.spec?.action as { kind?: string } | undefined)?.kind !== "agent"} value={values.prompt} onChange={(event) => setDraft({ ...values, prompt: event.target.value })} /></label>
       {draft && <div className="flex gap-2"><button className={primary} disabled={pending || !valid || !editable || Boolean(editing)} onClick={() => void act(async () => {
         for (const [index, member] of members.entries()) if (!terminal.includes(details[index]!.state)) await update(member, details[index]?.trigger);
         setDraft(null); setSeatDraft(null); setSeatOpen(false); setNotice(label("saved"));
       })}>{label("save")}</button><button className={button} disabled={pending} onClick={() => setDraft(null)}>{label("cancel")}</button></div>}
     </section>
 
-    {seatEditable && <div className="space-y-2 rounded-xl border border-border p-3">
+    {seatEditable && <div className="space-y-2 rounded-2xl bg-card p-4">
       <div className="flex items-center justify-between gap-2">
         <h4 className={heading}>{label("model")}</h4>
         <button
           type="button"
-          className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
           disabled={pending || !editable || Boolean(editing)}
           onClick={() => setSeatOpen((open) => !open)}
         >
@@ -231,24 +230,24 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
 
     <section className="space-y-2">
       <h4 className={heading}>{label("when")}</h4>
-      <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border">
+      <div className="divide-y divide-border/50 overflow-hidden rounded-2xl bg-card">
         {members.map((member, index) => {
           const detail = details[index];
           if (index > 0 && detail && terminal.includes(detail.state)) return null;
           return <div key={member.id} className="space-y-1 px-3 py-2.5">
             <button className="flex w-full items-start gap-2 rounded text-left text-[12px] transition-colors enabled:hover:text-foreground disabled:opacity-80" disabled={pending || !editable || Boolean(draft) || !detail || !timeKinds.includes(detail.trigger_type)} onClick={() => { setEditing({ ...member, trigger: detail?.trigger }); setSchedule(null); }}>
-              <Clock size={14} className="mt-0.5 shrink-0 text-muted-foreground" /><span>{sentenceOf(detail?.trigger ?? member.trigger)}</span>
+              <span>{sentenceOf(detail?.trigger ?? member.trigger)}</span>
             </button>
-            {detail?.due_at_ns && detail.state === "scheduled" ? <p className="pl-5 text-[11px] text-muted-foreground">{t("society.card.next_run")}: {new Date(detail.due_at_ns / 1e6).toLocaleString(locale, { timeZoneName: "short" })}</p> : null}
-            {detail && <div className="pl-5">{renderConnection(detail)}</div>}
-            {index > 0 && <button className="pl-5 text-[11px] text-muted-foreground hover:text-foreground" disabled={pending || !editable || Boolean(draft)} onClick={() => void act(async () => { await cancelTask(member.id); })}>{label("remove_schedule")}</button>}
+            {detail?.due_at_ns && detail.state === "scheduled" ? <p className="text-xs text-muted-foreground">{t("society.card.next_run")}: {new Date(detail.due_at_ns / 1e6).toLocaleString(locale, { timeZoneName: "short" })}</p> : null}
+            {detail && <div>{renderConnection(detail)}</div>}
+            {index > 0 && <button className="text-xs text-muted-foreground hover:text-foreground" disabled={pending || !editable || Boolean(draft)} onClick={() => void act(async () => { await cancelTask(member.id); })}>{label("remove_schedule")}</button>}
           </div>;
         })}
         <div className="px-3 py-2">
-          <button className="flex items-center gap-1 text-[12px] text-muted-foreground transition-colors enabled:hover:text-foreground disabled:opacity-50" disabled={pending || !editable || Boolean(draft)} onClick={() => { setEditing("new"); setSchedule(null); }}><Plus size={14} />{label("add_schedule")}</button>
+          <button className="flex items-center gap-1 text-[12px] text-muted-foreground transition-colors enabled:hover:text-foreground disabled:opacity-50" disabled={pending || !editable || Boolean(draft)} onClick={() => { setEditing("new"); setSchedule(null); }}>{label("add_schedule")}</button>
         </div>
       </div>
-      {editing && <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      {editing && <div className="space-y-2 rounded-2xl bg-card p-4">
         <TriggerBuilder key={editing === "new" ? "new" : editing.id} timeOnly initialValue={editing === "new" ? undefined : editing.trigger as Record<string, unknown>} onChange={setSchedule} />
         <button className={primary} disabled={pending || !schedule || !valid} onClick={() => void act(async () => {
           if (editing === "new") await writeRoutine(url, { title: values.title, prompt: values.prompt, schedule, parent_task_id: routine.id }, "POST");
@@ -261,10 +260,10 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
     <RunHistory runs={runs} ready={ready} locale={locale} onOpen={openRun} />
 
     <footer className="space-y-2 border-t border-border/70 pt-3">
-      <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] text-muted-foreground transition-colors hover:text-destructive disabled:opacity-40" disabled={pending || !ready || running} onClick={() => setConfirmDelete(true)}><Trash2 size={13} aria-hidden />{label("delete")}</button>
+      <button type="button" className="inline-flex items-center rounded-full px-3 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive disabled:opacity-40" disabled={pending || !ready || running} onClick={() => setConfirmDelete(true)}>{label("delete")}</button>
       {confirmDelete && <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-3" role="alert">
         <p className="text-[12px] text-foreground">{label("delete_confirm")}</p>
-        <p className="text-[11px] text-muted-foreground">{own("delete_note")}</p>
+        <p className="text-xs text-muted-foreground">{own("delete_note")}</p>
         <div className="flex gap-2">
           <button className="rounded-lg bg-destructive px-2.5 py-1.5 text-[12px] font-medium text-destructive-foreground disabled:opacity-50" disabled={pending} onClick={() => void act(async () => {
             for (const detail of [...details].reverse()) if (detail) await cancelAndDeleteTask(detail.id, !terminal.includes(detail.state));

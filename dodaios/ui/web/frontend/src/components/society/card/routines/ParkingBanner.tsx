@@ -43,6 +43,6 @@ export function ParkingBanner({ agentId, parking, onAnswered }: {
       <button type="button" disabled={busy !== null} onClick={() => void choose("never_ask")}
         className={`${button} text-muted-foreground hover:bg-secondary hover:text-foreground`}>{own("never_ask")}</button>
     </div>
-    {error && <p role="alert" className="mt-2 pl-[26px] text-[11px] text-destructive">{error}</p>}
+    {error && <p role="alert" className="mt-2 pl-[26px] text-xs text-destructive">{error}</p>}
   </div>;
 }

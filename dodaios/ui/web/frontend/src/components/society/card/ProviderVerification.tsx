@@ -22,10 +22,10 @@ export function ProviderVerification({ taskId, provider, audience = "", serviceA
   };
   return <div className="space-y-2">
     {provider === "gmail" ? <>
-      <label className="block text-[11px]">{t("society.triggers.oidc_audience")}<input className={field} value={aud} onChange={(e) => setAud(e.target.value)} /></label>
-      <label className="block text-[11px]">{t("society.triggers.service_account")}<input className={field} value={account} onChange={(e) => setAccount(e.target.value)} /></label>
-    </> : <label className="block text-[11px]">{t("society.triggers.provider_secret")}<input className={field} type="password" autoComplete="off" placeholder={configured ? t("society.triggers.stored") : ""} value={secret} onChange={(e) => setSecret(e.target.value)} /></label>}
-    <button type="button" className="rounded border border-border px-2 py-1 text-[11px] hover:bg-secondary disabled:opacity-50" disabled={busy || (provider !== "gmail" && !secret)} onClick={() => void save()}>{t("society.triggers.save_connection")}</button>
-    {message && <p role="status" className="text-[11px]">{message}</p>}
+      <label className="block text-xs">{t("society.triggers.oidc_audience")}<input className={field} value={aud} onChange={(e) => setAud(e.target.value)} /></label>
+      <label className="block text-xs">{t("society.triggers.service_account")}<input className={field} value={account} onChange={(e) => setAccount(e.target.value)} /></label>
+    </> : <label className="block text-xs">{t("society.triggers.provider_secret")}<input className={field} type="password" autoComplete="off" placeholder={configured ? t("society.triggers.stored") : ""} value={secret} onChange={(e) => setSecret(e.target.value)} /></label>}
+    <button type="button" className="rounded border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50" disabled={busy || (provider !== "gmail" && !secret)} onClick={() => void save()}>{t("society.triggers.save_connection")}</button>
+    {message && <p role="status" className="text-xs">{message}</p>}
   </div>;
 }

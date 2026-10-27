@@ -171,7 +171,7 @@ export function RuntimeChoice({ value, onChange, disabled = false }: {
                 <RuntimeMark runtime={runtime} label={label} />
                 {label}
               </span>
-              <span id={`${id}-state-${runtime}`} className="inline-flex items-center gap-1 text-[11px] leading-snug">
+              <span id={`${id}-state-${runtime}`} className="inline-flex items-center gap-1 text-xs leading-snug">
                 {state === "setting_up" ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
                 {t(
                   state === null

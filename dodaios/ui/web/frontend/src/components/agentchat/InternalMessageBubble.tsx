@@ -149,13 +149,13 @@ export function InternalMessageBubble({
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
           <span
             className={cn(
-              "hidden rounded-full border border-border px-1.5 py-px text-[10px] sm:inline",
+              "hidden rounded-full border border-border px-1.5 py-px text-xs sm:inline",
               "text-muted-foreground",
             )}
           >
             {t("agent_chat.internal_message")}
           </span>
-          <span className={cn("flex items-center gap-1 text-[11px]", statusTone)} aria-live="polite">
+          <span className={cn("flex items-center gap-1 text-xs", statusTone)} aria-live="polite">
             <span
               aria-hidden
               className={cn(

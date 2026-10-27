@@ -259,7 +259,7 @@ function ProfileCard({ profile, data, open, onToggle, onSaved, onRemoved }: {
   const t = useT();
   const panel = useId();
   const badge = (text: ReactNode, tone = "bg-secondary text-muted-foreground") =>
-    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", tone)}>{text}</span>;
+    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", tone)}>{text}</span>;
   return <article className="rounded-xl border border-border bg-background" data-testid={`browser-profile-${profile.id}`}>
     <button type="button" className="flex w-full items-start gap-3 rounded-xl p-4 text-left hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-expanded={open} aria-controls={panel} onClick={onToggle}>

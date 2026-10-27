@@ -142,7 +142,7 @@ export function ChatGroupPanel({
     {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
   </div>;
 
-  return <div className="agent-section grid min-h-0 flex-1 grid-cols-[minmax(240px,300px)_minmax(0,1fr)] bg-background" data-testid="society-group-chat">
+  return <div className="agent-section grid min-h-0 flex-1 grid-cols-[minmax(240px,280px)_minmax(0,1fr)] bg-background" data-testid="society-group-chat">
     <RosterRail agents={roster} groups={groups} activeGroupId={group.group_id} activeAgentId={null}
       onOpen={onOpenAgent} onOpenGroup={onOpenGroup} onCreate={onCreateAgent}
       onGroupAgents={onGroupAgents} onAddAgentToGroup={onAddAgentToGroup}

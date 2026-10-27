@@ -30,9 +30,9 @@ export default function RoutineChat({ target, onClose, face }: {
     <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border pb-3">
       <button type="button" className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground" onClick={onClose}><ArrowLeft size={14} />{t("society.routine_detail.back_to_agent")}</button>
       <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-medium">{target.title}</h3>
-        <time className="text-[11px] text-muted-foreground" dateTime={new Date(target.timestamp).toISOString()}>{new Date(target.timestamp).toLocaleString(locale)}</time>
+        <time className="text-xs text-muted-foreground" dateTime={new Date(target.timestamp).toISOString()}>{new Date(target.timestamp).toLocaleString(locale)}</time>
       </div>
-      <span className="text-[11px] text-muted-foreground">{t(target.kind === "conversation" ? "society.conversations.badge" : "society.routine_detail.background_chat")}</span>
+      <span className="text-xs text-muted-foreground">{t(target.kind === "conversation" ? "society.conversations.badge" : "society.routine_detail.background_chat")}</span>
     </header>
     {target.legacy ? <HistoricalExecution target={target} /> : <LiveExecution sessionId={target.sessionId} conversation={target.kind === "conversation"} face={face} />}
   </section>;

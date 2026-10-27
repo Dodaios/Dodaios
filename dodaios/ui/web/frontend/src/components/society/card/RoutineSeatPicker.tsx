@@ -16,7 +16,7 @@ export interface RoutineSeat {
 export const EMPTY_SEAT: RoutineSeat = { provider: "", model: "", effort: "", account_id: "" };
 
 const field = "w-full rounded-lg border border-border bg-background px-3 py-2 text-[12px] text-foreground";
-const miniLabel = "block space-y-1 text-[11px] text-muted-foreground";
+const miniLabel = "block space-y-1 text-xs text-muted-foreground";
 
 function kindSuffix(kind: string, t: (key: string) => string): string {
   try {
@@ -48,11 +48,11 @@ export function RoutineSeatPicker({ seat, onChange, disabled }: {
   return (
     <div className="space-y-2 rounded-xl border border-border p-3">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-[11px] text-muted-foreground">{label("model")}</h4>
+        <h4 className="text-xs text-muted-foreground">{label("model")}</h4>
         {seat.provider ? (
           <button
             type="button"
-            className="text-[11px] text-muted-foreground underline disabled:opacity-50"
+            className="text-xs text-muted-foreground underline disabled:opacity-50"
             disabled={disabled}
             onClick={() => onChange({ ...EMPTY_SEAT })}
           >

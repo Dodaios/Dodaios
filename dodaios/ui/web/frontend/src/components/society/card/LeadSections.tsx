@@ -46,13 +46,13 @@ export function LeadBrain() {
         ) : (
           <Badge variant="outline">{t("society.card.default_brain")}</Badge>
         )}
-        <Badge variant="secondary" className="font-mono text-[11px]">
+        <Badge variant="secondary" className="font-mono text-xs">
           {draft.model || t("society.chat.model_provider_default")}
         </Badge>
         {draft.effort ? <Badge variant="outline">{draft.effort}</Badge> : null}
         <Badge variant="outline">{t("society.tier.lead")}</Badge>
       </div>
-      <p className="text-[11px] text-muted-foreground">{t("society.card.brain_shared_hint")}</p>
+      <p className="text-xs text-muted-foreground">{t("society.card.brain_shared_hint")}</p>
     </div>
   );
 }
@@ -106,7 +106,7 @@ export function LeadInstructions() {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-xs font-medium text-muted-foreground">
           {payload?.filename
             ? t("society.card.instructions_file").replace("{0}", payload.filename)
             : t("society.card.description")}
@@ -118,7 +118,7 @@ export function LeadInstructions() {
               setDraft(content || payload?.template || "");
               setEditing(true);
             }}
-            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <Pencil className="h-3 w-3" aria-hidden />
             {t("society.card.edit")}
@@ -134,7 +134,7 @@ export function LeadInstructions() {
             className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 font-mono text-[12px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
           />
           {error ? (
-            <p role="alert" className="text-[11px] text-destructive">
+            <p role="alert" className="text-xs text-destructive">
               {error}
             </p>
           ) : null}
@@ -152,7 +152,7 @@ export function LeadInstructions() {
       ) : (
         <p className="text-xs text-muted-foreground">{t("society.card.instructions_empty")}</p>
       )}
-      <p className="mt-1 text-[11px] text-muted-foreground">{t("society.card.instructions_hint")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("society.card.instructions_hint")}</p>
     </div>
   );
 }

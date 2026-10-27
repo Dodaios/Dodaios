@@ -2083,8 +2083,7 @@
         "setup_in_chat": "Set one up in chat",
         "setup_prompt": "Create a routine for me: ",
         "or_chat": "Or describe it in chat",
-        "empty_body": "Jobs this agent runs on its own, like a morning digest or a weekly check.",
-        "active_hint": "Active of all routines"
+        "empty_body": "Jobs this agent runs on its own, like a morning digest or a weekly check."
       },
       "parking": {
         "title": "Paused: results went unread",

@@ -335,7 +335,7 @@ function ToolDetails({ block }: { block: ToolBlock }) {
           {memoryFile && file.path === memoryFile.path ? <button
             type="button"
             onClick={() => setMemoryOpen(true)}
-            className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 rounded-md border border-border px-2 py-0.5 text-xs text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >{t("society.chat.memory_open_file")}</button> : null}
         </div>
         {file.lines.map((line, n) => <div key={n} className={cn("whitespace-pre-wrap [overflow-wrap:anywhere]", line.kind === "add" && "diff-line-add", line.kind === "del" && "diff-line-del")}>
@@ -347,7 +347,7 @@ function ToolDetails({ block }: { block: ToolBlock }) {
     {memoryFile && !diff ? <button
       type="button"
       onClick={() => setMemoryOpen(true)}
-      className="rounded-md border border-border px-2 py-1 text-[11px] text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >{t("society.chat.memory_open_file")}: {memoryFile.path}</button> : null}
     {block.output !== null ? <Detail label={t(block.isError ? "work_trace.error" : "work_trace.output")} text={block.output || t("work_trace.empty_output")} /> : null}
     {memoryOpen && memoryFile ? <MemoryFileDialog path={memoryFile.path} before={memoryFile.before} after={memoryFile.after} onClose={() => setMemoryOpen(false)} /> : null}

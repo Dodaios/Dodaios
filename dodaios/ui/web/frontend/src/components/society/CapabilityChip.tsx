@@ -72,12 +72,12 @@ export function CapabilityChip({
         {brand.logoUrl ? (
           <img src={brand.logoUrl} alt="" className="h-full w-full object-contain p-[2px]" draggable={false} />
         ) : (
-          <span className="font-mono text-xs font-semibold uppercase text-muted-foreground">{brand.monogram}</span>
+          <span className="font-mono text-xs font-medium text-muted-foreground">{brand.monogram}</span>
         )}
       </span>
       <span className="truncate">{label}</span>
       {kind && kind !== "plugin" ? (
-        <span className="shrink-0 rounded-sm bg-secondary px-1 font-mono text-xs uppercase text-muted-foreground">
+        <span className="shrink-0 rounded-sm bg-secondary px-1 font-mono text-xs font-medium text-muted-foreground">
           {kind}
         </span>
       ) : null}

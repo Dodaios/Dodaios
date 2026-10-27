@@ -24,8 +24,7 @@ export function BrowserProfilesButton({ agentId, className, connectChrome = fals
       data-testid="browser-profiles-button" className={cn(CAPTION_ICON_BUTTON, className)}>
       <Globe aria-hidden className={CAPTION_ICON_CLASS} strokeWidth={CAPTION_ICON_STROKE} />
     </button> : <button type="button" onClick={() => setOpen(true)}
-      className={cn("inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}>
-      <Globe size={13} aria-hidden="true" />
+      className={cn("inline-flex items-center justify-center rounded-full bg-secondary px-3.5 py-1.5 text-[13px] text-foreground transition-colors duration-150 hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}>
       {label}
     </button>}
     {open && <Suspense fallback={<span role="status" className="text-xs text-muted-foreground">{t("society.browser_profiles.loading")}</span>}>

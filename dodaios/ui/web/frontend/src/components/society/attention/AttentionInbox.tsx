@@ -178,7 +178,7 @@ function AgentGroupRow({ group, agent, now, onOpened }: {
           {fill(t("agent_attention.waiting_count"), { count: group.items.length })}
         </span>
         <span className="flex-1" />
-        {muted && <span className="text-[11px] text-muted-foreground">{t("agent_attention.muted")}</span>}
+        {muted && <span className="text-xs text-muted-foreground">{t("agent_attention.muted")}</span>}
         <button
           type="button"
           onClick={() => toggleAgentMuted(group.agentId)}
@@ -329,7 +329,7 @@ function QuickButton({ item, action, index, busy, onRun }: {
     return (
       <button type="button" disabled={disabled} onClick={() => onRun(action, index)} className={QUIET_BUTTON}
         aria-label={label} data-testid="attention-option">
-        <span aria-hidden className="font-mono text-[10px] text-muted-foreground">{LETTERS[action.index]}</span>
+        <span aria-hidden className="font-mono text-xs text-muted-foreground">{LETTERS[action.index]}</span>
         <span className="truncate">{label}</span>
       </button>
     );
@@ -395,7 +395,7 @@ function SettingRow({ id, label, hint, checked, disabled = false, onChange }: {
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
         <label htmlFor={id} className="block text-xs font-medium text-foreground">{label}</label>
-        <p id={`${id}-hint`} className="m-0 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{hint}</p>
+        <p id={`${id}-hint`} className="m-0 mt-0.5 text-xs leading-relaxed text-muted-foreground">{hint}</p>
       </div>
       <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} aria-describedby={`${id}-hint`} />
     </div>

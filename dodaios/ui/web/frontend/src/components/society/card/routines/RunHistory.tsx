@@ -47,13 +47,13 @@ export function RunHistory({ runs, ready, locale, onOpen }: {
   const shown = all ? runs : runs.slice(0, FIRST_PAGE);
   return <section className="space-y-2" aria-labelledby="routine-runs-heading">
     <div className="flex items-center justify-between gap-2">
-      <h4 id="routine-runs-heading" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <h4 id="routine-runs-heading" className="text-xs font-medium text-muted-foreground">
         {label("history")}{runs.length > 0 && <span className="ml-1.5 font-normal normal-case tracking-normal text-faint-foreground">{runs.length}</span>}
       </h4>
-      {runs.length > 0 && <button type="button" className="rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" onClick={() => onOpen(runs[0])}>{label("latest_chat")}</button>}
+      {runs.length > 0 && <button type="button" className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" onClick={() => onOpen(runs[0])}>{label("latest_chat")}</button>}
     </div>
     {ready && runs.length === 0 && <p className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[12px] leading-snug text-muted-foreground">{own("empty")}</p>}
-    {runs.length > 0 && <ol className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border">
+    {runs.length > 0 && <ol className="divide-y divide-border/50 overflow-hidden rounded-2xl bg-card">
       {shown.map((run) => {
         const state = runStateLabel(t, run.status);
         const reason = runReason(t, run);
@@ -70,15 +70,15 @@ export function RunHistory({ runs, ready, locale, onOpen }: {
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-2">
                 <time dateTime={at.toISOString()} title={at.toLocaleString(locale)} className="text-[12px] font-medium text-foreground">{shortDateTime(run.timestamp, now, locale)}</time>
-                {run.origin === "manual" && <span className="rounded-full border border-border px-1.5 text-[10px] leading-4 text-muted-foreground">{own("manual")}</span>}
-                <span className="ml-auto flex shrink-0 items-baseline gap-1.5 text-[11px] tabular-nums text-muted-foreground">
+                {run.origin === "manual" && <span className="rounded-full border border-border px-1.5 text-xs leading-4 text-muted-foreground">{own("manual")}</span>}
+                <span className="ml-auto flex shrink-0 items-baseline gap-1.5 text-xs tabular-nums text-muted-foreground">
                   {duration && <span>{duration}</span>}
                   {duration && cost && <span aria-hidden className="text-faint-foreground">·</span>}
                   {cost && <span title={run.billedViaKey === false ? own("included") : undefined}>{cost}</span>}
                 </span>
               </span>
               {reason && <span data-testid={run.status === "skipped" ? "routine-run-skip-reason" : undefined}
-                className={cn("mt-0.5 block truncate text-[11px] leading-snug", run.status === "failed" ? "text-destructive/90" : "text-muted-foreground")}
+                className={cn("mt-0.5 block truncate text-xs leading-snug", run.status === "failed" ? "text-destructive/90" : "text-muted-foreground")}
                 title={reason}>{reason}</span>}
             </span>
             <ChevronRight size={14} aria-hidden className="mt-0.5 shrink-0 text-faint-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
@@ -86,7 +86,7 @@ export function RunHistory({ runs, ready, locale, onOpen }: {
         </li>;
       })}
     </ol>}
-    {runs.length > FIRST_PAGE && <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setAll((v) => !v)}>
+    {runs.length > FIRST_PAGE && <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setAll((v) => !v)}>
       {all ? own("show_less") : fill(own("show_all"), { n: runs.length })}
     </button>}
   </section>;

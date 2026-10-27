@@ -2083,8 +2083,7 @@
         "setup_in_chat": "Configurar en el chat",
         "setup_prompt": "Créame una rutina: ",
         "or_chat": "O descríbela en el chat",
-        "empty_body": "Tareas que este agente hace por su cuenta, como un resumen matutino o una revisión semanal.",
-        "active_hint": "Activas de todas las rutinas"
+        "empty_body": "Tareas que este agente hace por su cuenta, como un resumen matutino o una revisión semanal."
       },
       "parking": {
         "title": "En pausa: resultados sin leer",

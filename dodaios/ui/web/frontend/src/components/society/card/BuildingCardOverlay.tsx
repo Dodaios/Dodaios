@@ -79,20 +79,20 @@ export function BuildingCardOverlay({ place, onClose, onCreateAgent }: BuildingC
                   <ScrollArea className="min-h-0 flex-1">
                     <div className="flex flex-col gap-5 p-5">
                       <div>
-                        <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
                           {t("society.world.card_does_title")}
                         </h3>
                         <p className="text-sm leading-relaxed text-foreground">{t(`society.world.${card.doesKey}`)}</p>
                       </div>
                       <div>
-                        <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
                           {t("society.world.card_how_title")}
                         </h3>
                         <p className="text-sm leading-relaxed text-foreground">{t(`society.world.${card.howKey}`)}</p>
                       </div>
                       {place && hasInside(place) ? (
                         <div>
-                          <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
                             {t("society.world.card_inside_title")}
                           </h3>
                           <BuildingInside place={place} className="-mx-2" />

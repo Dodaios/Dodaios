@@ -1,6 +1,5 @@
 /** The away-parking window, as one quiet line under the routine list. */
 import { useQueryClient } from "@tanstack/react-query";
-import { MoonStar } from "lucide-react";
 import { useState } from "react";
 import { useT } from "@/i18n";
 import { BrandedSelect } from "@/components/ui/select";
@@ -19,8 +18,7 @@ export function AwaySetting({ agentId, neverAsk, onChanged }: { agentId: string;
   const value = String(days.data);
   const options = [...new Set([...CHOICES, days.data])].sort((a, b) => a - b)
     .map((n) => ({ value: String(n), label: n === 0 ? own("never") : fill(own("after_days"), { n }) }));
-  return <div className="mt-3 flex shrink-0 items-center gap-2 border-t border-border/70 pt-2.5 text-[11px] text-muted-foreground" data-testid="routine-away-setting">
-    <MoonStar size={13} aria-hidden className="shrink-0" />
+  return <div className="mt-3 flex shrink-0 items-center gap-2 px-3 text-[13px] text-muted-foreground" data-testid="routine-away-setting">
     <span className="min-w-0 flex-1 leading-tight" title={own("hint")}>{neverAsk ? own("off_for_agent") : own("label")}</span>
     {neverAsk ? <button type="button" className="shrink-0 rounded-md px-1.5 py-0.5 text-foreground hover:bg-secondary" onClick={() => {
       setError("");

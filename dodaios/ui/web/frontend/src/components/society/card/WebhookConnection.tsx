@@ -18,9 +18,9 @@ function CopyButton({ label, copiedLabel, done, onCopy }: { label: string; copie
 
 function Row({ glyph, title, help, children }: { glyph: ReactNode; title: string; help: string; children: ReactNode }) {
   return <div className="space-y-1">
-    <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">{glyph}{title}</div>
+    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">{glyph}{title}</div>
     <div className="flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1">{children}</div>
-    <p className="text-[10.5px] leading-snug text-faint-foreground">{help}</p>
+    <p className="text-xs leading-snug text-faint-foreground">{help}</p>
   </div>;
 }
 
@@ -69,8 +69,8 @@ export function WebhookConnection({ taskId }: { taskId: string }) {
   };
 
   if (!ready) return null;
-  const button = "inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-[11.5px] text-foreground transition-colors hover:bg-secondary disabled:opacity-50";
-  const value = "min-w-0 flex-1 truncate bg-transparent font-mono text-[11px] text-foreground focus:outline-none";
+  const button = "inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-50";
+  const value = "min-w-0 flex-1 truncate bg-transparent font-mono text-xs text-foreground focus:outline-none";
   const href = connection ? new URL(connection.path, window.location.origin).href : "";
   const header = connection ? `Authorization: Bearer ${connection.token}` : "";
   return (
@@ -97,11 +97,11 @@ export function WebhookConnection({ taskId }: { taskId: string }) {
           <span className="flex flex-wrap gap-2">
             <button type="button" className={button} disabled={busy} onClick={() => void load(true)}><RotateCw size={12} />{t("society.hooks.rotate")}</button>
           </span>
-          <span className="block text-[10.5px] leading-snug text-faint-foreground">{t("society.hooks.auth")}</span>
+          <span className="block text-xs leading-snug text-faint-foreground">{t("society.hooks.auth")}</span>
         </>}
-        <span className="block text-[10.5px] leading-snug text-faint-foreground">{t("society.hooks.remote")}</span>
+        <span className="block text-xs leading-snug text-faint-foreground">{t("society.hooks.remote")}</span>
       </>}
-      {error ? <span role="alert" className="block text-[11px] text-destructive">{error}</span> : null}
+      {error ? <span role="alert" className="block text-xs text-destructive">{error}</span> : null}
     </div>
   );
 }

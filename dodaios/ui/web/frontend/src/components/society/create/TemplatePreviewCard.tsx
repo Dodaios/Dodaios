@@ -103,7 +103,7 @@ export function TemplatePreviewCard(props: Props) {
       </div>
 
       <section aria-label={t("agent_create.preview.brings")} className="flex flex-col gap-2">
-        <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("agent_create.preview.brings")}</h3>
+        <h3 className="text-xs font-medium text-muted-foreground">{t("agent_create.preview.brings")}</h3>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Stat icon={<BookText />} label={t("agent_create.preview.instructions")} value={instructionsValue} testId="preview-count-instructions" />
           <Stat icon={<Sparkles />} label={t("agent_create.preview.skills")}
@@ -126,7 +126,7 @@ export function TemplatePreviewCard(props: Props) {
       {tools.length ? (
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("agent_create.preview.tools_title")}</h3>
+            <h3 className="text-xs font-medium text-muted-foreground">{t("agent_create.preview.tools_title")}</h3>
             <span className="text-xs text-foreground-faint">{t("agent_create.preview.tools_hint")}</span>
           </div>
           <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-[10px] border border-border">
@@ -194,7 +194,7 @@ export function TemplatePreviewCard(props: Props) {
           type="button"
           onClick={() => setShowInstructions((value) => !value)}
           aria-expanded={showInstructions}
-          className="flex items-center gap-1.5 self-start rounded text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-1.5 self-start rounded text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {t("agent_create.preview.read_instructions")}
           <ChevronDown className={cn("size-3.5 transition-transform duration-200 motion-reduce:transition-none", showInstructions && "rotate-180")} aria-hidden />
@@ -208,7 +208,7 @@ export function TemplatePreviewCard(props: Props) {
 
       {props.firstMessage ? (
         <section className="flex flex-col gap-1.5">
-          <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("agent_create.preview.first_message")}</h3>
+          <h3 className="text-xs font-medium text-muted-foreground">{t("agent_create.preview.first_message")}</h3>
           <p className="rounded-[10px] border border-dashed border-border-strong px-3 py-2.5 text-sm text-foreground" data-testid="preview-first-message">
             {props.firstMessage}
           </p>

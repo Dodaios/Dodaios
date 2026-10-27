@@ -142,7 +142,7 @@ export function RosterRow({
       aria-keyshortcuts={reorderable ? "Alt+Shift+ArrowUp Alt+Shift+ArrowDown" : undefined}
       style={agentTint(agent)}
       className={cn(
-        "as-row as-reveal-host select-none",
+        "as-row as-reveal-host select-none [&:has(>[data-row-main]:focus-visible)]:ring-2 [&:has(>[data-row-main]:focus-visible)]:ring-ring",
         reorderable ? "cursor-grab" : null,
         dragging ? "cursor-grabbing" : null,
         hidden && "opacity-60",
@@ -162,7 +162,8 @@ export function RosterRow({
         type="button"
         onClick={onOpen}
         aria-current={active ? "true" : undefined}
-        className="flex min-w-0 flex-1 select-none flex-col justify-center gap-0.5 self-stretch rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-row-main
+        className="flex min-w-0 flex-1 select-none flex-col justify-center gap-0.5 self-stretch text-left focus-visible:outline-none"
       >
         <span className={cn("as-row-name", unread && "font-semibold text-foreground-strong")}>{displayName}</span>
         {" "}

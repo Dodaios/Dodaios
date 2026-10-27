@@ -74,7 +74,7 @@ export function AccessoryPicker({ value, onChange, agentId }: { value: Companion
           <span className={open ? undefined : "opacity-35 grayscale"}>
             <AgentSymbol shape={value.shape} color={value.color} eyes={value.eyes} skin={value.skin} accessories={{ ...worn, [slot]: id }} size={68} />
           </span>
-          {!open && <span className="absolute bottom-1 left-1/2 inline-flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] font-semibold text-foreground shadow-sm">
+          {!open && <span className="absolute bottom-1 left-1/2 inline-flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-background/90 px-1.5 py-0.5 text-xs font-semibold text-foreground shadow-sm">
             <Lock size={9} aria-hidden />{t("society.level.lv").replace("{0}", String(at))}
           </span>}
         </button>;

@@ -309,7 +309,7 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
     actions,
     receipt: saved ? <span className="action-card-receipt" title={savedText} data-testid="action-card-rule-saved">
       <Check aria-hidden />{t("action_card.rule.saved_short")}
-    </span> : error ? <span role="alert" className="text-[11px] text-destructive">{error}</span> : null,
+    </span> : error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null,
     body: <>
       {note ? <p className="m-0 text-xs leading-5 text-muted-foreground">{note}</p> : null}
       {savedText ? <p className="m-0 text-xs leading-5 text-foreground-secondary">{savedText}</p> : null}

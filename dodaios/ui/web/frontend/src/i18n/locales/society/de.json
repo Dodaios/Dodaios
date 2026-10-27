@@ -2083,8 +2083,7 @@
         "setup_in_chat": "Im Chat einrichten",
         "setup_prompt": "Leg mir eine Routine an: ",
         "or_chat": "Oder im Chat beschreiben",
-        "empty_body": "Aufgaben, die dieser Agent von selbst erledigt, etwa eine Morgenübersicht oder ein Wochencheck.",
-        "active_hint": "Aktive von allen Routinen"
+        "empty_body": "Aufgaben, die dieser Agent von selbst erledigt, etwa eine Morgenübersicht oder ein Wochencheck."
       },
       "parking": {
         "title": "Pausiert: Ergebnisse blieben ungelesen",
