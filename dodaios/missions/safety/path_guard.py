@@ -121,6 +121,112 @@ _DIFF_HEADER_RE: Final[re.Pattern[str]] = re.compile(
     re.MULTILINE,
 )
 
+# Git's C-style quoting for names holding tabs, quotes, backslashes,
+# control characters and (with core.quotePath) non-ASCII bytes.
+_C_ESCAPES: Final[dict[str, int]] = {
+    "a": 7, "b": 8, "t": 9, "n": 10, "v": 11, "f": 12, "r": 13, '"': 34, "\\": 92,
+}
+
+#: Lines after the header that name a file on their own, up to end of line.
+_NAME_LINE_PREFIXES: Final[tuple[tuple[str, bool], ...]] = (
+    # (prefix, strip a/ or b/)
+    ("--- ", True),
+    ("+++ ", True),
+    ("rename from ", False),
+    ("rename to ", False),
+    ("copy from ", False),
+    ("copy to ", False),
+)
+
+
+def _unquote_c(text: str) -> tuple[str, str]:
+    """Decode one C-quoted git name at the start of ``text``.
+
+    Returns ``(name, rest)``; ``text`` must start with a double quote.
+    """
+    out = bytearray()
+    index = 1
+    while index < len(text):
+        char = text[index]
+        if char == '"':
+            return out.decode("utf-8", "replace"), text[index + 1 :]
+        if char == "\\" and index + 1 < len(text):
+            nxt = text[index + 1]
+            octal = text[index + 1 : index + 4]
+            if len(octal) == 3 and all(c in "01234567" for c in octal):
+                out.append(int(octal, 8) & 0xFF)
+                index += 4
+                continue
+            out.append(_C_ESCAPES.get(nxt, ord(nxt) & 0xFF))
+            index += 2
+            continue
+        out.extend(char.encode("utf-8"))
+        index += 1
+    return out.decode("utf-8", "replace"), ""
+
+
+def _git_name(raw: str, *, strip_prefix: bool) -> str | None:
+    """One file name from a ``---``/``+++``/rename/copy line's remainder."""
+    raw = raw.rstrip("\r\n")
+    if raw.startswith('"'):
+        name, _rest = _unquote_c(raw)
+    else:
+        # Git ends an unquoted name that contains a space with a tab.
+        name = raw.split("\t", 1)[0]
+    if name == "/dev/null" or not name:
+        return None
+    if strip_prefix:
+        if name[:2] not in ("a/", "b/"):
+            return None
+        name = name[2:]
+    return name
+
+
+def _header_names(rest: str) -> list[str]:
+    """Both names from what follows ``diff --git `` (quoted, spaced or plain)."""
+    names: list[str] = []
+    if rest.startswith('"'):
+        first, tail = _unquote_c(rest)
+        names.append(first)
+        tail = tail.lstrip(" ")
+        if tail.startswith('"'):
+            names.append(_unquote_c(tail)[0])
+        else:
+            names.append(tail)
+    elif rest.endswith('"') and ' "' in rest:
+        split = rest.rindex(' "')
+        names.extend([rest[:split], _unquote_c(rest[split + 1 :])[0]])
+    else:
+        # Unquoted: `a/P b/P` when nothing was renamed (P may hold spaces);
+        # a rename with spaces also has `rename from/to` lines, read below.
+        half = (len(rest) - 1) // 2
+        if len(rest) % 2 == 1 and rest[half] == " " and rest[2:half] == rest[half + 3 :]:
+            names.extend([rest[:half], rest[half + 1 :]])
+        else:
+            names.extend(rest.split(" "))
+    return [name[2:] for name in names if name[:2] in ("a/", "b/")]
+
+
+def changed_diff_paths(diff_text: str) -> set[str]:
+    """Every file name a `git diff` names, in any of git's spellings.
+
+    Reads the ``diff --git`` header (plain, spaced or C-quoted), the
+    ``---``/``+++`` lines and ``rename``/``copy`` lines, so a name with a
+    space, a tab or non-ASCII bytes is still checked.
+    """
+    paths: set[str] = set()
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            paths.update(_header_names(line[len("diff --git ") :].rstrip()))
+            continue
+        for prefix, strip in _NAME_LINE_PREFIXES:
+            if line.startswith(prefix):
+                name = _git_name(line[len(prefix) :], strip_prefix=strip)
+                if name:
+                    paths.add(name)
+                break
+    return paths
+
 
 def filter_diff_paths(
     diff_text: str,
@@ -145,6 +251,9 @@ def filter_diff_paths(
             p = match.group(key)
             if is_blocked(p, extra_globs=extra_globs):
                 paths.add(p)
+    for p in changed_diff_paths(diff_text):
+        if is_blocked(p, extra_globs=extra_globs):
+            paths.add(p)
     return sorted(paths)
 
 
