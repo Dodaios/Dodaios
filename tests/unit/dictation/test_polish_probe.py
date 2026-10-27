@@ -127,6 +127,7 @@ def test_a_keyless_local_provider_must_still_prove_itself() -> None:
             make_client=lambda _f, _m: _Raises(
                 'HTTP 404: model "llama3.1:8b" not found, try pulling it first'
             ),
+            read_ollama_state=_state(installed=("llama3.1:8b",)),
         )
     )
 
@@ -208,3 +209,120 @@ def test_the_probe_never_raises_on_a_broken_builder() -> None:
     res = _run(probe_polish_family(_family(), _cfg(), make_client=_explode))
 
     assert res.status in {"error", "unreachable", "not_configured"}
+
+
+# ── Ollama: say WHY it did not answer (#809) ────────────────────────────────
+
+
+def _state(
+    *, reachable: bool = True, installed: tuple[str, ...] = (), loaded: Any = ()
+) -> Any:
+    async def _read(_family: Any) -> dict[str, Any]:
+        return {
+            "root": "http://localhost:11434",
+            "reachable": reachable,
+            "installed": installed,
+            "loaded": loaded,
+        }
+
+    return _read
+
+
+class _NeverCalled:
+    async def complete(self, *_a: Any, **_kw: Any) -> str:
+        raise AssertionError("the probe must not wait on a call that cannot work")
+
+
+def test_ollama_not_running_fails_fast_with_the_fix() -> None:
+    res = _run(
+        probe_polish_family(
+            _family("ollama"),
+            _cfg(),
+            make_client=lambda _f, _m: _NeverCalled(),
+            model="qwen3.5:4b",
+            read_ollama_state=_state(reachable=False),
+        )
+    )
+
+    assert res.status == "unreachable"
+    assert "Start Ollama" in res.detail
+
+
+def test_ollama_model_never_pulled_names_the_pull_command() -> None:
+    res = _run(
+        probe_polish_family(
+            _family("ollama"),
+            _cfg(),
+            make_client=lambda _f, _m: _NeverCalled(),
+            model="qwen3.5:4b",
+            read_ollama_state=_state(installed=("llama3.2:3b",)),
+        )
+    )
+
+    assert res.status == "model_unavailable"
+    assert "ollama pull qwen3.5:4b" in res.detail
+    assert "llama3.2:3b" in res.detail
+
+
+def test_ollama_latest_tag_counts_as_installed() -> None:
+    res = _run(
+        probe_polish_family(
+            _family("ollama"),
+            _cfg(),
+            make_client=lambda _f, _m: _Answers(),
+            model="gemma3",
+            read_ollama_state=_state(installed=("gemma3:latest",)),
+        )
+    )
+
+    assert res.status == "ok"
+
+
+def _timeout_res(loaded: Any) -> Any:
+    from dodaios.dictation import polish_probe
+
+    old = polish_probe._CEILING_FLOOR_S
+    polish_probe._CEILING_FLOOR_S = 0.05
+    try:
+        return _run(
+            probe_polish_family(
+                _family("ollama"),
+                _cfg(timeout_ms=1),
+                make_client=lambda _f, _m: _Answers(delay_s=1.0),
+                model="qwen3.5:4b",
+                read_ollama_state=_state(installed=("qwen3.5:4b",), loaded=loaded),
+            )
+        )
+    finally:
+        polish_probe._CEILING_FLOOR_S = old
+
+
+def test_ollama_timeout_while_loading_says_try_again() -> None:
+    res = _timeout_res(loaded=())
+
+    assert res.status == "unreachable"
+    assert "still loading" in res.detail
+
+
+def test_ollama_timeout_when_loaded_says_too_slow() -> None:
+    res = _timeout_res(loaded=("qwen3.5:4b",))
+
+    assert res.status == "unreachable"
+    assert "too slowly" in res.detail
+
+
+def test_ollama_state_lookup_failure_keeps_the_plain_verdict() -> None:
+    async def _boom(_family: Any) -> dict[str, Any]:
+        raise RuntimeError("boom")
+
+    res = _run(
+        probe_polish_family(
+            _family("ollama"),
+            _cfg(),
+            make_client=lambda _f, _m: _Answers(),
+            model="qwen3.5:4b",
+            read_ollama_state=_boom,
+        )
+    )
+
+    assert res.status == "ok"
