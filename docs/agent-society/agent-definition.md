@@ -223,7 +223,7 @@ derived focus as chips the user can add to / remove; a wrong guess is a one-clic
 
 A "Gmail agent" therefore: keeps every tool (so it can still look something up in the wiki or
 the calendar), gets Gmail listed first and briefed as its primary hand, and its description
-tells it what it owns. That is the Grok behavior ("the description stores durable rules") on top
+tells it what it owns. The description stores durable rules, layered on top
 of our tiers.
 
 ### 3.3 Prompt assembly — how the agent knows the ecosystem
@@ -335,7 +335,7 @@ Gmail agent stood on the island. The team card (`dodaios/society/lead_card.py`) 
 "lang": "de" }` — text is for humans, `refs` are what the receiver opens. Every envelope carries
 `trace_id`; a reply carries `parent_event_id`.
 
-### 4.3 Handoff = `RESULT` payload (Grok's record, made mandatory)
+### 4.3 Handoff = `RESULT` payload (a mandatory record)
 ```
 { "type": "RESULT", "status": "done | partial | blocked",
   "output": ["file:...", "wiki:..."],          # where the work is
@@ -398,7 +398,7 @@ vault cannot: taint state, curation cursors, FTS over agent notes — derived, r
 
 ---
 
-## 6. Lifecycle & housekeeping (Grok parity)
+## 6. Lifecycle & housekeeping
 
 - **Create (2026-10-05)**: one click. The row gets a placeholder name, a random appearance
   and the lead chat's current seat; its chat opens at once. On the first turn the fresh agent
@@ -431,7 +431,7 @@ vault cannot: taint state, curation cursors, FTS over agent notes — derived, r
 | Agent knows the whole Jarvis ecosystem | ecosystem card + roster line in the prompt (§3.3) |
 | Wiki as shared memory | §5, namespaced writes, reviewed promotion |
 | Context exchange between agents | `refs` in envelopes, `RESULT` handoff record (§4.2–4.3) |
-| Per-agent approval rules like Grok | `approval_rules` under the ceiling (§3.4) |
+| Per-agent approval rules | `approval_rules` under the ceiling (§3.4) |
 | Onboarding | seed proposals from connected capabilities (§6) |
 
 ---
