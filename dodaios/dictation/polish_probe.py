@@ -86,12 +86,122 @@ def _resolve_probe_model(family: Any, dictation_cfg: Any, model: str) -> str:
         return str(getattr(family, "default_model", "") or "")
 
 
+#: How long the Ollama state lookup may take. It is a local HTTP GET, so a
+#: server that needs longer than this is the answer in itself.
+_OLLAMA_STATE_TIMEOUT_S = 3.0
+
+
+async def _default_ollama_state(family: Any) -> dict[str, Any]:
+    """What the user's Ollama server holds: ``{"root", "reachable", "installed", "loaded"}``.
+
+    ``installed`` comes from ``/api/tags`` and ``loaded`` from ``/api/ps``.
+    ``reachable`` is False when ``/api/tags`` does not answer. ``loaded`` is
+    None when ``/api/ps`` alone failed, which means "unknown", not "empty".
+    """
+    import httpx
+
+    from dodaios.plugins.brain.ollama import normalize_server_root
+
+    root = normalize_server_root(str(getattr(family, "effective_base_url", "") or ""))
+    state: dict[str, Any] = {"root": root, "reachable": False, "installed": (), "loaded": None}
+    async with httpx.AsyncClient(timeout=_OLLAMA_STATE_TIMEOUT_S) as client:
+        try:
+            resp = await client.get(f"{root}/api/tags")
+            resp.raise_for_status()
+            rows = (resp.json() or {}).get("models") or []
+        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            log.debug("polish probe: Ollama /api/tags at %s failed (%s)", root, exc)
+            return state
+        state["reachable"] = True
+        state["installed"] = tuple(
+            str(r.get("name") or "") for r in rows if isinstance(r, dict) and r.get("name")
+        )
+        try:
+            resp = await client.get(f"{root}/api/ps")
+            resp.raise_for_status()
+            rows = (resp.json() or {}).get("models") or []
+            state["loaded"] = tuple(
+                str(r.get("name") or "") for r in rows if isinstance(r, dict) and r.get("name")
+            )
+        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            log.debug("polish probe: Ollama /api/ps at %s failed (%s)", root, exc)
+    return state
+
+
+def _has_model(names: Any, model: str) -> bool:
+    from dodaios.brain.ollama_inventory import same_model
+
+    return any(same_model(str(n), model) for n in (names or ()))
+
+
+def _missing_model_sentence(model: str, installed: Any) -> str:
+    """The fix for a wording model the local server never pulled."""
+    sentence = (
+        f"The model '{model}' is not installed in Ollama. Run `ollama pull {model}`, "
+        "or pick an installed model as the dictation wording model"
+    )
+    from dodaios.brain.ollama_inventory import is_hidden_alias
+
+    shown = [n for n in (installed or ()) if n and not is_hidden_alias(n)][:5]
+    if shown:
+        sentence += f" (installed: {', '.join(shown)})"
+    return sentence + "."
+
+
+async def _ollama_precheck(family: Any, model: str, read_state: Any) -> tuple[str, str] | None:
+    """Fail fast with the cause when the Ollama card cannot answer at all.
+
+    Without this the card waited the full ceiling and then said only "No answer
+    within 8s." for a stopped server or a model that was never pulled (#809),
+    which reads like a broken app. Returns ``(status, detail)`` or None when
+    the call is worth making. A lookup that itself fails returns None: the real
+    call then decides, exactly as before.
+    """
+    try:
+        state = await read_state(family)
+    except Exception as exc:  # noqa: BLE001 — a diagnosis must never become the verdict
+        log.debug("polish probe: Ollama state lookup failed (%s)", exc)
+        return None
+    if not state.get("reachable"):
+        return (
+            "unreachable",
+            f"Ollama did not answer at {state.get('root', '')}. Start Ollama, "
+            "then press Test again.",
+        )
+    if model and not _has_model(state.get("installed"), model):
+        return ("model_unavailable", _missing_model_sentence(model, state.get("installed")))
+    return None
+
+
+async def _ollama_timeout_detail(family: Any, model: str, ceiling_s: float, read_state: Any) -> str:
+    """Turn an Ollama timeout into its likely cause and the next step."""
+    head = f"No answer within {ceiling_s:.0f}s."
+    try:
+        state = await read_state(family)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("polish probe: Ollama state lookup failed (%s)", exc)
+        return head
+    loaded = state.get("loaded")
+    if loaded is None or not model:
+        return head
+    if not _has_model(loaded, model):
+        return (
+            f"{head} Ollama was still loading '{model}' into memory; the first "
+            "answer after a start takes longer. Press Test again in a moment."
+        )
+    return (
+        f"{head} '{model}' is loaded but answers too slowly on this machine. "
+        "Pick a smaller model or a hosted provider for dictation wording."
+    )
+
+
 async def probe_polish_family(
     family: Any,
     cfg: Any,
     *,
     make_client: Any | None = None,
     model: str = "",
+    read_ollama_state: Any | None = None,
 ) -> Any:
     """Run ONE real formatting call through *family* and classify the outcome.
 
@@ -143,6 +253,13 @@ async def probe_polish_family(
             "No usable credential or transport for this provider.",
         )
 
+    is_ollama = str(getattr(family, "endpoint_provider", "") or "") == "ollama"
+    read_state = read_ollama_state or _default_ollama_state
+    if is_ollama:
+        verdict = await _ollama_precheck(family, probe_model, read_state)
+        if verdict is not None:
+            return ProviderTestResult(provider, verdict[0], verdict[1])
+
     ceiling_s = max(budget_ms / 1000.0 * _CEILING_FACTOR, _CEILING_FLOOR_S)
     started = perf_counter()
     try:
@@ -165,9 +282,10 @@ async def probe_polish_family(
         # the whole point of the probe. A log line would duplicate what the user
         # is about to read on screen.
         elapsed = (perf_counter() - started) * 1000.0
-        return ProviderTestResult(
-            provider, UNREACHABLE, f"No answer within {ceiling_s:.0f}s.", elapsed
-        )
+        detail = f"No answer within {ceiling_s:.0f}s."
+        if is_ollama:
+            detail = await _ollama_timeout_detail(family, probe_model, ceiling_s, read_state)
+        return ProviderTestResult(provider, UNREACHABLE, detail, elapsed)
     except Exception as exc:  # noqa: BLE001 — every failure becomes a verdict
         elapsed = (perf_counter() - started) * 1000.0
         detail = f"{type(exc).__name__}: {exc}"
