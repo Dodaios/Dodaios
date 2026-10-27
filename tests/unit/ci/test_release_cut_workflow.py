@@ -37,6 +37,8 @@ gh() {
     'run list') printf '123\n' ;;
     'run view') printf '\n' ;;
     'run watch') return "$WATCH_EXIT" ;;
+    'issue list') printf '%s\n' "$OPEN_ISSUE" ;;
+    'issue create'|'issue comment') return 0 ;;
     api\ *) printf '%s\n' "$GATE_STATE" ;;
     *) return 2 ;;
   esac
@@ -162,6 +164,53 @@ _CANDIDATE_TO_TAG = [
 _MAIN_CI = "gh workflow run ci.yml --ref main -f full=true -f include_macos=true"
 _DISPATCH = "Dispatch the publishing workflows on the tag"
 _PUBLISHERS = "python scripts/ci/release_assets.py dispatch --repo example/project --tag v1.2.3"
+
+
+def _release_cut_jobs() -> dict:
+    root = Path(__file__).resolve().parents[3]
+    workflow = yaml.safe_load((root / ".github/workflows/release-cut.yml").read_text("utf-8"))
+    return workflow["jobs"]
+
+
+def test_a_tag_that_does_not_get_published_is_reported():
+    # v3.1.0, v4.0.0 and v4.1.0 stayed drafts behind a pushed tag, unnoticed (#522).
+    jobs = _release_cut_jobs()
+    assert jobs["cut"]["outputs"]["tagged"] == "${{ steps.tag.outcome == 'success' }}"
+    stranded = jobs["stranded"]
+    assert stranded["needs"] == ["cut", "publish"]
+    condition = stranded["if"]
+    # always(): the report must run when publish failed, was skipped or cancelled.
+    assert condition.startswith("always()")
+    assert "needs.cut.outputs.tagged == 'true'" in condition
+    assert "needs.publish.result != 'success'" in condition
+    assert stranded["permissions"] == {"issues": "write"}
+
+
+_STRANDED = "Open or update the stranded release issue"
+_STRANDED_ENV = {"PUBLISH_RESULT": "failure", "RUN_URL": "https://example.test/runs/77"}
+
+
+def test_a_stranded_tag_opens_an_issue_with_the_recovery_steps(tmp_path):
+    result, commands = _exercise(
+        tmp_path, [_STRANDED], job_id="stranded", OPEN_ISSUE="", **_STRANDED_ENV
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    trace = "\n".join(commands)
+    assert "gh issue create --repo example/project --title Release v1.2.3 is tagged" in trace
+    assert "gh issue comment" not in trace
+    assert "gh run rerun <run id> --failed" in trace
+    assert "release-finalize.yml --ref main -f tag=v1.2.3" in trace
+    assert "::error::v1.2.3 is tagged but not published" in result.stdout
+
+
+def test_a_second_failure_for_the_same_tag_comments_on_the_open_issue(tmp_path):
+    result, commands = _exercise(
+        tmp_path, [_STRANDED], job_id="stranded", OPEN_ISSUE="42", **_STRANDED_ENV
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    trace = "\n".join(commands)
+    assert "gh issue comment 42 --repo example/project" in trace
+    assert "gh issue create" not in trace
 
 
 @pytest.mark.parametrize("token_is_bot", ["true", "false"])

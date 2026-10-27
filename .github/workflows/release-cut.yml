@@ -75,6 +75,8 @@ jobs:
       checks: read
     outputs:
       version: ${{ steps.bump.outputs.version || steps.resume.outputs.version }}
+      # The public v* tag exists from here on (pushed now or by an earlier run).
+      tagged: ${{ steps.tag.outcome == 'success' }}
     env:
       # Reads and dispatches use GITHUB_TOKEN. Each write step overrides
       # GH_TOKEN with a bot token minted right before it: an installation
@@ -308,6 +310,48 @@ jobs:
           python scripts/ci/release_assets.py finalize
           --repo "$GITHUB_REPOSITORY" --tag "v$V"
           --sha "$(git rev-parse HEAD)" --wait-minutes 150
+
+  # The tag is immutable, but everything after it can still fail: a flaky tag
+  # CI run, a publisher (for example a new advisory in the publish-time
+  # dependency audit) or finalization. The version then stays an unpublished
+  # draft that no updater sees, and nothing retries it (v3.1.0, v4.0.0 and
+  # v4.1.0 stayed drafts this way, unnoticed). Say so in one issue per version,
+  # with the recovery steps.
+  stranded:
+    name: report a stranded tag
+    needs: [cut, publish]
+    if: always() && needs.cut.outputs.tagged == 'true' && needs.publish.result != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the stranded release issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.cut.outputs.version }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Release v$V is tagged but not published"
+          body="Release cut $RUN_URL pushed the immutable tag \`v$V\`, but publishing ended with \`$PUBLISH_RESULT\`. The GitHub Release stays a draft, so the in-app updater and the installers do not see v$V.
+
+          To recover (docs/ci-pipeline.md):
+          1. Find the red run: tag CI (\`gh run list --workflow ci.yml --branch v$V\`) and the publishers Release to PyPI, Desktop installers and Sign installer (\`gh run list --branch v$V\`).
+          2. A flaky failure: \`gh run rerun <run id> --failed\`, tag CI first, then each failed publisher. A rerun reuses the original build artifacts.
+          3. Finalize: rerun the failed \`publish GitHub Release\` job of the Release cut run, or \`gh workflow run release-finalize.yml --ref main -f tag=v$V\`.
+          4. If a publisher cannot pass for this commit (a real test failure, or a new advisory in the dependency audit), fix main and cut the next patch release instead. v$V then stays a draft.
+
+          Close this issue once v$V is published or superseded."
+          # Search narrows the list; the exact title decides (v4.1.0 vs v4.1.1).
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" \
+            --json number,title --jq "map(select(.title == \"$title\")) | .[0].number // empty")"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
+          echo "::error::v$V is tagged but not published; recovery steps are in the issue \"$title\"."
 
   # Read-only proof that what users now download installs: assets, checksums,
   # build provenance and the signed wrapper on Linux, Windows and macOS. Called

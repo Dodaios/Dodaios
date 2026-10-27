@@ -58,7 +58,7 @@ degrees) at 96 px/m plus a 3x crop, and the reactor and hangar vignettes;
 | SM_Eng_DroneDock | 1.5 x 1.7 x 1.6 | block | spawn drone | charging pad and mast |
 | SM_Eng_WallMachinery_A | 5.2 x 1.6 x 7.2 | block | - | hull-wall bay: transformer + pump |
 | SM_Eng_WallMachinery_B | 5.2 x 1.6 x 7.2 | block | - | hull-wall bay: tank pair + ladder |
-| SM_Hangar_Shuttle | 11 x 24.7 x 9.2 | block | spawn arrival, waypoint ramp_top, light cabin | original faceted shuttle, gull wings folded, ramp down, lit cabin |
+| SM_Hangar_Shuttle | 17 x 24.7 x 7 | block (cabin walk) | spawn arrival, waypoint ramp_top, light cabin, holo tactical | original faceted gunship, swept wings out, ramp down; armed (chin and dorsal turrets, wingtip cannons, missile pods); hollow hull with a walkable cabin (ramp corridor, troop bay, cockpit), its room outline from `shuttle.cabin_outline()` |
 | SM_Hangar_Container_L_Charcoal/Olive/Grey | 6.0 x 2.4 x 2.6 | block | - | corrugated containers with stencils |
 | SM_Hangar_Container_M_Gunmetal/Charcoal | 3.6 x 2.4 x 2.4 | block | - |  |
 | SM_Hangar_Container_S_Grey/Charcoal | 2.4 x 1.6 x 1.6 | block | - |  |

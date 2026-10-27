@@ -25,9 +25,11 @@ from characters import common as C
 from characters import crew
 from characters import looks as LK
 from characters import looks_gear as LG
+from characters import looks_sovereign as LS
 from characters import outfits as O
 from characters import paint as PT
 from characters import posing as P
+from characters import sovereign as SV
 
 CHARACTERS = {
     # id: (variant, builder name, kind)
@@ -35,10 +37,17 @@ CHARACTERS = {
     "SK_Officer_F": ("F", "build_officer", "officer"),
     "SK_Technician": ("M", "build_technician", "technician"),
     "SK_Trooper": ("M", "build_trooper", "trooper"),
+    # The commander's default skin; carries its own skeleton (shared bones + cloak bones).
+    "SK_Sovereign": ("M", "build_sovereign", "sovereign"),
 }
 
 # Atlas painters per model kind.
-PAINTERS = {"officer": LK.officer, "technician": LG.technician, "trooper": LG.trooper}
+PAINTERS = {
+    "officer": LK.officer,
+    "technician": LG.technician,
+    "trooper": LG.trooper,
+    "sovereign": LS.sovereign,
+}
 
 # Reference colours per rank tier (sRGB hex). The runtime tints by material name.
 TIERS = {
@@ -82,6 +91,8 @@ DEFAULTS = {
     # Gunner black, lifted a touch so the suit's seams, harness and pads still read at
     # the close game camera under dim room light.
     "SK_Technician": {"M_Uniform": "#1f2124", "M_Trim": "#34373c"},
+    # pale, aged skin under the hood
+    "SK_Sovereign": {"M_Skin": "#b9a99c"},
 }
 
 
@@ -190,9 +201,10 @@ def main(argv):
     entries = []
     for cid in only:
         variant, builder, kind = CHARACTERS[cid]
-        fn = getattr(O, builder, None) or getattr(crew, builder)
+        fn = getattr(O, builder, None) or getattr(crew, builder, None) or getattr(SV, builder)
         ctx = ctxs.get(variant) or ctxs.setdefault(variant, O.Ctx(variant))
         ctx.hi, ctx.look = None, {}  # set by the builder for its own garment
+        ctx.export_arm = None  # a builder with its own skeleton sets it
         objs = fn(ctx)
         for o in objs:
             o.name = o.name.split(".")[0]
@@ -207,7 +219,8 @@ def main(argv):
         )
         apply_defaults(cid, objs)
         with slot_names(cid):
-            size = export_glb(out / f"{cid}.glb", [ctx.arm] + objs, animations=False)
+            rig = ctx.export_arm or ctx.arm
+            size = export_glb(out / f"{cid}.glb", [rig] + objs, animations=False)
             mats, tris = mesh_info(objs)
         built[cid] = (ctx, objs)
         print(f"[characters] {cid}: {tris} tris, {size} bytes, materials {mats}")
@@ -226,6 +239,10 @@ def main(argv):
                 "defaults": DEFAULTS.get(cid, {}),
             }
         )
+        if ctx.export_arm is not None:
+            entries[-1]["extraBones"] = [
+                b.name for b in ctx.export_arm.data.bones if b.name not in ctx.bones
+            ]
         plate = next((o for o in objs if o.name == "RankPlate"), None)
         if plate is not None:
             entries[-1]["rankPlate"] = rank_plate_socket(plate)
@@ -257,6 +274,7 @@ def main(argv):
         from characters import qa
 
         qa.contact_sheet(built, ctxs, full=not args.qa_contact)
+    return built
 
 
 def write_manifest(out: Path, entries, clip_info, ctxs):

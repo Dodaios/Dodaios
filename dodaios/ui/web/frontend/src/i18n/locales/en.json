@@ -334,7 +334,8 @@
     "voice_api_keys": "API Keys",
     "shortcuts": "Keyboard shortcuts",
     "pets": "My Pets",
-    "self_build": "Built for you"
+    "self_build": "Built for you",
+    "games": "Game settings"
   },
   "assistant_view": {
     "header_named": "Your assistant in {0}, woken by “{1}”.",
@@ -7754,7 +7755,7 @@
       "write_other": "created files",
       "image_one": "viewed an image",
       "image_other": "viewed images",
-      "used": "used {what}",
+      "used": "used {what}",
       "lookup_one": "looked up tools",
       "lookup_other": "looked up tools",
       "asked_one": "asked you",
@@ -7766,7 +7767,7 @@
       "search": "Searched for {pattern}",
       "search_in": "Searched for {pattern} in {path}",
       "edit": "Edited {target}",
-      "write": "Created {target}",
+      "write": "Created {target}",
       "lookup": "Looked up tools",
       "asked": "Asked you"
     },
@@ -10802,6 +10803,58 @@
       "reach_everything": "Everything in this chat",
       "reach_tool_plain": "This whole tool",
       "cancel": "Cancel"
+    }
+  },
+  "games": {
+    "title": "Game settings",
+    "subtitle": "Your sensitivity, keybinds, audio and video for every game in one place, and a converter that carries your aim from one game to another.",
+    "default_dpi": "Mouse DPI",
+    "search": "Search games",
+    "saved_badge": "Saved",
+    "load_error": "Game settings could not be loaded: {0}",
+    "save_error": "That did not save: {0}",
+    "section_empty": "This game has no settings here yet.",
+    "game_dpi": "DPI for this game",
+    "follow_default": "Uses the default of {0} DPI.",
+    "cm360": "cm/360",
+    "cm360_hint": "Mouse travel for one full turn.",
+    "edpi": "eDPI",
+    "not_convertible": "This game's sensitivity is not linear, so it cannot be converted.",
+    "keybind_hint": "Click a key, then press a key, a mouse button or turn the wheel. Esc cancels.",
+    "keybind_press": "Press a key…",
+    "keybind_unbound": "Unbound",
+    "keybind_clear": "Clear",
+    "keybind_reset": "Default",
+    "keybind_conflict": "Also used by: {0}",
+    "default_value": "Default: {0}",
+    "unset": "Not set",
+    "reset_field": "Back to the game default",
+    "on": "On",
+    "off": "Off",
+    "converter_hint": "Same feel in every game: the same cm/360 at your DPI. Hip-fire only; scoped and ADS multipliers depend on each game.",
+    "converter_from": "Your {0} sensitivity",
+    "converter_target_dpi": "Target DPI (optional)",
+    "converter_game": "Game",
+    "converter_sens": "Sensitivity",
+    "converter_apply": "Save",
+    "converter_applied": "{0} saved for {1}.",
+    "converter_unavailable": "{0} has no linear sensitivity, so it cannot be converted.",
+    "notes": "Notes",
+    "notes_placeholder": "Crosshair, routines, anything you want to remember.",
+    "config_file": "Where the game keeps its settings",
+    "copy": "Copy",
+    "copied": "Copied to the clipboard.",
+    "copy_failed": "Could not copy.",
+    "reset_profile": "Reset",
+    "reset_confirm": "Click again to reset",
+    "reset_done": "{0} is back to defaults.",
+    "tabs": {
+      "mouse": "Mouse",
+      "keybinds": "Keybinds",
+      "audio": "Audio",
+      "video": "Video",
+      "gameplay": "Gameplay",
+      "converter": "Converter"
     }
   }
 }

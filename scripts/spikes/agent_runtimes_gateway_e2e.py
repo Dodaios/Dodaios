@@ -215,12 +215,7 @@ async def main(name: str, provider: str, wanted: str) -> int:
                 await asyncio.to_thread(ledger.set_ledger_path, previous_ledger)
                 gateway._CATALOG = previous_catalog
                 if result != 0:
-                    log = tmp / "runtime-stderr.log"
-                    if log.exists():
-                        target = ROOT / "eval-results" / f"{name}-{time.time_ns()}.log"
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(log.read_bytes())
-                        print("diagnostic:", target)
+                    _keep_diagnostics(name, tmp)
     finally:
         gateway._client = previous_client
         gateway.subscription_ready = previous_ready
@@ -229,6 +224,28 @@ async def main(name: str, provider: str, wanted: str) -> int:
         ledger.set_ledger_path(previous_ledger)
         base.runtimes_root = previous_root
         runtime_refs.set_api_base_url(previous_url or "")
+
+
+def _keep_diagnostics(name: str, tmp: Path) -> None:
+    """Retain the runtime's stderr and its own log files (Hermes writes the
+    model call's failure to ``logs/*.log`` in its home, not to stderr)."""
+    logs = [tmp / "runtime-stderr.log", *sorted((tmp / "agent_runtimes").rglob("*.log"))]
+    parts = [
+        f"===== {log.relative_to(tmp)} =====\n".encode() + log.read_bytes()
+        for log in logs
+        if log.is_file()
+    ]
+    if not parts:
+        return
+    target = ROOT / "eval-results" / f"{name}-{time.time_ns()}.log"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"\n".join(parts))
+    print("diagnostic:", target)
+    # Each file's tail inline too: a CI job log is read far more often than its artifacts.
+    for part in parts:
+        lines = part.decode("utf-8", errors="replace").splitlines()
+        for line in [lines[0], *lines[1:][-25:]]:
+            print("  |", line)
 
 
 async def _check(name: str, provider: str, wanted: str, tmp: Path, *, replay: bool) -> int:

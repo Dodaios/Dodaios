@@ -556,6 +556,82 @@ def test_macos_handover_keeps_the_old_app_when_the_mount_fails(tmp_path: Path) -
     assert runner.spawned == []
 
 
+def test_macos_handover_attaches_again_when_hdiutil_is_busy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """EAGAIN from ``hdiutil attach`` is transient: retried, then the swap runs."""
+    dmg = tmp_path / "PersonalJarvis-macOS-arm64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    app = tmp_path / "Applications" / "Personal Jarvis.app"
+    (app / "Contents" / "MacOS").mkdir(parents=True)
+    (app / "Contents" / "MacOS" / "PersonalJarvis").write_text("old", encoding="utf-8")
+    pauses: list[float] = []
+    monkeypatch.setattr(iu.time, "sleep", pauses.append)
+
+    runner = _mounting_runner("Personal Jarvis.app", "new")
+    mount = runner.on_run
+    busy = RunResult(
+        returncode=1, stderr="hdiutil: attach failed - Resource temporarily unavailable"
+    )
+    attempts: list[int] = []
+
+    def _busy_once(command: list[str]) -> None:
+        if command[:2] == ["hdiutil", "attach"]:
+            attempts.append(1)
+            if len(attempts) == 1:
+                runner.results["hdiutil attach"] = busy
+                return
+            runner.results.pop("hdiutil attach", None)
+        mount(command)
+
+    runner.on_run = _busy_once
+    apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app, relaunch=False)
+
+    assert len(attempts) == 2
+    assert pauses == [iu._ATTACH_BUSY_RETRY_DELAYS_S[0]]
+    assert _bundle_payload(app) == "new"
+
+
+def test_macos_handover_gives_up_on_a_dmg_that_stays_busy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dmg = tmp_path / "PersonalJarvis-macOS-arm64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    app = tmp_path / "Applications" / "Personal Jarvis.app"
+    (app / "Contents" / "MacOS").mkdir(parents=True)
+    (app / "Contents" / "MacOS" / "PersonalJarvis").write_text("old", encoding="utf-8")
+    monkeypatch.setattr(iu.time, "sleep", lambda _s: None)
+    runner = FakeCommandRunner(
+        results={
+            "hdiutil attach": RunResult(
+                returncode=1, stderr="hdiutil: attach failed - Resource temporarily unavailable"
+            )
+        }
+    )
+
+    with pytest.raises(InstallerUpdateError, match="Resource temporarily unavailable"):
+        apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app)
+
+    attaches = [cmd for cmd in runner.ran if cmd[:2] == ["hdiutil", "attach"]]
+    assert len(attaches) == 1 + len(iu._ATTACH_BUSY_RETRY_DELAYS_S)
+    assert _bundle_payload(app) == "old"
+
+
+def test_macos_handover_does_not_retry_a_real_mount_error(tmp_path: Path) -> None:
+    dmg = tmp_path / "PersonalJarvis-macOS-arm64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    app = tmp_path / "Applications" / "Personal Jarvis.app"
+    (app / "Contents").mkdir(parents=True)
+    runner = FakeCommandRunner(
+        results={"hdiutil attach": RunResult(returncode=1, stderr="image not recognized")}
+    )
+
+    with pytest.raises(InstallerUpdateError, match="could not mount"):
+        apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app)
+
+    assert sum(cmd[:2] == ["hdiutil", "attach"] for cmd in runner.ran) == 1
+
+
 def test_macos_handover_refuses_without_a_resolvable_app(tmp_path: Path) -> None:
     dmg = tmp_path / "PersonalJarvis-macOS-arm64.dmg"
     dmg.write_bytes(PAYLOAD)
