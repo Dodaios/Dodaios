@@ -509,6 +509,9 @@ class AcpTurn:
             return
         name = normalize_tool_name(_tool_name(update))
         args = update.get("rawInput") if isinstance(update.get("rawInput"), dict) else {}
+        if not args and (path := _location_path(update)):
+            # Hermes sends no input for its own file tools, only where they act.
+            args = {"path": path}
         self.emitted_tool_ids.add(call_id)
         self._tool_names[call_id] = name
         self._tool_started[call_id] = time.perf_counter()
@@ -633,6 +636,18 @@ def _tool_name(update: dict[str, Any]) -> str:
         if head and _IDENTIFIER.match(head):
             return head
     return str(update.get("kind") or "tool")
+
+
+def _location_path(update: dict[str, Any]) -> str:
+    """The first file a tool call says it acts on (ACP ``locations``), or ""."""
+    locations = update.get("locations")
+    if not isinstance(locations, list):
+        return ""
+    for location in locations:
+        path = location.get("path") if isinstance(location, dict) else None
+        if isinstance(path, str) and path:
+            return path
+    return ""
 
 
 def _failure_reason(text: str, patterns: tuple[re.Pattern[str], ...]) -> str:

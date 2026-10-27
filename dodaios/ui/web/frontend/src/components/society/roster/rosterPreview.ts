@@ -14,6 +14,7 @@
  * in the chat header, so the preview keeps saying what was last said.
  */
 import { hideAskBlocks } from "@/components/agentchat/askFence";
+import { stripInlineMarks } from "@/lib/plainMarks";
 
 import type { SocietyAgent } from "../data";
 
@@ -94,7 +95,9 @@ export function previewText(raw: string | null | undefined): string {
     .replace(MARKER_LINE, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[*_`>#~|]+/g, " ")
+    .replace(/^\s*(?:[>#]+|[-*+]\s)\s*/gm, " ")
+    .replace(/[^\n]+/g, (line) => stripInlineMarks(line))
+    .replace(/\|/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return text.length > MAX_PREVIEW ? `${text.slice(0, MAX_PREVIEW - 1)}…` : text;

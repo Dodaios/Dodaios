@@ -39,6 +39,8 @@ export interface ApprovalCardInfo {
   /** What is asking; `verb` is the one-word action a connector call performs ("send"). */
   source: { kind: ApprovalSourceKind; app: string; verb: string };
   where: string;
+  /** `where` in full (the card's details only); "" when it is the same or unknown. */
+  whereFull: string;
   why: string;
   caution: ApprovalCaution | null;
   /** The exact command or request, secrets masked by the backend. */
@@ -80,6 +82,7 @@ export function parseApprovalCard(payload: Record<string, unknown>): ApprovalCar
   return {
     source: { kind: KINDS.has(kind) ? kind : "tool", app: text(source.app), verb: text(source.verb) },
     where: text(payload.where),
+    whereFull: text(payload.where_full),
     why: text(payload.why),
     caution: CAUTIONS.has(caution) ? caution : null,
     detail: text(payload.detail),

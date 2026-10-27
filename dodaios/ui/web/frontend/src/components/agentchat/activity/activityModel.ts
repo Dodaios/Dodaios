@@ -83,7 +83,10 @@ export type NameOf = (idOrName: string) => string;
 const identity: NameOf = (value) => value;
 
 function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const out = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  // A runtime's permission request nests the tool's own arguments ({ tool, arguments: { path } }).
+  const nested = out.arguments;
+  return nested && typeof nested === "object" && !Array.isArray(nested) ? { ...(nested as Record<string, unknown>), ...out } : out;
 }
 
 function firstString(input: Record<string, unknown>, keys: string[]): string {
