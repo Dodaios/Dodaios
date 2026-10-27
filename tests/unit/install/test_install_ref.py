@@ -2,16 +2,21 @@
 
 A release tag carries the frontend bundle built from its own sources, so main
 no longer has to track one. main stays the fallback when no release can be
-looked up. The release API is faked with a file:// URL (curl and PowerShell
-both read those), so nothing here touches the network.
+looked up. The release API is faked by a local HTTP server, so nothing here
+touches the network.
 """
 
 from __future__ import annotations
 
+import contextlib
+import functools
+import http.server
 import json
 import re
 import shutil
 import subprocess
+import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -50,13 +55,32 @@ def _block(source: Path) -> str:
     return body.split("\n", 1)[1]
 
 
-def _fake_api(tmp_path: Path, tag: str | None) -> str:
-    latest = tmp_path / "api" / "repos" / "Example" / "Product" / "releases" / "latest"
+@contextlib.contextmanager
+def _fake_api(tmp_path: Path, tag: str | None) -> Iterator[str]:
+    """Serve ``/repos/Example/Product/releases/latest`` on a local port.
+
+    HTTP, not file://: PowerShell 7's Invoke-RestMethod reads http(s) only.
+    """
+    root = tmp_path / "api"
+    latest = root / "repos" / "Example" / "Product" / "releases" / "latest"
     latest.parent.mkdir(parents=True)
     if tag is not None:
         # The API pretty-prints, one key per line, like this.
         latest.write_text(json.dumps({"tag_name": tag, "draft": False}, indent=2), "utf-8")
-    return (tmp_path / "api").as_uri()
+    handler = functools.partial(_QuietHandler, directory=str(root))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        pass
 
 
 def _run(args: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -85,10 +109,11 @@ def _sh(tmp_path: Path, *, ref: str, tag: str | None, repo: str = REPO_URL) -> l
         encoding="utf-8",
         newline="\n",
     )
-    result = _run(
-        [str(BASH), str(script)],
-        {"BRANCH": ref, "REPO_URL": repo, "INSTALLER_TEST_RELEASE_API": _fake_api(tmp_path, tag)},
-    )
+    with _fake_api(tmp_path, tag) as api:
+        result = _run(
+            [str(BASH), str(script)],
+            {"BRANCH": ref, "REPO_URL": repo, "INSTALLER_TEST_RELEASE_API": api},
+        )
     assert result.returncode == 0, result.stderr
     return result.stdout.split()
 
@@ -124,10 +149,11 @@ def _ps(tmp_path: Path, *, ref: str, tag: str | None) -> list[str]:
         + "Write-Output (Get-RefArchivePath)\n",
         encoding="utf-8",
     )
-    result = _run(
-        [str(POWERSHELL), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)],
-        {"INSTALLER_TEST_RELEASE_API": _fake_api(tmp_path, tag)},
-    )
+    with _fake_api(tmp_path, tag) as api:
+        result = _run(
+            [str(POWERSHELL), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)],
+            {"INSTALLER_TEST_RELEASE_API": api},
+        )
     assert result.returncode == 0, result.stderr
     return result.stdout.split()
 
