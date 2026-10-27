@@ -108,7 +108,9 @@ def test_every_source_maps_onto_the_same_card_fields(name, args, kind, app, caut
     assert card["source"].get("app", "") == app or kind not in ("connector",)
     assert card["caution"] == caution
     if kind in ("terminal", "files"):
-        assert card["where"] == "C:/work"
+        # The chat's own folder reads as its name; the full path stays in where_full.
+        assert card["where"] == "work"
+        assert card["where_full"] == "C:/work"
     if kind == "plan":
         assert card["detail"] == "" and card["rule"] is None
 
@@ -683,8 +685,9 @@ def test_display_paths_shortens_the_workspace_and_the_home_folder():
 
     text = f"Edit {WIN_CWD}\\src\\a.py and C:/Users/ada/Downloads/x.txt"
     assert display_paths(text, WIN_CWD, WIN_HOME) == "Edit src\\a.py and ~/Downloads/x.txt"
-    # The workspace itself reads from the home folder; no path, no change.
-    assert display_paths(WIN_CWD, WIN_CWD, WIN_HOME) == "~\\Desktop\\proj"
+    # The workspace itself reads as its own name, not the long path to it.
+    assert display_paths(WIN_CWD, WIN_CWD, WIN_HOME) == "proj"
+    assert display_paths(f"In {WIN_CWD}", WIN_CWD, WIN_HOME) == "In proj"
     assert display_paths("echo hi", WIN_CWD, WIN_HOME) == "echo hi"
     assert display_paths("/home/bob/code/x.py", "/home/bob/code", "/home/bob") == "x.py"
     assert display_paths("cat /home/bob/notes.md", "", "/home/bob") == "cat ~/notes.md"
@@ -911,3 +914,21 @@ def test_the_home_folder_is_never_offered_as_only_this_folder(tmp_path: Path):
     )
     assert deeper and deeper[0]["value"] == str(tmp_path / "home" / "proj")
     assert deeper[0]["label"].replace("\\", "/") == "~/proj"
+
+
+def test_a_runtime_file_request_reads_inside_the_agents_workspace():
+    """Hermes asks with the tool's own arguments nested; the card stays short."""
+    workspace = "C:/Users/Ada/data/society/agent-1/workspace"
+    args = {"tool": "write_file", "arguments": {"path": "qa_note.txt", "content": "hello"}}
+    card = describe_call("edit", args, "Approve edit: qa_note.txt", cwd=workspace)
+    assert card["where"] == "workspace"
+    assert card["where_full"] == workspace
+    assert card["brief"] == "Approve edit: qa_note.txt"
+    narrow = narrow_options_for(args, workspace)
+    assert narrow and narrow[0]["label"] == "workspace"
+
+
+def narrow_options_for(args, cwd):
+    from dodaios.agent_chat.approval_card import narrow_options
+
+    return narrow_options("files", args, cwd, "C:/Users/Ada")

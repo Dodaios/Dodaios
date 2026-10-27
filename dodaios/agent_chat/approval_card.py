@@ -14,7 +14,9 @@ event has none of them and the card falls back to the tool name and summary.
 ``source``   ``{kind, app?, verb?}``. ``kind`` is one of :data:`SOURCE_KINDS`;
              ``app`` names the connector or MCP server a ``connector`` call goes
              to, ``verb`` the one-word action it performs there (``send``).
-``where``    the folder, site or machine the action runs at.
+``where``    the folder, site or machine the action runs at: the chat's own
+             folder as its name ("workspace"), a path inside it relative.
+``where_full`` that folder in full, for the card's details only.
 ``why``      the agent's own reason, when its runner passes one (Claude's Bash
              ``description``, a Codex ``reason``).
 ``caution``  ``""`` or one of :data:`CAUTIONS`: an action that cannot be undone,
@@ -177,6 +179,8 @@ def _describe(
     fields: dict[str, Any] = {
         "source": source,
         "where": display_paths(_where(kind, args, cwd), cwd),
+        # The card's details name the whole folder; the line above stays short.
+        "where_full": _where(kind, args, cwd),
         "why": display_paths(_why(args), cwd),
         "caution": caution_of(kind, command, verb),
         "detail": "" if kind == "plan" else request_detail(args, command),
@@ -223,8 +227,12 @@ def display_paths(text: str, cwd: str = "", home: str | None = None) -> str:
     if len(folder) > 3 and not (home_dir and _same_folder(folder, home_dir)):
         inside = _path_pattern(folder)
         if inside is not None:
-            # "<cwd>/src/x" -> "src/x"; the folder alone stays and is shortened below.
+            # "<cwd>/src/x" -> "src/x"; the folder alone reads as its own name
+            # ("workspace"), never as the long path the agent happens to live at.
             out = re.sub(inside.pattern + _SEP + r"+(?=\S)", "", out, flags=inside.flags)
+            name = re.split(r"[\\/]", folder)[-1]
+            if name:
+                out = inside.sub(lambda _m: name, out)
     if len(home_dir) > 3:
         at_home = _path_pattern(home_dir)
         if at_home is not None:
@@ -244,7 +252,16 @@ _NARROW_COMMAND_CHARS: Final[int] = 400
 
 
 def _call_paths(args: dict[str, Any]) -> list[str]:
-    return [v.strip() for k in _PATH_KEYS if isinstance(v := args.get(k), str) and v.strip()]
+    # A runtime's permission request nests the tool's own arguments
+    # ({"tool": "write_file", "arguments": {"path": ...}}).
+    nested = args.get("arguments")
+    pool = [args, nested] if isinstance(nested, dict) else [args]
+    return [
+        v.strip()
+        for part in pool
+        for k in _PATH_KEYS
+        if isinstance(v := part.get(k), str) and v.strip()
+    ]
 
 
 def _absolute(path: str, cwd: str) -> str:

@@ -969,3 +969,17 @@ def test_a_warm_up_covers_only_its_own_agent(fake, brain, guarded) -> None:
     assert len(brain["requests"]) == 1  # agent-2's own turn, on its own route
     with pytest.raises(gateway.GatewayError), gateway.warming("jrg_unknown"):
         pass
+
+
+def test_a_recoverable_failure_is_kept_for_the_turn_that_saw_it() -> None:
+    from concurrent.futures import Future
+
+    signal: Future[str] = Future()
+    grant = gateway.Grant("agent-1", "openai-codex")
+    soft = gateway.GatewayError("The ChatGPT subscription could not answer this turn.", status=502,
+                                code="subscription_unavailable")
+    gateway._report_failure(grant, "m", soft, signal)
+    assert not signal.done()
+    assert gateway.last_failure(signal) == str(soft)
+    assert gateway.last_failure(None) == ""
+    assert gateway.last_failure(Future()) == ""

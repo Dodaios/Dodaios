@@ -82,16 +82,27 @@ afterEach(() => {
 });
 
 describe("CreateAgentDialog", () => {
-  test("uses the access preference saved by the other model pickers", async () => {
+  test("a remembered access billed per use never beats the plan; a pick here is saved", async () => {
     localStorage.setItem(MODEL_ACCESS_KEY, JSON.stringify({ claude: "api" }));
     runtimes.value = { ...READY, access: { "claude-api": ["api", "subscription"] } };
     menu.options = [CLAUDE];
     mount();
     act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
-    const api = await screen.findByRole("radio", { name: "society.create.kind_api" });
-    await waitFor(() => expect(api.getAttribute("aria-checked")).toBe("true"));
-    fireEvent.click(screen.getByRole("radio", { name: "society.create.kind_subscription" }));
-    expect(JSON.parse(localStorage.getItem(MODEL_ACCESS_KEY)!)).toEqual({ claude: "subscription" });
+    const plan = await screen.findByRole("radio", { name: "society.create.kind_subscription" });
+    await waitFor(() => expect(plan.getAttribute("aria-checked")).toBe("true"));
+    fireEvent.click(screen.getByRole("radio", { name: "society.create.kind_api" }));
+    expect(JSON.parse(localStorage.getItem(MODEL_ACCESS_KEY)!)).toEqual({ claude: "api" });
+    await waitFor(() => expect(screen.getByRole("radio", { name: "society.create.kind_api" }).getAttribute("aria-checked")).toBe("true"));
+  });
+
+  test("uses a remembered access that is not billed per use", async () => {
+    localStorage.setItem(MODEL_ACCESS_KEY, JSON.stringify({ claude: "subscription" }));
+    runtimes.value = { ...READY, access: { "claude-api": ["api", "subscription"] } };
+    menu.options = [CLAUDE];
+    mount();
+    act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
+    const plan = await screen.findByRole("radio", { name: "society.create.kind_subscription" });
+    await waitFor(() => expect(plan.getAttribute("aria-checked")).toBe("true"));
   });
   test("creates a named Hermes agent with a provider and a companion", async () => {
     const agent = { agentId: "agent-1", name: "Scout" };

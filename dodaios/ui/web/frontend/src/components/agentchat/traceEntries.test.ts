@@ -6,7 +6,7 @@ import pt from "@/i18n/locales/pt.json";
 import { reduceThinkingSteps, type ThinkingStep } from "@/lib/thinkingSteps";
 import type { ToolBlock, TurnBlock } from "./reduce";
 import {
-  buildTimeline, commandBinary, ownServerTool, shortPath, traceDuration, withoutCd,
+  buildTimeline, callOf, commandBinary, isIdentifier, outputGist, ownServerTool, shortPath, traceDuration, withoutCd,
   type ActivityEntry, type Call, type TimelineOptions,
 } from "./traceEntries";
 import { stepsToBlocks } from "./VoiceWorkTrace";
@@ -202,5 +202,34 @@ describe("trace_report locale parity", () => {
   });
   it("never uses {name}, which the i18n layer fills with the assistant's name", () => {
     expect(JSON.stringify((en as Dict).trace_report)).not.toContain("{name}");
+  });
+});
+
+
+describe("readable call labels", () => {
+  it("names the file of a runtime's nested permission request, never the tool id", () => {
+    const call = callOf(tool("e", { name: "edit", input: { tool: "write_file", arguments: { path: "qa_note.txt", content: "hi" } }, output: "done" }), "done", t, "en");
+    expect(call.text).toBe("Edited qa_note.txt");
+  });
+
+  it("says what a file tool did when it names no file", () => {
+    expect(callOf(tool("w", { name: "write_file", input: {}, output: "done" }), "done", t, "en").text).toBe("Created a file");
+    expect(callOf(tool("e", { name: "edit", input: {}, output: "done" }), "done", t, "en").text).toBe("Edited a file");
+  });
+
+  it("drops a runtime's receipt words from what a call returned", () => {
+    expect(outputGist("tool_search result")).toBe("");
+    expect(outputGist("tool_describe result\n- **name:** gmail_send")).toBe("- **name:** gmail_send");
+    expect(outputGist("✅ patch completed")).toBe("");
+    expect(outputGist("done")).toBe("");
+    expect(outputGist("Saved qa_note.txt")).toBe("Saved qa_note.txt");
+    const call = callOf(tool("s", { name: "skills_list", input: {}, output: "skills_list result\n- **count:** 3" }), "done", t, "en");
+    expect(call.result).toBe("count: 3");
+  });
+
+  it("tells a tool id from a file", () => {
+    expect(isIdentifier("write_file")).toBe(true);
+    expect(isIdentifier("qa_note.txt")).toBe(false);
+    expect(isIdentifier("src/app.ts")).toBe(false);
   });
 });

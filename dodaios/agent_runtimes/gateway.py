@@ -37,6 +37,7 @@ import secrets
 import threading
 import time
 import uuid
+import weakref
 from collections import OrderedDict
 from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import Future
@@ -107,6 +108,10 @@ _METADATA_TTL_S: Final[float] = 15 * 60
 _METADATA: dict[tuple[str, str, str], tuple[float, Any]] = {}
 _METADATA_REFRESH: dict[tuple[str, str, str], asyncio.Task[Any]] = {}
 _FAILURES: dict[Grant, Future[str]] = {}
+#: The last recoverable failure of each watched turn. The runtime keeps such
+#: a failure (it may retry or compress); when the turn then ends without an
+#: answer, the runner reports this instead of a silent empty turn.
+_LAST_FAILURES: weakref.WeakKeyDictionary[Future[str], str] = weakref.WeakKeyDictionary()
 _TURN_EFFORTS: dict[Grant, str] = {}
 _COOLDOWNS: OrderedDict[tuple[str, str, str], float] = OrderedDict()
 _DEFAULT_COOLDOWN_S: Final = 30.0
@@ -445,6 +450,14 @@ def watch_failure(token: str, *, effort: str = "") -> Future[str]:
         return signal
 
 
+def last_failure(signal: Future[str] | None) -> str:
+    """The last recoverable failure the gateway saw for this turn ("" for none)."""
+    if signal is None:
+        return ""
+    with _LOCK:
+        return _LAST_FAILURES.get(signal, "")
+
+
 def unwatch_failure(token: str, signal: Future[str]) -> None:
     with _LOCK:
         grant = _GRANTS.get(token)
@@ -551,6 +564,9 @@ def _report_failure(
         failure = _limited(grant.provider, seconds)
     from dodaios.agent_runtimes.provider_errors import is_terminal
 
+    if signal is not None and not is_terminal(failure.code):
+        with _LOCK:
+            _LAST_FAILURES[signal] = str(failure)
     # Recoverable failures stay with the runtime for retry or compression.
     if signal is not None and is_terminal(failure.code):
         # A request captures its turn's signal before awaiting the provider.
