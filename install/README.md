@@ -189,7 +189,7 @@ on macOS at all:
 | Variable                  | Effect |
 |---------------------------|--------|
 | `JARVIS_INSTALL_REPO`     | Clone from a fork instead of the upstream repo. |
-| `JARVIS_INSTALL_REF`      | Use a branch/tag/SHA other than `main`. |
+| `JARVIS_INSTALL_REF`      | Install this branch/tag instead of the newest published release (falls back to `main` when no release can be looked up). |
 | `JARVIS_INSTALL_DIR`      | Install to a directory other than `~/.personal-jarvis`. |
 | `JARVIS_INSTALL_PREREQS`  | `ask` (default), `auto` (explicit unattended consent), or `never`. |
 | `JARVIS_PYTHON`           | Use one explicit Python interpreter; the pin is authoritative. |

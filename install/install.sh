@@ -59,7 +59,8 @@ CONFIG_FILE_NAME="dodaios.toml"
 # An install keeps a config file under this earlier name; it is never renamed.
 LEGACY_CONFIG_FILE_NAME="jarvis.toml"
 MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
-BRANCH="${JARVIS_INSTALL_REF:-main}"
+# Empty = the newest published release (resolve_install_ref below).
+BRANCH="${JARVIS_INSTALL_REF:-}"
 # --- install-dir-choice begin (extracted by tests/unit/install/test_install_dir_move.py)
 # The checkout lives in ~/.dodaios. An install made under the earlier name
 # keeps its directory for as long as that is a real directory, and an update
@@ -1000,6 +1001,39 @@ pretty_git() {
     "$@" </dev/null
 }
 
+# --- install-ref begin (extracted by tests/unit/install/test_install_ref.py)
+# Without JARVIS_INSTALL_REF an install follows the newest published release,
+# the same thing the in-app updater moves to. A release tag carries the
+# frontend bundle built from its own sources; main does not have to. main is
+# the fallback when the release cannot be looked up (offline API, a fork
+# without releases, no curl).
+resolve_install_ref() {
+    [ -n "$BRANCH" ] && return 0
+    BRANCH=main
+    command -v curl >/dev/null 2>&1 || return 0
+    case "$REPO_URL" in
+        *github.com/*) ;;
+        *) return 0 ;;
+    esac
+    _ref_slug="${REPO_URL#*github.com/}"
+    _ref_slug="${_ref_slug%.git}"
+    _ref_tag="$(curl -fsSL --max-time 20 -H 'Accept: application/vnd.github+json' \
+        "${INSTALLER_TEST_RELEASE_API:-https://api.github.com}/repos/$_ref_slug/releases/latest" 2>/dev/null \
+        | sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)" || _ref_tag=''
+    if printf '%s' "$_ref_tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+        BRANCH="$_ref_tag"
+    fi
+}
+
+# codeload path of the ref: a release tag or a branch.
+ref_archive_path() {
+    case "$BRANCH" in
+        v[0-9]*) printf 'refs/tags/%s' "$BRANCH" ;;
+        *) printf 'refs/heads/%s' "$BRANCH" ;;
+    esac
+}
+# --- install-ref end
+
 clone_with_retry() {
     note 'downloading ~80 MB - a few minutes on slow connections'
     _attempt=1
@@ -1046,7 +1080,7 @@ tarball_fallback() {
     # The archive's current name first; releases cut before the rename only
     # carry the earlier one.
     _asset_names='dodaios-src.tar.gz personal-jarvis-src.tar.gz'
-    _snapshot_url="https://codeload.github.com/$_repo_path/tar.gz/refs/heads/$BRANCH"
+    _snapshot_url="https://codeload.github.com/$_repo_path/tar.gz/$(ref_archive_path)"
     if [ -n "${JARVIS_PAYLOAD_COMMIT:-}" ]; then
         # A verified install is pinned to ONE signed commit; the "latest"
         # release asset cannot honor that pin, so go straight to the
@@ -1277,7 +1311,7 @@ migrate_install_dir() {
     MIGRATE_LEGACY_INSTALL_DIR=0
     _mig_engine="$(mktemp "${TMPDIR:-/tmp}/dodaios-identity-migration.XXXXXX" 2>/dev/null)" || return 0
     _mig_report=''
-    if git -C "$INSTALL_DIR" show "origin/$BRANCH:$IDENTITY_ENGINE_PATH" \
+    if git -C "$INSTALL_DIR" show "FETCH_HEAD:$IDENTITY_ENGINE_PATH" \
         </dev/null >"$_mig_engine" 2>/dev/null && [ -s "$_mig_engine" ]; then
         _mig_report="$(cd "$HOME" && "$PYTHON_EXE" -I -B "$_mig_engine" migrate \
             "$LEGACY_INSTALL_DIR" "$CURRENT_INSTALL_DIR" </dev/null 2>/dev/null)" || _mig_report=''
@@ -1310,6 +1344,9 @@ migrate_install_dir() {
     # --- migrate-install-dir end
     return 0
 }
+
+resolve_install_ref
+note "installing $BRANCH"
 
 # The fetch only writes inside .git, so the app keeps running through it: a
 # failed download (offline, an outage) then leaves a working app behind. It is
