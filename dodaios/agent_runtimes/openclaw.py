@@ -98,8 +98,11 @@ _DOCTOR_TIMEOUT_S: Final[float] = 120.0
 _EXIT_CONFIG: Final[int] = 78
 
 #: Node.js for Jarvis' private copy (the release OpenClaw's own user-space
-#: installer pins; inside the engine range below).
-_PRIVATE_NODE_VERSION: Final[str] = "24.21.0"
+#: installer pins; inside the engine range below). OpenClaw's live
+#: ``install.ps1`` refuses a private Node older than 24.22.1 / 26.12.1 since
+#: 2026-10-27 (node:sqlite NUL truncation, nodejs/node#61954), so a lower
+#: ``-NodeVersion`` fails every Windows install, pinned release or not.
+_PRIVATE_NODE_VERSION: Final[str] = "24.22.1"
 
 #: The embedding preset from OpenClaw's embedding guide.
 _EMBED_ENV: Final[dict[str, str]] = {

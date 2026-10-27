@@ -516,6 +516,17 @@ def test_installers_are_pinned_and_skip_the_browser_and_desktop_control(monkeypa
         assert "update" not in (hermes.HermesRuntime().update_command() or [])
 
 
+def test_the_private_node_meets_the_openclaw_installer_floor():
+    """OpenClaw's install.ps1 rejects a ``-NodeVersion`` below 24.22.1 on the
+    Node 24 line (2026-10-27): every Windows install failed until raised."""
+    from dodaios.agent_runtimes import openclaw
+    from dodaios.agent_runtimes.versions import parse_version
+
+    version = parse_version(openclaw._PRIVATE_NODE_VERSION)
+    assert version is not None and version >= (24, 22, 1)
+    assert openclaw._node_supported(version)
+
+
 def test_the_windows_openclaw_install_runs_npm_scripts_on_the_private_node(monkeypatch):
     """npm runs OpenClaw's preinstall via ``cmd /c node``; CI's system Node 22
     was picked and rejected (2026-10-07). The private Node must come first."""
