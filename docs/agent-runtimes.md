@@ -369,17 +369,26 @@ replayed during `session/load` is swallowed because the chat already shows it.
   model to search, describe and call through `tool_search` / `tool_describe` /
   `tool_call` and to answer greetings directly; a resumed session's pinned
   eager tool catalog is invalidated first (`tool_snapshot.py`) so the deferred
-  configuration takes effect. OpenClaw offers the tools directly
-  (`tools.toolSearch: false`) on every route but the ChatGPT subscription: a
-  9B local model never found deferred tools there. On the subscription it uses
-  OpenClaw's structured Tool Search (`tools.toolSearch: {mode: "tools"}`):
-  ChatGPT's backend accepted a turn carrying the whole inline catalog (~400
-  tools, ~580 KB of schemas) with HTTP 200 and then ended it as
+  configuration takes effect. OpenClaw decides per route
+  (`openclaw._tool_search`): it uses its structured Tool Search
+  (`tools.toolSearch: {mode: "tools"}`, the three controls plus a bounded
+  directory OpenClaw sizes to the window) on the ChatGPT subscription, on a
+  model server the person runs (Ollama, a local OpenAI server), on any window
+  below 128k tokens, and wherever the live catalog's inline schemas (estimated
+  from Dodaios' MCP catalog at about four characters per token) would take more
+  than a quarter of the window. Only a large cloud window whose catalog fits
+  gets the schemas directly (`tools.toolSearch: false`). Live 2026-10-27, a
+  qwen3.5:9b agent on a 64k Ollama window carried ~239 plugin tools inline
+  (`estimatedPromptTokens=225052`), overflowed before answering "ok", and its
+  compaction timed out after 180 s; deferred, the same catalog makes a 34 KB
+  request of 12 tools that Ollama counts as 8,384 prompt tokens. On the
+  subscription, ChatGPT's backend accepted a turn carrying the whole inline
+  catalog (~400 tools, ~580 KB of schemas) with HTTP 200 and then ended it as
   `response.incomplete` (`max_output_tokens`, zero usage) on every retry.
-  Size alone is not the trigger: 400 synthetic tools (~210k tokens) passed,
-  while every failing slice of the live catalog held its only `oneOf` schemas
-  (Linear's `save_*` tools), so deferring keeps third-party schema shapes off
-  the backend's function list.
+  Size alone is not the trigger there: 400 synthetic tools (~210k tokens)
+  passed, while every failing slice of the live catalog held its only `oneOf`
+  schemas, so deferring keeps third-party schema shapes off the backend's
+  function list. The Claude CLI route keeps its own tool surface.
 - **Subscription stream failures:** a failure the backend reports inside an
   accepted stream (`error`, `response.failed`, `response.incomplete`) is logged
   with its event type, code, reason and a short redacted message

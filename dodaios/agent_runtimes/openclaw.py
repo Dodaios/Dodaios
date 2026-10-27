@@ -589,7 +589,9 @@ class OpenClawRuntime:
             "tools": {
                 "deny": denied,
                 "exec": {"mode": exec_mode},
-                "toolSearch": _tool_search(route.transport),
+                "toolSearch": _tool_search(
+                    route, _inline_catalog_tokens() if turn.mcp_url and turn.control_key else 0
+                ),
             },
             # The agent's log stays in its own folder, never in the shared
             # temp-folder log every OpenClaw on the machine appends to.
@@ -833,7 +835,8 @@ class OpenClawRuntime:
             ).hexdigest()
             current = self._gateways.get(key)
             port = current.port if current is not None and current.alive() else _free_port()
-            config = self.config_for(turn, port=port, token=token)
+            # Off the event loop: the config sizes the live tool catalog.
+            config = await asyncio.to_thread(self.config_for, turn, port=port, token=token)
             changed = await asyncio.to_thread(
                 write_json_if_changed, home / "openclaw.json", config
             )
@@ -895,11 +898,8 @@ class OpenClawRuntime:
                 # The port was taken before the Gateway bound it: once more on a
                 # fresh port.
                 port = _free_port()
-                await asyncio.to_thread(
-                    write_json_if_changed,
-                    home / "openclaw.json",
-                    self.config_for(turn, port=port, token=token),
-                )
+                config = await asyncio.to_thread(self.config_for, turn, port=port, token=token)
+                await asyncio.to_thread(write_json_if_changed, home / "openclaw.json", config)
                 gateway = await self._spawn_until_ready(
                     key, home, port, env_hash, launcher, env, lock, last_try=True
                 )
@@ -1064,23 +1064,77 @@ def _use_claude_cli(config: dict[str, Any], turn: RuntimeTurn) -> None:
         tools["deny"] = [*tools["deny"], "exec", "process"]
 
 
-def _tool_search(transport: str) -> Any:
-    """``tools.toolSearch``: deferred schemas on the ChatGPT subscription only.
+#: Windows below this always get deferred tool schemas: OpenClaw's own system
+#: prompt and native tools already take a large share of them.
+_SMALL_WINDOW: Final = 128_000
+#: The largest share of the window an inline tool catalog may take; the rest
+#: is the conversation, OpenClaw's own prompt and the reply.
+_INLINE_CATALOG_SHARE: Final = 0.25
+#: Characters per token for the catalog estimate (JSON schemas, English text).
+_CHARS_PER_TOKEN: Final = 4
 
-    Every other route gets Jarvis' tools directly (OpenClaw turns tool search
-    on by default for local models; smaller models miss deferred tools). The
-    subscription's backend ends a request carrying the whole inline catalog
-    (live 2026-10-27: ~400 tools, ~580 KB of schemas from the person's
-    connected plugins) as ``response.incomplete`` before any output, on every
-    retry. Size alone is not the trigger (400 synthetic tools at ~210k tokens
-    passed); the failing slices all held the only ``oneOf`` schemas in the
-    catalog, which points at a schema shape the backend refuses inline.
-    Hermes on the same seat defers its tools behind ``tool_search`` and
-    answers. The structured mode keeps every tool callable through
-    ``tool_search`` / ``tool_describe`` / ``tool_call``, and no third-party
-    schema reaches the backend as a function declaration.
+
+def _inline_catalog_tokens() -> int:
+    """An estimate of what Dodaios' MCP tools cost as inline schemas.
+
+    Counted from the live tool catalog (names, descriptions, input schemas),
+    so a person with many connected plugins gets the real size. ``0`` when
+    the catalog cannot be read: nothing is offered then.
     """
-    return {"mode": "tools"} if transport == "responses" else False
+    try:
+        from dodaios.mcp.dodaios_tools_server import offered_tools
+
+        entries = offered_tools()
+    except Exception:  # noqa: BLE001 — an unreadable catalog offers nothing
+        log.debug("agent runtimes: tool catalog size unavailable", exc_info=True)
+        return 0
+    chars = 0
+    for entry in entries:
+        try:
+            schema = json.dumps(getattr(entry, "input_schema", None) or {}, default=str)
+        except (TypeError, ValueError):  # an unserializable schema only counts its name and description
+            schema = ""
+        chars += len(str(entry.name)) * 2 + len(str(entry.description or "")) + len(schema) + 32
+    return chars // _CHARS_PER_TOKEN
+
+
+def _tool_search(route: Any, catalog_tokens: int) -> Any:
+    """``tools.toolSearch``: deferred tool schemas wherever inline ones do not fit.
+
+    Deferred (``{"mode": "tools"}``) keeps every tool callable through
+    ``tool_search`` / ``tool_describe`` / ``tool_call`` behind a bounded
+    directory that OpenClaw sizes to the model's window. It is chosen when:
+
+    - the route is the ChatGPT subscription (``responses``): its backend ends
+      a request carrying the whole inline catalog (live 2026-10-27: ~400
+      tools, ~580 KB of schemas) as ``response.incomplete`` before any output;
+      the failing slices all held the catalog's only ``oneOf`` schemas;
+    - the model runs on the person's own server (Ollama, a local OpenAI
+      server): prefill of a large catalog is slow there, and live 2026-10-27
+      ~239 inline tools estimated 225k tokens against a 64k Ollama window, so
+      even "ok" overflowed and compaction timed out;
+    - the window is small (below :data:`_SMALL_WINDOW`);
+    - the inline catalog would take more than :data:`_INLINE_CATALOG_SHARE`
+      of the window.
+
+    Otherwise a large cloud window gets the schemas directly: no discovery
+    round-trips, and smaller catalogs are cheaper inline. The Claude CLI route
+    runs its own tool surface and keeps direct schemas.
+    """
+    from dodaios.agent_runtimes.model_map import is_local
+
+    transport = getattr(route, "transport", "")
+    if transport == "claude_cli":
+        return False
+    window = int(getattr(route, "context_window", 0) or 0)
+    if (
+        transport == "responses"
+        or is_local(str(getattr(route, "provider", "")))
+        or window < _SMALL_WINDOW
+        or catalog_tokens > window * _INLINE_CATALOG_SHARE
+    ):
+        return {"mode": "tools"}
+    return False
 
 
 def _declared_efforts(turn: RuntimeTurn) -> dict[str, Any]:
