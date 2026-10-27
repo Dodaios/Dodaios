@@ -63,17 +63,19 @@ jobs:
           retention-days: 14
 
   # Only what passed on all three OSes is recorded; a runtime with a red or
-  # missing OS keeps its pin (bump_from). A pull request opened with the
-  # workflow token starts no workflow by itself: CI runs when the merge train
-  # or a maintainer dispatches it, and that run is the pin's admission.
+  # missing OS keeps its pin (bump_from). The repository does not let the
+  # workflow token open pull requests ("GitHub Actions is not permitted to
+  # create or approve pull requests", run 40503244162), so the merge bot app
+  # pushes the branch and opens it, like contributors.yml and
+  # frontend-bundle.yml; its token also starts the pull request's CI, which
+  # is the pin's admission. A maintainer merges it.
   raise-pin:
     needs: canary
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -85,13 +87,27 @@ jobs:
       - name: Raise the pins every OS agreed on
         id: bump
         run: python3 scripts/ci/agent_runtime_suite.py --bump-from reports
+      - name: Mint a merge bot token
+        id: bot
+        if: steps.bump.outputs.changed == 'true' && vars.MERGE_APP_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.MERGE_APP_ID }}
+          private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
       - name: Open a pull request with the new pins
         if: steps.bump.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::MERGE_APP_ID is not set, so no pull request can raise the pins (see merge-train.yml)."
+            exit 1
+          fi
           branch="ci/agent-runtime-pins-${GITHUB_RUN_ID}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
