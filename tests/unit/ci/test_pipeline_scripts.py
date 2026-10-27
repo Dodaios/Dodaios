@@ -463,6 +463,65 @@ def test_ratchet_blocks_only_new_failures(tmp_path):
     assert ratchet_tests.main(["check", "--baseline", str(baseline), str(new)]) == 1
 
 
+def test_nothing_starts_after_the_shard_deadline(tmp_path):
+    from types import SimpleNamespace
+
+    runner = run_tests_parallel.Runner(SimpleNamespace(deadline_minutes=1), {}, tmp_path)
+    runner.deadline = 0.0  # long past
+
+    result = runner.run(["t/test_late.py"], 300.0)
+
+    assert result.timed_out and not result.ok
+    assert result.failed_ids == ["t/test_late.py::<shard deadline>"]
+    assert not list(tmp_path.glob("run-*.log"))  # no process was started
+
+
+def test_a_hang_is_stopped_at_the_shard_deadline_not_its_batch_budget(tmp_path):
+    """The batch budget (up to 30 min) plus retries outlasted the job timeout;
+    the shard deadline stops the process so the report names the file."""
+    import time
+    from types import SimpleNamespace
+
+    repo = run_tests_parallel.REPO_ROOT
+    rel = Path(f"tests/unit/ci/_runner_hang_{tmp_path.name}")
+    probe = repo / rel
+    probe.mkdir()
+    try:
+        (probe / "test_probe_hang.py").write_text(
+            "import time\n\ndef test_hang():\n    time.sleep(120)\n"
+        )
+        args = SimpleNamespace(deadline_minutes=1, markers="", pytest_args="")
+        runner = run_tests_parallel.Runner(args, {}, tmp_path)
+        runner.deadline = time.monotonic() + 3
+        started = time.monotonic()
+        result = runner.run([(rel / "test_probe_hang.py").as_posix()], 1800.0)
+    finally:
+        shutil.rmtree(probe, ignore_errors=True)
+    assert result.timed_out
+    assert time.monotonic() - started < 60
+
+
+def test_every_ci_shard_deadline_ends_before_its_job_timeout():
+    import re
+
+    import yaml
+
+    path = run_tests_parallel.REPO_ROOT / ".github" / "workflows" / "ci.yml"
+    jobs = yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]
+    seen = 0
+    for name, job in jobs.items():
+        for step in job.get("steps", []):
+            run = str(step.get("run", ""))
+            if "run_tests_parallel.py" not in run:
+                continue
+            match = re.search(r"--deadline-minutes\s+([0-9.]+)", run)
+            assert match, f"{name}: the shard has no --deadline-minutes"
+            # Room for checkout, install, the ratchet and the report upload.
+            assert float(match.group(1)) <= job["timeout-minutes"] - 6, name
+            seen += 1
+    assert seen >= 4
+
+
 def test_ratchet_matches_timeouts_regardless_of_budget(tmp_path):
     baseline = tmp_path / "b.json"
     baseline.write_text(
