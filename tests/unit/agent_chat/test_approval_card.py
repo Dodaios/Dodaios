@@ -858,3 +858,56 @@ def test_the_route_takes_a_narrow_rule(tmp_path: Path):
             url, json={"decision": "allow_always", "scope": "agent", "narrow": "folder"}
         )
         assert wrong_scope.status_code == 400
+
+
+def test_a_narrow_rule_that_cannot_be_saved_never_widens(tmp_path: Path):
+    """"Only this folder" on a call that has no folder: this call runs once,
+    the tool and the chat keep asking."""
+
+    async def scenario() -> None:
+        svc, session = _service(tmp_path)
+        sid = session.session_id
+        q = svc.subscribe(sid)
+        asking = asyncio.create_task(
+            svc._ask(sid, "t1", "c1", "Bash", {"command": "npm test"}, "npm test")  # noqa: SLF001
+        )
+        payload = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(
+            sid, payload["approval_id"], "allow_always", scope="chat", narrow="folder"
+        )
+        assert await asyncio.wait_for(asking, 2) == "allow"
+        assert "Bash" not in svc.always_allowed(sid)
+        assert svc.store.get_session(sid).permission_mode == "ask"  # type: ignore[union-attr]
+        again = asyncio.create_task(
+            svc._ask(sid, "t1", "c2", "Bash", {"command": "npm test"}, "")  # noqa: SLF001
+        )
+        card = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(sid, card["approval_id"], "deny")
+        assert await asyncio.wait_for(again, 2) == "deny"
+
+    asyncio.run(scenario())
+
+
+def test_a_narrow_rule_on_an_own_server_tool_matches_its_later_calls():
+    from dodaios.agent_chat.approval_card import narrow_matches, narrow_tool
+
+    rule = {"tool": narrow_tool("mcp__dodaios__shell"), "kind": "command", "value": "ls"}
+    assert narrow_matches(rule, "mcp__jarvis__shell", {"command": "ls"})
+    other = {"tool": narrow_tool("mcp__fs__shell"), "kind": "command", "value": "ls"}
+    assert narrow_matches(other, "mcp__fs__shell", {"command": "ls"})
+    assert not narrow_matches(other, "mcp__evil__shell", {"command": "ls"})
+
+
+def test_the_home_folder_is_never_offered_as_only_this_folder(tmp_path: Path):
+    from dodaios.agent_chat.approval_card import narrow_options
+
+    home = str(tmp_path / "home")
+    at_home = narrow_options("files", {"file_path": str(tmp_path / "home" / "x.txt")}, "", home)
+    assert at_home == []
+    above = narrow_options("files", {"file_path": str(tmp_path / "y.txt")}, "", home)
+    assert above == []
+    deeper = narrow_options(
+        "files", {"file_path": str(tmp_path / "home" / "proj" / "z.txt")}, "", home
+    )
+    assert deeper and deeper[0]["value"] == str(tmp_path / "home" / "proj")
+    assert deeper[0]["label"].replace("\\", "/") == "~/proj"

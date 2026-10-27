@@ -254,10 +254,26 @@ def _absolute(path: str, cwd: str) -> str:
     return os.path.normpath(str(raw))
 
 
-def narrow_options(kind: str, args: dict[str, Any], cwd: str = "") -> list[dict[str, str]]:
+def _holds_home(folder: str, home: str | None = None) -> bool:
+    """Whether ``folder`` is the home folder or one above it: far too wide to
+    read as "only this folder"."""
+    home_dir = home if home is not None else str(Path.home())
+    if not home_dir:
+        return False
+    root = os.path.normcase(os.path.normpath(folder))
+    try:
+        return os.path.commonpath([root, os.path.normcase(os.path.normpath(home_dir))]) == root
+    except ValueError:  # another drive
+        return False
+
+
+def narrow_options(
+    kind: str, args: dict[str, Any], cwd: str = "", home: str | None = None
+) -> list[dict[str, str]]:
     """The narrower chat rules a card may save for this call.
 
-    ``folder``: this tool, for files inside the folder of the path it touches.
+    ``folder``: this tool, for files inside the folder of the path it touches
+    (never the home folder itself or one above it).
     ``command``: this exact command, nothing else. ``value`` is what a later
     call is matched against; ``label`` is how the card shows it.
     """
@@ -266,8 +282,8 @@ def narrow_options(kind: str, args: dict[str, Any], cwd: str = "") -> list[dict[
         paths = _call_paths(args)
         if paths:
             folder = os.path.dirname(_absolute(paths[0], cwd))
-            if folder and folder != os.path.dirname(folder):
-                shown = display_paths(folder, cwd)
+            if folder and folder != os.path.dirname(folder) and not _holds_home(folder, home):
+                shown = display_paths(folder, cwd, home)
                 out.append({"kind": "folder", "value": folder, "label": shown[:_LINE_CHARS]})
     elif kind == "terminal":
         command = " ".join(_command_text(args).split())
@@ -277,10 +293,14 @@ def narrow_options(kind: str, args: dict[str, Any], cwd: str = "") -> list[dict[
     return out
 
 
+def narrow_tool(name: str) -> str:
+    """The tool name a narrow chat rule is saved under and matched against."""
+    return own_cli_tool(name) or name
+
+
 def narrow_matches(rule: dict[str, str], name: str, args: dict[str, Any], cwd: str = "") -> bool:
     """Whether a saved narrow chat rule covers this call (same tool, same reach)."""
-    bare = own_cli_tool(name) or name
-    if str(rule.get("tool") or "").lower() != bare.lower():
+    if str(rule.get("tool") or "").lower() != narrow_tool(name).lower():
         return False
     value = str(rule.get("value") or "")
     if not value:
@@ -485,6 +505,7 @@ __all__ = [
     "mask_secrets",
     "narrow_matches",
     "narrow_options",
+    "narrow_tool",
     "request_detail",
     "rule_offer",
     "source_of",
