@@ -71,7 +71,7 @@ A long main corridor (the hexagonal-profile corridor) with rooms off both sides.
 | Area | Rect | Contents |
 |---|---|---|
 | Hangar wall | 0–100, 0–3 | Full-height hangar wall: huge closed blast doors with a pressure frame, gantry rails, deck lights. |
-| Flight deck | 3–97, 3–46 | Vast floor of large plates with painted landing markings; a recessed launch well in the floor (30 × 12 m) covered by a faint blue containment field over darkness (never stars); the shuttle (≈ 20 m, original armed design, swept wings out) on a pad (`SOCKET_spawn_arrival` at its ramp), its cabin walkable up the ramp (room `shuttle`: ramp corridor, troop bay, cockpit); cargo containers and pallets in ordered rows; fuel lines; tow drone. |
+| Flight deck | 3–97, 3–46 | Vast floor of large plates with painted landing markings; a recessed launch well in the floor (30 × 12 m) covered by a faint blue containment field over darkness (never stars); the shuttle (≈ 20 m, original armed design, swept wings out) on a pad (`SOCKET_spawn_arrival` at its ramp), its cabin walkable up the railed ramp (room `shuttle`: ramp corridor, troop bay, cockpit); cargo containers and pallets in ordered rows; fuel lines; tow drone. |
 | Control booth | 3–25, 47–60 | Raised booth behind a window wall (cut at 1.1 m) with consoles facing −z toward the flight deck (an exception: seen from behind). |
 | Arrivals desk | 40–60, 47–60 | Counter and terminal (station kind `create_agent`): new agents come off the shuttle and report here. |
 | Turbolift lobby | 64–76, 48–60 | Lift, spawn. |
