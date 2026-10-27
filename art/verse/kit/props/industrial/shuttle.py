@@ -309,6 +309,10 @@ def build_shuttle() -> None:
     ramp = K.MeshBuilder()
     _ramp(ramp)
     ramp.build("SM_Hangar_Shuttle_ramp", bevel_width=0.01, nav="walk")  # crew walk up it
+    rails = K.MeshBuilder()
+    _ramp_rails(rails)
+    # The ramp's open sides already end the walkable floor; the rails only show it.
+    rails.build("SM_Hangar_Shuttle_ramp_rails", bevel_width=0.004, nav="none")
     intake = K.MeshBuilder()  # fuel intake on the starboard sponson (hoses end here)
     intake.box((3.05, -5.9, 1.55), (3.1, -5.1, 2.05), m("dark_steel"))
     intake.tube((3.1, -5.5, 1.8), (3.28, -5.5, 1.8), 0.11, m("gunmetal"), 14)
@@ -723,6 +727,41 @@ def _ramp(mb):
             metal,
             10,
         )
+
+
+def _ramp_rails(mb):
+    """Hand rails down both sides of the ramp: you can see you cannot step off it.
+
+    Vertical gunmetal posts stand on the side skirts; a top rail at hand
+    height and a knee rail run parallel to the ramp, and a small amber lamp
+    marks each post head.
+    """
+    hy, hz = RAMP_HINGE
+    ang = math.asin(hz / RAMP_LENGTH)
+    hw = RAMP_WIDTH / 2
+    skirt = 0.12  # top of the side skirts above the ramp plate
+    top, knee = 0.95, 0.5  # rail heights above the ramp surface
+
+    def on_ramp(t, x, lift):
+        """World point `t` metres down the ramp from the hinge, `lift` metres above it."""
+        return (x, hy - t * math.cos(ang), hz - t * math.sin(ang) + lift)
+
+    stations = (0.2, 1.55, 2.9, 4.2)
+    metal = m("gunmetal")
+    for sx in (-1, 1):
+        x = sx * (hw - 0.035)
+        for t in stations:
+            base = on_ramp(t, x, skirt)
+            head = on_ramp(t, x, top + 0.03)
+            mb.box((x - 0.03, base[1] - 0.03, base[2]), (x + 0.03, base[1] + 0.03, head[2]), metal)
+            mb.box(
+                (x - 0.022, head[1] - 0.022, head[2]),
+                (x + 0.022, head[1] + 0.022, head[2] + 0.025),
+                m("lamp_amber"),
+            )
+        a, b = stations[0], stations[-1]
+        mb.tube(on_ramp(a - 0.12, x, top), on_ramp(b + 0.08, x, top), 0.026, metal, 14)
+        mb.tube(on_ramp(a, x, knee), on_ramp(b, x, knee), 0.014, metal, 10)
 
 
 def _cockpit(mb, secs):
