@@ -1,5 +1,5 @@
 /**
- * The Agents shell (roster rail, filters, section titles, "New agent") paints
+ * The Agents shell (roster rail, search, "New agent") paints
  * before the lazy `society` chunk arrives, so its strings live in the main
  * locale files: no raw `society.shell.*` key may ever render on first load.
  */
@@ -32,7 +32,7 @@ describe("the Agents shell's first paint", () => {
   }
 
   it("finds the shell's keys", () => {
-    for (const key of ["society.shell.filter_all", "society.shell.filter_needs_you", "society.shell.filter_unread", "society.shell.section_teams", "society.shell.section_agents", "society.shell.new_agent"]) {
+    for (const key of ["society.shell.new_agent", "society.shell.section_agents", "society.shell.section_teams", "society.roster.search"]) {
       expect(keys.has(key)).toBe(true);
     }
   });
