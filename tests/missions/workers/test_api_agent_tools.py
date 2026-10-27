@@ -274,7 +274,7 @@ def test_frozen_python_never_resolves_to_jarvis_executable(
     monkeypatch.setattr(aat.sys, "executable", jarvis_exe)
     monkeypatch.setattr(aat.shutil, "which", lambda *_args, **_kwargs: jarvis_exe)
 
-    with pytest.raises(aat.CommandPolicyError, match="Jarvis.exe will never"):
+    with pytest.raises(aat.CommandPolicyError, match="the app executable will never"):
         aat._resolve_program("python", {"PATH": "unused"})
 
 
