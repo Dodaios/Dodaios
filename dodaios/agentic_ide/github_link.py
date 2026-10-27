@@ -31,6 +31,7 @@ from typing import Any
 
 from loguru import logger
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.http_pool import SyncHttpClientPool
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
@@ -122,7 +123,7 @@ def graphql(token: str, query: str, variables: dict[str, Any] | None = None) -> 
             headers={
                 "Authorization": f"Bearer {token}",
                 "Accept": "application/vnd.github+json",
-                "User-Agent": "PersonalJarvis",
+                "User-Agent": HTTP_USER_AGENT,
             },
         )
     except Exception as exc:  # network down, DNS, TLS: one sentence for all

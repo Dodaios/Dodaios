@@ -42,6 +42,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from urllib.parse import urlsplit
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
 from ._playlist_match import is_liked_name, match_playlist
@@ -651,7 +652,7 @@ class YouTubeMusicRestTool:
         token = self._token_provider()
         if not token:
             return None
-        return {"Authorization": f"Bearer {token}", "User-Agent": "Personal-Jarvis/1.0"}
+        return {"Authorization": f"Bearer {token}", "User-Agent": HTTP_USER_AGENT}
 
     async def _with_auth_retry(
         self, do_call: Callable[[dict[str, str]], Awaitable[Any]]

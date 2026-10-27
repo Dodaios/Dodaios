@@ -57,15 +57,15 @@
 ; The product's earlier name: the Start-menu group and the shortcuts an
 ; earlier release created are spelled this way.
 #define LegacyAppName "Personal Jarvis"
-; TODO(signpath): the SignPath artifact configuration pins the setup file's
-; product name (docs/code-signing-policy.md). It keeps the earlier value until
-; the maintainer updates that configuration; then set it to the AppName.
-#define SignedProductName "Personal Jarvis"
-; The same SignPath configuration pins the setup's FILE name, so the setup is
-; built and signed under the earlier name. The release publishes a
-; byte-identical Dodaios-Setup-x64.exe next to it, copied after signing
-; (scripts/ci/installer_aliases.py).
-#define SignedSetupBaseName "PersonalJarvis-Setup-x64"
+; The setup's signed identity: the product name in its file properties (and
+; on a UAC prompt) and its file name. A SignPath artifact configuration pins
+; both (docs/code-signing-policy.md), so they must always equal its
+; product-name and path values, and the workflow's SIGNED_SETUP_NAME
+; (.github/workflows/desktop-installers.yml). The release publishes a
+; byte-identical PersonalJarvis-Setup-x64.exe next to it for installs from
+; before the rename (scripts/ci/installer_aliases.py).
+#define SignedProductName "Dodaios"
+#define SignedSetupBaseName "Dodaios-Setup-x64"
 #define CliExeName "dodaios.exe"
 ; The command's earlier name. The bundle ships it beside CliExeName, in the
 ; same folder the PATH task adds, so both names work in a terminal.
@@ -79,7 +79,7 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 VersionInfoVersion={#AppVersion}
-; Pinned rather than derived from AppName: see SignedProductName above.
+; What the signing configuration checks: see SignedProductName above.
 VersionInfoProductName={#SignedProductName}
 VersionInfoDescription={#SignedProductName} Setup
 AppPublisher={#AppPublisher}

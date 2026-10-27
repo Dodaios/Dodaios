@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.marketplace.auth.base import (
     ERROR_DENIED,
     ERROR_PROVIDER_UNREACHABLE,
@@ -89,7 +90,7 @@ class DeviceFlowHandler:
                     data=body,
                     headers={
                         "Accept": "application/json",
-                        "User-Agent": "Personal-Jarvis/1.0",
+                        "User-Agent": HTTP_USER_AGENT,
                     },
                 )
         except httpx.HTTPError as exc:
@@ -177,7 +178,7 @@ class DeviceFlowHandler:
                         },
                         headers={
                             "Accept": "application/json",
-                            "User-Agent": "Personal-Jarvis/1.0",
+                            "User-Agent": HTTP_USER_AGENT,
                         },
                     )
             except httpx.HTTPError as exc:
@@ -251,7 +252,7 @@ class DeviceFlowHandler:
                     },
                     headers={
                         "Accept": "application/json",
-                        "User-Agent": "Personal-Jarvis/1.0",
+                        "User-Agent": HTTP_USER_AGENT,
                     },
                 )
         except httpx.HTTPError:

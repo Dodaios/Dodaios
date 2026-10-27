@@ -18,9 +18,9 @@
 # PersonalJarvis-Linux-x86_64.AppImage) with identical bytes: installs frozen
 # before the rename only look for that name. The release job makes the copies
 # after signing (scripts/ci/installer_aliases.py) and the checksum manifest
-# lists both names. The Windows setup is built and signed under the earlier
-# name, because the SignPath artifact configuration pins it
-# (docs/code-signing-policy.md); its current name is the copy.
+# lists both names. The earlier names are a compatibility measure with a
+# planned end and one switch (PUBLISH_EARLIER_INSTALLER_NAMES in
+# scripts/ci/release_assets.py, docs/rename/migration-plan.md).
 #
 # Each OS job runs the SAME script a maintainer runs locally
 # (packaging/<os>/build.*), so a green run here means the documented command
@@ -107,6 +107,10 @@ jobs:
       # SignPath Foundation (free OSS certificate). Needs the API token secret
       # plus three repository variables; any one missing leaves the path dormant.
       HAS_SIGNPATH_SIGNING: ${{ github.ref_type == 'tag' && secrets.SIGNPATH_API_TOKEN != '' && vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_PROJECT_SLUG != '' && vars.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
+      # The setup's file name: SignedSetupBaseName in packaging/windows/Dodaios.iss
+      # and the path the SignPath artifact configuration pins
+      # (docs/code-signing-policy.md). All three change together.
+      SIGNED_SETUP_NAME: Dodaios-Setup-x64.exe
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -186,7 +190,7 @@ jobs:
           # Deliberately outside the `installer-*` pattern the release job
           # downloads: only the verified, signed file may ship.
           name: signpath-unsigned-windows-x64
-          path: dist/installers/PersonalJarvis-Setup-x64.exe
+          path: dist/installers/${{ env.SIGNED_SETUP_NAME }}
           if-no-files-found: error
           retention-days: 1
 
@@ -213,9 +217,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $signed = Join-Path $env:RUNNER_TEMP 'signpath-signed/PersonalJarvis-Setup-x64.exe'
+          $signed = Join-Path $env:RUNNER_TEMP "signpath-signed/$env:SIGNED_SETUP_NAME"
           if (-not (Test-Path -LiteralPath $signed)) {
-            Write-Host "::error::SignPath returned no PersonalJarvis-Setup-x64.exe"
+            Write-Host "::error::SignPath returned no $env:SIGNED_SETUP_NAME"
             Get-ChildItem -Recurse (Split-Path $signed) | ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
@@ -233,7 +237,7 @@ jobs:
             Write-Host "::error::The signature carries no timestamp and would expire with the certificate"
             exit 1
           }
-          Copy-Item -LiteralPath $signed -Destination dist/installers/PersonalJarvis-Setup-x64.exe -Force
+          Copy-Item -LiteralPath $signed -Destination "dist/installers/$env:SIGNED_SETUP_NAME" -Force
           Write-Host "::notice::Installer signed by SignPath Foundation and verified."
 
       - name: Sign the installer (Azure Trusted Signing)
@@ -260,12 +264,12 @@ jobs:
           echo "::notice::Neither SignPath (SIGNPATH_API_TOKEN + SIGNPATH_ORGANIZATION_ID/PROJECT_SLUG/SIGNING_POLICY_SLUG) nor AZURE_* signing is configured - the installer is UNSIGNED."
 
       # The signed setup under the name SignPath pins; the release job adds the
-      # byte-identical Dodaios-Setup-x64.exe.
+      # byte-identical PersonalJarvis-Setup-x64.exe.
       - name: Upload the installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: installer-windows-x64
-          path: dist/installers/PersonalJarvis-Setup-x64.exe
+          path: dist/installers/${{ env.SIGNED_SETUP_NAME }}
           if-no-files-found: error
           retention-days: 14
 
@@ -537,16 +541,14 @@ jobs:
           ls -la
           # Every asset the download page and the updater promise must be here.
           # A silently missing DMG would ship a release that only half works.
-          required=(
-            Dodaios-Setup-x64.exe
-            Dodaios-macOS-arm64.dmg
-            Dodaios-macOS-x64.dmg
-            Dodaios-Linux-x86_64.AppImage
-            PersonalJarvis-Setup-x64.exe
-            PersonalJarvis-macOS-arm64.dmg
-            PersonalJarvis-macOS-x64.dmg
-            PersonalJarvis-Linux-x86_64.AppImage
-          )
+          # The list comes from scripts/ci/release_assets.py (INSTALLERS), so
+          # the earlier names follow its PUBLISH_EARLIER_INSTALLER_NAMES switch.
+          names="$(python ../scripts/ci/installer_aliases.py --names)"
+          mapfile -t required <<< "$names"
+          if [ "${#required[@]}" -lt 4 ]; then
+            echo "::error::the installer name list is incomplete: ${required[*]}"
+            exit 1
+          fi
           for asset in "${required[@]}"; do
             if [ ! -f "$asset" ]; then
               echo "::error::required release asset $asset is missing"

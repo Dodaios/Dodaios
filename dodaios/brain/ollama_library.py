@@ -173,7 +173,7 @@ async def _fetch_page(
         async with httpx.AsyncClient(
             timeout=_FETCH_TIMEOUT,
             follow_redirects=True,
-            headers={"User-Agent": "Jarvis-Agents local model browser"},
+            headers={"User-Agent": "Dodaios local model browser"},
         ) as client:
             resp = await client.get(url, params=params or {})
     except Exception as exc:  # noqa: BLE001 — offline is a normal state here

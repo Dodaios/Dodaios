@@ -37,6 +37,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
 log = logging.getLogger(__name__)
@@ -343,7 +344,7 @@ class SlackRestTool:
         token = self._token_provider()
         if not token:
             return None
-        return {"Authorization": f"Bearer {token}", "User-Agent": "Personal-Jarvis/1.0"}
+        return {"Authorization": f"Bearer {token}", "User-Agent": HTTP_USER_AGENT}
 
     async def _api(
         self,

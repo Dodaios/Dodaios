@@ -162,7 +162,7 @@ class AcpTurn:
     auto_allow: bool = False
     #: Refuse every permission request without asking (Plan mode: read only).
     auto_deny: bool = False
-    client_name: str = "personal-jarvis"
+    client_name: str = "dodaios"
     client_version: str = ""
     #: What the chat stores as its vendor session instead of the ACP session
     #: id (OpenClaw addresses the conversation by a fixed session key).
@@ -690,7 +690,7 @@ def _request(rid: int, method: str, params: dict[str, Any]) -> dict[str, Any]:
 
 
 def initialize_request(
-    rid: int | str, client_version: str = "", client_name: str = "personal-jarvis"
+    rid: int | str, client_version: str = "", client_name: str = "dodaios"
 ) -> dict[str, Any]:
     """The ``initialize`` request (protocol version + client capabilities)."""
     return {

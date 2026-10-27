@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """Give every native installer both of its release names, with identical bytes.
 
-The build names most installers with the current prefix (``Dodaios-``), while
+The build names every installer with the current prefix (``Dodaios-``), while
 installs frozen before the rename only look for the earlier one
-(``PersonalJarvis-``). The Windows setup goes the other way: its signing
-configuration pins the earlier name, so it is signed under that name and the
-current name is the copy. Either way, this runs AFTER signing, so both names
-always carry the same signed file.
+(``PersonalJarvis-``). This runs AFTER signing, so both names always carry the
+same signed file.
 
     python scripts/ci/installer_aliases.py installers
+    python scripts/ci/installer_aliases.py --names    # what a release must carry
 
 For every pair in ``release_assets.INSTALLER_NAME_PAIRS`` exactly one file must
 exist (it is copied to the other name), or both with identical content. A
 pair with neither file, or with two different files, fails.
+
+Sunset: the earlier names are published only while
+``release_assets.PUBLISH_EARLIER_INSTALLER_NAMES`` is True (the one switch; its
+comment and docs/rename/migration-plan.md give the planned end). With the
+switch off this script writes no copies, only checks that every current name
+exists, and ``--names`` lists the current names alone, so the checksum
+manifest and the release follow without another edit.
 """
 
 from __future__ import annotations
@@ -27,7 +33,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.ci.release_assets import INSTALLER_NAME_PAIRS  # noqa: E402
+from scripts.ci.release_assets import (  # noqa: E402
+    INSTALLER_NAME_PAIRS,
+    INSTALLERS,
+    PUBLISH_EARLIER_INSTALLER_NAMES,
+)
 
 
 def _digest(path: Path) -> str:
@@ -35,12 +45,18 @@ def _digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def add_aliases(directory: Path) -> list[str]:
+def add_aliases(directory: Path, *, publish_earlier: bool | None = None) -> list[str]:
     """Copy each installer to its missing name; return the names it wrote."""
+    if publish_earlier is None:
+        publish_earlier = PUBLISH_EARLIER_INSTALLER_NAMES
     written = []
     for current, earlier in INSTALLER_NAME_PAIRS:
         paths = (directory / current, directory / earlier)
         present = [path for path in paths if path.is_file() and not path.is_symlink()]
+        if not publish_earlier:
+            if paths[0] not in present:
+                raise ValueError(f"no installer under its current name: {current}")
+            continue
         if not present:
             raise ValueError(f"no installer under either name: {current}, {earlier}")
         if len(present) == 2:
@@ -60,8 +76,18 @@ def add_aliases(directory: Path) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("directory", type=Path)
+    parser.add_argument("directory", type=Path, nargs="?")
+    parser.add_argument(
+        "--names",
+        action="store_true",
+        help="print every installer name a release must carry, one per line",
+    )
     args = parser.parse_args(argv)
+    if args.names:
+        print("\n".join(sorted(INSTALLERS)))
+        return 0
+    if args.directory is None:
+        parser.error("the installer directory is required")
     try:
         written = add_aliases(args.directory)
     except (OSError, ValueError) as exc:

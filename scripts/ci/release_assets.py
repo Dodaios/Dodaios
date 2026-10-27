@@ -30,19 +30,33 @@ PUBLISHER_JOBS = {
     "desktop-installers.yml": "Checksums and GitHub Release",
     "sign-installer.yml": "release",
 }
-#: Every native installer as ``(current name, earlier name)``. A release
-#: publishes BOTH files with identical bytes: the build names its output with
-#: the current prefix, and installs frozen before the rename only look for the
-#: earlier one. The Windows setup is the exception on the build side: its
-#: signing configuration pins the earlier name, so the current name is the
-#: copy, made after signing (``installer_aliases.py``).
+#: Every native installer as ``(current name, earlier name)``. The build names
+#: its output with the current prefix; installs frozen before the rename only
+#: look for the earlier one, so a release publishes a byte-identical copy under
+#: that name, made after signing (``installer_aliases.py``).
 INSTALLER_NAME_PAIRS = (
     ("Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"),
     ("Dodaios-macOS-arm64.dmg", "PersonalJarvis-macOS-arm64.dmg"),
     ("Dodaios-macOS-x64.dmg", "PersonalJarvis-macOS-x64.dmg"),
     ("Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"),
 )
-INSTALLERS = {name for pair in INSTALLER_NAME_PAIRS for name in pair}
+#: THE switch for the earlier installer names. While it is True every release
+#: publishes, requires and checksums both names of each installer; set it to
+#: False and the release builds, requires and lists the current names only
+#: (the workflows read the names from here). Who still needs the copies:
+#: frozen installs from before the update contract (PR #567), whose in-app
+#: updater only asks for ``PersonalJarvis-*``, and old
+#: ``releases/latest/download/PersonalJarvis-*`` links. Planned end (a
+#: PROPOSAL for the maintainer, docs/rename/migration-plan.md): after two more
+#: minor releases or 2027-01-31, whichever comes later, and only once the
+#: ``PersonalJarvis-*`` downloads of the last three releases have dried up.
+#: Turning it off never touches releases that are already published.
+PUBLISH_EARLIER_INSTALLER_NAMES = True
+CURRENT_INSTALLERS = {current for current, _earlier in INSTALLER_NAME_PAIRS}
+EARLIER_INSTALLERS = {earlier for _current, earlier in INSTALLER_NAME_PAIRS}
+INSTALLERS = CURRENT_INSTALLERS | (
+    EARLIER_INSTALLERS if PUBLISH_EARLIER_INSTALLER_NAMES else set()
+)
 SIGNED = {
     "install.sh",
     "install.ps1",
@@ -83,20 +97,26 @@ SIGNING_ASSETS = REQUIRED_ASSETS - DESKTOP_ASSETS
 #: What a draft must carry before finalization publishes it.
 FINALIZE_ASSETS = REQUIRED_ASSETS | set(UPDATE_MANIFEST_ASSETS)
 PLATFORM_INSTALLERS = {
-    "linux": {"Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"},
-    "windows": {"Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"},
-    "macos": {
-        "Dodaios-macOS-arm64.dmg",
-        "Dodaios-macOS-x64.dmg",
-        "PersonalJarvis-macOS-arm64.dmg",
-        "PersonalJarvis-macOS-x64.dmg",
-    },
+    platform: names & INSTALLERS
+    for platform, names in {
+        "linux": {"Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"},
+        "windows": {"Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"},
+        "macos": {
+            "Dodaios-macOS-arm64.dmg",
+            "Dodaios-macOS-x64.dmg",
+            "PersonalJarvis-macOS-arm64.dmg",
+            "PersonalJarvis-macOS-x64.dmg",
+        },
+    }.items()
 }
-# The optional Debian package is named after its package: the earlier name
-# until the package itself is renamed, the current one after.
+# The optional Debian package is named after its package (``dodaios``).
+# Releases up to 4.1.2 named the file after the package's earlier name;
+# the pattern accepts both so their assets still verify.
 DEB_PATTERN = re.compile(r"(?:dodaios|personal-jarvis)_[0-9.]+_amd64\.deb")
 #: The source archive under its current name and the name earlier installers
-#: fall back to; both are published.
+#: fall back to; both are published. ``personal-jarvis-src.tar.gz`` stays
+#: until the same planned end as the installer copies above: install scripts
+#: from releases before ``dodaios-src.tar.gz`` existed only know that name.
 SOURCE_ARCHIVES = (
     ("dodaios-src.tar.gz", "dodaios/"),
     ("personal-jarvis-src.tar.gz", "personal-jarvis/"),

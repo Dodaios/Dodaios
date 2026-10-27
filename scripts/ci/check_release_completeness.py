@@ -218,7 +218,7 @@ def check_published_release(root: Path, *, slug: str) -> tuple[bool, str]:
         url,
         headers={
             "Accept": "application/vnd.github+json",
-            "User-Agent": "PersonalJarvis-ReleaseGate",
+            "User-Agent": "Dodaios-ReleaseGate",
         },
     )
     try:

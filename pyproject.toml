@@ -8,9 +8,9 @@ requires = ["setuptools>=84.1.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# Releases also publish this wheel as "personal-jarvis", its earlier name, for a
-# transition (scripts/ci/build_distributions.py). Keep the self-references in
-# the extras below spelled with this name: that script rewrites them together.
+# Releases also publish "personal-jarvis", the earlier name, as a thin package
+# that depends on this one at the same version and re-declares its extras and
+# [project.scripts] (scripts/ci/build_distributions.py).
 name = "dodaios"
 version = "4.1.2"
 description = "Turn your computer into an AI agent that coordinates apps, tools, models, and other agents"

@@ -75,3 +75,32 @@ def test_a_failing_check_never_raises(monkeypatch) -> None:
 
     monkeypatch.setattr(distribution, "check_duplicate_distributions", boom)
     distribution._run(0)
+
+
+class _Dist:
+    def __init__(self, files):
+        self.files = files
+
+
+@pytest.mark.parametrize(
+    ("legacy_files", "counted"),
+    [
+        # The compatibility package: a launcher module and its metadata only.
+        (["personal_jarvis_compat.py", "personal_jarvis-5.0.0.dist-info/RECORD"], False),
+        # A full copy from 4.1.2 or earlier owns the package files.
+        (["dodaios/__init__.py", "personal_jarvis-4.1.2.dist-info/RECORD"], True),
+        # Without a RECORD nothing proves it is the thin package.
+        (None, True),
+    ],
+)
+def test_only_a_full_copy_under_the_earlier_name_counts(
+    monkeypatch, legacy_files, counted
+) -> None:
+    monkeypatch.setattr(
+        distribution.metadata,
+        "distribution",
+        lambda name: _Dist(["dodaios/__init__.py"] if name == "dodaios" else legacy_files),
+    )
+    expected = ("dodaios", "personal-jarvis") if counted else ("dodaios",)
+    assert distribution.installed_distribution_names() == expected
+    assert (distribution.check_duplicate_distributions() is not None) is counted

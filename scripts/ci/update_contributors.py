@@ -66,7 +66,7 @@ def fetch_contributors() -> list[dict]:
             url,
             headers={
                 "Accept": "application/vnd.github+json",
-                "User-Agent": "personal-jarvis-contributors",
+                "User-Agent": "dodaios-contributors",
             },
         )
         token = os.environ.get("GITHUB_TOKEN")

@@ -5,7 +5,7 @@
 | Artifact | Path | What it is |
 |---|---|---|
 | `Dodaios-Linux-x86_64.AppImage` (also published as `PersonalJarvis-Linux-x86_64.AppImage`) | `dist/installers/` | One executable file. No Python, no pip, no root. Download, `chmod +x`, run. |
-| `personal-jarvis_<version>_amd64.deb` | `dist/installers/` | The same tree as a normal Debian package named `dodaios`: `apt install ./personal-jarvis_*.deb` registers the app in the menu and puts `dodaios` on `PATH`. Built only when `dpkg-deb` is present. |
+| `dodaios_<version>_amd64.deb` | `dist/installers/` | The same tree as a normal Debian package named `dodaios`: `apt install ./dodaios_*.deb` registers the app in the menu and puts `dodaios` on `PATH`. Built only when `dpkg-deb` is present. |
 
 Both are produced from one PyInstaller `onedir` freeze and one AppDir, so a bug
 can only exist in both or in neither.
@@ -145,7 +145,7 @@ A `.deb` install updates through the package, not through the app.
 
 The package was called `personal-jarvis` up to the rename. The current package
 declares `Replaces`, `Conflicts` and `Provides: personal-jarvis`, so installing
-it over the earlier one (`apt install ./personal-jarvis_<version>_amd64.deb`)
+it over the earlier one (`apt install ./dodaios_<version>_amd64.deb`)
 removes that package and its `/opt/PersonalJarvis` tree in the same step, and
 anything that depends on the earlier name stays satisfied. The in-app updater
 is not involved: it only replaces an AppImage, and the AppImage's asset name has

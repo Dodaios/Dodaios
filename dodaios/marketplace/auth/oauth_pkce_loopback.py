@@ -24,6 +24,7 @@ from urllib.parse import quote_plus, urlencode
 
 import httpx
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.marketplace.auth.base import (
     ERROR_DENIED,
     ERROR_MISCONFIGURED,
@@ -374,7 +375,7 @@ class PkceLoopbackHandler:
                 headers={
                     "Accept": "application/json",
                     "Content-Type": "application/x-www-form-urlencoded",
-                    "User-Agent": "Personal-Jarvis/1.0",
+                    "User-Agent": HTTP_USER_AGENT,
                     **_basic_token_header(pending.config.client_id, client_secret, auth_method),
                 },
             )

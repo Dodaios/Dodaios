@@ -29,6 +29,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
 _NOT_CONNECTED = (
@@ -137,7 +138,7 @@ class HomeAssistantRestTool:
         return base, {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "User-Agent": "Personal-Jarvis/1.0",
+            "User-Agent": HTTP_USER_AGENT,
         }
 
     # -- public actions (also directly unit-testable) -----------------------
