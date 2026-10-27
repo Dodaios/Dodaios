@@ -122,6 +122,17 @@ def main(argv):
             bpy.context.view_layer.update()
             camera(mid, 60, 4.2)
             render(f"sov_walk{f}")
+    if which in ("all", "swing"):
+        # the cloak as the game swings it at a brisk walk: lifted back about 0.45 rad
+        pose(A.clip_walk(body)[8])
+        for col in ("R", "C", "L"):
+            pb = arm.pose.bones[f"Cloak_{col}1"]
+            pb.rotation_mode = "XYZ"
+            pb.rotation_euler = (-0.45, 0, 0)
+        bpy.context.view_layer.update()
+        for yaw in (150, 90):
+            camera(mid, yaw, 4.2, height=1.7)
+            render(f"sov_swing{yaw}")
 
 
 if __name__ == "__main__":
