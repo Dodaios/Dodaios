@@ -6,9 +6,11 @@ shadow rays, it closes the rooms for floor reflections and probes, and the
 realtime export turns it into normal walls.
 
 - Side hull walls over the flight deck: cut at 4.5 m; closed up to the 21 m
-  ceiling with hull frames on the ceiling girders' 7.2 m rhythm.
+  ceiling with hull frames on the ceiling girders' 7.2 m rhythm (the panels,
+  light columns and services on them are hangar_cladding.py).
 - Front skin: the hangar's near wall above the front band's 4.7 m ceiling,
-  from the band's ceiling edge up to the hangar ceiling.
+  from the band's ceiling edge up to the hangar ceiling (frames and fascia;
+  its panelling is hangar_cladding.py).
 - Front band (booth, crew bay, arrivals, lift lobby, armoury): the near hull
   wall, the side walls and the room walls cut at 1.1 m, closed up to the
   band ceiling, with door heads over the openings and the booth's window
@@ -24,10 +26,11 @@ from __future__ import annotations
 
 import hangar_arch as arch
 import hangar_layout as L
-from hangar_arch import CEILING_H, HULL, PANEL_DARK, PANEL_MID, RECESS, STEEL, box
+from hangar_arch import CEILING_H, HULL, PANEL_DARK, RECESS, STEEL, box
 from lib import kit
 
 BAND_CEILING = 4.7  # underside of the front band's ceiling slab
+FRAME_FOOT = 6.0  # side-wall frames start over the wall services (hangar_cladding.SIDE_TOP)
 DOOR_HEAD = 2.7
 PANEL_INSET = 0.02
 GLASS = "M_Glass_Viewport"
@@ -92,20 +95,18 @@ def side_walls() -> None:
         (L.WIDTH - L.SIDE_T, L.WIDTH + 2.0, L.WIDTH - L.SIDE_T, -1),
     ):
         box(body, x0, x1, 0.0, L.FRONT_Z, arch.SIDE_CUT_H, top, HULL)
-        # Panels between the frames, in three tiers split by gunmetal bands.
-        edges = [L.WALL_FACE_Z, *girders, L.FRONT_Z]
-        for a, b in zip(edges, edges[1:], strict=False):
-            for h0, h1 in ((arch.SIDE_CUT_H, 9.6), (9.9, 15.0), (15.3, CEILING_H - 1.6)):
-                _panels_z(faces, a + 0.45, b - 0.45, x_face, h0, h1, s, module=2.4, mat=PANEL_MID)
-        for h in (arch.SIDE_CUT_H, 9.6, 15.0):
+        # The panels, light columns and services are the cladding
+        # (hangar_cladding.py); here the tier bands and the frames.
+        for h in (9.6, 15.0):
             lo, hi = sorted((x_face, x_face + s * 0.12))
             box(faces, lo, hi, L.WALL_FACE_Z, L.FRONT_Z, h, h + 0.3, STEEL)
-        # Frames: deep I-section posts under every ceiling girder.
+        # Frames: deep I-section posts under every ceiling girder, standing on
+        # the cladding's ribs above the wall services.
         for z in girders:
             lo, hi = sorted((x_face, x_face + s * 0.6))
-            box(faces, lo, hi, z - 0.4, z + 0.4, arch.SIDE_CUT_H, CEILING_H, STEEL)
+            box(faces, lo, hi, z - 0.4, z + 0.4, FRAME_FOOT, CEILING_H, STEEL)
             lo, hi = sorted((x_face + s * 0.6, x_face + s * 0.7))
-            box(faces, lo, hi, z - 0.25, z + 0.25, arch.SIDE_CUT_H, CEILING_H, STEEL)
+            box(faces, lo, hi, z - 0.25, z + 0.25, FRAME_FOOT, CEILING_H, STEEL)
     arch._build(body, "SM_Hangar_SideWallsUpper", bevel=0.0, collection="Ceiling")
     arch._build(faces, "SM_Hangar_SideWallsUpperFaces", bevel=0.004, collection="Ceiling")
 
@@ -119,10 +120,7 @@ def front_skin() -> None:
     # A deep fascia over the band's ceiling edge, then panels between frames.
     box(faces, L.SIDE_T, L.WIDTH - L.SIDE_T, z_face - 0.3, z_face, BAND_CEILING - 0.05, 5.6, STEEL)
     posts = [2.4 + 7.2 * i for i in range(14)]
-    edges = [L.SIDE_T, *[x for x in posts if L.SIDE_T < x < L.WIDTH - L.SIDE_T], L.WIDTH - L.SIDE_T]
-    for a, b in zip(edges, edges[1:], strict=False):
-        for h0, h1 in ((5.6, 9.6), (9.9, 15.0), (15.3, CEILING_H - 1.6)):
-            _panels_x(faces, a + 0.4, b - 0.4, z_face, h0, h1, -1, module=2.4, mat=PANEL_MID)
+    # The panels between the frames are the cladding (hangar_cladding.py).
     for h in (9.6, 15.0):
         box(faces, L.SIDE_T, L.WIDTH - L.SIDE_T, z_face - 0.12, z_face, h, h + 0.3, STEEL)
     for x in posts:

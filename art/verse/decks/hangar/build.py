@@ -8,7 +8,9 @@ the raised control booth, the ground-crew bay, the arrivals desk, the lift
 lobby and the armoury.
 
 Layout: hangar_layout.py. Floor paint and grime: hangar_paint.py.
-Architecture: hangar_arch.py. Dressing: hangar_props.py. Light: hangar_light.py.
+Architecture: hangar_arch.py, above the cuts hangar_upper.py. Dressing:
+hangar_props.py. Eye-level wall cladding and cranes: hangar_cladding.py.
+Flight-deck fit-out: hangar_fitout.py. Light: hangar_light.py.
 
 Run: python scripts/verse/cook.py deck hangar --quality preview
 """
@@ -25,6 +27,8 @@ if _HERE not in sys.path:
 
 import bpy  # noqa: E402
 import hangar_arch as arch  # noqa: E402
+import hangar_cladding as cladding  # noqa: E402
+import hangar_fitout as fitout  # noqa: E402
 import hangar_layout as L  # noqa: E402
 import hangar_light as light  # noqa: E402
 import hangar_props as props  # noqa: E402
@@ -173,8 +177,12 @@ def build() -> None:
     arch.front_band()
     arch.ceiling()
     upper.build()
+    # Eye-level wall cladding, overhead cranes and services (ceiling ghosts).
+    cladding.build()
     arch.occluders(well_piece=well_piece)
     props.build_all()
+    # The flight deck's working kit: racks, rigs, carts, crew stations, inlays.
+    fitout.build(pieces)
     light.build(mounts)
     _rooms()
     _sockets()

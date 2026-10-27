@@ -39,6 +39,9 @@ RAIL_Z = 15.6  # gantry rail height on the hero wall
 
 # Side hull walls (full height over the flight deck, cut in the front band)
 SIDE_T = 2.5  # x 0..2.5 and 97.5..100
+# Plan z of the service cabinets on the side walls (west, east); the gaps
+# hold the parts racks, tool racks and fuel manifolds (hangar_fitout.py).
+SIDE_CABINETS = {"W": (10.0, 22.0, 28.0, 34.0, 40.0), "E": (22.0, 28.0, 34.0)}
 
 # Flight deck
 DECK_Z = (WALL_FACE_Z, 46.0)

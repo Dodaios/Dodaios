@@ -519,26 +519,26 @@ def arrivals_desk(pieces: dict) -> None:
             station="arrivals",
         )
         ucx("arrivals_desk", dx - 3.1, dx + 3.1, dz - 0.62, dz + 0.58, 0.0, 1.85)
-    # Queue posts with belts from the walkway to the counter.
-    posts = kit.MeshBuilder()
-    for x in (dx - 1.6, dx + 1.6):
-        zs = [L.WALKWAY_Z[1] - 0.6 + 0.7 * k for k in range(3)]
-        for z in zs:
-            posts.tube(B(x, z, 0.0), B(x, z, 0.95), 0.03, TRIM, 10)
-            posts.tube(B(x, z, 0.0), B(x, z, 0.03), 0.17, STEEL, 16)
-        posts.box(B(x - 0.015, zs[-1], 0.82), B(x + 0.015, zs[0], 0.88), RUBBER)
-    _build(posts, "SM_Hangar_QueuePosts", bevel=0.0, room="arrivals")
-    for sx in (-1, 1):
-        sign_pylon(
-            f"SM_Hangar_SignArrivals_{'W' if sx < 0 else 'E'}", dx + sx * 6.6, 48.0, "ARRIVALS"
-        )
+    # The reporting point in front of the counter (painted box, bollards) is
+    # part of the fit-out (hangar_fitout.py); stencilled flight-deck pylons
+    # flank the walkway.
+    for sx, text in ((-1, "FLIGHT OPS"), (1, "DECK 04")):
+        sign_pylon(f"SM_Hangar_SignDeck_{'W' if sx < 0 else 'E'}", dx + sx * 6.6, 48.0, text)
 
 
 def sign_pylon(name: str, x: float, z: float, body: str) -> None:
+    """Gunmetal pylon with a backlit stencil, hazard-striped foot and a red
+    beacon on top."""
+    from hangar_cladding import HAZARD
+
     mb = kit.MeshBuilder()
-    box(mb, x - 1.2, x + 1.2, z - 0.15, z + 0.15, 0.0, 2.9, PANEL_MID)
+    box(mb, x - 1.2, x + 1.2, z - 0.15, z + 0.15, 0.0, 2.9, STEEL)
     box(mb, x - 1.25, x + 1.25, z - 0.2, z + 0.2, 0.0, 0.18, STEEL)
+    box(mb, x - 1.22, x + 1.22, z - 0.17, z + 0.17, 0.18, 0.62, HAZARD)
     box(mb, x - 1.1, x + 1.1, z + 0.15, z + 0.17, 2.05, 2.75, RECESS)
+    box(mb, x - 1.25, x + 1.25, z - 0.2, z + 0.2, 2.9, 2.98, TRIM)
+    mb.tube(B(x, z, 2.98), B(x, z, 3.1), 0.05, STEEL, 10)
+    mb.tube(B(x, z, 3.1), B(x, z, 3.22), 0.09, "M_Indicator_Red", 12)
     _build(mb, name, bevel=0.01, room="arrivals")
     text = _text_object(f"{name}_Text", body, 0.42, "M_Hangar_SignBacklit")
     text.location = B(x, z + 0.18, 2.42)

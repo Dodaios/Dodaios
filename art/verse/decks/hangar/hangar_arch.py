@@ -617,13 +617,10 @@ def side_walls() -> None:
         box(mb, x0, x1, L.FRONT_Z, L.NEAR_WALL_Z[1], L.CUT_H, L.CUT_H + 0.02, CAP)
     _build(mb, "SM_Hangar_SideWalls", bevel=0.01)
     det = kit.MeshBuilder()
-    for x_face, s in ((L.SIDE_T, 1), (L.WIDTH - L.SIDE_T, -1)):
-        lo, hi = sorted((x_face, x_face + s * 0.25))
-        box(det, lo, hi, L.WALL_FACE_Z, L.FRONT_Z, 0.0, 0.3, STEEL)
-        for k, hz in enumerate((2.2, 2.6, 3.0)):
-            xx = x_face + s * (0.18 + 0.02 * k)
-            det.tube((xx, -L.WALL_FACE_Z, hz), (xx, -L.FRONT_Z + 0.2, hz), 0.08, "M_Hull_Pipe")
-        for z in range(4, 46, 6):
+    # Service cabinets on the wall face; the plinth, conduits and panelling
+    # around them are the eye-level cladding (hangar_cladding.py).
+    for x_face, s, side in ((L.SIDE_T, 1, "W"), (L.WIDTH - L.SIDE_T, -1, "E")):
+        for z in L.SIDE_CABINETS[side]:
             lo, hi = sorted((x_face, x_face + s * 0.6))
             box(det, lo, hi, z - 0.6, z + 0.6, 0.3, 2.1, PANEL_MID)
             lo, hi = sorted((x_face + s * 0.6, x_face + s * 0.62))
