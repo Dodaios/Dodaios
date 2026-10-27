@@ -29,6 +29,15 @@ registries:
     type: python-index
     url: https://pypi.org/simple
     replaces-base: true
+  # The project's explicit uv index for the cryptography wheels PyPI lacks
+  # (pyproject.toml [[tool.uv.index]] native-crypto). Dependabot's proxy only
+  # lets a job reach hosts declared here: without it every uv security update
+  # died on "egress not allowlisted dodaios.github.io" -> 403 while locking
+  # cryptography (#832). Public, no credentials. Must equal the index URL in
+  # packaging/native-crypto-uv.toml (tests/unit/packaging/test_native_crypto_index.py).
+  native-crypto:
+    type: python-index
+    url: https://dodaios.github.io/Dodaios/native-crypto/50.0.2-1/simple/
 
 updates:
   # Build tooling is a separate small lock surface; do not recompile the
@@ -130,6 +139,7 @@ updates:
     directory: /
     registries:
       - pypi
+      - native-crypto
     schedule:
       interval: weekly
       day: monday
