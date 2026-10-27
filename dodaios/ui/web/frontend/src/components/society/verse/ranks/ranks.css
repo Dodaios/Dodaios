@@ -13,8 +13,8 @@
   --vr-line: rgba(208, 216, 224, 0.13);
   --vr-line-strong: rgba(208, 216, 224, 0.3);
   --vr-text: #dde2e6;
-  --vr-muted: #8a939b;
-  --vr-faint: #586068;
+  --vr-muted: #b4bcc3;
+  --vr-faint: #7d868e;
   --vr-red: #e3242b;
   --vr-red-dim: rgba(227, 36, 43, 0.14);
   --vr-amber: #f2a33a;
@@ -31,9 +31,9 @@
 
 /* Letter-spaced small capitals: every label and heading. */
 .vr-caps {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--vr-muted);
 }
@@ -118,7 +118,7 @@
 .vr-card[data-compact="true"] .vr-card-rank { font-size: 12px; }
 .vr-card-plate { grid-row: span 2; }
 .vr-card-rank {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -127,12 +127,12 @@
   text-overflow: ellipsis;
 }
 .vr-card-meta { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
-.vr-card-meta .vr-num { color: var(--vr-text); font-size: 11px; }
+.vr-card-meta .vr-num { color: var(--vr-text); font-size: 12px; }
 .vr-card-tier { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .vr-card-foot { grid-column: 1 / -1; display: grid; gap: 5px; min-width: 0; }
 .vr-card-next { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
 .vr-card-next .vr-caps { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; letter-spacing: 0.1em; }
-.vr-card-next .vr-num { font-size: 10px; color: var(--vr-muted); white-space: nowrap; }
+.vr-card-next .vr-num { font-size: 11px; color: var(--vr-muted); white-space: nowrap; }
 
 /* ------------------------------------------------------------ service record */
 

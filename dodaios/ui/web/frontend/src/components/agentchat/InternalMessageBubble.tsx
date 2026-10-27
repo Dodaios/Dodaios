@@ -7,6 +7,7 @@ import { AgentSwatch } from "@/components/society/AgentSwatch";
 import type { FigureRecipe } from "@/components/society/figures/figureRecipe";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { flattenMarks } from "@/lib/plainMarks";
 
 import type { InternalMessageItem } from "./reduce";
 
@@ -23,11 +24,7 @@ export interface InternalParticipant {
  * as a sentence, never as a wall.
  */
 export function internalPreview(text: string, max = 140): string {
-  const flat = text
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/[`*_#>~|]+/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const flat = flattenMarks(text);
   if (!flat) return "";
   const first = flat.split(/(?<=[.!?…])\s/)[0] ?? flat;
   const sentence = first.trim();

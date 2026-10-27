@@ -144,6 +144,10 @@ def _prompt(rid: Any, session_id: str, text: str, store: dict[str, list[str]]) -
             connection.close()
         _send({"jsonrpc": "2.0", "id": rid, "result": {"stopReason": "end_turn"}})
         return
+    if "SILENT" in text:
+        # A runtime that swallowed a failed model call and ended with no answer.
+        _send({"jsonrpc": "2.0", "id": rid, "result": {"stopReason": "end_turn"}})
+        return
     if "FAIL" in text:
         _send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32000, "message": "model down"}})
         return
