@@ -35,9 +35,9 @@ pedestrian visit requests and movement-only stops. Dynamic CLI discovery respect
 selected server and isolates cached schemas by its full base URL. Example:
 
 ```text
-jarvis --url http://127.0.0.1:47869 api mars --help
-jarvis --url http://127.0.0.1:47869 --json api mars get-mars-snapshot
-jarvis --url http://127.0.0.1:47869 --json api mars get-mars-navigation-snapshot
+dodaios --url http://127.0.0.1:47869 api mars --help
+dodaios --url http://127.0.0.1:47869 --json api mars get-mars-snapshot
+dodaios --url http://127.0.0.1:47869 --json api mars get-mars-navigation-snapshot
 ```
 
 ## Physical visits

@@ -131,7 +131,7 @@ Or save a remote profile (the key is read from a hidden prompt — never an inli
 argument that would land in shell history):
 
 ```bash
-dodaios auth login --url https://jarvis.example:47821
+dodaios auth login --url https://dodaios.example:47821
 # (prompts for the control key; or: echo "$JCTL" | dodaios auth login --url … --key -)
 ```
 

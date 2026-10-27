@@ -12,14 +12,18 @@ Dodaios (called Personal Jarvis until October 2026) is free, open-source softwar
    informational references to help you check; they may be incomplete or out of date and
    are not a substitute for your own check.
 3. **No affiliation.** This project is not affiliated with, endorsed by, or sponsored by
-   Marvel, Disney, Amazon, Apple, Google, Microsoft, Samsung, or any other rights holder
-   whose products or characters may share a name with a word you could enter.
+   Marvel, Disney, Amazon, Apple, Google, Microsoft, Samsung, OpenAI, Anthropic, xAI,
+   GitHub, Cursor (Anysphere), Moonshot AI, Zhipu AI / Z.ai, DeepSeek, OpenRouter, NVIDIA,
+   or any other AI, voice, or service provider it connects to, nor by any other rights
+   holder whose products or characters may share a name with a word you could enter.
+   "Dodaios" is the project's trademark; see [`TRADEMARK.md`](../../TRADEMARK.md).
 4. **Local storage & external processing.** This software runs on the computer or server
    where you install it and stores working data there. Remote AI, voice, plugin,
    messaging, and other connected features transmit the data needed for those features
    to their configured services.
 5. **Project OAuth service.** The shipped Google and Slack sign-in clients use the
-   project-run `token.personaljarvis.ai` service, hosted on Cloudflare, for OAuth token
+   project-run Dodaios OAuth broker at `token.personaljarvis.ai` (a host name kept from the
+   project's former name), hosted on Cloudflare, for OAuth token
    exchange and refresh. It receives authorization codes, PKCE verifiers, client and
    redirect information, and refresh tokens, and handles provider token responses.
    Slack's browser callback also passes through this service. A local installation does

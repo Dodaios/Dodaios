@@ -1,8 +1,8 @@
 # Desktop pets
 
 A desktop pet is an animated pixel-art companion that floats on the desktop
-while Jarvis runs. It is the overlay style `pet`, an alternative to the slim
-Jarvis bar (`jarvis_bar`) and the voice orb (`voice_orb`). Users pick the
+while Dodaios runs. It is the overlay style `pet`, an alternative to the slim
+Dodaios Bar (`jarvis_bar`) and the voice orb (`voice_orb`). Users pick the
 style and the pet under **Settings → My Pets**.
 
 The style `mascot` is a pet as well: it always shows the built-in `dodaios`
@@ -22,11 +22,11 @@ one click.
 
 ## What the user sees
 
-- **The figure.** It reacts to Jarvis in real time (see *States*). It can be
+- **The figure.** It reacts to Dodaios in real time (see *States*). It can be
   dragged anywhere, and its position is remembered per monitor
   (`[overlay.mascot] position_*`, shared with the mascot).
 - **The control strip** under the figure. At rest only the figure shows; the
-  strip appears while Jarvis listens, thinks or talks, while notification cards
+  strip appears while Dodaios listens, thinks or talks, while notification cards
   are up, and while the pointer is on the pet. With the pet "None", or with
   **Always show the buttons** on (My Pets → Customize, `[ui] pet_strip_always`),
   it always shows. From left to right:
@@ -34,9 +34,9 @@ one click.
     shows a red, struck-through bell and sends the cards on screen away; on
     rings the bell. Like the speaker mute it never survives a restart, so a
     bell forgotten off cannot hide tomorrow's "your agent is done";
-  - microphone: mute Jarvis's microphone (`VoiceMuteToggleRequested`, mirrored
+  - microphone: mute Dodaios's microphone (`VoiceMuteToggleRequested`, mirrored
     from `VoiceMuteChanged`);
-  - talk indicator (three strokes, the Jarvis bar's equalizer cut down to
+  - talk indicator (three strokes, the Dodaios Bar's equalizer cut down to
     three, each a light-blue sky with soft white clouds in it): start a conversation, or hang up the running one. The
     strokes stand still and dimmed at rest, follow the live audio level while
     listening, dictating or talking, and carry a travelling highlight while
@@ -44,18 +44,18 @@ one click.
     (`SystemStateChanged(CONNECTING)`) the three strokes bend into the arcs
     of one ring and spin as the loading loop (a live voice lengthens the
     arcs); once the provider takes the call they flash green, unbend and
-    slide back into the listening row. The Jarvis Bar shows the same loop;
+    slide back into the listening row. The Dodaios Bar shows the same loop;
   - speaker: silence the assistant's voice for this session (TTS volume 0,
     mirrored from `VoiceSpeakerMuteChanged`).
-- **The thought bubble** above the pet's head while Jarvis thinks, drawn in
+- **The thought bubble** above the pet's head while Dodaios thinks, drawn in
   the pets' pixel art: a white pixel cloud with a dark outline and two small
-  puffs trailing down to the head. Bobbing dots while Jarvis just thinks, the
+  puffs trailing down to the head. Bobbing dots while Dodaios just thinks, the
   current step ("Search the web") while it works. Never the live transcript,
   never the reply. It can be switched off (`[ui] pet_bubble`). See *The
   thought bubble*.
 - **Done cards** under the strip (above the pet when there is no room below):
-  little pixel-art letters — the pet gets mail — when Jarvis answered a typed
-  chat or a job Jarvis started came back: a pixel envelope with a check badge,
+  little pixel-art letters — the pet gets mail — when Dodaios answered a typed
+  chat or a job Dodaios started came back: a pixel envelope with a check badge,
   what was asked, the start of the answer (see *Cards*).
 - **The pet "None"** (`pet_id = "none"`) shows the control strip and the
   cards without a figure.
@@ -75,7 +75,7 @@ one click.
   machine (deleted, or drawn on another one) shows the shape again; a shared
   agent template keeps a built-in pet and drops a drawn one.
 
-The pet stays on screen while Jarvis is idle. Right-clicking the figure or its
+The pet stays on screen while Dodaios is idle. Right-clicking the figure or its
 control strip opens a menu with **Open app**, **Reset position**, and **Hide pet**.
 The popup follows the app's light, dark or system appearance: neutral surfaces,
 rounded rows, Inter labels, line icons and a JetBrains Mono shortcut hint.
@@ -103,13 +103,13 @@ pets' dark ink. Both windows show their frames through
 and out; elsewhere, or when Windows refuses a frame, flattened onto the colour
 key with hard edges.
 
-Done cards are about Jarvis and nothing else (`dodaios/ui/pets/notices.py`):
+Done cards are about Dodaios and nothing else (`dodaios/ui/pets/notices.py`):
 
 | Source | Card |
 | --- | --- |
-| `JarvisChatTurnFinished` — a turn of a typed chat with Jarvis (surface `jarvis`), published by `AgentChatService` | ✓ what was asked / the start of the answer; ✕ when the turn failed (a cancel stays quiet) |
+| `JarvisChatTurnFinished` — a turn of a typed chat with Dodaios (surface `jarvis`), published by `AgentChatService` | ✓ what was asked / the start of the answer; ✕ when the turn failed (a cancel stays quiet) |
 | `JarvisAgentBackgroundCompleted` | ✓ / ✕ the task as asked / its result |
-| `DelegationResultReady` — a coding job Jarvis delegated | ✓ / ✕ `<agent> is done` / its report |
+| `DelegationResultReady` — a coding job Dodaios delegated | ✓ / ✕ `<agent> is done` / its report |
 
 A coding agent the user runs on their own, a mission, a routine or an app
 error gets no card; neither does a spoken turn (the answer was heard).
@@ -137,7 +137,7 @@ reverse. The bare "Thinking …" label shows as three dots bobbing in turn; any
 other line is the cloud's text (ellipsized at 230 px). It repaints at ~16 fps
 while up and not at all otherwise.
 
-What it says mirrors Jarvis's real thinking, fed by bus events in
+What it says mirrors Dodaios's real thinking, fed by bus events in
 `ui/orb/bus_bridge.py` and condensed by `dodaios/ui/pets/status_line.py`:
 
 The bubble shows ONE line: the detail when there is one, else the title.
@@ -152,9 +152,9 @@ The bubble shows ONE line: the detail when there is one, else the title.
 
 When it goes away (a 1.5 s linger, then it fades out):
 
-- Jarvis starts talking out loud (`AudioOutFirst`), the turn ends (`IDLE`,
+- Dodaios starts talking out loud (`AudioOutFirst`), the turn ends (`IDLE`,
   `ERROR`, `PAUSED`), a fresh turn starts listening, or the session ends;
-- a thought that arrives while Jarvis is already talking (the thinking model
+- a thought that arrives while Dodaios is already talking (the thinking model
   working on behind the voice model) clears itself after four quiet seconds;
 - a finished agent task shows Done / Failed for three seconds.
 
@@ -181,12 +181,12 @@ equal.
 | `talking` | `AudioOutFirst`, `SystemStateChanged(SPEAKING)` with audible output |
 | `success` (one-shot, 1.5 s) | `SpeechSpoken.spoken_kind` in `action_done`/`completion`, `JarvisAgentBackgroundCompleted(success=True)`, `ActionExecuted(success=True)` while no turn is running |
 | `error` (one-shot, 2 s) | `ErrorOccurred(recoverable=False)`, `SpeechSpoken.spoken_kind` in `timeout`/`unavailable`/`stt_unavailable`, `VoiceSessionEnded(hangup_reason="error")`, `ActionExecuted(success=False)` while no turn is running |
-| `sleeping` | five minutes without any Jarvis event; any event wakes it |
-| `working` | a tool step that changes, sends or runs something (`ActionProposed` / `ToolCallStarted`) while thinking; also an agent task running in the background while Jarvis is otherwise idle (`JarvisAgentTaskStarted` until `JarvisAgentTaskCompleted`) |
+| `sleeping` | five minutes without any Dodaios event; any event wakes it |
+| `working` | a tool step that changes, sends or runs something (`ActionProposed` / `ToolCallStarted`) while thinking; also an agent task running in the background while Dodaios is otherwise idle (`JarvisAgentTaskStarted` until `JarvisAgentTaskCompleted`) |
 | `searching` | a tool step that looks something up: its name contains a word like search, find, read, fetch, browse, query, list or wiki (`dodaios/ui/pets/actions.py`) |
 | `held` | the user drags the pet with the mouse (from the first real movement until the release) |
 
-Precedence, highest first: `held`, a one-shot, `listening` / `talking`, an action state, background work, `thinking` / `idle`, `sleeping`. An action ends with the tool's `ActionExecuted`, when Jarvis starts talking or the turn ends, and at the latest after 12 seconds without a newer tool call. A pet whose sheet has no row for a new state borrows one: `working` -> `thinking`, `searching` -> `working`, `held` -> `listening`.
+Precedence, highest first: `held`, a one-shot, `listening` / `talking`, an action state, background work, `thinking` / `idle`, `sleeping`. An action ends with the tool's `ActionExecuted`, when Dodaios starts talking or the turn ends, and at the latest after 12 seconds without a newer tool call. A pet whose sheet has no row for a new state borrows one: `working` -> `thinking`, `searching` -> `working`, `held` -> `listening`.
 
 States come only from real bus events (`ui/orb/bus_bridge.py`); nothing is
 simulated. The classic voice pipeline does not publish `ErrorOccurred`, so on
@@ -224,7 +224,7 @@ rows); the missing ones fall back as described under *States*.
   "format": "jarvis-pet/1",
   "id": "gigi",
   "name": "Gigi",
-  "description": "The Jarvis ghost, eight bits tall.",
+  "description": "The Dodaios ghost, eight bits tall.",
   "frame_size": 48,
   "sheet": "sheet.png",
   "animations": {
@@ -284,7 +284,7 @@ committed PNGs match the script). User-created pets live in
 
 | Id | Name | Idea |
 |---|---|---|
-| `gigi` | Gigi | The Jarvis ghost in brand black and white: it floats, cups its hands to listen, scans while it thinks, its bands light up as it talks, its bits burst on success, it glitches on errors and its tail fades out asleep (default) |
+| `gigi` | Gigi | The Dodaios ghost in brand black and white: it floats, cups its hands to listen, scans while it thinks, its bands light up as it talks, its bits burst on success, it glitches on errors and its tail fades out asleep (default) |
 | `miso` | Miso | A cat: ears up while listening, curls up to sleep |
 | `brew` | Brew | A teapot: steams while thinking, whistles while talking |
 | `bolt` | Bolt | A battery: charges while thinking, sparks on success, runs flat asleep |

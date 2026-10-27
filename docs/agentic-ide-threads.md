@@ -83,9 +83,9 @@ what to change. A card nobody answered closes when the person sends another
 message instead. Cards are rebuilt from the session's event log, so they
 survive reopening the thread and restarting the app.
 
-## Threads a Jarvis agent starts
+## Threads a Dodaios agent starts
 
-A Jarvis agent can start a thread too ("let Opus 5.5 build this in the
+A Dodaios agent can start a thread too ("let Opus 5.5 build this in the
 website project"). It picks the coding agent, model and folder the person
 named — looking into the folder first when it needs context — and writes the
 brief itself. The thread then appears under its project like any other; the
@@ -131,12 +131,12 @@ every line the CLI prints and streams them to the app.
 Right after the app starts, it attaches to the host on its own, before any
 window opens a chat, so a waiting approval shows up without delay.
 
-Only thread turns run there. A turn running as Jarvis, a goal turn and a
+Only thread turns run there. A turn running as Dodaios, a goal turn and a
 helper turn without tools need state inside the app and stay its children.
 An installed (frozen) build starts the host by running its own executable
 with `--turn-host`, since it has no `python -m`. Processes that are not the
 desktop app or the web launcher, such as tests and scripts, never start or
-attach to the host. Logs: `logs/turn_host.log` in the Jarvis data folder.
+attach to the host. Logs: `logs/turn_host.log` in the Dodaios data folder.
 
 ## Platforms
 

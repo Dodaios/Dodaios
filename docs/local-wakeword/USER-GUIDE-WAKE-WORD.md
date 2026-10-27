@@ -20,7 +20,7 @@ cloud. For the engineering rationale behind the detection paths, see
    setups. Headless installs can also complete the same onboarding in the
    browser UI.
 
-Both paths write to the same place — `[trigger.wake_word]` in `jarvis.toml` —
+Both paths write to the same place — `[trigger.wake_word]` in `dodaios.toml` —
 so they are interchangeable.
 
 ---

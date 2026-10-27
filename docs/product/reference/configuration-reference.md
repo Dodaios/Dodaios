@@ -30,8 +30,8 @@ an app-saved value on the next start.
 |---|---|---|
 | **Settings** and feature setup screens | Languages, voice, audio, startup, shortcuts, permissions, prompts, integrations, and appearance | Uses feature-owned routes with field-specific validation and live-apply behavior |
 | **API Keys & Providers** | Brain, Tool Model, speech, Realtime, Wiki, and Dodaios-Agent provider choices | Keeps provider selection separate from private credentials and shows only registered provider options |
-| Dodaios CLI and dynamic API commands | Headless use and automation | Calls mounted server routes; run `jarvis refresh` if an upgraded route is missing |
-| `jarvis config` and `/api/control/config` | Allowlisted scalar settings without a dedicated control | Requires authentication and uses the validating, backed-up config mutation path |
+| Dodaios CLI and dynamic API commands | Headless use and automation | Calls mounted server routes; run `dodaios refresh` if an upgraded route is missing |
+| `dodaios config` and `/api/control/config` | Allowlisted scalar settings without a dedicated control | Requires authentication and uses the validating, backed-up config mutation path |
 | `jarvis.toml`, profile YAML, and `JARVIS__...` | Managed deployments and advanced settings without a supported control | Bypasses feature-specific option discovery and live-apply logic |
 
 A setting is supported only when the current schema defines it and an installed
@@ -90,7 +90,7 @@ whether the route reports an active component, a pending change, or a required
 restart. Finally, verify that the required device, permission, credential, or
 optional package is available.
 
-These observations answer different questions. `jarvis config get <path>`
+These observations answer different questions. `dodaios config get <path>`
 reports the persistent base value, while a feature-specific endpoint may
 report the value currently used by a running component. An environment value
 can win at startup without changing TOML. Conversely, a live route can update
@@ -113,9 +113,9 @@ name, default, or option from an older document:
 |---|---|
 | Current value and selectable options for a dedicated control | The matching app control or its `GET /api/settings/...` operation |
 | Provider, model, voice, authentication, and billing choices | The current provider cards under **API Keys & Providers** |
-| Mounted server operations | `jarvis api --help`; use `jarvis refresh` after an upgrade |
-| Allowlisted scalar config paths and restart metadata | `jarvis config list` or `GET /api/control/allowlist` |
-| Persistent base value for one allowlisted path | `jarvis config get <path>`; this reads the active TOML file, not a profile or environment overlay |
+| Mounted server operations | `dodaios api --help`; use `dodaios refresh` after an upgrade |
+| Allowlisted scalar config paths and restart metadata | `dodaios config list` or `GET /api/control/allowlist` |
+| Persistent base value for one allowlisted path | `dodaios config get <path>`; this reads the active TOML file, not a profile or environment overlay |
 | Curated CLI and stable cross-surface actions | [CLI Reference](cli-reference) and [App Command Reference](app-command-reference) |
 
 The schema is a validation boundary, not a catalog of desktop controls. The
@@ -186,7 +186,7 @@ may also reconcile related model, voice, or compatibility values.
 The generic `/api/control/config` path accepts only mutable scalar fields. It
 rejects protected or unknown paths, validates the full config, backs it up,
 writes atomically, reload-tests, rolls back on failure, emits a config event,
-and audits the result. It needs an existing readable config file. Use `jarvis
+and audits the result. It needs an existing readable config file. Use `dodaios
 config list` for its allowlist and restart metadata.
 
 Direct TOML or profile edits are only for advanced values without a control.
@@ -258,8 +258,8 @@ if active missions block restart, then restore the original language.
 This checks live update, persistence, and next-start loading. A reverted value
 points to the save result or a higher-priority source.
 
-Headlessly, record `jarvis config language get`, set another supported code with
-`jarvis config language set` and persistence enabled, then read it before and
+Headlessly, record `dodaios config language get`, set another supported code with
+`dodaios config language set` and persistence enabled, then read it before and
 after restart. Restore the original value. Do not test a desktop-only setting.
 
 ## Troubleshooting
@@ -272,7 +272,7 @@ after restart. Restore the original value. Do not test a desktop-only setting.
 | Dodaios rejects the configuration on start | An advanced TOML or YAML edit has invalid syntax or a typed value is invalid | Restore your known-good copy; generic Control API writes roll back automatically when their reload test fails |
 | A desktop or audio setting persists but does nothing | The host lacks the required session, device, permission, or optional component | Check the operation's `available` or `supported` result and read [Platform Support](platform-support) |
 | A removed credential still appears configured | It comes from an operator environment, `.env`, or another external login | Remove it from the original source, restart, and follow [Credentials and Secrets](credentials-and-secrets) |
-| A current API setting is missing from CLI help | The dynamic OpenAPI cache describes an older server | Run `jarvis refresh`, reconnect to the intended server, then open `jarvis api --help` again |
+| A current API setting is missing from CLI help | The dynamic OpenAPI cache describes an older server | Run `dodaios refresh`, reconnect to the intended server, then open `dodaios api --help` again |
 
 ## Next Steps
 

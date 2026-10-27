@@ -92,7 +92,7 @@ elsewhere — for example in a coding agent's project folder such as
 format, and stays invisible to Dodaios until it is imported:
 
 ```bash
-jarvis skills import <path-to-skill-folder>
+dodaios skills import <path-to-skill-folder>
 ```
 
 The command copies the folder's `SKILL.md` and its bundle folders
@@ -176,12 +176,12 @@ order, not which skill Dodaios prefers for a request.
 
 ### Use the command line
 
-The `jarvis skills` commands can list and inspect skills, draft and commit an
+The `dodaios skills` commands can list and inspect skills, draft and commit an
 AI-assisted skill, search and install from the catalog, switch a non-draft
 skill on or off, and reload the registry. They require a running Dodaios API.
 The curated command group does not edit or delete skills.
 
-`jarvis skills enable <name>` cannot promote a **Draft**. After reviewing a
+`dodaios skills enable <name>` cannot promote a **Draft**. After reviewing a
 draft, use the separate local promotion command:
 
 ```bash

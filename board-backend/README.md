@@ -1,7 +1,7 @@
-# Jarvis Board — Federation Backend
+# Dodaios Board — Federation Backend
 
 Standalone FastAPI service that accepts signed Board aggregates from a
-Jarvis instance. Phase C of the Board plan.
+Dodaios instance. Phase C of the Board plan.
 
 > **Privacy is mandatory:** The server **never** stores
 > voice transcripts, tool inputs/outputs, or raw event content.
@@ -30,14 +30,14 @@ reverse proxy + DNS.
   ```sh
   python -c "import secrets; print(secrets.token_hex(32))"
   ```
-- Your Jarvis instance — it then registers itself once with the backend
+- Your Dodaios instance — it then registers itself once with the backend
   using the admin token.
 
 ---
 
 ## Scenario A — Localhost
 
-Fastest start on the machine on which Jarvis itself runs.
+Fastest start on the machine on which Dodaios itself runs.
 
 ```sh
 cd board-backend
@@ -50,7 +50,7 @@ curl http://localhost:8765/healthz
 # -> {"ok":true,"version":"0.1.0","schema_ok":true}
 ```
 
-Then, in the local Jarvis:
+Then, in the local Dodaios:
 
 ```sh
 # Write the admin token into the Credential Manager
@@ -67,7 +67,7 @@ sync_interval_s = 60
 display_name = "Mein Desktop"
 ```
 
-Restart Jarvis — the `SyncClient` registers on the first tick and
+Restart Dodaios — the `SyncClient` registers on the first tick and
 pushes every 60 s.
 
 ---
@@ -92,7 +92,7 @@ Test from the desktop (same LAN):
 curl http://raspi.local:8765/healthz
 ```
 
-And in the Jarvis `jarvis.toml`:
+And in the Dodaios `jarvis.toml`:
 
 ```toml
 [board.federation]
@@ -195,7 +195,7 @@ curl https://board.deine-domain.tld/healthz
 # -> {"ok":true,"version":"0.1.0","schema_ok":true}
 ```
 
-In the local Jarvis `jarvis.toml`:
+In the local Dodaios `jarvis.toml`:
 
 ```toml
 [board.federation]

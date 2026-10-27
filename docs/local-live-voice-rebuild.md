@@ -2,7 +2,7 @@
 
 - **Status:** Accepted 2026-10-01. P0 (measurement) done on Windows/NVIDIA
   and Linux CPU, Mac pending hardware; P1 (engine core) built and measured,
-  see section 12. P2 (Jarvis integration) is next.
+  see section 12. P2 (Dodaios integration) is next.
 - **Date:** 2026-10-01
 - **Decision record:** [ADR-0037](adr/0037-dodaios-owned-local-voice-engine.md)
 - **Supersedes:** the recovery plan in
@@ -23,11 +23,11 @@ place. No local call has produced audio since 2026-08-27. The managed engine
 opens its port, needs the network on every boot, serves one call at a time,
 stops listening while it speaks, and needs at least 12 GB of accelerator memory.
 Its installer cannot resolve on macOS, has never run on Linux, and refuses every
-machine without a large NVIDIA card or Apple unified memory. Jarvis wraps it in
+machine without a large NVIDIA card or Apple unified memory. Dodaios wraps it in
 5,770 lines of supervision code that exist only to manage that process's failure
 modes.
 
-We replace the engine, not the live seam. A Jarvis-owned voice engine runs as
+We replace the engine, not the live seam. A Dodaios-owned voice engine runs as
 one child process with its own Python environment, speaks a small private
 protocol over stdin/stdout, and implements the existing
 `RealtimeProvider`/`RealtimeSession` contract. `NativeLiveVoiceSession`, the
@@ -77,7 +77,7 @@ the maintainer's Windows box (RTX 5070 Ti, 16 GB) unless marked otherwise.
 
 - One pipeline slot: 12 "all 1 pipeline slots in use" rejections and 3 sessions
   that never drained.
-- Half duplex: the engine's VAD drops audio while it answers, and Jarvis sends
+- Half duplex: the engine's VAD drops audio while it answers, and Dodaios sends
   `interrupt_response=false`. The user cannot interrupt.
 - VRAM: the spawn gate asks for 6 GB free. The stack needs about 12–14 GB
   (brain with a 32K context, Qwen3-TTS 1.7B with CUDA graphs, Parakeet) on a
@@ -98,7 +98,7 @@ Only Windows was ever run. The rest comes from code and wheel metadata.
 
 | Platform | Today |
 | --- | --- |
-| macOS, Apple Silicon | The install cannot resolve. `speech-to-speech 0.2.12` on Darwin requires `transformers==5.6.2`, `torch==2.11.0` and MLX packages; Jarvis pins `qwen-tts==0.1.1` (`transformers==4.57.3`), `faster-qwen3-tts==0.3.2` (`transformers<5`) and `torch==2.13.0`. |
+| macOS, Apple Silicon | The install cannot resolve. `speech-to-speech 0.2.12` on Darwin requires `transformers==5.6.2`, `torch==2.11.0` and MLX packages; Dodaios pins `qwen-tts==0.1.1` (`transformers==4.57.3`), `faster-qwen3-tts==0.3.2` (`transformers<5`) and `torch==2.13.0`. |
 | Linux + NVIDIA | Below 12 GB refused. At 12 GB and above it needs a CUDA-13 driver, sm_75 or newer and the native `qwentts-cpp-python` package. Never run. |
 | AMD/Intel GPU, CPU-only, headless | Refused by design ("no supported accelerator"). |
 
@@ -151,24 +151,24 @@ the answer.
   not and what to do.
 - **R2 Languages.** German and English first; Spanish next (Piper voices
   exist). A language without a local voice says so.
-- **R3 Tools.** The live model calls Jarvis tools through
+- **R3 Tools.** The live model calls Dodaios tools through
   `LiveTools`/`ToolExecutor`; results arrive within `VOICE_TOOL_BUDGET_S` or as
   an honest pending result.
 - **R4 Turn-taking.** Automatic end of turn by default (`turn_pause_ms=None`).
   An explicit Settings pause is folded into the engine's own detection, never
-  layered on top. Barge-in works while Jarvis speaks.
+  layered on top. Barge-in works while Dodaios speaks.
 - **R5 Latency.** Speech end to first audio p50 ≤ 0.8 s and p95 ≤ 1.2 s on
   NVIDIA with 8 GB or more and on Apple M-Pro/Max; measured and shown
   everywhere else.
 - **R6 Readiness.** Once the user selects local voice, no model loads on the
   call path. A call during warm-up gets an honest spoken and visible state
   within 1 s.
-- **R7 Process integrity.** One engine per app instance; it dies with Jarvis;
+- **R7 Process integrity.** One engine per app instance; it dies with Dodaios;
   no orphans, no port, no LAN listener.
 - **R8 Offline.** After setup nothing touches the network at runtime.
 - **R9 Install.** One click in the app, resumable, with progress; no hand-edited
   config, no tokens, no gated models, no GPL or non-commercial weights.
-- **R10 Ownership.** Jarvis owns the real-time loop. Third-party code is limited
+- **R10 Ownership.** Dodaios owns the real-time loop. Third-party code is limited
   to model runtimes behind small interfaces.
 
 ## 4. Target architecture
@@ -179,7 +179,7 @@ the answer.
 WebView (mic 48 kHz with echo cancellation, playback)
    |  /ws/audio (unchanged)
    v
-Jarvis app process
+Dodaios app process
    NativeLiveVoiceSession -- LiveTools -- ToolExecutor     (seam kept, fixes in 4.4)
    |  RealtimeProvider / RealtimeSession
    LocalVoiceProvider adapter (pure Python, any app interpreter 3.11-3.14)
@@ -188,10 +188,10 @@ Jarvis app process
 Voice engine worker (child process, own uv venv, CPython 3.12)
    audio 16 kHz -> Silero VAD -> Smart Turn v3.2 -> Parakeet v3 (speculative)
                                                     | final transcript
-                                     Jarvis decides the language, requests a response
+                                     Dodaios decides the language, requests a response
                                                     v
                                 LLM stream (Ollama, OpenAI-compatible, tools)
-                                   | text deltas      | tool_call -> Jarvis -> tool_result
+                                   | text deltas      | tool_call -> Dodaios -> tool_result
                                    v
                            clause chunker -> TTS ladder -> audio 24 kHz
    barge-in: VAD stays live while speaking -> cancel LLM + TTS -> interrupted
@@ -202,11 +202,11 @@ Ollama (separate service, managed by dodaios/brain/ollama_runtime.py), voice pro
 
 ### 4.2 Process model
 
-- One worker per Jarvis instance, started by the adapter with
+- One worker per Dodaios instance, started by the adapter with
   `asyncio.create_subprocess_exec` and `NO_WINDOW_CREATIONFLAGS` (AP-1) inside
   a `dodaios/core/process_tree.py` tree (Windows Job Object with kill-on-close,
   POSIX process group).
-- The worker exits on stdin EOF, so it dies with Jarvis. There is no pidfile,
+- The worker exits on stdin EOF, so it dies with Dodaios. There is no pidfile,
   no lease, no port and no adoption logic. Two app instances (live and dev) get
   two workers; the memory gate (4.9) refuses a second premium stack honestly.
 - Stdout carries only protocol frames. Logs go to a rotated file under the
@@ -237,7 +237,7 @@ Per session: `listening -> user_speaking -> turn_pending -> responding
    as soon as the silence starts; if the user resumes, the result is dropped.
    The final transcript therefore costs almost nothing after the turn decision
    (RTFx 31–35 measured by onnx-asr on a desktop CPU).
-5. **Response.** The engine emits `input_transcript(final)`. Jarvis resolves
+5. **Response.** The engine emits `input_transcript(final)`. Dodaios resolves
    the reply language once (`dodaios/core/turn_language.py`) and calls
    `request_response()` (`creates_responses_automatically=False`). The pipe
    round trip costs milliseconds.
@@ -247,11 +247,11 @@ Per session: `listening -> user_speaking -> turn_pending -> responding
 7. **TTS.** The first clause goes to TTS at once; later clauses queue. Audio
    leaves as PCM16 at 24 kHz, with output transcript deltas aligned to the
    clauses.
-8. **Tools.** A `tool_call` pauses the LLM round and goes to Jarvis; the
+8. **Tools.** A `tool_call` pauses the LLM round and goes to Dodaios; the
    `tool_result` resumes it. Heavy work classes get the ADR-0033 instant
    acknowledgment, spoken by the same engine voice.
 9. **Barge-in.** VAD keeps running while the engine speaks (the browser's echo
-   cancellation removes Jarvis's own voice). Confirmed user speech (≥ 250 ms,
+   cancellation removes Dodaios's own voice). Confirmed user speech (≥ 250 ms,
    optionally a non-empty partial transcript) cancels the LLM stream and the
    TTS queue, emits `speech_started` and `interrupted`, and truncates the
    assistant turn in the history to the audio actually sent.
@@ -286,7 +286,7 @@ gets a regression test on both providers:
    `_announce_start_failure`).
 2. Pass the provider's own model setting, never another provider's
    `[brain.realtime].model`.
-3. On `speech_started` while Jarvis speaks, call `connection.interrupt()` and
+3. On `speech_started` while Dodaios speaks, call `connection.interrupt()` and
    flush the browser.
 4. Apply the 5 s `VOICE_TOOL_BUDGET_S` deadline with an honest pending result
    (port the logic from `dodaios/realtime/session.py`).
@@ -330,7 +330,7 @@ an added transport, not a redesign.
 
 ### 4.6 LLM
 
-- **Runtime.** Ollama by default: Jarvis already installs, starts and stops it
+- **Runtime.** Ollama by default: Dodaios already installs, starts and stops it
   on all three OSes. llama.cpp `llama-server` is a later alternative because of
   its prompt-cache control and prebuilt binaries for CUDA 12/13, Vulkan, ROCm,
   Metal and CPU.
@@ -426,7 +426,7 @@ read in `dodaios/hardware/detection.py`), never the card's label.
 - **Idle:** speech models stay resident while local voice is selected (core
   needs about 1.5 GB of RAM). Premium VRAM may be released after a configurable
   idle time; the worker reads that setting (AP-31).
-- **Offline:** models live in a Jarvis model store with checksums. The worker
+- **Offline:** models live in a Dodaios model store with checksums. The worker
   runs with `HF_HUB_OFFLINE=1` and makes no NLTK or other network calls.
 
 ### 4.10 Install and packaging
@@ -443,7 +443,7 @@ read in `dodaios/hardware/detection.py`), never the card's label.
   `faster-qwen3-tts`, or `mlx` and `mlx-audio` on Mac.
 - **Worker code:** a self-contained pure-Python package (`dodaios/voice_engine/`,
   no `dodaios.*` imports). The installer copies it into the engine venv from the
-  app's own files, so frozen builds work and no Jarvis code is downloaded.
+  app's own files, so frozen builds work and no Dodaios code is downloaded.
 - **Models:** downloaded once with progress and resume, checksummed, from
   ungated repositories. Core ≈ 0.8 GB; Pocket adds a small checkpoint;
   Premium adds 3.2–5.2 GB.
@@ -457,7 +457,7 @@ read in `dodaios/hardware/detection.py`), never the card's label.
 Each decision lists the recommended option first, then the runner-up and why it
 loses.
 
-1. **Engine: a Jarvis-owned cascade (recommended).** HF `speech-to-speech
+1. **Engine: a Dodaios-owned cascade (recommended).** HF `speech-to-speech
    1.0.0` behind a new supervisor loses: untested on Windows, no Windows wheel
    for its fast TTS path, still one model copy per pipeline. Native
    speech-to-speech models lose: none is German-capable, small and
@@ -465,7 +465,7 @@ loses.
 2. **Process: one child worker over stdin/stdout (recommended).** A loopback
    WebSocket server with a per-start token loses: a port brings back bind
    conflicts, firewall prompts and orphaned servers, three failures the old
-   stack actually had, while the pipe ends the worker when Jarvis dies. An
+   stack actually had, while the pipe ends the worker when Dodaios dies. An
    in-process engine loses on AP-24, P-41 and crash isolation.
 3. **Real-time loop: our own, about 2,000 lines (recommended).** Pipecat 1.12
    (pinned) loses: its API changes roughly every two weeks, its frame and
@@ -499,9 +499,9 @@ a light-mode check of the card body, and item 7 (local classic fallback).
 
 | Phase | Content | Gate |
 | --- | --- | --- |
-| P0 Measurement bench (2–3 d) | Worker skeleton with a `bench` CLI that needs no Jarvis: de/en corpus with hesitations, numbers and tool requests; synthetic audio; every measurement in section 8 that needs no UI | Numbers for 8.1–8.5 and 8.7 on Windows NVIDIA, the maintainer's Mac and a CPU-only `python:3.11-slim` container; tier defaults chosen from them |
+| P0 Measurement bench (2–3 d) | Worker skeleton with a `bench` CLI that needs no Dodaios: de/en corpus with hesitations, numbers and tool requests; synthetic audio; every measurement in section 8 that needs no UI | Numbers for 8.1–8.5 and 8.7 on Windows NVIDIA, the maintainer's Mac and a CPU-only `python:3.11-slim` container; tier defaults chosen from them |
 | P1 Engine core (4–6 d) | Protocol v1; VAD, turn and speculative STT; LLM streaming with tools; clause chunker; Piper and Pocket; barge-in; cancellation; self-test; metrics; logs | Standalone p50 ≤ 1.0 s on Windows NVIDIA (core tier); 500-turn soak without memory growth; kill drill leaves zero processes; boot with the network unplugged |
-| P2 Jarvis integration (3–4 d) | `local-voice` adapter; `dodaios/live/native.py` fixes (4.4); card with setup progress, self-test, tier and expected latency; prepare-then-handover switch; Ollama coupling | 20 real calls, 0 silent failures; barge-in p95 ≤ 250 ms; GPT-Live to local and back without restart; Gemini Live regression tests green |
+| P2 Dodaios integration (3–4 d) | `local-voice` adapter; `dodaios/live/native.py` fixes (4.4); card with setup progress, self-test, tier and expected latency; prepare-then-handover switch; Ollama coupling | 20 real calls, 0 silent failures; barge-in p95 ≤ 250 ms; GPT-Live to local and back without restart; Gemini Live regression tests green |
 | P3 Installer and platforms (4–6 d) | uv venv, per-platform locks in CI, model store, uninstall; Mac and Linux runs | Fresh-install drill on Windows, macOS (real Apple Silicon) and the CPU container; Linux NVIDIA stays marked unverified until run on hardware |
 | P4 Premium voice (3–5 d) | Qwen3-TTS on CUDA and MLX; free-memory governor; degrade path | First audio p50 ≤ 300 ms on 12–16 GB NVIDIA; ≥ 20 % headroom; an out-of-memory drill degrades instead of failing |
 | P5 Cutover and removal (2–3 d) | Alias `local-realtime` to `local-voice`; delete the old stack (section 9); update `docs/os-parity.md` (P-28, P-40); mark old docs superseded | CI gate green; no reference to `speech-to-speech` left outside history |
@@ -527,7 +527,7 @@ a light-mode check of the card body, and item 7 (local classic fallback).
    first clause, TTS first audio and playback; p50/p95, warm, one device per
    class; de/en corpus with hesitations.
 2. **Tool-call accuracy** in German and English with thinking off, on the real
-   Jarvis catalog, at least 200 utterances per language: right tool, valid
+   Dodaios catalog, at least 200 utterances per language: right tool, valid
    JSON, no invented results; direct set against discover-then-call;
    candidates from 4.6.
 3. **Second-turn first-token time** with the prefix cache, Ollama against

@@ -22,8 +22,8 @@ platform through the same adapter seam.
 > 2026-09-29), so the "indicator precedes the shutter" rule below applies
 > only to services built without a shutter hook.
 
-When the user says something that unambiguously asks Jarvis to *look* — "can you
-see this?", "what does that say?", "look at the error" — Jarvis takes **one**
+When the user says something that unambiguously asks Dodaios to *look* — "can you
+see this?", "what does that say?", "look at the error" — Dodaios takes **one**
 capture of the screen the user is actually working on, enriches it with the
 active application, the window title and whatever visible UI text the platform's
 accessibility layer exposes, filters it against the user's privacy rules, and
@@ -34,7 +34,7 @@ Everything about that sentence is a constraint:
 | Constraint | Consequence in the design |
 |---|---|
 | **on demand** | One capture per trigger. No loop, no timer, no background sampler. |
-| **unambiguous** | A three-valued intent verdict. Ambiguous → Jarvis *asks*, never captures. |
+| **unambiguous** | A three-valued intent verdict. Ambiguous → Dodaios *asks*, never captures. |
 | **the screen the user is working on** | Monitor under the mouse cursor at trigger time; bar's monitor as fallback. |
 | **filtered** | Redaction runs *before* the context leaves the process. |
 | **then it is gone** | Ephemeral handle with a TTL, single consumption, no disk write without explicit consent. |
@@ -153,7 +153,7 @@ user speaks
     ▼
 [1] intent.classify(text, locale)
     ├── NONE      → normal text turn. No capture. No prompt. (the common case)
-    ├── AMBIGUOUS → Jarvis asks one short question in the turn's language,
+    ├── AMBIGUOUS → Dodaios asks one short question in the turn's language,
     │               arms a short confirmation window, and STOPS. No capture,
     │               and every other screen path stays shut for this turn.
     └── SCREEN / WINDOW ↓
@@ -410,7 +410,7 @@ replay and wrong for this feature; Screen Context therefore does not use
 
 #### The deck preview (added 2026-08-17)
 
-The mission deck shows the picture Jarvis just took, so the person at the
+The mission deck shows the picture Dodaios just took, so the person at the
 keyboard sees what was looked at. That is a second copy with its own, narrower
 promise (`dodaios/screen_context/last_frame.py`):
 
@@ -441,7 +441,7 @@ degrades on a missing grant, a fresh install works with any single brain key,
 and no provider name appears anywhere in the package.
 
 **Done when:** `pytest tests/unit/screen_context/ -q` is green and
-`jarvis api screen-context capture` returns a redacted context on Windows and an
+`dodaios api screen-context capture` returns a redacted context on Windows and an
 honest refusal in a `python:3.11-slim` container.
 
 ### Wave 2 — voice-session wiring ✅ *implemented*
@@ -516,7 +516,7 @@ Save / Test / Discard buttons — is gone from the UI, not from the product. The
 privacy rules still run at their shipped defaults on every capture (default
 patterns on, monitor-wide denylist check, 120 s TTL, nothing on disk), and every
 key remains readable and writable through the REST surface and therefore through
-`jarvis api screen-context get-settings|put-settings`. A settings card that asks
+`dodaios api screen-context get-settings|put-settings`. A settings card that asks
 a non-technical user to write regular expressions before a feature works is a
 card they switch off instead of using; the CLI-first contract is
 what makes hiding it safe rather than lossy.

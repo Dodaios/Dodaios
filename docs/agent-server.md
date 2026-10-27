@@ -32,7 +32,7 @@ explicitly stopped, the operating system exits, or the process fails. The tray's
 stop action and the authenticated `POST /api/agent-server/stop` stop the server;
 closing a client does neither. `GET /api/agent-server/status` distinguishes
 server ownership, completed agent startup and a startup failure. Both routes
-are available through the dynamic `jarvis api agent-server` command group.
+are available through the dynamic `dodaios api agent-server` command group.
 
 For login startup, the existing background-only option includes the persistent
 server flag when a local independent server is selected. On a headless host,
@@ -43,7 +43,7 @@ failure. This is a user process on Windows, not a SYSTEM service.
 
 The server owns the roster, chat events, routine scheduler, conversations,
 memory, skills, delegation, provider access, model gateway and tool authorization.
-Jarvis, Hermes and OpenClaw use those same services. External runtimes live on
+Dodaios, Hermes and OpenClaw use those same services. External runtimes live on
 the server and reach its local model and MCP endpoints; a remote UI does not
 need either runtime installed.
 
@@ -69,13 +69,13 @@ for those features. A remote server cannot access the client's screen merely
 because the client opened a page. Server-side file and shell operations address
 the server; connected-computer operations keep their explicit target.
 
-The SSH placement of a coding CLI is separate from connecting a UI to a Jarvis
+The SSH placement of a coding CLI is separate from connecting a UI to a Dodaios
 server. The server connection does not expand the supported SSH runtime list
 or grant new device access.
 
 ## Verification
 
-The disconnect contract is exercised for Jarvis, Hermes and OpenClaw dispatches
+The disconnect contract is exercised for Dodaios, Hermes and OpenClaw dispatches
 with scripted runners: disconnect during approval, reconnect with a cursor,
 approve once, collect one result, and reopen the durable store. The runtime tests
 exercise ACP subprocess translation and session restoration against scripted

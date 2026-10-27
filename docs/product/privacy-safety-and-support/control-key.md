@@ -144,14 +144,14 @@ the local Control Key through Dodaios's credential resolver. Check the
 connection without printing the key:
 
 ```bash
-jarvis --json auth status
+dodaios --json auth status
 ```
 
 Success includes `"reachable": true`. For a remote instance, save its address
 and key through the hidden prompt:
 
 ```bash
-jarvis auth login --url https://jarvis.example
+dodaios auth login --url https://dodaios.example
 ```
 
 Do not add the key after `--key` on the command line. An inline value can remain
@@ -181,7 +181,7 @@ cookie.
 2. On a desktop installation, open the installed app. Its startup token can
    create a session without the Control Key. Then follow [Find and Copy the
    Key](#find-and-copy-the-key).
-3. On the same desktop or headless host, try `jarvis --json auth status`. The
+3. On the same desktop or headless host, try `dodaios --json auth status`. The
    local CLI resolves the stored key without requiring you to paste it.
 4. If you have neither host access nor an authenticated browser session, the
    remote interface cannot reveal or reset the key. Regain operating-system
@@ -217,7 +217,7 @@ starts use the app's stable identity.
 |---|---|---|
 | No lock screen appears on the Dodaios computer | The local browser bypass is on by default | Turn on **Ask for the key in the browser** if this is a shared computer |
 | The lock screen rejects the key | The key was replaced, regenerated, or copied incorrectly | Use an existing desktop or browser session to copy the current value, then try again |
-| A CLI or agent starts returning `401` | Its stored key is no longer current, or it did not send one Bearer header | Use the hidden `jarvis auth login` prompt for that target and retry once |
+| A CLI or agent starts returning `401` | Its stored key is no longer current, or it did not send one Bearer header | Use the hidden `dodaios auth login` prompt for that target and retry once |
 | **Setting the key failed** appears | Neither available credential store accepted the replacement | Check host storage access and retry; the previous key remains active |
 | `.control_api_key` does not exist on a headless host | The current credential resolver is using the OS store or `credentials.json` instead | Use the same-host CLI or authenticated reveal endpoint; do not assume the compatibility file exists |
 

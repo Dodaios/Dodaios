@@ -1,4 +1,4 @@
-# Jarvis Board — Architecture
+# Dodaios Board — Architecture
 
 > For contributors who fork the backend, build alternative frontends,
 > or want to understand how the four phases interlock.
@@ -9,7 +9,7 @@
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│  Local Jarvis (Desktop, personal machine)                         │
+│  Local Dodaios (Desktop, personal machine)                        │
 │                                                                   │
 │   FlightRecorder ──► JSONL ──► BoardAggregator ──► personal.db    │
 │                                       │                  │        │
@@ -62,7 +62,7 @@
 |---|---|---|---|
 | **A — Personal Dashboard** | `dodaios/board/aggregator.py`, `store.py` | `data/board/personal.db` (SQLite, sync) | FlightRecorder-JSONL → daily_stats / personal_records. Read-only API. |
 | **B — Achievements + AI-Bio** | `dodaios/board/achievements.py`, `evaluator.py`, `profile.py`, `scheduler.py` | same `personal.db` (additive) | Live-EventBus subscriber unlocks achievements. Bio rewritten on achievement unlocks or on request, billed to a subscription once one is connected. `[board.bio].override_provider/override_model` is the user's deliberate pin and the only way the bio bills a per-token key while a subscription is connected. |
-| **C — Federation Backend** | `board-backend/` (separate subproject) | `/data/board.db` (in the container) | Standalone service. Receives signed pushes from the local Jarvis. |
+| **C — Federation Backend** | `board-backend/` (separate subproject) | `/data/board.db` (in the container) | Standalone service. Receives signed pushes from the local Dodaios. |
 | **D — Friends** | extends `board-backend/` + `dodaios/ui/web/federation_proxy_routes.py` | same `board.db` (additive) | Pair, Activity, Reactions, Stories, Federation-Pull. |
 
 Each phase is separately deployable — if you only want Phase A, leave
@@ -175,7 +175,7 @@ EventBus.publish(ActionExecuted(success=True, tool_name="bash"))
 ### C.1 — Sync push (Phase C)
 
 ```
-Local Jarvis: SyncClient.tick()
+Local Dodaios: SyncClient.tick()
   → BoardAggregator.export_all_for_federation()  # safe-fields whitelist
   → canonical_json(payload)
   → Ed25519.sign(privkey, body)
@@ -193,10 +193,10 @@ Backend: routes/sync.py
 ### D.1 — Federation feed pull (Phase D)
 
 ```
-Friend's Jarvis Frontend
+Friend's Dodaios Frontend
   → GET /api/board/federation/get?path=/api/v1/federation/feed&sort=interesting
 
-Local Jarvis Backend (proxy)
+Local Dodaios Backend (proxy)
   → load_privkey_from_keyring()
   → canonical_json + sign + forward to friend_url
   → response passed back 1:1
@@ -219,7 +219,7 @@ Owner UI clicks the Rocket button on the Friend item
        { path: "/api/v1/reactions",
          body: { item_id, reaction: "rocket", author_pubkey: friend_pk } }
 
-Local Jarvis proxy
+Local Dodaios proxy
   → sign + POST /api/v1/reactions to OWN backend
 
 Own backend (Owner)
@@ -286,7 +286,7 @@ but does **not** alter existing ones.
 ## Async conventions
 
 - **`dodaios/board/`**: Aggregator + BioGenerator + Scheduler run in the
-  Jarvis web server's asyncio loop. The Aggregator uses
+  Dodaios web server's asyncio loop. The Aggregator uses
   `asyncio.to_thread` for the SQLite batch writes — the event loop
   stays free for UI requests.
 

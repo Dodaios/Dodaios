@@ -76,12 +76,13 @@ def _generic_manifest() -> tuple[
         (
             re.compile(
                 r"(?i)(?<![A-Za-z0-9._~-])/(?:home|Users)/"
-                # `jarvis` is this project's own unprivileged service account —
-                # the one docs/headless-vps-deployment.md tells a reader to
-                # create for the systemd unit. It names no person, and spelling
+                # `dodaios` (and `jarvis`, its name before the rename) is this
+                # project's own unprivileged service account — the one
+                # docs/headless-vps-deployment.md tells a reader to create for
+                # the systemd unit. It names no person, and spelling
                 # it out is what makes that unit copy-pasteable.
                 r"(?!(?:<(?:name|person|service-user|user|username)>"
-                r"|(?:user|jarvis)(?:/|$)))"
+                r"|(?:user|jarvis|dodaios)(?:/|$)))"
                 r"[^/\s]+"
             ),
             "<USER_HOME>",

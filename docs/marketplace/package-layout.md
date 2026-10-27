@@ -50,7 +50,7 @@ the skill applies — write them for a reader who has never seen your work.
 
 ```
 todo-fox/
-├── plugin.json                  ← required: identity + the Jarvis block
+├── plugin.json                  ← required: identity + the Dodaios block
 ├── mcp.json                     ← the server your plugin talks to
 ├── skills/                      ← optional: instructions that ship with it
 │   ├── todo-triage/

@@ -6,7 +6,7 @@ Area: Desktop app, pywebview/WebView2, React frontend
 
 ## Symptom
 
-After clicking through multiple sections in the Jarvis desktop app, the window
+After clicking through multiple sections in the Dodaios desktop app, the window
 turned into a black screen. Restarting the desktop app did not reliably recover
 the UI.
 
@@ -93,7 +93,7 @@ PY
 
 If the black screen appears again:
 
-1. Restart Jarvis completely from the tray menu.
+1. Restart Dodaios completely from the tray menu.
 2. If the UI still stays black, open `data/jarvis_desktop.log`.
 3. Search for `Jarvis view crashed` in the WebView console if debug mode is on.
 4. Check the most recently opened section first, especially Terminal or any

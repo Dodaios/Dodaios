@@ -48,7 +48,7 @@ is optional. A graphics processor is also optional.
 |---|---|---|---|
 | One-line desktop installer | Full app, local voice support, launcher, and managed environment | In-app published releases | Most users |
 | One-line `--headless` installer | Smaller browser-based server | Manual restart and maintenance | Linux without a display |
-| PyPI with `pipx` | Isolated base package and `jarvis serve` | `pipx upgrade personal-jarvis` | Existing `pipx` users |
+| PyPI with `pipx` | Isolated base package and `dodaios serve` | `pipx upgrade personal-jarvis` | Existing `pipx` users |
 | Manual clone or environment | Source and profile you choose | Your Git and Python workflow | Contributors and custom hosts |
 
 Only the official one-line installer marks its checkout as managed. Package and
@@ -102,7 +102,7 @@ managed source checkout:
 
 ```bash
 pipx install personal-jarvis
-jarvis serve
+dodaios serve
 ```
 
 Open the printed local address. This option has no native desktop launcher or

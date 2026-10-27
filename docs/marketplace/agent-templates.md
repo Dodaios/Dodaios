@@ -25,7 +25,7 @@ Agent card ─ Share ─► Share sheet ─────────────�
                                                           │
                                                           ▼
                                          index.json "agents" ─► Marketplace → Agents
-                                                          │      Install / jarvis marketplace install
+                                                          │      Install / dodaios marketplace install
                                                           ▼
                                                  a NEW agent on the installer's own model
 ```
@@ -47,7 +47,7 @@ Agent card ─ Share ─► Share sheet ─────────────�
    issue on the registry as that user; the registry publishes it within a
    minute or two and the sheet watches the feed until the version is live.
 4. **Install** — from the marketplace card, from
-   `jarvis marketplace install <name>`, or by importing an exported file —
+   `dodaios marketplace install <name>`, or by importing an exported file —
    creates a new agent. A name already on the team gets a number
    ("Release Scribe 2"); the roster would otherwise adopt the existing agent.
 
@@ -158,7 +158,7 @@ runs on the installer's own model.
 | Issue intake submit, `registry_repo()`, agent drafts | `dodaios/marketplace/publish.py` |
 | Feed model `CommunityAgentEntry`, `index.agents` | `dodaios/marketplace/community_source.py` |
 | Browse payload `agents`, install by name | `dodaios/ui/web/marketplace_routes.py` |
-| CLI `jarvis marketplace install/browse` | `dodaios/cli_ctl/commands/marketplace.py` |
+| CLI `dodaios marketplace install/browse` | `dodaios/cli_ctl/commands/marketplace.py` |
 | Share sheet | `frontend/src/components/society/card/ShareAgentDialog.tsx` |
 | Agents shelf, drawer, import | `frontend/src/views/MarketplaceView.tsx` |
 | Client | `frontend/src/lib/agentShare.ts` |

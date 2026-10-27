@@ -1,25 +1,25 @@
-# Jarvis' self-learning loop
+# Dodaios' self-learning loop
 
 Tier: **T2 memory surface**. Code: `dodaios/memory/learning/`. Config:
 `[memory.learning]` (`JarvisLearningConfig` in `dodaios/core/config.py`).
 
-Jarvis learns from its own conversations with the user, spoken and typed, and
+Dodaios learns from its own conversations with the user, spoken and typed, and
 carries what it learned into every later conversation: who the user is, what
-they prefer, what they are working toward, and how they want Jarvis to behave.
+they prefer, what they are working toward, and how they want Dodaios to behave.
 The Society agents have had this since their notebooks shipped
 (`docs/agent-society/self-learning.md`); this loop gives the same ability to
-Jarvis itself, tuned for a voice assistant.
+Dodaios itself, tuned for a voice assistant.
 
 ## How it works
 
 1. **Collect.** Every finished voice turn (`VoiceTurnCompleted`, published by
-   all voice engines) and every typed turn on Jarvis' own chat (the `jarvis`
+   all voice engines) and every typed turn on Dodaios' own chat (the `jarvis`
    surface kit's `turn_completed` hook) is filed per conversation. Society
    agent chats never feed this loop, and routine or agent-injected chat turns
    (`direct_user = false`) are ignored.
 2. **Filter (free).** A deterministic filter (`signals.py`, English, German
    and Spanish) marks the few turns in which the user talks about themselves,
-   states a preference, corrects Jarvis, or names a plan, goal or deadline.
+   states a preference, corrects Dodaios, or names a plan, goal or deadline.
    Requests and questions ("play some music", "what's the weather") are not
    marked. A conversation with no marked turn never reaches a model.
 3. **Explicit requests (immediate, always MEMORY.md).** The conversation
@@ -76,7 +76,7 @@ Jarvis itself, tuned for a voice assistant.
    | File (in the vault) | Holds |
    | --- | --- |
    | `society/jarvis/USER.md` | who the user is: identity, people, preferences, style, goals, plans with absolute dates |
-   | `society/jarvis/MEMORY.md` | Jarvis' working notes: environment facts, conventions, lessons from corrections |
+   | `society/jarvis/MEMORY.md` | Dodaios' working notes: environment facts, conventions, lessons from corrections |
    | `society/jarvis/.learning-ledger.jsonl` | every applied change with its old and new text and the evidence, and one `review` line per review or merge call |
 
    Nothing is ever lost: a replaced or removed entry stays in the ledger.
@@ -98,8 +98,8 @@ the subscription of the provider the person uses by default whenever it can
 
 1. **An explicit `[memory.learning].provider`** (with its `model`) wins, on
    that provider's ordinary credential.
-2. **The default seat** is the Jarvis lead's (`seat_brain.jarvis_seat`): the
-   provider, model and auth mode the front-page Jarvis chat answers on (the
+2. **The default seat** is the Dodaios lead's (`seat_brain.jarvis_seat`): the
+   provider, model and auth mode the front-page Dodaios chat answers on (the
    Agents selection, else the Agents tier). When it runs on a subscription
    CLI or a keyless local model, the review runs there.
 3. **A default seat that bills a per-token key** is moved onto the same
@@ -171,7 +171,7 @@ the notebook budget and the ledger. The review neither shows nor accepts the
 assistant's character. The name itself is never stored as an entry.
 
 SOUL.md is not part of the learned snapshot below. `dodaios/brain/identity.py`
-renders it, after a name directive ("YOUR NAME IS GEORGE ... Personal Jarvis
+renders it, after a name directive ("YOUR NAME IS GEORGE ... Dodaios
 is the name of the app you run inside, not your name"), at the very top of
 every surface: the classic brain prompt (and with it the CLI chat seats), the
 realtime voice instructions and the GPT-Live session, both its voice model
@@ -180,7 +180,7 @@ so a tool write or a hand edit applies on the next call. It costs about 350
 prompt tokens (name directive about 90, character about 260 with an empty
 learned section), at the start of every prompt, so provider prompt caches
 cover it after the first request. Regression this fixes: a
-GPT-Live call answered "I'm Personal Jarvis" although the wake word named the
+GPT-Live call answered "I'm Personal Jarvis" (the product's name then) although the wake word named the
 assistant George (2026-10-02); the live instructions hardcoded the product
 name and never read SOUL.md.
 
@@ -217,7 +217,7 @@ Compaction (`compact.py`) keeps the files themselves small:
    previous file, so the audit trail never exceeds about 0.5 MB.
 
 Privacy: reviews and merges send the reviewed turns only to the provider
-family the Jarvis chat already talks to (its API or its subscription CLI) or
+family the Dodaios chat already talks to (its API or its subscription CLI) or
 to the explicit `[memory.learning]` override; the loop adds no new vendor. `enabled = false` switches it off.
 
 ## Cost
@@ -237,7 +237,7 @@ to the explicit `[memory.learning]` override; the loop adds no new vendor. `enab
 The loop is a bounded
 USER/MEMORY pair, a review that runs after the reply instead of during it,
 declarative entries instead of imperatives, and an explicit list of what not
-to keep. Jarvis adds the evidence rule of its Society agents (every change
+to keep. Dodaios adds the evidence rule of its Society agents (every change
 quotes the user), a ledger for every change, voice-first triggers (call end,
 quiet period, explicit requests) and a single snapshot shared by both voice
 engines. No upstream code was copied.

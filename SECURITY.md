@@ -67,7 +67,7 @@ report it privately as described above. It is handled as a security issue.
 
 ## Scope
 
-In scope: the `jarvis` package, the desktop app, the plugin system, the tool-use and
+In scope: the `dodaios` package, the desktop app, the plugin system, the tool-use and
 risk-tier path, the self-modification pipeline, and mission and worker isolation.
 
 Out of scope: vulnerabilities in third-party provider APIs, which belong to that provider;

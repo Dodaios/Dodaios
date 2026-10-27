@@ -14,15 +14,15 @@
 | **idle** | Nothing running | Glow off, mascot idle pulse | gentle 8-s sine breathing | 0.0 |
 | **listening** | Wake word detected, STT running | Glow off (no PC-action) | mouth open, eyes alert | 0.6 |
 | **thinking** | LLM inference running, no PC-action | Glow off (no PC-action) | head-tilt, dots above head | 0.7 |
-| **typing** | Hauptjarvis types via keyboard input | **Glow on** (yellow conic-sweep), bottom-edge accent sweep | hands typing | 1.0 |
-| **clicking** | Hauptjarvis clicks via mouse | **Glow on** (yellow), Ripple at click coord | finger-point | 1.0 |
+| **typing** | The main process types via keyboard input | **Glow on** (yellow conic-sweep), bottom-edge accent sweep | hands typing | 1.0 |
+| **clicking** | The main process clicks via mouse | **Glow on** (yellow), Ripple at click coord | finger-point | 1.0 |
 | **speaking** | TTS output running | Glow off (no PC-action) | mouth movement synced to RMS | 0.8 |
-| **error** | Recoverable error in Hauptjarvis | Glow shifts to amber/red flash 1× then off | confused expression | 1.0 |
+| **error** | Recoverable error in the main process | Glow shifts to amber/red flash 1× then off | confused expression | 1.0 |
 | **hidden** | Overlay completely hidden (fullscreen, manual hide, feature disabled) | Glow off, mascot hidden | n/a | 0.0 |
 
 **Critical Invariant — Plan §6.1:** Glow is **only** active in `typing` and
 `clicking`. The other states change the mascot but not the edge-glow. The whole
-point of the glow is "Jarvis is operating my computer right now" — using it for
+point of the glow is "Dodaios is operating my computer right now" — using it for
 listening/thinking would dilute that signal.
 
 ---
@@ -86,7 +86,7 @@ Notes:
 
 ## 3. Event-Sources (Plan §6.3)
 
-| Event | Source (in Hauptjarvis) | Trigger | Resulting Transition |
+| Event | Source (in the main process) | Trigger | Resulting Transition |
 |---|---|---|---|
 | `wakeword_detected` | `dodaios.speech.wakeword` | Porcupine / openWakeWord | `idle → listening` |
 | `utterance_started` | `dodaios.speech.stt` | VAD starts | `listening` enter / refresh |
@@ -109,13 +109,13 @@ event source**.
 
 ## 4. Latency-Budget (Plan §6.4)
 
-| Transition | Budget Hauptjarvis-Event → Overlay-Visual |
+| Transition | Budget main-process event → Overlay-Visual |
 |---|---|
 | State-Change (any → any) | ≤ 50 ms |
 | Click-Event → Ripple visible | ≤ 50 ms (perceptual threshold; Plan §1.4) |
 | Cursor-Move → Trail-Point visible | ≤ 33 ms (1 frame @ 30 Hz, with 60 Hz cursor stream) |
 | Typing-Indicator-Update | ≤ 100 ms (less critical, ambient) |
-| Hauptjarvis-Crash → Overlay-Process killed | ≤ 1 s (Job-Object guarantee) |
+| Main-process crash → Overlay-Process killed | ≤ 1 s (Job-Object guarantee) |
 | Overlay-Crash → Restart-Spawn started | ≤ 3 s (heartbeat timeout) |
 
 Backing research: Forch et al. 2017 — mouse-interaction latency-perception
@@ -133,7 +133,7 @@ the **later one is ignored**. Example: a race-condition that double-fires
 **Click events are never coalesced** — every click deserves a ripple even if
 they arrive in rapid succession.
 
-Coalescing happens at **send-time** in the Hauptjarvis bridge, **before**
+Coalescing happens at **send-time** in the main-process bridge, **before**
 queueing onto the IPC channel. This keeps the bandwidth budget honest even when
 upstream event-sources misbehave.
 

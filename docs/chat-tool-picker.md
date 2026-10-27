@@ -4,7 +4,7 @@ T3: a per-message selection contract from the composer to the runtime and persis
 
 ## Behavior
 
-The Jarvis chat's **Add** menu offers file attachment, a working folder, and a
+The Dodaios chat's **Add** menu offers file attachment, a working folder, and a
 searchable inventory. It groups plugins by service and MCP operations by server,
 with separate filters for skills, memory/knowledge, web/research, files,
 automations, system tools, and CLIs. Select or remove multiple chips, then send
@@ -13,7 +13,7 @@ retains the chips when the chat is reopened. A selection is a request to use a
 capability when applicable, not proof it ran; actual calls have separate tool
 results and retain the existing approval cards.
 
-The picker is specific to the Jarvis surface. Coding-agent, society and setup
+The picker is specific to the Dodaios surface. Coding-agent, society and setup
 chats retain their own tool and permission contracts. Existing slash completion,
 file attachment, dictation, model choices and permission controls remain usable.
 

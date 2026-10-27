@@ -1,8 +1,8 @@
 # The Agent MCP surface
 
-Jarvis' agent ecosystem, offered outwards over the Model Context Protocol. Any
+Dodaios' agent ecosystem, offered outwards over the Model Context Protocol. Any
 MCP client that holds the control key — Claude Desktop, Cursor, VS Code, Codex,
-another Jarvis — can find the team, talk to it, give it work, watch the board
+another Dodaios — can find the team, talk to it, give it work, watch the board
 and answer its approval requests.
 
 This document is the contract. It is pinned by
@@ -15,7 +15,7 @@ there is a client somewhere breaking silently.
 
 | URL | What it offers | For whom |
 |---|---|---|
-| `/api/control/mcp` | Jarvis' **tools** — `open-app`, `google-calendar`, `wiki-recall`, every registered tool plugin | a session Jarvis itself spawned, reaching back in |
+| `/api/control/mcp` | Dodaios' **tools** — `open-app`, `google-calendar`, `wiki-recall`, every registered tool plugin | a session Dodaios itself spawned, reaching back in |
 | `/api/control/mcp/agents` | the **ecosystem** — roster, board, rooms, assignments, approvals | any client holding the control key |
 
 Both are Streamable HTTP, both authenticate with the Control API's bearer key,
@@ -43,14 +43,14 @@ forwards to the HTTP surface:
 python -m dodaios.mcp.agents.bridge
 ```
 
-It needs no URL in the config, survives Jarvis changing port, works from
+It needs no URL in the config, survives Dodaios changing port, works from
 clients that cannot send an `Authorization` header, and finds the control key
-the way the app does (keyring → env → file). When Jarvis is not running the
+the way the app does (keyring → env → file). When Dodaios is not running the
 client still connects and is told what to start, rather than showing a red
 "server failed" — which matters, because a desktop client launches the bridge
-at *its* startup, long before anyone opens Jarvis.
+at *its* startup, long before anyone opens Dodaios.
 
-**Direct — Streamable HTTP.** For a remote Jarvis or a client that cannot
+**Direct — Streamable HTTP.** For a remote Dodaios or a client that cannot
 launch a process:
 
 ```json
@@ -94,9 +94,9 @@ never by its name: a server somebody else put under `jarvis-agents` stays
 where it is. When pasting a snippet by hand, remove an existing
 `jarvis-agents` entry in the same step.
 
-Environment overrides, for a Jarvis that is not on this box:
+Environment overrides, for a Dodaios that is not on this box:
 
-* `JARVIS_API_URL` — base URL of the Jarvis to drive
+* `JARVIS_API_URL` — base URL of the Dodaios to drive
 * `JARVIS_CONTROL_KEY` — the control key
 
 ## 3. Credentials: one per client
@@ -255,7 +255,7 @@ The safety seam is the house's, not a new one:
   as a typed `VETO` with a reason. Trusted Python decides, never a model.
 * **The kill switch is real.** Engaged, `agent_chat` refuses; nothing runs
   until it is released.
-* **Approvals are not bypassed.** A remote client is not one of Jarvis' own
+* **Approvals are not bypassed.** A remote client is not one of Dodaios' own
   spawned sessions, so there is no chat card to route an ask to; parked actions
   surface through `approvals_list` and are answered with `approval_resolve` —
   the same path a person at the keyboard uses.

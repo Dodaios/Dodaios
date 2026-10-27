@@ -19,7 +19,7 @@ working on the app from inside the app.
 | Window title / taskbar / tray | Dodaios, logo icon | Dodaios **Dev**, logo with a yellow **DEV** tag, own taskbar group, own tray entry; the sidebar shows a small **DEV** badge |
 | Wake word, global hotkeys | as configured | **off** — the microphone and the key combos belong to the default app (the in-window mic button and chat still work) |
 | Chat channels (Telegram/Discord), autostart | as configured | **off** — a second poller on the same bot token would collide; the dev app never touches the login autostart entry |
-| On-screen overlay (Jarvis Bar / orb) | as configured | **off** — the dev app draws no bar or orb and its Settings refuse to switch the style (HTTP 409): both apps read ONE `jarvis.toml`, and a second bar on the same spot that someone then switched off once took the default app's bar away on its next restart (2026-08-23) |
+| On-screen overlay (Dodaios Bar / orb) | as configured | **off** — the dev app draws no bar or orb and its Settings refuse to switch the style (HTTP 409): both apps read ONE `jarvis.toml`, and a second bar on the same spot that someone then switched off once took the default app's bar away on its next restart (2026-08-23) |
 | Agentic-IDE resume offer | `last_session.json` | `last_session.dev.json` — a restarted dev app never offers to resume panes that are alive in the default app |
 
 ## How it is selected

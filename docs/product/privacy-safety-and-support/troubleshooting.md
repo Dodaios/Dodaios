@@ -102,7 +102,7 @@ again.
 To print the installed version, run:
 
 ```bash
-jarvis version
+dodaios version
 ```
 
 ### Docs Keep Loading or Show an Error
@@ -197,8 +197,8 @@ needs confirmation, or must be blocked.
 ### Start Over for One macOS Permission
 
 If macOS shows no dialog, or a switch is on but the feature fails, quit
-Dodaios and run `jarvis permissions reset <permission>
---yes` (add `--bundle-id` for the other app). If `jarvis` is not found, the
+Dodaios and run `dodaios permissions reset <permission>
+--yes` (add `--bundle-id` for the other app). If `dodaios` is not found, the
 downloaded app's command is `/Applications/Personal Jarvis.app/Contents/MacOS/jarvis`.
 Without the command, run `tccutil` with
 `ai.personaljarvis.desktop` (downloaded app) or `com.personal-jarvis.desktop`
@@ -261,7 +261,7 @@ See [Plugins](plugins), [MCP Connections](mcp-connections), and
 Advanced users can run the read-only command-line doctor:
 
 ```bash
-jarvis --doctor
+dodaios --doctor
 ```
 
 It checks command registration, Brain selection, external agent worker CLIs,
