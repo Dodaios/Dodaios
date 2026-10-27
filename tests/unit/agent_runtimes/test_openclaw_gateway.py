@@ -25,6 +25,10 @@ _LAUNCHER = [sys.executable, str(_FAKE)]
 @pytest.fixture
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(base, "runtimes_root", lambda: tmp_path / "rt")
+    # Never this machine's own OpenClaw ``--version`` for the release record.
+    monkeypatch.setattr(
+        openclaw.OpenClawRuntime, "_installed_build", lambda self: "OpenClaw 2026.9.8 (fake)"
+    )
     folder = tmp_path / "rt" / "openclaw" / "hermit"
     folder.mkdir(parents=True)
     return folder

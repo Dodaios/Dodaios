@@ -100,6 +100,39 @@ class RuntimeUnavailable(Exception):
     """The runtime cannot run this turn; the message is shown in the chat."""
 
 
+#: A runtime still finishing its start refuses a message before any model call
+#: (OpenClaw 2026.10: UNAVAILABLE "Agent main has not completed startup
+#: inspection and preparation"). The same process admits it moments later.
+_STARTING_MARKERS: Final[tuple[str, ...]] = (
+    "has not completed startup inspection",
+    "startup preparation still running",
+)
+
+#: A runtime whose stored data an older release wrote refuses every message
+#: until its own migration ran; a restart of its process runs it
+#: (``openclaw._admitted``).
+_REPAIR_MARKERS: Final[tuple[str, ...]] = (
+    "uses schema version",
+    "session stores for agent",
+    "agentdatabaseadmissionerror",
+)
+
+
+def not_ready_kind(error: str | None) -> str:
+    """Why a runtime refused a message before any model call.
+
+    ``starting`` (send it again to the same process shortly), ``repair``
+    (restart the process: its start migrates the data) or ``""`` (any other
+    error, never retried here).
+    """
+    low = (error or "").lower()
+    if any(marker in low for marker in _STARTING_MARKERS):
+        return "starting"
+    if any(marker in low for marker in _REPAIR_MARKERS):
+        return "repair"
+    return ""
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeStatus:
     """What ``GET /api/agent-runtimes`` reports for one runtime."""

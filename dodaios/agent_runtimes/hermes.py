@@ -116,28 +116,78 @@ _BIN_BLOCKER_TEXT: Final[str] = (
 
 
 def _binary() -> str | None:
-    """The person's Hermes launcher, never one inside a Jarvis agent folder.
+    """The Hermes launcher: the official installer's location first, then PATH.
 
-    Builds before the profile layout left per-agent ``bin`` folders on the
-    user's PATH (``path_cleanup`` removes them); a stale one must not shadow
-    the real install.
+    The setup job installs Hermes with its official installer, which puts the
+    launcher in a fixed per-user folder (:func:`_install_locations`); that one
+    answers before anything on PATH. A PATH entry never answers when it is
+    inside a Jarvis agent folder (builds before the profile layout left
+    per-agent ``bin`` folders on the user's PATH; ``path_cleanup`` removes
+    them) or inside a temporary folder (a test or audit run that installed a
+    throwaway Hermes and put its ``bin`` on the user's PATH; the PATH itself
+    is left as it is).
     """
-    found = which("hermes", "hermes.exe", "hermes.cmd", skip=_in_jarvis_data)
-    if found:
-        return found
+    found_path = first_existing(_install_locations())
+    if found_path is not None and not _never_on_path(str(found_path.parent)):
+        return str(found_path)
+    return which("hermes", "hermes.exe", "hermes.cmd", skip=_never_on_path)
+
+
+def _install_locations() -> list[Path]:
+    """Where Hermes' official installers put the launcher, per OS."""
+    if is_windows():
+        local = os.environ.get("LOCALAPPDATA")
+        return [Path(local) / "hermes" / "bin" / "hermes.exe"] if local else []
     home = Path.home()
-    candidates = [home / ".local" / "bin" / "hermes", home / ".hermes" / "bin" / "hermes"]
-    local = os.environ.get("LOCALAPPDATA")
-    if local:
-        candidates.insert(0, Path(local) / "hermes" / "bin" / "hermes.exe")
-    found_path = first_existing(candidates)
-    return str(found_path) if found_path else None
+    return [home / ".local" / "bin" / "hermes", home / ".hermes" / "bin" / "hermes"]
 
 
-def _in_jarvis_data(directory: str) -> bool:
+def _temp_roots() -> list[str]:
+    """This machine's temporary folders, normalised for a prefix check."""
+    import tempfile
+
+    roots = {tempfile.gettempdir(), os.environ.get("TEMP", ""), os.environ.get("TMP", "")}
+    if not is_windows():
+        # Compared against, never written to.
+        roots.update({"/tmp", "/var/tmp", os.environ.get("TMPDIR", "")})  # noqa: S108
+    out: list[str] = []
+    for root in roots:
+        if not root:
+            continue
+        out.append(_norm(root))
+        with contextlib.suppress(OSError):  # an unresolvable root still counts as written
+            out.append(_norm(str(Path(root).resolve())))
+    return sorted(set(out))
+
+
+def _norm(path: str) -> str:
+    return os.path.normcase(os.path.normpath(os.path.expandvars(path.strip().strip('"'))))
+
+
+#: A Windows temporary folder under any spelling of the profile path
+#: (``C:\Users\ADMINI~1\AppData\Local\Temp`` and the long name alike).
+_WINDOWS_TEMP: Final[re.Pattern[str]] = re.compile(
+    r"[\\/]appdata[\\/]local[\\/]temp(?:[\\/]|$)", re.IGNORECASE
+)
+
+
+def _in_temp(directory: str) -> bool:
+    if not directory.strip():
+        return False
+    normal = _norm(directory)
+    if _WINDOWS_TEMP.search(normal):
+        return True
+    for root in _temp_roots():
+        if normal == root or normal.startswith(root.rstrip("\\/") + os.sep):
+            return True
+    return False
+
+
+def _never_on_path(directory: str) -> bool:
+    """A PATH entry whose ``hermes`` must never run an agent."""
     from dodaios.agent_runtimes.path_cleanup import is_jarvis_hermes_bin
 
-    return is_jarvis_hermes_bin(directory)
+    return is_jarvis_hermes_bin(directory) or _in_temp(directory)
 
 
 def _install_hint() -> str:
