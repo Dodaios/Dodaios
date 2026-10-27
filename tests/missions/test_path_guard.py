@@ -183,6 +183,53 @@ rename to new/.env
     assert ".env" in [p.rsplit("/", 1)[-1] for p in blocked]
 
 
+@pytest.mark.parametrize(
+    ("diff", "expected"),
+    [
+        # A space in the name: the header no longer splits on whitespace.
+        (
+            "diff --git a/my dir/.env b/my dir/.env\n"
+            "--- a/my dir/.env\t\n+++ b/my dir/.env\t\n@@ -1 +1 @@\n-a\n+b\n",
+            ["my dir/.env"],
+        ),
+        # An empty new file has no ---/+++ lines; only the spaced header.
+        (
+            "diff --git a/x y/.env b/x y/.env\nnew file mode 100644\n"
+            "index 0000000..e69de29\n",
+            ["x y/.env"],
+        ),
+        # C-quoted names (a tab, and octal non-ASCII bytes).
+        (
+            'diff --git "a/k\\tey/id_rsa" "b/k\\tey/id_rsa"\nnew file mode 100600\n',
+            ["k\tey/id_rsa"],
+        ),
+        (
+            'diff --git "a/caf\\303\\251/.env" "b/caf\\303\\251/.env"\n'
+            '--- /dev/null\n+++ "b/caf\\303\\251/.env"\n',
+            ["café/.env"],
+        ),
+        # A rename whose names hold spaces: read from the rename lines.
+        (
+            "diff --git a/notes one.txt b/keys dir/server.pem\n"
+            "similarity index 100%\n"
+            "rename from notes one.txt\nrename to keys dir/server.pem\n",
+            ["keys dir/server.pem"],
+        ),
+    ],
+)
+def test_filter_diff_reads_spaced_and_quoted_names(diff: str, expected: list[str]) -> None:
+    """Audit #353: a name git spells with spaces or quotes is still guarded."""
+    assert filter_diff_paths(diff) == expected
+
+
+def test_filter_diff_spaced_names_not_blocked_stay_clean() -> None:
+    diff = (
+        "diff --git a/my dir/readme.md b/my dir/readme.md\n"
+        "--- a/my dir/readme.md\t\n+++ b/my dir/readme.md\t\n"
+    )
+    assert filter_diff_paths(diff) == []
+
+
 # --- check_prompt_for_blocked_paths ---
 
 
