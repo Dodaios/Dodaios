@@ -305,20 +305,27 @@ export function rankQuickSwitch(
 ): RankedEntry[] {
   const needle = normalizeQuery(query);
   if (!needle) return [];
-  const rows: RankedEntry[] = [];
+  const rows: (RankedEntry & { score: number })[] = [];
   for (const item of entries) {
     const label = labelFor(item);
     const prefix = labelStartsWith(label, needle);
-    const matches =
-      prefix ||
-      (needle.length > SHORT_QUERY &&
-        entryTerms(item, label).some((term) => scoreTerm(term, needle) > 0));
-    if (matches) rows.push({ entry: item, label, prefix });
+    const score =
+      needle.length > SHORT_QUERY
+        ? Math.max(0, ...entryTerms(item, label).map((term) => scoreTerm(term, needle)))
+        : 0;
+    if (prefix || score > 0) rows.push({ entry: item, label, prefix, score });
   }
-  return rows.sort(
-    (a, b) =>
-      compareMatches(a, b) || Number(Boolean(a.entry.parentLabelKey)) - Number(Boolean(b.entry.parentLabelKey)),
-  );
+  // Rows reached through another name (a German query for Settings) rank by how
+  // well that name matched before the alphabet: an exact other-language name
+  // beats one that merely contains the query (the German Game settings label).
+  return rows
+    .sort(
+      (a, b) =>
+        (a.prefix === b.prefix && !a.prefix ? b.score - a.score : 0) ||
+        compareMatches(a, b) ||
+        Number(Boolean(a.entry.parentLabelKey)) - Number(Boolean(b.entry.parentLabelKey)),
+    )
+    .map(({ score: _score, ...row }) => row);
 }
 
 /**
