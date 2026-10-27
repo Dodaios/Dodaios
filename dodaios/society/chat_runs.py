@@ -85,6 +85,7 @@ class ChatRunLedger:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
+            log.debug("chat runs: turn %s finished off the event loop; not counted", row[0])
             return
         task = loop.create_task(self._record([row]))
         self._writes.add(task)
