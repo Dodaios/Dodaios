@@ -26,6 +26,8 @@ export class CommanderControl {
   mode: ControlMode = "follow";
   /** Shift is held: the commander hurries. */
   run = false;
+  /** The commander rides the hoverboard (B): the keys glide much faster than a walk. */
+  board = false;
   /** The camera should frame the commander at the third-person zoom as soon as they stand on the deck. */
   reframe = true;
   /** The person dragged the view to look around: the camera leaves the commander until they walk again. */

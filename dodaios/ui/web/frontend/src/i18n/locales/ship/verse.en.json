@@ -5,8 +5,8 @@
       "loading": "Loading deck",
       "unavailable": "The ship needs WebGL, which this window cannot start right now.",
       "deck_missing": "This deck has not been built yet.",
-      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record. Hold F to unleash Arc Storm, lightning from both hands.",
-      "help_eye": "Third and first person play like a shooter: a click on the view takes the mouse, moving it turns the camera, Esc gives it back. WASD walks relative to the view, Shift hurries; the left button or E works what the crosshair is on (a crew member, a station), else E works the station within reach. Scroll to move the camera in or out: all the way in is first person, scrolling out of it comes back. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. The settings button on the tool rail sets mouse sensitivity, inverted look, field of view and quality. Hold F to unleash Arc Storm, lightning from both hands."
+      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record. Hold F to unleash Arc Storm, lightning from both hands. B folds out the hoverboard, which glides across the deck much faster.",
+      "help_eye": "Third and first person play like a shooter: a click on the view takes the mouse, moving it turns the camera, Esc gives it back. WASD walks relative to the view, Shift hurries; the left button or E works what the crosshair is on (a crew member, a station), else E works the station within reach. Scroll to move the camera in or out: all the way in is first person, scrolling out of it comes back. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. The settings button on the tool rail sets mouse sensitivity, inverted look, field of view and quality. Hold F to unleash Arc Storm, lightning from both hands. B folds out the hoverboard, which glides across the deck much faster."
     },
     "deck": {
       "label": "Deck {n}",
@@ -103,7 +103,8 @@
       "first_unavailable": "First person needs this deck's eye-level scene on the full-size stage.",
       "click_to_look": "Click to look around",
       "first_too_small": "Make this panel at least {width} × {height} for third and first person.",
-      "click_for_keys": "Click here so the keys reach the ship"
+      "click_for_keys": "Click here so the keys reach the ship",
+      "board": "Hoverboard"
     },
     "settings": {
       "title": "View settings",
@@ -255,6 +256,10 @@
         "needs_eye": "Duels need the third-person 3D view.",
         "left": "You left the duel."
       }
+    },
+    "board": {
+      "on": "Hoverboard out: WASD glides, Shift boosts. B folds it away.",
+      "off": "Hoverboard folded away."
     }
   }
 }

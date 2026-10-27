@@ -5,8 +5,8 @@
       "loading": "Carregando o convés",
       "unavailable": "A nave precisa de WebGL, que esta janela não consegue iniciar agora.",
       "deck_missing": "Este convés ainda não foi construído.",
-      "help": "Terceira pessoa: WASD ou as setas movem o comandante, Shift acelera, E usa a estação ao alcance. 1, 2 e 3 escolhem vista aérea, terceira ou primeira pessoa; V alterna entre elas. Arraste para olhar, role para dar zoom. Clique no convés para ir até lá, num tripulante para ver a ficha. Segure F para liberar a Tempestade de Arcos: raios das duas mãos.",
-      "help_eye": "A terceira e a primeira pessoa funcionam como um shooter: um clique na vista captura o mouse, movê-lo gira a câmera, Esc o libera. WASD anda conforme a vista, Shift acelera; o botão esquerdo ou E usa o que a mira aponta (um tripulante, uma estação); senão, E usa a estação ao alcance. A roda aproxima ou afasta a câmera: tudo perto é primeira pessoa, e afastar volta. 1, 2 e 3 escolhem vista aérea, terceira ou primeira pessoa; V alterna entre elas. O botão de ajustes da barra define a sensibilidade do mouse, o eixo invertido, o campo de visão e a qualidade. Segure F para liberar a Tempestade de Arcos: raios das duas mãos."
+      "help": "Terceira pessoa: WASD ou as setas movem o comandante, Shift acelera, E usa a estação ao alcance. 1, 2 e 3 escolhem vista aérea, terceira ou primeira pessoa; V alterna entre elas. Arraste para olhar, role para dar zoom. Clique no convés para ir até lá, num tripulante para ver a ficha. Segure F para liberar a Tempestade de Arcos: raios das duas mãos. B abre o hoverboard, que cruza o convés muito mais rápido.",
+      "help_eye": "A terceira e a primeira pessoa funcionam como um shooter: um clique na vista captura o mouse, movê-lo gira a câmera, Esc o libera. WASD anda conforme a vista, Shift acelera; o botão esquerdo ou E usa o que a mira aponta (um tripulante, uma estação); senão, E usa a estação ao alcance. A roda aproxima ou afasta a câmera: tudo perto é primeira pessoa, e afastar volta. 1, 2 e 3 escolhem vista aérea, terceira ou primeira pessoa; V alterna entre elas. O botão de ajustes da barra define a sensibilidade do mouse, o eixo invertido, o campo de visão e a qualidade. Segure F para liberar a Tempestade de Arcos: raios das duas mãos. B abre o hoverboard, que cruza o convés muito mais rápido."
     },
     "deck": {
       "label": "Convés {n}",
@@ -103,7 +103,8 @@
       "first_unavailable": "A primeira pessoa precisa da cena 3D deste convés no palco completo.",
       "click_to_look": "Clique para olhar",
       "first_too_small": "Aumente este painel para pelo menos {width} × {height} para a terceira e a primeira pessoa.",
-      "click_for_keys": "Clique aqui para que as teclas cheguem à nave"
+      "click_for_keys": "Clique aqui para que as teclas cheguem à nave",
+      "board": "Hoverboard"
     },
     "settings": {
       "title": "Ajustes de visualização",
@@ -255,6 +256,10 @@
         "needs_eye": "Duelos precisam da visão 3D em terceira pessoa.",
         "left": "Você saiu do duelo."
       }
+    },
+    "board": {
+      "on": "Hoverboard aberto: WASD desliza, Shift dá impulso. B o recolhe.",
+      "off": "Hoverboard recolhido."
     }
   }
 }

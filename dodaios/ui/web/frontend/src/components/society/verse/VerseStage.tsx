@@ -398,6 +398,15 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     else releaseMouseLook(el);
   }, [eyeCapable, chooseView, say, t, runtime]);
   const cycle = useCallback(() => showView(cycleView(viewRef.current, eyeCapable)), [showView, eyeCapable]);
+  // B: the hoverboard folds out under the commander, or away again.
+  const [boardOn, setBoardOn] = useState(runtime.control.board);
+  const toggleBoard = useCallback(() => {
+    if (runtime.duelActive) return;
+    const on = !runtime.control.board;
+    runtime.control.board = on;
+    setBoardOn(on);
+    say(t(on ? "verse.board.on" : "verse.board.off"));
+  }, [runtime, say, t]);
   // The wheel pushed third person into first (or pulled first back out): the switch follows, the mouse stays as it is.
   const zoomEye = useCallback((factor: number) => {
     const changed: Person | null = runtime.shoulder.zoom(factor);
@@ -619,8 +628,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   useEffect(() => {
     if (panel && surfaceRef.current && document.pointerLockElement === surfaceRef.current) document.exitPointerLock();
   }, [panel]);
-  const keyActions = useRef({ cycle, showView, interact, lockPointer, zoomEye });
-  keyActions.current = { cycle, showView, interact, lockPointer, zoomEye };
+  const keyActions = useRef({ cycle, showView, interact, lockPointer, zoomEye, toggleBoard });
+  keyActions.current = { cycle, showView, interact, lockPointer, zoomEye, toggleBoard };
   /** What Escape closes first: a selected crew member or an open panel. */
   const closable = useRef(false);
   closable.current = selected !== null || panel !== null;
@@ -663,6 +672,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       else if (e.code === "KeyE" && !e.repeat) keyActions.current.interact();
       else if (e.code === "KeyL" && !e.repeat) keyActions.current.lockPointer();
       else if (e.code === "KeyF") { e.preventDefault(); runtime.power = true; }
+      else if (e.code === "KeyB" && !e.repeat) keyActions.current.toggleBoard();
       else if (e.code === "F9" && import.meta.env.DEV) setDebug((d) => !d);
     };
     const up = (e: KeyboardEvent) => {
@@ -941,6 +951,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
             firstUnavailable={tooSmall ? fill(t("verse.tools.first_too_small"), COMPACT_EYE_MIN) : undefined}
             onView={showView}
             onLift={() => setPanel("lift")}
+            board={boardOn}
+            onBoard={toggleBoard}
             onCommander={() => { if (runtime.control.mode === "follow") runtime.control.reframe = true; else focusOn(COMMANDER_ID); }}
             onSettings={eyeCapable ? () => setPanel("settings") : undefined}
             onDuel={compact ? undefined : () => setPanel("duel")}
