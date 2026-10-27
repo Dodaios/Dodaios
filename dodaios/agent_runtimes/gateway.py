@@ -458,6 +458,13 @@ def last_failure(signal: Future[str] | None) -> str:
         return _LAST_FAILURES.get(signal, "")
 
 
+def _answered(signal: Future[str] | None) -> None:
+    """A later request of the turn got its answer: an earlier failure was recovered."""
+    if signal is not None:
+        with _LOCK:
+            _LAST_FAILURES.pop(signal, None)
+
+
 def unwatch_failure(token: str, signal: Future[str]) -> None:
     with _LOCK:
         grant = _GRANTS.get(token)
@@ -722,6 +729,7 @@ async def stream_response(
                 yield _sse(event)
         if not completed:
             raise GatewayError("ChatGPT ended before completion.", status=502, code="incomplete")
+        _answered(signal)
     except (SubscriptionReasoningError, SubscriptionAuthError, GatewayError) as exc:
         log.info("runtime gateway: %s turn failed (%s)", grant.agent_id, type(exc).__name__)
         failure = _report_failure(grant, model, _subscription_failure(grant, exc), signal)
@@ -793,6 +801,7 @@ async def complete_response(
                 if event.get("type") == "response.completed" and isinstance(finished, dict):
                     # ChatGPT's backend streams the output items and sends the
                     # completed response with an empty ``output``.
+                    _answered(signal)
                     return {**finished, "output": finished.get("output") or items}
     except (SubscriptionReasoningError, SubscriptionAuthError, GatewayError) as exc:
         raise _report_failure(grant, model, _subscription_failure(grant, exc), signal) from exc
@@ -1459,6 +1468,8 @@ async def _chat_chunks(
         payload = {"error": {"message": str(failure), "type": failure.code, "code": failure.code}}
         yield f"data: {json.dumps(payload)}\n\n".encode()
         return
+    else:
+        _answered(signal)
     finally:
         # The runner stops on a provider failure; a closed HTTP client must
         # also release the plugin task if it was suspended between deltas.
@@ -1521,6 +1532,7 @@ async def complete_chat(
             )
     except Exception as exc:  # noqa: BLE001 — becomes the runtime's HTTP error; _failure logs it
         raise _report_failure(grant, model, _failure(grant.provider, exc, model), signal) from exc
+    _answered(signal)
     message: dict[str, Any] = {"role": "assistant", "content": "".join(text) or None}
     if calls:
         message["tool_calls"] = [{k: v for k, v in call.items() if k != "index"} for call in calls]
