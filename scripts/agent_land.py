@@ -166,6 +166,12 @@ def main(argv: list[str] | None = None) -> int:
     if run(["git", "fetch", "--quiet", args.remote, "main"]).returncode != 0:
         print(f"Could not fetch {upstream}.")
         return 2
+    if run(["git", "merge-base", "HEAD", upstream]).returncode != 0:
+        # The history was rewritten once (2026-10-27); a branch cut before
+        # that shares no commit with main, and a rebase would replay all of it.
+        print(f"{branch} shares no history with {upstream} (cut before the 2026-10-27 rewrite).")
+        print("Move it onto the new history first:  python scripts/rehome_branch.py")
+        return 2
     report = agent_integrate.update(upstream, "rebase", args.resolver_cmd, REPO_ROOT)
     print(report)
     if report["status"] == "conflict":
