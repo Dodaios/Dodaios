@@ -55,7 +55,7 @@ def _empty() -> dict[str, Any]:
 def _read(path: Path) -> dict[str, Any]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    except FileNotFoundError:  # no profile saved yet: a fresh install starts empty
         return _empty()
     except (OSError, ValueError) as exc:
         log.warning("game profiles unreadable, starting empty: %s", exc)
