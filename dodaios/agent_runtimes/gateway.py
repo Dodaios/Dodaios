@@ -843,9 +843,8 @@ def _subscription_failure(grant: Grant, exc: Exception) -> GatewayError:
         # 2026-10-27: an OpenClaw turn carrying ~400 inline tool schemas, every
         # retry alike). Terminal: resending the same request cannot succeed.
         return GatewayError(
-            "ChatGPT stopped this request before answering (incomplete: output limit). "
-            "The request is likely too large for the subscription, for example too many "
-            "tool schemas.",
+            "ChatGPT stopped this request before answering (incomplete). Resending it "
+            "unchanged will not help; a tool schema it carries can cause this.",
             status=502,
             code="incomplete",
         )
