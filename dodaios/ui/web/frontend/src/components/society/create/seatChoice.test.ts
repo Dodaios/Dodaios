@@ -199,3 +199,30 @@ describe("defaultModel", () => {
     expect(defaultModel(null)).toBe("");
   });
 });
+
+
+describe("startingOption", () => {
+  // On Hermes / OpenClaw Claude's login is billed as extra usage; the API key per use.
+  const [claudeChoice] = providerChoices([claude], { "claude-api": ["subscription", "api"] }, true);
+
+  it("never starts on a remembered seat billed per use", async () => {
+    const { startingOption } = await import("./SeatFields");
+    const withLocal = { ...claudeChoice, options: [...claudeChoice.options, { kind: "local" as const, seat: ollama, accountId: "", extraUsage: false }] };
+    expect(startingOption(withLocal, undefined, "subscription")?.kind).toBe("local");
+    expect(startingOption(withLocal, undefined, "local")?.kind).toBe("local");
+  });
+
+  it("keeps what the person picked in this dialog, and warns there", async () => {
+    const { startingOption } = await import("./SeatFields");
+    const picked = startingOption(claudeChoice, "subscription");
+    expect(picked?.extraUsage).toBe(true);
+    expect(billedPerUse(picked)).toBe(true);
+  });
+
+  it("starts on the plan when the remembered access is the plan", async () => {
+    const { startingOption } = await import("./SeatFields");
+    const [jarvisClaude] = providerChoices([claude], { "claude-api": ["subscription", "api"] }, false);
+    expect(startingOption(jarvisClaude, undefined, "subscription")?.kind).toBe("subscription");
+    expect(startingOption(jarvisClaude, undefined, "subscription")?.extraUsage).toBe(false);
+  });
+});

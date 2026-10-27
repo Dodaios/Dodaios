@@ -21,6 +21,7 @@ import { timelineItems, useTimeline, type TimelineRenderers } from "./TraceTimel
 import { traceDuration } from "./traceEntries";
 import "./WorkTrace.css";
 import { turnErrorText } from "./turnError";
+import { flattenMarks } from "@/lib/plainMarks";
 
 export type Decide = (id: string, decision: ApprovalDecision) => void | Promise<void>;
 type Group = { id: string; blocks: TurnBlock[]; family: string | null };
@@ -302,7 +303,7 @@ export function ReasoningTrace({ block, turnLive, compact = false }: { block: Re
   const duration = live ? elapsed : block.durationMs;
   const label = duration === null ? t("work_trace.thought")
     : t(live ? "work_trace.thinking_for" : "work_trace.thought_for").replace("{duration}", traceDuration(duration));
-  const gist = text.replace(/```[\s\S]*?```/g, " ").replace(/[`*_#>~]/g, "").replace(/\s+/g, " ").trim();
+  const gist = flattenMarks(text);
   const showGist = !compact && !turnLive && gist;
   if (rail) return <Disclosure label={<Live on={live}>{label}</Live>}
     live={live} forced={live} initiallyOpen={compact ? live : turnLive}

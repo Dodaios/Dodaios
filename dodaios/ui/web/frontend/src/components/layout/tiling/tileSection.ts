@@ -29,3 +29,8 @@ export function navItemFor(section: SectionId): NavItem | undefined {
     (item) => item.id === section || item.matchIds?.includes(section) || sectionWindow(item.id) === owner,
   );
 }
+
+/** The tileable rows grouped the way the sidebar groups them. */
+export const TILEABLE_NAV_GROUPS: readonly (readonly NavItem[])[] = [...NAV_GROUPS, NAV_FOOTER_ITEMS]
+  .map((group) => group.filter((item) => isTileable(item.id)))
+  .filter((group) => group.length > 0);

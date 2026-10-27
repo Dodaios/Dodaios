@@ -55,6 +55,7 @@ def _turn(
     argv: list[str] | None = None,
     released: list[int] | None = None,
     cancel_on_delta: bool = False,
+    provider_failure: Any = None,
 ) -> tuple[str | None, list[dict[str, Any]], list[tuple[str, str]], list[str | None]]:
     resumes: list[str | None] = []
 
@@ -79,6 +80,7 @@ def _turn(
                 report_session=report_session,
             ),
             after_turn=(lambda: released.append(1)) if released is not None else None,
+            provider_failure=provider_failure,
         )
 
     monkeypatch.setattr(runner_acp, "plan_runtime_turn", fake_plan)
@@ -563,3 +565,35 @@ def test_a_detached_child_of_the_runtime_is_reaped_with_the_turn(monkeypatch, tm
     while running() and time.monotonic() < deadline:
         time.sleep(0.1)
     assert not running()
+
+
+def test_a_swallowed_gateway_failure_fails_the_silent_turn_with_its_reason(monkeypatch, tmp_path):
+    """A runtime that kept a recoverable failure and ended silent: the turn failed, and says why."""
+    from concurrent.futures import Future
+
+    from dodaios.agent_runtimes import gateway
+
+    signal: Future[str] = Future()
+    reason = "The ChatGPT subscription could not answer this turn."
+    gateway._LAST_FAILURES[signal] = reason
+    events = _turn(monkeypatch, tmp_path, "SILENT", provider_failure=signal)[1]
+    finished = _finished(events)
+    assert (finished["status"], finished["error"]) == ("error", reason)
+
+
+def test_a_silent_turn_without_a_gateway_failure_stays_done(monkeypatch, tmp_path):
+    from concurrent.futures import Future
+
+    events = _turn(monkeypatch, tmp_path, "SILENT", provider_failure=Future())[1]
+    assert _finished(events)["status"] == "done"
+
+
+def test_an_answer_after_a_retried_failure_stays_done(monkeypatch, tmp_path):
+    from concurrent.futures import Future
+
+    from dodaios.agent_runtimes import gateway
+
+    signal: Future[str] = Future()
+    gateway._LAST_FAILURES[signal] = "ChatGPT rejected this request (HTTP 400)."
+    events = _turn(monkeypatch, tmp_path, "hello", provider_failure=signal)[1]
+    assert _finished(events)["status"] == "done"

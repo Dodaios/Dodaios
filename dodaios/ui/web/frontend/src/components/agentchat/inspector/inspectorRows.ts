@@ -13,7 +13,8 @@
 
 import { isSubagentCall } from "@/components/agentic/threads/subagents";
 import type { ReasoningBlock, TextBlock, ToolBlock, TurnBlock, TurnStatus } from "../reduce";
-import { callOf, isPlumbing, readableOutput, type Call, type Translate } from "../traceEntries";
+import { callOf, isPlumbing, outputGist, readableOutput, type Call, type Translate } from "../traceEntries";
+import { stripInlineMarks } from "@/lib/plainMarks";
 
 export type RowKind = "prompt" | "thought" | "reply" | "call" | "question" | "approval" | "credential" | "helper";
 export type RowStatus = "running" | "done" | "failed" | "waiting" | "stopped" | "declined";
@@ -45,12 +46,12 @@ export function plainPreview(text: string, max = PREVIEW_MAX): string {
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
 }
 
-/** First meaningful line, markdown marks dropped, capped. */
+/** First meaningful line, markdown marks dropped (underscores in names stay), capped. */
 export function previewOf(text: string, max = PREVIEW_MAX): string {
   const line = text
     .replace(/```[\s\S]*?```/g, " ")
     .split(/\r?\n/)
-    .map((part) => part.replace(/^[#>*\-\s]+/, "").replace(/[`*_~]/g, "").trim())
+    .map((part) => stripInlineMarks(part.replace(/^[#>*\-\s]+/, "")).trim())
     .find(Boolean) ?? "";
   const clean = line.replace(/\s+/g, " ");
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
@@ -126,7 +127,7 @@ function callRow(block: ToolBlock, turn: TurnStatus, t: Translate, lang: string)
   return {
     id: block.callId, kind: "call", status: CALL_STATUS[call.status], label: call.text,
     // A call's own words are plain text (ids, paths, queries): only its output reads as markdown.
-    preview: tail ? plainPreview(tail) : previewOf(call.kind === "command" ? "" : readableOutput(block)),
+    preview: tail ? plainPreview(tail) : previewOf(call.kind === "command" ? "" : outputGist(readableOutput(block))),
     added: call.added, removed: call.removed, durationMs: block.durationMs, block, call,
   };
 }

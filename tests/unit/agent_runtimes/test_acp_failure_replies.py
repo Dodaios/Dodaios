@@ -105,3 +105,32 @@ def test_a_failure_notice_split_over_chunks_never_leaks_into_the_answer():
     assert turn.status == "error"
     assert turn.error == "The Gateway disconnected."
     assert _texts(io) == []
+
+
+def _tool_start(update: dict) -> list[dict]:
+    turn = AcpTurn(turn_id="t", cwd=".", prompt_text="hi")
+    io = _IO()
+    frame = {
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {"sessionId": "s", "update": {"sessionUpdate": "tool_call", **update}},
+    }
+    asyncio.run(turn.on_message(frame, io))
+    return [e["payload"] for e in io.events if e.get("kind") == "tool_call"]
+
+
+def test_a_file_tool_without_input_names_its_file_from_the_location():
+    calls = _tool_start({
+        "toolCallId": "tc", "title": "write_file: qa_note.txt", "kind": "edit",
+        "locations": [{"path": "C:/work/qa_note.txt"}],
+    })
+    assert calls[0]["name"] == "write_file"
+    assert calls[0]["input"] == {"path": "C:/work/qa_note.txt"}
+
+
+def test_a_tool_with_its_own_input_keeps_it():
+    calls = _tool_start({
+        "toolCallId": "tc", "title": "tool_search", "kind": "other",
+        "rawInput": {"query": "gmail"}, "locations": [{"path": "C:/x"}],
+    })
+    assert calls[0]["input"] == {"query": "gmail"}
