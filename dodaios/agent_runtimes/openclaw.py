@@ -94,8 +94,34 @@ _WARM_SLOT_WAIT_S: Final[float] = 0.5
 #: How long ``openclaw doctor --fix`` may run before it is stopped.
 _DOCTOR_TIMEOUT_S: Final[float] = 120.0
 
+#: How long the migration pass (``openclaw doctor --fix`` after an update) may
+#: run: it rewrites the agent's database, which takes longer than a config fix.
+_MIGRATE_TIMEOUT_S: Final[float] = 300.0
+
 #: ``EX_CONFIG``: the Gateway refused its configuration.
 _EXIT_CONFIG: Final[int] = 78
+
+#: How long a started Gateway may take to finish its agent database admission
+#: after ``/healthz`` already answers (13-45 s measured on Windows, 2026.10.8).
+_ADMISSION_WAIT_S: Final[float] = 120.0
+
+#: What the Gateway logs about its agent database admission (2026.10+). A
+#: release that logs none of these is ready once ``/healthz`` answers.
+_ADMISSION_PENDING: Final[tuple[str, ...]] = (
+    "has not completed startup inspection and preparation",
+)
+_ADMISSION_RECOVERED: Final[tuple[str, ...]] = (
+    "agent database recovered after background inspection",
+)
+#: The database was written by an older release and needs ``doctor --fix``.
+_ADMISSION_DEGRADED: Final[re.Pattern[str]] = re.compile(
+    r"agent database remains degraded|agent database \S.{0,400}?uses schema version \d+",
+    re.IGNORECASE,
+)
+_DEGRADED_REASON: Final[re.Pattern[str]] = re.compile(r'reason="([^"]+)"')
+
+#: The release the agent's state folder last ran under (``--version`` line).
+_BUILD_MARKER: Final[str] = "runtime-build.txt"
 
 #: Node.js for Jarvis' private copy (the release OpenClaw's own user-space
 #: installer pins; inside the engine range below). OpenClaw's live
@@ -967,6 +993,15 @@ class OpenClawRuntime:
             )
         try:
             await asyncio.to_thread(_reap_stale_gateway, home)
+            build = await asyncio.to_thread(self._installed_build)
+            if await asyncio.to_thread(_upgraded_since_last_start, home, build):
+                # A new release may need the agent's database migrated; the
+                # Gateway refuses every message until it is (2026.10.8: "uses
+                # schema version 24; run openclaw doctor --fix"). No Gateway of
+                # this folder runs now: the migration has the database alone.
+                log.info("agent runtimes: OpenClaw changed for %s (%s); migrating its data",
+                         key, build)
+                await _migrate(launcher, env, home)
             gateway = await self._spawn_until_ready(key, home, port, env_hash, launcher, env, lock)
             if gateway is None:
                 # The port was taken before the Gateway bound it: once more on a
@@ -978,10 +1013,65 @@ class OpenClawRuntime:
                     key, home, port, env_hash, launcher, env, lock, last_try=True
                 )
             assert gateway is not None
+            gateway = await self._admitted(gateway, env_hash, launcher, env, lock)
+            await asyncio.to_thread(_remember_build, home, build)
             return gateway
         except BaseException:
             lock.release()
             raise
+
+    def _installed_build(self) -> str:
+        """The installed release's ``--version`` line ("" when unknown)."""
+        status = self.detect(fast=True)
+        return status.build or status.version
+
+    async def _admitted(
+        self,
+        gateway: _Gateway,
+        env_hash: str,
+        launcher: list[str],
+        env: dict[str, str],
+        lock: HomeFileLock,
+    ) -> _Gateway:
+        """``gateway`` once its agent database admits messages.
+
+        ``/healthz`` answers before the Gateway finished inspecting the agent's
+        database; a message sent meanwhile is refused (UNAVAILABLE "has not
+        completed startup inspection and preparation"). A database an older
+        release wrote stays refused until ``openclaw doctor --fix`` migrated
+        it: that runs once, with the Gateway stopped, then the Gateway starts
+        again. A database still refused after it fails the start with the
+        reason, never a turn that silently goes nowhere.
+        """
+        log_path = gateway.home / "gateway.log"
+        try:
+            state = await _await_admission(log_path, gateway.proc)
+            if state != "degraded":
+                return gateway
+            reason = _degraded_reason(log_path)
+            log.warning("agent runtimes: OpenClaw data of %s needs a migration: %s",
+                        gateway.key, reason)
+            await self._stop_gateway(gateway, keep_lock=True)
+            migrated = await _migrate(launcher, env, gateway.home)
+            gateway = await self._spawn_until_ready(
+                gateway.key, gateway.home, gateway.port, env_hash, launcher, env, lock,
+                last_try=True,
+            )
+            assert gateway is not None
+            state = await _await_admission(log_path, gateway.proc)
+        except BaseException:
+            # Never a Gateway left behind with the key in its environment.
+            if gateway.alive():
+                await asyncio.shield(self._stop_gateway(gateway, keep_lock=True))
+            raise
+        if state != "degraded":
+            log.info("agent runtimes: OpenClaw data of %s migrated", gateway.key)
+            return gateway
+        await self._stop_gateway(gateway, keep_lock=True)
+        reason = _degraded_reason(log_path) or reason
+        log.error("agent runtimes: OpenClaw data of %s still needs repair after doctor --fix: %s",
+                  gateway.key, reason)
+        raise RuntimeUnavailable(_repair_failed_message(reason, migrated))
 
     async def _spawn_until_ready(
         self,
@@ -1291,13 +1381,24 @@ def _gateway_token(home: Path) -> str:
     return token
 
 
-async def _run_doctor(launcher: list[str], env: dict[str, str], home: Path) -> None:
+async def _run_doctor(
+    launcher: list[str], env: dict[str, str], home: Path, *, timeout_s: float | None = None
+) -> int | None:
+    """``openclaw doctor --fix`` on the agent's state folder, non-interactive.
+
+    ``env`` carries the folder's ``OPENCLAW_STATE_DIR`` / ``OPENCLAW_CONFIG_PATH``,
+    so the doctor repairs this agent's config and database and nothing of the
+    person's own OpenClaw. Its output goes to ``doctor.log`` in the folder.
+    Returns its exit code (``None`` = it could not start or was stopped).
+    """
     from dodaios.core.process_tree import make_process_tree
     from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     tree = make_process_tree("openclaw-doctor")
     proc: asyncio.subprocess.Process | None = None
+    handle = None
     try:
+        handle = (home / "doctor.log").open("wb")
         proc = await asyncio.create_subprocess_exec(
             *launcher,
             "doctor",
@@ -1307,21 +1408,136 @@ async def _run_doctor(launcher: list[str], env: dict[str, str], home: Path) -> N
             cwd=str(home),
             env=env,
             stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
+            stdout=handle,
+            stderr=handle,
             creationflags=NO_WINDOW_CREATIONFLAGS,
             start_new_session=os.name != "nt",
         )
         tree.assign(proc.pid)
-        await asyncio.wait_for(proc.wait(), timeout=_DOCTOR_TIMEOUT_S)
+        return await asyncio.wait_for(
+            proc.wait(), timeout=_DOCTOR_TIMEOUT_S if timeout_s is None else timeout_s
+        )
     except (OSError, TimeoutError) as exc:
         log.warning("agent runtimes: openclaw doctor --fix failed: %s", exc)
         if proc is not None and proc.returncode is None:
             with contextlib.suppress(ProcessLookupError, OSError):
                 proc.kill()
+        return None
     finally:
         # Never leave a doctor running: the next start reads the same config.
         tree.close()
+        if handle is not None:
+            with contextlib.suppress(OSError):
+                handle.close()
+
+
+async def _migrate(launcher: list[str], env: dict[str, str], home: Path) -> bool:
+    """The runtime's own migration of the agent's data; True when it succeeded."""
+    started = time.monotonic()
+    code = await _run_doctor(launcher, env, home, timeout_s=_MIGRATE_TIMEOUT_S)
+    elapsed = time.monotonic() - started
+    if code == 0:
+        log.info("agent runtimes: openclaw doctor --fix for %s done in %.1f s", home.name, elapsed)
+        return True
+    log.warning(
+        "agent runtimes: openclaw doctor --fix for %s ended with %s after %.1f s:%s",
+        home.name, code, elapsed, _log_tail(home / "doctor.log", 4),
+    )
+    return False
+
+
+def _has_agent_data(home: Path) -> bool:
+    """Whether the agent's state folder holds an OpenClaw agent database."""
+    agents = home / "state" / "agents"
+    try:
+        return any(agents.glob("*/agent/*.sqlite"))
+    except OSError:  # an unreadable folder: nothing to migrate from here
+        return False
+
+
+def _upgraded_since_last_start(home: Path, build: str) -> bool:
+    """Whether the folder's data was last used by another OpenClaw release.
+
+    Only a folder that recorded its release and holds a database counts: a
+    new agent has nothing to migrate, and a folder from before this record
+    existed is caught by the admission check when its Gateway starts.
+    """
+    if not build:
+        return False
+    try:
+        previous = (home / _BUILD_MARKER).read_text(encoding="utf-8").strip()
+    except OSError:  # never recorded: nothing to compare with
+        return False
+    return bool(previous) and previous != build and _has_agent_data(home)
+
+
+def _remember_build(home: Path, build: str) -> None:
+    if build:
+        write_if_changed(home / _BUILD_MARKER, build + "\n")
+
+
+def admission_state(text: str) -> str:
+    """``ready`` / ``pending`` / ``degraded`` from the Gateway's log of this run."""
+    if _ADMISSION_DEGRADED.search(text):
+        return "degraded"
+    if any(marker in text for marker in _ADMISSION_PENDING) and not any(
+        marker in text for marker in _ADMISSION_RECOVERED
+    ):
+        return "pending"
+    return "ready"
+
+
+def _read_log(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:  # not written yet: the caller polls again
+        return ""
+
+
+async def _await_admission(log_path: Path, proc: asyncio.subprocess.Process) -> str:
+    """Wait until the Gateway's agent database admits messages (or never will).
+
+    Returns ``ready``, ``degraded``, or ``pending`` when :data:`_ADMISSION_WAIT_S`
+    passed first (the turn then retries a refused message on its own).
+    """
+    deadline = time.monotonic() + _ADMISSION_WAIT_S
+    started = time.monotonic()
+    waited = False
+    while True:
+        state = admission_state(await asyncio.to_thread(_read_log, log_path))
+        if state != "pending" or proc.returncode is not None:
+            if waited:
+                log.info("agent runtimes: OpenClaw admission %s after %.1f s",
+                         state, time.monotonic() - started)
+            return state
+        if time.monotonic() >= deadline:
+            log.warning("agent runtimes: OpenClaw admission still pending after %.0f s",
+                        _ADMISSION_WAIT_S)
+            return state
+        waited = True
+        await asyncio.sleep(0.25)
+
+
+def _degraded_reason(log_path: Path) -> str:
+    text = _read_log(log_path)
+    for line in text.splitlines():
+        if _ADMISSION_DEGRADED.search(line):
+            match = _DEGRADED_REASON.search(line)
+            reason = match.group(1) if match else line.strip()
+            reason = _SECRET_SHAPES.sub("[redacted]", " ".join(reason.split()))
+            return reason[:300]
+    return ""
+
+
+def _repair_failed_message(reason: str, migrated: bool) -> str:
+    detail = f" ({reason})" if reason else ""
+    ran = "ran" if migrated else "tried"
+    return (
+        "OpenClaw cannot open this agent's saved data after its update"
+        f"{detail}. Dodaios {ran} OpenClaw's own repair (openclaw doctor --fix), but the "
+        "data still needs it. Your message was not sent; the details are in doctor.log in "
+        "the agent's OpenClaw folder."
+    )
 
 
 def _log_tail(path: Path, lines: int = 6) -> str:

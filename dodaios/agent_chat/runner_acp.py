@@ -19,7 +19,7 @@ from typing import Any
 
 from dodaios.agent_runtimes import RUNNER_RUNTIMES, driver, gateway
 from dodaios.agent_runtimes.acp import AcpTurn
-from dodaios.agent_runtimes.base import RuntimeTurn, RuntimeUnavailable
+from dodaios.agent_runtimes.base import RuntimeTurn, RuntimeUnavailable, not_ready_kind
 from dodaios.agent_runtimes.model_map import RouteUnavailable, prepare_route
 
 log = logging.getLogger(__name__)
@@ -319,12 +319,14 @@ async def plan_runtime_turn(
         if route.api_key:
             gateway.unwatch_failure(route.api_key, failure)
         acp = plan.acp if plan is not None else None
+        # A runtime still finishing its start keeps its process: a restart
+        # would only begin that start again (the turn sends once more).
+        starting = acp is not None and not_ready_kind(acp.error) == "starting"
         if launch.invalidate is not None and (
             handle.cancel.is_set()
             or (failure.done() and not failure.cancelled())
             or acp is None
-            or not acp.saw_result
-            or acp.status != "done"
+            or ((not acp.saw_result or acp.status != "done") and not starting)
         ):
             launch.invalidate()
         release_launch()

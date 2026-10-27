@@ -63,9 +63,9 @@ import os
 import shutil
 import time
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import Future
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -3114,6 +3114,71 @@ def _resume_was_lost(error: str | None, runner: str = "") -> bool:
     return any(m in low for m in _RESUME_LOST_MARKERS)
 
 
+#: How long a turn keeps sending its message again while an agent runtime is
+#: still starting (or repairing its data) before the refusal stands.
+_RUNTIME_READY_WAIT_S: Final[float] = 180.0
+#: First pause between two sends, doubled up to the cap.
+_RUNTIME_READY_FIRST_DELAY_S: Final[float] = 1.0
+_RUNTIME_READY_MAX_DELAY_S: Final[float] = 10.0
+
+
+async def _send_again_when_runtime_ready(
+    handle: TurnHandle,
+    outcome: _Outcome,
+    runner: str,
+    send: Callable[[], Awaitable[_Outcome]],
+    recovery: Any,
+) -> _Outcome:
+    """Send the message again while an agent runtime refuses it as not ready yet.
+
+    OpenClaw answers a message that arrives while its Gateway finishes its
+    start-up inspection with UNAVAILABLE before any model call, and one whose
+    stored data needs a migration until its restart ran it. The person's
+    message is never dropped for that: it is sent again with a growing pause
+    (the failed turn already marked a Gateway that needs repair for a restart)
+    for at most :data:`_RUNTIME_READY_WAIT_S`. Nothing was billed by a refusal.
+    """
+    from dodaios.agent_chat.runner_acp import supports_runner
+    from dodaios.agent_runtimes.base import not_ready_kind
+
+    if not supports_runner(runner):
+        return outcome
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _RUNTIME_READY_WAIT_S
+    delay = _RUNTIME_READY_FIRST_DELAY_S
+    repairs = 0
+    while (
+        outcome.status == "error"
+        and not recovery.had_tool_calls
+        and not handle.cancel.is_set()
+    ):
+        kind = not_ready_kind(outcome.error)
+        if not kind:
+            break
+        if kind == "repair":
+            if repairs:
+                break  # one restart (with its migration) per turn; its error stands
+            repairs += 1
+        left = deadline - loop.time()
+        if left <= 0:
+            log.warning(
+                "agent chat %s: %s still not ready after %.0f s",
+                handle.turn_id, runner, _RUNTIME_READY_WAIT_S,
+            )
+            break
+        log.info(
+            "agent chat %s: %s not ready (%s: %s); sending again in %.0f s",
+            handle.turn_id, runner, kind, (outcome.error or "")[:160], min(delay, left),
+        )
+        with suppress(TimeoutError):  # the pause ended; send again below
+            await asyncio.wait_for(handle.cancel.wait(), timeout=min(delay, left))
+        if handle.cancel.is_set():
+            break
+        delay = min(delay * 2, _RUNTIME_READY_MAX_DELAY_S)
+        outcome = await send()
+    return outcome
+
+
 # A print-mode CLI that cannot ask back treats an unanswered permission
 # prompt as "the user cancelled this tool" and then *exits* — Grok
 # StopCancelled / agy 1.1.26. The model never gets a second round. These
@@ -3342,6 +3407,17 @@ async def run_cli_turn(
                 )
             outcome = await _run_cli_once(
                 handle, user_text, runner, None, identity=ident, bridge=bridge
+            )
+            resume = None
+        if outcome.status == "error" and not recovery.had_tool_calls:
+            outcome = await _send_again_when_runtime_ready(
+                handle,
+                outcome,
+                runner,
+                lambda: _run_cli_once(
+                    handle, user_text, runner, resume, identity=ident, bridge=bridge
+                ),
+                recovery,
             )
         receipt_hint = recovery.hint() if identity else None
         if (

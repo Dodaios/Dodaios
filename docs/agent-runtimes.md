@@ -338,6 +338,13 @@ replayed during `session/load` is swallowed because the chat already shows it.
   `agent_runtimes` folder) once per app run. An agent's old folder is moved:
   its session store is copied into the profile, then the old folder and its
   private environment are removed.
+- **Which `hermes` runs:** the official installer's own location answers first
+  (`%LOCALAPPDATA%\hermes\bin\hermes.exe` on Windows, `~/.local/bin/hermes`
+  or `~/.hermes/bin/hermes` elsewhere), PATH only after it. A PATH entry inside
+  a Dodaios agent folder or inside a temporary folder (a test or audit run's
+  throwaway install, e.g. `...\Temp\jarvis-hermes-audit-*\runtimes\hermes\bin`)
+  never answers; the user's PATH itself is left as it is
+  (`hermes._binary`).
 - **Config Dodaios writes** (`config.yaml`): `_config_version` from the pins (so
   Hermes migrates the file forward), `model.provider` / `model.default` /
   `model.base_url`, `terminal.cwd` = the agent workspace, Hermes' own memory
@@ -476,6 +483,22 @@ replayed during `session/load` is swallowed because the chat already shows it.
   file). A Gateway exit code 78 (invalid config) runs
   `openclaw doctor --fix --yes --non-interactive` once (contained, killed
   after two minutes), then retries.
+- **Upgrades and start-up admission:** `/healthz` answers before the Gateway
+  finished inspecting the agent's database (2026.10+), and a message sent
+  meanwhile is refused with UNAVAILABLE "has not completed startup inspection
+  and preparation". A started Gateway is therefore handed to a turn only once
+  its own log says the database was admitted (at most two minutes; a release
+  that logs no admission is ready at `/healthz`). A database an older release
+  wrote ("uses schema version N; run openclaw doctor --fix") gets OpenClaw's
+  own migration: the Gateway is stopped, `openclaw doctor --fix` runs on the
+  agent's state folder (output in `doctor.log`, at most five minutes), and the
+  Gateway starts again. The same migration runs before the start when the
+  installed release differs from the one the folder last ran
+  (`runtime-build.txt`). A database still refused afterwards fails the start
+  with a readable reason in the chat. A turn whose message is refused as
+  "not started yet" sends it again with a growing pause for up to three
+  minutes on the same Gateway; a refusal that needs the repair gets one
+  Gateway restart. Neither refusal reaches a model.
 - **Dodaios tools:** OpenClaw rejects per-session `mcpServers`, so the Dodaios
   server is configured in the agent's own state directory. Values such as
   `${JARVIS_CONTROL_API_KEY}` are substituted from the Gateway's environment,

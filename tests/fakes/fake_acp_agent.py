@@ -17,6 +17,12 @@ What a prompt does depends on its text:
 * contains ``ASK`` — a ``session/request_permission`` first; the answer's
   option id is echoed in the reply;
 * contains ``FAIL`` — the prompt request answers a JSON-RPC error;
+* contains ``NOTREADY`` — refuses the prompt as OpenClaw does while its
+  Gateway finishes its start (UNAVAILABLE "has not completed startup
+  inspection") ``FAKE_ACP_REFUSALS`` times (default 1, counted in
+  ``FAKE_ACP_REFUSALS_FILE``), then answers like any prompt;
+* contains ``STALEDB`` — always refuses it as a database that needs
+  ``openclaw doctor --fix`` (counted the same way);
 * contains ``HANG`` — answers, then keeps running after stdin closes (a
   runtime whose child holds the pipe);
 * contains ``SLOW`` — streams "working", then waits; a ``session/cancel``
@@ -148,6 +154,19 @@ def _prompt(rid: Any, session_id: str, text: str, store: dict[str, list[str]]) -
         # A runtime that swallowed a failed model call and ended with no answer.
         _send({"jsonrpc": "2.0", "id": rid, "result": {"stopReason": "end_turn"}})
         return
+    if "NOTREADY" in text or "STALEDB" in text:
+        counter = Path(os.environ.get("FAKE_ACP_REFUSALS_FILE", "refusals.txt"))
+        refused = int(counter.read_text(encoding="utf-8")) if counter.is_file() else 0
+        if "STALEDB" in text or refused < int(os.environ.get("FAKE_ACP_REFUSALS", "1")):
+            counter.write_text(str(refused + 1), encoding="utf-8")
+            message = (
+                "UNAVAILABLE: Agent main has not completed startup inspection and preparation"
+                if "NOTREADY" in text
+                else "UNAVAILABLE: OpenClaw agent database openclaw-agent.sqlite uses schema "
+                "version 24; stop active agents and run openclaw doctor --fix"
+            )
+            _send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32000, "message": message}})
+            return
     if "FAIL" in text:
         _send({"jsonrpc": "2.0", "id": rid, "error": {"code": -32000, "message": "model down"}})
         return

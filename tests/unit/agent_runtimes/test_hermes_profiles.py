@@ -140,6 +140,9 @@ def test_a_stale_agent_launcher_on_path_never_answers(tmp_path, monkeypatch):
     import dodaios.core.path_augment as path_augment
 
     monkeypatch.setattr(path_augment, "ensure_cli_paths", lambda: [])
+    # This machine's own Hermes and temporary folders stay out of the picture.
+    monkeypatch.setattr(hermes, "_install_locations", lambda: [])
+    monkeypatch.setattr(hermes, "_in_temp", lambda _directory: False)
     found = hermes._binary()
     assert found is not None and Path(found).parent == real
 
