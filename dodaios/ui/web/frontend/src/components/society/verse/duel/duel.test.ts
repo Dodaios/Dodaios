@@ -378,6 +378,25 @@ describe("duel flow", () => {
     expect(seen).toContain("shot");
   });
 
+  it("fires in the sights (the tighter spread) with the right button held first, over the shoulder and through the eyes", () => {
+    for (const firstPerson of [false, true]) {
+      const { c, frame } = controller();
+      c.camera.firstPerson = firstPerson;
+      c.start("normal");
+      frame(200);
+      expect(c.view!.match.phase).toBe("live");
+      // Right button down (pointerdown), then the left joins the chord (a pointermove with both bits).
+      c.input.mouseButtons(2);
+      frame(30);
+      c.input.mouseButtons(3);
+      const shots: CombatEvent[] = [];
+      for (let i = 0; i < 30; i++) { frame(1); shots.push(...c.visualEvents.filter((e) => e.type === "shot" && e.player === c.view!.slot)); c.visualEvents.length = 0; }
+      expect(shots.length).toBeGreaterThan(0);
+      expect(shots.every((e) => e.type === "shot" && e.ads)).toBe(true);
+      expect(c.lastShotAds).toBe(true);
+    }
+  });
+
   it("freezes the match while paused and goes on after resume", () => {
     const { c, frame } = controller();
     c.start("hard");
