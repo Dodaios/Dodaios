@@ -249,8 +249,8 @@
       // adds effectively zero startup latency. The cache is written by the app
       // after each name resolve (see src/lib/assistantNameCache.ts; keep this
       // storage key in lockstep). On the very first run the cache is empty and
-      // the splash keeps just its emblem. A trademarked placeholder such as
-      // "Jarvis" is never painted here.
+      // the splash keeps just its emblem. A trademarked placeholder name
+      // is never painted here.
       (function () {
         try {
           var name = (localStorage.getItem("jarvis.assistantName") || "").trim();

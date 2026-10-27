@@ -8,7 +8,7 @@ runtime acceptance or gameplay evidence. See `source/README.md`.
 ## Intent and reference hierarchy
 
 Build a realistic science-fiction Mars colony for users exploring and operating
-their actual Jarvis agents. Establish the new integrated colony foundation
+their actual Dodaios agents. Establish the new integrated colony foundation
 first; finish the Communications Outpost at its eastern canonical location
 before any other district. The rest of the colony may be explicitly unfinished
 blockouts. Neither rejected world prototype supplies the new art direction.
@@ -43,7 +43,7 @@ flat colony texture, camera-facing facade, or effects hiding unfinished meshes.
 - Gigi's front concept is corrected, but the side body and logo-detail tile
   retain a loop emblem. Omit that emblem on every body surface. Headers do not
   reverse the removal instruction. Gigi does not decide all worker identities.
-- No separate original mascot, verified vector/high-resolution Jarvis mark,
+- No separate original mascot, verified vector/high-resolution Dodaios mark,
   Outpost rear/interior views or reference redistribution records were present
   in the inspected pack. Keep production branding unresolved until a genuine
   source or reviewed reconstruction exists. Design unseen geometry coherently

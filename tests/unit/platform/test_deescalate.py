@@ -140,6 +140,10 @@ def _clean_deescalation_env(monkeypatch):
     """Neither guard variable may leak in from the host running the tests."""
     monkeypatch.delenv(DEESCALATION_ATTEMPTED_ENV, raising=False)
     monkeypatch.delenv(KEEP_ELEVATION_ENV, raising=False)
+    # Nor the host's desktop shell: CI runners often run Explorer elevated.
+    monkeypatch.setattr(
+        "dodaios.platform.input_isolation.windows_shell_is_elevated", lambda: False
+    )
 
 
 class TestBootTimeDeescalation:
@@ -234,6 +238,24 @@ class TestBootTimeDeescalation:
         assert (
             maybe_relaunch_unelevated(
                 ["py"], cwd=".", _elevated=lambda: True, _spawn=_spawner(calls)
+            )
+            is None
+        )
+        assert calls == []
+
+    def test_an_elevated_shell_skips_the_pointless_relaunch(self, monkeypatch):
+        """With Explorer elevated every ordinary token is elevated: the child
+        would come back elevated, after paying for a whole extra boot."""
+        monkeypatch.setattr("sys.platform", "win32")
+        calls: list = []
+
+        assert (
+            maybe_relaunch_unelevated(
+                ["py"],
+                cwd=".",
+                _elevated=lambda: True,
+                _shell_elevated=lambda: True,
+                _spawn=_spawner(calls),
             )
             is None
         )

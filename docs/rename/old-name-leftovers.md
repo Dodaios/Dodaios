@@ -149,8 +149,8 @@ Consecutive hits of one file with the same category and action share a row.
 | `docs/ci-pipeline.md` | 286 | 1 | (a) | Kept: Name of the registered "PersonalJarvis Merge Bot" GitHub App |
 | `docs/ci-pipeline.md` | 475, 478 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `docs/code-signing-policy.md` | 6 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
-| `docs/code-signing-policy.md` | 16 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/code-signing-policy.md` | 96 | 1 | (a) | Kept: SignPath artifact configuration pins this file and product name |
+| `docs/code-signing-policy.md` | 19 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/code-signing-policy.md` | 109, 110 | 1 | (b) | Kept: history note; the setup is built and signed as Dodaios-Setup-x64.exe / product name Dodaios after 4.1.2 |
 | `docs/desktop-installers.md` | 26, 27 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `docs/desktop-installers.md` | 55 | 1 | (a) | Kept: table row for the legacy `PersonalJarvis` executable (the current one, `DodaiosApp`, is listed above it) |
 | `docs/desktop-installers.md` | 66 | 1 | (a) | Kept: names `PersonalJarvis` as the earlier executable name |

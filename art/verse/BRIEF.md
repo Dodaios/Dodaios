@@ -6,22 +6,26 @@ changed here.
 
 ## 1. Vision
 
-The Verse is the interior of **Dodaios**, a 1.6 km wedge-hulled capital ship of
-a fleet navy, seen from above. It must read as a real place photographed, not as
+The Verse is the interior of **Dodaios**, a 2.4 km capital ship of the
+Dodaios fleet, seen from above. It must read as a real place photographed, not as
 a game prototype: polished black decks that mirror the ceiling light panels,
 light-grey wall panelling with recessed light strips, gunmetal structure, cold
 5600–6500 K light, red and green indicator lights, immense symmetric halls. The
-art direction is "fleet-navy brutalist industrial": militaristic, sterile,
-monumental, ordered. The person is the ship's **commanding officer**; the
+art direction is the "Dodaios fleet style": brutalist industrial in charcoal,
+graphite and gunmetal with brand gold as the one warm signature; ordered,
+sterile, monumental. The person is the ship's **commanding officer**; the
 agents are its **officers and crew**; coding panes are **engineering
 technicians**; the pet is the commander's **companion drone**.
 
 Everything is new. Nothing from the previous starship build (code, plans,
 figures, ranks, look) is reused; the old module is deleted.
 
-Legal: no film or franchise name, logo, crest, insignia, typeface, alien script
-or character is copied or named anywhere in the repository. Use generic words
-("fleet", "capital ship", "trooper", "officer"). The ship's emblem is original.
+Legal: the Verse is an original design, the Dodaios fleet style. No film,
+series, game or other franchise is named, referenced or used as a source
+anywhere in the repository, and no third-party logo, crest, insignia, typeface,
+alien script, costume, vehicle silhouette or character is copied. Use generic
+words ("fleet", "capital ship", "marine", "officer"). The ship's emblem is
+original.
 
 ## 2. Camera and framing (fixed)
 
@@ -35,7 +39,7 @@ or character is copied or named anywhere in the repository. Use generic words
   Viewports in the bridge may show a dim star field *inside the window glass*.
 - Pan and zoom only (no orbit). Zoom-out stops where the plate covers the
   viewport; zoom-in stops at 1.25× the plate's native density.
-- Decks are separate floors stacked in the hull, reached by turbolift. New
+- Decks are separate floors stacked in the hull, reached by lift. New
   decks are added as modules without touching the stage.
 - Eye-level view (added 2026-10-20): a deck exported as a realtime 3D scene
   is walked in third person from behind the commander's shoulder on the
@@ -102,7 +106,7 @@ Blender is the level editor, the cook is the build, the browser is the engine.
 | 3 | `engineering` | Reactor Engineering | Reactor shaft with the core column and catwalks; engineering control room whose terminal banks are the coding panes (technicians at live terminals); power conduits. |
 | 4 | `hangar` | Main Hangar | Shuttle on the pad, cargo, gantry crane, control booth; new agents arrive here by shuttle. |
 
-Every deck has a turbolift lobby. Rooms are sized for the real crew: up to 16
+Every deck has a lift lobby. Rooms are sized for the real crew: up to 16
 agent consoles on the bridge, 12 terminals in engineering.
 
 ## 7. People
@@ -113,7 +117,7 @@ agent consoles on the bridge, 12 terminals in engineering.
   and a small status beacon.
 - **Technicians** (coding panes): black work uniform and helmet at a terminal.
 - **Companion drone** (the pet): a small drone at the commander's heel.
-- **Ship's company** (ambient, not agents): a few patrol troopers and utility
+- **Ship's company** (ambient, not agents): a few patrol marines and utility
   drones on fixed rounds, no name plates, never interactive.
 
 One shared human skeleton for all humans (shared animation clips). glTF 2.0
@@ -131,9 +135,10 @@ Ladder (first level of each rank; the XP curve is unchanged):
 | Flag | Rear Admiral 37 · Vice Admiral 41 · Admiral 45 · Fleet Admiral 50 |
 
 Insignia: a chest **rank plate** (original design: a small steel plate with up
-to six inset tiles; tile colour by tier — steel, blue, red, gold). Uniform by
-tier: deck = charcoal work uniform, line = olive-grey tunic with cap, command =
-black tunic with cap, flag = white tunic with cap.
+to six inset tiles; tile colour by tier — steel, blue, copper, gold). Uniform
+by tier, all bareheaded: deck = charcoal work uniform, line = slate tunic,
+command = charcoal tunic with gold piping, flag = oxblood tunic with gold
+piping.
 
 Duty status (from the agent's real run state): **working** (seated at its
 console, typing, screen live), **waiting for you** (stands, turns to you, amber
@@ -157,7 +162,7 @@ beacon), **idle** (seeded off-duty life: mess, corridor, viewports), **paused**
   at most 16 MB of plate per deck.
 - Gates: asset validator (names, budgets, sockets, manifest schema), cook
   reproducibility, runtime checks (draw calls, frame time), visual QA in Chrome
-  against the reference contact sheet.
+  against the approved contact sheet.
 - Blender is driven headless for cooks and through the Blender MCP bridge for
   interactive assembly and viewport checks.
 

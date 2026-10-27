@@ -297,7 +297,8 @@ SOFTWARE.
 Lobe Icons SVG artwork
 
 Source license: https://github.com/lobehub/lobe-icons/blob/49a2130df7bfa5eb1b088261bff20a37e2967789/LICENSE
-The 1.95.1 snapshot covers the recorded Hermes and OpenClaw assets. Earlier SVG
+The 1.95.1 snapshot covers the recorded Hermes and OpenClaw assets; the 1.101.0
+snapshot (@lobehub/icons-static-svg) covers src/assets/agents/zai.svg. Earlier SVG
 retrievals did not record a package version; the original per-asset source ledger
 is reproduced below without assigning them a guessed version.
 
@@ -380,7 +381,7 @@ src/assets/brands
 | gmail | gilbarbara/logos `google-gmail.svg` | CC0 | 2026-07-25 |
 | google_calendar | gilbarbara/logos `google-calendar.svg` | CC0 | 2026-07-25 |
 | google_drive | gilbarbara/logos `google-drive.svg` | CC0 | 2026-07-25 |
-| higgsfield | vendor app icon `https://higgsfield.ai/icon.png` (vectorized outline of the official lime-and-snake mark; Higgsfield publishes no SVG) | vendor asset | 2026-08-19 |
+| higgsfield | vendor app icon `https://higgsfield.ai/icon.png`, byte-for-byte (PNG, 192 px; Higgsfield publishes no SVG) | vendor asset | 2026-10-27 |
 | home_assistant | svgl `home-assistant.svg` | MIT | 2026-07-25 |
 | linear | svgl `linear.svg` (brand purple, legible on dark) | MIT | 2026-07-25 |
 | notion | svgl `notion.svg` (the light variant, for dark backgrounds) | MIT | 2026-07-25 |
@@ -534,22 +535,36 @@ src/assets/editors
 | Asset | Source | License |
 | --- | --- | --- |
 | `vscode.svg` | [gilbarbara/logos visual-studio-code](https://raw.githubusercontent.com/gilbarbara/logos/37a6b807fd71c622efea27a9309b5d4edc792969/logos/visual-studio-code.svg) | CC0 (drawing) |
-| `cursor.svg` | Redrawn from the app icon Cursor ships in its installer (`resources/app/out/media/logo.png`): the shaded cube on its black tile | Trademark of Anysphere |
+| `cursor.svg` | [Simple Icons cursor](https://cdn.jsdelivr.net/npm/simple-icons@16.30.0/icons/cursor.svg), byte-for-byte; drawn as a mask over the menu's text ink | CC0 (drawing) |
 
 ----------------------------------------------------------------------
 
-Public SVG copies
+src/assets/agents
 
-Verified recorded provenance:
-public/provider-logos/grok.svg is the gilbarbara/logos grok-icon, CC0, recolored
-for monochrome display. This source is recorded in repository commit
-66ef6534352531ac03dbc750e30cd66fc13c3dbe.
+| agent | Source | Legal basis | Render | Added |
+| --- | --- | --- | --- | --- |
+| cursor | simple-icons 16.30.0 `icons/cursor.svg` (byte-for-byte) | CC0-1.0 | mono | 2026-10-27 |
+| deepseek | simple-icons 16.30.0 `icons/deepseek.svg` (byte-for-byte) | CC0-1.0 | mono | 2026-10-27 |
+| kimi | simple-icons 16.30.0 `icons/kimi.svg` (byte-for-byte) | CC0-1.0 | mono | 2026-10-27 |
+| opencode | simple-icons 16.30.0 `icons/opencode.svg` (byte-for-byte) | CC0-1.0 | mono | 2026-10-27 |
+| zai | lobehub/lobe-icons, `@lobehub/icons-static-svg` 1.101.0 `icons/zai.svg` (root width/height/style dropped) | MIT | mono | 2026-10-27 |
 
-The original retrieval source and drawing license were not recorded for the
-remaining public/provider-logos and public/agent-logos SVGs, or for
-public/plugin-assets/slack-logo.svg. Their provenance remains unverified;
-the source ledgers above do not assign a license to these separate files.
-Vendor names and trademarks belong to their owners.
+Claude, Codex (OpenAI), Antigravity and Grok (xAI) agent marks reuse the
+src/assets/providers files recorded above.
+
+----------------------------------------------------------------------
+
+public/plugin-assets
+
+| Asset | Source | Legal basis | Added |
+| --- | --- | --- | --- |
+| `agentmail.ico` | AgentMail's own favicon, `https://www.agentmail.to/favicon.ico`, byte-for-byte (same source as `src/assets/brands/agentmail.png`) | vendor asset | 2026-09-10 |
+
+The former public/provider-logos and public/agent-logos copies and
+public/plugin-assets/slack-logo.svg, whose sources were never recorded, have
+been removed. The app now draws those marks from the ledgered src/assets files
+above, unmodified; single-colour marks render in neutral monochrome. Vendor
+names and trademarks belong to their owners.
 
 ----------------------------------------------------------------------
 

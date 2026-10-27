@@ -1,5 +1,5 @@
 {
-  "_comment": "Runtime versions Jarvis installs and updates to. 'minimum' gates readiness; 'tested' is the release the agent-runtimes canary verified on Windows, macOS and Linux. Setup and daily updates go to 'tested' only, never to upstream latest. Bump 'tested' only from a green canary run (docs/agent-runtimes.md).",
+  "_comment": "Runtime versions Dodaios installs and updates to. 'minimum' gates readiness; 'tested' is the release the agent-runtimes canary verified on Windows, macOS and Linux. Setup and daily updates go to 'tested' only, never to upstream latest. Bump 'tested' only from a green canary run (docs/agent-runtimes.md).",
   "hermes": {
     "minimum": "0.20.6",
     "tested": "0.21.5",

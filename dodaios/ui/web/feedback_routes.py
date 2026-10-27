@@ -73,7 +73,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from dodaios.core.branding import OFFICIAL_REPO_SLUG, OFFICIAL_REPO_URL
+from dodaios.core.branding import OFFICIAL_REPO_SLUG, OFFICIAL_REPO_URL, PRODUCT_NAME
 from dodaios.core.config import get_secret
 
 log = logging.getLogger(__name__)
@@ -378,7 +378,7 @@ async def _fetch_label(client: httpx.AsyncClient, label: str) -> list[BoardEntry
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
             # GitHub rejects an API request without a User-Agent.
-            "User-Agent": f"PersonalJarvis/{_app_version()}",
+            "User-Agent": f"{PRODUCT_NAME}/{_app_version()}",
         },
     )
     resp.raise_for_status()

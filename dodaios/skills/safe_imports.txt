@@ -1,4 +1,4 @@
-# Allowlist of permitted Python imports in Jarvis-Agent-authored skills
+# Allowlist of permitted Python imports in agent-authored skills
 # (Plan-§7.5 security lint before promote, extended by the Phase-7.5 implementation).
 #
 # Skills are Markdown with YAML frontmatter — Python code blocks inside
@@ -38,7 +38,7 @@ warnings
 # Async (for skills with background tasks)
 asyncio
 
-# Jarvis's own APIs (skills are permitted to use these)
+# Dodaios's own APIs (skills are permitted to use these)
 dodaios.core.protocols
 dodaios.core.config
 dodaios.skills.schema

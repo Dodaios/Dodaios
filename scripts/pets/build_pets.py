@@ -794,7 +794,7 @@ class PetDesign:
         return {**FRAME_COUNTS, **(self.frame_counts or {})}
 
 
-# -- Gigi: the Jarvis ghost ---------------------------------------------------
+# -- Gigi: the pixel ghost -----------------------------------------------------
 #
 # Drawn after the brand mark (``assets/icons/dodaios-gigi-256.png``, docs/BRAND.md):
 # a black body with a white edge, a rounded head with straight sides, white
@@ -1513,7 +1513,7 @@ GIGI_ANCHORS = Anchors(
 GIGI = PetDesign(
     id="gigi",
     name="Gigi",
-    description="The Jarvis ghost, eight bits tall: it floats, glitches while it thinks.",
+    description="A pixel ghost, eight bits tall: it floats, glitches while it thinks.",
     draw=draw_gigi,
     pose=gigi_pose,
     anchors=GIGI_ANCHORS,

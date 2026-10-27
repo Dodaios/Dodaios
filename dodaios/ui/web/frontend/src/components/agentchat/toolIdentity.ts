@@ -33,16 +33,16 @@ import { brandIdVariants, bundledPluginLogo, isRasterLogo } from "@/lib/pluginLo
 import type { ToolCategory, ToolChoice } from "./toolChoices";
 
 type Palette = readonly [string, string];
-type Mark = "colour" | "mono" | "plate";
+type Mark = "colour" | "mono";
 interface Brand {
   palette: Palette;
   aliases?: string[];
   mark?: Mark;
-  asset?: string;
 }
 
-// Ink pairs retain each brand's hue with contrast on paper and charcoal.
-// Original colour SVGs stay intact; monochrome marks use the text ink.
+// Ink pairs tint the chip around a mark (its wash and selected label), never
+// the mark itself: original colour artwork stays intact and single-colour
+// glyphs render in neutral monochrome (see .tool-choice-mask).
 const NEUTRAL: Palette = ["#24292e", "#e6edf3"];
 const BLUE: Palette = ["#1558b0", "#8ab4f8"];
 const VIOLET: Palette = ["#6840bb", "#c4abff"];
@@ -106,19 +106,14 @@ const BRANDS: Record<string, Brand> = {
   cartesia: { palette: GREEN },
   inworld: { palette: VIOLET },
   xai: { palette: NEUTRAL, mark: "mono", aliases: ["grok", "grok-build"] },
-  cursor: { palette: NEUTRAL, mark: "mono", asset: "/agent-logos/cursor.svg" },
-  deepseek: {
-    palette: BLUE,
-    mark: "mono",
-    asset: "/agent-logos/deepseek.svg",
-    aliases: ["deepseek-harness"],
-  },
-  kimi: { palette: BLUE, mark: "plate", asset: "/agent-logos/kimi.svg" },
-  opencode: { palette: NEUTRAL, mark: "plate", asset: "/agent-logos/opencode.svg" },
-  zai: { palette: NEUTRAL, asset: "/agent-logos/zai.svg", aliases: ["glm", "z.ai"] },
+  cursor: { palette: NEUTRAL, mark: "mono" },
+  deepseek: { palette: BLUE, mark: "mono", aliases: ["deepseek-harness"] },
+  kimi: { palette: BLUE, mark: "mono" },
+  opencode: { palette: NEUTRAL, mark: "mono" },
+  zai: { palette: NEUTRAL, mark: "mono", aliases: ["glm", "z.ai"] },
 };
 
-const assets = import.meta.glob("../../assets/{brands,providers,tool-brands,clis}/*.{svg,png}", {
+const assets = import.meta.glob("../../assets/{brands,providers,tool-brands,clis,agents}/*.{svg,png}", {
   eager: true,
   query: "?url",
   import: "default",
@@ -130,13 +125,13 @@ function assetFor(key: string, preferCli = false): string | undefined {
     const cli = assets[`../../assets/clis/${cliFile}`] || assets[`../../assets/clis/${id}.svg`];
     if (preferCli && cli) return cli;
     const found =
-      BRANDS[id]?.asset ||
       bundledPluginLogo(id) ||
       assets[`../../assets/brands/${id}.svg`] ||
       assets[`../../assets/brands/${id}.png`] ||
       assets[`../../assets/tool-brands/${id}.svg`] ||
       assets[`../../assets/providers/${id}.svg`] ||
       assets[`../../assets/providers/${id}.png`] ||
+      assets[`../../assets/agents/${id}.svg`] ||
       cli;
     if (found) return found;
   }

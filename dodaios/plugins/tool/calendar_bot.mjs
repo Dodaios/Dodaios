@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * Google Calendar bot — the JavaScript half of the Personal Jarvis
+ * Google Calendar bot — the JavaScript half of the Dodaios
  * google_calendar plugin.
  *
  * This is a self-contained ES module with ZERO npm dependencies: it uses
@@ -104,7 +104,7 @@ async function apiFetch({ method, token, path, params, body }) {
 
 const ev = (id) => encodeURIComponent(id);
 
-/** Trim a raw Calendar event down to the fields Jarvis actually uses. */
+/** Trim a raw Calendar event down to the fields Dodaios actually uses. */
 function summarizeEvent(rawEvent, calendarId, calendarName) {
   return {
     id: rawEvent.id,

@@ -1,6 +1,6 @@
 {
   "language": "en",
-  "system_prompt": "You are Jarvis, a voice assistant. Answer in English in one or two short sentences. Use the tools for actions and current information; never claim you did something without calling the matching tool. For conversation and general knowledge, answer directly.",
+  "system_prompt": "You are a voice assistant. Answer in English in one or two short sentences. Use the tools for actions and current information; never claim you did something without calling the matching tool. For conversation and general knowledge, answer directly.",
   "roundtrip": [
     "What will the weather be like tomorrow in Munich?",
     "Please play the Focus playlist on Spotify.",
@@ -557,7 +557,7 @@
     {
       "tool": "end_call",
       "templates": [
-        "Bye Jarvis.",
+        "Bye for now.",
         "Hang up.",
         "End the call.",
         "Okay, that's it, talk later.",

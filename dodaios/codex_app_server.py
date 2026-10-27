@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     pass
 
 from dodaios import __version__
+from dodaios.core.branding import PRODUCT_NAME
 from dodaios.core.process_tree import ProcessTree, make_process_tree
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
@@ -1930,7 +1931,7 @@ def _create_safe_transport_workspace(
                     "models": [
                         {
                             "slug": "gpt-5.1-codex",
-                            "display_name": "Jarvis transport boundary",
+                            "display_name": "Dodaios transport boundary",
                             "description": None,
                             "supported_reasoning_levels": [],
                             "shell_type": "disabled",
@@ -2664,8 +2665,11 @@ class CodexAppServerClient:
             "initialize",
             {
                 "clientInfo": {
+                    # The name is the originator the server reports upstream;
+                    # it keeps the value it was registered with. Only the
+                    # display title follows the product name.
                     "name": "personal_jarvis",
-                    "title": "Personal Jarvis",
+                    "title": PRODUCT_NAME,
                     "version": __version__,
                 },
                 "capabilities": {

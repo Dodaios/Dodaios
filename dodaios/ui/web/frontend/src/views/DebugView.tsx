@@ -66,7 +66,7 @@ export function DebugView() {
             </h3>
             <p className="text-xs text-muted-foreground">
               {t("debug_view.traces_from")}{" "}
-              <code className="font-mono">%APPDATA%\Jarvis\traces\</code> —{" "}
+              <code className="font-mono">data/flight_recorder/</code> —{" "}
               {t("debug_view.replay_coming")}
             </p>
           </div>

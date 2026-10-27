@@ -1,9 +1,9 @@
-# Jarvis pet companions (Jarvis Verse)
+# Dodaios pet companions (Dodaios Verse)
 
 ## Intent
 
 The person picks a desktop pet in **Settings → My Pets** (`docs/pets.md`). In
-the Jarvis Verse office map, Jarvis keeps the person company as a small
+the Dodaios Verse office map, the assistant keeps the person company as a small
 companion behind their character. Until now that companion was always the 3D
 Gigi model. This study replaces it with a 3D version of the chosen pet, so the
 pet the person sees on the desktop is the one that walks, crawls or flies

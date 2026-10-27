@@ -21,7 +21,12 @@ LEGACY_PACKAGE_DIR = "dodaios/_legacy_alias"
 #: ``dodaios conductor`` commands. Left out, it imported only when the app ran
 #: with the checkout as its working directory (run.bat), so the console script,
 #: autostart and every wheel install served no Conductor API at all.
-INCLUDE = ("dodaios*", "conductor*")
+#:
+#: ``ui`` is the top-level Tk orb overlay package (``ui.orb``). ``--orb-doctor``
+#: and the desktop overlay import it as ``ui.orb…``. Without it in the list,
+#: an installed console script raises ``ModuleNotFoundError: No module named
+#: 'ui'`` while the same command works from a checkout (issue #457).
+INCLUDE = ("dodaios*", "conductor*", "ui*")
 EXCLUDE = ("*.__pycache__", "*.__pycache__.*", "dodaios._legacy_alias")
 
 

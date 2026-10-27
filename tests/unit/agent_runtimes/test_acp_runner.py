@@ -513,6 +513,19 @@ def test_a_long_tool_call_is_not_a_stall(monkeypatch, tmp_path):
     assert _finished(events)["status"] == "cancelled"
 
 
+def test_a_model_call_still_open_at_the_gateway_is_not_a_stall(monkeypatch, tmp_path):
+    # A local model reading a long prompt or thinking sends nothing for
+    # minutes while the gateway still serves its call (#978).
+    from dodaios.agent_runtimes import gateway
+
+    monkeypatch.setattr(rc, "_ACP_IDLE_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(rc, "_ACP_WATCH_TICK_S", 0.1)
+    monkeypatch.setattr(gateway, "model_call_open", lambda signal: True)
+    events, _ = _run_live(monkeypatch, tmp_path, "SLOW", cancel_after=2.5)
+    # Ended by the person after 2.5 s, not by the 0.5 s watchdog.
+    assert _finished(events)["status"] == "cancelled"
+
+
 def test_an_open_approval_card_is_not_a_stall(monkeypatch, tmp_path):
     monkeypatch.setattr(rc, "_ACP_IDLE_TIMEOUT_S", 0.5)
     monkeypatch.setattr(rc, "_ACP_WATCH_TICK_S", 0.1)

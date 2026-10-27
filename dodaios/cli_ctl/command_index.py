@@ -25,6 +25,8 @@ and fails the moment a group or command name here disagrees with it.
 
 from __future__ import annotations
 
+from dodaios.core.branding import CONTROL_CLI_COMMAND_NAME
+
 #: ``group -> (command, ...)``. A command may carry an argument hint after a
 #: space (``'create "<what it should do>" [--name --trigger --schedule]'``);
 #: the parity test compares only the first token. Order: the groups a spoken
@@ -191,8 +193,8 @@ def command_names(group: str) -> tuple[str, ...]:
 def render_command_index() -> str:
     """The tree as the tool description shows it — one line per group."""
     lines = [
-        "Command index (`jarvisctl <group> <command> [args]`; call the command "
-        "directly — do not spend rounds on --help):",
+        f"Command index (`{CONTROL_CLI_COMMAND_NAME} <group> <command> [args]`; call the command"
+        " directly; do not spend rounds on --help):",
     ]
     for group, commands in COMMAND_INDEX.items():
         lines.append(f"  {group}: " + ", ".join(commands))

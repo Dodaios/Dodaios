@@ -79,21 +79,21 @@ def coerce_elevenlabs_model(model_id: str | None) -> str:
 _QUOTA_COOLDOWN_S = 900.0
 
 
-# Curated Jarvis voices (multilingual, DE+EN via eleven_flash_v2_5).
+# Curated ElevenLabs voices (multilingual, DE+EN via eleven_flash_v2_5).
 # Voice IDs are stable within ElevenLabs (official standard library).
-JARVIS_VOICE_DANIEL = "onwK4e9ZLuTAKqWW03F9"   # British, authoritative — Jarvis default
-JARVIS_VOICE_GEORGE = "JBFqnCBsd6RMkjVDRZzb"   # British, deep narrator
-JARVIS_VOICE_CHARLIE = "IKne3meq5aSn9XLyUdCD"  # British, mature butler tone
-JARVIS_VOICE_BRIAN = "nPczCjzI2devNBz1zQrb"    # American, deep narrator
-JARVIS_VOICE_ADAM = "pNInz6obpgDQGcFmaJgB"     # American, classic AI voice
+ELEVENLABS_VOICE_DANIEL = "onwK4e9ZLuTAKqWW03F9"   # British, authoritative — the default
+ELEVENLABS_VOICE_GEORGE = "JBFqnCBsd6RMkjVDRZzb"   # British, deep narrator
+ELEVENLABS_VOICE_CHARLIE = "IKne3meq5aSn9XLyUdCD"  # British, mature and warm
+ELEVENLABS_VOICE_BRIAN = "nPczCjzI2devNBz1zQrb"    # American, deep narrator
+ELEVENLABS_VOICE_ADAM = "pNInz6obpgDQGcFmaJgB"     # American, classic AI voice
 
 
 DEFAULT_VOICES: tuple[str, ...] = (
-    JARVIS_VOICE_DANIEL,
-    JARVIS_VOICE_GEORGE,
-    JARVIS_VOICE_CHARLIE,
-    JARVIS_VOICE_BRIAN,
-    JARVIS_VOICE_ADAM,
+    ELEVENLABS_VOICE_DANIEL,
+    ELEVENLABS_VOICE_GEORGE,
+    ELEVENLABS_VOICE_CHARLIE,
+    ELEVENLABS_VOICE_BRIAN,
+    ELEVENLABS_VOICE_ADAM,
 )
 
 
@@ -109,7 +109,7 @@ class ElevenLabsTTS:
     def __init__(
         self,
         model: str = "eleven_flash_v2_5",
-        default_voice: str = JARVIS_VOICE_DANIEL,
+        default_voice: str = ELEVENLABS_VOICE_DANIEL,
         language_code: str = "de-DE",
         stability: float = 0.5,
         similarity_boost: float = 0.75,

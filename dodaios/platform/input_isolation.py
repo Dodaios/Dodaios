@@ -276,6 +276,108 @@ def windows_foreground_window_is_elevated() -> bool | None:
         return None
 
 
+def _windows_pid_is_elevated(pid: int) -> bool | None:
+    """Is process ``pid`` running with an elevated token? ``None`` if unknown."""
+    if os.name != "nt" or not pid:
+        return None
+    try:
+        import ctypes  # noqa: PLC0415 — lazy (HN-7)
+        from ctypes import wintypes  # noqa: PLC0415
+
+        TOKEN_QUERY = 0x0008
+        TokenElevation = 20
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+        advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        # Declared on purpose: an undeclared 64-bit HANDLE is truncated to int.
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        advapi32.OpenProcessToken.argtypes = [
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.HANDLE),
+        ]
+        advapi32.OpenProcessToken.restype = wintypes.BOOL
+        advapi32.GetTokenInformation.argtypes = [
+            wintypes.HANDLE,
+            ctypes.c_int,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        advapi32.GetTokenInformation.restype = wintypes.BOOL
+
+        process = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not process:
+            return None
+        try:
+            token = wintypes.HANDLE()
+            if not advapi32.OpenProcessToken(process, TOKEN_QUERY, ctypes.byref(token)):
+                return None
+            try:
+                elevated = wintypes.DWORD()
+                returned = wintypes.DWORD()
+                if not advapi32.GetTokenInformation(
+                    token,
+                    TokenElevation,
+                    ctypes.cast(ctypes.byref(elevated), wintypes.LPVOID),
+                    ctypes.sizeof(elevated),
+                    ctypes.byref(returned),
+                ):
+                    return None
+                return bool(elevated.value)
+            finally:
+                kernel32.CloseHandle(token)
+        finally:
+            kernel32.CloseHandle(process)
+    except Exception:  # noqa: BLE001 — an unreadable token is "unknown", not fatal
+        log.debug("Could not read the elevation of pid %s", pid, exc_info=True)
+        return None
+
+
+def windows_shell_is_elevated() -> bool | None:
+    """Does the desktop shell (Explorer) itself run with administrator rights?
+
+    This decides whether our own elevation isolates anything. UIPI only blocks
+    input from a LOWER integrity level. On the built-in Administrator account
+    (default ``FilterAdministratorToken=0``) or with UAC switched off, Explorer
+    runs elevated, so every app the user starts — dictation apps included — is
+    elevated too and can type into our window just fine. Warning there is a
+    false alarm, and "restart without admin rights" cannot help: the only
+    ordinary token on that account is an elevated one (live report 2026-10-27:
+    banner on every start, the restart button did nothing).
+
+    ``None`` when unknown or not on Windows. Never raises.
+    """
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes  # noqa: PLC0415 — lazy (HN-7)
+        from ctypes import wintypes  # noqa: PLC0415
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.GetShellWindow.argtypes = []
+        user32.GetShellWindow.restype = wintypes.HWND
+        user32.GetWindowThreadProcessId.argtypes = [
+            wintypes.HWND,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+
+        hwnd = user32.GetShellWindow()
+        if not hwnd:
+            return None
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return _windows_pid_is_elevated(int(pid.value))
+    except Exception:  # noqa: BLE001
+        log.debug("Could not read the desktop shell's elevation", exc_info=True)
+        return None
+
+
 def macos_secure_input_enabled() -> bool | None:
     """Is macOS Secure Input active right now?
 
@@ -321,6 +423,7 @@ def describe_input_isolation(
     *,
     _platform=detect_platform,
     _elevated=windows_process_is_elevated,
+    _shell_elevated=windows_shell_is_elevated,
     _euid=_euid,
 ) -> InputIsolationReport:
     """Report whether outside input software can reach this app's window.
@@ -328,7 +431,9 @@ def describe_input_isolation(
     Fail-open by design: when the privilege state cannot be read we report
     ``UNKNOWN`` and ``blocked=False``, because warning a user about a problem
     they may not have — and offering a restart they do not need — is worse than
-    staying quiet. A real block is always a positive measurement.
+    staying quiet. A real block is always a positive measurement: we run
+    elevated AND the desktop shell does not. When the shell is elevated too,
+    every app of this user shares our level and nothing is isolated.
     """
     platform = _platform()
 
@@ -343,7 +448,7 @@ def describe_input_isolation(
                 remedy="",
                 can_restart_unelevated=False,
             )
-        if elevated:
+        if elevated and _shell_elevated() is False:
             return InputIsolationReport(
                 blocked=True,
                 reason=InputIsolationReason.ELEVATED,

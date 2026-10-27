@@ -51,6 +51,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "AgentRecord",
     "LEAD_AGENT_ID",
+    "LEAD_AGENT_ROW_NAME",
     "Roster",
     "RosterError",
     "PAIR_SESSION_MARKER",
@@ -63,6 +64,10 @@ __all__ = [
 ]
 
 LEAD_AGENT_ID: Final[str] = "jarvis"
+# The name stored on the lead's roster row. A persistent identifier, not display
+# text: an existing roster finds its lead by it, and every surface shows the lead
+# under the assistant's own name instead (``societyDisplayName`` in the UI).
+LEAD_AGENT_ROW_NAME: Final[str] = "Jarvis"
 
 _NAME_RE: Final[re.Pattern[str]] = re.compile(r"^[^/\\:@#<>\"'`]{1,40}$")
 _MAX_TITLE: Final[int] = 120

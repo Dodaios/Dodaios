@@ -12,11 +12,11 @@ or reopening the app never resumes paid discussion.
 | `failure_reasons.py` | the typed vocabulary every refusal speaks, with retry hints |
 | `society_schema.sql` / `store.py` | `data/society.db`: roster, append-only board, rooms, knowledge staging, approvals, meta — persist-before-publish |
 | `bus.py` | observer fan-out of stored envelopes; a wedged observer can never block an append |
-| `roster.py` | agent records: adopt-before-mint by name, one lead (Jarvis), typed validation, NO chat-session column (`society:<agent_id>` is a pure function) |
+| `roster.py` | agent records: adopt-before-mint by name, one lead (Dodaios), typed validation, NO chat-session column (`society:<agent_id>` is a pure function) |
 | `capabilities.py` | ONE catalog over plugins, CLIs, MCP servers, active skills and core tools; dispatch and app-control tools are never granted |
 | `focus.py` | deterministic focus + approval-rule derivation from title/description — no model call |
 | `rooms.py` | bounded discussions: 2–6 members, ≤3 rounds, ≤10 messages, silence allowed, restart-safe |
-| `meetings.py` | shared group transcript, one serial round per user message, read-only contributions, owned-turn cancellation; two to six agents, including Jarvis |
+| `meetings.py` | shared group transcript, one serial round per user message, read-only contributions, owned-turn cancellation; two to six agents, including Dodaios |
 | `scheduler.py` | the only path from an ASSIGN to work: kill switch, tier wall, depth ≤ 2, target, budgets, caps; refusals are VETO envelopes |
 | `bridge.py` | mission envelopes → board (attributed to the owning agent, else the lead) |
 | `approvals.py` | the unattended ask-queue: require > always-allow > tier vs ceiling; expiry parks, never drops |

@@ -3,27 +3,33 @@ import { SquareTerminal } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import antigravityLogo from "@/assets/providers/antigravity.svg?url";
+import claudeLogo from "@/assets/providers/claude.svg?url";
+import openaiLogo from "@/assets/providers/openai.svg?url";
+import xaiLogo from "@/assets/providers/xai.svg?url";
+import cursorLogo from "@/assets/agents/cursor.svg?url";
+import deepseekLogo from "@/assets/agents/deepseek.svg?url";
+import kimiLogo from "@/assets/agents/kimi.svg?url";
+import opencodeLogo from "@/assets/agents/opencode.svg?url";
+import zaiLogo from "@/assets/agents/zai.svg?url";
+
 /**
  * What ground a brand file needs in order to be legible.
  *
- * Every mark that ships with the app was drawn for the dark product this
- * started as, and they are not all broken in the same way on paper — so one
- * blanket treatment cannot fix them (maintainer, 2026-08-11: a light-mode
- * restore screen showed seven terminals with no sign of which CLI each was
- * running).
+ * Every file comes from a ledgered source (`src/assets/providers/LOGOS.md`,
+ * `src/assets/agents/LOGOS.md`) and is drawn unmodified. A mark is shown either
+ * in its own colours or in neutral monochrome, never recoloured.
  *
- * * `ink` — a single-colour silhouette; the file is one `fill="#F4F4F5"` and
- *   nothing about that colour is brand. It is drawn as a MASK over the current
- *   text ink, so it follows the theme by itself: the same near-white on the
- *   dark app, near-black on paper, from one asset and with no theme prop
- *   threaded through the tree.
- * * `dark` — a full-colour lockup whose own background is white or near-white
- *   (OpenCode's outer square; the body of the Kimi glyph). On paper those
- *   shapes ARE the paper, and the mark collapses to whichever fragment happens
- *   to be dark — OpenCode became an unlabelled grey dot. These keep their
- *   colours and get a constant dark canvas: the ground they were drawn on.
- * * `any` — a lockup that already carries its own ground (Z.ai is a dark tile
- *   with a white glyph) and reads on either theme untouched.
+ * * `ink` — a single-colour glyph. It is drawn as a MASK over the current
+ *   text ink, so it follows the theme by itself: near-white on the dark app,
+ *   near-black on paper, from one asset and with no theme prop threaded
+ *   through the tree.
+ * * `dark` — a full-colour lockup whose own background is white or near-white.
+ *   On paper those shapes ARE the paper, so it keeps its colours and gets a
+ *   constant dark canvas: the ground it was drawn on. No shipped mark needs
+ *   it today; it stays for that shape of logo.
+ * * `any` — a full-colour mark on a transparent ground (Claude's spark,
+ *   Antigravity's arch) that reads on either theme in its own colours.
  */
 type LogoGround = "ink" | "dark" | "any";
 
@@ -33,15 +39,15 @@ interface LogoAsset {
 }
 
 const AGENT_LOGOS: Record<string, LogoAsset> = {
-  antigravity: { url: "/provider-logos/antigravity.svg", ground: "ink" },
-  claude: { url: "/provider-logos/claude.svg", ground: "ink" },
-  codex: { url: "/provider-logos/openai.svg", ground: "ink" },
-  cursor: { url: "/agent-logos/cursor.svg", ground: "ink" },
-  "deepseek-harness": { url: "/agent-logos/deepseek.svg", ground: "ink" },
-  glm: { url: "/agent-logos/zai.svg", ground: "any" },
-  "grok-build": { url: "/provider-logos/grok.svg", ground: "ink" },
-  kimi: { url: "/agent-logos/kimi.svg", ground: "dark" },
-  opencode: { url: "/agent-logos/opencode.svg", ground: "dark" },
+  antigravity: { url: antigravityLogo, ground: "any" },
+  claude: { url: claudeLogo, ground: "any" },
+  codex: { url: openaiLogo, ground: "ink" },
+  cursor: { url: cursorLogo, ground: "ink" },
+  "deepseek-harness": { url: deepseekLogo, ground: "ink" },
+  glm: { url: zaiLogo, ground: "ink" },
+  "grok-build": { url: xaiLogo, ground: "ink" },
+  kimi: { url: kimiLogo, ground: "ink" },
+  opencode: { url: opencodeLogo, ground: "ink" },
 };
 
 /**
@@ -176,9 +182,7 @@ export function AgentMark({
         /*
          * `bg-foreground` rather than `bg-current`: the wrapper's ink is the
          * muted channel, which is right for the monogram beside a title and
-         * wrong for a brand mark. Foreground is #F4F4F5 on the dark theme —
-         * the exact colour the file was authored in, so the dark app is
-         * pixel-identical to before this split existed.
+         * too faint for a brand mark. Neutral monochrome either way.
          */
         <span
           className={cn("block bg-foreground", glyphClass)}

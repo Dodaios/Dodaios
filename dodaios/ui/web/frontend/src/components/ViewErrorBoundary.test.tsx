@@ -73,7 +73,7 @@ describe("ViewErrorBoundary", () => {
     const { consoleError } = renderCrash(STALE_CHUNK);
 
     const ours = consoleError.mock.calls.filter(
-      (call) => call[0] === "Jarvis view crashed",
+      (call) => call[0] === "Dodaios view crashed",
     );
     expect(ours).toHaveLength(0);
   });
@@ -92,7 +92,7 @@ describe("ViewErrorBoundary", () => {
     // React re-renders a failing tree once more to build a better stack, so
     // the boundary legitimately catches twice. What matters is that it logged.
     const ours = consoleError.mock.calls.filter(
-      (call) => call[0] === "Jarvis view crashed",
+      (call) => call[0] === "Dodaios view crashed",
     );
     expect(ours.length).toBeGreaterThan(0);
   });

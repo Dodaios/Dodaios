@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.marketplace.catalog import (
     OAuthDeviceFlowAuth,
     OAuthPkceLoopbackAuth,
@@ -191,7 +192,7 @@ async def revoke_tokens(
                 auth=auth,
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
-                    "User-Agent": "Personal-Jarvis/1.0",
+                    "User-Agent": HTTP_USER_AGENT,
                 },
             )
     except Exception:  # noqa: BLE001 - the local disconnect still stands

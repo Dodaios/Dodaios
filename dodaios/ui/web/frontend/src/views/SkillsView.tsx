@@ -1498,6 +1498,8 @@ const KIND_ICON: Record<ResourceKind, typeof FileText> = {
 function EmptyList() {
   const t = useT();
   const assistantName = useEventStore((s) => s.assistantName);
+  const { data } = useSkillsList();
+  const skillsDir = data?.skills_dir ?? "skills";
   return (
     <EmptyRow>
       <p>{t("skills_view.empty_list_title")}</p>
@@ -1505,7 +1507,7 @@ function EmptyList() {
         {t("skills_view.empty_list_body_a")} {assistantName}{" "}
         {t("skills_view.empty_list_body_b")}
         <br />
-        <code>%LOCALAPPDATA%\Jarvis\skills</code>.{" "}
+        <code>{skillsDir}</code>.{" "}
         {t("skills_view.empty_list_body_c")}
       </p>
     </EmptyRow>

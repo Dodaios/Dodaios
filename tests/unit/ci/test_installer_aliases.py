@@ -19,16 +19,23 @@ def _stage(directory: Path, names: list[str]) -> None:
 
 
 def test_the_build_names_are_copied_to_the_earlier_names(tmp_path: Path) -> None:
-    # What the OS jobs upload: the setup under its signed (earlier) name, the
-    # rest under the current name.
+    # What the OS jobs upload: every installer under its current name.
+    _stage(tmp_path, [current for current, _earlier in PAIRS])
+
+    written = installer_aliases.add_aliases(tmp_path, publish_earlier=True)
+
+    assert sorted(written) == sorted(earlier for _current, earlier in PAIRS)
+    for current, earlier in PAIRS:
+        assert (tmp_path / current).read_bytes() == (tmp_path / earlier).read_bytes()
+
+
+def test_an_installer_under_only_its_earlier_name_gets_the_current_one(tmp_path: Path) -> None:
     windows, *others = PAIRS
     _stage(tmp_path, [windows[1], *(current for current, _earlier in others)])
 
-    written = installer_aliases.add_aliases(tmp_path)
+    written = installer_aliases.add_aliases(tmp_path, publish_earlier=True)
 
     assert sorted(written) == sorted([windows[0], *(earlier for _current, earlier in others)])
-    for current, earlier in PAIRS:
-        assert (tmp_path / current).read_bytes() == (tmp_path / earlier).read_bytes()
 
 
 def test_a_pair_already_complete_is_left_alone(tmp_path: Path) -> None:
@@ -65,8 +72,10 @@ def test_the_checksum_job_aliases_after_download_and_before_the_manifest() -> No
     alias = next(i for i, run in enumerate(runs) if "installer_aliases.py installers" in run)
     manifest = next(i for i, run in enumerate(runs) if "installers-SHA256SUMS.txt" in run)
     assert download < alias < manifest
-    for name in release_assets.INSTALLERS:
-        assert name in runs[manifest], name
+    # The required names come from release_assets.py, so the sunset switch
+    # reaches the manifest without editing the workflow.
+    assert "installer_aliases.py --names" in runs[manifest]
+    assert "PersonalJarvis-" not in runs[manifest]
 
 
 def test_the_release_job_uploads_only_what_the_manifest_vouches_for() -> None:
@@ -82,19 +91,48 @@ def test_the_release_job_uploads_only_what_the_manifest_vouches_for() -> None:
     assert alias < check < upload
 
 
-def test_the_windows_setup_is_signed_under_the_pinned_name() -> None:
-    """SignPath pins the setup's file name; the current name is copied later."""
+def test_the_windows_setup_is_built_and_signed_under_one_name() -> None:
+    """The .iss, the workflow and the SignPath configuration name one file."""
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/desktop-installers.yml").read_text(encoding="utf-8")
     )
-    windows = workflow["jobs"]["windows"]["steps"]
+    job = workflow["jobs"]["windows"]
+    name = job["env"]["SIGNED_SETUP_NAME"]
+    assert name == "Dodaios-Setup-x64.exe"
+    windows = job["steps"]
     staged = next(s for s in windows if s.get("id") == "signpath-unsigned")
     upload = next(s for s in windows if s.get("name") == "Upload the installer")
-    assert staged["with"]["path"].endswith("/PersonalJarvis-Setup-x64.exe")
-    assert upload["with"]["path"].endswith("/PersonalJarvis-Setup-x64.exe")
+    assert staged["with"]["path"] == "dist/installers/${{ env.SIGNED_SETUP_NAME }}"
+    assert upload["with"]["path"] == "dist/installers/${{ env.SIGNED_SETUP_NAME }}"
+    windows_text = yaml.safe_dump(windows)
+    assert "PersonalJarvis-Setup" not in windows_text
     iss = (ROOT / "packaging/windows/Dodaios.iss").read_text(encoding="utf-8")
-    assert '#define SignedSetupBaseName "PersonalJarvis-Setup-x64"' in iss
+    assert f'#define SignedSetupBaseName "{name.removesuffix(".exe")}"' in iss
     assert "OutputBaseFilename={#SignedSetupBaseName}" in iss
+    assert '#define SignedProductName "Dodaios"' in iss
+    build = (ROOT / "packaging/windows/build.ps1").read_text(encoding="utf-8")
+    assert f'Join-Path $InstallerDir "{name}"' in build
+    policy = (ROOT / "docs/code-signing-policy.md").read_text(encoding="utf-8")
+    assert f'<pe-file path="{name}" product-name="Dodaios">' in policy
+
+
+def test_the_sunset_switch_drops_the_earlier_names(tmp_path: Path) -> None:
+    """With the switch off nothing is copied, and every current name must exist."""
+    for current, _earlier in PAIRS:
+        (tmp_path / current).write_bytes(b"signed")
+    assert installer_aliases.add_aliases(tmp_path, publish_earlier=False) == []
+    assert sorted(p.name for p in tmp_path.iterdir()) == sorted(c for c, _ in PAIRS)
+    (tmp_path / PAIRS[0][0]).unlink()
+    with pytest.raises(ValueError, match="current name"):
+        installer_aliases.add_aliases(tmp_path, publish_earlier=False)
+
+
+def test_the_names_option_lists_what_the_release_requires(capsys) -> None:
+    assert installer_aliases.main(["--names"]) == 0
+    assert set(capsys.readouterr().out.split()) == release_assets.INSTALLERS
+    assert release_assets.CURRENT_INSTALLERS <= release_assets.INSTALLERS
+    if release_assets.PUBLISH_EARLIER_INSTALLER_NAMES:
+        assert release_assets.EARLIER_INSTALLERS <= release_assets.INSTALLERS
 
 
 @pytest.mark.parametrize(

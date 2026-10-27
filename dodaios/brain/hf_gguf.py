@@ -136,7 +136,7 @@ async def _fetch_json(
 ) -> tuple[Any | None, str | None]:
     """``(payload, error)`` for one Hugging Face API call — exactly one is non-None."""
     url = f"{_HF_ROOT}{path}"
-    headers = {"User-Agent": "Jarvis-Agents local model browser"}
+    headers = {"User-Agent": "Dodaios local model browser"}
     if token := _bearer():
         headers["Authorization"] = f"Bearer {token}"
     try:

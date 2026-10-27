@@ -6,7 +6,7 @@ single build script that produces exactly one release asset.
 
 | OS      | Script                                                | Produces                                |
 | ------- | ----------------------------------------------------- | --------------------------------------- |
-| Windows | [`windows/build.ps1`](windows/build.ps1)              | `PersonalJarvis-Setup-x64.exe` (the name SignPath pins) |
+| Windows | [`windows/build.ps1`](windows/build.ps1)              | `Dodaios-Setup-x64.exe` (the name SignPath pins) |
 | macOS   | [`macos/build.sh`](macos/build.sh)                    | `Dodaios-macOS-<arm64\|x64>.dmg`        |
 | Linux   | [`linux/build.sh`](linux/build.sh)                    | `Dodaios-Linux-x86_64.AppImage`         |
 

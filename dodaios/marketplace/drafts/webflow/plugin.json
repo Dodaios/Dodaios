@@ -25,7 +25,7 @@
         "auth_header_template": "Authorization: Bearer ${plugin_webflow_access_token}",
         "risk_tier": "ask"
       },
-      "post_install_hint_md": "Sign in with Webflow and choose the sites Jarvis may access. Publishing changes asks for approval first."
+      "post_install_hint_md": "Sign in with Webflow and choose the sites Dodaios may access. Publishing changes asks for approval first."
     }
   }
 }

@@ -1,6 +1,6 @@
 /**
  * The assistant name shown at boot must never be a trademarked placeholder
- * (e.g. "Jarvis" / Marvel), because it is briefly visible before the real,
+ * (e.g. a fictional character's name), because it is briefly visible before the real,
  * user-chosen name resolves. These tests lock (a) the round-trip cache so the
  * user's own name paints instantly on the next boot, and (b) the trademark-free
  * neutral fallback used on the first run.

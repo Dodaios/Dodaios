@@ -349,6 +349,9 @@ def list_skills(request: Request) -> dict[str, Any]:
     return {
         "skills": [_skill_to_summary(s) for s in skills],
         "total": len(skills),
+        # The resolved folder, so the UI names the real place: a fresh install
+        # and one from before the rename keep their skills in different folders.
+        "skills_dir": str(user_skills_dir()),
     }
 
 

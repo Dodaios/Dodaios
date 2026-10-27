@@ -1,34 +1,48 @@
 #!/usr/bin/env python3
-"""Build the sdist and wheel under the distribution name and under its earlier name.
+"""Build the ``dodaios`` sdist and wheel, and the ``personal-jarvis`` pointer to it.
 
     python scripts/ci/build_distributions.py --outdir dist
 
-The project is ``dodaios`` on PyPI now; until existing installs have moved,
-every release also publishes the SAME code as ``personal-jarvis``, so
-``pip install -U personal-jarvis`` keeps updating. The second build runs on a
-rewritten ``pyproject.toml`` that differs only in the names: the project name,
-the self-references in the extras (``personal-jarvis[full]`` must never pull
-in ``dodaios``) and the ``share/<name>`` data-file directory. The original
-file is restored afterwards, whatever happens.
+The project is ``dodaios`` on PyPI. Its earlier name, ``personal-jarvis``, is
+published at every release as a thin compatibility package and no longer as a
+second copy of the code: it contains one small launcher module and depends on
+``dodaios==<the same version>``, so ``pip install -U personal-jarvis`` and a
+stored ``uvx --from personal-jarvis jarvis ...`` keep getting the current
+release. Its extras map one to one (``personal-jarvis[full]`` installs
+``dodaios[full]``), and it declares every console command ``dodaios`` declares,
+because ``uv tool install personal-jarvis`` only links the commands of the
+package it was asked for. Each command starts the same entry point the
+``dodaios`` command of that name starts.
+
+The launcher exists for one case. Releases up to 4.1.2 published
+``personal-jarvis`` as a full copy that owns the same files as ``dodaios``.
+Upgrading such an install with plain pip installs ``dodaios`` first and then
+uninstalls the old copy, which deletes the files ``dodaios`` just wrote (uv
+uninstalls first and is not affected). The launcher then prints the one
+command that repairs it instead of a bare ``ModuleNotFoundError``.
 
 Output: ``<outdir>/<name>/`` per distribution, one wheel and one sdist each,
-so the publish job can upload them as two separate steps.
+so the publish jobs can upload them separately.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CURRENT = "dodaios"
 LEGACY = "personal-jarvis"
+#: The only module the compatibility package ships.
+COMPAT_MODULE = "personal_jarvis_compat"
 
 Runner = Callable[[Sequence[str], Path], None]
 
@@ -38,32 +52,150 @@ def _normalized(name: str) -> str:
     return re.sub(r"[-_.]+", "_", name).lower()
 
 
-def renamed_pyproject(text: str, current: str = CURRENT, legacy: str = LEGACY) -> str:
-    """``pyproject.toml`` text with every spelling of the project's name replaced."""
-    project = tomllib.loads(text)["project"]
+def _toml(value: object) -> str:
+    """A TOML value for a string or a list of strings (JSON spells both validly)."""
+    return json.dumps(value)
+
+
+def compat_pyproject(project: Mapping, *, current: str = CURRENT, legacy: str = LEGACY) -> str:
+    """``pyproject.toml`` of the compatibility package for ``project`` (dodaios's table)."""
     if project["name"] != current:
         raise ValueError(f"pyproject names {project['name']!r}, expected {current!r}")
-    text, count = re.subn(
-        rf'(?m)^name = "{re.escape(current)}"(?=\r?$)', f'name = "{legacy}"', text, count=1
+    version = project["version"]
+    scripts = project.get("scripts", {})
+    if not scripts:
+        raise ValueError("the project declares no console commands to keep")
+    classifiers = [
+        item for item in project.get("classifiers", []) if not item.startswith("Development Status")
+    ]
+    description = f"Personal Jarvis is now Dodaios: this package installs {current}"
+    lines = [
+        "[build-system]",
+        'requires = ["setuptools>=84.1.0"]',
+        'build-backend = "setuptools.build_meta"',
+        "",
+        "[project]",
+        f"name = {_toml(legacy)}",
+        f"version = {_toml(version)}",
+        f"description = {_toml(description)}",
+        'readme = "README.md"',
+        f"requires-python = {_toml(project['requires-python'])}",
+        f"license = {_toml(project['license'])}",
+        'license-files = ["LICENSE"]',
+    ]
+    authors = ", ".join(
+        "{ " + ", ".join(f"{key} = {_toml(value)}" for key, value in author.items()) + " }"
+        for author in project.get("authors", [])
     )
-    if count != 1:
-        raise ValueError("pyproject.toml has no top-level project name line")
-    # Self-references in the extras: "dodaios[desktop,...]".
-    text = text.replace(f'"{current}[', f'"{legacy}[')
-    # Data files: "share/dodaios/docs" = [...].
-    text = text.replace(f'"share/{current}/', f'"share/{legacy}/')
-    renamed = tomllib.loads(text)
-    if renamed["project"]["name"] != legacy:
-        raise ValueError("the rewritten pyproject.toml does not name the earlier distribution")
-    extras = renamed["project"].get("optional-dependencies", {})
-    for requirement in (item for group in extras.values() for item in group):
-        if re.match(rf"{re.escape(current)}\s*\[", requirement):
-            raise ValueError(f"an extra still refers to {current}: {requirement}")
-    data_files = renamed.get("tool", {}).get("setuptools", {}).get("data-files", {})
-    for target in data_files:
-        if not target.startswith(f"share/{legacy}/"):
-            raise ValueError(f"a data file still installs outside share/{legacy}: {target}")
-    return text
+    if authors:
+        lines.append(f"authors = [{authors}]")
+    lines += [
+        f"classifiers = {_toml(classifiers)}",
+        f"dependencies = {_toml([f'{current}=={version}'])}",
+        "",
+        "[project.optional-dependencies]",
+    ]
+    lines += [
+        f"{_toml(extra)} = {_toml([f'{current}[{extra}]=={version}'])}"
+        for extra in project.get("optional-dependencies", {})
+    ]
+    lines += ["", "[project.urls]"]
+    lines += [f"{_toml(key)} = {_toml(url)}" for key, url in project.get("urls", {}).items()]
+    lines += ["", "[project.scripts]"]
+    lines += [f"{_toml(name)} = {_toml(f'{COMPAT_MODULE}:main')}" for name in scripts]
+    lines += ["", "[tool.setuptools]", f"py-modules = {_toml([COMPAT_MODULE])}", ""]
+    return "\n".join(lines)
+
+
+def compat_module(project: Mapping, *, current: str = CURRENT) -> str:
+    """Source of the launcher every command of the compatibility package runs."""
+    version = project["version"]
+    targets = dict(project["scripts"])
+    default = targets.get(current, next(iter(targets.values())))
+    return f'''"""Personal Jarvis is now Dodaios: start the {current} command this one stands for.
+
+Generated by scripts/ci/build_distributions.py for the compatibility package.
+"""
+
+from __future__ import annotations
+
+import sys
+from importlib import import_module
+
+VERSION = {version!r}
+TARGETS = {targets!r}
+DEFAULT_TARGET = {default!r}
+REPAIR = (
+    "Dodaios (formerly Personal Jarvis) is installed incompletely: upgrading the "
+    "earlier personal-jarvis package with pip removed files the {current} package needs.\\n"
+    "Repair it with:\\n"
+    '  "{{python}}" -m pip install --force-reinstall --no-deps {current}=={{version}}\\n'
+)
+
+
+def command_name(argv0: str) -> str:
+    """The command this process was started as, without a launcher suffix."""
+    # Either separator: a Windows launcher path also reads right elsewhere.
+    name = argv0.replace("\\\\", "/").rsplit("/", 1)[-1].lower()
+    for suffix in ("-script.pyw", "-script.py", ".exe", ".py"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
+def main() -> object:
+    target = TARGETS.get(command_name(sys.argv[0] if sys.argv else ""), DEFAULT_TARGET)
+    module_name, _, attribute = target.partition(":")
+    try:
+        module = import_module(module_name)
+    except ModuleNotFoundError as exc:
+        missing = exc.name or ""
+        if missing != {current!r} and not missing.startswith({current + "."!r}):
+            raise
+        sys.stderr.write(REPAIR.format(python=sys.executable, version=VERSION))
+        return 1
+    return getattr(module, attribute)()
+'''
+
+
+def compat_readme(project: Mapping, *, current: str = CURRENT, legacy: str = LEGACY) -> str:
+    version = project["version"]
+    homepage = project.get("urls", {}).get("Homepage", "")
+    return f"""# {legacy} is now {current}
+
+Personal Jarvis was renamed to **Dodaios**. This package no longer contains the
+app: it installs [`{current}`](https://pypi.org/project/{current}/) at the same
+version ({version}) and keeps the earlier commands working
+(`{"`, `".join(project["scripts"])}`).
+
+New installs: `pip install {current}` or `uv tool install {current}`.
+
+To move an existing install to the new name:
+
+```
+pip uninstall -y {legacy}
+pip install --force-reinstall {current}
+```
+
+If `pip install -U {legacy}` left an install that no longer starts (a command
+prints a repair line, or Python reports `No module named '{current}'`), the
+upgrade removed files of the old full package that `{current}` needs. Repair it:
+
+```
+pip install --force-reinstall --no-deps {current}=={version}
+```
+
+Project: {homepage}
+"""
+
+
+def write_compat_project(directory: Path, project: Mapping, license_file: Path) -> None:
+    """Write the compatibility package's whole source tree into ``directory``."""
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "pyproject.toml").write_text(compat_pyproject(project), encoding="utf-8")
+    (directory / f"{COMPAT_MODULE}.py").write_text(compat_module(project), encoding="utf-8")
+    (directory / "README.md").write_text(compat_readme(project), encoding="utf-8")
+    shutil.copyfile(license_file, directory / "LICENSE")
 
 
 def _run(command: Sequence[str], cwd: Path) -> None:
@@ -95,11 +227,9 @@ def build_all(
     runner: Runner = _run,
 ) -> dict[str, Path]:
     """Build both distributions; return ``{name: its output directory}``."""
-    pyproject = root / "pyproject.toml"
-    original = pyproject.read_bytes()
-    text = original.decode("utf-8")
-    version = tomllib.loads(text)["project"]["version"]
-    legacy_text = renamed_pyproject(text)
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    version = project["version"]
+    compat_pyproject(project)  # refuses a tree that is not dodaios before anything runs
     outputs = {CURRENT: outdir / CURRENT, LEGACY: outdir / LEGACY}
     for directory in outputs.values():
         if directory.exists() and any(directory.iterdir()):
@@ -107,12 +237,12 @@ def build_all(
     try:
         _clean_build_state(root)
         runner([*build_command, "--outdir", str(outputs[CURRENT])], root)
-        _clean_build_state(root)
-        pyproject.write_bytes(legacy_text.encode("utf-8"))
-        runner([*build_command, "--outdir", str(outputs[LEGACY])], root)
     finally:
-        pyproject.write_bytes(original)
         _clean_build_state(root)
+    with tempfile.TemporaryDirectory(prefix="compat-") as scratch:
+        compat_root = Path(scratch) / LEGACY
+        write_compat_project(compat_root, project, root / "LICENSE")
+        runner([*build_command, "--outdir", str(outputs[LEGACY])], compat_root)
     for name, directory in outputs.items():
         found = {path.name for path in directory.iterdir()} if directory.is_dir() else set()
         expected = expected_artifacts(name, version)

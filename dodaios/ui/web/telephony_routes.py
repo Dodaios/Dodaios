@@ -427,10 +427,10 @@ async def post_test(request: Request) -> JSONResponse:
 # Self-test transcript fed to the brain, and the canned spoken fallback, per
 # call language (de/en/es/pt; any other code uses English).
 _SELFTEST_TRANSCRIPT: dict[str, str] = {
-    "de": "Hallo Jarvis, funktioniert das Telefon?",  # i18n-allow: German voice input
-    "en": "Hello Jarvis, is the phone working?",
-    "es": "Hola Jarvis, ¿funciona el teléfono?",  # i18n-allow: Spanish voice input
-    "pt": "Olá Jarvis, o telefone está a funcionar?",  # i18n-allow: PT voice input
+    "de": "Hallo, funktioniert das Telefon?",  # i18n-allow: German voice input
+    "en": "Hello, is the phone working?",
+    "es": "Hola, ¿funciona el teléfono?",  # i18n-allow: Spanish voice input
+    "pt": "Olá, o telefone está a funcionar?",  # i18n-allow: PT voice input
 }
 _SELFTEST_FALLBACK: dict[str, str] = {
     "de": "Ja, das Telefon funktioniert. Ich höre dich klar und deutlich.",  # i18n-allow

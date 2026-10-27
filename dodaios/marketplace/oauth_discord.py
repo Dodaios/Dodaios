@@ -40,6 +40,8 @@ from urllib.parse import urlencode
 
 import httpx
 
+from dodaios.core.branding import HTTP_USER_AGENT
+
 log = logging.getLogger(__name__)
 
 AUTHORIZATION_URL = "https://discord.com/oauth2/authorize"
@@ -83,7 +85,7 @@ BROWSER_SCOPES: tuple[str, ...] = (
 # Administrator. Server admins can narrow further per channel.
 MINIMAL_BOT_PERMISSIONS = (1 << 10) | (1 << 11) | (1 << 16)
 
-USER_AGENT = "Personal-Jarvis/1.0"
+USER_AGENT = HTTP_USER_AGENT
 REQUEST_TIMEOUT_SECONDS = 15.0
 
 

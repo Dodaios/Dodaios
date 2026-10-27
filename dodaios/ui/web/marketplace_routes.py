@@ -42,6 +42,7 @@ from fastapi import (
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.events import MarketplaceItemInstalled
 from dodaios.core.http_guard import https_only_async
 from dodaios.core.process_utils import resolve_executable
@@ -282,7 +283,7 @@ def _make_validator(transport: httpx.AsyncBaseTransport | None = None):
         auth: PatPasteAuth, token: str, instance_url: str | None = None
     ) -> tuple[bool, int]:
         scheme = getattr(auth, "auth_scheme", "bearer")
-        headers = {"User-Agent": "Personal-Jarvis/1.0"}
+        headers = {"User-Agent": HTTP_USER_AGENT}
         if scheme == "telegram_path":
             # Telegram puts the token in the URL path, no auth header.
             url = auth.validation_endpoint.replace("{token}", token)

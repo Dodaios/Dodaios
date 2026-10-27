@@ -2528,16 +2528,14 @@ def _main(argv: list[str] | None = None) -> int:
     # it exists by the time a local agent (Codex CLI / Claude Code) hits
     # /api/control/*. Idempotent; never blocks boot. The clear value is only
     # ever revealed via the loopback Settings panel / the key file — we log the
-    # masked form here so the key never lands in a logfile.
+    # readiness only, so the key never lands in a logfile.
     try:
         from dodaios.core import control_key
 
-        _ck = control_key.ensure_control_key()
+        control_key.ensure_control_key()
         import logging as _logging
 
-        _logging.getLogger(__name__).info(
-            "Jarvis Control API key ready (%s)", control_key.mask_control_key(_ck)
-        )
+        _logging.getLogger(__name__).info("Control API key ready")
     except Exception as exc:  # noqa: BLE001 — never block boot on key bootstrap
         import logging as _logging
 

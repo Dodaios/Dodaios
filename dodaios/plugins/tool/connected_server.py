@@ -22,6 +22,8 @@ from urllib.parse import quote, urlsplit
 import httpx
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
+from dodaios.core.branding import HTTP_USER_AGENT
+
 from .connected_operations import BASES, OPERATIONS, Operation
 
 
@@ -131,7 +133,7 @@ class ConnectedRestClient:
         ):
             path = path.replace("/items/root:", "/root:", 1)
         url = path if operation.path.startswith("https://") else BASES[self.plugin_id] + path
-        headers = {"Authorization": f"Bearer {self._token}", "User-Agent": "Personal-Jarvis/1.0"}
+        headers = {"Authorization": f"Bearer {self._token}", "User-Agent": HTTP_USER_AGENT}
         if self.plugin_id == "figma" and self._auth_type != "oauth":
             headers.pop("Authorization")
             headers["X-Figma-Token"] = self._token

@@ -515,7 +515,7 @@ _CLARIFY_QUESTION_PHRASE: dict[str, str] = {
 # turn handler spoke the clarifying question "Wie meinst du das genau?", so a
 # success looked like incomprehension ("er checkt das nicht"). We instead speak
 # a short confirmation. Substantive (not a forbidden filler — "Erledigt." is the
-# canonical butler confirmation, see output_filter), bilingual, TTS-clean
+# canonical concierge confirmation, see output_filter), bilingual, TTS-clean
 # (``_speak`` does not scrub).
 _ACTION_DONE_PHRASE: dict[str, str] = {
     "de": "Erledigt.",
@@ -1875,7 +1875,7 @@ def _is_wake_only(text: str) -> bool:
 def _strip_paraphrase_prefix(response: str) -> str:
     """Schneidet Paraphrase-Prefixes ab falls das Modell welche produziert.
 
-    Verbessertes Butler-Feeling: statt "Ich verstehe, du moechtest X. Hier
+    Verbessertes Concierge-Feeling: statt "Ich verstehe, du moechtest X. Hier
     ist Y." hoert der User nur "Hier ist Y." — falls nach Prefix-Cut nichts
     Sinnvolles uebrig ist, wird der Original-Response zurueckgegeben.
     """
@@ -1901,7 +1901,7 @@ def _strip_paraphrase_prefix(response: str) -> str:
 
 
 def _is_non_substantive_response(response: str) -> bool:
-    """True fuer reine ACK-/Butler-Filler, die nicht gesprochen werden sollen."""
+    """True fuer reine ACK-/Concierge-Filler, die nicht gesprochen werden sollen."""
     return bool(_NON_SUBSTANTIVE_RESPONSE_RE.match(response.strip()))
 
 
@@ -5547,7 +5547,7 @@ class SpeechPipeline:
             is TurnTakingState.JARVIS_SPEAKING
         ):
             log.info(
-                "Preamble dropped — Jarvis already speaking the answer: %r",
+                "Preamble dropped — the assistant is already speaking the answer: %r",
                 event.text[:80],
             )
             return
@@ -6472,7 +6472,7 @@ class SpeechPipeline:
                 else ph["fail"].format(e=ph["unknown_err"])
             )
             log.info(
-                "Jarvis-Agent background finished (success=%s) — the readback "
+                "Agent background finished (success=%s) — the readback "
                 "carried no substance (%s), falling back to the summary-less "
                 "phrase instead of the error phrase: %r",
                 event.success,
@@ -6486,7 +6486,7 @@ class SpeechPipeline:
                 # claiming a failure, but it means a completion went
                 # unannounced — say so in the log, loudly.
                 log.warning(
-                    "Jarvis-Agent background finished (success=%s) and was "
+                    "Agent background finished (success=%s) and was "
                     "NEVER announced: both the summary and the canned phrase "
                     "were filtered away (%s)",
                     event.success,
@@ -6495,7 +6495,7 @@ class SpeechPipeline:
                 return
         cleaned = scrubbed.cleaned.strip()
         log.info(
-            "Jarvis-Agent background finished (success=%s, duration=%.1fs) — readback: %r",
+            "Agent background finished (success=%s, duration=%.1fs) — readback: %r",
             event.success, event.duration_s, cleaned,
         )
         # One choke point for every spoken announcement: ``_on_announcement``
@@ -8052,7 +8052,7 @@ class SpeechPipeline:
         ``_hangup_event`` gate on the bus-driven announcement handlers.
 
         ``stop_player=False`` is used when the brain itself emitted the
-        farewell ("Goodbye, Ruben.") — we let that final utterance play.
+        farewell ("Goodbye.") — we let that final utterance play.
         """
         confirmation = getattr(self, "_hangup_confirmation", None)
         if confirmation is not None:
@@ -9806,7 +9806,7 @@ class SpeechPipeline:
                         # stamp is cleared, so the next idle window hangs up normally.
                         if self._within_post_answer_grace():
                             log.info(
-                                "Idle-Timeout reached right after Jarvis answered - "
+                                "Idle-Timeout reached right after the assistant answered - "
                                 "re-arming a fresh window so the user can respond."
                             )
                             self._last_answer_floor_monotonic = None
@@ -10711,7 +10711,7 @@ class SpeechPipeline:
                             if confirmed_pcm is not None:
                                 log.info(
                                     "Realtime desktop barge-in confirmed by "
-                                    "local CPU VAD while Jarvis was thinking"
+                                    "local CPU VAD while the assistant was thinking"
                                 )
                                 thinking_detector.stop_output()
                                 thinking_barge_quiet_since = 0.0
@@ -16116,7 +16116,7 @@ class SpeechPipeline:
                 log.exception("Brain-Stream fehlgeschlagen: %s", exc)
                 await self._set_turn_state(TurnTakingState.LISTENING)
                 return True
-            log.info("🤖 Jarvis [%s] (streamed): %s", lang, response)
+            log.info("🤖 Assistant [%s] (streamed): %s", lang, response)
             if not response.strip():
                 if barged:
                     # Interrupted before any answer (continuation interrupt or an
@@ -16190,7 +16190,7 @@ class SpeechPipeline:
             return True
 
         # Paraphrase-Strip: "Ich verstehe, du moechtest..." wird abgeschnitten.
-        # Butler-Feeling statt LLM-Echo. Prompt verbietet das zwar, aber
+        # Concierge-Feeling statt LLM-Echo. Prompt verbietet das zwar, aber
         # Gemini Flash produziert es trotzdem gelegentlich.
         response = _strip_paraphrase_prefix(response)
         if not response.strip() or _is_non_substantive_response(response):
@@ -16253,7 +16253,7 @@ class SpeechPipeline:
             await self._set_turn_state(TurnTakingState.LISTENING)
             return True
 
-        log.info("🤖 Jarvis [%s]: %s", lang, response)
+        log.info("🤖 Assistant [%s]: %s", lang, response)
 
         # Jarvis spricht — Orb-Mode wechselt zur Speak-Wellenform
         await self._set_turn_state(TurnTakingState.JARVIS_SPEAKING)

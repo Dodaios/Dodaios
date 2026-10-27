@@ -149,9 +149,13 @@ jobs:
           done
           # An AppImage is an executable ELF runtime with the squashfs appended.
           # Both names are the same file; each is checked as users download it.
+          # The earlier name is absent once release_assets.py stops publishing it.
           python - <<'PYEOF'
+          import os
           import sys
           for name in ("Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"):
+              if name.startswith("PersonalJarvis-") and not os.path.exists(name):
+                  continue
               with open(name, "rb") as stream:
                   if stream.read(4) != b"\x7fELF":
                       sys.exit(f"::error::{name} is not an ELF executable")
@@ -164,6 +168,8 @@ jobs:
         run: |
           foreach ($name in @('Dodaios-Setup-x64.exe', 'PersonalJarvis-Setup-x64.exe')) {
             $installer = Join-Path $env:RUNNER_TEMP "installers\$name"
+            # The earlier name is absent once release_assets.py stops publishing it.
+            if ($name -like 'PersonalJarvis-*' -and -not (Test-Path -LiteralPath $installer)) { continue }
             $signature = Get-AuthenticodeSignature -FilePath $installer
             Write-Host "${name} Authenticode: $($signature.Status) $($signature.SignerCertificate.Subject)"
             if ($signature.Status -ne 'Valid') {
@@ -178,6 +184,8 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/installers"
           for dmg in Dodaios-macOS-arm64.dmg Dodaios-macOS-x64.dmg PersonalJarvis-macOS-arm64.dmg PersonalJarvis-macOS-x64.dmg; do
+            # The earlier name is absent once release_assets.py stops publishing it.
+            case "$dmg" in PersonalJarvis-*) [ -e "$dmg" ] || continue ;; esac
             hdiutil verify "$dmg"
             if ! spctl --assess --type open --context context:primary-signature -v "$dmg" 2>&1; then
               echo "::notice::$dmg is not accepted by Gatekeeper (unsigned or not notarized)"

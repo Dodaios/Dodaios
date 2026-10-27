@@ -3,7 +3,7 @@ schema_version: "1"
 name: skill-creator
 version: "1.2.0"
 description: |
-  Creates a new Jarvis skill from the user's description — the assistant writes
+  Creates a new Dodaios skill from the user's description — the assistant writes
   the whole skill (name, trigger phrase, schedule, steps, spoken answer format)
   and files it as a draft. Use when the user wants to build a new skill,
   routine or automation ("erstell mir einen Skill, der …" / "create a skill
@@ -89,5 +89,5 @@ until they switch it on. Never read the generated instructions aloud.
 ## Reference
 
 Anthropic's full Skill Creator guide (intent → draft → test → iterate) is kept
-in `references/anthropic-skill-creator.md`; the Jarvis frontmatter contract is
+in `references/anthropic-skill-creator.md`; the Dodaios frontmatter contract is
 in `references/dodaios-schema.md`.

@@ -391,6 +391,7 @@ def maybe_relaunch_unelevated(
     env: dict[str, str] | None = None,
     creationflags: int = 0,
     _elevated=current_process_is_elevated,
+    _shell_elevated=None,
     _spawn=spawn_unelevated,
 ) -> DeescalationResult | None:
     """Hand this boot over to an unelevated copy of ourselves, before it costs.
@@ -423,6 +424,15 @@ def maybe_relaunch_unelevated(
     # Only a positive measurement acts. An unreadable token is "unknown", and
     # relaunching on a guess would strand a user whose app is perfectly fine.
     if _elevated() is not True:
+        return None
+    # When the desktop shell is elevated too (built-in Administrator, UAC off),
+    # every ordinary token on this account is elevated: a relaunch would come
+    # straight back elevated, and nothing is isolated anyway.
+    if _shell_elevated is None:
+        from .input_isolation import windows_shell_is_elevated  # noqa: PLC0415
+
+        _shell_elevated = windows_shell_is_elevated
+    if _shell_elevated() is True:
         return None
 
     child_env = dict(os.environ if env is None else env)

@@ -326,7 +326,7 @@ def warn_if_phantom_worker_harness(config: Any, harness_manager: Any) -> bool:
         return False
     log.warning(
         "[harness.jarvis_agent].enabled is true but 'openclaw' is not a registered "
-        "harness (available: %s) — the block is inert. Heavy Jarvis-Agent work runs "
+        "harness (available: %s) — the block is inert. Heavy agent work runs "
         "through spawn_worker; set [harness.jarvis_agent].enabled = false to silence "
         "this.",
         available,
@@ -411,8 +411,8 @@ def _load_tools_for_tier(
 
     if tier != "router":
         raise ValueError(
-            f"Unknown tier {tier!r}. The Sub-Jarvis tier was replaced by the "
-            f"Jarvis-Agent bridge in Welle 4 — only 'router' remains."
+            f"Unknown tier {tier!r}. The former sub-agent tier was replaced by the "
+            f"agent bridge in Welle 4 — only 'router' remains."
         )
 
     allow = ROUTER_TOOLS

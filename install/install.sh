@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Personal Jarvis — macOS / Linux quick-install bootstrap (Stage 1)
+# Dodaios — macOS / Linux quick-install bootstrap (Stage 1)
 #
 # Usage (from any POSIX shell):
 #   curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
@@ -176,7 +176,7 @@ run_spin() {
     return $_spin_rc
 }
 
-# The mascot is the REAL Jarvis logo (the gold-eyed ghost), machine-generated
+# The mascot is the real Dodaios logo (the gold-eyed ghost), machine-generated
 # as xterm-256 half-block pixel art from the brand PNG (two vertical pixels
 # per cell via U+2580 fg/bg pairs). Regenerate from a new logo file rather
 # than hand-editing the escapes. Color-gated: without color escapes the half
@@ -901,9 +901,9 @@ fi
 
 ensure_linux_desktop_tools "$@"
 
-# Node.js 18+ — powers only the OPTIONAL Jarvis-Agent worker CLIs (Claude Code
+# Node.js 18+ — powers only the OPTIONAL agent worker CLIs (Claude Code
 # / Codex) that heavy missions delegate to, plus the Node-based marketplace
-# integrations. Everything else in Jarvis runs without it, so a missing Node
+# integrations. Everything else in Dodaios runs without it, so a missing Node
 # must NEVER turn a new user away at the door: we note it and continue — the
 # worker CLI can be added later in-app once Node is installed. Skipped
 # entirely on the headless / tiny-VPS path (--headless): a cloud-only base
@@ -1239,7 +1239,7 @@ retarget_legacy_origin() {
     # --- retarget-legacy-origin end
 }
 
-# Stop any Jarvis still running out of THIS install. Called right before the
+# Stop any Dodaios still running out of THIS install. Called right before the
 # checkout is replaced and again before its environment is rebuilt: a release
 # may move or delete files the live app still loads, and an app left running
 # across that keeps serving a half-old, half-new program until it falls over.
@@ -1418,7 +1418,7 @@ phase '3/6' 'Python environment'
 VENV_PATH="$INSTALL_DIR/.venv"
 VENV_PYTHON="$VENV_PATH/bin/python"
 
-# Update runs: stop any Jarvis still running out of THIS install before we
+# Update runs: stop any Dodaios still running out of THIS install before we
 # touch its environment. A live app (often revived by the login autostart)
 # keeps serving stale, half-updated features while pip rewrites the venv
 # under it — the "app is already open but nothing works yet" field report

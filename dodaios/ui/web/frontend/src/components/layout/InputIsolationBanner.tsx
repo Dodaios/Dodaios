@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { KeyboardOff, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { useInputIsolation } from "@/hooks/useInputIsolation";
@@ -19,13 +18,36 @@ import { useInputIsolation } from "@/hooks/useInputIsolation";
  *
  * Renders nothing whenever the window is reachable, which is the normal case on
  * every platform — including when the privilege state could not be read at all
- * (we never nag on a guess).
+ * (we never nag on a guess), and on accounts whose whole desktop runs elevated,
+ * where nothing is isolated (the backend checks the shell's level too).
+ *
+ * Kept quiet on purpose: one small line, the long explanation in a tooltip, and
+ * a dismissal that is remembered, so a user who closed it never sees it again.
  */
+
+const DISMISS_KEY = "dodaios.inputIsolation.dismissed";
+
+function readDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberDismissed() {
+  try {
+    window.localStorage.setItem(DISMISS_KEY, "1");
+  } catch {
+    // Storage blocked: the notice just stays hidden for this session.
+  }
+}
+
 export function InputIsolationBanner() {
   const t = useT();
   const pushToast = useEventStore((state) => state.pushToast);
   const { report } = useInputIsolation();
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(readDismissed);
   const [restarting, setRestarting] = useState(false);
 
   if (!report?.blocked || dismissed) return null;
@@ -54,52 +76,43 @@ export function InputIsolationBanner() {
     setRestarting(false);
   }
 
+  const details = report.can_restart_unelevated
+    ? t("input_isolation.impact")
+    : `${t("input_isolation.impact")} ${t("input_isolation.manual_hint")}`;
+
   return (
     <div
       data-testid="input-isolation-banner"
       data-reason={report.reason}
-      role="alert"
-      // A full-width strip stays on the page's own ground: the state is said
-      // by the glyph and the hairline, not by washing the top of the window in
-      // an alpha of the ink colour.
-      className="border-b border-warning"
+      role="status"
+      title={details}
+      className="flex items-center gap-2 px-4 py-1 text-meta text-muted-foreground"
     >
-      <div className="flex items-start gap-3 px-4 py-2.5">
-        <KeyboardOff className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="text-body font-semibold text-foreground-strong">
-            {t("input_isolation.title")}
-          </p>
-          <p className="mt-0.5 text-meta text-muted-foreground">
-            {t("input_isolation.impact")}
-          </p>
-          {!report.can_restart_unelevated && (
-            <p className="mt-1 text-meta text-muted-foreground">
-              {t("input_isolation.manual_hint")}
-            </p>
-          )}
-        </div>
-        {report.can_restart_unelevated && (
-          <Button
-            size="sm"
-            disabled={restarting}
-            onClick={() => void restartUnelevated()}
-          >
-            {restarting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-            {t(restarting ? "input_isolation.restarting" : "input_isolation.restart_now")}
-          </Button>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 shrink-0"
-          aria-label={t("input_isolation.dismiss")}
-          title={t("input_isolation.dismiss")}
-          onClick={() => setDismissed(true)}
+      <KeyboardOff className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{t("input_isolation.title")}</span>
+      {report.can_restart_unelevated && (
+        <button
+          type="button"
+          disabled={restarting}
+          onClick={() => void restartUnelevated()}
+          className="inline-flex shrink-0 items-center gap-1 text-foreground underline-offset-2 hover:underline disabled:opacity-60"
         >
-          <X className="h-3.5 w-3.5" aria-hidden />
-        </Button>
-      </div>
+          {restarting && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+          {t(restarting ? "input_isolation.restarting" : "input_isolation.restart_now")}
+        </button>
+      )}
+      <button
+        type="button"
+        className="shrink-0 rounded p-0.5 hover:text-foreground"
+        aria-label={t("input_isolation.dismiss")}
+        title={t("input_isolation.dismiss")}
+        onClick={() => {
+          rememberDismissed();
+          setDismissed(true);
+        }}
+      >
+        <X className="h-3 w-3" aria-hidden />
+      </button>
     </div>
   );
 }

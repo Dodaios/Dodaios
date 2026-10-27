@@ -422,7 +422,7 @@ class ClaudeDirectWorker:
         if primary is not None and primary.provider != "claude-api":
             logger.warning(
                 "ClaudeDirectWorker[%s]: configured sub_jarvis provider is %r, "
-                "which has no direct worker (Jarvis-Agent path removed in Welle 4) — "
+                "which has no direct worker (the agent-bridge path was removed in Welle 4) — "
                 "running heavy work on the Claude Max OAuth backend (model=%s) "
                 "instead of failing the mission.",
                 worker_id,

@@ -4838,7 +4838,7 @@ class JarvisConfig(BaseModel):
     # Phase B5 — wiki context injection (Agent C). Top-level field — Wave-2
     # cleanup task is to move this into ``WikiIntegrationConfig.context``.
     wiki_context: WikiContextConfig = Field(default_factory=WikiContextConfig)
-    # Pre-Thinking-Ack Flash-Brain (parallel-running short butler-style
+    # Pre-Thinking-Ack Flash-Brain (parallel-running short concierge-style
     # acknowledgment LLM). Opt-in via [ack_brain].enabled = true.
     # Forward-reference + late import at the bottom of this module avoids
     # the brain<->core.config circular import.

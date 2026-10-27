@@ -10,7 +10,7 @@
         2. freeze the app with PyInstaller (dodaios.spec, onedir),
         3. wrap dist/Jarvis in an Inno Setup wizard.
 
-    The result is dist/installers/PersonalJarvis-Setup-x64.exe - the name the
+    The result is dist/installers/Dodaios-Setup-x64.exe - the name the
     SignPath artifact configuration pins (docs/code-signing-policy.md). A
     release signs it under that name and then publishes it twice with identical
     bytes: as Dodaios-Setup-x64.exe and as PersonalJarvis-Setup-x64.exe, the
@@ -214,7 +214,7 @@ $IsccArgs = @(
 Invoke-Checked -Executable $Iscc -Arguments $IsccArgs -WorkingDirectory $RepoRoot -What "ISCC"
 
 # The signed name (OutputBaseFilename = SignedSetupBaseName in the .iss).
-$Artifact = Join-Path $InstallerDir "PersonalJarvis-Setup-x64.exe"
+$Artifact = Join-Path $InstallerDir "Dodaios-Setup-x64.exe"
 if (-not (Test-Path $Artifact)) {
     Stop-WithError "ISCC reported success but $Artifact does not exist"
 }

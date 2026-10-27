@@ -32,6 +32,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Final
 
+from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+
 log = logging.getLogger(__name__)
 
 #: The Society lead's reserved identity (``dodaios.society.roster.LEAD_AGENT_ID``),
@@ -136,14 +138,14 @@ class JarvisNotebook:
         self,
         vault: Path,
         *,
-        name: str = "Jarvis",
+        name: str = DEFAULT_ASSISTANT_NAME,
         budgets: dict[str, int] | None = None,
         soul_path: Path | None = None,
     ) -> None:
         from dodaios.memory.soul import LEARNED_PROMPT_CHARS
 
         self._vault = Path(vault)
-        self._owner = SimpleNamespace(agent_id=OWNER_ID, name=name or "Jarvis")
+        self._owner = SimpleNamespace(agent_id=OWNER_ID, name=name or DEFAULT_ASSISTANT_NAME)
         #: SOUL.md; ``None`` leaves the ``soul`` target empty and read-only.
         self.soul_path = Path(soul_path) if soul_path is not None else None
         self.budgets = {
