@@ -338,6 +338,41 @@
       }
     },
     {
+      "id": "SK_Sovereign",
+      "kind": "sovereign",
+      "url": "verse/characters/SK_Sovereign.glb",
+      "skeleton": "M",
+      "clips": "verse/characters/A_Human_M.glb",
+      "meshes": [
+        "Body",
+        "Cloak"
+      ],
+      "materials": [
+        "M_Skin",
+        "M_SovRobe",
+        "M_Boots",
+        "M_SovTrim",
+        "M_Belt",
+        "M_SovEye",
+        "M_SovCloak",
+        "M_SovLining"
+      ],
+      "height": 1.78,
+      "triangles": 32456,
+      "bytes": 1851112,
+      "defaults": {
+        "M_Skin": "#b9a99c"
+      },
+      "extraBones": [
+        "Cloak_R1",
+        "Cloak_R2",
+        "Cloak_C1",
+        "Cloak_C2",
+        "Cloak_L1",
+        "Cloak_L2"
+      ]
+    },
+    {
       "id": "SK_Technician",
       "kind": "technician",
       "url": "verse/characters/SK_Technician.glb",
