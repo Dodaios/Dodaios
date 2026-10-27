@@ -241,6 +241,11 @@ def _label(provider: str) -> str:
     return _LABELS.get(provider, provider)
 
 
+def provider_label(provider: str) -> str:
+    """How ``provider`` is named in a message a person reads."""
+    return _label(provider)
+
+
 def usage_limit_message(provider: str, reset_in: float | None = None) -> str:
     """A spent allowance in words a person can act on.
 
@@ -363,7 +368,7 @@ def gateway_refusal(provider: str, exc: BaseException, model: str = "") -> Refus
         return found
     status = _status(exc)
     if status == 429:
-        return Refusal(429, "rate_limited", f"{provider} returned HTTP 429 (rate limit).")
+        return Refusal(429, "rate_limited", f"{_label(provider)} returned HTTP 429 (rate limit).")
     if status in (401, 403):
         return Refusal(
             401,

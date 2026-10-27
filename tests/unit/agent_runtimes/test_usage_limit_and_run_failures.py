@@ -57,6 +57,16 @@ def test_a_short_subscription_rate_limit_stays_a_rate_limit() -> None:
     assert provider_errors.gateway_refusal("openai-codex", exc).code == "rate_limited"
 
 
+def test_a_short_subscription_rate_limit_never_reads_like_a_stored_usage_limit() -> None:
+    # The chat reads a stored "openai-codex returned HTTP 429 ..." (written before
+    # the two were told apart) as a spent allowance; new rate limits are named by label.
+    limited = gateway._limited("openai-codex", 30.0)
+    assert limited.code == "rate_limited"
+    assert not str(limited).startswith("openai-codex returned HTTP 429")
+    assert str(limited).startswith("The ChatGPT subscription returned HTTP 429 (rate limit).")
+    assert "30 s" in str(limited)
+
+
 def test_a_daily_quota_on_a_key_is_a_usage_limit() -> None:
     body = {
         "error": {

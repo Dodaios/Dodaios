@@ -546,8 +546,13 @@ def _limited(
             code="usage_limit",
             retry_after=seconds,
         )
+    from dodaios.agent_runtimes.provider_errors import provider_label
+
+    # Named by label ("The ChatGPT subscription", not "openai-codex"): the chat
+    # reads a stored "openai-codex returned HTTP 429" as a spent allowance.
     return GatewayError(
-        f"{provider} returned HTTP 429 (rate limit). Try again in {whole_seconds(seconds)} s, "
+        f"{provider_label(provider)} returned HTTP 429 (rate limit). "
+        f"Try again in {whole_seconds(seconds)} s, "
         "or choose another connected model in the agent's settings. "
         "No fallback provider was called.",
         status=429,
