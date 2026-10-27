@@ -2189,8 +2189,8 @@ class AgentChatService:
         if decision == "allow_always":
             session = self.store.get_session(session_id)
             if choice is not None and session is not None:
+                scope, breadth, narrow = choice
                 try:
-                    scope, breadth, narrow = choice
                     saved = await self._rule_from_card(
                         session,
                         approval_id,
@@ -2215,6 +2215,10 @@ class AgentChatService:
 
                         self._ruled_on_agent.setdefault(session_id, set()).add(_bare(name))
                     return decision
+                if narrow:
+                    # A narrow rule that could not be saved never widens to the
+                    # whole tool or the whole chat: this call runs once.
+                    return "allow"
             handled = False
             hook = kit_for(session.surface).session_always_allow if session is not None else None
             if hook is not None:
@@ -2371,8 +2375,7 @@ class AgentChatService:
         narrow: str,
     ) -> dict[str, Any] | None:
         """Remember "only this folder" / "only this command" for this chat."""
-        from .approval_bridge import _bare
-        from .approval_card import app_label, narrow_options, source_of
+        from .approval_card import app_label, narrow_options, narrow_tool, source_of
 
         if kind != "always_allow" or scope != "chat":
             return None
@@ -2381,7 +2384,8 @@ class AgentChatService:
         match = next((o for o in offered if o["kind"] == narrow), None)
         if match is None:
             return None
-        bare = _bare(name)
+        # The same name narrow_matches compares against later.
+        bare = narrow_tool(name)
         rules = self._narrow_rules.setdefault(session.session_id, [])
         entry = {"tool": bare, "kind": narrow, "value": match["value"]}
         if entry not in rules:
