@@ -1,0 +1,5361 @@
+{
+ "version": 1,
+ "researched": "2026-10-27",
+ "formula": "cm_per_360 = 360 * 2.54 / (dpi * sens * yaw)",
+ "games": [
+  {
+   "id": "fortnite",
+   "name": "Fortnite",
+   "publisher": "Epic Games",
+   "yaw": 0.005555,
+   "yaw_note": "Degrees per count per 1% of 'Mouse Sensitivity X' (percent scale, e.g. 6.4% = legacy 0.064). Y axis is separate; Targeting/Scope are % multipliers of X/Y.",
+   "sens_key": "mouse_sens_x",
+   "config_file": "%LOCALAPPDATA%\\FortniteGame\\Saved\\Config\\WindowsClient\\GameUserSettings.ini (UE INI; graphics). Sens/keybinds also cloud-synced to the Epic account (ClientSettings.Sav).",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://csdb.gg/sensitivity-converter/",
+    "https://www.mouse-sensitivity.com/n/fortnite/"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "mouse_sens_x",
+       "label": "Mouse Sensitivity X",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 0.1,
+       "default": null,
+       "note": "Percent value; typical competitive 5-10%"
+      },
+      {
+       "key": "mouse_sens_y",
+       "label": "Mouse Sensitivity Y",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 0.1,
+       "default": null,
+       "note": "Usually equal to X"
+      },
+      {
+       "key": "targeting_sens",
+       "label": "Targeting Sensitivity",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 0.1,
+       "default": null,
+       "note": "% multiplier while aiming down sights"
+      },
+      {
+       "key": "scope_sens",
+       "label": "Scope Sensitivity",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 0.1,
+       "default": null,
+       "note": "% multiplier while scoped"
+      },
+      {
+       "key": "building_sens",
+       "label": "Building Mode Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 0.1,
+       "default": null,
+       "note": "Shown when advanced/multiplier options are enabled"
+      },
+      {
+       "key": "edit_sens",
+       "label": "Edit Mode Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 0.1,
+       "default": null,
+       "note": "Shown when advanced/multiplier options are enabled"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "main_volume",
+       "label": "Main Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "dialogue_volume",
+       "label": "Dialogue Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "visualize_sfx",
+       "label": "Visualize Sound Effects",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "window_mode",
+       "label": "Window Mode",
+       "options": [
+        "Fullscreen",
+        "Windowed Fullscreen",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "frame_rate_limit",
+       "label": "Frame Rate Limit",
+       "options": [
+        "30",
+        "60",
+        "120",
+        "144",
+        "165",
+        "240",
+        "Unlimited"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "rendering_mode",
+       "label": "Rendering Mode",
+       "options": [
+        "DirectX 11",
+        "DirectX 12",
+        "Performance"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "quality_presets",
+       "label": "Quality Presets",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Epic",
+        "Auto"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution_3d",
+       "label": "3D Resolution",
+       "type": "slider",
+       "min": 25,
+       "max": 100,
+       "default": 100
+      },
+      {
+       "key": "view_distance",
+       "label": "View Distance",
+       "options": [
+        "Near",
+        "Medium",
+        "Far",
+        "Epic"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "aa_super_res",
+       "label": "Anti-Aliasing & Super Resolution",
+       "options": [
+        "Off",
+        "FXAA",
+        "TAA",
+        "TSR",
+        "NVIDIA DLSS",
+        "AMD FSR",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "Vsync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "motion_blur",
+       "label": "Motion Blur",
+       "type": "toggle",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "toggle_sprint",
+       "label": "Toggle Sprint",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "sprint_by_default",
+       "label": "Sprint by Default",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "turbo_building",
+       "label": "Turbo Building",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "auto_pickup_weapons",
+       "label": "Auto Pick Up Weapons",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "reset_building_choice",
+       "label": "Reset Building Choice",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "mark_danger_targeting",
+       "label": "Mark Danger When Targeting",
+       "type": "toggle",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "reload_rotate",
+     "action": "Reload / Rotate",
+     "default": "R"
+    },
+    {
+     "id": "use",
+     "action": "Use",
+     "default": "E"
+    },
+    {
+     "id": "harvesting_tool",
+     "action": "Harvesting Tool",
+     "default": "1"
+    },
+    {
+     "id": "weapon_slot_1",
+     "action": "Weapon Slot 1",
+     "default": "2"
+    },
+    {
+     "id": "weapon_slot_2",
+     "action": "Weapon Slot 2",
+     "default": "3"
+    },
+    {
+     "id": "weapon_slot_3",
+     "action": "Weapon Slot 3",
+     "default": "4"
+    },
+    {
+     "id": "weapon_slot_4",
+     "action": "Weapon Slot 4",
+     "default": "5"
+    },
+    {
+     "id": "weapon_slot_5",
+     "action": "Weapon Slot 5",
+     "default": "6"
+    },
+    {
+     "id": "wall",
+     "action": "Wall",
+     "default": "F1"
+    },
+    {
+     "id": "floor",
+     "action": "Floor",
+     "default": "F2"
+    },
+    {
+     "id": "stairs",
+     "action": "Stairs",
+     "default": "F3"
+    },
+    {
+     "id": "roof",
+     "action": "Roof",
+     "default": "F4"
+    },
+    {
+     "id": "edit",
+     "action": "Edit",
+     "default": "G"
+    },
+    {
+     "id": "toggle_building_mode",
+     "action": "Toggle Building Mode",
+     "default": "Q"
+    },
+    {
+     "id": "place_marker",
+     "action": "Place Marker",
+     "default": "Middle Mouse"
+    },
+    {
+     "id": "map",
+     "action": "Map",
+     "default": "M"
+    },
+    {
+     "id": "inventory",
+     "action": "Inventory",
+     "default": "I"
+    }
+   ]
+  },
+  {
+   "id": "cod_bo6",
+   "name": "Call of Duty: Black Ops 6 / Warzone",
+   "publisher": "Activision",
+   "yaw": 0.0066,
+   "yaw_note": "Degrees per count per 1.00 of 'Mouse Sensitivity' (same scale as MW2019+ and Warzone). ADS depends on ADS Sensitivity Multiplier + Monitor Distance Coefficient + ADS FOV setting.",
+   "sens_key": "mouse_sens",
+   "config_file": "Documents\\Call of Duty\\players\\ (BO6 options text files, e.g. s.1.0.cod24.txt0/.txt1; partly cloud-synced to the Activision account; file names unverified)",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://csdb.gg/sensitivity-converter/",
+    "https://www.gfinityesports.com/article/best-keyboard-and-mouse-settings-for-black-ops-6",
+    "https://www.callofduty.com/blog/2020/11/Black-Ops-Cold-War-Controls-and-Settings-PC"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "mouse_sens",
+       "label": "Mouse Sensitivity",
+       "type": "slider",
+       "min": 0.01,
+       "max": 100,
+       "step": 0.01,
+       "default": null,
+       "note": "Hip-fire"
+      },
+      {
+       "key": "ads_multiplier",
+       "label": "ADS Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0.01,
+       "max": 2.0,
+       "step": 0.01,
+       "default": 1.0,
+       "note": "Global multiplier while aiming"
+      },
+      {
+       "key": "ads_transition",
+       "label": "ADS Sensitivity Transition Timing",
+       "options": [
+        "Instant",
+        "Gradual"
+       ],
+       "type": "select",
+       "default": "Gradual",
+       "note": "Options: Instant / Gradual"
+      },
+      {
+       "key": "monitor_distance_coeff",
+       "label": "Monitor Distance Coefficient",
+       "type": "slider",
+       "min": 0,
+       "max": 3,
+       "step": 0.01,
+       "default": 1.33,
+       "note": "1.33 = vertical-match style scaling; 0 = focal-length"
+      },
+      {
+       "key": "vertical_mult",
+       "label": "Vertical Aim Sensitivity Multiplier",
+       "type": "number",
+       "step": 0.01,
+       "default": 1.0,
+       "note": "Label may vary by title"
+      },
+      {
+       "key": "custom_zoom_sens",
+       "label": "Custom Sensitivity Per Zoom",
+       "type": "toggle",
+       "default": false,
+       "note": "Toggle unlocking per-zoom-level multipliers"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "audio_mix",
+       "label": "Audio Mix",
+       "options": [
+        "Home Theater",
+        "Headphones",
+        "Headphones Bass Boost",
+        "Night Mode",
+        "Treble Boost",
+        "Bass Boost"
+       ],
+       "type": "select",
+       "default": "Home Theater",
+       "note": "Presets include Home Theater, Headphones, Headphones Bass Boost, Night Mode, Treble Boost, Bass Boost (list varies per title)"
+      },
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "dialogue_volume",
+       "label": "Dialogue Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "effects_volume",
+       "label": "Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen Exclusive",
+        "Fullscreen Borderless",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Display Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "slider",
+       "min": 60,
+       "max": 120,
+       "default": 80
+      },
+      {
+       "key": "ads_fov",
+       "label": "ADS Field of View",
+       "options": [
+        "Affected",
+        "Independent"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "weapon_fov",
+       "label": "Weapon Field of View",
+       "options": [
+        "Default",
+        "Wide"
+       ],
+       "type": "select",
+       "default": "Default"
+      },
+      {
+       "key": "frame_rate_limit",
+       "label": "Custom Frame Rate Limit",
+       "type": "slider",
+       "min": 30,
+       "max": 300,
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "upscaling",
+       "label": "Upscaling / Sharpening",
+       "options": [
+        "Off",
+        "FidelityFX CAS",
+        "NVIDIA DLSS",
+        "AMD FSR 3",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "V-Sync (Gameplay)",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "quality_preset",
+       "label": "Quality Presets",
+       "options": [
+        "Minimum",
+        "Low",
+        "Balanced",
+        "High",
+        "Ultra",
+        "Extreme",
+        "Custom"
+       ],
+       "type": "select",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "movement_mode",
+       "label": "Movement mode (Sprint/Tactical Sprint Behavior)",
+       "options": [
+        "Tap to Sprint",
+        "Auto Sprint",
+        "Auto Tactical Sprint"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "aim_down_sight_behavior",
+       "label": "Aim Down Sight Behavior",
+       "options": [
+        "Hold",
+        "Toggle"
+       ],
+       "type": "select",
+       "default": "Hold"
+      },
+      {
+       "key": "crouch_behavior",
+       "label": "Crouch Behavior",
+       "options": [
+        "Toggle",
+        "Hold"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "camera_movement",
+       "label": "Camera Movement (First Person)",
+       "options": [
+        "Least (50%)",
+        "Less (75%)",
+        "Default (100%)"
+       ],
+       "type": "select",
+       "default": "Default (100%)"
+      },
+      {
+       "key": "auto_move_forward",
+       "label": "Automatic Airborne Mantle / Automatic Ground Mantle",
+       "type": "toggle",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump_mantle",
+     "action": "Jump / Mantle",
+     "default": "Space"
+    },
+    {
+     "id": "sprint_tactical_sprint",
+     "action": "Sprint / Tactical Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "crouch_slide",
+     "action": "Crouch / Slide",
+     "default": "C"
+    },
+    {
+     "id": "prone_dive",
+     "action": "Prone / Dive",
+     "default": "Left Ctrl",
+     "note": "verify: community presets differ (Z / Ctrl)"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "F",
+     "note": "verify in game"
+    },
+    {
+     "id": "melee",
+     "action": "Melee",
+     "default": "V",
+     "note": "verify in game"
+    },
+    {
+     "id": "lethal_equipment",
+     "action": "Lethal Equipment",
+     "default": "G",
+     "note": "verify in game"
+    },
+    {
+     "id": "tactical_equipment",
+     "action": "Tactical Equipment",
+     "default": "Q",
+     "note": "verify in game"
+    },
+    {
+     "id": "field_upgrade",
+     "action": "Field Upgrade",
+     "default": "X",
+     "note": "verify in game"
+    },
+    {
+     "id": "weapon_slot_1",
+     "action": "Weapon Slot 1",
+     "default": "1"
+    },
+    {
+     "id": "weapon_slot_2",
+     "action": "Weapon Slot 2",
+     "default": "2"
+    },
+    {
+     "id": "next_previous_weapon",
+     "action": "Next / Previous Weapon",
+     "default": "Mouse Wheel"
+    },
+    {
+     "id": "fire",
+     "action": "Fire",
+     "default": "Left Mouse"
+    },
+    {
+     "id": "aim_down_sights",
+     "action": "Aim Down Sights",
+     "default": "Right Mouse"
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    },
+    {
+     "id": "map_warzone",
+     "action": "Map (Warzone)",
+     "default": "M"
+    }
+   ]
+  },
+  {
+   "id": "r6_siege_x",
+   "name": "Rainbow Six Siege X",
+   "publisher": "Ubisoft",
+   "yaw": 0.00572957795,
+   "yaw_note": "Degrees per count per 1 of 'Mouse Sensitivity Horizontal' (MouseYawSensitivity) with default MouseSensitivityMultiplierUnit = 0.02 in GameSettings.ini; scale yaw by (unit/0.02) if changed. ADS per scope is a % of hip-fire.",
+   "sens_key": "mouse_sens_h",
+   "config_file": "Documents\\My Games\\Rainbow Six - Siege\\<profile-id>\\GameSettings.ini (INI; [INPUT] holds MouseYawSensitivity/MousePitchSensitivity/MouseSensitivityMultiplierUnit)",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://csdb.gg/sensitivity-converter/",
+    "https://www.mouse-sensitivity.com/forums/topic/361-tom-clancys-rainbow-six-siege/",
+    "https://prosettings.net/guides/rainbow-six-options/",
+    "https://www.magicgameworld.com/?p=101831"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "mouse_sens_h",
+       "label": "Mouse Sensitivity Horizontal",
+       "type": "slider",
+       "min": 1,
+       "max": 100,
+       "step": 1,
+       "default": null,
+       "note": "MouseYawSensitivity in GameSettings.ini"
+      },
+      {
+       "key": "mouse_sens_v",
+       "label": "Mouse Sensitivity Vertical",
+       "type": "slider",
+       "min": 1,
+       "max": 100,
+       "step": 1,
+       "default": null,
+       "note": "MousePitchSensitivity"
+      },
+      {
+       "key": "multiplier_unit",
+       "label": "MouseSensitivityMultiplierUnit (ini only)",
+       "type": "number",
+       "min": 0,
+       "default": 0.02,
+       "note": "Not in menu; scales all mouse sens"
+      },
+      {
+       "key": "ads_1x",
+       "label": "Aim Down Sights 1.0x",
+       "type": "slider",
+       "min": 1,
+       "max": 200,
+       "step": 1,
+       "default": null,
+       "note": "Per-zoom ADS sliders since Shadow Legacy (1.0x, 1.5x, 2.0x, 2.5x, 3.0x, 4.0x, 5.0x, 12.0x)"
+      },
+      {
+       "key": "ads_25x",
+       "label": "Aim Down Sights 2.5x",
+       "type": "slider",
+       "min": 1,
+       "max": 200,
+       "step": 1,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "dynamic_range",
+       "label": "Dynamic Range",
+       "options": [
+        "Presets like Night Mode",
+        "TV",
+        "Hi-Fi; Siege X reworked audio",
+        "verify labels"
+       ],
+       "type": "select",
+       "default": null,
+       "note": "Presets like Night Mode / TV / Hi-Fi; Siege X reworked audio, verify labels"
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Borderless",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "slider",
+       "min": 60,
+       "max": 90,
+       "default": null,
+       "note": "Vertical FOV"
+      },
+      {
+       "key": "aspect_ratio",
+       "label": "Aspect Ratio",
+       "options": [
+        "Auto",
+        "16:9",
+        "16:10",
+        "4:3",
+        "5:4"
+       ],
+       "type": "select",
+       "default": "Auto"
+      },
+      {
+       "key": "frame_rate_limit",
+       "label": "Frame Rate Limit",
+       "type": "number",
+       "min": 30,
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "VSync",
+       "options": [
+        "Off",
+        "On",
+        "Interval 2"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "upscaling",
+       "label": "Upscaling (DLSS / FSR / XeSS)",
+       "options": [
+        "Off",
+        "NVIDIA DLSS",
+        "AMD FSR",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "texture_quality",
+       "label": "Texture Quality",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Very High",
+        "Ultra"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "render_scaling",
+       "label": "Render Scaling",
+       "type": "slider",
+       "min": 25,
+       "max": 100,
+       "default": 100
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "aim_mode",
+       "label": "Aim Down Sights (Toggle/Hold)",
+       "options": [
+        "Hold",
+        "Toggle"
+       ],
+       "type": "select",
+       "default": "Hold"
+      },
+      {
+       "key": "lean_mode",
+       "label": "Lean (Toggle/Hold)",
+       "options": [
+        "Hold",
+        "Toggle"
+       ],
+       "type": "select",
+       "default": "Hold"
+      },
+      {
+       "key": "crouch_mode",
+       "label": "Crouch (Toggle/Hold)",
+       "options": [
+        "Hold",
+        "Toggle"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "raw_input",
+       "label": "Raw Input (ini: RawInputMouseKeyboard)",
+       "type": "toggle",
+       "default": true
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "lean_left",
+     "action": "Lean Left",
+     "default": "Q"
+    },
+    {
+     "id": "lean_right",
+     "action": "Lean Right",
+     "default": "E"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "C"
+    },
+    {
+     "id": "prone",
+     "action": "Prone",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "walk",
+     "action": "Walk",
+     "default": "Left Alt"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "F"
+    },
+    {
+     "id": "melee",
+     "action": "Melee",
+     "default": "V"
+    },
+    {
+     "id": "operator_gadget_primary_gadget",
+     "action": "Operator Gadget (primary gadget)",
+     "default": "Middle Mouse",
+     "note": "older guide; verify"
+    },
+    {
+     "id": "secondary_gadget",
+     "action": "Secondary Gadget",
+     "default": "G"
+    },
+    {
+     "id": "primary_weapon",
+     "action": "Primary Weapon",
+     "default": "1"
+    },
+    {
+     "id": "secondary_weapon",
+     "action": "Secondary Weapon",
+     "default": "2"
+    },
+    {
+     "id": "observation_tools",
+     "action": "Observation Tools",
+     "default": "5"
+    },
+    {
+     "id": "deploy_drone",
+     "action": "Deploy Drone",
+     "default": "6"
+    },
+    {
+     "id": "ping",
+     "action": "Ping",
+     "default": "Z"
+    },
+    {
+     "id": "switch_ability_mode",
+     "action": "Switch Ability Mode",
+     "default": "B"
+    },
+    {
+     "id": "drop_defuser",
+     "action": "Drop Defuser",
+     "default": "X"
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    }
+   ]
+  },
+  {
+   "id": "valorant",
+   "name": "Valorant",
+   "publisher": "Riot Games",
+   "yaw": 0.07,
+   "yaw_note": "Degrees per count per 1.0 of 'Sensitivity: Aim'. FOV fixed (103 horizontal), so no FOV setting.",
+   "sens_key": "aim_sens",
+   "config_file": "%LOCALAPPDATA%\\VALORANT\\Saved\\Config\\<account-id>\\Windows\\GameUserSettings.ini (graphics only); sensitivity, keybinds and crosshair are stored server-side on the Riot account.",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://csdb.gg/sensitivity-converter/"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "aim_sens",
+       "label": "Sensitivity: Aim",
+       "type": "slider",
+       "min": 0.001,
+       "max": 10,
+       "step": 0.001,
+       "default": null,
+       "note": "Typical pro range 0.2-0.6 at 800 DPI"
+      },
+      {
+       "key": "scoped_mult",
+       "label": "Scoped Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0.01,
+       "max": 5,
+       "step": 0.001,
+       "default": 1.0
+      },
+      {
+       "key": "ads_mult",
+       "label": "ADS Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0.01,
+       "max": 5,
+       "step": 0.001,
+       "default": 1.0
+      },
+      {
+       "key": "raw_input_buffer",
+       "label": "Raw Input Buffer",
+       "type": "toggle",
+       "default": false,
+       "note": "Toggle"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "overall_volume",
+       "label": "Overall Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "vo_volume",
+       "label": "Voice-Over Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_incoming",
+       "label": "Incoming Volume (Voice Chat)",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "hrtf",
+       "label": "Enable HRTF",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Windowed Fullscreen",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "limit_fps_always",
+       "label": "Limit FPS Always",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "max_fps_always",
+       "label": "Max FPS Always",
+       "type": "slider",
+       "min": 30,
+       "max": 1000,
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "multithreaded",
+       "label": "Multithreaded Rendering",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "material_quality",
+       "label": "Material Quality",
+       "options": [
+        "Low",
+        "Med",
+        "High"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "texture_quality",
+       "label": "Texture Quality",
+       "options": [
+        "Low",
+        "Med",
+        "High"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "detail_quality",
+       "label": "Detail Quality",
+       "options": [
+        "Low",
+        "Med",
+        "High"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "anti_aliasing",
+       "label": "Anti-Aliasing",
+       "options": [
+        "None",
+        "MSAA 2x",
+        "MSAA 4x",
+        "FXAA"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "VSync",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "minimap_rotate",
+       "label": "Rotate",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "minimap_centered",
+       "label": "Keep Player Centered",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "show_corpses",
+       "label": "Show Corpses",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "show_blood",
+       "label": "Show Blood",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "crosshair_profile",
+       "label": "Crosshair Profile",
+       "type": "text",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "walk",
+     "action": "Walk",
+     "default": "Left Shift"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "use_object",
+     "action": "Use Object",
+     "default": "F"
+    },
+    {
+     "id": "equip_primary_weapon",
+     "action": "Equip Primary Weapon",
+     "default": "1"
+    },
+    {
+     "id": "equip_secondary_weapon",
+     "action": "Equip Secondary Weapon",
+     "default": "2"
+    },
+    {
+     "id": "equip_melee_weapon",
+     "action": "Equip Melee Weapon",
+     "default": "3"
+    },
+    {
+     "id": "equip_spike",
+     "action": "Equip Spike",
+     "default": "4"
+    },
+    {
+     "id": "use_equip_ability_1",
+     "action": "Use/Equip Ability: 1",
+     "default": "C"
+    },
+    {
+     "id": "use_equip_ability_2",
+     "action": "Use/Equip Ability: 2",
+     "default": "Q"
+    },
+    {
+     "id": "use_equip_ability_signature",
+     "action": "Use/Equip Ability: Signature",
+     "default": "E"
+    },
+    {
+     "id": "use_equip_ability_ultimate",
+     "action": "Use/Equip Ability: Ultimate",
+     "default": "X"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "drop_equipped_item",
+     "action": "Drop Equipped Item",
+     "default": "G"
+    },
+    {
+     "id": "inspect_weapon",
+     "action": "Inspect Weapon",
+     "default": "Y"
+    },
+    {
+     "id": "ping",
+     "action": "Ping",
+     "default": "Z"
+    },
+    {
+     "id": "use_spray",
+     "action": "Use Spray",
+     "default": "T"
+    },
+    {
+     "id": "toggle_map",
+     "action": "Toggle Map",
+     "default": "M"
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    }
+   ]
+  },
+  {
+   "id": "cs2",
+   "name": "Counter-Strike 2",
+   "publisher": "Valve",
+   "yaw": 0.022,
+   "yaw_note": "m_yaw 0.022 degrees per count per 1.0 of 'sensitivity'. FOV fixed at 90 (4:3 horizontal), not adjustable.",
+   "sens_key": "sensitivity",
+   "config_file": "Steam\\userdata\\<steamid3>\\730\\local\\cfg\\cs2_user_convars_0_slot0.vcfg (+ cs2_user_keys_0_slot0.vcfg, cs2_machine_convars.vcfg); custom autoexec at <game>\\csgo\\cfg\\autoexec.cfg.",
+   "sources": [
+    "https://csdb.gg/sensitivity-converter/",
+    "https://senslab.pro/sensitivity"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "sensitivity",
+       "label": "Mouse Sensitivity",
+       "type": "slider",
+       "min": 0.01,
+       "max": 8,
+       "step": 0.01,
+       "default": 1.25,
+       "note": "convar 'sensitivity'; console allows beyond the slider"
+      },
+      {
+       "key": "zoom_sensitivity_ratio",
+       "label": "Zoom Sensitivity",
+       "type": "slider",
+       "min": 0,
+       "max": 2,
+       "step": 0.01,
+       "default": 1.0,
+       "note": "convar zoom_sensitivity_ratio (scoped weapons)"
+      },
+      {
+       "key": "m_yaw",
+       "label": "m_yaw (console)",
+       "type": "number",
+       "default": 0.022,
+       "note": "Horizontal yaw; m_pitch also 0.022"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "main_menu_volume",
+       "label": "Main Menu Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "round_start_volume",
+       "label": "Round Start Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "round_end_volume",
+       "label": "Round End Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "ten_second_volume",
+       "label": "Ten Second Warning Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_volume",
+       "label": "Voice Volume (voice chat)",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "eq_profile",
+       "label": "EQ Profile",
+       "options": [
+        "Natural",
+        "Crisp",
+        "Smooth"
+       ],
+       "type": "select",
+       "default": "Natural",
+       "note": "Natural / Crisp / Smooth"
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Windowed",
+        "Fullscreen Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "aspect_ratio",
+       "label": "Aspect Ratio",
+       "options": [
+        "Normal 4:3",
+        "Widescreen 16:9",
+        "Widescreen 16:10"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "boost_contrast",
+       "label": "Boost Player Contrast",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "vsync",
+       "label": "Wait for Vertical Sync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "msaa",
+       "label": "Multisampling Anti-Aliasing Mode",
+       "options": [
+        "None",
+        "CMAA2",
+        "2X MSAA",
+        "4X MSAA",
+        "8X MSAA"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "shadow_quality",
+       "label": "Global Shadow Quality",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Very High"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "fsr",
+       "label": "FidelityFX Super Resolution",
+       "options": [
+        "Disabled (Highest Quality)",
+        "Ultra Quality",
+        "Quality",
+        "Balanced",
+        "Performance"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Disabled",
+        "Enabled",
+        "Enabled + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "fps_max",
+       "label": "Max Frames Per Second (fps_max)",
+       "type": "slider",
+       "min": 0,
+       "max": 1000,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "viewmodel_fov",
+       "label": "viewmodel_fov (console)",
+       "type": "slider",
+       "min": 54,
+       "max": 68,
+       "default": 60
+      },
+      {
+       "key": "crosshair_code",
+       "label": "Crosshair share code",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "radar_rotate",
+       "label": "Radar rotate (cl_radar_rotate)",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "radar_scale",
+       "label": "Radar map zoom (cl_radar_scale)",
+       "type": "slider",
+       "min": 0.25,
+       "max": 1,
+       "default": 0.7
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "walk",
+     "action": "Walk",
+     "default": "Left Shift"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "use",
+     "action": "Use",
+     "default": "E"
+    },
+    {
+     "id": "primary_weapon",
+     "action": "Primary Weapon",
+     "default": "1"
+    },
+    {
+     "id": "secondary_weapon",
+     "action": "Secondary Weapon",
+     "default": "2"
+    },
+    {
+     "id": "knife",
+     "action": "Knife",
+     "default": "3"
+    },
+    {
+     "id": "cycle_grenades",
+     "action": "Cycle Grenades",
+     "default": "4"
+    },
+    {
+     "id": "bomb_equipment",
+     "action": "Bomb / Equipment",
+     "default": "5"
+    },
+    {
+     "id": "inspect_weapon",
+     "action": "Inspect Weapon",
+     "default": "F"
+    },
+    {
+     "id": "drop_weapon",
+     "action": "Drop Weapon",
+     "default": "G"
+    },
+    {
+     "id": "buy_menu",
+     "action": "Buy Menu",
+     "default": "B"
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    },
+    {
+     "id": "use_radio_voice_push_to_talk",
+     "action": "Use Radio / Voice (Push to Talk)",
+     "default": "K"
+    },
+    {
+     "id": "player_ping",
+     "action": "Player Ping",
+     "default": "Mouse 3",
+     "note": "verify"
+    },
+    {
+     "id": "last_weapon_used",
+     "action": "Last Weapon Used",
+     "default": "Q"
+    }
+   ]
+  },
+  {
+   "id": "apex",
+   "name": "Apex Legends",
+   "publisher": "Electronic Arts / Respawn",
+   "yaw": 0.022,
+   "yaw_note": "Source-engine style: 0.022 degrees per count per 1.0 of 'Mouse Sensitivity' (same as CS2).",
+   "sens_key": "mouse_sens",
+   "config_file": "%USERPROFILE%\\Saved Games\\Respawn\\Apex\\local\\settings.cfg (convar text, mouse_sensitivity etc.) + videoconfig.txt; profile\\profile.cfg for binds.",
+   "sources": [
+    "https://csdb.gg/sensitivity-converter/",
+    "https://senslab.pro/sensitivity"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "mouse_sens",
+       "label": "Mouse Sensitivity",
+       "type": "slider",
+       "min": 0.2,
+       "max": 20,
+       "step": 0.1,
+       "default": null,
+       "note": "settings.cfg: mouse_sensitivity"
+      },
+      {
+       "key": "ads_mult",
+       "label": "ADS Mouse Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0.2,
+       "max": 10,
+       "step": 0.1,
+       "default": 1.0,
+       "note": "Used when Per Optic is Off"
+      },
+      {
+       "key": "per_optic",
+       "label": "Per Optic ADS Sensitivity",
+       "type": "toggle",
+       "default": false,
+       "note": "Toggle; unlocks 1x-10x optic multipliers"
+      },
+      {
+       "key": "mouse_accel",
+       "label": "Mouse Acceleration",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "dialogue_volume",
+       "label": "Dialogue Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "lobby_music_volume",
+       "label": "Lobby Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Incoming Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Full Screen",
+        "Windowed",
+        "Borderless Window"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "slider",
+       "min": 70,
+       "max": 110,
+       "default": 90
+      },
+      {
+       "key": "fov_ability_scaling",
+       "label": "FOV Ability Scaling",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "vsync",
+       "label": "V-Sync",
+       "options": [
+        "Disabled",
+        "Double Buffered",
+        "Triple Buffered",
+        "Adaptive"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex",
+       "options": [
+        "Disabled",
+        "Enabled",
+        "Enabled + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "adaptive_res",
+       "label": "Adaptive Resolution FPS Target",
+       "type": "number",
+       "min": 0,
+       "default": 0
+      },
+      {
+       "key": "anti_aliasing",
+       "label": "Anti-aliasing",
+       "options": [
+        "None",
+        "TSAA"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "texture_budget",
+       "label": "Texture Streaming Budget",
+       "options": [
+        "None",
+        "Very Low",
+        "Low",
+        "Medium",
+        "High",
+        "Very High",
+        "Insane"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "fps_max",
+       "label": "+fps_max (launch option)",
+       "type": "slider",
+       "min": 0,
+       "max": 300,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "sprint_view_shake",
+       "label": "Sprint View Shake",
+       "options": [
+        "Normal",
+        "Minimal"
+       ],
+       "type": "select",
+       "default": "Normal"
+      },
+      {
+       "key": "aim_mode",
+       "label": "ADS (Toggle/Hold)",
+       "options": [
+        "Toggle",
+        "Hold"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "auto_sprint",
+       "label": "Auto-Sprint",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "crosshair_color",
+       "label": "Crosshair Color",
+       "type": "text",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "crouch_hold",
+     "action": "Crouch (Hold)",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "crouch_toggle",
+     "action": "Crouch (Toggle)",
+     "default": "C"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact_pickup",
+     "action": "Interact / Pickup",
+     "default": "E"
+    },
+    {
+     "id": "tactical_ability",
+     "action": "Tactical Ability",
+     "default": "Q"
+    },
+    {
+     "id": "ultimate_ability",
+     "action": "Ultimate Ability",
+     "default": "Z"
+    },
+    {
+     "id": "equip_weapon_1",
+     "action": "Equip Weapon 1",
+     "default": "1"
+    },
+    {
+     "id": "equip_weapon_2",
+     "action": "Equip Weapon 2",
+     "default": "2"
+    },
+    {
+     "id": "holster_weapons",
+     "action": "Holster Weapons",
+     "default": "3"
+    },
+    {
+     "id": "equip_grenade",
+     "action": "Equip Grenade",
+     "default": "G"
+    },
+    {
+     "id": "melee",
+     "action": "Melee",
+     "default": "V"
+    },
+    {
+     "id": "fire_select",
+     "action": "Fire Select",
+     "default": "B"
+    },
+    {
+     "id": "inspect_weapon",
+     "action": "Inspect Weapon",
+     "default": "N"
+    },
+    {
+     "id": "ping",
+     "action": "Ping",
+     "default": "Middle Mouse"
+    },
+    {
+     "id": "inventory",
+     "action": "Inventory",
+     "default": "Tab"
+    },
+    {
+     "id": "map",
+     "action": "Map",
+     "default": "M"
+    },
+    {
+     "id": "use_health_item",
+     "action": "Use Health Item",
+     "default": "4",
+     "note": "verify (heal keys changed over seasons)"
+    }
+   ]
+  },
+  {
+   "id": "overwatch2",
+   "name": "Overwatch 2",
+   "publisher": "Blizzard Entertainment",
+   "yaw": 0.0066,
+   "yaw_note": "Degrees per count per 1 of 'Sensitivity'. Zoom sens (Widowmaker/Ana/Ashe) is a % of hip-fire ('Relative Aim Sensitivity While Zoomed').",
+   "sens_key": "sensitivity",
+   "config_file": "Documents\\Overwatch\\Settings\\Settings_v0.ini (graphics/audio INI); sensitivity and keybinds are synced to the Battle.net account.",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://csdb.gg/sensitivity-converter/"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "sensitivity",
+       "label": "Sensitivity",
+       "type": "slider",
+       "min": 0.01,
+       "max": 100,
+       "step": 0.01,
+       "default": 15,
+       "note": "Global, can be overridden per hero"
+      },
+      {
+       "key": "zoomed_rel",
+       "label": "Relative Aim Sensitivity While Zoomed",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 0.01,
+       "default": 38,
+       "note": "Per scoped hero; 38 ~ focal-length match"
+      },
+      {
+       "key": "invert_look",
+       "label": "Invert Vertical Look",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_volume",
+       "label": "Voice Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "dolby_atmos",
+       "label": "Dolby Atmos for Headphones",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Windowed",
+        "Borderless Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "slider",
+       "min": 80,
+       "max": 103,
+       "default": null,
+       "note": "Horizontal FOV"
+      },
+      {
+       "key": "frame_rate",
+       "label": "Frame Rate",
+       "options": [
+        "Display-Based",
+        "Custom"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "frame_rate_cap",
+       "label": "Frame Rate Cap",
+       "type": "slider",
+       "min": 30,
+       "max": 600,
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "Enabled",
+        "Enabled + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "render_scale",
+       "label": "Render Scale",
+       "type": "slider",
+       "min": 50,
+       "max": 200,
+       "default": 100
+      },
+      {
+       "key": "upsampling",
+       "label": "High Quality Upsampling",
+       "options": [
+        "Default",
+        "AMD FSR 1.0",
+        "AMD FSR 2.2",
+        "NVIDIA DLSS",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "graphics_quality",
+       "label": "Graphics Quality",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Ultra",
+        "Epic"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "V-Sync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "reduce_buffering",
+       "label": "Reduce Buffering",
+       "type": "toggle",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "kill_cam",
+       "label": "Kill Cam",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "reticle",
+       "label": "Reticle Type",
+       "options": [
+        "Default",
+        "Circle",
+        "Crosshairs",
+        "Circle and Crosshairs",
+        "Dot"
+       ],
+       "type": "select",
+       "default": "Default"
+      },
+      {
+       "key": "high_precision_mouse",
+       "label": "Enable High Precision Mouse Input",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "waypoint_opacity",
+       "label": "Waypoint Opacity",
+       "type": "number",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "primary_fire",
+     "action": "Primary Fire",
+     "default": "Left Mouse"
+    },
+    {
+     "id": "secondary_fire",
+     "action": "Secondary Fire",
+     "default": "Right Mouse"
+    },
+    {
+     "id": "ability_1",
+     "action": "Ability 1",
+     "default": "Left Shift"
+    },
+    {
+     "id": "ability_2",
+     "action": "Ability 2",
+     "default": "E"
+    },
+    {
+     "id": "ultimate_ability",
+     "action": "Ultimate Ability",
+     "default": "Q"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "quick_melee",
+     "action": "Quick Melee",
+     "default": "V"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "F"
+    },
+    {
+     "id": "weapon_1",
+     "action": "Weapon 1",
+     "default": "1"
+    },
+    {
+     "id": "weapon_2",
+     "action": "Weapon 2",
+     "default": "2"
+    },
+    {
+     "id": "next_previous_weapon",
+     "action": "Next / Previous Weapon",
+     "default": "Mouse Wheel"
+    },
+    {
+     "id": "communication_menu",
+     "action": "Communication Menu",
+     "default": "C",
+     "note": "verify"
+    },
+    {
+     "id": "ping",
+     "action": "Ping",
+     "default": "Middle Mouse",
+     "note": "verify"
+    },
+    {
+     "id": "hero_select",
+     "action": "Hero Select",
+     "default": "H"
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    }
+   ]
+  },
+  {
+   "id": "battlefield6",
+   "name": "Battlefield 6",
+   "publisher": "Electronic Arts / Battlefield Studios",
+   "yaw": null,
+   "yaw_note": "Non-linear: SensLab models hip-fire as 0.00173623 * sens + 0.00231498 deg/count; another converter stores slider / 1333.33 in the profile. Use a non-linear converter or measure; ADS also depends on Zoom Sensitivity Coefficient and Uniform Infantry Aiming.",
+   "sens_key": null,
+   "config_file": "Documents\\Battlefield 6\\settings\\<steam|epic|ea>\\PROFSAVE_profile (plain key-value text, e.g. GstInput.MouseSensitivity)",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://github.com/swiiftex/Source2AllSensitivityConverter/pull/5",
+    "https://www.shacknews.com/article/145381/battlefield-6-keybindings-and-controls",
+    "https://help.ea.com/en/articles/battlefield/battlefield-6/pc-and-controller-settings-guide/",
+    "https://www.dexerto.com/wikis/battlefield-6/best-mouse-and-keyboard-settings",
+    "https://steamcommunity.com/app/2807960/discussions/0/681860127366828822/"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "infantry_mouse_sens",
+       "label": "Infantry Mouse Aim Sensitivity",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "default": null,
+       "note": "PROFSAVE: GstInput.MouseSensitivity; slider moves in whole numbers"
+      },
+      {
+       "key": "uniform_infantry_aiming",
+       "label": "Uniform Infantry Aiming",
+       "type": "toggle",
+       "default": true,
+       "note": "Toggle; scales ADS by FOV"
+      },
+      {
+       "key": "zoom_coeff",
+       "label": "Zoom Sensitivity Coefficient",
+       "type": "slider",
+       "min": 0,
+       "max": 200,
+       "step": 1,
+       "default": 178,
+       "note": "Per guides 178 is default; range unverified"
+      },
+      {
+       "key": "zoom_aim_sens",
+       "label": "Zoom Aim Sensitivity (per scope)",
+       "type": "slider",
+       "min": 0,
+       "max": 200,
+       "step": 1,
+       "default": 100,
+       "note": "Per-magnification multipliers"
+      },
+      {
+       "key": "vehicle_mouse_sens",
+       "label": "Vehicle Mouse Aim Sensitivity",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "default": null
+      },
+      {
+       "key": "raw_input",
+       "label": "Mouse Raw Input",
+       "type": "toggle",
+       "default": null,
+       "note": "Toggle"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "audio_mix",
+       "label": "Audio Mix",
+       "type": "number",
+       "default": null,
+       "note": "Mix presets exist; labels unverified"
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Borderless",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "number",
+       "default": null,
+       "note": "Players typically use 100-110; range unverified"
+      },
+      {
+       "key": "ads_fov",
+       "label": "ADS Field of View",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "frame_rate_limit",
+       "label": "Frame Rate Limit",
+       "type": "number",
+       "min": 30,
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "upscaling",
+       "label": "Upscaling Technique",
+       "options": [
+        "Off",
+        "NVIDIA DLSS",
+        "AMD FSR",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "frame_generation",
+       "label": "Frame Generation",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "vsync",
+       "label": "VSync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "graphics_preset",
+       "label": "Graphics Quality Preset",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Ultra",
+        "Custom"
+       ],
+       "type": "select",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "zoom_mode",
+       "label": "Infantry Weapon Zoom",
+       "options": [
+        "Hold",
+        "Toggle"
+       ],
+       "type": "select",
+       "default": "Hold"
+      },
+      {
+       "key": "steady_scope",
+       "label": "Steady Scope",
+       "options": [
+        "Hold",
+        "Toggle"
+       ],
+       "type": "select",
+       "default": "Hold"
+      },
+      {
+       "key": "flick_look",
+       "label": "Soldier Flick Look Mode",
+       "options": [
+        "Off",
+        "Always"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "auto_sprint",
+       "label": "Auto Sprint",
+       "type": "toggle",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump_vault",
+     "action": "Jump / Vault",
+     "default": "Space"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "crouch_hold",
+     "action": "Crouch (Hold)",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "crouch_toggle",
+     "action": "Crouch (Toggle)",
+     "default": "C"
+    },
+    {
+     "id": "prone",
+     "action": "Prone",
+     "default": "Z"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "E"
+    },
+    {
+     "id": "melee",
+     "action": "Melee",
+     "default": "F"
+    },
+    {
+     "id": "primary_weapon",
+     "action": "Primary Weapon",
+     "default": "1"
+    },
+    {
+     "id": "secondary_weapon",
+     "action": "Secondary Weapon",
+     "default": "2"
+    },
+    {
+     "id": "gadget_one",
+     "action": "Gadget One",
+     "default": "3"
+    },
+    {
+     "id": "gadget_two",
+     "action": "Gadget Two",
+     "default": "4"
+    },
+    {
+     "id": "class_ability_call_in",
+     "action": "Class Ability / Call-in",
+     "default": "6"
+    },
+    {
+     "id": "grenade",
+     "action": "Grenade",
+     "default": "G"
+    },
+    {
+     "id": "ping",
+     "action": "Ping",
+     "default": "Q"
+    },
+    {
+     "id": "commo_rose",
+     "action": "Commo Rose",
+     "default": "Middle Mouse"
+    },
+    {
+     "id": "toggle_laser_flashlight",
+     "action": "Toggle Laser / Flashlight",
+     "default": "T"
+    },
+    {
+     "id": "steady_scope",
+     "action": "Steady Scope",
+     "default": "Left Shift"
+    },
+    {
+     "id": "big_map",
+     "action": "Big Map",
+     "default": "M"
+    },
+    {
+     "id": "scoreboard_inventory",
+     "action": "Scoreboard / Inventory",
+     "default": "Tab"
+    },
+    {
+     "id": "lean_peek",
+     "action": "Lean / Peek",
+     "default": ""
+    }
+   ]
+  },
+  {
+   "id": "pubg",
+   "name": "PUBG: Battlegrounds",
+   "publisher": "Krafton",
+   "yaw": null,
+   "yaw_note": "Menu slider (1-100) is exponential; the game applies the linear LastConvertedSensitivity from GameUserSettings.ini (0.02 at slider 50). Linear yaw only valid on LastConvertedSensitivity; csdb lists 0.002222 but scale is ambiguous, so null.",
+   "sens_key": null,
+   "config_file": "%LOCALAPPDATA%\\TslGame\\Saved\\Config\\WindowsNoEditor\\GameUserSettings.ini (UE INI; sens entries hold Sensitivity + LastConvertedSensitivity per mode)",
+   "sources": [
+    "https://csdb.gg/sensitivity-converter/",
+    "https://mouse-sensitivity.com/forums/topic/607-pubg-battlegrounds-playerunknowns-battlegrounds/page/28",
+    "https://github.com/swiiftex/Source2AllSensitivityConverter/pull/5"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "general_sens",
+       "label": "General Sensitivity",
+       "type": "slider",
+       "min": 1,
+       "max": 100,
+       "step": 1,
+       "default": 50,
+       "note": "Hip-fire (TPP/FPP); exponential"
+      },
+      {
+       "key": "vertical_mult",
+       "label": "Vertical Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0.5,
+       "max": 2.0,
+       "step": 0.01,
+       "default": 1.0
+      },
+      {
+       "key": "targeting_sens",
+       "label": "Targeting Sensitivity",
+       "type": "slider",
+       "min": 1,
+       "max": 100,
+       "step": 1,
+       "default": 50,
+       "note": "ADS (iron sights/red dot)"
+      },
+      {
+       "key": "scoping_sens",
+       "label": "Scoping Sensitivity",
+       "type": "slider",
+       "min": 1,
+       "max": 100,
+       "step": 1,
+       "default": 50,
+       "note": "Per scope: 2x, 3x, 4x, 6x, 8x, 15x each 1-100"
+      },
+      {
+       "key": "vehicle_sens",
+       "label": "Vehicle Driver Sensitivity",
+       "type": "slider",
+       "min": 1,
+       "max": 100,
+       "step": 1,
+       "default": 50
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "effects_volume",
+       "label": "Effects",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "ui_volume",
+       "label": "UI",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "lobby_music_volume",
+       "label": "Lobby Music",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Fullscreen (Windowed)",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fpp_fov",
+       "label": "FPP Camera FOV",
+       "type": "slider",
+       "min": 80,
+       "max": 103,
+       "default": null
+      },
+      {
+       "key": "fps_cap",
+       "label": "FPS Cap",
+       "options": [
+        "Unlimited",
+        "Monitor Refresh Rate",
+        "Custom"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "render_scale",
+       "label": "Screen Scale",
+       "type": "slider",
+       "min": 70,
+       "max": 120,
+       "default": 100
+      },
+      {
+       "key": "anti_aliasing",
+       "label": "Anti-Aliasing",
+       "options": [
+        "Very Low",
+        "Low",
+        "Medium",
+        "High",
+        "Ultra"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "post_processing",
+       "label": "Post-Processing",
+       "options": [
+        "Very Low",
+        "Low",
+        "Medium",
+        "High",
+        "Ultra"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "textures",
+       "label": "Textures",
+       "options": [
+        "Very Low",
+        "Low",
+        "Medium",
+        "High",
+        "Ultra"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "view_distance",
+       "label": "View Distance",
+       "options": [
+        "Very Low",
+        "Low",
+        "Medium",
+        "High",
+        "Ultra"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "V-Sync",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "aim_mode",
+       "label": "Aim / ADS behavior",
+       "options": [
+        "Hold",
+        "Toggle",
+        "Hold & Toggle"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "auto_reload",
+       "label": "Auto Reload",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "auto_equip_attachments",
+       "label": "Auto Equip Attachments",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "first_person_perspective",
+       "label": "Default perspective",
+       "options": [
+        "TPP",
+        "FPP"
+       ],
+       "type": "select",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump_vault",
+     "action": "Jump / Vault",
+     "default": "Space"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "C"
+    },
+    {
+     "id": "prone",
+     "action": "Prone",
+     "default": "Z"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "walk",
+     "action": "Walk",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "F"
+    },
+    {
+     "id": "peek_left",
+     "action": "Peek Left",
+     "default": "Q"
+    },
+    {
+     "id": "peek_right",
+     "action": "Peek Right",
+     "default": "E"
+    },
+    {
+     "id": "free_look",
+     "action": "Free Look",
+     "default": "Left Alt"
+    },
+    {
+     "id": "primary_weapon_1",
+     "action": "Primary Weapon 1",
+     "default": "1"
+    },
+    {
+     "id": "primary_weapon_2",
+     "action": "Primary Weapon 2",
+     "default": "2"
+    },
+    {
+     "id": "sidearm",
+     "action": "Sidearm",
+     "default": "3"
+    },
+    {
+     "id": "melee_weapon",
+     "action": "Melee Weapon",
+     "default": "4"
+    },
+    {
+     "id": "throwables",
+     "action": "Throwables",
+     "default": "5"
+    },
+    {
+     "id": "change_fire_mode",
+     "action": "Change Fire Mode",
+     "default": "B"
+    },
+    {
+     "id": "toggle_fpp_tpp",
+     "action": "Toggle FPP/TPP",
+     "default": "V"
+    },
+    {
+     "id": "inventory",
+     "action": "Inventory",
+     "default": "Tab"
+    },
+    {
+     "id": "map",
+     "action": "Map",
+     "default": "M"
+    },
+    {
+     "id": "zeroing_up",
+     "action": "Zeroing Up",
+     "default": "Page Up"
+    },
+    {
+     "id": "zeroing_down",
+     "action": "Zeroing Down",
+     "default": "Page Down"
+    }
+   ]
+  },
+  {
+   "id": "marvel_rivals",
+   "name": "Marvel Rivals",
+   "publisher": "NetEase Games",
+   "yaw": 0.0175,
+   "yaw_note": "Degrees per count per 1.0 of 'Mouse Horizontal Sensitivity' (CS2 x 1.257; Overwatch x 0.375 ~ 0.0066/0.0176). Third-person camera; per-hero overrides exist. One converter (csdb) lists 0.022, judged wrong.",
+   "sens_key": "mouse_h_sens",
+   "config_file": "%LOCALAPPDATA%\\Marvel\\Saved\\Config\\Windows\\GameUserSettings.ini (UE INI; may be read-only)",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://github.com/swiiftex/Source2AllSensitivityConverter/pull/5",
+    "https://esports.gg/guides/marvel-rivals/how-to-convert-your-overwatch-sensitivity-to-marvel-rivals",
+    "https://prosettings.net/guides/marvel-rivals-options/",
+    "https://steamcommunity.com/app/2767030/discussions/0/591759268792825779"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "mouse_h_sens",
+       "label": "Mouse Horizontal Sensitivity",
+       "type": "number",
+       "step": 0.01,
+       "default": null,
+       "note": "Keyboard > Combat; typical 2-4"
+      },
+      {
+       "key": "mouse_v_sens",
+       "label": "Mouse Vertical Sensitivity",
+       "type": "number",
+       "step": 0.01,
+       "default": null
+      },
+      {
+       "key": "hero_override",
+       "label": "Hero-specific sensitivity (All Heroes > hero)",
+       "type": "number",
+       "default": null,
+       "note": "Per-hero scope/zoom multipliers on some heroes"
+      },
+      {
+       "key": "invert_v",
+       "label": "Invert Vertical Look",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_volume",
+       "label": "Voice Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "display_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Borderless",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Aspect Ratio/Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "upscaler",
+       "label": "Anti-Aliasing and Super Resolution Type",
+       "options": [
+        "Off",
+        "TAAU",
+        "NVIDIA DLSS",
+        "AMD FSR",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "super_res_mode",
+       "label": "Super Resolution Mode",
+       "options": [
+        "Ultra Performance",
+        "Performance",
+        "Balanced",
+        "Quality",
+        "Ultra Quality"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "frame_gen",
+       "label": "Frame Generation",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "low_latency",
+       "label": "Low Latency Mode",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null,
+       "note": "NVIDIA Reflex; AMD Anti-Lag 2 on AMD"
+      },
+      {
+       "key": "vsync",
+       "label": "V-Sync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "limit_fps",
+       "label": "Limit FPS",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "fps_cap",
+       "label": "FPS Cap",
+       "type": "number",
+       "min": 30,
+       "default": null
+      },
+      {
+       "key": "graphics_quality",
+       "label": "Graphics Quality",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Ultra",
+        "Custom"
+       ],
+       "type": "select",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "reticle_type",
+       "label": "Reticle Type",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "allied_health_bars",
+       "label": "Allied Health Bars",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "hud_widget_size",
+       "label": "HUD Widget Size",
+       "type": "number",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "normal_attack",
+     "action": "Normal Attack",
+     "default": "Left Mouse"
+    },
+    {
+     "id": "secondary_attack_ability",
+     "action": "Secondary Attack / Ability",
+     "default": "Right Mouse"
+    },
+    {
+     "id": "ability_shift",
+     "action": "Ability (Shift)",
+     "default": "Left Shift",
+     "note": "verify"
+    },
+    {
+     "id": "ability_e",
+     "action": "Ability (E)",
+     "default": "E",
+     "note": "verify"
+    },
+    {
+     "id": "ability_f",
+     "action": "Ability (F)",
+     "default": "F",
+     "note": "verify"
+    },
+    {
+     "id": "ultimate",
+     "action": "Ultimate",
+     "default": "Q",
+     "note": "verify"
+    },
+    {
+     "id": "melee",
+     "action": "Melee",
+     "default": "V",
+     "note": "verify"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "team_up_ability",
+     "action": "Team-Up Ability",
+     "default": ""
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    }
+   ]
+  },
+  {
+   "id": "the_finals",
+   "name": "The Finals",
+   "publisher": "Embark Studios",
+   "yaw": 0.001,
+   "yaw_note": "Degrees per count per 1 of the menu sensitivity (CS2 sens x 22; OW2 sens x 6.6). Source: SensLab; one older SensLab page still shows 0.0066 (outdated).",
+   "sens_key": "mouse_sens",
+   "config_file": "%LOCALAPPDATA%\\Discovery\\Saved\\Config\\WindowsClient\\GameUserSettings.ini (UE INI; 'Discovery' = internal project name; unverified by official source)",
+   "sources": [
+    "https://senslab.pro/guides/the-finals-sensitivity",
+    "https://senslab.pro/sensitivity",
+    "https://prosettings.net/guides/the-finals-options/",
+    "https://www.shacknews.com/article/138166/the-finals-keybindings-controls",
+    "https://immortalboost.com/blog/the-finals/boost-game-fps/"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "mouse_sens",
+       "label": "Mouse Look Sensitivity",
+       "type": "number",
+       "default": null,
+       "note": "Typical 20-45"
+      },
+      {
+       "key": "zoom_mult",
+       "label": "Zoom Sensitivity Multiplier",
+       "type": "number",
+       "max": 100,
+       "step": 1,
+       "default": 100,
+       "note": "% of hip-fire when aiming"
+      },
+      {
+       "key": "focal_scaling",
+       "label": "Mouse Focal Length Sensitivity Scaling",
+       "type": "toggle",
+       "default": true,
+       "note": "Toggle; scales ADS by zoom"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "SFX Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "dialogue_volume",
+       "label": "Dialogue Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "output_mode",
+       "label": "Output Mode",
+       "type": "number",
+       "default": null,
+       "note": "Stereo/Headphones or system default"
+      },
+      {
+       "key": "night_mode",
+       "label": "Night Mode",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "window_mode",
+       "label": "Window Mode",
+       "options": [
+        "Fullscreen",
+        "Windowed Fullscreen",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "number",
+       "default": null,
+       "note": "Pros ~71-100+; range unverified"
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "scaling_method",
+       "label": "Resolution Scaling Method",
+       "options": [
+        "TAAU",
+        "TSR",
+        "NVIDIA DLSS",
+        "AMD FSR",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution_scaling",
+       "label": "Resolution Scaling",
+       "type": "number",
+       "max": 100,
+       "default": 100
+      },
+      {
+       "key": "vsync",
+       "label": "V-Sync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "motion_blur",
+       "label": "Motion Blur",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "rtxgi",
+       "label": "NVIDIA RTX Global Illumination",
+       "options": [
+        "Static",
+        "Dynamic"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "view_distance",
+       "label": "View Distance",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Epic"
+       ],
+       "type": "select",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "lens_distortion",
+       "label": "Lens Distortion",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "crosshair",
+       "label": "Crosshair",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "colorblind",
+       "label": "Colorblind Mode",
+       "type": "text",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "E"
+    },
+    {
+     "id": "specialization",
+     "action": "Specialization",
+     "default": "Q"
+    },
+    {
+     "id": "quick_melee",
+     "action": "Quick Melee",
+     "default": "V"
+    },
+    {
+     "id": "weapon",
+     "action": "Weapon",
+     "default": "1"
+    },
+    {
+     "id": "gadget_1",
+     "action": "Gadget 1",
+     "default": "2"
+    },
+    {
+     "id": "gadget_2",
+     "action": "Gadget 2",
+     "default": "3"
+    },
+    {
+     "id": "gadget_3",
+     "action": "Gadget 3",
+     "default": "4"
+    },
+    {
+     "id": "fire",
+     "action": "Fire",
+     "default": "Left Mouse"
+    },
+    {
+     "id": "aim",
+     "action": "Aim",
+     "default": "Right Mouse"
+    },
+    {
+     "id": "ping",
+     "action": "Ping",
+     "default": "Middle Mouse",
+     "note": "verify"
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    }
+   ]
+  },
+  {
+   "id": "tarkov",
+   "name": "Escape from Tarkov",
+   "publisher": "Battlestate Games",
+   "yaw": 0.125,
+   "yaw_note": "Degrees per count per 1.0 of 'Mouse sensitivity' (CS2 x 0.176). Third-party value; turn speed is further reduced in-game by gear weight/ergonomics.",
+   "sens_key": "mouse_sens",
+   "config_file": "%APPDATA%\\Battlestate Games\\Escape from Tarkov\\Settings\\ (Control.ini, Game.ini, Graphics.ini, Sound.ini; JSON content despite .ini extension; older installs in Documents\\Escape from Tarkov)",
+   "sources": [
+    "https://csdb.gg/sensitivity-converter/",
+    "https://community.skin.club/pro/tools/mouse-sensitivity-converter/cs2-to-escape-from-tarkov",
+    "https://www.mouse-sensitivity.com/forums/topic/7875-escape-from-tarkov-settings-file-location-update/",
+    "https://www.gamespot.com/articles/escape-from-tarkov-guide-for-controls-and-hotkeys/1100-6472601/"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "mouse_sens",
+       "label": "Mouse sensitivity",
+       "type": "number",
+       "min": 0.1,
+       "step": 0.01,
+       "default": null,
+       "note": "Hip-fire"
+      },
+      {
+       "key": "aiming_sens",
+       "label": "Mouse aiming sensitivity",
+       "type": "number",
+       "min": 0.1,
+       "step": 0.01,
+       "default": null,
+       "note": "ADS"
+      },
+      {
+       "key": "mouse_accel",
+       "label": "Mouse acceleration",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "overall_volume",
+       "label": "Overall volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "interface_volume",
+       "label": "Interface volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "chat_volume",
+       "label": "Chat volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "screen_mode",
+       "label": "Screen mode",
+       "options": [
+        "Fullscreen",
+        "Borderless",
+        "Windowed"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Screen resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "FOV",
+       "type": "slider",
+       "min": 50,
+       "max": 75,
+       "default": null
+      },
+      {
+       "key": "game_fps_limit",
+       "label": "Game max FPS",
+       "type": "number",
+       "min": 60,
+       "default": null
+      },
+      {
+       "key": "overall_quality",
+       "label": "Overall graphics quality",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Ultra",
+        "Custom"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "texture_quality",
+       "label": "Texture quality",
+       "options": [
+        "Low",
+        "Medium",
+        "High"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "anti_aliasing",
+       "label": "Anti-aliasing",
+       "options": [
+        "Off",
+        "FXAA",
+        "TAA",
+        "TAA High"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "upscaling",
+       "label": "NVIDIA DLSS / AMD FSR",
+       "options": [
+        "Off",
+        "DLSS",
+        "FSR"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "Off",
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "VSync",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "auto_empty_mags",
+       "label": "Auto-empty mags in raid",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "head_bobbing",
+       "label": "Head bobbing",
+       "type": "number",
+       "default": null
+      },
+      {
+       "key": "quick_slot_use",
+       "label": "Quick slot usage behavior",
+       "type": "text",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "C"
+    },
+    {
+     "id": "prone",
+     "action": "Prone",
+     "default": "X"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "lean_left",
+     "action": "Lean Left",
+     "default": "Q"
+    },
+    {
+     "id": "lean_right",
+     "action": "Lean Right",
+     "default": "E"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "F"
+    },
+    {
+     "id": "inventory",
+     "action": "Inventory",
+     "default": "Tab"
+    },
+    {
+     "id": "check_ammo",
+     "action": "Check Ammo",
+     "default": "Left Alt + T"
+    },
+    {
+     "id": "inspect_weapon",
+     "action": "Inspect Weapon",
+     "default": "L"
+    },
+    {
+     "id": "fire_mode",
+     "action": "Fire Mode",
+     "default": "B"
+    },
+    {
+     "id": "tactical_device",
+     "action": "Tactical Device",
+     "default": "T"
+    },
+    {
+     "id": "night_vision",
+     "action": "Night Vision",
+     "default": "N"
+    },
+    {
+     "id": "grenade",
+     "action": "Grenade",
+     "default": "G"
+    },
+    {
+     "id": "check_extracts",
+     "action": "Check Extracts",
+     "default": "O (double tap)"
+    },
+    {
+     "id": "quick_slots",
+     "action": "Quick Slots",
+     "default": "4-9, 0"
+    }
+   ]
+  },
+  {
+   "id": "destiny2",
+   "name": "Destiny 2",
+   "publisher": "Bungie",
+   "yaw": 0.0066,
+   "yaw_note": "Degrees per count per 1 of 'Look Sensitivity' (same as OW2/CoD per SensLab and csdb). ADS uses 'ADS Sensitivity Modifier' plus per-weapon zoom.",
+   "sens_key": "look_sens",
+   "config_file": "%APPDATA%\\Bungie\\DestinyPC\\prefs\\cvars.xml (XML; graphics, binds and sensitivity)",
+   "sources": [
+    "https://senslab.pro/sensitivity",
+    "https://csdb.gg/sensitivity-converter/",
+    "https://www.shacknews.com/article/101153/destiny-2-key-bindings-and-key-mapping",
+    "https://mouse-sensitivity.com/topic/777-destiny-2"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "look_sens",
+       "label": "Look Sensitivity",
+       "type": "slider",
+       "min": 1,
+       "max": 20,
+       "step": 1,
+       "default": null,
+       "note": "Integer slider"
+      },
+      {
+       "key": "ads_modifier",
+       "label": "ADS Sensitivity Modifier",
+       "type": "slider",
+       "min": 0.1,
+       "max": 3.0,
+       "step": 0.1,
+       "default": 1.0
+      },
+      {
+       "key": "mouse_smoothing",
+       "label": "Mouse Smoothing",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "invert",
+       "label": "Invert Look",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "sfx_volume",
+       "label": "Sound Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "dialogue_volume",
+       "label": "Dialogue Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "voice_chat_volume",
+       "label": "Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "window_mode",
+       "label": "Window Mode",
+       "options": [
+        "Fullscreen",
+        "Windowed",
+        "Windowed Fullscreen"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "slider",
+       "min": 55,
+       "max": 105,
+       "default": null,
+       "note": "Range from memory; unverified"
+      },
+      {
+       "key": "vsync",
+       "label": "Vsync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "framerate_cap_enabled",
+       "label": "Framerate Cap Enabled",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "framerate_cap",
+       "label": "Framerate Cap",
+       "type": "number",
+       "min": 30,
+       "default": null
+      },
+      {
+       "key": "render_resolution",
+       "label": "Render Resolution",
+       "type": "slider",
+       "min": 25,
+       "max": 200,
+       "default": 100
+      },
+      {
+       "key": "anti_aliasing",
+       "label": "Anti-Aliasing",
+       "options": [
+        "Off",
+        "FXAA",
+        "SMAA"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "motion_blur",
+       "label": "Motion Blur",
+       "type": "toggle",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "sprint_mode",
+       "label": "Toggle Sprint",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "crouch_mode",
+       "label": "Toggle Crouch",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "aim_mode",
+       "label": "Toggle Zoom",
+       "type": "toggle",
+       "default": null
+      },
+      {
+       "key": "chromatic_aberration",
+       "label": "Chromatic Aberration",
+       "type": "toggle",
+       "default": null
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_back",
+     "action": "Move Back",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "crouch",
+     "action": "Crouch",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "sprint",
+     "action": "Sprint",
+     "default": "Left Shift"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "E"
+    },
+    {
+     "id": "grenade",
+     "action": "Grenade",
+     "default": "Q"
+    },
+    {
+     "id": "melee",
+     "action": "Melee",
+     "default": "C"
+    },
+    {
+     "id": "super",
+     "action": "Super",
+     "default": "F"
+    },
+    {
+     "id": "class_ability",
+     "action": "Class Ability",
+     "default": "V"
+    },
+    {
+     "id": "kinetic_weapon",
+     "action": "Kinetic Weapon",
+     "default": "1"
+    },
+    {
+     "id": "energy_weapon",
+     "action": "Energy Weapon",
+     "default": "2"
+    },
+    {
+     "id": "power_weapon",
+     "action": "Power Weapon",
+     "default": "3"
+    },
+    {
+     "id": "deploy_ghost",
+     "action": "Deploy Ghost",
+     "default": "Tab"
+    },
+    {
+     "id": "director",
+     "action": "Director",
+     "default": "M"
+    },
+    {
+     "id": "fire",
+     "action": "Fire",
+     "default": "Left Mouse"
+    },
+    {
+     "id": "aim_down_sights",
+     "action": "Aim Down Sights",
+     "default": "Right Mouse"
+    }
+   ]
+  },
+  {
+   "id": "arc_raiders",
+   "name": "ARC Raiders",
+   "publisher": "Embark Studios (Nexon)",
+   "yaw": null,
+   "yaw_note": "Released (UE5). No verified public yaw constant (mouse-sensitivity.com supports it behind premium; no free source states the value). Sensitivity is a 0-100 slider, linearity unconfirmed.",
+   "sens_key": null,
+   "config_file": "%LOCALAPPDATA%\\PioneerGame\\Saved\\Config\\WindowsClient\\GameUserSettings.ini (UE INI)",
+   "sources": [
+    "https://arcraiders.wiki/wiki/Settings",
+    "https://mp1st.com/news/arc-raiders-config-settings-unfair-advantages",
+    "https://www.mouse-sensitivity.com/n/cs2-to-arc-raiders/"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "h_sens",
+       "label": "Horizontal Sensitivity",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "default": 50,
+       "note": "Mouse and Keyboard tab"
+      },
+      {
+       "key": "v_sens",
+       "label": "Vertical Sensitivity",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "default": 50
+      },
+      {
+       "key": "zoom_mult",
+       "label": "Zoom Sensitivity Multiplier",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "step": 1,
+       "default": 100,
+       "note": "ADS"
+      },
+      {
+       "key": "scoped_zoom_mult",
+       "label": "Scoped Zoom Sensitivity Multiplier",
+       "type": "slider",
+       "min": 1,
+       "max": 200,
+       "step": 1,
+       "default": 100,
+       "note": "Scopes"
+      },
+      {
+       "key": "invert_v",
+       "label": "Invert Vertical Look Input",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "ctrl_h_sens",
+       "label": "Horizontal Sensitivity (Controller)",
+       "type": "slider",
+       "min": 10,
+       "max": 400,
+       "step": 1,
+       "default": 80,
+       "note": "Controller tab; vertical default 60"
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": 75
+      },
+      {
+       "key": "effects_volume",
+       "label": "Effects Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": 100
+      },
+      {
+       "key": "music_volume",
+       "label": "Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": 100
+      },
+      {
+       "key": "dialogue_volume",
+       "label": "Dialogue Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": 100
+      },
+      {
+       "key": "party_voice_volume",
+       "label": "Party Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 200,
+       "default": 100
+      },
+      {
+       "key": "proximity_voice_volume",
+       "label": "Proximity Voice Chat Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 200,
+       "default": 140
+      },
+      {
+       "key": "night_mode",
+       "label": "Night Mode",
+       "type": "toggle",
+       "default": false
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "window_mode",
+       "label": "Window Mode",
+       "options": [
+        "Borderless Fullscreen",
+        "Windowed",
+        "Exclusive Fullscreen"
+       ],
+       "type": "select",
+       "default": "Borderless Fullscreen"
+      },
+      {
+       "key": "resolution",
+       "label": "Display Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "fov",
+       "label": "Field of View",
+       "type": "slider",
+       "min": 60,
+       "max": 80,
+       "default": 70
+      },
+      {
+       "key": "frame_rate_limit",
+       "label": "Frame Rate Limit",
+       "type": "number",
+       "min": 30,
+       "default": 60
+      },
+      {
+       "key": "nvidia_reflex",
+       "label": "NVIDIA Reflex Low Latency",
+       "options": [
+        "On",
+        "On + Boost"
+       ],
+       "type": "select",
+       "default": "On"
+      },
+      {
+       "key": "scaling_method",
+       "label": "Resolution Scaling Method",
+       "options": [
+        "No AA",
+        "TAAU",
+        "TSR",
+        "NVIDIA DLSS",
+        "AMD FSR 3",
+        "Intel XeSS"
+       ],
+       "type": "select",
+       "default": "NVIDIA DLSS"
+      },
+      {
+       "key": "frame_generation",
+       "label": "Frame Generation",
+       "options": [
+        "Off",
+        "FSR 3",
+        "DLSS"
+       ],
+       "type": "select",
+       "default": "Off"
+      },
+      {
+       "key": "vsync",
+       "label": "VSync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "motion_blur",
+       "label": "Motion Blur",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "overall_quality",
+       "label": "Overall Quality Level",
+       "options": [
+        "Low",
+        "Medium",
+        "High",
+        "Epic",
+        "Cinematic"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "rtxgi",
+       "label": "NVIDIA RTX Global Illumination",
+       "options": [
+        "Static",
+        "Dynamic - Low",
+        "Dynamic - Medium",
+        "Dynamic - High",
+        "Dynamic - Epic"
+       ],
+       "type": "select",
+       "default": "Dynamic - Medium"
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "show_reload_progress",
+       "label": "Show Reload Progress",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "show_damage_direction",
+       "label": "Show Damage Direction",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "crossplay",
+       "label": "Crossplay",
+       "type": "toggle",
+       "default": true
+      },
+      {
+       "key": "hud_position",
+       "label": "HUD Position",
+       "options": [
+        "Stretched",
+        "Fixed"
+       ],
+       "type": "select",
+       "default": "Stretched"
+      },
+      {
+       "key": "blocked_lof",
+       "label": "Move Crosshair When Line of Fire is Blocked",
+       "type": "toggle",
+       "default": true
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "move_forward",
+     "action": "Move Forward",
+     "default": "W"
+    },
+    {
+     "id": "move_backward",
+     "action": "Move Backward",
+     "default": "S"
+    },
+    {
+     "id": "move_left",
+     "action": "Move Left",
+     "default": "A"
+    },
+    {
+     "id": "move_right",
+     "action": "Move Right",
+     "default": "D"
+    },
+    {
+     "id": "fire_throw_deploy",
+     "action": "Fire / Throw / Deploy",
+     "default": "Left Mouse"
+    },
+    {
+     "id": "aim_hold",
+     "action": "Aim (Hold)",
+     "default": "Right Mouse"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Space"
+    },
+    {
+     "id": "sprint_hold",
+     "action": "Sprint (Hold)",
+     "default": "Left Shift"
+    },
+    {
+     "id": "crouch_hold",
+     "action": "Crouch (Hold)",
+     "default": "Left Ctrl"
+    },
+    {
+     "id": "crouch_toggle",
+     "action": "Crouch (Toggle)",
+     "default": "C"
+    },
+    {
+     "id": "dodge_roll",
+     "action": "Dodge Roll",
+     "default": "Left Alt"
+    },
+    {
+     "id": "walk_toggle",
+     "action": "Walk (Toggle)",
+     "default": "V"
+    },
+    {
+     "id": "interact",
+     "action": "Interact",
+     "default": "E"
+    },
+    {
+     "id": "reload",
+     "action": "Reload",
+     "default": "R"
+    },
+    {
+     "id": "shoulder_swap",
+     "action": "Shoulder Swap",
+     "default": "X"
+    },
+    {
+     "id": "weapon_1",
+     "action": "Weapon 1",
+     "default": "1"
+    },
+    {
+     "id": "weapon_2",
+     "action": "Weapon 2",
+     "default": "2"
+    },
+    {
+     "id": "weapon_melee",
+     "action": "Weapon Melee",
+     "default": "3"
+    },
+    {
+     "id": "unarmed",
+     "action": "Unarmed",
+     "default": "H"
+    },
+    {
+     "id": "items",
+     "action": "Items",
+     "default": "Q"
+    },
+    {
+     "id": "flashlight",
+     "action": "Flashlight",
+     "default": "F"
+    },
+    {
+     "id": "inventory",
+     "action": "Inventory",
+     "default": "Tab"
+    },
+    {
+     "id": "map",
+     "action": "Map",
+     "default": "M"
+    },
+    {
+     "id": "ping",
+     "action": "Ping",
+     "default": "Middle Mouse"
+    },
+    {
+     "id": "push_to_talk",
+     "action": "Push to Talk",
+     "default": "Z"
+    },
+    {
+     "id": "push_to_proximity",
+     "action": "Push to Proximity",
+     "default": "B"
+    }
+   ]
+  },
+  {
+   "id": "rocket_league",
+   "name": "Rocket League",
+   "publisher": "Psyonix / Epic Games",
+   "yaw": null,
+   "yaw_note": "Car game with a chase camera; no meaningful cm/360 conversion. Store camera + controller values instead.",
+   "sens_key": null,
+   "config_file": "Documents\\My Games\\Rocket League\\TAGame\\Config\\TASystemSettings.ini (graphics) + TAInput.ini; camera/controls in binary SaveData (.save) files.",
+   "sources": [
+    "https://www.epicgames.com/help/en-US/rocket-league-c5719357623323/basics-c7261959845275/what-are-camera-settings-in-rocket-league-a5720054403995"
+   ],
+   "sections": [
+    {
+     "id": "mouse",
+     "settings": [
+      {
+       "key": "steering_sens",
+       "label": "Steering Sensitivity",
+       "type": "slider",
+       "min": 0.1,
+       "max": 10,
+       "step": 0.01,
+       "default": 1.0,
+       "note": "Controller"
+      },
+      {
+       "key": "aerial_sens",
+       "label": "Aerial Sensitivity",
+       "type": "slider",
+       "min": 0.1,
+       "max": 10,
+       "step": 0.01,
+       "default": 1.0,
+       "note": "Controller"
+      },
+      {
+       "key": "deadzone",
+       "label": "Controller Deadzone",
+       "type": "slider",
+       "min": 0,
+       "max": 1,
+       "step": 0.01,
+       "default": 0.5
+      },
+      {
+       "key": "dodge_deadzone",
+       "label": "Dodge Deadzone",
+       "type": "slider",
+       "min": 0,
+       "max": 1,
+       "step": 0.01,
+       "default": 0.5
+      }
+     ]
+    },
+    {
+     "id": "audio",
+     "settings": [
+      {
+       "key": "master_volume",
+       "label": "Master Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "gameplay_volume",
+       "label": "Gameplay Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "ambient_volume",
+       "label": "Ambient Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "menu_music_volume",
+       "label": "Menu Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      },
+      {
+       "key": "ingame_music_volume",
+       "label": "In-Game Music Volume",
+       "type": "slider",
+       "min": 0,
+       "max": 100,
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "video",
+     "settings": [
+      {
+       "key": "window_mode",
+       "label": "Display Mode",
+       "options": [
+        "Fullscreen",
+        "Windowed",
+        "Borderless"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "resolution",
+       "label": "Resolution",
+       "type": "text",
+       "default": null
+      },
+      {
+       "key": "vsync",
+       "label": "Vertical Sync",
+       "type": "toggle",
+       "default": false
+      },
+      {
+       "key": "max_fps",
+       "label": "Frame Rate",
+       "options": [
+        "30",
+        "60",
+        "120",
+        "144",
+        "240",
+        "250",
+        "Uncapped"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "anti_aliasing",
+       "label": "Anti-Aliasing",
+       "options": [
+        "Off",
+        "FXAA Low",
+        "FXAA Medium",
+        "FXAA High",
+        "MLAA"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "render_quality",
+       "label": "Render Quality",
+       "options": [
+        "High Performance",
+        "Performance",
+        "Quality",
+        "High Quality"
+       ],
+       "type": "select",
+       "default": null
+      },
+      {
+       "key": "render_detail",
+       "label": "Render Detail",
+       "options": [
+        "Performance",
+        "Quality",
+        "High Quality",
+        "Custom"
+       ],
+       "type": "select",
+       "default": null
+      }
+     ]
+    },
+    {
+     "id": "gameplay",
+     "settings": [
+      {
+       "key": "cam_fov",
+       "label": "Field of View",
+       "type": "slider",
+       "min": 60,
+       "max": 110,
+       "default": 90
+      },
+      {
+       "key": "cam_distance",
+       "label": "Distance",
+       "type": "slider",
+       "min": 100,
+       "max": 400,
+       "default": 270
+      },
+      {
+       "key": "cam_height",
+       "label": "Height",
+       "type": "slider",
+       "min": 40,
+       "max": 200,
+       "default": 100
+      },
+      {
+       "key": "cam_angle",
+       "label": "Angle",
+       "type": "slider",
+       "min": -15,
+       "max": 0,
+       "default": -3
+      },
+      {
+       "key": "cam_stiffness",
+       "label": "Stiffness",
+       "type": "slider",
+       "min": 0,
+       "max": 1,
+       "default": 0.45
+      },
+      {
+       "key": "cam_swivel",
+       "label": "Swivel Speed",
+       "type": "slider",
+       "min": 1,
+       "max": 10,
+       "default": 2.5
+      },
+      {
+       "key": "cam_transition",
+       "label": "Transition Speed",
+       "type": "slider",
+       "min": 1,
+       "max": 2,
+       "default": 1.2
+      },
+      {
+       "key": "camera_shake",
+       "label": "Camera Shake",
+       "type": "toggle",
+       "default": true
+      }
+     ]
+    }
+   ],
+   "keybinds": [
+    {
+     "id": "throttle_forward",
+     "action": "Throttle Forward",
+     "default": "W"
+    },
+    {
+     "id": "throttle_reverse",
+     "action": "Throttle Reverse",
+     "default": "S"
+    },
+    {
+     "id": "steer_left",
+     "action": "Steer Left",
+     "default": "A"
+    },
+    {
+     "id": "steer_right",
+     "action": "Steer Right",
+     "default": "D"
+    },
+    {
+     "id": "jump",
+     "action": "Jump",
+     "default": "Right Mouse"
+    },
+    {
+     "id": "boost",
+     "action": "Boost",
+     "default": "Left Mouse"
+    },
+    {
+     "id": "powerslide",
+     "action": "Powerslide",
+     "default": "Left Shift"
+    },
+    {
+     "id": "air_roll",
+     "action": "Air Roll",
+     "default": "Left Shift"
+    },
+    {
+     "id": "air_roll_left",
+     "action": "Air Roll Left",
+     "default": "Q"
+    },
+    {
+     "id": "air_roll_right",
+     "action": "Air Roll Right",
+     "default": "E"
+    },
+    {
+     "id": "ball_cam",
+     "action": "Ball Cam",
+     "default": "Space"
+    },
+    {
+     "id": "rear_view",
+     "action": "Rear View",
+     "default": "Middle Mouse",
+     "note": "verify"
+    },
+    {
+     "id": "scoreboard",
+     "action": "Scoreboard",
+     "default": "Tab"
+    },
+    {
+     "id": "quick_chat",
+     "action": "Quick Chat",
+     "default": "1 / 2 / 3 / 4"
+    }
+   ]
+  }
+ ]
+}

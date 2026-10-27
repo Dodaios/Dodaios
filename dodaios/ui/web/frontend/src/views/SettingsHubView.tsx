@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
  * page over the user's current section, with a searchable left navigation
  * (General · System · Activity) and the selected section on the right:
  *
- *   General: General, Keyboard shortcuts, Appshots, My Pets, Profile,
+ *   General: General, Keyboard shortcuts, Appshots, My Pets, Game settings, Profile,
  *            {name} (the assistant), Socials
  *   System: Computers, API Keys
  *   Activity: Spend, Feedback
@@ -78,6 +78,9 @@ const ShortcutsTab = lazy(() =>
 const PetsTab = lazy(() =>
   import("@/views/PetsView").then((m) => ({ default: m.PetsView })),
 );
+const GamesTab = lazy(() =>
+  import("@/views/GamesView").then((m) => ({ default: m.GamesView })),
+);
 const CostsTab = lazy(() =>
   import("@/views/CostsView").then((m) => ({ default: m.CostsView })),
 );
@@ -93,6 +96,7 @@ type HubNavId =
   | "shortcuts"
   | "appshots"
   | "pets"
+  | "games"
   | "profile"
   | "agent-instructions"
   | "socials"
@@ -109,6 +113,7 @@ const HUB_NAV_GROUPS: readonly { labelKey: string; ids: readonly HubNavId[] }[] 
       "shortcuts",
       "appshots",
       "pets",
+      "games",
       "profile",
       "agent-instructions",
       "socials",
@@ -135,6 +140,7 @@ const TAB_CONTENT: Record<HubNavId | "telephony-setup", LazyExoticComponent<Comp
   appshots: AppshotsTab,
   shortcuts: ShortcutsTab,
   pets: PetsTab,
+  games: GamesTab,
   costs: CostsTab,
   feedback: FeedbackTab,
 };
@@ -165,6 +171,8 @@ function resolveHubTab(active: string): { content: HubNavId | "telephony-setup";
       return { content: "shortcuts", highlight: "shortcuts" };
     case "pets":
       return { content: "pets", highlight: "pets" };
+    case "games":
+      return { content: "games", highlight: "games" };
     case "costs":
       return { content: "costs", highlight: "costs" };
     case "feedback":

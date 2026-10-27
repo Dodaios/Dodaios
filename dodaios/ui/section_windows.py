@@ -5,7 +5,7 @@ WINDOW_GROUPS: dict[str, tuple[str, ...]] = {
     "settings": (
         "settings", "taskbar", "languages", "profile", "agent-instructions",
         "socials", "apikeys", "telephony", "telephony-setup", "computers",
-        "appshots", "shortcuts", "pets", "costs", "feedback",
+        "appshots", "shortcuts", "pets", "games", "costs", "feedback",
     ),
     "plugins": ("plugins", "mcps", "skills"),
     "clis": ("clis", "cli-test-hub"),

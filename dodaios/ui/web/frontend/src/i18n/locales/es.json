@@ -334,7 +334,8 @@
     "voice_api_keys": "Claves API",
     "shortcuts": "Atajos de teclado",
     "pets": "Mis mascotas",
-    "self_build": "Hecho para ti"
+    "self_build": "Hecho para ti",
+    "games": "Ajustes de juegos"
   },
   "assistant_view": {
     "header_named": "Tu asistente en {0}, se despierta con «{1}».",
@@ -7754,7 +7755,7 @@
       "write_other": "creó archivos",
       "image_one": "vio una imagen",
       "image_other": "vio imágenes",
-      "used": "usó {what}",
+      "used": "usó {what}",
       "lookup_one": "consultó herramientas",
       "lookup_other": "consultó herramientas",
       "asked_one": "te preguntó",
@@ -7766,7 +7767,7 @@
       "search": "Buscó {pattern}",
       "search_in": "Buscó {pattern} en {path}",
       "edit": "Editó {target}",
-      "write": "Creó {target}",
+      "write": "Creó {target}",
       "lookup": "Consultó herramientas",
       "asked": "Te preguntó"
     },
@@ -10802,6 +10803,58 @@
       "reach_everything": "Todo en este chat",
       "reach_tool_plain": "Toda la herramienta",
       "cancel": "Cancelar"
+    }
+  },
+  "games": {
+    "title": "Ajustes de juegos",
+    "subtitle": "Tu sensibilidad, controles, audio y vídeo de cada juego en un solo lugar, y un conversor que lleva tu puntería de un juego a otro.",
+    "default_dpi": "DPI del ratón",
+    "search": "Buscar juegos",
+    "saved_badge": "Guardado",
+    "load_error": "No se pudieron cargar los ajustes de juegos: {0}",
+    "save_error": "No se guardó: {0}",
+    "section_empty": "Este juego aún no tiene ajustes aquí.",
+    "game_dpi": "DPI para este juego",
+    "follow_default": "Usa el valor por defecto de {0} DPI.",
+    "cm360": "cm/360",
+    "cm360_hint": "Recorrido del ratón para un giro completo.",
+    "edpi": "eDPI",
+    "not_convertible": "La sensibilidad de este juego no es lineal, así que no se puede convertir.",
+    "keybind_hint": "Haz clic en una tecla y luego pulsa una tecla, un botón del ratón o gira la rueda. Esc cancela.",
+    "keybind_press": "Pulsa una tecla…",
+    "keybind_unbound": "Sin asignar",
+    "keybind_clear": "Quitar",
+    "keybind_reset": "Por defecto",
+    "keybind_conflict": "También la usa: {0}",
+    "default_value": "Por defecto: {0}",
+    "unset": "Sin definir",
+    "reset_field": "Volver al valor del juego",
+    "on": "Sí",
+    "off": "No",
+    "converter_hint": "La misma sensación en cada juego: los mismos cm/360 con tu DPI. Solo disparo desde la cadera; los multiplicadores de mira dependen de cada juego.",
+    "converter_from": "Tu sensibilidad en {0}",
+    "converter_target_dpi": "DPI de destino (opcional)",
+    "converter_game": "Juego",
+    "converter_sens": "Sensibilidad",
+    "converter_apply": "Guardar",
+    "converter_applied": "{0} guardado para {1}.",
+    "converter_unavailable": "{0} no tiene sensibilidad lineal, así que no se puede convertir.",
+    "notes": "Notas",
+    "notes_placeholder": "Mira, rutinas, todo lo que quieras recordar.",
+    "config_file": "Dónde guarda el juego sus ajustes",
+    "copy": "Copiar",
+    "copied": "Copiado al portapapeles.",
+    "copy_failed": "No se pudo copiar.",
+    "reset_profile": "Restablecer",
+    "reset_confirm": "Haz clic otra vez para restablecer",
+    "reset_done": "{0} vuelve a los valores por defecto.",
+    "tabs": {
+      "mouse": "Ratón",
+      "keybinds": "Controles",
+      "audio": "Audio",
+      "video": "Vídeo",
+      "gameplay": "Jugabilidad",
+      "converter": "Conversor"
     }
   }
 }
