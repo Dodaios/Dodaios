@@ -21,6 +21,11 @@ git() {
       if [ "$2" = HEAD ]; then printf '%s\n' "$FAKE_SHA";
       else printf '%s\n' "$TAG_SHA"; fi ;;
     merge-base) return "$ANCESTOR_EXIT" ;;
+    diff)
+      case "$*" in
+        *--quiet*) return "$BUNDLE_DIFF_EXIT" ;;
+        *--name-only*) printf "$STAGED_PATHS" ;;
+      esac ;;
     show-ref) return "$TAG_EXISTS" ;;
     show) printf '[project]\n' ;;
     checkout) : > checked-out ;;
@@ -43,6 +48,9 @@ gh() {
     api\ *) printf '%s\n' "$GATE_STATE" ;;
     *) return 2 ;;
   esac
+}
+python3() {
+  printf 'python3 %s\n' "$*" >> "$TRACE_FILE"
 }
 python() {
   printf 'python %s\n' "$*" >> "$TRACE_FILE"
@@ -78,7 +86,11 @@ def _exercise(
         pytest.skip("the workflow shell requires Bash")
     root = Path(__file__).resolve().parents[3]
     workflow = yaml.safe_load((root / ".github/workflows" / workflow_name).read_text("utf-8"))
+    # Steps of the named job first; a release spans several jobs (cut, tag).
     steps = {step.get("name"): step for step in workflow["jobs"][job_id]["steps"]}
+    for job in workflow["jobs"].values():
+        for step in job.get("steps", []):
+            steps.setdefault(step.get("name"), step)
     trace = tmp_path / "commands.txt"
     script = tmp_path / "release-test.sh"
     script.write_text(
@@ -118,6 +130,10 @@ def _exercise(
             "TAG_PUSHED": "true",
             "CANDIDATE": "release-cut/v1.2.3-77-2",
             "CANDIDATE_SHA": _SHA,
+            "SHA": _SHA,
+            "DIST": "dodaios/ui/web/dist",
+            "BUNDLE_DIFF_EXIT": "0",
+            "STAGED_PATHS": "",
             **overrides,
         },
         capture_output=True,
@@ -181,13 +197,13 @@ def _release_cut_jobs() -> dict:
 def test_a_tag_that_does_not_get_published_is_reported():
     # v3.1.0, v4.0.0 and v4.1.0 stayed drafts behind a pushed tag, unnoticed (#522).
     jobs = _release_cut_jobs()
-    assert jobs["cut"]["outputs"]["tagged"] == "${{ steps.tag.outcome == 'success' }}"
+    assert jobs["tag"]["outputs"]["tagged"] == "${{ steps.tag.outcome == 'success' }}"
     stranded = jobs["stranded"]
-    assert stranded["needs"] == ["cut", "publish"]
+    assert stranded["needs"] == ["cut", "tag", "publish"]
     condition = stranded["if"]
     # always(): the report must run when publish failed, was skipped or cancelled.
     assert condition.startswith("always()")
-    assert "needs.cut.outputs.tagged == 'true'" in condition
+    assert "needs.tag.outputs.tagged == 'true'" in condition
     assert "needs.publish.result != 'success'" in condition
     assert stranded["permissions"] == {"issues": "write"}
 
@@ -316,7 +332,9 @@ def test_resume_requires_merged_current_version_and_admission(tmp_path, override
         assert not any(command.startswith("git checkout ") for command in commands)
     if success:
         assert commands[-1] == "git push origin v1.2.3"
-        assert (tmp_path / "outputs.txt").read_text("utf-8") == "version=1.2.3\npushed=true\n"
+        assert (tmp_path / "outputs.txt").read_text("utf-8") == (
+            f"version=1.2.3\nsha={_SHA}\npushed=true\n"
+        )
     else:
         assert not any(command.startswith("git tag ") for command in commands)
         assert "git push origin v1.2.3" not in commands
@@ -330,3 +348,54 @@ def test_resume_names_the_version_commit_when_given_a_later_one(tmp_path):
     assert "does not introduce v1.2.3" in result.stdout
     assert f"git log --format=%H %s -S## [1.2.3] {_SHA} -- CHANGELOG.md" in commands
     assert not (tmp_path / "outputs.txt").exists()
+
+
+_TAG = "Tag the admitted release"
+_ADD = "git add -f -A -- dodaios/ui/web/dist"
+_COMMIT = "git commit -q -m chore(release): frontend bundle for v1.2.3"
+
+
+def test_tag_carries_a_bundle_commit_on_the_admitted_commit(tmp_path):
+    result, commands = _exercise(
+        tmp_path,
+        [_TAG],
+        job_id="tag",
+        BUNDLE_DIFF_EXIT="1",
+        STAGED_PATHS="dodaios/ui/web/dist/index.html\\n",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    prune = "python3 scripts/ci/check_dist_consistency.py --staged --prune"
+    assert commands.index(_ADD) < commands.index(prune) < commands.index(_COMMIT)
+    assert commands.index(_COMMIT) < commands.index("git tag -a v1.2.3 -m v1.2.3")
+    assert commands[-1] == "git push origin v1.2.3"
+
+
+def test_tag_refuses_a_bundle_that_touches_anything_else(tmp_path):
+    result, commands = _exercise(
+        tmp_path,
+        [_TAG],
+        job_id="tag",
+        BUNDLE_DIFF_EXIT="1",
+        STAGED_PATHS="dodaios/ui/web/dist/index.html\\ndodaios/core/config.py\\n",
+    )
+    assert result.returncode != 0
+    assert not any(command.startswith("git tag ") for command in commands)
+    assert _COMMIT not in commands
+
+
+def test_an_unchanged_bundle_tags_the_admitted_commit_itself(tmp_path):
+    result, commands = _exercise(tmp_path, [_TAG], job_id="tag")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _COMMIT not in commands
+    assert commands[-1] == "git push origin v1.2.3"
+
+
+def test_bundle_job_builds_without_secrets():
+    root = Path(__file__).resolve().parents[3]
+    jobs = yaml.safe_load((root / ".github/workflows/release-cut.yml").read_text("utf-8"))["jobs"]
+    bundle = jobs["bundle"]
+    assert bundle["permissions"] == {"contents": "read"}
+    assert "environment" not in bundle
+    assert "secrets." not in yaml.safe_dump(bundle)
+    assert jobs["tag"]["needs"] == ["cut", "bundle"]
+    assert "npm" not in yaml.safe_dump(jobs["tag"])
