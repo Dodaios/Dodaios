@@ -193,3 +193,43 @@ def test_runner_labels_cover_every_cli_runner() -> None:
 
     for runner in get_args(Runner):
         assert turn_errors.runner_label(runner) and "-cli" not in turn_errors.runner_label(runner)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (
+            "2026-10-27 17:05:19 [ERROR] provider: HTTP 429 usage limit reached, "
+            "resets at 2026-10-28T15:04:00Z",
+            "The usage limit for this model is used up. It resets at 2026-10-28T15:04:00Z.",
+        ),
+        (
+            "You've hit your usage limit. " + "Upgrade for more. " * 40
+            + "try again at Oct 15th, 2026 3:37 PM",
+            "The usage limit for this model is used up. "
+            "You can try again at Oct 15th, 2026 3:37 PM.",
+        ),
+        (
+            "Internal error: usage limit reached; resets at 2026-10-28T15:04:00Z",
+            "The usage limit for this model is used up. It resets at 2026-10-28T15:04:00Z.",
+        ),
+        (
+            "error:\nrequest failed\nstatus 400\ncontext_length_exceeded: prompt is too long",
+            "The conversation no longer fits this model's context window.",
+        ),
+    ],
+)
+def test_a_dump_naming_a_spent_allowance_or_full_window_keeps_that_meaning(
+    raw: str, expected: str
+) -> None:
+    # The card hides Retry until the reset and offers the context action, so a
+    # long or logged usage-limit error must not become the generic crash reason.
+    reason, details = readable_turn_error(raw, runner="openclaw-cli")
+    assert reason == expected
+    assert details
+
+
+def test_redact_hides_a_profile_folder_with_spaces() -> None:
+    out = redact("C:/Users/First Last/proj/a.py and /home/first last/b")
+    assert "Last" not in out and "last" not in out
+    assert out == "~/proj/a.py and ~/b"

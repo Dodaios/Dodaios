@@ -4,7 +4,7 @@ import en from "@/i18n/locales/en.json";
 import es from "@/i18n/locales/es.json";
 import pt from "@/i18n/locales/pt.json";
 import zh from "@/i18n/locales/zh.json";
-import { resetTimeLabel, turnErrorText, turnErrorView } from "./turnError";
+import { redactDetails, resetTimeLabel, turnErrorText, turnErrorView } from "./turnError";
 
 const CODES = [
   "mandated_tool_unfulfilled",
@@ -164,5 +164,24 @@ describe("turnErrorView for runtime failures", () => {
       for (const key of ["stall", "stall_local"]) expect(block.errors[key]).toMatch(/\{runtime\}[\s\S]*\{minutes\}|\{minutes\}[\s\S]*\{runtime\}/);
       for (const key of ["internal", "crashed"]) expect(block.errors[key]).toContain("{runtime}");
     }
+  });
+});
+
+describe("redactDetails for a profile folder with spaces", () => {
+  it("hides the whole folder name, not only its first word", () => {
+    const out = redactDetails("C:/Users/First Last/proj/a.py and /home/first last/b");
+    expect(out).toBe("~/proj/a.py and ~/b");
+  });
+});
+
+describe("turnErrorView for the backend's usage-limit reason", () => {
+  it("keeps Retry hidden until the vendor's reset time", () => {
+    const t = (key: string) => key;
+    const now = new Date("2026-10-14T12:00:00");
+    const view = turnErrorView("The usage limit for this model is used up. You can try again at Oct 15th, 2026 3:37 PM.", "raw", t, now)!;
+    expect(view.reason).toBe("thread_turn.errors.usage_limit_until");
+    expect(view.retryable).toBe(false);
+    const iso = turnErrorView("The usage limit for this model is used up. It resets at 2026-10-28T15:04:00Z.", null, t, now)!;
+    expect(iso.retryable).toBe(false);
   });
 });
