@@ -661,13 +661,14 @@ class SocietyStore:
         await cur.close()
         runs, cost, last = row or (0, 0.0, None)
         cur = await self.conn.execute(
-            "SELECT SUM(CASE WHEN EXISTS ("
-            "  SELECT 1 FROM society_events e WHERE e.from_agent = t.agent_id "
-            "  AND e.msg_type = 'RESULT' "
-            "  AND json_extract(e.payload_json, '$.run_id') = 'turn:' || t.turn_id"
+            # The agent's RESULT run ids are read once (not per turn); a turn
+            # that has one is already counted among the RESULTs above.
+            "SELECT SUM(CASE WHEN 'turn:' || t.turn_id IN ("
+            "  SELECT json_extract(e.payload_json, '$.run_id') FROM society_events e "
+            "  WHERE e.from_agent = ? AND e.msg_type = 'RESULT'"
             ") THEN 0 ELSE 1 END), MAX(t.ts_ms) "
             "FROM society_agent_turns t WHERE t.agent_id = ?",
-            (agent_id,),
+            (agent_id, agent_id),
         )
         turn_row = await cur.fetchone()
         await cur.close()

@@ -141,3 +141,23 @@ async def test_earlier_turns_are_read_back_once(store: SocietyStore):
     await second.start()
     await second.close()
     assert (await store.agent_stats("ada"))["runs"] == 2
+
+
+async def test_results_without_a_run_id_leave_chat_turns_counted(store: SocietyStore):
+    # A RESULT with no run_id must not hide the chat turns (SQL NULL in IN).
+    await store.append_and_publish(
+        SocietyEnvelope(
+            msg_type=MsgType.RESULT,
+            from_agent="ada",
+            trace_id="t",
+            payload={"status": "done", "done": "x", "output": []},
+        )
+    )
+    await store.record_chat_turns([
+        ("t1", "ada", "society:ada", 1_000, "done"),
+        ("t2", "ada", "society:ada", 2_000, "done"),
+    ])
+    await store.append_and_publish(_result("ada", "turn:t2"))
+    # Another agent's RESULT for the same turn id does not dedupe ada's turn.
+    await store.append_and_publish(_result("bob", "turn:t1"))
+    assert (await store.agent_stats("ada"))["runs"] == 3
