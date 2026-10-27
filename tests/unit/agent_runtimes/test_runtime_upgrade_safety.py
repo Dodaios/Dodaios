@@ -348,6 +348,13 @@ def test_the_official_install_answers_before_path(tmp_path, monkeypatch):
     assert found is not None and Path(found).parent == other
 
 
+def test_the_windows_install_location_keeps_its_cmd_launcher(tmp_path, monkeypatch):
+    monkeypatch.setattr(hermes, "is_windows", lambda: True)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    bin_dir = tmp_path / "hermes" / "bin"
+    assert hermes._install_locations() == [bin_dir / "hermes.exe", bin_dir / "hermes.cmd"]
+
+
 def test_the_user_path_is_never_edited_for_a_temporary_entry(tmp_path, monkeypatch):
     from dodaios.agent_runtimes import path_cleanup
 
