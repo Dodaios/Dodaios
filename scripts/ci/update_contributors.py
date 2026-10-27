@@ -52,6 +52,9 @@ EXCLUDED_LOGINS = frozenset({"claude"})
 PER_ROW = 10
 AVATAR_PX = 48
 
+#: Inline marker that scripts/ci/check_no_new_german.py skips.
+LANGUAGE_GATE_ESCAPE = "i18n-allow"
+
 
 def fetch_contributors() -> list[dict]:
     """Every human contributor, most commits first."""
@@ -103,7 +106,12 @@ def render(people: list[dict]) -> str:
         f'width="{AVATAR_PX}" height="{AVATAR_PX}" alt="{p["login"]}"></a>'
         for p in people
     ]
-    rows = [" ".join(cells[i : i + PER_ROW]) for i in range(0, len(cells), PER_ROW)]
+    # GitHub logins are names, not prose: a login made of German words must not
+    # trip the output-language gate, so every row carries its escape marker.
+    rows = [
+        " ".join(cells[i : i + PER_ROW]) + f" <!-- {LANGUAGE_GATE_ESCAPE} -->"
+        for i in range(0, len(cells), PER_ROW)
+    ]
     return "\n".join(rows)
 
 
