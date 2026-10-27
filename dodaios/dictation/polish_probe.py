@@ -109,7 +109,8 @@ async def _default_ollama_state(family: Any) -> dict[str, Any]:
             resp = await client.get(f"{root}/api/tags")
             resp.raise_for_status()
             rows = (resp.json() or {}).get("models") or []
-        except (httpx.HTTPError, ValueError, AttributeError):
+        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            log.debug("polish probe: Ollama /api/tags at %s failed (%s)", root, exc)
             return state
         state["reachable"] = True
         state["installed"] = tuple(
@@ -122,8 +123,8 @@ async def _default_ollama_state(family: Any) -> dict[str, Any]:
             state["loaded"] = tuple(
                 str(r.get("name") or "") for r in rows if isinstance(r, dict) and r.get("name")
             )
-        except (httpx.HTTPError, ValueError, AttributeError):
-            pass
+        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            log.debug("polish probe: Ollama /api/ps at %s failed (%s)", root, exc)
     return state
 
 
