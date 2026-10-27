@@ -193,6 +193,8 @@ def verify_signature(
         try:
             key.verify(raw_signature, data)
         except InvalidSignature:
+            # Not this key; during a rotation another pinned key may have
+            # signed. No key matching is reported below.
             continue
         return
     raise UpdateManifestError(
