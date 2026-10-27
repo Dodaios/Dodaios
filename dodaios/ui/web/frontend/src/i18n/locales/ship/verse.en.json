@@ -119,7 +119,8 @@
       "mouse_lock": "In third and first person a click on the view takes the mouse: moving it turns the camera, the left button works what the crosshair is on. Esc gives it back; L takes or releases it too.",
       "reset": "Reset",
       "fov_third": "Field of view, third person",
-      "fov_first": "Field of view, first person"
+      "fov_first": "Field of view, first person",
+      "volume": "Sound volume"
     },
     "lift": {
       "title": "Turbolift",

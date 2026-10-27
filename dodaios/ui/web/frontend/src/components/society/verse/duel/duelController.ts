@@ -137,6 +137,7 @@ export class DuelController {
   pause(): void {
     if (this.phase !== "running") return;
     this.input.clear();
+    this.sound?.silence();
     this.setPhase("paused");
   }
 
@@ -161,6 +162,7 @@ export class DuelController {
     this.duel?.dispose();
     this.duel = null;
     this.input.clear();
+    this.sound?.silence();
     this.visualEvents.length = 0;
     this.setPhase("off");
     this.onExit?.(at);
@@ -256,7 +258,7 @@ export class DuelController {
       if (count !== this.lastCount && count > 0) this.sound?.tick(count === 1);
       this.lastCount = count;
       const cam = this.camera.pose.position;
-      this.sound?.play(events, view.slot, { x: cam.x, z: cam.z, yaw: this.camera.yaw });
+      this.sound?.play(events, view.slot, { x: cam.x, z: cam.z, yaw: this.camera.yaw }, view.players);
     }
     for (const e of events) this.visualEvents.push(e);
     // A burst the renderer never drained (a hidden stage) is not kept forever.

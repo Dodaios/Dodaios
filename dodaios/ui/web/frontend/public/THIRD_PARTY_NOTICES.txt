@@ -550,3 +550,12 @@ remaining public/provider-logos and public/agent-logos SVGs, or for
 public/plugin-assets/slack-logo.svg. Their provenance remains unverified;
 the source ledgers above do not assign a license to these separate files.
 Vendor names and trademarks belong to their owners.
+
+----------------------------------------------------------------------
+
+Verse sound effects
+
+The recordings under public/verse/audio come from Freesound.org and the
+Kenney.nl Impact Sounds and RPG Audio packs, all released under CC0 1.0
+(https://creativecommons.org/publicdomain/zero/1.0/). Each source, its
+author and page are listed in public/verse/audio/CREDITS.md.

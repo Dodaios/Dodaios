@@ -119,7 +119,8 @@
       "mouse_lock": "Em terceira e primeira pessoa um clique na vista captura o mouse: movê-lo gira a câmera e o botão esquerdo usa o que a mira aponta. Esc o libera; L também o captura ou libera.",
       "reset": "Redefinir",
       "fov_third": "Campo de visão, terceira pessoa",
-      "fov_first": "Campo de visão, primeira pessoa"
+      "fov_first": "Campo de visão, primeira pessoa",
+      "volume": "Volume do som"
     },
     "lift": {
       "title": "Turboelevador",
