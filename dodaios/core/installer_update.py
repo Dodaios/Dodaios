@@ -61,6 +61,13 @@ from dodaios.core.branding import (
 )
 from dodaios.core.frozen import bundle_root, is_frozen
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.update_manifest import (
+    MAX_MANIFEST_BYTES,
+    MAX_SIGNATURE_BYTES,
+    UPDATE_MANIFEST_ASSET_NAME,
+    UpdateManifestError,
+    verify_update_manifest,
+)
 
 log = logging.getLogger(__name__)
 
@@ -73,6 +80,7 @@ __all__ = [
     "HttpxAssetFetcher",
     "InstallerAsset",
     "InstallerUpdateError",
+    "SignedManifestAssets",
     "UpdateBlocker",
     "SubprocessCommandRunner",
     "apply_installer",
@@ -146,6 +154,19 @@ class InstallerAsset:
     def as_dict(self) -> dict[str, Any]:
         """The shape the update status route publishes to the UI."""
         return {"name": self.name, "url": self.url, "size": self.size}
+
+
+@dataclass(frozen=True)
+class SignedManifestAssets:
+    """The signed update manifest of one release, and the version it must name.
+
+    See :mod:`dodaios.core.update_manifest`. ``version`` is the version of the
+    release the caller is installing; the signed manifest must name exactly it.
+    """
+
+    manifest: InstallerAsset
+    signature: InstallerAsset
+    version: str
 
 
 # --------------------------------------------------------------------------- #
@@ -431,7 +452,7 @@ class HttpxAssetFetcher:
                     body.extend(chunk)
                     if len(body) > max_bytes:
                         raise InstallerUpdateError(
-                            f"checksum manifest is larger than {max_bytes} bytes — refusing it"
+                            f"release manifest is larger than {max_bytes} bytes — refusing it"
                         )
         return bytes(body).decode("utf-8", errors="replace")
 
@@ -490,8 +511,17 @@ async def download_and_verify(
     on_progress: DownloadProgress | None = None,
     download_timeout_s: float = DOWNLOAD_TIMEOUT_S,
     alternatives: Sequence[InstallerAsset] = (),
+    signed: SignedManifestAssets | None = None,
 ) -> Path:
     """Download ``asset`` and prove it against ``checksums``. Fail closed.
+
+    ``signed`` is the release's signed update manifest. When given, the
+    checksum manifest is trusted only after the Ed25519 signature over the
+    update manifest verifies against the pinned release key, the signed
+    version equals ``signed.version`` and the signed digest equals the
+    checksum manifest's own SHA-256 — all before a byte of the installer is
+    fetched. The in-app updater always passes it; ``None`` keeps the bare
+    checksum check for callers that have no release to bind to.
 
     ``alternatives`` are further assets of the SAME release holding the same
     installer under another accepted name, in order of preference after
@@ -539,6 +569,9 @@ async def download_and_verify(
         ) from exc
     except Exception as exc:  # noqa: BLE001 — every transport error is the same refusal
         raise InstallerUpdateError(f"could not download {CHECKSUMS_ASSET_NAME}: {exc}") from exc
+
+    if signed is not None:
+        await _verify_signed_manifest(active, signed, manifest_text)
 
     digests = parse_sha256sums(manifest_text)
     candidates = (asset, *alternatives)
@@ -589,6 +622,42 @@ async def download_and_verify(
 
     log.info("[update] verified %s (%d bytes, sha256 %s)", asset.name, written, actual)
     return target
+
+
+async def _fetch_small_text(active: AssetFetcher, asset: InstallerAsset, max_bytes: int) -> str:
+    """Fetch one small release document; every failure is the same refusal."""
+    try:
+        return await asyncio.wait_for(
+            active.get_text(asset.url, max_bytes=max_bytes), timeout=READ_TIMEOUT_S
+        )
+    except InstallerUpdateError:
+        raise
+    except TimeoutError as exc:
+        raise InstallerUpdateError(
+            f"{asset.name} did not arrive within {READ_TIMEOUT_S:.0f}s"
+        ) from exc
+    except Exception as exc:  # noqa: BLE001 — every transport error is the same refusal
+        raise InstallerUpdateError(f"could not download {asset.name}: {exc}") from exc
+
+
+async def _verify_signed_manifest(
+    active: AssetFetcher, signed: SignedManifestAssets, checksums_text: str
+) -> None:
+    """Prove the checksum manifest is the one the release key signed for this version."""
+    manifest_text = await _fetch_small_text(active, signed.manifest, MAX_MANIFEST_BYTES)
+    signature_text = await _fetch_small_text(active, signed.signature, MAX_SIGNATURE_BYTES)
+    try:
+        # Both documents are ASCII as published, so the text round trip
+        # returns their exact bytes; anything else fails the signature check.
+        verified = verify_update_manifest(
+            manifest_text.encode("utf-8"),
+            signature_text,
+            checksums=checksums_text.encode("utf-8"),
+            expected_version=signed.version,
+        )
+    except UpdateManifestError as exc:
+        raise InstallerUpdateError(f"{UPDATE_MANIFEST_ASSET_NAME}: {exc}") from exc
+    log.info("[update] signed update manifest verified for %s", verified.tag)
 
 
 def _prepare_target(dest_dir: Path, name: str) -> Path:
@@ -839,6 +908,39 @@ def _handover_windows(
 MACOS_OPEN = "/usr/bin/open"
 
 
+#: Pauses before re-trying an ``hdiutil attach`` that failed only because the
+#: disk-image machinery was busy (EAGAIN, "Resource temporarily unavailable").
+_ATTACH_BUSY_RETRY_DELAYS_S = (2.0, 5.0)
+_ATTACH_BUSY_MARKER = "resource temporarily unavailable"
+
+
+def _attach_dmg(dmg: Path, mountpoint: Path, runner: CommandRunner) -> tuple[int, str]:
+    """``hdiutil attach`` the image read-only; a busy refusal is tried again.
+
+    macOS answers an attach with EAGAIN while diskarbitrationd is still busy
+    with another image (seen on CI runners right after one was detached). It
+    is transient, so it gets a short bounded retry instead of failing the
+    update. Every other error is final at once. Returns ``(rc, stderr)``.
+    """
+    command = [
+        "hdiutil",
+        "attach",
+        str(dmg),
+        "-nobrowse",
+        "-readonly",
+        "-mountpoint",
+        str(mountpoint),
+    ]
+    rc, _out, err = runner.run(command, timeout_s=180.0)
+    for delay in _ATTACH_BUSY_RETRY_DELAYS_S:
+        if rc == 0 or _ATTACH_BUSY_MARKER not in err.lower() or _is_mounted(mountpoint):
+            break
+        log.info("[update] hdiutil is busy, attaching %s again in %.0fs", dmg.name, delay)
+        time.sleep(delay)
+        rc, _out, err = runner.run(command, timeout_s=180.0)
+    return rc, err
+
+
 def _is_mounted(path: Path) -> bool:
     """Whether a volume is mounted at ``path`` (a seam for the tests)."""
     return os.path.ismount(path)
@@ -892,18 +994,7 @@ def _handover_macos(
     mountpoint = Path(tempfile.mkdtemp(prefix="jarvis-dmg-"))
     attached = False
     try:
-        rc, _out, err = runner.run(
-            [
-                "hdiutil",
-                "attach",
-                str(dmg),
-                "-nobrowse",
-                "-readonly",
-                "-mountpoint",
-                str(mountpoint),
-            ],
-            timeout_s=180.0,
-        )
+        rc, err = _attach_dmg(dmg, mountpoint, runner)
         if rc != 0:
             raise InstallerUpdateError(
                 f"could not mount {dmg.name}: {err.strip()[:200] or 'hdiutil failed'}"

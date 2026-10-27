@@ -34,13 +34,13 @@
       "nothing": "Nada nuevo."
     },
     "shelf": {
-      "waiting": "Te necesita",
+      "waiting": "Esperan tu visto bueno",
       "waiting_hint": "Nada se crea hasta que digas que sí.",
       "kept": "Conservado",
       "kept_hint": "Se ganó su sitio. Aún se puede deshacer.",
-      "past": "Archivado y deshecho",
+      "past": "Archivados",
       "past_hint": "Los ayudantes archivados se pueden restaurar.",
-      "live": "Trabajando para ti",
+      "live": "Activos",
       "live_hint": "En prueba y señalado. Deshacer lo quita por completo."
     },
     "show_past": "Mostrar {count}",
@@ -153,7 +153,7 @@
       "code": "Cambios de código"
     },
     "noticed": {
-      "title": "Notado hasta ahora",
+      "title": "Detectado",
       "hint": "Solo cuenta lo que pides tú.",
       "empty": "Todavía no se repite nada.",
       "empty_hint": "Sigue trabajando como siempre. {name} cuenta en silencio en este ordenador.",
@@ -199,6 +199,18 @@
     "based_on_one": "Basado en {count} petición",
     "based_on_other": "Basado en {count} peticiones",
     "details": "Detalles",
-    "stop_footer": "¿Necesitas que todo se detenga a la vez?"
+    "stop_footer": "¿Necesitas que todo se detenga a la vez?",
+    "page": {
+      "subtitle": "Cuando le pides a {name} lo mismo una y otra vez, te ofrece crear un pequeño ayudante que lo haga por ti.",
+      "learning_title": "Aprendiendo cómo trabajas · día {day} de {days}",
+      "learning_body": "Las sugerencias pueden aparecer a partir del {date}. Hasta entonces {name} solo toma notas.",
+      "learning_body_nodate": "Durante los primeros {days} días {name} solo toma notas.",
+      "empty_title": "Aún no hay nada",
+      "empty_body": "Sigue usando {name} como siempre. Cuando pidas lo mismo en {days} días distintos, aparecerá aquí una sugerencia.",
+      "noticed_rule": "Aparece una sugerencia cuando algo se pide en {days} días distintos.",
+      "how_toggle": "¿Cómo funciona?",
+      "pause_hint": "No se detecta ni se crea nada nuevo. Tus ayudantes siguen funcionando.",
+      "stop_hint": "Detiene todos los agentes, misiones y rutinas en marcha."
+    }
   }
 }

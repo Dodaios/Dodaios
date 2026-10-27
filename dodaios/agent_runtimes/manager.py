@@ -338,7 +338,6 @@ def _failure_message(label: str, kind: str, code: int, runtime: str) -> str:
 
 async def _run(current: RuntimeJob, argv: list[str], env: dict[str, str] | None = None) -> None:
     from dodaios.core.process_tree import make_process_tree
-    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     target = driver(current.runtime)
     if current.kind == "update":
@@ -346,9 +345,43 @@ async def _run(current: RuntimeJob, argv: list[str], env: dict[str, str] | None 
     path = _log_path(current.runtime)
     missing = _missing_launcher(argv)
     tree = make_process_tree(f"{current.runtime}-{current.kind}")
+    # The outcome is published only after the PATH refresh and re-detect
+    # below: anything polling the job (the runtime routes, a test) that sees
+    # it finished must also see the runtime status that outcome produced.
+    outcome: JobState | None = None
+    try:
+        try:
+            outcome = await _run_process(current, argv, env, path, missing, tree, target)
+        finally:
+            tree.close()
+        # What the installer registered on the persistent PATH is visible from
+        # now on (never a Jarvis agent folder); ``--version`` spawns: off the loop.
+        await asyncio.to_thread(_refresh_path)
+        await asyncio.to_thread(target.detect, refresh=True)
+    finally:
+        current.finished_ms = int(time.time() * 1000)
+        if outcome is None:
+            # Cancelled (app shutdown): never leave a job that looks alive.
+            outcome = "failed"
+            current.message = current.message or f"The {current.kind} was interrupted."
+        current.state = outcome
+
+
+async def _run_process(
+    current: RuntimeJob,
+    argv: list[str],
+    env: dict[str, str] | None,
+    path: Path,
+    missing: str,
+    tree: Any,
+    target: Any,
+) -> JobState:
+    """Run the job's command; returns its outcome without publishing it."""
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+
     try:
         if missing:
-            path.write_text(missing + "\n", encoding="utf-8")
+            await asyncio.to_thread(path.write_text, missing + "\n", encoding="utf-8")
             raise OSError(missing)
         with path.open("wb") as handle:
             # Only the program and its first argument: an inline script body
@@ -373,24 +406,13 @@ async def _run(current: RuntimeJob, argv: list[str], env: dict[str, str] | None 
                 code = -1
                 current.message = "Stopped after 30 minutes."
         current.exit_code = code
-        current.state = "done" if code == 0 else "failed"
         if code != 0 and not current.message:
             current.message = _failure_message(target.label, current.kind, code, current.runtime)
+        return "done" if code == 0 else "failed"
     except OSError as exc:
-        current.state = "failed"
         current.message = missing or f"Could not start the {current.kind}: {exc}"
         log.warning("agent runtimes: %s %s could not start: %s", current.runtime, current.kind, exc)
-    finally:
-        tree.close()
-        current.finished_ms = int(time.time() * 1000)
-        if current.state == "running":
-            # Cancelled (app shutdown): never leave a job that looks alive.
-            current.state = "failed"
-            current.message = current.message or f"The {current.kind} was interrupted."
-    # What the installer registered on the persistent PATH is visible from now
-    # on (never a Jarvis agent folder); ``--version`` spawns: off the loop.
-    await asyncio.to_thread(_refresh_path)
-    await asyncio.to_thread(target.detect, refresh=True)
+        return "failed"
 
 
 def _refresh_path() -> None:

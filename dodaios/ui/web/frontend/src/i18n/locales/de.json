@@ -334,7 +334,8 @@
     "voice_api_keys": "API-Keys",
     "shortcuts": "Tastenkürzel",
     "pets": "Meine Pets",
-    "self_build": "Für dich gebaut"
+    "self_build": "Für dich gebaut",
+    "games": "Spieleinstellungen"
   },
   "assistant_view": {
     "header_named": "Dein Assistent in {0}, geweckt mit „{1}“.",
@@ -7754,7 +7755,7 @@
       "write_other": "Dateien erstellt",
       "image_one": "ein Bild angesehen",
       "image_other": "Bilder angesehen",
-      "used": "{what} verwendet",
+      "used": "{what} verwendet",
       "lookup_one": "Werkzeuge nachgeschlagen",
       "lookup_other": "Werkzeuge nachgeschlagen",
       "asked_one": "dich gefragt",
@@ -7766,7 +7767,7 @@
       "search": "Nach {pattern} gesucht",
       "search_in": "In {path} nach {pattern} gesucht",
       "edit": "{target} bearbeitet",
-      "write": "{target} erstellt",
+      "write": "{target} erstellt",
       "lookup": "Werkzeuge nachgeschlagen",
       "asked": "Dich gefragt"
     },
@@ -10802,6 +10803,58 @@
       "reach_everything": "Alles in diesem Chat",
       "reach_tool_plain": "Das ganze Werkzeug",
       "cancel": "Abbrechen"
+    }
+  },
+  "games": {
+    "title": "Spieleinstellungen",
+    "subtitle": "Sensitivity, Keybinds, Audio und Grafik für jedes Spiel an einem Ort, dazu ein Umrechner, der dein Aim von einem Spiel ins nächste mitnimmt.",
+    "default_dpi": "Maus-DPI",
+    "search": "Spiele suchen",
+    "saved_badge": "Gespeichert",
+    "load_error": "Die Spieleinstellungen konnten nicht geladen werden: {0}",
+    "save_error": "Das wurde nicht gespeichert: {0}",
+    "section_empty": "Für dieses Spiel gibt es hier noch keine Einstellungen.",
+    "game_dpi": "DPI für dieses Spiel",
+    "follow_default": "Nutzt den Standard von {0} DPI.",
+    "cm360": "cm/360",
+    "cm360_hint": "Mausweg für eine volle Drehung.",
+    "edpi": "eDPI",
+    "not_convertible": "Die Sensitivity dieses Spiels ist nicht linear und lässt sich daher nicht umrechnen.",
+    "keybind_hint": "Klicke auf eine Taste und drücke dann eine Taste, eine Maustaste oder dreh am Mausrad. Esc bricht ab.",
+    "keybind_press": "Taste drücken…",
+    "keybind_unbound": "Nicht belegt",
+    "keybind_clear": "Leeren",
+    "keybind_reset": "Standard",
+    "keybind_conflict": "Auch belegt von: {0}",
+    "default_value": "Standard: {0}",
+    "unset": "Nicht gesetzt",
+    "reset_field": "Zurück zum Spielstandard",
+    "on": "An",
+    "off": "Aus",
+    "converter_hint": "Gleiches Gefühl in jedem Spiel: gleiche cm/360 bei deiner DPI. Nur Hipfire; Scope- und ADS-Multiplikatoren hängen vom jeweiligen Spiel ab.",
+    "converter_from": "Deine {0}-Sensitivity",
+    "converter_target_dpi": "Ziel-DPI (optional)",
+    "converter_game": "Spiel",
+    "converter_sens": "Sensitivity",
+    "converter_apply": "Speichern",
+    "converter_applied": "{0} für {1} gespeichert.",
+    "converter_unavailable": "{0} hat keine lineare Sensitivity und lässt sich daher nicht umrechnen.",
+    "notes": "Notizen",
+    "notes_placeholder": "Crosshair, Routinen, alles, was du dir merken willst.",
+    "config_file": "Wo das Spiel seine Einstellungen speichert",
+    "copy": "Kopieren",
+    "copied": "In die Zwischenablage kopiert.",
+    "copy_failed": "Kopieren fehlgeschlagen.",
+    "reset_profile": "Zurücksetzen",
+    "reset_confirm": "Zum Zurücksetzen erneut klicken",
+    "reset_done": "{0} ist wieder auf Standard.",
+    "tabs": {
+      "mouse": "Maus",
+      "keybinds": "Keybinds",
+      "audio": "Audio",
+      "video": "Grafik",
+      "gameplay": "Gameplay",
+      "converter": "Umrechner"
     }
   }
 }

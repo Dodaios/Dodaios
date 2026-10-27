@@ -631,8 +631,8 @@ def _item(obj: bpy.types.Object) -> Item:
 def _assign_rooms(items: list[Item], rooms: list[cook.Room]) -> None:
     """The room each object belongs to (by its centre), for page grouping."""
     for item in items:
-        x, y, _ = item.centre
-        item.room = cook._room_at(x, y, rooms) or _nearest_room(x, y, rooms)
+        x, y, z = item.centre
+        item.room = cook._room_at(x, y, rooms, z) or _nearest_room(x, y, rooms)
 
 
 def _nearest_room(x: float, y: float, rooms: list[cook.Room]) -> str:
@@ -1301,7 +1301,7 @@ def _object_corners(obj: bpy.types.Object, page: int, rooms: list[cook.Room]) ->
     face_n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
     face_n /= np.maximum(np.linalg.norm(face_n, axis=1, keepdims=True), 1e-12)
     probe = tri.mean(axis=1) + face_n * 0.08
-    room_of = _rooms_of(probe[:, 0], probe[:, 1], rooms)
+    room_of = _rooms_of(probe[:, 0], probe[:, 1], rooms, probe[:, 2])
     names = [_base_name(m.name) if m is not None else "M_Default" for m in mesh.materials]
     out: dict = {}
     for m in np.unique(mat_index):
@@ -1318,11 +1318,22 @@ def _to_three(v: np.ndarray) -> np.ndarray:
     return np.stack([v[:, 0], v[:, 2], -v[:, 1]], axis=1)
 
 
-def _rooms_of(x: np.ndarray, y: np.ndarray, rooms: list[cook.Room]) -> np.ndarray:
-    """Index of the room polygon containing each point (Blender XY); the nearest centre outside."""
+def _rooms_of(
+    x: np.ndarray, y: np.ndarray, rooms: list[cook.Room], z: np.ndarray | None = None
+) -> np.ndarray:
+    """Index of the room containing each point (Blender XYZ); the nearest centre outside.
+
+    A nested room wins over the room around it (smallest first); a room with
+    a `ceiling` prop holds only points inside its height band.
+    """
     result = np.full(len(x), -1, dtype=np.int32)
-    for index, room in enumerate(rooms):
+    for index in sorted(range(len(rooms)), key=lambda i: rooms[i].area):
+        room = rooms[index]
         inside = _points_in_polygon(x, y, room.polygon)
+        ceiling = room.props.get("ceiling")
+        if z is not None and ceiling is not None:
+            low = room.z - cook.ROOM_BAND_BELOW_M
+            inside &= (z >= low) & (z <= room.z + float(ceiling))
         result[(result < 0) & inside] = index
     missing = result < 0
     if missing.any():

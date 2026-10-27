@@ -6,8 +6,10 @@ updates itself differently:
 * **frozen** — the visitor downloaded a native installer from the website
   (``Setup.exe`` / ``.dmg`` / ``.AppImage``). There is no git checkout here. The
   update is the NEXT installer asset on the GitHub Release: downloaded, proven
-  against that same release's ``installers-SHA256SUMS.txt``, then handed to the
-  platform's own upgrade mechanism (``dodaios/core/installer_update.py``).
+  against that same release's ``installers-SHA256SUMS.txt`` — which is trusted
+  only once the release's Ed25519-signed, version-bound update manifest vouches
+  for it (``dodaios/core/update_manifest.py``) — then handed to the platform's
+  own upgrade mechanism (``dodaios/core/installer_update.py``).
   ``dodaios.core.frozen.is_frozen()`` is the ONLY probe that selects this path,
   so a dev tree and a managed checkout are structurally unaffected by it.
 * **managed** — the one-line installer's git checkout under
@@ -88,6 +90,7 @@ from dodaios.core.frozen import is_frozen
 from dodaios.core.installer_update import (
     CHECKSUMS_ASSET_NAME,
     InstallerUpdateError,
+    SignedManifestAssets,
     apply_installer,
     download_and_verify,
     download_workdir,
@@ -106,6 +109,10 @@ from dodaios.core.update_contract import (
     UpdateContract,
     parse_update_contract,
     read_update_contract,
+)
+from dodaios.core.update_manifest import (
+    UPDATE_MANIFEST_ASSET_NAME,
+    UPDATE_MANIFEST_SIGNATURE_ASSET_NAME,
 )
 
 log = logging.getLogger(__name__)
@@ -971,6 +978,21 @@ def _frozen_release_assets(
     )
 
 
+def _signed_manifest_assets(release: dict[str, Any]) -> tuple[Any | None, Any | None]:
+    """``(update manifest, its signature)`` from a release payload; ``None`` when absent.
+
+    Without both, a frozen install refuses the release: an update whose
+    checksums the release key did not sign is not installed (issue #810).
+    """
+    assets = release.get("assets") or []
+    if not isinstance(assets, list):
+        return None, None
+    return (
+        select_asset(assets, UPDATE_MANIFEST_ASSET_NAME),
+        select_asset(assets, UPDATE_MANIFEST_SIGNATURE_ASSET_NAME),
+    )
+
+
 async def _frozen_status(current: str) -> dict[str, object]:
     """Status for a natively installed app. Fail-OPEN, exactly like the managed one.
 
@@ -1038,6 +1060,15 @@ async def _frozen_status(current: str) -> dict[str, object]:
             version or "?",
             " / ".join(asset_names),
             CHECKSUMS_ASSET_NAME,
+        )
+        return result
+    signed_manifest, signature = _signed_manifest_assets(latest)
+    if signed_manifest is None or signature is None:
+        # apply would refuse it: the checksums are not signed by the release key.
+        log.info(
+            "[update] release %s carries no signed %s — not offering a frozen update",
+            version or "?",
+            UPDATE_MANIFEST_ASSET_NAME,
         )
         return result
 
@@ -1132,8 +1163,7 @@ async def _apply_frozen(
         raise HTTPException(
             status_code=501,
             detail=(
-                f"no Dodaios installer is published for "
-                f"{sys.platform}/{platform_module.machine()}"
+                f"no Dodaios installer is published for {sys.platform}/{platform_module.machine()}"
             ),
         )
 
@@ -1176,6 +1206,19 @@ async def _apply_frozen(
             ),
         )
 
+    signed_manifest, signature = _signed_manifest_assets(latest)
+    if signed_manifest is None or signature is None:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"release {release_tag} has no signed {UPDATE_MANIFEST_ASSET_NAME} — "
+                "refusing to install an update the release key did not sign"
+            ),
+        )
+    signed = SignedManifestAssets(
+        manifest=signed_manifest, signature=signature, version=release_version
+    )
+
     blocker = update_blocker()
     if blocker is not None:
         # Asked before the download: otherwise the user waits for several
@@ -1207,11 +1250,12 @@ async def _apply_frozen(
                 dest_dir=workdir,
                 on_progress=on_bytes,
                 alternatives=installers[1:],
+                signed=signed,
             )
             asset = next((a for a in installers if a.name == installer.name), asset)
         else:
             installer = await download_and_verify(
-                asset, checksums, dest_dir=workdir, on_progress=on_bytes
+                asset, checksums, dest_dir=workdir, on_progress=on_bytes, signed=signed
             )
         # download_and_verify hashes the file after the last byte lands, so by
         # the time it returns the verify phase is already over — the window is

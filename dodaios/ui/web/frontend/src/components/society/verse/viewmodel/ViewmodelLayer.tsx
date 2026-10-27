@@ -12,7 +12,7 @@ import { useFrame } from "@react-three/fiber";
 import type { SkinnedMesh } from "three";
 import type { Deck } from "../content/deck";
 import type { StageRuntime } from "../runtime";
-import { disposeInstance, type CharacterLibrary } from "../actors/characters";
+import { COMMANDER_SKIN, disposeInstance, type CharacterLibrary } from "../actors/characters";
 import type { Look } from "../actors/look";
 import type { DuelController } from "../duel/duelController";
 import { OWN_ACCENT } from "../duel/DuelLayer";
@@ -36,13 +36,17 @@ const FALLBACK: ArmColours = { uniform: "#3b3f47", trim: "#5a5f68" };
 /** A walking officer's speed (the bob is measured against it) when the library has none. */
 const WALK_SPEED = 1.4;
 
+/** The Sovereign's sleeves: black velvet with a gold cuff (its own colours, whatever the rank). */
+export const SOVEREIGN_ARMS: ArmColours = { uniform: "#201e23", trim: "#201e23", cuff: "#d1a650", skin: "#c2b4a8" };
+
 export function armColours(library: CharacterLibrary | null, look: Look): ArmColours {
+  if (library?.contract.models.some((m) => m.id === COMMANDER_SKIN)) return SOVEREIGN_ARMS;
   const tier = library?.contract.tiers[look.tier];
   return tier ? { uniform: tier.M_Uniform, trim: tier.M_Trim } : FALLBACK;
 }
 
 export function ViewmodelLayer({ runtime, duel, deck, library, commanderId, commanderLook }: Props) {
-  const { uniform, trim } = armColours(library, commanderLook);
+  const { uniform, trim, cuff, skin } = armColours(library, commanderLook);
   const vmRef = useRef<Viewmodel | null>(null);
   const [vm, setVm] = useState<Viewmodel | null>(null);
   useEffect(() => {
@@ -61,7 +65,7 @@ export function ViewmodelLayer({ runtime, duel, deck, library, commanderId, comm
   // The arms are the commander's own: the officer body the deck and the duel draw for them (same choice by id).
   useEffect(() => {
     if (!library || !vm) return;
-    const model = library.model("officer", undefined, hash32(commanderId));
+    const model = library.model("officer", COMMANDER_SKIN, hash32(commanderId));
     if (!model) return;
     let alive = true;
     library.instantiate(model).then((instance) => {
@@ -76,7 +80,7 @@ export function ViewmodelLayer({ runtime, duel, deck, library, commanderId, comm
     return () => { alive = false; };
   }, [vm, library, commanderId]);
   // The sleeves wear the commander's uniform (a promotion repaints them).
-  useEffect(() => { vm?.setColours({ uniform, trim }); }, [vm, uniform, trim]);
+  useEffect(() => { vm?.setColours({ uniform, trim, cuff, skin }); }, [vm, uniform, trim, cuff, skin]);
 
   const frame = useMemo<ViewmodelFrame>(() => ({
     visibility: { arms: false, mode: "deck", hideOwnBody: false, raise: 0 },

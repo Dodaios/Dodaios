@@ -112,6 +112,11 @@ Custom properties (set with `scene.tag()`):
 - Rooms: `ROOM_<id>` with `name`, optionally `main=True` (env map location)
   and `probe_at=(x, y, z)` (Blender metres) when the centroid is a bad probe
   spot; other properties (e.g. `kind`) are exported as `rooms[].props`.
+  Rooms may nest (the shuttle cabin inside the hangar's flight deck): a point
+  belongs to the smallest room around it. A nested room with a `ceiling`
+  property (metres above its floor) holds only points from 0.3 m below its
+  floor up to that height, so the hull's outside stays on the room around it
+  (sockets, realtime chunks and their reflection probe).
 
 Cutaway (BRIEF §5): east–west walls with walkable space behind them are built
 1.1 m high with the section cap on top. Their upper part goes into `Ceiling`

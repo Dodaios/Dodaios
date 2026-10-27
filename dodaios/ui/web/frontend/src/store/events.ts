@@ -89,6 +89,9 @@ export type SectionId =
   // My Pets: the desktop pet — which one, its size, its bubble, and custom
   // pets from a sprite sheet (docs/pets.md). A Settings-hub page.
   | "pets"
+  // Game settings: per-game sensitivity, keybinds, audio, video and
+  // gameplay, plus a sensitivity converter between games. A Settings-hub page.
+  | "games"
   | "dictionary"
   | "dictation"
   // The three tabs added by the merged voice section. "dictation" (default
@@ -145,6 +148,7 @@ export const SECTION_IDS = [
   "appshots",
   "shortcuts",
   "pets",
+  "games",
   "dictionary",
   "dictation",
   // `satisfies` only catches array entries that are missing from the union,
@@ -242,6 +246,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   appshots: "Appshots",
   shortcuts: "Keyboard shortcuts",
   pets: "My Pets",
+  games: "Game settings",
   dictionary: "Dictionary",
   dictation: "Dictation",
   // Plain English, deliberately NOT the "{name} Voice" brand: these labels are
@@ -289,6 +294,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   appshots: "nav.appshots",
   shortcuts: "nav.shortcuts",
   pets: "nav.pets",
+  games: "nav.games",
   dictionary: "nav.dictionary",
   dictation: "nav.dictation",
   "voice-shortcuts": "shell_sections.voice_shortcuts",

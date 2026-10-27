@@ -12,7 +12,13 @@ import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js"
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-export type BodyKind = "officer" | "technician" | "trooper" | "drone" | "companion";
+export type BodyKind = "officer" | "technician" | "trooper" | "drone" | "companion" | "sovereign";
+
+/**
+ * The commander's skin: the body the person plays in every view (deck, duel, first-person arms). Today the one
+ * default skin; a manifest without it falls back to an officer body.
+ */
+export const COMMANDER_SKIN = "SK_Sovereign";
 export type Tier = "deck" | "line" | "command" | "flag";
 
 export interface ModelEntry {
@@ -27,6 +33,8 @@ export interface ModelEntry {
   height: number;
   hoverHeight?: number;
   driveSpeed?: number;
+  /** Bones beyond the shared skeleton (a skin's cloak), posed at run time. */
+  extraBones?: string[];
 }
 
 export interface SkeletonEntry {
