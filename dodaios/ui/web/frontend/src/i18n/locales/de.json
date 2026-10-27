@@ -10772,7 +10772,7 @@
       "save_allow": "Speichern und erlauben",
       "back": "Zurück",
       "always_next_time": "Jedes Mal erlauben",
-      "ask_next_time": "Jedes Mal fragen",
+      "ask_next_time": "Jedes Mal bei mir nachfragen",
       "saved": "Regel gespeichert: {rule}",
       "saved_chat": "In diesem Chat erlaubt: {app}",
       "saved_short": "Regel gespeichert",
