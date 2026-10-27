@@ -30,7 +30,9 @@ option degrades to Hermes' default instead of breaking the turn.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
+import json
 import logging
 import os
 import re
@@ -245,6 +247,9 @@ class HermesRuntime:
         self._detect = DetectCache()
         self._slots = TurnSlots(NAME, lock_dir=lambda: base.runtimes_root() / "locks")
         self._warm = WarmPool(NAME)
+        #: Home key -> digest of the launch its profile's gateway daemon
+        #: was started for (this app run only).
+        self._daemons: dict[str, str] = {}
 
     # ----------------------------------------------------------- detection
 
@@ -381,9 +386,14 @@ class HermesRuntime:
         return self._slots.busy()
 
     async def stop(self, agent_id: str | None = None) -> None:
-        """Stop the warm processes of ``agent_id`` (all when ``None``)."""
+        """Stop the warm processes of ``agent_id`` (all when ``None``) and the
+        gateway daemons they ran on."""
         keys = None if agent_id is None else {agent_id, f"{agent_id}~runs"}
         await self._warm.stop(keys)
+        for key in [key for key in self._daemons if keys is None or key in keys]:
+            del self._daemons[key]
+            home = hermes_root() / "profiles" / profile_name(key)
+            await asyncio.to_thread(_stop_profile_gateway, home)
 
     # -------------------------------------------------------------- launch
 
@@ -444,6 +454,12 @@ class HermesRuntime:
             "approvals": {"mode": "manual"},
             # Never put the data root on the user's PATH (POSIX; see prepare_root).
             "cli": {"expose_on_path": False},
+            # Newer Hermes runs an ACP session in a gateway daemon that
+            # ``hermes acp`` starts. A profile the root's multiplexer serves
+            # reads its credentials from files only (the key stays off disk),
+            # so each agent gets its own daemon, started from its own
+            # process environment (see _stop_profile_gateway).
+            "gateway": {"standalone": True},
         }
         if turn.effort in _HERMES_EFFORTS:
             # Hermes' ACP sessions resolve this per model (agent.reasoning_effort;
@@ -529,6 +545,8 @@ class HermesRuntime:
     async def _launch(
         self, binary: str, turn: RuntimeTurn, release: Callable[[], None]
     ) -> RuntimeLaunch:
+        from dodaios.agent_runtimes.warm import signature
+
         home = await asyncio.to_thread(
             profile_home, home_key(turn.agent_id, turn.session_id)
         )
@@ -538,11 +556,27 @@ class HermesRuntime:
                 "HERMES_HOME": str(home),
                 # Only the Jarvis server handed over per session; none from config.
                 "HERMES_ACP_SKIP_CONFIGURED_MCP": "1",
+                # The gateway daemons' host record stays in Dodaios' root: the
+                # person's own Hermes gateway never meets (or refuses) them.
+                "HERMES_GATEWAY_LOCK_DIR": str(
+                    private_dir(hermes_root() / "gateway-locks")
+                ),
                 **_TURN_ENV,
                 **turn.route.env(),
                 **_restore_key_aliases(turn.route.base_url, turn.route.api_key),
             }
         )
+        launch_key = home_key(turn.agent_id, turn.session_id)
+        served = signature(
+            binary, env, str(turn.workspace), self.config_for(turn), self._soul(turn)
+        )
+        if self._daemons.get(launch_key) != served:
+            # A daemon keeps the key, URL and profile it started with: one
+            # left by an earlier launch (or app run) would answer this turn
+            # with stale ones, so it goes first and ``hermes acp`` starts a
+            # fresh one from this environment.
+            await asyncio.to_thread(_stop_profile_gateway, home)
+            self._daemons[launch_key] = served
         servers: list[McpServer] = []
         if turn.mcp_url and turn.control_key:
             from dodaios.agent_chat.dodaios_harness import HEADER_NAME
@@ -586,6 +620,50 @@ class HermesRuntime:
             "concluding a capability is missing. For a greeting or ordinary "
             "conversation, reply directly without searching for tools.\n"
         )
+
+
+def _stop_profile_gateway(home: Path) -> bool:
+    """Stop the Hermes gateway daemon of one agent profile, if one runs.
+
+    Hermes builds after 0.21 run an ACP session in a gateway daemon that
+    ``hermes acp`` starts detached on first use and that outlives it (it ends
+    itself minutes after its last client). It keeps the environment it was
+    started with. Only the process recorded in the profile's ``gateway.pid``
+    with a Hermes ``gateway run`` command line, and its own children, are
+    stopped. Older builds never write that record: nothing to do.
+    """
+    path = home / "gateway.pid"
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        pid = int(record["pid"] if isinstance(record, dict) else record)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        # No record (older builds, nothing started) or one Hermes is rewriting.
+        log.debug("agent runtimes: no Hermes gateway record in %s: %s", home.name, exc)
+        return False
+    import psutil
+
+    try:
+        proc = psutil.Process(pid)
+        cmdline = " ".join(proc.cmdline()).lower()
+        if not ("hermes" in cmdline and "gateway" in cmdline and "run" in cmdline):
+            return False  # the pid now belongs to another process
+        started = proc.create_time()
+        # Children by creation time too: a pid reused since cannot have a
+        # parent born after it.
+        doomed = [
+            child
+            for child in proc.children(recursive=True)
+            if child.create_time() >= started
+        ]
+        for victim in (*doomed, proc):
+            with contextlib.suppress(psutil.Error):
+                victim.kill()
+        psutil.wait_procs([*doomed, proc], timeout=10)
+    except psutil.Error as exc:
+        log.debug("agent runtimes: Hermes gateway record ignored: %s", exc)
+        return False
+    log.info("agent runtimes: stopped the Hermes gateway of profile %s", home.name)
+    return True
 
 
 def _refuse_claude_cli(turn: RuntimeTurn) -> None:
