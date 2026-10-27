@@ -29,6 +29,9 @@ _REQUEST_FAILURES = {
     "model_not_found": "The selected model is unavailable on this ChatGPT subscription.",
     "invalid_request_error": "ChatGPT rejected this request.",
 }
+#: A stream the backend ended as incomplete: retrying the same request
+#: changes nothing.
+_STOPPED_EARLY = frozenset({"max_output_tokens", "incomplete"})
 log = logging.getLogger(__name__)
 _SAFE_CODE = re.compile(r"^[a-zA-Z0-9_.-]{1,96}$")
 _SAFE_EFFORT = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
@@ -47,11 +50,15 @@ class SubscriptionReasoningError(RuntimeError):
         code: str = "subscription_unavailable",
         status: int = 0,
         retry_after: str | None = None,
+        detail: str = "",
     ) -> None:
         super().__init__(message)
         self.code = code
         self.status = status
         self.retry_after = retry_after
+        #: The backend's own failure (event type, code, short message),
+        #: bounded and redacted: for the log only, never shown to a runtime.
+        self.detail = detail
 
 
 def _failure(
@@ -81,6 +88,11 @@ def _failure(
             "ChatGPT subscription access was rejected. "
             "Check the selected account and sign in again if needed."
         )
+    elif code in _STOPPED_EARLY:
+        message = (
+            "ChatGPT stopped this request before it finished (incomplete). "
+            "Resending it unchanged will not help; a tool schema it carries can cause this."
+        )
     elif status in (400, 404, 413, 422):
         if code not in _REQUEST_FAILURES:
             code = "invalid_request_error"
@@ -94,6 +106,51 @@ def _failure(
             "Try again later; no API billing fallback was used."
         )
     return SubscriptionReasoningError(message, code=code, status=status, retry_after=retry_after)
+
+
+#: Key- and token-shaped strings masked in a logged backend failure.
+_SECRET = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{6,}|[Bb]earer\s+[A-Za-z0-9._\-]{10,}|eyJ[A-Za-z0-9._\-]{20,})"
+)
+_MAX_DETAIL_CHARS = 300
+
+
+def _stream_failure(kind: str, event: dict[str, Any]) -> SubscriptionReasoningError:
+    """A failure the backend reported inside an accepted (HTTP 200) stream.
+
+    The three shapes carry their reason in different places: ``error`` at
+    the top level, ``response.failed`` under ``response.error`` and
+    ``response.incomplete`` under ``response.incomplete_details``. The code
+    alone decides the wording; the backend's message only reaches the log.
+    """
+    response = event.get("response") if isinstance(event.get("response"), dict) else {}
+    error: dict[str, Any] = {}
+    code = ""
+    if kind == "error" and not isinstance(event.get("error"), dict):
+        # Top-level shape: its own "type" is the event kind, never a reason.
+        error = event
+        code = str(event.get("code") or "")
+    else:
+        nested = event.get("error") if kind == "error" else response.get("error")
+        if isinstance(nested, dict):
+            error = nested
+            code = str(nested.get("code") or nested.get("type") or "")
+    incomplete = response.get("incomplete_details")
+    reason = incomplete.get("reason") if isinstance(incomplete, dict) else None
+    if not code and (kind == "response.incomplete" or response.get("status") == "incomplete"):
+        code = "max_output_tokens" if reason == "max_output_tokens" else "incomplete"
+    message = error.get("message") if isinstance(error.get("message"), str) else ""
+    message = _SECRET.sub("[redacted]", " ".join(message.split()))[:_MAX_DETAIL_CHARS]
+    shown_code = code if _SAFE_CODE.fullmatch(code) else ("unsafe" if code else "none")
+    detail = f"event={kind} code={shown_code}"
+    if isinstance(reason, str) and _SAFE_CODE.fullmatch(reason):
+        detail += f" reason={reason}"
+    if message:
+        detail += f" message={message!r}"
+    log.warning("ChatGPT subscription stream failed: %s", detail)
+    failure = _failure(payload={"error": {"code": code}})
+    failure.detail = detail
+    return failure
 
 
 def _invalid_request(message: str) -> SubscriptionReasoningError:
@@ -408,14 +465,14 @@ class SubscriptionReasoning:
                     raise SubscriptionReasoningError("ChatGPT returned an invalid reasoning event.")
                 kind = event["type"]
                 if kind in {"error", "response.failed", "response.incomplete"}:
-                    raise _failure(payload=event.get("response", event))
+                    raise _stream_failure(kind, event)
                 if kind == "response.completed":
                     result = event.get("response", {})
                     if (
                         not isinstance(result, dict)
                         or result.get("status", "completed") != "completed"
                     ):
-                        raise _failure(payload=result)
+                        raise _stream_failure("response.completed", {"response": result})
                     completed = True
                 yield event
                 if completed:
