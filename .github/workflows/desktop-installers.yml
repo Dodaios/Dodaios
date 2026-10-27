@@ -10,6 +10,8 @@
 #   Dodaios-macOS-x64.dmg          Intel Mac
 #   Dodaios-Linux-x86_64.AppImage  Linux x86_64
 #   installers-SHA256SUMS.txt      what the updater verifies against
+#   installers-update-manifest.json(.sig)  the release key's signature over
+#                                  the version and that checksum manifest
 #
 # Every installer is ALSO published under its earlier name
 # (PersonalJarvis-Setup-x64.exe, PersonalJarvis-macOS-<arch>.dmg,
@@ -497,21 +499,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # ------------------------------------------------------- Checksums + Release
-  release:
-    name: Checksums and GitHub Release
+  # ------------------------------------------------------- Checksum manifest
+  checksums:
+    name: Checksum manifest
     needs: [windows, macos, linux]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      # The ONLY job that may write to the repository, and only to attach the
-      # assets it just verified.
-      contents: write
-      # Build provenance for the native installers (tag runs only, see the
-      # attestation step): an OIDC identity for Sigstore plus the attestation
-      # store. Users check it with `gh attestation verify`.
-      id-token: write
-      attestations: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -522,23 +517,6 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      # A tag that disagrees with the shipped version would publish installers
-      # nobody can trace back to a commit - and the in-app updater compares the
-      # release version against dodaios.__version__, so a mismatch would offer an
-      # update that installs the same build forever.
-      - name: Verify the tag matches dodaios.__version__
-        if: github.ref_type == 'tag'
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag_version="${GITHUB_REF_NAME#v}"
-          package_version="$(python -c 'import re,pathlib; print(re.search(r"__version__ = \"([^\"]+)\"", pathlib.Path("dodaios/__init__.py").read_text()).group(1))')"
-          echo "tag=${tag_version} package=${package_version}"
-          if [ "${tag_version}" != "${package_version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match dodaios.__version__ (${package_version})."
-            exit 1
-          fi
 
       - name: Download every installer
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -592,6 +570,181 @@ jobs:
           path: installers/installers-SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+
+  # ------------------------------------------------- Signed update manifest
+  # The in-app updater of a frozen install trusts installers-SHA256SUMS.txt
+  # only through installers-update-manifest.json: the release version, its tag
+  # and the checksum manifest's SHA-256, signed with the offline-ceremony
+  # Ed25519 key (dodaios/core/update_manifest.py, issue #810). The private key
+  # is the WAVE2_OFFLINE_KEY_B64 secret of the `release-signing` environment,
+  # which admits `v*` tag runs only; the public half is
+  # install/keys/offline-ceremony.pub and is pinned in the app. This is the only
+  # job of this workflow that can read the key, and it holds no write token.
+  sign-update-manifest:
+    name: Sign the update manifest
+    needs: checksums
+    if: github.ref_type == 'tag'
+    environment: release-signing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download the checksum manifest
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: installers-checksums
+          path: installers
+
+      - name: Write installers-update-manifest.json
+        run: >-
+          python scripts/ci/update_manifest.py build --tag "$GITHUB_REF_NAME"
+          --checksums installers/installers-SHA256SUMS.txt
+          --out installers/installers-update-manifest.json
+
+      # A release without the signature would be one no updated install can
+      # take, so a missing key fails the release instead of shipping unsigned.
+      - name: Sign the manifest with the release key
+        env:
+          WAVE2_OFFLINE_KEY_B64: ${{ secrets.WAVE2_OFFLINE_KEY_B64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${WAVE2_OFFLINE_KEY_B64:-}" ]; then
+            echo "::error::WAVE2_OFFLINE_KEY_B64 is not available to the release-signing environment; refusing to publish an unsigned update manifest."
+            exit 1
+          fi
+          key="${RUNNER_TEMP}/update-manifest.key"
+          trap 'rm -f "$key" "${RUNNER_TEMP}/update-manifest.sig.raw"' EXIT
+          umask 077
+          printf '%s' "${WAVE2_OFFLINE_KEY_B64}" | base64 -d > "$key"
+          if ! grep -q "BEGIN PRIVATE KEY" "$key"; then
+            echo "::error::WAVE2_OFFLINE_KEY_B64 does not decode to a PEM private key"
+            exit 1
+          fi
+          cd installers
+          openssl pkeyutl -sign -inkey "$key" -rawin \
+            -in installers-update-manifest.json \
+            -out "${RUNNER_TEMP}/update-manifest.sig.raw"
+          base64 -w0 "${RUNNER_TEMP}/update-manifest.sig.raw" > installers-update-manifest.json.sig
+          echo "Signed installers-update-manifest.json (key contents not logged)."
+
+      - name: Verify the signature against the pinned public key
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d installers/installers-update-manifest.json.sig > "${RUNNER_TEMP}/check.sig.raw"
+          openssl pkeyutl -verify -pubin -inkey install/keys/offline-ceremony.pub -rawin \
+            -in installers/installers-update-manifest.json \
+            -sigfile "${RUNNER_TEMP}/check.sig.raw"
+          python scripts/ci/update_manifest.py check --tag "$GITHUB_REF_NAME" \
+            --checksums installers/installers-SHA256SUMS.txt \
+            --manifest installers/installers-update-manifest.json
+
+      - name: Upload the signed update manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installers-update-manifest
+          path: |
+            installers/installers-update-manifest.json
+            installers/installers-update-manifest.json.sig
+          if-no-files-found: error
+          retention-days: 14
+
+  # ------------------------------------------------------- GitHub Release
+  release:
+    name: Checksums and GitHub Release
+    needs: [checksums, sign-update-manifest]
+    # The signing job runs on tags only; a manual branch build still gets here
+    # (and publishes nothing), a tag build only with a signed manifest.
+    if: >-
+      !cancelled() && needs.checksums.result == 'success' &&
+      (needs.sign-update-manifest.result == 'success' ||
+      (github.ref_type != 'tag' && needs.sign-update-manifest.result == 'skipped'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # The ONLY job that may write to the repository, and only to attach the
+      # assets it just verified.
+      contents: write
+      # Build provenance for the native installers (tag runs only, see the
+      # attestation step): an OIDC identity for Sigstore plus the attestation
+      # store. Users check it with `gh attestation verify`.
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # A tag that disagrees with the shipped version would publish installers
+      # nobody can trace back to a commit - and the in-app updater compares the
+      # release version against dodaios.__version__, so a mismatch would offer an
+      # update that installs the same build forever.
+      - name: Verify the tag matches dodaios.__version__
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          package_version="$(python -c 'import re,pathlib; print(re.search(r"__version__ = \"([^\"]+)\"", pathlib.Path("dodaios/__init__.py").read_text()).group(1))')"
+          echo "tag=${tag_version} package=${package_version}"
+          if [ "${tag_version}" != "${package_version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match dodaios.__version__ (${package_version})."
+            exit 1
+          fi
+
+      - name: Download every installer
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: installer-*
+          path: installers
+          merge-multiple: true
+
+      - name: Publish every installer under both of its names
+        run: python scripts/ci/installer_aliases.py installers
+
+      - name: Download the checksum manifest
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: installers-checksums
+          path: installers
+
+      - name: Download the signed update manifest
+        if: github.ref_type == 'tag'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: installers-update-manifest
+          path: installers
+
+      # The installers this job uploads must be exactly the bytes the checksum
+      # manifest (and through it the signed update manifest) vouches for.
+      - name: Check the installers against the manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd installers && sha256sum -c installers-SHA256SUMS.txt)
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            python scripts/ci/update_manifest.py check --tag "$GITHUB_REF_NAME" \
+              --checksums installers/installers-SHA256SUMS.txt \
+              --manifest installers/installers-update-manifest.json
+          fi
 
       # SLSA build provenance for every native installer the manifest lists
       # (.exe, both .dmg, .AppImage, .deb, under both names), signed with this workflow's OIDC

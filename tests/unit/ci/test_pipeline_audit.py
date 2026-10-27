@@ -494,7 +494,7 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     assert '[ "$gate_conclusion" != "failure" ]' in script
     assert '[ "$label" = "macos-main" ] && [ "$conclusion" = "cancelled" ]' in script
     assert '.jobs[] | select(.conclusion == "failure") | .name' in script
-    assert 'macOS sweep ended cancelled without a failed job' in script
+    assert "macOS sweep ended cancelled without a failed job" in script
     assert '--label "$label"' in script
     # A check by hand runs from main only, vets the run it is given like the
     # event, and writes nothing unless the dry run is switched off.
@@ -1023,6 +1023,32 @@ class FakeRelease:
         self.manifests["payload-commit.txt"] = ("c" * 40 if wrong_payload else SHA) + "\n"
         self.corrupt_source = corrupt_source
         self.commands = []
+        # The signed update manifest every new desktop release carries (#810),
+        # signed with a throwaway key that install() pins in its place.
+        import base64
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        from dodaios.core.update_manifest import build_manifest
+
+        key = Ed25519PrivateKey.generate()
+        self.public_key = base64.b64encode(
+            key.public_key().public_bytes(
+                serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+        ).decode("ascii")
+        manifest = build_manifest(
+            version=TAG,
+            tag=TAG,
+            checksums=self.manifests["installers-SHA256SUMS.txt"].encode("utf-8"),
+        )
+        self.manifests["installers-update-manifest.json"] = manifest.decode("ascii")
+        self.manifests["installers-update-manifest.json.sig"] = base64.b64encode(
+            key.sign(manifest)
+        ).decode("ascii")
+        for name in release_assets.UPDATE_MANIFEST_ASSETS:
+            self.assets.append({"name": name, "size": 1, "state": "uploaded"})
 
     def pages(self, endpoint, key):
         if "/assets?" in endpoint:
@@ -1061,6 +1087,7 @@ class FakeRelease:
         return subprocess.CompletedProcess(args, 0, output, "")
 
     def install(self, monkeypatch):
+        monkeypatch.setattr("dodaios.core.update_manifest.PINNED_PUBLIC_KEYS", (self.public_key,))
         monkeypatch.setattr(release_assets, "api_pages", self.pages)
         monkeypatch.setattr(release_assets, "run_command", self.command)
         monkeypatch.setattr(release_assets, "gate_state", lambda *a, **k: "success")
@@ -1097,6 +1124,23 @@ def test_corrupt_release_never_becomes_public(monkeypatch, defect):
     fake = FakeRelease(**{defect: True})
     fake.install(monkeypatch)
     with pytest.raises(ValueError, match="digest mismatch|payload commit"):
+        release_assets.finalize(REPO, TAG, SHA, 0)
+    assert not any(command[:3] == ["gh", "release", "edit"] for command in fake.commands)
+
+
+@pytest.mark.parametrize("defect", ["unsigned", "forged"])
+def test_a_release_without_a_valid_signed_update_manifest_stays_a_draft(monkeypatch, defect):
+    fake = FakeRelease()
+    fake.install(monkeypatch)
+    if defect == "unsigned":
+        fake.assets = [
+            asset
+            for asset in fake.assets
+            if asset["name"] not in release_assets.UPDATE_MANIFEST_ASSETS
+        ]
+    else:
+        fake.manifests["installers-update-manifest.json.sig"] = "A" * 86 + "=="
+    with pytest.raises(ValueError, match="installers-update-manifest.json"):
         release_assets.finalize(REPO, TAG, SHA, 0)
     assert not any(command[:3] == ["gh", "release", "edit"] for command in fake.commands)
 

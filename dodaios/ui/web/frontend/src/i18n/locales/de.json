@@ -3704,6 +3704,8 @@
     "file_truncated": "Datei gekürzt auf 1 MiB — Rest im Datei-Manager anzeigen.",
     "fence_rendered": "Gerendert",
     "fence_source": "Quelltext",
+    "fence_run_scripts": "Skripte ausführen",
+    "fence_run_scripts_hint": "Das JavaScript dieses Ausschnitts ausführen. Ein laufendes Skript kann eine Webadresse aufrufen.",
     "open_action": "Öffnen",
     "open_with_title": "Öffnen mit…",
     "open_with_remember": "Als Standard merken",

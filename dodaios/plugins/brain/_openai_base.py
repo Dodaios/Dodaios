@@ -16,6 +16,8 @@ from typing import Any
 
 import httpx
 
+from dodaios.brain.stream_markup import StreamMarkupFilter
+from dodaios.brain.tools_rejection import tools_rejection_hint
 from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
 
 from . import _agent_profile
@@ -526,12 +528,28 @@ async def stream_complete(
     supports_vision: bool = True,
     assistant_tool_call_extra_content: dict[str, Any] | None = None,
     send_temperature: bool | None = None,
+    tools_fallback: bool = False,
+    hold_think_prefix: bool = False,
 ) -> AsyncIterator[BrainDelta]:
     """Streaming run against OpenAI-compatible Chat-Completions.
 
     ``send_temperature`` ``None`` follows the agent request profile (an agent
     that chose no temperature sends none); ``True`` always sends it — a
     provider's own per-model temperature setting.
+
+    ``tools_fallback`` (local servers): a server that refuses the request
+    because it carries tools (llama.cpp without ``--jinja``, vLLM without
+    ``--enable-auto-tool-choice``, an Ollama model without tool support) is
+    asked once more without them, and the endpoint+model is remembered so
+    later turns do not pay the refusal again.
+
+    The streamed text passes through :class:`StreamMarkupFilter`: ``<think>``
+    reasoning never reaches the caller, and tool calls the server returned as
+    chat-template text (``<tool_call>``, ``[TOOL_CALLS]``) become structured
+    calls for the tools offered in ``req``. ``hold_think_prefix`` (local
+    servers) additionally holds the start of a reply from a model of unknown
+    habit back until it is clear the reply does not open mid-reasoning.
+    ``reasoning_content`` / ``reasoning`` delta fields are never read.
 
     `supports_vision` is passed through to the message builder — when `False`,
     `BrainMessage.images` are dropped and a WARN is logged.
@@ -595,12 +613,30 @@ async def stream_complete(
         # OpenRouter call that carried the reasoning opt-out.
         kwargs["extra_body"] = dict(extra_body)
 
-    # Accumulator for tool-call partials (OpenAI streams per tool_call index)
-    tool_buffer: dict[int, dict[str, Any]] = {}
+    # Accumulator for tool-call partials (OpenAI streams per tool_call index;
+    # a server that omits the index is keyed by the call id instead).
+    tool_buffer: dict[Any, dict[str, Any]] = {}
+    last_tool_key: Any = None
 
     # A model the server already declared Responses-only skips the doomed
     # Chat-Completions round-trip for the rest of the process lifetime.
     responses_cache_key = (str(getattr(client, "base_url", "") or ""), model)
+    if tools_fallback and "tools" in kwargs and responses_cache_key in _TOOLS_REFUSED_CACHE:
+        kwargs.pop("tools", None)
+        kwargs.pop("tool_choice", None)
+    # Tools the model saw this round, under the (sanitized) names it saw.
+    offered_tools: dict[str, Any] = {}
+    for tool in req.tools or ():
+        tool_name = str(tool.get("name") or "")
+        if tool_name:
+            schema = tool.get("input_schema", tool.get("parameters"))
+            offered_tools[name_map.get(tool_name, tool_name)] = schema
+            offered_tools.setdefault(tool_name, schema)
+    markup = StreamMarkupFilter(
+        offered_tools,
+        habit_key=responses_cache_key,
+        hold_unknown_prefix=hold_think_prefix,
+    )
     if responses_cache_key in _RESPONSES_ONLY_CACHE and _client_supports_responses(
         client
     ):
@@ -615,7 +651,7 @@ async def stream_complete(
     _sdk_optional_kwargs = ("stream_options", "reasoning_effort")
     stream = None
     use_responses = False
-    for _ in range(len(_sdk_optional_kwargs) + 1):
+    for _ in range(len(_sdk_optional_kwargs) + 2):
         try:
             stream = await _create_with_token_param_retry(client, kwargs)
             break
@@ -633,6 +669,26 @@ async def stream_complete(
             )
             kwargs.pop(offender, None)
         except Exception as exc:  # noqa: BLE001 — inspect for the transport verdict
+            hint = (
+                tools_rejection_hint(_error_text(exc))
+                if tools_fallback and "tools" in kwargs
+                else None
+            )
+            if hint is not None:
+                # The server cannot take tool definitions. Answering without
+                # tools beats failing every turn; remember it for this
+                # endpoint+model and say which server flag would fix it.
+                _TOOLS_REFUSED_CACHE.add(responses_cache_key)
+                log.warning(
+                    "model server at %s refused tools for %s — answering without "
+                    "tools from now on. %s",
+                    responses_cache_key[0] or "the configured endpoint",
+                    model,
+                    hint,
+                )
+                kwargs.pop("tools", None)
+                kwargs.pop("tool_choice", None)
+                continue
             if _is_responses_only_rejection(exc) and _client_supports_responses(
                 client
             ):
@@ -651,6 +707,41 @@ async def stream_complete(
         return
     if stream is None:  # pragma: no cover -- loop always breaks or raises
         raise RuntimeError("openai stream creation retry loop exhausted")
+    def _completed_calls() -> list[dict[str, Any]]:
+        calls = []
+        for position, (key, buf) in enumerate(tool_buffer.items()):
+            try:
+                parsed = json.loads(buf["arguments"]) if buf["arguments"] else {}
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    "The provider returned incomplete tool arguments.",
+                ) from exc
+            if not isinstance(parsed, dict):
+                raise ValueError("The provider returned non-object tool arguments.")
+            fallback_id = f"call_{key}" if isinstance(key, int) else f"call_{position}"
+            calls.append({
+                "id": buf["id"] or fallback_id,
+                "name": reverse_name_map.get(buf["name"], buf["name"]),
+                "input": parsed,
+            })
+        return calls
+
+    def _recovered_calls() -> list[dict[str, Any]]:
+        """Tool calls the server returned as chat-template text."""
+        recovered = [
+            {**call, "name": reverse_name_map.get(call["name"], call["name"])}
+            for call in markup.calls
+        ]
+        markup.calls.clear()
+        if recovered:
+            log.warning(
+                "recovered %d tool call(s) the server returned as text: %s",
+                len(recovered),
+                ", ".join(call["name"] for call in recovered),
+            )
+        return recovered
+
+    finished = False
     async for chunk in stream:
         # Text-Content
         choices = getattr(chunk, "choices", None) or []
@@ -659,16 +750,32 @@ async def stream_complete(
             if delta is None:
                 continue
 
+            # Only ``content`` is the answer. ``reasoning_content`` /
+            # ``reasoning`` (vLLM, LM Studio, Ollama, DeepSeek) are the
+            # model's thoughts and are deliberately never read.
             content = getattr(delta, "content", None)
             if content:
-                yield BrainDelta(content=content)
+                visible = markup.feed(content)
+                if visible:
+                    yield BrainDelta(content=visible)
 
             tool_calls = getattr(delta, "tool_calls", None) or []
             for tc in tool_calls:
-                idx = getattr(tc, "index", 0) or 0
-                slot = tool_buffer.setdefault(idx, {"id": "", "name": "", "arguments": ""})
-                if getattr(tc, "id", None):
-                    slot["id"] = tc.id
+                idx = getattr(tc, "index", None)
+                call_id = getattr(tc, "id", None)
+                if isinstance(idx, int):
+                    key: Any = idx
+                elif call_id:
+                    # No index (some local servers): the id names the call.
+                    key = f"id:{call_id}"
+                else:
+                    # A continuation fragment without index or id belongs to
+                    # the call that is being streamed.
+                    key = last_tool_key if last_tool_key is not None else 0
+                last_tool_key = key
+                slot = tool_buffer.setdefault(key, {"id": "", "name": "", "arguments": ""})
+                if call_id:
+                    slot["id"] = call_id
                 fn = getattr(tc, "function", None)
                 if fn is not None:
                     if getattr(fn, "name", None):
@@ -678,31 +785,27 @@ async def stream_complete(
 
             finish = getattr(choice, "finish_reason", None)
             if finish:
+                finished = True
+                tail = markup.finish()
+                if tail:
+                    yield BrainDelta(content=tail)
                 if tool_buffer and finish not in {"tool_calls", "stop"}:
                     # Preserve the stop reason so the caller can retry with a
                     # larger budget; no partial tool arguments may execute.
                     tool_buffer.clear()
+                    markup.calls.clear()
                     yield BrainDelta(finish_reason=finish)
                     continue
                 # Finalize tool calls if present
-                completed_calls = []
-                for idx, buf in sorted(tool_buffer.items()):
-                    try:
-                        parsed = json.loads(buf["arguments"]) if buf["arguments"] else {}
-                    except json.JSONDecodeError as exc:
-                        raise ValueError(
-                            "The provider returned incomplete tool arguments.",
-                        ) from exc
-                    if not isinstance(parsed, dict):
-                        raise ValueError("The provider returned non-object tool arguments.")
-                    completed_calls.append({
-                        "id": buf["id"] or f"call_{idx}",
-                        "name": reverse_name_map.get(buf["name"], buf["name"]),
-                        "input": parsed,
-                    })
+                completed_calls = _completed_calls()
+                tool_buffer.clear()
+                if not completed_calls and finish in {"stop", "tool_calls"}:
+                    completed_calls = _recovered_calls()
+                    if completed_calls:
+                        finish = "tool_calls"
+                markup.calls.clear()
                 for call in completed_calls:
                     yield BrainDelta(tool_call=call)
-                tool_buffer.clear()
                 yield BrainDelta(finish_reason=finish)
 
         # Usage info (OpenAI delivers this in the last chunk)
@@ -723,6 +826,40 @@ async def stream_complete(
             if cached > 0:
                 usage_payload["cache_hit_tokens"] = cached
             yield BrainDelta(usage=usage_payload)
+
+    if not finished:
+        # Some local servers close the stream without ever sending a
+        # finish_reason. The text held back for a split tag, the tool-call
+        # fragments, and any text-format calls must not be lost with it.
+        tail = markup.finish()
+        if tail:
+            yield BrainDelta(content=tail)
+        try:
+            completed_calls = _completed_calls()
+        except ValueError:
+            # The stream broke off inside the arguments: never execute a
+            # partial call; report it like a cut-off answer.
+            log.warning("stream ended inside tool-call arguments; dropping the call")
+            tool_buffer.clear()
+            yield BrainDelta(finish_reason="length")
+            return
+        if not completed_calls:
+            completed_calls = _recovered_calls()
+        for call in completed_calls:
+            yield BrainDelta(tool_call=call)
+        if completed_calls:
+            yield BrainDelta(finish_reason="tool_calls")
+
+
+def _error_text(exc: Exception) -> str:
+    """An API error's message plus its response body, for phrase matching."""
+    body = getattr(exc, "body", None)
+    return f"{exc} {body if body is not None else ''}"
+
+
+# (base_url, model) pairs whose server refused tool definitions — answered
+# without tools for the rest of the process (``tools_fallback`` callers only).
+_TOOLS_REFUSED_CACHE: set[tuple[str, str]] = set()
 
 
 _UNSUPPORTED_ERROR_MARKERS = (

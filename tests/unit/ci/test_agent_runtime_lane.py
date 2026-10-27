@@ -237,3 +237,28 @@ def test_the_runtime_pins_ship_in_the_wheel_and_the_frozen_app():
     )
     spec = (ROOT / "dodaios.spec").read_text(encoding="utf-8")
     assert '"dodaios/agent_runtimes/runtime-versions.json"), "dodaios/agent_runtimes")' in spec
+
+
+@pytest.mark.parametrize("workflow", ["ci.yml", "agent-runtimes-canary.yml"])
+def test_every_e2e_leg_installs_the_test_runner_it_ends_with(workflow):
+    """agent_runtime_e2e.py finishes with ``pytest tests/unit/agent_runtimes``.
+
+    A leg that never installs pytest fails that last step on every OS, which
+    kept the weekly canary red whatever upstream shipped.
+    """
+    path = ROOT / ".github" / "workflows" / workflow
+    jobs = yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]
+    legs = 0
+    for name, job in jobs.items():
+        runs = [str(step.get("run", "")) for step in job.get("steps", [])]
+        e2e = [
+            i
+            for i, run in enumerate(runs)
+            if "agent_runtime_e2e.py" in run and "--expect-setup-failure" not in run
+        ]
+        if not e2e:
+            continue
+        legs += 1
+        before = "\n".join(runs[: e2e[0]])
+        assert "pip install pytest" in before, f"{workflow}:{name} runs the e2e without pytest"
+    assert legs, f"{workflow} has no agent_runtime_e2e.py leg"

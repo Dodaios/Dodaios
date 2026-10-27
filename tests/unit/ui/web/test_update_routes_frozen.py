@@ -26,6 +26,10 @@ from dodaios.core.installer_update import (
     InstallerUpdateError,
     UpdateBlocker,
 )
+from dodaios.core.update_manifest import (
+    UPDATE_MANIFEST_ASSET_NAME,
+    UPDATE_MANIFEST_SIGNATURE_ASSET_NAME,
+)
 from dodaios.ui.web.update_routes import router as update_router
 
 SETUP_NAME = "PersonalJarvis-Setup-x64.exe"
@@ -62,6 +66,7 @@ def _release(
                 "browser_download_url": (f"https://example.invalid/{CHECKSUMS_ASSET_NAME}"),
                 "size": 90,
             },
+            *_signed_entries(),
         ]
     return {
         "version": version,
@@ -71,6 +76,18 @@ def _release(
         "release_url": f"https://example.invalid/releases/v{version}",
         "assets": assets,
     }
+
+
+def _signed_entries() -> list[dict[str, Any]]:
+    """The signed update manifest every current release carries (issue #810)."""
+    return [
+        {
+            "name": name,
+            "browser_download_url": f"https://example.invalid/{name}",
+            "size": 64,
+        }
+        for name in (UPDATE_MANIFEST_ASSET_NAME, UPDATE_MANIFEST_SIGNATURE_ASSET_NAME)
+    ]
 
 
 def _patch_frozen(
@@ -228,10 +245,16 @@ def _capture_install(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         return path
 
     async def _download(
-        asset: Any, checksums: Any, *, dest_dir: Path, on_progress: Any = None
+        asset: Any,
+        checksums: Any,
+        *,
+        dest_dir: Path,
+        on_progress: Any = None,
+        signed: Any = None,
     ) -> Path:
         seen["asset"] = asset
         seen["checksums"] = checksums
+        seen["signed"] = signed
         return _write_verified(dest_dir, asset.name)
 
     def _apply(installer: Path, **kwargs: Any) -> str:
@@ -264,6 +287,11 @@ def test_apply_downloads_verifies_and_hands_over(
     assert body["restart_required"] is False
     assert seen["asset"].name == SETUP_NAME
     assert seen["checksums"].name == CHECKSUMS_ASSET_NAME
+    # The signed manifest travels with the download and is bound to the
+    # version being installed.
+    assert seen["signed"].manifest.name == UPDATE_MANIFEST_ASSET_NAME
+    assert seen["signed"].signature.name == UPDATE_MANIFEST_SIGNATURE_ASSET_NAME
+    assert seen["signed"].version == "1.6.0"
     assert seen["installer"].name == SETUP_NAME
 
 
@@ -320,7 +348,12 @@ def test_apply_surfaces_a_verification_failure(
     _patch_latest(monkeypatch, _release("1.6.0"))
 
     async def _download(
-        asset: Any, checksums: Any, *, dest_dir: Path, on_progress: Any = None
+        asset: Any,
+        checksums: Any,
+        *,
+        dest_dir: Path,
+        on_progress: Any = None,
+        signed: Any = None,
     ) -> Path:
         raise InstallerUpdateError("PersonalJarvis-Setup-x64.exe failed its SHA-256 check")
 
@@ -670,6 +703,10 @@ def _asset_entry(name: str) -> dict[str, Any]:
     }
 
 
+def _manifest_entries() -> list[dict[str, Any]]:
+    return [_asset_entry(CHECKSUMS_ASSET_NAME), *_signed_entries()]
+
+
 def _patch_frozen_names(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
     _patch_frozen(monkeypatch)
     monkeypatch.setattr(u, "installer_asset_names", lambda _p, _m: names)
@@ -689,7 +726,7 @@ def test_status_offers_the_preferred_name_when_a_release_carries_both(
     assets = [
         _asset_entry(SETUP_NAME),
         _asset_entry(NEW_SETUP_NAME),
-        _asset_entry(CHECKSUMS_ASSET_NAME),
+        *_manifest_entries(),
     ]
     _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
 
@@ -704,7 +741,7 @@ def test_status_offers_whichever_single_name_a_release_carries(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, published: str
 ) -> None:
     _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
-    assets = [_asset_entry(published), _asset_entry(CHECKSUMS_ASSET_NAME)]
+    assets = [_asset_entry(published), *_manifest_entries()]
     _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
 
     body = client.get("/api/update/status").json()
@@ -719,7 +756,7 @@ def test_apply_with_one_published_name_downloads_exactly_as_before(
 ) -> None:
     """One candidate: the download is called without any alternative."""
     _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
-    assets = [_asset_entry(published), _asset_entry(CHECKSUMS_ASSET_NAME)]
+    assets = [_asset_entry(published), *_manifest_entries()]
     _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
     # This recorder accepts no ``alternatives`` keyword - passing one fails.
     seen = _capture_install(monkeypatch)
@@ -738,7 +775,7 @@ def test_apply_lets_the_checksum_manifest_choose_between_two_names(
     assets = [
         _asset_entry(SETUP_NAME),
         _asset_entry(NEW_SETUP_NAME),
-        _asset_entry(CHECKSUMS_ASSET_NAME),
+        *_manifest_entries(),
     ]
     _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
     seen: dict[str, Any] = {}
@@ -755,6 +792,7 @@ def test_apply_lets_the_checksum_manifest_choose_between_two_names(
         dest_dir: Path,
         on_progress: Any = None,
         alternatives: Any = (),
+        signed: Any = None,
     ) -> Path:
         seen["asset"] = asset.name
         seen["alternatives"] = [candidate.name for candidate in alternatives]
@@ -783,12 +821,58 @@ def test_apply_names_every_accepted_file_when_a_release_has_none(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
-    _patch_latest(
-        monkeypatch, _release("1.6.0", assets=[_asset_entry(CHECKSUMS_ASSET_NAME)])
-    )
+    _patch_latest(monkeypatch, _release("1.6.0", assets=[*_manifest_entries()]))
 
     response = client.post("/api/update/apply")
 
     assert response.status_code == 502
     assert NEW_SETUP_NAME in response.json()["detail"]
     assert SETUP_NAME in response.json()["detail"]
+
+
+# --------------------------------------------------------------------------- #
+# The signed update manifest (issue #810)
+# --------------------------------------------------------------------------- #
+def _unsigned_release() -> dict[str, Any]:
+    return _release(
+        "1.6.0",
+        assets=[
+            {
+                "name": SETUP_NAME,
+                "browser_download_url": f"https://example.invalid/{SETUP_NAME}",
+                "size": 123,
+            },
+            {
+                "name": CHECKSUMS_ASSET_NAME,
+                "browser_download_url": f"https://example.invalid/{CHECKSUMS_ASSET_NAME}",
+                "size": 90,
+            },
+        ],
+    )
+
+
+def test_status_without_a_signed_manifest_offers_nothing(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_frozen(monkeypatch)
+    _patch_latest(monkeypatch, _unsigned_release())
+    body = client.get("/api/update/status").json()
+    # apply would refuse it, so status must not offer it.
+    assert body["update_available"] is False
+
+
+def test_apply_refuses_a_release_without_a_signed_manifest(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_frozen(monkeypatch)
+    _patch_latest(monkeypatch, _unsigned_release())
+
+    async def _never_download(*_args: Any, **_kwargs: Any) -> Path:
+        raise AssertionError("nothing may be downloaded without a signed manifest")
+
+    monkeypatch.setattr(u, "download_and_verify", _never_download)
+
+    response = client.post("/api/update/apply")
+
+    assert response.status_code == 502
+    assert UPDATE_MANIFEST_ASSET_NAME in response.json()["detail"]

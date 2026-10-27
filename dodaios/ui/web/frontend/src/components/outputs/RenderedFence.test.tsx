@@ -44,6 +44,12 @@ describe("wrapInlineHtml", () => {
     expect(doc).toContain("</script></body>");
   });
 
+  it("injects no script into the inert preview", () => {
+    const doc = wrapInlineHtml("<div>hi</div>", "dark", "a", { scripts: false });
+    expect(doc).not.toContain("<script");
+    expect(doc).toContain(`content="${INLINE_HTML_CSP}"`);
+  });
+
   it("keeps a page's own theme stamp and adds a head when it has none", () => {
     const doc = wrapInlineHtml('<html data-theme="dark"><body>x</body></html>', "light", "a");
     expect(doc).toContain('<html data-theme="dark"><head><meta charset="utf-8">');
@@ -74,9 +80,34 @@ describe("MarkdownProse fences", () => {
     );
 
     const frame = within(fences[1]).getByTestId("inline-html-frame") as HTMLIFrameElement;
-    expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+    // Inert by default (#346): an empty sandbox runs no script at all.
+    expect(frame.getAttribute("sandbox")).toBe("");
+    expect(frame.getAttribute("data-scripts")).toBe("off");
     expect(frame.getAttribute("srcdoc")).toContain('<div id="card">hi</div>');
     expect(frame.getAttribute("srcdoc")).toContain("Content-Security-Policy");
+  });
+
+  it("runs no script until the reader clicks Run scripts, and never joins the app origin", () => {
+    const evil = '<html><head></head><body><script>location.href="http://blocked.invalid/leak"</script></body></html>';
+    render(<MarkdownProse slug="r" path="r.md" files={[]} text={"```html\n" + evil + "\n```\n"} />);
+    const fence = screen.getByTestId("rendered-fence");
+
+    const inert = within(fence).getByTestId("inline-html-frame") as HTMLIFrameElement;
+    expect(inert.getAttribute("sandbox")).toBe("");
+    expect(inert.getAttribute("srcdoc")).not.toContain(INLINE_HTML_SIZE_MESSAGE);
+
+    fireEvent.click(within(fence).getByTestId("inline-html-run-scripts"));
+    const live = within(fence).getByTestId("inline-html-frame") as HTMLIFrameElement;
+    expect(live.getAttribute("sandbox")).toBe("allow-scripts");
+    expect(live.getAttribute("sandbox")).not.toContain("allow-same-origin");
+    expect(live.getAttribute("data-scripts")).toBe("on");
+    expect(live.getAttribute("srcdoc")).toContain(INLINE_HTML_SIZE_MESSAGE);
+    expect(within(fence).queryByTestId("inline-html-run-scripts")).toBeNull();
+  });
+
+  it("offers no Run scripts switch on an svg fence", () => {
+    render(<MarkdownProse slug="r" path="r.md" files={[]} text={"```svg\n" + SVG + "\n```\n"} />);
+    expect(screen.queryByTestId("inline-html-run-scripts")).toBeNull();
   });
 
   it("shows the markup behind the Source switch and comes back to Rendered", () => {

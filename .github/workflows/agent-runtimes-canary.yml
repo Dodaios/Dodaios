@@ -32,8 +32,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      # agent_runtime_e2e.py ends with `pytest tests/unit/agent_runtimes` on the
+      # same machine, so the test runner must be there like in ci.yml's legs.
       - name: Install the base app
-        run: python scripts/pip_install.py -e "."
+        run: |
+          python scripts/pip_install.py -e "."
+          python -m pip install pytest pytest-asyncio
       # The app's own setup installs whatever the pin names; in this checkout
       # only, the pin points at upstream latest (newest OpenClaw on npm, the
       # head of Hermes' default branch).

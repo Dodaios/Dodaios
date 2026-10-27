@@ -224,8 +224,15 @@ def _call_identity(call: dict[str, Any]) -> str:
     )
 
 
-def extract_leaked_tool_calls(text: str) -> list[dict[str, Any]]:
+def extract_leaked_tool_calls(text: str, tools: Any = None) -> list[dict[str, Any]]:
     """Parse explicit text-serialized tool calls into normal loop call records.
+
+    With ``tools`` (the tools offered this round), chat-template markup —
+    Qwen/Hermes ``<tool_call>{...}</tool_call>`` and Mistral ``[TOOL_CALLS]`` —
+    is recovered first, limited to offered tool names (see
+    :func:`extract_tagged_tool_calls`). Without ``tools`` only the explicit
+    JSON envelopes below count, since a bare ``{"name": ...}`` cannot be told
+    from a quoted sample unless its name is known to be real.
 
     An envelope may sit anywhere in the response — alone, after prose, before
     prose, between two sentences, or inside a ```json fence. Every envelope
@@ -245,6 +252,10 @@ def extract_leaked_tool_calls(text: str) -> list[dict[str, Any]]:
     4. Prose — the text outside the envelopes must be short and free of
        example vocabulary ("for example", "z. B.", "schema", "json", …).
     """
+    if tools and text and has_tool_markup(text):
+        tagged, _remaining = extract_tagged_tool_calls(text, tools)
+        if tagged:
+            return tagged
     if not text or not any(marker in text.lower() for marker in _CALL_MARKERS):
         return []
 
@@ -291,4 +302,255 @@ def extract_leaked_tool_calls(text: str) -> list[dict[str, Any]]:
     return unique
 
 
-__all__ = ["extract_leaked_tool_calls"]
+# ---------------------------------------------------------------------------
+# Chat-template tool markup (Qwen / Hermes ``<tool_call>``, Mistral
+# ``[TOOL_CALLS]``).
+#
+# A local server that does not parse tool calls (llama.cpp without
+# ``--jinja``, LM Studio with an unknown template, an Ollama model whose
+# template lacks a tool parser) hands the model's raw markup back as text. The
+# markup is a template token, not prose, so it is a far stronger signal than a
+# bare JSON envelope — but it carries no ``type`` wrapper, so the gates are
+# different: the call must name a tool that was actually OFFERED this round,
+# and markup inside a code fence is documentation, never a call.
+# ---------------------------------------------------------------------------
+
+TOOL_CALL_OPEN = "<tool_call>"
+TOOL_CALL_CLOSE = "</tool_call>"
+MISTRAL_TOOL_CALLS = "[TOOL_CALLS]"
+_MISTRAL_ARGS = "[ARGS]"
+
+_TAGGED_BLOCK_RE = re.compile(
+    r"<tool_call>(.*?)(?:</tool_call>|\Z)", re.DOTALL | re.IGNORECASE
+)
+# Qwen3-Coder's XML flavour: <function=name><parameter=key>value</parameter></function>
+_XML_FUNCTION_RE = re.compile(
+    r"<function=([^>\s]+)\s*>(.*?)(?:</function>|\Z)", re.DOTALL
+)
+_XML_PARAMETER_RE = re.compile(
+    r"<parameter=([^>\s]+)\s*>(.*?)</parameter>", re.DOTALL
+)
+_MISTRAL_NAME_RE = re.compile(r"\s*([A-Za-z0-9_.\-/]+)\s*\[ARGS\]")
+
+
+def has_tool_markup(text: str) -> bool:
+    """Whether ``text`` contains a chat-template tool-call marker."""
+    lowered = (text or "").lower()
+    return TOOL_CALL_OPEN in lowered or MISTRAL_TOOL_CALLS.lower() in lowered
+
+
+def _offered(tools: Any) -> dict[str, dict[str, Any] | None]:
+    """``{name: input_schema}`` from schemas, a mapping, or plain names."""
+    offered: dict[str, dict[str, Any] | None] = {}
+    if not tools:
+        return offered
+    if isinstance(tools, dict):
+        return {str(k): (v if isinstance(v, dict) else None) for k, v in tools.items()}
+    for tool in tools:
+        if isinstance(tool, str):
+            offered[tool] = None
+        elif isinstance(tool, dict):
+            fn = tool.get("function") if isinstance(tool.get("function"), dict) else tool
+            name = fn.get("name")
+            if isinstance(name, str) and name:
+                schema = fn.get("input_schema", fn.get("parameters"))
+                offered[name] = schema if isinstance(schema, dict) else None
+    return offered
+
+
+def _bare_call(block: Any, offered: dict[str, dict[str, Any] | None]) -> dict[str, Any] | None:
+    """``{"name": ..., "arguments": ...}`` (or a wrapped form) → call record."""
+    if not isinstance(block, dict):
+        return None
+    call = block
+    for key in ("function", "function_call"):
+        if isinstance(block.get(key), dict):
+            call = block[key]
+            break
+    name = call.get("name")
+    if not isinstance(name, str) or name.strip() not in offered:
+        return None
+    arguments = _MISSING
+    for key in ("arguments", "parameters", "input", "args"):
+        if key in call:
+            arguments = call[key]
+            break
+    decoded = {} if arguments is _MISSING else _decode_arguments(arguments)
+    if decoded is None:
+        return None
+    return _record(name.strip(), decoded, block.get("id") or call.get("id"))
+
+
+def _record(name: str, arguments: dict[str, Any], call_id: Any = None) -> dict[str, Any]:
+    fingerprint = json.dumps(
+        [name, arguments], sort_keys=True, separators=(",", ":"), default=str
+    ).encode("utf-8")
+    return {
+        "id": str(call_id or f"leaked_{sha256(fingerprint).hexdigest()[:12]}"),
+        "name": name,
+        "input": arguments,
+    }
+
+
+def _xml_value(raw: str, schema: dict[str, Any] | None, key: str) -> Any:
+    """A Qwen3-Coder parameter value, typed by the tool's schema when known."""
+    value = raw.strip("\n")
+    declared = None
+    if schema and isinstance(schema.get("properties"), dict):
+        prop = schema["properties"].get(key)
+        if isinstance(prop, dict):
+            declared = prop.get("type")
+    if declared == "string":
+        return value
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, ValueError):
+        # Not JSON: the value is plain text, which is what the template
+        # writes for every string argument.
+        return value
+
+
+def _calls_in_payload(
+    payload: str, offered: dict[str, dict[str, Any] | None]
+) -> tuple[list[dict[str, Any]], bool]:
+    """Calls inside one ``<tool_call>`` body, and whether it was call-shaped.
+
+    Call-shaped means the body WAS an attempted call (JSON with a ``name``, or
+    a ``<function=…>`` block) even when the name is not offered — the caller
+    hides such markup instead of showing it as an answer.
+    """
+    body = payload.strip()
+    xml = list(_XML_FUNCTION_RE.finditer(body))
+    if xml:
+        calls = []
+        for match in xml:
+            name = match.group(1).strip()
+            if name not in offered:
+                continue
+            schema = offered[name]
+            arguments = {
+                p.group(1).strip(): _xml_value(p.group(2), schema, p.group(1).strip())
+                for p in _XML_PARAMETER_RE.finditer(match.group(2))
+            }
+            calls.append(_record(name, arguments))
+        return calls, True
+    calls = []
+    shaped = False
+    for start, end in _json_spans(body):
+        try:
+            candidate = json.loads(body[start:end])
+        except (json.JSONDecodeError, ValueError):
+            # Not JSON at all: not a call, the caller keeps the text.
+            continue
+        blocks = candidate if isinstance(candidate, list) else [candidate]
+        for block in blocks:
+            if isinstance(block, dict) and (
+                "name" in block or "function" in block or "function_call" in block
+            ):
+                shaped = True
+            call = _bare_call(block, offered)
+            if call is not None:
+                calls.append(call)
+    return calls, shaped
+
+
+def _mistral_calls(
+    tail: str, offered: dict[str, dict[str, Any] | None]
+) -> tuple[list[dict[str, Any]], int]:
+    """Calls right after a ``[TOOL_CALLS]`` marker, and how much text they used."""
+    stripped = tail.lstrip()
+    lead = len(tail) - len(stripped)
+    if stripped[:1] in ("[", "{"):
+        spans = _json_spans(stripped)
+        if not spans or spans[0][0] != 0:
+            return [], 0
+        end = spans[0][1]
+        try:
+            candidate = json.loads(stripped[:end])
+        except (json.JSONDecodeError, ValueError):
+            # A truncated or malformed array executes nothing.
+            return [], 0
+        blocks = candidate if isinstance(candidate, list) else [candidate]
+        calls = [c for c in (_bare_call(b, offered) for b in blocks) if c is not None]
+        return calls, lead + end
+    # v11+ tokenizer: ``name[ARGS]{...}``
+    match = _MISTRAL_NAME_RE.match(tail)
+    if not match:
+        return [], 0
+    rest = tail[match.end():]
+    spans = _json_spans(rest)
+    if not spans or rest[: spans[0][0]].strip():
+        return [], 0
+    try:
+        arguments = json.loads(rest[spans[0][0]: spans[0][1]])
+    except (json.JSONDecodeError, ValueError):
+        # Malformed arguments: refuse rather than guess.
+        return [], 0
+    name = match.group(1)
+    if name not in offered or not isinstance(arguments, dict):
+        return [], match.end() + spans[0][1]
+    return [_record(name, arguments)], match.end() + spans[0][1]
+
+
+def _fenced(text: str, index: int) -> bool:
+    """Whether ``index`` sits inside a ``` code fence."""
+    return text.count("```", 0, index) % 2 == 1
+
+
+def extract_tagged_tool_calls(
+    text: str, tools: Any
+) -> tuple[list[dict[str, Any]], str]:
+    """Recover chat-template tool markup; return ``(calls, remaining_text)``.
+
+    ``tools`` are the tools OFFERED this round (schemas, ``{name: schema}``, or
+    names). Only calls naming one of them are returned. Call-shaped markup is
+    removed from the remaining text whether or not it named an offered tool —
+    it is never an answer a person should see or hear. Markup inside a code
+    fence, and markup whose body is not a call at all, stay as text.
+    """
+    if not text or not has_tool_markup(text):
+        return [], text
+    offered = _offered(tools)
+    calls: list[dict[str, Any]] = []
+    pieces: list[str] = []
+    cursor = 0
+    for match in _TAGGED_BLOCK_RE.finditer(text):
+        if _fenced(text, match.start()):
+            continue
+        found, shaped = _calls_in_payload(match.group(1), offered)
+        if not shaped:
+            continue
+        calls.extend(found)
+        pieces.append(text[cursor: match.start()])
+        cursor = match.end()
+    pieces.append(text[cursor:])
+    remaining = "".join(pieces)
+
+    marker = remaining.upper().find(MISTRAL_TOOL_CALLS)
+    while marker != -1 and not _fenced(remaining, marker):
+        tail = remaining[marker + len(MISTRAL_TOOL_CALLS):]
+        found, used = _mistral_calls(tail, offered)
+        if not used:
+            break
+        calls.extend(found)
+        remaining = remaining[:marker] + tail[used:]
+        marker = remaining.upper().find(MISTRAL_TOOL_CALLS)
+
+    unique: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for call in calls:
+        identity = _call_identity(call)
+        if identity not in seen:
+            seen.add(identity)
+            unique.append(call)
+    return unique, (remaining.strip() if remaining != text else text)
+
+
+__all__ = [
+    "MISTRAL_TOOL_CALLS",
+    "TOOL_CALL_CLOSE",
+    "TOOL_CALL_OPEN",
+    "extract_leaked_tool_calls",
+    "extract_tagged_tool_calls",
+    "has_tool_markup",
+]

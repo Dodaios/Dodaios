@@ -531,8 +531,10 @@ decides the order of steps:
   downgrades. A user already on the bad version leaves it only when a newer
   version is published.
 * A native update downloads the installer from that same release and refuses
-  it unless it matches that release's `installers-SHA256SUMS.txt`
-  (`dodaios/core/installer_update.py`).
+  it unless it matches that release's `installers-SHA256SUMS.txt`, which it
+  trusts only when the release's `installers-update-manifest.json` is signed by
+  the pinned release key and names that release's version
+  (`dodaios/core/installer_update.py`, `dodaios/core/update_manifest.py`).
 
 Steps:
 
@@ -562,7 +564,9 @@ Steps:
 steps: `pypi` (the PyPI upload in `release.yml`) and `release-signing` (the
 `sign` job of `sign-installer.yml`, the only job that reads the offline
 Ed25519 and ML-DSA-65 private keys, `WAVE2_OFFLINE_KEY_B64` and
-`WAVE4_MLDSA65_KEY_B64`). Both admit deployments from `v*` tags only, never
+`WAVE4_MLDSA65_KEY_B64`, and the `sign-update-manifest` job of
+`desktop-installers.yml`, which signs the in-app updater's manifest with the
+same Ed25519 key). Both admit deployments from `v*` tags only, never
 from a branch, and administrators cannot bypass that policy. Neither has
 required reviewers: a release runs from `release-cut.yml` to the published
 GitHub Release without an approval pause or a **Review deployments** click.
