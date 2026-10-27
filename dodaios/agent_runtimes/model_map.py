@@ -97,6 +97,10 @@ class ModelRoute:
     #: ``claude_cli`` only: the environment that selects the agent's Claude
     #: account (its config directory). Never a credential.
     claude_env: tuple[tuple[str, str], ...] = ()
+    #: The model's own reasoning-effort levels as the provider's catalog lists
+    #: them (the ChatGPT subscription names them per model). ``None`` = the
+    #: catalog lists none; ``()`` = the model has no effort knob.
+    efforts: tuple[str, ...] | None = None
 
     def env(self) -> dict[str, str]:
         """The child environment: the key (empty when keyless), or for the
@@ -460,5 +464,8 @@ async def prepare_route(
     limits = await gateway.refresh_model_limits(grant, route.model, config)
     gateway.register_model(route.api_key, route.model, limits)
     return replace(
-        route, context_window=limits.context_window, max_output_tokens=limits.max_output_tokens
+        route,
+        context_window=limits.context_window,
+        max_output_tokens=limits.max_output_tokens,
+        efforts=gateway.declared_efforts(grant, route.model),
     )
