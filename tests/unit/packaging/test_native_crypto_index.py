@@ -87,6 +87,20 @@ def test_uv_source_is_explicit_and_matches_the_reviewed_publication():
         assert project["tool"]["uv"]["index"] == config["index"]
 
 
+def test_dependabot_may_reach_the_native_crypto_index():
+    """Dependabot's proxy blocks undeclared hosts (#832): the uv updates must
+    carry a registry for exactly the index uv.lock resolves cryptography from."""
+    import yaml
+
+    config = yaml.safe_load((index.ROOT / ".github/dependabot.yml").read_text(encoding="utf-8"))
+    registry = config["registries"]["native-crypto"]
+    assert registry == {"type": "python-index", "url": index.index_url()}
+    uv_updates = [u for u in config["updates"] if u["package-ecosystem"] == "uv"]
+    assert uv_updates
+    for update in uv_updates:
+        assert "native-crypto" in update["registries"]
+
+
 def test_browser_dependency_mirror_rejects_losing_a_platform_marker(tmp_path, monkeypatch):
     from scripts.ci import check_requirements_sync as sync
 
