@@ -54,11 +54,13 @@ _ALLOWED_PATHS: tuple[str, ...] = (
 # Product names are matched case-sensitively, so "a linear fade", "the cursor"
 # or "an arc" never count; the verbs around them ignore case. "Fabrikam" is a
 # made-up product the tests use, so a fixture never has to name a real one.
+# Two names are spelled with a character class ([i], [w]) so the literal word
+# never appears in the repo, this guard included.
 _PRODUCTS = (
     r"ShareX|CleanShot(?: X)?|Raycast|Alfred|Spotlight|Grok|Fabrikam"
     r"|Hermes(?: Agent| Bot| Desktop)?|Nous Research|Codex(?: app| desktop)?"
     r"|Claude(?: app| desktop)?|ChatGPT(?: app)?|Cursor"
-    r"|Linear|Notion|Cowork|Superhuman|a dictation app(?: Flow)?|a dictation app|Granola|Arc|Warp"
+    r"|Linear|Notion|Cowork|Superhuman|W[i]spr(?: Flow)?|Super[w]hisper|Granola|Arc|Warp"
 )
 _APPS = r"Codex|Claude|ChatGPT|Grok|Cursor|Raycast|CleanShot|ShareX"
 # Every rule needs one of these names, so a line without any is skipped cheaply.
