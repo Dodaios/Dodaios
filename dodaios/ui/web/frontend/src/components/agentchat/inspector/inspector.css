@@ -231,19 +231,23 @@
 .wi-row-btn:hover { background: hsl(var(--secondary)); }
 .wi-row-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var(--ring)); }
 .wi-row-btn[aria-expanded="true"] { background: hsl(var(--secondary)); }
-.wi-mark {
-  width: 16px;
-  height: 16px;
+/* One quiet slot per row: empty when finished, a dot while running, failed or waiting. */
+.wi-row-dot {
+  width: 7px;
+  height: 7px;
   flex: none;
-  color: hsl(var(--muted-foreground));
+  border-radius: 999px;
+  background: transparent;
 }
-.wi-mark-box { display: inline-flex; flex: none; color: hsl(var(--muted-foreground)); }
-.wi-row[data-kind="thought"] .wi-mark { color: hsl(var(--viz-reasoning)); }
-.wi-row[data-kind="question"] .wi-mark,
-.wi-row[data-kind="approval"] .wi-mark,
-.wi-row[data-kind="credential"] .wi-mark { color: hsl(var(--warning)); }
-.wi-row[data-status="failed"] .wi-mark { color: hsl(var(--destructive)); }
-.wi-row[data-status="running"] .wi-mark { color: var(--agent); }
+.wi-row-dot[data-state="running"] {
+  background: var(--agent, hsl(var(--foreground)));
+  animation: wi-dot-pulse 1.6s ease-in-out infinite;
+}
+.wi-row-dot[data-state="failed"] { background: hsl(var(--destructive)); }
+.wi-row-dot[data-state="waiting"] { background: hsl(var(--warning)); }
+@media (prefers-reduced-motion: reduce) {
+  .wi-row-dot[data-state="running"] { animation: none; }
+}
 .wi-label {
   flex: none;
   max-width: 60%;
@@ -290,6 +294,7 @@
   line-height: 16px;
 }
 .wi-state[data-state="waiting"] { color: hsl(var(--warning)); }
+.wi-state[data-state="failed"] { color: hsl(var(--destructive)); }
 .wi-chev {
   width: 14px;
   height: 14px;

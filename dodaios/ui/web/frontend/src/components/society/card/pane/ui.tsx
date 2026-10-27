@@ -190,7 +190,14 @@ export function ChoicePill<T extends string>({
     items[(at + step + items.length) % items.length]?.focus();
   };
   return (
-    <span ref={root} className="relative shrink-0">
+    <span
+      ref={root}
+      className="relative shrink-0"
+      // Tabbing out of the open menu closes it, as a click elsewhere does.
+      onBlur={(event) => {
+        if (open && event.relatedTarget && !root.current?.contains(event.relatedTarget as Node)) setOpen(false);
+      }}
+    >
       <button
         type="button"
         className="ap-pill"

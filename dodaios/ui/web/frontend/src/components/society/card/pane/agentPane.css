@@ -275,6 +275,8 @@
   line-height: 1.45;
   color: hsl(var(--muted-foreground));
 }
+/* A hint that belongs to a card line starts where the line's label starts. */
+.ap-hint.ap-line-hint { padding: 0 12px 8px; }
 
 .ap-link {
   display: inline-flex;
@@ -512,7 +514,17 @@ button.ap-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px hsl(var
   padding: 3px;
 }
 .ap-seg[data-fill="true"] { display: flex; flex-wrap: nowrap; }
-.ap-seg[data-fill="true"] .ap-seg-item { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A long choice ("Berechtigungen umgehen") wraps inside its capsule instead of losing words. */
+.ap-seg[data-fill="true"] .ap-seg-item {
+  min-width: 0;
+  height: auto;
+  min-height: 30px;
+  flex: 1 1 auto;
+  padding: 4px 8px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
 /* In dark the track sits below the rail and the chosen chip rises above it. */
 .dark .ap-seg { background: hsl(var(--background) / 0.75); box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.5); }
 .dark .ap-seg-item[aria-checked="true"] { background: hsl(var(--secondary)); }

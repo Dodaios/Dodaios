@@ -149,7 +149,8 @@ function AgentGroupRow({ group, agent, now, onOpened }: {
   return (
     <li className="group/agent" data-testid="attention-group" data-agent-id={group.agentId}>
       <div className="flex items-center gap-2.5 px-2 pb-1 pt-1">
-        {agent ? <AgentSwatch agent={agent} size={24} /> : <span aria-hidden className="h-6 w-6 rounded-full bg-secondary" />}
+        {/* An agent the roster no longer knows shows its name alone, never an empty disc. */}
+        {agent ? <AgentSwatch agent={agent} size={24} /> : null}
         <span className="min-w-0 truncate text-[14px] font-semibold text-foreground">{name}</span>
         <span className="text-[13px] tabular-nums text-muted-foreground">
           {fill(t("agent_attention.waiting_count"), { count: group.items.length })}

@@ -537,8 +537,8 @@ function RunsOn({ agent }: { agent: SocietyAgent }) {
             .finally(() => setSaving(false));
         }}
       />
-      {error ? <p role="alert" className="ap-hint px-3 pb-2 text-destructive">{error}</p> : null}
-      {saving ? <p className="ap-hint px-3 pb-2">{t("society.card.runs_on_saving")}</p> : null}
+      {error ? <p role="alert" className="ap-hint ap-line-hint text-destructive">{error}</p> : null}
+      {saving ? <p className="ap-hint ap-line-hint">{t("society.card.runs_on_saving")}</p> : null}
     </div>
   );
 }

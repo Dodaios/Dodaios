@@ -1,8 +1,5 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import {
-  Bot, Brain, ChevronRight, CircleX, KeyRound, ListTree,
-  Loader2, MessageCircleQuestion, MessageSquareText, ShieldQuestion, User, X,
-} from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
@@ -10,7 +7,6 @@ import { listSubagents, subagentTurn, type SubagentEntry } from "@/components/ag
 import { ChatMarkdown } from "../ChatMarkdown";
 import type { SubagentStatus, ToolBlock, TurnItem } from "../reduce";
 import { toolDiff } from "../toolDiff";
-import { CallMark } from "../TraceTimeline";
 import { plural, readableOutput, traceDuration } from "../traceEntries";
 import { formatTokens, outputTokens } from "../toolView";
 import { inspectorRows, rowCounts, type InspectorRow } from "./inspectorRows";
@@ -257,22 +253,14 @@ function helperTrace(entry: SubagentEntry): TurnItem {
   return { ...trace, blocks: [...trace.blocks, { kind: "text", id: `summary:${entry.id}`, text: summary }] };
 }
 
-const KIND_ICON = {
-  prompt: User,
-  thought: Brain,
-  reply: MessageSquareText,
-  question: MessageCircleQuestion,
-  approval: ShieldQuestion,
-  credential: KeyRound,
-  helper: Bot,
-} as const;
-
+/**
+ * A row's mark is a quiet dot, not a kind icon: the label already says what
+ * the row is. The dot only lights up for a row that is running, failed or
+ * waiting on the person; a finished row keeps the slot empty so labels align.
+ */
 function RowMark({ row }: { row: InspectorRow }) {
-  if (row.status === "running") return <Loader2 aria-hidden className="wi-mark motion-safe:animate-spin" />;
-  if (row.status === "failed") return <CircleX aria-hidden className="wi-mark" />;
-  if (row.kind === "call" && row.call) return <span className="wi-mark-box"><CallMark call={row.call} /></span>;
-  const Icon = row.kind === "call" ? ListTree : KIND_ICON[row.kind];
-  return <Icon aria-hidden className="wi-mark" strokeWidth={1.75} />;
+  const state = row.status === "running" || row.status === "failed" || row.status === "waiting" ? row.status : undefined;
+  return <span aria-hidden className="wi-row-dot" data-state={state} />;
 }
 
 const TraceRow = memo(function TraceRow({ row, open, onToggle, onOpenHelper }: {
@@ -289,7 +277,7 @@ const TraceRow = memo(function TraceRow({ row, open, onToggle, onOpenHelper }: {
         {row.added ? <span className="run-diff-add">+{row.added}</span> : null}{row.added && row.removed ? " " : null}
         {row.removed ? <span className="run-diff-del">−{row.removed}</span> : null}
       </span> : null}
-      {row.status === "waiting" || row.status === "declined" || row.status === "stopped"
+      {row.status === "waiting" || row.status === "declined" || row.status === "stopped" || row.status === "failed"
         ? <span className="wi-state" data-state={row.status}>{t(`run_view.status.${row.status}`)}</span> : null}
       {row.durationMs && row.status !== "running" ? <span className="wi-time">{traceDuration(row.durationMs)}</span> : null}
       <ChevronRight aria-hidden className={cn("wi-chev", open && "is-open")} />

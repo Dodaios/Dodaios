@@ -82,7 +82,7 @@ export function ComputerPicker({
       />
       </span>
       </div>
-      <p className={row ? "ap-hint px-3 pb-2 pt-1" : "mt-1 text-xs text-muted-foreground"}>
+      <p className={row ? "ap-hint ap-line-hint" : "mt-1 text-xs text-muted-foreground"}>
         {chosen
           ? chosen.health.status === "online"
             ? t("society.create.runs_on_remote_hint")

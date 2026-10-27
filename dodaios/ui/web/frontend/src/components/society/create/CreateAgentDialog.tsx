@@ -228,8 +228,8 @@ function CreateAgentDialog() {
           aria-describedby={undefined}
           className={cn(
             "fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden",
-            "cs-sheet",
-            mode === "quick" ? "w-[min(880px,calc(100vw-24px))]" : "h-[min(720px,92dvh)] w-[min(960px,calc(100vw-24px))]",
+            // One sheet size for every tab, so switching Blank / starter / Import never jumps.
+            "cs-sheet h-[min(720px,92dvh)] w-[min(960px,calc(100vw-24px))]",
           )}
         >
           <header className="cs-head">
