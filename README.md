@@ -171,7 +171,7 @@ A star on GitHub helps other people find Dodaios. Sponsors are listed in [SPONSO
 
 <!-- contributors:start -->
 
-<a href="https://github.com/rubenluetke10-beep"><img src="https://avatars.githubusercontent.com/u/226271791?v=4&s=48" width="48" height="48" alt="rubenluetke10-beep"></a>
+<a href="https://github.com/rubenluetke10-beep"><img src="https://avatars.githubusercontent.com/u/226271791?v=4&s=48" width="48" height="48" alt="rubenluetke10-beep"></a> <a href="https://github.com/dannyward630"><img src="https://avatars.githubusercontent.com/u/71604164?v=4&s=48" width="48" height="48" alt="dannyward630"></a> <a href="https://github.com/ANO3457"><img src="https://avatars.githubusercontent.com/u/187025195?v=4&s=48" width="48" height="48" alt="ANO3457"></a> <a href="https://github.com/CodeByPeace"><img src="https://avatars.githubusercontent.com/u/228503734?v=4&s=48" width="48" height="48" alt="CodeByPeace"></a> <a href="https://github.com/Idee-Wird-App"><img src="https://avatars.githubusercontent.com/u/330157118?v=4&s=48" width="48" height="48" alt="Idee-Wird-App"></a> <a href="https://github.com/tianxingjian2406"><img src="https://avatars.githubusercontent.com/u/247943876?v=4&s=48" width="48" height="48" alt="tianxingjian2406"></a> <a href="https://github.com/Uddoo"><img src="https://avatars.githubusercontent.com/u/19704816?v=4&s=48" width="48" height="48" alt="Uddoo"></a> <!-- i18n-allow -->
 
 <!-- contributors:end -->
 
