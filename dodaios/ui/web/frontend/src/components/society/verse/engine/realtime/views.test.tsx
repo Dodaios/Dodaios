@@ -268,7 +268,7 @@ describe("shooter input mapping", () => {
   });
 
   const pointer = (type: string, init: Record<string, number | string>) => {
-    const e = new MouseEvent(type, { bubbles: true, clientX: Number(init.clientX ?? 0), clientY: Number(init.clientY ?? 0), button: Number(init.button ?? 0) });
+    const e = new MouseEvent(type, { bubbles: true, clientX: Number(init.clientX ?? 0), clientY: Number(init.clientY ?? 0), button: Number(init.button ?? 0), buttons: Number(init.buttons ?? 0) });
     for (const key of ["pointerId", "pointerType", "movementX", "movementY"]) {
       if (key in init) Object.defineProperty(e, key, { value: init[key] });
     }
@@ -305,6 +305,23 @@ describe("shooter input mapping", () => {
     expect(cb.aim).toHaveBeenCalledWith(400, 300);
     expect(cb.tap).not.toHaveBeenCalled();
     expect(cb.capture).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it("with the mouse taken: the left button pressed while the right is held (a pointermove chord) still aims; no menu", () => {
+    const rig = new ShoulderRig();
+    const cb = callbacks();
+    const detach = attachOrbitInput(el, rig, cb);
+    lockedTo = el;
+    pointer("pointerdown", { pointerId: 1, pointerType: "mouse", button: 2, buttons: 2 });
+    expect(cb.aim).not.toHaveBeenCalled();
+    pointer("pointermove", { pointerId: 1, pointerType: "mouse", button: 0, buttons: 3 });
+    expect(cb.aim).toHaveBeenCalledTimes(1);
+    pointer("pointermove", { pointerId: 1, pointerType: "mouse", buttons: 3, movementX: 4 });
+    expect(cb.aim).toHaveBeenCalledTimes(1);
+    const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 });
+    el.dispatchEvent(menu);
+    expect(menu.defaultPrevented).toBe(true);
     detach();
   });
 
