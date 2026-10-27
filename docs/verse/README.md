@@ -49,12 +49,31 @@ framing at its own size; a low, wide one still shows at least 5 m of floor top
 to bottom. The camera never comes closer than the plate is sharp: an older
 deck cooked at 96 px/m, or a HiDPI screen, stops a little further out.
 
+B folds out the **hoverboard** under the commander (the tool rail has the same
+button): the movement keys then glide at 5.5 m/s instead of walking at about
+1.3 (Shift boosts to 8.5), the board coasts to a stop when the keys are let
+go and loses its speed against a wall, and a click on the deck rides the path
+at four times the walking pace. The rider stands on it a hand's breadth off
+the floor, leaning into speed and turns; B folds it away. It never comes into
+a duel. Motion and look live in `actors/hoverboard.ts`.
+
 **Duel.** At any of the four consoles on the reactor's control ring (Reactor
 Engineering) E offers *Start a duel*; the **Duel** button on the tool rail does
 the same from any deck (the turbolift rides down first). Choose normal, hard
 or elite and fight a 1v1 blaster duel against a bot, best of three; Esc pauses,
 Esc again leaves and puts the commander back on the deck. See
 [`combat.md`](combat.md).
+
+**Taking over a terminal.** Every desk monitor in Reactor Engineering that
+shows a coding pane is a station: within reach, E offers *Take over the
+terminal* and opens the pane's screen large (`hud/TakeoverPanel.tsx`). For a
+pane the IDE has mounted, every key goes straight to the agent as typed in the
+IDE (Enter, arrows, Tab, Esc interrupts, Ctrl+C, a paste arrives bracketed),
+through the IDE's own pane-input event with `focus: false`, so the hidden pane
+never steals the keyboard; Ctrl+Q or the close button leaves. A pane the IDE
+has not mounted shows the server's replay and takes a whole prompt per send
+(`/api/agentic-ide/terminals/{name}/prompt`, uncomposed). The master station's
+grid screens are not stations: they show every pane at once.
 
 **Views.** The tool rail's switch offers the **bird's-eye** view, **third
 person** and **first person**; 1, 2 and 3 pick one and V cycles them (the last

@@ -427,7 +427,14 @@ A release happens **only** when the maintainer asks for one.
   the Conventional Commits since the last tag) into a dated CHANGELOG section
   (`scripts/ci/cut_release.py`), lands the candidate through a CI-checked PR
   and the merge queue, tags the landed commit, and dispatches full CI with macOS on that
-  immutable tag. Its `cut` job runs in the `release-cut` environment, which
+  immutable tag. The tag carries the frontend bundle built from its own
+  sources: the `bundle` job (no secrets, read-only token) runs `npm ci && npm
+  run build` on the landed commit, and the `tag` job commits that
+  `dodaios/ui/web/dist` on top as the tag's one extra commit (no commit when
+  main's copy is already identical). `release_admit.py` admits a tag on main
+  or exactly that shape: one parent on main, changes only under
+  `dodaios/ui/web/dist/`. So installs and updates always get a matching UI, and
+  main does not have to track the bundle. Its `cut` and `tag` jobs run in the `release-cut` environment, which
   only `main` may deploy to and which holds the private key of the release
   bot GitHub App (secret `RELEASE_APP_PRIVATE_KEY`, variable
   `RELEASE_APP_ID`). Right before each write (candidate push and PR, merge,

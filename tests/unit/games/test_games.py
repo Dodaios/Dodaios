@@ -240,3 +240,140 @@ def test_convert_refuses_non_linear_games_and_bad_input(client: TestClient) -> N
     assert client.post("/api/games/convert", json={"game_id": "cs2", "sens": 0}).status_code == 400
     assert client.post("/api/games/convert", json={"game_id": "x", "sens": 1}).status_code == 404
     assert client.put("/api/games/dpi", json={"dpi": 1}).status_code == 400
+
+
+# --------------------------------------------------------------------------- v2: performance
+
+
+def test_every_game_gets_the_performance_block() -> None:
+    for game in list_games():
+        keys = {s["key"] for sec in game["sections"] for s in sec["settings"]}
+        assert {"perf_resolution", "perf_fps_cap", "perf_upscaler", "perf_rt"} <= keys
+
+
+def test_resolutions_reach_5k_and_fps_reaches_unlimited() -> None:
+    game = get_game("cs2")
+    settings = {s["key"]: s for sec in game["sections"] for s in sec["settings"]}
+    assert "1920x1080" in settings["perf_resolution"]["options"]
+    assert "5120x2880" in settings["perf_resolution"]["options"]
+    assert settings["perf_fps_cap"]["options"][-1] == "Unlimited"
+
+
+def test_duplicated_game_video_settings_are_dropped() -> None:
+    labels = [
+        s["label"]
+        for sec in get_game("fortnite")["sections"]
+        if sec["id"] == "video"
+        for s in sec["settings"]
+    ]
+    assert "Window Mode" not in labels
+    assert "Resolution" not in labels
+    assert "3D Resolution" in labels
+
+
+def test_every_preset_value_is_valid() -> None:
+    from dodaios.games.catalog import load_catalog
+    from dodaios.games.store import check_value
+
+    settings = {s["key"]: s for sec in get_game("cs2")["sections"] for s in sec["settings"]}
+    presets = load_catalog()["presets"]
+    assert [p["id"] for p in presets] == ["competitive", "balanced", "quality", "epic"]
+    for preset in presets:
+        for key, value in preset["values"].items():
+            if value == "monitor":  # filled in from the detected monitor by the page
+                continue
+            assert check_value(settings[key], value) == value, (preset["id"], key)
+
+
+@pytest.mark.parametrize(
+    ("gpu", "tier"),
+    [
+        ({"name": "NVIDIA GeForce RTX 4090", "vram_gb": 24}, "enthusiast"),
+        ({"name": "NVIDIA GeForce RTX 5070 Ti", "vram_gb": 15.9}, "high"),
+        ({"name": "NVIDIA GeForce RTX 4060", "vram_gb": 8}, "mid"),
+        ({"name": "NVIDIA GeForce GTX 1650", "vram_gb": 4}, "entry"),
+        ({"name": "AMD Radeon RX 7900 XTX", "vram_gb": None}, "enthusiast"),
+        ({"name": "AMD Radeon RX 6600", "vram_gb": None}, "mid"),
+        ({"name": "Intel Arc A770", "vram_gb": 16}, "enthusiast"),
+        ({"name": "Unknown", "vram_gb": None}, None),
+    ],
+)
+def test_gpu_tier(gpu: dict, tier: str | None) -> None:
+    from dodaios.games.system import gpu_tier
+
+    assert gpu_tier([gpu]) == tier
+
+
+def test_nominal_refresh_rates() -> None:
+    from dodaios.games.system import _nominal_hz
+
+    assert [_nominal_hz(h) for h in (59, 119, 143, 144, 164, 239)] == [60, 120, 144, 144, 165, 240]
+
+
+# --------------------------------------------------------------------------- v2: keybinds
+
+
+def test_combos_alt_binds_modes_and_custom_actions(store: GameProfileStore) -> None:
+    store.update(
+        "fortnite",
+        keybinds={"jump": "Ctrl + Shift + Mouse 4"},
+        alt_keybinds={"jump": "Mouse Wheel Down"},
+        bind_modes={"sprint": "toggle"},
+        custom_binds=[{"id": "c1", "action": "Quick edit", "key": "Alt + E", "alt": ""}],
+    )
+    profile = store.profile("fortnite")
+    assert profile["keybinds"] == {"jump": "Ctrl + Shift + Mouse 4"}
+    assert profile["alt_keybinds"] == {"jump": "Mouse Wheel Down"}
+    assert profile["bind_modes"] == {"sprint": "toggle"}
+    assert profile["custom_binds"][0]["key"] == "Alt + E"
+    store.update("fortnite", alt_keybinds={"jump": None}, bind_modes={"sprint": None})
+    profile = store.profile("fortnite")
+    assert profile["alt_keybinds"] == {}
+    assert profile["bind_modes"] == {}
+    assert len(profile["custom_binds"]) == 1  # left out = kept
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"bind_modes": {"sprint": "sometimes"}}, "hold or toggle"),
+        ({"alt_keybinds": {"fly": "F"}}, "Unknown keybind"),
+        ({"custom_binds": [{"id": "a", "action": "x", "key": "F"}] * 2}, "own id"),
+        ({"custom_binds": "nope"}, "list"),
+    ],
+)
+def test_bad_keybind_changes_are_refused(
+    store: GameProfileStore, change: dict, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        store.update("fortnite", **change)
+
+
+def test_system_endpoint(client: TestClient, monkeypatch) -> None:
+    import dodaios.games.system as system
+
+    system.system_info.cache_clear()
+    monkeypatch.setattr(
+        system, "_gpus", lambda: [{"name": "NVIDIA GeForce RTX 4080", "vram_gb": 16}]
+    )
+    monkeypatch.setattr(system, "_monitors", lambda: [])
+    body = client.get("/api/games/system").json()
+    system.system_info.cache_clear()
+    assert body["gpu_tier"] == "enthusiast"
+    assert body["recommended_preset"] == "epic"
+
+
+def test_index_carries_presets_and_profile_saves_new_fields(client: TestClient) -> None:
+    assert len(client.get("/api/games").json()["presets"]) == 4
+    response = client.put(
+        "/api/games/cs2/profile",
+        json={
+            "values": {"perf_resolution": "3840x2160", "perf_fps_cap": "Unlimited"},
+            "alt_keybinds": {"jump": "Mouse Wheel Down"},
+            "custom_binds": [{"id": "c1", "action": "Buy menu", "key": "B", "alt": ""}],
+        },
+    )
+    assert response.status_code == 200
+    profile = response.json()["profile"]
+    assert profile["values"]["perf_resolution"] == "3840x2160"
+    assert profile["custom_binds"][0]["action"] == "Buy menu"

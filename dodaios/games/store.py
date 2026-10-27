@@ -5,7 +5,13 @@ Lives at ``<DATA_DIR>/games/profiles.json``::
     {"version": 1, "dpi": 800,
      "games": {"fortnite": {"values": {"mouse_sens_x": 6.4},
                             "keybinds": {"jump": "Space"},
+                            "alt_keybinds": {"jump": "Mouse Wheel Down"},
+                            "bind_modes": {"sprint": "toggle"},
+                            "custom_binds": [{"id": "c1", "action": "Quick build",
+                                              "key": "Shift + Mouse 4", "alt": ""}],
                             "dpi": null, "notes": "", "updated_at": "..."}}}
+
+A key is one key or a combination joined with " + " ("Ctrl + Shift + F").
 
 ``dpi`` at the top is the mouse DPI every game uses unless its profile sets
 its own. Values are checked against the catalog before they are written, and
@@ -29,7 +35,10 @@ log = logging.getLogger(__name__)
 
 DEFAULT_DPI = 800
 MIN_DPI, MAX_DPI = 50, 64000
-MAX_KEY_LEN = 40
+MAX_KEY_LEN = 60
+MAX_ACTION_LEN = 60
+MAX_CUSTOM_BINDS = 60
+BIND_MODES = ("hold", "toggle")
 MAX_TEXT_LEN = 200
 MAX_NOTES_LEN = 4000
 
@@ -127,7 +136,43 @@ def _game_or_raise(game_id: str) -> dict[str, Any]:
 
 
 def _blank_profile() -> dict[str, Any]:
-    return {"values": {}, "keybinds": {}, "dpi": None, "notes": "", "updated_at": None}
+    return {
+        "values": {},
+        "keybinds": {},
+        "alt_keybinds": {},
+        "bind_modes": {},
+        "custom_binds": [],
+        "dpi": None,
+        "notes": "",
+        "updated_at": None,
+    }
+
+
+def check_custom_binds(value: Any) -> list[dict[str, str]]:
+    """The player's own actions: a list of ``{id, action, key, alt}``."""
+    if not isinstance(value, list) or len(value) > MAX_CUSTOM_BINDS:
+        raise ValueError(f"Custom actions are a list of at most {MAX_CUSTOM_BINDS}")
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for row in value:
+        if not isinstance(row, dict):
+            raise ValueError("A custom action needs an id, a name and a key")
+        row_id = row.get("id")
+        action = row.get("action")
+        if not isinstance(row_id, str) or not row_id or len(row_id) > 40 or row_id in seen:
+            raise ValueError("Each custom action needs its own id")
+        if not isinstance(action, str) or len(action.strip()) > MAX_ACTION_LEN:
+            raise ValueError(f"A custom action name is text up to {MAX_ACTION_LEN} characters")
+        seen.add(row_id)
+        out.append(
+            {
+                "id": row_id,
+                "action": action.strip(),
+                "key": check_key(row.get("key", "")),
+                "alt": check_key(row.get("alt", "")),
+            }
+        )
+    return out
 
 
 class GameProfileStore:
@@ -159,6 +204,9 @@ class GameProfileStore:
         *,
         values: dict[str, Any] | None = None,
         keybinds: dict[str, Any] | None = None,
+        alt_keybinds: dict[str, Any] | None = None,
+        bind_modes: dict[str, Any] | None = None,
+        custom_binds: list[Any] | None = None,
         dpi: Any = ...,
         notes: str | None = None,
     ) -> dict[str, Any]:
@@ -177,11 +225,25 @@ class GameProfileStore:
             if key not in settings:
                 raise ValueError(f"Unknown setting: {key}")
             clean_values[key] = check_value(settings[key], value)
-        clean_binds: dict[str, str | None] = {}
-        for key, value in (keybinds or {}).items():
+
+        def clean_map(raw: dict[str, Any] | None) -> dict[str, str | None]:
+            out: dict[str, str | None] = {}
+            for key, value in (raw or {}).items():
+                if key not in binds:
+                    raise ValueError(f"Unknown keybind: {key}")
+                out[key] = None if value is None else check_key(value)
+            return out
+
+        clean_binds = clean_map(keybinds)
+        clean_alts = clean_map(alt_keybinds)
+        clean_modes: dict[str, str | None] = {}
+        for key, value in (bind_modes or {}).items():
             if key not in binds:
                 raise ValueError(f"Unknown keybind: {key}")
-            clean_binds[key] = None if value is None else check_key(value)
+            if value is not None and value not in BIND_MODES:
+                raise ValueError("A keybind mode is hold or toggle")
+            clean_modes[key] = value
+        clean_custom = None if custom_binds is None else check_custom_binds(custom_binds)
         clean_dpi = None if dpi is None or dpi is ... else check_dpi(dpi)
         if notes is not None and (not isinstance(notes, str) or len(notes) > MAX_NOTES_LEN):
             raise ValueError(f"Notes are text up to {MAX_NOTES_LEN} characters")
@@ -194,11 +256,19 @@ class GameProfileStore:
                     profile["values"].pop(key, None)
                 else:
                     profile["values"][key] = value
-            for key, value in clean_binds.items():
-                if value is None:
-                    profile["keybinds"].pop(key, None)
-                else:
-                    profile["keybinds"][key] = value
+            for field, changes in (
+                ("keybinds", clean_binds),
+                ("alt_keybinds", clean_alts),
+                ("bind_modes", clean_modes),
+            ):
+                target = profile.setdefault(field, {})
+                for key, value in changes.items():
+                    if value is None:
+                        target.pop(key, None)
+                    else:
+                        target[key] = value
+            if clean_custom is not None:
+                profile["custom_binds"] = clean_custom
             if dpi is not ...:
                 profile["dpi"] = clean_dpi
             if notes is not None:

@@ -1,18 +1,37 @@
 /**
- * Settings → Game settings: the player's own settings for each game —
- * sensitivity, keybinds, audio, video, gameplay — in one place, plus a
- * converter that carries a hip-fire sensitivity from one game to the others
- * at the same cm/360 (docs/game-settings.md).
+ * Settings → Game settings: the player's own setup for each game — graphics
+ * and performance (presets, resolution up to 5K, FPS up to unlimited),
+ * mouse, keybinds with combinations, audio, gameplay — plus a converter that
+ * carries a hip-fire sensitivity to every other game at the same cm/360
+ * (docs/game-settings.md).
  *
  * Which settings a game has comes from the backend catalog
- * (`dodaios/games/catalog.json`), so adding a game never touches this view.
+ * (`dodaios/games/catalog.json` plus `dodaios/games/performance.py`), so
+ * adding a game never touches this view. Each game wears its own hue
+ * (`lib/gameVisuals`), passed down as CSS variables.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, FileCog, Gamepad2, Loader2, Search, Trash2 } from "lucide-react";
-import { GameSettingRow, KeyCaptureButton } from "@/components/games/GameControls";
+import {
+  Check,
+  Copy,
+  Crosshair,
+  FileCog,
+  Gamepad2,
+  Keyboard,
+  Loader2,
+  MonitorCog,
+  Repeat,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Volume2,
+  type LucideIcon,
+} from "lucide-react";
+import { GameSettingRow } from "@/components/games/GameControls";
+import { KeybindPanel } from "@/components/games/KeybindPanel";
+import { PerformancePanel } from "@/components/games/PerformancePanel";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { TabBar } from "@/components/layout/SectionTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,20 +44,28 @@ import {
 } from "@/hooks/useGames";
 import { useT } from "@/i18n";
 import { robustCopy } from "@/lib/clipboard";
-import { keyConflicts } from "@/lib/gameKeys";
 import {
   cmPer360,
   convertSensitivity,
   type GameDefinition,
+  type GamePreset,
   type GameProfile,
   type GameSettingValue,
   type ProfilePatch,
 } from "@/lib/gamesApi";
+import { gameAccent, gameMonogram } from "@/lib/gameVisuals";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 
-type TabId = "mouse" | "keybinds" | "audio" | "video" | "gameplay" | "converter";
-const TABS: readonly TabId[] = ["mouse", "keybinds", "audio", "video", "gameplay", "converter"];
+type TabId = "performance" | "mouse" | "keybinds" | "audio" | "gameplay" | "converter";
+const TABS: readonly { id: TabId; icon: LucideIcon }[] = [
+  { id: "performance", icon: MonitorCog },
+  { id: "mouse", icon: Crosshair },
+  { id: "keybinds", icon: Keyboard },
+  { id: "audio", icon: Volume2 },
+  { id: "gameplay", icon: SlidersHorizontal },
+  { id: "converter", icon: Repeat },
+];
 const LAST_GAME_KEY = "dodaios.games.last";
 
 function readLastGame(): string | null {
@@ -61,6 +88,33 @@ function formatNumber(value: number, digits = 2): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+/** The CSS variables that colour one game's page. */
+function accentVars(id: string): CSSProperties {
+  return {
+    "--game-accent": gameAccent(id),
+    "--game-accent-soft": gameAccent(id, 0.12),
+    "--game-accent-glow": gameAccent(id, 0.35),
+  } as CSSProperties;
+}
+
+function Monogram({ id, name, size = "sm" }: { id: string; name: string; size?: "sm" | "lg" }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        background: `linear-gradient(135deg, ${gameAccent(id, 0.95)}, ${gameAccent(id, 0.45)})`,
+        boxShadow: `0 0 ${size === "lg" ? 28 : 12}px ${gameAccent(id, 0.35)}`,
+      }}
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-lg font-mono font-bold text-black/85",
+        size === "lg" ? "h-16 w-16 text-xl" : "h-9 w-9 text-xs",
+      )}
+    >
+      {gameMonogram(name)}
+    </span>
+  );
+}
+
 export function GamesView() {
   const t = useT();
   const pushToast = useEventStore((s) => s.pushToast);
@@ -68,7 +122,7 @@ export function GamesView() {
   const saveDpi = useSaveDefaultDpi();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(() => readLastGame());
-  const [tab, setTab] = useState<TabId>("mouse");
+  const [tab, setTab] = useState<TabId>("performance");
 
   const games = index.data?.games ?? [];
   useEffect(() => {
@@ -94,7 +148,7 @@ export function GamesView() {
       data-testid="games-view"
       className="flex h-full flex-col overflow-y-auto bg-background px-4 pb-10 scrollbar-jarvis sm:px-8"
     >
-      <div className="w-full max-w-[1400px]">
+      <div className="w-full max-w-[1500px]">
         <PageHeader
           icon={<Gamepad2 />}
           title={t("games.title")}
@@ -125,7 +179,7 @@ export function GamesView() {
 
         {index.data && (
           <div className="flex flex-col gap-6 lg:flex-row">
-            <aside className="lg:w-64 lg:shrink-0">
+            <aside className="lg:w-60 lg:shrink-0">
               <div className="relative mb-3">
                 <Search
                   className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
@@ -139,35 +193,47 @@ export function GamesView() {
                   className="h-8 pl-8"
                 />
               </div>
-              <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0" data-testid="games-list">
-                {visible.map((game) => (
-                  <li key={game.id} className="shrink-0">
-                    <button
-                      type="button"
-                      data-testid={`games-pick-${game.id}`}
-                      aria-current={game.id === selected ? "true" : undefined}
-                      onClick={() => choose(game.id)}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left transition-colors",
-                        game.id === selected
-                          ? "bg-secondary text-foreground-strong"
-                          : "text-foreground hover:bg-secondary/60",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{game.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">{game.publisher}</span>
-                      </span>
-                      {game.has_profile && (
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                          title={t("games.saved_badge")}
-                          aria-label={t("games.saved_badge")}
-                        />
-                      )}
-                    </button>
-                  </li>
-                ))}
+              <ul
+                className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
+                data-testid="games-list"
+              >
+                {visible.map((game) => {
+                  const active = game.id === selected;
+                  return (
+                    <li key={game.id} className="shrink-0">
+                      <button
+                        type="button"
+                        data-testid={`games-pick-${game.id}`}
+                        aria-current={active ? "true" : undefined}
+                        onClick={() => choose(game.id)}
+                        style={active ? accentVars(game.id) : undefined}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-lg border px-2.5 py-2 text-left transition-all",
+                          active
+                            ? "border-[var(--game-accent)] bg-[var(--game-accent-soft)]"
+                            : "border-transparent text-foreground hover:bg-secondary/60",
+                        )}
+                      >
+                        <Monogram id={game.id} name={game.name} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-foreground-strong">
+                            {game.name}
+                          </span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {game.publisher}
+                          </span>
+                        </span>
+                        {game.has_profile && (
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+                            title={t("games.saved_badge")}
+                            aria-label={t("games.saved_badge")}
+                          />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </aside>
 
@@ -177,6 +243,7 @@ export function GamesView() {
                   key={selected}
                   gameId={selected}
                   defaultDpi={index.data.dpi}
+                  presets={index.data.presets ?? []}
                   tab={tab}
                   onTab={setTab}
                 />
@@ -237,14 +304,25 @@ function DpiField({
   );
 }
 
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="truncate font-mono text-lg font-semibold tabular-nums text-foreground-strong">{value}</p>
+    </div>
+  );
+}
+
 function GamePanel({
   gameId,
   defaultDpi,
+  presets,
   tab,
   onTab,
 }: {
   gameId: string;
   defaultDpi: number;
+  presets: GamePreset[];
   tab: TabId;
   onTab: (tab: TabId) => void;
 }) {
@@ -277,92 +355,172 @@ function GamePanel({
     );
   }
 
-  const { game, profile } = detail.data;
+  const { game, profile: raw } = detail.data;
+  const profile: GameProfile = {
+    ...raw,
+    alt_keybinds: raw.alt_keybinds ?? {},
+    bind_modes: raw.bind_modes ?? {},
+    custom_binds: raw.custom_binds ?? [],
+  };
   const dpi = profile.dpi ?? defaultDpi;
-  const section = game.sections.find((s) => s.id === tab);
   const hasProfile = profile.updated_at !== null;
+  const allSettings = game.sections.flatMap((s) => s.settings);
+  const effective = (key: string) =>
+    profile.values[key] ?? allSettings.find((s) => s.key === key)?.default ?? null;
+  const sensRaw = game.sens_key ? effective(game.sens_key) : null;
+  const sens = typeof sensRaw === "number" ? sensRaw : null;
+  const cm = game.yaw && sens ? cmPer360(game.yaw, sens, dpi) : null;
+  const res = String(effective("perf_resolution") ?? "—").replace("x", " × ");
+  const fps = String(effective("perf_fps_cap") ?? "—");
 
   const copySummary = async () => {
     const ok = await robustCopy(profileSummary(game, profile, dpi));
     pushToast(ok ? "success" : "error", ok ? t("games.copied") : t("games.copy_failed"));
   };
 
-  return (
-    <div data-testid={`game-panel-${game.id}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground-strong">{game.name}</h2>
-          <p className="text-xs text-muted-foreground">{game.publisher}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => void copySummary()}>
-            <Copy aria-hidden />
-            {t("games.copy")}
-          </Button>
-          <Button
-            type="button"
-            variant={confirmReset ? "destructive" : "outline"}
-            size="sm"
-            disabled={!hasProfile || reset.isPending}
-            onBlur={() => setConfirmReset(false)}
-            onClick={() => {
-              if (!confirmReset) return setConfirmReset(true);
-              setConfirmReset(false);
-              reset.mutate(game.id, {
-                onSuccess: () => pushToast("success", t("games.reset_done").replace("{0}", game.name)),
-                onError: (error) =>
-                  pushToast("error", t("games.save_error").replace("{0}", (error as Error).message)),
-              });
-            }}
-          >
-            <Trash2 aria-hidden />
-            {confirmReset ? t("games.reset_confirm") : t("games.reset_profile")}
-          </Button>
-        </div>
-      </div>
-
-      <TabBar
-        className="mt-4"
-        tabs={TABS.map((id) => ({
-          id,
-          label: t(`games.tabs.${id}`),
-          count: id === "keybinds" ? game.keybinds.length : undefined,
-        }))}
-        active={tab}
-        onChange={(id) => onTab(id as TabId)}
+  const sectionRows = (id: string) => {
+    const settings = game.sections.find((s) => s.id === id)?.settings ?? [];
+    if (settings.length === 0) {
+      return <p className="py-6 text-sm text-muted-foreground">{t("games.section_empty")}</p>;
+    }
+    return settings.map((setting) => (
+      <GameSettingRow
+        key={setting.key}
+        setting={setting}
+        value={profile.values[setting.key]}
+        onChange={(value) => patch({ values: { [setting.key]: value } })}
       />
+    ));
+  };
 
-      <div className="mt-4 rounded-lg border border-border bg-card px-4">
-        {tab === "mouse" && (
-          <MouseSummary game={game} profile={profile} defaultDpi={defaultDpi} onPatch={patch} />
+  return (
+    <div data-testid={`game-panel-${game.id}`} style={accentVars(game.id)}>
+      <header
+        className="relative overflow-hidden rounded-2xl border border-border px-5 py-5 sm:px-6"
+        style={{
+          background: `radial-gradient(120% 140% at 0% 0%, ${gameAccent(game.id, 0.28)}, transparent 55%), radial-gradient(80% 120% at 100% 100%, ${gameAccent(game.id, 0.12)}, transparent 60%), hsl(var(--card))`,
+        }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(hsl(var(--foreground))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground))_1px,transparent_1px)] [background-size:28px_28px]"
+        />
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <Monogram id={game.id} name={game.name} size="lg" />
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--game-accent)]">
+                {game.publisher}
+              </p>
+              <h2 className="truncate text-2xl font-bold tracking-tight text-foreground-strong sm:text-3xl">
+                {game.name}
+              </h2>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => void copySummary()}>
+              <Copy aria-hidden />
+              {t("games.copy")}
+            </Button>
+            <Button
+              type="button"
+              variant={confirmReset ? "destructive" : "outline"}
+              size="sm"
+              disabled={!hasProfile || reset.isPending}
+              onBlur={() => setConfirmReset(false)}
+              onClick={() => {
+                if (!confirmReset) return setConfirmReset(true);
+                setConfirmReset(false);
+                reset.mutate(game.id, {
+                  onSuccess: () => pushToast("success", t("games.reset_done").replace("{0}", game.name)),
+                  onError: (error) =>
+                    pushToast("error", t("games.save_error").replace("{0}", (error as Error).message)),
+                });
+              }}
+            >
+              <Trash2 aria-hidden />
+              {confirmReset ? t("games.reset_confirm") : t("games.reset_profile")}
+            </Button>
+          </div>
+        </div>
+        <div className="relative mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4" data-testid="games-hero-stats">
+          <HeroStat label={t("games.perf.resolution")} value={res} />
+          <HeroStat
+            label={t("games.perf.fps_limit")}
+            value={fps === "Unlimited" ? t("games.perf.unlimited") : fps}
+          />
+          <HeroStat label={t("games.cm360")} value={cm ? `${formatNumber(cm, 1)} cm` : "—"} />
+          <HeroStat label={t("games.edpi")} value={sens ? formatNumber(sens * dpi, 0) : "—"} />
+        </div>
+      </header>
+
+      <nav
+        className="sticky top-0 z-10 -mx-1 mt-4 flex gap-1 overflow-x-auto rounded-xl border border-border bg-background/85 p-1 backdrop-blur"
+        aria-label={game.name}
+      >
+        {TABS.map(({ id, icon: Icon }) => {
+          const active = tab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-current={active ? "page" : undefined}
+              onClick={() => onTab(id)}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                active
+                  ? "bg-[var(--game-accent-soft)] text-foreground-strong shadow-[inset_0_-2px_0_var(--game-accent)]"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+              )}
+            >
+              <Icon className={cn("h-4 w-4", active && "text-[var(--game-accent)]")} aria-hidden />
+              {t(`games.tabs.${id}`)}
+              {id === "keybinds" && (
+                <span className="font-mono text-[11px] text-muted-foreground">{game.keybinds.length}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="mt-4">
+        {tab === "performance" && (
+          <PerformancePanel game={game} profile={profile} presets={presets} onPatch={patch} />
         )}
-        {section &&
-          (section.settings.length === 0 ? (
-            <p className="py-6 text-sm text-muted-foreground">{t("games.section_empty")}</p>
-          ) : (
-            section.settings.map((setting) => (
-              <GameSettingRow
-                key={setting.key}
-                setting={setting}
-                value={profile.values[setting.key]}
-                onChange={(value) => patch({ values: { [setting.key]: value } })}
-              />
-            ))
-          ))}
-        {tab === "keybinds" && <KeybindList game={game} profile={profile} onPatch={patch} />}
-        {tab === "converter" && <Converter game={game} profile={profile} dpi={dpi} />}
+        {tab === "mouse" && (
+          <Panel>
+            <MouseSummary game={game} profile={profile} defaultDpi={defaultDpi} onPatch={patch} />
+            {sectionRows("mouse")}
+          </Panel>
+        )}
+        {tab === "keybinds" && <KeybindPanel game={game} profile={profile} onPatch={patch} />}
+        {tab === "audio" && <Panel>{sectionRows("audio")}</Panel>}
+        {tab === "gameplay" && <Panel>{sectionRows("gameplay")}</Panel>}
+        {tab === "converter" && (
+          <Panel>
+            <Converter game={game} profile={profile} dpi={dpi} />
+          </Panel>
+        )}
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <NotesField value={profile.notes} onCommit={(notes) => patch({ notes })} />
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card/80 p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <FileCog className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <FileCog className="h-4 w-4 text-[var(--game-accent)]" aria-hidden />
             {t("games.config_file")}
           </div>
           <p className="mt-2 break-words font-mono text-xs text-muted-foreground">{game.config_file}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Panel({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card/80 px-5 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--game-accent)]">
+      {children}
     </div>
   );
 }
@@ -422,78 +580,6 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 font-mono text-xl tabular-nums text-foreground-strong">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-function KeybindList({
-  game,
-  profile,
-  onPatch,
-}: {
-  game: GameDefinition;
-  profile: GameProfile;
-  onPatch: (patch: ProfilePatch) => void;
-}) {
-  const t = useT();
-  const rows = game.keybinds.map((bind) => ({
-    ...bind,
-    key: profile.keybinds[bind.id] ?? bind.default,
-    saved: bind.id in profile.keybinds,
-  }));
-  const conflicts = keyConflicts(rows);
-
-  return (
-    <div data-testid="games-keybinds">
-      <p className="border-b border-border/60 py-3 text-xs text-muted-foreground">{t("games.keybind_hint")}</p>
-      {rows.map((row) => {
-        const clash = conflicts.get(row.id);
-        return (
-          <div
-            key={row.id}
-            data-testid={`game-keybind-${row.id}`}
-            className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2 last:border-b-0"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-foreground">{row.action}</span>
-                {row.saved && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />}
-              </div>
-              {clash && (
-                <p className="text-xs text-amber-500">
-                  {t("games.keybind_conflict").replace("{0}", clash.join(", "))}
-                </p>
-              )}
-              {!clash && row.note && <p className="text-xs text-muted-foreground">{row.note}</p>}
-            </div>
-            <KeyCaptureButton
-              value={row.key}
-              label={row.action}
-              onCapture={(key) => onPatch({ keybinds: { [row.id]: key } })}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={() => onPatch({ keybinds: { [row.id]: "" } })}
-              disabled={row.key === ""}
-            >
-              {t("games.keybind_clear")}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn("text-xs", !row.saved && "invisible")}
-              onClick={() => onPatch({ keybinds: { [row.id]: null } })}
-              title={row.default ? t("games.default_value").replace("{0}", row.default) : undefined}
-            >
-              {t("games.keybind_reset")}
-            </Button>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -581,7 +667,7 @@ function Converter({ game, profile, dpi }: { game: GameDefinition; profile: Game
         {result.data && (
           <div className="ml-auto text-right">
             <p className="text-xs text-muted-foreground">{t("games.cm360")}</p>
-            <p className="font-mono text-xl tabular-nums text-foreground-strong" data-testid="games-converter-cm">
+            <p className="font-mono text-2xl font-semibold tabular-nums text-[var(--game-accent)]" data-testid="games-converter-cm">
               {formatNumber(result.data.cm_per_360, 1)} cm
             </p>
           </div>
@@ -597,7 +683,7 @@ function Converter({ game, profile, dpi }: { game: GameDefinition; profile: Game
       {result.data && (
         <table className="mt-4 w-full text-sm" data-testid="games-converter-results">
           <thead>
-            <tr className="text-left text-xs text-muted-foreground">
+            <tr className="text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               <th className="py-2 font-normal">{t("games.converter_game")}</th>
               <th className="py-2 text-right font-normal">{t("games.converter_sens")}</th>
               <th className="hidden py-2 text-right font-normal sm:table-cell">{t("games.edpi")}</th>
@@ -607,7 +693,12 @@ function Converter({ game, profile, dpi }: { game: GameDefinition; profile: Game
           <tbody>
             {result.data.results.map((row) => (
               <tr key={row.id} className="border-t border-border/60">
-                <td className="py-2 text-foreground">{row.name}</td>
+                <td className="py-2">
+                  <span className="flex items-center gap-2.5 text-foreground">
+                    <Monogram id={row.id} name={row.name} />
+                    {row.name}
+                  </span>
+                </td>
                 <td className="py-2 text-right font-mono tabular-nums text-foreground-strong">
                   {formatNumber(row.sens, 3)}
                 </td>
@@ -641,7 +732,7 @@ function NotesField({ value, onCommit }: { value: string; onCommit: (notes: stri
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   return (
-    <label className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
+    <label className="flex flex-col gap-2 rounded-xl border border-border bg-card/80 p-4">
       <span className="text-sm font-medium text-foreground">{t("games.notes")}</span>
       <Textarea
         value={draft}
@@ -655,6 +746,10 @@ function NotesField({ value, onCommit }: { value: string; onCommit: (notes: stri
   );
 }
 
+function valueText(value: GameSettingValue): string {
+  return typeof value === "boolean" ? (value ? "On" : "Off") : String(value);
+}
+
 /** Plain-text summary of a profile, for pasting into chat or a note. */
 export function profileSummary(game: GameDefinition, profile: GameProfile, dpi: number): string {
   const lines = [`${game.name} — DPI ${dpi}`];
@@ -662,15 +757,24 @@ export function profileSummary(game: GameDefinition, profile: GameProfile, dpi: 
     const set = section.settings.filter((s) => profile.values[s.key] !== undefined);
     if (set.length === 0) continue;
     lines.push("", `[${section.id}]`);
-    for (const s of set) {
-      const value: GameSettingValue = profile.values[s.key];
-      lines.push(`${s.label}: ${typeof value === "boolean" ? (value ? "On" : "Off") : value}`);
-    }
+    for (const s of set) lines.push(`${s.label}: ${valueText(profile.values[s.key])}`);
   }
-  const binds = game.keybinds.filter((b) => b.id in profile.keybinds);
+  const binds = game.keybinds.filter(
+    (b) => b.id in profile.keybinds || b.id in (profile.alt_keybinds ?? {}),
+  );
   if (binds.length > 0) {
     lines.push("", "[keybinds]");
-    for (const b of binds) lines.push(`${b.action}: ${profile.keybinds[b.id] || "—"}`);
+    for (const b of binds) {
+      const primary = profile.keybinds[b.id] ?? b.default;
+      const alt = profile.alt_keybinds?.[b.id];
+      const mode = profile.bind_modes?.[b.id];
+      lines.push(`${b.action}: ${primary || "—"}${alt ? ` / ${alt}` : ""}${mode ? ` (${mode})` : ""}`);
+    }
+  }
+  const custom = (profile.custom_binds ?? []).filter((c) => c.action || c.key);
+  if (custom.length > 0) {
+    lines.push("", "[custom]");
+    for (const c of custom) lines.push(`${c.action || "—"}: ${c.key || "—"}${c.alt ? ` / ${c.alt}` : ""}`);
   }
   if (profile.notes.trim()) lines.push("", profile.notes.trim());
   return lines.join("\n");

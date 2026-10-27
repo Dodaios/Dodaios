@@ -1,10 +1,11 @@
 /**
- * Sample roster — stands in for society.db until the M1 backend is bound.
+ * Sample roster — fixture rows for tests and previews. The running app never
+ * shows them: a failed or empty roster fetch keeps the last real roster, or
+ * the rail keeps loading (`data.ts`, `fetchSocietyRoster`).
  *
  * Every value is deliberately static sample data (fixed timestamps, no chat
- * sessions) and the roster rail shows a "sample data" badge, so the preview
- * never pretends to be live state (the loading-states rule: an empty or
- * mocked surface must say so, not invent numbers).
+ * sessions), and a surface that shows it says "sample data", so it never
+ * pretends to be live state.
  *
  * The first row is the demo of the lead: Jarvis as the society's chief
  * executive — a human figure in a dark suit who owns the whole team and

@@ -66,7 +66,8 @@ export function SocietyView() {
   const [worldVisited, setWorldVisited] = useState(false);
   const roster = useSocietyRoster();
   const agents = useMemo(() => roster.data?.agents ?? [], [roster.data]);
-  const sample = roster.data?.sample ?? true;
+  // Only rows that really are sample rows say so; a roster still loading is not one.
+  const sample = roster.data?.sample === true;
   const groupsQuery = useSocietyChatGroups(!sample);
   const groups = useMemo(() => groupsQuery.data ?? [], [groupsQuery.data]);
   const teamsPending = !sample && !chatGroupsKnown(groupsQuery);

@@ -70,6 +70,8 @@ import { LightsLayer } from "./effects/LightsLayer";
 import { FloatingLabels, type PlateInfo } from "./hud/FloatingLabels";
 import { CrewCard, type CrewCardInfo } from "./hud/CrewCard";
 import { LiftPanel } from "./hud/LiftPanel";
+import { TakeoverPanel } from "./hud/TakeoverPanel";
+import { isTerminalFace } from "./effects/ScreensLayer";
 import { DeckTitle, StatsReadout, Toolbar } from "./hud/DeckBar";
 import { LauncherPanel } from "./hud/LauncherPanel";
 import { SimulatorPanel } from "./hud/SimulatorPanel";
@@ -116,7 +118,10 @@ const DOORS_MS = 460;
 const DOORS_GIVE_UP_MS = 5000;
 
 type Hover = { kind: "crew"; id: string } | { kind: "station"; id: string } | null;
-type Panel = "lift" | "launcher" | "games" | "settings" | "duel" | null;
+type Panel = "lift" | "launcher" | "games" | "settings" | "duel" | "takeover" | null;
+
+/** Station ids of the desk terminals the commander can take over: `takeover:<screen socket>`. */
+const TAKEOVER = "takeover:";
 
 /** The deck the duel arena overlays (Reactor Engineering). */
 const ARENA_DECK = REACTOR_ARENA.deck as DeckId;
@@ -173,6 +178,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const [hover, setHover] = useState<Hover>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
+  /** The desk screen whose terminal the commander has taken over. */
+  const [takeover, setTakeover] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   /** The deck the lift is riding to while its doors are shut; null when they are open. */
   const [doors, setDoors] = useState<DeckId | null>(null);
@@ -398,6 +405,15 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     else releaseMouseLook(el);
   }, [eyeCapable, chooseView, say, t, runtime]);
   const cycle = useCallback(() => showView(cycleView(viewRef.current, eyeCapable)), [showView, eyeCapable]);
+  // B: the hoverboard folds out under the commander, or away again.
+  const [boardOn, setBoardOn] = useState(runtime.control.board);
+  const toggleBoard = useCallback(() => {
+    if (runtime.duelActive) return;
+    const on = !runtime.control.board;
+    runtime.control.board = on;
+    setBoardOn(on);
+    say(t(on ? "verse.board.on" : "verse.board.off"));
+  }, [runtime, say, t]);
   // The wheel pushed third person into first (or pulled first back out): the switch follows, the mouse stays as it is.
   const zoomEye = useCallback((factor: number) => {
     const changed: Person | null = runtime.shoulder.zoom(factor);
@@ -412,18 +428,39 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     const floor = deck.rooms.find((r) => r.id === REACTOR_ARENA.room)?.floorY ?? 0;
     return REACTOR_ARENA.terminals.map((tm) => ({ id: `duel:${tm.id}`, kind: "games" as const, room: REACTOR_ARENA.room, x: tm.x, y: floor, z: tm.z, sockets: {} }));
   }, [deck]);
+  // Every desk monitor that shows one coding pane is a terminal the commander can walk up to and take over.
+  const takeoverTerminals = useMemo<Station[]>(() => {
+    if (!deck) return [];
+    const out: Station[] = [];
+    for (const socket of deck.sockets) {
+      if (socket.kind !== "screen" || !terminalSockets.has(socket.id) || socket.station === "master") continue;
+      out.push({ id: `${TAKEOVER}${socket.id}`, kind: "coding_launcher", room: socket.room, x: socket.x, y: socket.y, z: socket.z, sockets: {} });
+    }
+    return out;
+  }, [deck, terminalSockets]);
+  const takeoverTile = useCallback((stationId: string | null) => {
+    if (!stationId?.startsWith(TAKEOVER)) return null;
+    const face = faces.get(stationId.slice(TAKEOVER.length));
+    return face && isTerminalFace(face) && face.tiles.length === 1 ? face.tiles[0] : null;
+  }, [faces]);
+  const takeoverRef = useRef(takeoverTile);
+  takeoverRef.current = takeoverTile;
   const stationAtHand = useCallback((): Station | null => {
     const d = runtime.deck;
     const pose = runtime.poses.get(COMMANDER_ID);
     if (!d || !pose) return null;
     const facing = runtime.eye ? runtime.shoulder.forward() : { x: Math.sin(pose.yaw), z: Math.cos(pose.yaw) };
-    return stationWithin(duelTerminals.length ? [...d.stations, ...duelTerminals] : d.stations, pose.x, pose.z, undefined, facing);
-  }, [runtime, duelTerminals]);
+    // A desk without a pane on its screen has nothing to take over.
+    const desks = takeoverTerminals.filter((s) => takeoverRef.current(s.id) !== null);
+    const extra = [...duelTerminals, ...desks];
+    return stationWithin(extra.length ? [...d.stations, ...extra] : d.stations, pose.x, pose.z, undefined, facing);
+  }, [runtime, duelTerminals, takeoverTerminals]);
 
   // The use key works the station at hand.
   const workNearStation = useCallback(() => {
     const station = stationAtHand();
     if (station?.id.startsWith("duel:")) { setPanel("duel"); return; }
+    if (station?.id.startsWith(TAKEOVER)) { setTakeover(station.id); setPanel("takeover"); return; }
     if (station) activateStation(station);
   }, [stationAtHand, activateStation]);
 
@@ -619,8 +656,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   useEffect(() => {
     if (panel && surfaceRef.current && document.pointerLockElement === surfaceRef.current) document.exitPointerLock();
   }, [panel]);
-  const keyActions = useRef({ cycle, showView, interact, lockPointer, zoomEye });
-  keyActions.current = { cycle, showView, interact, lockPointer, zoomEye };
+  const keyActions = useRef({ cycle, showView, interact, lockPointer, zoomEye, toggleBoard });
+  keyActions.current = { cycle, showView, interact, lockPointer, zoomEye, toggleBoard };
   /** What Escape closes first: a selected crew member or an open panel. */
   const closable = useRef(false);
   closable.current = selected !== null || panel !== null;
@@ -663,6 +700,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       else if (e.code === "KeyE" && !e.repeat) keyActions.current.interact();
       else if (e.code === "KeyL" && !e.repeat) keyActions.current.lockPointer();
       else if (e.code === "KeyF") { e.preventDefault(); runtime.power = true; }
+      else if (e.code === "KeyB" && !e.repeat) keyActions.current.toggleBoard();
       else if (e.code === "F9" && import.meta.env.DEV) setDebug((d) => !d);
     };
     const up = (e: KeyboardEvent) => {
@@ -848,9 +886,12 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     const id = pointed ? hover.id : nearStation;
     const terminal = id ? duelTerminals.find((s) => s.id === id) : undefined;
     if (terminal) return { station: terminal, name: t("verse.duel.terminal"), action: t("verse.duel.start"), key: "E" };
+    const desk = id?.startsWith(TAKEOVER) ? takeoverTerminals.find((s) => s.id === id) : undefined;
+    const deskTile = desk ? takeoverTile(desk.id) : null;
+    if (desk && deskTile) return { station: desk, name: deskTile.header.title, action: t("verse.takeover.action"), key: "E" };
     const station = id ? deck.stations.find((s) => s.id === id) : undefined;
     return station ? { station, name: t(`verse.station.${station.kind}.name`), action: t(`verse.station.${station.kind}.action`), key: pointed ? null : "E" } : null;
-  }, [hover, nearStation, deck, t, duelTerminals]);
+  }, [hover, nearStation, deck, t, duelTerminals, takeoverTerminals, takeoverTile]);
   const card = useMemo<CrewCardInfo | null>(() => {
     const m = selected ? life.crew.get(selected) : undefined;
     if (!m) return null;
@@ -941,6 +982,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
             firstUnavailable={tooSmall ? fill(t("verse.tools.first_too_small"), COMPACT_EYE_MIN) : undefined}
             onView={showView}
             onLift={() => setPanel("lift")}
+            board={boardOn}
+            onBoard={toggleBoard}
             onCommander={() => { if (runtime.control.mode === "follow") runtime.control.reframe = true; else focusOn(COMMANDER_ID); }}
             onSettings={eyeCapable ? () => setPanel("settings") : undefined}
             onDuel={compact ? undefined : () => setPanel("duel")}
@@ -981,6 +1024,10 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
           {panel === "duel" && !dueling && (
             <DuelPanel t={t} ride={deckId !== ARENA_DECK && !duelAnyDeck()} last={duelChoice} onStart={startDuel} onClose={() => setPanel(null)} />
           )}
+          {panel === "takeover" && (() => {
+            const tile = takeoverTile(takeover);
+            return tile ? <TakeoverPanel tile={tile} t={t} onClose={() => { setPanel(null); setTakeover(null); }} /> : null;
+          })()}
           {panel === "settings" && <ViewSettingsPanel t={t} tier={eyeOn ? runtime.stats.tier : ""} onClose={() => setPanel(null)} />}
           <RanksOverlay active={awake} crew={officers} companionName={lead?.name} />
           {import.meta.env.DEV && <StatsReadout runtime={runtime} />}

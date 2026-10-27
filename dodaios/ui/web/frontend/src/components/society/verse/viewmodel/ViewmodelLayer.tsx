@@ -119,7 +119,8 @@ export function ViewmodelLayer({ runtime, duel, deck, library, commanderId, comm
         const l = last.current;
         const moved = l.primed ? Math.hypot(pose.x - l.x, pose.z - l.z) : 0;
         // A jump (a lift ride, a duel's end) is not a walk.
-        const speed = moved > 1 ? 0 : moved / step;
+        // On the hoverboard the body glides: no steps, so no walk bob.
+        const speed = moved > 1 || runtime.control.board ? 0 : moved / step;
         frame.speed += (speed - frame.speed) * Math.min(1, step / 0.08);
         l.x = pose.x;
         l.z = pose.z;

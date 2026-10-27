@@ -233,6 +233,29 @@ def test_samples_reduce_to_cells_and_encode() -> None:
     assert codes.tolist() == [[0, 128, 152, 96]]
 
 
+def test_low_solids_are_stepped_onto_and_tall_ones_block() -> None:
+    stand = navgrid.stand_height
+    clear, head = 0.15, 2.0
+    # Nothing in the way, or a solid lower than the clearance: the floor.
+    assert stand(0.0, [], clear, head) == 0.0
+    assert stand(0.0, [(0.0, 0.1)], clear, head) == 0.0
+    # A 22 cm grating or platform on the floor (not tagged walk): its top is the floor.
+    assert stand(0.0, [(0.0, 0.22)], clear, head) == pytest.approx(0.22)
+    # A solid open at its bottom (only its top was hit) counts the same.
+    assert stand(0.0, [(-math.inf, 0.25)], clear, head) == pytest.approx(0.25)
+    # A single flipped face lying on the floor (only its underside was hit) is flat.
+    assert stand(0.0, [(0.0, math.inf)], clear, head) == 0.0
+    # Two treads stacked: up both.
+    assert stand(0.0, [(0.0, 0.2), (0.2, 0.42)], clear, head) == pytest.approx(0.42)
+    # Too high to step onto, a cabinet over a low plinth, a wall face hit at a grazing angle,
+    # a solid with no known top, a shelf hanging in the headroom: blocked.
+    assert math.isnan(stand(0.0, [(0.0, 0.45)], clear, head))
+    assert math.isnan(stand(0.0, [(0.0, 0.08), (0.08, 2.2)], clear, head))
+    assert math.isnan(stand(0.0, [(0.19, 0.21)], clear, head))
+    assert math.isnan(stand(0.0, [(0.5, math.inf)], clear, head))
+    assert math.isnan(stand(0.0, [(0.0, 0.2), (1.2, 1.3)], clear, head))
+
+
 plate_post = _load("verse_plate_post", REPO_ROOT / "art" / "verse" / "lib" / "plate_post.py")
 
 

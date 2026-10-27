@@ -57,18 +57,31 @@ def audit(workflows: dict[str, dict]) -> list[str]:
 
 
 def _release_bot_findings(workflows: dict[str, dict]) -> list[str]:
-    """Only release-cut's main-only job may hold the key that creates v* tags."""
+    """Only release-cut's main-only jobs may hold the key that creates v* tags."""
     findings = []
+    key_jobs = {"cut", "tag"}
     for filename, workflow in workflows.items():
         for name, job in workflow.get("jobs", {}).items():
-            if filename == "release-cut.yml" and name == "cut":
+            if filename == "release-cut.yml" and name in key_jobs:
                 continue
             if "RELEASE_APP_PRIVATE_KEY" in yaml.safe_dump(job):
                 findings.append(f"{filename}/{name}: only release-cut may use the release bot key")
-    cut = workflows["release-cut.yml"]["jobs"]["cut"]
-    if cut.get("environment") != "release-cut":
-        findings.append("release-cut.yml: the cut job must run in the release-cut environment")
-    tag = next((s for s in cut["steps"] if s.get("name") == "Tag the admitted release"), {})
+    jobs = workflows["release-cut.yml"]["jobs"]
+    for name in sorted(key_jobs):
+        if jobs.get(name, {}).get("environment") != "release-cut":
+            findings.append(
+                f"release-cut.yml: the {name} job must run in the release-cut environment"
+            )
+    # npm runs in the bundle job; it must never see a secret or a write token.
+    bundle = jobs.get("bundle", {})
+    if bundle.get("environment") or bundle.get("permissions") != {"contents": "read"}:
+        findings.append(
+            "release-cut.yml: the bundle job must have no environment and read-only contents"
+        )
+    if "secrets." in yaml.safe_dump(bundle):
+        findings.append("release-cut.yml: the bundle job must not read secrets")
+    tag_steps = jobs.get("tag", {}).get("steps", [])
+    tag = next((s for s in tag_steps if s.get("name") == "Tag the admitted release"), {})
     if "steps.tag-token.outputs.token" not in str(tag.get("env", {}).get("GH_TOKEN", "")):
         findings.append("release-cut.yml: push the release tag with the release bot token")
     return findings

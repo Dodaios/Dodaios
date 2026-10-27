@@ -8,6 +8,10 @@ here: it runs through the official Claude CLI, ``model_map``):
 
 * **No credits / no quota** on a key -> 402 ``billing`` (a runtime does not
   retry it; Hermes classifies 402 as billing and stops).
+* **Usage limit reached** (a plan's allowance, such as a subscription's or a
+  daily quota, is used up until it resets) -> 429 ``usage_limit``: never
+  "try again in 30 s", but when the allowance resets, if known, and another
+  connected model to use until then.
 * **Provider not reachable** (a local model server that is not running, no
   network) -> 503 ``provider_unreachable``.
 * **Context too long** -> 400 ``context_length_exceeded`` with the words
@@ -58,6 +62,26 @@ _BILLING_PHRASES: Final[tuple[str, ...]] = (
     "out of credits",
     "add more credits",
     "limit: 0,",
+)
+
+#: Codes and wording of a plan's spent allowance (a subscription's usage
+#: limit, a daily request quota): it comes back when the allowance resets,
+#: not after a short wait. Matched on a 429 or a status-less error only.
+_USAGE_LIMIT_CODES: Final[frozenset[str]] = frozenset(
+    {
+        "usage_limit_reached",
+        "usage_limit_exceeded",
+        "subscription_sharing_usage_limit_exceeded",
+    }
+)
+_USAGE_LIMIT_PHRASES: Final[tuple[str, ...]] = (
+    "usage limit",
+    "usage_limit",
+    "allowance resets",
+    "requests per day",
+    "perday",
+    "daily limit",
+    "daily quota",
 )
 
 #: Transport failures, by class name across the SDKs (openai, anthropic,
@@ -130,6 +154,7 @@ TERMINAL_CODES: Final[frozenset[str]] = frozenset(
         "invalid_tool_schema",
         "tools_unsupported",
         "rate_limited",
+        "usage_limit",
         "incomplete",
     }
 )
@@ -216,6 +241,34 @@ def _label(provider: str) -> str:
     return _LABELS.get(provider, provider)
 
 
+def provider_label(provider: str) -> str:
+    """How ``provider`` is named in a message a person reads."""
+    return _label(provider)
+
+
+def usage_limit_message(provider: str, reset_in: float | None = None) -> str:
+    """A spent allowance in words a person can act on.
+
+    ``reset_in`` is the seconds until the allowance resets when the provider
+    said so; the reset is then named as a UTC time (``resets at
+    2026-10-27T15:04:00Z``), which the chat shows in the person's own clock.
+    Never a short "try again in N s": waiting a moment does not help.
+    """
+    import datetime as _dt
+
+    head = (
+        f"{_label(provider)} reached its usage limit: the plan's allowance is used up "
+        "until it resets"
+    )
+    if reset_in is not None and reset_in > 0:
+        at = _dt.datetime.now(_dt.UTC) + _dt.timedelta(seconds=reset_in)
+        head += f" (it resets at {at.strftime('%Y-%m-%dT%H:%M:%SZ')})"
+    return (
+        f"{head}. Until then, choose another connected model in the agent's settings. "
+        "No fallback provider was called."
+    )
+
+
 def _class_names(exc: BaseException) -> set[str]:
     return {cls.__name__ for err in _chain(exc) for cls in type(err).__mro__}
 
@@ -237,6 +290,10 @@ def classify(provider: str, exc: BaseException, model: str = "") -> Refusal | No
             "will not help. Top it up with the provider, or choose another connected "
             "model in the agent's settings.",
         )
+    if status in (429, None) and (
+        codes & _USAGE_LIMIT_CODES or any(phrase in text for phrase in _USAGE_LIMIT_PHRASES)
+    ):
+        return Refusal(429, "usage_limit", usage_limit_message(provider))
     if (status in (400, 413, 422) or status is None) and (
         codes & _OVERFLOW_CODES or any(phrase in text for phrase in _OVERFLOW_PHRASES)
     ):
@@ -311,7 +368,7 @@ def gateway_refusal(provider: str, exc: BaseException, model: str = "") -> Refus
         return found
     status = _status(exc)
     if status == 429:
-        return Refusal(429, "rate_limited", f"{provider} returned HTTP 429 (rate limit).")
+        return Refusal(429, "rate_limited", f"{_label(provider)} returned HTTP 429 (rate limit).")
     if status in (401, 403):
         return Refusal(
             401,

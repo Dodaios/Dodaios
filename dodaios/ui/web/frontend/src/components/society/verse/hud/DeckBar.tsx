@@ -61,6 +61,10 @@ interface ToolProps {
   firstUnavailable?: string;
   onView: (view: VerseView) => void;
   onLift: () => void;
+  /** The hoverboard is out (B). */
+  board?: boolean;
+  /** Fold the hoverboard out or away (absent: no board button). */
+  onBoard?: () => void;
   onCommander: () => void;
   /** The eye-level view's settings; absent where the deck has no eye-level view on this stage. */
   onSettings?: () => void;
@@ -79,7 +83,7 @@ const VIEW_LOOKS: Readonly<Record<VerseView, { label: string; path: string }>> =
   first: { label: "verse.tools.first", path: "M1 6.5c1.6-2.6 3.4-3.9 5.5-3.9s3.9 1.3 5.5 3.9c-1.6 2.6-3.4 3.9-5.5 3.9S2.6 9.1 1 6.5zM6.5 5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0-3" },
 };
 
-export function Toolbar({ t, view, firstAvailable, firstUnavailable, onView, onLift, onCommander, onSettings, onDuel, onHelp }: ToolProps) {
+export function Toolbar({ t, view, firstAvailable, firstUnavailable, onView, onLift, board, onBoard, onCommander, onSettings, onDuel, onHelp }: ToolProps) {
   return (
     <nav className="verse-tools" aria-label={t("verse.stage.title")}>
       {/* The three views side by side, the one on screen pressed; 1, 2 and 3 pick one, V cycles them. */}
@@ -110,6 +114,13 @@ export function Toolbar({ t, view, firstAvailable, firstUnavailable, onView, onL
         {icon(LIFT_ICON)}
         <span className="verse-tool-text">{t("verse.tools.lift")}</span>
       </button>
+      {onBoard && (
+        <button type="button" className="verse-tool" data-tool="board" aria-pressed={!!board} onClick={onBoard} title={`${t("verse.tools.board")} (B)`}>
+          {icon("M1.5 7.5h10a1 1 0 0 1 0 1.6h-10a1 1 0 0 1 0-1.6M3.5 9.1v1.6M9.5 9.1v1.6M5 5.5h3M6.5 2v3.5")}
+          <span className="verse-tool-text">{t("verse.tools.board")}</span>
+          <kbd aria-hidden>B</kbd>
+        </button>
+      )}
       <button type="button" className="verse-tool" onClick={onCommander} title={t("verse.tools.commander")}>
         {icon("M6.5 1v3M6.5 9v3M1 6.5h3M9 6.5h3M6.5 4.5a2 2 0 1 0 0 4a2 2 0 1 0 0-4")}
         <span className="verse-tool-text">{t("verse.tools.commander")}</span>

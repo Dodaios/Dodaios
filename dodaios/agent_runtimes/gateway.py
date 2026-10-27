@@ -113,7 +113,10 @@ _FAILURES: dict[Grant, Future[str]] = {}
 #: answer, the runner reports this instead of a silent empty turn.
 _LAST_FAILURES: weakref.WeakKeyDictionary[Future[str], str] = weakref.WeakKeyDictionary()
 _TURN_EFFORTS: dict[Grant, str] = {}
-_COOLDOWNS: OrderedDict[tuple[str, str, str], float] = OrderedDict()
+#: Per (provider, account, model): until when calls are refused, why
+#: (``rate_limited`` / ``usage_limit``) and whether the provider named that
+#: time (a usage limit's reset is only told when it did).
+_COOLDOWNS: OrderedDict[tuple[str, str, str], tuple[float, str, bool]] = OrderedDict()
 _DEFAULT_COOLDOWN_S: Final = 30.0
 
 #: Gemini's thought signature per tool call id: the OpenAI wire shape has no
@@ -529,9 +532,27 @@ def whole_seconds(seconds: float) -> int:
     return max(0, math.ceil(round(seconds, 3)))
 
 
-def _limited(provider: str, seconds: float) -> GatewayError:
+def _limited(
+    provider: str, seconds: float, *, code: str = "rate_limited", known: bool = True,
+) -> GatewayError:
+    if code == "usage_limit":
+        # A spent allowance: no "try again in 30 s" — it is back when it
+        # resets, which is only told when the provider said when.
+        from dodaios.agent_runtimes.provider_errors import usage_limit_message
+
+        return GatewayError(
+            usage_limit_message(provider, seconds if known else None),
+            status=429,
+            code="usage_limit",
+            retry_after=seconds,
+        )
+    from dodaios.agent_runtimes.provider_errors import provider_label
+
+    # Named by label ("The ChatGPT subscription", not "openai-codex"): the chat
+    # reads a stored "openai-codex returned HTTP 429" as a spent allowance.
     return GatewayError(
-        f"{provider} returned HTTP 429 (rate limit). Try again in {whole_seconds(seconds)} s, "
+        f"{provider_label(provider)} returned HTTP 429 (rate limit). "
+        f"Try again in {whole_seconds(seconds)} s, "
         "or choose another connected model in the agent's settings. "
         "No fallback provider was called.",
         status=429,
@@ -544,11 +565,12 @@ def check_cooldown(provider: str, model: str, account_id: str = "") -> None:
     """Reject early, without spawning a runtime or spending another model call."""
     key = (provider, account_id, model)
     with _LOCK:
-        remaining = _COOLDOWNS.get(key, 0.0) - time.monotonic()
+        until, code, known = _COOLDOWNS.get(key, (0.0, "rate_limited", True))
+        remaining = until - time.monotonic()
         if remaining <= 0:
             _COOLDOWNS.pop(key, None)
     if remaining > 0:
-        raise _limited(provider, remaining)
+        raise _limited(provider, remaining, code=code, known=known)
 
 
 def _report_failure(
@@ -558,17 +580,22 @@ def _report_failure(
     signal: Future[str] | None,
 ) -> GatewayError:
     if failure.status == 429:
-        seconds = failure.retry_after if failure.retry_after is not None else _DEFAULT_COOLDOWN_S
+        code = "usage_limit" if failure.code == "usage_limit" else "rate_limited"
+        known = failure.retry_after is not None
+        seconds = failure.retry_after if known else _DEFAULT_COOLDOWN_S
         key = (grant.provider, grant.account_id, model)
         with _LOCK:
             now = time.monotonic()
-            until = max(_COOLDOWNS.get(key, 0.0), now + seconds)
-            seconds = until - now
-            _COOLDOWNS[key] = until
+            before, before_code, before_known = _COOLDOWNS.get(key, (0.0, code, known))
+            if before > now + seconds:
+                seconds, known = before - now, before_known
+                code = "usage_limit" if "usage_limit" in (code, before_code) else code
+            until = now + seconds
+            _COOLDOWNS[key] = (until, code, known)
             _COOLDOWNS.move_to_end(key)
             while len(_COOLDOWNS) > 512:
                 _COOLDOWNS.popitem(last=False)
-        failure = _limited(grant.provider, seconds)
+        failure = _limited(grant.provider, seconds, code=code, known=known)
     from dodaios.agent_runtimes.provider_errors import is_terminal
 
     if signal is not None and not is_terminal(failure.code):
@@ -1108,7 +1135,9 @@ def _failure(provider: str, exc: Exception, model: str = "") -> GatewayError:
         refusal.message,
         status=refusal.status,
         code=refusal.code,
-        retry_after=_retry_after(exc) if refusal.code == "rate_limited" else None,
+        retry_after=(
+            _retry_after(exc) if refusal.code in ("rate_limited", "usage_limit") else None
+        ),
     )
 
 

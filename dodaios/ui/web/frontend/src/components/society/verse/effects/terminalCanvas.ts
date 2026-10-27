@@ -283,9 +283,17 @@ export interface TileHeader {
   tone: ScreenTone;
 }
 
+/**
+ * A monitor always shows at least this many columns: a narrow pane (a side
+ * split, a small IDE window) was blown up to a few huge words per line, so one
+ * desk looked zoomed in and the next zoomed out. A narrower terminal keeps the
+ * same text size and leaves the rest of its row dark.
+ */
+export const MIN_SHOWN_COLS = 110;
+
 /** Font and rows for a terminal `cols` wide in a body `w` x `h`. Pure. */
 export function fitTerminal(cols: number, w: number, h: number, ratio: number): { font: number; cellW: number; lineH: number; fit: number } {
-  const font = Math.max(MIN_FONT, Math.min(MAX_FONT, w / (Math.max(20, cols) * ratio)));
+  const font = Math.max(MIN_FONT, Math.min(MAX_FONT, w / (Math.max(MIN_SHOWN_COLS, cols) * ratio)));
   const cellW = font * ratio;
   const lineH = font * LINE_RATIO;
   return { font, cellW, lineH, fit: Math.max(1, Math.floor(h / lineH)) };

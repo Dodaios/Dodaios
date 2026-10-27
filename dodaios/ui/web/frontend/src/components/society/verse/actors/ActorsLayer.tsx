@@ -223,6 +223,8 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
     const control = runtime.control;
     const lead = actors.current.get(commanderId);
     const steer = control.mode !== "follow" || runtime.duelActive ? null : runtime.eye ? control.directionFrom(runtime.shoulder, steering) : control.direction(steering);
+    // B: the hoverboard folds out under the commander (never in a duel).
+    lead?.ride(control.board && !runtime.duelActive);
     // At eye level the commander faces the view while walking (shooter strafing); on the plate, the way they walk.
     lead?.drive(steer, control.run, steer && runtime.eye ? bodyFacing(runtime.shoulder.yaw, steer, facing) : null);
     // A duel ended: the commander stands where they finished it, on the deck's walkable floor.

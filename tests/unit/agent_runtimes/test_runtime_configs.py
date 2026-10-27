@@ -126,6 +126,20 @@ def test_hermes_discovers_connected_tools_with_explicit_persona_guidance(tmp_pat
     assert "Search before concluding a capability is missing" in persona
 
 
+@pytest.mark.parametrize("window", [65_536, 1_000_000])
+def test_hermes_defers_connected_tools_on_every_window(tmp_path, window):
+    """Hermes never sends the catalog inline, so a 64k Ollama window holds
+    only its bounded listing, never hundreds of plugin schemas."""
+    route = ModelRoute(provider="ollama", model="qwen3.5:9b", base_url="http://127.0.0.1:11434/v1",
+                       transport="chat_completions", api_key=None, context_window=window)
+    runtime = HermesRuntime()
+    runtime._write_profile(tmp_path, _turn(tmp_path, route=route))
+    config = json.loads((tmp_path / "config.yaml").read_text(encoding="utf-8"))
+    assert config["tools"]["tool_search"]["enabled"] == "on"
+    assert config["tools"]["tool_search"]["listing_max_tokens"] * 4 < window * 0.25
+    assert config["model"]["context_length"] == window
+
+
 def test_hermes_profiles_share_installation_but_keep_agent_state_separate(tmp_path, monkeypatch):
     from dodaios.agent_runtimes import base, hermes
 
@@ -230,7 +244,6 @@ def test_openclaw_never_runs_background_turns_or_persona_files(tmp_path):
     assert defaults["model"]["primary"] == "jarvis/gpt-5.2"  # rename-keep: a model id
     assert config["session"]["reset"]["mode"] == "none"
     assert "automations" in config["tools"]["deny"]
-    assert config["tools"]["toolSearch"] is False
     assert config["gateway"]["bind"] == "loopback"
     assert config["cron"]["enabled"] is False
     assert config["plugins"]["slots"]["memory"] == "none"
@@ -280,20 +293,97 @@ def test_openclaw_subscription_route_uses_the_responses_adapter(tmp_path):
     assert config["models"]["providers"]["jarvis"]["api"] == "openai-responses"
 
 
+def _sized_route(
+    *, provider: str = "openai", transport: str = "chat_completions", window: int = 400_000
+) -> ModelRoute:
+    return ModelRoute(
+        provider=provider,
+        model="m1",
+        base_url="https://api.example.test/v1",
+        transport=transport,  # type: ignore[arg-type]
+        api_key=_SECRET,
+        context_window=window,
+    )
+
+
+def _catalog(monkeypatch, tokens: int) -> None:
+    from dodaios.agent_runtimes import openclaw
+
+    monkeypatch.setattr(openclaw, "_inline_catalog_tokens", lambda: tokens)
+
+
 @pytest.mark.parametrize(
-    ("transport", "expected"),
+    ("route", "catalog_tokens", "expected"),
     [
         # The ChatGPT backend ends a request carrying the whole inline tool
         # catalog as incomplete (live 2026-10-27), so its tools are deferred.
-        ("responses", {"mode": "tools"}),
-        ("chat_completions", False),
-        ("anthropic_messages", False),
+        (_sized_route(provider="openai-codex", transport="responses"), 1_000, {"mode": "tools"}),
+        # Live 2026-10-27: ~239 inline tools against a 64k Ollama window.
+        (_sized_route(provider="ollama", window=65_536), 180_000, {"mode": "tools"}),
+        # A local server defers even when its window is large.
+        (_sized_route(provider="local-openai", window=262_144), 1_000, {"mode": "tools"}),
+        # A small cloud window defers whatever the catalog.
+        (_sized_route(window=32_768), 1_000, {"mode": "tools"}),
+        # A catalog above a quarter of a large window defers.
+        (_sized_route(window=200_000), 60_000, {"mode": "tools"}),
+        (_sized_route(transport="anthropic_messages", window=200_000), 60_000, {"mode": "tools"}),
+        # A large cloud window with a catalog that fits keeps direct schemas.
+        (_sized_route(window=400_000), 60_000, False),
+        (_sized_route(transport="anthropic_messages", window=200_000), 20_000, False),
     ],
 )
-def test_openclaw_defers_tool_schemas_only_on_the_subscription(tmp_path, transport, expected):
-    route = _route(transport=transport)
+def test_openclaw_defers_tool_schemas_where_inline_ones_do_not_fit(
+    tmp_path, monkeypatch, route, catalog_tokens, expected
+):
+    _catalog(monkeypatch, catalog_tokens)
     config = OpenClawRuntime().config_for(_turn(tmp_path, route=route), port=1, token=_TOKEN)
     assert config["tools"]["toolSearch"] == expected
+
+
+def test_openclaw_without_mcp_tools_ignores_the_catalog(tmp_path, monkeypatch):
+    _catalog(monkeypatch, 10_000_000)
+    turn = _turn(tmp_path, route=_sized_route(window=400_000), mcp_url=None, control_key=None)
+    assert OpenClawRuntime().config_for(turn, port=1, token=_TOKEN)["tools"]["toolSearch"] is False
+
+
+def test_openclaw_catalog_estimate_counts_the_live_tool_schemas(monkeypatch):
+    from dodaios.agent_runtimes import openclaw
+    from dodaios.mcp import dodaios_tools_server
+
+    schema = {"type": "object", "properties": {f"p{i}": {"type": "string",
+              "description": "x" * 100} for i in range(20)}}
+    entries = [SimpleNamespace(name=f"plugin_tool_{i}", description="d" * 400,
+                               input_schema=schema) for i in range(239)]
+    monkeypatch.setattr(dodaios_tools_server, "offered_tools", lambda: entries)
+    tokens = openclaw._inline_catalog_tokens()
+    one = len(json.dumps(schema)) + 400
+    assert 239 * one // 4 <= tokens <= 239 * (one + 100) // 4
+
+    def broken():
+        raise RuntimeError("no gateway")
+
+    monkeypatch.setattr(dodaios_tools_server, "offered_tools", broken)
+    assert openclaw._inline_catalog_tokens() == 0
+
+
+def test_openclaw_on_a_64k_ollama_route_defers_the_live_sized_catalog(tmp_path, monkeypatch):
+    """The live failure: 239 plugin tools inline overflowed a 64k Ollama
+    window before the model said a word. Deferred, the request carries the
+    three controls and OpenClaw's bounded directory (at most 18,000
+    characters) instead, which leaves the window for the conversation."""
+    from dodaios.mcp import dodaios_tools_server
+
+    schema = {"type": "object", "properties": {f"p{i}": {"type": "string",
+              "description": "y" * 120} for i in range(24)}}
+    entries = [SimpleNamespace(name=f"plugin_tool_{i}", description="z" * 600,
+                               input_schema=schema) for i in range(239)]
+    monkeypatch.setattr(dodaios_tools_server, "offered_tools", lambda: entries)
+    route = _sized_route(provider="ollama", window=65_536)
+    config = OpenClawRuntime().config_for(_turn(tmp_path, route=route), port=1, token=_TOKEN)
+    from dodaios.agent_runtimes.openclaw import _inline_catalog_tokens
+
+    assert _inline_catalog_tokens() > 65_536  # inline would not even fit
+    assert config["tools"]["toolSearch"] == {"mode": "tools"}
 
 
 def test_openclaw_without_tools_writes_no_mcp_server(tmp_path):

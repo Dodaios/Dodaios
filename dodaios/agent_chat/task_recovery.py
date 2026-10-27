@@ -38,6 +38,7 @@ _TERMINAL = (
     "quota",
     "credit balance",
     "http 429",
+    "usage limit",
     "rate limit",
     "rate-limited",
 )
