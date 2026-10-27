@@ -7,7 +7,7 @@ import { realtimeContent } from "../../content/loadDeck";
 import { CommanderControl } from "../../life/control";
 import { arrivalYaw } from "../../actors/ActorsLayer";
 import { SHOULDER, ShoulderRig, verticalFov, type SegmentTest } from "./shoulderRig";
-import { needsPhysical, patchDeckShader } from "./deckMaterial";
+import { BACK_FACE_PUSH, PUSH_STEP, depthOrder, depthPush, needsPhysical, patchDeckShader, surfaceLayer } from "./deckMaterial";
 import { eyePick, rayCylinder } from "./eyePick";
 
 const BRIDGE = resolve(__dirname, "../../../../../../public/verse/decks/bridge/manifest.json");
@@ -137,6 +137,35 @@ describe("deck shader patch", () => {
     expect(needsPhysical({ ...base, clearcoat: 1 })).toBe(true);
     expect(needsPhysical({ ...base, specular: 0.12 })).toBe(true);
     expect(needsPhysical({ ...base, transparent: true })).toBe(true);
+  });
+
+  it("settles depth ties along the view ray: the picture stays, back faces lose most", () => {
+    const { vertexShader } = patchDeckShader(physical.vertexShader, physical.fragmentShader);
+    const at = vertexShader.indexOf("gl_Position = projectionMatrix * vec4( mvPosition.xyz * ( 1.0 + versePushNow ), 1.0 );");
+    expect(at).toBeGreaterThan(vertexShader.indexOf("#include <project_vertex>"));
+    expect(vertexShader).toContain("uniform float verseDepthPush;");
+    expect(vertexShader).toContain("if ( dot( transformedNormal, - mvPosition.xyz ) < 0.0 )");
+    // Every front face of a deck with up to 100 materials stays in front of a back face.
+    expect(depthPush(99)).toBeLessThan(BACK_FACE_PUSH);
+    // One step is more than a 24-bit depth step at 25 m with an 8 cm near plane, and at 20 m under a millimetre.
+    expect(PUSH_STEP * 25).toBeGreaterThan((25 * 25) / (0.08 * 2 ** 24));
+    expect(PUSH_STEP * 20).toBeLessThan(0.001);
+  });
+
+  it("orders surfaces that share a plane: details over structure over walls over the hull, each material its own step", () => {
+    expect(surfaceLayer("M_Hull_Structure")).toBe(0);
+    expect(surfaceLayer("M_Wall_PaintedDark")).toBe(1);
+    expect(surfaceLayer("M_Floor_GlossBlack")).toBe(1);
+    expect(surfaceLayer("M_Recess_Dark")).toBe(2);
+    expect(surfaceLayer("M_TMP_PropsInd_ContainerOlive")).toBe(2);
+    expect(surfaceLayer("M_Trim_BrushedSteel")).toBe(3);
+    expect(surfaceLayer("M_Indicator_Red")).toBe(4);
+    expect(surfaceLayer("M_Hangar_FloorLamp")).toBe(4);
+    const order = depthOrder(["M_Hull_Structure", "M_Wall_PaintedMid", "M_Floor_GlossBlack", "M_Recess_Dark", "M_Indicator_White"]);
+    expect([...order.entries()]).toEqual([
+      ["M_Indicator_White", 0], ["M_Recess_Dark", 1], ["M_Floor_GlossBlack", 2], ["M_Wall_PaintedMid", 3], ["M_Hull_Structure", 4],
+    ]);
+    expect(depthPush(order.get("M_Floor_GlossBlack") ?? 0)).not.toBe(depthPush(order.get("M_Wall_PaintedMid") ?? 0));
   });
 });
 

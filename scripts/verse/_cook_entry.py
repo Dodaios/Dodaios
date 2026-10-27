@@ -1,7 +1,7 @@
 """Blender-side cook job: build a deck, optionally save the .blend, cook it.
 
 Run by scripts/verse/cook.py through scripts/verse/blender.py:
-    _cook_entry.py <deck_id> <raw_dir> <quality> [--blend <path.blend>]
+    _cook_entry.py <deck_id> <raw_dir> <quality> [--blend <path.blend>] [--nav-only]
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument("raw_dir", type=Path)
     parser.add_argument("quality")
     parser.add_argument("--blend", type=Path)
+    parser.add_argument("--nav-only", action="store_true")
     options = parser.parse_args(sys.argv[1:])
     started = time.monotonic()
     load_builder(options.deck_id).build()
@@ -48,6 +49,10 @@ def main() -> None:
         print(
             f"[verse] stage save: {time.monotonic() - started:.1f} s ({options.blend})", flush=True
         )
+    if options.nav_only:
+        nav = cook.cook_nav_only(options.deck_id, options.raw_dir)
+        print(f"[verse] nav {options.deck_id}: {nav['walkable_cells']} walkable cells", flush=True)
+        return
     result = cook.cook_deck(options.deck_id, options.raw_dir, options.quality)
     print(f"[verse] cooked {options.deck_id}: {result['stats']}", flush=True)
 

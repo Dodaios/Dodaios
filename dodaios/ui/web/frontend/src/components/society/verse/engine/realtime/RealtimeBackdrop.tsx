@@ -141,7 +141,9 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
   }, [deck, gl, scene]);
 
   const camera = useMemo(() => {
-    const c = new PerspectiveCamera(50, 1, 0.05, 500);
+    // Near plane 8 cm: the eyes never come closer to a wall (the body keeps 25 cm), and
+    // every centimetre more buys depth precision against flicker between close surfaces.
+    const c = new PerspectiveCamera(50, 1, 0.08, 500);
     c.layers.enable(0);
     c.layers.enable(REALTIME_LAYER);
     return c;
