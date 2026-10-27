@@ -17,7 +17,7 @@
 
 <p align="center">原名 <strong>Personal Jarvis</strong>。同一个项目，同一个许可证，只是换了名字（<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">原因</a>）。</p>
 
-https://github.com/user-attachments/assets/3364aa29-8f38-4d3e-b148-184ad16669ff
+https://github.com/user-attachments/assets/3cbe1d63-0ad4-4f39-88e9-9b56ede17f1c
 
 <p align="center">
   <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
@@ -90,16 +90,24 @@ https://github.com/user-attachments/assets/4c29df69-2114-4ed1-a220-703f6ff8386a
 一键创建专门的智能体：研究员、发布经理、写作者。每个智能体都有一个永不结束的对话，会从自己的工作中学习，按计划运行例行任务，并把产出放进 Artifacts，每一次工具调用都清晰可见。智能体也可以运行在 Hermes 和 OpenClaw 上。
 [智能体指南](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md)
 
-## 其他功能
+## 更多功能
 
 <table>
-  <tr><td><b>语音</b></td><td>自定义唤醒词、实时双向对话、在任意应用中听写，以及电话。语音可以完全离线运行。<a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md">语音指南</a></td></tr>
-  <tr><td><b>电脑操作</b></td><td>在你要求时点击、输入并读取你的桌面和浏览器。<a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md">电脑操作</a></td></tr>
-  <tr><td><b>记忆</b></td><td>一个本地 wiki，智能体可以读取、写入并引用。<a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md">记忆</a></td></tr>
-  <tr><td><b>插件、MCP 和技能</b></td><td>40 多个一键集成、任意 MCP 服务器、GitHub 和 Vercel 等命令行工具，以及可复用的技能。<a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md">插件</a></td></tr>
-  <tr><td><b>控制权在你手里</b></td><td>每个操作都经过风险检查（safe、monitor、ask、block），每次运行都有记录，密钥保存在系统的凭据存储中。<a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md">安全与审批</a></td></tr>
-  <tr><td><b>兼容</b></td><td>OpenAI、Claude、Gemini、OpenRouter、NVIDIA、Ollama 以及任何兼容 OpenAI 的服务器；Claude Code、Codex、OpenCode、Kimi Code、GLM、Grok Build、Antigravity、Cursor CLI 和 DeepSeek Harness。</td></tr>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/verse.jpg" alt="Verse" width="100%" /><br /><b>Verse</b><br />你的智能体住在一艘可以四处走动的飞船上，谁在值班、谁需要你，一目了然。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/verse/README.md">Verse</a></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/memory.png" alt="记忆" width="100%" /><br /><b>记忆</b><br />一个本地 wiki，智能体可以读取、写入并引用，还有一张展示全部知识的地图。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md">记忆</a></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/plugins.png" alt="插件、MCP 和技能" width="100%" /><br /><b>插件、MCP 和技能</b><br />40 多个一键集成、任意 MCP 服务器、命令行工具和可复用的技能。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md">插件</a></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/artifacts.png" alt="Artifacts" width="100%" /><br /><b>Artifacts</b><br />智能体做出的每个页面、报告和仪表盘，都集中在一面墙上。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md">智能体指南</a></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/built-for-you.png" alt="为你而建" width="100%" /><br /><b>为你而建</b><br />Dodaios 会注意到你反复在做的事，并替你做好：一个技能、一个例行任务或一个智能体。你可以查看并撤销这一切。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/self-build.md">工作原理</a></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/marketplace.png" alt="市场" width="100%" /><br /><b>市场</b><br />来自社区的智能体、技能和插件，一键安装。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/marketplace/community-registry.md">市场</a></td>
+  </tr>
 </table>
+
+同样内置：**语音**，自定义唤醒词、实时对话、听写和电话（[语音指南](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md)）；**电脑操作**，用于你的桌面和浏览器（[电脑操作](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md)）；以及**审批**：每个操作都经过风险检查（safe、monitor、ask、block），每次运行都有记录（[安全](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md)）。兼容 OpenAI、Claude、Gemini、OpenRouter、NVIDIA、Ollama 以及任何兼容 OpenAI 的服务器，以及 Claude Code、Codex、OpenCode、Kimi Code、GLM、Grok Build、Antigravity、Cursor CLI 和 DeepSeek Harness。
 
 ## 更多安装方式
 
