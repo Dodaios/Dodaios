@@ -44,7 +44,7 @@ const TRY_AGAIN_AT = /try again at ([A-Z][a-z]{2,8} \d{1,2})(?:st|nd|rd|th)?(, \
  */
 const RUNTIME_UPDATING = [/schema version[\s\S]*doctor --fix/i, /^The agent runtime is updating its data\b/];
 const STILL_STARTING = [/has not completed startup inspection/i, /^The agent is still starting up\b/];
-const APP_RESTARTED = /^(?:Dodaios|Jarvis|The app) restarted while this turn was running\b/;
+const APP_RESTARTED = /^(?:The app|\w+) restarted while this turn was running\b/;
 const STALL_LEGACY = /^([\w.-]+-cli) stopped responding \(nothing for (\d+) minutes?\)/;
 const STALL = /^(.+?) got no reply from the (local )?model for (\d+) minutes?, so the turn was stopped/;
 const INTERNAL = /^(?:(.+?) hit an internal error and stopped this turn\b|Internal error(?::\s*([\s\S]*))?$)/;

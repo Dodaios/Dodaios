@@ -51,7 +51,7 @@ _STALL = re.compile(
     r"^(?P<runner>[\w.-]+) stopped responding \(nothing for (?P<minutes>\d+) minutes?\)"
 )
 #: The restart reason turns stored before :data:`APP_RESTARTED` existed.
-_RESTARTED = re.compile(r"^(?:Dodaios|Jarvis) restarted while this turn was running\b")
+_RESTARTED = re.compile(r"^(?:The app|\w+) restarted while this turn was running\b")
 _INTERNAL_ERROR = re.compile(r"^Internal error(?::\s*(?P<rest>.*))?$", re.DOTALL)
 #: A log line ("2026-10-27 17:05:19 [INFO] ...") or a Python traceback.
 _LOG_LINE = re.compile(r"^\s*\d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d", re.MULTILINE)
