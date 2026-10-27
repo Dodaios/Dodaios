@@ -12070,6 +12070,11 @@ class SpeechPipeline:
                 # only already-authorized cloud alternates may receive audio.
                 chain = [name for name in chain if stt_family_id(name) != "local"]
                 local_final._allow_cpu = not chain
+                # A card another program saturates does not refuse the worker,
+                # it just decodes at speech speed; the local pass then hands
+                # dictations to the cloud provider behind it (2026-10-27: 15 s
+                # spoken, 13 s wait with three renders on the card).
+                local_final.cloud_behind = bool(chain)
                 instance = FallbackSTT(
                     local_final,
                     chain,
