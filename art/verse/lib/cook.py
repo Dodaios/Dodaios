@@ -51,8 +51,11 @@ class MeshSoup:
     walk: np.ndarray  # (len(names),) bool
 
 
-def cook_deck(deck_id: str, out_dir: Path, quality: str = "final") -> dict:
-    """Render and export deck `deck_id` (the current scene) into `out_dir`."""
+def cook_deck(deck_id: str, out_dir: Path, quality: str = "final", *, resume: bool = False) -> dict:
+    """Render and export deck `deck_id` (the current scene) into `out_dir`.
+
+    `resume` keeps plate region EXRs an interrupted cook left in `out_dir`.
+    """
     if quality not in scene.QUALITY:
         raise ValueError(f"quality must be one of {sorted(scene.QUALITY)}")
     preset = scene.QUALITY[quality]
@@ -77,7 +80,7 @@ def cook_deck(deck_id: str, out_dir: Path, quality: str = "final") -> dict:
         flush=True,
     )
     with _stage("plate", timings):
-        plate_parts = _render_plate(bpy_scene, frame, preset, out_dir)
+        plate_parts = _render_plate(bpy_scene, frame, preset, out_dir, resume=resume)
     with _stage("nav", timings):
         nav = _cook_nav(info["bounds"], out_dir / "nav.npy")
     with _stage("occluders", timings):
@@ -149,7 +152,12 @@ def _set_ceiling_camera_visibility(visible: bool) -> None:
 
 
 def _render_plate(
-    bpy_scene, frame: scene.Frame, preset: scene.QualityPreset, out_dir: Path
+    bpy_scene,
+    frame: scene.Frame,
+    preset: scene.QualityPreset,
+    out_dir: Path,
+    *,
+    resume: bool = False,
 ) -> list[dict]:
     """Render the plate region by region with glow; return the region PNGs and rects."""
     scene.apply_frame(bpy_scene, bpy_scene.camera, frame)
@@ -163,6 +171,10 @@ def _render_plate(
     try:
         for index, region in enumerate(plan):
             path = out_dir / f"plate_linear_{index}.exr"
+            if resume and path.is_file():
+                linear_paths.append(path)
+                print(f"[verse] plate region {index + 1}/{len(plan)}: kept", flush=True)
+                continue
             started = time.monotonic()
             _render_region(bpy_scene, frame, region, path, use_border=len(plan) > 1)
             linear_paths.append(path)

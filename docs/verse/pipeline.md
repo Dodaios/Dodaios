@@ -142,7 +142,7 @@ stage, `cook.py deck <id> --realtime`, documented in [`realtime.md`](realtime.md
 A plate cook keeps a deck's `realtime/` folder and manifest block.
 
 ```
-python scripts/verse/cook.py deck <id> [--quality preview|final] [--keep-blend] [--device auto|optix|cuda|cpu]
+python scripts/verse/cook.py deck <id> [--quality preview|final] [--keep-blend] [--device auto|optix|cuda|cpu] [--resume]
 ```
 
 1. Headless Blender (`scripts/verse/blender.py`, GPU lock) runs
@@ -152,6 +152,12 @@ python scripts/verse/cook.py deck <id> [--quality preview|final] [--keep-blend] 
 2. `scripts/verse/package.py` encodes and writes
    `public/verse/decks/<id>/` atomically (staging directory, then rename).
 3. The validator checks the result; a failing deck stops the command.
+
+`--resume` reruns a cook that died partway through the plate (a shared GPU
+can run out of memory and fail with "Illegal address in CUDA queue"): the
+region EXRs already in `art/verse/.cache/cook/<id>/<quality>/` are kept and
+only the missing regions render. Use it only when the builders have not
+changed since the interrupted cook.
 
 | Quality | Density | Samples (adaptive) | Use |
 |---|---|---|---|

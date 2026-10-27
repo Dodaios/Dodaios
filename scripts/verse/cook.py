@@ -2,12 +2,15 @@
 
     python scripts/verse/cook.py deck <id> [--quality preview|final] [--keep-blend]
                                          [--device auto|optix|cuda|cpu] [--out DIR]
-                                         [--realtime | --nav-only]
+                                         [--realtime | --nav-only] [--resume]
 
 Runs `art/verse/decks/<id>/build.py` and `lib.cook.cook_deck()` inside headless
 Blender (holding the GPU lock), then packages the raw output into
 `dodaios/ui/web/frontend/public/verse/decks/<id>/` and validates it.
 --keep-blend saves the built scene to art/verse/.cache/blend/LV_<id>.blend.
+--resume keeps the plate regions an interrupted cook of the same deck and
+quality already rendered (art/verse/.cache/cook/<id>/<quality>/) and renders
+only the missing ones; use it only when the builders have not changed since.
 
 --realtime runs the realtime (eye-level) export instead of the plate cook:
 `lib.realtime.export_realtime()` bakes the lightmaps and reflection probes
@@ -50,12 +53,16 @@ def cook_deck(
     device: str = "auto",
     out_dir: Path | None = None,
     timeout: float = DEFAULT_TIMEOUT_S,
+    resume: bool = False,
 ) -> dict:
     """Cook one deck end to end and return its manifest."""
     raw_dir = blender.CACHE_ROOT / "cook" / deck_id / quality
-    shutil.rmtree(raw_dir, ignore_errors=True)
-    raw_dir.mkdir(parents=True)
+    if not resume:
+        shutil.rmtree(raw_dir, ignore_errors=True)
+    raw_dir.mkdir(parents=True, exist_ok=True)
     args = [deck_id, str(raw_dir), quality]
+    if resume:
+        args.append("--resume")
     if keep_blend:
         args += ["--blend", str(blender.CACHE_ROOT / "blend" / f"LV_{deck_id}.blend")]
     result = blender.run(ENTRY, args, device=device, timeout=timeout)
@@ -149,6 +156,11 @@ def _main(argv: list[str] | None = None) -> int:
         default=DEFAULT_TIMEOUT_S / 3600,
         help="Blender time limit (default 4; a final cook on a shared GPU can need more)",
     )
+    deck.add_argument(
+        "--resume",
+        action="store_true",
+        help="reuse the plate regions an interrupted cook already rendered",
+    )
     options = parser.parse_args(argv)
     if options.nav_only:
         try:
@@ -187,6 +199,7 @@ def _main(argv: list[str] | None = None) -> int:
             device=options.device,
             out_dir=options.out,
             timeout=options.timeout_hours * 3600,
+            resume=options.resume,
         )
     except blender.BlenderError as error:
         print(error, file=sys.stderr)

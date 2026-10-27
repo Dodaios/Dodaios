@@ -456,8 +456,10 @@ def hall_wall(
     upper = (cond[1], top - bands.cornice)
     for bi, (a, b) in enumerate(bays):
         cu = round(((a + b) / 2) / 0.3) * 0.3
-        lit_low = bi in lit_bays and b - a > 1.8 and not any(
-            o.u0 - 0.4 < cu < o.u1 + 0.4 for o in openings
+        lit_low = (
+            bi in lit_bays
+            and b - a > 1.8
+            and not any(o.u0 - 0.4 < cu < o.u1 + 0.4 for o in openings)
         )
         lit_up = bi in lit_upper and b - a > 1.8 and upper[1] - upper[0] > 0.8
         low_holes = holes + ([(cu - 0.3, cu + 0.3)] if lit_low else [])
