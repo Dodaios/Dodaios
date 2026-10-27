@@ -96,8 +96,8 @@ OLD_PACKAGE = "jarvis"
 NEW_PACKAGE = "dodaios"
 RENAME_SCRIPT = "scripts/rename/rewrite_package.py"
 BUNDLE_DIR = "dodaios/ui/web/dist"
-# The one branch that does carry a bundle: the Frontend bundle workflow's
-# rebuild of main (.github/workflows/frontend-bundle.yml).
+# A branch that would still carry a bundle (the retired Frontend bundle
+# workflow's). main tracks none: release tags carry their own build.
 BUNDLE_BOT_BRANCH = "bot/frontend-bundle"
 AGENT_BRANCH_PREFIXES = ("codex/", "claude/", "agent/", "agents/", "gemini/", "cursor/", "bot/")
 OPT_OUT_LABELS = {"no-auto-merge", "do-not-merge", "wip", "needs-human"}
@@ -228,11 +228,10 @@ def pin_bundle(onto: str, cwd: Path, branch: str = "") -> bool:
     """Give HEAD the frontend bundle of ``onto`` and commit that if it changes
     anything. Returns whether a commit was made.
 
-    The bundle is built from main by the Frontend bundle workflow after each
-    merge. A branch that carries its own build conflicts with every other
-    frontend pull request the moment one of them lands, and the merge queue
-    ejects it, so its copy is dropped here. The workflow's own branch keeps
-    its build: that build is the point of it.
+    main tracks no bundle (release tags carry one built from their own
+    sources), so this drops any copy a branch still carries, for example one
+    cut before main stopped tracking it. A branch that carries its own build
+    would conflict with every other frontend pull request.
     """
     if not branch:
         branch = git("rev-parse", "--abbrev-ref", "HEAD", check=False, cwd=cwd).stdout.strip()
