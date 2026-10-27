@@ -1,0 +1,1 @@
+import{d as l,a4 as s}from"./index-nLNlThHd.js";const i=s((e,u)=>({buildId:null,request:t=>e({buildId:t}),take:()=>{const{buildId:t}=u();return t!==null&&e({buildId:null}),t}}));function o(e){i.getState().request(e),l.getState().setActiveSection("self-build")}export{o,i as u};
