@@ -2325,6 +2325,58 @@ def _turn_phrase_language(owner: object, user_text: str) -> str:
     )
 
 
+def _is_local_provider(provider: str | None) -> bool:
+    """True for an on-device provider (no key, no price list)."""
+    try:
+        from dodaios.brain.app_control import LOCAL_PROVIDERS
+    except Exception:  # noqa: BLE001 — pricing must never break a turn
+        return False
+    return bool(provider) and provider in LOCAL_PROVIDERS
+
+
+async def _turn_cost_usd(
+    provider: str | None,
+    model: str | None,
+    tokens_in: int,
+    tokens_out: int,
+    tokens_cached: int,
+) -> float:
+    """USD cost of one completed brain turn; never raises."""
+    # On-device models are free and absent from every price list; pricing
+    # them warned on every turn and refreshed a remote catalogue for nothing.
+    if _is_local_provider(provider):
+        return 0.0
+    try:
+        from dodaios.brain import cost
+
+        # A model the static table has never heard of is priced
+        # from the provider feed — ONE refresh per model per
+        # process (capped at 3 s), so a new generation stops
+        # shipping as "$0.00" until someone edits the table.
+        if tokens_in > 0 or tokens_out > 0 or tokens_cached > 0:
+            await cost.ensure_pricing_for(model)
+        usd = cost.calculate_cost_usd(model, tokens_in, tokens_out, tokens_cached)
+        if usd == 0.0 and tokens_in > 0:
+            # An unknown model prices as $0.00 and every surface
+            # then renders the turn as free — that silence is how
+            # 1.87M deepseek tokens went unbilled for a month
+            # (2026-07-28 cost audit). Say it once per turn.
+            log.warning(
+                "No pricing for model %r (static table and "
+                "provider feed) — %d in / %d out tokens recorded "
+                "as $0.00; add it to dodaios/brain/cost.py "
+                "PRICING_USD_PER_MTOK",
+                model, tokens_in, tokens_out,
+            )
+        return usd
+    except Exception:  # noqa: BLE001
+        log.warning(
+            "Cost calculation failed for model %r — recording $0.00",
+            model, exc_info=True,
+        )
+        return 0.0
+
+
 class BrainManager:
     """Top-level orchestrator with intent router and smart fallback."""
 
@@ -11856,38 +11908,9 @@ class BrainManager:
                 # Every plugin reports cache hits under the protocol key and
                 # keeps ``input_tokens`` to the uncached share.
                 tokens_cached_total = int(agg.usage.get("cache_hit_tokens", 0)) if agg.usage else 0
-                cost_usd_total = 0.0
-                try:
-                    from dodaios.brain.cost import (
-                        calculate_cost_usd,
-                        ensure_pricing_for,
-                    )
-                    # A model the static table has never heard of is priced
-                    # from the provider feed — ONE refresh per model per
-                    # process (capped at 3 s), so a new generation stops
-                    # shipping as "$0.00" until someone edits the table.
-                    if tokens_in_total > 0 or tokens_out_total > 0 or tokens_cached_total > 0:
-                        await ensure_pricing_for(model)
-                    cost_usd_total = calculate_cost_usd(
-                        model, tokens_in_total, tokens_out_total, tokens_cached_total
-                    )
-                    if cost_usd_total == 0.0 and tokens_in_total > 0:
-                        # An unknown model prices as $0.00 and every surface
-                        # then renders the turn as free — that silence is how
-                        # 1.87M deepseek tokens went unbilled for a month
-                        # (2026-07-28 cost audit). Say it once per turn.
-                        log.warning(
-                            "No pricing for model %r (static table and "
-                            "provider feed) — %d in / %d out tokens recorded "
-                            "as $0.00; add it to dodaios/brain/cost.py "
-                            "PRICING_USD_PER_MTOK",
-                            model, tokens_in_total, tokens_out_total,
-                        )
-                except Exception:  # noqa: BLE001
-                    log.warning(
-                        "Cost calculation failed for model %r — recording $0.00",
-                        model, exc_info=True,
-                    )
+                cost_usd_total = await _turn_cost_usd(
+                    prov_name, model, tokens_in_total, tokens_out_total, tokens_cached_total
+                )
                 await self._bus.publish(BrainTurnStarted(
                     provider=prov_name,
                     model=model,
