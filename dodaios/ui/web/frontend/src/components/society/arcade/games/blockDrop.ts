@@ -1,35 +1,41 @@
 /**
  * "Block Drop": the falling-block puzzle cabinet.
  *
- * Seven four-cell pieces fall into a 10 × 20 well (plus two hidden rows on
- * top where pieces appear). Pieces come from a 7-bag, so every seven in a row
- * hold each shape once and droughts cannot happen. Left / right shift once on
+ * Seven four-cell pieces fall into a wide 12 × 22 well (plus two hidden rows
+ * on top where pieces appear). Pieces come from a shuffled bag, so every seven
+ * in a row hold each shape once and droughts cannot happen. Left / right shift once on
  * press and then auto-repeat after a short delay (DAS / ARR), `up` or `a`
  * rotates clockwise with a few simple wall kicks, `down` soft-drops and `b`
- * hard-drops. A grounded piece locks after half a second; moving or rotating
+ * hard-drops. A grounded piece locks after a short delay; moving or rotating
  * it buys time, but only a limited number of times, so it cannot stall
  * forever. Full rows clear after a short animation and score by how many went
- * at once, times the level; every ten lines the level and the gravity rise.
+ * at once, times the level; every twelve lines the level and the gravity rise.
+ *
+ * The look is the cabinet's own: every piece is cast in the same brass on a
+ * charcoal well, told apart by its shade and an engraved mark, and the drop
+ * hint is a faint beam down each column the piece covers.
  */
 import { type RetroDrawInfo, type RetroGame, type RetroInput, type RetroStatus } from "../retroGame";
 import { drawDigits, drawSparks, emitSpark, sparkPool, stepSparks, type Spark } from "./games2Kit";
 
-export const COLS = 10;
-/** 20 visible rows plus 2 hidden ones on top where pieces spawn. */
-export const ROWS = 22;
+export const COLS = 12;
+/** 22 visible rows plus 2 hidden ones on top where pieces spawn. */
+export const ROWS = 24;
 export const HIDDEN = 2;
 
 /** Delayed auto shift: hold this long before a held direction starts repeating... */
 export const DAS = 0.17;
 /** ...then move one column this often. */
 export const ARR = 0.05;
-export const LOCK_DELAY = 0.5;
+export const LOCK_DELAY = 0.45;
 /** How often moving or rotating a grounded piece may restart its lock timer. */
-export const MAX_LOCK_RESETS = 15;
+export const MAX_LOCK_RESETS = 12;
 export const CLEAR_TIME = 0.3;
 const SOFT_DROP_INTERVAL = 0.035;
 /** Points for 1, 2, 3 or 4 lines at once, times the level. */
-export const LINE_SCORES: readonly number[] = [0, 100, 300, 500, 800];
+export const LINE_SCORES: readonly number[] = [0, 50, 150, 350, 1000];
+/** Lines per level. */
+export const LINES_PER_LEVEL = 12;
 
 /** Piece kinds, in this order: I O T S Z J L. Cells store kind + 1 (0 is empty). */
 export const PIECE_I = 0, PIECE_O = 1, PIECE_T = 2, PIECE_S = 3, PIECE_Z = 4, PIECE_J = 5, PIECE_L = 6;
@@ -106,20 +112,26 @@ export interface BlockDropState {
   levelGlow: number;
 }
 
-export const WIDTH = 200;
+export const WIDTH = 208;
 export const HEIGHT = 236;
-const CELL = 11;
+const CELL = 10;
 const WELL_X = 8;
 const WELL_Y = 8;
-const PANEL_X = 128;
+const PANEL_X = 136;
 const PANEL_W = 64;
 
-const COLORS = ["#4fd8ff", "#ffd84a", "#b06bff", "#5dea6a", "#ff5a6e", "#4a7dff", "#ff9a3d"];
-const STACK_GREY = "#5b6177";
+/** One brass family: each kind is a shade of it, never a hue of its own. */
+const COLORS = ["#e9b949", "#b9862f", "#f4d27f", "#9a7432", "#d39c3a", "#7f6334", "#f0c25e"];
+/** The engraved mark per kind, so shapes read apart without colour (see drawCell). */
+const MARKS = [1, 0, 2, 3, 4, 5, 6];
+const STACK_GREY = "#4a4740";
+const GOLD = "#e9b949";
+const CHARCOAL = "#141416";
 
+/** Seconds per row of fall: a gentle geometric speed-up per level, with a floor. */
 export function gravityInterval(level: number): number {
   const l = Math.min(20, Math.max(1, level));
-  return Math.pow(0.8 - (l - 1) * 0.007, l - 1);
+  return Math.max(0.04, 0.85 * Math.pow(0.84, l - 1));
 }
 
 export function fits(s: BlockDropState, kind: number, rot: number, x: number, y: number): boolean {
@@ -151,7 +163,7 @@ export function spawnPiece(s: BlockDropState, random: () => number): void {
   refill(s, random);
   s.piece = kind;
   s.rot = 0;
-  s.px = kind === PIECE_O ? 4 : 3;
+  s.px = kind === PIECE_O ? 5 : 4;
   s.py = 1;
   s.gravityTimer = 0;
   s.lockTimer = 0;
@@ -216,7 +228,7 @@ export function tryRotate(s: BlockDropState): boolean {
   return false;
 }
 
-/** How many rows the current piece can still fall (also places the ghost). */
+/** How many rows the current piece can still fall (also sizes the drop beams). */
 export function dropDistance(s: BlockDropState): number {
   let d = 0;
   while (fits(s, s.piece, s.rot, s.px, s.py + d + 1)) d += 1;
@@ -245,7 +257,7 @@ function lockPiece(s: BlockDropState, random: () => number): void {
   const points = LINE_SCORES[n] * s.level;
   s.score += points;
   s.lines += n;
-  const level = Math.max(s.level, 1 + Math.floor(s.lines / 10));
+  const level = Math.max(s.level, 1 + Math.floor(s.lines / LINES_PER_LEVEL));
   if (level > s.level) s.levelGlow = 1;
   s.level = level;
   s.clearing = CLEAR_TIME;
@@ -257,7 +269,7 @@ function lockPiece(s: BlockDropState, random: () => number): void {
     for (let i = 0; i < 12; i += 1) {
       const px = WELL_X + random() * COLS * CELL;
       emitSpark(s.sparks, px, py, (random() - 0.5) * 90, -30 - random() * 90, 0.4 + random() * 0.4, n === 4 ? 3 : 2,
-        n === 4 ? COLORS[Math.floor(random() * PIECE_COUNT)] : "#ffffff");
+        n === 4 ? COLORS[Math.floor(random() * PIECE_COUNT)] : "#fff4d6");
     }
   }
 }
@@ -341,18 +353,36 @@ export function stepBlockDrop(s: BlockDropState, input: RetroInput, dt: number, 
 
 // ---------------------------------------------------------------- drawing
 
-function drawCell(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string): void {
+/**
+ * One brass cell: a bevelled tile with a darker inset face and, at full size,
+ * the kind's engraved mark (0 plain, 1 bar, 2 dot, 3 slash, 4 back-slash, 5 ring, 6 post).
+ */
+function drawCell(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string, mark = 0): void {
   ctx.fillStyle = color;
   ctx.fillRect(x, y, size, size);
-  ctx.fillStyle = "rgba(255,255,255,0.38)";
+  ctx.fillStyle = "rgba(255,246,220,0.45)";
   ctx.fillRect(x, y, size, 1);
   ctx.fillRect(x, y, 1, size);
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillStyle = "rgba(20,14,4,0.45)";
   ctx.fillRect(x, y + size - 1, size, 1);
   ctx.fillRect(x + size - 1, y, 1, size);
-  if (size >= 8) {
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.fillRect(x + 2, y + 2, 2, 2);
+  if (size < 7) return;
+  ctx.fillStyle = "rgba(20,14,4,0.16)";
+  ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+  ctx.fillStyle = "rgba(20,14,4,0.55)";
+  const c = Math.floor(size / 2), m = size - 3;
+  switch (mark) {
+    case 1: ctx.fillRect(x + 2, y + c, size - 4, 1); break;
+    case 2: ctx.fillRect(x + c - 1, y + c - 1, 2, 2); break;
+    case 3: for (let i = 2; i <= m; i += 1) ctx.fillRect(x + m + 2 - i, y + i, 1, 1); break;
+    case 4: for (let i = 2; i <= m; i += 1) ctx.fillRect(x + i, y + i, 1, 1); break;
+    case 5:
+      ctx.strokeStyle = "rgba(20,14,4,0.55)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 2.5, y + 2.5, size - 5, size - 5);
+      break;
+    case 6: ctx.fillRect(x + c, y + 2, 1, size - 4); break;
+    default: break;
   }
 }
 
@@ -367,38 +397,48 @@ function drawPreview(ctx: CanvasRenderingContext2D, kind: number, cx: number, cy
   const ox = Math.round(cx - ((maxX - minX + 1) * size) / 2);
   const oy = Math.round(cy - ((maxY - minY + 1) * size) / 2);
   for (let i = 0; i < 4; i += 1) {
-    drawCell(ctx, ox + (shape[i * 2] - minX) * size, oy + (shape[i * 2 + 1] - minY) * size, size - 1, COLORS[kind]);
+    drawCell(ctx, ox + (shape[i * 2] - minX) * size, oy + (shape[i * 2 + 1] - minY) * size, size - 1, COLORS[kind], MARKS[kind]);
   }
 }
 
 function panelBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
-  ctx.fillStyle = "#0b1433";
+  ctx.fillStyle = "#1b1a1d";
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = "#2a4a8f";
+  ctx.strokeStyle = "rgba(233,185,73,0.45)";
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
 
 /** A decorative half-built stack for the title screen (letters are piece kinds). */
 const ATTRACT_ROWS = [
-  "J.........",
-  "JJJ....LOO",
-  "ZZTT.LLLOO",
-  "SZZT.ITTTS",
-  "SSZT.IJTSS",
-  "OOTT.IJJJS",
+  "J...........",
+  "JJJ......LOO",
+  "ZZTTO.LLLLOO",
+  "SZZTO.ITTTSL",
+  "SSZTT.IJTSSL",
+  "OOTTT.IJJJSL",
 ];
 const KIND_OF: Record<string, number> = { I: 0, O: 1, T: 2, S: 3, Z: 4, J: 5, L: 6 };
 
+/** A faint vertical beam one cell wide, with a bright foot where the cell will come to rest. */
+function drawBeam(ctx: CanvasRenderingContext2D, x: number, top: number, bottom: number): void {
+  const h = bottom - top;
+  if (h <= 0) return;
+  ctx.fillStyle = "rgba(233,185,73,0.13)";
+  ctx.fillRect(x + 2, top, CELL - 5, h);
+  ctx.fillStyle = "rgba(233,185,73,0.7)";
+  ctx.fillRect(x + 2, bottom - 2, CELL - 5, 1);
+}
+
 function drawWell(ctx: CanvasRenderingContext2D, s: BlockDropState, info: RetroDrawInfo): void {
   const wellW = COLS * CELL, wellH = (ROWS - HIDDEN) * CELL;
-  ctx.fillStyle = "#070c1f";
+  ctx.fillStyle = CHARCOAL;
   ctx.fillRect(WELL_X, WELL_Y, wellW, wellH);
-  ctx.fillStyle = "rgba(124,196,255,0.06)";
-  for (let x = 1; x < COLS; x += 1) ctx.fillRect(WELL_X + x * CELL, WELL_Y, 1, wellH);
-  for (let y = 1; y < ROWS - HIDDEN; y += 1) ctx.fillRect(WELL_X, WELL_Y + y * CELL, wellW, 1);
+  // Only the grid's crossings are marked, as tiny dots.
+  ctx.fillStyle = "rgba(233,185,73,0.14)";
+  for (let x = 1; x < COLS; x += 1) for (let y = 1; y < ROWS - HIDDEN; y += 1) ctx.fillRect(WELL_X + x * CELL - 1, WELL_Y + y * CELL - 1, 1, 1);
   // The frame glows up for a moment on a level-up, fading smoothly (no blinking).
-  ctx.strokeStyle = s.levelGlow > 0 ? `rgba(124,196,255,${0.45 + s.levelGlow * 0.55})` : "rgba(63,162,255,0.45)";
+  ctx.strokeStyle = s.levelGlow > 0 ? `rgba(244,210,127,${0.5 + s.levelGlow * 0.5})` : "rgba(233,185,73,0.5)";
   ctx.lineWidth = s.levelGlow > 0 ? 2 : 1;
   ctx.strokeRect(WELL_X - 1.5, WELL_Y - 1.5, wellW + 3, wellH + 3);
 
@@ -409,14 +449,14 @@ function drawWell(ctx: CanvasRenderingContext2D, s: BlockDropState, info: RetroD
       for (let x = 0; x < COLS; x += 1) {
         const ch = ATTRACT_ROWS[r][x];
         if (ch === ".") continue;
-        drawCell(ctx, WELL_X + x * CELL, WELL_Y + (top + r - HIDDEN) * CELL, CELL - 1, COLORS[KIND_OF[ch]]);
+        const kind = KIND_OF[ch];
+        drawCell(ctx, WELL_X + x * CELL, WELL_Y + (top + r - HIDDEN) * CELL, CELL - 1, COLORS[kind], MARKS[kind]);
       }
     }
-    // An upright I hovering over the gap it is about to fill.
+    // An upright I hovering over the gap it is about to fill, its drop beam below it.
     const bob = info.reduced ? 0 : Math.round(Math.sin(info.time * 2) * 3);
-    for (let i = 0; i < 4; i += 1) drawCell(ctx, WELL_X + 4 * CELL, WELL_Y + (7 + i) * CELL + bob, CELL - 1, COLORS[PIECE_I]);
-    ctx.strokeStyle = "rgba(79,216,255,0.35)";
-    for (let i = 0; i < 4; i += 1) ctx.strokeRect(WELL_X + 4 * CELL + 0.5, WELL_Y + (top + 2 + i - HIDDEN) * CELL + 0.5, CELL - 2, CELL - 2);
+    for (let i = 0; i < 4; i += 1) drawCell(ctx, WELL_X + 5 * CELL, WELL_Y + (7 + i) * CELL + bob, CELL - 1, COLORS[PIECE_I], MARKS[PIECE_I]);
+    drawBeam(ctx, WELL_X + 5 * CELL, WELL_Y + 11 * CELL + bob, WELL_Y + (ROWS - HIDDEN) * CELL);
     return;
   }
 
@@ -431,48 +471,51 @@ function drawWell(ctx: CanvasRenderingContext2D, s: BlockDropState, info: RetroD
         if (info.reduced) {
           // Reduced motion: the row simply fades away.
           ctx.globalAlpha = 1 - p;
-          drawCell(ctx, px, py, CELL - 1, COLORS[v - 1]);
+          drawCell(ctx, px, py, CELL - 1, COLORS[v - 1], MARKS[v - 1]);
           ctx.globalAlpha = 1;
         } else {
           // Squeeze into a white line that wipes out from the middle.
           const h = Math.max(1, Math.round((CELL - 1) * (1 - p)));
           const reach = p * (COLS / 2 + 1);
-          ctx.fillStyle = Math.abs(x + 0.5 - COLS / 2) < reach ? "#ffffff" : COLORS[v - 1];
+          ctx.fillStyle = Math.abs(x + 0.5 - COLS / 2) < reach ? "#fff4d6" : COLORS[v - 1];
           ctx.fillRect(px, py + Math.round((CELL - 1 - h) / 2), CELL - 1, h);
         }
         continue;
       }
-      drawCell(ctx, px, py, CELL - 1, s.over ? STACK_GREY : COLORS[v - 1]);
+      drawCell(ctx, px, py, CELL - 1, s.over ? STACK_GREY : COLORS[v - 1], MARKS[v - 1]);
     }
   }
 
   if (s.active && !s.over) {
     const shape = SHAPES[s.piece][s.rot];
-    const ghost = s.py + dropDistance(s);
-    ctx.strokeStyle = COLORS[s.piece];
-    ctx.globalAlpha = 0.45;
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 4; i += 1) {
-      const gy = ghost + shape[i * 2 + 1];
-      if (gy < HIDDEN) continue;
-      ctx.strokeRect(WELL_X + (s.px + shape[i * 2]) * CELL + 0.5, WELL_Y + (gy - HIDDEN) * CELL + 0.5, CELL - 2, CELL - 2);
+    // Drop hint: a faint beam under each column the piece covers, from its lowest cell
+    // there down to where that cell will come to rest; the piece itself is never outlined.
+    const d = dropDistance(s);
+    if (d > 0) {
+      for (let i = 0; i < 4; i += 1) {
+        const cx = shape[i * 2], cy = shape[i * 2 + 1];
+        let lowest = true;
+        for (let j = 0; j < 4; j += 1) if (shape[j * 2] === cx && shape[j * 2 + 1] > cy) lowest = false;
+        if (!lowest) continue;
+        const from = Math.max(HIDDEN, s.py + cy + 1), to = s.py + cy + d + 1;
+        if (to > from) drawBeam(ctx, WELL_X + (s.px + cx) * CELL, WELL_Y + (from - HIDDEN) * CELL, WELL_Y + (to - HIDDEN) * CELL);
+      }
     }
-    ctx.globalAlpha = 1;
     // A piece about to lock dims a little, so the lock delay can be read.
     const settle = grounded(s) ? Math.min(1, s.lockTimer / LOCK_DELAY) : 0;
     for (let i = 0; i < 4; i += 1) {
       const cy = s.py + shape[i * 2 + 1];
       if (cy < HIDDEN) continue;
-      drawCell(ctx, WELL_X + (s.px + shape[i * 2]) * CELL, WELL_Y + (cy - HIDDEN) * CELL, CELL - 1, COLORS[s.piece]);
+      drawCell(ctx, WELL_X + (s.px + shape[i * 2]) * CELL, WELL_Y + (cy - HIDDEN) * CELL, CELL - 1, COLORS[s.piece], MARKS[s.piece]);
       if (settle > 0) {
-        ctx.fillStyle = `rgba(7,12,31,${settle * 0.35})`;
+        ctx.fillStyle = `rgba(20,20,22,${settle * 0.4})`;
         ctx.fillRect(WELL_X + (s.px + shape[i * 2]) * CELL, WELL_Y + (cy - HIDDEN) * CELL, CELL - 1, CELL - 1);
       }
     }
   }
 
   if (s.over) {
-    ctx.fillStyle = "rgba(7,12,31,0.45)";
+    ctx.fillStyle = "rgba(20,20,22,0.45)";
     ctx.fillRect(WELL_X, WELL_Y, wellW, wellH);
   }
 }
@@ -481,7 +524,7 @@ function drawPanel(ctx: CanvasRenderingContext2D, s: BlockDropState, info: Retro
   const attract = info.idle && s.ticks === 0;
   panelBox(ctx, PANEL_X, WELL_Y, PANEL_W, 46);
   // A small down-arrow marks the "next" box without words.
-  ctx.fillStyle = "#7cc4ff";
+  ctx.fillStyle = GOLD;
   ctx.beginPath();
   ctx.moveTo(PANEL_X + 4, WELL_Y + 4); ctx.lineTo(PANEL_X + 10, WELL_Y + 4); ctx.lineTo(PANEL_X + 7, WELL_Y + 8);
   ctx.closePath();
@@ -493,37 +536,37 @@ function drawPanel(ctx: CanvasRenderingContext2D, s: BlockDropState, info: Retro
   drawPreview(ctx, attract ? PIECE_S : s.queue[2], PANEL_X + 48.5, WELL_Y + 65, 6);
 
   panelBox(ctx, PANEL_X, WELL_Y + 88, PANEL_W, 26);
-  drawDigits(ctx, s.score, PANEL_X + PANEL_W - 5, WELL_Y + 94, 14, "#ffffff", "right", 600);
+  drawDigits(ctx, s.score, PANEL_X + PANEL_W - 5, WELL_Y + 94, 14, "#fff4d6", "right", 600);
 
   // Level: a double chevron; lines: three stacked bars.
   panelBox(ctx, PANEL_X, WELL_Y + 120, PANEL_W, 20);
-  ctx.strokeStyle = "#ffd84a";
+  ctx.strokeStyle = GOLD;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(PANEL_X + 5, WELL_Y + 131); ctx.lineTo(PANEL_X + 9, WELL_Y + 127); ctx.lineTo(PANEL_X + 13, WELL_Y + 131);
   ctx.moveTo(PANEL_X + 5, WELL_Y + 135); ctx.lineTo(PANEL_X + 9, WELL_Y + 131); ctx.lineTo(PANEL_X + 13, WELL_Y + 135);
   ctx.stroke();
-  drawDigits(ctx, s.level, PANEL_X + PANEL_W - 5, WELL_Y + 124, 12, "#ffd84a", "right");
+  drawDigits(ctx, s.level, PANEL_X + PANEL_W - 5, WELL_Y + 124, 12, GOLD, "right");
 
   panelBox(ctx, PANEL_X, WELL_Y + 144, PANEL_W, 20);
-  ctx.fillStyle = "#5dea6a";
+  ctx.fillStyle = "#c9c2b0";
   for (let i = 0; i < 3; i += 1) ctx.fillRect(PANEL_X + 5, WELL_Y + 149 + i * 4, 9, 2);
-  drawDigits(ctx, s.lines, PANEL_X + PANEL_W - 5, WELL_Y + 148, 12, "#5dea6a", "right");
+  drawDigits(ctx, s.lines, PANEL_X + PANEL_W - 5, WELL_Y + 148, 12, "#c9c2b0", "right");
 
   // Progress to the next level as a thin bar.
   panelBox(ctx, PANEL_X, WELL_Y + 170, PANEL_W, 8);
-  ctx.fillStyle = "#3fa2ff";
-  ctx.fillRect(PANEL_X + 2, WELL_Y + 172, Math.round((PANEL_W - 4) * ((s.lines % 10) / 10)), 4);
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(PANEL_X + 2, WELL_Y + 172, Math.round((PANEL_W - 4) * ((s.lines % LINES_PER_LEVEL) / LINES_PER_LEVEL)), 4);
 
   // A little decorative tower of cells at the bottom of the panel.
   for (let i = 0; i < 4; i += 1) {
-    drawCell(ctx, PANEL_X + 8 + i * 13, WELL_Y + 200, 11, COLORS[(i + 2) % PIECE_COUNT]);
-    if (i % 2 === 0) drawCell(ctx, PANEL_X + 8 + i * 13, WELL_Y + 188, 11, COLORS[(i + 5) % PIECE_COUNT]);
+    drawCell(ctx, PANEL_X + 8 + i * 13, WELL_Y + 200, 11, COLORS[(i + 2) % PIECE_COUNT], MARKS[(i + 2) % PIECE_COUNT]);
+    if (i % 2 === 0) drawCell(ctx, PANEL_X + 8 + i * 13, WELL_Y + 188, 11, COLORS[(i + 5) % PIECE_COUNT], MARKS[(i + 5) % PIECE_COUNT]);
   }
 }
 
 export function drawBlockDrop(ctx: CanvasRenderingContext2D, s: BlockDropState, info: RetroDrawInfo): void {
-  ctx.fillStyle = "#050916";
+  ctx.fillStyle = "#0c0c0e";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   ctx.save();
   if (!info.reduced && s.kick > 0) ctx.translate(0, Math.round((s.kick / 0.12) * 2));
@@ -532,7 +575,7 @@ export function drawBlockDrop(ctx: CanvasRenderingContext2D, s: BlockDropState, 
   if (s.popupTime > 0 && s.popupValue > 0 && !s.over) {
     const rise = info.reduced ? 0 : (1.1 - s.popupTime) * 14;
     ctx.globalAlpha = Math.min(1, s.popupTime * 2);
-    drawDigits(ctx, `+${s.popupValue}`, WELL_X + (COLS * CELL) / 2, WELL_Y + (s.popupRow - HIDDEN) * CELL - 10 - rise, 12, "#ffffff", "center", 600);
+    drawDigits(ctx, `+${s.popupValue}`, WELL_X + (COLS * CELL) / 2, WELL_Y + (s.popupRow - HIDDEN) * CELL - 10 - rise, 12, "#fff4d6", "center", 600);
     ctx.globalAlpha = 1;
   }
   ctx.restore();

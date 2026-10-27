@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { RETRO_STEP, idleInput, seededRandom, type RetroInput } from "../retroGame";
 import mazeMuncher, {
-  BONUS_X, BONUS_Y, CHAIN_POINTS, CLEAR_TIME, DOT_POINTS, DOWN, DYING_TIME, EXIT_X, EXIT_Y, LEFT, MAZE, MAZE_H, MAZE_W, NONE, ORB_POINTS,
-  PLAYER_START_X, PLAYER_START_Y, READY_TIME, RIGHT, UP, bugTarget, createMaze, frightDuration, isOpen, type MazeState,
+  BONUS_X, BONUS_Y, CHAIN_POINTS, CLEAR_TIME, DOT_POINTS, DOWN, DYING_TIME, ECHO, EXIT_X, EXIT_Y, HUNT_TIME, LEFT, MAZE, MAZE_H, MAZE_W,
+  NONE, ORB_POINTS, PATROL_TIME, PEN_Y, PLAYER_START_X, PLAYER_START_Y, READY_TIME, REBOOT_TIME, RIGHT, ROAMER, TRACKER, UP, WARDEN,
+  bugTarget, createMaze, frightDuration, isOpen, patrolling, type MazeState,
 } from "./mazeMuncher";
 
 /** A 2D context stand-in: every call is a no-op, texts are recorded, non-finite numbers are flagged. */
@@ -149,7 +150,7 @@ describe("maze muncher: play", () => {
     expect(s.dots[1 * MAZE_W + 2]).toBe(0);
   });
 
-  it("an orb frightens the bugs, and eaten bugs chain their points and go home", () => {
+  it("an orb shorts the bugs out, and zapped bugs chain rising points and reboot in the pen", () => {
     const s = quiet();
     const [, a, b] = s.bugs;
     a.mode = "active"; a.x = 9; a.y = 19; a.dir = LEFT;
@@ -164,16 +165,19 @@ describe("maze muncher: play", () => {
 
     a.x = s.player.x; a.y = s.player.y;
     run(s, idleInput(), RETRO_STEP);
-    expect(a.mode).toBe("eaten");
+    expect(a.mode).toBe("rebooting");
+    // Straight back into the pen: no trip home through the maze.
+    expect([a.x, a.y]).toEqual([10, PEN_Y]);
     expect(s.score).toBe(ORB_POINTS + CHAIN_POINTS[0]);
     run(s, idleInput(), 0.6);
     b.x = s.player.x; b.y = s.player.y;
     run(s, idleInput(), RETRO_STEP);
-    expect(b.mode).toBe("eaten");
+    expect(b.mode).toBe("rebooting");
     expect(s.score - ORB_POINTS - CHAIN_POINTS[0]).toBeGreaterThanOrEqual(CHAIN_POINTS[1]);
+    expect(CHAIN_POINTS).toEqual([150, 300, 450, 600]);
 
-    // The eyes find their way back into the pen and come out again as a normal bug.
-    run(s, idleInput(), 6);
+    // After its reboot the bug comes out again as a normal bug.
+    run(s, idleInput(), REBOOT_TIME + 2);
     expect(["leaving", "active"]).toContain(a.mode);
     expect(a.frightened).toBe(false);
   });
@@ -245,33 +249,65 @@ describe("maze muncher: play", () => {
     expect(s.score - score).toBeGreaterThanOrEqual(100);
   });
 
-  it("gives the four bugs four different chase targets", () => {
+  it("gives each bug its own habit while it hunts", () => {
     const s = quiet();
-    s.modeIndex = 1; // chase
-    place(s, 10, 15, LEFT);
-    s.bugs[0].x = 10; s.bugs[0].y = 7;
+    s.roundTime = 0; // every bug is hunting at the start of a round
+    place(s, 4, 15, LEFT);
     const out = { x: 0, y: 0 };
-    const targets = s.bugs.map((b) => {
-      b.x = b.index === 0 ? 10 : 18; b.y = b.index === 0 ? 7 : 3;
-      bugTarget(s, b, out);
-      return `${out.x},${out.y}`;
-    });
-    expect(targets[0]).toBe("10,15");
-    expect(targets[1]).toBe("6,15");
-    expect(new Set(targets.slice(0, 3)).size).toBe(3);
-    // The drifter chases from afar but backs off up close.
-    expect(targets[3]).toBe("10,15");
-    const drifter = s.bugs[3];
-    drifter.x = 9; drifter.y = 15;
-    bugTarget(s, drifter, out);
-    expect(`${out.x},${out.y}`).not.toBe("10,15");
+    const [tracker, warden, echo, roamer] = s.bugs;
+    for (const b of s.bugs) { b.x = 18; b.y = 3; }
+    expect(s.bugs.some((b) => patrolling(s, b))).toBe(false);
+
+    // The tracker goes straight for the drone.
+    expect(bugTarget(s, tracker, out)).toBe(true);
+    expect([out.x, out.y]).toEqual([4, 15]);
+    // The warden guards the power orb left nearest the drone (bottom left), then the next one.
+    expect(bugTarget(s, warden, out)).toBe(true);
+    expect([out.x, out.y]).toEqual([1, 15]);
+    s.dots[15 * MAZE_W + 1] = 0;
+    bugTarget(s, warden, out);
+    expect([out.x, out.y]).toEqual([1, 2]);
+    // The echo shadows the drone's mirror image.
+    bugTarget(s, echo, out);
+    expect([out.x, out.y]).toEqual([MAZE_W - 1 - 4, 15]);
+    // The roamer wanders while the drone is far, and pounces up close.
+    expect(bugTarget(s, roamer, out)).toBe(false);
+    roamer.x = 6; roamer.y = 15;
+    expect(bugTarget(s, roamer, out)).toBe(true);
+    expect([out.x, out.y]).toEqual([4, 15]);
+    expect([TRACKER, WARDEN, ECHO, ROAMER]).toEqual([0, 1, 2, 3]);
+  });
+
+  it("each bug takes its own patrol break, never all at once", () => {
+    const s = quiet();
+    const cycle = HUNT_TIME + PATROL_TIME;
+    for (let t = 0; t < cycle * 2; t += 0.25) {
+      s.roundTime = t;
+      const resting = s.bugs.filter((b) => patrolling(s, b)).length;
+      expect(resting, `at ${t}s`).toBeLessThan(s.bugs.length);
+    }
+    // A patrolling bug heads for its own home block, not for the drone.
+    s.roundTime = HUNT_TIME + 0.5;
+    const tracker = s.bugs[0];
+    expect(patrolling(s, tracker)).toBe(true);
+    const out = { x: 0, y: 0 };
+    place(s, 4, 15, LEFT);
+    bugTarget(s, tracker, out);
+    expect([out.x, out.y]).not.toEqual([4, 15]);
+    expect(isOpen(out.x, out.y)).toBe(true);
   });
 
   it("the bugs leave the pen and roam without ever standing in a wall", () => {
     const s = createMaze();
     for (let t = 0; t < 30; t += RETRO_STEP) {
       mazeMuncher.step(s, idleInput(), RETRO_STEP, random);
-      if (s.phase === "dying") { s.phase = "play"; s.lives = 3; }
+      if (s.phase === "dying") {
+        // Keep the round going: lift the bug that made the catch off the drone, so it does not repeat every step.
+        s.phase = "play"; s.lives = 3;
+        for (const b of s.bugs) {
+          if (b.mode === "active" && Math.abs(b.x - s.player.x) < 1 && Math.abs(b.y - s.player.y) < 1) { b.x = EXIT_X; b.y = EXIT_Y; b.dir = LEFT; }
+        }
+      }
       for (const b of s.bugs) {
         if (b.mode !== "active") continue;
         expect(isOpen(Math.round(b.x), Math.round(b.y)), `bug ${b.index} at ${b.x},${b.y}`).toBe(true);
@@ -291,7 +327,8 @@ describe("maze muncher: play", () => {
     mazeMuncher.draw(ctx, s, { time: 3, reduced: false, idle: false });
     s.frightTimer = 1; for (const b of s.bugs) b.frightened = true;
     s.bonusTimer = 3;
-    s.bugs[0].mode = "eaten";
+    s.bugs[0].mode = "rebooting";
+    s.bugs[0].reboot = REBOOT_TIME / 2;
     mazeMuncher.draw(ctx, s, { time: 4, reduced: false, idle: false });
     mazeMuncher.draw(ctx, s, { time: 4, reduced: true, idle: false });
     s.phase = "dying"; s.phaseTimer = DYING_TIME / 2;

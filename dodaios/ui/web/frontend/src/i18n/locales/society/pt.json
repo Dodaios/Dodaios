@@ -1805,8 +1805,8 @@
           "how": "←/→ mover · ↑/Espaço rodar · ↓ descida suave · Shift descida rápida · P pausa · Esc sair"
         },
         "maze_muncher": {
-          "tagline": "Come todos os pontos e engana quatro bugs com falhas.",
-          "how": "Setas dirigem (as curvas ficam em memória) · as orbes de energia tornam os bugs comestíveis · P pausa · Esc sair"
+          "tagline": "Aspira todos os pontos e engana quatro bugs com falhas.",
+          "how": "Setas dirigem (as curvas ficam em memória) · as orbes de energia deixam os bugs em curto-circuito para os poderes eliminar · P pausa · Esc sair"
         },
         "desert_dash": {
           "tagline": "Corre pelas dunas: salta os catos, baixa-te para fugir aos pássaros.",
@@ -1817,12 +1817,12 @@
           "how": "←/→ mover · Espaço disparar · P pausa · Esc sair"
         },
         "road_hopper": {
-          "tagline": "Salta por entre o trânsito e atravessa o rio para chegar a casa.",
+          "tagline": "Leva o robô estafeta por entre o trânsito e o canal até às plataformas do telhado.",
           "how": "Setas saltam · P pausa · Esc sair"
         },
         "city_defense": {
-          "tagline": "Abate as ogivas antes que cheguem às tuas cidades.",
-          "how": "Rato apontar + clique disparar · Setas apontar · Espaço disparar · Shift escolher bateria · P pausa · Esc sair"
+          "tagline": "Desfaz os fragmentos que caem antes que partam as tuas cúpulas.",
+          "how": "Rato apontar + clique disparar · Setas apontar · Espaço disparar · Shift pulso (largo, mais calor) · P pausa · Esc sair"
         }
       }
     },

@@ -1805,8 +1805,8 @@
           "how": "←/→ mover · ↑/Espacio girar · ↓ bajar rápido · Shift caída directa · P pausa · Esc salir"
         },
         "maze_muncher": {
-          "tagline": "Come todos los puntos y burla a cuatro bichos glitch.",
-          "how": "Flechas para girar (los giros se guardan) · los orbes de poder vuelven comestibles a los bichos · P pausa · Esc salir"
+          "tagline": "Aspira todos los puntos y burla a cuatro bichos glitch.",
+          "how": "Flechas para girar (los giros se guardan) · los orbes de poder dejan fuera de combate a los bichos para que puedas eliminarlos · P pausa · Esc salir"
         },
         "desert_dash": {
           "tagline": "Corre por las dunas: salta los cactus y agáchate ante los pájaros.",
@@ -1817,12 +1817,12 @@
           "how": "←/→ mover · Espacio disparar · P pausa · Esc salir"
         },
         "road_hopper": {
-          "tagline": "Salta entre el tráfico y el río para llegar a casa.",
+          "tagline": "Guía al robot mensajero entre el tráfico y el canal hasta las plataformas de la azotea.",
           "how": "Flechas saltar · P pausa · Esc salir"
         },
         "city_defense": {
-          "tagline": "Derriba las cabezas nucleares antes de que alcancen tus ciudades.",
-          "how": "Ratón apuntar + clic disparar · Flechas apuntar · Espacio disparar · Shift elegir batería · P pausa · Esc salir"
+          "tagline": "Destroza los fragmentos que caen antes de que rompan tus cúpulas.",
+          "how": "Ratón apuntar + clic disparar · Flechas apuntar · Espacio disparar · Shift pulso (amplio, más calor) · P pausa · Esc salir"
         }
       }
     },
