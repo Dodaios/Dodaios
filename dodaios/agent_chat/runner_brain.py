@@ -91,47 +91,95 @@ def brain_history_from_events(
 ) -> list[BrainMessage]:
     """The chat's own log as the turn's history: what was said, in prose.
 
-    User and assistant TEXT only. A tool round is folded into the assistant
-    message as one line per call ("[used tool X: …]") and its results are
-    dropped: Jarvis' loop rebuilds its own tool rounds, and replaying a
-    foreign provider's ``tool_use`` ids into a different provider fails its
-    validation. Capped to the last ``_HISTORY_MAX`` messages.
+    User and assistant TEXT only, so no foreign provider's ``tool_use`` ids are
+    replayed into a different provider (that fails its validation). A turn's
+    tool rounds become one labelled tool record at the top of that turn's
+    assistant message: each call with a short, bounded result, errors kept.
+
+    The record is worded as data on purpose. An older format wrote each call
+    as an assistant line ("[used tool X]") and dropped the results; smaller
+    local models then copied that line instead of making a real tool call
+    (issue #978). Capped to the last ``_HISTORY_MAX`` messages.
     """
     out: list[BrainMessage] = []
+    prose: list[str] = []
+    calls: list[dict[str, str]] = []
+    by_id: dict[str, dict[str, str]] = {}
+
+    def flush_turn() -> None:
+        parts = ([_tool_record(calls)] if calls else []) + prose
+        text = "\n".join(parts)
+        if text.strip():
+            out.append(BrainMessage(role="assistant", content=text))
+        prose.clear()
+        calls.clear()
+        by_id.clear()
+
     for message in messages_from_events(events, max_events=None if max_messages is None else 600):
         if message.role == "user":
             text = message.content if isinstance(message.content, str) else ""
             if text.strip():
+                flush_turn()
                 out.append(BrainMessage(role="user", content=text))
         elif message.role == "assistant":
-            text = _assistant_prose(message.content)
-            if not text.strip():
+            # One answer per turn: the tool rounds and the prose after them
+            # are several provider messages but one thing Jarvis said.
+            if isinstance(message.content, str):
+                if message.content.strip():
+                    prose.append(message.content)
                 continue
-            if out and out[-1].role == "assistant":
-                # One answer per turn: the tool round and the prose after it
-                # are two provider messages but one thing Jarvis said.
-                merged = f"{out[-1].content}\n{text}"
-                out[-1] = BrainMessage(role="assistant", content=merged)
-            else:
-                out.append(BrainMessage(role="assistant", content=text))
+            for block in message.content:
+                kind = block.get("type")
+                if kind == "text":
+                    text = str(block.get("text") or "")
+                    if text.strip():
+                        prose.append(text)
+                elif kind == "tool_use":
+                    name = str(block.get("name") or "tool")
+                    args = block.get("input") or {}
+                    entry = {
+                        "name": name,
+                        "summary": summarize_call(name, args) if isinstance(args, dict) else "",
+                    }
+                    calls.append(entry)
+                    by_id[str(block.get("id") or "")] = entry
+        elif message.role == "tool":
+            entry = by_id.get(str(message.tool_call_id or ""))
+            if entry is not None:
+                entry["result"] = message.content if isinstance(message.content, str) else ""
+    flush_turn()
     return out[-max_messages:] if max_messages else out
 
 
-def _assistant_prose(content: str | list[dict[str, Any]]) -> str:
-    if isinstance(content, str):
-        return content
-    lines: list[str] = []
-    for block in content:
-        kind = block.get("type")
-        if kind == "text":
-            text = str(block.get("text") or "")
-            if text.strip():
-                lines.append(text)
-        elif kind == "tool_use":
-            name = str(block.get("name") or "tool")
-            args = block.get("input") or {}
-            summary = summarize_call(name, args) if isinstance(args, dict) else ""
-            lines.append(f"[used tool {name}: {summary}]" if summary else f"[used tool {name}]")
+#: How much of one tool result the record keeps, and how many calls it lists.
+_RECORD_RESULT_CHARS: Final[int] = 300
+_RECORD_MAX_CALLS: Final[int] = 8
+
+_RECORD_HEADER: Final[str] = (
+    "Tool record of this turn (already executed; historical data, not a format "
+    "for new calls; new tool calls go through the tool interface):"
+)
+
+
+def _tool_record(calls: list[dict[str, str]]) -> str:
+    """The labelled data block for one turn's tool calls and their results."""
+    lines = [_RECORD_HEADER]
+    for entry in calls[:_RECORD_MAX_CALLS]:
+        target = f"{entry['name']} ({entry['summary']})" if entry["summary"] else entry["name"]
+        if "result" not in entry:
+            lines.append(f"- {target}: no result recorded")
+            continue
+        result = entry["result"]
+        failed = result.startswith("[error]")
+        if failed:
+            result = result[len("[error]") :]
+        result = " ".join(result.split())
+        if len(result) > _RECORD_RESULT_CHARS:
+            result = result[:_RECORD_RESULT_CHARS] + "…"
+        verb = "failed" if failed else "returned"
+        lines.append(f"- {target} {verb}: {result}" if result else f"- {target} {verb} nothing")
+    if len(calls) > _RECORD_MAX_CALLS:
+        lines.append(f"- … and {len(calls) - _RECORD_MAX_CALLS} more calls")
     return "\n".join(lines)
 
 
@@ -691,8 +739,8 @@ async def _generate(
             # turn lock; do not detect language from an English result prompt.
             if not handle.output_language:
                 pin = getattr(brain, "reply_language", "")
-                language = pin if is_supported_locale(pin) else getattr(
-                    brain, "conversation_language", ""
+                language = (
+                    pin if is_supported_locale(pin) else getattr(brain, "conversation_language", "")
                 )
                 if is_known_language(language):
                     handle.output_language = language
