@@ -3704,6 +3704,8 @@
     "file_truncated": "Ficheiro truncado a 1 MiB — vê o resto no gestor de ficheiros.",
     "fence_rendered": "Renderizado",
     "fence_source": "Código-fonte",
+    "fence_run_scripts": "Executar scripts",
+    "fence_run_scripts_hint": "Executa o JavaScript deste trecho. Um script em execução pode contactar um endereço web.",
     "open_action": "Abrir",
     "open_with_title": "Abrir com…",
     "open_with_remember": "Lembrar como predefinição",
