@@ -31,6 +31,8 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
+from dodaios.brain.tools_rejection import TOOLS_UNSUPPORTED_PHRASES, tools_rejection_hint
+
 log = logging.getLogger(__name__)
 
 #: Error codes providers use for an empty balance or a spent quota.
@@ -103,14 +105,9 @@ _OVERFLOW_PHRASES: Final[tuple[str, ...]] = (
 )
 
 _MODEL_MISSING_CODES: Final[frozenset[str]] = frozenset({"model_not_found"})
-_TOOLS_UNSUPPORTED_PHRASES: Final[tuple[str, ...]] = (
-    "does not support tools",
-    "tools are not supported",
-    "tool use is not supported",
-    "does not support function calling",
-    "function calling is not enabled",
-    "tool calling is not supported",
-)
+#: One list with the brains' tool-less retry (llama.cpp ``--jinja``, vLLM
+#: ``--enable-auto-tool-choice``, Ollama "does not support tools").
+_TOOLS_UNSUPPORTED_PHRASES: Final[tuple[str, ...]] = TOOLS_UNSUPPORTED_PHRASES
 _TOOL_SCHEMA_CODES: Final[frozenset[str]] = frozenset(
     {"invalid_function_parameters", "invalid_tool_schema"}
 )
@@ -250,12 +247,17 @@ def classify(provider: str, exc: BaseException, model: str = "") -> Refusal | No
             f"{model or 'the model'}'s context window on {_label(provider)}. Compress "
             "or shorten the conversation and send it again.",
         )
-    if status in (400, 422) and any(phrase in text for phrase in _TOOLS_UNSUPPORTED_PHRASES):
+    # llama.cpp answered a tools request without ``--jinja`` with HTTP 500 in
+    # older builds; the phrases are specific enough to accept that status too.
+    if status in (400, 422, 500, None) and any(
+        phrase in text for phrase in _TOOLS_UNSUPPORTED_PHRASES
+    ):
         return Refusal(
             400,
             "tools_unsupported",
             f"{model or 'This model'} on {_label(provider)} cannot call tools, which the "
-            "agent needs. Choose a model with tool support in the agent's settings.",
+            "agent needs. Choose a model with tool support in the agent's settings. "
+            f"{tools_rejection_hint(text) or ''}".rstrip(),
         )
     if status in (400, 422) and (
         codes & _TOOL_SCHEMA_CODES or any(phrase in text for phrase in _TOOL_SCHEMA_PHRASES)

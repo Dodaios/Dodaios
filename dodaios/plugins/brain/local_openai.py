@@ -239,7 +239,18 @@ class LocalOpenAIBrain:
         root = self._resolve_root()
         stated = await self._guard_window(req, root, model)
         reported: int | None = None
-        stream = stream_complete(client, model, req, supports_vision=self.supports_vision)
+        # A server that was not started for tool calling (llama.cpp without
+        # --jinja, vLLM without --enable-auto-tool-choice) refuses requests
+        # with tools; the streamer then answers without them and says which
+        # flag is missing. Local reasoning models may open a reply mid-thought.
+        stream = stream_complete(
+            client,
+            model,
+            req,
+            supports_vision=self.supports_vision,
+            tools_fallback=True,
+            hold_think_prefix=True,
+        )
         try:
             first = True
             async for delta in stream:
