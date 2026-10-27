@@ -64,18 +64,24 @@ test("IDE rail keeps workspace options and Dodaios Live reachable", () => {
 
 test("IDE sidebar puts Projects first and returns to the normal chat navigation", async () => {
   act(() => useEventStore.setState({ activeSection: "agentic-ide" }));
-  renderSidebar();
-  expect(await screen.findByTestId("ide-project-tree")).toBeDefined();
-  // The agents list lives in the IDE's right-hand side panel now.
-  expect(screen.queryByTestId("ide-workspace-agents")).toBeNull();
-  expect(screen.queryByTestId("sidebar-new-chat")).toBeNull();
-  expect(screen.queryByTestId("nav-row-agentic-ide")).toBeNull();
-  // No "Back to Jarvis" row: the caption's back arrow leaves the IDE.
-  expect(screen.queryByTestId("ide-back-to-jarvis")).toBeNull();
-  act(() => useEventStore.setState({ activeSection: "chats" }));
-  expect(screen.getByTestId("sidebar-new-chat")).toBeDefined();
-  cleanup();
-});
+  try {
+    renderSidebar();
+    // The project tree is a lazy chunk: a cold CI runner can take longer than the default second to load it.
+    expect(await screen.findByTestId("ide-project-tree", undefined, { timeout: 10_000 })).toBeDefined();
+    // The agents list lives in the IDE's right-hand side panel now.
+    expect(screen.queryByTestId("ide-workspace-agents")).toBeNull();
+    expect(screen.queryByTestId("sidebar-new-chat")).toBeNull();
+    expect(screen.queryByTestId("nav-row-agentic-ide")).toBeNull();
+    // No "Back to Jarvis" row: the caption's back arrow leaves the IDE.
+    expect(screen.queryByTestId("ide-back-to-jarvis")).toBeNull();
+    act(() => useEventStore.setState({ activeSection: "chats" }));
+    expect(screen.getByTestId("sidebar-new-chat")).toBeDefined();
+  } finally {
+    // A failure here must not leave the IDE section and its sidebar behind for the next test.
+    cleanup();
+    act(() => useEventStore.setState({ activeSection: "chats" }));
+  }
+}, 20_000);
 
 // The sidebar header avatar must mirror the chosen on-screen display style:
 // the ghost mascot ONLY when the user explicitly picked "mascot"; the slim bar
