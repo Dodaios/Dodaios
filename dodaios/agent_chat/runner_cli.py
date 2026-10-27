@@ -1528,8 +1528,10 @@ _ACP_CANCEL_GRACE_S: Final[float] = 5.0
 #: * the runtime must open its session within the handshake limit — generous,
 #:   since a runtime may finish its own setup first (Hermes after an update);
 #: * afterwards, the model must say something within the idle limit. The
-#:   counter resets on every frame, and pauses while a tool runs or the
-#:   person has an approval card open (both take as long as they take).
+#:   counter resets on every frame, and pauses while a tool runs, the person
+#:   has an approval card open, or Jarvis' gateway is still serving the
+#:   runtime's model call (a local model reading a long prompt or thinking
+#:   sends nothing for minutes; the gateway's own read timeout bounds it).
 _ACP_HANDSHAKE_TIMEOUT_S: Final[float] = 420.0
 _ACP_IDLE_TIMEOUT_S: Final[float] = 300.0
 _ACP_WATCH_TICK_S: Final[float] = 2.0
@@ -4196,13 +4198,19 @@ async def _drive_cli(
         acp = plan.acp
         if acp is None or hosted:
             return
+        from dodaios.agent_runtimes import gateway
+
         started = time.monotonic()
         reason = ""
         while not acp.saw_result and proc.returncode is None:
             await asyncio.sleep(_ACP_WATCH_TICK_S)
             now = time.monotonic()
-            if approval_pending[0] or acp.tool_running():
-                activity[0] = now  # a person or a tool sets this pace
+            if (
+                approval_pending[0]
+                or acp.tool_running()
+                or gateway.model_call_open(plan.provider_failure)
+            ):
+                activity[0] = now  # a person, a tool or the model sets this pace
                 continue
             if not acp.handshaken:
                 if now - started > _ACP_HANDSHAKE_TIMEOUT_S:
