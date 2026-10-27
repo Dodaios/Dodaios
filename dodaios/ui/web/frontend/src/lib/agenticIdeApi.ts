@@ -909,6 +909,8 @@ export interface WorkspacePaneRow {
   /** Working, waiting, asking… — the same reading the grid's badge shows. */
   activity: PaneActivity;
   activity_since: number;
+  /** Background tasks (sub-agents, shells, monitors) the agent left running; its job is not done while any run. */
+  background_tasks?: number;
   /** Has anything ever been asked of this pane? Separates "done" from "idle". */
   worked: boolean;
   started_at: number | null;

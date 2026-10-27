@@ -1520,6 +1520,8 @@ class Terminal:
         reading is the same one the grid's badge uses (:mod:`.activity`), so a
         pane cannot say "working" in one place and "done" in the other.
         """
+        from .task_state import background_tasks
+
         reading = self.reading()
         return {
             "key": self.key,
@@ -1536,6 +1538,10 @@ class Terminal:
             "activity": reading.activity,
             "activity_since": reading.since,
             "worked": has_work_behind_it(self),
+            # Background tasks the agent left running (sub-agents, shells,
+            # monitors): its turn may be over, its job is not. The Verse keeps
+            # the agent's figure at its desk until this is 0.
+            "background_tasks": background_tasks(self),
             "started_at": self.started_at,
             "last_output_at": self.last_output_at,
             # The opening of what was last asked of it — the closest thing a

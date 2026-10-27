@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -21,6 +22,16 @@ from . import agent_transcript
 MAX_TAIL_BYTES = 512_000
 FRESH_S = 6.0
 
+#: Claude Code tools that always run in the background and report by a
+#: ``<task-notification>`` later; any other tool does when its input sets
+#: ``run_in_background`` (a background shell, a background sub-agent).
+BACKGROUND_TOOLS = frozenset({"Monitor", "Workflow"})
+#: A background task with no notification after this long is assumed lost (the
+#: CLI restarted, the notice fell outside the read window): never counted forever.
+BACKGROUND_MAX_S = 6 * 3600.0
+_NOTICE_ID = re.compile(r"<tool-use-id>([^<]+)</tool-use-id>")
+_NOTICE_STATUS = re.compile(r"<status>([^<]+)</status>")
+
 
 @dataclass(frozen=True)
 class Evidence:
@@ -32,6 +43,44 @@ class Evidence:
     # no turn (an empty Enter, a slash command) after a finished one apart
     # from a pane with no history at all.
     before: str = ""
+    # Background tasks the agent started (shells, sub-agents, monitors) that
+    # have not reported back yet. A turn can end while they run: the job is
+    # not finished until they are done.
+    background: int = 0
+
+
+def background_launches(row: dict) -> list[str]:
+    """Tool-use ids of background tasks a Claude Code assistant row starts. Pure."""
+    if row.get("type") != "assistant" or row.get("isSidechain"):
+        return []
+    message = row.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    out = []
+    for block in content if isinstance(content, list) else []:
+        if not isinstance(block, dict) or block.get("type") != "tool_use":
+            continue
+        tool_input = block.get("input") if isinstance(block.get("input"), dict) else {}
+        if block.get("name") in BACKGROUND_TOOLS or tool_input.get("run_in_background") is True:
+            out.append(str(block.get("id", "")))
+    return [i for i in out if i]
+
+
+def background_endings(raw: str, row: dict) -> list[str]:
+    """Tool-use ids of background tasks this row reports over (or failed to start). Pure."""
+    ended = []
+    if "<task-notification>" in raw:
+        status = _NOTICE_STATUS.search(raw)
+        if status is None or status.group(1).strip().lower() not in {"running", "started"}:
+            ended.extend(_NOTICE_ID.findall(raw))
+    message = row.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if row.get("type") == "user" and isinstance(content, list):
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_result":
+                continue
+            if block.get("is_error"):
+                ended.append(str(block.get("tool_use_id", "")))
+    return [i for i in ended if i]
 
 
 _readings: dict[tuple, Evidence] = {}
@@ -133,6 +182,7 @@ def _read(key: tuple, now: float) -> Evidence:
             return replace(cached[1], checked_at=now)
         result = Evidence(checked_at=now)
         before = ""
+        pending: dict[str, float] = {}
         # A bounded tail is enough: tool progress keeps a task working even
         # when its start marker lies outside the window. No marker -> unknown.
         with path.open("rb") as handle:
@@ -148,6 +198,13 @@ def _read(key: tuple, now: float) -> Evidence:
                     continue  # The writer may not have completed its last JSON line.
                 if not isinstance(row, dict):
                     continue
+                if agent == "claude":
+                    row_at = (agent_transcript._ts_ms(row.get("timestamp")) or 0) / 1000.0
+                    for launched in background_launches(row):
+                        pending[launched] = row_at or now
+                    text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw)
+                    for ended in background_endings(text, row):
+                        pending.pop(ended, None)
                 if (
                     agent == "claude" and row.get("type") == "system"
                     and row.get("subtype") == "turn_duration"
@@ -166,13 +223,20 @@ def _read(key: tuple, now: float) -> Evidence:
                     and before in {"stopped", "failed", "asking"}
                 ):
                     before = change[0]
-        result = replace(result, before=before)
+        open_tasks = sum(1 for at in pending.values() if now - at <= BACKGROUND_MAX_S)
+        result = replace(result, before=before, background=open_tasks)
         _files[key] = (signature, result)
         return result
     except (OSError, ValueError, TypeError):
         _files.pop(key, None)
         logger.opt(exception=True).debug("Agent task lifecycle record unavailable")
         return Evidence(checked_at=now)
+
+
+def background_tasks(term: Any) -> int:
+    """Background tasks this pane's agent still has running (0 when unknown)."""
+    proof = evidence(term)
+    return proof.background if proof is not None else 0
 
 
 async def refresh(registry: Any) -> None:
