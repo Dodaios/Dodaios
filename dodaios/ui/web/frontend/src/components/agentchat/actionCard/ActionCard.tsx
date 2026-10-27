@@ -50,7 +50,7 @@ export interface SettledSpec {
   detail?: string;
   /** Read when the line is expanded. */
   body?: ReactNode;
-  /** Small actions that stay available on the settled line ("Always allow next time"). */
+  /** Small actions that stay available on the settled line ("Allow every time"). */
   actions?: ActionSpec[];
   /** Shown beside the actions once one of them did its job ("Rule saved"). */
   receipt?: ReactNode;

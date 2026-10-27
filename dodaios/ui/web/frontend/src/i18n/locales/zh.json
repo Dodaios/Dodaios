@@ -4194,14 +4194,14 @@
   },
   "agent_attention": {
     "bell": "等你处理",
-    "bell_count": "等你处理：{count}",
+    "bell_count": "需要你：{count}",
     "title": "等你处理",
     "close": "关闭",
     "settings": "通知设置",
     "loading": "正在加载…",
     "unavailable": "列表暂时不可用。",
-    "empty_title": "没有等你处理的事项",
-    "empty_body": "当智能体需要你的回答、批准或密钥时，会显示在这里。",
+    "empty_title": "全部处理完毕",
+    "empty_body": "智能体的提问、审批和密钥请求会汇集到这里。",
     "waiting_count": "{count} 项待处理",
     "mute": "将 {agent} 设为静音",
     "unmute": "取消 {agent} 的静音",
@@ -4224,7 +4224,7 @@
     "decline": "拒绝",
     "open": "打开",
     "open_card": "在聊天中打开",
-    "failed": "未能完成。请重试，或打开聊天。",
+    "failed": "未发送。请再试一次，或打开聊天。",
     "desktop": "桌面通知",
     "desktop_hint": "仅在应用处于后台时。",
     "desktop_blocked": "已被系统阻止。请在系统设置中允许此应用的通知。",
@@ -4232,7 +4232,7 @@
     "finished": "智能体完成时",
     "finished_hint": "安静提示，仅限你交给它的任务。",
     "fallback_agent": "某个智能体",
-    "notify_needs": "{agent} 正在等你",
+    "notify_needs": "{agent} 需要你",
     "notify_needs_body": "打开聊天进行回答。",
     "notify_done": "{agent} 已完成",
     "notify_done_body": "打开聊天查看结果。"
@@ -5613,8 +5613,8 @@
     },
     "runtime_note": {
       "jarvis": "我们自己的智能体循环：所有工具，任意已连接的提供商。智能体创建后类型固定；模型随时可以更换。",
-      "hermes": "运行在 Hermes 运行时中，会自动为你配置。智能体创建后类型固定；模型随时可以更换。",
-      "openclaw": "运行在 OpenClaw 运行时中，会自动为你配置。智能体创建后类型固定；模型随时可以更换。"
+      "hermes": "运行在 Hermes 运行时中，配置工作由我们完成。智能体创建后类型固定；模型随时可以更换。",
+      "openclaw": "运行在 OpenClaw 运行时中，配置工作由我们完成。智能体创建后类型固定；模型随时可以更换。"
     },
     "seat": {
       "runs_on": "运行于",
@@ -5626,7 +5626,7 @@
       "search": "搜索模板",
       "areas": "领域",
       "loading": "正在加载模板…",
-      "failed": "无法加载模板。",
+      "failed": "模板暂时不可用。",
       "retry": "重试",
       "empty": "没有匹配的模板。换个词或领域试试。",
       "back": "全部模板"
@@ -5658,7 +5658,7 @@
       "tools_hint": "你允许的其他工具仍然可用。",
       "tool_connected": "已连接",
       "tool_not_connected": "未连接",
-      "tool_missing": "此电脑上没有",
+      "tool_missing": "本机未安装",
       "routine_toggle": "同时设置这个例行任务",
       "routine_hint": "自动运行，随时可以暂停",
       "read_instructions": "查看指令",
@@ -5716,7 +5716,7 @@
       },
       "inbox_sorter": {
         "name": "收件箱整理员",
-        "outcome": "整理新邮件，总结重点，并起草回复供你发送。",
+        "outcome": "整理新邮件，总结要点，并写好回复草稿供你发送。",
         "first": "看看我的未读邮件，告诉我今天有哪些需要我处理。",
         "routine": "早间收件箱摘要"
       },
@@ -7576,7 +7576,7 @@
     "send": "发送",
     "done": "完成",
     "sending": "正在发送…",
-    "failed": "你的回答没有发送成功。",
+    "failed": "你的回答未能发出。",
     "try_again": "重试",
     "answer_label": "你的回答",
     "skipped_chip": "已跳过",
@@ -10732,9 +10732,9 @@
     "plan_build": "开始构建",
     "plan_keep": "继续规划",
     "caution": {
-      "irreversible": "此操作无法撤销。",
+      "irreversible": "此操作不可撤回。",
       "security": "这会更改安全或访问设置。",
-      "data_leaves": "这会把数据发送到此对话之外。"
+      "data_leaves": "此对话中的内容会被发送到别处。"
     },
     "outcome": {
       "allow": "已允许一次",
@@ -10750,7 +10750,7 @@
     },
     "expand": "显示详情",
     "collapse": "隐藏详情",
-    "failed": "没有成功，请重试。",
+    "failed": "未发送，请再试一次。",
     "rule": {
       "heading": "设为规则",
       "scope_label": "规则适用范围",
@@ -10765,14 +10765,14 @@
       "ask_verb": "用 {app} 执行“{verb}”前先询问",
       "ask_app": "使用 {app} 前先询问",
       "ask_generic": "下次先询问",
-      "where_agent": "保存到这个智能体的规则中，可在它的设置里修改。",
+      "where_agent": "已保存到这个智能体的规则中，随时可在它的设置里修改。",
       "where_chat": "在这个对话中不再询问，直到应用重启。",
       "chat_tool": "在这个对话中不再询问 {app}。",
       "chat_all": "在这个对话中不再询问任何操作。",
       "save_allow": "保存并允许",
       "back": "返回",
-      "always_next_time": "下次始终允许",
-      "ask_next_time": "下次先询问",
+      "always_next_time": "每次都允许",
+      "ask_next_time": "每次都先问我",
       "saved": "规则已保存：{rule}",
       "saved_chat": "已在此对话中允许：{app}",
       "saved_short": "规则已保存",

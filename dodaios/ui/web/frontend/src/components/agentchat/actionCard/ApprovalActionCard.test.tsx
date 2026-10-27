@@ -64,7 +64,7 @@ describe("the approval action card", () => {
     expect(screen.getByRole("heading", { name: "Use Gmail to send?" })).toBeTruthy();
     expect(card.textContent).toContain("Send the weekly report");
     expect(card.textContent).toContain("“The weekly report is ready”");
-    expect(screen.getByTestId("action-card-caution").textContent).toBe("This sends data outside this chat.");
+    expect(screen.getByTestId("action-card-caution").textContent).toBe("Something from this chat will be sent elsewhere.");
     const buttons = [...card.querySelectorAll("button[data-tone]")].map((b) => [b.textContent, b.getAttribute("data-tone")]);
     expect(buttons).toEqual([["Allow once", "primary"], ["Always allow…", "secondary"], ["Deny", "tertiary"]]);
     expect(screen.getByRole("group", { name: "Needs approval: Use Gmail to send?" })).toBeTruthy();
@@ -91,7 +91,7 @@ describe("the approval action card", () => {
     expect(screen.getByRole("heading", { name: "Run this command?" })).toBeTruthy();
     expect(screen.getByText("In C:/work/app")).toBeTruthy();
     expect(screen.getByTestId("action-card-detail").textContent).toBe("rm -rf build");
-    expect(screen.getByTestId("action-card-caution").textContent).toBe("This can't be undone.");
+    expect(screen.getByTestId("action-card-caution").textContent).toBe("There is no undo for this.");
     // A chat-wide "always" says honestly what it does.
     expect(screen.getByTestId("action-card-always").getAttribute("title")).toBe("Stops asking for anything in this chat.");
   });
@@ -138,7 +138,7 @@ describe("the approval action card", () => {
     expect(onDecide).toHaveBeenCalledWith("a1", "allow_always");
   });
 
-  it("says why an answer did not go through and lets the person try again", async () => {
+  it("says why an answer was not sent and lets the person try again", async () => {
     const onDecide = vi.fn().mockRejectedValueOnce(new Error("server error"));
     drawTurn(asking(), onDecide);
     await act(async () => { fireEvent.click(screen.getByTestId("action-card-allow")); });
@@ -216,7 +216,7 @@ describe("a settled approval", () => {
     expect(screen.getByTestId("action-card-detail").textContent).toContain("team@example.com");
   });
 
-  it("offers Always allow next time on an expired card and saves it as a rule", async () => {
+  it("offers Allow every time on an expired card and saves it as a rule", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       ok: true, approval_id: "a1",
       rule: { kind: "always_allow", pattern: "plugin:gmail:send", app: "Gmail", verb: "send", still_asks: false },
@@ -237,7 +237,7 @@ describe("a settled approval", () => {
     expect(screen.getByTestId("action-card-rule-saved")).toBeTruthy();
   });
 
-  it("offers Ask first next time after an agent-wide always", async () => {
+  it("offers Check with me every time after an agent-wide always", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       ok: true, rule: { kind: "require_approval", pattern: "plugin:gmail:send", app: "Gmail", verb: "send" },
     }), { status: 200 }));

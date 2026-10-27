@@ -80,7 +80,7 @@ describe("routine list", () => {
     mountList({ last_runs: {}, parking: { enabled: true, days: 7, banner: true, parked_ids: ["r2"], parked_ms: 1, parked_days: 7, unread: 5, never_ask: false } });
     const banner = await screen.findByTestId("routine-parking-banner");
     expect(banner.textContent).toContain("This routine made 5 results in 7 days");
-    expect(screen.getByRole("button", { name: "Weekly cleanup" }).closest("li")!.textContent).toContain("Paused while you were away");
+    expect(screen.getByRole("button", { name: "Weekly cleanup" }).closest("li")!.textContent).toContain("Paused: results went unread");
     fireEvent.click(within(banner).getByText("Resume"));
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/routines-parking"));
@@ -91,7 +91,7 @@ describe("routine list", () => {
   test("set up in chat seeds the agent's composer instead of a form", async () => {
     mountList({ last_runs: {}, parking: null });
     fireEvent.click(await screen.findByTestId("agent-routines-chat"));
-    await waitFor(() => expect(seed).toHaveBeenCalledWith({ tier: "specialist", chatSessionId: "society:mail" }, "Set up a routine for me: "));
+    await waitFor(() => expect(seed).toHaveBeenCalledWith({ tier: "specialist", chatSessionId: "society:mail" }, "Create a routine for me: "));
   });
 
   test("the row's test run starts it right away", async () => {

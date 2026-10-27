@@ -184,7 +184,7 @@ describe("QuestionCard", () => {
     draw(questionOf(asking([], [DB])), { submitQuestion: submit });
     fireEvent.click(rowsOf(screen.getByTestId("question-card"))[1]);
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/did not go through/i);
+    expect(alert.textContent).toMatch(/was not sent/i);
     expect(screen.getByTestId("question-card").getAttribute("data-state")).toBe("open");
     fireEvent.click(screen.getByRole("button", { name: /try again/i }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));

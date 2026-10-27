@@ -4194,14 +4194,14 @@
   },
   "agent_attention": {
     "bell": "À espera de você",
-    "bell_count": "À espera de você: {count}",
+    "bell_count": "Precisam de você: {count}",
     "title": "À espera de você",
     "close": "Fechar",
     "settings": "Configurações de notificação",
     "loading": "Carregando…",
     "unavailable": "A lista não está disponível agora.",
-    "empty_title": "Nada está à sua espera",
-    "empty_body": "Quando um agente precisar de uma resposta, uma aprovação ou uma chave, ele aparece aqui.",
+    "empty_title": "Tudo em dia",
+    "empty_body": "Perguntas, aprovações e pedidos de chave dos seus agentes chegam aqui.",
     "waiting_count": "{count} pendentes",
     "mute": "Silenciar {agent}",
     "unmute": "Reativar {agent}",
@@ -4224,7 +4224,7 @@
     "decline": "Recusar",
     "open": "Abrir",
     "open_card": "Abrir no chat",
-    "failed": "Não deu certo. Tente de novo ou abra o chat.",
+    "failed": "Não foi enviado. Tente outra vez ou abra o chat.",
     "desktop": "Notificações na área de trabalho",
     "desktop_hint": "Só quando o app está em segundo plano.",
     "desktop_blocked": "Bloqueadas pelo sistema. Permita as notificações do app nas configurações do sistema.",
@@ -4232,7 +4232,7 @@
     "finished": "Quando um agente termina",
     "finished_hint": "Um aviso discreto, só para tarefas que você deu.",
     "fallback_agent": "Um agente",
-    "notify_needs": "{agent} está à sua espera",
+    "notify_needs": "{agent} precisa de você",
     "notify_needs_body": "Abra o chat para responder.",
     "notify_done": "{agent} terminou",
     "notify_done_body": "Abra o chat para ver o resultado."
@@ -5613,8 +5613,8 @@
     },
     "runtime_note": {
       "jarvis": "Nosso próprio ciclo de agente: todas as ferramentas e qualquer provedor conectado. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento.",
-      "hermes": "Roda no ambiente Hermes, configurado para você. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento.",
-      "openclaw": "Roda no ambiente OpenClaw, configurado para você. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento."
+      "hermes": "Roda no ambiente Hermes; a configuração fica por nossa conta. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento.",
+      "openclaw": "Roda no ambiente OpenClaw; a configuração fica por nossa conta. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento."
     },
     "seat": {
       "runs_on": "Roda em",
@@ -5626,7 +5626,7 @@
       "search": "Buscar modelos",
       "areas": "Áreas",
       "loading": "Carregando modelos…",
-      "failed": "Não foi possível carregar os modelos.",
+      "failed": "Os modelos não estão disponíveis agora.",
       "retry": "Tentar de novo",
       "empty": "Nenhum modelo corresponde. Tente outra palavra ou área.",
       "back": "Todos os modelos"
@@ -5658,7 +5658,7 @@
       "tools_hint": "Todas as outras ferramentas que você permitir continuam disponíveis.",
       "tool_connected": "Conectada",
       "tool_not_connected": "Não conectada",
-      "tool_missing": "Não está neste computador",
+      "tool_missing": "Não instalado aqui",
       "routine_toggle": "Configurar também esta rotina",
       "routine_hint": "roda sozinha, pause quando quiser",
       "read_instructions": "Ler as instruções",
@@ -5716,7 +5716,7 @@
       },
       "inbox_sorter": {
         "name": "Organizador de e-mail",
-        "outcome": "Organiza e-mails novos, resume o que importa e escreve rascunhos de resposta para você enviar.",
+        "outcome": "Organiza e-mails novos, resume o que importa e escreve rascunhos de resposta que você pode enviar.",
         "first": "Veja meus e-mails não lidos e diga o que precisa de mim hoje.",
         "routine": "Resumo matinal do e-mail"
       },
@@ -10732,9 +10732,9 @@
     "plan_build": "Começar a construir",
     "plan_keep": "Continuar planejando",
     "caution": {
-      "irreversible": "Isso não pode ser desfeito.",
+      "irreversible": "Isso não tem volta.",
       "security": "Isso muda configurações de segurança ou de acesso.",
-      "data_leaves": "Isso envia dados para fora deste chat."
+      "data_leaves": "Algo deste chat será enviado para outro lugar."
     },
     "outcome": {
       "allow": "Permitido uma vez",
@@ -10750,7 +10750,7 @@
     },
     "expand": "Mostrar detalhes",
     "collapse": "Ocultar detalhes",
-    "failed": "Não deu certo. Tente de novo.",
+    "failed": "Não foi enviado. Tente outra vez.",
     "rule": {
       "heading": "Transformar em regra",
       "scope_label": "Onde a regra vale",
@@ -10765,14 +10765,14 @@
       "ask_verb": "Perguntar antes de “{verb}” com {app}",
       "ask_app": "Perguntar antes de usar {app}",
       "ask_generic": "Perguntar da próxima vez",
-      "where_agent": "Fica salva nas regras deste agente. Você pode mudá-la nas configurações dele.",
+      "where_agent": "Salva nas regras deste agente; você pode editá-la quando quiser nas configurações dele.",
       "where_chat": "Para de perguntar neste chat até o app reiniciar.",
       "chat_tool": "Para de perguntar sobre {app} neste chat.",
       "chat_all": "Para de perguntar sobre tudo neste chat.",
       "save_allow": "Salvar e permitir",
       "back": "Voltar",
-      "always_next_time": "Sempre permitir da próxima vez",
-      "ask_next_time": "Perguntar da próxima vez",
+      "always_next_time": "Permitir sempre",
+      "ask_next_time": "Me consultar toda vez",
       "saved": "Regra salva: {rule}",
       "saved_chat": "Permitido neste chat: {app}",
       "saved_short": "Regra salva",

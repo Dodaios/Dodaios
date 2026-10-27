@@ -196,8 +196,8 @@ export interface AgentChatStore {
    */
   decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice) => Promise<void>;
   /**
-   * Turn an approval card into a standing rule after the fact ("Always allow
-   * next time", "Ask first next time"). The card shows it at once; throws so
+   * Turn an approval card into a standing rule after the fact ("Allow every
+   * time", "Check with me every time"). The card shows it at once; throws so
    * the card can say why when nothing was saved.
    */
   saveApprovalRule: (approvalId: string, rule: ApprovalRuleRequest) => Promise<void>;

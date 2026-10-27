@@ -2330,9 +2330,9 @@ class AgentChatService:
         scope: str,
         breadth: str = "action",
     ) -> dict[str, Any]:
-        """A rule from a card already answered (or expired): "Always allow next
-        time", "Ask first next time". Raises KeyError for an unknown card and
-        LookupError when no rule fits that card in that scope."""
+        """A rule from a card already answered (or expired): "Allow every
+        time", "Check with me every time". Raises KeyError for an unknown
+        card and LookupError when no rule fits that card in that scope."""
         if scope not in RULE_SCOPES:
             raise ValueError(f"scope must be one of {RULE_SCOPES}")
         session = self.store.get_session(session_id)

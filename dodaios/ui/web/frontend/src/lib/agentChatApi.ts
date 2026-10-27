@@ -625,7 +625,7 @@ export async function resolveAgentChatApproval(
   );
 }
 
-/** A standing rule saved from a settled card: "Always allow next time", "Ask first next time". */
+/** A standing rule saved from a settled card: "Allow every time", "Check with me every time". */
 export interface ApprovalRuleRequest extends ApprovalRuleChoice {
   kind: "always_allow" | "require_approval";
 }

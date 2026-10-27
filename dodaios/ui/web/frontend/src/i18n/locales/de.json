@@ -4194,14 +4194,14 @@
   },
   "agent_attention": {
     "bell": "Wartet auf dich",
-    "bell_count": "Wartet auf dich: {count}",
+    "bell_count": "Braucht dich: {count}",
     "title": "Wartet auf dich",
     "close": "Schließen",
     "settings": "Benachrichtigungen einstellen",
     "loading": "Wird geladen …",
     "unavailable": "Die Liste ist gerade nicht verfügbar.",
-    "empty_title": "Nichts wartet auf dich",
-    "empty_body": "Braucht ein Agent eine Antwort, eine Freigabe oder einen Schlüssel, erscheint er hier.",
+    "empty_title": "Alles erledigt",
+    "empty_body": "Fragen, Freigaben und Schlüsselanfragen deiner Agenten landen hier.",
     "waiting_count": "{count} offen",
     "mute": "{agent} stummschalten",
     "unmute": "Stummschaltung für {agent} aufheben",
@@ -4224,7 +4224,7 @@
     "decline": "Ablehnen",
     "open": "Öffnen",
     "open_card": "Im Chat öffnen",
-    "failed": "Das hat nicht geklappt. Versuch es noch einmal oder öffne den Chat.",
+    "failed": "Nicht gesendet. Versuch es gleich noch mal oder öffne den Chat.",
     "desktop": "Desktop-Benachrichtigungen",
     "desktop_hint": "Nur wenn die App im Hintergrund ist.",
     "desktop_blocked": "Vom System blockiert. Erlaube Benachrichtigungen für die App in den Systemeinstellungen.",
@@ -4232,7 +4232,7 @@
     "finished": "Wenn ein Agent fertig ist",
     "finished_hint": "Ein leiser Hinweis, nur für Aufgaben von dir.",
     "fallback_agent": "Ein Agent",
-    "notify_needs": "{agent} wartet auf dich",
+    "notify_needs": "{agent} braucht dich",
     "notify_needs_body": "Öffne den Chat, um zu antworten.",
     "notify_done": "{agent} ist fertig",
     "notify_done_body": "Öffne den Chat, um das Ergebnis zu sehen."
@@ -5613,8 +5613,8 @@
     },
     "runtime_note": {
       "jarvis": "Unsere eigene Agentenschleife: jedes Werkzeug und jeder verbundene Anbieter. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln.",
-      "hermes": "Läuft in der Hermes-Laufzeit, die für dich eingerichtet wird. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln.",
-      "openclaw": "Läuft in der OpenClaw-Laufzeit, die für dich eingerichtet wird. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln."
+      "hermes": "Läuft in der Hermes-Laufzeit; die Einrichtung übernehmen wir. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln.",
+      "openclaw": "Läuft in der OpenClaw-Laufzeit; die Einrichtung übernehmen wir. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln."
     },
     "seat": {
       "runs_on": "Läuft auf",
@@ -5626,7 +5626,7 @@
       "search": "Vorlagen durchsuchen",
       "areas": "Bereiche",
       "loading": "Vorlagen werden geladen…",
-      "failed": "Die Vorlagen konnten nicht geladen werden.",
+      "failed": "Die Vorlagen sind gerade nicht verfügbar.",
       "retry": "Erneut versuchen",
       "empty": "Keine Vorlage passt. Versuch ein anderes Wort oder einen anderen Bereich.",
       "back": "Alle Vorlagen"
@@ -5658,7 +5658,7 @@
       "tools_hint": "Alle anderen Werkzeuge, die du erlaubst, bleiben verfügbar.",
       "tool_connected": "Verbunden",
       "tool_not_connected": "Nicht verbunden",
-      "tool_missing": "Nicht auf diesem Computer",
+      "tool_missing": "Hier nicht installiert",
       "routine_toggle": "Diese Routine auch einrichten",
       "routine_hint": "läuft von selbst, jederzeit pausierbar",
       "read_instructions": "Anweisungen lesen",
@@ -5716,7 +5716,7 @@
       },
       "inbox_sorter": {
         "name": "Postfach-Sortierer",
-        "outcome": "Sortiert neue Mails, fasst das Wichtige zusammen und entwirft Antworten zum Absenden.",
+        "outcome": "Sortiert neue Mails, fasst das Wichtige zusammen und schreibt Antwortentwürfe, die du absenden kannst.",
         "first": "Geh meine ungelesenen Mails durch und sag mir, was heute meine Aufmerksamkeit braucht.",
         "routine": "Morgendliche Postfach-Übersicht"
       },
@@ -7576,7 +7576,7 @@
     "send": "Senden",
     "done": "Fertig",
     "sending": "Wird gesendet…",
-    "failed": "Deine Antwort ist nicht angekommen.",
+    "failed": "Deine Antwort wurde nicht gesendet.",
     "try_again": "Erneut versuchen",
     "answer_label": "Deine Antwort",
     "skipped_chip": "Übersprungen",
@@ -10732,9 +10732,9 @@
     "plan_build": "Loslegen",
     "plan_keep": "Weiter planen",
     "caution": {
-      "irreversible": "Das lässt sich nicht rückgängig machen.",
+      "irreversible": "Dafür gibt es kein Rückgängig.",
       "security": "Das ändert Sicherheits- oder Zugriffseinstellungen.",
-      "data_leaves": "Das schickt Daten aus diesem Chat hinaus."
+      "data_leaves": "Etwas aus diesem Chat wird nach außen geschickt."
     },
     "outcome": {
       "allow": "Einmal erlaubt",
@@ -10750,7 +10750,7 @@
     },
     "expand": "Details anzeigen",
     "collapse": "Details ausblenden",
-    "failed": "Das hat nicht geklappt. Versuch es noch einmal.",
+    "failed": "Nicht gesendet. Versuch es gleich noch mal.",
     "rule": {
       "heading": "Als Regel speichern",
       "scope_label": "Wo die Regel gilt",
@@ -10765,14 +10765,14 @@
       "ask_verb": "Vor „{verb}“ mit {app} erst fragen",
       "ask_app": "Vor der Nutzung von {app} erst fragen",
       "ask_generic": "Nächstes Mal erst fragen",
-      "where_agent": "Wird in den Regeln dieses Agenten gespeichert. Du kannst sie in seinen Einstellungen ändern.",
+      "where_agent": "In den Regeln dieses Agenten gespeichert; ändern kannst du sie jederzeit in seinen Einstellungen.",
       "where_chat": "Fragt in diesem Chat nicht mehr, bis die App neu startet.",
       "chat_tool": "Fragt in diesem Chat nicht mehr nach {app}.",
       "chat_all": "Fragt in diesem Chat nach nichts mehr.",
       "save_allow": "Speichern und erlauben",
       "back": "Zurück",
-      "always_next_time": "Nächstes Mal immer erlauben",
-      "ask_next_time": "Nächstes Mal erst fragen",
+      "always_next_time": "Jedes Mal erlauben",
+      "ask_next_time": "Jedes Mal bei mir nachfragen",
       "saved": "Regel gespeichert: {rule}",
       "saved_chat": "In diesem Chat erlaubt: {app}",
       "saved_short": "Regel gespeichert",

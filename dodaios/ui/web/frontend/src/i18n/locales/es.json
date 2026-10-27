@@ -4194,14 +4194,14 @@
   },
   "agent_attention": {
     "bell": "Esperando tu respuesta",
-    "bell_count": "Esperando tu respuesta: {count}",
+    "bell_count": "Te necesitan: {count}",
     "title": "Esperando tu respuesta",
     "close": "Cerrar",
     "settings": "Ajustes de notificaciones",
     "loading": "Cargando…",
     "unavailable": "La lista no está disponible ahora mismo.",
-    "empty_title": "Nada espera tu respuesta",
-    "empty_body": "Cuando un agente necesite una respuesta, una aprobación o una clave, aparecerá aquí.",
+    "empty_title": "Todo al día",
+    "empty_body": "Aquí llegan las preguntas, aprobaciones y solicitudes de claves de tus agentes.",
     "waiting_count": "{count} pendientes",
     "mute": "Silenciar a {agent}",
     "unmute": "Dejar de silenciar a {agent}",
@@ -4224,7 +4224,7 @@
     "decline": "Rechazar",
     "open": "Abrir",
     "open_card": "Abrir en el chat",
-    "failed": "No se pudo completar. Inténtalo de nuevo o abre el chat.",
+    "failed": "No se envió. Prueba otra vez o abre el chat.",
     "desktop": "Notificaciones de escritorio",
     "desktop_hint": "Solo cuando la app está en segundo plano.",
     "desktop_blocked": "Bloqueadas por el sistema. Permite las notificaciones de la app en los ajustes del sistema.",
@@ -4232,7 +4232,7 @@
     "finished": "Cuando un agente termina",
     "finished_hint": "Un aviso discreto, solo para tareas que le diste.",
     "fallback_agent": "Un agente",
-    "notify_needs": "{agent} espera tu respuesta",
+    "notify_needs": "{agent} te necesita",
     "notify_needs_body": "Abre el chat para responder.",
     "notify_done": "{agent} ha terminado",
     "notify_done_body": "Abre el chat para ver el resultado."
@@ -5613,8 +5613,8 @@
     },
     "runtime_note": {
       "jarvis": "Nuestro propio bucle de agente: todas las herramientas y cualquier proveedor conectado. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras.",
-      "hermes": "Funciona en el entorno Hermes, que se configura por ti. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras.",
-      "openclaw": "Funciona en el entorno OpenClaw, que se configura por ti. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras."
+      "hermes": "Funciona en el entorno Hermes; la configuración corre de nuestra cuenta. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras.",
+      "openclaw": "Funciona en el entorno OpenClaw; la configuración corre de nuestra cuenta. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras."
     },
     "seat": {
       "runs_on": "Funciona con",
@@ -5626,7 +5626,7 @@
       "search": "Buscar plantillas",
       "areas": "Áreas",
       "loading": "Cargando plantillas…",
-      "failed": "No se pudieron cargar las plantillas.",
+      "failed": "Las plantillas no están disponibles ahora.",
       "retry": "Reintentar",
       "empty": "Ninguna plantilla coincide. Prueba otra palabra u otra área.",
       "back": "Todas las plantillas"
@@ -5658,7 +5658,7 @@
       "tools_hint": "Todas las demás herramientas que permitas siguen disponibles.",
       "tool_connected": "Conectada",
       "tool_not_connected": "Sin conectar",
-      "tool_missing": "No está en este equipo",
+      "tool_missing": "No instalado aquí",
       "routine_toggle": "Configurar también esta rutina",
       "routine_hint": "se ejecuta sola, puedes pausarla cuando quieras",
       "read_instructions": "Leer las instrucciones",
@@ -5716,7 +5716,7 @@
       },
       "inbox_sorter": {
         "name": "Organizador de correo",
-        "outcome": "Ordena el correo nuevo, resume lo importante y redacta respuestas para que las envíes.",
+        "outcome": "Ordena el correo nuevo, resume lo importante y escribe borradores de respuesta que puedes enviar.",
         "first": "Revisa mi correo sin leer y dime qué necesita mi atención hoy.",
         "routine": "Resumen matinal del correo"
       },
@@ -7576,7 +7576,7 @@
     "send": "Enviar",
     "done": "Listo",
     "sending": "Enviando…",
-    "failed": "Tu respuesta no llegó.",
+    "failed": "Tu respuesta no se envió.",
     "try_again": "Reintentar",
     "answer_label": "Tu respuesta",
     "skipped_chip": "Omitida",
@@ -10732,9 +10732,9 @@
     "plan_build": "Empezar a construir",
     "plan_keep": "Seguir planificando",
     "caution": {
-      "irreversible": "Esto no se puede deshacer.",
+      "irreversible": "Esto no tiene vuelta atrás.",
       "security": "Esto cambia ajustes de seguridad o de acceso.",
-      "data_leaves": "Esto envía datos fuera de este chat."
+      "data_leaves": "Algo de este chat se enviará a otro sitio."
     },
     "outcome": {
       "allow": "Permitido una vez",
@@ -10750,7 +10750,7 @@
     },
     "expand": "Mostrar detalles",
     "collapse": "Ocultar detalles",
-    "failed": "No se pudo completar. Inténtalo de nuevo.",
+    "failed": "No se envió. Prueba otra vez.",
     "rule": {
       "heading": "Convertirlo en regla",
       "scope_label": "Dónde se aplica la regla",
@@ -10765,14 +10765,14 @@
       "ask_verb": "Preguntar antes de «{verb}» con {app}",
       "ask_app": "Preguntar antes de usar {app}",
       "ask_generic": "Preguntar la próxima vez",
-      "where_agent": "Se guarda en las reglas de este agente. Puedes cambiarla en sus ajustes.",
+      "where_agent": "Guardada en las reglas de este agente; puedes editarla cuando quieras en sus ajustes.",
       "where_chat": "Deja de preguntar en este chat hasta que la app se reinicie.",
       "chat_tool": "Deja de preguntar por {app} en este chat.",
       "chat_all": "Deja de preguntar por todo en este chat.",
       "save_allow": "Guardar y permitir",
       "back": "Atrás",
-      "always_next_time": "Permitir siempre la próxima vez",
-      "ask_next_time": "Preguntar la próxima vez",
+      "always_next_time": "Permitir siempre",
+      "ask_next_time": "Consultarme cada vez",
       "saved": "Regla guardada: {rule}",
       "saved_chat": "Permitido en este chat: {app}",
       "saved_short": "Regla guardada",

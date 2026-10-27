@@ -4194,14 +4194,14 @@
   },
   "agent_attention": {
     "bell": "Waiting for you",
-    "bell_count": "Waiting for you: {count}",
+    "bell_count": "Needs you: {count}",
     "title": "Waiting for you",
     "close": "Close",
     "settings": "Notification settings",
     "loading": "Loading…",
     "unavailable": "The list is not available right now.",
-    "empty_title": "Nothing is waiting for you",
-    "empty_body": "When an agent needs an answer, an approval or a key, it shows up here.",
+    "empty_title": "All clear",
+    "empty_body": "Questions, approvals and key requests from your agents land here.",
     "waiting_count": "{count} waiting",
     "mute": "Mute {agent}",
     "unmute": "Unmute {agent}",
@@ -4224,7 +4224,7 @@
     "decline": "Decline",
     "open": "Open",
     "open_card": "Open in chat",
-    "failed": "That did not go through. Try again, or open the chat.",
+    "failed": "Not sent. Give it another go, or open the chat.",
     "desktop": "Desktop notifications",
     "desktop_hint": "Only while the app is in the background.",
     "desktop_blocked": "Blocked by the system. Allow notifications for the app in the system settings.",
@@ -4232,7 +4232,7 @@
     "finished": "When an agent finishes",
     "finished_hint": "A quiet note, only for jobs you gave it.",
     "fallback_agent": "An agent",
-    "notify_needs": "{agent} is waiting for you",
+    "notify_needs": "{agent} needs you",
     "notify_needs_body": "Open the chat to answer.",
     "notify_done": "{agent} finished",
     "notify_done_body": "Open the chat to see the result."
@@ -5613,8 +5613,8 @@
     },
     "runtime_note": {
       "jarvis": "Our own agent loop: every tool and any connected provider. The type is fixed once the agent exists; the model can change any time.",
-      "hermes": "Runs in the Hermes runtime, which is set up for you. The type is fixed once the agent exists; the model can change any time.",
-      "openclaw": "Runs in the OpenClaw runtime, which is set up for you. The type is fixed once the agent exists; the model can change any time."
+      "hermes": "Runs in the Hermes runtime; setup is handled for you. The type is fixed once the agent exists; the model can change any time.",
+      "openclaw": "Runs in the OpenClaw runtime; setup is handled for you. The type is fixed once the agent exists; the model can change any time."
     },
     "seat": {
       "runs_on": "Runs on",
@@ -5626,7 +5626,7 @@
       "search": "Search starters",
       "areas": "Areas",
       "loading": "Loading starters…",
-      "failed": "The starters could not be loaded.",
+      "failed": "Starters are unavailable right now.",
       "retry": "Try again",
       "empty": "No starter matches. Try another word or area.",
       "back": "All starters"
@@ -5658,7 +5658,7 @@
       "tools_hint": "Every other tool you allow stays available.",
       "tool_connected": "Connected",
       "tool_not_connected": "Not connected",
-      "tool_missing": "Not on this computer",
+      "tool_missing": "Not installed here",
       "routine_toggle": "Also set up this routine",
       "routine_hint": "runs on its own, pause it any time",
       "read_instructions": "Read the instructions",
@@ -5716,7 +5716,7 @@
       },
       "inbox_sorter": {
         "name": "Inbox Sorter",
-        "outcome": "Sorts new mail, sums up what matters and drafts replies for you to send.",
+        "outcome": "Sorts new mail, sums up what matters and writes draft replies you can send.",
         "first": "Go through my unread mail and tell me what needs me today.",
         "routine": "Morning inbox summary"
       },
@@ -7576,7 +7576,7 @@
     "send": "Send",
     "done": "Done",
     "sending": "Sending…",
-    "failed": "Your answer did not go through.",
+    "failed": "Your answer was not sent.",
     "try_again": "Try again",
     "answer_label": "Your answer",
     "skipped_chip": "Skipped",
@@ -10732,9 +10732,9 @@
     "plan_build": "Start building",
     "plan_keep": "Keep planning",
     "caution": {
-      "irreversible": "This can't be undone.",
+      "irreversible": "There is no undo for this.",
       "security": "This changes security or access settings.",
-      "data_leaves": "This sends data outside this chat."
+      "data_leaves": "Something from this chat will be sent elsewhere."
     },
     "outcome": {
       "allow": "Allowed once",
@@ -10750,7 +10750,7 @@
     },
     "expand": "Show details",
     "collapse": "Hide details",
-    "failed": "That did not go through. Try again.",
+    "failed": "Not sent. Give it another go.",
     "rule": {
       "heading": "Make it a rule",
       "scope_label": "Where the rule applies",
@@ -10765,14 +10765,14 @@
       "ask_verb": "Ask first before “{verb}” with {app}",
       "ask_app": "Ask first before using {app}",
       "ask_generic": "Ask first next time",
-      "where_agent": "Saved to this agent's rules. You can change it in the agent's settings.",
+      "where_agent": "Saved to this agent's rules; edit it any time from its settings.",
       "where_chat": "Stops asking in this chat until the app restarts.",
       "chat_tool": "Stops asking for {app} in this chat.",
       "chat_all": "Stops asking for anything in this chat.",
       "save_allow": "Save and allow",
       "back": "Back",
-      "always_next_time": "Always allow next time",
-      "ask_next_time": "Ask first next time",
+      "always_next_time": "Allow every time",
+      "ask_next_time": "Check with me every time",
       "saved": "Rule saved: {rule}",
       "saved_chat": "Allowed in this chat: {app}",
       "saved_short": "Rule saved",
