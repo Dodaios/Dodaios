@@ -18,7 +18,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Color, Group, Vector3 } from "three";
 import type { Deck } from "../content/deck";
 import type { StageRuntime } from "../runtime";
-import { disposeInstance, type CharacterLibrary } from "../actors/characters";
+import { COMMANDER_SKIN, disposeInstance, type CharacterLibrary } from "../actors/characters";
 import { applyLook, type Look } from "../actors/look";
 import { hash32 } from "../life/crew";
 import { CAMERA_RIGS } from "../combat/camera";
@@ -88,7 +88,7 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
   useEffect(() => {
     if (!library) return;
     let alive = true;
-    const own = library.model("officer", undefined, hash32(commanderId));
+    const own = library.model("officer", COMMANDER_SKIN, hash32(commanderId));
     const foe = library.model("trooper") ?? library.model("technician");
     const load = async () => {
       const [a, b] = await Promise.all([own ? library.instantiate(own) : null, foe ? library.instantiate(foe) : null]);

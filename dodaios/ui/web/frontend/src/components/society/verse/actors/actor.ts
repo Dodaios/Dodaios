@@ -15,7 +15,8 @@
  * and it stands where it is.
  */
 import {
-  AnimationMixer, Group, LoopOnce, LoopRepeat, Mesh, MeshBasicMaterial, PlaneGeometry, type AnimationAction, type Texture,
+  AnimationMixer, Group, LoopOnce, LoopRepeat, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3,
+  type AnimationAction, type Bone, type Texture,
 } from "three";
 import type { Deck, NavGrid, Socket } from "../content/deck";
 import { findPath, floorHeight, nearestWalkable, type Point } from "../nav/pathfind";
@@ -26,6 +27,8 @@ import { disposeInstance, type CharacterInstance } from "./characters";
 import { clipFor, SEATED, type Motion } from "./clips";
 import { avoidance, BODY_RADIUS, lerpAngle, PathFollower, sidestep, turnPace, turnToward, wrapAngle, yawTo, type Neighbour } from "./locomotion";
 import { RoomLight } from "./roomLight";
+import { CloakRig } from "./cloak";
+import { aimBone, solveElbow } from "../duel/figure";
 import { hash32 } from "../life/crew";
 
 export type Goal =
@@ -67,7 +70,7 @@ const DRIVE_STAND_BELOW = 0.08;
 /** A driven body stops this close to another person, metres between centres. */
 const DRIVE_PERSONAL_SPACE = BODY_RADIUS * 1.7;
 /** Materials whose surfaces make up a body's x-ray silhouette (character contract names). */
-const SILHOUETTE = new Set(["M_Uniform", "M_Skin", "M_Hair", "M_Cap", "M_Shell", "M_Chassis"]);
+const SILHOUETTE = new Set(["M_Uniform", "M_Skin", "M_Hair", "M_Cap", "M_Shell", "M_Chassis", "M_SovCloak", "M_SovRobe"]);
 
 type Phase = "idle" | "standing_up" | "walking" | "settling" | "settled" | "driven";
 
@@ -104,6 +107,12 @@ export function socketPose(deck: Pick<Deck, "sockets" | "nav">, socket: Socket, 
   return { x: socket.x, y: socket.y, z: socket.z, yaw: socket.yaw };
 }
 
+const CAST_TMP = {
+  a: new Vector3(), b: new Vector3(), aim: new Vector3(), flat: new Vector3(), lat: new Vector3(),
+  s: new Vector3(), e: new Vector3(), h: new Vector3(), target: new Vector3(), pole: new Vector3(),
+  elbow: new Vector3(), tip: new Vector3(), q0: new Quaternion(), q1: new Quaternion(), q2: new Quaternion(),
+};
+
 export class Actor {
   readonly group = new Group();
   readonly mixer: AnimationMixer;
@@ -139,6 +148,14 @@ export class Actor {
   private steerFace: { yaw: number; reverse: boolean } | null = null;
   private readonly clipNames: ReadonlySet<string>;
   private readonly shadow: Mesh<PlaneGeometry, MeshBasicMaterial>;
+  /** The skin's cloak, when its skeleton carries one (it trails the body's motion). */
+  private readonly cloak: CloakRig | null;
+  /**
+   * A power being cast (Arc Storm): `level` 0..1 raises both arms toward `aim` (a unit direction in the world),
+   * over whatever the clip plays. Null: the clip alone.
+   */
+  cast: { level: number; aim: Vector3 } | null = null;
+  private castBones: Record<string, Bone> | null = null;
 
   constructor(
     readonly id: string,
@@ -148,6 +165,16 @@ export class Actor {
     shadow: Texture,
   ) {
     this.mixer = new AnimationMixer(instance.root);
+    this.cloak = CloakRig.find(instance.root);
+    const bones: Record<string, Bone> = {};
+    for (const side of ["L", "R"]) {
+      for (const n of ["UpperArm", "ForeArm", "Hand", "Fingers"]) {
+        const b = instance.root.getObjectByName(`${n}_${side}`) as Bone | undefined;
+        if (b) bones[`${n}_${side}`] = b;
+      }
+    }
+    const chest = instance.root.getObjectByName("Chest") as Bone | undefined;
+    if (chest && Object.keys(bones).length === 8) this.castBones = { ...bones, Chest: chest };
     this.clipNames = new Set(instance.clips.keys());
     // The silhouette needs the body's big shapes only, a few draw calls rather than every material.
     const outline = instance.meshes.filter((m) => !Array.isArray(m.material) && SILHOUETTE.has(m.material.name));
@@ -212,6 +239,7 @@ export class Actor {
     this.z = pose.z;
     this.yaw = wrapAngle(pose.yaw);
     this.sync();
+    this.cloak?.reset();
   }
 
   /** Change where the body is going; the same key keeps the current walk. `arrive` takes the pose at once. */
@@ -242,12 +270,19 @@ export class Actor {
 
   update(dtS: number, ctx: ActorContext): void {
     this.mixer.update(dtS);
+    // Casting turns the body to face the way the power goes (unless the keys steer its facing).
+    const cast = this.cast;
+    if (cast && cast.level > 0.05 && !this.steerFace) {
+      this.yaw = turnToward(this.yaw, Math.atan2(cast.aim.x, cast.aim.z), DRIVE_TURN_RATE, dtS);
+    }
     const goal = this.goal;
     this.moving = false;
     if (this.steer) {
       this.driven(this.steer, dtS, ctx);
       this.light.update(ctx.deck, this.x, this.y, this.z, dtS);
       this.sync();
+      this.castArms();
+      this.cloak?.update(dtS, this.x, this.z, this.yaw, ctx.reduced);
       return;
     }
     if (this.phase === "driven") {
@@ -273,6 +308,66 @@ export class Actor {
     }
     this.light.update(ctx.deck, this.x, this.y, this.z, dtS);
     this.sync();
+    this.castArms();
+    this.cloak?.update(dtS, this.x, this.z, this.yaw, ctx.reduced);
+  }
+
+  /** Both fingertips in the world (for the power's bolts); false when the body has no arms. */
+  fingertips(left: Vector3, right: Vector3): boolean {
+    const b = this.castBones;
+    if (!b) return false;
+    for (const [side, out] of [["L", left], ["R", right]] as const) {
+      const fingers = b[`Fingers_${side}`];
+      const hand = b[`Hand_${side}`];
+      fingers.getWorldPosition(out);
+      // A little beyond the finger bone's root: the tips.
+      hand.getWorldPosition(CAST_TMP.a);
+      out.addScaledVector(CAST_TMP.b.subVectors(out, CAST_TMP.a).normalize(), 0.07);
+    }
+    return true;
+  }
+
+  /** Raise both arms toward the cast's aim, blended over the clip by its level. */
+  private castArms(): void {
+    const cast = this.cast;
+    const b = this.castBones;
+    if (!cast || !b || cast.level <= 0.001) return;
+    const w = cast.level * cast.level * (3 - 2 * cast.level);
+    const root = this.instance.root;
+    root.updateMatrixWorld(true);
+    const t = CAST_TMP;
+    const aim = t.aim.copy(cast.aim);
+    aim.y = Math.max(-0.35, Math.min(0.5, aim.y));
+    aim.normalize();
+    const flat = t.flat.set(aim.x, 0, aim.z).normalize();
+    const lateral = t.lat.set(flat.z, 0, -flat.x); // the body's left
+    for (const side of ["L", "R"] as const) {
+      const upper = b[`UpperArm_${side}`];
+      const fore = b[`ForeArm_${side}`];
+      const hand = b[`Hand_${side}`];
+      const fingers = b[`Fingers_${side}`];
+      t.q0.copy(upper.quaternion);
+      t.q1.copy(fore.quaternion);
+      t.q2.copy(hand.quaternion);
+      const s = upper.getWorldPosition(t.s);
+      const e = fore.getWorldPosition(t.e);
+      const h = hand.getWorldPosition(t.h);
+      const a = s.distanceTo(e);
+      const len = e.distanceTo(h);
+      const sx = side === "L" ? 1 : -1;
+      // Hands forward at chest height, a little apart, palms toward the target.
+      const target = t.target.copy(s).addScaledVector(aim, (a + len) * 0.86).addScaledVector(lateral, -sx * 0.06);
+      target.y -= 0.1;
+      const pole = t.pole.set(0, -0.8, 0).addScaledVector(lateral, sx * 0.6).normalize();
+      const elbow = solveElbow(s, target, a, len, pole, t.elbow);
+      aimBone(upper, fore, elbow);
+      aimBone(fore, hand, target);
+      aimBone(hand, fingers, t.tip.copy(target).addScaledVector(aim, 0.3).addScaledVector(lateral, sx * 0.05));
+      upper.quaternion.copy(t.q0.slerp(upper.quaternion, w));
+      fore.quaternion.copy(t.q1.slerp(fore.quaternion, w));
+      hand.quaternion.copy(t.q2.slerp(hand.quaternion, w));
+      upper.updateMatrixWorld(true);
+    }
   }
 
   private plan(goal: Goal, ctx: ActorContext): void {
