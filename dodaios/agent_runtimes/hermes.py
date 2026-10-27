@@ -137,7 +137,12 @@ def _install_locations() -> list[Path]:
     """Where Hermes' official installers put the launcher, per OS."""
     if is_windows():
         local = os.environ.get("LOCALAPPDATA")
-        return [Path(local) / "hermes" / "bin" / "hermes.exe"] if local else []
+        if not local:
+            return []
+        # The installer swaps ``hermes.exe`` during an update (it leaves a
+        # ``hermes.exe.deleteme`` behind); its ``hermes.cmd`` stays meanwhile.
+        bin_dir = Path(local) / "hermes" / "bin"
+        return [bin_dir / "hermes.exe", bin_dir / "hermes.cmd"]
     home = Path.home()
     return [home / ".local" / "bin" / "hermes", home / ".hermes" / "bin" / "hermes"]
 
