@@ -6,4 +6,4 @@ A standing instruction from the user, the person you are working for. It is abou
 
 You are done when `python scripts/agent_done_gate.py` says DONE; a Stop hook enforces it (docs/agent-done-gate.md).
 
-A frontend change is done only when it is visible in the running desktop app: check that the bundle the app serves contains it (rebuild `dist` locally if needed) before you report it as live. Never commit `dist` in a pull request: a bot rebuilds it on main after the merge (docs/ci-pipeline.md, "Frontend bundle").
+A frontend change is done only when it is visible in the running desktop app: check that the bundle the app serves contains it (rebuild `dist` locally with `npm run build`) before you report it as live. `dist` is not tracked on main; release tags carry their own build (docs/ci-pipeline.md, "Frontend bundle").
