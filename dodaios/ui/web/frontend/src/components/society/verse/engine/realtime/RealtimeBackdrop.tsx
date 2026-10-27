@@ -26,6 +26,7 @@ import {
 } from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { ClearPass } from "three/examples/jsm/postprocessing/ClearPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { Deck } from "../../content/deck";
@@ -36,7 +37,8 @@ import { loadRealtimeScene, type RealtimeScene } from "./realtimeScene";
 import { DECK_SHARED } from "./deckMaterial";
 import { verticalFov, type SegmentTest } from "./shoulderRig";
 import type { QualityChoice } from "./viewSettings";
-import { SpacePass, SpaceView, spaceTextureUrls } from "./spaceView";
+import { SpaceView, spaceTextureUrls } from "./spaceView";
+import { HullMask, HullMaskPass } from "./hullMask";
 import { viewmodelVisibility } from "../../viewmodel/motion";
 import { drawViewmodel, ViewmodelPass } from "../../viewmodel/viewmodelPass";
 
@@ -167,19 +169,25 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
     Object.assign(window, { __verseSpaceState: space.state });
     return () => { abort.abort(); space.dispose(); };
   }, [gl, space]);
+  // Space only through glass: other gaps in the deck read as hull.
+  const hull = useMemo(() => new HullMask(), []);
+  useEffect(() => () => hull.dispose(), [hull]);
   useEffect(() => {
     if (loaded?.outward) space.setOutward(loaded.outward);
-  }, [loaded, space]);
+    hull.enabled = (loaded?.glass.length ?? 0) > 0;
+  }, [loaded, space, hull]);
 
   const { composer, bloom, viewmodelPass } = useMemo(() => {
-    const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
+    const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4, stencilBuffer: true });
+    // The hull mask needs the stencil inside the multisampled buffer only; resolving it is slow on Direct3D.
+    target.resolveStencilBuffer = false;
     const c = new EffectComposer(gl, target);
-    const spacePass = new SpacePass();
-    spacePass.view = space;
-    c.addPass(spacePass);
+    // Alpha cleared to 0: space is composited under the deck (and its glass) afterwards.
+    c.addPass(new ClearPass(new Color(0, 0, 0), 0));
     const deckPass = new RenderPass(scene, camera);
     deckPass.clear = false;
     c.addPass(deckPass);
+    c.addPass(new HullMaskPass(hull, scene, camera, space));
     // First person: the commander's arms over the deck, before bloom and tone mapping like everything else.
     const vm = new ViewmodelPass();
     c.addPass(vm);
@@ -187,7 +195,7 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
     c.addPass(pass);
     c.addPass(new OutputPass());
     return { composer: c, bloom: pass, viewmodelPass: vm };
-  }, [gl, scene, camera, space]);
+  }, [gl, scene, camera, space, hull]);
   useEffect(() => () => composer.dispose(), [composer]);
 
   useEffect(() => {
@@ -292,6 +300,7 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
       composer.render(dt);
     } else {
       gl.setRenderTarget(null);
+      // No stencil on the screen: space first, everywhere the deck does not cover.
       space.render(gl);
       gl.autoClear = false;
       gl.render(scene, camera);

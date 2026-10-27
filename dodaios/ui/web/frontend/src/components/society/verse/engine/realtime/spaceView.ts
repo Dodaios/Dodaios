@@ -13,12 +13,11 @@
  * at about orbital speed.
  */
 import {
-  AdditiveBlending, BufferAttribute, BufferGeometry, Color, CustomBlending, DataTexture, LinearFilter,
-  LinearMipmapLinearFilter, Matrix3, Matrix4, Mesh, OneFactor, OneMinusSrcAlphaFactor, PerspectiveCamera, Points,
-  Quaternion, RedFormat, RepeatWrapping, ClampToEdgeWrapping, RGBAFormat, Scene, ShaderMaterial, SRGBColorSpace, NoColorSpace,
-  Texture, Vector3, type WebGLRenderer,
+  AdditiveBlending, AlwaysDepth, BufferAttribute, BufferGeometry, CustomBlending, DataTexture, EqualStencilFunc, KeepStencilOp,
+  LessEqualDepth, LinearFilter, LinearMipmapLinearFilter, Matrix3, Matrix4, Mesh, OneFactor, OneMinusDstAlphaFactor,
+  OneMinusSrcAlphaFactor, PerspectiveCamera, Points, Quaternion, RedFormat, RepeatWrapping, ClampToEdgeWrapping, RGBAFormat,
+  Scene, ShaderMaterial, SRGBColorSpace, NoColorSpace, Texture, Vector3, type Material, type WebGLRenderer,
 } from "three";
-import { Pass } from "three/examples/jsm/postprocessing/Pass.js";
 import { fetchImageBitmap } from "../imageFetch";
 import { SPACE_FRAGMENT, SPACE_VERTEX } from "./spaceShader";
 
@@ -147,6 +146,8 @@ void main() {
   vColour = colour * gain;
   gl_PointSize = size * pixelRatio;
   gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+  // On the far plane, like the planet: drawn behind the deck, only where it left the depth empty.
+  gl_Position.z = gl_Position.w;
 }
 `;
 
@@ -193,6 +194,7 @@ export class SpaceView {
   readonly camera = new PerspectiveCamera(50, 1, 0.01, 200);
   private readonly planet: ShaderMaterial;
   private readonly planetMesh: Mesh;
+  private readonly starPoints: Points;
   /** For QA runs: whether the textures arrived, and where the windows look. */
   readonly state = { ready: false, error: "", outward: [0, 0, 1] };
   private readonly stars: ShaderMaterial;
@@ -260,8 +262,8 @@ export class SpaceView {
     const points = new Points(starGeometry, this.stars);
     points.frustumCulled = false;
     points.renderOrder = 1;
+    this.starPoints = points;
     this.scene.add(points, quad);
-    this.scene.background = new Color(0, 0, 0);
   }
 
   /** Loads the Earth's textures; until then only the stars and the sun show. */
@@ -360,7 +362,29 @@ export class SpaceView {
     (u.verseInvViewProj.value as Matrix4).copy(this.m4);
   }
 
-  /** Clears the bound target and draws space into it, then clears depth for the deck. */
+  /**
+   * Behind a deck already drawn into the bound target (alpha cleared to 0, its
+   * glass marked 1 in the stencil): space goes only where the deck left the
+   * depth empty and glass covers, composited under what is there (front to
+   * back: the planet, then the stars it dims). The full-screen planet shader
+   * then runs on window pixels alone.
+   */
+  renderBehind(gl: WebGLRenderer): void {
+    const autoClear = gl.autoClear;
+    gl.autoClear = false;
+    this.planetMesh.renderOrder = 1;
+    this.starPoints.renderOrder = 2;
+    for (const m of [this.planet, this.stars]) behind(m, true);
+    gl.render(this.scene, this.camera);
+    for (const m of [this.planet, this.stars]) behind(m, false);
+    this.planet.blending = CustomBlending;
+    this.stars.blending = AdditiveBlending;
+    this.planetMesh.renderOrder = 2;
+    this.starPoints.renderOrder = 1;
+    gl.autoClear = autoClear;
+  }
+
+  /** Clears the bound target and draws space into it, then clears depth for the deck (the path without a stencil). */
   render(gl: WebGLRenderer): void {
     const autoClear = gl.autoClear;
     gl.autoClear = true;
@@ -377,18 +401,27 @@ export class SpaceView {
   }
 }
 
-/** First pass of the post chain: space into the read buffer; the deck's RenderPass then draws over it without clearing. */
-export class SpacePass extends Pass {
-  view: SpaceView | null = null;
-
-  constructor() {
-    super();
-    this.needsSwap = false;
-  }
-
-  render(renderer: WebGLRenderer, _writeBuffer: unknown, readBuffer: Parameters<WebGLRenderer["setRenderTarget"]>[0]): void {
-    renderer.setRenderTarget(readBuffer);
-    if (this.view) this.view.render(renderer);
-    else renderer.clear();
+/** A material's state for drawing under the deck (`renderBehind`), or back to over-black. */
+function behind(m: Material, on: boolean): void {
+  m.depthTest = on;
+  m.depthFunc = on ? LessEqualDepth : AlwaysDepth;
+  m.stencilWrite = on; // three runs the stencil test only for materials that "write" it
+  m.stencilFunc = EqualStencilFunc;
+  m.stencilRef = 1;
+  m.stencilWriteMask = 0;
+  m.stencilFail = KeepStencilOp;
+  m.stencilZFail = KeepStencilOp;
+  m.stencilZPass = KeepStencilOp;
+  if (on) {
+    m.blending = CustomBlending;
+    m.blendSrc = OneMinusDstAlphaFactor;
+    m.blendDst = OneFactor;
+    m.blendSrcAlpha = OneMinusDstAlphaFactor;
+    m.blendDstAlpha = OneFactor;
+  } else {
+    m.blendSrc = OneFactor;
+    m.blendDst = OneMinusSrcAlphaFactor;
+    m.blendSrcAlpha = null;
+    m.blendDstAlpha = null;
   }
 }

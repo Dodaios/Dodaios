@@ -20,7 +20,7 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import { MeshBVH } from "three-mesh-bvh";
 import type { RealtimeContent, RealtimeProbe } from "../../content/deck";
 import { fetchImageBitmap } from "../imageFetch";
-import { REALTIME_LAYER } from "../renderOrder";
+import { GLASS_LAYER, REALTIME_LAYER } from "../renderOrder";
 import { depthOrder, makeDeckMaterial, type ProbeBinding } from "./deckMaterial";
 
 export interface RealtimeScene {
@@ -34,6 +34,8 @@ export interface RealtimeScene {
    * deck's middle), or null for a deck without any.
    */
   outward: Vector3 | null;
+  /** The see-through chunks (glass, force fields): space shows only through them (hullMask). */
+  glass: readonly Mesh[];
   /** Draw chunks and triangles, for the stats. */
   chunks: number;
   triangles: number;
@@ -236,6 +238,7 @@ export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeCont
   const order = depthOrder(Object.keys(content.materials));
   // The baked star cards behind the viewports give way to the real sky (spaceView); the glass shows where they are.
   const windows: Record<"stars" | "viewport" | "clear", Mesh[]> = { stars: [], viewport: [], clear: [] };
+  const glass: Mesh[] = [];
   group.traverse((object) => {
     const mesh = object as Mesh;
     if (!mesh.isMesh) return;
@@ -267,12 +270,17 @@ export async function loadRealtimeScene(gl: WebGLRenderer, content: RealtimeCont
     chunks++;
     triangles += (mesh.geometry.index?.count ?? mesh.geometry.getAttribute("position").count) / 3;
     if (params.collide) solid.push(mesh);
+    if (params.transparent) {
+      glass.push(mesh);
+      mesh.layers.enable(GLASS_LAYER);
+    }
   });
   for (const m of new Set(unused)) m.dispose();
   group.updateMatrixWorld(true);
   const collider = buildCollider(solid);
   return {
     group,
+    glass,
     outward: outwardOf(group, windows.stars.length ? windows.stars : windows.viewport.length ? windows.viewport : windows.clear),
     materials: [...materials.values()],
     collider,

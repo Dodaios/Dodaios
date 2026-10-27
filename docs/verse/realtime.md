@@ -171,7 +171,7 @@ Code: `src/components/society/verse/engine/realtime/`.
 | `orbitInput.ts` | Mouse: a click on the view takes the mouse (pointer lock); then movement turns the view and the left button works what the crosshair is on; Esc gives it back (the HUD's buttons work again). A drag still turns the view where the lock is refused. Touch and pen: drag turns, pinch zooms, a tap picks. The wheel zooms through the stage, which hands over between third and first person. |
 | `viewSettings.ts` | The person's settings, kept in this browser: sensitivity, inverted look, field of view per person, quality, and the view they last chose. |
 | `eyePick.ts` | Pointer picking at eye level: bodies as upright cylinders (only in front of the deck's geometry), stations near the deck point hit, floor points to walk to. |
-| `spaceView.ts`, `spaceShader.ts` | Outside the hull: the Earth, the sun and the stars behind the deck (below). |
+| `spaceView.ts`, `spaceShader.ts`, `hullMask.ts` | Outside the hull: the Earth, the sun and the stars behind the deck's glass (below). |
 
 The first-person viewmodel (the commander's own arms and, in a duel, the
 blaster) lives in `src/components/society/verse/viewmodel/` (below).
@@ -231,9 +231,23 @@ ghosts visible), then move the values into the code.
 ### Outside the hull
 
 The deck's baked star cards (`*Starfield` materials) are hidden at eye level;
-every viewport looks into real space instead, drawn first into the same HDR
-target (`SpacePass` before the deck's `RenderPass`, which then keeps the
-colour and clears only depth), so bloom and AgX treat it like the deck.
+every viewport looks into real space instead, in the same HDR target, so
+bloom and AgX treat it like the deck.
+
+- **Only through glass** (`hullMask.ts`, after the deck's `RenderPass`; the
+  target is cleared to alpha 0 by a `ClearPass` first). The decks were built
+  for the plate camera, so some gaps (above a viewport's header, where a
+  ceiling stops short) were never closed; the star cards hid them. The glass
+  (every transparent chunk, also on `GLASS_LAYER`) marks its pixels in the
+  stencil in one draw; space is then composited *under* the deck
+  (`ONE_MINUS_DST_ALPHA, ONE`, front to back: planet, then stars) on pixels
+  whose depth is still empty and whose stencil is 1, and the rest of the
+  empty pixels get the hull's near black. The planet shader so runs on window
+  pixels alone. Every render into the multisampled target resolves it, and
+  resolving the stencil is slow on Direct3D: the target keeps
+  `resolveStencilBuffer = false`, and the glass is never drawn mesh by mesh.
+  The low tier renders to the screen, which has no stencil: there space is
+  drawn first, full screen, and the deck over it.
 
 - **Camera.** Its own camera at the origin turns with the deck camera and
   never moves: the planet is thousands of kilometres away, so walking past a
