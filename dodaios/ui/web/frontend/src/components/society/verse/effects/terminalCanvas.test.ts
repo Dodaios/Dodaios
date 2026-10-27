@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Terminal } from "@xterm/xterm";
-import { drawGlyph, fitTerminal, gridShape, opaque, paletteFor, shownRows, snapshotText, snapshotXterm, type TermSnapshot } from "./terminalCanvas";
+import { MIN_SHOWN_COLS, drawGlyph, fitTerminal, gridShape, opaque, paletteFor, shownRows, snapshotText, snapshotXterm, type TermSnapshot } from "./terminalCanvas";
 
 function write(term: Terminal, data: string): Promise<void> {
   return new Promise((resolve) => term.write(data, resolve));
@@ -66,9 +66,15 @@ describe("text fallback and layout", () => {
   });
 
   it("fits the terminal's width and counts the rows that fit", () => {
-    const f = fitTerminal(80, 960, 400, 0.6);
+    const f = fitTerminal(160, 1920, 400, 0.6);
     expect(f.font).toBe(20);
     expect(f.fit).toBe(Math.floor(400 / (20 * 1.22)));
+  });
+
+  it("never blows a narrow pane up: every monitor shows at least MIN_SHOWN_COLS columns", () => {
+    const wide = fitTerminal(MIN_SHOWN_COLS, 960, 400, 0.6);
+    expect(fitTerminal(50, 960, 400, 0.6).font).toBe(wide.font);
+    expect(fitTerminal(80, 960, 400, 0.6).font).toBe(wide.font);
   });
 
   it("chooses the grid that gives each pane the largest text", () => {

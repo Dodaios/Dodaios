@@ -143,7 +143,7 @@ def _encode_plate(plate: Image.Image, out_dir: Path) -> dict:
     return levels
 
 
-def _encode_nav(nav_npy: Path, out_dir: Path, nav: dict) -> dict:
+def encode_nav(nav_npy: Path, out_dir: Path, nav: dict) -> dict:
     grid = np.load(nav_npy)
     if grid.shape != (nav["h"], nav["w"]):
         raise ValueError(f"nav grid shape {grid.shape} does not match {nav['h']}x{nav['w']}")
@@ -221,7 +221,7 @@ def _write_deck(
     realtime: dict | None = None,
 ) -> dict:
     plate = _encode_plate(assemble_plate(raw_dir, cook), staging)
-    nav = _encode_nav(raw_dir / "nav.npy", staging, cook["nav"])
+    nav = encode_nav(raw_dir / "nav.npy", staging, cook["nav"])
     shutil.copyfile(raw_dir / "occluders.glb", staging / "occluders.glb")
     shutil.copyfile(raw_dir / "env.hdr", staging / "env.hdr")
     manifest = build_manifest(cook, plate, nav)
