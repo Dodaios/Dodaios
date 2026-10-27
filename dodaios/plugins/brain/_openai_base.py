@@ -862,11 +862,6 @@ def _error_text(exc: Exception) -> str:
 _TOOLS_REFUSED_CACHE: set[tuple[str, str]] = set()
 
 
-def tools_refused(client: Any, model: str) -> bool:
-    """Whether this endpoint+model already refused tools in this process."""
-    return (str(getattr(client, "base_url", "") or ""), model) in _TOOLS_REFUSED_CACHE
-
-
 _UNSUPPORTED_ERROR_MARKERS = (
     "unsupported_parameter",
     "unsupported_value",
