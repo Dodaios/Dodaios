@@ -835,7 +835,8 @@ class OpenClawRuntime:
             ).hexdigest()
             current = self._gateways.get(key)
             port = current.port if current is not None and current.alive() else _free_port()
-            config = self.config_for(turn, port=port, token=token)
+            # Off the event loop: the config sizes the live tool catalog.
+            config = await asyncio.to_thread(self.config_for, turn, port=port, token=token)
             changed = await asyncio.to_thread(
                 write_json_if_changed, home / "openclaw.json", config
             )
@@ -897,11 +898,8 @@ class OpenClawRuntime:
                 # The port was taken before the Gateway bound it: once more on a
                 # fresh port.
                 port = _free_port()
-                await asyncio.to_thread(
-                    write_json_if_changed,
-                    home / "openclaw.json",
-                    self.config_for(turn, port=port, token=token),
-                )
+                config = await asyncio.to_thread(self.config_for, turn, port=port, token=token)
+                await asyncio.to_thread(write_json_if_changed, home / "openclaw.json", config)
                 gateway = await self._spawn_until_ready(
                     key, home, port, env_hash, launcher, env, lock, last_try=True
                 )
