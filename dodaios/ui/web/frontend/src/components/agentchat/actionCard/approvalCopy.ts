@@ -40,6 +40,7 @@ export function cardInfoOf(block: ToolBlock): ApprovalCardInfo {
   return {
     source: { kind, app, verb: typeof input.action === "string" && /^[a-z][a-z0-9_.-]{0,39}$/.test(input.action) ? input.action : "" },
     where,
+    whereFull: "",
     why,
     caution: null,
     detail: kind === "plan" ? "" : maskedRequest(block.input),
@@ -115,6 +116,18 @@ const POSIX_HOME = /(^|[\s"'`(=:])\/(?:Users|home)\/(?!Shared(?:\/|$))[^/\s"'`]+
 export function shortenHome(text: string): string {
   if (!text) return text;
   return text.replace(WIN_HOME, "~").replace(POSIX_HOME, "$1~");
+}
+
+/**
+ * What a card's details disclosure says: the folder in full when the line
+ * above shows it short, then the exact request. "" when there is nothing.
+ */
+export function disclosureText(info: ApprovalCardInfo, t: T): string {
+  const full = info.whereFull.trim();
+  const folder = full && full !== info.where
+    ? fill(t(info.source.kind === "browser" ? "action_card.field.on" : "action_card.field.in"), { where: full })
+    : "";
+  return [folder, info.detail].filter(Boolean).join("\n\n");
 }
 
 /** The summary a card shows: the backend's short-path brief, else the summary with `~`. */

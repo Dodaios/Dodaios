@@ -320,7 +320,8 @@ function SpecialistChat({ agent, roster, composerExtras }: AgentChatPanelProps) 
       data-session-ready={sessionReady ? "true" : "false"}
     >
       <AgentConversationsBar agentId={agent.agentId} agentName={agent.name} displayName={displayName} />
-      <Transcript key={`${sessionId ?? agent.agentId}:${view.boundaryId}`} items={view.items} agent={agent} roster={roster} onDecide={decide} />
+      <Transcript key={`${sessionId ?? agent.agentId}:${view.boundaryId}`} items={view.items} agent={agent} roster={roster} onDecide={decide}
+        onRetry={sessionReady && !busy ? (text) => void send(text) : undefined} />
       {sessionReady && socketState !== "open" && socketState !== "idle" ? (
         <p role="status" className="px-4 pb-1 text-xs text-muted-foreground">
           {t(socketState === "closed" ? "society.chat.reconnecting" : "society.chat.connecting")}
@@ -451,7 +452,8 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="society-chat" data-mode="chat">
       {header}
       <AgentConversationsBar agentId={agent.agentId} agentName={displayName(agent.agentId, agent.name)} displayName={displayName} />
-      <Transcript key={`${activeSessionId ?? ""}:${view.boundaryId}`} items={view.items} agent={agent} roster={roster} onDecide={decide} />
+      <Transcript key={`${activeSessionId ?? ""}:${view.boundaryId}`} items={view.items} agent={agent} roster={roster} onDecide={decide}
+        onRetry={busy ? undefined : (text) => void send(text)} />
       {activeSessionId && socketState !== "open" && socketState !== "idle" ? (
         <p role="status" className="px-4 pb-1 text-xs text-muted-foreground">
           {t(socketState === "closed" ? "society.chat.reconnecting" : "society.chat.connecting")}
@@ -696,11 +698,14 @@ export function Transcript({
   agent,
   roster,
   onDecide,
+  onRetry,
 }: {
   items: TimelineItem[];
   agent: SocietyAgent;
   roster: SocietyAgent[];
   onDecide: (approvalId: string, decision: ApprovalDecision) => Promise<void>;
+  /** Sends a message of the person's again (a failed turn's "Retry"). */
+  onRetry?: (text: string) => void;
 }) {
   const t = useT();
   const sessionId = useAgentChat((state) => state.activeSessionId);
@@ -801,6 +806,7 @@ export function Transcript({
   }
 
   const displayName = societyDisplayName(agent, assistantName);
+  const retry = onRetry ? retryOf(items, onRetry) : null;
   return (
     <div ref={setFrame} className="relative flex min-h-0 flex-1">
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -820,7 +826,8 @@ export function Transcript({
               <UserBubble item={item} agentId={agent.agentId} sessionId={sessionId ?? agent.chatSessionId ?? undefined} tint={tint} />
             ) : item.type === "turn" ? (
               <TurnBubble item={item} agent={agent} memory={memoryByTurn.get(item.id)} onDecide={onDecide}
-                nameOf={nameOf} peerFace={peerFace} workOpen={inspecting === item.id} onShowWork={setInspecting} />
+                nameOf={nameOf} peerFace={peerFace} workOpen={inspecting === item.id} onShowWork={setInspecting}
+                onRetry={retry?.turnId === item.id ? retry.run : undefined} />
             ) : item.type === "notice" ? (
               item.kind === "proposal" ? (
                 <ProposalCard item={item} />
@@ -1126,6 +1133,34 @@ export function UserBubble({ item, agentId, sessionId, tint }: { item: UserItem;
   );
 }
 
+/**
+ * The "Retry" of the transcript: only its latest turn, only when that turn
+ * failed, and it sends the message of the person's that started it again.
+ */
+export function retryOf(items: readonly TimelineItem[], send: (text: string) => void): { turnId: string; run: () => void } | null {
+  let turn: TurnItem | null = null;
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const item = items[i];
+    if (!turn) {
+      if (item.type === "turn") {
+        const silent = !item.blocks.some((block) => block.kind === "text" && block.text.trim());
+        if (item.status !== "error" && !(item.status === "done" && silent && item.error)) return null;
+        turn = item;
+      } else if (item.type === "user" && item.origin !== "control") {
+        return null;
+      }
+      continue;
+    }
+    if (item.type === "user" && !item.origin && item.text.trim() && !assignmentOf(item.text) && !item.teamEvent) {
+      const text = item.text;
+      const turnId = turn.id;
+      return { turnId, run: () => send(text) };
+    }
+    if (item.type === "turn") return null;
+  }
+  return null;
+}
+
 function TurnBubble({
   item,
   agent,
@@ -1135,6 +1170,7 @@ function TurnBubble({
   peerFace,
   workOpen,
   onShowWork,
+  onRetry,
 }: {
   item: TurnItem;
   agent: SocietyAgent;
@@ -1145,6 +1181,7 @@ function TurnBubble({
   workOpen?: boolean;
   /** Opens the work inspector on a turn (by its id). */
   onShowWork?: (turnId: string) => void;
+  onRetry?: () => void;
 }) {
   const t = useT();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -1164,7 +1201,7 @@ function TurnBubble({
   // the swatch's own "working" dots would only repeat it.
   return <>
     <MessengerTurn turn={item} avatar={face} color={agentColor(agent)} onDecide={onDecide} memoryLinks={memoryLinks}
-      nameOf={nameOf} peerFace={peerFace} onShowWork={showWork} workOpen={workOpen} />
+      nameOf={nameOf} peerFace={peerFace} onShowWork={showWork} workOpen={workOpen} onRetry={onRetry} />
     {opened && <MemoryNoticeViewer item={opened} onClose={() => setOpenId(null)} />}
   </>;
 }

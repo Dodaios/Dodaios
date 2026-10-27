@@ -4,7 +4,7 @@ import type { AgentChatEvent } from "@/lib/agentChatApi";
 import { claimKeyboardTarget, TARGET_PRIORITY } from "./keyboardTarget";
 import { maskedRequest, maskText } from "./redact";
 import { parseApprovalCard, parseSavedRule } from "./approvalInfo";
-import { shortenHome } from "./approvalCopy";
+import { disclosureText, shortenHome } from "./approvalCopy";
 
 let seq = 0;
 const ev = (kind: string, payload: Record<string, unknown>): AgentChatEvent => ({ seq: ++seq, ts_ms: seq, kind, payload } as AgentChatEvent);
@@ -147,5 +147,26 @@ describe("short paths and narrow rules", () => {
     expect(parseSavedRule({ rule_kind: "always_allow", scope: "chat", narrow: "command", target: "npm test" }))
       .toMatchObject({ narrow: "command", target: "npm test" });
     expect(parseSavedRule({ rule_kind: "always_allow", scope: "chat", narrow: "planet" })?.narrow).toBeUndefined();
+  });
+});
+
+
+describe("the approval card's paths", () => {
+  const t = (key: string) => (key === "action_card.field.in" ? "In {where}" : key);
+  const full = "C:\\Users\\me\\data\\society\\agent-1\\workspace";
+
+  it("shows the workspace short and names it in full only in the details", () => {
+    const info = parseApprovalCard({
+      source: { kind: "files" }, where: "workspace", where_full: full,
+      detail: "{\"path\": \"qa_note.txt\"}", brief: "Approve edit: qa_note.txt",
+    })!;
+    expect(info.where).toBe("workspace");
+    expect(info.brief).toBe("Approve edit: qa_note.txt");
+    expect(disclosureText(info, t)).toBe(`In ${full}\n\n{"path": "qa_note.txt"}`);
+  });
+
+  it("adds nothing when the line already shows the whole folder", () => {
+    const info = parseApprovalCard({ source: { kind: "terminal" }, where: "~/proj", detail: "ls" })!;
+    expect(disclosureText(info, t)).toBe("ls");
   });
 });

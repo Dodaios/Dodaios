@@ -82,16 +82,27 @@ afterEach(() => {
 });
 
 describe("CreateAgentDialog", () => {
-  test("uses the access preference saved by the other model pickers", async () => {
+  test("a remembered access billed per use never beats the plan; a pick here is saved", async () => {
     localStorage.setItem(MODEL_ACCESS_KEY, JSON.stringify({ claude: "api" }));
     runtimes.value = { ...READY, access: { "claude-api": ["api", "subscription"] } };
     menu.options = [CLAUDE];
     mount();
     act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
-    const api = await screen.findByRole("radio", { name: "society.create.kind_api" });
-    await waitFor(() => expect(api.getAttribute("aria-checked")).toBe("true"));
-    fireEvent.click(screen.getByRole("radio", { name: "society.create.kind_subscription" }));
-    expect(JSON.parse(localStorage.getItem(MODEL_ACCESS_KEY)!)).toEqual({ claude: "subscription" });
+    const plan = await screen.findByRole("radio", { name: "society.create.kind_subscription" });
+    await waitFor(() => expect(plan.getAttribute("aria-checked")).toBe("true"));
+    fireEvent.click(screen.getByRole("radio", { name: "society.create.kind_api" }));
+    expect(JSON.parse(localStorage.getItem(MODEL_ACCESS_KEY)!)).toEqual({ claude: "api" });
+    await waitFor(() => expect(screen.getByRole("radio", { name: "society.create.kind_api" }).getAttribute("aria-checked")).toBe("true"));
+  });
+
+  test("uses a remembered access that is not billed per use", async () => {
+    localStorage.setItem(MODEL_ACCESS_KEY, JSON.stringify({ claude: "subscription" }));
+    runtimes.value = { ...READY, access: { "claude-api": ["api", "subscription"] } };
+    menu.options = [CLAUDE];
+    mount();
+    act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
+    const plan = await screen.findByRole("radio", { name: "society.create.kind_subscription" });
+    await waitFor(() => expect(plan.getAttribute("aria-checked")).toBe("true"));
   });
   test("creates a named Hermes agent with a provider and a companion", async () => {
     const agent = { agentId: "agent-1", name: "Scout" };
@@ -119,6 +130,8 @@ describe("CreateAgentDialog", () => {
     expect(screen.getByTestId("create-agent-model")).toBeTruthy();
     expect(screen.getByRole("radio", { name: "society.create.kind_local" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.queryByTestId("create-agent-access-cost")).toBeNull();
+    // Creation waits until the runtimes said which ways of paying work.
+    await waitFor(() => expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId("create-agent-submit"));
     await waitFor(() => expect(createAgent).toHaveBeenCalled());
     expect(createAgent.mock.calls[0][0]).toMatchObject({ runtime: "jarvis", provider: "ollama", model: "qwen3:8b" });
@@ -211,12 +224,22 @@ describe("CreateAgentDialog", () => {
     expect(await screen.findByText("society.runtime.provider_unsupported")).toBeTruthy();
   });
 
+  test("creation waits while the runtimes are still read, so no seat billed per use slips through", async () => {
+    runtimes.value = new Promise(() => undefined);
+    menu.options = [CLAUDE, OPENAI];
+    mount();
+    act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
+    await screen.findByTestId("create-agent-provider");
+    expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(true);
+  });
+
   test("a Jarvis agent with nothing connected still starts on the chat's seat", async () => {
     menu.options = [];
     createAgent.mockResolvedValue({ agentId: "agent-5" });
     mount();
     act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
     await screen.findByText("society.create_agent.no_provider_jarvis");
+    await waitFor(() => expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId("create-agent-submit"));
     await waitFor(() => expect(createAgent).toHaveBeenCalled());
     expect(createAgent.mock.calls[0][0]).toMatchObject({ runtime: "jarvis", provider: undefined });

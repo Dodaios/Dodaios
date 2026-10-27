@@ -4363,6 +4363,17 @@ async def _drive_cli(
         elif (runner in {"claude-cli", "glm-cli"} or plan.acp is not None) and not state.saw_result:
             status = "error"
             error_text = f"{runner} exited without a terminal result; its output may be incomplete."
+    if (
+        status == "done"
+        and not getattr(state, "emitted_text", False)
+        and not str(getattr(state, "result_text", "") or "").strip()
+    ):
+        # The runtime swallowed a recoverable gateway failure (it may retry)
+        # and then ended with no answer: the turn failed, and says why.
+        from dodaios.agent_runtimes import gateway
+
+        if swallowed := gateway.last_failure(plan.provider_failure):
+            status, error_text = "error", swallowed
 
     usage = dict(state.usage)
     cost_usd = getattr(state, "cost_usd", None)
