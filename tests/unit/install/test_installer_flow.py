@@ -10,12 +10,23 @@ installer = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(installer)
 
 
+@pytest.fixture
+def fresh_install(monkeypatch):
+    """A first install, whatever this checkout is.
+
+    ``is_update_run`` reads the real repo root's managed-install marker, so in
+    an installer-managed checkout (``~/.personal-jarvis``) the outro says
+    "updated" and these assertions failed (#458).
+    """
+    monkeypatch.setattr(installer, "is_update_run", lambda: False)
+
+
 def test_no_wizard_invocation_anywhere() -> None:
     source = (REPO / "install" / "installer.py").read_text(encoding="utf-8")
     assert "--wizard" not in source.replace("--no-wizard", "")
 
 
-def test_dry_run_order_launch_last(monkeypatch, capsys) -> None:
+def test_dry_run_order_launch_last(monkeypatch, capsys, fresh_install) -> None:
     monkeypatch.setattr(installer, "write_managed_marker", lambda: None)
     rc = installer.main(["--dry-run", "--headless"])
     out = capsys.readouterr().out
@@ -25,7 +36,7 @@ def test_dry_run_order_launch_last(monkeypatch, capsys) -> None:
     assert out.rindex("Launching") > out.rindex("Dodaios is ready")
 
 
-def test_dry_run_prints_the_numbered_journey(monkeypatch, capsys) -> None:
+def test_dry_run_prints_the_numbered_journey(monkeypatch, capsys, fresh_install) -> None:
     """Design 2026-07-09: one six-phase journey; this stage owns 4/6..6/6 in order."""
     monkeypatch.setattr(installer, "write_managed_marker", lambda: None)
     rc = installer.main(["--dry-run", "--headless"])
@@ -305,7 +316,7 @@ def test_launch_fallback_hint_is_shown_on_every_desktop_os(monkeypatch, capsys) 
 
 
 def test_linux_gui_gets_full_profile_and_app_menu_registration(
-    monkeypatch, capsys
+    monkeypatch, capsys, fresh_install
 ) -> None:
     """A Linux desktop is a first-class app install, not the headless floor."""
     monkeypatch.setattr(installer.sys, "platform", "linux")
