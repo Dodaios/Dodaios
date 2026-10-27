@@ -280,6 +280,22 @@ def test_openclaw_subscription_route_uses_the_responses_adapter(tmp_path):
     assert config["models"]["providers"]["jarvis"]["api"] == "openai-responses"
 
 
+@pytest.mark.parametrize(
+    ("transport", "expected"),
+    [
+        # The ChatGPT backend ends a request carrying the whole inline tool
+        # catalog as incomplete (live 2026-10-27), so its tools are deferred.
+        ("responses", {"mode": "tools"}),
+        ("chat_completions", False),
+        ("anthropic_messages", False),
+    ],
+)
+def test_openclaw_defers_tool_schemas_only_on_the_subscription(tmp_path, transport, expected):
+    route = _route(transport=transport)
+    config = OpenClawRuntime().config_for(_turn(tmp_path, route=route), port=1, token=_TOKEN)
+    assert config["tools"]["toolSearch"] == expected
+
+
 def test_openclaw_without_tools_writes_no_mcp_server(tmp_path):
     config = OpenClawRuntime().config_for(
         _turn(tmp_path, mcp_url=None, control_key=None), port=1, token=_TOKEN

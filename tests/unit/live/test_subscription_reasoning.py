@@ -461,3 +461,61 @@ async def test_a_login_lost_during_the_catalog_check_keeps_the_original_refusal(
     assert caught.value.code == "invalid_request_error" and caught.value.status == 400
     assert len(calls) == 2
     await reasoning.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("event", "code", "logged"),
+    [
+        # An "error" event carries its code at the top level, not under "error".
+        (
+            {"type": "error", "code": "invalid_prompt", "message": "Bad input item."},
+            "invalid_prompt",
+            "event=error code=invalid_prompt message='Bad input item.'",
+        ),
+        (
+            {
+                "type": "response.failed",
+                "response": {"error": {"code": "server_error", "message": "Try again."}},
+            },
+            "server_error",
+            "event=response.failed code=server_error message='Try again.'",
+        ),
+        (
+            {
+                "type": "response.incomplete",
+                "response": {"incomplete_details": {"reason": "max_output_tokens"}},
+            },
+            "max_output_tokens",
+            "event=response.incomplete code=max_output_tokens reason=max_output_tokens",
+        ),
+    ],
+)
+async def test_stream_failure_keeps_the_backend_reason_for_the_log(event, code, logged, caplog):
+    reasoning, _ = _reasoning(lambda _request: httpx.Response(200, text=_sse(event)))
+    with caplog.at_level("WARNING"), pytest.raises(SubscriptionReasoningError) as caught:
+        await _collect(reasoning)
+    assert caught.value.code == code
+    assert caught.value.detail == logged
+    # The backend's own words reach the log, never the error a runtime sees.
+    assert logged in caplog.text
+    assert "Bad input item" not in str(caught.value)
+    await reasoning.aclose()
+
+
+@pytest.mark.asyncio
+async def test_stream_failure_detail_masks_tokens_and_unsafe_codes():
+    event = {
+        "type": "response.failed",
+        "response": {
+            "error": {"code": "has spaces!", "message": "Bearer abcdefghijklmnop leaked " * 30}
+        },
+    }
+    reasoning, _ = _reasoning(lambda _request: httpx.Response(200, text=_sse(event)))
+    with pytest.raises(SubscriptionReasoningError) as caught:
+        await _collect(reasoning)
+    assert caught.value.code == "subscription_unavailable"
+    assert "code=unsafe" in caught.value.detail
+    assert "abcdefghijklmnop" not in caught.value.detail
+    assert len(caught.value.detail) < 400
+    await reasoning.aclose()

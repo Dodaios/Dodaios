@@ -842,8 +842,12 @@ def _subscription_failure(grant: Grant, exc: Exception) -> GatewayError:
 
     if isinstance(exc, GatewayError) or getattr(exc, "status", 0) == 429:
         return _failure(grant.provider, exc)
+    detail = getattr(exc, "detail", "")
     log.warning(
-        "runtime gateway: %s subscription call failed: %s", grant.agent_id, _describe(exc)
+        "runtime gateway: %s subscription call failed: %s%s",
+        grant.agent_id,
+        _describe(exc),
+        f" [{detail}]" if isinstance(detail, str) and detail else "",
     )
     sign_in = "The ChatGPT subscription needs a new sign-in in Dodaios."
     if isinstance(exc, SubscriptionAuthError):
@@ -859,6 +863,16 @@ def _subscription_failure(grant: Grant, exc: Exception) -> GatewayError:
         )
     if status in (401, 403):
         return GatewayError(sign_in, status=401, code="provider_auth")
+    if code in ("max_output_tokens", "incomplete"):
+        # The backend ends the stream as incomplete before any output (live
+        # 2026-10-27: an OpenClaw turn carrying ~400 inline tool schemas, every
+        # retry alike). Terminal: resending the same request cannot succeed.
+        return GatewayError(
+            "ChatGPT stopped this request before answering (incomplete). Resending it "
+            "unchanged will not help; a tool schema it carries can cause this.",
+            status=502,
+            code="incomplete",
+        )
     if status == 404 or code == "model_not_found":
         return GatewayError(
             "The selected model is unavailable on this ChatGPT subscription.",

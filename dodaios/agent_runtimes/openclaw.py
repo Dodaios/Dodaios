@@ -583,9 +583,11 @@ class OpenClawRuntime:
                 "slots": {"memory": "none"},
                 "entries": {"memory-core": {"enabled": False}},
             },
-            # Jarvis' tools offered directly, never behind OpenClaw's tool search
-            # (on by default for local models; smaller models miss deferred tools).
-            "tools": {"deny": denied, "exec": {"mode": exec_mode}, "toolSearch": False},
+            "tools": {
+                "deny": denied,
+                "exec": {"mode": exec_mode},
+                "toolSearch": _tool_search(route.transport),
+            },
             # The agent's log stays in its own folder, never in the shared
             # temp-folder log every OpenClaw on the machine appends to.
             "logging": {"file": str(home / "state" / "logs" / "openclaw.log")},
@@ -1057,6 +1059,25 @@ def _use_claude_cli(config: dict[str, Any], turn: RuntimeTurn) -> None:
     tools["exec"]["mode"] = "full" if turn.auto_approve else "deny"
     if "shell" in turn.denied_native:
         tools["deny"] = [*tools["deny"], "exec", "process"]
+
+
+def _tool_search(transport: str) -> Any:
+    """``tools.toolSearch``: deferred schemas on the ChatGPT subscription only.
+
+    Every other route gets Jarvis' tools directly (OpenClaw turns tool search
+    on by default for local models; smaller models miss deferred tools). The
+    subscription's backend ends a request carrying the whole inline catalog
+    (live 2026-10-27: ~400 tools, ~580 KB of schemas from the person's
+    connected plugins) as ``response.incomplete`` before any output, on every
+    retry. Size alone is not the trigger (400 synthetic tools at ~210k tokens
+    passed); the failing slices all held the only ``oneOf`` schemas in the
+    catalog, which points at a schema shape the backend refuses inline.
+    Hermes on the same seat defers its tools behind ``tool_search`` and
+    answers. The structured mode keeps every tool callable through
+    ``tool_search`` / ``tool_describe`` / ``tool_call``, and no third-party
+    schema reaches the backend as a function declaration.
+    """
+    return {"mode": "tools"} if transport == "responses" else False
 
 
 def _declared_efforts(turn: RuntimeTurn) -> dict[str, Any]:
