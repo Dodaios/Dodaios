@@ -470,6 +470,10 @@ A release happens **only** when the maintainer asks for one.
   this same uploader, so a publisher retry cannot revert visibility to draft.
   Re-run failed jobs with their original build artifacts to recover a partial
   upload; a full rebuild with different bytes requires an explicit decision.
+  When a release cut pushed its tag but publishing did not succeed, its
+  `stranded` job opens (or comments on) the issue "Release vX.Y.Z is tagged
+  but not published" with these recovery steps, so a draft behind a public
+  tag never goes unnoticed.
   The in-app updater follows `releases/latest`; draft releases remain hidden.
 * **Two names per installer.** Every native installer is published as
   `Dodaios-*` and, with identical bytes, under its earlier `PersonalJarvis-*`
