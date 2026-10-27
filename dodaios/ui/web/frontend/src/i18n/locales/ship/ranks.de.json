@@ -28,13 +28,13 @@
         "deck": "Arbeitsuniform",
         "line": "Linienrock",
         "command": "Kommandorock",
-        "flag": "Flaggweiß"
+        "flag": "Flaggrock"
       },
       "uniform_note": {
         "deck": "Anthrazitfarbene Arbeitsuniform, ausgegeben an deinem ersten Tag an Bord.",
-        "line": "Olivgrauer Rock und Mütze eines Offiziers mit Patent.",
-        "command": "Schwarzer Rock und Mütze für alle, die ein Schiff führen.",
-        "flag": "Weißer Rock und Mütze eines Flaggoffiziers."
+        "line": "Schiefergrauer Rock eines Offiziers mit Patent.",
+        "command": "Anthrazitfarbener Rock mit goldener Paspel für alle, die ein Schiff führen.",
+        "flag": "Ochsenblutroter Rock mit goldener Paspel eines Flaggoffiziers."
       },
       "ribbon": {
         "ribbon_good_conduct": "Band für gute Führung",

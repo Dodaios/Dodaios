@@ -15,8 +15,8 @@ a clipped slab.
 ## 2026-10-20 01:35 — first deck previews
 
 - **Emblems (legal):** no round emblem with spokes, cogs or hexagons in a
-  circle — those evoke a film faction's crest. The ship's mark is a plain
-  wedge/chevron or the deck number in a simple frame.
+  circle — they read as borrowed crests. The ship's mark is the Dodaios
+  hex-bar, a plain chevron or the deck number in a simple frame.
 - **Text on floors and walls:** at most one bay/deck number per room plus small
   worn stencils. Large painted words read as game UI.
 - **No warm wood or beige** anywhere; tables are steel, composite or black
@@ -29,7 +29,7 @@ a clipped slab.
 
 ## 2026-10-19 23:30 — contrast is the signature
 
-From the reference review (private contact sheet) and the first lookdev:
+From the mood-board review and the first lookdev:
 
 1. **Mostly dark, crisply lit.** Rooms are lit by rows of bright ceiling
    panels (camera-invisible, but mirrored in the floor) and by wall light

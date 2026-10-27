@@ -3,8 +3,8 @@
 Status: **rebuilt from scratch, 2026-10-20.** Replaces the starship build of
 2026-10-19 (code, plans, figures, ranks and look are all new).
 
-The Verse is the interior of **Dodaios**, a 1.6 km wedge-hulled capital ship of
-a fleet navy, seen from above. The person is its **commanding officer**, the
+The Verse is the interior of **Dodaios**, a 2.4 km capital ship of the
+Dodaios fleet, seen from above. The person is its **commanding officer**, the
 agents are its **officers and crew**, coding panes are **engineering
 technicians**, the pet is the commander's **companion drone**. It is mounted
 by **Agents > Dodaios Verse** and by the IDE side panel's Verse tab (which opens
@@ -59,7 +59,7 @@ a duel. Motion and look live in `actors/hoverboard.ts`.
 
 **Duel.** At any of the four consoles on the reactor's control ring (Reactor
 Engineering) E offers *Start a duel*; the **Duel** button on the tool rail does
-the same from any deck (the turbolift rides down first). Choose normal, hard
+the same from any deck (the lift rides down first). Choose normal, hard
 or elite and fight a 1v1 blaster duel against a bot, best of three; Esc pauses,
 Esc again leaves and puts the commander back on the deck. See
 [`combat.md`](combat.md).
@@ -114,10 +114,10 @@ from the terminal beside it. Details: [`realtime.md`](realtime.md)
 
 | # | Deck | Who is there | Stations |
 |---|---|---|---|
-| 1 | Command Bridge | Agents at the consoles of the two crew pits | Command station (agents list), strategy holo-table, briefing room (team), ready room (service record), turbolift |
-| 2 | Operations | Off-duty crew in the mess, paused agents in their bunks, teams in their ready rooms | Mess counter (call to the mess), records hall (service record), simulator room (games), quartermaster (uniform), team tables, turbolift |
-| 3 | Reactor Engineering | Technicians at the terminal banks: one per coding pane | Master systems console (launch coding agents), turbolift |
-| 4 | Main Hangar | New agents arrive by shuttle and report at the arrivals desk | Arrivals desk (create agent), turbolift |
+| 1 | Command Bridge | Agents at the consoles of the two crew pits | Command station (agents list), strategy holo-table, briefing room (team), ready room (service record), lift |
+| 2 | Operations | Off-duty crew in the mess, paused agents in their bunks, teams in their ready rooms | Mess counter (call to the mess), records hall (service record), simulator room (games), quartermaster (uniform), team tables, lift |
+| 3 | Reactor Engineering | Technicians at the terminal banks: one per coding pane | Master systems console (launch coding agents), lift |
+| 4 | Main Hangar | New agents arrive by shuttle and report at the arrivals desk | Arrivals desk (create agent), lift |
 
 ## Duty status
 
@@ -128,6 +128,8 @@ company (patrols, utility drones) is decoration and never stands for anything.
 
 ## Legal
 
-No film or franchise name, logo, crest, insignia, typeface, alien script or
-character is copied or named. Third-party content is CC0 only, recorded in
+The Verse is an original design, the Dodaios fleet style. No film, series,
+game or other franchise is named, referenced or used as a source, and no
+third-party logo, crest, insignia, typeface, alien script, costume, vehicle
+silhouette or character is copied. Third-party content is CC0 only, recorded in
 `art/verse/LICENSES.md`.

@@ -122,17 +122,17 @@ per tier are in `characters.json` (`tiers`, sRGB hex; `THREE.Color.set()` conver
 | Slot | Officer | Use |
 |---|---|---|
 | `M_Uniform` | tunic, collar | tier colour |
-| `M_Trousers` | riding trousers | tier colour (flag tier: black) |
+| `M_Trousers` | trousers | tier colour |
 | `M_Trim` | cuffs, front-flap seam (raised bead) | tier trim colour: a shade darker; on the `deck` tier a lighter grey, so the seam and cuffs read as the zip and cuffs of a work suit |
 | `M_Accent` | shoulder-seam and collar piping | the agent's personal accent colour |
-| `M_Cap` | cap (mesh `Cap`) | tier colour |
+| `M_Cap` | cap (mesh `Cap`, hidden on every tier) | tier colour |
 | `M_Skin`, `M_Hair` | face, hands / hair | per person |
 | `M_Eye` | eyeballs (sclera, iris, pupil in the atlas) | leave |
 | `M_Boots`, `M_Belt` | knee boots / belt | black leather |
 | `M_RankPlate` | steel plate, buckle, cap badge | steel |
 | `M_RankTile_1..6` | six pips on the plate | unlit `tileUnlit`; lit: tier tile colour (optionally `emissive`) |
 
-- Mesh `Cap` is separate: hide it for bareheaded officers (deck tier per BRIEF §8).
+- Mesh `Cap` is separate and kept for compatibility: every tier hides it (`cap: false`), the crew goes bareheaded (BRIEF §8).
 - Mesh `RankPlate` holds the plate and the six pips. Pips 1–3 are the top row, 4–6 the
   bottom row, left to right as seen from the front (= `plateTiles()` slots 0–5).
   `models[].rankPlate` gives the plate centre and facing (model space, rest pose) and its
@@ -141,8 +141,9 @@ per tier are in `characters.json` (`tiers`, sRGB hex; `THREE.Color.set()` conver
   Drones carry their own rig and clips inside their glb.
 - Technician: `M_Uniform` (black suit), `M_Helmet`, `M_Visor`, `M_Mark`, `M_ChestBox`,
   `M_Glow` (chest-box lights), `M_Trim`, `M_Gloves`, `M_Boots`, `M_Belt`, `M_Skin`.
-- Trooper: `M_Armor` (white plates, helmet, boots), `M_Undersuit`, `M_Visor`, `M_Belt`
-  (utility belt and pouches), `M_Gloves`, `M_Accent` (unit band on the left upper arm).
+- Trooper (the marine): `M_Armor` (gunmetal plates, helmet, boots), `M_Undersuit`, `M_Visor`,
+  `M_Belt` (utility belt and pouches), `M_Gloves`, `M_Accent` (gold unit band on the left
+  upper arm).
   Plates are parametric shells with bevelled rims, each rigid on one bone.
 
 ## Using it in three.js

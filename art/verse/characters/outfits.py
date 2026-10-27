@@ -28,14 +28,14 @@ from characters import posing as P
 
 # name: (base colour linear RGB, roughness, metallic, extra)
 MATERIALS = {
-    "M_Uniform": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.08}),
-    "M_Trim": ((0.075, 0.078, 0.066), 0.74, 0.0, {"sheen": 0.08}),
+    "M_Uniform": ((0.034, 0.048, 0.076), 0.8, 0.0, {"sheen": 0.08}),
+    "M_Trim": ((0.022, 0.033, 0.052), 0.74, 0.0, {"sheen": 0.08}),
     "M_Accent": ((0.42, 0.045, 0.035), 0.55, 0.0, {}),
     "M_Skin": ((0.62, 0.38, 0.27), 0.52, 0.0, {}),
     # hair: the atlas darkens it between the locks (factor = the lit lock colour)
     "M_Hair": ((0.055, 0.036, 0.025), 0.48, 0.0, {}),
     "M_Boots": ((0.010, 0.010, 0.011), 0.24, 0.0, {"coat": 0.8}),
-    "M_Cap": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.08}),
+    "M_Cap": ((0.034, 0.048, 0.076), 0.8, 0.0, {"sheen": 0.08}),
     "M_Belt": ((0.014, 0.014, 0.015), 0.38, 0.0, {"coat": 0.3}),
     "M_RankPlate": ((0.40, 0.42, 0.45), 0.3, 1.0, {}),
     "M_Helmet": ((0.012, 0.012, 0.013), 0.14, 0.0, {"coat": 1.0}),
@@ -43,10 +43,12 @@ MATERIALS = {
     "M_ChestBox": ((0.05, 0.052, 0.056), 0.38, 0.7, {}),
     "M_Glow": ((0.9, 0.55, 0.12), 0.4, 0.0, {"emit": 3.0}),
     "M_Gloves": ((0.016, 0.016, 0.017), 0.48, 0.0, {}),
-    "M_Armor": ((0.60, 0.60, 0.58), 0.32, 0.0, {"coat": 0.45}),
+    # marine armour: painted gunmetal (#3A3D42) with a metallic fleck under a satin coat
+    "M_Armor": ((0.042, 0.047, 0.054), 0.36, 0.55, {"coat": 0.45}),
     "M_Undersuit": ((0.023, 0.026, 0.030), 0.72, 0.0, {"sheen": 0.08}),
-    "M_Trousers": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.08}),
-    "M_Mark": ((0.78, 0.78, 0.76), 0.5, 0.0, {}),
+    "M_Trousers": ((0.034, 0.048, 0.076), 0.8, 0.0, {"sheen": 0.08}),
+    # the technician helmet's unit mark: brand gold (#C8A24A)
+    "M_Mark": ((0.578, 0.361, 0.069), 0.4, 0.8, {}),
     # eyeballs: white factor, the atlas paints sclera, iris and pupil
     "M_Eye": ((0.86, 0.85, 0.83), 0.2, 0.0, {"coat": 0.6}),
 }

@@ -65,7 +65,7 @@
         "action": "Trazer um novo oficial a bordo"
       },
       "lift": {
-        "name": "Turboelevador",
+        "name": "Elevador",
         "action": "Ir para outro convés"
       }
     },
@@ -94,7 +94,7 @@
       "view": "Vista",
       "follow": "Terceira pessoa",
       "overview": "Vista aérea",
-      "lift": "Turboelevador",
+      "lift": "Elevador",
       "commander": "Comandante",
       "settings": "Ajustes de visualização",
       "help": "Ajuda",
@@ -123,7 +123,7 @@
       "volume": "Volume do som"
     },
     "lift": {
-      "title": "Turboelevador",
+      "title": "Elevador",
       "switch": "Mudar de convés",
       "here": "Este convés"
     },
@@ -168,7 +168,7 @@
       "start": "Iniciar um duelo",
       "title": "Duelo no reator",
       "intro": "Um duelo de blaster um contra um no poço do reator contra um bot de combate. Melhor de três rodadas; saia quando quiser.",
-      "ride": "O turboelevador leva você primeiro à Engenharia do reator.",
+      "ride": "O elevador leva você primeiro à Engenharia do reator.",
       "choose": "Escolha o adversário",
       "difficulty": {
         "normal": "Normal",
