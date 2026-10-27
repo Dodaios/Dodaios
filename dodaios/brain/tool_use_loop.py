@@ -1064,7 +1064,10 @@ class ToolUseLoop:
             # normal executor, risk, confirmation, telemetry, and synthesis
             # path. This is shared by native, plugin, skill, and MCP tools.
             if not deadline_forced and tools_payload:
-                recovered_calls = extract_leaked_tool_calls(agg.text)
+                # The offered schemas let chat-template markup (Qwen
+                # ``<tool_call>``, Mistral ``[TOOL_CALLS]``) be recovered for
+                # the tools that really exist this round.
+                recovered_calls = extract_leaked_tool_calls(agg.text, tools_payload)
                 if recovered_calls:
                     structured_signatures = {
                         _tool_call_signature(call) for call in agg.tool_calls
