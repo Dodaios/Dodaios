@@ -4758,7 +4758,7 @@
     "preset_stack_main": "Dos apiladas a la izquierda, una a la derecha",
     "preset_columns_3": "Tres columnas",
     "preset_grid_4": "Cuatro en cuadrícula",
-    "shift_click_hint": "Consejo: Mayús+clic en una sección de la barra lateral la abre junto a la actual. Arrastra la barra de título de un panel sobre otro para intercambiarlos.",
+    "shift_click_hint": "Consejo: un clic en la barra lateral cambia el panel resaltado; Mayús+clic abre la sección a su lado. Arrastra el título de un panel sobre otro para intercambiarlos.",
     "background": "Fondo",
     "background_desktop": "Fondo del escritorio",
     "background_custom": "Elegir una imagen…",
@@ -4774,7 +4774,12 @@
     "split_down": "Dividir hacia abajo",
     "maximize": "Ocupar toda la pantalla",
     "restore": "Volver al diseño",
-    "close": "Cerrar panel"
+    "close": "Cerrar panel",
+    "pick_section": "Mostrar en este panel",
+    "search_section": "Buscar secciones…",
+    "no_section_match": "Ninguna sección coincide",
+    "what_where": "Qué va dónde",
+    "what_where_hint": "Haz clic en un panel para elegir qué sección muestra."
   },
   "use_web_socket": {
     "jarvis_opened": "{name} abrió",

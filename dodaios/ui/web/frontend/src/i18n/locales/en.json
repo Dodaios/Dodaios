@@ -4758,7 +4758,7 @@
     "preset_stack_main": "Two stacked left, one right",
     "preset_columns_3": "Three columns",
     "preset_grid_4": "Four in a grid",
-    "shift_click_hint": "Tip: Shift+click a section in the sidebar to open it beside the current one. Drag a tile's title bar onto another tile to swap them.",
+    "shift_click_hint": "Tip: a click in the sidebar changes the highlighted tile; Shift+click opens the section beside it. Drag a tile's title onto another to swap the two.",
     "background": "Background",
     "background_desktop": "Desktop wallpaper",
     "background_custom": "Choose a picture…",
@@ -4774,7 +4774,12 @@
     "split_down": "Split down",
     "maximize": "Fill the screen",
     "restore": "Back to the layout",
-    "close": "Close tile"
+    "close": "Close tile",
+    "pick_section": "Show in this tile",
+    "search_section": "Search sections…",
+    "no_section_match": "No section matches",
+    "what_where": "What goes where",
+    "what_where_hint": "Click a tile to choose which section it shows."
   },
   "use_web_socket": {
     "jarvis_opened": "{name} opened",

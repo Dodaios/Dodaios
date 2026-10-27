@@ -4758,7 +4758,7 @@
     "preset_stack_main": "Zwei links untereinander, einer rechts",
     "preset_columns_3": "Drei Spalten",
     "preset_grid_4": "Vier im Raster",
-    "shift_click_hint": "Tipp: Mit Shift+Klick auf einen Bereich in der Seitenleiste öffnest du ihn neben dem aktuellen. Zieh die Titelleiste einer Kachel auf eine andere, um beide zu tauschen.",
+    "shift_click_hint": "Tipp: Ein Klick in der Seitenleiste wechselt die hervorgehobene Kachel; mit Shift+Klick öffnest du den Bereich daneben. Zieh die Titelleiste einer Kachel auf eine andere, um beide zu tauschen.",
     "background": "Hintergrund",
     "background_desktop": "Desktop-Hintergrund",
     "background_custom": "Bild auswählen…",
@@ -4774,7 +4774,12 @@
     "split_down": "Unten teilen",
     "maximize": "Ganzen Platz nutzen",
     "restore": "Zurück zum Layout",
-    "close": "Kachel schließen"
+    "close": "Kachel schließen",
+    "pick_section": "In dieser Kachel zeigen",
+    "search_section": "Bereich suchen…",
+    "no_section_match": "Kein Bereich passt",
+    "what_where": "Was steht wo",
+    "what_where_hint": "Klick auf eine Kachel und wähle, welcher Bereich darin steht."
   },
   "use_web_socket": {
     "jarvis_opened": "{name} öffnete",
