@@ -496,8 +496,17 @@ class OllamaBrain:
         # Invariant at this point: either the request carries no images, or the
         # model just negotiated declares ``vision`` — so the streamer may encode
         # them.
+        # ``tools_fallback``: the capability probe fails open, so a model
+        # without tool support can still reach the server with tools; its
+        # "does not support tools" refusal is then answered without them.
         stream = stream_complete(
-            client, call.run_model, req, supports_vision=True, send_temperature=send_temperature
+            client,
+            call.run_model,
+            req,
+            supports_vision=True,
+            send_temperature=send_temperature,
+            tools_fallback=True,
+            hold_think_prefix=True,
         )
         reported: int | None = None
         try:
