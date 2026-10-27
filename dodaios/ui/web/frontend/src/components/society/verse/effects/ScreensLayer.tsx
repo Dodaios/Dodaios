@@ -61,14 +61,14 @@ function faceContent(face: ScreenView): string {
 }
 
 /** What a terminal tile shows right now: the live buffer's version, or the replay's stamp. */
-function tileStamp(tile: TerminalTileFace): string {
+export function tileStamp(tile: TerminalTileFace): string {
   const live = liveTerminal(tile.workspaceId, tile.names);
   if (live) return `L${live.version}`;
   const f = tile.fallback;
   return f ? `F${f.at}:${f.cursor?.join(",") ?? ""}` : "-";
 }
 
-function tileSnapshot(tile: TerminalTileFace): GridTile {
+export function tileSnapshot(tile: TerminalTileFace): GridTile {
   const live = liveTerminal(tile.workspaceId, tile.names);
   if (live) return { header: tile.header, snap: snapshotXterm(live.term) };
   if (tile.fallback) return { header: tile.header, snap: snapshotText(tile.fallback, themeFor("dark")) };

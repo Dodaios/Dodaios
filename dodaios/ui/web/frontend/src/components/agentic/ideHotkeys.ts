@@ -441,4 +441,10 @@ export interface PaneCommandDetail { workspaceId: string; pane: string; command:
 
 /** The window event that types text into one pane's terminal, as if from the keyboard. */
 export const PANE_INPUT_EVENT = "jarvis:ide-pane-input";
-export interface PaneInputDetail { workspaceId: string; pane: string; data: string }
+export interface PaneInputDetail {
+  workspaceId: string;
+  pane: string;
+  data: string;
+  /** False: type without focusing the pane (the Verse types into a pane the IDE has hidden). */
+  focus?: boolean;
+}
