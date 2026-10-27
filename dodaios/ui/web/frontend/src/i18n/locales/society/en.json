@@ -292,6 +292,7 @@
       "send": "Send",
       "test_started": "Test run started.",
       "active": "Active",
+      "paused": "Paused",
       "delete": "Delete",
       "test": "Test run",
       "delete_confirm": "Delete this routine, all its schedules and execution history?",

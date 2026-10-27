@@ -39,6 +39,12 @@ export interface InspectorRow {
 
 export const PREVIEW_MAX = 80;
 
+/** One line of plain text, capped; underscores and stars stay as written. */
+export function plainPreview(text: string, max = PREVIEW_MAX): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
+}
+
 /** First meaningful line, markdown marks dropped, capped. */
 export function previewOf(text: string, max = PREVIEW_MAX): string {
   const line = text
@@ -119,7 +125,8 @@ function callRow(block: ToolBlock, turn: TurnStatus, t: Translate, lang: string)
   const tail = call.detail || call.result || (call.status === "failed" || call.status === "blocked" ? call.reason : "");
   return {
     id: block.callId, kind: "call", status: CALL_STATUS[call.status], label: call.text,
-    preview: previewOf(tail || (call.kind === "command" ? "" : readableOutput(block))),
+    // A call's own words are plain text (ids, paths, queries): only its output reads as markdown.
+    preview: tail ? plainPreview(tail) : previewOf(call.kind === "command" ? "" : readableOutput(block)),
     added: call.added, removed: call.removed, durationMs: block.durationMs, block, call,
   };
 }

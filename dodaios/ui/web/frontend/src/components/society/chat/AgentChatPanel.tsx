@@ -103,6 +103,7 @@ import { stampPlan, type StampEntry } from "@/components/agentchat/activity/tran
 import { CatchUpPill, RunAnnouncer, SettleBox, TranscriptStamp, useFarFromEnd, useUnseen } from "@/components/agentchat/activity/TranscriptAids";
 import { WorkInspector } from "@/components/agentchat/inspector/WorkInspector";
 import { inspectorDocked, readInspectorWidth, writeInspectorWidth } from "@/components/agentchat/inspector/inspectorWidth";
+import { useInspectedTurn } from "@/components/agentchat/inspector/inspectedTurn";
 
 /** Who spoke an item, for time stamps that never split one speaker's run. */
 function stampEntry(item: TimelineItem): StampEntry {
@@ -748,7 +749,8 @@ export function Transcript({
     return member ? <AgentSwatch agent={{ ...member, state: undefined }} size={16} /> : null;
   }, [memberOf]);
   // The work inspector: one turn's whole trace beside the conversation.
-  const [inspecting, setInspecting] = useState<string | null>(null);
+  // Opened on the newest turn it follows each new one; opened on an older turn it stays there.
+  const { inspecting, open: setInspecting, close: closeInspector } = useInspectedTurn(items);
   const inspectedAt = inspecting ? items.findIndex((item) => item.type === "turn" && item.id === inspecting) : -1;
   const inspected = inspectedAt >= 0 ? items[inspectedAt] as TurnItem : null;
   const inspectedPrompt = useMemo(() => {
@@ -764,7 +766,6 @@ export function Transcript({
     setInspectorWidth(width);
     writeInspectorWidth(width);
   }, []);
-  const closeInspector = useCallback(() => setInspecting(null), []);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [frameWidth, setFrameWidth] = useState(0);
   // Measured only while the inspector is open: a closed one costs nothing.

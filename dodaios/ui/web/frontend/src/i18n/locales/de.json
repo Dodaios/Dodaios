@@ -7744,7 +7744,11 @@
       "write_other": "Dateien erstellt",
       "image_one": "ein Bild angesehen",
       "image_other": "Bilder angesehen",
-      "used": "{what} verwendet"
+      "used": "{what} verwendet",
+      "lookup_one": "Werkzeuge nachgeschlagen",
+      "lookup_other": "Werkzeuge nachgeschlagen",
+      "asked_one": "dich gefragt",
+      "asked_other": "dich gefragt"
     },
     "call": {
       "read": "{target} gelesen",
@@ -7752,7 +7756,9 @@
       "search": "Nach {pattern} gesucht",
       "search_in": "In {path} nach {pattern} gesucht",
       "edit": "{target} bearbeitet",
-      "write": "{target} erstellt"
+      "write": "{target} erstellt",
+      "lookup": "Werkzeuge nachgeschlagen",
+      "asked": "Dich gefragt"
     },
     "state": {
       "running": "Läuft",
