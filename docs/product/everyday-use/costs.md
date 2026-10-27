@@ -162,8 +162,8 @@ This check only reads existing records; it does not require a new model call.
 
 ## From a Terminal
 
-The `jarvis costs` command group reads the same running application's cost API.
-Use `jarvis costs --help` to discover the supported summaries and filters.
+The `dodaios costs` command group reads the same running application's cost API.
+Use `dodaios costs --help` to discover the supported summaries and filters.
 
 ## Next Steps
 

@@ -163,7 +163,7 @@ real call, so let the first test greeting finish before speaking.
 |---|---|---|---|
 | Inbound | Someone dials the connected number | Validates the Twilio webhook, opens a one-call media connection, speaks the greeting, then runs speech recognition, Brain, and voice output | Twilio is authenticated, but the human caller is not |
 | Outbound by contact | You ask your assistant to call a saved contact | Resolves the contact's primary phone number, requests approval, places the call, and speaks the requested or default opening | The `call-contact` action uses the `ask` safety tier |
-| Outbound by CLI | You run `jarvis telephony outbound <number> --yes` | Validates an E.164 destination and asks Twilio to place the call | This skips contact lookup but still requires complete, enabled telephony setup |
+| Outbound by CLI | You run `dodaios telephony outbound <number> --yes` | Validates an E.164 destination and asks Twilio to place the call | This skips contact lookup but still requires complete, enabled telephony setup |
 
 The desktop app does not provide a general-purpose dial pad. For the normal app
 flow, save a phone number under **Contacts**, then ask your assistant to call that

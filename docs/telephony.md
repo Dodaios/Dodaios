@@ -1,13 +1,13 @@
-# Telephony — call Jarvis on a phone number
+# Telephony — call Dodaios on a phone number
 
-Jarvis can answer a real phone call. A caller dials a Twilio number and talks to
-Jarvis as a real-time voice agent, using **Jarvis's own** speech stack — the
+Dodaios can answer a real phone call. A caller dials a Twilio number and talks to
+Dodaios as a real-time voice agent, using **Dodaios's own** speech stack — the
 same STT, the same Brain, and the same **Charon** voice as the desktop
 microphone path. Nothing about the voice changes between the desk and the phone.
 
 Under the hood the call audio is bridged with **Twilio Media Streams** (raw
 audio over a WebSocket), not Twilio's ConversationRelay. Media Streams is the
-only mode that lets Jarvis run its own STT and speak in its own consistent
+only mode that lets Dodaios run its own STT and speak in its own consistent
 voice — ConversationRelay would force Twilio's TTS voices, so it is disqualified
 for the default path (design decision AD-T1).
 
@@ -52,44 +52,44 @@ python -m dodaios --wizard
 ```
 
 The wizard lists **Twilio Auth Token** among the secrets. It is stored in the
-Windows Credential Manager (service `personal-jarvis`, key `twilio_auth_token`),
-never in `jarvis.toml`. You can also set the `TWILIO_AUTH_TOKEN` environment
+Windows Credential Manager (service `dodaios`, key `twilio_auth_token`; earlier
+versions used `personal-jarvis`), never in `dodaios.toml`. You can also set the `TWILIO_AUTH_TOKEN` environment
 variable.
 
 ## 3. Configure the number (VPS path — recommended)
 
-Deploy Jarvis on a VPS and put a reverse proxy in front of the FastAPI port
+Deploy Dodaios on a VPS and put a reverse proxy in front of the FastAPI port
 (default `8765`). A minimal **Caddyfile** that terminates TLS and proxies both
 the HTTP webhook and the WebSocket:
 
 ```
-jarvis.example.com {
+dodaios.example.com {
     reverse_proxy localhost:8765
 }
 ```
 
 Caddy handles the WebSocket upgrade for `/api/telephony/media` automatically and
-gets a Let's Encrypt certificate for `jarvis.example.com` on first start.
+gets a Let's Encrypt certificate for `dodaios.example.com` on first start.
 
-Then in the app's **Telephony** section (or in `jarvis.toml`) set:
+Then in the app's **Telephony** section (or in `dodaios.toml`) set:
 
 ```toml
 [integrations.twilio]
 enabled = true
 account_sid = "AC..."                # your Account SID (not a secret)
 phone_number = "+49301234567"        # your Twilio number, E.164
-public_base_url = "https://jarvis.example.com"   # no trailing slash
+public_base_url = "https://dodaios.example.com"   # no trailing slash
 language_code = "de-DE"
-greeting = ""                        # empty = Jarvis butler default
+greeting = ""                        # empty = default greeting with the assistant name
 max_call_seconds = 600
 ```
 
-Finally point the number's **Voice webhook** at Jarvis:
+Finally point the number's **Voice webhook** at Dodaios:
 
 ```bash
 python scripts/telephony_provision.py set-webhook \
     --number +49301234567 \
-    --url https://jarvis.example.com/api/telephony/voice
+    --url https://dodaios.example.com/api/telephony/voice
 ```
 
 (or set the webhook to `POST {public_base_url}/api/telephony/voice` in the
@@ -114,9 +114,9 @@ restart, so re-run `set-webhook` each time. The VPS path avoids this.
   to confirm the Auth Token), then **Self-test voice** (runs a fixed utterance
   through STT → Brain → TTS with no real call, and shows the transcript +
   response so you can confirm there is no text truncation).
-- Call your Twilio number. Jarvis greets you, you talk, it answers in the Charon
+- Call your Twilio number. Dodaios greets you, you talk, it answers in the Charon
   voice. Say **"auflegen"** (or "tschüss", "goodbye", "hang up") to end the <!-- i18n-allow: voice hangup trigger words -->
-  call; barge-in is supported (start talking while Jarvis is speaking and it
+  call; barge-in is supported (start talking while Dodaios is speaking and it
   stops to listen). <!-- i18n-allow -->
 
 Recent calls appear in the **Recent calls** table.
@@ -177,7 +177,7 @@ python scripts/probe_telephony_e2e.py
 ```
 
 drives the media-stream session with synthetic frames and prints a transcript,
-a Jarvis response, and the outbound mu-law frame count — the in-repo proof of
+a Dodaios response, and the outbound mu-law frame count — the in-repo proof of
 correctness. Add `--real --wav utterance.wav` to run the configured real stack
 against a 16 kHz mono WAV.
 

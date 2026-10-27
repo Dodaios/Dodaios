@@ -10,7 +10,7 @@ block carries a header comment naming the upstream file, the commit and the
 license. No upstream file is vendored unchanged, and the agent runtime itself
 is not taken from upstream.
 
-| Jarvis file | Upstream source |
+| Dodaios file | Upstream source |
 | --- | --- |
 | `dodaios/society/conversation.py` (`SUMMARY_SYSTEM`) | `agent/context_compressor.py` (structured summary sections) |
 | `dodaios/society/review.py` (`_LEARNING_RULES`) | `agent/background_review.py` (skill-update order, "do not capture" list) |

@@ -1,9 +1,9 @@
-# Agent Definition — what a society agent IS and how it plugs into Jarvis
+# Agent Definition — what a society agent IS and how it plugs into Dodaios
 
 Status: **binding design, 2026-09-01.** Subordinate to [`MASTERPLAN.md`](MASTERPLAN.md); it
 refines §3.1 (roster), §3.2 (runners), §4.2 (model card), §6 (safety) and answers the questions
 the build plan left open: how an agent gets its hands (plugins, CLIs, MCPs, skills), how it knows
-the Jarvis ecosystem, and how the Obsidian wiki becomes the society's shared memory.
+the Dodaios ecosystem, and how the Obsidian wiki becomes the society's shared memory.
 
 The whole thing is built in-house (MASTERPLAN §10.7).
 
@@ -54,9 +54,9 @@ card; nothing hidden drives behavior.
   already drives on a plan: Claude Code (Claude Max), Codex (ChatGPT), Grok Build (SuperGrok),
   Antigravity (Google), OpenCode, Kimi, GLM, Cursor. `resolve_runner(provider, "society")`
   decides per box: a seat's CLI when installed (`claude-api` is dual — Claude Code when
-  present, else the Anthropic API), Jarvis' brain runner for API rows.
+  present, else the Anthropic API), Dodaios' brain runner for API rows.
 - **On a seat the CLI runs AS the agent**: its briefing (§3.3) is the identity the CLI is handed
-  (`dodaios_harness.identity_prompt(prompt_override=…)`, Jarvis' own layers stay out), Jarvis'
+  (`dodaios_harness.identity_prompt(prompt_override=…)`, Dodaios' own layers stay out), Dodaios'
   tools reach it over MCP (`mcp__dodaios__*`; `mcp__jarvis__*` in transcripts written before the
   server was renamed, read alike), and it brings its own hands (Claude Code's shell,
   editor, browser). The society-only tools (`society_message_agent`, `society_wiki_note`,
@@ -116,14 +116,14 @@ card; nothing hidden drives behavior.
 
 ---
 
-## 3. Hands: how an agent gets tools from the Jarvis ecosystem
+## 3. Hands: how an agent gets tools from the Dodaios ecosystem
 
 ### 3.1 One capability catalog
 
 **Coding threads (2026-10-06).** `core:coding-session` is grantable to every
 roster agent, including newly created agents and subscription seats (the same
 gated tool reaches them through the session-bound MCP catalog), and to the
-lead's typed Jarvis chat under its own session identity. It never enters the
+lead's typed Dodaios chat under its own session identity. It never enters the
 global worker catalog and never spawns society agents or mission workers.
 
 With it an agent hands coding work to a coding CLI as a **thread** in the
@@ -163,7 +163,7 @@ turns and one day are the default limits; repeated unanswered updates pause
 with a durable notice instead of creating an endless model loop. Pending
 initial deliveries are never automatically replayed after interruption.
 
-Everything a Jarvis brain can call already exists in four registries. The society adds ONE
+Everything a Dodaios brain can call already exists in four registries. The society adds ONE
 read-only view over them — `dodaios/society/capabilities.py` — that returns typed rows
 `CapabilityRow(id, kind, label, one_liner, risk_tier, connected: bool, source)`:
 
@@ -194,7 +194,7 @@ line on the agent's wiki page; a notice in its chat.
 Never in any society tool set, structurally (AP-5/AP-14): `spawn-worker`, `spawn-subagents`,
 `multi-spawn`, `dispatch-*`, `create-artifact`, `navigate`, `switch-provider`,
 `manage-mcp-server`, `app-command`. Dispatch is the scheduler's privilege; app control stays
-with Jarvis.
+with Dodaios.
 
 The catalog is what the model card's "Tools" tab lists (grouped by kind, connected first, with
 the same brand marks the Plugins / CLIs / MCPs sections use), what the Create dialog's Advanced
@@ -232,12 +232,12 @@ The society kit's `system_extra` is assembled per turn from cached, byte-stable 
 cache friendly, prefix-stable), in this order:
 
 1. **Society persona frame** (constant): you are `<name>`, `<title>`, tier `<tier>`, in a team
-   led by Jarvis; how to hand off (§4.3); what you never do (dispatch, secrets, outbound at
+   led by Dodaios; how to hand off (§4.3); what you never do (dispatch, secrets, outbound at
    scale).
 2. **The agent's `description`** verbatim (its standing instructions).
 3. **Capability brief** (§3.2) — focus tools with one-liners; "also available" line; the
    capability epoch fingerprint.
-4. **Ecosystem card** (constant, generated from code, ~40 lines): what Jarvis is (voice lead,
+4. **Ecosystem card** (constant, generated from code, ~40 lines): what Dodaios is (voice lead,
    sections, Automations, wiki, missions, artifacts), which of those the agent reaches how
    (routines via the scheduler tag; wiki via `wiki-recall` / `wiki-page-read` / `wiki-ingest`;
    files via its workspace; other agents via `message_agent`), and the house rules (turn
@@ -267,12 +267,12 @@ it.
 The anti-harm blacklist class (mass outbound, credential probing, repeated actions against
 non-consenting endpoints) is seeded at tier `block` and is not overridable by any agent field.
 
-### 3.5 The lead's team card — how Jarvis knows the society
+### 3.5 The lead's team card — how Dodaios knows the society
 
-Jarvis is the harness itself and the one lead; it never runs on the society surface, so §3.3
+Dodaios is the harness itself and the one lead; it never runs on the society surface, so §3.3
 gives it nothing. Until 2026-09-03 its router prompt still described the retired sub-agent
 (mission worker) system and listed the word "Agent" as the trigger for `spawn_worker` —
-asked "which agents do you have?", Jarvis answered from that system while a freshly created
+asked "which agents do you have?", Dodaios answered from that system while a freshly created
 Gmail agent stood on the island. The team card (`dodaios/society/lead_card.py`) is the fix:
 
 - **What it is.** A deterministic, byte-stable block rendered from the roster snapshot and the
@@ -308,26 +308,26 @@ Gmail agent stood on the island. The team card (`dodaios/society/lead_card.py`) 
 
 ---
 
-## 4. Talking: agents, Jarvis and the user
+## 4. Talking: agents, Dodaios and the user
 
 ### 4.1 Surfaces
 - **User ↔ agent:** the canonical chat (card's right column), `society:<agent_id>` session on
   the agent_chat store; the composer's `/` lists the agent's enabled skills, `@` the roster.
-- **Jarvis ↔ agent (voice):** the `delegate-to-agent` router tool (M4): ACK < 5 s, work goes
+- **Dodaios ↔ agent (voice):** the `delegate-to-agent` router tool (M4): ACK < 5 s, work goes
   through the scheduler as `ASSIGN`, completion returns through the floor-aware voice
-  result queue and a chat notice. Jarvis stays available while the assignment runs.
+  result queue and a chat notice. Dodaios stays available while the assignment runs.
 - **Agent ↔ agent:** exactly one tool, `message_agent(target, text, kind)` → one `SAY` /
   `QUERY` / `PROPOSE` envelope to ONE teammate; the scheduler wakes the target's chat.
   `@name` in a canonical chat by the USER also produces a `SAY` from the user's identity.
 - **One endless chat (2026-10-05, replaces the 2026-10-02 conversation chats):** whatever
-  Jarvis, a teammate or a routine sends a created agent runs in its one canonical chat
+  Dodaios, a teammate or a routine sends a created agent runs in its one canonical chat
   `society:<agent_id>`, recorded with its sender and shown as a folded delegation card
   (sender, task, outcome) instead of an ordinary bubble. Only `society_propose_change` with
   `mode=apply` stays reserved for the person's own turns. The `:with:` / `:routine:` chats
   written before this change stay readable and searchable in the archive; no new ones are
   created. A message that arrives while the agent works is queued and joins at the next round
   boundary instead of being refused.
-- **Group:** a room (`ROOM_OPEN → SAY* → ROOM_SETTLE`), opened by Jarvis or an orchestrator,
+- **Group:** a room (`ROOM_OPEN → SAY* → ROOM_SETTLE`), opened by Dodaios or an orchestrator,
   rendered as one thread in the society feed and as the meeting pavilion in the world.
 
 ### 4.2 Envelope payload (typed, compact)
@@ -428,7 +428,7 @@ vault cannot: taint state, curation cursors, FTS over agent notes — derived, r
 | "Default connected to all plugins, but knows it is the Gmail agent" | `grant_mode=all` + `focus` derived from the description (§3.2) |
 | Explicit "use only X" | `grant_mode=allowlist` + `denies` (§2, §3.2) |
 | Skills / MCPs / CLIs / CLI Test Hub tools reachable | one capability catalog over the four registries (§3.1) |
-| Agent knows the whole Jarvis ecosystem | ecosystem card + roster line in the prompt (§3.3) |
+| Agent knows the whole Dodaios ecosystem | ecosystem card + roster line in the prompt (§3.3) |
 | Wiki as shared memory | §5, namespaced writes, reviewed promotion |
 | Context exchange between agents | `refs` in envelopes, `RESULT` handoff record (§4.2–4.3) |
 | Per-agent approval rules | `approval_rules` under the ceiling (§3.4) |
@@ -445,7 +445,7 @@ Maps onto [`build-plan-m1-m2.md`](build-plan-m1-m2.md); new items are marked **+
 | 2 | roster schema with §2 fields (`title`, `description`, `grant_mode`, `grants`, `focus`, `denies`, `skills`, `approval_rules`, `workspace_dir`, `wiki_namespace`, `knowledge_scope`, `max_concurrent_runs`) + five-layer parity for the new enums |
 | **2b +** | `dodaios/society/capabilities.py` (catalog over plugins / CLIs / MCPs / skills / core) + `focus.py` (deterministic derivation) + tests with fakes for every registry |
 | 4 | scheduler enforces §4.3 `RESULT` schema and §4.4 rules; per-trace cap |
-| 5 | REST: `GET /api/society/capabilities`, `POST /agents` derives focus, `PATCH` re-derives on description change; CLI `jarvis society capabilities` |
+| 5 | REST: `GET /api/society/capabilities`, `POST /agents` derives focus, `PATCH` re-derives on description change; CLI `dodaios society capabilities` |
 | 6 | society surface kit implements §3.2 tool dict + §3.3 prompt assembly; `message_agent` with `refs`; wiki tools namespaced (§5 write path) |
 | **6b +** | ecosystem card generator (from code, cached, byte-stable) + `capability_epoch` wiring |
 | 7 | card "Tools" tab reads the catalog with brand marks; focus chips; approval-rules editor |

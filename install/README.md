@@ -55,7 +55,7 @@ dictation asks for the microphone, the first screen capture asks for Screen
 Recording, and so on, each through Apple's own dialog or System Settings pane.
 If you decline, only that one feature is unavailable, with one click to the
 right System Settings pane (one short toast offers it), and everything else (typed
-chat included) keeps working. `jarvis permissions reset <permission>` makes macOS ask
+chat included) keeps working. `dodaios permissions reset <permission>` makes macOS ask
 again. This is how the app is built to behave; it has not been exercised on a real
 Mac yet (unverified).
 
@@ -229,5 +229,5 @@ Before that flip:
 ## Future work (not in this PR)
 
 - CI smoke workflow `.github/workflows/install-test.yml` — fresh runner per platform, fakes API keys, asserts exit code 0.
-- `personal-jarvis update` console script — opencode parity.
-- Vercel shortener `jarvis-install.vercel.app` → raw.githubusercontent.com.
+- `dodaios update` console script.
+- A short install URL that redirects to raw.githubusercontent.com.

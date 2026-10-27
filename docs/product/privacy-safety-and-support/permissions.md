@@ -116,10 +116,10 @@ its answer for Dodaios, so it asks again the next time you use the
 feature, run this in a terminal on the Mac (it works with Dodaios closed):
 
 ```bash
-jarvis permissions reset microphone --yes
+dodaios permissions reset microphone --yes
 ```
 
-If the terminal says `jarvis: command not found` (the downloaded app does not put it on
+If the terminal says `dodaios: command not found` (the downloaded app does not put it on
 your path), run `"/Applications/Personal Jarvis.app/Contents/MacOS/jarvis"` instead, or
 use `tccutil reset Microphone ai.personaljarvis.desktop` (installer's app:
 `com.personal-jarvis.desktop`); [Troubleshooting](troubleshooting) has the rest.
@@ -130,12 +130,12 @@ permission, for the installed app (`--bundle-id` names the other app when both t
 installer's and the downloaded app are installed), never another app's. `--dry-run`
 shows the exact `tccutil` command without running it. Quit and reopen Dodaios
 afterwards, then use the feature. Other systems print one line and stop. The raw
-`tccutil` commands are in [Troubleshooting](troubleshooting). `jarvis permissions
+`tccutil` commands are in [Troubleshooting](troubleshooting). `dodaios permissions
 status` shows where each permission stands and never asks.
 
 **Keychain (API keys)** has no System Settings pane and no reset. If Keychain access
 was declined, Dodaios keeps working with a permission-restricted local file;
-`jarvis permissions request credential_store` retries Keychain access. The local
+`dodaios permissions request credential_store` retries Keychain access. The local
 file is a compatibility fallback, not encrypted Keychain storage.
 
 To revoke access, turn off the app in the matching macOS **Privacy &
@@ -224,14 +224,14 @@ The macOS behaviour on this page is not verified on a real Mac yet; see
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| A feature says access is off, but no dialog appeared | macOS already recorded your earlier answer and does not ask twice | Use **Open System Settings** on the message and turn the app on, or start over with `jarvis permissions reset` |
+| A feature says access is off, but no dialog appeared | macOS already recorded your earlier answer and does not ask twice | Use **Open System Settings** on the message and turn the app on, or start over with `dodaios permissions reset` |
 | No message appeared, but the feature does nothing | The Dodaios window was hidden when the message was due, or the use was started in the background | Open the main Dodaios window and press the feature again, or switch the app on yourself in **System Settings > Privacy & Security** |
-| System Settings shows the switch on, but the feature still fails | The record may belong to an older version of the app | Run `jarvis permissions reset <permission> --yes` with Dodaios closed, reopen it, and use the feature; if that fails, turn the switch off and on, then restart the Mac |
+| System Settings shows the switch on, but the feature still fails | The record may belong to an older version of the app | Run `dodaios permissions reset <permission> --yes` with Dodaios closed, reopen it, and use the feature; if that fails, turn the switch off and on, then restart the Mac |
 | The message says Dodaios is not running as an installed app | Dodaios was started from a terminal or a copy, so macOS would record access for that program | Open the installed Dodaios app, or choose **Ask macOS now** for the program that started Dodaios |
 | The permission dialog is in the wrong language | German and Spanish text needs a system in that language and a new build (an installer's app already on your Mac gets it when next rebuilt); otherwise it is English | Change the system language, or reply to the dialog as it is shown |
 | Permissions are asked for again after an update | The new version was signed differently, so macOS treats it as a new app | Answer once more. A build signed with a stable certificate keeps its grants |
 | **Quit and reopen** refuses to restart | A Dodaios-Agent mission is still running | Finish or stop the mission, then try again |
-| `jarvis permissions status` says `not_required` but the feature is blocked | The host is not macOS, or a browser, device, display session, Wayland, or file boundary owns the failure | Test the feature directly and review the relevant host or browser settings |
+| `dodaios permissions status` says `not_required` but the feature is blocked | The host is not macOS, or a browser, device, display session, Wayland, or file boundary owns the failure | Test the feature directly and review the relevant host or browser settings |
 | Every permission reads `granted`, but the feature fails | A restart, device, model, connection, account scope, or target application is still unavailable | Follow the dependent feature's troubleshooting steps |
 
 ## Next Steps

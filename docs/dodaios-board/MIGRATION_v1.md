@@ -1,6 +1,6 @@
-# Migration to Jarvis Board v1.0
+# Migration to Dodaios Board v1.0
 
-> For existing Jarvis users who already run Phase 5 and now want
+> For existing Dodaios users who already run Phase 5 and now want
 > to activate Board (A-D).
 
 There are **four possible end states**, depending on how much you want
@@ -73,7 +73,7 @@ docker compose up -d --build
 Three setup scenarios (Localhost / Raspi / Hetzner+Caddy) in
 `board-backend/README.md`.
 
-### Configure the local Jarvis
+### Configure the local Dodaios
 
 `jarvis.toml`:
 
@@ -92,7 +92,7 @@ python -c "import keyring; \
   keyring.set_password('jarvis-board', 'admin_token', '<your-hex-token>')"
 ```
 
-On the next Jarvis start the `SyncClient` registers itself automatically
+On the next Dodaios start the `SyncClient` registers itself automatically
 with the backend (a one-time admin-token roundtrip), generates an Ed25519
 keypair, and pushes every 60 s. The privkey lands in the Credential Manager under
 `jarvis-board / sync_privkey_hex`.

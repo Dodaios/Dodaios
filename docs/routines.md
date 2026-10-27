@@ -99,7 +99,7 @@ not guessed into calendar schedules; ask to update them. The frontend's daily
 composer and new template requests now include calendar timezone information.
 Legacy template API requests without a timezone retain interval semantics.
 
-Jarvis must be running for triggers to execute. The scheduler's existing misfire
+Dodaios must be running for triggers to execute. The scheduler's existing misfire
 policy skips stale recurring slots after sleep or downtime rather than replaying
 a backlog. The rail shows the saved zone and the next run in the viewer's zone.
 
@@ -135,7 +135,7 @@ instead use the same token as their webhook Secret: the receiver checks
 `X-Hub-Signature-256` against the exact raw body, following
 [GitHub's signature format](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries).
 External services need a reachable HTTPS address with the corresponding host
-configured in Jarvis. Creating a routine does not open a tunnel or expose the
+configured in Dodaios. Creating a routine does not open a tunnel or expose the
 desktop automatically.
 
 Authenticated integrations can publish named events to `POST /api/tasks/events`

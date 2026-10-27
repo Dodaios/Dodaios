@@ -225,7 +225,7 @@ erase a coding CLI's own conversation history.
 | [CLI Connections](cli-connections) | General CLI connections expose cataloged command tools to the assistant. Agentic IDE launches supported coding CLIs as interactive panes. |
 | [Dodaios-Agents](jarvis-agents) | Dodaios-Agents run reviewed background missions in isolated worktrees. Agentic IDE panes work interactively in the folder you opened. |
 | [Safety and Approvals](safety-and-approvals) | Dodaios safety governs assistant tools. A coding pane also follows its external CLI's own permission and approval settings. |
-| [CLI Reference](cli-reference) | The Dodaios CLI controls the same local Agentic IDE routes. Curated `jarvis ide` commands cover common pane actions; `jarvis api agentic-ide ...` exposes the full API while the app server is running. |
+| [CLI Reference](cli-reference) | The Dodaios CLI controls the same local Agentic IDE routes. Curated `dodaios ide` commands cover common pane actions; `dodaios api agentic-ide ...` exposes the full API while the app server is running. |
 
 The desktop installation includes terminal backends for Windows, macOS, and
 Linux. A minimal or headless installation may have none. Native folder browsing

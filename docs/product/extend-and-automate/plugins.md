@@ -157,9 +157,9 @@ there.
 
 ### Use the CLI
 
-Marketplace routes also have `jarvis marketplace` commands. The command-line
+Marketplace routes also have `dodaios marketplace` commands. The command-line
 interface can list connections, start and poll browser authorization, and
-remove a connection. Run `jarvis marketplace --help` to see the current
+remove a connection. Run `dodaios marketplace --help` to see the current
 commands. Use the protected **Plugins** dialog for service credentials.
 
 ## Platform and Provider Support

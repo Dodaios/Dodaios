@@ -111,9 +111,9 @@ Replace the uppercase placeholders with the identifiers shown by the toast or
 the first command:
 
 ```bash
-jarvis missions tool-approvals MISSION_ID
-jarvis missions deny-tool MISSION_ID TRACE_ID --reason user_denied
-jarvis missions approve-tool MISSION_ID TRACE_ID --yes
+dodaios missions tool-approvals MISSION_ID
+dodaios missions deny-tool MISSION_ID TRACE_ID --reason user_denied
+dodaios missions approve-tool MISSION_ID TRACE_ID --yes
 ```
 
 The list command shows only live requests. A decision removes that request; a
@@ -258,7 +258,7 @@ approval field is not proof that no standing rule applied.
 |---|---|---|
 | An action ran without asking | It was safe or monitor, a standing allow rule matched, or the connection inherited the monitor default | Review the Run Inspector, external account scopes, and any advanced allow rules |
 | Text chat waits and then reports a denial | The call was ask-level, but text chat has no general approval control | Retry through voice when appropriate, or perform the action yourself |
-| A mission toast says approval is needed, but no Approvals screen is visible | The detailed Missions view is not reachable from the current main navigation | Use `jarvis missions tool-approvals MISSION_ID`, then deny it or approve the exact trace with `--yes`; otherwise let it expire |
+| A mission toast says approval is needed, but no Approvals screen is visible | The detailed Missions view is not reachable from the current main navigation | Use `dodaios missions tool-approvals MISSION_ID`, then deny it or approve the exact trace with `--yes`; otherwise let it expire |
 | A task sent or posted without asking | Its Write or Full plugin grant pre-authorized matching work | Cancel the task, then recreate it with Read or no plugin grant |
 | Computer Use starts immediately | Its outer tool and most desktop steps are monitored or safe | Watch the run; use hang-up or stop when it leaves the requested scope |
 | Approval expired before you decided | The paused call reached its decision timeout | Recheck the target and start a fresh request; never approve a stale description from memory |

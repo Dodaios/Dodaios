@@ -114,7 +114,7 @@ You can also write or correct a page yourself in the Wiki view.
 - **Index repair does not create knowledge.** **Rebuild search index** refreshes the
   derived full-text search data from the Markdown vault. It does not extract a
   fact or change a note.
-- **Advanced backfill is opt-in.** The `jarvis wiki backfill` command can
+- **Advanced backfill is opt-in.** The `dodaios wiki backfill` command can
   review a bounded set of recent Realtime voice sessions. It requires approval,
   makes provider calls, and is not part of normal background capture.
 

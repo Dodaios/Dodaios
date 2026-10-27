@@ -31,7 +31,7 @@ see:
 
 * `LSBackgroundOnly` must be `False` in `Info.plist` (`dodaios.spec` sets it
   explicitly). PyInstaller turns it on whenever the last executable of the bundle
-  is a console one — the `jarvis` CLI is — and LaunchServices then runs the app
+  is a console one — the `dodaios` CLI and its earlier name `jarvis` are — and LaunchServices then runs the app
   with no Dock icon and no windows.
 * The frozen archive must contain `AVFoundation` and the other pyobjc modules the
   permission code loads *by name*, which a freezer cannot discover on its own.
@@ -58,7 +58,7 @@ The `NS...UsageDescription` strings macOS shows in its permission dialogs live
 in exactly one file, `dodaios/core/macos_privacy_strings.py` (standard library
 only). `dodaios.spec` (this `.dmg` app) and
 `dodaios/setup/macos_app_bundle.py` (the managed source-install app) both load that
-file **by path**: the spec runs before the `jarvis` package is importable, so
+file **by path**: the spec runs before the `dodaios` package is importable, so
 neither can use an ordinary import, and neither keeps a copy.
 `tests/unit/packaging/test_macos_privacy_strings.py` runs the real spec against
 stand-in PyInstaller classes and asserts that the spec's `info_plist`, the
@@ -86,7 +86,7 @@ that macOS shows these strings in its dialogs, and that it accepts the UTF-8 fil
 (Apple's own tooling writes UTF-16), is not proven; `plutil -lint` runs on each file in
 `build.sh` where `plutil` exists.
 
-Keys that are deliberately **not** shipped, because Jarvis has no caller for
+Keys that are deliberately **not** shipped, because Dodaios has no caller for
 them (least privilege; a string would promise access the app never uses):
 `NSCameraUsageDescription` (and the camera entitlement),
 `NSSpeechRecognitionUsageDescription` (speech-to-text is local or a cloud
@@ -196,7 +196,7 @@ Apple does not let an installer pre-approve any of them. The app therefore asks
 for a permission at the moment a feature the person starts needs it, never at
 launch, and Apple's own prompt or System Settings pane does the asking:
 
-* **Microphone** — dictation, talking to Jarvis, the wake word once it is
+* **Microphone** — dictation, talking to Dodaios, the wake word once it is
   switched on; typed chat works without it.
 * **Screen recording** — screen capture and Computer-Use; granted in
   System Settings > Privacy & Security. Whether macOS needs the app reopened
@@ -211,7 +211,7 @@ launch, and Apple's own prompt or System Settings pane does the asking:
   feature touches Desktop, Documents, Downloads, an external or network drive,
   or a device on the local network.
 
-There is no camera and no speech-recognition row: Jarvis has no caller for
+There is no camera and no speech-recognition row: Dodaios has no caller for
 either, so the bundle neither declares a string nor an entitlement for them.
 
 The downloaded app is its own app to macOS: bundle id `ai.personaljarvis.desktop`
@@ -252,12 +252,12 @@ before the prompt appears.
 | Entitlement | Why |
 |---|---|
 | `com.apple.security.device.audio-input` | Microphone. The whole voice pipeline (wake word, dictation, calls) reads the default input device through PortAudio. Without it a hardened build fails every capture attempt instead of showing the microphone prompt. |
-| `com.apple.security.automation.apple-events` | Apple events. Jarvis drives other applications through AppleScript for the media-session and window-control paths (`dodaios/platform/media_session.py`, `music_player.py`). Sending an Apple event to another process from a hardened app requires this entitlement plus `NSAppleEventsUsageDescription`. |
+| `com.apple.security.automation.apple-events` | Apple events. Dodaios drives other applications through AppleScript for the media-session and window-control paths (`dodaios/platform/media_session.py`, `music_player.py`). Sending an Apple event to another process from a hardened app requires this entitlement plus `NSAppleEventsUsageDescription`. |
 | `com.apple.security.cs.allow-unsigned-executable-memory` | Unsigned executable memory. Expected to be needed by a CPython application: ctypes/libffi build closure trampolines in memory they mark executable (sounddevice's PortAudio binding, vosk's libvosk binding, and several numeric wheels all go through ctypes), and the Hardened Runtime is documented to refuse such allocations without it. Whether this app really needs it has not been observed on a hardened build. It is the narrowest of the "allow ... memory" entitlements; `allow-jit` and its broader siblings are deliberately **not** requested. |
 | `com.apple.security.cs.disable-library-validation` | Library validation. A PyInstaller bundle `dlopen()`s dozens of third-party `.so`/`.dylib` files out of `Contents/Frameworks` and `Contents/Resources` at runtime (onnxruntime, PortAudio, libvosk, PyAV's FFmpeg libraries). Library validation demands every loaded library be signed by the same team ID as the main binary; the re-sign pass in `build.sh` does re-sign them, but any library loaded from a path the pass did not walk, or a plugin the user installs later into the same process, is then refused with an opaque "code signature invalid". This is the one entitlement that could be dropped later: it needs a build where every loadable object is provably signed by us, which the plugin system's "install a wheel at runtime" design currently rules out. |
 
 **Removed: `com.apple.security.device.camera`.** The old file requested it for
-"vision/screen-share features", but no code in Jarvis opens a camera (the web
+"vision/screen-share features", but no code in Dodaios opens a camera (the web
 voice path asks for audio only, and screen capture is Screen Recording, not the
 camera), so it granted the right to ask for something nothing asks for.
 Re-adding it needs a camera feature, `NSCameraUsageDescription` in the string

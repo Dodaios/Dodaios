@@ -77,9 +77,9 @@ Each registry entry maps the action across four surfaces:
    the conversational tool path and the action's dependencies are available.
 2. **Desktop:** Use the control in the command's named app section. The
    desktop does not have a separate command-catalog screen.
-3. **CLI:** Use `jarvis commands list` or `jarvis commands show <command-id>`
+3. **CLI:** Use `dodaios commands list` or `dodaios commands show <command-id>`
    to browse the registry. These two commands are read-only; run an action
-   through its feature command or the `jarvis api` interface.
+   through its feature command or the `dodaios api` interface.
 4. **REST:** Each command points to one local control route, the validated
    app address used by the other surfaces. Most people do not need to call it
    directly.
@@ -99,7 +99,7 @@ dialog from registry metadata.
 
 2. **Expand the card before running it.** Review its description, step labels,
    and **Recent runs**. Labels are previews. Use
-   `jarvis workflows show <workflow-id>` to inspect the complete saved
+   `dodaios workflows show <workflow-id>` to inspect the complete saved
    definition and recent run records.
 
 3. **Check its requirements.** A Brain prompt needs a reachable Brain
@@ -135,14 +135,14 @@ startup seeds it again.
 
 | Action | Current supported path | Important limit |
 |---|---|---|
-| List or inspect | `jarvis workflows list` and `jarvis workflows show <workflow-id>` | The desktop shows only step previews and its most recent runs |
-| Create | `jarvis workflows create --def <json>` or `POST /api/workflows` | The desktop has no definition editor |
+| List or inspect | `dodaios workflows list` and `dodaios workflows show <workflow-id>` | The desktop shows only step previews and its most recent runs |
+| Create | `dodaios workflows create --def <json>` or `POST /api/workflows` | The desktop has no definition editor |
 | Edit | Submit a complete definition with the same ID through the create route | `PATCH /api/workflows/{workflow_id}` changes only `enabled` |
-| Run | **Run now**, `jarvis workflows run <workflow-id>`, or `POST /api/workflows/{workflow_id}/run` | The curated CLI sends an empty input object |
+| Run | **Run now**, `dodaios workflows run <workflow-id>`, or `POST /api/workflows/{workflow_id}/run` | The curated CLI sends an empty input object |
 | Schedule | Save a five-field cron trigger, then enable the workflow | Only manual and cron triggers are supported |
-| Delete | Desktop **Delete**, `jarvis workflows delete <workflow-id> --yes`, or the REST delete route | Deletion removes the definition and its run history |
+| Delete | Desktop **Delete**, `dodaios workflows delete <workflow-id> --yes`, or the REST delete route | Deletion removes the definition and its run history |
 
-Every workflow route also appears under `jarvis api workflows`. The dynamic
+Every workflow route also appears under `dodaios api workflows`. The dynamic
 run operation accepts an input object through `--json-body`, as does the REST
 run route. The desktop asks for a `url` input only when the workflow name
 contains `URL`; it has no general input form.
@@ -204,7 +204,7 @@ from the URL text and does not download or read the page.
 
 Check a read-only app command first:
 
-1. Run `jarvis commands show wake-word-get`.
+1. Run `dodaios commands show wake-word-get`.
 2. Confirm that the result identifies `GET /api/settings/wake-word` and marks
    the command as non-dangerous. No setting changes.
 

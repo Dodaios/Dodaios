@@ -1,6 +1,6 @@
-# Isolated Jarvis Sandbox — testing the public build safely
+# Isolated Dodaios Sandbox — testing the public build safely
 
-A throwaway, fully isolated copy of Jarvis, provisioned from a fresh clone of the
+A throwaway, fully isolated copy of Dodaios, provisioned from a fresh clone of the
 public GitHub repo, so you experience **exactly what a stranger downloading it
 gets** — without touching your real config, data, or saved API keys.
 
@@ -8,7 +8,7 @@ Design: [`docs/superpowers/specs/2026-06-24-jarvis-sandbox-testing-design.md`](s
 
 ## Why you can't just run a second copy
 
-A second native Jarvis started from a clone would otherwise share three
+A second native Dodaios started from a clone would otherwise share three
 machine-scoped things with your real install and quietly collide with it:
 
 - the **Windows Credential Manager** namespace (`personal-jarvis`) — it would read
@@ -38,7 +38,7 @@ UI; it never drives your desktop. **Voice stays ON.**
 # 1. Provision from GitHub (fresh clone, isolated venv, isolation proofs):
 pwsh scripts\sandbox\new-dodaios-sandbox.ps1
 
-# 2. CLOSE your real Jarvis first — voice shares the one mic/speakers.
+# 2. CLOSE your real Dodaios first — voice shares the one mic/speakers.
 
 # 3. (optional) put one provider key in the sandbox's .env, then launch:
 pwsh ..\Jarvis-Sandbox\run-sandbox.ps1

@@ -50,7 +50,7 @@ infallible. Watch the screen and start with a small, reversible task.
 
 > [!note] Fresh installations enable Computer Use. An existing installation
 > can retain an older disabled setting, and the desktop app still has no
-> on/off control. If Dodaios says the feature is off, run `jarvis config set
+> on/off control. If Dodaios says the feature is off, run `dodaios config set
 > computer_use.enabled true`, restart Dodaios, and repeat a harmless check.
 
 > [!warning] A captured window can contain private information. Computer Use
@@ -133,15 +133,15 @@ Use the command line when you need a mission identifier, status polling, or a
 stop control outside the desktop app:
 
 ```bash
-jarvis computer-use start "Open the calculator and show 25 times 4" --yes
-jarvis computer-use list
-jarvis computer-use show <mission-id>
-jarvis computer-use cancel <mission-id> --yes
+dodaios computer-use start "Open the calculator and show 25 times 4" --yes
+dodaios computer-use list
+dodaios computer-use show <mission-id>
+dodaios computer-use cancel <mission-id> --yes
 ```
 
 The start command prints a mission identifier. `list` includes active and
 recent runs, and `show` reports the selected run's status and result. Use
-`jarvis computer-use cancel-all --yes` only when you intend to stop every
+`dodaios computer-use cancel-all --yes` only when you intend to stop every
 queued or active Computer Use run.
 
 ### Understand Confirmations
@@ -167,8 +167,8 @@ way to approve purchases, delete data, send messages, or publish content.
 - During a voice session, say **hang up** or select the visible close control
   on the Dodaios Bar. This cancels every queued or active Computer Use run
   without cancelling a separate Dodaios-Agent mission.
-- From a terminal, run `jarvis computer-use list`, then cancel one mission by
-  identifier or use `jarvis computer-use cancel-all --yes`. The desktop app
+- From a terminal, run `dodaios computer-use list`, then cancel one mission by
+  identifier or use `dodaios computer-use cancel-all --yes`. The desktop app
   does not currently have a dedicated Computer Use run list or cancel button.
 - If none of these controls is available and input continues, exit
   Dodaios. Reopen it only after checking what already changed.
@@ -222,9 +222,9 @@ completion message arrives after that state appears, not before it.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| Dodaios says Computer Use is not active, or reports Wayland or no display | An older installation kept the feature off, desktop components are missing, or the session cannot provide global capture and input | Enable it with `jarvis config set computer_use.enabled true`; otherwise use the full desktop install in a Windows, macOS, or Linux X11 session, then restart Dodaios and repeat the harmless check |
+| Dodaios says Computer Use is not active, or reports Wayland or no display | An older installation kept the feature off, desktop components are missing, or the session cannot provide global capture and input | Enable it with `dodaios config set computer_use.enabled true`; otherwise use the full desktop install in a Windows, macOS, or Linux X11 session, then restart Dodaios and repeat the harmless check |
 | Dodaios says no model can see the screen | The Tool Model is missing, text-only, out of credit, rate limited, or unavailable across all compatible fallbacks | Open **API Keys & Providers > Tool Model**, test a connected image-capable model, and activate a healthy option |
-| Dodaios cannot see or control the screen on macOS | Screen Recording or Accessibility is off, denied, or belongs to an older app identity, or a change needs a restart | Use **Open System Settings** on the message Dodaios shows for each item that is off, use **Quit and reopen** when it is offered, or start over with `jarvis permissions reset`, then try again |
+| Dodaios cannot see or control the screen on macOS | Screen Recording or Accessibility is off, denied, or belongs to an older app identity, or a change needs a restart | Use **Open System Settings** on the message Dodaios shows for each item that is off, use **Quit and reopen** when it is offered, or start over with `dodaios permissions reset`, then try again |
 | The pointer, drag, or typed text is wrong | Focus or display layout changed, an elevated Windows window blocked input, or Linux lacks `xdotool` for non-ASCII typing | Bring a normal non-administrator app window forward, keep the layout stable, install `xdotool` on X11 when needed, and retry one named control |
 | Dodaios stops at a sensitive screen, reports no progress, or rejects completion | It needs a human-only login step, the interface changed, or the visible result could not be verified | Complete sensitive input yourself; otherwise check the screen and retry a shorter goal with one visible result |
 

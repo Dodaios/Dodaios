@@ -1,5 +1,8 @@
 # Local Lightweight Wake-Word — Research & Design Report
 
+> Historical design record from 2026-05, when the project was called Personal
+> Jarvis. Dodaios ships no default wake word; the user always picks their own.
+
 **Date:** 2026-05-24
 **Author:** Autonomous research + implementation session (4 research Jarvis-Agents + main agent synthesis)
 **Status:** Design accepted → implementation in progress on branch `feat/lightweight-local-wakeword`

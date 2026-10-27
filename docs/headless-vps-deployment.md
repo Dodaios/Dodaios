@@ -18,7 +18,7 @@ broken.
 | Chat, missions, wiki, tasks, the whole web UI | The desktop window, the Orb overlay, the tray |
 | Voice, using **your laptop's** microphone through the browser | The server's own microphone (there isn't one) |
 | Cloud speech-to-text and text-to-speech | Local wake word and local speech-to-text |
-| The `jarvis` control CLI, locally and over SSH | Screen control / computer use (nothing to look at) |
+| The `dodaios` control CLI (legacy alias `jarvis`), locally and over SSH | Screen control / computer use (nothing to look at) |
 
 ---
 
@@ -38,8 +38,8 @@ a service exists to own the process.
 Prefer to do it by hand, or already have a Python environment:
 
 ```bash
-python3 -m venv ~/jarvis-venv
-~/jarvis-venv/bin/pip install personal-jarvis
+python3 -m venv ~/dodaios-venv
+~/dodaios-venv/bin/pip install dodaios
 ```
 
 You need Python 3.11 or newer. Nothing else — the base install pulls no system
@@ -86,7 +86,7 @@ service unit below is where it belongs.
 By hand, to see that it works:
 
 ```bash
-~/jarvis-venv/bin/jarvis serve
+~/dodaios-venv/bin/dodaios serve
 ```
 
 That starts the API, the WebSocket and the browser UI on port **47821** —
@@ -98,7 +98,7 @@ curl -s localhost:47821/api/health
 
 ### The systemd unit
 
-Save as `/etc/systemd/system/jarvis.service` (adjust the user and paths):
+Save as `/etc/systemd/system/dodaios.service` (adjust the user and paths):
 
 ```ini
 [Unit]
@@ -108,14 +108,14 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=jarvis
-WorkingDirectory=/home/jarvis
+User=dodaios
+WorkingDirectory=/home/dodaios
 # One key is enough. Keep this file mode 600 — it holds a credential.
 Environment=OPENAI_API_KEY=...
-ExecStart=/home/jarvis/jarvis-venv/bin/jarvis serve
+ExecStart=/home/dodaios/dodaios-venv/bin/dodaios serve
 Restart=on-failure
 RestartSec=5
-# Journald gets the logs; `journalctl -u jarvis -f` follows them.
+# Journald gets the logs; `journalctl -u dodaios -f` follows them.
 StandardOutput=journal
 StandardError=journal
 
@@ -124,10 +124,10 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-sudo chmod 600 /etc/systemd/system/jarvis.service   # it holds a key
+sudo chmod 600 /etc/systemd/system/dodaios.service   # it holds a key
 sudo systemctl daemon-reload
-sudo systemctl enable --now jarvis
-journalctl -u jarvis -f
+sudo systemctl enable --now dodaios
+journalctl -u dodaios -f
 ```
 
 A **system** unit, not a `--user` one: a user unit stops when the login session
@@ -144,8 +144,8 @@ and no exposed port:
 ssh -L 47821:127.0.0.1:47821 you@your-vps
 ```
 
-Then open <http://localhost:47821> in your browser. The `jarvis` CLI treats the
-tunnelled port as local too, so `jarvis system status` just works.
+Then open <http://localhost:47821> in your browser. The `dodaios` CLI treats the
+tunnelled port as local too, so `dodaios system status` just works.
 
 **If you bind to a public address instead**, Dodaios refuses to start without a
 control key — deliberately, because on a VPS the key is the only boundary
@@ -226,9 +226,9 @@ speakers on a VPS. The audio is streamed back to the page you have open.
 There is no display, so the capability probe reports it as unavailable rather
 than failing halfway through an action.
 
-**The desktop window, the Orb overlay and the tray — not started.** `jarvis
+**The desktop window, the Orb overlay and the tray — not started.** `dodaios
 serve` is the headless entry point and never tries to open a window. Running
-bare `jarvis` on a VPS is the mistake to avoid: it looks for a display, does not
+bare `dodaios` on a VPS is the mistake to avoid: it looks for a display, does not
 find one, and exits.
 
 **Sound effects and the startup chime — silent no-ops.** They have no output
@@ -243,11 +243,11 @@ API and CLI — behaves exactly as it does on a desktop.
 
 ```bash
 # What this machine has, as JSON one object per line — parseable in a script.
-jarvis --json --check   # note: --check first, then --json
+dodaios --json --check   # note: --check first, then --json
 
 # What is registered vs advertised. Exits non-zero on a hard failure,
 # which makes it usable as an install gate.
-jarvis --doctor --json
+dodaios --doctor --json
 ```
 
 `--doctor` is the one to gate a deployment on. `status: "fail"` means something
@@ -263,10 +263,10 @@ headless box is normal for the voice-related entries.
 | The page loads, the microphone button does nothing | Not a secure context — see step 4. Use the SSH tunnel. |
 | `Refusing to bind … without a control key` | You set a public `JARVIS_BIND_HOST`. Generate a control key, or use the tunnel. |
 | Voice answers in the wrong language | The reply language is decided once per turn from your configured pin; set it in Settings rather than per provider. |
-| `jarvis` exits immediately | You ran bare `jarvis`, which wants a display. Use `jarvis serve`. |
+| `dodaios` exits immediately | You ran bare `dodaios`, which wants a display. Use `dodaios serve`. |
 | The brain says no provider is configured | No key reached the process. A key in your shell is not a key in the systemd unit — put it in the unit file. |
 
-Logs: `journalctl -u jarvis -f`.
+Logs: `journalctl -u dodaios -f`.
 
 ---
 

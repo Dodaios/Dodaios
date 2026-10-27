@@ -4,7 +4,7 @@ Status: 2026-08-10. ADR: [0008](adr/0008-computer-use-harness-in-process.md).
 
 This page documents the current routing model for desktop actions. The main
 goal is to keep simple local actions deterministic and fast, while preserving
-POAV Computer-Use and Jarvis-Agents for the work that actually needs them.
+POAV Computer-Use and Dodaios Agents for the work that actually needs them.
 
 ## Live voice: the session's own model operates the screen (2026-10-03)
 
@@ -17,7 +17,7 @@ double/right/middle click, move, drag, scroll, type, key, wait) and returns a
 fresh screenshot with its `frame_id`, so the model checks every effect before
 the next step.
 
-Jarvis keeps the parts a model should not guess: coordinates are pixels of the
+Dodaios keeps the parts a model should not guess: coordinates are pixels of the
 latest screenshot and map through that frame's `CoordinateMapper`; a stale
 frame or a changed front window presses nothing. Before any capture or input
 `dodaios/cu/direct.py::readiness` names the blocker for the current OS:
@@ -25,16 +25,16 @@ frame or a changed front window presses nothing. Before any capture or input
 | OS | Checked before acting | Answer |
 | --- | --- | --- |
 | macOS | Screen Recording (looking); Accessibility + Input Control (input); Secure Input (typing) | `permission_required` / `secure_input` with the missing grant |
-| Windows | Secure desktop (UAC, lock screen); elevated front window vs. non-elevated Jarvis (UIPI) | `secure_desktop` / `elevated_window` |
+| Windows | Secure desktop (UAC, lock screen); elevated front window vs. non-elevated Dodaios (UIPI) | `secure_desktop` / `elevated_window` |
 | Linux | Wayland session; no display | `wayland` / `headless` |
 | All | `[computer_use].enabled`; a running mission holds the desktop | `disabled` / `busy` |
 
 The control border and Escape work as for missions. Text chat, scheduled tasks
 and the CLI still use the mission engine described below.
 
-## What the user sees while Jarvis has the mouse (2026-10-03)
+## What the user sees while Dodaios has the mouse (2026-10-03)
 
-While Jarvis operates the screen, a thin blue line with a narrow glow runs
+While Dodaios operates the screen, a thin blue line with a narrow glow runs
 along every monitor edge, and an "Esc to cancel" pill sits top-center. The
 pointer turns into the agent pointer: a slim blue arrowhead with a white rim
 and a soft halo (`dodaios/cu/indicator/agent_pointer.py`). It glides to each
@@ -88,14 +88,14 @@ those accuracy oracles, not to the scripted completion message.
 
 ## Routing Model
 
-Jarvis now has four distinct routes for commands that may touch the desktop.
+Dodaios now has four distinct routes for commands that may touch the desktop.
 
 | Route | Use for | Must not do |
 | --- | --- | --- |
 | Direct Fast Path | One local action such as open an app, type into the active window, send a hotkey, move/click explicit coordinates | Call a provider, collect vision, infer visual targets |
-| Scripted Fast Path | Known deterministic multi-step local workflows such as opening several terminals or starting a Jarvis-Agent in a terminal | Invent coordinates, ask a provider to plan, run shell commands for vague UI goals |
+| Scripted Fast Path | Known deterministic multi-step local workflows such as opening several terminals or starting a Dodaios agent in a terminal | Invent coordinates, ask a provider to plan, run shell commands for vague UI goals |
 | POAV Computer-Use | Visual or ambiguous UI navigation such as "click Send", "write this into the ChatGPT input", or "find the settings button" | Handle heavy coding/research delegation or long-running autonomous work |
-| Jarvis-Agents | Heavy code, repo, research, worker, or long-running delegated tasks | Execute simple desktop controls that the local fast path can do directly |
+| Dodaios Agents | Heavy code, repo, research, worker, or long-running delegated tasks | Execute simple desktop controls that the local fast path can do directly |
 
 The fast paths run before normal provider routing. If the local action gate
 matches, BrainManager executes hidden local tools through the existing
@@ -140,7 +140,7 @@ one step. Examples:
 
 - Open three terminals.
 - Open Windows Terminal, type `claude`, press Enter.
-- Start a Jarvis-Agent and pass a bounded prompt in the terminal.
+- Start a Dodaios agent and pass a bounded prompt in the terminal.
 
 Latency target:
 
@@ -159,7 +159,7 @@ Operational boundary:
 ## POAV Computer-Use
 
 POAV means Plan, Observe, Act, Verify. This route is implemented by the
-in-process `computer-use` harness and is the right path when Jarvis needs to see
+in-process `computer-use` harness and is the right path when Dodaios needs to see
 the UI before acting.
 
 Use POAV Computer-Use for:
@@ -177,11 +177,11 @@ Boundary:
 - POAV should stay bounded by `[computer_use]` step, replan, and timeout
   settings.
 
-## Jarvis-Agents
+## Dodaios Agents
 
-Jarvis-Agents is for delegated agent work, not low-latency desktop control.
+Dodaios Agents are for delegated agent work, not low-latency desktop control.
 
-Use Jarvis-Agents for:
+Use Dodaios Agents for:
 
 - Codebase changes and reviews.
 - Multi-file research or investigation.
@@ -191,8 +191,8 @@ Use Jarvis-Agents for:
 Boundary:
 
 - Do not route simple "open app", "type this", or "press this hotkey" commands
-  to Jarvis-Agents.
-- Do not route visual UI control to Jarvis-Agents when the POAV Computer-Use harness
+  to Dodaios Agents.
+- Do not route visual UI control to Dodaios Agents when the POAV Computer-Use harness
   is the intended desktop-control mechanism.
 
 ## Configuration
@@ -272,7 +272,7 @@ Manual validation checklist:
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| Clicks "succeed" but nothing on screen reacts | An ELEVATED (admin) window holds the foreground: Windows UIPI silently discards input injected by a non-elevated Jarvis | Close/unfocus the elevated app, or run Jarvis elevated; the v2 effect check reports the miss instead of typing on |
+| Clicks "succeed" but nothing on screen reacts | An ELEVATED (admin) window holds the foreground: Windows UIPI silently discards input injected by a non-elevated Dodaios | Close/unfocus the elevated app, or run Dodaios elevated; the v2 effect check reports the miss instead of typing on |
 | Direct command calls a provider | Local-action gate did not match or `[local_action].enabled` is false | Check local-action logs and gate patterns |
 | Direct command collects vision | Command was classified as visual/ambiguous | Confirm the utterance names a direct app or active-window action |
 | `claude` launch fails | Claude CLI is not on PATH | Install Claude CLI or add `claude.cmd` to PATH |

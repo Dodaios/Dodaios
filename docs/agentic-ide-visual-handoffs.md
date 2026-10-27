@@ -13,7 +13,7 @@ creating a pane or sending a task. No global latest-appshot lookup is used.
   The regular tool loop and Live both deliver pixels as image input rather
   than serializing them as tool-result text.
 - Images on the current brain request receive IDs before tool routing.
-- A Jarvis chat upload registers the bytes of the images selected on that
+- A Dodaios chat upload registers the bytes of the images selected on that
   message. Paths must resolve inside that chat's working folder. Missing,
   oversized, unsupported or escaped files produce an unavailable notice.
 - Appshots attached directly to a live call belong to that call's scope, in

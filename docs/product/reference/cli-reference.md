@@ -20,13 +20,13 @@ Dodaios instance from a terminal. It is a thin client: the command
 sends a request, while Dodaios performs the action and applies its normal
 validation and safety rules.
 
-Start with a curated command such as `jarvis system status`. Use the dynamic
-`jarvis api` layer when an operation has no shorter curated command.
+Start with a curated command such as `dodaios system status`. Use the dynamic
+`dodaios api` layer when an operation has no shorter curated command.
 
 ## Before You Start
 
-- Install Dodaios so the `jarvis`, `jarvisctl`, and `jctl` commands are
-  available.
+- Install Dodaios so the `dodaios`, `dodaiosctl`, and `jctl` commands are
+  available. The earlier names `jarvis` and `jarvisctl` still work as aliases.
 - Start the desktop app or headless server for any command that reads or
   changes Dodaios. Curated help, version, and schema-cache maintenance work
   without a running server.
@@ -54,18 +54,18 @@ external CLI**.
 
 | Layer | Shape | Current behavior |
 |---|---|---|
-| Curated commands | `jarvis <group> <command>` | Short, human-oriented names for common operations |
-| Dynamic API commands | `jarvis api <tag> <operation>` | Built from the target server's OpenAPI description for mounted `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` operations |
-| Launcher commands | bare `jarvis`, `jarvis serve`, and launcher flags | Starts or diagnoses the app rather than calling the control CLI |
+| Curated commands | `dodaios <group> <command>` | Short, human-oriented names for common operations |
+| Dynamic API commands | `dodaios api <tag> <operation>` | Built from the target server's OpenAPI description for mounted `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` operations |
+| Launcher commands | bare `dodaios`, `dodaios serve`, and launcher flags | Starts or diagnoses the app rather than calling the control CLI |
 
-`jarvisctl` and `jctl` are control-only aliases. They are especially useful for
-top-level help because `jarvis --help` intentionally shows launcher help, while
-`jarvisctl --help` lists the curated control groups.
+`dodaiosctl` and `jctl` are control-only aliases. They are especially useful for
+top-level help because `dodaios --help` intentionally shows launcher help, while
+`dodaiosctl --help` lists the curated control groups.
 
 The dynamic layer uses the target server's OpenAPI schema. It reuses a local
 schema cache for up to 24 hours. After that, an `api` invocation tries to fetch
 a new schema and falls back to the older cache if the server is unreachable.
-Run `jarvis refresh` to clear the cache before the next `jarvis api` call.
+Run `dodaios refresh` to clear the cache before the next `dodaios api` call.
 
 Use the [generated Dodaios CLI command catalog](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli-reference.md)
 for the maintained list of curated groups, arguments, and options. It
@@ -80,20 +80,20 @@ take priority over lower rows.
 |---|---|---|
 | 1 | Global `--url` or `--key` | A one-call override |
 | 2 | `JARVISCTL_BASE_URL` or `JARVISCTL_CONTROL_KEY` | Managed automation with a secret store |
-| 3 | Profile saved by `jarvis auth login` | Repeated access to one target |
+| 3 | Profile saved by `dodaios auth login` | Repeated access to one target |
 | 4 | Live local-instance discovery and the local control key | Normal same-computer use |
 | 5 | `http://127.0.0.1:47821` and no key if none can be resolved | Local fallback |
 
-For remote access, run `jarvis auth login --url <server-url>` and enter the key
+For remote access, run `dodaios auth login --url <server-url>` and enter the key
 in the hidden prompt. The CLI verifies it before saving it. For managed
-automation, `jarvis auth login --url <server-url> --key -` reads the login key
+automation, `dodaios auth login --url <server-url> --key -` reads the login key
 from standard input. The root-level `--key` option does not read from standard
 input. Avoid an inline key because shell history and process inspection can
 expose it.
 
 The saved profile is a per-user CLI configuration file, not the provider-key
 vault. POSIX systems restrict its file permissions; Windows relies on the user
-profile's access controls. Use `jarvis auth logout` on a shared or retired
+profile's access controls. Use `dodaios auth logout` on a shared or retired
 computer.
 
 ## Common Options
@@ -126,16 +126,16 @@ contains private information.
 
 ## Discover Commands and Help
 
-- Run `jarvisctl --help` for every curated top-level group.
-- Run `jarvis <group> --help` and `jarvis <group> <command> --help` for exact
+- Run `dodaiosctl --help` for every curated top-level group.
+- Run `dodaios <group> --help` and `dodaios <group> <command> --help` for exact
   arguments and options.
-- Run `jarvis api --help` to fetch or reuse the dynamic API tree, then continue
+- Run `dodaios api --help` to fetch or reuse the dynamic API tree, then continue
   with a tag and operation.
-- Run `jarvisctl --install-completion` to install completion for the current
+- Run `dodaiosctl --install-completion` to install completion for the current
   shell. Completion uses only the cached API schema and does not make a network
   request.
-- Browse App Commands with `jarvis commands list` and inspect one definition
-  with `jarvis commands show <command-id>`. These commands describe the shared
+- Browse App Commands with `dodaios commands list` and inspect one definition
+  with `dodaios commands show <command-id>`. These commands describe the shared
   app catalog; they do not execute every entry themselves.
 
 ## Platform and Host Limits
@@ -175,7 +175,7 @@ dynamic CLI mirrors that broader surface.
 With Dodaios running, use one read-only command:
 
 ```powershell
-jarvis --json system status
+dodaios --json system status
 ```
 
 The command succeeds and returns JSON with `"reachable": true`. This confirms
@@ -186,10 +186,10 @@ server request path are working. It does not test every feature on the host.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| `jarvis --help` shows app-launch options | Top-level `jarvis` help belongs to the launcher | Use `jarvisctl --help`, or ask for help below a control group |
-| Status reports that Dodaios is unreachable | The server is stopped, the target is wrong, or authentication failed | Start Dodaios, check `jarvis auth status`, then verify the saved target |
-| The `api` group is unavailable | No schema is cached and the server cannot be reached | Start or reconnect to the target, run `jarvis refresh`, then retry `jarvis api --help` |
-| A new API operation is missing | The dynamic schema cache can remain fresh for 24 hours | Run `jarvis refresh`, then invoke the `api` group while the intended server is reachable |
+| `dodaios --help` shows app-launch options | Top-level `dodaios` help belongs to the launcher | Use `dodaiosctl --help`, or ask for help below a control group |
+| Status reports that Dodaios is unreachable | The server is stopped, the target is wrong, or authentication failed | Start Dodaios, check `dodaios auth status`, then verify the saved target |
+| The `api` group is unavailable | No schema is cached and the server cannot be reached | Start or reconnect to the target, run `dodaios refresh`, then retry `dodaios api --help` |
+| A new API operation is missing | The dynamic schema cache can remain fresh for 24 hours | Run `dodaios refresh`, then invoke the `api` group while the intended server is reachable |
 | A dangerous action is refused | The CLI requires explicit authorization and never prompts | Run the supported `--dry-run`, review it, then repeat with `--yes` only if the action is correct |
 
 ## Next Steps
