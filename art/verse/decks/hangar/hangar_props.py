@@ -361,8 +361,27 @@ def ground_equipment(pieces: dict) -> None:
     if "SM_Hangar_TowTug" in pieces:
         _place("SM_Hangar_TowTug", 37.4, 31.2, 0.0, 60.0, room="flight_deck")
         _place("SM_Hangar_TowTug", 38.0, 54.0, 0.0, 90.0, room="crew_bay")
-    # Fuel bowser parked in the crew bay.
+    # Fuel bowser parked in the crew bay, cab toward the camera.
     bx, bz = 31.4, 53.6
+    if "SM_Hangar_FuelBowser" in pieces:
+        _place("SM_Hangar_FuelBowser", bx, bz, 0.0, -90.0, room="crew_bay")
+    else:
+        _bowser_standin(mb, det, bx, bz)
+    # Tool chests and a work bench along the crew bay's near wall.
+    for i, x in enumerate((26.6, 28.0, 36.4, 37.8)):
+        box(mb, x - 0.6, x + 0.6, 59.8, 60.6, 0.0, 1.05 + 0.1 * (i % 2), PANEL_MID)
+        for d in range(4):
+            box(det, x - 0.55, x + 0.55, 59.74, 59.8, 0.15 + d * 0.24, 0.33 + d * 0.24, STEEL)
+    box(mb, 34.6, 39.0, 57.6, 58.4, 0.9, 0.98, STEEL)
+    for x in (34.8, 38.8):
+        box(mb, x - 0.05, x + 0.05, 57.7, 58.3, 0.0, 0.9, STEEL)
+    ucx("crew_chests", 26.0, 38.4, 59.8, 60.6, 0.0, 1.15)
+    _build(mb, "SM_Hangar_GroundEquipment", bevel=0.012)
+    _build(det, "SM_Hangar_GroundEquipmentDetail", bevel=0.004)
+
+
+def _bowser_standin(mb, det, bx: float, bz: float) -> None:
+    """Block-out bowser for when the kit piece is missing."""
     box(mb, bx - 1.25, bx + 1.25, bz - 3.6, bz + 3.6, 0.35, 1.0, STEEL)
     box(mb, bx - 1.2, bx + 1.2, bz + 1.6, bz + 3.5, 1.0, 2.6, PANEL)
     box(det, bx - 1.15, bx + 1.15, bz + 3.5, bz + 3.52, 1.8, 2.3, GLASS)
@@ -375,17 +394,6 @@ def ground_equipment(pieces: dict) -> None:
         box(det, bx - 1.12, bx + 1.12, hz - 0.03, hz + 0.03, 1.9, 3.02, STEEL)
     box(det, bx - 0.9, bx + 0.9, bz + 3.52, bz + 3.54, 0.5, 0.8, "M_Deck_Hazard")
     ucx("bowser", bx - 1.3, bx + 1.3, bz - 3.7, bz + 3.7, 0.0, 3.0)
-    # Tool chests and a work bench along the crew bay's near wall.
-    for i, x in enumerate((26.6, 28.0, 36.4, 37.8)):
-        box(mb, x - 0.6, x + 0.6, 59.8, 60.6, 0.0, 1.05 + 0.1 * (i % 2), PANEL_MID)
-        for d in range(4):
-            box(det, x - 0.55, x + 0.55, 59.74, 59.8, 0.15 + d * 0.24, 0.33 + d * 0.24, STEEL)
-    box(mb, 34.6, 39.0, 57.6, 58.4, 0.9, 0.98, STEEL)
-    for x in (34.8, 38.8):
-        box(mb, x - 0.05, x + 0.05, 57.7, 58.3, 0.0, 0.9, STEEL)
-    ucx("crew_chests", 26.0, 38.4, 59.8, 60.6, 0.0, 1.15)
-    _build(mb, "SM_Hangar_GroundEquipment", bevel=0.012)
-    _build(det, "SM_Hangar_GroundEquipmentDetail", bevel=0.004)
 
 
 def stores(pieces: dict) -> None:
