@@ -9,7 +9,8 @@ import { LETTERS, type LocalAnswer } from "./questionModel";
  * One question of the card: its prompt as the title, the lettered answers,
  * and the person's own-words row behind the next letter. Every step of a
  * series is drawn at once and stacked in one grid cell (QuestionCard), so
- * only `active` is visible and the card keeps the height of its tallest step.
+ * only `active` is visible and the card keeps the height of its tallest step
+ * (the review step alone sizes to itself, and the frame eases between them).
  */
 export const QuestionStep = forwardRef<HTMLTextAreaElement, {
   item: QuestionItem;

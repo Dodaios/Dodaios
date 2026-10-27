@@ -236,3 +236,17 @@ WHEN NEW.msg_type IN ('SAY', 'QUERY', 'ANSWER', 'PROPOSE', 'HOLD', 'RELEASE')
 BEGIN
     INSERT OR IGNORE INTO society_deliveries (event_id) VALUES (NEW.event_id);
 END;
+
+-- Every finished chat turn of an agent (its own chat, its conversations, its
+-- routine runs), whatever runtime ran it (dodaios/society/chat_runs.py). A
+-- turn the board dispatched also has a RESULT whose run_id is 'turn:<turn_id>';
+-- agent_stats counts that run once.
+CREATE TABLE IF NOT EXISTS society_agent_turns (
+    turn_id             TEXT PRIMARY KEY,
+    agent_id            TEXT NOT NULL,
+    session_id          TEXT NOT NULL,
+    ts_ms               INTEGER NOT NULL,
+    status              TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_agent_turns_agent ON society_agent_turns(agent_id, ts_ms);

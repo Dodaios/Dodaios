@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { CircleAlert, CornerDownLeft, MoreHorizontal, SkipForward, Sparkles, X } from "lucide-react";
 import { useT } from "@/i18n";
 import type { QuestionState } from "../reduce";
@@ -73,6 +73,25 @@ function useRemaining(question: QuestionState): number | null {
   return left;
 }
 
+/**
+ * The pixel height of `inner`, kept current, so a frame around it can ease
+ * between steps of different heights (CSS cannot transition `auto`).
+ * Null until measured, or where there is no ResizeObserver.
+ */
+function useMeasuredHeight(inner: RefObject<HTMLElement | null>): number | null {
+  const [height, setHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [inner]);
+  return height;
+}
+
 function clock(ms: number): string {
   const seconds = Math.ceil(ms / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -112,6 +131,8 @@ function OpenCard({
   const titleId = useId();
   const cardRef = useRef<HTMLElement>(null);
   const ownRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const stepsRef = useRef<HTMLDivElement>(null);
+  const stepsHeight = useMeasuredHeight(stepsRef);
   const advance = useRef<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [entered] = useState(() => (question.closed ? undefined : "new"));
@@ -128,6 +149,8 @@ function OpenCard({
   const item = reviewing ? null : questions[step];
   const local = reviewing ? EMPTY_ANSWER : locals[step];
   const locked = (i: number) => question.answers[i] !== null;
+  // A step opened from the review returns there once it is answered.
+  const backToReview = series && !reviewing && draft.returnToReview;
 
   useEffect(() => () => {
     if (advance.current !== null) window.clearTimeout(advance.current);
@@ -142,11 +165,13 @@ function OpenCard({
   };
   const setLocal = (index: number, next: LocalAnswer) =>
     write((d, current) => ({ ...d, answers: current.map((a, i) => (i === index ? next : a)) }));
-  const goTo = (next: number) => {
+  const goTo = (next: number, fromReview = false) => {
     if (advance.current !== null) window.clearTimeout(advance.current);
     advance.current = null;
-    write((d) => ({ ...d, step: Math.max(0, Math.min(next, total)) }));
+    write((d) => ({ ...d, step: Math.max(0, Math.min(next, total)), returnToReview: fromReview }));
   };
+  /** Past the step on screen: the next one, or the review it was opened from. */
+  const forward = () => goTo(backToReview ? total : step + 1);
   /** Send the whole card with `override` folded in (the read is the store's newest). */
   const submitWith = (index: number, override: LocalAnswer) => {
     const current = questions.map((q, i) => {
@@ -174,7 +199,9 @@ function OpenCard({
     const from = step;
     advance.current = window.setTimeout(() => {
       advance.current = null;
-      patchQuestionDraft(questionId, (d) => ((d.step < 0 ? firstOpen : d.step) === from ? { ...d, step: from + 1 } : d));
+      patchQuestionDraft(questionId, (d) => ((d.step < 0 ? firstOpen : d.step) === from
+        ? { ...d, step: d.returnToReview ? total : from + 1, returnToReview: false }
+        : d));
     }, 180);
   };
   const typed = (text: string) => item && setLocal(step, withText(local, item, text));
@@ -185,7 +212,7 @@ function OpenCard({
       submitWith(step, hasAnswer(local) ? local : { ...EMPTY_ANSWER, skipped: true });
       return;
     }
-    goTo(step + 1);
+    forward();
   };
   const skipStep = () => {
     setMenuOpen(false);
@@ -195,7 +222,7 @@ function OpenCard({
       return;
     }
     setLocal(step, skipped);
-    goTo(step + 1);
+    forward();
   };
   const decideAll = () => {
     setMenuOpen(false);
@@ -289,7 +316,8 @@ function OpenCard({
         />
       ) : null}
 
-      <div className="qc-steps">
+      <div className="qc-steps-frame" style={stepsHeight === null ? undefined : { height: stepsHeight }}>
+      <div ref={stepsRef} className="qc-steps" data-reviewing={reviewing ? "" : undefined}>
         {questions.map((q, i) => (
           <QuestionStep
             key={i}
@@ -317,7 +345,7 @@ function OpenCard({
                   ? ""
                   : [...a.picks.map((p) => q.options[p]?.label), ...(a.text.trim() ? [a.text.trim()] : [])].join("\n");
                 return (
-                  <button key={i} type="button" className="qc-review-row" onClick={() => goTo(i)} disabled={locked(i)}
+                  <button key={i} type="button" className="qc-review-row" onClick={() => goTo(i, true)} disabled={locked(i)}
                     aria-label={`${q.question}: ${text || t("question_card.skipped_chip")}. ${t("question_card.change")}`}>
                     <span className="qc-keycap" data-on={text ? "" : undefined} aria-hidden>{i + 1}</span>
                     <span className="min-w-0 flex-1">
@@ -332,6 +360,7 @@ function OpenCard({
           </div>
         ) : null}
       </div>
+      </div>
 
       {footer ? (
         <footer className="qc-foot">
@@ -341,7 +370,7 @@ function OpenCard({
               <span>{t("question_card.failed")}</span>
             </p>
           ) : series ? (
-            <Dots total={total} current={step} done={answered} label={t("question_card.step")} />
+            <Dots total={total} current={step} done={answered} label={t("question_card.step")} progressLabel={t("question_card.progress")} />
           ) : null}
           <span className="qc-foot-end">
             {failed ? (
@@ -358,8 +387,8 @@ function OpenCard({
               </button>
             ) : null}
             {series && !reviewing ? (
-              <button type="button" className="qc-btn qc-btn-primary" onClick={() => goTo(step + 1)} disabled={!hasAnswer(local) && !locked(step)}>
-                {step === total - 1 ? t("question_card.review") : t("question_card.next")}
+              <button type="button" className="qc-btn qc-btn-primary" onClick={forward} disabled={!hasAnswer(local) && !locked(step)}>
+                {step === total - 1 || backToReview ? t("question_card.review") : t("question_card.next")}
               </button>
             ) : null}
             {reviewing ? (

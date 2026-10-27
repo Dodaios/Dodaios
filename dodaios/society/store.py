@@ -618,8 +618,30 @@ class SocietyStore:
         await cur.close()
         return float(row[0]) if row else 0.0
 
+    async def record_chat_turns(self, turns: list[tuple[str, str, str, int, str]]) -> int:
+        """Remember finished chat turns ``(turn_id, agent_id, session_id, ts_ms, status)``.
+
+        Idempotent by turn id: a replayed or backfilled turn is kept once.
+        Returns how many were new.
+        """
+        if not turns:
+            return 0
+        before = self.conn.total_changes
+        await self.conn.executemany(
+            "INSERT OR IGNORE INTO society_agent_turns "
+            "(turn_id, agent_id, session_id, ts_ms, status) VALUES (?, ?, ?, ?, ?)",
+            [(str(t), str(a), str(s), int(ms), str(st)) for t, a, s, ms, st in turns],
+        )
+        return self.conn.total_changes - before
+
     async def agent_stats(self, agent_id: str) -> dict[str, Any]:
-        """Derived numbers: runs (RESULTs sent), lifetime cost, last activity.
+        """Derived numbers: runs, lifetime cost, last activity.
+
+        A run is a RESULT the agent sent (board work, missions, team goals)
+        or a finished chat turn of its own (society_agent_turns: its chat,
+        conversations and routine runs, on any runtime). A board dispatch is
+        both a chat turn and a RESULT with run_id ``turn:<turn_id>``; it
+        counts once.
 
         ``spent_today_usd`` rides along because the daily budget is a real
         gate — the scheduler refuses a dispatch once an agent has spent its
@@ -638,9 +660,24 @@ class SocietyStore:
         row = await cur.fetchone()
         await cur.close()
         runs, cost, last = row or (0, 0.0, None)
+        cur = await self.conn.execute(
+            # The agent's RESULT run ids are read once (not per turn); a turn
+            # that has one is already counted among the RESULTs above.
+            "SELECT SUM(CASE WHEN 'turn:' || t.turn_id IN ("
+            "  SELECT json_extract(e.payload_json, '$.run_id') FROM society_events e "
+            "  WHERE e.from_agent = ? AND e.msg_type = 'RESULT'"
+            ") THEN 0 ELSE 1 END), MAX(t.ts_ms) "
+            "FROM society_agent_turns t WHERE t.agent_id = ?",
+            (agent_id, agent_id),
+        )
+        turn_row = await cur.fetchone()
+        await cur.close()
+        chat_runs, chat_last = turn_row or (0, None)
+        if chat_last is not None and (last is None or int(chat_last) > int(last)):
+            last = chat_last
         today = await self.cost_since(agent_id, day_start_ms(now_ms()))
         return {
-            "runs": int(runs or 0),
+            "runs": int(runs or 0) + int(chat_runs or 0),
             "total_cost_usd": float(cost or 0.0),
             "spent_today_usd": today,
             "last_active_ms": int(last) if last is not None else None,

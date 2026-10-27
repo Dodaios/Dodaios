@@ -31,6 +31,8 @@ export interface QuestionSubmission {
 export interface QuestionDraft {
   /** The step on screen; `questions.length` is the review step, -1 the first open one. */
   step: number;
+  /** The step on screen was opened from the review: finishing it goes back there. */
+  returnToReview: boolean;
   answers: LocalAnswer[];
   submission: QuestionSubmission | null;
   /** A settled card the person opened to read again, and the page they are on. */
@@ -38,7 +40,7 @@ export interface QuestionDraft {
   page: number;
 }
 
-export const EMPTY_DRAFT: QuestionDraft = { step: -1, answers: [], submission: null, expanded: false, page: 0 };
+export const EMPTY_DRAFT: QuestionDraft = { step: -1, returnToReview: false, answers: [], submission: null, expanded: false, page: 0 };
 
 interface DraftStore {
   drafts: Record<string, QuestionDraft>;
