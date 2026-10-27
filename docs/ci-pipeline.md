@@ -253,7 +253,7 @@ merge queue), and hourly as a safety net:
    pull requests, two of them unresolvable, had held every slot for days.
 2. Conflicts resolve by file class: **generated** files (CLI reference
    docs, lockfiles, timing caches) take main's copy and are regenerated;
-   the frontend bundle `dist/` takes main's copy and stays that way (see
+   the frontend bundle `dist/` is dropped, main tracks none (see
    "Frontend bundle" below); **append-only** files (CHANGELOG, allowlists,
    `.gitignore`) are union-merged; **everything else** goes
    to the optional AI resolver (`ANTHROPIC_API_KEY` → Claude Code,
@@ -633,31 +633,27 @@ CodeQL's default setup, and none is part of the required `CI gate`:
 
 ### Frontend bundle
 
-The repo ships the built UI (`dodaios/ui/web/dist`) so a fresh clone or
-install needs no Node. Pull requests do not carry it: `agent_land.py` and the
-merge train put main's `dist/` back on every update (`pin_bundle` in
-`scripts/ci/agent_integrate.py`). Before 2026-10-26 each frontend pull request
-committed its own build, so every frontend merge put all the other frontend
-pull requests in conflict and the merge queue ejected them.
+main does not track the built UI (`dodaios/ui/web/dist`, ignored in
+`.gitignore`). Until 2026-10-27 it did, and a bot rebuilt and committed it
+after every frontend merge; those copies were most of the repository's
+history (about 1.6 GB of 2.2 GB packed).
 
-After a merge that touches `dodaios/ui/web/frontend/**`,
-`.github/workflows/frontend-bundle.yml` builds `dist/` from main (job `build`,
-no secrets), then commits only `dist/` to the branch `bot/frontend-bundle`,
-opens or updates its pull request and requests auto-merge with the merge
-bot's token (job `publish`, environment `merge-train`, variable
-`MERGE_APP_ID`; without the app the job fails red and main's bundle stays
-behind). A newer frontend merge
-replaces an unlanded rebuild. Between a frontend merge and its rebuild landing
-(about one queue round), main's bundle is one step behind its sources; the
-desktop app that follows main rebuilds locally anyway (`main_follow.py`), and
-`check_release_completeness.py` refuses a release cut in that window.
+Every release tag carries a bundle built from its own sources:
+`release-cut.yml` builds it in the `bundle` job and the `tag` job commits it
+on top of the release commit (see "Releases" above). Everything that installs
+or packages the product reads a tag: the one-liner installers install the
+newest published release, the in-app updater moves between releases, and
+PyPI, the desktop installers and the source archives are built from the tag.
+The old updater on users' machines requires the bundle to be tracked in the
+tag it moves to, so the tag commit has to stay.
 
-To see a frontend change in the running app, build locally
-(`npm run build` in `dodaios/ui/web/frontend`); do not commit the result.
+`pin_bundle` in `scripts/ci/agent_integrate.py` drops a `dist/` a branch still
+carries (one cut before the switch), so it never comes back through a pull
+request. A checkout of main builds it locally: `npm run build` in
+`dodaios/ui/web/frontend`; the desktop app that follows main does that by
+itself (`main_follow.py`). Never commit the result.
 
 Merge queue: `max_entries_to_build` is 3 (ruleset 24704136; raised from 2 on
 2026-10-26, 12 pull requests were waiting at about 7.5 minutes each).
 
-Dependabot covers npm through security updates only. Version updates for the
-frontend stay off for the same reason as pip: a bump also needs a rebuilt
-`dist/` bundle, which Dependabot cannot produce.
+Dependabot covers npm through security updates only.

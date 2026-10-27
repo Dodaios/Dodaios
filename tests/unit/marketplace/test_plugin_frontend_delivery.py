@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts.ci.check_dist_consistency import _refs_in
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +32,10 @@ def _reachable_javascript() -> str:
     return "\n".join(javascript)
 
 
+@pytest.mark.skipif(
+    not (DIST / "index.html").is_file(),
+    reason="no built bundle here: main does not track dist/ (npm run build makes one)",
+)
 def test_delivered_frontend_contains_the_plugin_window_and_all_local_logos():
     javascript = _reachable_javascript()
     assert "plugin-catalog-dialog" in javascript, (
