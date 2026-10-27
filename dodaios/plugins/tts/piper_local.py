@@ -423,6 +423,11 @@ class PiperLocalTTS:
                 )
         finally:
             stopped.set()
+            # A cancelled reader may still be blocked in chunks.get() on an
+            # executor thread, and the producer no longer puts `end` once
+            # stopped. Wake it, or asyncio.run() waits for it forever on exit.
+            with suppress(queue.Full):
+                chunks.put_nowait(end)
             if not worker.done():
                 with suppress(TimeoutError):
                     await asyncio.wait_for(asyncio.shield(worker), timeout=1.0)

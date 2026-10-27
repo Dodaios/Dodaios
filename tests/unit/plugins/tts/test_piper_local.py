@@ -9,6 +9,10 @@ asks for this explicitly.
 from __future__ import annotations
 
 import asyncio
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -240,3 +244,80 @@ def test_module_exposes_the_expected_provider_surface() -> None:
     """Structural TTSProvider conformance — no inheritance, so assert it."""
     for attribute in ("synthesize", "list_voices", "name", "supports_streaming"):
         assert hasattr(piper_local.PiperLocalTTS, attribute)
+
+
+_CANCELLED_STREAM_SCRIPT = textwrap.dedent(
+    """
+    import asyncio
+    import sys
+    import time
+
+    import numpy as np
+
+    import dodaios.speech.local_models as local_models
+    from dodaios.plugins.tts import piper_local
+    from dodaios.plugins.tts.piper_local import PiperLocalTTS
+
+
+    class _Audio:
+        samples = np.zeros(0, dtype=np.float32)
+        sample_rate = 22_050
+
+
+    class SlowEngine:
+        # Like a native engine: a chunk every 0.3 s until the callback cancels.
+        sample_rate = 22_050
+
+        def generate(self, _text, _speaker, _speed=None, *, callback=None):
+            for _ in range(50):
+                if callback(np.full(2205, 0.1, dtype=np.float32), 0.0) == 0:
+                    break
+                time.sleep(0.3)
+            return _Audio()
+
+
+    # Legacy engine path: no sherpa-onnx or eSpeak NG needed on the test host.
+    piper_local.package_version = lambda _name: "1.12.0"
+    local_models.bundle_present = lambda *_args, **_kwargs: True
+    PiperLocalTTS._build_engine = lambda _self, _model_id: SlowEngine()
+
+
+    async def main():
+        tts = PiperLocalTTS()
+
+        async def consume():
+            async for _chunk in tts.synthesize("Hello there", language_code="en-US"):
+                pass
+
+        task = asyncio.create_task(consume())
+        await asyncio.sleep(0.15)  # first chunk read; the reader now waits for the next
+        task.cancel()  # barge-in or voice-session teardown
+        await asyncio.gather(task, return_exceptions=True)
+
+
+    asyncio.run(main())
+    print("EXITED", flush=True)
+    """
+)
+
+
+def test_a_cancelled_stream_does_not_keep_the_process_alive() -> None:
+    """A barge-in mid-sentence must not leave a reader thread blocked forever.
+
+    asyncio.run() joins the default executor on exit, so one orphaned
+    ``chunks.get()`` kept the service alive until systemd sent SIGKILL.
+    """
+    repo_root = Path(__file__).resolve().parents[4]
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", _CANCELLED_STREAM_SCRIPT],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.fail("the process did not exit: a Piper reader thread is still blocked")
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "EXITED" in result.stdout
