@@ -237,7 +237,7 @@ describe("a settled approval", () => {
     expect(screen.getByTestId("action-card-rule-saved")).toBeTruthy();
   });
 
-  it("offers Ask every time after an agent-wide always", async () => {
+  it("offers Check with me every time after an agent-wide always", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       ok: true, rule: { kind: "require_approval", pattern: "plugin:gmail:send", app: "Gmail", verb: "send" },
     }), { status: 200 }));

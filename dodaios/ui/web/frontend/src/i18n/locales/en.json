@@ -10772,7 +10772,7 @@
       "save_allow": "Save and allow",
       "back": "Back",
       "always_next_time": "Allow every time",
-      "ask_next_time": "Ask every time",
+      "ask_next_time": "Check with me every time",
       "saved": "Rule saved: {rule}",
       "saved_chat": "Allowed in this chat: {app}",
       "saved_short": "Rule saved",

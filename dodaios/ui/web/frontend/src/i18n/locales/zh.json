@@ -10772,7 +10772,7 @@
       "save_allow": "保存并允许",
       "back": "返回",
       "always_next_time": "每次都允许",
-      "ask_next_time": "每次都询问",
+      "ask_next_time": "每次都先问我",
       "saved": "规则已保存：{rule}",
       "saved_chat": "已在此对话中允许：{app}",
       "saved_short": "规则已保存",
