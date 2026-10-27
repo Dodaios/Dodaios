@@ -268,7 +268,10 @@ OFFICIAL_REPO_GIT_URL = f"{OFFICIAL_REPO_URL}.git"
 OFFICIAL_RELEASES_LATEST_API_URL = (
     f"https://api.github.com/repos/{OFFICIAL_REPO_SLUG}/releases/latest"
 )
-UPDATER_USER_AGENT = f"{PERSISTENT_COMPACT_NAME}-Updater"
+# What the app sends as its HTTP User-Agent to GitHub and the plugin APIs.
+# Spelled as literals of their own; no server keys on either value.
+UPDATER_USER_AGENT = "Dodaios-Updater"
+HTTP_USER_AGENT = "Dodaios/1.0"
 
 # --- MCP server names ---------------------------------------------------------
 # What the app calls its own MCP servers when it registers them in another
@@ -368,6 +371,7 @@ __all__ = [
     "SESSION_COOKIE_NAME",
     "SHELL_PROFILE_MARKER",
     "UPDATER_USER_AGENT",
+    "HTTP_USER_AGENT",
     "WINDOWS_APP_USER_MODEL_ID",
     "WINDOWS_AUTOSTART_DESCRIPTION",
     "WINDOWS_AUTOSTART_TASK_NAME",

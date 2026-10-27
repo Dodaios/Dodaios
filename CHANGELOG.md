@@ -9,6 +9,25 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The `personal-jarvis` package on PyPI is now a thin pointer to `dodaios`
+  instead of a second copy of the app: it installs `dodaios` at the same
+  version, maps every extra (`personal-jarvis[full]` installs `dodaios[full]`)
+  and keeps every earlier command (`jarvis`, `personal-jarvis`, `jarvisctl`, …)
+  working, including `uvx --from personal-jarvis`. To move an existing pip
+  install to the new name, run `pip uninstall -y personal-jarvis` and then
+  `pip install --force-reinstall dodaios`. If `pip install -U personal-jarvis`
+  leaves an install that no longer starts, the command prints the one-line
+  repair (`pip install --force-reinstall --no-deps dodaios==<version>`).
+- The Windows setup is built as `Dodaios-Setup-x64.exe` and shows the product
+  name Dodaios in its file properties. `PersonalJarvis-Setup-x64.exe` is still
+  published with identical bytes for installs from before the rename.
+- The Linux package file is named `dodaios_<version>_amd64.deb`, after the
+  package inside it.
+- The app identifies itself as Dodaios (User-Agent `Dodaios/1.0`,
+  `Dodaios-Updater`) to GitHub and the plugin services it calls.
+
 ---
 
 ## [4.1.2] — 2026-10-27

@@ -26,9 +26,11 @@ Every installer is published a second time, with identical bytes, under its
 earlier name (`PersonalJarvis-Setup-x64.exe`, `PersonalJarvis-macOS-arm64.dmg`,
 `PersonalJarvis-macOS-x64.dmg`, `PersonalJarvis-Linux-x86_64.AppImage`):
 installs from before the rename only look for those. The checksum manifest
-lists both names. The Windows setup is signed under its earlier name, which
-the SignPath configuration pins, and copied to `Dodaios-Setup-x64.exe` after
-signing (`scripts/ci/installer_aliases.py`).
+lists both names. Every build, the signed Windows setup included, produces the
+`Dodaios-*` file; the earlier name is copied after signing
+(`scripts/ci/installer_aliases.py`). The copies have a planned end and one
+switch, `PUBLISH_EARLIER_INSTALLER_NAMES` in `scripts/ci/release_assets.py`
+(docs/rename/migration-plan.md).
 
 The terminal one-liner and `pipx install personal-jarvis` stay supported. They
 produce a *managed* or *dev* install, which updates through git - see
@@ -98,7 +100,7 @@ All three scripts do the same three things: build the frontend if
 
 ```powershell
 pwsh packaging/windows/build.ps1
-# -> dist/installers/PersonalJarvis-Setup-x64.exe
+# -> dist/installers/Dodaios-Setup-x64.exe
 ```
 
 Needs Node 22+, Python 3.12 with `pip install -e ".[desktop,dev]"`, and Inno
@@ -425,9 +427,9 @@ dist/Jarvis/jarvis.exe serve
 curl http://127.0.0.1:<admin_api_port>/api/health
 
 # a full install / upgrade / uninstall cycle, unattended
-PersonalJarvis-Setup-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\pj-test" /LOG=install.log
+Dodaios-Setup-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\pj-test" /LOG=install.log
 C:\pj-test\jarvis.exe --version
-PersonalJarvis-Setup-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\pj-test"   # upgrade in place
+Dodaios-Setup-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\pj-test"   # upgrade in place
 C:\pj-test\unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
 

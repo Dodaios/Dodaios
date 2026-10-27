@@ -1,12 +1,15 @@
 """Warn once when one environment holds the app under both distribution names.
 
 The Python distribution was renamed (``dodaios.core.branding``:
-``LEGACY_DISTRIBUTION_NAMES`` -> ``DISTRIBUTION_NAME``). For a transition the
-same code is published under both names, so both own the same package files.
+``LEGACY_DISTRIBUTION_NAMES`` -> ``DISTRIBUTION_NAME``). Up to 4.1.2 the same
+code was published under both names, so both own the same package files.
 With both installed the app runs fine, but uninstalling either one later
 deletes files the other still needs. ``install/installer.py`` never creates
 that state (it uninstalls the earlier name first); a manual ``pip install``
-can, and this check names the fix.
+can, and this check names the fix. After 4.1.2 the earlier name is a thin
+package that only depends on the current one and owns no package files
+(``scripts/ci/build_distributions.py``); installed next to it, it is the
+expected state, not a duplicate.
 
 Off the boot path (AP-26): :func:`schedule_duplicate_distribution_check`
 starts one daemon thread a while after the server is up, once per process,
@@ -26,6 +29,9 @@ from importlib import metadata
 
 from dodaios.core.branding import DISTRIBUTION_NAME, DISTRIBUTION_NAMES
 
+#: The import package both full distributions put on ``sys.path``.
+_PACKAGE_DIR = __name__.split(".", 1)[0] + "/"
+
 log = logging.getLogger(__name__)
 
 # The boot is long over by then: the check competes with nothing in use.
@@ -37,12 +43,24 @@ _scheduled = False
 
 
 def _is_installed(name: str) -> bool:
+    """Installed under ``name`` and holding the app's package files.
+
+    The earlier name's compatibility package owns no file under the package
+    directory, so it does not count: uninstalling it deletes nothing the
+    current distribution needs to import.
+    """
     try:
-        metadata.distribution(name)
+        dist = metadata.distribution(name)
     except metadata.PackageNotFoundError:
         # Not installed under this name: that is the answer, not a failure.
         return False
-    return True
+    if name == DISTRIBUTION_NAME:
+        return True
+    files = getattr(dist, "files", None)
+    if files is None:
+        # No RECORD to read: assume the worst, a full copy.
+        return True
+    return any(str(path).replace("\\", "/").startswith(_PACKAGE_DIR) for path in files)
 
 
 def installed_distribution_names(

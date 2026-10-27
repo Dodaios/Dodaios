@@ -487,22 +487,35 @@ A release happens **only** when the maintainer asks for one.
   The in-app updater follows `releases/latest`; draft releases remain hidden.
 * **Two names per installer.** Every native installer is published as
   `Dodaios-*` and, with identical bytes, under its earlier `PersonalJarvis-*`
-  name, the only one installs from before the rename look for. The macOS and
-  Linux builds produce the `Dodaios-*` file; the Windows setup is built and
-  signed as `PersonalJarvis-Setup-x64.exe`, because the SignPath artifact
-  configuration pins that name (docs/code-signing-policy.md). After signing,
-  the release job copies each file to its other name
+  name, the only one installs from before the rename look for. Every build
+  produces the `Dodaios-*` file; the Windows setup is built and signed as
+  `Dodaios-Setup-x64.exe` with the product name `Dodaios`, the values the
+  SignPath artifact configuration pins (docs/code-signing-policy.md). After
+  signing, the release job copies each file to its other name
   (`scripts/ci/installer_aliases.py`), `installers-SHA256SUMS.txt` lists both,
   and finalization refuses a release whose two names of one installer differ.
+  The copies have a planned end and one switch:
+  `PUBLISH_EARLIER_INSTALLER_NAMES` in `scripts/ci/release_assets.py` (the
+  checksum step reads the required names from `installer_aliases.py --names`,
+  so flipping it needs no workflow edit; see docs/rename/migration-plan.md).
+  The `.deb` is named after its package, `dodaios_<version>_amd64.deb`
+  (`personal-jarvis_<version>_amd64.deb` up to 4.1.2).
 * **Two names on PyPI.** `release.yml` builds the wheel and sdist as `dodaios`
-  and again as `personal-jarvis`, the earlier name, from a copy of
-  `pyproject.toml` that differs only in the names
-  (`scripts/ci/build_distributions.py`), and publishes `personal-jarvis` first,
-  then `dodaios`. Both projects trust the same publisher (this repository,
-  `release.yml`, environment `pypi`). The two distributions own the same
-  files, so `install/installer.py` uninstalls `personal-jarvis` before it
-  installs the checkout, and the app logs one warning when an environment
-  holds both.
+  and publishes `personal-jarvis`, the earlier name, as a thin package
+  (`scripts/ci/build_distributions.py`): no copy of the code, one dependency
+  `dodaios==<same version>`, every extra mapped to the same `dodaios` extra,
+  and every `dodaios` console command re-declared through a small launcher
+  (`uv tool install personal-jarvis` only links the named package's commands).
+  Each project publishes from its own job and environment (`publish`/`pypi`
+  for `dodaios`, `publish-legacy`/`pypi-legacy` for `personal-jarvis`).
+  Releases up to 4.1.2 published `personal-jarvis` as a full copy owning the
+  same files: plain `pip install -U personal-jarvis` over such a copy installs
+  `dodaios` and then deletes its files while removing the old copy (uv is not
+  affected); the launcher then prints the repair command
+  (`pip install --force-reinstall --no-deps dodaios==<version>`).
+  `install/installer.py` uninstalls `personal-jarvis` before it installs the
+  checkout, and the app logs one warning when an environment holds a full copy
+  under both names.
 * **Build provenance.** On a tag, `desktop-installers.yml` attests every
   native installer listed in `installers-SHA256SUMS.txt` (`.exe`, both
   `.dmg`, `.AppImage`, `.deb`, under both names) with

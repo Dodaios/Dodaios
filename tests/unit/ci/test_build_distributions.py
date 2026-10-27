@@ -1,8 +1,11 @@
-"""The release builds the same code as ``dodaios`` and as ``personal-jarvis``."""
+"""The release builds ``dodaios`` and the thin ``personal-jarvis`` package pointing to it."""
 
 from __future__ import annotations
 
+import importlib.util
+import sys
 import tomllib
+import types
 from pathlib import Path
 
 import pytest
@@ -34,36 +37,112 @@ def test_build_setuptools_floor_and_lock_clear_the_advisory() -> None:
     assert tuple(int(part) for part in version.split(".")) >= (84, 1, 0)
 
 
-def test_the_real_pyproject_renames_to_the_earlier_distribution() -> None:
-    project = tomllib.loads(bd.renamed_pyproject(PYPROJECT))
-    assert project["project"]["name"] == "personal-jarvis"
-    extras = project["project"]["optional-dependencies"]
-    # The earlier name's [full] must never pull in the current distribution:
-    # two distributions owning the same files is what the transition avoids.
-    assert extras["full"] == [
-        "personal-jarvis[desktop,desktop-macos,telephony,channels,local-voice]"
-    ]
-    assert extras["dev"][0] == "personal-jarvis[desktop,local-voice]"
-    assert all(not item.startswith("dodaios[") for group in extras.values() for item in group)
-    data_files = project["tool"]["setuptools"]["data-files"]
-    assert set(data_files) == {"share/personal-jarvis/docs", "share/personal-jarvis/docs/legal"}
+def _real_project() -> dict:
+    return tomllib.loads(PYPROJECT)["project"]
 
 
-def test_only_the_names_change() -> None:
-    original = tomllib.loads(PYPROJECT)
-    renamed = tomllib.loads(bd.renamed_pyproject(PYPROJECT))
-    for key in ("version", "dependencies", "scripts", "entry-points", "requires-python"):
-        assert renamed["project"][key] == original["project"][key], key
-    for key in ("package-data", "exclude-package-data"):
-        assert renamed["tool"]["setuptools"][key] == original["tool"]["setuptools"][key], key
-    # The package list lives in setup.py, which both builds share unchanged.
-    assert "packages" not in renamed["tool"]["setuptools"]
-    assert renamed["build-system"] == original["build-system"]
+def test_the_earlier_name_is_a_thin_package_pinned_to_the_same_release() -> None:
+    project = _real_project()
+    compat = tomllib.loads(bd.compat_pyproject(project))["project"]
+    version = project["version"]
+    assert compat["name"] == "personal-jarvis"
+    assert compat["version"] == version
+    # No second copy of the code: one dependency, the current distribution.
+    assert compat["dependencies"] == [f"dodaios=={version}"]
+    assert compat["requires-python"] == project["requires-python"]
+    # Every extra maps to the same extra of the current distribution.
+    assert compat["optional-dependencies"] == {
+        extra: [f"dodaios[{extra}]=={version}"] for extra in project["optional-dependencies"]
+    }
+    assert "Dodaios" in compat["description"]
+
+
+def test_every_command_of_dodaios_keeps_working_under_the_earlier_name() -> None:
+    project = _real_project()
+    compat = tomllib.loads(bd.compat_pyproject(project))
+    # `uv tool install personal-jarvis` only links the named package's commands.
+    assert set(compat["project"]["scripts"]) == set(project["scripts"])
+    assert {"jarvis", "personal-jarvis", "dodaios"} <= set(compat["project"]["scripts"])
+    assert set(compat["project"]["scripts"].values()) == {f"{bd.COMPAT_MODULE}:main"}
+    assert compat["tool"]["setuptools"]["py-modules"] == [bd.COMPAT_MODULE]
+    assert project["scripts"]["jarvis"] == "dodaios.__main__:main"
+    assert project["scripts"]["personal-jarvis"] == "dodaios.__main__:main"
 
 
 def test_a_pyproject_under_another_name_is_refused() -> None:
     with pytest.raises(ValueError, match="expected"):
-        bd.renamed_pyproject('[project]\nname = "something-else"\nversion = "1.0.0"\n')
+        bd.compat_pyproject({"name": "something-else", "version": "1.0.0"})
+
+
+def _load_launcher(tmp_path: Path, monkeypatch, project: dict):
+    source = bd.compat_module(project)
+    path = tmp_path / f"{bd.COMPAT_MODULE}.py"
+    path.write_text(source, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location(bd.COMPAT_MODULE, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_launcher_starts_the_entry_point_of_the_command_it_was_run_as(
+    tmp_path: Path, monkeypatch
+) -> None:
+    project = _real_project()
+    launcher = _load_launcher(tmp_path, monkeypatch, project)
+    assert launcher.command_name(r"C:\venv\Scripts\JarvisCtl.exe") == "jarvisctl"
+    assert launcher.command_name("/venv/bin/personal-jarvis") == "personal-jarvis"
+    assert launcher.command_name("jarvis-script.py") == "jarvis"
+
+    fake = types.ModuleType("fake_cli")
+    fake.main = lambda: "started"
+    monkeypatch.setitem(sys.modules, "fake_cli", fake)
+    monkeypatch.setattr(launcher, "TARGETS", {"jarvisctl": "fake_cli:main"})
+    monkeypatch.setattr(sys, "argv", ["/venv/bin/jarvisctl"])
+    assert launcher.main() == "started"
+    # Unknown spellings fall back to the main command.
+    assert launcher.DEFAULT_TARGET == project["scripts"]["dodaios"]
+
+
+def test_the_launcher_names_the_repair_when_pip_removed_the_package(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    launcher = _load_launcher(tmp_path, monkeypatch, _real_project())
+
+    def missing(name):
+        raise ModuleNotFoundError(f"No module named {name!r}", name="dodaios")
+
+    monkeypatch.setattr(launcher, "import_module", missing)
+    monkeypatch.setattr(sys, "argv", ["jarvis"])
+    assert launcher.main() == 1
+    err = capsys.readouterr().err
+    version = _real_project()["version"]
+    assert f"-m pip install --force-reinstall --no-deps dodaios=={version}" in err
+
+
+def test_the_launcher_does_not_hide_other_missing_modules(tmp_path: Path, monkeypatch) -> None:
+    launcher = _load_launcher(tmp_path, monkeypatch, _real_project())
+
+    def missing(name):
+        raise ModuleNotFoundError("No module named 'httpx'", name="httpx")
+
+    monkeypatch.setattr(launcher, "import_module", missing)
+    with pytest.raises(ModuleNotFoundError):
+        launcher.main()
+
+
+def test_the_readme_says_where_the_project_went(tmp_path: Path) -> None:
+    project = _real_project()
+    bd.write_compat_project(tmp_path / "compat", project, ROOT / "LICENSE")
+    readme = (tmp_path / "compat" / "README.md").read_text(encoding="utf-8")
+    assert readme.startswith("# personal-jarvis is now dodaios")
+    assert "pip install dodaios" in readme
+    assert f"--force-reinstall --no-deps dodaios=={project['version']}" in readme
+    assert sorted(p.name for p in (tmp_path / "compat").iterdir()) == [
+        "LICENSE",
+        "README.md",
+        f"{bd.COMPAT_MODULE}.py",
+        "pyproject.toml",
+    ]
 
 
 def _project(tmp_path: Path) -> Path:
@@ -72,12 +151,16 @@ def _project(tmp_path: Path) -> Path:
         "[project]\n"
         'name = "dodaios"\n'
         'version = "1.2.3"\n'
+        'requires-python = ">=3.11"\n'
+        'license = "Apache-2.0"\n'
+        "[project.scripts]\n"
+        'dodaios = "dodaios.__main__:main"\n'
+        'jarvis = "dodaios.__main__:main"\n'
         "[project.optional-dependencies]\n"
-        'full = ["dodaios[desktop]"]\n'
-        "[tool.setuptools.data-files]\n"
-        '"share/dodaios/docs" = ["docs/*.md"]\n',
+        'full = ["dodaios[desktop]"]\n',
         encoding="utf-8",
     )
+    (tmp_path / "LICENSE").write_text("license text", encoding="utf-8")
     return tmp_path
 
 
@@ -98,7 +181,7 @@ def _fake_build(seen: list[tuple[str, str]]):
     return runner
 
 
-def test_build_all_builds_both_names_and_restores_the_pyproject(tmp_path: Path) -> None:
+def test_build_all_builds_both_and_leaves_the_tree_as_it_was(tmp_path: Path) -> None:
     root = _project(tmp_path / "tree")
     original = (root / "pyproject.toml").read_bytes()
     (root / "build" / "Jarvis").mkdir(parents=True)  # a PyInstaller freeze
@@ -117,20 +200,19 @@ def test_build_all_builds_both_names_and_restores_the_pyproject(tmp_path: Path) 
     assert (root / "build" / "Jarvis").is_dir()
 
 
-def test_a_failed_second_build_still_restores_the_pyproject(tmp_path: Path) -> None:
+def test_the_thin_package_builds_outside_the_checkout(tmp_path: Path) -> None:
     root = _project(tmp_path / "tree")
-    original = (root / "pyproject.toml").read_bytes()
-    seen: list[tuple[str, str]] = []
-    build = _fake_build(seen)
+    places: list[Path] = []
+    build = _fake_build([])
 
     def runner(command, cwd: Path) -> None:
-        if seen:
-            raise OSError("second build failed")
+        places.append(cwd)
         build(command, cwd)
 
-    with pytest.raises(OSError, match="second build"):
-        bd.build_all(tmp_path / "dist", root=root, runner=runner)
-    assert (root / "pyproject.toml").read_bytes() == original
+    bd.build_all(tmp_path / "dist", root=root, runner=runner)
+    assert places[0] == root
+    assert root not in places[1].parents and places[1] != root
+    assert not places[1].exists()  # the scratch tree is gone afterwards
 
 
 def test_a_missing_artifact_fails_the_build(tmp_path: Path) -> None:

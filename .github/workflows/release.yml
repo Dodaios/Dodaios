@@ -12,12 +12,14 @@
 #   Workflow       release.yml
 #   Environment    pypi
 #
-# Two projects, one code base: the distribution is `dodaios` now, and every
-# release also publishes the same wheel and sdist as `personal-jarvis`, its
-# earlier name, so `pip install -U personal-jarvis` keeps updating until those
-# installs have moved (scripts/ci/build_distributions.py). Both own the same
-# package files, which is why install/installer.py removes `personal-jarvis`
-# before it installs `dodaios`.
+# Two projects, one code base: the distribution is `dodaios`, and every
+# release also publishes `personal-jarvis`, its earlier name, as a thin package
+# with no copy of the code: it depends on `dodaios==<this version>` and keeps
+# the earlier commands, so `pip install -U personal-jarvis` and a stored
+# `uvx --from personal-jarvis` keep getting this release
+# (scripts/ci/build_distributions.py). Releases up to 4.1.2 published it as a
+# full copy owning the same package files, which is why install/installer.py
+# removes `personal-jarvis` before it installs `dodaios`.
 #
 # The build and the publish are separate jobs on purpose. Only the tiny publish
 # jobs hold `id-token: write` and enter a publishing environment, so the OIDC
@@ -183,7 +185,8 @@ jobs:
           name: dist
           path: dist/
 
-      # Existing `pip install personal-jarvis` installs keep updating from it.
+      # The thin package: existing `pip install personal-jarvis` installs and
+      # stored `uvx --from personal-jarvis` commands follow it to `dodaios`.
       - name: Publish personal-jarvis
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:

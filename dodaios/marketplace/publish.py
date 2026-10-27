@@ -39,6 +39,7 @@ from typing import Any
 
 import httpx
 
+from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.marketplace.agent_plugins_loader import (
     MAX_SKILL_MD_BYTES,
     AgentPluginError,
@@ -75,7 +76,7 @@ _MAX_ISSUE_BODY = 65_536
 #: (scripts/intake.py in Dodaios/marketplace — keep them identical).
 INTAKE_TITLE_TAG = "[publish]"
 INTAKE_BODY_MARKER = "<!-- jarvis-marketplace-submission -->"
-_UA = {"User-Agent": "Personal-Jarvis/1.0"}
+_UA = {"User-Agent": HTTP_USER_AGENT}
 
 # ---------------------------------------------------------------------------
 # The endpoint's rule set, mirrored (keep in sync with functions/_lib/

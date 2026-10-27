@@ -94,7 +94,8 @@ _CURRENT_IDENTITY = {
     "OFFICIAL_RELEASES_LATEST_API_URL": (
         "https://api.github.com/repos/Dodaios/Dodaios/releases/latest"
     ),
-    "UPDATER_USER_AGENT": "PersonalJarvis-Updater",
+    "UPDATER_USER_AGENT": "Dodaios-Updater",
+    "HTTP_USER_AGENT": "Dodaios/1.0",
 }
 
 
@@ -213,6 +214,9 @@ def test_display_name_is_separate_from_persistent_identity() -> None:
             or name in _MIGRATED_TO_THE_PRODUCT_NAME
             or name in _ALL_SPELLINGS_OF_A_MIGRATED_NAME
             or name == "KEYRING_SERVICE_NAME"
+            # How the app names itself to GitHub and plugin APIs: outward
+            # display text no server keys on, spelled as literals of its own.
+            or name.endswith("_USER_AGENT")
         ):
             # Spelled like the product by choice, as literals of their own: the
             # next test shows they do not follow the display name, and each

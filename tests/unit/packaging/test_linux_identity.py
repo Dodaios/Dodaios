@@ -219,14 +219,15 @@ def test_the_release_also_publishes_the_appimage_under_its_earlier_name(tmp_path
     assert (tmp_path / earlier).read_bytes() == (tmp_path / current).read_bytes()
 
 
-def test_the_deb_keeps_its_earlier_asset_name_while_the_package_is_dodaios() -> None:
-    """The .deb file name keeps the earlier spelling; the package inside it is
-    dodaios and replaces the earlier package."""
+def test_the_deb_is_named_after_its_package_which_replaces_the_earlier_one() -> None:
+    """The .deb file carries the package's name (dodaios); the package replaces
+    the earlier package, and earlier releases' file names still verify."""
     script = _BUILD_SH.read_text(encoding="utf-8")
     values = _assignments(script)
     assert values["DEB_PACKAGE_NAME"] == "dodaios"
     assert values["LEGACY_DEB_PACKAGE_NAME"] == "personal-jarvis"
-    assert 'DEB_PATH="${OUT_DIR}/personal-jarvis_${VERSION}_amd64.deb"' in script
+    assert 'DEB_PATH="${OUT_DIR}/${DEB_PACKAGE_NAME}_${VERSION}_amd64.deb"' in script
+    assert "personal-jarvis_${VERSION}" not in script
     assert "Package: ${DEB_PACKAGE_NAME}\n" in script
     from scripts.ci.release_assets import DEB_PATTERN
 
