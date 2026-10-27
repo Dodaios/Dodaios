@@ -1,4 +1,4 @@
-"""Technician (black work suit, glossy helmet, chest box) and trooper (white armour).
+"""Technician (black work suit, glossy helmet, chest box) and marine (gunmetal armour).
 
 Built with the same garment-body + generated-pieces approach as outfits.py.
 Original designs: helmets are grown from the measured skull, armour plates from
@@ -12,7 +12,7 @@ import math
 import bmesh
 import bpy
 import numpy as np
-from mathutils import Matrix, Vector
+from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 from characters import body as B
@@ -78,9 +78,9 @@ def _skull_rings(ctx, z_rim, offset, n=32):
 
 
 def tech_helmet(ctx):
-    """Gunner/technician helmet (style bible 7.3): black gloss rounded dome, flat 40 mm brim
-    all round sloped 15 degrees down, smoked full-face visor to the chin, two raised
-    ridges front to back 30 mm apart, a small white unit mark on the left side."""
+    """Technician helmet (style bible 7.3): black gloss rounded dome closed by a rolled
+    lower edge (no brim), smoked full-face visor to the chin, two raised ridges front to
+    back 30 mm apart, a small gold unit mark on the left side."""
     ez = ctx.eyes[0].z
     s = ctx.s
     n = 36
@@ -88,21 +88,16 @@ def tech_helmet(ctx):
     back = np.clip(np.sin(ang), 0, 1)
     z_rim = ez + 0.045 * s - back * 0.03 * s
     c, ang, rings, top = _skull_rings(ctx, z_rim, 0.030 * s, n)
-    cen = Vector((c[0], c[1], 0))
     rim = rings[0]
     dirs = [Vector((p.x - c[0], p.y - c[1], 0)) for p in rim]
-    brim_r = 0.18 * s
-    slope = math.tan(math.radians(15))
-    brim_top, brim_out, brim_bot = [], [], []
+    # A rolled lower edge: the shell turns in by 6 mm under the rim, no brim.
+    roll_out, roll_in = [], []
     for p, d in zip(rim, dirs, strict=True):
         u = d.normalized()
-        w = max(0.02, brim_r - d.length)
-        o = cen + u * (d.length + w) + Vector((0, 0, p.z - w * slope))
-        brim_top.append(o + Vector((0, 0, 0.0025)))
-        brim_out.append(o - Vector((0, 0, 0.0025)))
-        brim_bot.append(Vector((p.x, p.y, p.z - 0.006)) + u * 0.002)
+        roll_out.append(Vector((p.x, p.y, p.z - 0.004)) + u * 0.003)
+        roll_in.append(Vector((p.x, p.y, p.z - 0.008)) - u * 0.003)
     bm = bmesh.new()
-    vs = O.tube(bm, [brim_bot, brim_out, brim_top] + rings, mat=0)
+    vs = O.tube(bm, [roll_in, roll_out] + rings, mat=0)
     tv = bm.verts.new(top)
     last = vs[-1]
     for i in range(n):
@@ -161,7 +156,7 @@ def tech_helmet(ctx):
         for a_, b_ in zip(rv[:-1], rv[1:], strict=True):
             for j in range(3):
                 bm.faces.new((a_[j], a_[j + 1], b_[j + 1], b_[j]))
-    # white unit mark on the left side
+    # gold unit mark on the left side
     side_pt = max(rings[3], key=lambda p: p.x)
     O.box(
         bm,
@@ -242,7 +237,7 @@ def build_technician(ctx):
 
 def trooper_helmet(ctx):
     """Marine helmet (style bible 7.4): smooth ovoid shell, 35 mm smoked visor band
-    wrapping 180 degrees at eye level, vertical chin ridge with two grille slots."""
+    wrapping 180 degrees at eye level, a plain rounded jaw (no chin ridge, no grille)."""
     s = ctx.s
     ez = ctx.eyes[0].z
     ey = ctx.eyes[0].y
@@ -258,12 +253,6 @@ def trooper_helmet(ctx):
     bm.normal_update()
     for v in bm.verts:
         v.co += v.normal * 0.03 * s
-    chin = Vector((0.0, ey - 0.045 * s, ez - 0.085 * s))
-    bmesh.ops.create_cube(
-        bm,
-        size=1.0,
-        matrix=Matrix.Translation(chin) @ Matrix.Diagonal((0.034 * s, 0.05 * s, 0.075 * s, 1.0)),
-    )
     ob = O.new_obj("Helmet", bm, ["M_Armor"])
     O.remesh(ob, 0.0055 * s, smooth_iter=16)
     bm = bmesh.new()
@@ -295,15 +284,6 @@ def trooper_helmet(ctx):
     vv = [[bm.verts.new(p) for p in row[:k]] for row in rows]
     for j in range(k - 1):
         bm.faces.new((vv[0][j], vv[0][j + 1], vv[1][j + 1], vv[1][j]))
-    for dz in (-0.07, -0.088):
-        o = Vector((0.0, -0.6, ez + dz * s))
-        hit = bvh.ray_cast(o, Vector((0, 1, 0)))
-        if hit[0] is not None:
-            nn = hit[1]
-            up = (Vector((0, 0, 1)) - nn * nn.z).normalized()
-            O.box(
-                bm, hit[0], up.cross(nn).normalized(), up, nn, (0.022 * s, 0.005 * s, 0.004), mat=0
-            )
     visor = O.new_obj("Visor", bm, ["M_Visor"])
     for p in visor.data.polygons:
         p.use_smooth = False

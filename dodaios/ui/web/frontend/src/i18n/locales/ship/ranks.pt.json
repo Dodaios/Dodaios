@@ -28,13 +28,13 @@
         "deck": "Farda de trabalho",
         "line": "Dólmen de linha",
         "command": "Dólmen de comando",
-        "flag": "Branco de bandeira"
+        "flag": "Gala de bandeira"
       },
       "uniform_note": {
         "deck": "Farda de trabalho cinzento-carvão, entregue no teu primeiro dia a bordo.",
-        "line": "Dólmen cinzento-oliva e boné de oficial com patente.",
-        "command": "Dólmen preto e boné de quem comanda uma nave.",
-        "flag": "Dólmen branco e boné de oficial de bandeira."
+        "line": "Dólmen cinzento-ardósia de oficial com patente.",
+        "command": "Dólmen cinzento-carvão com debrum dourado de quem comanda uma nave.",
+        "flag": "Dólmen grená com debrum dourado de oficial de bandeira."
       },
       "ribbon": {
         "ribbon_good_conduct": "Fita de bom comportamento",

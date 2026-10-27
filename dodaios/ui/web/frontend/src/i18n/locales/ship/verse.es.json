@@ -65,7 +65,7 @@
         "action": "Traer a bordo un nuevo oficial"
       },
       "lift": {
-        "name": "Turboascensor",
+        "name": "Ascensor",
         "action": "Ir a otra cubierta"
       }
     },
@@ -94,7 +94,7 @@
       "view": "Vista",
       "follow": "Tercera persona",
       "overview": "Vista de pájaro",
-      "lift": "Turboascensor",
+      "lift": "Ascensor",
       "commander": "Comandante",
       "settings": "Ajustes de vista",
       "help": "Ayuda",
@@ -123,7 +123,7 @@
       "volume": "Volumen del sonido"
     },
     "lift": {
-      "title": "Turboascensor",
+      "title": "Ascensor",
       "switch": "Cambiar cubierta",
       "here": "Esta cubierta"
     },
@@ -168,7 +168,7 @@
       "start": "Iniciar un duelo",
       "title": "Duelo en el reactor",
       "intro": "Un duelo de bláster uno contra uno en el pozo del reactor contra un bot de combate. Al mejor de tres rondas; puedes salir cuando quieras.",
-      "ride": "El turboascensor te lleva primero a Ingeniería del reactor.",
+      "ride": "El ascensor te lleva primero a Ingeniería del reactor.",
       "choose": "Elige al rival",
       "difficulty": {
         "normal": "Normal",

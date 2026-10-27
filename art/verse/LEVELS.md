@@ -17,7 +17,7 @@ Reading rules that drive every layout (BRIEF §2, §5):
 - Plate aspect ≈ 16:9 at overview: depth D ≈ 0.65 × width W.
 - No void anywhere: every metre of the frame is room, corridor or hull
   structure (frames, conduits, machinery, dim maintenance light).
-- Every deck has a turbolift lobby with a `SOCKET_lift_main` and a `lift`
+- Every deck has a lift lobby with a `SOCKET_lift_main` and a `lift`
   station, and a `SOCKET_spawn_*` where the commander appears.
 
 ## Deck 1 — `bridge` · Command Bridge (W 72 × D 44)
@@ -33,7 +33,7 @@ top of the screen.
 | Starboard crew pit | 42–67, 6–30 | Mirror: `…_pit_s_<n>` (n = 1–8). |
 | Aft bulkhead | 0–72, 31–33 | Cut-away wall (1.1 m) with three openings onto the aft rooms. |
 | Briefing room | 2–28, 33–43 | Black glossy oval table (12 seats, `SOCKET_seat_brief_<n>`), holo projector in the table (`SOCKET_holo_briefing`, station kind `team`), wall screens on its far wall. Team rounds gather here. |
-| Turbolift lobby | 30–42, 34–44 | Two lift doors on the far side of the lobby facing +z, `SOCKET_lift_main`, spawn. |
+| Lift lobby | 30–42, 34–44 | Two lift doors on the far side of the lobby facing +z, `SOCKET_lift_main`, spawn. |
 | Commander's ready room | 44–70, 33–43 | Desk facing +z, chair, a viewport slit, a display case; station kind `service_record`. |
 
 Waypoints for idle crew: walkway edges, viewport rail, pit steps.
@@ -52,7 +52,7 @@ A long main corridor (the hexagonal-profile corridor) with rooms off both sides.
 | Main corridor | 2–94, 27–33 | The deck's spine: 6 m wide corridor profile with chamfered lower walls, ceiling light panels mirrored in the floor, blast-door frames every 24 m. Waypoints along it. |
 | Crew quarters | 3–37, 34–58 | Bunk rows (≥ 16 bunks, `SOCKET_bunk_<n>`), lockers, a washroom block; paused agents rest here. |
 | Team ready rooms A/B | 39–53 and 55–69, 34–58 | Each: round table with holo emitter (`SOCKET_holo_team_a/b`, station kind `team`), 8 seats, wall screens. |
-| Turbolift lobby | 71–81, 34–46 | Lift doors, spawn. |
+| Lift lobby | 71–81, 34–46 | Lift doors, spawn. |
 | Medical / storage | 71–93, 47–58 and 83–93, 34–46 | Med bay beds, storage racks (dressing). |
 
 ## Deck 3 — `engineering` · Reactor Engineering (W 84 × D 54)
@@ -63,7 +63,7 @@ A long main corridor (the hexagonal-profile corridor) with rooms off both sides.
 | Reactor shaft | centre (54, 22), r 13 | A circular shaft through the deck: rim with a low kerb, the glowing core column (r 3, warm white/orange) rising from below, a control ring around the core (r 5–6.5) reached by four narrow catwalks without railings (N, E, S, W). The void falls away into haze and darkness; a few shaft rings below. `nav: block` on the void. |
 | Engineering control room | 2–32, 2–40 | 12 terminal stations in three rows of four facing +z (`SOCKET_seat_term_<n>`, `SOCKET_screen_term_<n>`): coding panes' technicians. Master systems console at the far wall (station kind `coding_launcher`). Glass partition on the room's east side looking at the shaft. |
 | Power conduit gallery | 34–82, 38–52 | Floor-to-ceiling conduits, junction boxes, cable trays; waypoints for patrols. |
-| Turbolift lobby | 2–14, 42–52 | Lift, spawn. |
+| Lift lobby | 2–14, 42–52 | Lift, spawn. |
 | Maintenance bay | 16–32, 42–52 | Tool racks, a utility drone dock (`SOCKET_spawn_drone`). |
 
 ## Deck 4 — `hangar` · Main Hangar (W 100 × D 62)
@@ -74,7 +74,7 @@ A long main corridor (the hexagonal-profile corridor) with rooms off both sides.
 | Flight deck | 3–97, 3–46 | Vast floor of large plates with painted landing markings; a recessed launch well in the floor (30 × 12 m) covered by a faint blue containment field over darkness (never stars); the shuttle (≈ 20 m, original armed design, swept wings out) on a pad (`SOCKET_spawn_arrival` at its ramp), its cabin walkable up the railed ramp (room `shuttle`: ramp corridor, troop bay, cockpit); cargo containers and pallets in ordered rows; fuel lines; tow drone. |
 | Control booth | 3–25, 47–60 | Raised booth behind a window wall (cut at 1.1 m) with consoles facing −z toward the flight deck (an exception: seen from behind). |
 | Arrivals desk | 40–60, 47–60 | Counter and terminal (station kind `create_agent`): new agents come off the shuttle and report here. |
-| Turbolift lobby | 64–76, 48–60 | Lift, spawn. |
+| Lift lobby | 64–76, 48–60 | Lift, spawn. |
 | Armoury racks | 78–97, 47–60 | Armour racks, crates (dressing). |
 
 ## Station kinds (contract with the engine)

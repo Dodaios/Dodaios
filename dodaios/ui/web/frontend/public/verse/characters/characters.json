@@ -143,28 +143,28 @@
       "cap": false
     },
     "line": {
-      "M_Uniform": "#5e6253",
-      "M_Trousers": "#5e6253",
-      "M_Trim": "#50544a",
-      "M_Cap": "#5e6253",
+      "M_Uniform": "#34404f",
+      "M_Trousers": "#2a3340",
+      "M_Trim": "#262f3b",
+      "M_Cap": "#34404f",
       "tile": "#4d86d9",
-      "cap": true
+      "cap": false
     },
     "command": {
-      "M_Uniform": "#17181a",
-      "M_Trousers": "#17181a",
-      "M_Trim": "#0f1012",
-      "M_Cap": "#17181a",
-      "tile": "#e3242b",
-      "cap": true
+      "M_Uniform": "#24262b",
+      "M_Trousers": "#1b1c20",
+      "M_Trim": "#a8873e",
+      "M_Cap": "#24262b",
+      "tile": "#c27a3a",
+      "cap": false
     },
     "flag": {
-      "M_Uniform": "#e4e1d8",
-      "M_Trousers": "#17181a",
-      "M_Trim": "#d6d3c9",
-      "M_Cap": "#e4e1d8",
+      "M_Uniform": "#4a1d24",
+      "M_Trousers": "#1b1c20",
+      "M_Trim": "#c8a24a",
+      "M_Cap": "#4a1d24",
       "tile": "#c8a24a",
-      "cap": true
+      "cap": false
     }
   },
   "tileUnlit": "#2a2d31",
@@ -396,8 +396,8 @@
         "M_Mark"
       ],
       "height": 1.78,
-      "triangles": 11606,
-      "bytes": 837692,
+      "triangles": 11534,
+      "bytes": 853588,
       "defaults": {
         "M_Uniform": "#1f2124",
         "M_Trim": "#34373c"
@@ -421,9 +421,11 @@
         "M_Visor"
       ],
       "height": 1.78,
-      "triangles": 13950,
-      "bytes": 1156288,
-      "defaults": {}
+      "triangles": 13926,
+      "bytes": 1136224,
+      "defaults": {
+        "M_Accent": "#c8a24a"
+      }
     }
   ]
 }

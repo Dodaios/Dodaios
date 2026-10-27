@@ -28,13 +28,13 @@
         "deck": "Work uniform",
         "line": "Line tunic",
         "command": "Command tunic",
-        "flag": "Flag whites"
+        "flag": "Flag dress"
       },
       "uniform_note": {
         "deck": "Charcoal work uniform, issued on your first day aboard.",
-        "line": "Olive-grey tunic and cap of a commissioned officer.",
-        "command": "Black tunic and cap, worn by those who command a ship.",
-        "flag": "White tunic and cap of a flag officer."
+        "line": "Slate tunic of a commissioned officer.",
+        "command": "Charcoal tunic with gold piping, worn by those who command a ship.",
+        "flag": "Oxblood tunic with gold piping of a flag officer."
       },
       "ribbon": {
         "ribbon_good_conduct": "Good Conduct Ribbon",
