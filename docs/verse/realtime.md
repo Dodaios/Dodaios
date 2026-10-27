@@ -429,7 +429,7 @@ corrected until the dark areas matched.
 | Deck | Export | `realtime/` | Triangles / chunks | Density (weight 1) | Pages in use |
 |---|---|---|---|---|---|
 | bridge | 15 min (bake 11.5 min) | 19.4 MB | 1.07 M / 360 | 37.6 px/m | 4 pages (wall cladding 2026-10-26, ready room corner wall 2026-10-27) |
-| engineering | 11 min (bake 7.5 min) | 21.2 MB | 1.56 M / 206 | 29.5 px/m | 25-41 % surface, 82 % in rectangles |
+| engineering | 39 min on a shared GPU (bake 30 min) | 23.7 MB | 1.77 M / 272 | 26.9 px/m | 81 % in rectangles (engine-room fit-out 2026-10-27) |
 | hangar | 12 min (bake 9 min) | 18.7 MB | 1.09 M / 197 | 27.7 px/m | 21-54 % surface, 80 % in rectangles |
 | ops | 17 min (bake 11 min) | 16.2 MB | 0.91 M / 441 | 29.5 px/m | 38-53 % surface |
 
