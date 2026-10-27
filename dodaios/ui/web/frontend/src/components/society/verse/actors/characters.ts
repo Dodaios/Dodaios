@@ -33,6 +33,8 @@ export interface ModelEntry {
   height: number;
   hoverHeight?: number;
   driveSpeed?: number;
+  /** Size of the cooked file; it versions the file's URL so a rebuilt body is never served from a stale cache. */
+  bytes?: number;
   /** Bones beyond the shared skeleton (a skin's cloak), posed at run time. */
   extraBones?: string[];
 }
@@ -74,6 +76,11 @@ function assetUrl(relative: string): string {
   return `${import.meta.env.BASE_URL}${relative.replace(/^\/+/, "")}`;
 }
 
+/** `url` with the file's size as a version, so a changed file gets a new URL (and no stale cached copy). Pure. */
+export function versionedUrl(url: string, bytes: number | undefined): string {
+  return typeof bytes === "number" && bytes > 0 ? `${url}${url.includes("?") ? "&" : "?"}v=${bytes}` : url;
+}
+
 /** A light shape check; a contract that fails it leaves the decks without people rather than broken. */
 export function parseContract(json: unknown): CharacterContract {
   const c = json as Partial<CharacterContract> | null;
@@ -112,7 +119,9 @@ export class CharacterLibrary {
   }
 
   static async load(signal: AbortSignal): Promise<CharacterLibrary> {
-    const res = await fetch(contractUrl(), { signal });
+    // Revalidated on every load: a cached manifest from before an update hides new bodies (the app's server sends
+    // no cache headers, so the WebView would otherwise keep the old file).
+    const res = await fetch(contractUrl(), { signal, cache: "no-cache" });
     if (!res.ok) throw new Error(`characters.json: HTTP ${res.status}`);
     return new CharacterLibrary(parseContract(await res.json()));
   }
@@ -128,7 +137,8 @@ export class CharacterLibrary {
   private gltf(url: string): Promise<GLTF> {
     let pending = this.gltfs.get(url);
     if (!pending) {
-      pending = this.loader.loadAsync(assetUrl(url));
+      const size = this.contract.models.find((m) => m.url === url)?.bytes;
+      pending = this.loader.loadAsync(versionedUrl(assetUrl(url), size));
       this.gltfs.set(url, pending);
       pending.catch(() => this.gltfs.delete(url));
     }
