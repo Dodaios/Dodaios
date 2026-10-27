@@ -80,7 +80,7 @@ we could not obtain. Record it below with `own work` as the legal basis.
 | gmail | gilbarbara/logos `google-gmail.svg` | CC0 | 2026-07-25 |
 | google_calendar | gilbarbara/logos `google-calendar.svg` | CC0 | 2026-07-25 |
 | google_drive | gilbarbara/logos `google-drive.svg` | CC0 | 2026-07-25 |
-| higgsfield | vendor app icon `https://higgsfield.ai/icon.png` (vectorized outline of the official lime-and-snake mark; Higgsfield publishes no SVG) | vendor asset | 2026-08-19 |
+| higgsfield | vendor app icon `https://higgsfield.ai/icon.png`, byte-for-byte (PNG, 192 px; Higgsfield publishes no SVG) | vendor asset | 2026-10-27 |
 | home_assistant | svgl `home-assistant.svg` | MIT | 2026-07-25 |
 | linear | svgl `linear.svg` (brand purple, legible on dark) | MIT | 2026-07-25 |
 | notion | svgl `notion.svg` (the light variant, for dark backgrounds) | MIT | 2026-07-25 |
