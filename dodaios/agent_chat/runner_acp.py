@@ -174,9 +174,10 @@ async def _runtime_turn(
     )
     plan_mode = session.permission_mode in ("plan", "read-only")
     reasoning, vision = await asyncio.to_thread(model_capabilities, route.provider, route.model)
-    if reasoning is None and route.efforts is not None:
-        # A model whose catalog lists effort levels reasons; one listing none
-        # (or only "none") does not.
+    if route.efforts is not None:
+        # The provider's own per-model effort list is the stronger statement:
+        # a model listing a level above "none" reasons; one listing none (or
+        # only "none") does not.
         reasoning = any(level and level != "none" for level in route.efforts)
     return RuntimeTurn(
         agent_id=agent.agent_id,

@@ -98,3 +98,10 @@ def test_a_runtime_without_failure_replies_shows_every_text():
     turn, io = _run(_REFUSAL, patterns=())
     assert turn.status == "done"
     assert turn.emitted_text
+
+
+def test_a_failure_notice_split_over_chunks_never_leaks_into_the_answer():
+    turn, io = _run("[OpenClaw interruption] The Gateway", " disconnected.")
+    assert turn.status == "error"
+    assert turn.error == "The Gateway disconnected."
+    assert _texts(io) == []

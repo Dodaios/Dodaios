@@ -353,7 +353,7 @@ class AcpTurn:
             self.stop_reason = str(res.get("stopReason") or "")
             self._take_usage(res.get("usage"))
             if self._failure_reply:
-                self._fail(self._failure_reply)
+                self._fail(self._failure_reply.strip())
                 return
             if self.stop_reason == "refusal" and not self.emitted_text:
                 self._fail("The model refused this request.")
@@ -444,6 +444,10 @@ class AcpTurn:
         if kind == "agent_message_chunk":
             await self._flush_thought(io)
             text = _content_text(update.get("content"))
+            if self._failure_reply:
+                # The rest of a failure notice that arrived in several chunks.
+                self._failure_reply += text
+                return
             reason = _failure_reason(text, self.failure_replies)
             if reason:
                 # The runtime's own failure notice, not the model's answer.
