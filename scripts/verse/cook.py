@@ -39,6 +39,7 @@ PUBLIC_VERSE = blender.REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "publ
 PUBLIC_DECKS = PUBLIC_VERSE / "decks"
 ENTRY = Path(__file__).resolve().with_name("_cook_entry.py")
 REALTIME_ENTRY = Path(__file__).resolve().with_name("_realtime_entry.py")
+DEFAULT_TIMEOUT_S = 4 * 3600  # raise with --timeout-hours when the GPU is shared
 
 
 def cook_deck(
@@ -48,6 +49,7 @@ def cook_deck(
     keep_blend: bool = False,
     device: str = "auto",
     out_dir: Path | None = None,
+    timeout: float = DEFAULT_TIMEOUT_S,
 ) -> dict:
     """Cook one deck end to end and return its manifest."""
     raw_dir = blender.CACHE_ROOT / "cook" / deck_id / quality
@@ -56,7 +58,7 @@ def cook_deck(
     args = [deck_id, str(raw_dir), quality]
     if keep_blend:
         args += ["--blend", str(blender.CACHE_ROOT / "blend" / f"LV_{deck_id}.blend")]
-    result = blender.run(ENTRY, args, device=device, timeout=4 * 3600)
+    result = blender.run(ENTRY, args, device=device, timeout=timeout)
     out_dir = out_dir or PUBLIC_DECKS / deck_id
     manifest = package.package_deck(raw_dir, out_dir, {"blender_s": round(result.seconds, 1)})
     problems = validate.validate_deck_dir(out_dir)
@@ -102,6 +104,7 @@ def cook_realtime(
     keep_blend: bool = False,
     device: str = "auto",
     out_dir: Path | None = None,
+    timeout: float = DEFAULT_TIMEOUT_S,
 ) -> dict:
     """Run the realtime export of one deck end to end and return its manifest block."""
     raw_dir = blender.CACHE_ROOT / "cook" / deck_id / f"realtime-{quality}"
@@ -110,7 +113,7 @@ def cook_realtime(
     args = [deck_id, str(raw_dir), quality]
     if keep_blend:
         args += ["--blend", str(blender.CACHE_ROOT / "blend" / f"RT_{deck_id}.blend")]
-    result = blender.run(REALTIME_ENTRY, args, device=device, timeout=4 * 3600)
+    result = blender.run(REALTIME_ENTRY, args, device=device, timeout=timeout)
     out_dir = out_dir or PUBLIC_DECKS / deck_id
     block = package_realtime.package_realtime(
         raw_dir, out_dir, {"blender_s": round(result.seconds, 1)}
@@ -140,6 +143,12 @@ def _main(argv: list[str] | None = None) -> int:
     deck.add_argument(
         "--nav-only", action="store_true", help="rebuild only the nav grid of a cooked deck"
     )
+    deck.add_argument(
+        "--timeout-hours",
+        type=float,
+        default=DEFAULT_TIMEOUT_S / 3600,
+        help="Blender time limit (default 4; a final cook on a shared GPU can need more)",
+    )
     options = parser.parse_args(argv)
     if options.nav_only:
         try:
@@ -157,6 +166,7 @@ def _main(argv: list[str] | None = None) -> int:
                 keep_blend=options.keep_blend,
                 device=options.device,
                 out_dir=options.out,
+                timeout=options.timeout_hours * 3600,
             )
         except blender.BlenderError as error:
             print(error, file=sys.stderr)
@@ -176,6 +186,7 @@ def _main(argv: list[str] | None = None) -> int:
             keep_blend=options.keep_blend,
             device=options.device,
             out_dir=options.out,
+            timeout=options.timeout_hours * 3600,
         )
     except blender.BlenderError as error:
         print(error, file=sys.stderr)
