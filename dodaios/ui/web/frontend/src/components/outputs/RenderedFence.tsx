@@ -11,12 +11,20 @@
  * Safety is the artifact page's model, mirrored for inline markup:
  * - SVG is drawn through an `<img>` from a data: URL — a browser never runs
  *   script or fetches anything for an SVG-as-image.
- * - HTML runs in an `<iframe srcdoc>` with `sandbox="allow-scripts"` and NO
- *   `allow-same-origin`, so it lives in an opaque origin that cannot reach the
- *   app's cookies, storage or API; a Content-Security-Policy stamped into the
- *   document (`INLINE_HTML_CSP`, the verbatim twin of `ARTIFACT_PAGE_CSP` in
- *   `dodaios/ui/web/artifact_view.py`) shuts every way out — no network, no
- *   forms, no navigation. The frame grows to its content through a
+ * - HTML renders INERT by default: an `<iframe srcdoc>` with an empty
+ *   `sandbox` (no scripts, no same-origin, no forms, no popups) plus a
+ *   Content-Security-Policy stamped into the document (`INLINE_HTML_CSP`, the
+ *   verbatim twin of `ARTIFACT_PAGE_CSP` in `dodaios/ui/web/artifact_view.py`)
+ *   that blocks every subresource fetch. A fence shows up in a chat on its
+ *   own, so nothing in it may run or reach the network before the reader
+ *   asks for it.
+ * - Scripts run only after an explicit "Run scripts" click. The frame then
+ *   gets `sandbox="allow-scripts"` (still NO `allow-same-origin`, so it lives
+ *   in an opaque origin that cannot reach the app's cookies, storage or API).
+ *   CSP cannot stop a script from navigating its own frame
+ *   (`location.href = "https://..."`), so a running snippet CAN reach a web
+ *   address; that is why running is the reader's choice, never the default
+ *   (issue #346). The scripted frame grows to its content through a
  *   `postMessage` the injected reporter sends; the parent trusts a message
  *   only from that frame's own window, and only up to a ceiling.
  */
@@ -42,6 +50,8 @@ export const INLINE_HTML_SIZE_MESSAGE = "jarvis-inline-html-size";
 
 const MIN_FRAME_PX = 96;
 const MAX_FRAME_PX = 720;
+/** Height of an inert frame: without a script nothing can report the content's size. */
+const INERT_FRAME_PX = 320;
 
 /** The app's card surface in each palette, for a fragment that brings no page of its own. */
 const FRAGMENT_SKIN: Record<Theme, { bg: string; ink: string }> = {
@@ -71,10 +81,16 @@ function reporterScript(token: string): string {
  * The document the frame loads: the snippet as-is when it is a whole page
  * (CSP and theme stamp added to its head), otherwise wrapped in a minimal
  * page on the app's card surface so a bare `<div>` or `<svg>` reads in both
- * palettes. Exported for the tests.
+ * palettes. With `scripts: false` (the inert preview) no size reporter is
+ * injected, since the frame would refuse to run it anyway. Exported for the tests.
  */
-export function wrapInlineHtml(html: string, theme: Theme, token: string): string {
-  const script = reporterScript(token);
+export function wrapInlineHtml(
+  html: string,
+  theme: Theme,
+  token: string,
+  { scripts = true }: { scripts?: boolean } = {},
+): string {
+  const script = scripts ? reporterScript(token) : "";
   if (/<html[\s>]/i.test(html)) {
     let doc = html;
     if (!/<html[^>]*\sdata-theme=/i.test(doc)) {
@@ -111,14 +127,27 @@ export function svgDataUrl(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(document)}`;
 }
 
-/** The sandboxed frame an inline HTML snippet runs in, sized to its content. */
-export function InlineHtmlFrame({ html, title }: { html: string; title: string }) {
+/**
+ * The sandboxed frame an inline HTML snippet renders in. Inert unless
+ * `scripts` is set (the reader clicked "Run scripts"); only a scripted frame
+ * can report its content height, so an inert one keeps a fixed height.
+ */
+export function InlineHtmlFrame({
+  html,
+  title,
+  scripts = false,
+}: {
+  html: string;
+  title: string;
+  scripts?: boolean;
+}) {
   const theme = useThemeValue();
   const token = useId();
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(MIN_FRAME_PX * 2);
 
   useEffect(() => {
+    if (!scripts) return;
     const onMessage = (event: MessageEvent) => {
       const frame = ref.current;
       if (!frame || event.source !== frame.contentWindow) return;
@@ -137,19 +166,23 @@ export function InlineHtmlFrame({ html, title }: { html: string; title: string }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [token]);
+  }, [token, scripts]);
 
-  const doc = useMemo(() => wrapInlineHtml(html, theme, token), [html, theme, token]);
+  const doc = useMemo(
+    () => wrapInlineHtml(html, theme, token, { scripts }),
+    [html, theme, token, scripts],
+  );
 
   return (
     <iframe
       ref={ref}
-      key={theme}
+      key={`${theme}-${scripts ? "scripts" : "inert"}`}
       title={title}
       srcDoc={doc}
-      sandbox="allow-scripts"
+      sandbox={scripts ? "allow-scripts" : ""}
       referrerPolicy="no-referrer"
-      style={{ height }}
+      style={{ height: scripts ? height : INERT_FRAME_PX }}
+      data-scripts={scripts ? "on" : "off"}
       className="block w-full border-0 bg-transparent"
       data-testid="inline-html-frame"
     />
@@ -160,6 +193,7 @@ export function RenderedFence({ language, code }: { language: FenceLanguage; cod
   const t = useT();
   const [mode, setMode] = useState<"rendered" | "source">("rendered");
   const [copied, setCopied] = useState(false);
+  const [scripts, setScripts] = useState(false);
 
   const copy = () => {
     void robustCopy(code).then((ok) => {
@@ -195,6 +229,17 @@ export function RenderedFence({ language, code }: { language: FenceLanguage; cod
       <div className="flex items-center justify-between gap-2 border-b border-border/40 bg-muted/20 px-3 py-1">
         <span className="text-micro uppercase tracking-wider text-muted-foreground">{language}</span>
         <div className="flex items-center gap-1.5">
+          {language === "html" && !scripts && mode === "rendered" ? (
+            <button
+              type="button"
+              onClick={() => setScripts(true)}
+              className="rounded px-2 py-0.5 text-micro font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              title={t("outputs_view.fence_run_scripts_hint")}
+              data-testid="inline-html-run-scripts"
+            >
+              {t("outputs_view.fence_run_scripts")}
+            </button>
+          ) : null}
           <div role="group" className="inline-flex rounded border border-border/60 bg-muted/40 p-0.5">
             {segment("rendered", t("outputs_view.fence_rendered"))}
             {segment("source", t("outputs_view.fence_source"))}
@@ -221,7 +266,7 @@ export function RenderedFence({ language, code }: { language: FenceLanguage; cod
           <img src={svgDataUrl(code)} alt="SVG" className="max-w-full" data-testid="inline-svg" />
         </div>
       ) : (
-        <InlineHtmlFrame html={code} title="HTML" />
+        <InlineHtmlFrame html={code} title="HTML" scripts={scripts} />
       )}
     </div>
   );
