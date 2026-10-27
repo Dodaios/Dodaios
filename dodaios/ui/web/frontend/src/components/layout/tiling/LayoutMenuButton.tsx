@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ImageUp, LayoutDashboard, Monitor, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ImageUp, LayoutDashboard, Monitor, RotateCcw } from "lucide-react";
 import { clsx } from "clsx";
 
+import { resolveNavLabel } from "@/components/layout/navGroups";
+import { SectionPicker } from "@/components/layout/tiling/SectionPicker";
+import { navItemFor } from "@/components/layout/tiling/tileSection";
 import { useT } from "@/i18n";
+import { sectionWindow } from "@/lib/sectionWindows";
 import { layoutLeaves, leaves, PRESETS, type PresetId } from "@/lib/tilingLayout";
 import { useEventStore, type SectionId } from "@/store/events";
 import { useTilingStore } from "@/store/tiling";
@@ -31,6 +35,12 @@ export function LayoutMenuButton() {
   const file = useRef<HTMLInputElement>(null);
   const tree = useTilingStore((s) => s.tree);
   const applyPreset = useTilingStore((s) => s.applyPreset);
+  const focusedId = useTilingStore((s) => s.focusedId);
+  const stageAspect = useTilingStore((s) => s.stageAspect);
+  const [picking, setPicking] = useState<string | null>(null);
+  const closePicker = useCallback(() => setPicking(null), []);
+  const cells = useMemo(() => layoutLeaves(tree), [tree]);
+  const shownOwners = cells.map(({ leaf }) => sectionWindow(leaf.section));
   const source = useWallpaperStore((s) => s.source);
   const current = presetOf(tree);
   const tileCount = Math.max(1, leaves(tree).length);
@@ -40,7 +50,10 @@ export function LayoutMenuButton() {
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPicking(null);
+      return;
+    }
     void useWallpaperStore.getState().refresh();
     const onDown = (event: PointerEvent) => {
       if (!box.current?.contains(event.target as Node)) setOpen(false);
@@ -84,7 +97,7 @@ export function LayoutMenuButton() {
           role="dialog"
           aria-label={t("tiling.menu")}
           data-testid="layout-menu"
-          className="absolute left-0 top-9 z-[130] w-[300px] rounded-xl border border-border bg-popover p-3 shadow-xl"
+          className="absolute left-0 top-9 z-[130] w-[320px] rounded-xl border border-border bg-popover p-3 shadow-xl"
         >
           <p className="mb-2 text-meta font-medium text-foreground-strong">{t("tiling.arrange")}</p>
           <div className="grid grid-cols-4 gap-2">
@@ -98,7 +111,10 @@ export function LayoutMenuButton() {
                 data-testid={`layout-preset-${preset.id}`}
                 onClick={() => {
                   applyPreset(preset.id);
-                  setOpen(false);
+                  setPicking(null);
+                  // A single section needs no further choice; a layout stays
+                  // open so the user picks what goes where right away.
+                  if (preset.slots === 1) setOpen(false);
                 }}
                 className={clsx(
                   "relative h-12 rounded-md border p-1 transition-colors",
@@ -125,6 +141,66 @@ export function LayoutMenuButton() {
               </button>
             ))}
           </div>
+          {tree && (
+            <div className="mt-3" data-testid="layout-slots">
+              <p className="text-meta font-medium text-foreground-strong">{t("tiling.what_where")}</p>
+              <p className="mb-2 text-[11px] leading-4 text-muted-foreground">{t("tiling.what_where_hint")}</p>
+              <div className="relative">
+                <div
+                  className="relative w-full overflow-hidden rounded-lg border border-border bg-muted/40"
+                  style={{ aspectRatio: String(Math.min(2.2, Math.max(1.2, stageAspect))) }}
+                >
+                  {cells.map(({ leaf, rect }) => {
+                    const item = navItemFor(leaf.section);
+                    const Icon = item?.icon;
+                    const active = picking === leaf.id;
+                    return (
+                      <button
+                        key={leaf.id}
+                        type="button"
+                        data-picker-anchor=""
+                        data-testid="layout-slot"
+                        title={t("tiling.change_section")}
+                        onClick={() => setPicking((value) => (value === leaf.id ? null : leaf.id))}
+                        className={clsx(
+                          "absolute flex flex-col items-center justify-center gap-1 rounded-md border px-1 text-center transition-colors",
+                          active
+                            ? "border-primary bg-primary/15 text-foreground-strong"
+                            : leaf.id === focusedId
+                              ? "border-primary/50 bg-card text-foreground hover:bg-secondary"
+                              : "border-border bg-card text-foreground hover:bg-secondary",
+                        )}
+                        style={{
+                          left: `calc(${rect.x * 100}% + 3px)`,
+                          top: `calc(${rect.y * 100}% + 3px)`,
+                          width: `calc(${rect.w * 100}% - 6px)`,
+                          height: `calc(${rect.h * 100}% - 6px)`,
+                        }}
+                      >
+                        {Icon && <Icon aria-hidden className="h-4 w-4 shrink-0" />}
+                        <span className="flex max-w-full items-center gap-0.5 text-[11px] font-medium leading-tight">
+                          <span className="truncate">{item ? resolveNavLabel(t, item) : leaf.section}</span>
+                          <ChevronDown aria-hidden className="h-3 w-3 shrink-0 opacity-70" />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {picking && cells.some(({ leaf }) => leaf.id === picking) && (
+                  <SectionPicker
+                    className="absolute left-1/2 top-full mt-1 -translate-x-1/2"
+                    section={cells.find(({ leaf }) => leaf.id === picking)!.leaf.section}
+                    shownOwners={shownOwners}
+                    onClose={closePicker}
+                    onPick={(next) => {
+                      useTilingStore.getState().setTileSection(picking, next);
+                      setPicking(null);
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
           <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{t("tiling.shift_click_hint")}</p>
 
           <div className="my-3 h-px bg-border" />

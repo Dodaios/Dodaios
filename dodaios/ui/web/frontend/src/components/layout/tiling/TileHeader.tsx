@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { ChevronDown, Columns2, Maximize2, Minimize2, Rows2, X } from "lucide-react";
 import { clsx } from "clsx";
 
 import { resolveNavLabel } from "@/components/layout/navGroups";
-import { navItemFor, TILEABLE_NAV_ITEMS } from "@/components/layout/tiling/tileSection";
+import { SectionPicker } from "@/components/layout/tiling/SectionPicker";
+import { navItemFor } from "@/components/layout/tiling/tileSection";
 import { useT } from "@/i18n";
 import { MAX_TILES, leaves } from "@/lib/tilingLayout";
 import { sectionWindow } from "@/lib/sectionWindows";
@@ -39,27 +40,12 @@ export function TileHeader({
   const shownOwners = leaves(tree).map((item) => sectionWindow(item.section));
   const { splitTile, closeTile, toggleMaximize, setTileSection } = useTilingStore.getState();
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const item = navItemFor(section);
   const Icon = item?.icon;
   const label = item ? resolveNavLabel(t, item) : section;
   const canSplit = tileCount < MAX_TILES;
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    window.addEventListener("pointerdown", onDown, true);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointerdown", onDown, true);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   return (
     <div
@@ -74,13 +60,15 @@ export function TileHeader({
       }}
       data-testid="tile-header"
     >
-      <div ref={menuRef} className="relative min-w-0">
+      <div className="relative min-w-0">
         <button
           type="button"
           className={clsx(
-            "flex h-6 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-meta font-medium transition-colors hover:bg-secondary",
+            "flex h-6 min-w-0 items-center gap-1.5 rounded-md border border-transparent px-1.5 text-meta font-medium transition-colors hover:border-border hover:bg-secondary",
+            menuOpen && "border-border bg-secondary",
             focused ? "text-foreground" : "text-muted-foreground",
           )}
+          data-picker-anchor=""
           onClick={() => setMenuOpen((open) => !open)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
@@ -89,38 +77,19 @@ export function TileHeader({
         >
           {Icon && <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />}
           <span className="truncate">{label}</span>
-          <ChevronDown aria-hidden className="h-3 w-3 shrink-0 opacity-60" />
+          <ChevronDown aria-hidden className="h-3 w-3 shrink-0" />
         </button>
         {menuOpen && (
-          <div
-            role="menu"
-            className="absolute left-0 top-7 z-30 max-h-[60vh] w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
-          >
-            {TILEABLE_NAV_ITEMS.map((entry) => {
-              const EntryIcon = entry.icon;
-              const current = sectionWindow(entry.id) === sectionWindow(section);
-              const elsewhere = !current && shownOwners.includes(sectionWindow(entry.id));
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  role="menuitem"
-                  className={clsx(
-                    "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-meta transition-colors hover:bg-secondary",
-                    current ? "text-foreground-strong" : "text-foreground",
-                  )}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setTileSection(leafId, entry.id);
-                  }}
-                >
-                  <EntryIcon aria-hidden className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{resolveNavLabel(t, entry)}</span>
-                  {elsewhere && <span className="text-[10px] text-muted-foreground">{t("tiling.swap")}</span>}
-                </button>
-              );
-            })}
-          </div>
+          <SectionPicker
+            className="absolute left-0 top-7"
+            section={section}
+            shownOwners={shownOwners}
+            onClose={closeMenu}
+            onPick={(next) => {
+              setMenuOpen(false);
+              setTileSection(leafId, next);
+            }}
+          />
         )}
       </div>
       <div className="min-w-0 flex-1" />

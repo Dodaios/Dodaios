@@ -4758,7 +4758,7 @@
     "preset_stack_main": "左侧上下两个，右侧一个",
     "preset_columns_3": "三栏",
     "preset_grid_4": "四宫格",
-    "shift_click_hint": "提示：在侧边栏中按住 Shift 点击某个分区，即可在当前分区旁打开它。把一个窗格的标题栏拖到另一个窗格上即可交换两者。",
+    "shift_click_hint": "提示：点击侧边栏会切换高亮的窗格；Shift+点击会在旁边打开该板块。将窗格标题拖到另一个窗格上可交换两者。",
     "background": "背景",
     "background_desktop": "桌面壁纸",
     "background_custom": "选择图片…",
@@ -4774,7 +4774,12 @@
     "split_down": "向下拆分",
     "maximize": "占满屏幕",
     "restore": "返回布局",
-    "close": "关闭窗格"
+    "close": "关闭窗格",
+    "pick_section": "在此窗格中显示",
+    "search_section": "搜索板块…",
+    "no_section_match": "没有匹配的板块",
+    "what_where": "布局内容",
+    "what_where_hint": "点击一个窗格，选择其中显示的板块。"
   },
   "use_web_socket": {
     "jarvis_opened": "{name} 已打开",
