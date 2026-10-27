@@ -36,14 +36,19 @@ class FakeAssetFetcher:
     text_urls: list[str] = field(default_factory=list)
     download_urls: list[str] = field(default_factory=list)
     progress_ticks: list[tuple[int, int | None]] = field(default_factory=list)
+    #: Further small documents by the file name their URL ends with (the
+    #: signed update manifest and its signature); anything else gets
+    #: ``manifest``.
+    texts: dict[str, str] = field(default_factory=dict)
 
     async def get_text(self, url: str, *, max_bytes: int) -> str:
         self.text_urls.append(url)
         if self.fail_text is not None:
             raise self.fail_text
-        if len(self.manifest.encode("utf-8")) > max_bytes:
-            raise AssertionError("the fake manifest exceeds the caller's cap")
-        return self.manifest
+        body = self.texts.get(url.rsplit("/", 1)[-1], self.manifest)
+        if len(body.encode("utf-8")) > max_bytes:
+            raise AssertionError("the fake document exceeds the caller's cap")
+        return body
 
     async def download(
         self,

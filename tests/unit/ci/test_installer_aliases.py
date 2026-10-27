@@ -55,11 +55,11 @@ def test_the_pairs_cover_exactly_the_published_installers() -> None:
     assert all(earlier.startswith("PersonalJarvis-") for _current, earlier in PAIRS)
 
 
-def test_the_release_job_aliases_after_download_and_before_the_manifest() -> None:
+def test_the_checksum_job_aliases_after_download_and_before_the_manifest() -> None:
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/desktop-installers.yml").read_text(encoding="utf-8")
     )
-    steps = workflow["jobs"]["release"]["steps"]
+    steps = workflow["jobs"]["checksums"]["steps"]
     runs = [step.get("run", "") for step in steps]
     download = next(i for i, s in enumerate(steps) if "download-artifact@" in s.get("uses", ""))
     alias = next(i for i, run in enumerate(runs) if "installer_aliases.py installers" in run)
@@ -67,6 +67,19 @@ def test_the_release_job_aliases_after_download_and_before_the_manifest() -> Non
     assert download < alias < manifest
     for name in release_assets.INSTALLERS:
         assert name in runs[manifest], name
+
+
+def test_the_release_job_uploads_only_what_the_manifest_vouches_for() -> None:
+    """The release job re-creates the aliases, then checks every file it uploads."""
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/desktop-installers.yml").read_text(encoding="utf-8")
+    )
+    steps = workflow["jobs"]["release"]["steps"]
+    runs = [step.get("run", "") for step in steps]
+    alias = next(i for i, run in enumerate(runs) if "installer_aliases.py installers" in run)
+    check = next(i for i, run in enumerate(runs) if "sha256sum -c" in run)
+    upload = next(i for i, run in enumerate(runs) if "release_assets.py upload" in run)
+    assert alias < check < upload
 
 
 def test_the_windows_setup_is_signed_under_the_pinned_name() -> None:
