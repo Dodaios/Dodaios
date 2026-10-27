@@ -105,7 +105,8 @@ describe("CreateAgentDialog", () => {
     fireEvent.click(screen.getByTestId("create-agent-submit"));
     await expect(pending).resolves.toBe(agent);
     const choice = createAgent.mock.calls[0][0];
-    expect(choice).toMatchObject({ name: "Scout", runtime: "hermes", provider: "openai", model: "gpt-5.5", accountId: "" });
+    // A local model beats a per-use API key as the first pick.
+    expect(choice).toMatchObject({ name: "Scout", runtime: "hermes", provider: "ollama", model: "qwen3:8b", accountId: "" });
     expect(choice.companion.shape).toBeTruthy();
     expect(useCreateAgentDialog.getState().open).toBe(false);
   });
@@ -116,10 +117,11 @@ describe("CreateAgentDialog", () => {
     act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
     await screen.findByTestId("create-agent-provider");
     expect(screen.getByTestId("create-agent-model")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "society.create.kind_api" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: "society.create.kind_local" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByTestId("create-agent-access-cost")).toBeNull();
     fireEvent.click(screen.getByTestId("create-agent-submit"));
     await waitFor(() => expect(createAgent).toHaveBeenCalled());
-    expect(createAgent.mock.calls[0][0]).toMatchObject({ runtime: "jarvis", provider: "openai", model: "gpt-5.5" });
+    expect(createAgent.mock.calls[0][0]).toMatchObject({ runtime: "jarvis", provider: "ollama", model: "qwen3:8b" });
   });
 
   test("Claude can run on the subscription or on the API key", async () => {
@@ -232,7 +234,49 @@ describe("CreateAgentDialog", () => {
     await waitFor(() => expect(submit.disabled).toBe(false));
     fireEvent.click(submit);
     await waitFor(() => expect(createAgent).toHaveBeenCalled());
-    expect(createAgent.mock.calls[0][0]).toMatchObject({ runtime: "openclaw", provider: "openai" });
+    expect(createAgent.mock.calls[0][0]).toMatchObject({ runtime: "openclaw", provider: "ollama" });
+  });
+
+  test("a Hermes agent starts on the ChatGPT plan, not on Claude's extra usage", async () => {
+    const CODEX = provider({
+      id: "openai-codex", label: "OpenAI Codex", family: "openai", runner: "codex-cli", cli_installed: true,
+      curated_models: [{ id: "gpt-5.5", label: "GPT-5.5" }],
+    });
+    runtimes.value = {
+      ...READY,
+      supported_providers: ["claude-api", "openai-codex"],
+      subscription_providers: ["openai-codex"],
+      login_providers: ["claude-api"],
+      access: { "claude-api": ["subscription", "api"] },
+    };
+    menu.options = [CLAUDE, CODEX];
+    menu.live = {};
+    createAgent.mockResolvedValue({ agentId: "agent-5" });
+    mount();
+    act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
+    fireEvent.click(await screen.findByRole("radio", { name: "society.runtime.hermes" }));
+    await screen.findByTestId("create-agent-provider");
+    await waitFor(() => expect(screen.getByRole("radio", { name: "society.create.kind_subscription" }).getAttribute("aria-checked")).toBe("true"));
+    expect(screen.queryByTestId("create-agent-access-cost")).toBeNull();
+    fireEvent.click(screen.getByTestId("create-agent-submit"));
+    await waitFor(() => expect(createAgent).toHaveBeenCalled());
+    expect(createAgent.mock.calls[0][0]).toMatchObject({ runtime: "hermes", provider: "openai-codex" });
+  });
+
+  test("a per-use seat is only the fallback, and says so in plain sight", async () => {
+    runtimes.value = {
+      ...READY,
+      supported_providers: ["claude-api"],
+      login_providers: ["claude-api"],
+      access: { "claude-api": ["subscription"] },
+    };
+    menu.options = [CLAUDE];
+    menu.live = {};
+    mount();
+    act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
+    fireEvent.click(await screen.findByRole("radio", { name: "society.runtime.hermes" }));
+    const warning = await screen.findByTestId("create-agent-access-cost");
+    expect(warning.textContent).toBe("society.create_agent.access_extra_usage");
   });
 
   test("closing the dialog cancels the request quietly", async () => {

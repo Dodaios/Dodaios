@@ -10783,7 +10783,15 @@
       "saved_chat": "Permitido neste chat: {app}",
       "saved_short": "Regra salva",
       "still_asks": "Uma regra mais rígida ainda pergunta antes.",
-      "save_failed": "Não foi possível salvar a regra."
+      "save_failed": "Não foi possível salvar a regra.",
+      "always_folder": "Permitir sempre alterações a ficheiros em {folder}",
+      "always_command": "Permitir sempre o comando {command}",
+      "always_everything": "Permitir sempre tudo neste chat",
+      "reach_folder": "Só esta pasta",
+      "reach_command": "Só este comando",
+      "reach_everything": "Tudo neste chat",
+      "reach_tool_plain": "A ferramenta toda",
+      "cancel": "Cancelar"
     }
   }
 }

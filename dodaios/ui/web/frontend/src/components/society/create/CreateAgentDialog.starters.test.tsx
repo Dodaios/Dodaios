@@ -382,3 +382,40 @@ describe("CreateAgentDialog: blank", () => {
     expect(installCalls()).toHaveLength(0);
   });
 });
+
+describe("CreateAgentDialog: starter name and cost", () => {
+  test("names the agent in a labelled, optional field that falls back to the starter's name", async () => {
+    mount();
+    let pending!: Promise<{ agentId: string; name: string }>;
+    act(() => { pending = useCreateAgentDialog.getState().request({ mode: "starter" }) as Promise<{ agentId: string; name: string }>; });
+    fireEvent.click(await screen.findByTestId("starter-daily-briefing"));
+    const field = await screen.findByLabelText("agent_create.preview.name_label") as HTMLInputElement;
+    await waitFor(() => expect(field.value).toBe("Daily Briefing"));
+    expect(field.placeholder).toBe("Daily Briefing");
+    expect(screen.getByText("agent_create.quick.optional")).toBeTruthy();
+    fireEvent.change(field, { target: { value: "   " } });
+    expect(screen.getByTestId("template-preview-title").textContent).toBe("Daily Briefing");
+    await waitFor(() => expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId("create-agent-submit"));
+    await expect(pending).resolves.toMatchObject({ name: "Daily Briefing" });
+    expect(installCalls()[0]).toMatchObject({ starter_id: "daily-briefing", name: "Daily Briefing" });
+  });
+
+  test("a per-use seat is said in the Runs on line, without opening it", async () => {
+    mount();
+    act(() => { useCreateAgentDialog.getState().request({ mode: "starter" }).catch(() => undefined); });
+    await screen.findByTestId("create-agent-seat-summary");
+    const warning = await screen.findByTestId("create-agent-seat-cost");
+    expect(warning.textContent).toBe("society.create_agent.access_hint_api");
+  });
+
+  test("a plan or a local model starts first, and then nothing warns", async () => {
+    menu.options = [provider({}), provider({ id: "ollama", label: "Ollama", family: "ollama", keyless: true, curated_models: [] })];
+    menu.live = { ollama: [{ id: "qwen3:8b", label: "qwen3:8b" }] };
+    mount();
+    act(() => { useCreateAgentDialog.getState().request({ mode: "starter" }).catch(() => undefined); });
+    const summary = await screen.findByTestId("create-agent-seat-summary");
+    await waitFor(() => expect(summary.textContent).toContain("Ollama"));
+    expect(screen.queryByTestId("create-agent-seat-cost")).toBeNull();
+  });
+});

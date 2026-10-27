@@ -10783,7 +10783,15 @@
       "saved_chat": "In diesem Chat erlaubt: {app}",
       "saved_short": "Regel gespeichert",
       "still_asks": "Eine strengere Regel fragt trotzdem zuerst.",
-      "save_failed": "Die Regel ließ sich nicht speichern."
+      "save_failed": "Die Regel ließ sich nicht speichern.",
+      "always_folder": "Änderungen an Dateien in {folder} immer erlauben",
+      "always_command": "Den Befehl {command} immer erlauben",
+      "always_everything": "In diesem Chat alles immer erlauben",
+      "reach_folder": "Nur dieser Ordner",
+      "reach_command": "Nur dieser Befehl",
+      "reach_everything": "Alles in diesem Chat",
+      "reach_tool_plain": "Das ganze Werkzeug",
+      "cancel": "Abbrechen"
     }
   }
 }

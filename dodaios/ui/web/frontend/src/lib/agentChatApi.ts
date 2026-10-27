@@ -599,6 +599,8 @@ export type ApprovalDecision = "allow" | "allow_always" | "deny";
 export interface ApprovalRuleChoice {
   scope: "agent" | "chat";
   breadth?: "action" | "app";
+  /** A narrower chat rule: only this folder, only this exact command. */
+  narrow?: "folder" | "command";
 }
 
 function approvalUrl(sessionId: string, approvalId: string): string {
@@ -617,7 +619,7 @@ export async function resolveAgentChatApproval(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
         rule && decision === "allow_always"
-          ? { decision, scope: rule.scope, breadth: rule.breadth ?? "action" }
+          ? { decision, scope: rule.scope, breadth: rule.breadth ?? "action", ...(rule.narrow ? { narrow: rule.narrow } : {}) }
           : { decision },
       ),
     }),
