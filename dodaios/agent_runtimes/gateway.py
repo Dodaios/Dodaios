@@ -113,6 +113,11 @@ _FAILURES: dict[Grant, Future[str]] = {}
 #: answer, the runner reports this instead of a silent empty turn.
 _LAST_FAILURES: weakref.WeakKeyDictionary[Future[str], str] = weakref.WeakKeyDictionary()
 _TURN_EFFORTS: dict[Grant, str] = {}
+#: Model calls the gateway is still serving, per watched turn. A local model
+#: may read a long prompt or think for minutes without one byte reaching the
+#: runtime; the runner's stall watchdog asks here before it calls that a hang
+#: (issue #978). The gateway's own read timeout still ends a dead model call.
+_OPEN_CALLS: weakref.WeakKeyDictionary[Future[str], int] = weakref.WeakKeyDictionary()
 #: Per (provider, account, model): until when calls are refused, why
 #: (``rate_limited`` / ``usage_limit``) and whether the provider named that
 #: time (a usage limit's reset is only told when it did).
@@ -496,6 +501,25 @@ def _require_turn(grant: Grant, signal: Future[str] | None) -> None:
 def _turn_effort(grant: Grant) -> str:
     with _LOCK:
         return _TURN_EFFORTS.get(grant, "")
+
+
+def model_call_open(signal: Future[str] | None) -> bool:
+    """Whether the gateway is still serving a model call for this turn."""
+    if signal is None:
+        return False
+    with _LOCK:
+        return _OPEN_CALLS.get(signal, 0) > 0
+
+
+def _track_call(signal: Future[str] | None, step: int) -> None:
+    if signal is None:
+        return
+    with _LOCK:
+        count = _OPEN_CALLS.get(signal, 0) + step
+        if count > 0:
+            _OPEN_CALLS[signal] = count
+        else:
+            _OPEN_CALLS.pop(signal, None)
 
 
 def capture_turn(grant: Grant) -> Future[str] | None:
@@ -1350,6 +1374,7 @@ async def _deltas(
             await queue.put(exc)
 
     task = asyncio.get_running_loop().create_task(pump())
+    _track_call(signal, 1)
     try:
         while True:
             item = await queue.get()
@@ -1359,6 +1384,7 @@ async def _deltas(
                 raise item
             yield item
     finally:
+        _track_call(signal, -1)
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
