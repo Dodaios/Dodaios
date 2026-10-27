@@ -523,7 +523,7 @@ def _line_inside(ob, cy):
             p.material_index = li
 
 
-def add_cloak_bones(arm_ob, cy, z_top, z_hem, belt_z, s):
+def add_cloak_bones(arm_ob, cy, z_pivot, z_hem, belt_z, s):
     """Six bones the cloak hangs on: three columns (right, centre, left) of two segments."""
     C.set_active(arm_ob)
     bpy.ops.object.mode_set(mode="EDIT")
@@ -534,7 +534,7 @@ def add_cloak_bones(arm_ob, cy, z_top, z_hem, belt_z, s):
         rx, ry = 0.3 * s, 0.22 * s
         x = rx * math.sin(a)
         y = cy + ry * math.cos(a)
-        top = Vector((x * 0.85, y, z_top - 0.02))
+        top = Vector((x * 0.85, y, z_pivot))
         mid = Vector((x, y + 0.03, belt_z))
         low = Vector((x * 1.15, y + 0.07, z_hem + 0.05))
         b1 = eb.new(f"Cloak_{col}1")
@@ -553,8 +553,10 @@ def add_cloak_bones(arm_ob, cy, z_top, z_hem, belt_z, s):
     return heads
 
 
-def skin_cloak(ob, bones, sh_z, belt_z, s):
-    top0, top1 = sh_z - 0.15, sh_z - 0.01
+def skin_cloak(ob, bones, z_pivot, belt_z, s):
+    # Rigid on the chest down to the pivot (just under the cowl's gold hem), so a swing never
+    # lifts the cloak's top out over that hem; free below it.
+    top0, top1 = z_pivot - 0.12, z_pivot
     ca = CLOAK_COLUMN_ANGLE
 
     def w(co):
@@ -656,10 +658,12 @@ def build_sovereign(ctx: O.Ctx):
     arm.name = "SK_Sovereign_Rig"
     arm.data.name = "SK_Sovereign_Rig"
     C.link(arm)
-    cl, cy, z_top, z_hem, _back = cloak(ctx, belt_z)
-    add_cloak_bones(arm, cy, z_top, z_hem, belt_z, s)
+    cl, cy, _z_top, z_hem, _back = cloak(ctx, belt_z)
+    # the cloak swings from just under the cowl's hem at the back
+    z_pivot = neck_z - 0.30 * s
+    add_cloak_bones(arm, cy, z_pivot, z_hem, belt_z, s)
     bones = [b.name for b in arm.data.bones]
-    skin_cloak(cl, bones, ctx.L["shoulder"].z, belt_z, s)
+    skin_cloak(cl, bones, z_pivot, belt_z, s)
     extra = [cl]
     for o in extra:
         O.bake_vertex_ao(o)
