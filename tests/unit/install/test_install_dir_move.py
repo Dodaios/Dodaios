@@ -162,7 +162,7 @@ def test_ps1_moves_the_folder_after_the_stop_and_before_the_checkout() -> None:
 
 def test_sh_runs_the_fetched_engine_isolated_from_the_home_directory() -> None:
     block = _block(INSTALL_SH, "migrate-install-dir")
-    assert 'git -C "$INSTALL_DIR" show "origin/$BRANCH:$IDENTITY_ENGINE_PATH"' in block
+    assert 'git -C "$INSTALL_DIR" show "FETCH_HEAD:$IDENTITY_ENGINE_PATH"' in block
     assert 'mktemp "${TMPDIR:-/tmp}/' in block
     assert '(cd "$HOME" && "$PYTHON_EXE" -I -B "$_mig_engine" migrate' in block
     assert '"$LEGACY_INSTALL_DIR" "$CURRENT_INSTALL_DIR"' in block
@@ -178,7 +178,7 @@ def test_ps1_writes_the_engine_byte_for_byte_and_runs_it_isolated() -> None:
     assert "[IO.File]::WriteAllBytes($Engine, $Bytes.ToArray())" in function
     for re_encoding in ("Out-File", "Set-Content", "Add-Content", " > "):
         assert re_encoding not in function, re_encoding
-    assert "'show \"origin/' + $Branch + ':' + $IdentityEnginePath + '\"'" in function
+    assert "'show \"FETCH_HEAD:' + $IdentityEnginePath + '\"'" in function
     assert "& $pythonExe -I -B $Engine migrate $LegacyInstallDir $CurrentInstallDir" in function
     assert "[Environment]::CurrentDirectory = $env:USERPROFILE" in function
     assert "Remove-Item -LiteralPath $Engine" in function
@@ -322,6 +322,8 @@ def _legacy_checkout(tmp_path: Path, *, with_engine: bool = True) -> Path:
     _git(["commit", "--quiet", "-m", "release"], seed)
     install = home / LEGACY
     _git(["clone", "--quiet", str(seed), str(install)], tmp_path)
+    # The update run fetches the target ref before the move reads the engine.
+    _git(["fetch", "--quiet", "origin", "main"], install)
     (install / "data").mkdir()
     (install / "data" / "keep.txt").write_text("user data\n", encoding="utf-8")
     return home

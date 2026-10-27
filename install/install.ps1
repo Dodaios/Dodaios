@@ -225,7 +225,8 @@ $LegacyOfficialRepoSlug = 'PersonalJarvis/PersonalJarvis'
 $ConfigFileName = 'dodaios.toml'
 # An install keeps a config file under this earlier name; it is never renamed.
 $LegacyConfigFileName = 'jarvis.toml'
-$Branch     = if ($env:JARVIS_INSTALL_REF)  { $env:JARVIS_INSTALL_REF }  else { 'main' }
+# Empty = the newest published release (Resolve-InstallRef below).
+$Branch     = if ($env:JARVIS_INSTALL_REF)  { $env:JARVIS_INSTALL_REF }  else { '' }
 # --- install-dir-choice begin (extracted by tests/unit/install/test_install_dir_move.py)
 # The checkout lives in ~\.dodaios. An install made under the earlier name
 # keeps its directory for as long as that is a real directory (not a junction
@@ -755,6 +756,33 @@ $GitVerbosity = if ([Console]::IsErrorRedirected) { '--quiet' } else { '--progre
 #      up to 3 times before giving up with an honest message.
 $GitNetOpts = @('-c', 'http.lowSpeedLimit=1024', '-c', 'http.lowSpeedTime=30')
 
+# --- install-ref begin (extracted by tests/unit/install/test_install_ref.py)
+# Without JARVIS_INSTALL_REF an install follows the newest published release,
+# the same thing the in-app updater moves to. A release tag carries the
+# frontend bundle built from its own sources; main does not have to. main is
+# the fallback when the release cannot be looked up (offline API, a fork
+# without releases). (POSIX twin: resolve_install_ref in install.sh.)
+function Resolve-InstallRef {
+    if ($Branch) { return $Branch }
+    if ($RepoUrl -notmatch 'github\.com/') { return 'main' }
+    $Slug = ($RepoUrl -split 'github\.com/', 2)[1] -replace '\.git$', ''
+    $Api = if ($env:INSTALLER_TEST_RELEASE_API) { $env:INSTALLER_TEST_RELEASE_API } else { 'https://api.github.com' }
+    try {
+        $Release = Invoke-RestMethod -Uri "$Api/repos/$Slug/releases/latest" -TimeoutSec 20 `
+            -Headers @{ Accept = 'application/vnd.github+json' } -UseBasicParsing -ErrorAction Stop
+        $Tag = [string]$Release.tag_name
+        if ($Tag -match '^v\d+\.\d+\.\d+$') { return $Tag }
+    } catch {}
+    return 'main'
+}
+
+# codeload path of the ref: a release tag or a branch.
+function Get-RefArchivePath {
+    if ($Branch -match '^v\d') { return "refs/tags/$Branch" }
+    return "refs/heads/$Branch"
+}
+# --- install-ref end
+
 function Invoke-CloneWithRetry {
     Write-Note 'downloading ~80 MB - a few minutes on slow connections'
     $Attempt = 1
@@ -794,7 +822,7 @@ function Invoke-TarballFallback {
     # The archive's current name first; releases cut before the rename only
     # carry the earlier one.
     $AssetNames = @('dodaios-src.tar.gz', 'personal-jarvis-src.tar.gz')
-    $SnapshotUrl = "https://codeload.github.com/$RepoPath/tar.gz/refs/heads/$Branch"
+    $SnapshotUrl = "https://codeload.github.com/$RepoPath/tar.gz/$(Get-RefArchivePath)"
     if ($env:JARVIS_PAYLOAD_COMMIT) {
         # A verified install is pinned to ONE signed commit; the "latest"
         # release asset cannot honor that pin, so go straight to the
@@ -1036,7 +1064,7 @@ function Invoke-InstallDirMigration {
         $Git = Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1
         $Start = New-Object System.Diagnostics.ProcessStartInfo
         $Start.FileName = $Git.Source
-        $Start.Arguments = 'show "origin/' + $Branch + ':' + $IdentityEnginePath + '"'
+        $Start.Arguments = 'show "FETCH_HEAD:' + $IdentityEnginePath + '"'
         $Start.WorkingDirectory = $InstallDir
         $Start.UseShellExecute = $false
         $Start.RedirectStandardOutput = $true
@@ -1082,6 +1110,9 @@ function Invoke-InstallDirMigration {
     return $Effective
 }
 
+$Branch = Resolve-InstallRef
+Write-Note "installing $Branch"
+
 # The fetch only writes inside .git, so the app keeps running through it: a
 # failed download (offline, an outage) then leaves a working app behind. It is
 # stopped at the last moment, right before the files it runs from change.
@@ -1096,11 +1127,12 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
             Stop-RunningApp
             $InstallDir = [string](Invoke-InstallDirMigration)
             Set-Location -LiteralPath $InstallDir
-            & git checkout --quiet $Branch
+            # FETCH_HEAD works for a release tag and a branch alike.
+            & git checkout --quiet --detach FETCH_HEAD
             if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         }
         if ($UpdateOk) {
-            & git reset --quiet --hard "origin/$Branch"
+            & git reset --quiet --hard FETCH_HEAD
             if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         }
     } finally {
