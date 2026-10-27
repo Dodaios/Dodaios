@@ -191,6 +191,9 @@ class SocietyRuntime:
         from .coding_threads import CodingThreads
 
         self.coding_threads = CodingThreads(self)
+        from .chat_runs import ChatRunLedger
+
+        self.chat_runs = ChatRunLedger(self)
         self._get_manager = mission_manager or (lambda: None)
         self._get_mission_bus = mission_bus or (lambda: None)
         self._get_budget = budget_tracker or (lambda: None)
@@ -354,6 +357,7 @@ class SocietyRuntime:
         self._delivery_task = asyncio.create_task(self._deliver_pending())
         set_current_runtime(self)
         await self.coding_threads.start()
+        await self.chat_runs.start()
         self._require_open_owner()
         self.background(self.recover_reviews())
         self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
@@ -568,6 +572,7 @@ class SocietyRuntime:
                     cleanup.callback(unsubscribe)
                     setattr(self, attribute, None)
             cleanup.push_async_callback(self.coding_threads.close)
+            cleanup.push_async_callback(self.chat_runs.close)
             # Hermes / OpenClaw agents: their Gateways must not outlive the app.
             from dodaios.agent_runtimes import stop_all as stop_agent_runtimes
 

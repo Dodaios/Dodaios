@@ -5,7 +5,8 @@ import { createAgentChatStore } from "@/store/agentChat";
 import { AgentChatStoreProvider } from "./AgentChatStoreContext";
 import { QuestionCard } from "./QuestionCard";
 import { EMPTY_TIMELINE, reduceEvents, type QuestionState, type ToolBlock, type TurnItem } from "./reduce";
-import { useQuestionDrafts } from "./questions/questionDraftStore";
+import { EMPTY_DRAFT, useQuestionDrafts } from "./questions/questionDraftStore";
+import { answeredByMessage, ownWords, pickedIndices } from "./questions/questionModel";
 import { resetQuestionKeyboard } from "./questions/useQuestionKeyboard";
 
 let seq = 0;
@@ -92,6 +93,24 @@ describe("question events", () => {
     expect(block.question?.questions.map((q) => q.question)).toEqual([DB.question, HOST.question]);
     expect(block.question?.answers.map((a) => a?.source)).toEqual(["person", "timeout"]);
     expect(block.question?.closed).toBe(true);
+  });
+
+  it("settle a card answered from the composer with the typed answer and its option", () => {
+    const q = questionOf(asking([
+      ev("question_resolved", {
+        turn_id: "t1",
+        question_id: "q1",
+        answers: [
+          { answer: "Postgres", option_index: 1, source: "message" },
+          { answer: "Laptop", option_index: 0, source: "moved_on" },
+        ],
+      }),
+    ]));
+    expect(q.closed).toBe(true);
+    expect(q.answers[0]).toMatchObject({ text: "Postgres", optionIndex: 1, source: "message" });
+    expect(answeredByMessage(q)).toBe(true);
+    expect(pickedIndices(q.answers[0])).toEqual([1]);
+    expect(ownWords(q.answers[0], q.questions[0])).toBe("");
   });
 
   it("read an older single-question event as a single-select question", () => {
@@ -228,15 +247,92 @@ describe("QuestionCard", () => {
     expect(review.textContent).toContain("SQLite");
     expect(review.textContent).toContain("Both");
     expect(submit).not.toHaveBeenCalled();
-    // Change the first answer, then come back to the review.
+    // Change the first answer: the new pick returns straight to the review.
     fireEvent.click(within(review).getAllByRole("button")[0]);
     expect(screen.getByTestId("question-step").textContent).toBe("1 of 2");
     expect(rowsOf(card)[0].querySelector("[data-on]")).not.toBeNull();
     fireEvent.click(rowsOf(card)[1]);
-    await waitFor(() => expect(screen.getByTestId("question-step").textContent).toBe("2 of 2"));
-    fireEvent.click(within(card).getByRole("button", { name: /^review$/i }));
+    await waitFor(() => expect(review.closest(".qc-step")?.hasAttribute("data-active")).toBe(true));
+    expect(review.textContent).toContain("Postgres");
     fireEvent.click(screen.getByTestId("question-send"));
     await waitFor(() => expect(submit).toHaveBeenCalledWith("q1", [{ option_index: 1 }, { option_index: 2 }]));
+  });
+
+  it("returns to the review from a step opened there, by Next or by a pick", async () => {
+    vi.useFakeTimers();
+    const { submit } = draw(questionOf(asking([], [DB, HOST, FEATURES])));
+    const card = screen.getByTestId("question-card");
+    const active = () => card.querySelector(".qc-step[data-active] .qc-title")?.textContent;
+    const advance = () => act(() => { vi.advanceTimersByTime(200); });
+    const reviewRow = (i: number) => within(screen.getByTestId("question-review")).getAllByRole("button")[i];
+    fireEvent.click(rowsOf(card)[0]);
+    advance();
+    fireEvent.click(rowsOf(card)[0]);
+    advance();
+    fireEvent.click(rowsOf(card)[1]);
+    fireEvent.click(within(card).getByRole("button", { name: /^review$/i }));
+    expect(active()).toBe("Your answers");
+    // Opened from the review, Next reads Review and goes back there.
+    fireEvent.click(reviewRow(0));
+    expect(active()).toBe(DB.question);
+    fireEvent.click(within(card).getByRole("button", { name: /^review$/i }));
+    expect(active()).toBe("Your answers");
+    // A new single pick returns there too, never to the step after it.
+    fireEvent.click(reviewRow(0));
+    fireEvent.click(rowsOf(card)[1]);
+    advance();
+    expect(active()).toBe("Your answers");
+    expect(screen.getByTestId("question-review").textContent).toContain("Postgres");
+    // A multi step opened there returns with its Review button as well.
+    fireEvent.click(reviewRow(2));
+    expect(active()).toBe(FEATURES.question);
+    fireEvent.click(rowsOf(card)[2]);
+    fireEvent.click(within(card).getByRole("button", { name: /^review$/i }));
+    expect(active()).toBe("Your answers");
+    // Walking with Back and Next moves step by step again.
+    fireEvent.click(within(card).getByRole("button", { name: /^back$/i }));
+    fireEvent.click(within(card).getByRole("button", { name: /^back$/i }));
+    expect(active()).toBe(HOST.question);
+    fireEvent.click(within(card).getByRole("button", { name: /^next$/i }));
+    expect(active()).toBe(FEATURES.question);
+    fireEvent.click(within(card).getByRole("button", { name: /^review$/i }));
+    fireEvent.click(screen.getByTestId("question-send"));
+    vi.useRealTimers();
+    await waitFor(() => expect(submit).toHaveBeenCalledWith("q1", [
+      { option_index: 1 }, { option_index: 0 }, { option_indices: [1, 2] },
+    ]));
+  });
+
+  it("keeps the way back to the review in the draft store", async () => {
+    expect(EMPTY_DRAFT.returnToReview).toBe(false);
+    draw(questionOf(asking()));
+    const card = screen.getByTestId("question-card");
+    fireEvent.click(within(card).getByRole("button", { name: /^skip$/i }));
+    fireEvent.click(within(card).getByRole("button", { name: /^skip$/i }));
+    fireEvent.click(within(screen.getByTestId("question-review")).getAllByRole("button")[1]);
+    expect(useQuestionDrafts.getState().drafts.q1).toMatchObject({ step: 1, returnToReview: true });
+    fireEvent.click(within(card).getByRole("button", { name: /^back$/i }));
+    expect(useQuestionDrafts.getState().drafts.q1).toMatchObject({ step: 0, returnToReview: false });
+  });
+
+  it("marks answered, current and open steps in the progress dots", async () => {
+    draw(questionOf(asking([], [DB, HOST, FEATURES])));
+    const card = screen.getByTestId("question-card");
+    const states = () => Array.from(screen.getByTestId("question-dots").querySelectorAll(".qc-dot"))
+      .map((d) => d.getAttribute("data-state"));
+    expect(states()).toEqual(["current", "open", "open"]);
+    fireEvent.click(rowsOf(card)[0]);
+    await waitFor(() => expect(states()).toEqual(["done", "current", "open"]));
+    fireEvent.click(within(card).getByRole("button", { name: /^skip$/i }));
+    expect(states()).toEqual(["done", "done", "current"]);
+    fireEvent.click(rowsOf(card)[0]);
+    fireEvent.click(within(card).getByRole("button", { name: /^review$/i }));
+    // The review: every step answered, none on screen.
+    expect(states()).toEqual(["done", "done", "done"]);
+    expect(screen.getByTestId("question-dots").getAttribute("aria-label")).toBe("3 of 3 answered");
+    // Only the review takes part in the layout, so the card sizes to it.
+    expect(card.querySelector(".qc-steps")?.hasAttribute("data-reviewing")).toBe(true);
+    expect(card.querySelector(".qc-steps-frame")).not.toBeNull();
   });
 
   it("goes back and skips steps in a series", async () => {
@@ -383,7 +479,7 @@ describe("QuestionCard", () => {
     expect(card.textContent).toContain("Skipped");
   });
 
-  it("turns a card answered in the chat into the question and the reply", () => {
+  it("settles a card answered in the chat with answer chips and keeps the reply", () => {
     draw(questionOf(asking([
       ev("question_resolved", {
         turn_id: "t1",
@@ -395,9 +491,44 @@ describe("QuestionCard", () => {
       }),
     ])));
     const card = screen.getByTestId("question-card");
-    expect(card.getAttribute("data-state")).toBe("message");
-    expect(card.textContent).toContain(DB.question);
-    expect(card.querySelector(".qc-reply-bubble")?.textContent).toBe("Neither, use files");
+    expect(card.hasAttribute("data-settled")).toBe(true);
+    expect(card.hasAttribute("data-in-chat")).toBe(true);
+    const chips = Array.from(card.querySelectorAll(".qc-chip")).map((c) => c.textContent);
+    expect(chips).toEqual(["Neither, use files", "ALaptop"]);
+    const reply = screen.getByTestId("question-answered-in-chat").querySelector(".qc-reply-bubble");
+    expect(reply?.textContent).toBe("Neither, use files");
+  });
+
+  it("maps a chat answer that named an option to its letter", () => {
+    draw(questionOf(asking([
+      ev("question_resolved", {
+        turn_id: "t1",
+        question_id: "q1",
+        answers: [{ answer: "Postgres", option_index: 1, source: "message" }],
+      }),
+    ], [DB])));
+    const card = screen.getByTestId("question-card");
+    expect(card.hasAttribute("data-settled")).toBe(true);
+    const chip = card.querySelector(".qc-chip");
+    expect(chip?.querySelector(".qc-keycap")?.textContent).toBe("B");
+    expect(chip?.textContent).toBe("BPostgres");
+    expect(card.querySelector(".qc-chip[data-plain]")).toBeNull();
+    const reply = screen.getByTestId("question-answered-in-chat").querySelector(".qc-reply-bubble");
+    expect(reply?.textContent).toBe("Postgres");
+  });
+
+  it("leaves an end-of-turn card's chat reply to the chat's own message", () => {
+    draw(questionOf(asking([
+      ev("question_resolved", {
+        turn_id: "t1",
+        question_id: "q1",
+        answers: [{ answer: "Use files", option_index: null, source: "message" }],
+      }),
+    ], [DB], { deferred: true })));
+    const card = screen.getByTestId("question-card");
+    expect(card.hasAttribute("data-settled")).toBe(true);
+    expect(card.textContent).toContain("Use files");
+    expect(screen.queryByTestId("question-answered-in-chat")).toBeNull();
   });
 });
 

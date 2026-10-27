@@ -640,6 +640,23 @@ class AgentChatStore:
             "payload": json.loads(row["payload"]),
         }
 
+    def finished_turns(self, prefix: str) -> list[tuple[str, str, int, str]]:
+        """``(session_id, turn_id, ts_ms, status)`` of every finished turn in the
+        sessions whose id starts with ``prefix``, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT session_id, ts_ms, json_extract(payload, '$.turn_id') AS turn_id, "
+                "json_extract(payload, '$.status') AS status FROM agent_chat_events "
+                "WHERE substr(session_id, 1, ?) = ? AND kind = 'turn_finished' "
+                "ORDER BY ts_ms, seq",
+                (len(prefix), prefix),
+            ).fetchall()
+        return [
+            (str(r["session_id"]), str(r["turn_id"]), int(r["ts_ms"]), str(r["status"] or ""))
+            for r in rows
+            if r["turn_id"]
+        ]
+
     def turn_has_text_before(self, session_id: str, turn_id: str, before_seq: int) -> bool:
         """Whether this exact turn wrote a nonblank answer before its terminal."""
         with self._lock:
