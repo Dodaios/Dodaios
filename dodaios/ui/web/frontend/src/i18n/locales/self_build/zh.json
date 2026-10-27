@@ -34,13 +34,13 @@
       "nothing": "没有新内容。"
     },
     "shelf": {
-      "waiting": "需要你",
+      "waiting": "等待你确认",
       "waiting_hint": "你同意之前，什么都不会构建。",
       "kept": "已保留",
       "kept_hint": "证明了自己的价值。仍可撤销。",
-      "past": "已归档和已撤销",
+      "past": "已归档",
       "past_hint": "已归档的助手可以恢复。",
-      "live": "正在为你工作",
+      "live": "运行中",
       "live_hint": "试用中并已标记。撤销会完全移除。"
     },
     "show_past": "显示 {count} 个",
@@ -153,7 +153,7 @@
       "code": "代码改动"
     },
     "noticed": {
-      "title": "目前留意到的",
+      "title": "已注意到",
       "hint": "只统计你自己提出的请求。",
       "empty": "还没有重复的事。",
       "empty_hint": "照常工作就好。{name} 会在这台电脑上悄悄统计。",
@@ -199,6 +199,18 @@
     "based_on_one": "基于 {count} 个请求",
     "based_on_other": "基于 {count} 个请求",
     "details": "详情",
-    "stop_footer": "需要一次性停下所有东西吗？"
+    "stop_footer": "需要一次性停下所有东西吗？",
+    "page": {
+      "subtitle": "当你反复让 {name} 做同一件事时，它会提议为你设置一个小助手来自动完成。",
+      "learning_title": "正在了解你的工作方式 · 第 {day} 天，共 {days} 天",
+      "learning_body": "从 {date} 起可能会出现建议。在此之前 {name} 只做记录。",
+      "learning_body_nodate": "前 {days} 天 {name} 只做记录。",
+      "empty_title": "这里还没有内容",
+      "empty_body": "照常使用 {name} 即可。当你在 {days} 个不同的日子提出同样的请求时，这里会出现建议。",
+      "noticed_rule": "当某个请求在 {days} 个不同的日子出现时，就会生成建议。",
+      "how_toggle": "这是如何运作的？",
+      "pause_hint": "不再发现或构建新内容。现有的助手会继续工作。",
+      "stop_hint": "停止所有正在运行的智能体、任务和例程。"
+    }
   }
 }
