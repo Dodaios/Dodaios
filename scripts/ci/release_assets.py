@@ -65,8 +65,18 @@ REQUIRED_ASSETS = (
         "pq-mldsa65.pub.pem",
     }
 )
-DESKTOP_ASSETS = INSTALLERS | {"installers-SHA256SUMS.txt"}
+#: The signed, version-bound update manifest the in-app updater requires before
+#: it trusts ``installers-SHA256SUMS.txt`` (``dodaios/core/update_manifest.py``).
+#: Required for every new desktop release; releases published before it existed
+#: lack it, so the published-release check only verifies it where present.
+UPDATE_MANIFEST_ASSETS = (
+    "installers-update-manifest.json",
+    "installers-update-manifest.json.sig",
+)
+DESKTOP_ASSETS = INSTALLERS | {"installers-SHA256SUMS.txt", *UPDATE_MANIFEST_ASSETS}
 SIGNING_ASSETS = REQUIRED_ASSETS - DESKTOP_ASSETS
+#: What a draft must carry before finalization publishes it.
+FINALIZE_ASSETS = REQUIRED_ASSETS | set(UPDATE_MANIFEST_ASSETS)
 PLATFORM_INSTALLERS = {
     "linux": {"Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"},
     "windows": {"Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"},
@@ -311,6 +321,35 @@ def asset_errors(assets: list[dict], manifests: dict[str, str]) -> list[str]:
     return errors
 
 
+def update_manifest_errors(tag: str, checksums: str, manifest: bytes, signature: str) -> list[str]:
+    """The signed update manifest must bind ``tag`` to exactly ``checksums``.
+
+    The signature is checked with the updater's own verifier when
+    ``cryptography`` is importable; the signing job has already checked it
+    with ``openssl`` against the same pinned key.
+    """
+    from dodaios.core.update_manifest import (
+        UpdateManifestError,
+        build_manifest,
+        parse_manifest,
+        verify_update_manifest,
+    )
+
+    checksum_bytes = checksums.encode("utf-8")
+    try:
+        parsed = parse_manifest(manifest)
+        if manifest != build_manifest(version=parsed.version, tag=tag, checksums=checksum_bytes):
+            return [f"installers-update-manifest.json does not bind {tag} to its checksums"]
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            return []
+        verify_update_manifest(manifest, signature, checksums=checksum_bytes, expected_version=tag)
+    except UpdateManifestError as exc:
+        return [f"installers-update-manifest.json: {exc}"]
+    return []
+
+
 def alias_errors(digests: dict[str, str]) -> list[str]:
     """Both names of one installer must carry the same bytes."""
     return [
@@ -363,6 +402,19 @@ def finalize(repo: str, tag: str, sha: str, wait_minutes: int) -> int:
             )
             manifests[name] = (folder / name).read_text(encoding="utf-8")
         errors = asset_errors(assets, manifests)
+        present = {asset["name"] for asset in assets}
+        if missing := [name for name in UPDATE_MANIFEST_ASSETS if name not in present]:
+            errors.extend(f"missing or incomplete asset: {name}" for name in missing)
+        else:
+            manifest, signature = (_download(repo, tag, n, folder) for n in UPDATE_MANIFEST_ASSETS)
+            errors.extend(
+                update_manifest_errors(
+                    tag,
+                    manifests["installers-SHA256SUMS.txt"],
+                    manifest.read_bytes(),
+                    signature.read_text(encoding="ascii"),
+                )
+            )
         if manifests["payload-commit.txt"].strip() != sha:
             errors.append("signed payload commit does not match the release commit")
         if errors:
@@ -455,7 +507,18 @@ def published_errors(repo: str, tag: str) -> list[str]:
             name: _download(repo, tag, name, folder).read_text(encoding="utf-8")
             for name in ("checksums.txt", "installers-SHA256SUMS.txt", "source-SHA256SUMS.txt")
         }
-    errors = asset_errors(assets, manifests)
+        errors = asset_errors(assets, manifests)
+        present = {asset["name"] for asset in assets}
+        if all(name in present for name in UPDATE_MANIFEST_ASSETS):
+            manifest, signature = (_download(repo, tag, n, folder) for n in UPDATE_MANIFEST_ASSETS)
+            errors.extend(
+                update_manifest_errors(
+                    tag,
+                    manifests["installers-SHA256SUMS.txt"],
+                    manifest.read_bytes(),
+                    signature.read_text(encoding="ascii"),
+                )
+            )
     by_name = {asset["name"]: asset for asset in assets}
     source, problems = parse_manifest(manifests["source-SHA256SUMS.txt"])
     errors.extend(f"{problem} in source-SHA256SUMS.txt" for problem in problems)

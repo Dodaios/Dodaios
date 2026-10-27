@@ -264,12 +264,21 @@ manually via `workflow_dispatch`):
    their OS build script and upload the artifact. The macOS jobs also read the
    finished `.app` with `scripts/ci/check_frozen_macos_app.py` before the
    headless smoke test.
-2. `release` downloads all of them, refuses to continue if any promised asset is
-   missing, verifies the tag equals `dodaios.__version__`, writes
-   `installers-SHA256SUMS.txt` (plain `sha256sum` format, flat file names),
-   re-verifies it with `sha256sum -c`, and attaches everything to the Release.
+2. `checksums` downloads all of them, refuses to continue if any promised
+   asset is missing, and writes `installers-SHA256SUMS.txt` (plain `sha256sum`
+   format, flat file names), re-verified with `sha256sum -c`.
+3. `sign-update-manifest` (tag runs only, `release-signing` environment) writes
+   `installers-update-manifest.json` - the release version, its tag and the
+   SHA-256 of `installers-SHA256SUMS.txt` - and signs it with the
+   offline-ceremony Ed25519 key (`WAVE2_OFFLINE_KEY_B64`) into
+   `installers-update-manifest.json.sig`, then verifies the signature against
+   `install/keys/offline-ceremony.pub`. A missing key fails the release.
+4. `release` verifies the tag equals `dodaios.__version__`, re-checks every
+   installer against the checksum manifest and the checksum manifest against
+   the signed one, and attaches everything to the Release.
 
-`contents: write` is granted to that last job only.
+`contents: write` is granted to that last job only; the signing job holds a
+read-only token and is the only job that can read the key.
 
 The version check matters twice over: a tag that disagrees with
 `dodaios.__version__` publishes installers nobody can trace back to a commit, and
@@ -301,13 +310,21 @@ For a frozen install (`dodaios/core/installer_update.py`):
    mapping (Windows on ARM, Linux on aarch64) means the button never appears.
 2. **Refuse to offer what cannot be installed.** `status` reports
    `update_available: true` only when the release actually carries both this
-   platform's installer and `installers-SHA256SUMS.txt`. Status is fail-open:
-   any network error reports "no update", never an error.
-3. **Verify before executing.** `apply` downloads to a temp directory under a
+   platform's installer, `installers-SHA256SUMS.txt` and the signed update
+   manifest (`installers-update-manifest.json` plus `.sig`). Status is
+   fail-open: any network error reports "no update", never an error.
+3. **Verify the signature.** Before any installer byte is fetched, `apply`
+   checks the Ed25519 signature over `installers-update-manifest.json` against
+   the release key pinned in `dodaios/core/update_manifest.py` (the same key as
+   `install/keys/offline-ceremony.pub`), that the signed version equals the
+   release being installed (a replayed older release is refused), and that the
+   signed SHA-256 equals that of the release's `installers-SHA256SUMS.txt`. A
+   release without the signed manifest is not offered and not installed.
+4. **Verify before executing.** `apply` downloads to a temp directory under a
    size cap, computes SHA-256 and compares it against the manifest **of the same
    release**. A mismatch, a missing entry, an oversized body or an unreachable
    manifest all delete the download and refuse. Apply is fail-closed.
-4. **Hand over to the platform.**
+5. **Hand over to the platform.**
    - Windows: runs the new `Setup.exe` detached with
      `/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /NORESTART`. Restart
      Manager closes the app, the files are replaced, the app comes back.
