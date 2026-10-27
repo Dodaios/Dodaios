@@ -136,10 +136,12 @@ install-by-name) adds:
 
 - the model is the installer's own (the create route inherits their last
   chat seat); nothing of the publisher's accounts travels;
-- `approval_mode = ask` wherever the resolved runner can hold an approval
-  prompt, so a stranger's agent asks before it acts until the person changes
-  that; runners that cannot fall back to the app's default;
-- `always_allow` is always empty; `require_approval` only adds prompts;
+- the approval mode is the app's normal creation default (Bypass), the same
+  as for an agent the person creates by hand; a template never carries a mode
+  of its own. If the chosen runner refuses that mode, the install fails with
+  the runner's error and is never retried in a different mode;
+- `always_allow` is always empty; `require_approval` only adds prompts, and
+  those prompts bind in every mode, Bypass included;
 - budget, concurrency, ceiling and browser settings are the app's defaults.
 
 The marketplace card shows, before the Install button: the instructions in

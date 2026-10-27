@@ -9,8 +9,9 @@
  * V cycles bird's-eye → third → first → bird's-eye; 1, 2 and 3 pick one
  * directly. The wheel moves the third-person camera in and out; pushing on
  * past the closest distance hands over to first person, and scrolling out of
- * first person comes back to third. Where a deck has no eye-level scene (the
- * compact panel, decks without an export) first person is not offered and
+ * first person comes back to third. Where a deck has no eye-level scene (an
+ * IDE side panel smaller than COMPACT_EYE_MIN, decks without an export)
+ * first person is not offered and
  * third person is the plate's follow camera.
  *
  * Pure: the stage keeps the chosen view and the rig its distance.
