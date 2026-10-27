@@ -80,7 +80,7 @@
   "height_step": 0.025,
   "max_step": 0.3,
   "clearance": 0.25,
-  "walkable_cells": 67357
+  "walkable_cells": 67594
  },
  "env": {
   "url": "env.hdr",
