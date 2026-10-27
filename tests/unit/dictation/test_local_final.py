@@ -522,3 +522,118 @@ def test_the_switch_keeps_the_configured_provider_in_front(
     assert callable(instance.transcribe_pcm)
     assert instance._primary is configured
     assert instance._alternate_names == ["openai-api"]
+
+
+# ---------------------------------------------------------------------------
+# A busy card (2026-10-27: three renders on the GPU, 15 s spoken -> 13 s wait)
+# ---------------------------------------------------------------------------
+
+
+class _Clock:
+    """Stands in for ``time`` inside the module so decode speed is scripted."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def perf_counter(self) -> float:
+        return self.now
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+class _TimedWorker(_FakeWorker):
+    """A decode costs ``rtf[beam]`` seconds per second of audio on the clock."""
+
+    def __init__(self, clock: _Clock, rtf: dict[int, float]) -> None:
+        super().__init__()
+        self._clock = clock
+        self.rtf = rtf
+
+    def transcribe(
+        self, samples: Any, language: str | None = None, beam_size: int = 1, **kw: Any
+    ) -> tuple[list[Any], Any]:
+        self._clock.now += self.rtf[beam_size] * np.asarray(samples).size / 16_000
+        return super().transcribe(samples, language=language, beam_size=beam_size, **kw)
+
+
+@pytest.fixture
+def _clocked(
+    _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> tuple[_Clock, _TimedWorker]:
+    clock = _Clock()
+    worker = _TimedWorker(clock, {FINAL_BEAM_SIZE: 0.9, 1: 0.5})
+    _local_ok["next"] = worker
+    monkeypatch.setattr(local_final_mod, "time", clock)
+    return clock, worker
+
+
+def test_a_busy_card_switches_the_next_decodes_to_greedy(
+    _clocked: tuple[_Clock, _TimedWorker],
+) -> None:
+    _clock, worker = _clocked
+    stt = LocalFinalSTT()
+
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+
+    assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, 1]
+
+
+def test_a_free_card_brings_the_beam_back(_clocked: tuple[_Clock, _TimedWorker]) -> None:
+    _clock, worker = _clocked
+    stt = LocalFinalSTT()
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    worker.rtf = {FINAL_BEAM_SIZE: 0.04, 1: 0.02}  # the render finished
+
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+
+    assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, 1, FINAL_BEAM_SIZE]
+
+
+def test_a_short_clip_never_moves_the_decode_width(
+    _clocked: tuple[_Clock, _TimedWorker],
+) -> None:
+    _clock, worker = _clocked
+    stt = LocalFinalSTT()
+
+    asyncio.run(stt.transcribe_pcm(_pcm(1.0), language="de"))
+    asyncio.run(stt.transcribe_pcm(_pcm(1.0), language="de"))
+
+    assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, FINAL_BEAM_SIZE]
+
+
+def test_a_busy_card_hands_dictations_to_the_cloud_behind_it(
+    _clocked: tuple[_Clock, _TimedWorker],
+) -> None:
+    clock, worker = _clocked
+    stt = LocalFinalSTT()
+    stt.cloud_behind = True
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+
+    with pytest.raises(LocalEngineUnavailable) as caught:
+        asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    assert is_crossable_failure(classify_stt_failure(caught.value))
+    assert len(worker.calls) == 1
+
+    # After the recheck interval the local engine is tried again, greedily.
+    clock.now += local_final_mod._BUSY_RECHECK_S + 1
+    worker.rtf = {FINAL_BEAM_SIZE: 0.04, 1: 0.02}
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+    assert [c["beam"] for c in worker.calls] == [FINAL_BEAM_SIZE, 1, FINAL_BEAM_SIZE]
+
+
+def test_without_a_cloud_behind_a_busy_card_still_decodes_locally(
+    _clocked: tuple[_Clock, _TimedWorker],
+) -> None:
+    """A user who keeps audio on the machine never has it sent anywhere."""
+    _clock, worker = _clocked
+    stt = LocalFinalSTT()
+    asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+
+    transcript = asyncio.run(stt.transcribe_pcm(_pcm(10.0), language="de"))
+
+    assert transcript.text == "Hallo Welt."
+    assert len(worker.calls) == 2
