@@ -393,6 +393,23 @@ def _mesh_soup(roles_wanted: tuple[str, ...], skip_nav: str | None = None) -> Me
 # ---------------------------------------------------------------- nav grid
 
 
+def cook_nav_only(deck_id: str, out_dir: Path) -> dict:
+    """Only the nav grid of deck `deck_id` (the current scene): `nav.npy` + `nav.json` in `out_dir`.
+
+    For changes to the walkability rules: the plate, its lighting and the
+    realtime export stay as they are.
+    """
+    info = scene.deck_info()
+    if info["deck_id"] != deck_id:
+        raise CookError(f"scene holds deck {info['deck_id']!r}, not {deck_id!r}")
+    out_dir = out_dir.resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bpy.context.view_layer.update()
+    nav = _cook_nav(info["bounds"], out_dir / "nav.npy")
+    (out_dir / "nav.json").write_text(json.dumps(nav, indent=1), encoding="utf-8")
+    return nav
+
+
 def _cook_nav(bounds: scene.Bounds, path: Path) -> dict:
     """Rasterise walkable floor (navgrid.CELL_M cells) with per-cell floor height."""
     soup = _mesh_soup(("Architecture", "Props"), skip_nav=naming.NAV_NONE)
@@ -459,19 +476,21 @@ def _nav_trees(soup: MeshSoup) -> tuple[BVHTree, SolidTree]:
 def _column_floor(
     walk_bvh: BVHTree, solids: SolidTree, x: float, y: float, top: float, bottom: float
 ) -> float:
-    """Height of the walkable floor under (x, y), or NaN when blocked or no floor."""
-    floors = [z for z, nz, _ in _column_hits(walk_bvh, x, y, top, bottom) if nz > 0.5]
+    """Height of the walkable floor under (x, y), or NaN when blocked or no floor.
+
+    A level walk face counts whichever way it faces: builders leave single
+    gratings and treads with their normals flipped down, and the body then
+    walked through them at the floor below.
+    """
+    floors = [z for z, nz, _ in _column_hits(walk_bvh, x, y, top, bottom) if abs(nz) > 0.5]
     if not floors:
         return math.nan
     floor_z = floors[0]
     if solids.bvh is None:
         return floor_z
-    band_low, band_high = floor_z + NAV_STEP_M, floor_z + NAV_HEADROOM_M
     hits = _column_hits(solids.bvh, x, y, top, bottom)
-    for low, high in _solid_intervals(hits, solids.owner, top):
-        if low < band_high and high > band_low:
-            return math.nan
-    return floor_z
+    intervals = list(_solid_intervals(hits, solids.owner, top))
+    return navgrid.stand_height(floor_z, intervals, NAV_STEP_M, NAV_HEADROOM_M)
 
 
 def _column_hits(
@@ -494,18 +513,23 @@ def _solid_intervals(hits, owner_of: np.ndarray, top: float) -> Iterator[tuple[f
     """Height intervals filled by solids, from entry/exit pairs per object.
 
     Going down, an up-facing hit enters an object and a down-facing hit leaves
-    it. Unpaired hits are treated conservatively (filled to the far end), and
-    steep faces hit at grazing angles count as a thin slab.
+    it. A leaving hit without an entry fills up to the object's previous hit
+    above it (an inner face of a closed part: a plinth under a cabinet, a
+    plate on its base), or without one to the far end (an open shell, never a
+    step). An entry without an exit fills down to the far end, and steep faces
+    hit at grazing angles count as a thin slab.
     """
     entered: dict[int, float] = {}
+    last: dict[int, float] = {}
     for z, nz, triangle in hits:
         owner = int(owner_of[triangle])
         if nz > 0.2:
             entered.setdefault(owner, z)
         elif nz < -0.2:
-            yield z, entered.pop(owner, top)
+            yield z, entered.pop(owner, last.get(owner, math.inf))
         else:
             yield z - 0.01, z + 0.01
+        last[owner] = z
     for z in entered.values():
         yield -math.inf, z
 

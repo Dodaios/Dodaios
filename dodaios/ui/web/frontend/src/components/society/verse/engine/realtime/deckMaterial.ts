@@ -24,6 +24,53 @@ import type { RealtimeMaterial } from "../../content/deck";
 /** Runtime close-up layers (`detail` in the manifest). */
 export const DETAIL_KINDS = ["none", "deck_plates", "painted", "metal"] as const;
 
+/**
+ * Depth ties between surfaces in one plane. The kit lays many faces flush on
+ * each other (a raised floor's edge on a wall, a recess panel on wall paint,
+ * a beam on the hull plating, two rooms' walls back to back), and without an
+ * order the GPU picked one surface per pixel and per frame, so whole strips
+ * of wall flickered as the camera moved. Each surface is moved back along
+ * its view ray by a small fraction of its distance (the picture does not
+ * move, only the depth). Every material of a deck gets its own step, in
+ * layers: keys, lights and screens in front, then trims, structure, walls and
+ * floors, the hull, and back faces behind them all. A fraction of the
+ * distance stays above the depth buffer's step out to about 25 m (8 cm near
+ * plane), unlike a polygon offset, which measured worse: its slope term
+ * pushed surfaces that sit millimetres apart into new ties.
+ */
+export const PUSH_STEP = 2e-5;
+/** Back faces: behind every front face of a deck with up to 100 materials. */
+export const BACK_FACE_PUSH = 2.5e-3;
+
+/** 0 hull, 1 walls, floors, ceilings, 2 structure and bodies, 3 trims and small parts, 4 keys, indicators, lights, screens. Pure. */
+export function surfaceLayer(material: string): number {
+  const m = material.replace(/^M_(TMP_[A-Za-z]+_)?/, "");
+  if (/^Hull/.test(m)) return 0;
+  if (/^(Wall|Floor|Ceiling|Hangar_Deck|Deck_)/.test(m)) return 1;
+  if (/^(Struct|Console_Body|Crate|Container|Recess)/.test(m)) return 2;
+  if (/^(Indicator|Console_Keys|Screen|Light|Emit|Glass)/.test(m) || /Lamp/.test(m)) return 4;
+  return 3;
+}
+
+/** Each material's place in the deck's depth order: 0 in front, by layer (front first), then name. Pure. */
+export function depthOrder(materials: Iterable<string>): Map<string, number> {
+  const names = [...new Set(materials)].sort((a, b) => surfaceLayer(b) - surfaceLayer(a) || (a < b ? -1 : a > b ? 1 : 0));
+  return new Map(names.map((n, i) => [n, i]));
+}
+
+/** How far a material at `order` moves back, as a fraction of its distance. Pure. */
+export function depthPush(order: number): number {
+  return order * PUSH_STEP;
+}
+
+const DEPTH_PUSH = /* glsl */ `
+{
+  float versePushNow = verseDepthPush;
+  if ( dot( transformedNormal, - mvPosition.xyz ) < 0.0 ) versePushNow = ${BACK_FACE_PUSH.toExponential()};
+  gl_Position = projectionMatrix * vec4( mvPosition.xyz * ( 1.0 + versePushNow ), 1.0 );
+}
+`;
+
 const LIGHTS_FRAGMENT_MAPS = [
   "#if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )",
   "  radiance += getIBLRadiance( geometryViewDir, geometryNormal, material.roughness );",
@@ -159,8 +206,8 @@ function replaceOnce(source: string, find: string, replacement: string): string 
  * to onBeforeCompile (the `#include` lines still unexpanded). Pure.
  */
 export function patchDeckShader(vertexShader: string, fragmentShader: string): { vertexShader: string; fragmentShader: string } {
-  let vs = replaceOnce(vertexShader, "#include <common>", "#include <common>\nvarying vec3 vVerseWorld;");
-  vs = replaceOnce(vs, "#include <project_vertex>", "#include <project_vertex>\nvVerseWorld = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;");
+  let vs = replaceOnce(vertexShader, "#include <common>", "#include <common>\nvarying vec3 vVerseWorld;\nuniform float verseDepthPush;");
+  vs = replaceOnce(vs, "#include <project_vertex>", `#include <project_vertex>\nvVerseWorld = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;\n${DEPTH_PUSH}`);
   let fs = replaceOnce(fragmentShader, "#include <common>", `#include <common>\n${FRAGMENT_HEAD}`);
   const envPars = replaceOnce(
     ShaderChunk.envmap_physical_pars_fragment,
@@ -199,6 +246,8 @@ export interface DeckMaterialInputs {
   page: Texture;
   range: number;
   probe: ProbeBinding | null;
+  /** The material's place in the deck's depth order (`depthOrder`). */
+  order?: number;
 }
 
 /** Physical when the material needs a clear coat, a specular level other than 4 % or transparency; standard otherwise. */
@@ -206,7 +255,7 @@ export function needsPhysical(p: RealtimeMaterial): boolean {
   return p.clearcoat > 0 || p.transparent || Math.abs(p.specular - 0.5) > 0.05;
 }
 
-export function makeDeckMaterial({ name, params, page, range, probe }: DeckMaterialInputs): MeshStandardMaterial {
+export function makeDeckMaterial({ name, params, page, range, probe, order = 0 }: DeckMaterialInputs): MeshStandardMaterial {
   const physical = needsPhysical(params);
   const m = physical ? new MeshPhysicalMaterial() : new MeshStandardMaterial();
   m.name = name;
@@ -237,6 +286,7 @@ export function makeDeckMaterial({ name, params, page, range, probe }: DeckMater
   const uniforms = {
     ...DECK_SHARED,
     verseRange: { value: range },
+    verseDepthPush: { value: params.transparent ? 0 : depthPush(order) },
     verseBoxOn: { value: probe ? 1 : 0 },
     verseBoxMin: { value: new Vector3(...(probe?.boxMin ?? [0, 0, 0])) },
     verseBoxMax: { value: new Vector3(...(probe?.boxMax ?? [0, 0, 0])) },

@@ -198,6 +198,24 @@ eye view clears to true black (AgX lifts the plate view's near-black clear
 colour to a visible grey). Deck materials are double-sided: Cycles renders
 both sides of a face, and builders leave open quads (star fields, decals)
 facing either way.
+
+Depth order (2026-10-27): the kit lays many faces in one plane (a raised
+floor's edge flush with a wall, a recess panel on wall paint, a beam on the
+hull plating, two rooms' walls back to back, 1,500 to 10,000 m² per deck),
+and without an order the GPU picked one surface per pixel and per frame, so
+whole strips of wall flickered as the camera moved. The deck shader moves
+every vertex back along its view ray by a fraction of its distance (the
+picture stays put, only the depth changes): each material of a deck gets
+its own step (`depthOrder`: keys, lights and screens in front, then trims,
+structure, walls and floors, the hull), back faces lose to all of them, and
+the near plane is 8 cm (was 5 cm). Measured with a near-plane jitter (pixels
+that change when only the depth mapping moves) over 30 to 40 random eye
+points per deck: hangar 13,500 → 1,030, engineering 257 → 129, ops
+11,663 → 10,087, bridge 819 → 799. A per-material polygon offset and larger
+steps measured worse: they push surfaces that sit millimetres apart into
+new ties. What is left in ops is wall panels that cross each other by a
+millimetre or two (the int16 positions of two chunks round differently):
+a fixed jagged edge, not a flicker.
 Tier "low" (a GPU that stays slower than ~45 fps for 2.5 s at "high"):
 direct render, no bloom, pixel ratio at most 1. `runtime.stats.tier` shows
 the tier; `window.__verseStats` exposes the frame numbers in every build.

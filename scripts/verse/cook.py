@@ -2,7 +2,7 @@
 
     python scripts/verse/cook.py deck <id> [--quality preview|final] [--keep-blend]
                                          [--device auto|optix|cuda|cpu] [--out DIR]
-                                         [--realtime]
+                                         [--realtime | --nav-only]
 
 Runs `art/verse/decks/<id>/build.py` and `lib.cook.cook_deck()` inside headless
 Blender (holding the GPU lock), then packages the raw output into
@@ -14,11 +14,16 @@ Blender (holding the GPU lock), then packages the raw output into
 and `package_realtime.py` writes `<deck>/realtime/` and the manifest's
 `realtime` block (docs/verse/realtime.md). The plate stays as it is; the
 deck must have been cooked once.
+
+--nav-only rebuilds only the nav grid (nav.png and the manifest's `nav`
+block) of a cooked deck, after a change to the walkability rules; the
+plate, lighting and realtime export stay as they are.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -58,6 +63,36 @@ def cook_deck(
     if problems:
         raise SystemExit("cooked deck failed validation:\n  " + "\n  ".join(problems))
     return manifest
+
+
+def cook_nav(deck_id: str, *, out_dir: Path | None = None) -> dict:
+    """Rebuild only the nav grid of a cooked deck and return its manifest block."""
+    raw_dir = blender.CACHE_ROOT / "cook" / deck_id / "nav"
+    shutil.rmtree(raw_dir, ignore_errors=True)
+    raw_dir.mkdir(parents=True)
+    blender.run(
+        ENTRY,
+        [deck_id, str(raw_dir), "preview", "--nav-only"],
+        lock=False,
+        device="cpu",
+        timeout=3600,
+    )
+    out_dir = out_dir or PUBLIC_DECKS / deck_id
+    manifest_path = out_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    nav = json.loads((raw_dir / "nav.json").read_text(encoding="utf-8"))
+    old = manifest["nav"]
+    for key in ("origin_x", "origin_z", "cell", "w", "h"):
+        if old[key] != nav[key]:
+            raise SystemExit(
+                f"nav grid {key} changed ({old[key]} -> {nav[key]}): cook the whole deck"
+            )
+    manifest["nav"] = package.encode_nav(raw_dir / "nav.npy", out_dir, nav)
+    manifest_path.write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
+    problems = validate.validate_deck_dir(out_dir)
+    if problems:
+        raise SystemExit("deck failed validation after the nav cook:\n  " + "\n  ".join(problems))
+    return manifest["nav"]
 
 
 def cook_realtime(
@@ -102,7 +137,18 @@ def _main(argv: list[str] | None = None) -> int:
     deck.add_argument(
         "--realtime", action="store_true", help="realtime (eye-level) export instead of the plate"
     )
+    deck.add_argument(
+        "--nav-only", action="store_true", help="rebuild only the nav grid of a cooked deck"
+    )
     options = parser.parse_args(argv)
+    if options.nav_only:
+        try:
+            nav = cook_nav(options.deck_id, out_dir=options.out)
+        except blender.BlenderError as error:
+            print(error, file=sys.stderr)
+            return 1
+        print(f"[verse] {options.deck_id} nav: {nav['walkable_cells']} walkable cells")
+        return 0
     if options.realtime:
         try:
             block = cook_realtime(

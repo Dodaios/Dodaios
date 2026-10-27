@@ -218,6 +218,19 @@ or hang over drops. One walk level per cell (`lib/navgrid.py`). Walk surfaces
 and solids are cast against separate ray trees, so a solid standing flush on
 the floor (sill, inlay, wall bottom) never hides the floor under it.
 
+Steps (`navgrid.stand_height`, 2026-10-27): a `block` solid that stands on
+the floor and ends at most 0.3 m above it (a platform, a grating, a tread, a
+lift housing's sill) is stepped onto, so its top becomes the floor there;
+until then every untagged platform over 0.15 m was a wall the body could not
+climb. A level `walk` face counts whichever way its normal points (single
+gratings built with the normal down were walked through at the floor below).
+A solid's leaving hit without an entry fills up to the object's previous hit
+above it, and a lone flipped face lying on the floor is flat, not a block of
+unknown height. After a change to these rules,
+`python scripts/verse/cook.py deck <id> --nav-only` rebuilds only `nav.png`
+and the manifest's `nav` block (about a minute per deck, no GPU, the plate
+and the realtime export stay as they are).
+
 Light probes: one per room at `probe_at` or the room centre, 1.4 m above its floor; a 64 × 32
 panorama projected to 9 RGB radiance coefficients in three.js
 `SphericalHarmonics3` order (`lightProbe.sh.fromArray(sh.flat())`).
