@@ -193,8 +193,8 @@ def command_names(group: str) -> tuple[str, ...]:
 def render_command_index() -> str:
     """The tree as the tool description shows it — one line per group."""
     lines = [
-        f"Command index (`{CONTROL_CLI_COMMAND_NAME} <group> <command> [args]`; call the command "
-        "directly — do not spend rounds on --help):",
+        f"Command index (`{CONTROL_CLI_COMMAND_NAME} <group> <command> [args]`; call the command"
+        " directly; do not spend rounds on --help):",
     ]
     for group, commands in COMMAND_INDEX.items():
         lines.append(f"  {group}: " + ", ".join(commands))

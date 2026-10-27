@@ -383,6 +383,13 @@ def test_legacy_pat_override_migrates_only_unchanged_builtin(
         plugin["auth"]["instruction_md"] = _LEGACY_PAT_INSTRUCTIONS[plugin_id]
     if plugin_id == "github":
         plugin["auth"].pop("token_prefixes", None)
+        # The block installs of that era carry: its token link still named the
+        # product's earlier name (the shipped fallback prefills the current one).
+        legacy_link = (
+            "https://github.com/settings/tokens/new"
+            "?scopes=repo,workflow,read:user&description=Personal+Jarvis"
+        )
+        plugin["auth"]["token_creation_url"] = legacy_link
         plugin["auth"]["instruction_md"] = (
             "1. The link below opens GitHub with the right scopes "
             "(repo, workflow, read:user) already ticked.\n"
