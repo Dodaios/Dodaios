@@ -34,13 +34,13 @@
       "nothing": "Nichts Neues."
     },
     "shelf": {
-      "waiting": "Braucht dich",
+      "waiting": "Wartet auf dein OK",
       "waiting_hint": "Nichts wird gebaut, bevor du ja sagst.",
       "kept": "Behalten",
       "kept_hint": "Hat sich bewährt. Weiterhin rückgängig zu machen.",
-      "past": "Archiviert und rückgängig gemacht",
+      "past": "Archiviert",
       "past_hint": "Archivierte Helfer lassen sich wiederherstellen.",
-      "live": "Arbeitet für dich",
+      "live": "Aktiv",
       "live_hint": "Auf Probe und gekennzeichnet. Rückgängig entfernt es vollständig."
     },
     "show_past": "{count} anzeigen",
@@ -153,7 +153,7 @@
       "code": "Code-Änderungen"
     },
     "noticed": {
-      "title": "Bisher bemerkt",
+      "title": "Bemerkt",
       "hint": "Es zählt nur, worum du selbst bittest.",
       "empty": "Noch wiederholt sich nichts.",
       "empty_hint": "Arbeite einfach wie gewohnt. {name} zählt still auf diesem Computer mit.",
@@ -199,6 +199,18 @@
     "based_on_one": "Aus {count} Anfrage",
     "based_on_other": "Aus {count} Anfragen",
     "details": "Details",
-    "stop_footer": "Soll alles auf einmal anhalten?"
+    "stop_footer": "Soll alles auf einmal anhalten?",
+    "page": {
+      "subtitle": "Wenn du {name} immer wieder um dasselbe bittest, bekommst du das Angebot, dafür einen kleinen Helfer einzurichten.",
+      "learning_title": "Lernt, wie du arbeitest · Tag {day} von {days}",
+      "learning_body": "Vorschläge kann es ab {date} geben. Bis dahin macht sich {name} nur Notizen.",
+      "learning_body_nodate": "In den ersten {days} Tagen macht sich {name} nur Notizen.",
+      "empty_title": "Noch nichts hier",
+      "empty_body": "Nutze {name} einfach wie gewohnt. Sobald du an {days} verschiedenen Tagen um dasselbe bittest, erscheint hier ein Vorschlag.",
+      "noticed_rule": "Ein Vorschlag erscheint, sobald du an {days} verschiedenen Tagen um dasselbe bittest.",
+      "how_toggle": "Wie funktioniert das?",
+      "pause_hint": "Es wird nichts Neues bemerkt oder gebaut. Deine Helfer laufen weiter.",
+      "stop_hint": "Stoppt alle laufenden Agents, Missionen und Routinen."
+    }
   }
 }

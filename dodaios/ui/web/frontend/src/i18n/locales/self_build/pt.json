@@ -34,13 +34,13 @@
       "nothing": "Nada de novo."
     },
     "shelf": {
-      "waiting": "Precisa de você",
+      "waiting": "Aguardando seu OK",
       "waiting_hint": "Nada é criado até você dizer sim.",
       "kept": "Mantido",
       "kept_hint": "Mereceu seu lugar. Ainda pode ser desfeito.",
-      "past": "Arquivado e desfeito",
+      "past": "Arquivados",
       "past_hint": "Ajudantes arquivados podem ser restaurados.",
-      "live": "Trabalhando para você",
+      "live": "Ativos",
       "live_hint": "Em teste e identificado. Desfazer remove por completo."
     },
     "show_past": "Mostrar {count}",
@@ -153,7 +153,7 @@
       "code": "Mudanças de código"
     },
     "noticed": {
-      "title": "Percebido até agora",
+      "title": "Notado",
       "hint": "Só conta o que você mesmo pede.",
       "empty": "Nada se repetiu ainda.",
       "empty_hint": "Continue trabalhando normalmente. {name} conta em silêncio neste computador.",
@@ -199,6 +199,18 @@
     "based_on_one": "Com base em {count} pedido",
     "based_on_other": "Com base em {count} pedidos",
     "details": "Detalhes",
-    "stop_footer": "Precisa que tudo pare de uma vez?"
+    "stop_footer": "Precisa que tudo pare de uma vez?",
+    "page": {
+      "subtitle": "Quando você pede a {name} a mesma coisa várias vezes, ele oferece criar um pequeno assistente que faz isso por você.",
+      "learning_title": "Aprendendo como você trabalha · dia {day} de {days}",
+      "learning_body": "Sugestões podem aparecer a partir de {date}. Até lá {name} só toma notas.",
+      "learning_body_nodate": "Nos primeiros {days} dias {name} só toma notas.",
+      "empty_title": "Nada aqui ainda",
+      "empty_body": "Continue usando {name} normalmente. Quando você pedir a mesma coisa em {days} dias diferentes, uma sugestão aparece aqui.",
+      "noticed_rule": "Uma sugestão aparece quando algo é pedido em {days} dias diferentes.",
+      "how_toggle": "Como funciona?",
+      "pause_hint": "Nada novo é notado ou criado. Seus assistentes continuam funcionando.",
+      "stop_hint": "Para todos os agentes, missões e rotinas em execução."
+    }
   }
 }

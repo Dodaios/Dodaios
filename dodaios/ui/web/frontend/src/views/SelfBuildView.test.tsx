@@ -163,17 +163,17 @@ describe("SelfBuildView", () => {
     renderWith(<SelfBuildView />);
     const waiting = await screen.findByTestId("shelf-waiting");
     expect(within(waiting).getAllByTestId("build-row").map((r) => r.dataset.buildId)).toEqual(["p1", "p2"]);
-    expect(within(screen.getByTestId("shelf-live")).getByText("A standup digest")).toBeTruthy();
-    expect(within(screen.getByTestId("shelf-kept")).getByText("Mail humanizer")).toBeTruthy();
+    // Trials and kept helpers read as one "Active" list.
+    const live = screen.getByTestId("shelf-live");
+    expect(within(live).getByText("A standup digest")).toBeTruthy();
+    expect(within(live).getByText("Mail humanizer")).toBeTruthy();
     // The past shelf is folded until asked for.
     const past = screen.getByTestId("shelf-past");
     expect(within(past).queryByTestId("build-row")).toBeNull();
     fireEvent.click(within(past).getByRole("button", { name: /show 1/i }));
     expect(within(past).getByText("Fix the flaky test")).toBeTruthy();
-    // The digest reads as one line.
-    expect(screen.getByTestId("self-build-digest").textContent).toMatch(/2 proposed/);
-    // Two ideas wait: the hero says so in a sentence.
-    expect(screen.getByTestId("self-build-hero").textContent).toMatch(/has 2 ideas for you/);
+    // Simply watching is nothing to report: no banner.
+    expect(screen.queryByTestId("self-build-banner")).toBeNull();
   });
 
   it("builds a proposal or turns it down in one click; a kind without a builder cannot be built", async () => {
@@ -208,10 +208,14 @@ describe("SelfBuildView", () => {
   it("pauses the loop, and stops every agent only after a confirm", async () => {
     const calls = installFetch();
     renderWith(<SelfBuildView />);
-    fireEvent.click(await screen.findByTestId("self-build-pause"));
+    // Every page option sits behind the status pill.
+    await screen.findAllByTestId("build-row");
+    fireEvent.click(screen.getByTestId("self-build-menu"));
+    fireEvent.click(screen.getByTestId("self-build-pause"));
     await waitFor(() =>
       expect(calls.find((c) => c.url === "/api/self-build/pause")?.body).toEqual({ paused: true }),
     );
+    fireEvent.click(screen.getByTestId("self-build-menu"));
     fireEvent.click(screen.getByTestId("society-stop-all"));
     expect(calls.some((c) => c.url === "/api/society/kill-switch")).toBe(false);
     fireEvent.click(screen.getByTestId("stop-all-ok"));
@@ -223,6 +227,8 @@ describe("SelfBuildView", () => {
     renderWith(<SelfBuildView />);
     expect(await screen.findByTestId("note-paused")).toBeTruthy();
     expect(await screen.findByTestId("note-stopped")).toBeTruthy();
+    expect(screen.getByTestId("self-build-banner").dataset.tone).toBe("stopped");
+    fireEvent.click(screen.getByTestId("self-build-menu"));
     expect(screen.queryByTestId("society-stop-all")).toBeNull();
     // Accepting would start a build, so it waits while building is paused.
     const first = (await screen.findAllByTestId("build-row"))[0];
@@ -232,12 +238,13 @@ describe("SelfBuildView", () => {
   it("teaches the idea and shows what it is counting during the quiet start", async () => {
     installFetch({ ...STATUS, silent: true }, false, []);
     renderWith(<SelfBuildView />);
-    const hero = await screen.findByTestId("self-build-hero");
-    expect(hero.dataset.tone).toBe("silent");
-    expect(hero.textContent).toMatch(/getting to know how you work/);
-    await waitFor(() => expect(screen.getByTestId("self-build-ring").getAttribute("aria-label")).toBe("Day 3 of 7"));
-    expect(within(screen.getByTestId("self-build-reach")).getByText("Tries it, with undo")).toBeTruthy();
-    expect(screen.getByTestId("self-build-how")).toBeTruthy();
+    const banner = await screen.findByTestId("self-build-banner");
+    expect(banner.dataset.tone).toBe("silent");
+    await waitFor(() => expect(banner.textContent).toMatch(/Learning how you work · day 3 of 7/));
+    // The three steps sit behind one quiet toggle.
+    const how = screen.getByTestId("self-build-how");
+    fireEvent.click(within(how).getByRole("button", { name: /how does this work/i }));
+    expect(how.textContent).toMatch(/It notices/);
     const needs = await screen.findAllByTestId("noticed-need");
     expect(needs[0].textContent).toMatch(/Did I get any important emails\?/);
     expect(needs[0].textContent).toMatch(/Asked 4 times · on 2 days/);
@@ -256,8 +263,9 @@ describe("SelfBuildView", () => {
   it("says nothing repeated yet when the miner has nothing", async () => {
     installFetch(STATUS, false, [], { ...NOTICED, needs: [], once: 0 });
     renderWith(<SelfBuildView />);
-    expect(await screen.findByTestId("noticed-empty")).toBeTruthy();
-    expect(screen.getByTestId("self-build-hero").textContent).toMatch(/watching for repeats/);
+    const empty = await screen.findByTestId("noticed-empty");
+    expect(empty.textContent).toMatch(/Nothing here yet/);
+    expect(empty.textContent).toMatch(/on 3 different days/);
   });
 
   it("opens on the build a badge asked for", async () => {
