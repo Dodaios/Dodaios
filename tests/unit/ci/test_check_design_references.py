@@ -29,7 +29,7 @@ import check_design_references as gate  # noqa: E402
         "Rebuilt after a pipeline inspired by Hermes Agent",
         "The quick switcher is a Spotlight-style launcher.",
         "# --- the Codex-like look: filled discs, a glossy orb",
-        "Approval rules — Grok-style, require wins.",
+        "Approval rules — Raycast-style, require wins.",
     ],
 )
 def test_design_references_are_flagged(line: str) -> None:

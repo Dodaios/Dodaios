@@ -8,7 +8,7 @@ Two things happen here:
   a meta flag, adoptable by name like any other agent, archivable by the
   user like any other agent. An empty island reads as broken; two teammates
   read as a team.
-* ``propose_seeds`` — Grok's onboarding idea done local-first: teammates
+* ``propose_seeds`` — onboarding done local-first: teammates
   proposed from CONNECTED capabilities. A mail agent is proposed only when a
   mail plugin is connected, a repo agent only with ``gh``, and so on. Pure
   function over the catalog; the UI shows the proposals, the person picks.

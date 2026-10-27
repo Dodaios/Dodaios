@@ -275,8 +275,8 @@ A dedicated art-direction pass
 
 ### 4.4 Communication surfaces
 
-Per-agent canonical chat (persistent `agent_chat` session; routine results labeled inline — Grok's
-"Aktualisiert: Routine" pattern; approval cards). Society feed: inter-agent messages grouped by
+Per-agent canonical chat (persistent `agent_chat` session; routine results labeled inline as
+routine updates; approval cards). Society feed: inter-agent messages grouped by
 thread/room, every message attributed ("Scout → Archivist"); clicking a world bubble opens the same
 thread. Per-agent routines are namespaced `[agent:<name>]` entries in the existing Automations
 scheduler and appear in BOTH the Automations view and the model card (finish-it-everywhere rule).
@@ -342,7 +342,7 @@ add the four controls it lacked: authenticated writes (chokepoint), bounded non-
 - **Parity (AP-4):** `tier`, `state`, `msg_type` cross Python↔SQL↔Pydantic↔TS↔UI → five-layer
   pattern + parity tests. `test_routing.py` gains the new router tool. World rendering gets a
   headless-Chrome measurement check (recipe exists in project memory).
-- **App-closed semantics:** local-first inverts Grok's promise — a closed app freezes the society.
+- **App-closed semantics:** local-first means a closed app freezes the society.
   Honest UX copy + missed-routine catch-up policy (run-once-on-next-boot per routine, opt-in).
 - **Accessibility:** `prefers-reduced-motion` → static world or Ledger; keyboard/screen-reader path
   = Ledger + model cards (declared equivalent); no strobe/flash effects.
