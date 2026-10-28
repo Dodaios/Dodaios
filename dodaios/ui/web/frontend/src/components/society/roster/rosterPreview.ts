@@ -58,11 +58,15 @@ export function waitingReasonOf(agent: SocietyAgent): WaitingReason | null {
   return reason && wasAnswered(reason.refId) ? null : reason;
 }
 
-/** The roster still holds a waiting reason the person already answered here. */
-function answeredHere(agent: SocietyAgent): boolean {
+/** The waiting reason the roster still holds although the person already answered it here. */
+function answeredReason(agent: SocietyAgent): WaitingReason | null {
   const loose = agent as SocietyAgent & { waitingReason?: unknown; waiting_reason?: unknown };
   const reason = coerceReason(loose.waitingReason ?? loose.waiting_reason);
-  return Boolean(reason && wasAnswered(reason.refId));
+  return reason && wasAnswered(reason.refId) ? reason : null;
+}
+
+function answeredHere(agent: SocietyAgent): boolean {
+  return answeredReason(agent) !== null;
 }
 
 export function needsYou(agent: SocietyAgent): boolean {
@@ -78,8 +82,11 @@ export function readableWaiting(text: string, t: (key: string) => string): strin
 export type RosterStatus = "needs-you" | "working" | "unread" | "paused" | "idle";
 
 export function rosterStatus(agent: SocietyAgent, unread: boolean): RosterStatus {
-  if (answeredHere(agent)) return "working";
-  if (needsYou(agent)) return "needs-you";
+  // An answered approval, question or sign-in lets the paused run go on; a
+  // decided proposal starts nothing, so the agent reads as it otherwise would.
+  const answered = answeredReason(agent);
+  if (answered && answered.kind !== "proposal") return "working";
+  if (!answered && needsYou(agent)) return "needs-you";
   if (agent.state === "working") return "working";
   if (unread) return "unread";
   if (agent.state === "paused") return "paused";

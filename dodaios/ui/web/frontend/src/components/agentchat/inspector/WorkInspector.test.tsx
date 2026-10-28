@@ -247,5 +247,9 @@ describe("the inspector's cost", () => {
     cleanup();
     draw(costed("claude-cli", { billed_via_key: true }));
     expect(screen.getByTestId("work-inspector").querySelector(".wi-meta")!.textContent).toContain("$0.3427");
+    cleanup();
+    // A CLI on the person's own key (Grok Build bills per turn) is real money, not a seat.
+    draw(costed("grok-cli"));
+    expect(screen.getByTestId("work-inspector").querySelector(".wi-meta")!.textContent).toContain("$0.3427");
   });
 });

@@ -31,7 +31,8 @@ const HOURLY = /\b(?:every hour|hourly|each hour|stündlich|stuendlich|jede stun
 const INTERVAL = /\b(?:every|each|alle|cada)\s+(\d{1,3})\s*(m|mins?|minutes?|minuten|minutos|h|hrs?|hours?|stunden|horas|d|days?|tage|tagen|días|dias)\b/; // i18n-allow: input vocabulary
 const NOON = /\b(?:noon|midday|mittags?|mediodía|mediodia|meio-dia)\b/; // i18n-allow: input vocabulary
 const EVENING = /\b(?:evening|night|tonight|pm|abends?|nachts?|tarde|noche|noite)\b/; // i18n-allow: input vocabulary
-const MORNING = /\b(?:morning|am|morgens|früh|frueh|mañana|manana|manhã|manha)\b/; // i18n-allow: input vocabulary
+/** No bare "am": in German it means "on" ("am Montag"); "7am" is read by the clock itself. */
+const MORNING = /\b(?:morning|morgens|früh|frueh|mañana|manana|manhã|manha)\b/; // i18n-allow: input vocabulary
 /** A clock time: "7", "7:30", "07.30", "7h30", "19 uhr", "7am", "at 7". */
 const CLOCK = /(?:^|\s|at\s|um\s|a las\s|às\s|as\s|@)(\d{1,2})(?:[:.h](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.|uhr|h)?(?=$|[\s,.;!?])/; // i18n-allow: input vocabulary
 
@@ -66,7 +67,8 @@ export function parseScheduleText(text: string, timezone: string = viewerZone())
   const interval = INTERVAL.exec(clean);
   if (interval) {
     const seconds = Number(interval[1]) * unitSeconds(interval[2]);
-    return seconds >= 60 ? { type: "every", interval_seconds: seconds } : null;
+    // The scheduler takes a gap of one minute up to a year.
+    return seconds >= 60 && seconds <= 366 * 86_400 ? { type: "every", interval_seconds: seconds } : null;
   }
   if (HOURLY.test(clean)) return { type: "every", interval_seconds: 3_600 };
   // Words that name days are taken out before the clock is read, so "Monday 9" is 9 o'clock.

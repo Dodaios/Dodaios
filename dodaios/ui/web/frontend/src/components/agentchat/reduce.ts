@@ -748,12 +748,19 @@ export function settleApproval(tl: Timeline, approvalId: string, decision: strin
 }
 
 /**
- * Whether a turn's cost was charged per token. A vendor CLI seat runs on its
- * subscription, so the cost it reports is what the plan already covers.
+ * Runners that answer on a vendor subscription seat, the same set as
+ * `dodaios.costs.model.SUBSCRIPTION_RUNNERS`. Every other CLI (Grok Build,
+ * Hermes, OpenClaw, OpenCode, ...) runs on a key and its cost is real money.
+ */
+const SUBSCRIPTION_RUNNERS: ReadonlySet<string> = new Set(["claude-cli", "codex-cli", "agy-cli", "kimi-cli"]);
+
+/**
+ * Whether a turn's cost was charged per token. A subscription seat reports
+ * what the plan already covers, so its cost is not money spent.
  */
 export function billedPerToken(turn: Pick<TurnItem, "runner" | "billedViaKey">): boolean {
   if (typeof turn.billedViaKey === "boolean") return turn.billedViaKey;
-  return !/-cli$/i.test(turn.runner || "");
+  return !SUBSCRIPTION_RUNNERS.has((turn.runner || "").trim().toLowerCase());
 }
 
 /**

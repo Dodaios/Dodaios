@@ -118,4 +118,13 @@ describe("what the person already answered", () => {
     expect(rosterStatus(waiting, false)).toBe("working");
     resetAttentionStore();
   });
+
+  it("does not call an agent working after a decided proposal: nothing resumes", () => {
+    resetAttentionStore();
+    const proposing = agent({ state: "waiting", waiting_reason: { kind: "proposal", summary: "Add a rule", ref_id: "p1" } });
+    expect(rosterStatus(proposing, false)).toBe("needs-you");
+    markAnswered("p1");
+    expect(rosterStatus(proposing, false)).toBe("idle");
+    resetAttentionStore();
+  });
 });
