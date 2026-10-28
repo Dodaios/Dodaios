@@ -12188,6 +12188,30 @@ class BrainManager:
                 if turn_override is not None:
                     turn_override.receipt.mark_guard_failure("mandated_tool_unfulfilled")
 
+        # A "[used tool …]" line in the model's text is an imitation of the
+        # chat history marker, never a call (live 2026-10-28: an invented train
+        # story behind "[used tool search_web]"). A claimed search that never
+        # ran makes the whole answer a guess; any other marker is dropped.
+        from dodaios.brain.tool_marker import strip_tool_markers
+
+        _marker_free, _claimed_tools = strip_tool_markers(response_text)
+        if _claimed_tools:
+            _phantom = sorted(set(_claimed_tools) - set(_turn_executed))
+            if "search_web" in _phantom:
+                from dodaios.brain.public_fact_gate import public_fact_unfulfilled_answer
+
+                log.warning(
+                    "Model typed a search_web marker but no search ran — "
+                    "replacing the unverified answer."
+                )
+                response_text = public_fact_unfulfilled_answer(honesty_lang)
+                if turn_override is not None:
+                    turn_override.receipt.mark_guard_failure("unbacked_action_claim")
+            else:
+                if _phantom:
+                    log.warning("Model typed markers for tools that never ran: %s", _phantom)
+                response_text = _marker_free
+
         execution_evidence = set(_turn_executed)
         full_action_fallback = not execution_evidence and has_unbacked_action_claim(response_text)
         honest_response = replace_unbacked_action_claim(

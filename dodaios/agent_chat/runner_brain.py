@@ -101,6 +101,11 @@ def brain_history_from_events(
     local models then copied that line instead of making a real tool call
     (issue #978). Capped to the last ``_HISTORY_MAX`` messages.
     """
+    # A "[used tool …]" line inside the model's own TEXT is an imitation of a
+    # call marker, never a call; replaying it teaches the next turn to type the
+    # marker instead of calling the tool (live 2026-10-28).
+    from dodaios.brain.tool_marker import strip_tool_markers
+
     out: list[BrainMessage] = []
     prose: list[str] = []
     calls: list[dict[str, str]] = []
@@ -125,13 +130,14 @@ def brain_history_from_events(
             # One answer per turn: the tool rounds and the prose after them
             # are several provider messages but one thing Jarvis said.
             if isinstance(message.content, str):
-                if message.content.strip():
-                    prose.append(message.content)
+                text = strip_tool_markers(message.content)[0]
+                if text.strip():
+                    prose.append(text)
                 continue
             for block in message.content:
                 kind = block.get("type")
                 if kind == "text":
-                    text = str(block.get("text") or "")
+                    text = strip_tool_markers(str(block.get("text") or ""))[0]
                     if text.strip():
                         prose.append(text)
                 elif kind == "tool_use":
