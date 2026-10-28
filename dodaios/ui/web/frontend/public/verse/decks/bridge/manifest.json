@@ -3656,16 +3656,16 @@
   "blender_s": 841.7,
   "package_s": 87.42,
   "plate_bytes": 2907826,
-  "bytes": 22776654
+  "bytes": 22567064
  },
  "realtime": {
   "version": 1,
   "quality": "final",
   "scene": {
    "url": "realtime/scene.glb",
-   "vertices": 1415030,
-   "triangles": 1068447,
-   "chunks": 360
+   "vertices": 1408190,
+   "triangles": 1062803,
+   "chunks": 361
   },
   "lightmaps": {
    "encoding": "rgbm2",
@@ -4469,15 +4469,15 @@
     "collide": true
    }
   },
-  "bytes": 19364466,
+  "bytes": 19154870,
   "stats": {
-   "objects": 782,
-   "triangles": 1068447,
-   "vertices": 1415030,
-   "chunks": 360,
-   "area_m2": 31056.2,
-   "hidden_objects": 685,
-   "hidden_area_m2": 9714.1,
+   "objects": 781,
+   "triangles": 1062803,
+   "vertices": 1408190,
+   "chunks": 361,
+   "area_m2": 30822.6,
+   "hidden_objects": 686,
+   "hidden_area_m2": 10440.7,
    "far_split": 6,
    "far_decimated_triangles": 1108,
    "density": [
@@ -4488,15 +4488,15 @@
    ],
    "samples": 512,
    "blender": "5.0.1",
-   "realise_s": 3.14,
-   "visibility_s": 14.69,
-   "unwrap_s": 20.41,
-   "join_s": 1.58,
-   "bake_s": 692.0,
-   "probes_s": 26.8,
-   "geometry_s": 6.0,
-   "blender_s": 790.0,
-   "package_s": 97.53
+   "realise_s": 4.41,
+   "visibility_s": 27.75,
+   "unwrap_s": 37.48,
+   "join_s": 2.67,
+   "bake_s": 876.69,
+   "probes_s": 39.98,
+   "geometry_s": 9.48,
+   "blender_s": 1000.0,
+   "package_s": 232.95
   }
  }
 }
