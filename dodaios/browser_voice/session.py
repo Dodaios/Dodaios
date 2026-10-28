@@ -27,7 +27,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
+import unicodedata
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import uuid4
@@ -61,6 +63,65 @@ SendJson = Callable[[dict[str, Any]], Awaitable[None]]
 # browser acknowledges completion so the session does not reopen the endpoint
 # detector while its own voice is still audible through the microphone.
 _BROWSER_TTS_ACK_TIMEOUT_S = 120.0
+
+# Barge-in. The browser keeps streaming the microphone while Jarvis speaks
+# (echo cancellation on), but nothing ever sent the ``barge_in`` control frame,
+# and an utterance that ended while a turn was running was silently dropped:
+# the person could not interrupt, and the end of a sentence cut by a pause was
+# lost (BC-250 recette 2026-10-28). The session now decides from the audio.
+#
+# The browser plays queued PCM long after the server sent it, so "speaking"
+# means "audio still queued in the browser", estimated from what was sent.
+_PLAYBACK_TAIL_S = 0.35
+# Share of an overlapping transcript's words found in the reply being spoken
+# above which it is Jarvis's own voice leaking through echo cancellation.
+_ECHO_WORD_SHARE = 0.6
+# An utterance that ends this soon after the previous one, before any reply
+# audio, continues the same sentence: it is transcribed together with it.
+_CONTINUATION_WINDOW_S = 4.0
+# Silence placed between two joined pieces of one sentence.
+_JOIN_GAP_S = 0.2
+
+_STOP_TOKENS = frozenset(
+    # i18n-allow: multilingual speech-input matching data
+    "stop stopp arrete arretes arretez tais taisez chut silence attends attendez "  # i18n-allow
+    "halt pause enough quiet wait shh shush basta para espera calla callate "  # i18n-allow
+    "suffit assez shut hor".split()  # i18n-allow: French, English ("shut up"), German ("hör auf")
+)
+_STOP_FILLER_TOKENS = frozenset(
+    # i18n-allow: multilingual speech-input matching data
+    "non no nein ok okay bon mais toi vous ca c est merci please bitte "  # i18n-allow
+    "it that s up auf jetzt maintenant now".split()  # i18n-allow
+)
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _words(text: str) -> list[str]:
+    folded = unicodedata.normalize("NFKD", (text or "").casefold())
+    plain = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    return _WORD_RE.findall(plain)
+
+
+def is_stop_request(text: str) -> bool:
+    """True for a bare "stop" / "arrête" / "tais-toi" that only ends the reply."""
+    words = _words(text)
+    if not words or len(words) > 5:
+        return False
+    if not any(word in _STOP_TOKENS for word in words):
+        return False
+    return all(word in _STOP_TOKENS or word in _STOP_FILLER_TOKENS for word in words)
+
+
+def looks_like_echo(heard: str, spoken: str) -> bool:
+    """True when ``heard`` is mostly words of the reply being played back."""
+    heard_words = _words(heard)
+    if not heard_words or not spoken:
+        return False
+    if is_stop_request(heard):
+        return False
+    spoken_words = set(_words(spoken))
+    shared = sum(1 for word in heard_words if word in spoken_words)
+    return shared / len(heard_words) >= _ECHO_WORD_SHARE
 
 
 class BrowserVoiceSession:
@@ -134,6 +195,15 @@ class BrowserVoiceSession:
         self._browser_tts_done: asyncio.Event | None = None
         self._browser_tts_id: str | None = None
         self._ended = False
+        # Barge-in / continuation state (see the module constants).
+        self._playback_until = 0.0
+        self._spoken_text = ""
+        self._reply_started = False
+        self._current_utterance = b""
+        self._utterance_ended_at = 0.0
+        self._queued: list[bytes] = []
+        self._overlap_lock = asyncio.Lock()
+        self._side_tasks: set[asyncio.Task[None]] = set()
 
     # -- public properties -------------------------------------------------
 
@@ -163,12 +233,108 @@ class BrowserVoiceSession:
         except Exception:  # noqa: BLE001 — malformed/odd-length frame, drop it
             return
         utterance = self._endpointer.push(pcm16)
-        if utterance is not None and not self._processing:
-            # Run the turn off the inbound-frame path so we keep draining audio.
-            self._turn_task = asyncio.create_task(
-                self._run_turn(utterance), name=f"bv-turn-{self.session_id}"
+        if utterance is None:
+            return
+        if self._processing or self._assistant_audible():
+            # Never dropped: an interruption, the rest of a sentence, or the
+            # next request (decided off the frame path).
+            task = asyncio.create_task(
+                self._handle_overlap(utterance), name=f"bv-overlap-{self.session_id}"
             )
-            self._turn_task.add_done_callback(self._on_turn_done)
+            self._side_tasks.add(task)
+            task.add_done_callback(self._side_tasks.discard)
+            return
+        self._start_turn(utterance)
+
+    def _start_turn(self, utterance: bytes, *, transcript: str | None = None) -> None:
+        """Run one turn off the inbound-frame path so audio keeps draining."""
+        self._processing = True
+        self._reply_started = False
+        self._current_utterance = utterance
+        self._utterance_ended_at = time.monotonic()
+        self._turn_task = asyncio.create_task(
+            self._run_turn(utterance, transcript=transcript),
+            name=f"bv-turn-{self.session_id}",
+        )
+        self._turn_task.add_done_callback(self._on_turn_done)
+
+    def _assistant_audible(self) -> bool:
+        """Whether Jarvis's reply may still be coming out of the speaker."""
+        if self._speaking:
+            return True
+        return time.monotonic() < self._playback_until + _PLAYBACK_TAIL_S
+
+    def _note_audio_sent(self, pcm: bytes) -> None:
+        seconds = len(pcm) / 2 / TTS_SAMPLE_RATE
+        self._playback_until = max(self._playback_until, time.monotonic()) + seconds
+
+    async def _handle_overlap(self, utterance: bytes) -> None:
+        """An utterance that ended while a turn ran or the reply was playing."""
+        async with self._overlap_lock:
+            if self._ended:
+                return
+            if self._assistant_audible():
+                await self._maybe_barge_in(utterance)
+            elif (
+                self._processing
+                and not self._reply_started
+                and time.monotonic() - self._utterance_ended_at < _CONTINUATION_WINDOW_S
+            ):
+                # The pause cut one sentence in two; transcribe it whole.
+                joined = (
+                    self._current_utterance
+                    + b"\x00\x00" * int(STT_SAMPLE_RATE * _JOIN_GAP_S)
+                    + utterance
+                )
+                log.info("browser_voice[%s] continuation: re-running the turn", self.session_id)
+                await self._cancel_turn()
+                self._start_turn(joined)
+            elif self._processing:
+                self._queued.append(utterance)
+            else:
+                self._start_turn(utterance)
+
+    async def _maybe_barge_in(self, utterance: bytes) -> None:
+        try:
+            text = (await self._transcribe(utterance)).strip()
+        except Exception:  # noqa: BLE001 — an interruption check must not kill the session
+            log.debug("browser_voice[%s] barge-in STT failed", self.session_id, exc_info=True)
+            return
+        if not text:
+            return
+        if looks_like_echo(text, self._spoken_text):
+            log.info("browser_voice[%s] ignored own-voice echo: %r", self.session_id, text[:60])
+            return
+        log.info("browser_voice[%s] barge-in: %r", self.session_id, text[:80])
+        # The interruption is the person's latest word; earlier queued talk
+        # must not start a second turn beside it.
+        self._queued.clear()
+        await self._barge_in()
+        await self._wait_turn_end()
+        await self._cancel_turn()
+        if is_stop_request(text):
+            await self._send_json({"type": "vad_silence"})
+            return
+        self._start_turn(utterance, transcript=text)
+
+    async def _wait_turn_end(self, timeout: float = 5.0) -> None:
+        task = self._turn_task
+        if task is None or task.done():
+            return
+        try:
+            await asyncio.wait({task}, timeout=timeout)
+        except Exception:  # noqa: BLE001, S110 — best effort
+            pass
+
+    async def _cancel_turn(self) -> None:
+        task = self._turn_task
+        if task is None or task.done():
+            return
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001 — the turn is over
+            pass
 
     async def handle_control(self, msg: dict[str, Any]) -> None:
         """Process a JSON control frame from the browser."""
@@ -244,7 +410,7 @@ class BrowserVoiceSession:
 
     # -- turn loop ---------------------------------------------------------
 
-    async def _run_turn(self, utterance_pcm16: bytes) -> None:
+    async def _run_turn(self, utterance_pcm16: bytes, *, transcript: str | None = None) -> None:
         if self._ended:
             return
         self._processing = True
@@ -252,7 +418,8 @@ class BrowserVoiceSession:
         user_text = ""
         full_reply = ""
         try:
-            transcript = await self._transcribe(utterance_pcm16)
+            if transcript is None:
+                transcript = await self._transcribe(utterance_pcm16)
             text = (transcript or "").strip()
             if not text:
                 # End-of-turn fired but nothing transcribable — let the browser
@@ -312,6 +479,7 @@ class BrowserVoiceSession:
                     source_layer="browser_voice",
                 )
             )
+            self._reply_started = True
             self._tts_task = asyncio.create_task(self._speak(spoken))
             try:
                 await self._tts_task
@@ -321,12 +489,22 @@ class BrowserVoiceSession:
             # mirroring the telephony session's count semantics.
             self._turns += 1
             await self._complete_bus_turn(turn_id, user_text, full_reply)
+        except asyncio.CancelledError:
+            # Replaced by a continuation of the same sentence: close the record
+            # so the transcript never shows a turn that never ends.
+            if turn_id is not None:
+                await self._complete_bus_turn(turn_id, user_text, "")
+            raise
         except Exception:  # noqa: BLE001 — a turn failure must never kill the session
             log.warning("browser_voice[%s] turn failed", self.session_id, exc_info=True)
             if turn_id is not None:
                 await self._complete_bus_turn(turn_id, user_text, "")
         finally:
             self._processing = False
+            if self._queued and not self._ended and asyncio.current_task() is self._turn_task:
+                queued = b"".join(self._queued)
+                self._queued.clear()
+                self._start_turn(queued)
 
     async def _complete_bus_turn(
         self, turn_id: str | None, user_text: str, jarvis_text: str
@@ -378,6 +556,7 @@ class BrowserVoiceSession:
             self._out_limiter = PeakLimiter()
 
         self._speaking = True
+        self._spoken_text = text
         sent = 0
         try:
             stream = self._tts.synthesize(text, language_code=self.language_code)
@@ -423,6 +602,7 @@ class BrowserVoiceSession:
                     limiter=self._out_limiter,
                 )
                 await self._send_binary(pcm)
+                self._note_audio_sent(pcm)
                 sent += 1
 
             if sent == 0:
@@ -485,6 +665,8 @@ class BrowserVoiceSession:
             # that follows, or it would open quiet and audibly swell.
             self._out_limiter.reset()
         self._speaking = False
+        # The browser flushes its queue on tts_cancel, so nothing is audible.
+        self._playback_until = 0.0
         try:
             await self._send_json({"type": "tts_cancel"})
         except Exception:  # noqa: BLE001, S110 — best-effort on a closing socket
@@ -501,6 +683,9 @@ class BrowserVoiceSession:
             self._browser_tts_done.set()
         if self._turn_task is not None and not self._turn_task.done():
             self._turn_task.cancel()
+        for task in list(self._side_tasks):
+            task.cancel()
+        self._queued.clear()
         log.info(
             "browser_voice[%s] ended: reason=%s turns=%d dur=%.1fs",
             self.session_id,
