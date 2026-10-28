@@ -30,7 +30,7 @@ def quiet_catalog(monkeypatch: pytest.MonkeyPatch):
 
 
 def _fake_society(
-    monkeypatch: pytest.MonkeyPatch, *, agent_id: str, runtime: str = ""
+    monkeypatch: pytest.MonkeyPatch, *, agent_id: str, runtime: str = "", killed: bool = False
 ) -> list[str]:
     """A society runtime with one active agent; binding creates its chat."""
     bound: list[str] = []
@@ -42,7 +42,11 @@ def _fake_society(
         async def get(self, wanted: str) -> Any:
             return agent if wanted == agent_id else None
 
-    fake = SimpleNamespace(roster=Roster(), config=lambda: None)
+    class Store:
+        async def kill_switch(self) -> bool:
+            return killed
+
+    fake = SimpleNamespace(roster=Roster(), store=Store(), config=lambda: None)
 
     def ensure_session(svc: Any, _cfg: Any, row: Any) -> Any:
         bound.append(row.agent_id)
@@ -169,3 +173,15 @@ async def test_the_next_message_carries_the_decisions_once(tmp_path: Path, monke
     from dodaios.society.proposals import decision_context
 
     assert decision_context(svc.store.list_events(session.session_id)) == ""
+
+
+def test_the_kill_switch_keeps_a_new_agents_chat_unbound(
+    tmp_path: Path, monkeypatch, quiet_catalog
+):
+    bound = _fake_society(monkeypatch, agent_id="qa-starter", killed=True)
+    with TestClient(_app(tmp_path)) as client:
+        sid = "society:qa-starter"
+        res = client.get(f"/api/agent-chat/catalog?surface=society&session_id={sid}")
+        assert res.status_code == 404
+        assert client.post(f"/api/agent-chat/sessions/{sid}/warm").status_code == 404
+    assert bound == []

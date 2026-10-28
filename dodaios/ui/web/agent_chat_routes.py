@@ -497,6 +497,8 @@ async def _session_or_bound_agent_chat(svc: Any, session_id: str) -> Any | None:
         agent = await runtime.roster.get(agent_id)
         if agent is None or agent.session_id != session_id or str(agent.state) != "active":
             return None
+        if await runtime.store.kill_switch():
+            return None
         return ensure_session(svc, runtime.config(), agent)
     except PermissionError:
         return None

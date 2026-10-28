@@ -83,6 +83,20 @@ def test_always_allow_rules_cover_only_what_they_name():
     assert rc.claude_rules_cover(prefix, "Bash", {"command": "git log"})
     assert not rc.claude_rules_cover(prefix, "Bash", {"command": "git push"})
     assert not rc.claude_rules_cover(prefix, "PowerShell", {"command": "git log"})
+    # A prefix rule speaks for one command, never for a chained or redirected line.
+    for chained in (
+        "git log && rm -rf ~",
+        "git log; del x",
+        "git log | sh",
+        "git log > out.txt",
+        "git log $(whoami)",
+        "git log `whoami`",
+        "git log\nrm -rf ~",
+    ):
+        assert not rc.claude_rules_cover(prefix, "Bash", {"command": chained}), chained
+    # The whole tool allowed (no rule content) still covers any line.
+    whole_shell = [{"type": "addRules", "behavior": "allow", "rules": [{"toolName": "Bash"}]}]
+    assert rc.claude_rules_cover(whole_shell, "Bash", {"command": "git log && ls"})
 
     edits = [{"type": "setMode", "mode": "acceptEdits", "destination": "session"}]
     assert rc.claude_rules_cover(edits, "Edit", {})

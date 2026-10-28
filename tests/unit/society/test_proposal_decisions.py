@@ -97,3 +97,20 @@ def test_the_note_is_given_once():
     assert decision_context(old) == ""
     assert decision_context([]) == ""
     assert decision_context([make_event("notice", {"kind": "proposal", "status": "pending"})]) == ""
+
+
+def test_a_decision_settled_inside_the_turn_is_not_repeated():
+    """``mode=apply`` resolves in the agent's own turn; the tool returned it."""
+    agent = SimpleNamespace(agent_id="writer", name="Writer", title="", description="")
+    item = SimpleNamespace(
+        id="p1",
+        action={"kind": "rule", "resume_in_place": True},
+        capability=capability_for("rule"),
+        summary="Add a standing rule: Be brief.",
+    )
+    inline = make_event(
+        "notice",
+        resolved_notice(agent, item, status="applied", text="applied"),  # type: ignore[arg-type]
+    )
+    assert decision_context([inline]) == ""
+    assert "Later rule" in decision_context([inline, _resolved("applied", "Later rule")])

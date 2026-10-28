@@ -1376,10 +1376,11 @@ class AgentChatService:
             # What the turn receives; ``text`` stays what the person typed so the
             # timeline shows their sentence rather than a page of extracted PDF.
             prompt = chat_attachments.compose(text, attached)
-            if session.surface == "society":
+            if session.surface == "society" and not text.startswith("/"):
                 # Decisions on the agent's proposals reach it here, once, as a
                 # system note in front of its next message: never as a message
-                # from the person, and never as a turn of their own.
+                # from the person, and never as a turn of their own. A slash
+                # command stays the first thing a CLI seat reads.
                 from dodaios.society.proposals import decision_context
 
                 decided = decision_context(self.store.list_events(session_id, tail=200))

@@ -346,6 +346,10 @@ def resolved_notice(
     if previous is not None:
         # What an undo restores (identity only): the fields as they were.
         notice["previous"] = previous
+    if item.action.get("resume_in_place"):
+        # Settled inside the agent's own turn: the tool already returned the
+        # outcome, so ``decision_context`` must not repeat it next turn.
+        notice["in_turn"] = True
     return notice
 
 
@@ -372,6 +376,8 @@ def decision_context(events: list[dict[str, Any]]) -> str:
             break
         payload = event.get("payload") or {}
         if kind != "notice" or payload.get("kind") != "proposal_resolved":
+            continue
+        if payload.get("in_turn"):
             continue
         status = str(payload.get("status") or "")
         word = _DECISION_WORDS.get(status)

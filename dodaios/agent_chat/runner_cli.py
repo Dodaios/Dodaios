@@ -649,6 +649,10 @@ _CLAUDE_EDIT_TOOLS: Final[frozenset[str]] = frozenset(
     {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 )
 _CLAUDE_SHELL_TOOLS: Final[frozenset[str]] = frozenset({"Bash", "PowerShell"})
+#: Characters that chain, redirect or substitute shell commands. A prefix rule
+#: ("git log:*") speaks for ONE command; Claude Code splits a compound line
+#: before matching, this matcher does not, so such a line always asks again.
+_SHELL_CHAINING: Final[tuple[str, ...]] = (";", "&", "|", "<", ">", "`", "$(", "\n", "\r")
 
 
 def claude_ask_settings(mode: str) -> str | None:
@@ -697,6 +701,8 @@ def claude_rules_cover(rules: Iterable[dict[str, Any]], tool_name: str, tool_inp
             if not content:
                 return True
             if tool_name in _CLAUDE_SHELL_TOOLS and command:
+                if any(mark in command for mark in _SHELL_CHAINING):
+                    continue
                 pattern = content[:-2] + " *" if content.endswith(":*") else content
                 if command == content or command == pattern.removesuffix(" *"):
                     return True
