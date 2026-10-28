@@ -128,7 +128,7 @@ def test_the_plugin_build_is_part_of_the_config(tmp_path):
     again = openclaw_gate.install(tmp_path)
     assert first == again
     source = (first.path / "index.mjs").read_text(encoding="utf-8")
-    for tool in (*openclaw_gate.GATED_TOOLS, *openclaw_gate.READ_TOOLS):
+    for tool in (*openclaw_gate.GATED_TOOLS, *openclaw_gate.READ_TOOLS, "process"):
         assert f'"{tool}"' in source
     assert "JARVIS_CONTROL_API_KEY" in source
     assert 'catalogMode: "direct-only"' in source
@@ -307,6 +307,43 @@ def test_the_control_route_asks_the_running_turn(monkeypatch):
     assert other.json() == {"decision": "deny", "reason": native_gate.NO_TURN}
     nobody = client.post(url, json=body)
     assert nobody.json()["decision"] == "deny"
+
+
+def test_typing_into_a_running_process_asks_and_watching_it_does_not():
+    # An allowed interactive shell would otherwise run every later command
+    # typed into it without a card.
+    assert openclaw_gate.kind("process", {"action": "submit", "data": "rm -rf x"}) == "change"
+    assert openclaw_gate.kind("process", {"action": "send-keys"}) == "change"
+    for action in ("list", "poll", "log", "kill"):
+        assert openclaw_gate.kind("process", {"action": action}) == "free"
+    assert openclaw_gate.kind("grep", {"pattern": "x"}) == "read"
+    assert openclaw_gate.kind("write", {"path": "a"}) == "change"
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from dodaios.ui.web import control_routes
+
+    app = FastAPI()
+    app.include_router(control_routes.router)
+    app.dependency_overrides[control_routes.require_control_key] = lambda: None
+    seen: list[tuple[str, bool]] = []
+
+    async def decider(call_id, tool, args, title, read_only):
+        seen.append((tool, read_only))
+        return "deny"
+
+    native_gate.register("society:ada", decider)
+    client = TestClient(app)
+    url = "/api/control/runtime/native-approval"
+    headers = {"x-jarvis-chat-session": "society:ada"}
+    poll = client.post(url, json={"tool": "process", "params": {"action": "poll"}}, headers=headers)
+    assert poll.json()["decision"] == "allow"
+    typed = client.post(
+        url, json={"tool": "process", "params": {"action": "submit"}}, headers=headers
+    )
+    assert typed.json()["decision"] == "deny"
+    assert seen == [("process", False)]
 
 
 # ------------------------------------------------------ stream repair

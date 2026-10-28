@@ -533,12 +533,15 @@ async def runtime_native_approval(body: _NativeApproval, request: Request) -> di
     session_id = (request.headers.get("x-jarvis-chat-session") or "").strip()
     if not session_id:
         return {"decision": "deny", "reason": native_gate.NO_TURN}
+    kind = openclaw_gate.kind(body.tool, body.params)
+    if kind == "free":
+        return {"decision": "allow", "reason": ""}
     decision, reason = await native_gate.decide(
         session_id,
         body.tool,
         body.params,
         call_id=body.tool_call_id,
         title=body.title,
-        read_only=body.tool in openclaw_gate.READ_TOOLS,
+        read_only=kind == "read",
     )
     return {"decision": decision, "reason": reason}

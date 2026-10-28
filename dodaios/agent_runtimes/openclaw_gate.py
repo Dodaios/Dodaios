@@ -37,7 +37,16 @@ GATED_TOOLS: Final[tuple[str, ...]] = ("write", "edit", "apply_patch")
 
 #: OpenClaw's own reading tools: asked about in "Always ask" only, answered
 #: at once otherwise (``native_gate``), so the config stays the same.
-READ_TOOLS: Final[tuple[str, ...]] = ("read", "ls", "web_search", "web_fetch")
+READ_TOOLS: Final[tuple[str, ...]] = (
+    "read", "ls", "grep", "find", "web_search", "web_fetch"
+)
+
+#: OpenClaw's ``process`` tool drives a command ``exec`` started. Its input
+#: actions type into that process: once an interactive shell or REPL was
+#: allowed, they would run any further command without a card. They ask like
+#: a file change; its other actions (list, poll, log, kill, ...) run freely.
+PROCESS_TOOL: Final[str] = "process"
+PROCESS_INPUT_ACTIONS: Final[frozenset[str]] = frozenset({"write", "send-keys", "submit", "paste"})
 
 #: The hook waits this long for the person (OpenClaw's ceiling for an
 #: operator-set hook budget); ``native_gate`` answers before it.
@@ -78,7 +87,9 @@ function headers(cfg, extra) {
 
 function title(tool, params) {
   const path = params && (params.path || params.file_path || params.filePath);
-  return typeof path === "string" && path ? `${tool}: ${path}` : tool;
+  if (typeof path === "string" && path) return `${tool}: ${path}`;
+  const action = params && params.action;
+  return typeof action === "string" && action ? `${tool}: ${action}` : tool;
 }
 
 function parsed(value) {
@@ -203,9 +214,19 @@ export default {
 """
 
 
+def kind(tool: str, params: dict[str, Any] | None) -> str:
+    """How Dodaios treats one call the plugin holds: ``free`` (runs at once),
+    ``read`` (asks in "Always ask" only) or ``change`` (asks outside Bypass)."""
+    if tool == PROCESS_TOOL:
+        action = str((params or {}).get("action") or "").strip().lower()
+        return "change" if action in PROCESS_INPUT_ACTIONS else "free"
+    return "read" if tool in READ_TOOLS else "change"
+
+
 def source() -> str:
     """The plugin's entry module."""
-    return _SOURCE.replace("__GATED__", json.dumps([*GATED_TOOLS, *READ_TOOLS])).replace(
+    matched = [*GATED_TOOLS, *READ_TOOLS, PROCESS_TOOL]
+    return _SOURCE.replace("__GATED__", json.dumps(matched)).replace(
         "__TIMEOUT__", str(HOOK_TIMEOUT_MS)
     )
 
