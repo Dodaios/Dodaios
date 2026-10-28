@@ -224,3 +224,15 @@ def test_construction_loads_no_model(monkeypatch) -> None:
     provider = NemotronLocalSTT(language="de")
 
     assert provider._recognizer is None
+
+
+def test_decoder_threads_scale_with_the_machine(monkeypatch) -> None:
+    import dodaios.plugins.stt.nemotron_local as module
+
+    monkeypatch.setattr(module.os, "cpu_count", lambda: 12)
+    assert NemotronLocalSTT()._num_threads == 4
+    monkeypatch.setattr(module.os, "cpu_count", lambda: 4)
+    assert NemotronLocalSTT()._num_threads == 2
+    monkeypatch.setattr(module.os, "cpu_count", lambda: None)
+    assert NemotronLocalSTT()._num_threads == 2
+    assert NemotronLocalSTT(num_threads=3)._num_threads == 3

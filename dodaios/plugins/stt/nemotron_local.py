@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -60,6 +61,18 @@ _TAIL_SILENCE_S = 1.0
 #: the first word is usually the command, so losing it is not cosmetic.
 _LEAD_SILENCE_S = 0.8
 
+#: Decoder threads: half the logical CPUs, between 2 and 4. On the BC-250
+#: (12 logical CPUs) 4 threads decoded the 24-sentence French bench at 0.36x
+#: realtime instead of 0.50x with 2 (identical text for every sentence); a
+#: small machine keeps the former 2.
+_MIN_THREADS = 2
+_MAX_THREADS = 4
+
+
+def _default_threads() -> int:
+    return max(_MIN_THREADS, min(_MAX_THREADS, (os.cpu_count() or _MIN_THREADS) // 2))
+
+
 #: int16 full scale — the divisor that maps PCM to the [-1, 1] floats the
 #: feature extractor is configured for (``normalize_samples`` default).
 _INT16_FULL_SCALE = 32768.0
@@ -87,12 +100,12 @@ class NemotronLocalSTT:
         *,
         language: str | None = None,
         model_dir: str | Path | None = None,
-        num_threads: int = 2,
+        num_threads: int | None = None,
         provider: str = "cpu",
     ) -> None:
         self._language = (language or "").strip() or None
         self._model_dir = Path(model_dir) if model_dir else None
-        self._num_threads = max(1, int(num_threads))
+        self._num_threads = max(1, int(num_threads or _default_threads()))
         self._provider = provider or "cpu"
         self._recognizer: Any | None = None
         # One decode at a time per instance. sherpa-onnx supports concurrent
