@@ -55,10 +55,15 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
   const target = { tier: agent?.tier ?? "specialist", chatSessionId: agent?.chatSessionId ?? `society:${agentId}` };
   const setUpInChat = () => void seedAgentComposer(target, own("setup_prompt"));
   const field = "w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12px] text-foreground placeholder:text-faint-foreground transition-colors focus:border-border-strong focus:outline-none";
+  // Closing the form drops what it held: a draft nobody sees must never
+  // come back under the caret the next time the form opens.
+  const closeForm = () => {
+    setOpen(false); setTitle(""); setPrompt(""); setWhen(""); setMore(false); setBuilt(null); setError("");
+  };
   const submit = async () => {
     if (!title.trim() || !prompt.trim() || !schedule) return;
     setSaving(true); setError("");
-    try { await create(agentId, { title: title.trim(), prompt: prompt.trim(), schedule }); setTitle(""); setPrompt(""); setWhen(""); setMore(false); setOpen(false); }
+    try { await create(agentId, { title: title.trim(), prompt: prompt.trim(), schedule }); closeForm(); }
     catch (err) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setSaving(false); }
   };
@@ -72,7 +77,7 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
         {t("society.card.routines")}
       </h3>
       <div className="flex items-center gap-0.5">
-        <button type="button" data-testid="agent-routines-add" className="as-round-button h-7 w-7" aria-label={t("society.card.routines_add")} aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? <X size={14} /> : <Plus size={14} />}</button>
+        <button type="button" data-testid="agent-routines-add" className="as-round-button h-7 w-7" aria-label={t("society.card.routines_add")} aria-expanded={open} onClick={() => (open ? closeForm() : setOpen(true))}>{open ? <X size={14} /> : <Plus size={14} />}</button>
       </div>
     </div>
     {parking?.banner && parking.parked_ids.length > 0 && <ParkingBanner agentId={agentId} parking={parking} onAnswered={() => void refresh()} />}
@@ -92,7 +97,7 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
         onClick={() => setMore((v) => !v)} data-testid="agent-routines-more">{own(more ? "fewer_options" : "more_options")}</button>
       {more ? <TriggerBuilder onChange={setBuilt} /> : null}
       <div className="flex items-center justify-between gap-2 pt-0.5">
-        {!isSample ? <button type="button" className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => { setOpen(false); setUpInChat(); }}>{own("or_chat")}</button> : <span />}
+        {!isSample ? <button type="button" className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => { closeForm(); setUpInChat(); }}>{own("or_chat")}</button> : <span />}
         <button type="submit" disabled={saving || !title.trim() || !prompt.trim() || !schedule} className="rounded-full bg-foreground px-3.5 py-1.5 text-[13px] font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-40">{t(saving ? "society.card.saving" : "society.card.routines_save")}</button>
       </div>
       {error && <p role="alert" className="text-[12px] text-destructive">{error}</p>}

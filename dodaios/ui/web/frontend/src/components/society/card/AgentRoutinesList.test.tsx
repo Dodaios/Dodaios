@@ -117,6 +117,26 @@ describe("AgentRoutinesList", () => {
     expect(await screen.findByTestId("routine-opened")).toBeTruthy();
   });
 
+  test("closing the form drops its draft, so new text never lands in front of a hidden one", async () => {
+    mount();
+    await screen.findByRole("button", { name: "Morning inbox" });
+    const add = screen.getByTestId("agent-routines-add");
+    fireEvent.click(add);
+    const composer = screen.getByTestId("agent-routines-composer");
+    const [title] = composer.querySelectorAll("input");
+    const prompt = composer.querySelector("textarea")!;
+    fireEvent.change(title, { target: { value: "Old title" } });
+    fireEvent.change(prompt, { target: { value: "Old prompt" } });
+    fireEvent.change(screen.getByTestId("agent-routines-when"), { target: { value: "every day at 7" } });
+    fireEvent.click(add); // the X
+    expect(screen.queryByTestId("agent-routines-composer")).toBeNull();
+    fireEvent.click(add);
+    const reopened = screen.getByTestId("agent-routines-composer");
+    expect((reopened.querySelector("input") as HTMLInputElement).value).toBe("");
+    expect((reopened.querySelector("textarea") as HTMLTextAreaElement).value).toBe("");
+    expect((screen.getByTestId("agent-routines-when") as HTMLInputElement).value).toBe("");
+  });
+
   test("adding a routine posts to this agent and shows the new row", async () => {
     mount();
     fireEvent.click(await screen.findByTestId("agent-routines-add"));
