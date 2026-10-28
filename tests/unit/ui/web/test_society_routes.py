@@ -581,3 +581,18 @@ def test_a_runtime_agent_on_an_unsupported_provider_names_a_translatable_reason(
     # The UI shows its own sentence for the reason; the detail names every way that works.
     assert detail["reason"] == "runtime_provider_unsupported"
     assert "ChatGPT subscription" in detail["detail"]
+
+
+def test_agent_rows_say_whether_the_seat_pays_per_token(client, monkeypatch):
+    from dodaios.society import routine_runner
+
+    c, _ = client
+    c.post("/api/society/agents", json={"name": "Mailbox", "title": "Gmail agent"})
+    monkeypatch.setattr(routine_runner, "_billed_via_api", lambda provider, account_id="": False)
+    rows = {a["agent_id"]: a for a in c.get("/api/society/agents").json()["agents"]}
+    # No own seat (the default brain): its costs stay visible.
+    assert rows["mailbox"]["billed_per_token"] is True
+    from dodaios.ui.web import society_routes
+
+    seat = SimpleNamespace(provider="claude-api", account_id="subscription")
+    assert society_routes._billed_per_token(seat) is False

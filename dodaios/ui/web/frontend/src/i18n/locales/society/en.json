@@ -122,7 +122,10 @@
       "runtime": "Runtime",
       "see_all": "See all",
       "history_detail": "Chats and calls",
-      "record_line": "{0} runs · {1} spent · last active {2}"
+      "record_runs_one": "{0} run",
+      "record_runs": "{0} runs",
+      "record_spent": "{0} spent",
+      "record_last_active": "last active {0}"
     },
     "browser_profiles": {
       "profile_unavailable": "Profile disconnected — choose a profile",
@@ -289,6 +292,7 @@
       "latest_chat": "Open latest chat",
       "open_chat": "Open chat",
       "background_chat": "Background execution",
+      "full_prompt": "Show the full instructions",
       "follow_up": "Ask about this execution…",
       "stop_run": "Stop execution",
       "send": "Send",

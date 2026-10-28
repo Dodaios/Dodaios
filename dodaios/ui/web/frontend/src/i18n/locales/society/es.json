@@ -122,7 +122,10 @@
       "runtime": "Entorno",
       "see_all": "Ver todo",
       "history_detail": "Chats y llamadas",
-      "record_line": "{0} ejecuciones · {1} gastado · última actividad {2}"
+      "record_runs_one": "{0} ejecución",
+      "record_runs": "{0} ejecuciones",
+      "record_spent": "{0} gastado",
+      "record_last_active": "última actividad {0}"
     },
     "browser_profiles": {
       "profile_unavailable": "Perfil desconectado — elige un perfil",
@@ -289,6 +292,7 @@
       "latest_chat": "Abrir último chat",
       "open_chat": "Abrir chat",
       "background_chat": "Ejecución en segundo plano",
+      "full_prompt": "Mostrar las instrucciones completas",
       "follow_up": "Preguntar sobre esta ejecución…",
       "stop_run": "Detener ejecución",
       "send": "Enviar",

@@ -122,7 +122,10 @@
       "runtime": "Laufzeit",
       "see_all": "Alle anzeigen",
       "history_detail": "Chats und Anrufe",
-      "record_line": "{0} Läufe · {1} ausgegeben · zuletzt aktiv {2}"
+      "record_runs_one": "{0} Lauf",
+      "record_runs": "{0} Läufe",
+      "record_spent": "{0} ausgegeben",
+      "record_last_active": "zuletzt aktiv {0}"
     },
     "browser_profiles": {
       "profile_unavailable": "Profil getrennt — bitte ein Profil auswählen",
@@ -289,6 +292,7 @@
       "latest_chat": "Letzten Chat öffnen",
       "open_chat": "Chat öffnen",
       "background_chat": "Hintergrund-Ausführung",
+      "full_prompt": "Vollständige Anweisungen anzeigen",
       "follow_up": "Zu dieser Ausführung nachfragen…",
       "stop_run": "Ausführung stoppen",
       "send": "Senden",

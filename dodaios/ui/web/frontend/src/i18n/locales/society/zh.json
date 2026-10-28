@@ -122,7 +122,10 @@
       "runtime": "运行环境",
       "see_all": "查看全部",
       "history_detail": "聊天和通话",
-      "record_line": "{0} 次运行 · 已花费 {1} · 最近活跃 {2}"
+      "record_runs_one": "{0} 次运行",
+      "record_runs": "{0} 次运行",
+      "record_spent": "已花费 {0}",
+      "record_last_active": "最近活跃 {0}"
     },
     "browser_profiles": {
       "profile_unavailable": "配置文件已断开 — 请选择一个配置文件",
@@ -289,6 +292,7 @@
       "latest_chat": "打开最新对话",
       "open_chat": "打开对话",
       "background_chat": "后台执行",
+      "full_prompt": "显示完整指令",
       "follow_up": "询问这次执行…",
       "stop_run": "停止执行",
       "send": "发送",

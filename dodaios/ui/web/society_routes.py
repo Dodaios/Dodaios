@@ -348,7 +348,26 @@ def _agent_row(agent: AgentRecord, request: HTTPConnection) -> dict[str, Any]:
     surface (office, roster, chat, CLI) shows what the user calls it. Resolved per
     request, so a changed wake word shows up without a restart.
     """
-    return display_row(agent, getattr(request.app.state, "config", None))
+    row = display_row(agent, getattr(request.app.state, "config", None))
+    row["billed_per_token"] = _billed_per_token(agent)
+    return row
+
+
+def _billed_per_token(agent: AgentRecord) -> bool:
+    """Whether the agent's seat pays per token (an API key), not a plan.
+
+    A subscription or a keyless local model spends no money per run, so the
+    card shows runs and activity there instead of dollar amounts.
+    """
+    provider = str(agent.provider or "")
+    if not provider:
+        return True
+    try:
+        from dodaios.society.routine_runner import _billed_via_api
+
+        return _billed_via_api(provider, str(agent.account_id or ""))
+    except Exception:  # noqa: BLE001 — unknown seats keep showing their costs
+        return True
 
 
 @router.get("/agents")

@@ -180,6 +180,8 @@ export interface SocietyAgentRow {
   approval_mode: AgentApprovalMode | null;
   approval_rules: ApprovalRules;
   daily_budget_usd: number;
+  /** The seat pays per token (an API key); false on a subscription or local model. */
+  billed_per_token?: boolean;
   max_concurrent_runs: number;
   browser_mode: BrowserMode;
   browser_allowed_domains: string[];

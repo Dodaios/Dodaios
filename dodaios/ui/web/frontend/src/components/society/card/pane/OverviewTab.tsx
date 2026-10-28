@@ -124,6 +124,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSaving
         ? t("society.agent_pane.tools_allowlist_detail").replace("{0}", String(agent.toolGrants.length))
         : t("society.agent_pane.tools_all_detail");
 
+  const perToken = agent.billedPerToken !== false;
   const capped = agent.dailyBudgetUsd > 0;
   const spent = agent.stats.spentTodayUsd;
   const share = capped ? Math.min(1, spent / agent.dailyBudgetUsd) : 0;
@@ -260,19 +261,17 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSaving
       </PaneSection>
 
       <div className="ap-record" data-testid="agent-pane-record">
-        <p>
-          {t("society.agent_pane.record_line")
-            .replace("{0}", String(agent.stats.runs))
-            .replace("{1}", `$${agent.stats.totalCostUsd.toFixed(2)}`)
-            .replace("{2}", lastActive)}
-        </p>
-        <p>
-          {t("society.card.meter_today")}:{" "}
-          {capped
-            ? t("society.card.spent_of").replace("{0}", spent.toFixed(2)).replace("{1}", agent.dailyBudgetUsd.toFixed(2))
-            : `$${spent.toFixed(2)} · ${t("society.card.no_cap")}`}
-        </p>
-        {capped ? (
+        <p>{recordLine(t, locale, agent, lastActive)}</p>
+        {/* A subscription or local model spends nothing per run: no dollar lines. */}
+        {perToken ? (
+          <p>
+            {t("society.card.meter_today")}:{" "}
+            {capped
+              ? t("society.card.spent_of").replace("{0}", spent.toFixed(2)).replace("{1}", agent.dailyBudgetUsd.toFixed(2))
+              : `$${spent.toFixed(2)} · ${t("society.card.no_cap")}`}
+          </p>
+        ) : null}
+        {perToken && capped ? (
           <div className="ap-meter" data-full={share >= 1 ? "true" : undefined} role="img" aria-label={`${t("society.card.meter_today")}: $${spent.toFixed(2)}`}>
             <span className="ap-meter-fill" style={{ width: `${Math.round(share * 100)}%` }} />
           </div>
@@ -280,6 +279,32 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSaving
       </div>
     </div>
   );
+}
+
+/**
+ * "3 runs · $1.20 spent · last active 12 Oct": the money only where a
+ * per-token key pays for the runs; a plan or a local model shows none.
+ */
+export function recordLine(
+  t: (key: string) => string,
+  locale: string,
+  agent: Pick<SocietyAgent, "stats" | "billedPerToken">,
+  lastActive: string,
+): string {
+  const runs = agent.stats.runs;
+  const one = (() => {
+    try {
+      return new Intl.PluralRules(locale).select(runs) === "one";
+    } catch {
+      return runs === 1;
+    }
+  })();
+  const parts = [t(one ? "society.agent_pane.record_runs_one" : "society.agent_pane.record_runs").replace("{0}", String(runs))];
+  if (agent.billedPerToken !== false) {
+    parts.push(t("society.agent_pane.record_spent").replace("{0}", `$${agent.stats.totalCostUsd.toFixed(2)}`));
+  }
+  parts.push(t("society.agent_pane.record_last_active").replace("{0}", lastActive));
+  return parts.join(" · ");
 }
 
 /** The lead thinks with the app's own model choice; shown here, changed in its chat. */

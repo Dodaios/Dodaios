@@ -162,6 +162,9 @@ export interface SocietyAgent {
   permissionCeiling: PermissionCeiling;
   approvalMode?: AgentApprovalMode | null;
   dailyBudgetUsd: number;
+  /** The seat pays per token (an API key). False on a subscription or local
+   *  model, where no money flows per run; absent reads as true. */
+  billedPerToken?: boolean;
   checkpoint: AgentCheckpoint;
   state: AgentRunState;
   /** The durable lifecycle state behind `state` ("active" | "paused" | "archived"). */
@@ -290,6 +293,7 @@ export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
     permissionCeiling: row.permission_ceiling as PermissionCeiling,
     approvalMode: row.approval_mode ?? null,
     dailyBudgetUsd: row.daily_budget_usd,
+    billedPerToken: row.billed_per_token ?? true,
     checkpoint: row.checkpoint as AgentCheckpoint,
     state: runState,
     lifecycle: row.state,

@@ -96,3 +96,12 @@ async def test_scheduler_skips_a_routine_whose_owner_is_archived(store) -> None:
     assert row["state"] == "paused"
     assert row["last_error"] == "owner_archived"
     assert every not in scheduler._known
+
+
+async def test_a_run_names_its_routine_without_the_agent_prefix(store) -> None:
+    from dodaios.society.routine_runner import _routine_title
+
+    tid = await store.insert(_spec("mailbox", TriggerEvery(interval_seconds=60), "Morning inbox"))
+    assert await _routine_title(store, tid) == "Morning inbox"
+    assert await _routine_title(None, tid) == ""
+    assert await _routine_title(store, "missing") == ""

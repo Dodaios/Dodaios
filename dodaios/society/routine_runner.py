@@ -190,6 +190,20 @@ def _left_runtime(agent: Any, run_runtime: str) -> str:
     return owner if owner != "jarvis" and not run_runtime else ""
 
 
+async def _routine_title(task_store: Any, task_id: str) -> str:
+    """The routine's name without its ``[agent:<name>]`` prefix, or ""."""
+    if task_store is None:
+        return ""
+    try:
+        row = await task_store.get(task_id)
+    except Exception:  # noqa: BLE001 — the run goes on without a name
+        return ""
+    raw = str((row or {}).get("title") or "").strip()
+    if raw.startswith("[agent:") and "]" in raw:
+        raw = raw.split("]", 1)[1].strip()
+    return raw
+
+
 async def run_owned_routine(
     runtime: Any,
     task_id: str,
@@ -279,6 +293,7 @@ async def run_owned_routine(
     # The run keeps its own seat and chat; the agent's one chat shows a card
     # that opens it (MASTERPLAN §2.10).
     title = next((line.strip() for line in task.splitlines() if line.strip()), task_id)
+    routine_title = await _routine_title(task_store, task_id)
     try:
         await runtime.post_chat_notice(
             agent,
@@ -289,6 +304,8 @@ async def run_owned_routine(
                 "agent_id": agent.agent_id,
                 "agent_name": display_name(agent),
                 "text": title[:200],
+                # The routine's own name: the run's opening line in its chat.
+                "title": routine_title[:200],
             },
         )
     except Exception:  # noqa: BLE001 — the card is a projection; the run itself goes on
