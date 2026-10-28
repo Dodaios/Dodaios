@@ -403,7 +403,7 @@ class BrowserVoiceSession:
             VoiceSessionStarted(
                 session_id=self.session_id,
                 wake_keyword="browser",
-                language=self._lang_short(),
+                language=self._record_lang(),
                 source_layer="browser_voice",
             )
         )
@@ -517,9 +517,9 @@ class BrowserVoiceSession:
                 session_id=self.session_id,
                 turn_id=turn_id,
                 user_text=user_text,
-                user_lang=self._lang_short(),
+                user_lang=self._record_lang(),
                 jarvis_text=jarvis_text,
-                jarvis_lang=self._lang_short(),
+                jarvis_lang=self._record_lang(),
                 source_layer="browser_voice",
             )
         )
@@ -709,3 +709,9 @@ class BrowserVoiceSession:
         # only); an unknown tag would silently apply the wrong blacklist.
         tag = (self.language_code or "de-DE").split("-", 1)[0].lower()
         return tag if tag in {"de", "en", "es", "pt"} else "en"
+
+    def _record_lang(self) -> str:
+        # The session record carries the language actually spoken, like the
+        # live voice paths do. A French session used to be recorded as "en"
+        # (the scrubber's fallback), which mislabelled it for the wiki bridge.
+        return (self.language_code or "de-DE").split("-", 1)[0].lower() or "en"

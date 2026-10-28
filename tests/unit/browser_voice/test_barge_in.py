@@ -166,3 +166,32 @@ async def test_talk_after_the_reply_started_is_queued_not_dropped():
     assert session._queued, "kept for after the turn"
     session._processing = False
     await session.end()
+
+
+# --- the record ---------------------------------------------------------------
+
+
+class _Bus:
+    def __init__(self) -> None:
+        self.events: list = []
+
+    async def publish(self, event) -> None:
+        self.events.append(event)
+
+
+async def test_a_french_session_is_recorded_as_french():
+    from dodaios.core.events import VoiceSessionStarted, VoiceTurnCompleted
+
+    sink, bus = _Sink(), _Bus()
+    session = _make_session(
+        sink, stt=FakeSTT(["il est quelle heure ?"]), brain=FakeBrain("Il est midi."),  # i18n-allow
+        language_code="fr-FR", bus=bus,
+    )
+    await _say(session)
+    await _until(lambda: any(isinstance(e, VoiceTurnCompleted) for e in bus.events))
+    started = next(e for e in bus.events if isinstance(e, VoiceSessionStarted))
+    done = next(e for e in bus.events if isinstance(e, VoiceTurnCompleted))
+    assert started.language == "fr"
+    assert (done.user_lang, done.jarvis_lang) == ("fr", "fr")
+    assert session._lang_short() == "en"  # the scrubber keeps its own locale set
+    await session.end()
