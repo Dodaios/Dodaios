@@ -243,6 +243,10 @@ MATERIALS: dict[str, RtMaterial] = {
     ),
     "M_Reactor_CoreHot": _EMITTER,
     "M_Eng_CoreHot": _EMITTER,
+    "M_Eng_EnergyBeam": _EMITTER,
+    "M_Eng_EnergySheath": _EMITTER,
+    "M_Eng_EnergyRing": _EMITTER,
+    "M_Eng_BeaconRed": _EMITTER,
     # Operations deck
     "M_Ops_Floor_Satin": RtMaterial(
         roughness=0.3, clearcoat=0.45, clearcoat_roughness=0.08, detail="deck_plates"

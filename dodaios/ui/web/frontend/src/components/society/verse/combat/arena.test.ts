@@ -52,8 +52,9 @@ describe("reactor arena", () => {
     const core = raycastWorld(arena, 40, 1.4, 22, 68, 1.4, 22);
     expect(core?.surface).toBe("prop");
     expect(core?.collider).toBe("core");
-    // Over the core's cap.
-    expect(raycastWorld(arena, 46, 2.4, 22.2, 62, 2.4, 22.2)).toBeNull();
+    // Over the core's cap: the energy column stands on the axis, the cap's edge is open.
+    expect(raycastWorld(arena, 46, 2.4, 22.2, 62, 2.4, 22.2)?.collider).toBe("core_column");
+    expect(raycastWorld(arena, 46, 2.4, 19.5, 62, 2.4, 19.5)).toBeNull();
     const conduit = raycastWorld(arena, 70, 1.4, 22, 81, 1.4, 22);
     expect(conduit?.collider).toBe("conduit_1");
     expect(raycastWorld(arena, 60, 1.4, 30, 60, 1.4, 45)?.surface).toBe("wall");
@@ -61,6 +62,40 @@ describe("reactor arena", () => {
     // Waist-high coolant runs stop low bolts only.
     expect(raycastWorld(arena, 70, 0.6, 12, 77, 0.6, 12)?.collider).toBe("coolant_0");
     expect(raycastWorld(arena, 70, 1.4, 12, 77, 1.4, 12)).toBeNull();
+  });
+
+  it("lays the arena fit-out's cover out fairly: mirrored, off the spawns' lanes", () => {
+    const fit = REACTOR_ARENA.colliders.filter((k) => /^(tanks|barrier)_/.test(k.id));
+    expect(fit.length).toBe(8);
+    const mirror = (k: (typeof fit)[number], fx: boolean, fz: boolean) =>
+      fit.find((o) => {
+        if (o.kind !== "box" || k.kind !== "box") return false;
+        const x = fx ? 2 * SHAFT.x - (k.x0 + k.x1) / 2 : (k.x0 + k.x1) / 2;
+        const z = fz ? 2 * SHAFT.z - (k.z0 + k.z1) / 2 : (k.z0 + k.z1) / 2;
+        return Math.abs((o.x0 + o.x1) / 2 - x) < 1e-6 && Math.abs((o.z0 + o.z1) / 2 - z) < 1e-6
+          && o.y1 === k.y1 && Math.abs(o.x1 - o.x0 - (k.x1 - k.x0)) < 1e-6;
+      });
+    for (const k of fit) {
+      expect(mirror(k, true, false), `${k.id} mirrored east-west`).toBeTruthy();
+      expect(mirror(k, false, true), `${k.id} mirrored north-south`).toBeTruthy();
+    }
+    // Tanks are tall cover (bots hide there), barriers stop chest-low bolts only.
+    expect(raycastWorld(arena, 38.4, 2.2, 17.2, 33.5, 2.2, 17.2)?.collider).toBe("tanks_nw");
+    // ...and the tanks' cover spots hide from the far spawn behind the core: no pre-aimed hold on it.
+    const [w, e] = REACTOR_ARENA.spawns;
+    const tankSpots = arena.cover.filter((c) => c.collider.startsWith("tanks_"));
+    expect(tankSpots.length).toBeGreaterThan(8);
+    for (const c of tankSpots) {
+      const far = c.x < SHAFT.x ? e : w;
+      expect(lineOfSight(arena, c.x, 1.6, c.z, far.x, 1.6, far.z), `${c.collider} ${c.x},${c.z}`).toBe(false);
+    }
+    expect(raycastWorld(arena, 46.8, 1.0, 10.5, 46.8, 1.0, 4)?.collider).toBe("barrier_nw");
+    expect(raycastWorld(arena, 46.8, 1.5, 10.5, 46.8, 1.5, 4.5)).toBeNull();
+    // Both spawns keep their walks: round the shaft both ways, over the catwalks.
+    for (const s of REACTOR_ARENA.spawns) {
+      expect(walkableSegment(arena, s.x, s.z, s.x, 16)).toBe(true);
+      expect(walkableSegment(arena, s.x, s.z, s.x, 28)).toBe(true);
+    }
   });
 
   it("finds cover spots next to tall solids, all on walkable floor", () => {
@@ -163,7 +198,8 @@ describe.skipIf(!cooked)("reactor arena against the cooked engineering deck", ()
         if (mine) { mineWalk++; if (theirs) mineAndNav++; }
       }
     }
-    expect(navWalk).toBeGreaterThan(20000);
+    // About 19,700 walkable 0.2 m cells (the duel's cover stands on some 23 m2 of the floor).
+    expect(navWalk).toBeGreaterThan(19000);
     expect(navAndMine / navWalk).toBeGreaterThan(0.95);
     expect(mineAndNav / mineWalk).toBeGreaterThan(0.95);
   });

@@ -13,6 +13,10 @@
  *                   three machinery bays between them
  *   east floor      three power-conduit columns (x 78.6) behind three
  *                   waist-high coolant runs (x 70.8..75.6)
+ *   arena fit-out   (eng_arena.py) the energy column on the core (r 2, 1.9 m
+ *                   to the ceiling), coolant-tank pairs T flanking each
+ *                   spawn in the core's sight shadow, chest-high blast
+ *                   barriers B on the north and south walks
  *
  * One deliberate difference from the nav grid: the 2.4 m rim band around the
  * drop is cooked as mostly blocked (plate seams and bolt strips); here it is
@@ -22,21 +26,31 @@
  *            far wall (z 2): stacks and machinery
  *   x 33 +--------------------------------------------------+ x 82
  *        |  O     O    [##][###][##]     O     O     O       |
- *        |                 . . N . .                         |
+ *        |            B    . . N . .    B                    |
  *        |             .              .              [=]  || |
- *        |          .         |         .                    |
+ *        |  T       .         |         .         T          |
  *   W  0 >  - - - - - - (  ( core )  ) - - - - - - < 1  [=]  || |  E
- *        |          .         |         .                    |
+ *        |  T       .         |         .         T          |
  *        |             .              .              [=]  || |
- *        |                 . . S . .                         |
+ *        |            B    . . S . .    B                    |
  *        +-------- door ---------- door ---------- door -----+ z 38.1
  *   0, 1: spawns (sides swap each round)  [=] coolant (1 m)  || conduit
+ *   T tank pair (2.7 m)  B blast barrier (1.2 m)
  */
 import type { ArenaCollider, ArenaDef } from "./arena";
 
 const SHAFT = { x: 54, z: 22 };
 const STACK_X = [35.4, 41.4, 66.6, 72.6, 78.6];
 const UNIT_Z = [12, 22, 32];
+// Cover of the arena fit-out, plan centres as in art/verse/decks/engineering/eng_arena.py.
+// Tank pairs flank each spawn in the core's sight shadow (from the far spawn the core hides them,
+// so they are no pre-aimed hold on it); runs along z, 1.5 x 2.8 m.
+const TANKS: [string, number, number][] = [
+  ["tanks_nw", 35.6, 17.2], ["tanks_sw", 35.6, 26.8], ["tanks_ne", 72.4, 17.2], ["tanks_se", 72.4, 26.8],
+];
+const BARRIERS: [string, number, number][] = [
+  ["barrier_nw", 46.8, 8.1], ["barrier_ne", 61.2, 8.1], ["barrier_sw", 46.8, 35.9], ["barrier_se", 61.2, 35.9],
+];
 
 const colliders: ArenaCollider[] = [
   // Core containment: blocks bolts up to its cap.
@@ -54,6 +68,12 @@ const colliders: ArenaCollider[] = [
   // East floor: power conduits to the ceiling, coolant runs at waist height.
   ...UNIT_Z.map((z, i): ArenaCollider => ({ kind: "box", id: `conduit_${i}`, x0: 78.0, x1: 79.4, z0: z - 1.15, z1: z + 1.15, y0: 0, y1: 12 })),
   ...UNIT_Z.map((z, i): ArenaCollider => ({ kind: "box", id: `coolant_${i}`, x0: 70.8, x1: 75.6, z0: z - 0.7, z1: z + 0.7, y0: 0, y1: 1.0 })),
+  // The arena fit-out (eng_arena.py). The energy column rises from the core's cap to the ceiling.
+  { kind: "cyl", id: "core_column", x: SHAFT.x, z: SHAFT.z, r: 2.0, y0: 1.9, y1: 12 },
+  // Coolant-tank pairs beside the spawns: tall cover, mirrored about both axes.
+  ...TANKS.map(([id, x, z]): ArenaCollider => ({ kind: "box", id, x0: x - 0.75, x1: x + 0.75, z0: z - 1.4, z1: z + 1.4, y0: 0, y1: 2.7 })),
+  // Chest-high blast barriers on the north and south walks, mirrored about both axes.
+  ...BARRIERS.map(([id, x, z]): ArenaCollider => ({ kind: "box", id, x0: x - 1.2, x1: x + 1.2, z0: z - 0.3, z1: z + 0.3, y0: 0, y1: 1.2 })),
 ];
 
 export const REACTOR_ARENA: ArenaDef = {

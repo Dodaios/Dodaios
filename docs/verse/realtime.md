@@ -429,7 +429,7 @@ corrected until the dark areas matched.
 | Deck | Export | `realtime/` | Triangles / chunks | Density (weight 1) | Pages in use |
 |---|---|---|---|---|---|
 | bridge | 15 min (bake 11.5 min) | 19.4 MB | 1.07 M / 360 | 37.6 px/m | 4 pages (wall cladding 2026-10-26, ready room corner wall 2026-10-27) |
-| engineering | 39 min on a shared GPU (bake 30 min) | 23.7 MB | 1.77 M / 272 | 26.9 px/m | 81 % in rectangles (engine-room fit-out 2026-10-27) |
+| engineering | 15 min (bake 9.5 min) | 24.8 MB | 1.90 M / 321 | 24.6 px/m | engine-room fit-out 2026-10-27, duel arena fit-out 2026-10-28 |
 | hangar | 12 min (bake 9 min) | 18.7 MB | 1.09 M / 197 | 27.7 px/m | 21-54 % surface, 80 % in rectangles |
 | ops | 17 min (bake 11 min) | 16.2 MB | 0.91 M / 441 | 29.5 px/m | 38-53 % surface |
 
@@ -443,7 +443,14 @@ stand along the walls (`Props`, nav `block`, lanes and doorways clear);
 grilles, hatches and opaque hazard bands (`M_Paint_Hazard`, which bakes,
 unlike the `M_Deck_Hazard` decal) are flush inlays; pipe runs, cable
 ladders, a duct, a gantry crane and a maintenance gantry hang overhead
-(ghosts). The reactor hall (the duel arena) is untouched. Without the kits
+(ghosts). The reactor hall, the duel arena, has its own fit-out
+(`decks/engineering/eng_arena.py`, 2026-10-28): a cold energy column from
+the core's cap into the ceiling plenum with glowing containment rings and
+its own key lights, guard rails with hazard kick plates on the catwalks and
+round the drop, beacon posts, the east and south walls in the hall cladding,
+flood fixtures and red beacons high on the walls, coolant mains on a pipe
+bridge overhead (ghosts), and the duel's cover (tank pairs and blast
+barriers, `Props`, nav `block`, mirrored in `combat/arenaReactor.ts`). Without the kits
 the walls fall back to `eng_upper.cladding` (dark panelling with a rail and
 thin light strips). The door slots have heads; the hangar's front band (booth, crew bay, arrivals, lift
 lobby, armoury) got the same upper panelling (`hangar_upper`). On the

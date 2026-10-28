@@ -171,16 +171,17 @@ up, metres. The arena overlays the deck one to one.
             far wall (z 2): heat stacks O, machinery bays [##]
    x 33 +--------------------------------------------------+ x 82
         |  O     O    [##][###][##]     O     O     O       |
-        |                 .  N  .                           |
+        |            B    .  N  .    B                      |  B  blast barrier (1.2 m high)
         |             .     |     .                [=]  ||  |  [=] coolant run (1 m high)
-        |          .        |        .                      |  ||  power conduit (to ceiling)
+        | T        .        |        .        T             |  ||  power conduit (to ceiling)
    W  0 >- - - - - -( ( core ) )- - - - - - < 1    [=]  ||  |  E
-        |          .        |        .                      |
+        | T        .        |        .        T             |  T  coolant-tank pair (2.7 m)
         |             .     |     .                [=]  ||  |
-        |                 .  S  .                           |
+        |            B    .  S  .    B                      |
         +-------- door ---------- door ---------- door -----+ z 38.1
    0, 1: spawns (sides swap every round). The circle is the drop (r 13);
-   the core stands on a control ring (r 5..6.5) reached by four catwalks.
+   the core stands on a control ring (r 5..6.5) reached by four catwalks,
+   its energy column rises from the cap to the ceiling.
 ```
 
 | Element | Where (deck metres) | Movement | Bolts |
@@ -194,11 +195,26 @@ up, metres. The arena overlays the deck one to one.
 | Machinery bays | x 45.6..50.8, 52.6..55.6, 57.2..62.4 on the far wall | blocked | stop them |
 | Power conduits | x 78.0..79.4, z 12/22/32 +-1.15, to the ceiling | blocked | stop them (hard cover) |
 | Coolant runs | x 70.8..75.6, z 12/22/32 +-0.7, 1.0 m high | blocked | stop low bolts only |
+| Energy column | on the axis, r 2.0, from the core's cap (1.9 m) to the ceiling | (inside the core) | stops them |
+| Tank pairs | x 34.85..36.35 and 71.65..73.15, z 17.2/26.8 +-1.4, 2.7 m high | blocked | stop them (tall cover beside each spawn, inside the core's sight shadow) |
+| Blast barriers | x 46.8/61.2 +-1.2, z 8.1/35.9 +-0.3, 1.2 m high | blocked | stop bolts below 1.2 m (chest-high: heads and shots over the top pass) |
 | Spawns | side 0 (38.8, 22) facing +X; side 1 (69.2, 22) facing -X | | out of each other's sight (the core) |
 | Duel terminals | ring consoles `reactor_ring__ring_1..4` (58.24, 17.76), (49.76, 17.76), (49.76, 26.24), (58.24, 26.24) | | |
 
 Derived from the deck sources (`art/verse/decks/engineering/eng_common.py`,
-`eng_reactor.py`, `eng_dressing.py`, `art/verse/kit/props/industrial/reactor.py`).
+`eng_reactor.py`, `eng_dressing.py`, `eng_arena.py`,
+`art/verse/kit/props/industrial/reactor.py`).
+
+The arena fit-out (`eng_arena.py`, 2026-10-28) is mirrored about both axes
+of the shaft: the tank pairs and the barriers have a twin across the shaft
+axis and across the spawn line (`arena.test.ts` checks it). The tall cover
+stands where the core hides it from the far spawn: on the shaft's diagonals
+it gave each side a covered spot pre-aimed at the other spawn, and the
+"watcher" trick then beat the hard bot (hard won 34% of 300 duels instead
+of 57%); beside the spawns it shelters without that hold (60%, below). The
+rest of the dressing (rails, beacons, wall cladding, floods, the coolant
+mains overhead) is not in the arena: rails and beacon posts are thin and
+let bolts through.
 `arena.test.ts` checks it against the cooked deck: the room outline and the
 ring consoles match the manifest, and away from the rim band the walkable
 area agrees with `nav.png` to more than 95% both ways. One deliberate
@@ -375,6 +391,16 @@ same duels over the full client/server stack play out the same; see
 | brawler | fights at 6 m |
 
 ### Results (300 duels per pairing, best of 3, seed 2026)
+
+**Re-run on the fitted-out arena (2026-10-28,** tank pairs, barriers and the
+energy column, same seeds): 56 pairings, 40,776 rounds, 5 timed out, side 0
+won 49.6% of the rounds. Every pairing stayed within the run-to-run noise of
+the tables below (the largest moves: elite vs skilled+watcher 66 to 73%,
+average vs hard 31 to 28%, hard vs camper 94 to 98%). A few rows from it:
+hard vs normal 81%, elite vs hard 79%, skilled vs normal / hard / elite
+92 / 72 / 39%, average vs normal / hard / elite 72 / 28 / 10%, hard vs
+watcher 60%, hard vs hider 61%, hard vs kiter 61%, mirrors 48..52%. The
+tables below are from the arena before the fit-out.
 
 56 pairings: 16,800 duels, 40,623 rounds, 9 of them timed out. "A won" is the
 first-named side; slots alternate every duel. TTK is from the first hit on a

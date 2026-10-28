@@ -60,7 +60,7 @@ A long main corridor (the hexagonal-profile corridor) with rooms off both sides.
 | Area | Rect | Contents |
 |---|---|---|
 | Hull wall | 0–84, 0–2 | Full height: heavy machinery, coolant pipes, warning panels. |
-| Reactor shaft | centre (54, 22), r 13 | A circular shaft through the deck: rim with a low kerb, the glowing core column (r 3, warm white/orange) rising from below, a control ring around the core (r 5–6.5) reached by four narrow catwalks without railings (N, E, S, W). The void falls away into haze and darkness; a few shaft rings below. `nav: block` on the void. |
+| Reactor shaft | centre (54, 22), r 13 | A circular shaft through the deck: rim with a low kerb, the glowing core column (r 3, warm white/orange) rising from below, a control ring around the core (r 5–6.5) reached by four narrow catwalks (N, E, S, W). The void falls away into haze and darkness; a few shaft rings below. `nav: block` on the void. Since the duel arena fit-out (`eng_arena.py`): guard rails on the catwalks and round the drop, a cold energy column from the core's cap to the ceiling, coolant-tank pairs beside the duel spawns and blast barriers on the north and south walks (the duel's cover, `combat/arenaReactor.ts`). |
 | Engineering control room | 2–32, 2–40 | 12 terminal stations in three rows of four facing +z (`SOCKET_seat_term_<n>`, `SOCKET_screen_term_<n>`): coding panes' technicians. Master systems console at the far wall (station kind `coding_launcher`). Glass partition on the room's east side looking at the shaft. |
 | Power conduit gallery | 34–82, 38–52 | Floor-to-ceiling conduits, junction boxes, cable trays; waypoints for patrols. |
 | Lift lobby | 2–14, 42–52 | Lift, spawn. |

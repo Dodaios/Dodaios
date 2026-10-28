@@ -258,7 +258,7 @@ desktop; plate = L0 + M2 + M4 + L1 on disk):
 |---|---|---|---|---|---|
 | bridge | 14016 × 8096 | 12 | 11 min | 13 min | 2.7 MB |
 | ops | 18624 × 10688 | 15 | 26 min | 30 min | 3.7 MB |
-| engineering | 16320 × 10432 | 15 | 20 min | 23 min | 3.6 MB |
+| engineering | 16320 × 10432 | 15 | 41 min (shared GPU) | 45 min | 6.1 MB (arena fit-out 2026-10-28) |
 | hangar | 19392 × 12240 | 20 | 27 min | 30 min | 3.5 MB |
 
 L0 is ~60 % of a plate, M2 ~25 %, M4 ~10 %, L1 ~4 %; packaging (stitch,

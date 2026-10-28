@@ -49,9 +49,11 @@ def build() -> None:
     eng_reactor.build()
     eng_rooms.build()
     if fitout:
+        import eng_arena
         import eng_fitout
 
         eng_fitout.build()
+        eng_arena.build()
     eng_sockets.build()
     bpy.context.view_layer.update()  # world matrices for the cook's socket export
 
