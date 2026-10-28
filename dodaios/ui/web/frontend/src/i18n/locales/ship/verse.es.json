@@ -269,7 +269,8 @@
       "title": "Terminal",
       "action": "Tomar el terminal",
       "keys": "Teclado al agente",
-      "hint_live": "Tus teclas van directamente al agente: escribe, Intro envía, Esc lo interrumpe, Ctrl+V pega. Ctrl+Q sale del terminal.",
+      "hint_live": "Puedes hacer clic y escribir en el terminal. Intro envía, Esc interrumpe, Ctrl+V pega, Ctrl+Q sale.",
+      "changes": "Cambios",
       "placeholder": "Prompt para este agente",
       "send": "Enviar"
     }

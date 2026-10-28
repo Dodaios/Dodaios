@@ -68,3 +68,36 @@ export function subscribeLiveTerminals(listener: () => void): () => void {
 export function liveTerminalsGeneration(): number {
   return generation;
 }
+
+/**
+ * Shows one pane's existing xterm inside another element.
+ *
+ * The Verse window calls this so the commander gets the IDE's own terminal,
+ * clicks and keystrokes included. The presenter moves that xterm into the
+ * window; this module does not focus, resize, or write.
+ */
+export type TerminalPresenter = (host: HTMLElement) => () => void;
+
+const presenters = new Map<string, TerminalPresenter>();
+
+/** Register the function that places a pane's terminal into `host`; returns the matching unregister. */
+export function registerTerminalPresenter(workspaceId: string, name: string, present: TerminalPresenter): () => void {
+  const key = keyOf(workspaceId, name);
+  presenters.set(key, present);
+  changed();
+  return () => {
+    if (presenters.get(key) === present) {
+      presenters.delete(key);
+      changed();
+    }
+  };
+}
+
+/** Place the pane in `host`, trying each of its names. Null when the IDE has not mounted it. */
+export function presentTerminal(workspaceId: string, names: readonly string[], host: HTMLElement): (() => void) | null {
+  for (const name of names) {
+    const present = presenters.get(keyOf(workspaceId, name));
+    if (present) return present(host);
+  }
+  return null;
+}

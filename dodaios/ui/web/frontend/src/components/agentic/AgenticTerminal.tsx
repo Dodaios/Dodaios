@@ -132,8 +132,9 @@ import {
 import { installPasteBridge } from "./terminalPaste";
 import { installCopyBridge } from "./terminalCopy";
 import { createKeyEventChain } from "./terminalKeyChain";
-import { registerLiveTerminal } from "@/lib/liveTerminals";
+import { registerLiveTerminal, registerTerminalPresenter } from "@/lib/liveTerminals";
 import { PANE_INPUT_EVENT, type PaneInputDetail } from "./ideHotkeys";
+import { useIdeChatStore } from "@/store/ideChat";
 import { installNewlineBridge } from "./terminalNewline";
 import { cancelPaneReflow, queuePaneReflow } from "./paneReflowQueue";
 import {
@@ -915,6 +916,13 @@ export function AgenticTerminal({
   /** The pane's recorded conversation, opened from the header book button. */
   const [historyOpen, setHistoryOpen] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
+  const paneRequest = useIdeChatStore((state) => state.paneRequest);
+  useEffect(() => {
+    if (!workspaceId || paneRequest?.open !== "changes") return;
+    if (paneRequest.workspaceId !== workspaceId || paneRequest.pane !== name) return;
+    setChangesOpen(true);
+    useIdeChatStore.getState().settlePaneOpen(paneRequest.nonce);
+  }, [paneRequest, workspaceId, name]);
   // Latest callbacks/appearance without re-running the connect effect.
   const onStatusRef = useRef(onStatus);
   const onAttachErrorRef = useRef(onAttachError);
@@ -1198,11 +1206,16 @@ export function AgenticTerminal({
       attachCustomKeyEventHandler: keys.add,
       input: (data) => term.input(data),
     });
+    /**
+     * Set while the Verse window is showing this xterm. Fit then measures that
+     * window, and the hidden IDE tile must not park the pane or resize it to 0.
+     */
+    let presentedHost: HTMLElement | null = null;
     /** Is this pane's tile something that can honestly be measured right now? */
-    const measurable = () =>
-      !windowCollapsed() &&
-      container.clientWidth >= 8 &&
-      container.clientHeight >= 8;
+    const measurable = () => {
+      const box = presentedHost ?? container;
+      return !windowCollapsed() && box.clientWidth >= 8 && box.clientHeight >= 8;
+    };
     /** Did the grid below come from the tile, or is it still the constructed default? */
     let mountMeasured = false;
 
@@ -1394,6 +1407,7 @@ export function AgenticTerminal({
     };
 
     const parkPane = () => {
+      if (presentedHost) return;
       paneVisible = false;
       // The next chunk of output measures immediately rather than waiting out
       // an interval that started before this pane was even parked.
@@ -1971,6 +1985,59 @@ export function AgenticTerminal({
      */
     const claimResize = () => sendResize(viewerMayOwn());
     claimResizeRef.current = claimResize;
+    // The Verse takeover borrows this xterm: the element itself moves into the
+    // window, so clicks and keystrokes hit it with no forwarding. FitAddon
+    // measures term.element's parent, which is that window while it is borrowed.
+    let presentedWatch: ResizeObserver | null = null;
+    let presentedTimer: number | undefined;
+    let releasePresentedExtras = () => {};
+    const releasePresented = () => {
+      if (!presentedHost) return;
+      if (presentedTimer !== undefined) window.clearTimeout(presentedTimer);
+      presentedTimer = undefined;
+      presentedWatch?.disconnect();
+      presentedWatch = null;
+      presentedHost = null;
+      releasePresentedExtras();
+      releasePresentedExtras = () => {};
+      const element = term.element;
+      if (element && element.parentElement !== container && container.isConnected) container.appendChild(element);
+      const box = container.getBoundingClientRect();
+      const viewport = { width: window.innerWidth || 0, height: window.innerHeight || 0 };
+      if (!boxOnScreen(box, viewport)) parkPane();
+    };
+    const unregisterPresent = registerTerminalPresenter(workspaceId ?? "", name, (host) => {
+      releasePresented();
+      presentedHost = host;
+      const element = term.element;
+      if (element && element.parentElement !== host) host.appendChild(element);
+      attachTerminalBridge(host, {
+        getSelection: () => term.getSelection(),
+        paste: (text) => term.paste(text),
+        focus: () => term.focus(),
+      });
+      const disposeMouse = installMouseSelection(host, term, isMac);
+      const disposeBrowse = installBrowseExit(host, term);
+      releasePresentedExtras = () => {
+        disposeMouse();
+        disposeBrowse();
+      };
+      if (activeRef.current) showPane();
+      if (typeof ResizeObserver !== "undefined") {
+        presentedWatch = new ResizeObserver(() => {
+          if (presentedTimer !== undefined) window.clearTimeout(presentedTimer);
+          presentedTimer = window.setTimeout(() => {
+            presentedTimer = undefined;
+            // This window is the one the user is reading, so it takes the size.
+            if (presentedHost) sendResize(true);
+          }, 80);
+        });
+        presentedWatch.observe(host);
+      }
+      sendResize(true);
+      if (term.rows > 0) term.refresh(0, term.rows - 1);
+      return releasePresented;
+    });
     /**
      * Make the agent paint its whole screen again at the size this pane holds:
      * one row short, then back, like the server's repaint nudge. An agent
@@ -2401,6 +2468,8 @@ export function AgenticTerminal({
       }, NARROW_SETTLE_MS);
     };
     const scheduleResize = () => {
+      // The Verse window has its own observer. The hidden tile must not fit this pane back to 0.
+      if (presentedHost) return;
       // While a seam or the prompt bar is being dragged the pane still
       // follows, but on a leash: at most one refit per DRAG_REFIT_MS, so the
       // text flows toward the seam in steps instead of freezing until release.
@@ -2554,6 +2623,8 @@ export function AgenticTerminal({
       heldLeadRef.current = holdsSizeLead(leadKey, leadToken);
       releaseSizeLead(leadKey, leadToken);
       // Before the terminal: frees this pane's WebGL context slot.
+      releasePresented();
+      unregisterPresent();
       unregisterLive();
       renderer.dispose();
       term.dispose();

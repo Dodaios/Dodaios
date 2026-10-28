@@ -269,7 +269,8 @@
       "title": "Terminal",
       "action": "Assumir o terminal",
       "keys": "Teclado para o agente",
-      "hint_live": "Suas teclas vão direto para o agente: digite, Enter envia, Esc o interrompe, Ctrl+V cola. Ctrl+Q sai do terminal.",
+      "hint_live": "Você pode clicar e digitar no terminal. Enter envia, Esc interrompe, Ctrl+V cola, Ctrl+Q sai.",
+      "changes": "Alterações",
       "placeholder": "Prompt para este agente",
       "send": "Enviar"
     }

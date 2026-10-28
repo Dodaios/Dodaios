@@ -557,13 +557,39 @@
   .verse-switch i { transition: none; }
 }
 
-/* A desk terminal the commander has taken over: the pane large, the keyboard to the agent. */
-.verse-dialog.verse-takeover { width: min(1180px, calc(100% - 32px)); }
-.verse-takeover-screen { position: relative; height: min(64vh, 680px); background: #0b0c0f; cursor: text; }
-.verse-takeover-canvas { display: block; width: 100%; height: 100%; }
-.verse-takeover-screen:focus-within { outline: 1px solid var(--verse-line-strong); outline-offset: -1px; }
-.verse-takeover-keys { position: absolute; inset: 0; opacity: 0; resize: none; border: 0; padding: 0; caret-color: transparent; cursor: text; }
-.verse-takeover-hint { margin: 0; padding: 10px 14px; font-size: 12px; color: var(--verse-ink); opacity: 0.7; }
-.verse-takeover-prompt { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+/* The IDE's own terminal, at 1:1, in a small window the commander can resize. */
+.verse-dialog.verse-takeover {
+  width: min(760px, calc(100% - 32px));
+  height: min(480px, calc(100% - 32px));
+  min-width: 480px;
+  min-height: 280px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  resize: both;
+}
+.verse-dialog.verse-takeover > .verse-dialog-head { flex: none; }
+.verse-takeover-screen {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: #0b0c0f;
+}
+.verse-takeover-host { position: absolute; inset: 0; }
+.verse-takeover-host > .xterm { width: 100%; height: 100%; }
+.verse-takeover-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--verse-line);
+}
+.verse-takeover-hint { margin: 0; flex: 1; min-width: 0; font-size: 12px; color: var(--verse-ink); opacity: 0.7; }
+.verse-takeover-foot .verse-btn { flex: none; white-space: nowrap; }
+.verse-takeover-prompt { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--verse-line); }
 .verse-takeover-input { flex: 1 1 260px; min-width: 0; padding: 8px 10px; background: transparent; color: var(--verse-ink); border: 1px solid var(--verse-line-strong); font: inherit; font-size: 13px; }
 .verse-takeover-error { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--verse-red); }

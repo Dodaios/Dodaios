@@ -48,6 +48,11 @@ export interface PaneRequest {
    * The grid clears it once it has obeyed, so a later remount never maximizes again.
    */
   maximize?: boolean;
+  /**
+   * Open that pane's changes dialog once the view has the pane.
+   * Cleared after the pane obeys, so a later remount does not open it again.
+   */
+  open?: "changes";
 }
 
 /**
@@ -126,9 +131,11 @@ interface IdeChatStore {
   setView: (next: WorkspaceView) => void;
   setWorkspace: (next: IdeWorkspace | null) => void;
   /** Bring a pane to the front, switching to the grid and to its workspace when it lives elsewhere. */
-  requestPane: (workspaceId: string, pane: string, options?: { maximize?: boolean }) => void;
+  requestPane: (workspaceId: string, pane: string, options?: { maximize?: boolean; open?: "changes" }) => void;
   /** The grid maximized request `nonce`; drop its maximize flag. */
   settlePaneMaximize: (nonce: number) => void;
+  /** The pane opened its changes dialog for request `nonce`; drop that flag. */
+  settlePaneOpen: (nonce: number) => void;
   setStagedPane: (pane: string | null) => void;
   setWorkspaces: (rows: IdeWorkspaceRow[]) => void;
   setAgents: (agents: SplitAgentChoice[]) => void;
@@ -172,6 +179,7 @@ export const useIdeChatStore = create<IdeChatStore>((set) => ({
         pane,
         nonce: (state.paneRequest?.nonce ?? 0) + 1,
         ...(options?.maximize ? { maximize: true } : {}),
+        ...(options?.open ? { open: options.open } : {}),
       },
     }));
   },
@@ -181,6 +189,14 @@ export const useIdeChatStore = create<IdeChatStore>((set) => ({
         ? { paneRequest: { ...state.paneRequest, maximize: false } }
         : state,
     ),
+  settlePaneOpen: (nonce) =>
+    set((state) => {
+      const request = state.paneRequest;
+      if (!request || request.nonce !== nonce || !request.open) return state;
+      const rest = { ...request };
+      delete rest.open;
+      return { paneRequest: rest };
+    }),
   setStagedPane: (pane) =>
     // Guarded: the grid publishes this from an effect that runs on every poll,
     // and an unconditional set would wake every subscriber each time.

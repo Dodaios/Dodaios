@@ -269,7 +269,8 @@
       "title": "Terminal",
       "action": "Take over the terminal",
       "keys": "Keyboard to the agent",
-      "hint_live": "Your keys go straight to the agent: type, Enter sends, Esc interrupts it, Ctrl+V pastes. Ctrl+Q leaves the terminal.",
+      "hint_live": "You can click and type in the terminal. Enter sends, Esc interrupts, Ctrl+V pastes, Ctrl+Q leaves.",
+      "changes": "Changes",
       "placeholder": "Prompt for this agent",
       "send": "Send"
     }

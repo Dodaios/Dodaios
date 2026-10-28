@@ -269,7 +269,8 @@
       "title": "Terminal",
       "action": "Terminal übernehmen",
       "keys": "Tastatur an den Agenten",
-      "hint_live": "Deine Tasten gehen direkt an den Agenten: tippen, Enter schickt ab, Esc unterbricht ihn, Strg+V fügt ein. Strg+Q verlässt das Terminal.",
+      "hint_live": "Du kannst im Terminal klicken und tippen. Enter schickt ab, Esc unterbricht, Strg+V fügt ein, Strg+Q verlässt.",
+      "changes": "Änderungen",
       "placeholder": "Prompt für diesen Agenten",
       "send": "Senden"
     }

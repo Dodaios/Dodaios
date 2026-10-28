@@ -269,7 +269,8 @@
       "title": "终端",
       "action": "接管终端",
       "keys": "键盘输入给代理",
-      "hint_live": "按键直接发送给代理：输入文字，Enter 发送，Esc 中断，Ctrl+V 粘贴。Ctrl+Q 离开终端。",
+      "hint_live": "你可以在终端里点击并输入。Enter 发送，Esc 中断，Ctrl+V 粘贴，Ctrl+Q 离开。",
+      "changes": "更改",
       "placeholder": "给这个代理的提示",
       "send": "发送"
     }
