@@ -58,9 +58,7 @@ _NOT_RUN = (
     "invalid params",
     "invalid questions",
     "is a required property",
-    "missing required",
     "unexpected keyword argument",
-    "malformed",
 )
 # Meta tools that call another tool by name; a refused call names it only in
 # its (unparsed) arguments, while the retry reports the inner tool itself.
@@ -73,14 +71,19 @@ def _bare(name: str) -> str:
 
 
 def _names(name: str, arguments: Any) -> frozenset[str]:
-    """The tool a call is about: itself, and for a meta tool the tools it names."""
-    names = {_bare(name)}
-    if _bare(name) in _WRAPPERS:
-        values = arguments.values() if isinstance(arguments, dict) else [arguments]
-        for value in values:
-            raw = value if isinstance(value, str) else json.dumps(value, default=str)
-            names.update(_bare(found) for found in _INNER_NAME.findall(raw[:8000]))
-    return frozenset(names)
+    """The tool a call is about: itself, or for a meta tool the tools it names.
+
+    A meta call that names its inner tools is only about them, so a later
+    meta call of another tool does not settle it.
+    """
+    if _bare(name) not in _WRAPPERS:
+        return frozenset({_bare(name)})
+    inner: set[str] = set()
+    values = arguments.values() if isinstance(arguments, dict) else [arguments]
+    for value in values:
+        raw = value if isinstance(value, str) else json.dumps(value, default=str)
+        inner.update(_bare(found) for found in _INNER_NAME.findall(raw[:8000]))
+    return frozenset(inner or {_bare(name)})
 
 
 def blocks_automatic_recovery(text: str | None) -> bool:

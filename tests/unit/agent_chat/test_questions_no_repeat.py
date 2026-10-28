@@ -90,6 +90,19 @@ def test_a_corrected_retry_of_the_same_tool_settles_its_refused_call() -> None:
     assert tracker.hint() is None
 
 
+def test_a_meta_call_of_another_tool_does_not_settle_a_refused_meta_call() -> None:
+    tracker = ToolRecovery()
+    _feed(tracker, [
+        _LIVE_RECEIPTS[1],
+        ("c3", "tool_call", {"calls": '[{"name": "mcp__dodaios__read_file"}]'}, "ok", False),
+    ])
+    assert "tool_call" in (tracker.hint() or "")
+    _feed(tracker, [
+        ("c4", "tool_call", {"calls": '[{"name": "mcp__dodaios__society_ask_user"}]'}, "ok", False),
+    ])
+    assert tracker.hint() is None
+
+
 def test_a_real_failure_is_not_settled_by_another_target() -> None:
     tracker = ToolRecovery()
     _feed(tracker, [
