@@ -19,7 +19,10 @@ interface TitleProps {
   onLift: () => void;
 }
 
-const LIFT_ICON = "M3.5 1.5v10M1 4l2.5-2.5L6 4M9.5 11.5v-10M7 9l2.5 2.5L12 9";
+/** The duel's mark (a sight): the tool rail's Duel button and the arena icon on the bird's-eye view. */
+export const DUEL_ICON = "M6.5 1v2.6M6.5 9.4V12M1 6.5h2.6M9.4 6.5H12M6.5 3.6a2.9 2.9 0 1 0 0 5.8a2.9 2.9 0 1 0 0-5.8";
+
+const LIFT_ICON ="M3.5 1.5v10M1 4l2.5-2.5L6 4M9.5 11.5v-10M7 9l2.5 2.5L12 9";
 
 export function DeckTitle({ deck, t, counts, rankCard, onLift }: TitleProps) {
   return (
@@ -126,8 +129,8 @@ export function Toolbar({ t, view, firstAvailable, firstUnavailable, onView, onL
         <span className="verse-tool-text">{t("verse.tools.commander")}</span>
       </button>
       {onDuel && (
-        <button type="button" className="verse-tool" onClick={onDuel} title={t("verse.duel.start")}>
-          {icon("M6.5 1v2.6M6.5 9.4V12M1 6.5h2.6M9.4 6.5H12M6.5 3.6a2.9 2.9 0 1 0 0 5.8a2.9 2.9 0 1 0 0-5.8")}
+        <button type="button" className="verse-tool" data-tool="duel" onClick={onDuel} title={t("verse.tools.duel_hint")} aria-label={`${t("verse.tools.duel")}: ${t("verse.tools.duel_hint")}`}>
+          {icon(DUEL_ICON)}
           <span className="verse-tool-text">{t("verse.tools.duel")}</span>
         </button>
       )}

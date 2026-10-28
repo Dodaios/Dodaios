@@ -6,7 +6,8 @@
       "unavailable": "La nave necesita WebGL y esta ventana no puede iniciarlo ahora.",
       "deck_missing": "Esta cubierta aún no está construida.",
       "help": "Tercera persona: WASD o las flechas mueven al comandante, Shift acelera, E usa la estación al alcance. 1, 2 y 3 eligen vista de pájaro, tercera o primera persona; V las recorre. Arrastra para mirar, desplaza para hacer zoom. Haz clic en la cubierta para ir allí, en un tripulante para ver su ficha. Mantén F para desatar la Tormenta de Arcos: rayos de ambas manos. B despliega el hoverboard, que cruza la cubierta mucho más rápido.",
-      "help_eye": "La tercera y la primera persona se juegan como un shooter: un clic en la vista captura el ratón, moverlo gira la cámara, Esc lo libera. WASD camina según la vista, Shift acelera; el botón izquierdo o E usa lo que señala la mira (un tripulante, una estación); si no, E usa la estación al alcance. La rueda acerca o aleja la cámara: del todo cerca es primera persona y alejarse vuelve. 1, 2 y 3 eligen vista de pájaro, tercera o primera persona; V las recorre. El botón de ajustes de la barra regula la sensibilidad del ratón, el eje invertido, el campo de visión y la calidad. Mantén F para desatar la Tormenta de Arcos: rayos de ambas manos. B despliega el hoverboard, que cruza la cubierta mucho más rápido."
+      "help_eye": "La tercera y la primera persona se juegan como un shooter: un clic en la vista captura el ratón, moverlo gira la cámara, Esc lo libera. WASD camina según la vista, Shift acelera; el botón izquierdo o E usa lo que señala la mira (un tripulante, una estación); si no, E usa la estación al alcance. La rueda acerca o aleja la cámara: del todo cerca es primera persona y alejarse vuelve. 1, 2 y 3 eligen vista de pájaro, tercera o primera persona; V las recorre. El botón de ajustes de la barra regula la sensibilidad del ratón, el eje invertido, el campo de visión y la calidad. Mantén F para desatar la Tormenta de Arcos: rayos de ambas manos. B despliega el hoverboard, que cruza la cubierta mucho más rápido.",
+      "help_duel": "La arena de duelo está en el pozo del reactor, en la cubierta 3 (Ingeniería del reactor): pulsa E en una consola del anillo del reactor o usa Duelo en la barra de herramientas desde cualquier cubierta."
     },
     "deck": {
       "label": "Cubierta {n}",
@@ -15,7 +16,7 @@
       "ops": "Cubierta de operaciones",
       "ops_about": "Comedor, camarotes, sala de honores, simuladores",
       "engineering": "Ingeniería del reactor",
-      "engineering_about": "Técnicos en los terminales: tus agentes de código",
+      "engineering_about": "Técnicos en los terminales: tus agentes de código · Arena de duelo en el pozo del reactor",
       "hangar": "Hangar principal",
       "hangar_about": "La nueva tripulación llega aquí en lanzadera"
     },
@@ -104,7 +105,8 @@
       "click_to_look": "Haz clic para mirar",
       "first_too_small": "Amplía este panel a al menos {width} × {height} para la tercera y la primera persona.",
       "click_for_keys": "Haz clic aquí para que las teclas lleguen a la nave",
-      "board": "Hoverboard"
+      "board": "Hoverboard",
+      "duel_hint": "Duelo contra un bot de combate en el pozo del reactor (cubierta 3, Ingeniería del reactor). Elige un rival: el ascensor te lleva allí y empieza la partida."
     },
     "settings": {
       "title": "Ajustes de vista",
@@ -256,7 +258,8 @@
       "notice": {
         "needs_eye": "Los duelos necesitan la vista 3D en tercera persona.",
         "left": "Has salido del duelo."
-      }
+      },
+      "marker": "Duelo"
     },
     "board": {
       "on": "Hoverboard desplegado: WASD planea, Shift da impulso. B lo pliega.",

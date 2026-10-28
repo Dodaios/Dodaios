@@ -12,6 +12,20 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import type { StageRuntime } from "../runtime";
 import type { Deck, Station } from "../content/deck";
+import type { ArenaDef } from "../combat/arena";
+import { DUEL_ICON } from "./DeckBar";
+import { duelBeacon } from "./duelBeacon";
+
+/** The duel arena on this deck: a marker near its consoles, an icon over it in the bird's-eye view. */
+export interface DuelSpot {
+  arena: ArenaDef;
+  /** The arena room's floor height. */
+  floorY: number;
+  /** Whose position decides whether the marker shows. */
+  commanderId: string;
+  /** "Duel": the marker's and the icon's text. */
+  label: string;
+}
 
 export interface PlateInfo {
   id: string;
@@ -28,6 +42,8 @@ interface Props {
   /** `key`: the key that works the station from where the commander stands (third person). */
   station: { station: Station; name: string; action: string; key?: string | null } | null;
   deck: Deck | null;
+  /** The duel arena, on the deck that has one. */
+  duel?: DuelSpot | null;
 }
 
 /** Where a label element was put last (CSS px, rounded), so an unmoved label is not written again. */
@@ -57,7 +73,14 @@ const STATION_LABEL_M = 1.2;
  */
 export const PROMPT_AT = 0.8;
 
-export function FloatingLabels({ runtime, plates, station, deck }: Props) {
+/** The station label is a duel console's own prompt (the marker would repeat it). */
+const isDuelConsole = (s: Station | null) => !!s && s.id.startsWith("duel:");
+
+export function FloatingLabels({ runtime, plates, station, deck, duel }: Props) {
+  const duelRef = useRef<HTMLDivElement>(null);
+  const duelIconRef = useRef<HTMLDivElement>(null);
+  const duelAt = useRef<DuelSpot | null>(null);
+  duelAt.current = duel ?? null;
   const plateRefs = useRef(new Map<string, HTMLDivElement>());
   const stationRef = useRef<HTMLDivElement>(null);
   const stationAt = useRef<Station | null>(null);
@@ -86,6 +109,17 @@ export function FloatingLabels({ runtime, plates, station, deck }: Props) {
         const shown = !!s && !!runtime.toScreen(s.x, y, s.z, at) && runtime.inSight(s.x, y, s.z);
         put(el, placed, shown, at.x, at.y);
       }
+      // The duel arena: a marker over the nearest ring console near the reactor, an icon over the shaft from above.
+      const spot = duelAt.current;
+      const label = duelRef.current;
+      const icon = duelIconRef.current;
+      if (label || icon) {
+        const pose = spot ? runtime.poses.get(spot.commanderId) : undefined;
+        const b = spot && !(keyed.current && isDuelConsole(s)) ? duelBeacon(spot.arena, spot.floorY, runtime.control.mode, pose ?? null) : null;
+        const shown = !!b && !!runtime.toScreen(b.x, b.y, b.z, at) && (b.kind === "icon" || runtime.inSight(b.x, b.y, b.z));
+        if (label) put(label, placed, shown && b?.kind === "label", at.x, at.y);
+        if (icon) put(icon, placed, shown && b?.kind === "icon", at.x, at.y);
+      }
     };
     runtime.afterFrame.add(place);
     return () => { runtime.afterFrame.delete(place); };
@@ -105,6 +139,21 @@ export function FloatingLabels({ runtime, plates, station, deck }: Props) {
           </div>
         </div>
       ))}
+      {duel && (
+        <div className="verse-plate" ref={duelRef} data-testid="verse-duel-marker">
+          <div className="verse-station-label verse-duel-marker">
+            <b>{duel.label}<kbd className="verse-key">E</kbd></b>
+          </div>
+        </div>
+      )}
+      {duel && (
+        <div className="verse-plate" ref={duelIconRef} data-testid="verse-duel-icon">
+          <div className="verse-duel-arena-icon">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.2"><path d={DUEL_ICON} /></svg>
+            <span className="verse-label">{duel.label}</span>
+          </div>
+        </div>
+      )}
       {station && (
         <div className="verse-plate" ref={stationRef}>
           <div className="verse-station-label">

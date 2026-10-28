@@ -249,6 +249,22 @@
 
 .verse-station-label b { font-size: 11px; font-weight: 600; color: var(--verse-ink); letter-spacing: 0.04em; }
 
+/* The duel arena: a quiet marker over the reactor-ring console nearby, an icon over the shaft from above. */
+.verse-duel-marker { border-left: 2px solid var(--verse-amber); }
+.verse-duel-marker b { text-transform: uppercase; letter-spacing: 0.08em; }
+.verse-duel-arena-icon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px 3px 5px;
+  color: var(--verse-amber);
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-line-strong);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+.verse-duel-arena-icon .verse-label { color: var(--verse-ink-dim); }
+
 /* Selected crew member card, bottom left. */
 .verse-card {
   position: absolute;

@@ -67,7 +67,7 @@ import { terminalSocketIds, useScreenFaces } from "./effects/useScreenFaces";
 import { HoloLayer } from "./effects/HoloLayer";
 import { BeaconsLayer } from "./effects/BeaconsLayer";
 import { LightsLayer } from "./effects/LightsLayer";
-import { FloatingLabels, type PlateInfo } from "./hud/FloatingLabels";
+import { FloatingLabels, type DuelSpot, type PlateInfo } from "./hud/FloatingLabels";
 import { CrewCard, type CrewCardInfo } from "./hud/CrewCard";
 import { LiftPanel } from "./hud/LiftPanel";
 import { TakeoverPanel } from "./hud/TakeoverPanel";
@@ -430,6 +430,12 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     const floor = deck.rooms.find((r) => r.id === REACTOR_ARENA.room)?.floorY ?? 0;
     return REACTOR_ARENA.terminals.map((tm) => ({ id: `duel:${tm.id}`, kind: "games" as const, room: REACTOR_ARENA.room, x: tm.x, y: floor, z: tm.z, sockets: {} }));
   }, [deck]);
+  // The arena shows itself: a "Duel · E" marker near the reactor ring, an icon over the shaft from above (not in the compact panel, which has no duels).
+  const duelSpot = useMemo<DuelSpot | null>(() => {
+    if (compact || !deck || deck.id !== ARENA_DECK) return null;
+    const floorY = deck.rooms.find((r) => r.id === REACTOR_ARENA.room)?.floorY ?? 0;
+    return { arena: REACTOR_ARENA, floorY, commanderId: COMMANDER_ID, label: t("verse.duel.marker") };
+  }, [compact, deck, t]);
   // Every desk monitor that shows one coding pane is a terminal the commander can walk up to and take over.
   const takeoverTerminals = useMemo<Station[]>(() => {
     if (!deck) return [];
@@ -980,7 +986,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       )}
       {chunkReady && (
         <div className="verse-hud">
-          {!dueling && <FloatingLabels runtime={runtime} plates={plates} station={labelledStation} deck={deck} />}
+          {!dueling && <FloatingLabels runtime={runtime} plates={plates} station={labelledStation} deck={deck} duel={duelSpot} />}
           {!dueling && <DeckTitle deck={deckId} t={t} counts={counts} rankCard={<RankCard compact={compact} />} onLift={() => setPanel("lift")} />}
           {!dueling && <Toolbar
             t={t}
@@ -994,7 +1000,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
             onCommander={() => { if (runtime.control.mode === "follow") runtime.control.reframe = true; else focusOn(COMMANDER_ID); }}
             onSettings={eyeCapable ? () => setPanel("settings") : undefined}
             onDuel={compact ? undefined : () => setPanel("duel")}
-            onHelp={() => say(t(eyeOn ? "verse.stage.help_eye" : "verse.stage.help"), HELP_MS)}
+            onHelp={() => say(`${t(eyeOn ? "verse.stage.help_eye" : "verse.stage.help")} ${t("verse.stage.help_duel")}`, HELP_MS)}
           />}
           {shooter && !dueling && <div className="verse-reticle" data-locked={locked} data-on={hover ? "" : undefined} aria-hidden />}
           {shooter && !dueling && !locked && !panel && plateReady && keysReach && (

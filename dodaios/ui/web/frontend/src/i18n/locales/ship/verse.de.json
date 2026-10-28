@@ -6,7 +6,8 @@
       "unavailable": "Das Schiff braucht WebGL, das dieses Fenster gerade nicht starten kann.",
       "deck_missing": "Dieses Deck ist noch nicht gebaut.",
       "help": "Third Person: WASD oder Pfeiltasten steuern den Kommandanten, Shift läuft schneller, E benutzt die Station in Reichweite. 1, 2 und 3 wählen Vogelperspektive, Third Person oder Ego-Perspektive; V schaltet der Reihe nach durch. Ziehen verschiebt die Ansicht, Scrollen zoomt. Ein Klick auf das Deck schickt dich dorthin, ein Klick auf ein Crewmitglied öffnet seine Akte. F gedrückt halten entfesselt den Bogensturm: Blitze aus beiden Händen. B klappt das Hoverboard aus, damit gleitest du viel schneller übers Deck.",
-      "help_eye": "Third Person und Ego-Perspektive steuern sich wie ein Shooter: Ein Klick in die Ansicht fängt die Maus, Bewegen dreht die Kamera, Esc gibt sie frei. WASD läuft relativ zur Blickrichtung, Shift läuft schneller; die linke Maustaste oder E benutzt, worauf das Fadenkreuz zeigt (ein Crewmitglied, eine Station), sonst benutzt E die Station in Reichweite. Scrollen holt die Kamera näher heran oder weiter weg: ganz heran ist die Ego-Perspektive, wieder herausscrollen kehrt zurück. 1, 2 und 3 wählen Vogelperspektive, Third Person oder Ego-Perspektive; V schaltet der Reihe nach durch. Der Einstellungsknopf in der Werkzeugleiste regelt Mausempfindlichkeit, umgekehrte Achse, Sichtfeld und Qualität. F gedrückt halten entfesselt den Bogensturm: Blitze aus beiden Händen. B klappt das Hoverboard aus, damit gleitest du viel schneller übers Deck."
+      "help_eye": "Third Person und Ego-Perspektive steuern sich wie ein Shooter: Ein Klick in die Ansicht fängt die Maus, Bewegen dreht die Kamera, Esc gibt sie frei. WASD läuft relativ zur Blickrichtung, Shift läuft schneller; die linke Maustaste oder E benutzt, worauf das Fadenkreuz zeigt (ein Crewmitglied, eine Station), sonst benutzt E die Station in Reichweite. Scrollen holt die Kamera näher heran oder weiter weg: ganz heran ist die Ego-Perspektive, wieder herausscrollen kehrt zurück. 1, 2 und 3 wählen Vogelperspektive, Third Person oder Ego-Perspektive; V schaltet der Reihe nach durch. Der Einstellungsknopf in der Werkzeugleiste regelt Mausempfindlichkeit, umgekehrte Achse, Sichtfeld und Qualität. F gedrückt halten entfesselt den Bogensturm: Blitze aus beiden Händen. B klappt das Hoverboard aus, damit gleitest du viel schneller übers Deck.",
+      "help_duel": "Die Duell-Arena liegt im Reaktorschacht auf Deck 3 (Reaktortechnik): Drück E an einer Konsole am Reaktorring oder nutz „Duell“ in der Werkzeugleiste, von jedem Deck aus."
     },
     "deck": {
       "label": "Deck {n}",
@@ -15,7 +16,7 @@
       "ops": "Operationsdeck",
       "ops_about": "Messe, Mannschaftsquartiere, Ehrenhalle, Simulatoren",
       "engineering": "Reaktortechnik",
-      "engineering_about": "Techniker an den Terminals: deine Coding-Agenten",
+      "engineering_about": "Techniker an den Terminals: deine Coding-Agenten · Duell-Arena im Reaktorschacht",
       "hangar": "Haupthangar",
       "hangar_about": "Neue Crew kommt hier mit dem Shuttle an"
     },
@@ -104,7 +105,8 @@
       "click_to_look": "Klicken zum Umsehen",
       "first_too_small": "Für Schulter- und Ego-Perspektive braucht dieses Panel mindestens {width} × {height}.",
       "click_for_keys": "Hier klicken, damit die Tasten das Schiff steuern",
-      "board": "Hoverboard"
+      "board": "Hoverboard",
+      "duel_hint": "Duell gegen einen Kampfbot im Reaktorschacht (Deck 3, Reaktortechnik). Wähle einen Gegner: Der Lift bringt dich hin, und das Match beginnt."
     },
     "settings": {
       "title": "Ansichtseinstellungen",
@@ -256,7 +258,8 @@
       "notice": {
         "needs_eye": "Duelle brauchen die 3D-Ansicht in der dritten Person.",
         "left": "Du hast das Duell verlassen."
-      }
+      },
+      "marker": "Duell"
     },
     "board": {
       "on": "Hoverboard ausgeklappt: WASD gleitet, Shift gibt Schub. B klappt es wieder ein.",
