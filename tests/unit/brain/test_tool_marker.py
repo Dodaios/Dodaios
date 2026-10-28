@@ -17,7 +17,7 @@ from dodaios.agent_chat.runner_brain import brain_history_from_events
 from dodaios.brain.manager import BrainManager
 from dodaios.brain.public_fact_gate import public_fact_unfulfilled_answer
 from dodaios.brain.streaming import StreamingAggregate
-from dodaios.brain.tool_marker import strip_tool_markers
+from dodaios.brain.tool_marker import WITHDRAWN_ANSWER_NOTE, strip_tool_markers
 from dodaios.core.bus import EventBus
 from dodaios.core.config import JarvisConfig
 from dodaios.core.protocols import BrainDelta, BrainRequest
@@ -62,14 +62,15 @@ def _session_events() -> list[dict]:
     ]
 
 
-def test_replay_keeps_a_real_call_and_drops_an_imitated_marker() -> None:
+def test_replay_keeps_a_real_call_and_withdraws_an_imitated_answer() -> None:
     history = brain_history_from_events(_session_events())
     assert [m.role for m in history] == ["user", "assistant", "user", "assistant"]
     # The real call is replayed as the labelled tool record (#980).
     assert history[1].content.startswith("Tool record of this turn")
     assert "search_web" in history[1].content
-    assert "[used tool" not in history[3].content  # the imitation
-    assert "wagons de luxe" in history[3].content  # i18n-allow: the prose itself stays
+    # The imitation's made-up content is withdrawn, not replayed for copying.
+    assert history[3].content == WITHDRAWN_ANSWER_NOTE
+    assert "wagons" not in history[3].content
 
 
 # --- model output -----------------------------------------------------------

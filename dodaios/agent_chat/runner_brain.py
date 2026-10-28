@@ -103,8 +103,9 @@ def brain_history_from_events(
     """
     # A "[used tool …]" line inside the model's own TEXT is an imitation of a
     # call marker, never a call; replaying it teaches the next turn to type the
-    # marker instead of calling the tool (live 2026-10-28).
-    from dodaios.brain.tool_marker import strip_tool_markers
+    # marker instead of calling the tool, and the made-up answer behind it gets
+    # copied (live 2026-10-28). Such an answer is replayed as withdrawn.
+    from dodaios.brain.tool_marker import replay_text
 
     out: list[BrainMessage] = []
     prose: list[str] = []
@@ -130,14 +131,14 @@ def brain_history_from_events(
             # One answer per turn: the tool rounds and the prose after them
             # are several provider messages but one thing Jarvis said.
             if isinstance(message.content, str):
-                text = strip_tool_markers(message.content)[0]
+                text = replay_text(message.content)
                 if text.strip():
                     prose.append(text)
                 continue
             for block in message.content:
                 kind = block.get("type")
                 if kind == "text":
-                    text = strip_tool_markers(str(block.get("text") or ""))[0]
+                    text = replay_text(str(block.get("text") or ""))
                     if text.strip():
                         prose.append(text)
                 elif kind == "tool_use":
