@@ -25,6 +25,7 @@ import heapq
 import json
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -147,6 +148,8 @@ class TaskScheduler:
         self._running_tokens: dict[str, Any] = {}
         # Retained after cancel/pause so an already queued firing is revalidated.
         self._autonomous_ids: set[str] = set()
+        #: Optional owner check (see :meth:`attach_owner_gate`).
+        self._owner_gate: Callable[[tuple[str, ...]], Awaitable[bool]] | None = None
 
     # ------------------------------------------------------------------
     # Runner wiring (DI — the runner can be set after construction)
@@ -154,6 +157,35 @@ class TaskScheduler:
 
     def attach_runner(self, runner: _Dispatchable | TaskRunner) -> None:
         self._runner = runner
+
+    def attach_owner_gate(self, gate: Callable[[tuple[str, ...]], Awaitable[bool]]) -> None:
+        """``gate(tags)`` is true when the task's owner is retired: skip it."""
+        self._owner_gate = gate
+
+    async def _owner_retired(self, task_id: str) -> bool:
+        """Switch off a task whose owner was retired instead of running it."""
+        gate = self._owner_gate
+        if gate is None:
+            return False
+        spec = await self._store.get_spec(task_id)
+        if spec is None:
+            return False
+        try:
+            retired = await gate(tuple(spec.tags))
+        except Exception:  # noqa: BLE001 — an unreadable owner falls through to the runner guard
+            log.warning("owner gate failed for task %s", task_id, exc_info=True)
+            return False
+        if not retired:
+            return False
+        self._remove_from_memory(task_id)
+        pausable = spec.trigger.type in PAUSABLE_TRIGGER_TYPES
+        await self._store.update_state(
+            task_id, "paused" if pausable else "cancelled", error="owner_archived"
+        )
+        await self._store.append_step(
+            task_id, "log", {"event": "skipped", "reason": "owner_archived"}
+        )
+        return True
 
     # ------------------------------------------------------------------
     # Public API
@@ -1005,6 +1037,8 @@ class TaskScheduler:
                 allowed = {"scheduled", "paused"} if allow_paused else {"scheduled"}
                 if row is None or row["state"] not in allowed:
                     return
+            if await self._owner_retired(task_id):
+                return
             await self._runner.run(  # type: ignore[union-attr]
                 task_id,
                 token,

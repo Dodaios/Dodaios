@@ -56,6 +56,7 @@ __all__ = [
     "list_routines",
     "missing_timezone",
     "next_run_readback",
+    "retire_agent_routines",
     "routine_seat",
 ]
 
@@ -391,6 +392,52 @@ async def count_routines(task_store: Any, agent_id: str) -> int:
 
 
 MAX_ROUTINES_PER_AGENT: Final[int] = _MAX_ROUTINES
+
+#: Why a retired agent's routine stopped (the task's error and run log).
+OWNER_ARCHIVED: Final[str] = "owner_archived"
+
+
+async def retire_agent_routines(task_store: Any, scheduler: Any | None, agent_id: str) -> int:
+    """Switch off every live routine and trigger of a retired agent.
+
+    Recurring, webhook, event and source routines are paused, so nothing
+    fires for an archived agent and bringing the agent back never resumes
+    them silently: the person switches each one on again. One-time
+    follow-ups cannot be paused and are cancelled; a running routine is
+    cancelled too. Returns how many routines were switched off.
+    """
+    from dodaios.tasks.scheduler import TaskStateConflict
+    from dodaios.tasks.schema import PAUSABLE_TRIGGER_TYPES, TERMINAL_STATES
+
+    stopped = 0
+    for row in await task_store.list(limit=1000):
+        if not is_agent_routine(row, agent_id):
+            continue
+        state = str(row.get("state") or "")
+        if state in TERMINAL_STATES or state == "paused":
+            continue
+        tid = str(row.get("id"))
+        trigger = row.get("trigger_type") or (_summary(row).get("trigger") or {}).get("type")
+        pausable = trigger in PAUSABLE_TRIGGER_TYPES and state != "running"
+        if scheduler is not None:
+            if pausable:
+                try:
+                    await scheduler.pause(tid)
+                    stopped += 1
+                    continue
+                except TaskStateConflict:
+                    # Not pausable after all (it started meanwhile): cancel it.
+                    pass
+            if await scheduler.cancel_task(tid, reason=OWNER_ARCHIVED):
+                stopped += 1
+            continue
+        # No live scheduler (early boot): write the state directly.
+        if pausable:
+            await task_store.update_state(tid, "paused")
+        else:
+            await task_store.update_state(tid, "cancelled", error=OWNER_ARCHIVED)
+        stopped += 1
+    return stopped
 
 
 async def manage_routine(

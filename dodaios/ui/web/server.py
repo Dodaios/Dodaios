@@ -3755,6 +3755,7 @@ class WebServer:
         scheduler = TaskScheduler(
             store=store, bus=self.bus, runner=runner, workflow_services=workflow_services,
         )
+        scheduler.attach_owner_gate(self._society_owner_retired)
         scheduler.bind_bus()
         await scheduler.hydrate()
 
@@ -3991,6 +3992,22 @@ class WebServer:
             )
         except Exception:  # noqa: BLE001 — the task already recorded its result; delivery is best effort
             logger.warning("society: routine result not delivered to {}", agent_id, exc_info=True)
+
+    async def _society_owner_retired(self, tags: tuple[str, ...]) -> bool:
+        """Whether a task belongs to a retired (archived) society agent."""
+        from dodaios.society.routines import agent_id_from_tags
+        from dodaios.society.runtime import current_runtime
+
+        agent_id = agent_id_from_tags(tags)
+        if agent_id is None:
+            return False
+        runtime = current_runtime()
+        if runtime is None:
+            runtime = self._build_society_runtime()
+            self.app.state.society = runtime
+            await runtime.ensure_started()
+        agent = await runtime.roster.get(agent_id)
+        return agent is not None and str(agent.state) == "archived"
 
     async def _guard_society_routine_action(self, tags: tuple[str, ...]) -> None:
         from dodaios.society.routine_runner import guard_owned_routine

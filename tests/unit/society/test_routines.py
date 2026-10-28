@@ -69,8 +69,9 @@ class FakeScheduler:
     async def resume(self, task_id: str) -> None:
         await self.store.update_state(task_id, "scheduled")
 
-    async def cancel_task(self, task_id: str) -> None:
+    async def cancel_task(self, task_id: str, reason: str = "user_cancel") -> bool:
         await self.store.update_state(task_id, "cancelled")
+        return True
 
     async def run_now(self, task_id: str) -> None:
         self.ran.append(task_id)

@@ -376,6 +376,25 @@ def test_routines_over_rest(client):
     assert c.get("/api/society/agents/ghost/routines").status_code == 404
 
 
+def test_retiring_an_agent_pauses_its_routines(client):
+    from tests.unit.society.test_routines import FakeScheduler, FakeTaskStore
+
+    c, _ = client
+    c.post("/api/society/agents", json={"name": "Mailbox", "title": "Gmail agent"})
+    store = FakeTaskStore()
+    c.app.state.task_store = store
+    c.app.state.task_scheduler = FakeScheduler(store)
+    for kind in ("every", "webhook"):
+        res = c.post(
+            "/api/society/agents/mailbox/routines",
+            json={"title": f"Brief {kind}", "prompt": "Summarize.", "schedule": {"kind": kind}},
+        )
+        assert res.status_code == 200, res.text
+    assert c.delete("/api/society/agents/mailbox").status_code == 200
+    listed = c.get("/api/society/agents/mailbox/routines").json()["routines"]
+    assert [r["state"] for r in listed] == ["paused", "paused"]
+
+
 def test_browser_routes(client, tmp_path, monkeypatch):
     c, _ = client
     status = c.get("/api/society/browser/status").json()

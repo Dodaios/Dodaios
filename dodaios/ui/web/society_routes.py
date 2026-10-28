@@ -670,6 +670,14 @@ async def archive_agent(agent_id: str, request: Request) -> dict[str, Any]:
         archived = await rt.roster.archive(agent.agent_id)
     except RosterError as exc:
         raise _typed_error(exc) from exc
+    # A retired agent keeps no routine, webhook or trigger armed.
+    store = getattr(request.app.state, "task_store", None)
+    if store is not None:
+        from dodaios.society.routines import retire_agent_routines
+
+        await retire_agent_routines(
+            store, getattr(request.app.state, "task_scheduler", None), agent.agent_id
+        )
     return {"agent": _agent_row(archived, request)}
 
 
