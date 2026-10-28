@@ -200,7 +200,8 @@ def _creates_files(args: dict[str, Any], cwd: str) -> bool:
         return False
     try:
         return not any(os.path.lexists(_absolute(path, cwd)) for path in paths)
-    except (OSError, ValueError):
+    except (OSError, ValueError) as exc:
+        log.debug("approval card: could not check whether %s exist: %s", paths, exc)
         return False
 
 
