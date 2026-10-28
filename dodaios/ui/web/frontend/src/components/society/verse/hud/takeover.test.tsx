@@ -30,8 +30,10 @@ vi.mock("@/lib/liveTerminals", () => ({
   liveTerminalsGeneration: termApi.liveTerminalsGeneration,
 }));
 
-vi.mock("@/lib/agenticIdeApi", () => ({
-  promptTerminal: vi.fn(async () => ({})),
+vi.mock("@/components/agentic/AgenticTerminal", () => ({
+  AgenticTerminal: ({ name, workspaceId }: { name: string; workspaceId?: string }) => (
+    <div data-testid="verse-takeover-spare" data-name={name} data-workspace={workspaceId ?? ""} />
+  ),
 }));
 
 import { TakeoverPanel } from "./TakeoverPanel";
@@ -96,6 +98,7 @@ describe("TakeoverPanel", () => {
     expect(screen.queryByLabelText("verse.takeover.keys")).toBeNull();
     expect(termApi.presentTerminal).toHaveBeenCalledWith("ws1", tile.names, expect.any(HTMLElement));
     expect(termApi.last?.host).toBeInstanceOf(HTMLElement);
+    expect(screen.queryByTestId("verse-takeover-spare")).toBeNull();
     expect(termApi.focus).toHaveBeenCalled();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
@@ -136,14 +139,30 @@ describe("TakeoverPanel", () => {
     expect(setMaximized).toHaveBeenCalledWith(false);
   });
 
-  it("offers a prompt line for a pane the IDE has not mounted", () => {
+  it("shows the screen and opens the pane when the IDE grid has not mounted it", () => {
     termApi.presentTerminal.mockReturnValue(null);
     const onClose = vi.fn();
-    render(<TakeoverPanel tile={{ ...tile, workspaceId: "elsewhere" }} t={t} onClose={onClose} />);
-    expect(screen.queryByLabelText("verse.takeover.keys")).toBeNull();
-    expect(screen.getByPlaceholderText("verse.takeover.placeholder")).toBeTruthy();
+    render(<TakeoverPanel tile={{ ...tile, workspaceId: "elsewhere", fallback: { cols: 80, lines: ["Still waiting."], cursor: null, at: 1 } }} t={t} onClose={onClose} />);
+    expect(screen.getByText("Still waiting.")).toBeTruthy();
+    expect(screen.getByTestId("verse-takeover-spare").getAttribute("data-name")).toBe("mika");
+    expect(screen.getByTestId("verse-takeover-spare").getAttribute("data-workspace")).toBe("elsewhere");
+    expect(screen.queryByPlaceholderText("verse.takeover.placeholder")).toBeNull();
     expect(termApi.focus).not.toHaveBeenCalled();
-    fireEvent.keyDown(screen.getByPlaceholderText("verse.takeover.placeholder"), { key: "q", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "q", ctrlKey: true });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not open a second pane when the IDE grid already has this one", () => {
+    termApi.presentTerminal.mockReturnValue(null);
+    const view = document.createElement("div");
+    view.setAttribute("data-workspace-terminal-view", "ws1");
+    const host = document.createElement("div");
+    host.setAttribute("data-testid", "agentic-terminal-host-mika");
+    view.appendChild(host);
+    document.body.appendChild(view);
+    render(<TakeoverPanel tile={{ ...tile, fallback: { cols: 40, lines: ["still working"], cursor: null, at: 2 } }} t={t} onClose={vi.fn()} />);
+    expect(screen.queryByTestId("verse-takeover-spare")).toBeNull();
+    expect(screen.getByText("still working")).toBeTruthy();
+    view.remove();
   });
 });

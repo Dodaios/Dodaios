@@ -557,14 +557,20 @@
   .verse-switch i { transition: none; }
 }
 
-/* The IDE's own terminal, at 1:1, in a small window the commander can resize. */
+/* The IDE's own terminal, at 1:1, about the size of the deck in front of the commander.
+   Absolute, because a percentage height on a grid-centered dialog collapses. */
 .verse-dialog.verse-takeover {
-  width: min(760px, calc(100% - 32px));
-  height: min(480px, calc(100% - 32px));
-  min-width: 480px;
-  min-height: 280px;
-  max-width: calc(100% - 32px);
-  max-height: calc(100% - 32px);
+  position: absolute;
+  left: 11%;
+  right: 11%;
+  top: 10%;
+  bottom: 10%;
+  width: auto;
+  height: auto;
+  min-width: min(640px, calc(100% - 24px));
+  min-height: min(400px, calc(100% - 24px));
+  max-width: none;
+  max-height: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -578,8 +584,33 @@
   overflow: hidden;
   background: #0b0c0f;
 }
-.verse-takeover-host { position: absolute; inset: 0; }
+.verse-takeover-host { position: absolute; inset: 0; z-index: 1; }
+.verse-takeover-host:empty { pointer-events: none; }
 .verse-takeover-host > .xterm { width: 100%; height: 100%; }
+/* The server's replay, until the pane's own xterm is in the window. Same face as the terminal: monospace on black. */
+.verse-takeover-replay {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  white-space: pre;
+  font-family: var(--verse-mono);
+  font-size: 15px;
+  line-height: 1.35;
+  color: #f4f4f6;
+  background: #0b0c0f;
+}
+/* Holds a pane the IDE grid has not mounted. Laid out at the window's size so xterm
+   can measure it. Invisible, but still painted: a visibility:hidden canvas comes
+   back blank after it is moved into the window. */
+.verse-takeover-mount {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
 .verse-takeover-foot {
   flex: none;
   display: flex;
@@ -590,6 +621,3 @@
 }
 .verse-takeover-hint { margin: 0; flex: 1; min-width: 0; font-size: 12px; color: var(--verse-ink); opacity: 0.7; }
 .verse-takeover-foot .verse-btn { flex: none; white-space: nowrap; }
-.verse-takeover-prompt { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--verse-line); }
-.verse-takeover-input { flex: 1 1 260px; min-width: 0; padding: 8px 10px; background: transparent; color: var(--verse-ink); border: 1px solid var(--verse-line-strong); font: inherit; font-size: 13px; }
-.verse-takeover-error { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--verse-red); }

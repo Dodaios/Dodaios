@@ -1394,7 +1394,8 @@ export function AgenticTerminal({
     };
 
     const showPane = (afterFlush?: () => void) => {
-      if (!activeRef.current) return;
+      // The Verse window is a reader even while the IDE tile is off the stage.
+      if (!activeRef.current && !presentedHost) return;
       if (paneVisible) {
         afterFlush?.();
         return;
@@ -1795,7 +1796,9 @@ export function AgenticTerminal({
       // panel narrowed: fitting there squeezed every agent behind it to a strip
       // (37 columns, measured) and its output stayed wrapped at that width in
       // the scrollback. Coming back on stage refits (the `active` effect).
-      if (!activeRef.current) return;
+      // The Verse window is the exception: the user is reading that host, so
+      // the fit measures it (`presentedHost`) rather than the hidden tile.
+      if (!activeRef.current && !presentedHost) return;
       // The pane draws at the READER'S text size, never one it picked itself.
       // An auto-shrink that walked this size down until the floor grid fit the
       // tile shipped and was rejected within hours (2026-08-11): it silently
@@ -2022,7 +2025,8 @@ export function AgenticTerminal({
         disposeMouse();
         disposeBrowse();
       };
-      if (activeRef.current) showPane();
+      // Un-park even when the IDE tile is hidden. The window is what is on screen.
+      showPane();
       if (typeof ResizeObserver !== "undefined") {
         presentedWatch = new ResizeObserver(() => {
           if (presentedTimer !== undefined) window.clearTimeout(presentedTimer);

@@ -1,11 +1,14 @@
 /**
  * The commander takes over a desk terminal: the IDE's own xterm, at 1:1,
- * inside a small Verse window. Clicks and keystrokes land on that terminal;
- * nothing here forwards them. A pane the IDE has not mounted yet keeps the
- * prompt form. Ctrl+Q or the close button leaves; Escape belongs to the agent.
+ * in a large Verse window. Clicks and keystrokes land on that terminal;
+ * nothing here forwards them. A pane the IDE grid has not mounted is opened
+ * here, so the window still shows that pane. Until the xterm is in place the
+ * server's replay is drawn in the same face. Ctrl+Q or the close button
+ * leaves; Escape belongs to the agent.
  */
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { promptTerminal } from "@/lib/agenticIdeApi";
+import { AgenticTerminal } from "@/components/agentic/AgenticTerminal";
+import { paneFontSize } from "@/components/agentic/paneFont";
 import { liveTerminal, liveTerminalsGeneration, presentTerminal, subscribeLiveTerminals } from "@/lib/liveTerminals";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
@@ -13,6 +16,19 @@ import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import type { TerminalTileFace } from "../effects/terminalCanvas";
 import { leavesTakeover } from "../effects/terminalKeys";
 import { VerseDialog } from "./VerseDialog";
+
+function escapeCss(value: string): string {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(value);
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+/** True when this workspace's IDE grid already has the pane, so a second one must not be opened. */
+function ideHostsThisPane(workspaceId: string, names: readonly string[]): boolean {
+  if (typeof document === "undefined" || !workspaceId) return false;
+  const view = document.querySelector(`[data-workspace-terminal-view="${escapeCss(workspaceId)}"]`);
+  if (!view) return false;
+  return names.some((name) => name !== "" && view.querySelector(`[data-testid="agentic-terminal-host-${escapeCss(name)}"]`) !== null);
+}
 
 interface Props {
   tile: TerminalTileFace;
@@ -28,10 +44,9 @@ export function TakeoverPanel({ tile, t, onClose }: Props) {
   const nameKey = tile.names.join("\n");
   const namesRef = useRef(tile.names);
   namesRef.current = tile.names;
-  const [live, setLive] = useState<boolean | null>(null);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [live, setLive] = useState(false);
+  // Kept for the life of the window: closing it disposes the xterm it opened.
+  const [spare, setSpare] = useState(false);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -40,6 +55,7 @@ export function TakeoverPanel({ tile, t, onClose }: Props) {
     const release = presentTerminal(workspaceId, names, host);
     if (!release) {
       setLive(false);
+      if (!ideHostsThisPane(workspaceId, names)) setSpare(true);
       return;
     }
     setLive(true);
@@ -67,21 +83,6 @@ export function TakeoverPanel({ tile, t, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
 
-  const send = async () => {
-    const prompt = draft.trim();
-    if (!prompt || sending) return;
-    setSending(true);
-    setError(null);
-    try {
-      await promptTerminal(tile.names[0], prompt, { workspaceId: tile.workspaceId, compose: false });
-      setDraft("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSending(false);
-    }
-  };
-
   const openChanges = () => {
     onClose();
     const events = useEventStore.getState();
@@ -100,28 +101,29 @@ export function TakeoverPanel({ tile, t, onClose }: Props) {
       escapeCloses={false}
     >
       <div className="verse-takeover-screen">
+        {live !== true && tile.fallback && tile.fallback.lines.length > 0 && (
+          <pre className="verse-takeover-replay">{tile.fallback.lines.join("\n")}</pre>
+        )}
         <div ref={hostRef} className="verse-takeover-host" />
+        {spare && (
+          <div className="verse-takeover-mount" aria-hidden="true">
+            <AgenticTerminal
+              name={tile.names.find((name) => name !== "") ?? tile.names[0]}
+              workspaceId={workspaceId}
+              displayName={tile.header.title}
+              appearance="dark"
+              fontSize={paneFontSize()}
+              active
+              headerMode="none"
+              sizeLead
+            />
+          </div>
+        )}
       </div>
-      {live === true ? (
-        <div className="verse-takeover-foot">
-          <p className="verse-takeover-hint">{t("verse.takeover.hint_live")}</p>
-          <button type="button" className="verse-btn" onClick={openChanges}>{t("verse.takeover.changes")}</button>
-        </div>
-      ) : live === false ? (
-        <form className="verse-takeover-prompt" onSubmit={(e) => { e.preventDefault(); void send(); }}>
-          <input
-            className="verse-takeover-input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (leavesTakeover(e)) { e.preventDefault(); onClose(); } }}
-            placeholder={t("verse.takeover.placeholder")}
-            aria-label={t("verse.takeover.placeholder")}
-            autoFocus
-          />
-          <button type="submit" className="verse-btn" data-primary="true" disabled={sending || !draft.trim()}>{t("verse.takeover.send")}</button>
-          {error && <p className="verse-takeover-error" role="alert">{error}</p>}
-        </form>
-      ) : null}
+      <div className="verse-takeover-foot">
+        <p className="verse-takeover-hint">{t("verse.takeover.hint_live")}</p>
+        <button type="button" className="verse-btn" onClick={openChanges}>{t("verse.takeover.changes")}</button>
+      </div>
     </VerseDialog>
   );
 }
