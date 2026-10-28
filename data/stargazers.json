@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 293,
-  "forks": 108,
-  "placed": 57,
-  "stated": 70,
-  "generatedAt": "2026-10-28T18:56:26.299Z",
+  "count": 294,
+  "forks": 109,
+  "placed": 58,
+  "stated": 71,
+  "generatedAt": "2026-10-28T20:21:08.586Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -151,6 +151,13 @@
       "lon": -86.172,
       "label": "Indianapolis",
       "country": "United States",
+      "count": 1
+    },
+    {
+      "lat": 44.732,
+      "lon": 11.077,
+      "label": "Italy",
+      "country": "Italy",
       "count": 1
     },
     {
