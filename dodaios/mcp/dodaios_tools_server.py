@@ -143,6 +143,40 @@ async def _session_wire_catalog() -> dict[str, Any]:
     return _wire_catalog(entries)
 
 
+def _read_only(entry: Any, args: dict[str, Any] | None = None) -> bool:
+    """Whether a catalog entry only reads: the ``readOnlyHint`` it is listed with.
+
+    With ``args`` a tool whose tier depends on its arguments is judged for
+    those arguments too.
+    """
+    if str(getattr(entry, "risk_tier", "")) != "safe" or getattr(entry, "is_action_tool", True):
+        return False
+    hook = getattr(entry, "risk_tier_for_args", None)
+    if args is not None and callable(hook):
+        try:
+            tier = hook(dict(args))
+        except Exception:  # noqa: BLE001 - unsure means not read-only
+            return False
+        if tier is not None and str(tier) != "safe":
+            return False
+    return True
+
+
+async def wire_read_only(session_id: str, wire: str, args: dict[str, Any] | None = None) -> bool:
+    """Whether ``wire`` (a tool as this server lists it to ``session_id``) only reads.
+
+    A vendor CLI asks the chat before an MCP call; a read of Dodaios' own tools
+    needs no card in Ask (``runner_cli.dodaios_read_free``). An unknown tool is
+    not read-only.
+    """
+    token = CHAT_SESSION_REF.set(session_id or None)
+    try:
+        entry = (await _session_wire_catalog()).get(wire)
+    finally:
+        CHAT_SESSION_REF.reset(token)
+    return entry is not None and _read_only(entry, args)
+
+
 def _gateway() -> Any | None:
     from dodaios.core import runtime_refs
 
@@ -212,9 +246,7 @@ def build_server() -> Any:
                         else str(entry.description or entry.name)
                     ),
                     inputSchema=schema,
-                    annotations=types.ToolAnnotations(
-                        readOnlyHint=entry.risk_tier == "safe" and not entry.is_action_tool,
-                    ),
+                    annotations=types.ToolAnnotations(readOnlyHint=_read_only(entry)),
                 )
             )
         return tools
@@ -311,4 +343,5 @@ __all__ = [
     "approval_snapshot",
     "build_server",
     "offered_tools",
+    "wire_read_only",
 ]

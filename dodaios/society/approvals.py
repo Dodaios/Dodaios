@@ -47,6 +47,8 @@ __all__ = [
 ]
 
 DEFAULT_TTL_MS: Final[int] = 24 * 60 * 60 * 1000
+#: The capability of a configuration proposal (``proposals.CAPABILITY_PREFIX``).
+CONFIG_CAPABILITY_PREFIX: Final[str] = "core:config:"
 _TIER_RANK: Final[dict[str, int]] = {"safe": 0, "monitor": 1, "ask": 2, "block": 3}
 
 
@@ -245,7 +247,15 @@ class Approvals:
                 from_agent="user",
                 # Inline workers already await this row. A RELEASE addressed to
                 # the agent would enqueue an extra chat turn and repeat the task.
-                to_agent="user" if current.action.get("resume_in_place") else current.agent_id,
+                # A configuration proposal is applied by the app itself; the
+                # agent reads the outcome on its next turn (``proposals.
+                # decision_context``) instead of being woken by a fake message.
+                to_agent=(
+                    "user"
+                    if current.action.get("resume_in_place")
+                    or current.capability.startswith(CONFIG_CAPABILITY_PREFIX)
+                    else current.agent_id
+                ),
                 trace_id=current.trace_id,
                 payload={
                     "approval_id": approval_id,

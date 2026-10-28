@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from .approvals import Approval
+from .approvals import CONFIG_CAPABILITY_PREFIX, Approval
 from .capabilities import CapabilityRow
 from .display_name import display_name
 from .events import ApprovalState
@@ -42,6 +42,7 @@ __all__ = [
     "ProposalRefused",
     "apply",
     "capability_for",
+    "decision_context",
     "kind_of",
     "propose",
     "proposal_notice",
@@ -54,7 +55,7 @@ __all__ = [
 PROPOSAL_KINDS: Final[frozenset[str]] = frozenset(
     {"rule", "skill", "routine", "approval_rule", "focus", "team", "identity"}
 )
-CAPABILITY_PREFIX: Final[str] = "core:config:"
+CAPABILITY_PREFIX: Final[str] = CONFIG_CAPABILITY_PREFIX
 #: Schedule kinds the Automations scheduler can keep (``dodaios/tasks/schema.py``).
 #: Calendar rules carry explicit local clock and IANA timezone semantics.
 SCHEDULE_KINDS: Final[frozenset[str]] = frozenset(
@@ -338,6 +339,7 @@ def resolved_notice(
         "proposal_kind": str(item.action.get("kind") or kind_of(item.capability) or ""),
         "status": status,
         "text": text,
+        "summary": item.summary,
         "agent_id": agent.agent_id,
         "agent_name": display_name(agent),
     }
@@ -345,6 +347,49 @@ def resolved_notice(
         # What an undo restores (identity only): the fields as they were.
         notice["previous"] = previous
     return notice
+
+
+#: How the agent reads each outcome on its next turn.
+_DECISION_WORDS: Final[dict[str, str]] = {
+    "applied": "approved and applied",
+    "rejected": "rejected; nothing changed",
+    "failed": "approved, but it could not be applied",
+}
+
+
+def decision_context(events: list[dict[str, Any]]) -> str:
+    """The person's decisions on proposals since the agent's last turn, or "".
+
+    A decision is a notice in the chat (``resolved_notice``), never a message
+    from the person and never a turn of its own: the agent learns it here, in
+    front of the next message it gets, exactly once (the next turn starts
+    after it). Each line names the change and the outcome, without ids.
+    """
+    lines: list[str] = []
+    for event in reversed(events):
+        kind = event.get("kind")
+        if kind == "turn_started":
+            break
+        payload = event.get("payload") or {}
+        if kind != "notice" or payload.get("kind") != "proposal_resolved":
+            continue
+        status = str(payload.get("status") or "")
+        word = _DECISION_WORDS.get(status)
+        if word is None:
+            continue
+        summary = str(payload.get("summary") or payload.get("proposal_kind") or "a change")
+        line = f"- {summary.strip()}: {word}"
+        if status == "failed" and payload.get("text"):
+            line += f" ({str(payload['text']).strip()[:200]})"
+        lines.append(line)
+    if not lines:
+        return ""
+    lines.reverse()
+    return (
+        "[System note, not from the person: decisions on your proposals since your "
+        "last turn. Take them into account; do not thank for or repeat them.]\n"
+        + "\n".join(lines)
+    )
 
 
 async def propose(

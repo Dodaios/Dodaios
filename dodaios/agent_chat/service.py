@@ -1376,6 +1376,17 @@ class AgentChatService:
             # What the turn receives; ``text`` stays what the person typed so the
             # timeline shows their sentence rather than a page of extracted PDF.
             prompt = chat_attachments.compose(text, attached)
+            if session.surface == "society":
+                # Decisions on the agent's proposals reach it here, once, as a
+                # system note in front of its next message: never as a message
+                # from the person, and never as a turn of their own.
+                from dodaios.society.proposals import decision_context
+
+                decided = decision_context(self.store.list_events(session_id, tail=200))
+                if decided:
+                    prompt = decided + "\n\n" + prompt
+                    if display_text is None:
+                        display_text = text
             # A plain chat shows its pictures to the model itself.
             images: tuple[str, ...] = ()
             if attached and kit.plain:

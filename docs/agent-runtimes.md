@@ -251,6 +251,18 @@ replayed during `session/load` is swallowed because the chat already shows it.
   `approvals.mode: manual` and OpenClaw with `tools.exec.mode: ask`; every
   request reaches Dodaios over ACP and is answered from the chat's stance —
   Bypass allows without a card, Ask shows the card, Plan refuses.
+- **Approval modes per runner.** An agent's Ask and Always ask are binding
+  whichever runner answers; a runner that cannot honor a mode is refused when
+  the chat binds (`permissions.society_mode_supported`), never run with
+  hidden prompts. What each runner does:
+
+  | Runner | Ask | Always ask | How it is enforced |
+  | --- | --- | --- | --- |
+  | Dodaios runtime (brain) | yes | yes | The Dodaios tool gate (`society/approvals.decide`): reads run, everything else shows the card; Always ask shows it for every call. |
+  | Claude Code seat (`claude-cli`, `glm-cli`) | yes | no | `--permission-mode default`, prompts answered on the chat card (`--permission-prompt-tool stdio`), plus ask rules for this process only (`--settings`, `runner_cli.claude_ask_settings`) for `Edit`, `Write`, `MultiEdit`, `NotebookEdit`, `Bash` and `PowerShell`. Claude Code checks deny, then ask, then allow rules across all settings sources, so the allow list in the person's own `~/.claude/settings.json` can no longer skip the card; their deny rules still apply and their files are never edited. Reads of Dodaios' own tools (`readOnlyHint`) are answered without a card (`runner_cli.dodaios_read_free`), and a call that an earlier "Always allow" in the same process covers is answered by the runner. Bypass is unchanged. |
+  | Codex seat (`codex-cli`) | yes | yes | The seat runs with `--ignore-user-config --ignore-rules`, a read-only sandbox, `approval_policy="never"` and its shell, plugins, apps and browser disabled, so the person's `~/.codex/config.toml` cannot widen it and its only hands are the Dodaios tools, gated like the Dodaios runtime. |
+  | Hermes, OpenClaw | yes | no | The runtime's config is written per turn (`approvals.mode: manual`, `tools.exec.mode: ask`) and every request comes over ACP to the chat card. |
+  | Other CLI seats | no | no | No relay for their own prompts: Ask and Always ask are refused when the chat binds. |
 - **Warm processes** (`warm.py`). An agent's runtime process stays up
   between its turns, initialized and with its conversation open, so a message
   only costs `session/prompt` (Hermes: first answer text 0.03 s instead of

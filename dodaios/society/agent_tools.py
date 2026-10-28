@@ -641,7 +641,11 @@ class ProposeChangeTool:
                 "kind": kind,
                 "status": "pending",
                 "summary": item.summary,
-                "note": "waiting for the user to confirm on the card in this chat",
+                "note": (
+                    "waiting for the user to confirm on the card in this chat; the card "
+                    "shows it, so never quote the proposal id. The decision reaches you "
+                    "as a system note on your next turn"
+                ),
             },
         )
 

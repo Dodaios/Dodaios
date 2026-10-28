@@ -63,7 +63,7 @@ from pydantic import BaseModel, Field
 
 from dodaios.agent_chat import attachments as chat_attachments
 from dodaios.agent_chat import runner_cli, typeahead
-from dodaios.agent_chat.catalog import claude_code_models, offers, rows_for
+from dodaios.agent_chat.catalog import ACCESS_ACCOUNTS, claude_code_models, offers, rows_for
 from dodaios.agent_chat.control_types import CommandRequest, CommandResult
 from dodaios.agent_chat.credential_requests import CredentialRequestBusy
 from dodaios.agent_chat.effort import normalize_effort
@@ -472,6 +472,39 @@ def _validate_cwd(raw: str | None) -> str | None:
     return str(p.resolve())
 
 
+async def _session_or_bound_agent_chat(svc: Any, session_id: str) -> Any | None:
+    """The chat session, binding an agent's own chat that does not exist yet.
+
+    An agent's chat (``society:<agent_id>``) is created by binding it to its
+    roster row (``POST /api/society/agents/{id}/chat``). A panel that opens a
+    brand-new agent asks for its catalog and warm-up in the same moment, so
+    those requests bind it themselves instead of answering 404. Binding is
+    idempotent and runs nothing. Any other id is only looked up.
+    """
+    session = svc.store.get_session(session_id)
+    if session is not None or not session_id.startswith("society:"):
+        return session
+    agent_id = session_id.removeprefix("society:")
+    if not agent_id or ":" in agent_id:
+        return None
+    try:
+        from dodaios.society.chat_binding import ensure_session
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        if runtime is None:
+            return None
+        agent = await runtime.roster.get(agent_id)
+        if agent is None or agent.session_id != session_id or str(agent.state) != "active":
+            return None
+        return ensure_session(svc, runtime.config(), agent)
+    except PermissionError:
+        return None
+    except Exception:  # noqa: BLE001 - an unbound chat stays "not found", never a 500
+        log.warning("agent chat: could not bind %s on demand", session_id, exc_info=True)
+        return None
+
+
 # ------------------------------------------------------------------ catalog
 
 
@@ -501,12 +534,14 @@ async def get_catalog(
     from dodaios.agent_chat.runner_cli import cli_catalog_scope
 
     if session_id:
-        session = svc.store.get_session(session_id)
+        session = await _session_or_bound_agent_chat(svc, session_id)
         if session is None or session.surface != surface:
             raise HTTPException(status_code=404, detail="Chat session not found")
         account_id = session.account_id
         cwd = session.cwd
-    if account_id:
+    if account_id and account_id not in ACCESS_ACCOUNTS:
+        # "subscription" / "api-key" pin a way of paying, not a login: the
+        # seat's active login answers for them (``runner_cli._login_id``).
         from dodaios import agent_accounts
 
         if agent_accounts.resolve(account_id) is None:
@@ -1305,7 +1340,7 @@ _WARMING: dict[str, asyncio.Task[bool]] = {}
 )
 async def warm_session(session_id: str, request: Request) -> dict[str, Any]:
     svc = await _async_service(request)
-    session = svc.store.get_session(session_id)
+    session = await _session_or_bound_agent_chat(svc, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
     if session.surface != "society" or not session.runtime:

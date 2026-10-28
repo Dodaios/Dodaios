@@ -628,6 +628,120 @@ def claude_session_rules(tool_name: str, suggestions: Any) -> list[dict[str, Any
     ]
 
 
+#: Claude Code's own tools that change files or run commands. In "Ask before
+#: acting" (``default``) every call of these must reach the chat's approval
+#: card. Claude Code also loads the person's own settings files, and their
+#: ``permissions.allow`` (``Edit``, ``Write``, ``PowerShell``, …) would let
+#: those calls run without a prompt, so the chat would silently act like
+#: "Bypass". Claude Code evaluates deny, then ask, then allow rules across all
+#: sources: ask rules added for this process (``--settings``) win over any
+#: allow rule without touching the person's files. Their deny rules still win.
+CLAUDE_GATED_TOOLS: Final[tuple[str, ...]] = (
+    "Edit",
+    "Write",
+    "MultiEdit",
+    "NotebookEdit",
+    "Bash",
+    "PowerShell",
+)
+#: The gated tools that Claude Code's "accept edits" mode lets through.
+_CLAUDE_EDIT_TOOLS: Final[frozenset[str]] = frozenset(
+    {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+)
+_CLAUDE_SHELL_TOOLS: Final[frozenset[str]] = frozenset({"Bash", "PowerShell"})
+
+
+def claude_ask_settings(mode: str) -> str | None:
+    """The ``--settings`` JSON that makes ``mode``'s prompts binding, or None.
+
+    Only "Ask before acting" (Claude Code's ``default``) needs it: every other
+    mode either never asks (bypass, auto), changes nothing (plan) or denies
+    what would ask (dontAsk). Bypass therefore behaves exactly as before.
+    """
+    if mode != "default":
+        return None
+    return json.dumps({"permissions": {"ask": list(CLAUDE_GATED_TOOLS)}}, ensure_ascii=False)
+
+
+def claude_rules_cover(rules: Iterable[dict[str, Any]], tool_name: str, tool_input: Any) -> bool:
+    """Whether a rule from an earlier "Always allow" in this process covers a call.
+
+    The ask rules of :func:`claude_ask_settings` rank above the session allow
+    rule "Always allow" hands the CLI, so the CLI asks again at the next call;
+    the runner answers that repeat itself. Only what the rule clearly covers
+    is answered: the whole tool, a shell command prefix, or the edit tools of
+    an "accept edits" mode. Anything else asks again (the safe side).
+    """
+    from fnmatch import fnmatchcase
+
+    command = ""
+    if isinstance(tool_input, dict):
+        command = str(tool_input.get("command") or "").strip()
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        kind = rule.get("type")
+        if kind == "setMode":
+            mode = rule.get("mode")
+            if mode == "bypassPermissions":
+                return True
+            if mode == "acceptEdits" and tool_name in _CLAUDE_EDIT_TOOLS:
+                return True
+            continue
+        if kind not in ("addRules", "replaceRules") or rule.get("behavior") != "allow":
+            continue
+        for entry in rule.get("rules") or ():
+            if not isinstance(entry, dict) or entry.get("toolName") != tool_name:
+                continue
+            content = str(entry.get("ruleContent") or "").strip()
+            if not content:
+                return True
+            if tool_name in _CLAUDE_SHELL_TOOLS and command:
+                pattern = content[:-2] + " *" if content.endswith(":*") else content
+                if command == content or command == pattern.removesuffix(" *"):
+                    return True
+                if fnmatchcase(command, pattern):
+                    return True
+    return False
+
+
+async def dodaios_read_free(session: Any, tool_name: str, tool_input: Any) -> bool:
+    """Whether a Claude Code prompt for one of Dodaios' own tools needs no card.
+
+    In "Ask" a read runs freely and only actions and writes ask. Claude Code
+    asks about every MCP tool it has no allow rule for, so a listing such as
+    ``society_routines`` would put a card in front of the person. A tool the
+    Dodaios tool server marks read-only (``readOnlyHint``, for these
+    arguments) is answered here; a write still goes to the card, and the
+    Dodaios tool gate checks it again when it runs. "Always ask", Plan, and an
+    agent's own require-approval rule keep asking.
+    """
+    from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
+
+    prefix = f"mcp__{MCP_TOOLS_SERVER_NAME}__"
+    if not tool_name.startswith(prefix):
+        return False
+    stance = str(getattr(session, "permission_mode", "") or "")
+    if stance in ("always_ask", "plan", "read-only"):
+        return False
+    wire = tool_name[len(prefix) :]
+    args = tool_input if isinstance(tool_input, dict) else {}
+    session_id = str(getattr(session, "session_id", "") or "")
+    try:
+        from dodaios.mcp.dodaios_tools_server import wire_read_only
+
+        if not await wire_read_only(session_id, wire, args):
+            return False
+        if session_id.startswith("society:"):
+            from dodaios.society.surface import requires_explicit_approval
+
+            return not requires_explicit_approval(session_id, wire, args)
+    except Exception:  # noqa: BLE001 — unsure means the card asks, as before
+        log.debug("agent chat: read-only check failed for %s", tool_name, exc_info=True)
+        return False
+    return True
+
+
 def claude_stream_input(prompt: str) -> str:
     """One NDJSON user message for ``--input-format stream-json``."""
     return (
@@ -726,6 +840,10 @@ def _plan_claude_code(
         "--permission-mode",
         mode,
     ]
+    ask_settings = claude_ask_settings(mode)
+    if ask_settings:
+        # The person's own allow rules must not turn "Ask" into "Bypass".
+        argv += ["--settings", ask_settings]
     if model:
         argv += ["--model", model]
     if effort:
@@ -3918,6 +4036,8 @@ async def _drive_cli(
     """
     session = handle.session
     chat_ref = approval_ref(session.session_id)
+    #: The session rules this process was given by "Always allow" (Claude Code).
+    always_rules: list[dict[str, Any]] = []
     status = "done"
     error_text: str | None = None
     vendor_session = plan.vendor_session
@@ -4081,6 +4201,14 @@ async def _drive_cli(
             if tool_name == "AskUserQuestion":
                 await _respond(request_id, await _claude_question(tool_input))
                 return
+            if tool_name != "ExitPlanMode" and (
+                claude_rules_cover(always_rules, tool_name, tool_input)
+                or await dodaios_read_free(session, tool_name, tool_input)
+            ):
+                # Covered by this process's own "Always allow", or a read of
+                # Dodaios' own tools that Ask never puts in front of the person.
+                await _respond(request_id, {"behavior": "allow", "updatedInput": tool_input})
+                return
             summary = str(req.get("description") or "") or _claude_request_summary(
                 tool_name, tool_input
             )
@@ -4117,6 +4245,7 @@ async def _drive_cli(
                 body["updatedPermissions"] = claude_session_rules(
                     tool_name, req.get("permission_suggestions")
                 )
+                always_rules.extend(body["updatedPermissions"])
             if bridge is not None and subtype == "can_use_tool":
                 # A Jarvis tool the CLI just asked about will hit the executor's
                 # own gate over MCP in a moment; the person has answered once.
