@@ -41,8 +41,13 @@ AUTO_LANGUAGE = "auto"
 
 #: Silence appended before decoding. A streaming transducer emits its last
 #: words only once enough trailing context has arrived; without this padding the
-#: final syllable of an utterance is routinely cut off.
-_TAIL_SILENCE_S = 0.5
+#: final syllable of an utterance is routinely cut off. 0.5 s still lost a short
+#: French final word: on the BC-250 bench (24 French sentences, identical audio
+#: per setting, 2026-10-28) "Combien font douze fois sept" ended at "fois"
+#: with 0.5 s and came back whole with 1.0 s, and the word error rate fell from
+#: 30.3 % to 29.2 % with no sentence made worse; 1.5 s added nothing more. At the
+#: measured ~0.4x realtime the extra half second costs about 0.2 s of CPU.
+_TAIL_SILENCE_S = 1.0
 
 #: Silence PREPENDED before the utterance — the less obvious half, and a real
 #: defect without it. A cache-aware encoder starts with an empty context, so the

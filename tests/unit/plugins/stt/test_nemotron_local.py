@@ -96,6 +96,19 @@ def test_leading_silence_is_prepended_so_the_first_word_survives() -> None:
     assert audio.size == 16_000
 
 
+def test_trailing_silence_is_long_enough_for_a_short_final_word() -> None:
+    """French bench 2026-10-28: with 0.5 s of tail the short final word of
+    "Combien font douze fois sept" was lost; 1.0 s brought it back."""
+    recognizer = _FakeRecognizer()
+    provider = _provider_with(recognizer)
+
+    asyncio.run(provider.transcribe_pcm(_pcm(1.0), 16_000))
+
+    tail = recognizer.stream.chunks[-1]
+    assert tail.size >= 16_000, "below 1.0 s a short final word goes missing"
+    assert np.all(tail == 0.0)
+
+
 def test_int16_input_is_scaled_into_the_range_the_features_expect() -> None:
     """Feeding int16-scaled values straight in would mis-normalise the features."""
     recognizer = _FakeRecognizer()
