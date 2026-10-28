@@ -11223,6 +11223,42 @@ class BrainManager:
                 self._evidence_required_domain = "routine"
                 log.info("Recurring-work intent — mandating society-create-routine")
 
+        # A small on-device model answers public-fact questions from an
+        # unreliable memory and often skips search_web (live 2026-10-28: an
+        # invented train story with "[used tool search_web]" typed as text).
+        # Mandate the search for those turns; the backstop below keeps a short
+        # clarifying question and replaces any unsearched claim.
+        if not self._evidence_required_tool and self._skill_turn_match is None:
+            from dodaios.brain.app_control import LOCAL_PROVIDERS
+            from dodaios.brain.public_fact_gate import (
+                PUBLIC_FACT_DOMAIN,
+                SEARCH_TOOL,
+                public_fact_search_directive,
+            )
+
+            _pf_override = _TURN_OVERRIDE.get()
+            _pf_provider = (
+                str(getattr(_pf_override, "provider", "") or "")
+                if _pf_override is not None
+                else ""
+            ) or str(getattr(self._config.brain, "primary", "") or "")
+            _pf_directive = public_fact_search_directive(
+                user_text,
+                provider=_pf_provider,
+                tool_names=self._live_tool_names(),
+                previous_user_text=self._previous_user_turn_text(use_history=use_history),
+                local_providers=LOCAL_PROVIDERS,
+            )
+            if _pf_directive is not None:
+                self._evidence_directive = _pf_directive
+                self._evidence_required_tool = SEARCH_TOOL
+                self._evidence_required_domain = PUBLIC_FACT_DOMAIN
+                log.info(
+                    "Public-fact guard: on-device provider %s — mandating %s this turn",
+                    _pf_provider,
+                    SEARCH_TOOL,
+                )
+
         # Phase 5 / ADR-0006: pre-call budget gate. Block rather than request
         # when cooldown is active or the task/daily budget is exhausted.
         trace_uuid = turn_trace_id
@@ -12114,15 +12150,32 @@ class BrainManager:
         # answer a mandated read tool was supposed to ground. Shared-loop leak
         # recovery has already populated ``_turn_executed`` when it succeeded.
         if self._evidence_required_tool:
-            _replacement = _unfulfilled_replacement(
-                required_tool=self._evidence_required_tool,
-                executed=_turn_executed,
-                response_text=response_text,
-                suppressed=self._last_turn_suppressed,
-                is_write=self._evidence_required_is_write,
-                lang=honesty_lang,
-                domain=self._evidence_required_domain,
+            from dodaios.brain.public_fact_gate import (
+                PUBLIC_FACT_DOMAIN,
+                public_fact_answer_unverified,
+                public_fact_unfulfilled_answer,
             )
+
+            if self._evidence_required_domain == PUBLIC_FACT_DOMAIN:
+                _replacement = (
+                    public_fact_unfulfilled_answer(honesty_lang)
+                    if public_fact_answer_unverified(
+                        response_text,
+                        executed=_turn_executed,
+                        suppressed=self._last_turn_suppressed,
+                    )
+                    else None
+                )
+            else:
+                _replacement = _unfulfilled_replacement(
+                    required_tool=self._evidence_required_tool,
+                    executed=_turn_executed,
+                    response_text=response_text,
+                    suppressed=self._last_turn_suppressed,
+                    is_write=self._evidence_required_is_write,
+                    lang=honesty_lang,
+                    domain=self._evidence_required_domain,
+                )
             if _replacement is not None:
                 log.warning(
                     "Mandated tool %s never ran (executed=%s, write=%s) — "
