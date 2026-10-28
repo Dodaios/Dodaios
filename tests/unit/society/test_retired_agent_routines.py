@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -105,3 +106,52 @@ async def test_a_run_names_its_routine_without_the_agent_prefix(store) -> None:
     assert await _routine_title(store, tid) == "Morning inbox"
     assert await _routine_title(None, tid) == ""
     assert await _routine_title(store, "missing") == ""
+
+
+async def _gated(store, retired: set[str]) -> tuple[TaskScheduler, _Runner]:
+    runner = _Runner()
+    scheduler = TaskScheduler(store=store, bus=EventBus(), runner=runner)
+
+    async def gate(tags: tuple[str, ...]) -> bool:
+        return any(t == f"agent:{a}" for t in tags for a in retired)
+
+    scheduler.attach_owner_gate(gate)
+    return scheduler, runner
+
+
+async def test_a_webhook_delivery_for_a_retired_owner_never_runs(store) -> None:
+    scheduler, runner = await _gated(store, {"mailbox"})
+    hook = await scheduler.schedule(_spec("mailbox", TriggerWebhook()))
+    assert await scheduler.receive_hook(hook, {"ref": "main"}, "d-1") == "queued"
+
+    await scheduler._drain_hooks()
+    await asyncio.gather(*list(scheduler._runner_tasks))
+
+    assert runner.ran == []
+    assert (await store.get(hook))["state"] == "paused"
+    assert await store.last_log_event(hook) == "skipped"
+
+
+async def test_run_now_for_a_retired_owner_never_runs(store) -> None:
+    scheduler, runner = await _gated(store, {"mailbox"})
+    every = await scheduler.schedule(_spec("mailbox", TriggerEvery(interval_seconds=3600)))
+    await scheduler.pause(every)
+
+    await scheduler.run_now(every)
+    await asyncio.gather(*list(scheduler._runner_tasks))
+
+    assert runner.ran == []
+    assert (await store.get(every))["state"] == "paused"
+
+
+async def test_an_autonomous_routine_of_a_retired_owner_never_runs(store) -> None:
+    scheduler, runner = await _gated(store, {"mailbox"})
+    spec = _spec("mailbox", TriggerEvery(interval_seconds=3600)).model_copy(
+        update={"tags": ("society", "agent:mailbox", "autonomous")}
+    )
+    tid = await scheduler.schedule(spec)
+
+    await scheduler._safe_run(tid)
+
+    assert runner.ran == []
+    assert (await store.get(tid))["state"] == "paused"

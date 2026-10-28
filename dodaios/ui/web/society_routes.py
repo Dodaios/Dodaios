@@ -349,20 +349,25 @@ def _agent_row(agent: AgentRecord, request: HTTPConnection) -> dict[str, Any]:
     request, so a changed wake word shows up without a restart.
     """
     row = display_row(agent, getattr(request.app.state, "config", None))
-    row["billed_per_token"] = _billed_per_token(agent)
+    row["billed_per_token"] = _billed_per_token(agent, getattr(request.app.state, "config", None))
     return row
 
 
-def _billed_per_token(agent: AgentRecord) -> bool:
+def _billed_per_token(agent: AgentRecord, cfg: Any = None) -> bool:
     """Whether the agent's seat pays per token (an API key), not a plan.
 
     A subscription or a keyless local model spends no money per run, so the
-    card shows runs and activity there instead of dollar amounts.
+    card shows runs and activity there instead of dollar amounts. An agent
+    without its own seat answers on the app's default model: that one decides.
     """
     provider = str(agent.provider or "")
-    if not provider:
-        return True
     try:
+        if not provider and cfg is not None:
+            from dodaios.society.chat_binding import pair_for
+
+            provider = str(pair_for(cfg, agent)[0] or "")
+        if not provider:
+            return True
         from dodaios.society.routine_runner import _billed_via_api
 
         return _billed_via_api(provider, str(agent.account_id or ""))
@@ -1828,6 +1833,8 @@ async def create_agent_routine(
     agent = await rt.roster.resolve(agent_id)
     if agent is None:
         raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)})
+    if str(getattr(agent, "state", "")) == "archived":
+        raise HTTPException(409, "The agent is retired")
     with _turn_timezone(request):
         return await _create_routine_for(agent, body, request)
 
@@ -1857,6 +1864,9 @@ async def operate_agent_routine(
     scheduler = getattr(request.app.state, "task_scheduler", None)
     if scheduler is None:
         raise HTTPException(503, "The task scheduler is unavailable")
+    if str(getattr(agent, "state", "")) == "archived" and body.operation in ("run", "resume"):
+        # A retired agent runs nothing; bring the agent back first.
+        raise HTTPException(409, "The routine's agent is retired")
     if body.operation == "run" and row.get("state") == "running":
         raise HTTPException(409, "The routine is already running")
     try:

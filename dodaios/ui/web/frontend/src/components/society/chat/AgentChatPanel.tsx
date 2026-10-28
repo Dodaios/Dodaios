@@ -933,9 +933,11 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
   if (item.kind === "routine_run") {
     const sessionId = String(item.data.session_id ?? "");
     const agentId = item.agentId || String(item.data.agent_id ?? "");
-    return <RoutineActivity task={item.text} original={item.text}
+    // The routine's own name labels the run; older notices fall back to its first line.
+    const name = String(item.data.title ?? "").trim() || item.text;
+    return <RoutineActivity task={name} original={item.text}
       onOpen={sessionId && agentId ? () => useRoutineNavigation.getState().open({
-        agentId, sessionId, title: String(item.data.title ?? "").trim() || item.text, timestamp: item.tsMs,
+        agentId, sessionId, title: name, timestamp: item.tsMs,
       }) : undefined} />;
   }
   if (item.kind === "coding_thread") {

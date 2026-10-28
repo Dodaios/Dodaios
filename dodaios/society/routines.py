@@ -410,7 +410,9 @@ async def retire_agent_routines(task_store: Any, scheduler: Any | None, agent_id
     from dodaios.tasks.schema import PAUSABLE_TRIGGER_TYPES, TERMINAL_STATES
 
     stopped = 0
-    for row in await task_store.list(limit=1000):
+    live = ["pending", "scheduled", "running"]
+    # Only live rows: a long Automations history cannot push a routine out of the scan.
+    for row in await task_store.list(state_filter=live, limit=100_000):
         if not is_agent_routine(row, agent_id):
             continue
         state = str(row.get("state") or "")

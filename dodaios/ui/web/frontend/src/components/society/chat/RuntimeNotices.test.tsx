@@ -35,3 +35,10 @@ it("announces a runtime setup, the one-time Hermes prepare included", () => {
   render(<NoticeLine item={notice("runtime_setup", { runtime: "hermes", turn_id: "t1" })} />);
   expect(screen.getByTestId("runtime-setup-notice").textContent).toBe("society.runtime.setting_up_chat");
 });
+
+it("labels a routine run with the routine's name, not the first line of its prompt", () => {
+  render(<NoticeLine item={notice("routine_run", { session_id: "s1", agent_id: "mail", title: "Morning inbox" }, "Read every new mail and sort it.")} />);
+  const card = screen.getByRole("button");
+  expect(card.textContent).toContain("Morning inbox");
+  expect(card.textContent).not.toContain("Read every new mail");
+});
