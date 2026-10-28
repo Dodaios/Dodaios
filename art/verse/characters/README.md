@@ -29,7 +29,7 @@ Builds are deterministic (no random numbers, fixed iteration order). Run
 | `body.py`, `outfits.py`, `crew.py`, `drones.py` | geometry, skinning, vertex AO |
 | `paint.py` | UV atlas, rasteriser, normal bake from the full-resolution garment, images, material wiring |
 | `looks.py`, `looks_gear.py` | what the atlases show (faces, hair, tailoring, armour, drones) |
-| `anim.py`, `posing.py` | clips |
+| `anim.py`, `anim_combat.py`, `posing.py` | clips (crew, duel) |
 | `qa.py`, `lookdev.py`, `check_glb.mjs` | checks and look-development renders |
 | `sovereign.py`, `looks_sovereign.py`, `sovereign_qa.py` | the Sovereign skin, its atlas, its look-dev renders |
 
@@ -98,6 +98,29 @@ Only `Hips` has a translation track; every other bone is rotation only.
 | `A_Sit_Down` | no | 1.5 s | Standing (feet where the seated feet go, ~0.42 m in front of the root) to seated |
 | `A_Stand_Up` | no | 1.27 s | Seated to standing (ends with the feet ~0.42 m in front of the root) |
 | `A_Sleep` | yes | 6 s | Lying on the back, slow breathing |
+
+Duel clips (`anim_combat.py`; every one holds the blaster right-handed in a bladed
+stance; the runtime re-solves the arms onto the blaster, calibrated on `A_Combat_Idle`
+frame 0, where the barrel is level and straight ahead):
+
+| Clip | Loop | Length | Notes |
+|---|---|---|---|
+| `A_Combat_Idle` | yes | 2 s | Ready stance: knees soft, pelvis and chest turned right, head forward |
+| `A_Combat_Cover` | yes | 2 s | Crouched low behind cover, barrel down |
+| `A_Combat_Walk_F/L/B/R` | yes | 0.67 s | Combat walk at 2.4 m/s (back 1.87) along heading 0 / 90 / 180 / -90 deg |
+| `A_Combat_Run_F/L/B/R` | yes | 0.6 s | Run at 4.8 m/s (back 3.74); side runs cross over |
+| `A_Combat_Sprint` | yes | 0.53 s | 7 m/s, blaster low across the chest |
+| `A_Combat_Turn_L/R` | no | 0.6 s | Two steps turning 90 deg; turn the root by +-90 deg x smootherstep(t / 0.6) |
+| `A_Combat_Roll` | no | 0.6 s | Dive, tucked shoulder roll, landing; in place, face the root the roll's way |
+| `A_Combat_Hit_F/B/L/R` | no | 0.5 s | Additive flinch (frame 0 = idle frame 0), spine, head and shoulders only |
+| `A_Combat_Stagger` | no | 1 s | Additive reel |
+| `A_Combat_Death` | no | 1.4 s | Jolt, knees buckle, falls on the back towards -Z (behind the root) |
+| `A_Combat_GetUp` | no | 1.5 s | From the death's last pose to the idle |
+
+Locomotion clips share one phase (0 = left foot down, 0.5 = right); `characters.json`
+`clips` carries each one's `speed` (male skeleton, m/s) and `heading` (degrees, 90 =
+the body's left). `build.py --clips-only` rebakes only the clip files and the manifest.
+`skeletons.<v>.clipsBytes` versions the clip file's URL.
 
 Placement conventions (all three.js axes, relative to the character root):
 

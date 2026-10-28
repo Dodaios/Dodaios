@@ -187,6 +187,45 @@ for (const m of manifest.models) {
     root.updateMatrixWorld(true);
     const hips = root.getObjectByName("Hips").getWorldPosition(new THREE.Vector3());
     console.log(`  A_Sit_Type: hips at y ${hips.y.toFixed(3)} (seat ${manifest.seatHeight})`);
+    // Duel locomotion: each clip's planted feet hold still while the root moves at its
+    // manifest speed along its heading (male skeleton; the female stride is shorter).
+    if (m.skeleton === "M") {
+      for (const [name, info] of Object.entries(manifest.clips ?? {})) {
+        if (typeof info.speed !== "number") continue;
+        const clip = clips.find((c) => c.name === name);
+        if (!clip) { fail(`${name} missing from A_Human_M`); continue; }
+        mixer.stopAllAction();
+        mixer.clipAction(clip).play();
+        const h = (info.heading * Math.PI) / 180;
+        let worst = 0;
+        for (const side of ["L", "R"]) {
+          const foot = root.getObjectByName(`Foot_${side}`);
+          const toe = root.getObjectByName(`Toe_${side}`);
+          const pts = [];
+          const steps = 48;
+          for (let i = 0; i <= steps; i += 1) {
+            const t = (clip.duration * i) / steps;
+            mixer.setTime(t);
+            root.position.set(Math.sin(h) * info.speed * t, 0, Math.cos(h) * info.speed * t);
+            root.updateMatrixWorld(true);
+            const p = foot.getWorldPosition(new THREE.Vector3());
+            const q = toe.getWorldPosition(new THREE.Vector3());
+            if (p.y < 0.085 && q.y < 0.04) pts.push({ i, p });
+          }
+          // Longest run of consecutive planted samples belongs to one contact.
+          for (let k = 1; k < pts.length; k += 1) {
+            if (pts[k].i !== pts[k - 1].i + 1) continue;
+            const a = pts[k].p;
+            const b = pts[k - 1].p;
+            const d = Math.hypot(a.x - b.x, a.z - b.z);
+            if (d < 0.25) worst = Math.max(worst, d * (steps / clip.duration) / 30);
+          }
+        }
+        console.log(`  ${name} @ ${info.speed} m/s: planted-foot drift ${(worst * 100).toFixed(1)} cm/frame`);
+        if (!(worst < 0.04)) fail(`${m.id} feet slide in ${name} (${worst.toFixed(3)} m per frame)`);
+      }
+      root.position.set(0, 0, 0);
+    }
   }
 }
 console.log(failures ? `${failures} failure(s)` : "all checks passed");

@@ -791,13 +791,32 @@ is set.
 
 - **Figures** (`figure.ts`): the commander's own officer body and look for the
   person, the trooper body in gunmetal armour with red accents and a red visor
-  for the bot. The legs walk the way the body moves (the walk plays backwards
-  when it backs off, the hips turn at most 80 deg off the aim), spine and chest
-  twist and bend toward the aim, the head follows it, and both arms reach the
-  blaster by two-bone IK (`solveElbow`): right hand on the grip, left on the
-  shroud, or palm forward behind a raised shield. Sprinting carries the
-  blaster low, venting tips it up. A dodge is a tucked roll along the move
-  direction; a knocked-out body falls backwards.
+  for the bot. The duel clip set `A_Combat_*` (authored in the character
+  pipeline, `art/verse/characters/anim_combat.py`, original work, no
+  third-party motion) drives the body through `FighterAnimator`
+  (`fighterAnim.ts`, pure, tested): a bladed rifle stance; eight-way
+  locomotion from a combat walk and a run in four headings each plus the
+  sprint, the legs facing the aim, the headings and gaits blended so the
+  blended stride points where the body moves, and one shared phase advanced
+  at ground speed over that stride (planted feet hold still at any speed and
+  angle; `check_glb.mjs` measures it per clip); step-turns of 90 deg when the
+  aim swings more than 70 deg round a standing body; the dodge roll (the body
+  faces the roll's way, a tucked shoulder roll, the recovery runs 0.2 s past
+  the sim's roll as the blaster comes back); additive directional flinches
+  (headshots harder) and a stagger when a bolt the fighter fired is parried
+  back into them; the knockout fall (the body turns to the shooter and falls
+  back, away) and a get-up at the next round. On top: lean into acceleration,
+  the aim offset over spine and chest, the head on the aim (the bot's on the
+  person), the blaster's stock in the right shoulder pocket read from the
+  chest bone, raised to the eye in the sights, low across the chest
+  sprinting, by the hip behind the shield, tipped and racked by the left hand
+  while venting, low behind cover, and a recoil kick per shot; both hands on
+  it by two-bone IK (`solveElbow`) calibrated against `A_Combat_Idle` frame 0.
+  The shield raises the left forearm in front of the chest and shoves on a
+  perfect parry. The bot's body shows its tactics (`BotBrain.presentation()`,
+  read by nothing in the match): low behind cover while it hides, leaning out
+  toward the peek side while it peeks. QA: `window.__verseDuelBodies()` gives
+  each body's animation frame, blaster direction and grip.
 - **Blaster** (`blaster.ts`): procedural, graphite and brushed gold, energy
   cells along the receiver (amber for the person, red for the bot), heat vents
   on the shroud glowing blue to amber to red with the heat and pulsing while
@@ -863,8 +882,9 @@ CPU 1.5..3.8 ms per frame.
 
 ### Open
 
-- The bodies have no aiming, firing, hit-reaction or roll clips; the upper
-  body and the roll are procedural. Proper clips would look better.
+- The duel clips are keyframed by pose functions, not captured motion; a
+  crouch in cover is presentation only (the hit capsule stays standing, the
+  bot only hides behind cover taller than it).
 - Pointer lock in the desktop app's WebView is untested here (headless runs
   aim through the QA hook).
 - No settings for the duel's volume or a separate mouse sensitivity (it uses

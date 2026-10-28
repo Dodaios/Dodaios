@@ -21,6 +21,7 @@
  */
 import { resolveAim } from "../combat/camera";
 import { idleControl, type ControlState } from "../combat/input";
+import type { BotPresentation } from "../combat/bot/brain";
 import type { BotTier } from "../combat/bot/tiers";
 import { createLocalDuel, type DuelResult, type LocalDuel, type LocalDuelOptions } from "../combat/session";
 import type { CombatEvent } from "../combat/types";
@@ -193,6 +194,11 @@ export class DuelController {
 
   press(name: "dodge" | "vent"): void {
     this.forcedPress[name] = true;
+  }
+
+  /** Presentation only: what the bot's body should show (cover, peeking), or null. */
+  botPresentation(): BotPresentation | null {
+    return this.duel?.botPresentation?.() ?? null;
   }
 
   /** The camera pose of the last frame (world coordinates), for the renderer. */

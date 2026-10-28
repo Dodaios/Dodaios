@@ -65,6 +65,108 @@
     "A_Sleep": {
       "loop": true,
       "seconds": 6.0
+    },
+    "A_Combat_Idle": {
+      "loop": true,
+      "seconds": 2.0
+    },
+    "A_Combat_Cover": {
+      "loop": true,
+      "seconds": 2.0
+    },
+    "A_Combat_Walk_F": {
+      "loop": true,
+      "seconds": 0.6667,
+      "speed": 2.4,
+      "heading": 0.0
+    },
+    "A_Combat_Walk_L": {
+      "loop": true,
+      "seconds": 0.6667,
+      "speed": 2.4,
+      "heading": 90.0
+    },
+    "A_Combat_Walk_B": {
+      "loop": true,
+      "seconds": 0.6667,
+      "speed": 1.872,
+      "heading": 180.0
+    },
+    "A_Combat_Walk_R": {
+      "loop": true,
+      "seconds": 0.6667,
+      "speed": 2.4,
+      "heading": -90.0
+    },
+    "A_Combat_Run_F": {
+      "loop": true,
+      "seconds": 0.6,
+      "speed": 4.8,
+      "heading": 0.0
+    },
+    "A_Combat_Run_L": {
+      "loop": true,
+      "seconds": 0.6,
+      "speed": 4.8,
+      "heading": 90.0
+    },
+    "A_Combat_Run_B": {
+      "loop": true,
+      "seconds": 0.6,
+      "speed": 3.744,
+      "heading": 180.0
+    },
+    "A_Combat_Run_R": {
+      "loop": true,
+      "seconds": 0.6,
+      "speed": 4.8,
+      "heading": -90.0
+    },
+    "A_Combat_Sprint": {
+      "loop": true,
+      "seconds": 0.5333,
+      "speed": 7.0,
+      "heading": 0.0
+    },
+    "A_Combat_Turn_L": {
+      "loop": false,
+      "seconds": 0.6
+    },
+    "A_Combat_Turn_R": {
+      "loop": false,
+      "seconds": 0.6
+    },
+    "A_Combat_Roll": {
+      "loop": false,
+      "seconds": 0.6
+    },
+    "A_Combat_Hit_F": {
+      "loop": false,
+      "seconds": 0.5
+    },
+    "A_Combat_Hit_B": {
+      "loop": false,
+      "seconds": 0.5
+    },
+    "A_Combat_Hit_L": {
+      "loop": false,
+      "seconds": 0.5
+    },
+    "A_Combat_Hit_R": {
+      "loop": false,
+      "seconds": 0.5
+    },
+    "A_Combat_Stagger": {
+      "loop": false,
+      "seconds": 1.0
+    },
+    "A_Combat_Death": {
+      "loop": false,
+      "seconds": 1.4
+    },
+    "A_Combat_GetUp": {
+      "loop": false,
+      "seconds": 1.5
     }
   },
   "skeletons": {
@@ -98,7 +200,8 @@
         "LowerLeg_R",
         "Foot_R",
         "Toe_R"
-      ]
+      ],
+      "clipsBytes": 999236
     },
     "F": {
       "height": 1.68,
@@ -130,7 +233,8 @@
         "LowerLeg_R",
         "Foot_R",
         "Toe_R"
-      ]
+      ],
+      "clipsBytes": 1000668
     }
   },
   "tiers": {

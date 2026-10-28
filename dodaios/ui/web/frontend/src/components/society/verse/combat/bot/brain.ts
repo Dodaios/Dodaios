@@ -63,6 +63,14 @@ const ms = (v: number) => Math.round((v * TICK_RATE) / 1000);
 /** Radial pull toward a distant target when there is no reason to close in (the strafe is 1). */
 const APPROACH_DRIFT = 0.2;
 
+/** What the bot's body shows (see `BotBrain.presentation`). */
+export interface BotPresentation {
+  action: BotAction;
+  cover: "hide" | "peek" | null;
+  spot: { x: number; z: number } | null;
+  peek: { x: number; z: number } | null;
+}
+
 export class BotBrain {
   readonly slot: number;
   private readonly rng: Rng;
@@ -124,6 +132,22 @@ export class BotBrain {
     this.slot = slot;
     this.rng = new Rng(seed);
     this.aim = new AimController(params, this.rng.fork(1));
+  }
+
+  /**
+   * Presentation only (the bot's body in the 3D view; nothing in the match
+   * reads it): the current tactic and, in cover, whether it hides or peeks and
+   * where its cover spot and peek point are.
+   */
+  presentation(): BotPresentation {
+    const c = this.cover;
+    const inCover = c !== null && c.state !== "go" && (this.action === "cover" || this.action === "retreat" || this.action === "camp");
+    return {
+      action: this.action,
+      cover: inCover ? c.state as "hide" | "peek" : null,
+      spot: inCover ? { x: c.spot.x, z: c.spot.z } : null,
+      peek: inCover && c.peek ? { x: c.peek.x, z: c.peek.z } : null,
+    };
   }
 
   // ------------------------------------------------------------ perception

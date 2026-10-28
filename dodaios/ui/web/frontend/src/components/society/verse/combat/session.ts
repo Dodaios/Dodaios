@@ -16,7 +16,7 @@
  */
 import { buildArena, type Arena, type ArenaDef } from "./arena";
 import { REACTOR_ARENA } from "./arenaReactor";
-import { BotBrain } from "./bot/brain";
+import { BotBrain, type BotPresentation } from "./bot/brain";
 import { botParams, type BotParams, type BotTier } from "./bot/tiers";
 import { MatchClient } from "./client";
 import { idleControl, type ControlState } from "./input";
@@ -67,6 +67,8 @@ export interface LocalDuel {
   forfeit(): void;
   readonly result: DuelResult | null;
   readonly finished: boolean;
+  /** Presentation only: what the bot's body should show (cover, peeking); null before the bot has thought. */
+  botPresentation?(): BotPresentation | null;
   dispose(): void;
 }
 
@@ -139,6 +141,7 @@ export function createLocalDuel(o: LocalDuelOptions = {}): LocalDuel {
     get result() { return resultOf(); },
     // Over once the person's client has the end (so the last events reached the view).
     get finished() { return person.status === "ended" || person.status === "closed" || person.status === "rejected"; },
+    botPresentation: () => brain.current?.presentation() ?? null,
     dispose() {
       disposed = true;
       if (!server.finished) server.cancel();

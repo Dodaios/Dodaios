@@ -43,6 +43,16 @@ export interface SkeletonEntry {
   height: number;
   clips: string;
   walkSpeed: number | null;
+  /** Size of the clips file; versions its URL like a model's `bytes`. */
+  clipsBytes?: number;
+}
+
+/** The manifest's clip table: loop and length, and for locomotion clips their ground speed (m/s) and heading (degrees). */
+export interface ClipInfo {
+  loop?: boolean;
+  seconds?: number;
+  speed?: number;
+  heading?: number;
 }
 
 export interface TierColours {
@@ -63,6 +73,7 @@ export interface CharacterContract {
   skeletons: Record<string, SkeletonEntry>;
   tiers: Record<Tier, TierColours>;
   models: ModelEntry[];
+  clips?: Record<string, ClipInfo>;
 }
 
 /** Walking pace when the contract does not say (m/s); a calm shipboard walk. */
@@ -137,7 +148,8 @@ export class CharacterLibrary {
   private gltf(url: string): Promise<GLTF> {
     let pending = this.gltfs.get(url);
     if (!pending) {
-      const size = this.contract.models.find((m) => m.url === url)?.bytes;
+      const size = this.contract.models.find((m) => m.url === url)?.bytes
+        ?? Object.values(this.contract.skeletons).find((s) => s.clips === url)?.clipsBytes;
       pending = this.loader.loadAsync(versionedUrl(assetUrl(url), size));
       this.gltfs.set(url, pending);
       pending.catch(() => this.gltfs.delete(url));

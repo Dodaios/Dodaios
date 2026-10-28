@@ -26,7 +26,7 @@ import type { CombatEvent } from "../combat/types";
 import { BOLT_COLOURS } from "./blaster";
 import type { DuelController } from "./duelController";
 import { BoltPool, Flashes, radialTexture, Scorches, Sparks, Steam } from "./effects";
-import { DuelFigure, type FigureLook } from "./figure";
+import { botCues, DuelFigure, routeFigureEvent, type FigureCues, type FigureLook } from "./figure";
 import { ShieldMesh } from "./shield";
 import { HIDE_BODY_FIRST_SHARE } from "../viewmodel/motion";
 
@@ -95,12 +95,12 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
       if (!alive) { for (const i of [a, b]) if (i) disposeInstance(i); return; }
       if (a) {
         applyLook(a, library.contract, commanderLook);
-        const f = new DuelFigure(a, { accent: OWN_ACCENT }, shadow);
+        const f = new DuelFigure(a, { accent: OWN_ACCENT }, shadow, library.contract.clips);
         figures.current.own = f;
         fx.group.add(f.group);
       }
       if (b) {
-        const f = new DuelFigure(b, OPPONENT_LOOK, shadow);
+        const f = new DuelFigure(b, OPPONENT_LOOK, shadow, library.contract.clips);
         figures.current.foe = f;
         fx.group.add(f.group);
       }
@@ -125,7 +125,7 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
   }), [controller, runtime, fx]);
   useEffect(() => () => { runtime.cameraOverride = null; }, [runtime]);
 
-  const scratch = useMemo(() => ({ v: new Vector3(), time: 0, steamAcc: [0, 0] }), []);
+  const scratch = useMemo(() => ({ v: new Vector3(), time: 0, steamAcc: [0, 0], parried: new Set<number>(), cues: {} as FigureCues }), []);
   const override = useMemo(() => ({ position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 }, fovDeg: CAMERA_RIGS.hip.fovDeg }), []);
 
   useFrame((_, dt) => {
@@ -155,7 +155,12 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
     const bySlot = (slot: number) => (slot === mySlot ? figures.current.own : figures.current.foe);
     for (const p of view.players) {
       const f = bySlot(p.slot);
-      f?.update(step, p, floorY, deck, scratch.time);
+      if (f) {
+        f.slot = p.slot;
+        // The bot's body shows its cover and looks at the person; the person's own body follows their aim.
+        const cues = p.slot === mySlot ? undefined : botCues(controller.botPresentation(), p, view.players.find((q) => q.slot === mySlot), floorY, scratch.cues);
+        f.update(step, p, floorY, deck, scratch.time, cues);
+      }
       fx.shields[p.slot === mySlot ? 0 : 1].update(step, p, floorY);
       // A venting blaster steams.
       const k = p.slot === mySlot ? 0 : 1;
@@ -168,7 +173,10 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
     fx.bolts.update(view.bolts, mySlot, floorY);
 
     const events = controller.visualEvents;
-    for (const e of events) play(e);
+    for (const e of events) {
+      routeFigureEvent(e, view.players, bySlot, scratch.parried);
+      play(e);
+    }
     events.length = 0;
 
     fx.sparks.update(step, floorY);

@@ -21,6 +21,7 @@ import bpy
 from mathutils import Vector
 
 from characters import anim as A
+from characters import anim_combat as AC
 from characters import common as C
 from characters import crew
 from characters import looks as LK
@@ -193,6 +194,11 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default="")
     ap.add_argument("--no-clips", action="store_true")
+    ap.add_argument(
+        "--clips-only",
+        action="store_true",
+        help="rebuild A_Human_<variant>.glb and the manifest's clips, leave the bodies",
+    )
     ap.add_argument("--qa", action="store_true")
     ap.add_argument("--qa-contact", action="store_true", help="QA contact sheets only")
     args = ap.parse_args(argv)
@@ -200,6 +206,11 @@ def main(argv):
     O.make_materials()
     out = C.ensure_dir(C.OUT_DIR)
     only = [s for s in args.only.split(",") if s] or list(CHARACTERS)
+    if args.clips_only:
+        ctxs = {v: O.Ctx(v) for v in sorted(C.VARIANTS)}
+        clip_info = export_clips(out, ctxs)
+        write_manifest(out, [], clip_info, ctxs)
+        return {}
     ctxs: dict[str, O.Ctx] = {}
     built = {}
     entries = []
@@ -253,32 +264,47 @@ def main(argv):
         for o in objs:
             o.name = f"{cid}:{o.name}"
             o.data.name = o.name
-    clip_info = {}
-    if not args.no_clips:
-        for variant, ctx in sorted(ctxs.items()):
-            body = A.Body(ctx.rig)
-            acts = []
-            for name, (fn, loop) in A.CLIPS.items():
-                poses = fn(body)
-                acts.append(P.write_action(ctx.rig, name, poses))
-                clip_info[name] = {"loop": loop, "seconds": round((len(poses) - 1) / C.FPS, 4)}
-            P.stash_actions(ctx.arm, acts)
-            size = export_glb(out / f"A_Human_{variant}.glb", [ctx.arm], animations=True)
-            print(f"[characters] A_Human_{variant}: {size} bytes")
-            ctx.walk_speed = A.walk_stride(body) / (A.WALK_FRAMES / C.FPS)
-            ctx.arm.animation_data.action = None
-            for tr in list(ctx.arm.animation_data.nla_tracks):
-                ctx.arm.animation_data.nla_tracks.remove(tr)
-            # The exporter's ACTIONS mode takes every compatible action in the file:
-            # drop this variant's clips before the next variant is exported.
-            for act, _slot in acts:
-                bpy.data.actions.remove(act)
+    clip_info = {} if args.no_clips else export_clips(out, ctxs)
     write_manifest(out, entries, clip_info, ctxs)
     if args.qa or args.qa_contact:
         from characters import qa
 
         qa.contact_sheet(built, ctxs, full=not args.qa_contact)
     return built
+
+
+def all_clips():
+    """Every clip of the shared human skeleton: the crew's and the duel's."""
+    return {**A.CLIPS, **AC.combat_clips()}
+
+
+def export_clips(out: Path, ctxs) -> dict:
+    """Bake every clip per variant into A_Human_<variant>.glb; returns the manifest's clips."""
+    clip_info = {}
+    clips = all_clips()
+    for variant, ctx in sorted(ctxs.items()):
+        body = A.Body(ctx.rig)
+        acts = []
+        for name, (fn, loop) in clips.items():
+            poses = fn(body)
+            acts.append(P.write_action(ctx.rig, name, poses))
+            clip_info[name] = {"loop": loop, "seconds": round((len(poses) - 1) / C.FPS, 4)}
+            if name in AC.LOCOMOTION:
+                # Ground speed (male skeleton, m/s) and heading (degrees, 90 = the body's left).
+                clip_info[name].update(AC.LOCOMOTION[name])
+        P.stash_actions(ctx.arm, acts)
+        size = export_glb(out / f"A_Human_{variant}.glb", [ctx.arm], animations=True)
+        print(f"[characters] A_Human_{variant}: {size} bytes")
+        ctx.clips_bytes = size
+        ctx.walk_speed = A.walk_stride(body) / (A.WALK_FRAMES / C.FPS)
+        ctx.arm.animation_data.action = None
+        for tr in list(ctx.arm.animation_data.nla_tracks):
+            ctx.arm.animation_data.nla_tracks.remove(tr)
+        # The exporter's ACTIONS mode takes every compatible action in the file:
+        # drop this variant's clips before the next variant is exported.
+        for act, _slot in acts:
+            bpy.data.actions.remove(act)
+    return clip_info
 
 
 def write_manifest(out: Path, entries, clip_info, ctxs):
@@ -305,6 +331,9 @@ def write_manifest(out: Path, entries, clip_info, ctxs):
             "walkSpeed": round(getattr(ctx, "walk_speed", 0.0), 4)
             or skeletons.get(v, {}).get("walkSpeed"),
             "bones": ctx.bones,
+            # Versions the clips file's URL (the runtime appends it), so new clips are never stale.
+            "clipsBytes": getattr(ctx, "clips_bytes", None)
+            or skeletons.get(v, {}).get("clipsBytes"),
         }
     manifest = {
         "version": 1,
