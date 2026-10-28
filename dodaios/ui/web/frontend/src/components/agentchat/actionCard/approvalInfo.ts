@@ -51,6 +51,8 @@ export interface ApprovalCardInfo {
   rule: ApprovalRuleOffer | null;
   /** One of the agents' own tools, by what it does ("Create a routine"); absent for any other call. */
   action?: string;
+  /** A file call whose target does not exist yet: the card asks to create it. */
+  creates?: boolean;
 }
 
 /** A standing rule saved from a card (`notice{kind:"approval_rule"}`). */
@@ -90,6 +92,7 @@ export function parseApprovalCard(payload: Record<string, unknown>): ApprovalCar
     detail: text(payload.detail),
     brief: text(payload.brief),
     rule: parseRuleOffer(payload.rule),
+    ...(payload.creates === true ? { creates: true } : {}),
   };
 }
 

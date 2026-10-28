@@ -10801,6 +10801,7 @@
     "title": {
       "terminal": "Diesen Befehl ausführen?",
       "files": "Diese Datei ändern?",
+      "files_create": "Diese Datei erstellen?",
       "browser": "Den Browser verwenden?",
       "computer": "Diesen Computer steuern?",
       "plan": "Nach diesem Plan loslegen?",

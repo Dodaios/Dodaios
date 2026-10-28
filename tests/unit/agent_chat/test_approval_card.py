@@ -932,3 +932,13 @@ def narrow_options_for(args, cwd):
     from dodaios.agent_chat.approval_card import narrow_options
 
     return narrow_options("files", args, cwd, "C:/Users/Ada")
+
+
+def test_a_file_call_on_a_missing_file_asks_to_create_it(tmp_path):
+    """"Create this file?" for a new file, "Change this file?" for one already there."""
+    (tmp_path / "notes.md").write_text("x", encoding="utf-8")
+    new = describe_call("Write", {"file_path": "draft.md", "content": "hi"}, cwd=str(tmp_path))
+    assert new.get("creates") is True
+    existing = describe_call("Write", {"file_path": "notes.md", "content": "hi"}, cwd=str(tmp_path))
+    assert "creates" not in existing
+    assert "creates" not in describe_call("Bash", {"command": "ls"}, cwd=str(tmp_path))

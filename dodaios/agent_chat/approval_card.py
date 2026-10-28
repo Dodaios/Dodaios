@@ -187,7 +187,21 @@ def _describe(
         "rule": None if kind == "plan" else rule,
         "brief": display_paths(redact_secrets(summary or ""), cwd)[:_LINE_CHARS],
     }
+    if kind == "files" and _creates_files(args, cwd):
+        # "Create this file?", not "Change this file?", for a file not there yet.
+        fields["creates"] = True
     return fields
+
+
+def _creates_files(args: dict[str, Any], cwd: str) -> bool:
+    """Whether every file the call names is missing, so the call creates it."""
+    paths = _call_paths(args)
+    if not paths:
+        return False
+    try:
+        return not any(os.path.lexists(_absolute(path, cwd)) for path in paths)
+    except (OSError, ValueError):
+        return False
 
 
 # ------------------------------------------------------------ paths as shown

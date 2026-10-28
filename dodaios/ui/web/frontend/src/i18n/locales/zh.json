@@ -10801,6 +10801,7 @@
     "title": {
       "terminal": "运行这个命令？",
       "files": "修改这个文件？",
+      "files_create": "创建这个文件？",
       "browser": "使用浏览器？",
       "computer": "控制这台电脑？",
       "plan": "按这个计划开始构建？",

@@ -148,6 +148,7 @@ export function approvalTitle(info: ApprovalCardInfo, t: T): string {
     return app ? fill(t("action_card.title.connector"), { app }) : t("action_card.title.tool_plain");
   }
   if (kind === "tool") return app ? fill(t("action_card.title.tool"), { tool: app }) : t("action_card.title.tool_plain");
+  if (kind === "files" && info.creates) return t("action_card.title.files_create");
   return t(`action_card.title.${kind}`);
 }
 
