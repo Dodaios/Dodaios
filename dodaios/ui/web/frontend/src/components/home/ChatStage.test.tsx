@@ -893,6 +893,21 @@ describe("ChatStage (agent chat)", () => {
     const footer = within(screen.getByTestId("work-trace")).getByRole("status");
     expect(footer.textContent).toContain("12s");
     expect(footer.textContent).toContain("219");
+    // A subscription seat's turn costs nothing extra, so it shows no price.
+    expect(footer.textContent).not.toContain("$");
+  });
+
+  it("shows the price of a turn billed to a per-token key", () => {
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "check the repo" }),
+      ev("turn_started", { turn_id: "t10", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("assistant_text", { turn_id: "t10", message_id: "m1", text: "Done." }),
+      ev("turn_finished", { turn_id: "t10", status: "done", duration_ms: 12_000, usage: { input_tokens: 2, output_tokens: 219 }, cost_usd: 0.8483, billed_via_key: true }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s10", timeline });
+    render(<ChatStage />);
+    openWork();
+    const footer = within(screen.getByTestId("work-trace")).getByRole("status");
     expect(footer.textContent).toContain("$0.8483");
   });
 
