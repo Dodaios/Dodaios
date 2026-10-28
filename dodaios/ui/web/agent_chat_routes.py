@@ -500,7 +500,8 @@ async def _session_or_bound_agent_chat(svc: Any, session_id: str) -> Any | None:
         if await runtime.store.kill_switch():
             return None
         return ensure_session(svc, runtime.config(), agent)
-    except PermissionError:
+    except PermissionError as exc:
+        log.debug("agent chat: %s not bound on demand: %s", session_id, exc)
         return None
     except Exception:  # noqa: BLE001 - an unbound chat stays "not found", never a 500
         log.warning("agent chat: could not bind %s on demand", session_id, exc_info=True)
