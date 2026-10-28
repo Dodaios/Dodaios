@@ -79,13 +79,21 @@
   color: hsl(var(--foreground-strong));
 }
 .wi-meta {
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   color: hsl(var(--muted-foreground));
   font-size: 13px;
   line-height: 18px;
   font-variant-numeric: tabular-nums;
+}
+.wi-meta-line {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.wi-meta-seat {
+  font-size: 12px;
 }
 .wi-icon-btn {
   display: inline-flex;

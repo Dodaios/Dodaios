@@ -239,6 +239,8 @@ describe("the inspector's cost", () => {
     const meta = screen.getByTestId("work-inspector").querySelector(".wi-meta")!.textContent ?? "";
     expect(meta).toContain("Included in your plan");
     expect(meta).not.toContain("$");
+    // Cost and model have a line of their own, so a narrow pane never cuts them off.
+    expect(screen.getByTestId("work-inspector-seat").textContent).toContain("Included in your plan");
   });
 
   it("keeps the amount for a per-token key", () => {

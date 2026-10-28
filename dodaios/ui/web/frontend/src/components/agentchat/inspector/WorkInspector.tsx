@@ -105,11 +105,14 @@ export const WorkInspector = memo(function WorkInspector({
   if (turn.status === "running") meta.push(t("run_view.work.working"));
   else if (turn.durationMs) meta.push(fill(t("run_view.work.worked_for"), { duration: traceDuration(turn.durationMs) }));
   if (tokens && tokens > 0) meta.push(fill(t("run_view.inspector.tokens"), { count: formatTokens(tokens) }));
+  // Cost and model sit on a quiet line of their own, so a narrow pane never
+  // cuts "Included in your plan" off the end of one long line.
+  const seat: string[] = [];
   if (turn.costUsd !== null && turn.costUsd > 0) {
     // A subscription bills nothing per turn: a dollar figure would contradict "$0.00 spent".
-    meta.push(billedPerToken(turn) ? `$${turn.costUsd.toFixed(4)}` : t("run_view.inspector.included"));
+    seat.push(billedPerToken(turn) ? `$${turn.costUsd.toFixed(4)}` : t("run_view.inspector.included"));
   }
-  if (turn.model) meta.push(turn.model);
+  if (turn.model) seat.push(turn.model);
 
   return <aside ref={pane} tabIndex={-1} aria-labelledby={titleId}
     className={cn("work-inspector", floating && "is-floating")}
@@ -120,7 +123,10 @@ export const WorkInspector = memo(function WorkInspector({
       {avatar ? <span className="wi-head-mark" aria-hidden>{avatar}</span> : null}
       <div className="min-w-0 flex-1">
         <h2 id={titleId} className="wi-title">{t("run_view.inspector.title")}</h2>
-        <p className="wi-meta">{meta.join(" · ")}</p>
+        <p className="wi-meta">
+          <span className="wi-meta-line">{meta.join(" · ")}</span>
+          {seat.length ? <span className="wi-meta-line wi-meta-seat" data-testid="work-inspector-seat">{seat.join(" · ")}</span> : null}
+        </p>
       </div>
       <button type="button" className="wi-icon-btn" onClick={onClose} aria-label={t("run_view.inspector.close")} title={t("run_view.inspector.close")}
         data-testid="work-inspector-close">
