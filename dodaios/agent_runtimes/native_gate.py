@@ -81,6 +81,7 @@ async def decide(
             timeout=DECISION_TIMEOUT_S,
         )
     except TimeoutError:
+        log.info("native gate: nobody answered %s for %s in time; refusing", tool, session_id)
         return "deny", NO_ANSWER
     except Exception:  # noqa: BLE001 — a broken card refuses, it never allows
         log.warning("native gate: deciding %s failed; refusing", tool, exc_info=True)
