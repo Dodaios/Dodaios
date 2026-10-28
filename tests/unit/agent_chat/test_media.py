@@ -143,6 +143,22 @@ def test_plain_remote_url_is_rendered_in_place_without_duplicate(tmp_path):
     assert len(result) == 1
 
 
+def test_plain_text_missing_local_media_is_not_a_receipt(tmp_path):
+    missing = tmp_path / "work" / "app" / "windows" / "runner" / "resources" / "app_icon.ico"
+    text = f"Checked {missing} and ./missing.png"
+    result = normalize(tmp_path, text, "assistant_text")
+    assert result == [event(text, "assistant_text")]
+
+
+def test_plain_text_existing_local_media_is_delivered(tmp_path):
+    source = tmp_path / "work" / "app_icon.ico"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"icon")
+    result = normalize(tmp_path, f"Created {source}", "assistant_text")
+    assert len(result) == 2
+    assert "![image]" in result[1]["payload"]["text"]
+
+
 def test_mixed_assistant_content_keeps_text_and_each_visual_in_order(tmp_path):
     blocks = [
         {"type": "text", "text": "First image:"},

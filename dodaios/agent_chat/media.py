@@ -280,7 +280,18 @@ class MediaNormalizer:
                 ):
                     self.reference(ref)
             for match in _RAW.finditer(without_links):
-                self.reference(match[0])
+                ref = match[0]
+                if ref.startswith(("http://", "https://")):
+                    self.reference(ref)
+                    continue
+                path_ref = ref
+                if path_ref.startswith("file:"):
+                    path_ref = unquote(urlsplit(path_ref).path)
+                    if re.match(r"^/[A-Za-z]:/", path_ref):
+                        path_ref = path_ref[1:]
+                candidate = (self.cwd / path_ref).resolve()
+                if candidate.is_relative_to(self.cwd) and candidate.is_file():
+                    self.reference(ref)
             for match in _BARE.finditer(without_links):
                 candidate = (self.cwd / match[0]).resolve()
                 if candidate.is_relative_to(self.cwd) and candidate.is_file():
