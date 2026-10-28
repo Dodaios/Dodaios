@@ -935,7 +935,7 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
     const agentId = item.agentId || String(item.data.agent_id ?? "");
     return <RoutineActivity task={item.text} original={item.text}
       onOpen={sessionId && agentId ? () => useRoutineNavigation.getState().open({
-        agentId, sessionId, title: item.text, timestamp: item.tsMs,
+        agentId, sessionId, title: String(item.data.title ?? "").trim() || item.text, timestamp: item.tsMs,
       }) : undefined} />;
   }
   if (item.kind === "coding_thread") {

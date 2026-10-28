@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { TimelineItem } from "@/components/agentchat/reduce";
-import RoutineChat from "./RoutineChat";
+import RoutineChat, { splitOpening } from "./RoutineChat";
 import type { RoutineChatTarget } from "../chat/routineExecution";
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useUiLanguage: () => "en" }));
@@ -33,8 +33,9 @@ test("an old execution loads its own turn without opening a writable main chat",
   expect(transcript.textContent).not.toContain("Follow your CURRENT");
   expect(socket).not.toHaveBeenCalled();
   expect(screen.queryByRole("textbox")).toBeNull();
-  expect(fetcher).toHaveBeenCalledOnce();
-  expect(fetcher.mock.calls[0]).toEqual(["/api/agent-chat/sessions/society%3Amail"]);
+  // The seat names may load the chat catalog; the transcript is one read of its session.
+  const sessionReads = fetcher.mock.calls.filter((call: unknown[]) => String(call[0]).startsWith("/api/agent-chat/sessions"));
+  expect(sessionReads).toEqual([["/api/agent-chat/sessions/society%3Amail"]]);
   // An old task could succeed through a fallback after its chat attempt failed.
   expect(screen.getByTestId("routine-saved-result").textContent).toContain("Saved result");
 });
@@ -52,4 +53,29 @@ test("a missing historical turn shows only that execution's saved result", async
   await screen.findByText("Saved result");
   expect(screen.queryByTestId("selected-transcript")).toBeNull();
   expect(screen.queryByRole("textbox")).toBeNull();
+});
+
+test("a run opens with the routine's name; the scheduler's instructions wait behind a toggle", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ session: { title: "Mail" }, events }))));
+  render(<RoutineChat target={target} onClose={() => {}} />);
+  const opening = await screen.findByTestId("routine-opening");
+  expect(opening.textContent).toContain("Inbox");
+  expect(opening.querySelector("details")?.textContent).toContain("Read mail.");
+  expect(opening.textContent).not.toContain("Scheduled routine");
+});
+
+test("the current scheduler envelope never shows raw in a run", () => {
+  const current = "Scheduled routine 96a6671f-0b1c-4f7e-9a51-1c2d3e4f5a6b. Follow your CURRENT standing instructions.\n"
+    + "This execution has its own background chat and must honor its permission limits.\n"
+    + "Use your memory and conversation archive for prior results. For information watches, check sources and dates, remember last-seen items, and report only meaningful new findings.\n\nSummarize the inbox.";
+  const items = [
+    { type: "user", id: "u1", text: current, attachments: [], tsMs: 1 },
+    { type: "user", id: "u2", text: "And the calendar?", attachments: [], tsMs: 2 },
+  ] as unknown as TimelineItem[];
+  const { prompt, rest } = splitOpening(items);
+  expect(prompt).toBe("Summarize the inbox.");
+  expect(rest).toHaveLength(1);
+  expect(JSON.stringify(rest)).not.toContain("Scheduled routine");
+  // A conversation that is not a routine run keeps its first message.
+  expect(splitOpening([items[1]]).prompt).toBeNull();
 });

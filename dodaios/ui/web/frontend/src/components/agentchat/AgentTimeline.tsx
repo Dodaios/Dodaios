@@ -21,6 +21,7 @@ export function AgentTimeline({
   items,
   assistantName,
   providerLabel,
+  modelLabel,
   onDecide,
   recipientName,
   agentsById,
@@ -32,6 +33,8 @@ export function AgentTimeline({
   items: TimelineItem[];
   assistantName: string;
   providerLabel: (providerId: string) => string;
+  /** The model's readable name; the raw id when absent. */
+  modelLabel?: (providerId: string, modelId: string) => string;
   onDecide: Decide;
   /** Who an internal agent message was sent to — the chat owner (defaults to the assistant). */
   recipientName?: string;
@@ -257,6 +260,7 @@ export function AgentTimeline({
         turn={item}
         assistantName={assistantName}
         providerLabel={providerLabel(item.provider)}
+        modelName={item.model ? (modelLabel?.(item.provider, item.model) || item.model) : ""}
         onDecide={onDecide}
         bubbles={bubbles}
         traceLook={traceLook}
@@ -306,8 +310,8 @@ function stampLabel(at: Date, now: Date): string {
 
 const NO_MESSAGES = new Map<string, TraceMessage[]>();
 
-const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, messages }: {
-  turn: TurnItem; assistantName: string; providerLabel: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;
+const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, messages }: {
+  turn: TurnItem; assistantName: string; providerLabel: string; modelName?: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;
   /** Agent messages that arrived while this turn worked. */
   messages?: TraceMessage[];
 }) {
@@ -321,7 +325,7 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{assistantName}</span>
         <ProviderLogo providerId={turn.provider} label={providerLabel} size="sm" />
-        <span>{providerLabel}{turn.model ? ` · ${turn.model}` : ""}</span>
+        <span>{providerLabel}{turn.model ? ` · ${modelName || turn.model}` : ""}</span>
         {turn.effort ? <span>{effortLabel(turn.effort, t)}</span> : null}
       </div>
     )}

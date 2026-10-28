@@ -16,8 +16,12 @@ export interface RoutineChatTarget {
   };
 }
 
-/** Only a complete scheduler envelope is a routine, never a similar user message. */
-const envelope = /^Scheduled routine ([^\s.]+)\. Follow your CURRENT standing instructions(?: and permissions)?\.\r?\n(?:This execution has its own background chat with bypass permissions\.\r?\n)?Use your memory and conversation archive for prior results\. For information watches, check sources and dates, remember last-seen items, and report only meaningful new findings\.\r?\n\r?\n/;
+/**
+ * Only a complete scheduler envelope is a routine, never a similar user
+ * message. Its middle line has said different things over time ("with bypass
+ * permissions", "and must honor its permission limits"); any wording counts.
+ */
+const envelope = /^Scheduled routine ([^\s.]+)\. Follow your CURRENT standing instructions(?: and permissions)?\.\r?\n(?:This execution has its own background chat[^\r\n]*\r?\n)?Use your memory and conversation archive for prior results\. For information watches, check sources and dates, remember last-seen items, and report only meaningful new findings\.\r?\n\r?\n/;
 
 export function routineTask(text: string): string | null {
   const match = envelope.exec(text);

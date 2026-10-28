@@ -107,3 +107,20 @@ it("says who still works on a request whose turn made room for the next message"
   ]);
   expect(screen.getByTestId("turn-background").textContent).toContain("Agent T2");
 });
+
+describe("the turn header's seat", () => {
+  it("names the provider and model by their readable names", () => {
+    const events = [
+      ev("turn_started", { turn_id: "s1", provider: "claude-api", model: "claude-sonnet-5-5" }),
+      ev("assistant_text", { turn_id: "s1", message_id: "m", text: "ok" }),
+      ev("turn_finished", { turn_id: "s1", status: "done" }),
+    ];
+    render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, events).items} assistantName="Mailbox"
+      providerLabel={(id) => (id === "claude-api" ? "Anthropic Claude" : id)}
+      modelLabel={(_p, model) => (model === "claude-sonnet-5-5" ? "Claude Sonnet 5.5" : model)}
+      onDecide={() => undefined} />);
+    const turn = screen.getByTestId("agent-turn");
+    expect(turn.textContent).toContain("Anthropic Claude · Claude Sonnet 5.5");
+    expect(turn.textContent).not.toContain("claude-sonnet-5-5");
+  });
+});
