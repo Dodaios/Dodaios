@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { AgentSwatch } from "../AgentSwatch";
 import { agentTint } from "../agentTint";
 import type { SocietyAgent } from "../data";
-import type { RosterPreview, RosterStatus } from "./rosterPreview";
+import { readableWaiting, type RosterPreview, type RosterStatus } from "./rosterPreview";
 
 export function StatusMark({ status, className }: { status: RosterStatus; className?: string }) {
   const t = useT();
@@ -55,7 +55,7 @@ export function PreviewLine({ preview, className }: { preview: RosterPreview; cl
     return (
       <span className={cn("as-row-preview", className)} data-kind="waiting" data-testid="roster-preview">
         <span className="as-preview-tag">{t("society.shell.preview_needs_you")}</span>
-        {preview.text ? <> · {preview.text}</> : null}
+        {preview.text ? <> · {readableWaiting(preview.text, t)}</> : null}
       </span>
     );
   }

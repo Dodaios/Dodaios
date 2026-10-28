@@ -44,7 +44,8 @@ import {
   type PatchSessionInput,
   type ProviderHealth,
 } from "@/lib/agentChatApi";
-import { EMPTY_TIMELINE, noteApprovalRule, reduceEvent, reduceEvents, settleApproval, type Timeline } from "@/components/agentchat/reduce";
+import { EMPTY_TIMELINE, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, settleApproval, type Timeline } from "@/components/agentchat/reduce";
+import { markAnswered } from "@/components/society/attention/attentionStore";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
 import { reuseHistoryRows } from "@/lib/historyRequests";
@@ -915,15 +916,22 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         const sid = get().activeSessionId;
         if (!sid) return;
         let outcome: string = decision;
+        // The person has answered: "needs your OK" leaves the live line and
+        // the roster now, not when the backend's confirmation arrives.
+        set({ timeline: markApprovalAnswering(get().timeline, approvalId, true) });
         try {
           if (rule) await resolveAgentChatApproval(sid, approvalId, decision, rule);
           else await resolveAgentChatApproval(sid, approvalId, decision);
+          markAnswered(approvalId);
         } catch (err) {
           // 410: the card outlived what it asked for (an app restart) and is
           // closed now; 404: the backend never knew it. Either way nothing
           // waits on it, and the next card the agent opened takes its place.
           const gone = err instanceof AgentChatApiError && (err.status === 404 || err.status === 410);
-          if (!gone) throw err;
+          if (!gone) {
+            if (get().activeSessionId === sid) set({ timeline: markApprovalAnswering(get().timeline, approvalId, false) });
+            throw err;
+          }
           outcome = "expired";
         }
         if (get().activeSessionId === sid) {

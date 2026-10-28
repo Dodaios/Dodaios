@@ -226,3 +226,26 @@ describe("inspector width", () => {
     expect(inspectorDocked(700, 420)).toBe(false);
   });
 });
+
+describe("the inspector's cost", () => {
+  const costed = (runner: string, extra: Record<string, unknown> = {}) => turnOf([
+    ev("turn_started", { turn_id: "c1", provider: "claude-api", runner }),
+    ev("assistant_text", { turn_id: "c1", message_id: "m", text: "ok" }),
+    ev("turn_finished", { turn_id: "c1", status: "done", duration_ms: 1_000, cost_usd: 0.3427, ...extra }),
+  ]);
+
+  it("names no price for a subscription seat: the plan covers it", () => {
+    draw(costed("claude-cli"));
+    const meta = screen.getByTestId("work-inspector").querySelector(".wi-meta")!.textContent ?? "";
+    expect(meta).toContain("Included in your plan");
+    expect(meta).not.toContain("$");
+  });
+
+  it("keeps the amount for a per-token key", () => {
+    draw(costed("api"));
+    expect(screen.getByTestId("work-inspector").querySelector(".wi-meta")!.textContent).toContain("$0.3427");
+    cleanup();
+    draw(costed("claude-cli", { billed_via_key: true }));
+    expect(screen.getByTestId("work-inspector").querySelector(".wi-meta")!.textContent).toContain("$0.3427");
+  });
+});

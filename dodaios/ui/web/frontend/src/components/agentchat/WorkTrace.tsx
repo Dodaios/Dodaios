@@ -8,7 +8,7 @@ import { PetMark } from "@/components/pets/PetMark";
 import type { PetState } from "@/lib/petStates";
 import { cn } from "@/lib/utils";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
-import { hasPersonCard, isCredentialTool, isQuestionTool, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
+import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
 import { QuestionCard } from "./QuestionCard";
@@ -799,10 +799,12 @@ export function TurnTrace({ turn, ...props }: { turn: TurnItem; onDecide?: Decid
   const t = useT();
   const tokens = outputTokens(turn.usage ?? turn.liveUsage);
   const answered = turn.blocks.some(block => block.kind === "text" && block.text.trim());
+  // Only a per-token key shows a price; a subscription's turn costs nothing extra.
+  const cost = turn.costUsd !== null && turn.costUsd > 0 && billedPerToken(turn) ? turn.costUsd : null;
   return <WorkTrace {...props} blocks={turn.blocks} status={turn.status} startedMs={turn.startedMs} durationMs={turn.durationMs} error={turnErrorText(turn.error, t)}
     completionLabel={!answered ? t("agent_chat.turn_no_answer") : undefined}
-    receipt={tokens !== null && tokens > 0 || turn.costUsd !== null && turn.costUsd > 0 ? <>
+    receipt={tokens !== null && tokens > 0 || cost !== null ? <>
       {tokens !== null && tokens > 0 ? <span aria-live="off" className="tabular-nums">{formatTokens(tokens)} {t("agent_chat.tokens")}</span> : null}
-      {turn.costUsd !== null && turn.costUsd > 0 ? <span className="tabular-nums">${turn.costUsd.toFixed(4)}</span> : null}
+      {cost !== null ? <span className="tabular-nums">${cost.toFixed(4)}</span> : null}
     </> : undefined} />;
 }

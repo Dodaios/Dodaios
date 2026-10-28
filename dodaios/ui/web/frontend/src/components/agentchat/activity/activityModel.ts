@@ -214,7 +214,7 @@ function fileName(path: string): string {
 
 /** The call waits on the person: an open question, a credential field, an approval. */
 function waitsForPerson(block: TurnBlock): block is ToolBlock {
-  return block.kind === "tool" && (waitsOnCard(block) || Boolean(block.approval && block.approval.decision === null));
+  return block.kind === "tool" && (waitsOnCard(block) || Boolean(block.approval && block.approval.decision === null && !block.approval.answering));
 }
 
 /** Question and credential polls draw nothing: the card speaks for them. */

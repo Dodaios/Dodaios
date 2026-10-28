@@ -119,6 +119,40 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* A request read as label/value lines; the raw text waits behind a quiet toggle. */
+.action-card-fields { margin-top: 6px; }
+.action-card-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 14px;
+  background: hsl(var(--secondary) / 0.7);
+  padding: 8px 12px;
+}
+.action-card-row {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 34%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 2px 0;
+  font-size: 13px;
+  line-height: 19px;
+}
+.action-card-row dt { color: hsl(var(--muted-foreground)); overflow-wrap: anywhere; }
+.action-card-row dd { margin: 0; color: hsl(var(--foreground)); overflow-wrap: anywhere; white-space: pre-wrap; }
+.action-card-raw-toggle {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 2px 8px 2px 4px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  transition: color 120ms ease, background-color 120ms ease;
+}
+.action-card-raw-toggle:hover { color: hsl(var(--foreground)); background: hsl(var(--secondary) / 0.7); }
+.action-card-raw-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
 .action-card-copy {
   position: absolute;
   top: 5px;

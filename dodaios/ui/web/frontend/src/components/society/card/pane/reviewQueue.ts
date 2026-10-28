@@ -6,6 +6,7 @@
 import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { markAnswered } from "../../attention/attentionStore";
 import { requestError } from "../../data";
 
 export type ReviewItemKind = "proposal" | "memory_share" | "memory";
@@ -77,6 +78,10 @@ export function useDecideReviewItem(agentId: string) {
         if (!res.ok) {
           throw requestError((await res.json().catch(() => null)) as { detail?: unknown } | null, `HTTP ${res.status}`);
         }
+        // The roster and the chat header stop asking for it at once.
+        markAnswered(item.id);
+        // The roster names a proposal by its bare id ("proposal:p1" -> "p1").
+        markAnswered(item.id.replace(/^[a-z_]+:/, ""));
         return (await res.json()) as ReviewOutcome;
       } catch (err) {
         if (before) client.setQueryData(key, before);

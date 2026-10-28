@@ -5620,7 +5620,7 @@
       "job_hint": "Vira o início das instruções. Você pode refiná-las a qualquer momento no chat dele."
     },
     "runtime_note": {
-      "jarvis": "Nosso próprio ciclo de agente: todas as ferramentas e qualquer provedor conectado. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento.",
+      "jarvis": "O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento.",
       "hermes": "Roda no ambiente Hermes; a configuração fica por nossa conta. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento.",
       "openclaw": "Roda no ambiente OpenClaw; a configuração fica por nossa conta. O tipo fica fixo quando o agente é criado; o modelo pode mudar a qualquer momento."
     },
@@ -6983,7 +6983,7 @@
       "delegate_line": "Entrega isto ao agente '{0}' (id {1}) com delegate-to-agent e informa aqui quando estiver concluído.",
       "proposal_title": "{0} propõe uma alteração",
       "proposal_reason": "Porquê",
-      "proposal_confirm": "Confirmar",
+      "proposal_confirm": "Aplicar",
       "proposal_reject": "Rejeitar",
       "proposal_pending": "À espera da tua decisão",
       "proposal_applied": "Aplicada",
@@ -7867,6 +7867,31 @@
       "mcp_admin": "geriu um servidor MCP",
       "settings": "leu as definições",
       "verify": "executou uma verificação"
+    },
+    "tool": {
+      "create_routine": "Criar uma rotina",
+      "routines": "Ver rotinas",
+      "update_routine": "Alterar uma rotina",
+      "invoke_routine": "Executar uma rotina",
+      "propose_change": "Propor uma alteração",
+      "message_agent": "Escrever a outro agente",
+      "status": "Ver como estão os agentes",
+      "review": "Rever o trabalho",
+      "create_agent": "Criar um agente",
+      "update_agent": "Alterar um agente",
+      "archive_agent": "Arquivar um agente",
+      "switch_model": "Mudar o modelo de um agente",
+      "team": "Coordenar a equipa",
+      "wiki_note": "Guardar uma nota",
+      "memory_recall": "Procurar na memória",
+      "conversation_recall": "Procurar em conversas anteriores",
+      "run_skill": "Executar uma competência",
+      "browser": "Usar o navegador",
+      "shell": "Executar um comando",
+      "sandbox": "Usar a sandbox",
+      "request_credential": "Pedir um início de sessão",
+      "catalog": "Ver o que está disponível",
+      "context": "Ler o contexto"
     }
   },
   "chat_media": {
@@ -10707,7 +10732,8 @@
       "no_answer": "Sem resposta",
       "truncated": "Mais {count} linhas não exibidas",
       "empty_output": "Não retornou nada.",
-      "took": "Levou {duration}"
+      "took": "Levou {duration}",
+      "included": "Incluído no seu plano"
     },
     "row": {
       "prompt": "Sua mensagem",
@@ -10782,7 +10808,8 @@
       "connector": "Usar {app}?",
       "connector_verb": "Usar {app} para “{verb}”?",
       "tool": "Executar {tool}?",
-      "tool_plain": "Executar esta ferramenta?"
+      "tool_plain": "Executar esta ferramenta?",
+      "action": "{action}?"
     },
     "field": {
       "in": "Em {where}",
@@ -10858,7 +10885,8 @@
       "reach_everything": "Tudo neste chat",
       "reach_tool_plain": "A ferramenta toda",
       "cancel": "Cancelar"
-    }
+    },
+    "raw": "Dados em bruto"
   },
   "games": {
     "title": "Configurações de jogos",

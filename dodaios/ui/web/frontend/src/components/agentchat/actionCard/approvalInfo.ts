@@ -49,6 +49,8 @@ export interface ApprovalCardInfo {
   brief: string;
   /** `null`: the card offers no "Always allow" (a plan). */
   rule: ApprovalRuleOffer | null;
+  /** One of the agents' own tools, by what it does ("Create a routine"); absent for any other call. */
+  action?: string;
 }
 
 /** A standing rule saved from a card (`notice{kind:"approval_rule"}`). */

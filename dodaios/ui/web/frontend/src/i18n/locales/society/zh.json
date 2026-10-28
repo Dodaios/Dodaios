@@ -673,8 +673,8 @@
       "loading": "正在加载智能体…"
     },
     "triggers": {
-      "group": "触发器分组",
-      "kind": "触发器",
+      "group": "由什么启动",
+      "kind": "方式",
       "all_sources": "所有触发器",
       "amount": "每",
       "minutes": "分钟",
@@ -682,7 +682,7 @@
       "days": "天",
       "time": "时间",
       "timezone": "时区",
-      "expression": "Cron 表达式",
+      "expression": "时间规则（cron）",
       "date": "本地日期和时间",
       "endpoint": "端点",
       "topic": "主题 / 队列 / 流",
@@ -718,25 +718,25 @@
       "provider_saved": "服务商验证已配置。",
       "use_input": "使用已配置的触发器输入。",
       "groups": {
-        "human": "人工",
-        "time": "时间",
-        "api": "API",
-        "external": "外部事件",
-        "stream": "流和消息",
-        "system": "系统",
-        "internal": "内部工作流"
+        "human": "由你启动",
+        "time": "按时间",
+        "api": "来自其他应用",
+        "external": "当某个服务中发生事情时",
+        "stream": "来自实时数据流",
+        "system": "当这台电脑上有变化时",
+        "internal": "在另一个例行任务或工作流之后"
       },
       "kinds": {
-        "manual": "手动",
-        "chat": "对话",
-        "form": "表单",
+        "manual": "仅在你启动时",
+        "chat": "从对话中",
+        "form": "通过表单",
         "mcp": "MCP",
-        "every": "间隔",
-        "calendar": "日历计划",
-        "cron": "Cron",
-        "after_delay": "延迟后",
-        "at_time": "在指定日期/时间",
-        "webhook": "Webhook",
+        "every": "每隔几分钟、几小时或几天",
+        "calendar": "在固定时间",
+        "cron": "高级时间规则",
+        "after_delay": "等待后运行一次",
+        "at_time": "在指定日期和时间运行一次",
+        "webhook": "当某个网址被调用时",
         "github": "GitHub",
         "linear": "Linear",
         "gmail": "Gmail",
@@ -747,12 +747,12 @@
         "rabbitmq": "RabbitMQ",
         "mqtt": "MQTT",
         "redis": "Redis Streams",
-        "file": "文件已更改",
-        "on_event": "系统事件",
-        "workflow": "工作流 → 工作流",
-        "event_hook": "命名事件",
-        "workflow_activated": "工作流已启用",
-        "workflow_failed": "工作流失败"
+        "file": "当文件变化时",
+        "on_event": "当应用报告事件时",
+        "workflow": "在另一个例行任务或工作流之后",
+        "event_hook": "当命名事件发生时",
+        "workflow_activated": "当工作流被开启时",
+        "workflow_failed": "当工作流失败时"
       },
       "when": {
         "succeeded": "成功后",
@@ -2077,7 +2077,12 @@
         "setup_in_chat": "在聊天中设置",
         "setup_prompt": "帮我创建一个例行任务：",
         "or_chat": "或在聊天中描述",
-        "empty_body": "这个智能体自行完成的工作，例如早间摘要或每周检查。"
+        "empty_body": "这个智能体自行完成的工作，例如早间摘要或每周检查。",
+        "when_label": "何时",
+        "when_placeholder": "例如：每个工作日 7 点",
+        "when_unclear": "没看懂具体时间。试试“每周一 9 点”或“每 2 小时”。",
+        "more_options": "更多选项",
+        "fewer_options": "收起选项"
       },
       "parking": {
         "title": "已暂停：结果无人查看",
@@ -2111,7 +2116,7 @@
       "runs": {
         "empty": "还没有运行记录。点击“测试运行”立即试试。",
         "manual": "手动",
-        "included": "包含在你的订阅中",
+        "included": "包含在你的套餐中",
         "skip_away": "已跳过：结果一段时间无人打开，因此例行任务已暂停。",
         "show_all": "显示全部 {n} 条",
         "show_less": "收起"

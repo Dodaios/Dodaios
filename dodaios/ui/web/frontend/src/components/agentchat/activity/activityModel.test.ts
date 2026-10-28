@@ -97,6 +97,9 @@ describe("activityOf", () => {
     expect(activityOf(turn([question, thought("r2")]))?.phrase).toBe("waiting");
     const approval = call("Bash", { command: "rm -rf x" }, null, { approval: { approvalId: "a", summary: "", decision: null } });
     expect(activityOf(turn([approval]))?.phrase).toBe("waiting_approval");
+    // Answered here and on its way: the line stops asking for an OK at once.
+    const answering = call("Bash", { command: "rm -rf x" }, null, { approval: { approvalId: "a", summary: "", decision: null, answering: true } });
+    expect(activityOf(turn([answering]))?.phrase).not.toBe("waiting_approval");
   });
 
   it("question polls are plumbing, and running helpers keep the line on delegation", () => {

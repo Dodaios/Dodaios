@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { listSubagents, subagentTurn, type SubagentEntry } from "@/components/agentic/threads/subagents";
 import { ChatMarkdown } from "../ChatMarkdown";
-import type { SubagentStatus, ToolBlock, TurnItem } from "../reduce";
+import { billedPerToken, type SubagentStatus, type ToolBlock, type TurnItem } from "../reduce";
 import { toolDiff } from "../toolDiff";
 import { plural, readableOutput, traceDuration } from "../traceEntries";
 import { formatTokens, outputTokens } from "../toolView";
@@ -105,7 +105,10 @@ export const WorkInspector = memo(function WorkInspector({
   if (turn.status === "running") meta.push(t("run_view.work.working"));
   else if (turn.durationMs) meta.push(fill(t("run_view.work.worked_for"), { duration: traceDuration(turn.durationMs) }));
   if (tokens && tokens > 0) meta.push(fill(t("run_view.inspector.tokens"), { count: formatTokens(tokens) }));
-  if (turn.costUsd !== null && turn.costUsd > 0) meta.push(`$${turn.costUsd.toFixed(4)}`);
+  if (turn.costUsd !== null && turn.costUsd > 0) {
+    // A subscription bills nothing per turn: a dollar figure would contradict "$0.00 spent".
+    meta.push(billedPerToken(turn) ? `$${turn.costUsd.toFixed(4)}` : t("run_view.inspector.included"));
+  }
   if (turn.model) meta.push(turn.model);
 
   return <aside ref={pane} tabIndex={-1} aria-labelledby={titleId}

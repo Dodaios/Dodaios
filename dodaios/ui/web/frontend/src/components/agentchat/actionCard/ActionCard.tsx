@@ -65,7 +65,14 @@ export interface ActionCardProps {
   ariaLabel: string;
   /** Subtitle lines in their fixed order: where, what, why, context. */
   lines?: ReactNode[];
-  disclosure?: { text: string; showLabel: string; hideLabel: string; defaultOpen?: boolean };
+  /**
+   * The exact request, copyable. With `rows` it reads as label/value lines
+   * and the raw text waits behind a quieter `rawLabel` toggle.
+   */
+  disclosure?: {
+    text: string; showLabel: string; hideLabel: string; defaultOpen?: boolean;
+    rows?: { label: string; value: string }[]; rawLabel?: string;
+  };
   children?: ReactNode;
   failure?: string | null;
   note?: ReactNode;
@@ -194,16 +201,35 @@ function ActionButton({ action, pending, compact = false }: { action: ActionSpec
   </button>;
 }
 
-function Disclosure({ text, showLabel, hideLabel, defaultOpen = false }: NonNullable<ActionCardProps["disclosure"]>) {
+function Disclosure({ text, showLabel, hideLabel, defaultOpen = false, rows, rawLabel }: NonNullable<ActionCardProps["disclosure"]>) {
   const [open, setOpen] = useState(defaultOpen);
+  const [raw, setRaw] = useState(false);
   const id = useId();
+  const rawId = useId();
+  const readable = Boolean(rows?.length);
   return <div className="mt-2.5 min-w-0">
     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={id}
       className="flex items-center gap-1 rounded-md text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-150", !open && "-rotate-90")} />
       {open ? hideLabel : showLabel}
     </button>
-    {open ? <div id={id} className="action-card-code">
+    {open && readable ? <div id={id} className="action-card-fields">
+      <dl className="action-card-rows" data-testid="action-card-rows">
+        {rows!.map((row, i) => <div key={`${row.label}:${i}`} className="action-card-row">
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </div>)}
+      </dl>
+      <button type="button" onClick={() => setRaw((v) => !v)} aria-expanded={raw} aria-controls={rawId}
+        className="action-card-raw-toggle" data-testid="action-card-raw">
+        <ChevronDown aria-hidden className={cn("h-3 w-3 transition-transform duration-150", !raw && "-rotate-90")} />
+        {rawLabel}
+      </button>
+      {raw ? <div id={rawId} className="action-card-code">
+        <pre data-testid="action-card-detail">{text}</pre>
+        <CopyText text={text} />
+      </div> : null}
+    </div> : open ? <div id={id} className="action-card-code">
       <pre data-testid="action-card-detail">{text}</pre>
       <CopyText text={text} />
     </div> : null}

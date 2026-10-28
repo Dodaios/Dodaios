@@ -394,3 +394,24 @@ async def test_correction_at_start_of_large_memory_keeps_its_visible_diff(rt):
     assert notices[-1]["before"] == notices[-1]["after"]  # Both bounded snapshots carry the tail.
     assert "-Use paragraphs." in notices[-1]["markdown_diff"]
     assert "+Use bullet lists." in notices[-1]["markdown_diff"]
+
+
+async def test_inventory_lists_applied_standing_rules_still_in_the_instructions(rt):
+    agent = await rt.roster.get("scout")
+
+    async def proposal(text: str, *, approve: bool) -> None:
+        item = await rt.approvals.enqueue(
+            agent_id=agent.agent_id, trace_id="t", capability="core:config:rule",
+            action={"kind": "rule", "payload": {"operation": "add", "text": text}},
+            summary=f"Add a standing rule: {text}",
+        )
+        await rt.approvals.resolve(item.id, approve=approve)
+
+    await proposal("Always answer in English.", approve=True)
+    await proposal("Keep every answer under three sentences.", approve=False)
+    await proposal("Cite every source.", approve=True)
+    await rt.roster.update(agent.agent_id, {"description": agent.description + "\n\nAlways answer in English."})
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(society=rt)))
+    inventory = await agent_knowledge("scout", request)
+    # Rejected and edited-away rules stay out; the applied one shows beside the learned ones.
+    assert inventory["applied_rules"] == ["Always answer in English."]

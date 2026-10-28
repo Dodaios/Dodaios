@@ -368,6 +368,54 @@ export function readableToolName(name: string): string {
   return humanize(bare.replace(/^society_(?=.)/i, "")) || humanize(bare) || name;
 }
 
+/**
+ * The agents' own tools ("mcp__dodaios__society-create-routine") by what they
+ * do for the person. Keys are bare names past "society", lowercase, without
+ * "-" or "_"; values name a `trace_report.tool.*` line.
+ */
+const AGENT_TOOLS: Record<string, string> = {
+  createroutine: "create_routine", routines: "routines", listroutines: "routines",
+  updateroutine: "update_routine", routineoperation: "update_routine", invokeroutine: "invoke_routine",
+  proposechange: "propose_change", messageagent: "message_agent", message: "message_agent",
+  status: "status", review: "review", createagent: "create_agent", updateagent: "update_agent",
+  archiveagent: "archive_agent", switchagentmodel: "switch_model",
+  teamassign: "team", teamtasks: "team", teamreport: "team", teamgoals: "team", teamboard: "team", teamsweep: "team",
+  wikinote: "wiki_note", memoryrecall: "memory_recall", conversationrecall: "conversation_recall",
+  runskill: "run_skill", skill: "run_skill", browser: "browser", browseraction: "browser",
+  shell: "shell", sandbox: "sandbox", requestcredential: "request_credential",
+  capabilitycatalog: "catalog", agentcatalog: "catalog", context: "context",
+};
+
+/** The `trace_report.tool.*` key of one of the agents' own tools, or null. */
+export function agentToolKey(name: string): string | null {
+  const raw = name.trim();
+  const routed = traceToolName(raw);
+  const own = OWN_SINGLE.test(raw) || !routed.includes("/") || ownServerTool(routed) !== null;
+  if (!own) return null;
+  const bare = bareToolName(raw).toLowerCase();
+  if (!/^society[-_]/.test(bare)) return null;
+  return AGENT_TOOLS[bare.replace(/^society[-_]/, "").replace(/[-_\s]/g, "")] ?? null;
+}
+
+/** One of the agents' own tools in words ("Create a routine"), or null for any other tool. */
+export function agentToolLabel(name: string, t: Translate): string | null {
+  const key = agentToolKey(name);
+  return key ? tr(t, `tool.${key}`) : null;
+}
+
+/** Any tool id a person can read: the agents' own tools by what they do, others by name. */
+export function friendlyToolName(name: string, t: Translate): string {
+  return agentToolLabel(name, t) ?? readableToolName(name);
+}
+
+/** A summary that is only the tool's id ("mcp__dodaios__society_routines"), not words. */
+export function isRawToolId(text: string, name = ""): boolean {
+  const clean = text.trim();
+  if (!clean || /\s/.test(clean)) return false;
+  if (name && (clean === name.trim() || bareToolName(clean) === bareToolName(name))) return true;
+  return /^mcp_/i.test(clean) || /^society[-_][a-z0-9_-]+$/i.test(clean) || /^[a-z0-9]+(?:[_-][a-z0-9]+)*\/[\w-]+$/i.test(clean) || /__/.test(clean);
+}
+
 type InternalTool = "lookup" | "asked";
 
 /**
@@ -443,7 +491,10 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
   }
   if (action === "list") {
     const path = firstString(record, ACTION_KEYS.list) || description.detail || ".";
-    return { ...base, kind: "list", text: tr(t, "call.list", { target: shortPath(path) }), bucket: "list" };
+    // "Listed *" says nothing: a bare wildcard or the current folder is the folder itself.
+    const text = /^(?:\.[\\/]?|\*{1,2}(?:[\\/]\*)?(?:\.\*)?)$/.test(path.trim())
+      ? capitalize(tr(t, "act.list_one")) : tr(t, "call.list", { target: shortPath(path) });
+    return { ...base, kind: "list", text, bucket: "list" };
   }
   if (action === "search") {
     const pattern = oneLine(firstString(record, ACTION_KEYS.search) || description.detail, 60);
@@ -462,6 +513,11 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
   if (FAMILIES.has(family)) {
     const kind: CallKind = family === "web" ? "web" : "family";
     return { ...base, kind, text: capitalize(tr(t, `family.${family}`)), detail: oneLine(description.detail, 100), result, bucket: `family:${family}` };
+  }
+  // The agents' own tools say what they do ("Create a routine"), never their ids.
+  const agentLabel = agentToolLabel(block.name, t);
+  if (agentLabel) {
+    return { ...base, kind: "tool", text: agentLabel, detail: oneLine((own ?? description).detail, 100), result, bucket: `agent:${agentLabel}` };
   }
   if (own && ownTool !== null) {
     // The app's own server is the road, not the destination: "dodaios/gmail"
@@ -492,6 +548,7 @@ export function summarize(calls: Call[], t: Translate, lang: string): string {
   const parts: string[] = [];
   for (const [bucket, n] of counts) {
     if (bucket.startsWith("used:")) used.push(bucket.slice(5));
+    else if (bucket.startsWith("agent:")) parts.push(bucket.slice(6));
     else if (bucket.startsWith("family:")) parts.push(tr(t, `family.${bucket.slice(7)}`));
     else parts.push(tr(t, `act.${bucket}_${plural(lang, n)}`));
   }

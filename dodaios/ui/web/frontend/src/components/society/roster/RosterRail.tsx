@@ -43,6 +43,7 @@ import { useRosterUnreadState } from "./useRosterUnread";
 import { ChatGroupDialog } from "../chat/ChatGroupDialog";
 import { RosterRow, StatusMark } from "./RosterRow";
 import { RosterHoverCard, type HoverCardData } from "./RosterHoverCard";
+import { useAttentionStore } from "../attention/attentionStore";
 import { formatRelative, needsYou, rosterPreview, rosterStatus, waitingReasonOf } from "./rosterPreview";
 import { HIDDEN_AGENTS_KEY, MAX_PINNED, ORDER_KEY, PINNED_KEY, togglePin, usePersistedIds, writeIdList } from "./rosterPrefs";
 import type { RosterActivityMap } from "./useRosterActivity";
@@ -207,6 +208,8 @@ export function RosterRail({
     setGroupMenu({ groupId, x: event.clientX, y: event.clientY });
   };
 
+  // A card answered here stops the row saying "needs you" before the next roster read.
+  const answered = useAttentionStore((state) => state.answered);
   const lead = useMemo(() => agents.find((a) => a.tier === "lead") ?? null, [agents]);
   const groupedIds = useMemo(() => new Set(groups.flatMap((group) => group.members)), [groups]);
   // A group may hold the lead, who wears the assistant's chosen name everywhere.
@@ -221,6 +224,7 @@ export function RosterRail({
   const visibleGroups = groups.filter((group) => `${group.name} ${group.members.map(memberName).join(" ")}`.toLowerCase().includes(q));
 
   const { heroLead, pinned, attention, leadRow, rows } = useMemo(() => {
+    void answered; // The waiting reasons below read the answered cards.
     const isHidden = (a: SocietyAgent) => !showHidden && hiddenIds.includes(a.agentId);
     const matches = (a: SocietyAgent) => !q || `${a.name} ${display(a)} ${a.title}`.toLowerCase().includes(q);
     const shown = (a: SocietyAgent) => !isHidden(a) && matches(a);
@@ -259,7 +263,7 @@ export function RosterRail({
       return rank[a.tier] - rank[b.tier];
     });
     return { heroLead: hero, pinned: pinnedRows, attention: waiting, leadRow: leadShown, rows: rest };
-  }, [agents, browsing, display, groupedIds, hiddenIds, lead, orderIds, pinIds, q, showHidden, teamsPending]);
+  }, [agents, answered, browsing, display, groupedIds, hiddenIds, lead, orderIds, pinIds, q, showHidden, teamsPending]);
 
   // While searching or filtering, the list is an excerpt — dragging there
   // would file agents by where they happen to sit in it, so rows stay put.

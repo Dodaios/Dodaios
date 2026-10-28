@@ -302,7 +302,7 @@ function CreateAgentDialog() {
                     <span className="cs-label">{t("society.create_agent.companion_label")}</span>
                     <div className="-mx-4">
                       <Suspense fallback={null}>
-                        <CompanionEditor value={companion} onChange={setCompanion} disabled={saving} />
+                        <CompanionEditor value={companion} onChange={setCompanion} disabled={saving} preview3d={false} />
                       </Suspense>
                     </div>
                   </div>

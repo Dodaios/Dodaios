@@ -104,6 +104,7 @@ import { CatchUpPill, RunAnnouncer, SettleBox, TranscriptStamp, useFarFromEnd, u
 import { WorkInspector } from "@/components/agentchat/inspector/WorkInspector";
 import { inspectorDocked, readInspectorWidth, writeInspectorWidth } from "@/components/agentchat/inspector/inspectorWidth";
 import { useInspectedTurn } from "@/components/agentchat/inspector/inspectedTurn";
+import { markAnswered } from "../attention/attentionStore";
 
 /** Who spoke an item, for time stamps that never split one speaker's run. */
 function stampEntry(item: TimelineItem): StampEntry {
@@ -1019,6 +1020,7 @@ function ProposalCard({ item }: { item: NoticeItem }) {
     setError("");
     try {
       await resolve(proposalId, approve, kind === "team" && approve ? chosen.join(", ") : "");
+      markAnswered(proposalId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

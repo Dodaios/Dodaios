@@ -15,6 +15,32 @@ export interface RoutineSeat {
 
 export const EMPTY_SEAT: RoutineSeat = { provider: "", model: "", effort: "", account_id: "" };
 
+const UPPER_WORDS = new Set(["gpt", "glm", "ai", "api", "llm", "oss"]);
+
+/** A model id as a name, when the catalog has none: "claude-sonnet-5-5" -> "Claude Sonnet 5.5". */
+export function prettyModelId(id: string): string {
+  const tail = id.split("/").pop() ?? id;
+  const parts: string[] = [];
+  for (const token of tail.split(/[-_\s]+/).filter(Boolean)) {
+    const last = parts[parts.length - 1];
+    if (/^\d{1,2}$/.test(token) && last && /^\d{1,2}(?:\.\d{1,2})*$/.test(last)) parts[parts.length - 1] = `${last}.${token}`;
+    else parts.push(UPPER_WORDS.has(token.toLowerCase()) ? token.toUpperCase() : /^\d/.test(token) ? token : token.charAt(0).toUpperCase() + token.slice(1));
+  }
+  return parts.join(" ") || id;
+}
+
+/** The seat as a person names it: the model's catalog name (else a tidy id), then its effort. */
+export function useSeatLabel(seat: RoutineSeat): string {
+  const catalog = useAgentChat((state) => state.catalog);
+  if (!seat.provider) return "";
+  const providers = Array.isArray(catalog?.providers) ? catalog.providers : [];
+  const provider = providers.find((row) => row.id === seat.provider);
+  const model = seat.model
+    ? provider?.curated_models?.find((row) => row.id === seat.model)?.label || prettyModelId(seat.model)
+    : provider?.label || prettyModelId(seat.provider);
+  return seat.effort ? `${model} · ${seat.effort}` : model;
+}
+
 const field = "w-full rounded-lg border border-border bg-background px-3 py-2 text-[12px] text-foreground";
 const miniLabel = "block space-y-1 text-xs text-muted-foreground";
 

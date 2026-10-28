@@ -1374,6 +1374,35 @@ async def switch_agent_model(agent_id: str, body: ModelBody, request: Request) -
 # ------------------------------------------------------------------ skills
 
 
+async def _applied_rules(rt: Any, agent: Any) -> list[str]:
+    """Standing rules the person applied from a proposal that the instructions still hold.
+
+    An applied ``rule`` proposal lands in the agent's instructions, not in its
+    notebooks, so the learned-rules list would never show it. A rule edited
+    away by hand since then is left out.
+    """
+    from dodaios.society.events import ApprovalState
+    from dodaios.society.proposals import kind_of
+
+    description = str(getattr(agent, "description", "") or "")
+    try:
+        approved = await rt.approvals.items(state=ApprovalState.APPROVED, agent_id=agent.agent_id)
+    except Exception:  # noqa: BLE001 — the list is a convenience; the page still loads without it
+        log.warning("society: applied rules unavailable for %s", agent.agent_id, exc_info=True)
+        return []
+    out: list[str] = []
+    for item in approved:
+        if kind_of(item.capability) != "rule":
+            continue
+        payload = (item.action or {}).get("payload") or {}
+        if not isinstance(payload, dict) or str(payload.get("operation") or "add") == "remove":
+            continue
+        text = str(payload.get("text") or "").strip()
+        if text and text in description and text not in out:
+            out.append(text)
+    return out
+
+
 @router.get("/agents/{agent_id}/knowledge")
 async def agent_knowledge(agent_id: str, request: Request) -> dict[str, Any]:
     """List this agent's current memory, learned skills, working rules and review status."""
@@ -1393,6 +1422,7 @@ async def agent_knowledge(agent_id: str, request: Request) -> dict[str, Any]:
     return {
         "files": files,
         "learned_instructions": [e.text[len(PREFIX) :] for e in rules(entries)],
+        "applied_rules": await _applied_rules(rt, agent),
         "reviews": rt.conversations.review_counts(agent.agent_id),
         "last_review": json.loads(last) if last else None,
     }

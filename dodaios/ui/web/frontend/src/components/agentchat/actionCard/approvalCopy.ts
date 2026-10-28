@@ -1,5 +1,6 @@
 import { fill } from "@/i18n";
 import type { ToolBlock } from "../reduce";
+import { agentToolLabel, capitalize, isRawToolId, readableToolName } from "../traceEntries";
 import type { ApprovalCardInfo, ApprovalSourceKind, RuleBreadth, RuleKind, RuleNarrow, SavedApprovalRule } from "./approvalInfo";
 import { maskText, maskedRequest } from "./redact";
 
@@ -50,8 +51,89 @@ export function cardInfoOf(block: ToolBlock): ApprovalCardInfo {
   };
 }
 
+/**
+ * The card with the agents' own tools named by what they do: "Create a
+ * routine?" under a plain "Tool" chip, never "Society Create Routine" or
+ * "mcp__dodaios__society-create-routine".
+ */
+export function withReadableNames(info: ApprovalCardInfo, block: ToolBlock, t: T): ApprovalCardInfo {
+  const action = agentToolLabel(block.name || "", t);
+  if (!action) return info;
+  return {
+    ...info,
+    action,
+    source: { kind: "tool", app: action, verb: info.source.verb },
+    rule: info.rule ? { ...info.rule, app: action } : null,
+  };
+}
+
+/**
+ * What the card says it is about: the summary, unless it only repeats the
+ * tool's id; then the tool's readable name, or nothing when the title already
+ * names the action.
+ */
+export function approvalSummary(info: ApprovalCardInfo, summary: string, block: ToolBlock): string {
+  const shown = shownSummary(info, summary);
+  if (!isRawToolId(shown, block.name || "")) return shown;
+  return info.action ? "" : readableToolName(block.name || shown);
+}
+
+/** Two lines that say the same thing, ignoring quotes, case and the closing stop. */
+export function sameWords(a: string, b: string): boolean {
+  const norm = (text: string) => text.toLowerCase().replace(/["'“”„«»‘’.!?…\s]+/g, " ").trim();
+  return Boolean(norm(a)) && norm(a) === norm(b);
+}
+
+export interface DetailRow {
+  label: string;
+  value: string;
+}
+
+const MAX_ROWS = 24;
+const MAX_VALUE = 400;
+
+function words(key: string): string {
+  return capitalize(key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim().toLowerCase());
+}
+
+function primitive(value: unknown): value is string | number | boolean {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+/**
+ * A request as label/value rows ("Title · QA weekly check"), nested objects
+ * one level down as "Schedule · Local time"; [] when it is not a JSON object
+ * (a command line stays as it is).
+ */
+export function detailRows(detail: string): DetailRow[] {
+  const text = detail.trim();
+  if (!text.startsWith("{")) return [];
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); } catch { return []; }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+  const rows: DetailRow[] = [];
+  const walk = (record: Record<string, unknown>, prefix: string, depth: number) => {
+    for (const [key, value] of Object.entries(record)) {
+      if (rows.length >= MAX_ROWS) return;
+      const label = prefix ? `${prefix} · ${words(key)}` : words(key);
+      if (value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) continue;
+      let shown: string;
+      if (primitive(value)) shown = String(value);
+      else if (Array.isArray(value) && value.every(primitive)) shown = value.map(String).join(", ");
+      else if (!Array.isArray(value) && depth < 1) {
+        walk(value as Record<string, unknown>, label, depth + 1);
+        continue;
+      } else shown = JSON.stringify(value);
+      rows.push({ label, value: shown.length > MAX_VALUE ? `${shown.slice(0, MAX_VALUE - 1)}…` : shown });
+    }
+  };
+  walk(parsed as Record<string, unknown>, "", 0);
+  return rows;
+}
+
 /** The source chip's label: what is asking. */
 export function sourceLabel(info: ApprovalCardInfo, t: T): string {
+  if (info.action) return t("action_card.source.tool");
   const { kind, app } = info.source;
   if ((kind === "connector" || kind === "tool") && app) return app;
   return t(`action_card.source.${kind}`);
@@ -59,6 +141,7 @@ export function sourceLabel(info: ApprovalCardInfo, t: T): string {
 
 /** The card's question-form title. */
 export function approvalTitle(info: ApprovalCardInfo, t: T): string {
+  if (info.action) return fill(t("action_card.title.action"), { action: info.action });
   const { kind, app, verb } = info.source;
   if (kind === "connector") {
     if (verb && app) return fill(t("action_card.title.connector_verb"), { app, verb });

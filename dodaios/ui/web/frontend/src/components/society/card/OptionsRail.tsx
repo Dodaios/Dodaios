@@ -120,7 +120,9 @@ export function OptionsRail({ agent, onRetired, sample = false, width, onModelSa
       <Tabs.Root value={tab} onValueChange={(value) => choose(value as PaneTab)} className="flex min-h-0 flex-1 flex-col">
         <Tabs.List className="ap-tabs" aria-label={t("society.agent_pane.tabs")}>
           {PRIMARY_TABS.map((id) => (
-            <Tabs.Trigger key={id} value={id} className="ap-tab" data-testid={`agent-pane-tab-${id}`}>
+            // Radix selects on pointer-down; a plain click (keyboard activation, element.click()) selects too.
+            <Tabs.Trigger key={id} value={id} className="ap-tab" data-testid={`agent-pane-tab-${id}`}
+              onClick={() => { if (id !== tab) choose(id); }}>
               {tabLabel(id)}
               {id === "memory" && pending > 0 ? <span className="ap-tab-badge" aria-hidden /> : null}
             </Tabs.Trigger>

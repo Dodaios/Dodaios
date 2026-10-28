@@ -32,6 +32,16 @@ export function shortDateTime(atMs: number, nowMs: number, locale: string): stri
   return `${day}, ${time}`;
 }
 
+/** "in 5 days · Mon, Nov 2, 07:00": when, in words, then the local day and time. */
+export function calmMoment(atMs: number, nowMs: number, locale: string): string {
+  const at = new Date(atMs);
+  const day = Math.abs(atMs - nowMs) < 6 * 86_400_000
+    ? at.toLocaleDateString(locale, { weekday: "long" })
+    : at.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
+  const time = at.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return `${relativeTime(atMs, nowMs, locale)} · ${day}, ${time}`;
+}
+
 /** "850 ms", "42 s", "3 min 5 s", "1 h 4 min". */
 export function formatDuration(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || !Number.isFinite(ms) || ms < 0) return "";

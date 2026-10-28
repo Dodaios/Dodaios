@@ -122,7 +122,7 @@ describe("OptionsRail (agent pane)", () => {
       if (path.includes("/review-queue")) return json({ items: [], total: 0, counts: { proposal: 0, memory_share: 0, memory: 0 } });
       if (path.includes("/knowledge")) {
         return json({ files: [{ path: "memory/USER.md", name: "USER.md", kind: "memory", updated_ms: 1, size: 10 }],
-          learned_instructions: ["Sign off with the user's first name."], reviews: { pending: 0, done: 1 }, last_review: null });
+          learned_instructions: ["Sign off with the user's first name."], applied_rules: ["Answer in English."], reviews: { pending: 0, done: 1 }, last_review: null });
       }
       if (path.includes("/skills")) return json({ skills: [{ slug: "triage", name: "Inbox triage", when_to_use: "A full inbox." }] });
       if (path.includes("/capabilities")) {
@@ -218,6 +218,15 @@ describe("OptionsRail (agent pane)", () => {
     expect(screen.getByTestId("agent-pane-tab-tasks").getAttribute("data-state")).toBe("active");
   });
 
+  test("a plain click selects a tab, as element.click() and assistive tech send it", async () => {
+    mount(agent());
+    // No pointer-down first: only the click event a keyboard or a script sends.
+    screen.getByTestId("agent-pane-tab-memory").click();
+    await waitFor(() => expect(screen.getByTestId("agent-pane-tab-memory").getAttribute("data-state")).toBe("active"));
+    screen.getByTestId("agent-pane-tab-tasks").click();
+    await waitFor(() => expect(screen.getByTestId("agent-routines").textContent).toContain("Inbox sweep"));
+  });
+
   test("folding the pane keeps routine and chat drafts", async () => {
     window.localStorage.setItem("society.agentPane.tab", "tasks");
     window.localStorage.setItem("society.shell.layout.v2", JSON.stringify({ paneOpen: true }));
@@ -274,8 +283,12 @@ describe("OptionsRail (agent pane)", () => {
     window.localStorage.setItem("society.agentPane.tab", "memory");
     writeComposerDraft(useSocietyChatStore, "society:gamil-agent", { text: "", choices: [] });
     mount(agent());
-    await screen.findByTestId("agent-pane-review-proposal:p1");
+    const proposal = await screen.findByTestId("agent-pane-review-proposal:p1");
+    // The proposal is said once: the diff line repeating the headline is not drawn again.
+    expect(proposal.textContent?.split("Reply within a day.").length).toBe(2);
     expect(screen.getByTestId("agent-pane-review-memory:7").textContent).toContain("The user prefers short replies.");
+    // An applied standing rule shows among the learned working instructions.
+    await waitFor(() => expect(screen.getByTestId("agent-pane-memory").textContent).toContain("Answer in English."));
 
     fireEvent.click(screen.getByTestId("agent-pane-review-approve-proposal:p1"));
     await waitFor(() => {

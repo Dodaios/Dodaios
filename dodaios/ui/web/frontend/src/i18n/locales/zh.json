@@ -5620,7 +5620,7 @@
       "job_hint": "会成为它指令的开头。之后随时可以在它的聊天中完善。"
     },
     "runtime_note": {
-      "jarvis": "我们自己的智能体循环：所有工具，任意已连接的提供商。智能体创建后类型固定；模型随时可以更换。",
+      "jarvis": "智能体创建后类型固定；模型随时可以更换。",
       "hermes": "运行在 Hermes 运行时中，配置工作由我们完成。智能体创建后类型固定；模型随时可以更换。",
       "openclaw": "运行在 OpenClaw 运行时中，配置工作由我们完成。智能体创建后类型固定；模型随时可以更换。"
     },
@@ -6983,7 +6983,7 @@
       "delegate_line": "用 delegate-to-agent 把这件事交给智能体“{0}”（id {1}），完成后回到这里汇报。",
       "proposal_title": "{0} 提议一项更改",
       "proposal_reason": "原因",
-      "proposal_confirm": "确认",
+      "proposal_confirm": "应用",
       "proposal_reject": "拒绝",
       "proposal_pending": "等待你的决定",
       "proposal_applied": "已应用",
@@ -7867,6 +7867,31 @@
       "mcp_admin": "管理了一个 MCP 服务器",
       "settings": "读取了设置",
       "verify": "运行了一项检查"
+    },
+    "tool": {
+      "create_routine": "创建例行任务",
+      "routines": "查看例行任务",
+      "update_routine": "修改例行任务",
+      "invoke_routine": "运行例行任务",
+      "propose_change": "提议更改",
+      "message_agent": "给其他智能体发消息",
+      "status": "查看智能体状态",
+      "review": "审阅工作",
+      "create_agent": "创建智能体",
+      "update_agent": "修改智能体",
+      "archive_agent": "归档智能体",
+      "switch_model": "切换智能体的模型",
+      "team": "协调团队",
+      "wiki_note": "保存笔记",
+      "memory_recall": "搜索记忆",
+      "conversation_recall": "搜索以往对话",
+      "run_skill": "运行技能",
+      "browser": "使用浏览器",
+      "shell": "运行命令",
+      "sandbox": "使用沙盒",
+      "request_credential": "请求登录信息",
+      "catalog": "查看可用内容",
+      "context": "读取上下文"
     }
   },
   "chat_media": {
@@ -10707,7 +10732,8 @@
       "no_answer": "没有回答",
       "truncated": "还有 {count} 行未显示",
       "empty_output": "没有返回任何内容。",
-      "took": "耗时 {duration}"
+      "took": "耗时 {duration}",
+      "included": "包含在你的套餐中"
     },
     "row": {
       "prompt": "你的消息",
@@ -10782,7 +10808,8 @@
       "connector": "使用 {app}？",
       "connector_verb": "用 {app} 执行“{verb}”？",
       "tool": "运行 {tool}？",
-      "tool_plain": "运行这个工具？"
+      "tool_plain": "运行这个工具？",
+      "action": "{action}？"
     },
     "field": {
       "in": "位置：{where}",
@@ -10858,7 +10885,8 @@
       "reach_everything": "此聊天中的一切",
       "reach_tool_plain": "整个工具",
       "cancel": "取消"
-    }
+    },
+    "raw": "原始数据"
   },
   "games": {
     "title": "游戏设置",

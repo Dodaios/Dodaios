@@ -673,8 +673,8 @@
       "loading": "Loading agents…"
     },
     "triggers": {
-      "group": "Trigger group",
-      "kind": "Trigger",
+      "group": "What starts it",
+      "kind": "How",
       "all_sources": "All triggers",
       "amount": "Every",
       "minutes": "Minutes",
@@ -682,7 +682,7 @@
       "days": "Days",
       "time": "Time",
       "timezone": "Timezone",
-      "expression": "Cron expression",
+      "expression": "Timing rule (cron)",
       "date": "Local date and time",
       "endpoint": "Endpoint",
       "topic": "Topic / queue / stream",
@@ -718,25 +718,25 @@
       "provider_saved": "Provider verification configured.",
       "use_input": "Use the configured trigger input.",
       "groups": {
-        "human": "Human",
-        "time": "Time",
-        "api": "API",
-        "external": "External events",
-        "stream": "Streams and messages",
-        "system": "System",
-        "internal": "Internal workflows"
+        "human": "When you start it",
+        "time": "On a schedule",
+        "api": "From another app",
+        "external": "When something happens in a service",
+        "stream": "From a live data feed",
+        "system": "When something changes on this computer",
+        "internal": "After another routine or workflow"
       },
       "kinds": {
-        "manual": "Manual",
-        "chat": "Chat",
-        "form": "Form",
+        "manual": "Only when you start it",
+        "chat": "From the chat",
+        "form": "From a form",
         "mcp": "MCP",
-        "every": "Interval",
-        "calendar": "Calendar schedule",
-        "cron": "Cron",
-        "after_delay": "After a delay",
-        "at_time": "At a date/time",
-        "webhook": "Webhook",
+        "every": "Every few minutes, hours or days",
+        "calendar": "At set times",
+        "cron": "Advanced timing rule",
+        "after_delay": "Once, after a wait",
+        "at_time": "Once, at a date and time",
+        "webhook": "When a web address is called",
         "github": "GitHub",
         "linear": "Linear",
         "gmail": "Gmail",
@@ -747,12 +747,12 @@
         "rabbitmq": "RabbitMQ",
         "mqtt": "MQTT",
         "redis": "Redis Streams",
-        "file": "File changed",
-        "on_event": "System event",
-        "workflow": "Workflow → workflow",
-        "event_hook": "Named event",
-        "workflow_activated": "Workflow activated",
-        "workflow_failed": "Workflow failed"
+        "file": "When a file changes",
+        "on_event": "When the app reports an event",
+        "workflow": "After another routine or workflow",
+        "event_hook": "When a named event happens",
+        "workflow_activated": "When a workflow is switched on",
+        "workflow_failed": "When a workflow fails"
       },
       "when": {
         "succeeded": "After success",
@@ -2077,7 +2077,12 @@
         "setup_in_chat": "Set one up in chat",
         "setup_prompt": "Create a routine for me: ",
         "or_chat": "Or describe it in chat",
-        "empty_body": "Jobs this agent runs on its own, like a morning digest or a weekly check."
+        "empty_body": "Jobs this agent runs on its own, like a morning digest or a weekly check.",
+        "when_label": "When",
+        "when_placeholder": "For example: every weekday at 7",
+        "when_unclear": "Not sure when that is. Try “every Monday at 9” or “every 2 hours”.",
+        "more_options": "More options",
+        "fewer_options": "Fewer options"
       },
       "parking": {
         "title": "Paused: results went unread",
@@ -2111,7 +2116,7 @@
       "runs": {
         "empty": "No runs yet. Use Test run to try it now.",
         "manual": "Manual",
-        "included": "Included in your subscription",
+        "included": "Included in your plan",
         "skip_away": "Skipped: nobody opened the results for a while, so the routine was paused.",
         "show_all": "Show all {n}",
         "show_less": "Show fewer"

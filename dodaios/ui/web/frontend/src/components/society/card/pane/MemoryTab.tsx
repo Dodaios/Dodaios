@@ -6,7 +6,7 @@
  * the agent can walk the person through the list in conversation instead.
  */
 import { useState } from "react";
-import { Check, MessageSquare, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 
 import { useRunLocale } from "@/components/runs/format";
 import { useLocaleChunk, useT } from "@/i18n";
@@ -19,8 +19,19 @@ import { useDecideReviewItem, type ReviewItem, type ReviewQueue } from "./review
 import { seedAgentComposer } from "./seedComposer";
 import { AnatomyRow, PaneHint, PaneSection } from "./ui";
 
-/** Preview lines shown before the item is opened. */
-const PREVIEW_LINES = 3;
+/** A diff line's words, without its "+ " / "- " mark. */
+function lineText(line: string): string {
+  return line.replace(/^[+-]\s?/, "").trim();
+}
+
+/** The diff lines that add something the headline does not already say. */
+function newLines(preview: readonly string[], headline: string): string[] {
+  const said = headline.toLowerCase();
+  return preview.filter((line) => {
+    const text = lineText(line).toLowerCase();
+    return text && !(said && said.includes(text));
+  });
+}
 
 export function MemoryTab({
   agent,
@@ -42,7 +53,8 @@ export function MemoryTab({
   const [seeded, setSeeded] = useState(false);
   const items = queue?.items ?? [];
   const files = knowledge.data?.files ?? [];
-  const rules = knowledge.data?.learned_instructions ?? [];
+  // Rules it learned on its own, then standing rules the person applied from a proposal.
+  const rules = [...new Set([...(knowledge.data?.learned_instructions ?? []), ...(knowledge.data?.applied_rules ?? [])])];
 
   const reviewInChat = () => {
     setSeeded(seedAgentComposer(agent, t("society.agent_pane.review_chat_seed")));
@@ -55,14 +67,6 @@ export function MemoryTab({
           items.length
             ? t("society.agent_pane.review_title_count").replace("{0}", String(queue?.total ?? items.length))
             : t("society.agent_pane.review_title")
-        }
-        action={
-          items.length ? (
-            <button type="button" className="ap-link" onClick={reviewInChat} data-testid="agent-pane-review-in-chat">
-              <MessageSquare className="h-3 w-3" aria-hidden />
-              {t("society.agent_pane.review_in_chat")}
-            </button>
-          ) : null
         }
         testId="agent-pane-review"
       >
@@ -78,6 +82,10 @@ export function MemoryTab({
             {items.map((item) => (
               <ReviewRow key={item.id} agentId={agent.agentId} item={item} />
             ))}
+            {/* Under the cards, not beside the heading: the count in the heading always fits. */}
+            <button type="button" className="ap-link self-start" onClick={reviewInChat} data-testid="agent-pane-review-in-chat">
+              {t("society.agent_pane.review_in_chat")}
+            </button>
           </div>
         )}
       </PaneSection>
@@ -166,7 +174,10 @@ function ReviewRow({ agentId, item }: { agentId: string; item: ReviewItem }) {
     item.kind === "proposal" ? t("society.agent_pane.apply") : item.kind === "memory_share" ? t("society.agent_pane.share") : t("society.agent_pane.keep");
   const rejectLabel =
     item.kind === "proposal" ? t("society.agent_pane.reject") : item.kind === "memory_share" ? t("society.agent_pane.keep_private") : t("society.agent_pane.forget");
-  const lines = open ? item.preview : item.preview.slice(0, PREVIEW_LINES);
+  // The proposal is said once: its headline, then only what the diff adds, one line until opened.
+  const headline = item.kind === "proposal" ? item.summary : "";
+  const extra = newLines(item.preview, headline);
+  const lines = open ? extra : extra.slice(0, 1);
 
   const run = async (approve: boolean) => {
     setBusy(true);
@@ -189,23 +200,19 @@ function ReviewRow({ agentId, item }: { agentId: string; item: ReviewItem }) {
           </time>
         ) : null}
       </div>
-      {item.kind === "proposal" ? <p className="ap-review-text">{item.summary}</p> : null}
+      {headline ? <p className="ap-review-text">{headline}</p> : null}
       {lines.length ? (
-        <button
-          type="button"
-          className="ap-diff text-left"
-          data-open={open ? "true" : undefined}
-          aria-expanded={item.preview.length > PREVIEW_LINES ? open : undefined}
-          onClick={() => setOpen((v) => !v)}
-        >
+        <div className="ap-review-lines">
           {lines.map((line, i) => (
-            <span key={i} data-op={line.startsWith("+") ? "+" : line.startsWith("-") ? "-" : " "}>
-              {line}
-            </span>
+            <p key={i} className="ap-review-line" data-op={line.startsWith("+") ? "+" : line.startsWith("-") ? "-" : " "}>
+              {lineText(line)}
+            </p>
           ))}
-          {!open && item.preview.length > PREVIEW_LINES ? (
-            <span>{t("society.agent_pane.more_lines").replace("{0}", String(item.preview.length - PREVIEW_LINES))}</span>
-          ) : null}
+        </div>
+      ) : null}
+      {extra.length > 1 ? (
+        <button type="button" className="ap-link self-start" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? t("society.agent_pane.show_less") : t("society.agent_pane.more_lines").replace("{0}", String(extra.length - 1))}
         </button>
       ) : null}
       {item.reason ? <p className="ap-hint">{item.reason}</p> : null}

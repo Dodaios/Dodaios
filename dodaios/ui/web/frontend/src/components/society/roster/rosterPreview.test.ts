@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { SocietyAgent } from "../data";
-import { formatRelative, needsYou, previewText, relativeStamp, rosterPreview, rosterStatus, waitingReasonOf } from "./rosterPreview";
+import en from "@/i18n/locales/en.json";
+import { markAnswered, resetAttentionStore } from "../attention/attentionStore";
+import { formatRelative, needsYou, previewText, readableWaiting, relativeStamp, rosterPreview, rosterStatus, waitingReasonOf } from "./rosterPreview";
 
 function agent(over: Partial<SocietyAgent> & Record<string, unknown> = {}): SocietyAgent {
   return {
@@ -90,5 +92,30 @@ describe("relative times", () => {
     expect(formatRelative(now - 5 * 60_000, now, "en", "now")).toMatch(/^5\s?m/);
     expect(formatRelative(now - 3 * 3_600_000, now, "en", "now")).toMatch(/^3\s?h/);
     expect(formatRelative(now - 40 * 86_400_000, now, "en", "now")).toMatch(/Sep/);
+  });
+});
+
+describe("what the person already answered", () => {
+  const t = (key: string): string => {
+    let at: unknown = en;
+    for (const part of key.split(".")) at = (at as Record<string, unknown>)?.[part];
+    return typeof at === "string" ? at : key;
+  };
+
+  it("reads a bare tool id as what the tool does", () => {
+    expect(readableWaiting("mcp__dodaios__society-create-routine", t)).toBe("Create a routine");
+    expect(readableWaiting("mcp__linear__create_issue", t)).toBe("Create issue");
+    expect(readableWaiting("Write hello into a file", t)).toBe("Write hello into a file");
+  });
+
+  it("stops saying needs you once the card was answered here", () => {
+    resetAttentionStore();
+    const waiting = agent({ state: "waiting", waiting_reason: { kind: "approval", summary: "x", session_id: "s1", ref_id: "ap1" } });
+    expect(rosterStatus(waiting, false)).toBe("needs-you");
+    markAnswered("ap1");
+    expect(needsYou(waiting)).toBe(false);
+    expect(waitingReasonOf(waiting)).toBeNull();
+    expect(rosterStatus(waiting, false)).toBe("working");
+    resetAttentionStore();
   });
 });

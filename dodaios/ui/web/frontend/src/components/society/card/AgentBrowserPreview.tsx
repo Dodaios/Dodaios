@@ -87,7 +87,8 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
     : state.connected && state.ready
     ? t(state.manual ? "society.browser_live.manual" : "society.browser_live.live")
     : t(managedRuntime && install.data && !install.data.installed ? "society.card.browser_setting_up" : "society.card.browser_connecting");
-  const buttonClass = "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-3 text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40";
+  // Readable even while it waits for the browser: a filled chip, never a 40%-faded word.
+  const buttonClass = "inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-secondary px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-border disabled:cursor-not-allowed disabled:bg-secondary/70 disabled:text-foreground-secondary";
   const signInClass = "inline-flex h-8 items-center rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40";
   const enterUrl = () => {
     const url = /^https?:\/\//i.test(address) ? address : "https://" + address;

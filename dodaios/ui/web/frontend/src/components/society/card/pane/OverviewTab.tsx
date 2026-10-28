@@ -13,6 +13,7 @@ import { useRunLocale } from "@/components/runs/format";
 import { Switch } from "@/components/ui/switch";
 import { useLocaleChunk, useT } from "@/i18n";
 import { setTaskEnabled } from "@/lib/tasksApi";
+import { stripInlineMarks } from "@/lib/plainMarks";
 import { resolveToolBrand } from "@/lib/toolBrand";
 import { useAgentChatStore } from "@/store/agentChat";
 
@@ -25,6 +26,19 @@ import { humanSchedule } from "../routines/humanSchedule";
 import { useDismissedSuggestions, type PanePage, type PaneTab } from "./paneState";
 import type { ReviewQueue } from "./reviewQueue";
 import { AnatomyRow, PaneHint, PaneSection } from "./ui";
+
+/**
+ * The instructions as lines a person reads: a Markdown heading ("## How you
+ * work") reads as its words in bold, inline marks drop, blank lines keep
+ * their space.
+ */
+function instructionLines(text: string): { text: string; heading: boolean }[] {
+  return text.replace(/\r\n?/g, "\n").split("\n").map((raw) => {
+    const heading = /^\s{0,3}#{1,6}\s+/.test(raw);
+    const words = stripInlineMarks(raw.replace(/^\s{0,3}#{1,6}\s+/, "").replace(/\s+#+\s*$/, ""));
+    return { text: words, heading: heading && Boolean(words.trim()) };
+  });
+}
 
 /** More lines than this and the instructions preview fades into "open to read all". */
 const PREVIEW_LINES = 5;
@@ -156,11 +170,14 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSaving
             type="button"
             className="ap-instructions text-left"
             data-long={long && !expanded ? "true" : undefined}
-            style={expanded ? { maxHeight: "none" } : undefined}
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
           >
-            {agent.description}
+            <span className="ap-instructions-text">
+              {instructionLines(agent.description).map((line, i) => (
+                <span key={i} className="ap-instructions-line" data-heading={line.heading || undefined}>{line.text}</span>
+              ))}
+            </span>
           </button>
         ) : (
           <PaneHint>{t("society.agent_pane.instructions_empty")}</PaneHint>

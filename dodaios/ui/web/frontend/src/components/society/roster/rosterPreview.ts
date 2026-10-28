@@ -14,8 +14,10 @@
  * in the chat header, so the preview keeps saying what was last said.
  */
 import { hideAskBlocks } from "@/components/agentchat/askFence";
+import { friendlyToolName, isRawToolId } from "@/components/agentchat/traceEntries";
 import { stripInlineMarks } from "@/lib/plainMarks";
 
+import { wasAnswered } from "../attention/attentionStore";
 import type { SocietyAgent } from "../data";
 
 export type WaitingKind = "question" | "approval" | "credential" | "proposal";
@@ -51,16 +53,32 @@ function coerceReason(value: unknown): WaitingReason | null {
  */
 export function waitingReasonOf(agent: SocietyAgent): WaitingReason | null {
   const loose = agent as SocietyAgent & { waitingReason?: unknown; waiting_reason?: unknown };
-  return coerceReason(loose.waitingReason ?? loose.waiting_reason);
+  const reason = coerceReason(loose.waitingReason ?? loose.waiting_reason);
+  // Answered here: the card is settled even before the next roster read says so.
+  return reason && wasAnswered(reason.refId) ? null : reason;
+}
+
+/** The roster still holds a waiting reason the person already answered here. */
+function answeredHere(agent: SocietyAgent): boolean {
+  const loose = agent as SocietyAgent & { waitingReason?: unknown; waiting_reason?: unknown };
+  const reason = coerceReason(loose.waitingReason ?? loose.waiting_reason);
+  return Boolean(reason && wasAnswered(reason.refId));
 }
 
 export function needsYou(agent: SocietyAgent): boolean {
+  if (answeredHere(agent)) return false;
   return agent.state === "waiting" || waitingReasonOf(agent) !== null;
+}
+
+/** A waiting reason in words: a bare tool id reads as what the tool does. */
+export function readableWaiting(text: string, t: (key: string) => string): string {
+  return text && isRawToolId(text) ? friendlyToolName(text, t) : text;
 }
 
 export type RosterStatus = "needs-you" | "working" | "unread" | "paused" | "idle";
 
 export function rosterStatus(agent: SocietyAgent, unread: boolean): RosterStatus {
+  if (answeredHere(agent)) return "working";
   if (needsYou(agent)) return "needs-you";
   if (agent.state === "working") return "working";
   if (unread) return "unread";

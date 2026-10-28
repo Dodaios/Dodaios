@@ -11,6 +11,8 @@ import { reviewWaitReason } from "@/lib/skipReasons";
 export interface AgentKnowledge {
   files: { path: string; name: string; kind: "memory" | "skills"; updated_ms: number; size: number }[];
   learned_instructions: string[];
+  /** Standing rules the person applied from a proposal and the instructions still hold. */
+  applied_rules?: string[];
   reviews: { pending: number; done: number };
   /** The agent's newest review attempt (`review:last:<agent>`). A review that got
    * no answer carries why (`reason_code`, the seat's `provider`, the server's

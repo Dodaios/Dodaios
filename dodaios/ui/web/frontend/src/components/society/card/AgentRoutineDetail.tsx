@@ -19,12 +19,12 @@ import { useSocietyAgent } from "../data";
 import { TriggerBuilder } from "./TriggerBuilder";
 import { WebhookConnection } from "./WebhookConnection";
 import { SourceControls } from "./SourceControls";
-import { RoutineSeatPicker, type RoutineSeat } from "./RoutineSeatPicker";
+import { RoutineSeatPicker, useSeatLabel, type RoutineSeat } from "./RoutineSeatPicker";
 import { useRoutineNavigation } from "../chat/routineNavigation";
 import { routineSkipReason } from "@/lib/skipReasons";
 import type { RoutineTone } from "./routines/TriggerIcon";
 import { humanSchedule } from "./routines/humanSchedule";
-import { fill, formatDuration, relativeTime } from "./routines/format";
+import { calmMoment, fill, formatDuration, relativeTime } from "./routines/format";
 import { markRoutinesSeen, useRoutineRuns } from "./routines/routinesApi";
 import { mergeRunDetails, routineRuns, type Run } from "./routines/runs";
 import { RunHistory, runReason } from "./routines/RunHistory";
@@ -90,6 +90,7 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
   const [seatDraft, setSeatDraft] = useState<RoutineSeat | null>(null);
   const [seatOpen, setSeatOpen] = useState(false);
   const seat = seatDraft ?? savedSeat;
+  const seatName = useSeatLabel(seat);
   const seatDirty = seatDraft !== null && (
     seatDraft.provider !== savedSeat.provider || seatDraft.model !== savedSeat.model ||
     seatDraft.effort !== savedSeat.effort || seatDraft.account_id !== savedSeat.account_id
@@ -170,7 +171,7 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
           <p className={cn("mt-0.5 text-xs leading-4", tone === "parked" ? "text-warning" : tone === "running" ? "text-primary" : "text-muted-foreground")}
             title={nextMs ? new Date(nextMs).toLocaleString(locale, { timeZoneName: "short" }) : undefined}>{status}</p>
         </div>
-        <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><Switch aria-label={label("active")} checked={shownActive} disabled={pending || !editable} onCheckedChange={(enabled) => void act(async () => {
+        <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><Switch aria-label={label(shownActive ? "active" : "paused")} checked={shownActive} disabled={pending || !editable} onCheckedChange={(enabled) => void act(async () => {
           for (const detail of details) if (detail && !terminal.includes(detail.state) && (detail.state === "paused") === enabled) await setTaskEnabled(detail.id, enabled);
         })} /><span className="sr-only sm:not-sr-only" aria-hidden data-testid="routine-switch-state">{label(shownActive ? "active" : "paused")}</span></label>
       </div>
@@ -197,7 +198,6 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
     </div>}
 
     <section className="space-y-2">
-      <h4 className={heading}>{own("instruction")}</h4>
       <label className="block space-y-1 text-xs text-muted-foreground">{label("name")}<input className={field} aria-label={label("name")} maxLength={200} disabled={pending || !editable || Boolean(editing)} value={values.title} onChange={(event) => setDraft({ ...values, title: event.target.value })} /></label>
       <label className="block space-y-1 text-xs text-muted-foreground">{label("prompt")}<textarea className={cn(field, "resize-y leading-relaxed")} aria-label={label("prompt")} maxLength={16000} rows={6} disabled={pending || !editable || Boolean(editing) || (first?.spec?.action as { kind?: string } | undefined)?.kind !== "agent"} value={values.prompt} onChange={(event) => setDraft({ ...values, prompt: event.target.value })} /></label>
       {draft && <div className="flex gap-2"><button className={primary} disabled={pending || !valid || !editable || Boolean(editing)} onClick={() => void act(async () => {
@@ -219,7 +219,7 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
         </button>
       </div>
       <p className="text-[12px]">
-        {!seat.provider ? label("follow_agent") : `${seat.provider}${seat.model ? ` · ${seat.model}` : ""}${seat.effort ? ` · ${seat.effort}` : ""}`}
+        {!seat.provider ? label("follow_agent") : seatName}
       </p>
       {seatOpen && <RoutineSeatPicker seat={seat} disabled={pending || !editable || Boolean(editing)} onChange={setSeatDraft} />}
     </div>}
@@ -238,7 +238,7 @@ export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }
             <button className="flex w-full items-start gap-2 rounded text-left text-[12px] transition-colors enabled:hover:text-foreground disabled:opacity-80" disabled={pending || !editable || Boolean(draft) || !detail || !timeKinds.includes(detail.trigger_type)} onClick={() => { setEditing({ ...member, trigger: detail?.trigger }); setSchedule(null); }}>
               <span>{sentenceOf(detail?.trigger ?? member.trigger)}</span>
             </button>
-            {detail?.due_at_ns && detail.state === "scheduled" ? <p className="text-xs text-muted-foreground">{t("society.card.next_run")}: {new Date(detail.due_at_ns / 1e6).toLocaleString(locale, { timeZoneName: "short" })}</p> : null}
+            {detail?.due_at_ns && detail.state === "scheduled" ? <p className="text-xs text-muted-foreground" title={new Date(detail.due_at_ns / 1e6).toLocaleString(locale, { timeZoneName: "short" })}>{t("society.card.next_run")}: {calmMoment(detail.due_at_ns / 1e6, now, locale)}</p> : null}
             {detail && <div>{renderConnection(detail)}</div>}
             {index > 0 && <button className="text-xs text-muted-foreground hover:text-foreground" disabled={pending || !editable || Boolean(draft)} onClick={() => void act(async () => { await cancelTask(member.id); })}>{label("remove_schedule")}</button>}
           </div>;

@@ -59,7 +59,8 @@ test("the pinned seat is shown and can follow the agent again", async () => {
   const { fetcher } = setup();
   await waitFor(() => expect((screen.getByLabelText("Name") as HTMLInputElement).disabled).toBe(false));
   // The pin is visible without any catalog fetch.
-  expect(screen.getByText("claude-api · opus")).toBeTruthy();
+  // The pinned model reads as a name, not as "provider · model-id".
+  expect(screen.getByText("Opus")).toBeTruthy();
   expect(fetcher.mock.calls.some(([url]) => String(url).includes("agent-chat"))).toBe(false);
   // The explicit control clears the pin without depending on catalog readiness.
   fireEvent.click(screen.getByText("Change"));

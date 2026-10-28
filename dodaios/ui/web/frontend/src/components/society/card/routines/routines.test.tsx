@@ -64,7 +64,7 @@ describe("routine list", () => {
   }
 
   test("rows read as sentences with the last result and its cost, and looking is recorded", async () => {
-    mountList({ last_runs: { r1: runRow({}), r2: runRow({ id: "r2:9", task_id: "r2", status: "failed", error: "RuntimeError: seat offline", cost_usd: null }) }, parking: null });
+    mountList({ last_runs: { r1: runRow({ billed_via_key: true }), r2: runRow({ id: "r2:9", task_id: "r2", status: "failed", error: "RuntimeError: seat offline", cost_usd: null }) }, parking: null });
     const row = (await screen.findByRole("button", { name: "Inbox digest" })).closest("li")!;
     expect(row.textContent).toMatch(/Weekdays at 07:30( AM)?/);
     await waitFor(() => expect(row.textContent).toContain("$0.042"));
@@ -74,6 +74,13 @@ describe("routine list", () => {
     expect(paused.textContent).toContain("state.paused");
     expect(paused.textContent).toContain("RuntimeError: seat offline");
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/routines-seen") && init?.method === "POST")).toBe(true);
+  });
+
+  test("a run on a subscription shows no price: the plan already covers it", async () => {
+    mountList({ last_runs: { r1: runRow({ billed_via_key: false }) }, parking: null });
+    const row = (await screen.findByRole("button", { name: "Inbox digest" })).closest("li")!;
+    await waitFor(() => expect(row.textContent).toMatch(/next_run: in 3 hours/));
+    expect(row.textContent).not.toContain("$");
   });
 
   test("a parked agent shows the note once, and Resume answers it", async () => {

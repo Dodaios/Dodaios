@@ -19,6 +19,8 @@ import { AwaySetting } from "./routines/AwaySetting";
 import { markRoutinesSeen, useRoutineActivity, useRoutineRefresh } from "./routines/routinesApi";
 import { seedAgentComposer } from "./routines/editThroughChat";
 import { useNow } from "./routines/useNow";
+import { humanSchedule } from "./routines/humanSchedule";
+import { parseScheduleText } from "./routines/scheduleText";
 
 export interface AgentRoutinesListProps { agentId: string; sampleRoutines?: AgentRoutine[]; variant?: "rail" | "sheet"; className?: string; onDetailOpenChange?: (open: boolean) => void; }
 export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", className, onDetailOpenChange }: AgentRoutinesListProps) {
@@ -32,7 +34,12 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
   const { agent } = useSocietyAgent(agentId);
   const now = useNow();
   const [open, setOpen] = useState(false); const [title, setTitle] = useState("");
-  const [prompt, setPrompt] = useState(""); const [schedule, setSchedule] = useState<Record<string, unknown> | null>(null);
+  const [prompt, setPrompt] = useState(""); const [built, setBuilt] = useState<Record<string, unknown> | null>(null);
+  // The schedule in plain words ("every weekday at 7"); the detailed editor waits under "More options".
+  const [when, setWhen] = useState(""); const [more, setMore] = useState(false);
+  const typed = useMemo(() => (when.trim() ? parseScheduleText(when) : null), [when]);
+  // The detailed editor replaces the words while it is open; closing it brings them back.
+  const schedule: Record<string, unknown> | null = more ? built : typed;
   const [saving, setSaving] = useState(false); const [error, setError] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const sample = useMemo(() => (sampleRoutines ?? []).map((row) => ({ id: row.id, title: row.label, state: "scheduled", trigger: null, schedule: row.schedule, dueMs: row.nextFire ? Date.parse(row.nextFire) : null, lastRunMs: null })), [sampleRoutines]);
@@ -51,7 +58,7 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
   const submit = async () => {
     if (!title.trim() || !prompt.trim() || !schedule) return;
     setSaving(true); setError("");
-    try { await create(agentId, { title: title.trim(), prompt: prompt.trim(), schedule }); setTitle(""); setPrompt(""); setOpen(false); }
+    try { await create(agentId, { title: title.trim(), prompt: prompt.trim(), schedule }); setTitle(""); setPrompt(""); setWhen(""); setMore(false); setOpen(false); }
     catch (err) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setSaving(false); }
   };
@@ -72,7 +79,18 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
     {open && <form className="mb-3 space-y-2 rounded-xl border border-border bg-card p-2.5 shadow-[0_1px_2px_rgb(var(--scrim-rgb)/0.05),0_4px_12px_-6px_rgb(var(--scrim-rgb)/0.12)]" data-testid="agent-routines-composer" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
       <input className={field} aria-label={t("society.card.routines_title")} placeholder={t("society.card.routines_title")} value={title} onChange={(e) => setTitle(e.target.value)} />
       <textarea className={cn(field, "resize-y leading-snug")} aria-label={t("society.card.routines_prompt")} placeholder={t("society.card.routines_prompt")} value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} />
-      <TriggerBuilder onChange={setSchedule} />
+      {!more && <label className="block space-y-1 text-[12px] text-muted-foreground">
+        <span>{own("when_label")}</span>
+        <input className={field} aria-label={own("when_label")} placeholder={own("when_placeholder")} value={when}
+          onChange={(e) => setWhen(e.target.value)} data-testid="agent-routines-when" />
+      </label>}
+      {!more && when.trim() ? <p aria-live="polite" data-testid="agent-routines-when-preview"
+        className={cn("text-[12px] leading-snug", typed ? "text-foreground-secondary" : "text-muted-foreground")}>
+        {typed ? humanSchedule(typed, { t, locale }) : own("when_unclear")}
+      </p> : null}
+      <button type="button" className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" aria-expanded={more}
+        onClick={() => setMore((v) => !v)} data-testid="agent-routines-more">{own(more ? "fewer_options" : "more_options")}</button>
+      {more ? <TriggerBuilder onChange={setBuilt} /> : null}
       <div className="flex items-center justify-between gap-2 pt-0.5">
         {!isSample ? <button type="button" className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => { setOpen(false); setUpInChat(); }}>{own("or_chat")}</button> : <span />}
         <button type="submit" disabled={saving || !title.trim() || !prompt.trim() || !schedule} className="rounded-full bg-foreground px-3.5 py-1.5 text-[13px] font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-40">{t(saving ? "society.card.saving" : "society.card.routines_save")}</button>

@@ -8,7 +8,7 @@ import type { ApprovalState, ToolBlock } from "../reduce";
 import { ToolChoiceIcon } from "../ToolChoiceChips";
 import type { ToolChoice } from "../toolChoices";
 import { ActionCard, type ActionSpec, type SettledSpec } from "./ActionCard";
-import { approvalTitle, cardInfoOf, disclosureText, narrowSentence, outcomeLabel, outcomeTone, ruleSentence, savedRuleSentence, shownSummary, sourceLabel } from "./approvalCopy";
+import { approvalSummary, approvalTitle, cardInfoOf, detailRows, disclosureText, narrowSentence, outcomeLabel, outcomeTone, ruleSentence, sameWords, savedRuleSentence, sourceLabel, withReadableNames } from "./approvalCopy";
 import type { ApprovalCardInfo, ApprovalRuleOffer, RuleBreadth, RuleNarrow, RuleScope } from "./approvalInfo";
 import { claimKeyboardTarget, TARGET_PRIORITY } from "./keyboardTarget";
 
@@ -26,8 +26,9 @@ type T = (key: string) => string;
  * happened, rebuilt from the event log after a reload.
  */
 export const ApprovalActionCard = memo(function ApprovalActionCard({ block, onDecide }: { block: ToolBlock; onDecide?: ApprovalDecide }) {
+  const t = useT();
   const approval = block.approval;
-  const info = useMemo(() => cardInfoOf(block), [block]);
+  const info = useMemo(() => withReadableNames(cardInfoOf(block), block, t), [block, t]);
   if (!approval) return null;
   return approval.decision === null
     ? <OpenApproval key={approval.approvalId} block={block} approval={approval} info={info} onDecide={onDecide} />
@@ -59,7 +60,7 @@ function SourceIcon({ info }: { info: ApprovalCardInfo }) {
   return <Icon strokeWidth={1.75} />;
 }
 
-function subtitleLines(info: ApprovalCardInfo, approval: ApprovalState, title: string, t: T): ReactNode[] {
+function subtitleLines(info: ApprovalCardInfo, approval: ApprovalState, block: ToolBlock, title: string, t: T): ReactNode[] {
   const lines: ReactNode[] = [];
   const { kind } = info.source;
   if (info.where) {
@@ -67,10 +68,14 @@ function subtitleLines(info: ApprovalCardInfo, approval: ApprovalState, title: s
     lines.push(info.whereFull && info.whereFull !== info.where ? <span title={info.whereFull}>{line}</span> : line);
   }
   // A command is read in its own block below; a summary that only repeats it says nothing new.
-  const what = shownSummary(info, approval.summary);
+  const what = approvalSummary(info, approval.summary, block);
   const repeatsCommand = kind === "terminal" && Boolean(info.detail) && info.detail.startsWith(approval.summary.trim());
-  if (what && !repeatsCommand && kind !== "plan" && what !== title) lines.push(<span className="text-foreground-secondary">{what}</span>);
-  if (info.why) lines.push(fill(t("action_card.field.why"), { why: info.why }));
+  const shown = what && !repeatsCommand && kind !== "plan" && !sameWords(what, title) && !sameWords(what, info.action ?? "");
+  if (shown) lines.push(<span className="text-foreground-secondary">{what}</span>);
+  // The reason is said once: a "why" that repeats the summary adds nothing.
+  if (info.why && !sameWords(info.why, what) && !sameWords(info.why, approval.summary)) {
+    lines.push(fill(t("action_card.field.why"), { why: info.why }));
+  }
   return lines;
 }
 
@@ -146,9 +151,11 @@ function OpenApproval({ block, approval, info, onDecide }: {
     source={{ icon: <SourceIcon info={info} />, label: sourceLabel(info, t) }}
     title={title}
     ariaLabel={`${t("action_card.needs_approval")}: ${title}`}
-    lines={subtitleLines(info, approval, title, t)}
+    lines={subtitleLines(info, approval, block, title, t)}
     disclosure={disclosure ? {
       text: disclosure,
+      rows: detailRows(info.detail),
+      rawLabel: t("action_card.raw"),
       showLabel: t(kind === "terminal" ? "action_card.show_command" : "action_card.show_details"),
       hideLabel: t(kind === "terminal" ? "action_card.hide_command" : "action_card.hide_details"),
       defaultOpen: kind === "terminal" && info.detail.length <= 400,
@@ -305,7 +312,7 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
   const settled: SettledSpec = {
     tone: outcomeTone(decision),
     label: outcomeLabel(decision, t),
-    detail: shownSummary(info, approval.summary) || title,
+    detail: approvalSummary(info, approval.summary, block) || info.action || title,
     actions,
     receipt: saved ? <span className="action-card-receipt" title={savedText} data-testid="action-card-rule-saved">
       <Check aria-hidden />{t("action_card.rule.saved_short")}
@@ -323,9 +330,11 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
     source={{ icon: <SourceIcon info={info} />, label: sourceLabel(info, t) }}
     title={title}
     ariaLabel={`${settled.label}: ${title}`}
-    lines={subtitleLines(info, approval, title, t)}
+    lines={subtitleLines(info, approval, block, title, t)}
     disclosure={disclosureText(info, t) ? {
       text: disclosureText(info, t),
+      rows: detailRows(info.detail),
+      rawLabel: t("action_card.raw"),
       showLabel: t(info.source.kind === "terminal" ? "action_card.show_command" : "action_card.show_details"),
       hideLabel: t(info.source.kind === "terminal" ? "action_card.hide_command" : "action_card.hide_details"),
     } : undefined}

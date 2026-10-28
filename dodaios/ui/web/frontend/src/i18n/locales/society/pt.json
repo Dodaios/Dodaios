@@ -673,8 +673,8 @@
       "loading": "A carregar agentes…"
     },
     "triggers": {
-      "group": "Grupo de gatilhos",
-      "kind": "Gatilho",
+      "group": "O que a inicia",
+      "kind": "Como",
       "all_sources": "Todos os gatilhos",
       "amount": "A cada",
       "minutes": "Minutos",
@@ -682,7 +682,7 @@
       "days": "Dias",
       "time": "Hora",
       "timezone": "Fuso horário",
-      "expression": "Expressão cron",
+      "expression": "Regra de horário (cron)",
       "date": "Data e hora locais",
       "endpoint": "Endpoint",
       "topic": "Tópico / fila / stream",
@@ -718,25 +718,25 @@
       "provider_saved": "Verificação do fornecedor configurada.",
       "use_input": "Usar a entrada do gatilho configurada.",
       "groups": {
-        "human": "Humano",
-        "time": "Tempo",
-        "api": "API",
-        "external": "Eventos externos",
-        "stream": "Streams e mensagens",
-        "system": "Sistema",
-        "internal": "Fluxos de trabalho internos"
+        "human": "Quando você a inicia",
+        "time": "Num horário",
+        "api": "A partir de outra app",
+        "external": "Quando algo acontece num serviço",
+        "stream": "A partir de um fluxo de dados ao vivo",
+        "system": "Quando algo muda neste computador",
+        "internal": "Depois de outra rotina ou fluxo"
       },
       "kinds": {
-        "manual": "Manual",
-        "chat": "Chat",
-        "form": "Formulário",
+        "manual": "Só quando você a inicia",
+        "chat": "A partir do chat",
+        "form": "A partir de um formulário",
         "mcp": "MCP",
-        "every": "Intervalo",
-        "calendar": "Agenda do calendário",
-        "cron": "Cron",
-        "after_delay": "Após um atraso",
-        "at_time": "Numa data/hora",
-        "webhook": "Webhook",
+        "every": "A cada tantos minutos, horas ou dias",
+        "calendar": "Em horários fixos",
+        "cron": "Regra de horário avançada",
+        "after_delay": "Uma vez, depois de uma espera",
+        "at_time": "Uma vez, numa data e hora",
+        "webhook": "Quando um endereço web é chamado",
         "github": "GitHub",
         "linear": "Linear",
         "gmail": "Gmail",
@@ -747,12 +747,12 @@
         "rabbitmq": "RabbitMQ",
         "mqtt": "MQTT",
         "redis": "Redis Streams",
-        "file": "Ficheiro alterado",
-        "on_event": "Evento do sistema",
-        "workflow": "Fluxo de trabalho → fluxo de trabalho",
-        "event_hook": "Evento com nome",
-        "workflow_activated": "Fluxo de trabalho ativado",
-        "workflow_failed": "Fluxo de trabalho falhou"
+        "file": "Quando um ficheiro muda",
+        "on_event": "Quando a app comunica um evento",
+        "workflow": "Depois de outra rotina ou fluxo",
+        "event_hook": "Quando ocorre um evento com nome",
+        "workflow_activated": "Quando um fluxo é ativado",
+        "workflow_failed": "Quando um fluxo falha"
       },
       "when": {
         "succeeded": "Após sucesso",
@@ -2077,7 +2077,12 @@
         "setup_in_chat": "Configurar no chat",
         "setup_prompt": "Cria-me uma rotina: ",
         "or_chat": "Ou descreva-a no chat",
-        "empty_body": "Tarefas que este agente faz sozinho, como um resumo da manhã ou uma verificação semanal."
+        "empty_body": "Tarefas que este agente faz sozinho, como um resumo da manhã ou uma verificação semanal.",
+        "when_label": "Quando",
+        "when_placeholder": "Por exemplo: todos os dias úteis às 7",
+        "when_unclear": "Não ficou claro quando é. Experimente «todas as segundas às 9» ou «a cada 2 horas».",
+        "more_options": "Mais opções",
+        "fewer_options": "Menos opções"
       },
       "parking": {
         "title": "Em pausa: resultados não lidos",
@@ -2111,7 +2116,7 @@
       "runs": {
         "empty": "Ainda sem execuções. Use Execução de teste para experimentar já.",
         "manual": "Manual",
-        "included": "Incluído na sua subscrição",
+        "included": "Incluído no seu plano",
         "skip_away": "Ignorada: ninguém abriu os resultados durante algum tempo, por isso a rotina foi pausada.",
         "show_all": "Mostrar todas as {n}",
         "show_less": "Mostrar menos"

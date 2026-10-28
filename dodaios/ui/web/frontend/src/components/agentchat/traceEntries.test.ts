@@ -86,7 +86,7 @@ describe("trace timeline", () => {
     expect(viaClaude.kind).toBe("service");
     expect(viaClaude.text).not.toMatch(/claude/i);
     const own = only(tool("r", { name: "mcp__jarvis__society_routines", input: {}, output: "{}" }));
-    expect(own).toMatchObject({ kind: "tool", text: "Society routines" });
+    expect(own).toMatchObject({ kind: "tool", text: "Check routines" });
     const cli = only(tool("j", { name: "mcp__jarvis__cli_jarvisctl", input: { command: "jarvisctl outputs list" }, output: "" }));
     expect(cli).toMatchObject({ kind: "command", text: "jarvisctl outputs list" });
   });
@@ -97,7 +97,7 @@ describe("trace timeline", () => {
       expect(plugin).toMatchObject({ kind: "service", text: "Gmail" });
       expect(plugin.brand).toBeTruthy();
       const own = only(tool("r", { name: `mcp__${server}__society_routines`, input: {}, output: "{}" }));
-      expect(own).toMatchObject({ kind: "tool", text: "Society routines" });
+      expect(own).toMatchObject({ kind: "tool", text: "Check routines" });
       const cli = only(tool("j", { name: `mcp__${server}__cli_jarvisctl`, input: { command: "jarvisctl outputs list" }, output: "" }));
       expect(cli).toMatchObject({ kind: "command", text: "jarvisctl outputs list" });
       const artifact = only(tool("a", { name: `mcp__${server}__create_artifact`, input: { title: "GitHub Stars" }, output: "Built." }));
@@ -231,5 +231,19 @@ describe("readable call labels", () => {
     expect(isIdentifier("write_file")).toBe(true);
     expect(isIdentifier("qa_note.txt")).toBe(false);
     expect(isIdentifier("src/app.ts")).toBe(false);
+  });
+});
+
+describe("calls a person reads", () => {
+  it("names the agents' own tools by what they do, under every road", () => {
+    for (const name of ["mcp__dodaios__society_propose_change", "mcp_dodaios_society_propose_change", "dodaios/society_propose_change"]) {
+      expect(only(tool("p", { name, input: { kind: "rule" }, output: "{}" })).text).toBe("Propose a change");
+    }
+    expect(only(tool("c", { name: "mcp__dodaios__society-create-routine", input: {}, output: "{}" })).text).toBe("Create a routine");
+  });
+
+  it("says a bare wildcard listing lists the folder", () => {
+    expect(only(tool("l", { name: "Glob", input: { pattern: "*" }, output: "" })).text).toBe("Listed a folder");
+    expect(only(tool("l", { name: "LS", input: { path: "src/app" }, output: "" })).text).toBe("Listed src/app");
   });
 });

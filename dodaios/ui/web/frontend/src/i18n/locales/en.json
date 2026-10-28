@@ -5620,7 +5620,7 @@
       "job_hint": "Becomes the start of its instructions. Refine them any time in its chat."
     },
     "runtime_note": {
-      "jarvis": "Our own agent loop: every tool and any connected provider. The type is fixed once the agent exists; the model can change any time.",
+      "jarvis": "The type is fixed once the agent exists; the model can change any time.",
       "hermes": "Runs in the Hermes runtime; setup is handled for you. The type is fixed once the agent exists; the model can change any time.",
       "openclaw": "Runs in the OpenClaw runtime; setup is handled for you. The type is fixed once the agent exists; the model can change any time."
     },
@@ -6983,7 +6983,7 @@
       "delegate_line": "Hand this to the agent '{0}' (id {1}) with delegate-to-agent and report back here when it is done.",
       "proposal_title": "{0} proposes a change",
       "proposal_reason": "Why",
-      "proposal_confirm": "Confirm",
+      "proposal_confirm": "Apply",
       "proposal_reject": "Reject",
       "proposal_pending": "Waiting for your decision",
       "proposal_applied": "Applied",
@@ -7867,6 +7867,31 @@
       "mcp_admin": "managed an MCP server",
       "settings": "read the settings",
       "verify": "ran a check"
+    },
+    "tool": {
+      "create_routine": "Create a routine",
+      "routines": "Check routines",
+      "update_routine": "Change a routine",
+      "invoke_routine": "Run a routine",
+      "propose_change": "Propose a change",
+      "message_agent": "Message another agent",
+      "status": "Check on the agents",
+      "review": "Review work",
+      "create_agent": "Create an agent",
+      "update_agent": "Change an agent",
+      "archive_agent": "Archive an agent",
+      "switch_model": "Switch an agent's model",
+      "team": "Coordinate the team",
+      "wiki_note": "Save a note",
+      "memory_recall": "Search its memory",
+      "conversation_recall": "Search past chats",
+      "run_skill": "Run a skill",
+      "browser": "Use the browser",
+      "shell": "Run a command",
+      "sandbox": "Use the sandbox",
+      "request_credential": "Ask for a sign-in",
+      "catalog": "Look up what is available",
+      "context": "Read its context"
     }
   },
   "chat_media": {
@@ -10707,7 +10732,8 @@
       "no_answer": "No answer",
       "truncated": "{count} more lines not shown",
       "empty_output": "It returned nothing.",
-      "took": "Took {duration}"
+      "took": "Took {duration}",
+      "included": "Included in your plan"
     },
     "row": {
       "prompt": "Your message",
@@ -10782,7 +10808,8 @@
       "connector": "Use {app}?",
       "connector_verb": "Use {app} to {verb}?",
       "tool": "Run {tool}?",
-      "tool_plain": "Run this tool?"
+      "tool_plain": "Run this tool?",
+      "action": "{action}?"
     },
     "field": {
       "in": "In {where}",
@@ -10858,7 +10885,8 @@
       "reach_everything": "Everything in this chat",
       "reach_tool_plain": "This whole tool",
       "cancel": "Cancel"
-    }
+    },
+    "raw": "Raw"
   },
   "games": {
     "title": "Game settings",

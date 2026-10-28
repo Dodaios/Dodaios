@@ -122,6 +122,9 @@ describe("AgentRoutinesList", () => {
     fireEvent.click(await screen.findByTestId("agent-routines-add"));
     fireEvent.change(screen.getByPlaceholderText("Title"), { target: { value: "X marketing" } });
     fireEvent.change(screen.getByPlaceholderText("What to do"), { target: { value: "Draft the post." } });
+    // The schedule in plain words; the sentence it became shows before saving.
+    fireEvent.change(screen.getByTestId("agent-routines-when"), { target: { value: "every 5 hours" } });
+    expect(screen.getByTestId("agent-routines-when-preview").textContent).toBe("Every 5 hours");
     fireEvent.click(screen.getByText("Add"));
 
     await waitFor(() => {
@@ -132,7 +135,7 @@ describe("AgentRoutinesList", () => {
       const body = JSON.parse(String(post?.[1]?.body));
       expect(body.title).toBe("X marketing");
       expect(body.prompt).toBe("Draft the post.");
-      expect(body.schedule.type).toBe("every");
+      expect(body.schedule).toEqual({ type: "every", interval_seconds: 18_000 });
     });
 
     await waitFor(() => expect(screen.getByTestId("agent-routines").textContent).toContain("X marketing"));
@@ -142,8 +145,9 @@ describe("AgentRoutinesList", () => {
     fireEvent.click(await screen.findByTestId("agent-routines-add"));
     fireEvent.change(screen.getByPlaceholderText("Title"), { target: { value: "Customer event" } });
     fireEvent.change(screen.getByPlaceholderText("What to do"), { target: { value: "Summarize the new customer." } });
+    fireEvent.click(screen.getByTestId("agent-routines-more"));
     fireEvent.click(screen.getByTestId("routine-trigger-group"));
-    fireEvent.click(await screen.findByRole("option", { name: "API" }));
+    fireEvent.click(await screen.findByRole("option", { name: "From another app" }));
     fireEvent.change(screen.getByLabelText("Payload filters (JSON field equality)"), { target: { value: '{"customer.vip":true}' } });
     fireEvent.click(screen.getByText("Add"));
     await waitFor(() => {

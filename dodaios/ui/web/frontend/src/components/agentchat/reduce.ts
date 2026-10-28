@@ -55,6 +55,8 @@ export interface ApprovalState {
   scope?: RuleScope;
   /** A standing rule saved from this card, now or later. */
   rule?: SavedApprovalRule;
+  /** The person answered here and the answer is on its way: nothing waits on them any more. */
+  answering?: boolean;
 }
 
 /** One prepared answer on an agent's question card. */
@@ -302,6 +304,8 @@ export interface TurnItem {
   /** Tokens so far while the turn runs (``usage_delta``); the finished usage replaces it. */
   liveUsage: Record<string, number> | null;
   costUsd: number | null;
+  /** Whether the cost was charged to a per-token key (`turn_finished.billed_via_key`); absent when the event does not say. */
+  billedViaKey?: boolean | null;
   error: string | null;
   /** The runtime's raw output behind the error, redacted, for "Technical details". */
   errorDetails?: string | null;
@@ -741,6 +745,33 @@ export function settleApproval(tl: Timeline, approvalId: string, decision: strin
       })();
   const pendingApprovals = withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId);
   return pendingApprovals.length === withTurn.pendingApprovals.length ? withTurn : { ...withTurn, pendingApprovals };
+}
+
+/**
+ * Whether a turn's cost was charged per token. A vendor CLI seat runs on its
+ * subscription, so the cost it reports is what the plan already covers.
+ */
+export function billedPerToken(turn: Pick<TurnItem, "runner" | "billedViaKey">): boolean {
+  if (typeof turn.billedViaKey === "boolean") return turn.billedViaKey;
+  return !/-cli$/i.test(turn.runner || "");
+}
+
+/**
+ * Mark approval `approvalId` as answered here while the answer travels (or
+ * clear the mark when it failed): the turn stops saying it needs the person
+ * at once, while the card keeps its buttons until the decision lands.
+ */
+export function markApprovalAnswering(tl: Timeline, approvalId: string, answering: boolean): Timeline {
+  const patch = (turn: TurnItem): TurnItem => {
+    const blocks = mapToolDeep(
+      turn.blocks,
+      (b) => b.approval?.approvalId === approvalId && b.approval.decision === null && Boolean(b.approval.answering) !== answering,
+      (b) => (b.approval ? { ...b, approval: { ...b.approval, answering } } : b),
+    );
+    return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
+  };
+  const items = tl.items.map((item) => (item.type === "turn" ? patch(item) : item));
+  return items.some((item, i) => item !== tl.items[i]) ? { ...tl, items } : tl;
 }
 
 /** Record a standing rule saved from approval `approvalId`'s card, decided or not. */
@@ -1314,6 +1345,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             ? (p.usage as Record<string, unknown>)
             : turn.liveUsage,
         costUsd: num(p.cost_usd),
+        ...(typeof p.billed_via_key === "boolean" ? { billedViaKey: p.billed_via_key } : {}),
         // A runtime's own error event earlier in the turn stays its reason
         // when the end of the turn names none.
         error: str(p.error, "") || turn.error || null,

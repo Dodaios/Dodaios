@@ -76,6 +76,10 @@ describe("the approval action card", () => {
     drawTurn(asking());
     expect(screen.queryByTestId("action-card-detail")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    // A structured request reads as label/value rows; the raw text waits behind "Raw".
+    expect(screen.getByTestId("action-card-rows").textContent).toContain("team@example.com");
+    expect(screen.queryByTestId("action-card-detail")).toBeNull();
+    fireEvent.click(screen.getByTestId("action-card-raw"));
     expect(screen.getByTestId("action-card-detail").textContent).toContain("team@example.com");
     expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
   });
@@ -236,6 +240,7 @@ describe("paths on an approval card", () => {
     expect(card.textContent).toContain("In ~\\Desktop\\proj");
     expect(card.textContent).not.toContain("C:\\Users\\Ada");
     fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    fireEvent.click(screen.getByTestId("action-card-raw"));
     expect(screen.getByTestId("action-card-detail").textContent).toContain("Users");
     rerender([...editAsking(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow" })]);
     const outcome = screen.getByTestId("approval-outcome");
@@ -324,7 +329,7 @@ describe("a settled approval", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(toggle);
     expect(screen.getByText("The agent was told no and did not do it.")).toBeTruthy();
-    expect(screen.getByTestId("action-card-detail").textContent).toContain("team@example.com");
+    expect(screen.getByTestId("action-card-rows").textContent).toContain("team@example.com");
   });
 
   it("offers Allow every time on an expired card and saves it as a rule", async () => {
@@ -384,5 +389,45 @@ describe("secrets in the disclosure", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show details" }));
     expect(screen.getByTestId("action-card-detail").textContent).not.toContain(SECRETS[1]);
     expect(screen.getByTestId("action-card-detail").textContent).not.toContain("x".repeat(30));
+  });
+});
+
+describe("an agent's own tool on the card", () => {
+  const ROUTINE = "mcp__dodaios__society-create-routine";
+  const routineAsk = (): AgentChatEvent[] => [
+    ev("tool_call", { turn_id: "t1", call_id: "c1", name: ROUTINE, input: { title: "QA weekly check" } }),
+    ev("approval_required", {
+      turn_id: "t1", approval_id: "a1", call_id: "c1", name: ROUTINE, summary: ROUTINE,
+      input: { title: "QA weekly check" },
+      source: { kind: "connector", app: "Society Create Routine", verb: "" }, where: "", why: "", caution: null,
+      detail: "{\n  \"title\": \"QA weekly check\",\n  \"schedule\": {\n    \"local_time\": \"07:00\",\n    \"days\": [\"mon\"]\n  }\n}",
+      rule: { scopes: ["chat"], chat: "tool", app: "Society Create Routine", verb: "", pattern: "", broad: "" },
+    }),
+  ];
+
+  it("asks by what the tool does, never by its id, and shows the request as rows", () => {
+    drawTurn(routineAsk());
+    const card = screen.getByTestId("thread-approval");
+    expect(screen.getByRole("heading", { name: "Create a routine?" })).toBeTruthy();
+    expect(card.textContent).not.toMatch(/mcp__|society|Society/);
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    const rows = screen.getByTestId("action-card-rows");
+    expect(rows.textContent).toContain("Title");
+    expect(rows.textContent).toContain("QA weekly check");
+    expect(rows.textContent).toContain("Schedule · Local time");
+    expect(rows.textContent).not.toContain("{");
+  });
+
+  it("reads its settled line by the action, not the id", () => {
+    drawTurn([...routineAsk(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow" })]);
+    const line = screen.getByTestId("approval-outcome");
+    expect(line.textContent).toContain("Create a routine");
+    expect(line.textContent).not.toContain("mcp__");
+  });
+
+  it("says a reason once when it repeats the summary", () => {
+    drawTurn(asking("a1", { ...GMAIL_CARD, why: "Send the weekly report to team@example.com" }));
+    const card = screen.getByTestId("thread-approval");
+    expect(card.textContent?.split("Send the weekly report to team@example.com").length).toBe(2);
   });
 });

@@ -59,29 +59,23 @@ export function RunHistory({ runs, ready, locale, onOpen }: {
         const reason = runReason(t, run);
         const elapsed = run.status === "running" && run.startedMs ? Math.max(0, now - run.startedMs) : undefined;
         const duration = formatDuration(elapsed ?? run.durationMs);
-        const cost = formatCost(run.costUsd, locale);
+        // A subscription run bills nothing: no dollar figure beside "$0.00 spent".
+        const cost = run.billedViaKey === false ? "" : formatCost(run.costUsd, locale);
         const at = new Date(run.timestamp);
+        const meta = [run.origin === "manual" ? own("manual") : "", duration, cost].filter(Boolean);
         return <li key={run.id}>
           <button type="button" data-testid={`routine-run-${run.id}`}
             aria-label={`${label("open_chat")} · ${at.toLocaleString(locale)} · ${state}`}
             onClick={() => onOpen(run)}
-            className="group flex w-full cursor-pointer items-start gap-2.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-secondary/60 focus-visible:bg-secondary/60 focus-visible:outline-none">
-            <RunStatusIcon status={run.status} label={state} className="mt-[1px]" />
-            <span className="min-w-0 flex-1">
-              <span className="flex items-baseline gap-2">
-                <time dateTime={at.toISOString()} title={at.toLocaleString(locale)} className="text-[12px] font-medium text-foreground">{shortDateTime(run.timestamp, now, locale)}</time>
-                {run.origin === "manual" && <span className="rounded-full border border-border px-1.5 text-xs leading-4 text-muted-foreground">{own("manual")}</span>}
-                <span className="ml-auto flex shrink-0 items-baseline gap-1.5 text-xs tabular-nums text-muted-foreground">
-                  {duration && <span>{duration}</span>}
-                  {duration && cost && <span aria-hidden className="text-faint-foreground">·</span>}
-                  {cost && <span title={run.billedViaKey === false ? own("included") : undefined}>{cost}</span>}
-                </span>
-              </span>
-              {reason && <span data-testid={run.status === "skipped" ? "routine-run-skip-reason" : undefined}
-                className={cn("mt-0.5 block truncate text-xs leading-snug", run.status === "failed" ? "text-destructive/90" : "text-muted-foreground")}
-                title={reason}>{reason}</span>}
-            </span>
-            <ChevronRight size={14} aria-hidden className="mt-0.5 shrink-0 text-faint-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+            className="group flex w-full min-w-0 cursor-pointer items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-secondary/60 focus-visible:bg-secondary/60 focus-visible:outline-none">
+            <RunStatusIcon status={run.status} label={state} />
+            {/* One line: when, what it said, then how it started, how long and what it cost. */}
+            <time dateTime={at.toISOString()} title={at.toLocaleString(locale)} className="shrink-0 whitespace-nowrap text-[13px] font-medium tabular-nums text-foreground">{shortDateTime(run.timestamp, now, locale)}</time>
+            <span data-testid={run.status === "skipped" ? "routine-run-skip-reason" : undefined}
+              className={cn("min-w-0 flex-1 truncate text-[13px] leading-snug", run.status === "failed" ? "text-destructive/90" : "text-muted-foreground")}
+              title={reason || undefined}>{reason}</span>
+            {meta.length > 0 && <span className="shrink-0 whitespace-nowrap text-[12px] tabular-nums text-muted-foreground" data-testid="routine-run-meta">{meta.join(" · ")}</span>}
+            <ChevronRight size={14} aria-hidden className="shrink-0 text-faint-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
           </button>
         </li>;
       })}

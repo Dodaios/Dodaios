@@ -55,7 +55,8 @@ export function RoutineRow({ routine, lastRun, parked, locale, now, onOpen, onCh
     } catch (err) { setProblem(err instanceof Error ? err.message : String(err)); }
     finally { setBusy(null); onChanged(); }
   };
-  const cost = formatCost(lastRun?.cost_usd, locale);
+  // A subscription run bills nothing: no dollar figure beside "$0.00 spent".
+  const cost = lastRun?.billed_via_key === false ? "" : formatCost(lastRun?.cost_usd, locale);
   const lastAt = lastRun?.finished_ms ?? lastRun?.started_ms ?? null;
   const tool = "rounded-full p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline focus-visible:outline-1 focus-visible:outline-ring disabled:opacity-40";
   return <li className="group relative">

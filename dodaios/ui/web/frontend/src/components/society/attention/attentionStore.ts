@@ -20,9 +20,31 @@ interface AttentionState {
   status: AttentionStatus;
   /** When the list was last read (ms), 0 for never. */
   readAt: number;
+  /**
+   * Cards the person answered here (approval, question, proposal ids): the
+   * roster and the chat header stop saying "needs you" for them at once,
+   * before the next roster read confirms it.
+   */
+  answered: readonly string[];
 }
 
-export const useAttentionStore = create<AttentionState>(() => ({ count: 0, list: null, status: "idle", readAt: 0 }));
+/** How many answered ids are remembered; older ones have long left the roster. */
+const ANSWERED_KEEP = 64;
+
+export const useAttentionStore = create<AttentionState>(() => ({ count: 0, list: null, status: "idle", readAt: 0, answered: [] }));
+
+/** Note that the card `refId` was answered here, so nothing keeps asking for it. */
+export function markAnswered(refId: string): void {
+  if (!refId) return;
+  const { answered } = useAttentionStore.getState();
+  if (answered.includes(refId)) return;
+  useAttentionStore.setState({ answered: [...answered, refId].slice(-ANSWERED_KEEP) });
+}
+
+/** Whether the card `refId` was answered here. */
+export function wasAnswered(refId: string | undefined): boolean {
+  return Boolean(refId) && useAttentionStore.getState().answered.includes(refId!);
+}
 
 const TITLE_BADGE = /^\(\d+\)\s+/;
 
@@ -79,6 +101,7 @@ export function refreshAttention(): Promise<void> {
 export function forgetAttentionItem(item: AttentionItem): void {
   const { list } = useAttentionStore.getState();
   if (!list) return;
+  markAnswered(item.refId);
   const items = list.items.filter((other) => !(other.refId === item.refId && other.sessionId === item.sessionId));
   if (items.length === list.items.length) return;
   const count = Math.max(0, list.count - (list.items.length - items.length));
@@ -90,5 +113,5 @@ export function forgetAttentionItem(item: AttentionItem): void {
 export function resetAttentionStore(): void {
   inflight = null;
   again = false;
-  useAttentionStore.setState({ count: 0, list: null, status: "idle", readAt: 0 });
+  useAttentionStore.setState({ count: 0, list: null, status: "idle", readAt: 0, answered: [] });
 }

@@ -673,8 +673,8 @@
       "loading": "Cargando agentes…"
     },
     "triggers": {
-      "group": "Grupo de activación",
-      "kind": "Activador",
+      "group": "Qué la inicia",
+      "kind": "Cómo",
       "all_sources": "Todos los activadores",
       "amount": "Cada",
       "minutes": "Minutos",
@@ -682,7 +682,7 @@
       "days": "Días",
       "time": "Hora",
       "timezone": "Zona horaria",
-      "expression": "Expresión cron",
+      "expression": "Regla de horario (cron)",
       "date": "Fecha y hora local",
       "endpoint": "Dirección",
       "topic": "Tema / cola / flujo",
@@ -718,25 +718,25 @@
       "provider_saved": "Verificación del proveedor configurada.",
       "use_input": "Usa la entrada configurada del activador.",
       "groups": {
-        "human": "Humano",
-        "time": "Tiempo",
-        "api": "API",
-        "external": "Eventos externos",
-        "stream": "Flujos y mensajes",
-        "system": "Sistema",
-        "internal": "Flujos internos"
+        "human": "Cuando tú la inicias",
+        "time": "Con un horario",
+        "api": "Desde otra app",
+        "external": "Cuando pasa algo en un servicio",
+        "stream": "Desde un flujo de datos en vivo",
+        "system": "Cuando algo cambia en este ordenador",
+        "internal": "Después de otra rutina o flujo"
       },
       "kinds": {
-        "manual": "Manual",
-        "chat": "Chat",
-        "form": "Formulario",
+        "manual": "Solo cuando tú la inicias",
+        "chat": "Desde el chat",
+        "form": "Desde un formulario",
         "mcp": "MCP",
-        "every": "Intervalo",
-        "calendar": "Calendario",
-        "cron": "Cron",
-        "after_delay": "Después de una espera",
-        "at_time": "En una fecha/hora",
-        "webhook": "Webhook",
+        "every": "Cada cierto número de minutos, horas o días",
+        "calendar": "A horas fijas",
+        "cron": "Regla de horario avanzada",
+        "after_delay": "Una vez, tras una espera",
+        "at_time": "Una vez, en una fecha y hora",
+        "webhook": "Cuando se llama a una dirección web",
         "github": "GitHub",
         "linear": "Linear",
         "gmail": "Gmail",
@@ -747,12 +747,12 @@
         "rabbitmq": "RabbitMQ",
         "mqtt": "MQTT",
         "redis": "Redis Streams",
-        "file": "Archivo modificado",
-        "on_event": "Evento del sistema",
-        "workflow": "Workflow → workflow",
-        "event_hook": "Evento con nombre",
-        "workflow_activated": "Flujo activado",
-        "workflow_failed": "Flujo fallido"
+        "file": "Cuando cambia un archivo",
+        "on_event": "Cuando la app informa de un evento",
+        "workflow": "Después de otra rutina o flujo",
+        "event_hook": "Cuando ocurre un evento con nombre",
+        "workflow_activated": "Cuando se activa un flujo",
+        "workflow_failed": "Cuando falla un flujo"
       },
       "when": {
         "succeeded": "Tras completarse",
@@ -2077,7 +2077,12 @@
         "setup_in_chat": "Configurar en el chat",
         "setup_prompt": "Créame una rutina: ",
         "or_chat": "O descríbela en el chat",
-        "empty_body": "Tareas que este agente hace por su cuenta, como un resumen matutino o una revisión semanal."
+        "empty_body": "Tareas que este agente hace por su cuenta, como un resumen matutino o una revisión semanal.",
+        "when_label": "Cuándo",
+        "when_placeholder": "Por ejemplo: cada día laborable a las 7",
+        "when_unclear": "No queda claro cuándo es. Prueba con «cada lunes a las 9» o «cada 2 horas».",
+        "more_options": "Más opciones",
+        "fewer_options": "Menos opciones"
       },
       "parking": {
         "title": "En pausa: resultados sin leer",
@@ -2111,7 +2116,7 @@
       "runs": {
         "empty": "Aún no hay ejecuciones. Usa Prueba para probarla ya.",
         "manual": "Manual",
-        "included": "Incluido en tu suscripción",
+        "included": "Incluido en tu plan",
         "skip_away": "Omitida: nadie abrió los resultados durante un tiempo, así que la rutina se pausó.",
         "show_all": "Ver las {n}",
         "show_less": "Ver menos"

@@ -22,7 +22,8 @@ import { useEventStore } from "@/store/events";
 import { AgentSwatch } from "../AgentSwatch";
 import { agentTint } from "../agentTint";
 import { rowToAgent, type SocietyAgent } from "../data";
-import { previewText, rosterStatus, waitingReasonOf } from "../roster/rosterPreview";
+import { useAttentionStore } from "../attention/attentionStore";
+import { previewText, readableWaiting, rosterStatus, waitingReasonOf } from "../roster/rosterPreview";
 import { StatusMark } from "../roster/RosterRow";
 import type { DetailsControl } from "./AgentChatLayout";
 import { AGENT_APPROVAL_MODES, modeSupported, runnerFor } from "./approvalModes";
@@ -40,12 +41,14 @@ export function AgentHeader({ agent, details }: AgentHeaderProps) {
   const t = useT();
   const assistantName = useEventStore((state) => state.assistantName);
   const displayName = societyDisplayName(agent, assistantName);
+  // Re-read when a card is answered here, so "needs you" clears at once.
+  useAttentionStore((state) => state.answered);
   const status = rosterStatus(agent, false);
   const reason = waitingReasonOf(agent);
 
   let phrase: ReactNode = null;
   if (status === "needs-you") {
-    const summary = previewText(reason?.summary);
+    const summary = readableWaiting(previewText(reason?.summary), t);
     phrase = <span className="as-pill-status text-warning">{summary ? `${t("society.shell.preview_needs_you")} · ${summary}` : t("society.shell.status_waiting")}</span>;
   } else if (status === "working") {
     phrase = <span className="as-pill-status as-shimmer">{t("society.shell.preview_working")}</span>;
