@@ -15,7 +15,7 @@ import re
 import time
 from typing import Any
 
-from .questions import CANCELLED, MAX_ASKS_PER_TURN
+from .questions import CANCELLED, MAX_ASKS_PER_TURN, for_agent
 from .secret_requests import asks_for_secret, claims_stored_secret
 from .task_recovery import ToolRecovery
 
@@ -216,7 +216,9 @@ class TurnCompletion:
                 for spec, answer in zip(specs, answers, strict=True):
                     if answer.source == CANCELLED:
                         raise asyncio.CancelledError
-                    rows.append({"question": spec.question, **answer.to_payload()})
+                    rows.append(
+                        {"question": spec.question, **answer.to_payload(), **for_agent(answer)}
+                    )
                 self.answered.add(question_id)
             if rows:
                 return (

@@ -43,6 +43,44 @@ _TERMINAL = (
     "rate-limited",
 )
 _DISCOVERY = frozenset({"toolsearch", "list_tools", "tools-list", "search_tools"})
+# A call refused before it ran (its arguments did not parse or validate) had
+# no effect and no target of its own: the next successful call of the same
+# tool is its corrected retry.
+_NOT_RUN = (
+    "not valid json",
+    "invalid json",
+    "jsondecodeerror",
+    "argument validation",
+    "inputvalidationerror",
+    "input validation error",
+    "was not invoked",
+    "invalid arguments",
+    "invalid params",
+    "invalid questions",
+    "is a required property",
+    "missing required",
+    "unexpected keyword argument",
+    "malformed",
+)
+# Meta tools that call another tool by name; a refused call names it only in
+# its (unparsed) arguments, while the retry reports the inner tool itself.
+_WRAPPERS = frozenset({"tool_call", "call_tool", "use_tool", "invoke_tool"})
+_INNER_NAME = re.compile(r"""['"](?:name|tool|tool_name)['"]\s*:\s*['"]([\w.:/-]{1,160})['"]""")
+
+
+def _bare(name: str) -> str:
+    return name.rsplit("__", 1)[-1].lower()
+
+
+def _names(name: str, arguments: Any) -> frozenset[str]:
+    """The tool a call is about: itself, and for a meta tool the tools it names."""
+    names = {_bare(name)}
+    if _bare(name) in _WRAPPERS:
+        values = arguments.values() if isinstance(arguments, dict) else [arguments]
+        for value in values:
+            raw = value if isinstance(value, str) else json.dumps(value, default=str)
+            names.update(_bare(found) for found in _INNER_NAME.findall(raw[:8000]))
+    return frozenset(names)
 
 
 def blocks_automatic_recovery(text: str | None) -> bool:
@@ -51,10 +89,17 @@ def blocks_automatic_recovery(text: str | None) -> bool:
 
 @dataclass
 class ToolRecovery:
-    """A successful unrelated action cannot erase an unfinished part of a task."""
+    """A successful unrelated action cannot erase an unfinished part of a task.
+
+    A success of the same action settles its failure, and a success of the
+    same tool settles a call of that tool that was refused before it ran.
+    """
 
     calls: dict[str, tuple[str, str]] = field(default_factory=dict)
     unresolved: dict[tuple[str, str], str] = field(default_factory=dict)
+    #: Failed calls that never ran (malformed arguments), with the tools they named.
+    not_run: dict[tuple[str, str], frozenset[str]] = field(default_factory=dict)
+    names: dict[str, frozenset[str]] = field(default_factory=dict)
     declined: bool = False
     blocked: bool = False
     had_tool_calls: bool = False
@@ -69,19 +114,20 @@ class ToolRecovery:
                 str(payload.get("name") or "tool"),
                 hashlib.sha256(arguments.encode("utf-8")).hexdigest(),
             )
+            self.names[call_id] = _names(self.calls[call_id][0], payload.get("input"))
             return
         if event.get("kind") != "tool_result":
             return
         key = self.calls.pop(call_id, (str(payload.get("name") or "tool"), call_id))
         name = key[0]
+        names = self.names.pop(call_id, frozenset({_bare(name)}))
         # Descriptions, provider bodies and retrieved instructions are never
         # copied into a recovery prompt. Only a registered tool name and a
         # fixed diagnostic code can cross that boundary.
         raw = payload.get("output")
         text = raw if isinstance(raw, str) else json.dumps(raw, default=str)
         text = text[:8000]
-        bare = name.rsplit("__", 1)[-1].lower()
-        discovery = bare in _DISCOVERY
+        discovery = _bare(name) in _DISCOVERY
         missing = discovery and text.lstrip().startswith("No matching deferred tools found")
         if payload.get("is_error") or missing:
             if blocks_automatic_recovery(text):
@@ -89,8 +135,17 @@ class ToolRecovery:
                 self.unresolved.pop(key, None)
             else:
                 self.unresolved[key] = "discovery_empty" if missing else "tool_failed"
+                low = text.lower()
+                if any(marker in low for marker in _NOT_RUN):
+                    self.not_run[key] = names
+                else:
+                    self.not_run.pop(key, None)
         else:
             self.unresolved.pop(key, None)
+            # The corrected retry settles every refused call of the same tool.
+            for stale in [k for k, named in self.not_run.items() if named & names]:
+                self.not_run.pop(stale, None)
+                self.unresolved.pop(stale, None)
 
     def hint(self) -> str | None:
         if self.declined or self.blocked or not self.unresolved:

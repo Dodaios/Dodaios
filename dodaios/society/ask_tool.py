@@ -31,12 +31,14 @@ from dodaios.agent_chat.questions import (
     MIN_OPTIONS,
     MOVED_ON,
     QUESTION_TIMEOUT_S,
+    RECALLED,
     SKIPPED,
     TIMEOUT,
     UNATTENDED,
     QuestionAnswer,
     QuestionSpec,
     TooManyQuestions,
+    for_agent,
     parse_questions,
     recommended_answer,
 )
@@ -276,13 +278,15 @@ def _result(specs: tuple[QuestionSpec, ...], answers: list[QuestionAnswer]) -> T
                 row["option_description"] = description
         elif answer.by_person and not answer.option_indices:
             row["typed"] = True
+        row.update(for_agent(answer))
         rows.append(row)
     output: dict[str, Any] = {"answers": rows}
     sources = {a.source for a in answers}
     if TIMEOUT in sources:
         output["note"] = (
-            f"The user stopped answering for {_MINUTES} minutes, so your recommendations "
-            "were applied to the open questions. Continue with them and briefly mention it."
+            f"The user did not answer for {_MINUTES} minutes, so your recommendations were "
+            "applied to the open questions. The user did not choose them: continue with "
+            "them and say you went with your default."
         )
     elif SKIPPED in sources:
         output["note"] = (
@@ -293,6 +297,11 @@ def _result(specs: tuple[QuestionSpec, ...], answers: list[QuestionAnswer]) -> T
         output["note"] = (
             "The user replied in the chat instead of on the card: read that message as "
             "their answer. Questions they did not address took your recommendations."
+        )
+    if sources == {RECALLED}:
+        output["note"] = (
+            "The user already answered these questions, so no new card was shown. "
+            "Continue with their answers and do not ask again."
         )
     if DECLINED in sources:
         skipped = "The user skipped a question (empty answer): decide it yourself."

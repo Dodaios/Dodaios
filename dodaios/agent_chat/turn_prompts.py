@@ -39,11 +39,11 @@ from dodaios.agent_chat.questions import (
     MAX_QUESTIONS,
     MIN_OPTIONS,
     MOVED_ON,
-    PERSON,
     SKIPPED,
     QuestionAnswer,
     QuestionSpec,
     answer_from,
+    answer_from_payload,
     as_line,
     parse_questions,
     recommended_answer,
@@ -142,23 +142,7 @@ class OpenPlan:
 
 def _answers_from(raw: Any, count: int) -> list[QuestionAnswer | None]:
     rows = raw if isinstance(raw, list) else []
-    out: list[QuestionAnswer | None] = []
-    for index in range(count):
-        row = rows[index] if index < len(rows) else None
-        if not isinstance(row, dict):
-            out.append(None)
-            continue
-        option = row.get("option_index")
-        picks = row.get("option_indices")
-        out.append(
-            QuestionAnswer(
-                str(row.get("answer") or ""),
-                option if isinstance(option, int) else None,
-                str(row.get("source") or PERSON),
-                tuple(i for i in picks if isinstance(i, int)) if isinstance(picks, list) else (),
-            )
-        )
-    return out
+    return [answer_from_payload(rows[i] if i < len(rows) else None) for i in range(count)]
 
 
 def newest_open_ask(events: Sequence[dict[str, Any]]) -> OpenAsk | None:

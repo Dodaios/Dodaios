@@ -52,6 +52,7 @@ from dodaios.agent_chat.questions import (
     MESSAGE,
     MOVED_ON,
     QUESTION_TIMEOUT_S,
+    RECALL_WINDOW_S,
     SKIPPED,
     TIMEOUT,
     QuestionAnswer,
@@ -60,6 +61,9 @@ from dodaios.agent_chat.questions import (
     answer_from,
     answer_json,
     declined_answer,
+    note_answers,
+    person_answers,
+    recall,
     recommended_answer,
 )
 from dodaios.agent_chat.runner_api import TurnHandle, run_api_turn, supports_api_runner
@@ -2558,12 +2562,20 @@ class AgentChatService:
         run = self._running.get(session_id)
         if run is None or run.task is None or run.task.done():
             raise RuntimeError("this chat has no running turn to ask in")
-        if run.asks >= MAX_ASKS_PER_TURN:
-            raise TooManyQuestions(f"this turn already asked {run.asks} times")
-        run.asks += 1
         question_id = uuid.uuid4().hex
         loop = asyncio.get_running_loop()
         open_q = _OpenQuestion(session_id, run.turn_id, specs, loop.create_future())
+        # A question the person already answered is never put to them again:
+        # its answer comes back, and the card shows only what is still open.
+        open_q.answers[:] = recall(specs, self._answered(session_id, run.turn_id))
+        if open_q.done:
+            open_q.delivered = True
+            open_q.result.set_result(list(open_q.answers))
+            self._questions[question_id] = open_q
+            return question_id
+        if run.asks >= MAX_ASKS_PER_TURN:
+            raise TooManyQuestions(f"this turn already asked {run.asks} times")
+        run.asks += 1
         self._questions[question_id] = open_q
         await self._emit(
             session_id,
@@ -2697,16 +2709,34 @@ class AgentChatService:
             except Exception:  # noqa: BLE001 — the outcome is already delivered to the waiter
                 log.warning("agent chat: could not record question %s", question_id, exc_info=True)
 
-    @staticmethod
-    def _final_answers(open_q: _OpenQuestion) -> list[QuestionAnswer]:
+    def _answered(self, session_id: str, turn_id: str) -> dict[Any, Any]:
+        """The person's answers in this turn and within ``RECALL_WINDOW_S``."""
+        found = person_answers(
+            self.store.list_events(session_id, tail=self._TURN_PROMPT_TAIL),
+            turn_id=turn_id,
+            since_ms=int((time.time() - RECALL_WINDOW_S) * 1000),
+        )
+        for open_q in getattr(self, "_questions", {}).values():
+            if open_q.session_id == session_id:
+                note_answers(found, open_q.specs, open_q.answers)
+        return found
+
+    def _final_answers(self, open_q: _OpenQuestion) -> list[QuestionAnswer]:
+        source = open_q.closing or TIMEOUT
+        # A fallback never overrides what the person already answered elsewhere.
+        earlier: list[QuestionAnswer | None] = [None] * len(open_q.specs)
+        if source != CANCELLED and any(a is None for a in open_q.answers):
+            try:
+                earlier = recall(open_q.specs, self._answered(open_q.session_id, open_q.turn_id))
+            except Exception:  # noqa: BLE001 — an unreadable log leaves the defaults
+                log.warning("agent chat: earlier answers unavailable", exc_info=True)
         answers: list[QuestionAnswer] = []
-        for spec, answer in zip(open_q.specs, open_q.answers, strict=True):
+        for spec, answer, before in zip(open_q.specs, open_q.answers, earlier, strict=True):
             if answer is None:
-                source = open_q.closing or TIMEOUT
                 answer = (
                     QuestionAnswer("", None, CANCELLED)
                     if source == CANCELLED
-                    else recommended_answer(spec, source)
+                    else before or recommended_answer(spec, source)
                 )
             answers.append(answer)
         return answers

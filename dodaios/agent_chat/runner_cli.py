@@ -85,6 +85,7 @@ from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.permissions import default_permission, normalize_permission
 from dodaios.agent_chat.questions import (
     CANCELLED,
+    DEFAULTED,
     UNATTENDED,
     TooManyQuestions,
     as_line,
@@ -3356,11 +3357,16 @@ def _keep_going_prompt(
     *,
     receipt_hint: str | None = None,
 ) -> str:
-    err = (error or "the last tool call failed").strip()[:500]
     review = f"{receipt_hint}\n\n" if receipt_hint else ""
+    # Only a real error names the last call; a receipt hint alone is about an
+    # earlier call that no later call settled.
+    head = (
+        f"The last tool call was cancelled or failed:\n{error.strip()[:500]}"
+        if error and error.strip()
+        else "An earlier tool call failed and no later call settled it."
+    )
     return (
-        "The last tool call was cancelled or failed:\n"
-        f"{err}\n\n"
+        f"{head}\n\n"
         f"{KEEP_GOING_ON_TOOL_FAILURE}\n\n"
         f"{review}"
         "Original request:\n"
@@ -4328,8 +4334,12 @@ async def _drive_cli(
         # A multi-select answer reads the way the CLI's own picker writes one:
         # the chosen labels joined by commas.
         # A skipped question (empty answer) still gets words the CLI can read.
+        # A default the person never picked says so, so the model cannot claim
+        # the person chose it.
         picked = {
-            str(row.get("question") or ""): as_line(a.answer) or "No preference; decide yourself."
+            str(row.get("question") or ""): (
+                as_line(a.answer) or "No preference; decide yourself."
+            ) + (" (the person did not answer; your default)" if a.source in DEFAULTED else "")
             for row, a in zip(rows, answers, strict=True)
         }
         return {"behavior": "allow", "updatedInput": {**tool_input, "answers": picked}}

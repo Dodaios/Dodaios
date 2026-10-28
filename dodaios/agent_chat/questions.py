@@ -27,6 +27,12 @@ the recommended option(s), or an empty answer for a ``text`` question with no
 options. The person may also skip one question (``declined``), answer from
 the chat composer (``message``), or move on so that older open questions
 fall back to their recommendations (``moved_on``).
+
+A question is never put to the person twice. When the agent asks again what
+the person already answered (the same question with the same options) in this
+turn or within ``RECALL_WINDOW_S``, that answer comes back without a new card
+(``recalled``), and a fallback (timeout, skip) never replaces it. A fallback
+answer always tells the agent that the person did not choose it.
 """
 
 from __future__ import annotations
@@ -60,6 +66,13 @@ DECLINED: Final[str] = "declined"
 MESSAGE: Final[str] = "message"
 #: The person sent a message instead of answering: the recommendation applies.
 MOVED_ON: Final[str] = "moved_on"
+#: The person answered this same question earlier; no new card was shown.
+RECALLED: Final[str] = "recalled"
+#: Sources where nobody picked the answer: the agent's own recommendation applies.
+DEFAULTED: Final[frozenset[str]] = frozenset({TIMEOUT, SKIPPED, MOVED_ON, UNATTENDED})
+
+#: How long an answer from an earlier turn still answers the same question.
+RECALL_WINDOW_S: Final[float] = 3600.0
 
 #: Question kinds.
 SINGLE: Final[str] = "single"
@@ -149,7 +162,7 @@ class QuestionAnswer:
 
     @property
     def by_person(self) -> bool:
-        return self.source in (PERSON, MESSAGE)
+        return self.source in (PERSON, MESSAGE, RECALLED)
 
     def to_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -378,6 +391,106 @@ def answer_json(spec: QuestionSpec, raw: Any) -> QuestionAnswer:
     )
 
 
+def same_question(spec: QuestionSpec) -> tuple[str, str, frozenset[str]]:
+    """What makes two questions the same: their wording, kind and options."""
+    wording = " ".join(spec.question.casefold().split()).rstrip(" ?!.:")
+    return wording, spec.kind, frozenset(o.label.casefold() for o in spec.options)
+
+
+def recalled(
+    spec: QuestionSpec, earlier: QuestionSpec, answer: QuestionAnswer
+) -> QuestionAnswer:
+    """The person's earlier ``answer`` to ``earlier``, as an answer to ``spec``.
+
+    The options may stand in another order (the recommendation leads), so a
+    picked option is found again by its label.
+    """
+    index = {o.label.casefold(): i for i, o in enumerate(spec.options)}
+
+    def moved(old: int) -> int | None:
+        if not 0 <= old < len(earlier.options):
+            return None
+        return index.get(earlier.options[old].label.casefold())
+
+    picks = tuple(sorted(p for p in (moved(i) for i in answer.option_indices) if p is not None))
+    option = moved(answer.option_index) if answer.option_index is not None else None
+    return QuestionAnswer(answer.answer, option, RECALLED, picks)
+
+
+def answer_from_payload(row: Any) -> QuestionAnswer | None:
+    """One stored answer (``QuestionAnswer.to_payload``) read back, or ``None``."""
+    if not isinstance(row, dict):
+        return None
+    option = row.get("option_index")
+    picks = row.get("option_indices")
+    return QuestionAnswer(
+        str(row.get("answer") or ""),
+        option if isinstance(option, int) and not isinstance(option, bool) else None,
+        str(row.get("source") or PERSON),
+        tuple(i for i in picks if isinstance(i, int)) if isinstance(picks, list) else (),
+    )
+
+
+Answered = dict[tuple[str, str, frozenset[str]], tuple[QuestionSpec, QuestionAnswer]]
+
+
+def note_answers(
+    found: Answered,
+    specs: tuple[QuestionSpec, ...] | list[QuestionSpec],
+    answers: list[QuestionAnswer | None] | tuple[QuestionAnswer | None, ...],
+) -> None:
+    """Add the person's own answers among ``answers`` to ``found`` (newest wins)."""
+    for spec, answer in zip(specs, answers, strict=False):
+        if answer is not None and answer.by_person and (answer.answer or answer.option_indices):
+            found[same_question(spec)] = (spec, answer)
+
+
+def person_answers(events: list[dict[str, Any]], *, turn_id: str, since_ms: int) -> Answered:
+    """The person's answers on the cards in ``events``: every card of ``turn_id``
+    and every other card opened at or after ``since_ms``."""
+    cards: dict[str, tuple[QuestionSpec, ...]] = {}
+    found: Answered = {}
+    for event in events:
+        kind = event.get("kind")
+        payload = event.get("payload") or {}
+        question_id = str(payload.get("question_id") or "")
+        if kind == "question_required":
+            if payload.get("turn_id") != turn_id and int(event.get("ts_ms") or 0) < since_ms:
+                continue
+            try:
+                cards[question_id] = parse_questions({"questions": payload.get("questions") or []})
+            except ValueError:  # a corrupt stored card answers nothing
+                continue
+        elif kind in ("question_progress", "question_resolved") and question_id in cards:
+            rows = payload.get("answers")
+            if isinstance(rows, list):
+                note_answers(found, cards[question_id], [answer_from_payload(r) for r in rows])
+    return found
+
+
+def recall(
+    specs: tuple[QuestionSpec, ...], found: Answered
+) -> list[QuestionAnswer | None]:
+    """Per question, the person's earlier answer to the same question, else ``None``."""
+    out: list[QuestionAnswer | None] = []
+    for spec in specs:
+        hit = found.get(same_question(spec))
+        out.append(recalled(spec, hit[0], hit[1]) if hit else None)
+    return out
+
+
+def for_agent(answer: QuestionAnswer) -> dict[str, Any]:
+    """What the agent must know about who chose ``answer``."""
+    if answer.source in DEFAULTED:
+        return {
+            "person_answered": False,
+            "note": "The person did not answer; this is your default. Never say they chose it.",
+        }
+    if answer.source == RECALLED:
+        return {"person_answered": True, "note": "The person already answered this earlier."}
+    return {}
+
+
 def as_line(answer: str) -> str:
     """A ``multi`` answer on one line, for a sentence that lists several answers."""
     return ", ".join(line.strip() for line in answer.splitlines() if line.strip())
@@ -386,6 +499,7 @@ def as_line(answer: str) -> str:
 __all__ = [
     "CANCELLED",
     "DECLINED",
+    "DEFAULTED",
     "KINDS",
     "MESSAGE",
     "MOVED_ON",
@@ -398,6 +512,8 @@ __all__ = [
     "MIN_OPTIONS",
     "PERSON",
     "QUESTION_TIMEOUT_S",
+    "RECALLED",
+    "RECALL_WINDOW_S",
     "SKIPPED",
     "TIMEOUT",
     "UNATTENDED",
@@ -406,9 +522,16 @@ __all__ = [
     "QuestionSpec",
     "TooManyQuestions",
     "answer_from",
+    "answer_from_payload",
     "answer_json",
     "as_line",
     "declined_answer",
+    "for_agent",
+    "note_answers",
     "parse_questions",
+    "person_answers",
+    "recall",
+    "recalled",
     "recommended_answer",
+    "same_question",
 ]
