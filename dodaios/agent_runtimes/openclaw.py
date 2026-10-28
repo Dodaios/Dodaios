@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat.effort import ORDER, snap_to_ladder
-from dodaios.agent_runtimes import base, versions
+from dodaios.agent_runtimes import base, openclaw_gate, versions
 from dodaios.agent_runtimes.base import (
     DetectCache,
     HomeFileLock,
@@ -139,9 +139,13 @@ _EMBED_ENV: Final[dict[str, str]] = {
 }
 
 #: Native tools that duplicate a Jarvis feature (routines, messaging, other
-#: devices, the visible browser) and would bypass Jarvis' own approvals and
-#: budgets, and tools for OpenClaw's own apps and dashboards no Dodaios agent
-#: has (their schemas were about a quarter of every request).
+#: devices, the visible browser, desktop control, asking the person) and
+#: would bypass Jarvis' own approvals and budgets, and tools for OpenClaw's
+#: own apps and dashboards no Dodaios agent has (their schemas were about a
+#: quarter of every request). ``computer`` drives this desktop and
+#: ``terminal`` the operator's shared terminals; ``openclaw`` changes
+#: OpenClaw's own setup and ``ask_user`` asks in OpenClaw's own UI, both
+#: waiting for an approval or answer no Dodaios surface can give.
 _ALWAYS_DENIED: Final[tuple[str, ...]] = (
     "automations",
     "message",
@@ -149,6 +153,10 @@ _ALWAYS_DENIED: Final[tuple[str, ...]] = (
     "conversations_turn",
     "gateway",
     "nodes",
+    "computer",
+    "terminal",
+    "openclaw",
+    "ask_user",
     "browser",
     "skill_workshop",
     "theme",
@@ -643,8 +651,17 @@ class OpenClawRuntime:
             denied += ["web_search", "web_fetch"]
         # "ask" relays every exec approval over ACP; Jarvis answers it from the
         # chat's stance (Bypass allows without a card), so the file does not
-        # change with the stance of whichever turn wrote it.
+        # change with the stance of whichever turn wrote it. The file tools
+        # ask through Dodaios' gate plugin the same way (``openclaw_gate``).
         exec_mode = "deny" if "shell" in turn.denied_native else "ask"
+        gate = _gate_plugin(turn, home) if route.transport != "claude_cli" else None
+        if gate is None and not turn.auto_approve:
+            # Nothing could ask about a file change: outside Bypass it does
+            # not run at all (exec still asks over ACP).
+            denied += list(openclaw_gate.GATED_TOOLS)
+        if gate is not None and gate.get("config", {}).get("ask"):
+            # One ask tool, under the name the agent's instructions use.
+            denied.append(gate["config"]["ask"]["catalogName"])
         config: dict[str, Any] = {
             "gateway": {
                 "mode": "local",
@@ -696,6 +713,10 @@ class OpenClawRuntime:
             # temp-folder log every OpenClaw on the machine appends to.
             "logging": {"file": str(home / "state" / "logs" / "openclaw.log")},
         }
+        if gate is not None:
+            plugins = config["plugins"]
+            plugins["load"] = {"paths": [gate["path"]]}
+            plugins["entries"][openclaw_gate.PLUGIN_ID] = gate["entry"]
         if route.transport == "claude_cli":
             _use_claude_cli(config, turn)
         if turn.mcp_url and turn.control_key:
@@ -1202,6 +1223,41 @@ class OpenClawRuntime:
                     await self._stop_gateway(gateway)
 
 
+def _gate_plugin(turn: RuntimeTurn, home: Path) -> dict[str, Any] | None:
+    """Dodaios' gate plugin for this agent's Gateway, or ``None`` without tools.
+
+    The plugin asks Dodaios before every native file change and offers the
+    ask tool by its plain name (``openclaw_gate``). It needs the agent's
+    Dodaios tools (the control key and the MCP endpoint): a turn without them
+    has nothing to ask with.
+    """
+    if not (turn.mcp_url and turn.control_key):
+        return None
+    from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
+    from dodaios.society.routine_runner import is_routine_session
+
+    installed = openclaw_gate.install(home)
+    plugin_config: dict[str, Any] = {
+        "gateUrl": openclaw_gate.approval_url(turn.mcp_url),
+        "session": turn.session_id,
+        # A new plugin build is a config change: the Gateway restarts on it.
+        "build": installed.digest,
+    }
+    if not is_routine_session(turn.session_id):
+        # A routine runs unattended: nobody could answer a question there.
+        plugin_config["mcpUrl"] = turn.mcp_url
+        plugin_config["ask"] = openclaw_gate.ask_spec(MCP_TOOLS_SERVER_NAME)
+    return {
+        "path": str(installed.path),
+        "config": plugin_config,
+        "entry": {
+            "enabled": True,
+            "hooks": {"timeouts": {"before_tool_call": openclaw_gate.HOOK_TIMEOUT_MS}},
+            "config": plugin_config,
+        },
+    }
+
+
 def _use_claude_cli(config: dict[str, Any], turn: RuntimeTurn) -> None:
     """Run the agent on the Claude subscription through OpenClaw's bundled
     ``claude-cli`` backend (``docs/gateway/cli-backends.md`` of OpenClaw).
@@ -1256,7 +1312,7 @@ def _inline_catalog_tokens() -> int:
     for entry in entries:
         try:
             schema = json.dumps(getattr(entry, "input_schema", None) or {}, default=str)
-        except (TypeError, ValueError):  # an unserializable schema only counts its name and description
+        except (TypeError, ValueError):  # an unserializable schema counts name and description
             schema = ""
         chars += len(str(entry.name)) * 2 + len(str(entry.description or "")) + len(schema) + 32
     return chars // _CHARS_PER_TOKEN

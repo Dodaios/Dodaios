@@ -81,6 +81,22 @@ describe("agent-chat reduce", () => {
     expect(runningTurn(tl)).toBeNull();
   });
 
+  it("a later message's repaired text replaces the start its stream lost", () => {
+    // OpenClaw's bridge streams a later message from the previous bubble's
+    // length on; the runner then sends the whole answer under the same id.
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "oc", provider: "ollama", model: "qwen", effort: "", runner: "openclaw-cli" }),
+      ev("assistant_text", { turn_id: "oc", message_id: "a", text: "I create the file." }),
+      ev("tool_call", { turn_id: "oc", call_id: "w", name: "write", input: { path: "a.txt" } }),
+      ev("text_delta", { turn_id: "oc", message_id: "b", text: "a.txt now holds hello." }, false),
+      ev("assistant_text", { turn_id: "oc", message_id: "b", text: "Done! The file a.txt now holds hello." }),
+      ev("turn_finished", { turn_id: "oc", status: "done", duration_ms: 10 }),
+    ]);
+    const turn = tl.items[0] as TurnItem;
+    const texts = turn.blocks.filter((b) => b.kind === "text").map((b) => (b.kind === "text" ? b.text : ""));
+    expect(texts).toEqual(["I create the file.", "Done! The file a.txt now holds hello."]);
+  });
+
   it("tracks approvals: pending until resolved, and the tool row carries the decision", () => {
     let tl = reduceEvents(EMPTY_TIMELINE, [
       ev("turn_started", { turn_id: "t2", provider: "openai", model: "", effort: "", runner: "api" }),

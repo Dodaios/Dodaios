@@ -83,6 +83,9 @@ describe("approval mode support", () => {
     expect(modeSupported("claude-cli", "ask")).toBe(true);
     expect(modeSupported("hermes-cli", "ask")).toBe(true);
     expect(modeSupported("openclaw-cli", "ask")).toBe(true);
+    // OpenClaw asks before every native call through Dodaios' gate plugin.
+    expect(modeSupported("openclaw-cli", "always_ask")).toBe(true);
+    expect(modeSupported("hermes-cli", "always_ask")).toBe(false);
     expect(modeSupported("opencode-cli", "ask")).toBe(false);
     expect(modeSupported(null, "ask")).toBe(false);
     expect(modeSupported(null, "bypass")).toBe(true);
@@ -126,6 +129,12 @@ describe("AgentHeader and the approval picker", () => {
     fireEvent.click(screen.getByTestId("agent-approval-mode"));
     await waitFor(() => expect((screen.getByTestId("approval-mode-ask") as HTMLButtonElement).disabled).toBe(false));
     expect((screen.getByTestId("approval-mode-always_ask") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("lets an OpenClaw agent always ask", async () => {
+    mount(agent({ provider: "codex", runtime: "openclaw", approvalMode: "ask" }));
+    fireEvent.click(screen.getByTestId("agent-approval-mode"));
+    await waitFor(() => expect((screen.getByTestId("approval-mode-always_ask") as HTMLButtonElement).disabled).toBe(false));
   });
 
   it("tightens at once but asks once more before loosening", async () => {

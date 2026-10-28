@@ -33,6 +33,7 @@ import {
   type SocietyAgent,
 } from "../../data";
 import { AgentSandboxSection } from "../AgentSandboxSection";
+import { modeSupported, runnerFor } from "../approvalModes";
 import {
   draftFromAgent,
   isDirty,
@@ -51,16 +52,6 @@ import { ChipList, ChoicePill, PaneHint, PaneSection, Segmented, type SegmentOpt
 /** Rows shown before "Show all": enough for the tools an agent really uses. */
 const TOOL_PREVIEW = 8;
 
-/** Runners that can show an actionable approval card, per mode (mirrors the PATCH validator). */
-function modeUnavailable(mode: AgentApprovalMode, provider: string, runner: string | undefined): boolean {
-  const unknownRunner = Boolean(provider) && runner == null;
-  if (mode === "always_ask") return unknownRunner || (runner != null && runner !== "codex-cli" && runner !== "brain");
-  if (mode === "ask") {
-    return unknownRunner || (runner != null && !["codex-cli", "claude-cli", "glm-cli", "brain"].includes(runner));
-  }
-  return false;
-}
-
 export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boolean }) {
   const t = useT();
   useLocaleChunk("society");
@@ -69,7 +60,8 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
   const assistantName = useEventStore((s) => s.assistantName);
   const capabilities = useSocietyCapabilities(!sample);
   const providers = useQuery({ queryKey: ["society", "providers"], queryFn: fetchSocietyProviders, enabled: !lead && !sample, retry: false });
-  const runner = providers.data?.find((row) => row.id === agent.provider)?.runner;
+  // The runner that answers this agent (Hermes and OpenClaw run their own).
+  const runner = runnerFor(agent, providers.data);
 
   const base = useMemo(() => draftFromAgent(agent), [agent]);
   const [draft, setDraft] = useState<AccessDraft>(base);
@@ -174,7 +166,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
                 disabled={disabled}
                 testId="agent-pane-approval-mode"
                 options={AGENT_APPROVAL_MODES.map((mode) => {
-                  const off = modeUnavailable(mode, agent.provider, runner);
+                  const off = !modeSupported(runner, mode);
                   return {
                     value: mode,
                     label: t(`society.approval_mode.${mode}`),

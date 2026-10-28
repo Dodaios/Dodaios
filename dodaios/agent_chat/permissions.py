@@ -404,7 +404,9 @@ def society_mode_supported(runner: str, mode: str) -> bool:
             "openclaw-cli",
         }
     if mode == "always_ask":
-        return runner in {"brain", "codex-cli"}
+        # OpenClaw: Dodaios' gate plugin asks before every native file call
+        # (reads too), exec asks over ACP, Dodaios' tools ask on their own.
+        return runner in {"brain", "codex-cli", "openclaw-cli"}
     return False
 
 

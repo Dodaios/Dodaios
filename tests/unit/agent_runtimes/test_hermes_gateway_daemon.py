@@ -96,11 +96,14 @@ def test_stopping_an_agent_stops_only_its_daemons(roots, stopped):
     bob = Path(_launch(runtime, _turn(roots, agent="bob")).env["HERMES_HOME"])
     stopped.clear()
     asyncio.run(runtime.stop("ada"))
-    assert stopped == [ada]
+    # Both of ada's profiles (chat and routine runs), started this run or not.
+    assert ada in stopped and bob not in stopped
+    assert all(path.name.startswith("ada") for path in stopped)
+    stopped.clear()
     asyncio.run(runtime.stop())
-    assert stopped == [ada, bob]
+    assert stopped == [bob]
     asyncio.run(runtime.stop())  # nothing left to stop
-    assert stopped == [ada, bob]
+    assert stopped == [bob]
 
 
 def _sleeper(*argv: str) -> subprocess.Popen:

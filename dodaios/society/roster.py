@@ -437,6 +437,45 @@ def _revoke_runtime_grants(agent_id: str) -> None:
     log.info("society: revoked %s runtime gateway grant(s) of %s", revoked, agent_id)
 
 
+def _runtime_left(before: dict[str, Any], after: dict[str, Any]) -> str:
+    """The runtime whose background processes an agent no longer needs ("" = none).
+
+    An archived Hermes / OpenClaw agent keeps no warm process or OpenClaw
+    Gateway (about 1.3 GB each) running. (An agent's runtime never changes.)
+    """
+    runtime = str(before.get("runtime") or "jarvis")
+    if runtime == "jarvis":
+        return ""
+    archived = str(after.get("state") or "") == str(AgentState.ARCHIVED)
+    was_archived = str(before.get("state") or "") == str(AgentState.ARCHIVED)
+    return runtime if archived and not was_archived else ""
+
+
+#: Runtime stops still running (kept so they are not collected mid-way).
+_STOPPING: set[asyncio.Task[None]] = set()
+
+
+async def _stop_runtime_processes(runtime: str, agent_id: str) -> None:
+    """Stop ``agent_id``'s processes of ``runtime`` if its driver ever started."""
+    from dodaios.agent_runtimes import started_drivers
+
+    for found in started_drivers():
+        if getattr(found, "name", "") != runtime:
+            continue
+        try:
+            await found.stop(agent_id)
+            log.info("society: stopped the %s processes of %s", runtime, agent_id)
+        except Exception:  # noqa: BLE001 — the roster change stands; idle reaping still applies
+            log.warning("society: %s processes of %s not stopped", runtime, agent_id,
+                        exc_info=True)
+
+
+def _schedule_runtime_stop(runtime: str, agent_id: str) -> None:
+    task = asyncio.get_running_loop().create_task(_stop_runtime_processes(runtime, agent_id))
+    _STOPPING.add(task)
+    task.add_done_callback(_STOPPING.discard)
+
+
 def _check_sandbox_placement(row: dict[str, Any]) -> None:
     if row.get("execution_environment", "local") != "sandbox":
         return
@@ -817,6 +856,9 @@ class Roster:
         await self.refresh()
         if _seat_left(current, row):
             _revoke_runtime_grants(agent_id)
+        if left := _runtime_left(current, row):
+            # Off the request: a Gateway may take seconds to stop.
+            _schedule_runtime_stop(left, agent_id)
         return record
 
     async def archive(self, agent_id: str) -> AgentRecord:

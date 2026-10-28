@@ -445,8 +445,11 @@ class HermesRuntime:
         gateway daemons they ran on."""
         keys = None if agent_id is None else {agent_id, f"{agent_id}~runs"}
         await self._warm.stop(keys)
-        for key in [key for key in self._daemons if keys is None or key in keys]:
-            del self._daemons[key]
+        # A named agent's daemons go even when this app run never started
+        # them (one left by an earlier run lives on its own for minutes).
+        doomed = set(self._daemons) if keys is None else keys
+        for key in doomed:
+            self._daemons.pop(key, None)
             home = hermes_root() / "profiles" / profile_name(key)
             await asyncio.to_thread(_stop_profile_gateway, home)
 

@@ -319,14 +319,10 @@ async def plan_runtime_turn(
         if route.api_key:
             gateway.unwatch_failure(route.api_key, failure)
         acp = plan.acp if plan is not None else None
-        # A runtime still finishing its start keeps its process: a restart
-        # would only begin that start again (the turn sends once more).
-        starting = acp is not None and not_ready_kind(acp.error) == "starting"
-        if launch.invalidate is not None and (
-            handle.cancel.is_set()
-            or (failure.done() and not failure.cancelled())
-            or acp is None
-            or ((not acp.saw_result or acp.status != "done") and not starting)
+        if launch.invalidate is not None and poisons_runtime(
+            acp,
+            cancelled=handle.cancel.is_set(),
+            provider_failed=failure.done() and not failure.cancelled(),
         ):
             launch.invalidate()
         release_launch()
@@ -346,6 +342,31 @@ async def plan_runtime_turn(
         raise
 
 
+def poisons_runtime(acp: AcpTurn | None, *, cancelled: bool, provider_failed: bool) -> bool:
+    """Whether a finished turn leaves its runtime process (OpenClaw: its
+    Gateway) to be restarted before the next one.
+
+    A prompt the runtime answered (also a run it ended itself, or a stop)
+    proves the process and its Gateway work: a restart then only costs a
+    minute and cuts off the runtime's own recovery of the conversation (live
+    2026-10-28: OpenClaw ended a failed run as ``cancelled``; its restarted
+    Gateway could not resume the run, ``delegated_authority_unavailable``).
+    A failure the model gateway saw still restarts it: the runtime may keep
+    the failed provider state. A runtime still finishing its start keeps its
+    process too: a restart would only begin that start again.
+    """
+    if acp is None:
+        return True
+    if acp.prompt_answered:
+        return provider_failed
+    starting = not_ready_kind(acp.error) == "starting"
+    return (
+        cancelled
+        or provider_failed
+        or ((not acp.saw_result or acp.status != "done") and not starting)
+    )
+
+
 def _plan(
     handle: Any,
     launch: Any,
@@ -360,6 +381,7 @@ def _plan(
     client_version: str,
 ) -> Any:
     from dodaios.agent_chat.runner_cli import _PLAN_PREAMBLE, CliPlan, _with_identity
+    from dodaios.agent_runtimes import native_gate
 
     text = _PLAN_PREAMBLE + prompt if plan_mode else prompt
     acp = AcpTurn(
@@ -370,6 +392,10 @@ def _plan(
         mcp_servers=launch.mcp_servers,
         auto_allow=turn.auto_approve,
         auto_deny=plan_mode,
+        always_ask=handle.session.permission_mode == "always_ask",
+        native_always=native_gate.always_for(handle.session.session_id),
+        # The whole answers, for the text OpenClaw's stream cut short.
+        reply_texts=lambda: gateway.turn_replies(failure),
         client_version=client_version,
         report_session=launch.vendor_session,
         session_meta=launch.session_meta,

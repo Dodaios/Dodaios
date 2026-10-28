@@ -33,6 +33,7 @@ import logging
 import re
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
@@ -74,6 +75,14 @@ _OWN_TOOL_PREFIXES: Final[tuple[tuple[str, str], ...]] = tuple(
     for prefix in (f"mcp_{server}_", f"{server}__", f"{server}.")
 )
 _IDENTIFIER: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z_][\w.:-]{0,120}$")
+
+#: What a ``cancelled`` stop reason means when this client never sent
+#: ``session/cancel``: the runtime ended the run on its own (OpenClaw does so
+#: for a run that failed before its reply).
+_ENDED_BY_RUNTIME: Final[str] = "The runtime ended the run before it finished."
+
+#: Replies a runtime keeps out of the chat on purpose (OpenClaw's silent tokens).
+_SILENT_REPLY: Final[re.Pattern[str]] = re.compile(r"^\W*(NO_REPLY|HEARTBEAT_OK)\W*$")
 
 
 class AcpIO(Protocol):
@@ -163,6 +172,17 @@ class AcpTurn:
     auto_allow: bool = False
     #: Refuse every permission request without asking (Plan mode: read only).
     auto_deny: bool = False
+    #: "Always ask": an "allow always" answer allows this one call only.
+    always_ask: bool = False
+    #: Native tools the person allowed for the rest of the chat ("allow
+    #: always" on a native tool's card, :meth:`native_permission`). Shared
+    #: with the chat, which owns the set.
+    native_always: set[str] = field(default_factory=set)
+    #: The answers the model gateway gave this turn, ``(text, tool calls)``
+    #: oldest first (``gateway.turn_replies``). OpenClaw's bridge streams a
+    #: turn's later messages as offsets into the previous one, cutting their
+    #: start off; the shown text is repaired from these.
+    reply_texts: Callable[[], list[tuple[str, int]]] | None = None
     client_name: str = "dodaios"
     client_version: str = ""
     #: What the chat stores as its vendor session instead of the ACP session
@@ -196,6 +216,9 @@ class AcpTurn:
     saw_result: bool = False
     stop_reason: str = ""
     emitted_tool_ids: set[str] = field(default_factory=set)
+    #: The runtime answered ``session/prompt`` with a result: its process and
+    #: the Gateway behind it work, whatever the turn's own outcome.
+    prompt_answered: bool = False
 
     # --- what the agent announced in ``initialize`` ---
     agent_name: str = ""
@@ -212,6 +235,9 @@ class AcpTurn:
     _tool_started: dict[str, float] = field(default_factory=dict, init=False)
     _finished_tools: set[str] = field(default_factory=set, init=False)
     _failure_reply: str = field(default="", init=False)
+    _cancel_sent: bool = field(default=False, init=False)
+    #: Text was shown after the last tool call (``_flush_text``).
+    _text_since_tool: bool = field(default=False, init=False)
 
     # ------------------------------------------------------------------ frames
 
@@ -245,6 +271,7 @@ class AcpTurn:
         ``stopReason: cancelled`` once its turn has wound down."""
         if not self._acp_session or self.saw_result:
             return None
+        self._cancel_sent = True
         return {
             "jsonrpc": "2.0",
             "method": "session/cancel",
@@ -351,17 +378,22 @@ class AcpTurn:
                 self._fail(_error_text(error))
                 return
             res = result if isinstance(result, dict) else {}
+            self.prompt_answered = True
             self.stop_reason = str(res.get("stopReason") or "")
             self._take_usage(res.get("usage"))
             if self._failure_reply:
                 self._fail(self._failure_reply.strip())
                 return
+            await self._show_lost_final(io)
+            early = _STOPPED_EARLY.get(self.stop_reason, "")
+            if self.stop_reason == "cancelled" and not self._cancel_sent:
+                early = _ENDED_BY_RUNTIME
             if self.stop_reason == "refusal" and not self.emitted_text:
                 self._fail("The model refused this request.")
-            elif self.stop_reason in _STOPPED_EARLY and not self.emitted_text:
-                self._fail(_STOPPED_EARLY[self.stop_reason])
-            elif self.stop_reason in _STOPPED_EARLY:
-                self._fail(f"{_STOPPED_EARLY[self.stop_reason]} ({self.stop_reason})")
+            elif early and not self.emitted_text:
+                self._fail(early)
+            elif early:
+                self._fail(f"{early} ({self.stop_reason})")
                 # Retain the partial answer while reporting that the turn is incomplete.
                 await io.emit(
                     make_event(
@@ -370,7 +402,7 @@ class AcpTurn:
                             "kind": "stop_reason",
                             "turn_id": self.turn_id,
                             "stop_reason": self.stop_reason,
-                            "text": _STOPPED_EARLY[self.stop_reason],
+                            "text": early,
                         },
                     )
                 )
@@ -379,6 +411,7 @@ class AcpTurn:
     async def cancel(self, io: AcpIO) -> None:
         """Abort the upstream session before its stdio bridge is terminated."""
         if self._acp_session and not self.saw_result:
+            self._cancel_sent = True
             await io.write({
                 "jsonrpc": "2.0", "method": "session/cancel",
                 "params": {"sessionId": self._acp_session},
@@ -423,6 +456,8 @@ class AcpTurn:
         else:
             await self._flush_text(io)
             decision = await io.ask(call_id, name, args, summary)
+            if decision == "allow_always" and self.always_ask:
+                decision = "allow"
         wanted: tuple[str, ...]
         if decision == "allow_always":
             wanted = ("allow_always", "allow_once")
@@ -436,6 +471,51 @@ class AcpTurn:
             if by_kind.get(kind):
                 return {"outcome": "selected", "optionId": by_kind[kind]}
         return {"outcome": "cancelled"}
+
+    async def native_permission(
+        self,
+        io: AcpIO,
+        call_id: str,
+        name: str,
+        args: dict[str, Any],
+        title: str = "",
+        *,
+        read_only: bool = False,
+    ) -> str:
+        """Decide one native tool call the runtime cannot ask about itself.
+
+        OpenClaw relays only exec approvals over ACP; its file tools (write,
+        edit, apply_patch) are asked about here instead, by Dodaios' gate
+        plugin in the Gateway (``openclaw_gate``). The chat's stance decides
+        as for ``session/request_permission``: Bypass allows, Plan refuses,
+        anything else shows the approval card on the tool's row. A reading
+        tool (``read_only``) runs freely, also in Plan, and asks in "Always
+        ask" only. Returns ``allow`` / ``allow_always`` / ``deny`` / ``cancel``.
+        """
+        if read_only and (self.auto_allow or not self.always_ask):
+            return "allow"
+        if self.auto_deny:
+            return "deny"
+        if self.auto_allow:
+            return "allow"
+        if name in self.native_always and not self.always_ask:
+            return "allow"
+        call_id = call_id or uuid.uuid4().hex
+        await self._flush_text(io)
+        if call_id not in self.emitted_tool_ids:
+            # The approval card sits on a tool row; give it one.
+            await self._tool_start(
+                {"toolCallId": call_id, "title": title or name, "rawInput": args,
+                 "_meta": {"toolName": name}},
+                io,
+            )
+        summary = str(title or name)[:200]
+        decision = await io.ask(call_id, self._tool_names.get(call_id) or name, args, summary)
+        if decision == "allow_always":
+            if self.always_ask:
+                return "allow"
+            self.native_always.add(name)
+        return decision
 
     # ----------------------------------------------------------------- updates
 
@@ -514,6 +594,7 @@ class AcpTurn:
             # Hermes sends no input for its own file tools, only where they act.
             args = {"path": path}
         self.emitted_tool_ids.add(call_id)
+        self._text_since_tool = False
         self._tool_names[call_id] = name
         self._tool_started[call_id] = time.perf_counter()
         await io.emit(
@@ -563,12 +644,71 @@ class AcpTurn:
         self._text_id = ""
         if not text.strip():
             return
+        text = self._repaired(text)
         self.emitted_text = True
+        self._text_since_tool = True
         self.result_text = text
         await io.emit(
             make_event(
                 "assistant_text",
                 {"turn_id": self.turn_id, "message_id": message_id, "text": text},
+            )
+        )
+
+    def _replies(self) -> list[tuple[str, int]]:
+        if self.reply_texts is None:
+            return []
+        try:
+            return list(self.reply_texts())
+        except Exception:  # noqa: BLE001 — a repair never decides more than the shown text
+            log.debug("acp: model replies unreadable", exc_info=True)
+            return []
+
+    def _repaired(self, streamed: str) -> str:
+        """``streamed`` with a start the runtime's stream cut off put back.
+
+        OpenClaw's bridge sends each message of a turn as the part beyond the
+        length of the text it sent before, so a later message (after a tool
+        call, or its own "isolated finalization" pass) arrives without its
+        first characters. The model gateway saw the whole answer: a streamed
+        text that is the end of a longer answer of this turn is that answer.
+        """
+        shown = streamed.strip()
+        for text, _calls in reversed(self._replies()):
+            whole = text.strip()
+            if whole == shown:
+                return streamed
+            if len(whole) > len(shown) and whole.endswith(shown):
+                return whole
+        return streamed
+
+    async def _show_lost_final(self, io: AcpIO) -> None:
+        """The turn's final answer when the runtime's stream dropped it whole.
+
+        A final message no longer than the text streamed before it arrives as
+        nothing at all (the same offset fault as :meth:`_repaired`). When the
+        turn's last answer came after the last tool call and nothing was shown
+        since, it is shown here.
+        """
+        if self._text_since_tool or not self.emitted_tool_ids:
+            return
+        final = ""
+        for text, calls in reversed(self._replies()):
+            if calls:
+                return  # the last model call asked for a tool: no answer followed
+            if text.strip():
+                final = text.strip()
+                break
+        if not final or _SILENT_REPLY.match(final):
+            return
+        message_id = f"acp-{self.turn_id}-{uuid.uuid4().hex[:8]}"
+        self.emitted_text = True
+        self._text_since_tool = True
+        self.result_text = final
+        await io.emit(
+            make_event(
+                "assistant_text",
+                {"turn_id": self.turn_id, "message_id": message_id, "text": final},
             )
         )
 

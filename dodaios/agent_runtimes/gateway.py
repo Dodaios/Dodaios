@@ -118,6 +118,15 @@ _TURN_EFFORTS: dict[Grant, str] = {}
 #: runtime; the runner's stall watchdog asks here before it calls that a hang
 #: (issue #978). The gateway's own read timeout still ends a dead model call.
 _OPEN_CALLS: weakref.WeakKeyDictionary[Future[str], int] = weakref.WeakKeyDictionary()
+#: The answers the gateway gave each watched turn, in order: ``(text, tool
+#: calls)``. OpenClaw's ACP bridge streams a turn's later messages as offsets
+#: into the first one, so the runner reads the real text back from here
+#: (``acp.AcpTurn.reply_texts``).
+_REPLIES: weakref.WeakKeyDictionary[Future[str], list[tuple[str, int]]] = (
+    weakref.WeakKeyDictionary()
+)
+#: Answers kept per turn; a turn with more model calls keeps the latest.
+_MAX_REPLIES: Final = 64
 #: Per (provider, account, model): until when calls are refused, why
 #: (``rate_limited`` / ``usage_limit``) and whether the provider named that
 #: time (a usage limit's reset is only told when it did).
@@ -473,6 +482,23 @@ def _answered(signal: Future[str] | None) -> None:
             _LAST_FAILURES.pop(signal, None)
 
 
+def _record_reply(signal: Future[str] | None, text: str, calls: int) -> None:
+    if signal is None:
+        return
+    with _LOCK:
+        replies = _REPLIES.setdefault(signal, [])
+        replies.append((text, calls))
+        del replies[:-_MAX_REPLIES]
+
+
+def turn_replies(signal: Future[str] | None) -> list[tuple[str, int]]:
+    """``(text, tool calls)`` of every answer this turn got, oldest first."""
+    if signal is None:
+        return []
+    with _LOCK:
+        return list(_REPLIES.get(signal, ()))
+
+
 def unwatch_failure(token: str, signal: Future[str]) -> None:
     with _LOCK:
         grant = _GRANTS.get(token)
@@ -768,6 +794,8 @@ async def stream_response(
         args = {**args, "reasoning_effort": effort}
     started = False
     completed = False
+    texts: list[str] = []
+    calls = 0
     try:
         _require_turn(grant, signal)
         check_cooldown(grant.provider, model, grant.account_id)
@@ -777,10 +805,16 @@ async def stream_response(
             async for event in upstream:
                 started = True
                 completed = completed or event.get("type") == "response.completed"
+                kind = event.get("type")
+                if kind == "response.output_text.done":
+                    texts.append(str(event.get("text") or ""))
+                elif kind == "response.output_item.done" and isinstance(event.get("item"), dict):
+                    calls += event["item"].get("type") == "function_call"
                 yield _sse(event)
         if not completed:
             raise GatewayError("ChatGPT ended before completion.", status=502, code="incomplete")
         _answered(signal)
+        _record_reply(signal, "\n".join(texts), calls)
     except (SubscriptionReasoningError, SubscriptionAuthError, GatewayError) as exc:
         log.info("runtime gateway: %s turn failed (%s)", grant.agent_id, type(exc).__name__)
         failure = _report_failure(grant, model, _subscription_failure(grant, exc), signal)
@@ -1515,10 +1549,12 @@ async def _chat_chunks(
     calls = 0
     finish: str | None = None
     delta = first
+    text: list[str] = []
     try:
         yield _chunk(chat_id, model, {"role": "assistant", "content": ""})
         while delta is not None:
             if delta.content:
+                text.append(delta.content)
                 yield _chunk(chat_id, model, {"content": delta.content})
             if delta.tool_call:
                 yield _chunk(chat_id, model, {"tool_calls": [_tool_call(calls, delta.tool_call)]})
@@ -1539,6 +1575,7 @@ async def _chat_chunks(
         return
     else:
         _answered(signal)
+        _record_reply(signal, "".join(text), calls)
     finally:
         # The runner stops on a provider failure; a closed HTTP client must
         # also release the plugin task if it was suspended between deltas.
@@ -1602,6 +1639,7 @@ async def complete_chat(
     except Exception as exc:  # noqa: BLE001 — becomes the runtime's HTTP error; _failure logs it
         raise _report_failure(grant, model, _failure(grant.provider, exc, model), signal) from exc
     _answered(signal)
+    _record_reply(signal, "".join(text), len(calls))
     message: dict[str, Any] = {"role": "assistant", "content": "".join(text) or None}
     if calls:
         message["tool_calls"] = [{k: v for k, v in call.items() if k != "index"} for call in calls]
@@ -1692,6 +1730,7 @@ def reset() -> None:
         _SIGNATURES.clear()
         _MODEL_LIMITS.clear()
         _FAILURES.clear()
+        _REPLIES.clear()
         _TURN_EFFORTS.clear()
         _COOLDOWNS.clear()
         _WARMING.clear()

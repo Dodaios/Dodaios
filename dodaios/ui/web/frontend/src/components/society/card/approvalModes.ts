@@ -26,7 +26,8 @@ const ASK_RUNNERS: ReadonlySet<string> = new Set([
   "hermes-cli",
   "openclaw-cli",
 ]);
-const ALWAYS_ASK_RUNNERS: ReadonlySet<string> = new Set(["brain", "codex-cli"]);
+// OpenClaw asks before every native call through Dodaios' gate plugin.
+const ALWAYS_ASK_RUNNERS: ReadonlySet<string> = new Set(["brain", "codex-cli", "openclaw-cli"]);
 
 /**
  * The runner that answers this agent's turns, or null while it is not known

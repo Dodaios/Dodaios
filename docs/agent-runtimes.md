@@ -261,8 +261,31 @@ replayed during `session/load` is swallowed because the chat already shows it.
   | Dodaios runtime (brain) | yes | yes | The Dodaios tool gate (`society/approvals.decide`): reads run, everything else shows the card; Always ask shows it for every call. |
   | Claude Code seat (`claude-cli`, `glm-cli`) | yes | no | `--permission-mode default`, prompts answered on the chat card (`--permission-prompt-tool stdio`), plus ask rules for this process only (`--settings`, `runner_cli.claude_ask_settings`) for `Edit`, `Write`, `MultiEdit`, `NotebookEdit`, `Bash` and `PowerShell`. Claude Code checks deny, then ask, then allow rules across all settings sources, so the allow list in the person's own `~/.claude/settings.json` can no longer skip the card (checked on Claude Code 2.1.310 against a local mock endpoint: without the ask rules `Write`, `PowerShell` and `Bash` ran with no prompt, with them each one asked); their deny rules still apply and their files are never edited. Reads of Dodaios' own tools (`readOnlyHint`) are answered without a card (`runner_cli.dodaios_read_free`), and a call that an earlier "Always allow" in the same process covers is answered by the runner (a shell prefix rule never covers a chained, piped or redirected command line). Bypass is unchanged. |
   | Codex seat (`codex-cli`) | yes | yes | The seat runs with `--ignore-user-config --ignore-rules`, a read-only sandbox, `approval_policy="never"` and its shell, plugins, apps and browser disabled, so the person's `~/.codex/config.toml` cannot widen it and its only hands are the Dodaios tools, gated like the Dodaios runtime. |
-  | Hermes, OpenClaw | yes | no | The runtime's config is written per turn (`approvals.mode: manual`, `tools.exec.mode: ask`) and every request comes over ACP to the chat card. |
+  | Hermes | yes | no | The runtime's config is written per turn (`approvals.mode: manual`) and every request comes over ACP to the chat card. |
+  | OpenClaw | yes | yes | Exec asks over ACP (`tools.exec.mode: ask`). OpenClaw relays no other approval, so Dodaios' gate plugin (`agent_runtimes/openclaw_gate.py`, loaded from the agent's folder) holds every `write`, `edit` and `apply_patch` call in a `before_tool_call` hook and asks Dodaios (`POST /api/control/runtime/native-approval`, `native_gate.py`); the chat's running turn answers from its stance like an ACP request. In Always ask the hook asks for `read`, `ls`, `web_search` and `web_fetch` too, and "allow always" allows one call. The plugin's config never depends on the stance, so a stance change never restarts the Gateway. Tools that would wait for an answer only OpenClaw's own UI can give (`ask_user`, `openclaw`) or drive this desktop (`computer`, `terminal`) are denied. |
   | Other CLI seats | no | no | No relay for their own prompts: Ask and Always ask are refused when the chat binds. |
+- **The ask tool on OpenClaw** is offered by the gate plugin under its plain
+  name, `society_ask_user`, as a direct tool next to the deferred tool search
+  (the MCP copy, `dodaios__society_ask_user`, is denied), and calls Dodaios'
+  own MCP tool. Question ids a model adds (`color-pref`) are normalized, never
+  refused.
+- **OpenClaw's stream is repaired from the model gateway.** Its ACP bridge
+  sends each message of a turn as the part beyond the length of the text it
+  sent before, so a later message (after a tool call or its "isolated
+  finalization" pass) arrives without its first characters, or not at all.
+  The model gateway records each answer of the watched turn
+  (`gateway.turn_replies`); `AcpTurn` replaces a streamed text that is the end
+  of a longer answer with that answer and shows a final answer the stream
+  dropped.
+- **A prompt the runtime answered never restarts it.** A turn whose
+  `session/prompt` got a result (also a run OpenClaw ended itself as
+  `cancelled`, or a stop) keeps its process and Gateway
+  (`runner_acp.poisons_runtime`); a restart then cost a minute and OpenClaw's
+  restarted Gateway could not resume the run (`delegated_authority_unavailable`).
+  A failure the model gateway saw still restarts it.
+- **Retiring an agent stops its processes.** Archiving a Hermes or OpenClaw
+  agent stops its warm processes, its OpenClaw Gateways and its Hermes gateway
+  daemons at once; idle ones still stop after 30 minutes.
 - **Warm processes** (`warm.py`). An agent's runtime process stays up
   between its turns, initialized and with its conversation open, so a message
   only costs `session/prompt` (Hermes: first answer text 0.03 s instead of

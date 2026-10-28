@@ -4492,6 +4492,22 @@ async def _drive_cli(
             return str(decision)
 
     acp_io = _AcpIO()
+    gate_decider = None
+    if plan.acp is not None:
+        from dodaios.agent_runtimes import native_gate
+
+        acp_turn = plan.acp
+
+        async def gate_decider(
+            call_id: str, tool: str, args: dict[str, Any], title: str, read_only: bool
+        ) -> str:
+            # A native tool the runtime cannot ask about (OpenClaw's file
+            # tools, through Dodaios' gate plugin): this turn's card decides.
+            return await acp_turn.native_permission(
+                acp_io, call_id, tool, args, title, read_only=read_only
+            )
+
+        native_gate.register(handle.session.session_id, gate_decider)
     grace_kill: asyncio.TimerHandle | None = None
     # Stall watchdog state: the last stdout frame, and an open approval card.
     activity = [time.monotonic()]
@@ -4541,6 +4557,8 @@ async def _drive_cli(
             _kill(proc)
         raise
     finally:
+        if gate_decider is not None:
+            native_gate.unregister(handle.session.session_id, gate_decider)
         watcher.cancel()
         provider_watcher.cancel()
         stall_watcher.cancel()

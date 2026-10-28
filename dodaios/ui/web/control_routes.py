@@ -501,3 +501,44 @@ def set_api_key(body: SetKeyBody, request: Request) -> dict[str, Any]:
         getattr(client, "host", "unknown"),
     )
     return {"ok": True, "masked": control_key.mask_control_key(key)}
+
+
+# ----------------------------------------------------------------------
+# Native tool approvals of an agent runtime (OpenClaw's gate plugin)
+# ----------------------------------------------------------------------
+
+
+class _NativeApproval(BaseModel):
+    tool: str = Field(min_length=1, max_length=200)
+    params: dict[str, Any] = Field(default_factory=dict)
+    tool_call_id: str = Field(default="", max_length=200)
+    title: str = Field(default="", max_length=400)
+
+
+@router.post(
+    "/runtime/native-approval",
+    dependencies=[Depends(require_control_key)],
+    include_in_schema=False,
+)
+async def runtime_native_approval(body: _NativeApproval, request: Request) -> dict[str, Any]:
+    """Decide one native tool call an agent runtime cannot ask about itself.
+
+    Dodaios' gate plugin in an agent's OpenClaw Gateway holds each file
+    change here until the chat's running turn decides it (its card, or the
+    stance at once). The chat travels in the same header as on the MCP
+    endpoint; without a running turn of that chat the call is refused.
+    """
+    from dodaios.agent_runtimes import native_gate, openclaw_gate
+
+    session_id = (request.headers.get("x-jarvis-chat-session") or "").strip()
+    if not session_id:
+        return {"decision": "deny", "reason": native_gate.NO_TURN}
+    decision, reason = await native_gate.decide(
+        session_id,
+        body.tool,
+        body.params,
+        call_id=body.tool_call_id,
+        title=body.title,
+        read_only=body.tool in openclaw_gate.READ_TOOLS,
+    )
+    return {"decision": decision, "reason": reason}
