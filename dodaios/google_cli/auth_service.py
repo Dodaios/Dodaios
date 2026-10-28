@@ -80,7 +80,56 @@ def _oauth_login_present(home: Path) -> bool:
                 return True
         except OSError:
             continue
-    return False
+    return _agy_keyring_login_present()
+
+
+# agy 1.4 keeps its login in the OS keyring instead of the token file above
+# (verified live 2026-10-27 with agy 1.4.7 on Windows; cli.log: "ChainedAuth:
+# authenticated via keyring"). On Windows that is a generic Credential Manager
+# entry with this target. Presence only — the blob is freed unread (Google ToS,
+# same rule as the files). Other platforms keep the file-only check.
+_AGY_KEYRING_TARGET = "gemini:antigravity"
+_CRED_TYPE_GENERIC = 1
+_ERROR_NOT_FOUND = 1168
+
+
+def _advapi32() -> Any:
+    import ctypes
+
+    return ctypes.WinDLL("advapi32", use_last_error=True)
+
+
+def _agy_keyring_login_present() -> bool:
+    """True when agy's Windows Credential Manager login entry exists."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        advapi32 = _advapi32()
+        cred = ctypes.c_void_p()
+        found = advapi32.CredReadW(
+            ctypes.c_wchar_p(_AGY_KEYRING_TARGET), _CRED_TYPE_GENERIC, 0, ctypes.byref(cred)
+        )
+        if found:
+            advapi32.CredFree(cred)
+        return bool(found)
+    except Exception:  # noqa: BLE001 — a probe failure means "not detected"
+        return False
+
+
+def _delete_agy_keyring_login() -> None:
+    """Remove agy's Credential Manager login entry; absent is not an error."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    advapi32 = _advapi32()
+    if advapi32.CredDeleteW(ctypes.c_wchar_p(_AGY_KEYRING_TARGET), _CRED_TYPE_GENERIC, 0):
+        return
+    err = ctypes.get_last_error()
+    if err != _ERROR_NOT_FOUND:
+        raise OSError(err, f"could not remove the {_AGY_KEYRING_TARGET} credential")
 
 
 def _derive_google_auth(
@@ -291,13 +340,16 @@ class GoogleCliAuthService:
         the disconnect; this clears BOTH the Gemini CLI's ``oauth_creds.json`` and
         the agy token under ``antigravity-cli/`` (else Disconnect is a no-op for an
         agy login). The isolated brain home re-syncs to the absent login on the
-        next turn (see ``isolated_home``), so agy logs out there too.
+        next turn (see ``isolated_home``), so agy logs out there too. agy 1.4
+        logs in through the OS keyring instead, so its Credential Manager entry
+        is removed as well.
 
         Returns ``(ok, error)``; ``ok`` is True when the login files are gone.
         """
         try:
             for path in _oauth_login_paths(_gemini_home()):
                 path.unlink(missing_ok=True)
+            _delete_agy_keyring_login()
             return True, None
         except OSError as exc:
             return False, str(exc)

@@ -3,12 +3,22 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 import dodaios.google_cli.auth_service as auth_mod
 from dodaios.google_cli.auth_service import (
     GoogleCliAuthService,
     _derive_google_auth,
 )
 from dodaios.google_cli.resolver import GoogleCli
+
+
+@pytest.fixture(autouse=True)
+def _no_real_keyring(monkeypatch):
+    # Keep every test off the real Windows Credential Manager: a developer
+    # machine with agy 1.4 signed in would otherwise read as connected.
+    monkeypatch.setattr(auth_mod, "_agy_keyring_login_present", lambda: False)
+    monkeypatch.setattr(auth_mod, "_delete_agy_keyring_login", lambda: None)
 
 
 def test_derive_oauth_personal():
@@ -138,6 +148,39 @@ def test_status_agy_empty_token_file_is_not_connected(tmp_path, monkeypatch):
     monkeypatch.setenv("GEMINI_HOME", str(gem))
     svc = GoogleCliAuthService()
     svc._resolve = lambda: GoogleCli(kind="agy", argv_prefix=["agy"])  # type: ignore[method-assign]
+    assert not svc.status().connected
+
+
+def test_status_connected_via_agy_keyring_login(tmp_path, monkeypatch):
+    # agy 1.4 keeps its login in the OS keyring and writes no token file; the
+    # card stayed on "waiting for sign-in" after a successful login.
+    gem = tmp_path / ".gemini"
+    gem.mkdir()
+    monkeypatch.setenv("GEMINI_HOME", str(gem))
+    monkeypatch.setattr(auth_mod, "_agy_keyring_login_present", lambda: True)
+    svc = GoogleCliAuthService()
+    svc._resolve = lambda: GoogleCli(  # type: ignore[method-assign]
+        kind="agy", argv_prefix=["agy.exe"], version="1.4.7"
+    )
+    st = svc.status()
+    assert st.installed and st.connected
+    assert st.mode == "oauth-personal"
+
+
+def test_logout_removes_agy_keyring_login(tmp_path, monkeypatch):
+    # Disconnect must also clear the keyring login, else it is a no-op for agy 1.4.
+    gem = tmp_path / ".gemini"
+    gem.mkdir()
+    monkeypatch.setenv("GEMINI_HOME", str(gem))
+    keyring = {"present": True}
+    monkeypatch.setattr(auth_mod, "_agy_keyring_login_present", lambda: keyring["present"])
+    monkeypatch.setattr(
+        auth_mod, "_delete_agy_keyring_login", lambda: keyring.update(present=False)
+    )
+    svc = GoogleCliAuthService()
+    svc._resolve = lambda: GoogleCli(kind="agy", argv_prefix=["agy.exe"])  # type: ignore[method-assign]
+    ok, err = svc.logout_blocking()
+    assert ok and err is None
     assert not svc.status().connected
 
 
