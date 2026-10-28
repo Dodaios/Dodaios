@@ -214,7 +214,8 @@
         "surge": "反应堆涌动：位置暴露",
         "fight": "开战",
         "click_to_aim": "点击以瞄准",
-        "vent": "散热"
+        "vent": "散热",
+        "match_point": "赛点"
       },
       "callout": {
         "parry": "完美格挡",
@@ -223,7 +224,9 @@
         "vent_miss": "散热失误",
         "overheat": "过热",
         "shield_break": "护盾破碎",
-        "deflect": "偏转"
+        "deflect": "偏转",
+        "knockout": "击倒",
+        "down": "你被击倒了"
       },
       "round": {
         "won": "本局胜利",

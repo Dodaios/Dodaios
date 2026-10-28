@@ -802,17 +802,39 @@ is set.
   cells along the receiver (amber for the person, red for the bot), heat vents
   on the shroud glowing blue to amber to red with the heat and pulsing while
   venting, an emitter ring at the muzzle.
-- **Bolts** (`effects.ts`): a white-hot core in a coloured glow with a tapering
-  trail, HDR so the eye view's bloom catches them and additive so they read on
-  the low tier too; amber (person), red (bot), near white and thicker when
-  parried. Pooled.
-- **Impacts**: sparks with gravity, a flash, a scorch mark that glows hot for
-  1.6 s and fades after 24 s. **Hits**: sparks and a flash on the body.
-  **Muzzle**: a star flash. **Overheat / vent**: steam from the muzzle.
+All effects live in `DuelFx` (`duelFx.ts`, React-free); `DuelLayer` feeds it
+each frame's view and events. Everything is pooled.
+
+- **Bolts** (`effects.ts`): a thin white-hot core inside a soft glow (bright
+  where it faces the camera, fading at its silhouette and tail), a halo round
+  the head and a tapering trail; HDR and additive; amber (person), red (bot),
+  near white, thicker and with an 8 m trail when parried.
+- **Light** (`lights.ts`): four pooled point lights shared by the bolts (a
+  slight flicker) and short flashes (muzzle pops, impacts, blocks, parries,
+  knockouts); each frame the brightest requests near the camera win
+  (`pickLights`). The pool never changes size, so no shader recompiles.
+- **Bloom**: while a duel runs the eye view's bloom is stronger above a higher
+  threshold (`DUEL_BLOOM`, via `runtime.bloomOverride`): bolts, flashes and
+  sparks glow, the deck's fixtures keep their tuned look.
+- **Muzzle**: a star flash, a forward glow, a light pop and a wisp of smoke.
+  **Heat** (`impacts.ts`): a rising shimmer over a barrel above 55% heat;
+  steam puffs while hot, venting or overheated.
+- **Impacts** by what was struck: walls and floor throw sparks with motion
+  streaks and gravity, dark chips that bounce (lit by the duel's lights), dust
+  and a scorch that glows white-yellow to cherry for 2.4 s and fades after
+  24 s (two instanced meshes for all of them); bodies flare an energy shell on
+  the opponent with red sparks; shields ripple.
 - **Shield** (`shield.ts`): a translucent curved panel, +-60 deg, 0.8 m out,
-  2 m high, with a hex lattice, bright edges and a scan line; strength follows
-  energy, the parry window shows as a hot rim, a block ripples blue-white from
-  the strike point, a parry flashes the panel gold-white, a break flickers red.
+  2 m high, with a hex lattice, bright edges, a fresnel rim and a scan line;
+  strength follows energy, the parry window shows as a hot rim, a block's
+  ripple lights the hex cells it crosses, a parry flashes gold-white with a
+  shock ring and a light burst, a break flickers red and shatters into
+  glowing shards.
+- **Knockout**: the opponent goes down in a burst (flash, ring, sparks,
+  dust); the match runs in slow motion for about a second (`SLOW_MOTION`,
+  the sim's own clock slows, so nothing is skipped) and the camera eases back
+  and narrows for a beat (`DuelCamera.knockout`). With the system's reduced
+  motion setting the shakes keep a quarter and the beat is smaller.
 
 Shader note: the trail's alpha clamps its varying before `pow`; MSAA samples
 varyings just outside a triangle, and one NaN in the HDR target is spread over
@@ -821,19 +843,22 @@ the whole frame by the bloom (a black screen).
 ### HUD
 
 `buildHudModel(view, feed, now, camYaw)` (pure, tested) turns the view and the
-frame's events into what `DuelHud` draws: score and round clock top centre
-with round pips and the opponent's health; a spread-aware crosshair
-(`crosshairRadiusPx`), red over the opponent, dimmed while the blaster cannot
-fire, with hit markers (white, gold headshot, red knockout); damage arcs
-around it pointing where hits came from (relative to the camera); a red edge
-flash on hits taken and a pulse at low health; call-outs (parry, parried,
-deflected, perfect vent, vent missed, overheated, shield broken); health,
-shield (parry ready / cooling / down with its countdown) and roll cooldown
-bottom left; heat with the vent's gold window and a sweeping marker bottom
-right; the countdown, *Fight* and round banners; the surge warning and the
-opponent's pinged position; the pause and result screens (accuracy, damage,
-headshots, parries, blocks, perfect vents). Key hints show for the first
-seconds of a match.
+frame's events into what `DuelHud` draws, in charcoal and gold: a score
+banner top centre (scores, round clock, round pips, the opponent's health); a
+spread-aware crosshair (`crosshairRadiusPx`), red over the opponent, dimmed
+while the blaster cannot fire, inside three thin gauges (`GAUGES`, `arcPath`:
+heat up the right with the vent's gold window and sweep, shield energy up the
+left, the roll along the bottom), with hit markers (white, gold headshot, a
+red cross with a bursting ring for the knockout); damage as a red glow on the
+screen edge the hit came from (`edgePoint`) plus arcs round the crosshair; a
+red flash on hits taken and a pulse at low health; call-outs (parry, parried,
+deflected, perfect vent, vent missed, overheated, shield broken, knockout,
+down); health (large), shield and roll bottom left; heat and vent bottom
+right; a cinematic countdown (letterbox bars, *Round N* with *Match point*,
+big numerals), *Fight*, round banners, a cold tint during the knockout's slow
+motion; the surge warning and the opponent's pinged position; the pause
+screen and the match's end with both duellists' stats side by side. Key hints
+show for the first seconds of a match.
 
 ### Sound
 
@@ -860,6 +885,10 @@ missing.
 Measured (headless Chrome, RTX 5070 Ti, 2560 x 1392, tier high, engineering
 preview export): 60 fps (vsync) through a whole match, 160..250 draw calls,
 CPU 1.5..3.8 ms per frame.
+
+With the 2026-10-28 effects (visible Chrome, RTX 5070 Ti, 1904 x 985, tier
+high, 12 s of live firefight): 104..133 fps (uncapped display), p99 frame
+14.5 ms, 279 draw calls on average (443 at most), CPU 5.9..7.8 ms.
 
 ### Open
 

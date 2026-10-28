@@ -2,10 +2,12 @@
  * The energy shield as it reads on screen: a translucent curved panel
  * 0.8 m in front of the body, ±60° around the aim and 2 m high (the combat
  * core's coverage, docs/verse/combat.md), drawn additively with a fine hex
- * lattice, bright edges and a slow scan line. Its strength follows the
+ * lattice, bright edges, a fresnel rim (brighter where the panel turns
+ * away from the camera) and a slow scan line. Its strength follows the
  * shield's energy; the parry window shows as a hot rim; a blocked bolt
- * ripples out from where it struck (blue-white), a parry flashes the whole
- * panel gold-white, a break shatters it into a red flicker.
+ * ripples out from where it struck, lighting the hex cells it crosses
+ * (blue-white), a parry flashes the whole panel gold-white, a break
+ * flickers red (the flying shards are `impacts.ts`'s).
  */
 import { AdditiveBlending, Color, CylinderGeometry, DoubleSide, Mesh, ShaderMaterial, Vector3 } from "three";
 import type { PlayerView } from "../combat/view";
@@ -13,10 +15,12 @@ import type { PlayerView } from "../combat/view";
 const VERTEX = /* glsl */ `
 varying vec2 vUv;
 varying vec3 vWorld;
+varying vec3 vNormal;
 void main() {
   vUv = uv;
   vec4 w = modelMatrix * vec4(position, 1.0);
   vWorld = w.xyz;
+  vNormal = normalize(mat3(modelMatrix) * normal);
   gl_Position = projectionMatrix * viewMatrix * w;
 }`;
 
@@ -31,6 +35,7 @@ uniform vec3 hitPoint;
 uniform float hitAge;
 varying vec2 vUv;
 varying vec3 vWorld;
+varying vec3 vNormal;
 
 float hexEdge(vec2 p) {
   p *= vec2(1.0, 1.1547);
@@ -51,14 +56,20 @@ void main() {
   float hex = hexEdge(vec2(vUv.x * 16.0, vUv.y * 13.0));
   float scan = smoothstep(0.03, 0.0, abs(fract(vUv.y - time * 0.35) - 0.5));
   float ripple = 0.0;
-  if (hitAge < 0.6) {
+  if (hitAge < 0.7) {
     float d = distance(vWorld, hitPoint);
-    float r = hitAge * 3.2;
-    ripple = smoothstep(0.12, 0.0, abs(d - r)) * (1.0 - hitAge / 0.6) + smoothstep(0.35, 0.0, d) * (1.0 - hitAge / 0.6) * 1.5;
+    float r = hitAge * 3.4;
+    float fade = 1.0 - hitAge / 0.7;
+    // The wave lights the hex cells it crosses; the strike point burns brightest.
+    float ring = smoothstep(0.16, 0.0, abs(d - r)) * fade;
+    ripple = ring * (0.35 + 1.6 * hex) + smoothstep(0.32, 0.0, d) * fade * fade * 2.0;
   }
-  float a = strength * (0.035 * body + 0.1 * hex * body + 0.5 * edge + 0.12 * scan * body) + rim * edge * 1.5 + ripple * 2.0;
-  vec3 c = colour * a + flashColour * flash * (0.25 * body + 0.8 * edge + 0.3 * hex * body);
-  float alpha = clamp(a + flash * 0.5, 0.0, 1.0);
+  float facing = abs(dot(normalize(vNormal), normalize(cameraPosition - vWorld)));
+  float fres = pow(1.0 - clamp(facing, 0.0, 1.0), 3.0);
+  float a = strength * (0.03 * body + 0.09 * hex * body + 0.5 * edge + 0.1 * scan * body + 0.35 * fres * body)
+    + rim * (edge * 1.5 + 0.3 * hex * body) + ripple * 2.0;
+  vec3 c = colour * a + flashColour * flash * (0.08 * body + 0.8 * edge + 0.3 * hex * body);
+  float alpha = clamp(a + flash * 0.25, 0.0, 1.0);
   gl_FragColor = vec4(max(c, vec3(0.0)), alpha);
 }`;
 

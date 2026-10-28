@@ -24,7 +24,7 @@ export const HUD_TIMES = {
 export const LOW_HEALTH = 0.3;
 
 export type HitMarkerKind = "hit" | "head" | "kill";
-export type CalloutKey = "parry" | "parried" | "perfect_vent" | "vent_miss" | "overheat" | "shield_break" | "deflect";
+export type CalloutKey = "parry" | "parried" | "perfect_vent" | "vent_miss" | "overheat" | "shield_break" | "deflect" | "knockout" | "down";
 
 interface Timed { at: number }
 
@@ -84,6 +84,10 @@ export class DuelHudFeed {
         case "shield_break":
           if (e.player === slot) this.callout = { at: now, key: "shield_break" };
           break;
+        case "death":
+          if (e.player === slot) this.callout = { at: now, key: "down" };
+          else if (e.killer === slot) this.callout = { at: now, key: "knockout" };
+          break;
         case "round_start":
           this.fightAt = now;
           this.roundEnd = null;
@@ -102,7 +106,7 @@ export class DuelHudFeed {
 }
 
 export type Banner =
-  | { kind: "countdown"; value: number }
+  | { kind: "countdown"; value: number; round: number; matchPoint: boolean }
   | { kind: "fight" }
   | { kind: "round"; outcome: "won" | "lost" | "draw"; reason: "kill" | "time" | "trade" };
 
@@ -186,7 +190,10 @@ export function buildHudModel(view: ViewState, feed: DuelHudFeed, now: number, c
     if (a > 0) callout = { key: feed.callout.key, alpha: a };
   }
   let banner: Banner | null = null;
-  if (m.phase === "countdown") banner = { kind: "countdown", value: Math.max(1, Math.ceil(m.countdown)) };
+  if (m.phase === "countdown") {
+    const matchPoint = myScore === m.roundsToWin - 1 || theirScore === m.roundsToWin - 1;
+    banner = { kind: "countdown", value: Math.max(1, Math.ceil(m.countdown)), round: m.round, matchPoint };
+  }
   else if (m.phase === "live" && fade(now, feed.fightAt, HUD_TIMES.fight) > 0) banner = { kind: "fight" };
   else if (m.phase === "round_end" && feed.roundEnd) {
     const w = feed.roundEnd.winner;
@@ -235,4 +242,50 @@ export function buildHudModel(view: ViewState, feed: DuelHudFeed, now: number, c
     banner,
     ping,
   };
+}
+
+/**
+ * An SVG arc path of radius `r` round the origin from `fromDeg` to `toDeg`
+ * (degrees clockwise from straight up; a smaller `toDeg` runs
+ * anticlockwise). The crosshair's gauges are drawn with it. Pure.
+ */
+export function arcPath(r: number, fromDeg: number, toDeg: number): string {
+  const at = (deg: number) => {
+    const a = (deg * Math.PI) / 180;
+    const n = (v: number) => (Math.abs(v) < 0.005 ? 0 : v).toFixed(2);
+    return `${n(r * Math.sin(a))} ${n(-r * Math.cos(a))}`;
+  };
+  const large = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
+  const sweep = toDeg > fromDeg ? 1 : 0;
+  return `M ${at(fromDeg)} A ${r} ${r} 0 ${large} ${sweep} ${at(toDeg)}`;
+}
+
+/**
+ * The crosshair's gauges (degrees clockwise from up; a negative span runs
+ * anticlockwise): heat fills up the right side, shield energy up the left,
+ * the roll's readiness along the bottom.
+ */
+export const GAUGES = {
+  radius: 40,
+  heat: { from: 128, span: -76 },
+  shield: { from: 232, span: 76 },
+  roll: { from: 200, span: -40 },
+} as const;
+
+/** Where a gauge's value (0..1) ends, degrees: `from` plus that share of its span. Pure. */
+export function gaugeAngle(g: { from: number; span: number }, value: number): number {
+  return g.from + Math.max(0, Math.min(1, value)) * g.span;
+}
+
+/**
+ * Where a damage indicator sits on the screen's edge for a hit from
+ * `angleDeg` (clockwise from straight ahead): percentages of the width and
+ * height, a little past the edge so only its glow shows. Pure.
+ */
+export function edgePoint(angleDeg: number): { x: number; y: number } {
+  const a = (angleDeg * Math.PI) / 180;
+  const s = Math.sin(a), c = Math.cos(a);
+  // Onto the rectangle's edge, not a circle: the larger component reaches the edge.
+  const k = 0.5 / Math.max(Math.abs(s), Math.abs(c), 1e-6);
+  return { x: 50 + s * k * 104, y: 50 - c * k * 104 };
 }

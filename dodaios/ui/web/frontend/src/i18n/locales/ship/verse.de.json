@@ -214,7 +214,8 @@
         "surge": "Reaktorschub: Positionen sichtbar",
         "fight": "Kampf",
         "click_to_aim": "Klicken zum Zielen",
-        "vent": "Entlüften"
+        "vent": "Entlüften",
+        "match_point": "Matchball"
       },
       "callout": {
         "parry": "Pariert",
@@ -223,7 +224,9 @@
         "vent_miss": "Entlüften verpasst",
         "overheat": "Überhitzt",
         "shield_break": "Schild zerstört",
-        "deflect": "Abgelenkt"
+        "deflect": "Abgelenkt",
+        "knockout": "K.-o.",
+        "down": "Du bist am Boden"
       },
       "round": {
         "won": "Runde gewonnen",

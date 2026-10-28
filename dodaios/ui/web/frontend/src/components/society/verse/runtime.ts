@@ -100,6 +100,8 @@ export class StageRuntime {
   viewmodel: ViewmodelDraw | null = null;
   /** A duel holds the commander: the deck neither walks nor shows their usual body. */
   duelActive = false;
+  /** While set, the eye view's bloom uses these instead of its own (the duel's bolts glow harder). */
+  bloomOverride: { strength: number; radius: number; threshold: number } | null = null;
   /** The commander's power (Arc Storm) is held down (the F key), on the deck outside a duel. */
   power = false;
   /** The duel's hall while a duel runs: crew standing in it are not drawn (nobody walks into the line of fire). */
