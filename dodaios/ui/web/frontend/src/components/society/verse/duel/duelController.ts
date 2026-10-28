@@ -35,6 +35,22 @@ export type DuelPhase = "off" | "running" | "paused" | "result";
 export type DuelDifficulty = BotTier;
 export const DUEL_DIFFICULTIES: readonly DuelDifficulty[] = ["normal", "hard", "elite"];
 
+/** The knockout's slow motion: how long (real ms), how slow at its deepest, and the share of it spent easing back. */
+export const SLOW_MOTION = { ms: 1100, scale: 0.28, easeShare: 0.45 } as const;
+
+/**
+ * The match's speed for this frame while `leftMs` of the slow motion
+ * remain: `scale` at first, easing back to 1 over the last `easeShare` of
+ * it; 1 when none is left. Pure.
+ */
+export function slowMotionScale(leftMs: number, o: { ms: number; scale: number; easeShare: number } = SLOW_MOTION): number {
+  if (leftMs <= 0) return 1;
+  const easeMs = o.ms * o.easeShare;
+  if (leftMs >= easeMs) return o.scale;
+  const k = 1 - leftMs / easeMs;
+  return o.scale + (1 - o.scale) * k * k;
+}
+
 /** Where the person stood when the duel ended: the deck takes them back there. */
 export interface DuelExit { x: number; z: number; yaw: number }
 
@@ -43,6 +59,15 @@ export interface DuelControllerOptions {
   create?: (o: LocalDuelOptions) => LocalDuel;
   sound?: DuelSound | null;
   now?: () => number;
+}
+
+/** The system asks for reduced motion (shakes and camera beats are toned down). */
+function prefersReducedMotion(): boolean {
+  try {
+    return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
 }
 
 export class DuelController {
@@ -70,6 +95,9 @@ export class DuelController {
   /** Shots the person has fired this match, and whether the last one was in the sights (the viewmodel kicks on each). */
   ownShots = 0;
   lastShotAds = false;
+  /** The match's speed this frame (below 1 in a knockout's slow motion). */
+  timeScale = 1;
+  private slowLeft = 0;
   private duel: LocalDuel | null = null;
   private readonly control: ControlState = idleControl();
   private readonly listeners = new Set<() => void>();
@@ -84,6 +112,7 @@ export class DuelController {
     this.create = o.create ?? createLocalDuel;
     this.sound = o.sound === undefined ? new DuelSound() : o.sound;
     this.now = o.now ?? (() => performance.now());
+    this.camera.reducedMotion = prefersReducedMotion();
   }
 
   get active(): boolean {
@@ -124,6 +153,8 @@ export class DuelController {
     this.forcedPress = {};
     this.hadLock = false;
     this.ownShots = 0;
+    this.slowLeft = 0;
+    this.timeScale = 1;
     const spawn = this.duel.arena.def.spawns;
     // The camera faces the first spawn's way until the first frame says which side the person has.
     this.camera.face(spawn[0].yaw);
@@ -207,10 +238,14 @@ export class DuelController {
    */
   frame(dtMs: number, test: SegmentTest | null = null): void {
     if (this.phase === "off") return;
-    this.step(this.phase === "running" ? dtMs : 0, test);
+    const real = this.phase === "running" ? dtMs : 0;
+    // A knockout plays out in slow motion for a moment (the match's own clock slows with it).
+    this.timeScale = slowMotionScale(this.slowLeft, SLOW_MOTION);
+    this.slowLeft = Math.max(0, this.slowLeft - real);
+    this.step(real * this.timeScale, test, real);
   }
 
-  private step(dtMs: number, test: SegmentTest | null): void {
+  private step(dtMs: number, test: SegmentTest | null, realMs: number = dtMs): void {
     const duel = this.duel;
     if (!duel) return;
     // The aim solved last frame goes out with this frame's keys.
@@ -237,7 +272,7 @@ export class DuelController {
         this.camera.face(spawn?.yaw ?? me.yaw);
       }
       if (me) {
-        const pose = this.camera.update(dtMs / 1000, me, this.floorY, test);
+        const pose = this.camera.update(realMs / 1000, me, this.floorY, test);
         // The crosshair converges the blaster on what it covers (arena coordinates: floor at y 0).
         const aim = resolveAim(duel.ctx, view, { x: pose.position.x, y: pose.position.y - this.floorY, z: pose.position.z }, pose.aimDir);
         control.yaw = aim.yaw;
@@ -251,6 +286,11 @@ export class DuelController {
           }
           if (e.type === "hit" && e.target === view.slot) this.camera.kick(1.1);
           if (e.type === "parry" && e.player === view.slot) this.camera.kick(0.8);
+          if (e.type === "death") {
+            this.slowLeft = SLOW_MOTION.ms;
+            this.camera.knockout();
+            this.camera.kick(e.player === view.slot ? 2 : 1.2);
+          }
         }
       }
       this.feed.ingest(events, view.slot, now);

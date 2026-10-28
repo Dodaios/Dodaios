@@ -18,6 +18,10 @@
  * the same ratios as the shoulder rigs. Switching person blends over about a
  * fifth of a second. The blaster and arms are the viewmodel's (`viewmodel/`).
  *
+ * A knockout gives the camera a beat: it eases back and up and narrows a
+ * little for about a second and a half, then settles. With reduced motion
+ * (the system setting) shakes are a trace and the beat smaller.
+ *
  * Coordinates: the arena's (deck metres, floor at y 0); `floorY` lifts the
  * camera onto the deck's floor. Pitch is positive up (the combat core's
  * convention). Pure state and maths.
@@ -56,6 +60,13 @@ export const DUEL_CAMERA = {
   downDrop: 1.3,
   /** Time constant of the third ↔ first person blend, seconds. */
   personS: SHOULDER.personS,
+  /** Share of every shake kept when the person asks for reduced motion. */
+  reducedShake: 0.25,
+  /** The knockout beat: how long, how far the camera eases back and up (metres), how much the field of view narrows. */
+  knockoutS: 1.6,
+  knockoutBack: 1.1,
+  knockoutRise: 0.35,
+  knockoutZoom: 0.12,
 } as const;
 
 export interface DuelCameraPose {
@@ -122,8 +133,11 @@ export class DuelCamera {
   aspect = 16 / 9;
   /** How far the camera has blended into first person (0 shoulder .. 1 eyes, eased), after `update`. */
   firstShare = 0;
+  /** The person prefers reduced motion: shakes are a trace, the knockout beat smaller. */
+  reducedMotion = false;
   private blend = 0;
   private downT = 0;
+  private koT = 0;
   readonly pose: DuelCameraPose = {
     position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 }, dir: { x: 0, y: 0, z: 1 }, aimDir: { x: 0, y: 0, z: 1 }, fovDeg: duelFov(cameraRigFor({ sprinting: false, shieldUp: false, ads: 0 } as PlayerView).fovDeg),
   };
@@ -152,11 +166,23 @@ export class DuelCamera {
     this.pitch = clamp(pitch, DUEL_CAMERA.minPitch, DUEL_CAMERA.maxPitch);
     this.primed = false;
     this.downT = 0;
+    this.koT = 0;
   }
 
-  /** A short shake (a shot, a hit taken); strength in degrees. */
+  /** A short shake (a shot, a hit taken); strength in degrees. With reduced motion only a trace of it. */
   kick(strengthDeg: number): void {
-    this.shake = Math.min(3, this.shake + strengthDeg);
+    const s = strengthDeg * (this.reducedMotion ? DUEL_CAMERA.reducedShake : 1);
+    this.shake = Math.min(3, this.shake + s);
+  }
+
+  /** A knockout: the camera eases back and narrows for a beat, then settles (`knockoutBeat`). */
+  knockout(): void {
+    this.koT = DUEL_CAMERA.knockoutS;
+  }
+
+  /** How far into the knockout beat the camera is: 0 (none) .. 1 (fullest) .. 0, a smooth bump. */
+  get knockoutShare(): number {
+    return knockoutBeat(1 - this.koT / DUEL_CAMERA.knockoutS, this.koT > 0);
   }
 
   /**
@@ -174,6 +200,8 @@ export class DuelCamera {
     r.back += (want.back - r.back) * k;
     r.fovDeg += (want.fovDeg - r.fovDeg) * k;
     this.ads = me.ads;
+    this.koT = Math.max(0, this.koT - dt);
+    const ko = this.knockoutShare * (this.reducedMotion ? 0.4 : 1);
 
     this.shakeT += dt;
     this.shake *= Math.exp(-dt / 0.09);
@@ -197,7 +225,7 @@ export class DuelCamera {
     const pivot = this.pivot;
     const side = r.right + DUEL_CAMERA.extraRight * (1 - 0.4 * this.ads);
     pivot.x = me.x + rx * side;
-    pivot.y = floorY + r.up;
+    pivot.y = floorY + r.up + ko * DUEL_CAMERA.knockoutRise;
     pivot.z = me.z + rz * side;
     if (test) {
       const hit = test(head, pivot);
@@ -207,14 +235,15 @@ export class DuelCamera {
         pivot.z = head.z + (pivot.z - head.z) * keep;
       }
     }
-    let reach = r.back;
+    const wantBack = r.back + ko * DUEL_CAMERA.knockoutBack;
+    let reach = wantBack;
     if (test) {
       const far = this.far;
-      far.x = pivot.x - dir.x * r.back;
-      far.y = pivot.y - dir.y * r.back;
-      far.z = pivot.z - dir.z * r.back;
+      far.x = pivot.x - dir.x * wantBack;
+      far.y = pivot.y - dir.y * wantBack;
+      far.z = pivot.z - dir.z * wantBack;
       const hit = test(pivot, far);
-      if (hit !== null) reach = Math.max(0.2, hit * r.back - DUEL_CAMERA.clearance);
+      if (hit !== null) reach = Math.max(0.2, hit * wantBack - DUEL_CAMERA.clearance);
     }
     const wasPrimed = this.primed;
     if (!this.primed) this.back = reach;
@@ -259,7 +288,22 @@ export class DuelCamera {
     pose.target.y = pose.position.y + dir.y * 20;
     pose.target.z = pose.position.z + dir.z * 20;
     const third = duelFov(r.fovDeg, this.hfovSetting);
-    pose.fovDeg = s > 0 ? third + (firstFov(r.fovDeg, this.hfovFirst, this.aspect) - third) * s : third;
+    const fov = s > 0 ? third + (firstFov(r.fovDeg, this.hfovFirst, this.aspect) - third) * s : third;
+    pose.fovDeg = fov * (1 - ko * DUEL_CAMERA.knockoutZoom);
     return pose;
   }
+}
+
+/**
+ * The knockout beat's shape over its time (`t` 0..1): eases in fast, holds,
+ * eases out; 0 when `on` is false. Pure.
+ */
+export function knockoutBeat(t: number, on = true): number {
+  if (!on) return 0;
+  const x = clamp(t, 0, 1);
+  const rise = Math.min(1, x / 0.18);
+  const fall = x < 0.55 ? 1 : 1 - (x - 0.55) / 0.45;
+  const v = Math.min(rise, Math.max(0, fall));
+  if (v < 1e-6) return 0;
+  return v * v * (3 - 2 * v);
 }

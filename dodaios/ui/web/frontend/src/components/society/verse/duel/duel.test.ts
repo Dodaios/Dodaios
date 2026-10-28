@@ -308,7 +308,7 @@ describe("duel HUD model", () => {
 
   it("shows the countdown, the fight call and the round's end", () => {
     const feed = new DuelHudFeed();
-    expect(buildHudModel(viewOf({ phase: "countdown", countdown: 2.4 }), feed, 0, 0).banner).toEqual({ kind: "countdown", value: 3 });
+    expect(buildHudModel(viewOf({ phase: "countdown", countdown: 2.4 }), feed, 0, 0).banner).toEqual({ kind: "countdown", value: 3, round: 1, matchPoint: true });
     feed.ingest([{ type: "round_start", tick: 1, round: 1 }], 0, 100);
     expect(buildHudModel(viewOf(), feed, 200, 0).banner).toEqual({ kind: "fight" });
     expect(buildHudModel(viewOf(), feed, 100 + HUD_TIMES.fight + 1, 0).banner).toBeNull();

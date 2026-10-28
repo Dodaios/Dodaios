@@ -1,30 +1,40 @@
 /**
  * The duel's light and fire, all pooled (nothing is allocated per shot):
  *
- * - bolts: a white-hot core inside a coloured glow with a tapering trail,
- *   bright enough (HDR) for the eye view's bloom and drawn additively so
- *   they read on the low tier too; the person's bolts amber, the opponent's
- *   red, a parried bolt nearly white and thicker;
- * - sparks: short-lived embers with gravity at impacts, hits and blocks;
- * - flashes: camera-facing glows for muzzle flashes, impacts and parries;
- * - scorch marks: dark burns on walls and floor that glow hot for a moment
- *   and fade after a while;
- * - steam: a venting blaster's plume.
+ * - bolts: a thin white-hot core inside a soft coloured glow (brightest
+ *   where it faces the camera, fading at its edges and towards its tail),
+ *   a halo round the head and a tapering trail; HDR for the bloom and
+ *   additive so they read on the low tier too; the person's bolts amber,
+ *   the opponent's red, a parried bolt nearly white, thicker, with a long
+ *   trail;
+ * - sparks: embers with gravity drawn as hot heads with motion streaks,
+ *   at impacts, hits and blocks;
+ * - flashes: camera-facing glows for muzzle flashes, impacts and parries
+ *   (a soft glow, a star, or an expanding shock ring);
+ * - scorch marks: burns on walls and floor that glow cherry-hot for a
+ *   moment, cool, and fade after a while.
+ *
+ * Steam, dust, debris, the hit shell, heat haze and shield shards live in
+ * `impacts.ts`, the moving lights in `lights.ts`.
  *
  * Coordinates are world (the arena's plus the deck floor height).
  */
 import {
-  AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, Group, Mesh,
-  MeshBasicMaterial, NormalBlending, PlaneGeometry, Points, PointsMaterial, Quaternion, ShaderMaterial, Sprite, SpriteMaterial,
-  Vector3, type Texture,
+  AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, Group,
+  InstancedBufferAttribute, InstancedMesh, Matrix4,
+  LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, NormalBlending, PlaneGeometry, Points, PointsMaterial, Quaternion,
+  ShaderMaterial, Sprite, SpriteMaterial, Vector3, type Texture,
 } from "three";
 import type { BoltView } from "../combat/view";
 import { BOLT_COLOURS } from "./blaster";
 
 /** HDR gain of the glowing parts (the bloom's threshold is 1.5). */
-const CORE_GAIN = 14;
-const GLOW_GAIN = 3.2;
-const TRAIL_M = 3.2;
+const CORE_GAIN = 16;
+const GLOW_GAIN = 4.2;
+const HALO_GAIN = 2.6;
+const TRAIL_M = 4.2;
+/** A parried bolt's trail, metres: the reflection reads as a long streak back. */
+const PARRY_TRAIL_M = 8;
 
 export function radialTexture(stops: readonly [number, string][], size = 64): Texture {
   const canvas = document.createElement("canvas");
@@ -71,6 +81,35 @@ function scorchTexture(): Texture {
   return new CanvasTexture(canvas);
 }
 
+/** A hot burn's glow: a bright core with a few molten flecks round it. */
+function emberTexture(): Texture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const c = size / 2;
+    const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.22, "rgba(255,255,255,0.7)");
+    g.addColorStop(0.55, "rgba(255,255,255,0.12)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    let seed = 11;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    for (let i = 0; i < 9; i++) {
+      const a = rnd() * Math.PI * 2;
+      const r = size * (0.16 + rnd() * 0.16);
+      ctx.beginPath();
+      ctx.arc(c + Math.cos(a) * r, c + Math.sin(a) * r, 0.8 + rnd() * 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  return new CanvasTexture(canvas);
+}
+
 const TRAIL_VERTEX = /* glsl */ `
 varying float vAlong;
 void main() {
@@ -87,15 +126,42 @@ void main() {
   gl_FragColor = vec4(colour * a, a);
 }`;
 
+/** The bolt's glow: bright where the tube faces the camera, soft at its silhouette, fading towards the tail. */
+const GLOW_VERTEX = /* glsl */ `
+varying vec3 vNormal;
+varying vec3 vViewDir;
+varying float vAlong;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vNormal = normalize(normalMatrix * normal);
+  vViewDir = normalize(-mv.xyz);
+  vAlong = uv.y;
+  gl_Position = projectionMatrix * mv;
+}`;
+const GLOW_FRAGMENT = /* glsl */ `
+uniform vec3 colour;
+varying vec3 vNormal;
+varying vec3 vViewDir;
+varying float vAlong;
+void main() {
+  float facing = clamp(abs(dot(normalize(vNormal), normalize(vViewDir))), 0.0, 1.0);
+  float along = clamp(vAlong, 0.0, 1.0);
+  float a = pow(facing, 2.2) * (0.25 + 0.75 * along);
+  gl_FragColor = vec4(colour * a, a);
+}`;
+
 interface BoltSlot {
   group: Group;
   core: Mesh;
-  glow: Mesh;
+  glow: Mesh<CylinderGeometry, ShaderMaterial>;
+  halo: Sprite;
   trail: Mesh<CylinderGeometry, ShaderMaterial>;
   coreMat: MeshBasicMaterial;
-  glowMat: MeshBasicMaterial;
+  haloMat: SpriteMaterial;
   id: number;
   kind: string;
+  /** The colour it lights the room with. */
+  light: Color;
   /** Where the bolt's current leg began (its muzzle or the shield that turned it). */
   ox: number;
   oy: number;
@@ -107,35 +173,44 @@ export class BoltPool {
   readonly group = new Group();
   private readonly slots: BoltSlot[] = [];
   private readonly byId = new Map<number, BoltSlot>();
-  private readonly coreGeo = new CylinderGeometry(0.022, 0.022, 1, 8, 1).rotateX(Math.PI / 2);
-  private readonly glowGeo = new CylinderGeometry(0.075, 0.075, 1, 10, 1, true).rotateX(Math.PI / 2);
+  private readonly coreGeo = new CylinderGeometry(0.016, 0.016, 1, 8, 1).rotateX(Math.PI / 2);
+  private readonly glowGeo = new CylinderGeometry(0.085, 0.06, 1, 12, 1, true).rotateX(Math.PI / 2);
   // The trail: a cone from the bolt (z 0, wide) back to a point (z -1), uv.y 1 at the front.
-  private readonly trailGeo = new CylinderGeometry(0.05, 0.0, 1, 8, 1, true).rotateX(Math.PI / 2).translate(0, 0, -0.5);
+  private readonly trailGeo = new CylinderGeometry(0.045, 0.0, 1, 8, 1, true).rotateX(Math.PI / 2).translate(0, 0, -0.5);
+  private readonly haloTex = radialTexture([[0, "rgba(255,255,255,1)"], [0.15, "rgba(255,255,255,0.6)"], [0.45, "rgba(255,255,255,0.12)"], [1, "rgba(255,255,255,0)"]]);
   private readonly target = new Vector3();
+  private readonly white = new Color(1, 1, 1);
 
   constructor(size = 48) {
     this.group.name = "DuelBolts";
     for (let i = 0; i < size; i++) {
       const coreMat = new MeshBasicMaterial({ color: 0xffffff, toneMapped: true });
-      const glowMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false, side: DoubleSide });
+      const glowMat = new ShaderMaterial({
+        uniforms: { colour: { value: new Color() } },
+        vertexShader: GLOW_VERTEX, fragmentShader: GLOW_FRAGMENT,
+        transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide,
+      });
       const trailMat = new ShaderMaterial({
         uniforms: { colour: { value: new Color() }, opacity: { value: 0.9 } },
         vertexShader: TRAIL_VERTEX, fragmentShader: TRAIL_FRAGMENT,
         transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide,
       });
+      const haloMat = new SpriteMaterial({ map: this.haloTex, color: 0xffffff, transparent: true, blending: AdditiveBlending, depthWrite: false });
       const group = new Group();
       const core = new Mesh(this.coreGeo, coreMat);
       const glow = new Mesh(this.glowGeo, glowMat);
       const trail = new Mesh(this.trailGeo, trailMat);
-      for (const m of [core, glow, trail]) { m.frustumCulled = false; m.renderOrder = 40; group.add(m); }
+      const halo = new Sprite(haloMat);
+      halo.scale.setScalar(0.38);
+      for (const m of [core, glow, trail, halo]) { m.frustumCulled = false; m.renderOrder = 40; group.add(m); }
       group.visible = false;
       this.group.add(group);
-      this.slots.push({ group, core, glow, trail, coreMat, glowMat, id: -1, kind: "", ox: 0, oy: 0, oz: 0, seen: false });
+      this.slots.push({ group, core, glow, halo, trail, coreMat, haloMat, id: -1, kind: "", light: new Color(), ox: 0, oy: 0, oz: 0, seen: false });
     }
   }
 
-  /** Show this frame's bolts (`floorY` lifts arena heights onto the deck). */
-  update(bolts: readonly BoltView[], mySlot: number, floorY: number): void {
+  /** Show this frame's bolts (`floorY` lifts arena heights onto the deck); `lit` gets each bolt's light request. */
+  update(bolts: readonly BoltView[], mySlot: number, floorY: number, lit?: (x: number, y: number, z: number, colour: Color, gain: number) => void): void {
     for (const s of this.slots) s.seen = false;
     for (const b of bolts) {
       let s = this.byId.get(b.id);
@@ -156,28 +231,34 @@ export class BoltPool {
         // Turned by a shield: the new leg starts here.
         if (s.kind) { s.ox = b.x; s.oy = b.y; s.oz = b.z; }
         s.kind = b.kind;
-        const colour = b.kind === "parry" ? BOLT_COLOURS.parry : b.owner === mySlot ? BOLT_COLOURS.own : BOLT_COLOURS.foe;
-        const tint = b.kind === "parry" ? (b.owner === mySlot ? BOLT_COLOURS.own : BOLT_COLOURS.foe) : colour;
-        s.coreMat.color.copy(colour).lerp(new Color(1, 1, 1), 0.55).multiplyScalar(CORE_GAIN * (b.kind === "parry" ? 1.4 : 1));
-        s.glowMat.color.copy(tint).multiplyScalar(GLOW_GAIN * (b.kind === "deflect" ? 0.6 : 1));
-        s.trail.material.uniforms.colour.value.copy(tint).multiplyScalar(b.kind === "parry" ? 2.6 : 1.8);
-        const thick = b.kind === "parry" ? 1.5 : b.kind === "deflect" ? 0.8 : 1;
+        const parry = b.kind === "parry";
+        const colour = parry ? BOLT_COLOURS.parry : b.owner === mySlot ? BOLT_COLOURS.own : BOLT_COLOURS.foe;
+        const tint = parry ? (b.owner === mySlot ? BOLT_COLOURS.own : BOLT_COLOURS.foe) : colour;
+        s.coreMat.color.copy(colour).lerp(this.white, 0.6).multiplyScalar(CORE_GAIN * (parry ? 1.5 : 1));
+        s.glow.material.uniforms.colour.value.copy(tint).multiplyScalar(GLOW_GAIN * (b.kind === "deflect" ? 0.6 : parry ? 1.5 : 1));
+        s.haloMat.color.copy(tint).lerp(this.white, 0.25).multiplyScalar(HALO_GAIN * (parry ? 1.6 : 1));
+        s.trail.material.uniforms.colour.value.copy(tint).multiplyScalar(parry ? 3 : 1.9);
+        s.light.copy(tint);
+        const thick = parry ? 1.6 : b.kind === "deflect" ? 0.8 : 1;
         s.core.scale.set(thick, thick, 1);
         s.glow.scale.set(thick, thick, 1);
+        s.trail.scale.x = s.trail.scale.y = thick;
+        s.halo.scale.setScalar(0.38 * thick);
       }
       const y = b.y + floorY;
       s.group.visible = true;
       s.group.position.set(b.x, y, b.z);
       this.target.set(b.x + b.dx, y + b.dy, b.z + b.dz);
       s.group.lookAt(this.target);
-      // The core is a 1.2 m streak behind the bolt's head, never longer than the leg flown so far.
-      const flown = Math.hypot(b.x - s.ox, b.y + floorY - (s.oy + floorY), b.z - s.oz);
-      const coreLen = Math.max(0.15, Math.min(1.2, flown));
+      // The core is a 1.4 m streak behind the bolt's head, never longer than the leg flown so far.
+      const flown = Math.hypot(b.x - s.ox, b.y - s.oy, b.z - s.oz);
+      const coreLen = Math.max(0.15, Math.min(1.4, flown));
       s.core.scale.z = coreLen;
       s.core.position.z = -coreLen / 2;
-      s.glow.scale.z = coreLen * 1.1;
-      s.glow.position.z = -coreLen / 2;
-      s.trail.scale.z = Math.max(0.2, Math.min(TRAIL_M, flown));
+      s.glow.scale.z = coreLen * 1.15;
+      s.glow.position.z = -coreLen * 0.55;
+      s.trail.scale.z = Math.max(0.2, Math.min(s.kind === "parry" ? PARRY_TRAIL_M : TRAIL_M, flown));
+      lit?.(b.x, y, b.z, s.light, s.kind === "parry" ? 1.6 : s.kind === "deflect" ? 0.6 : 1);
     }
     for (const s of this.slots) {
       if (s.seen || s.id < 0) continue;
@@ -196,20 +277,26 @@ export class BoltPool {
     this.coreGeo.dispose();
     this.glowGeo.dispose();
     this.trailGeo.dispose();
-    for (const s of this.slots) { s.coreMat.dispose(); s.glowMat.dispose(); s.trail.material.dispose(); }
+    this.haloTex.dispose();
+    for (const s of this.slots) { s.coreMat.dispose(); s.glow.material.dispose(); s.trail.material.dispose(); s.haloMat.dispose(); }
   }
 }
 
-/** Embers with gravity: impact sparks, hit sparks, the shield's crackle. */
+/** Embers with gravity: impact sparks, hit sparks, the shield's crackle; hot heads with motion streaks. */
 export class Sparks {
   readonly points: Points;
+  readonly streaks: LineSegments<BufferGeometry, LineBasicMaterial>;
   private readonly pos: Float32Array;
   private readonly col: Float32Array;
   private readonly vel: Float32Array;
   private readonly life: Float32Array;
   private readonly base: Float32Array;
+  private readonly linePos: Float32Array;
+  private readonly lineCol: Float32Array;
   private next = 0;
   private readonly tex: Texture;
+  /** Streak length per metre/second of speed, seconds. */
+  static readonly STREAK_S = 0.028;
 
   constructor(private readonly size = 600) {
     this.pos = new Float32Array(size * 3);
@@ -217,17 +304,25 @@ export class Sparks {
     this.vel = new Float32Array(size * 3);
     this.life = new Float32Array(size);
     this.base = new Float32Array(size * 3);
-    for (let i = 0; i < size; i++) this.pos[i * 3 + 1] = -1000;
+    this.linePos = new Float32Array(size * 6);
+    this.lineCol = new Float32Array(size * 6);
+    for (let i = 0; i < size; i++) { this.pos[i * 3 + 1] = -1000; this.linePos[i * 6 + 1] = this.linePos[i * 6 + 4] = -1000; }
     const geo = new BufferGeometry();
-    geo.setAttribute("position", new BufferAttribute(this.pos, 3));
-    geo.setAttribute("color", new BufferAttribute(this.col, 3));
+    geo.setAttribute("position", new BufferAttribute(this.pos, 3).setUsage(DynamicDrawUsage));
+    geo.setAttribute("color", new BufferAttribute(this.col, 3).setUsage(DynamicDrawUsage));
     this.tex = radialTexture([[0, "rgba(255,255,255,1)"], [0.3, "rgba(255,255,255,0.8)"], [1, "rgba(255,255,255,0)"]], 32);
     const mat = new PointsMaterial({
-      size: 0.05, map: this.tex, vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true,
+      size: 0.045, map: this.tex, vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true,
     });
     this.points = new Points(geo, mat);
     this.points.frustumCulled = false;
     this.points.renderOrder = 41;
+    const lines = new BufferGeometry();
+    lines.setAttribute("position", new BufferAttribute(this.linePos, 3).setUsage(DynamicDrawUsage));
+    lines.setAttribute("color", new BufferAttribute(this.lineCol, 3).setUsage(DynamicDrawUsage));
+    this.streaks = new LineSegments(lines, new LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending }));
+    this.streaks.frustumCulled = false;
+    this.streaks.renderOrder = 41;
   }
 
   /** `count` sparks from (x, y, z) around the normal (or in all directions), coloured `colour` × gain. */
@@ -243,7 +338,7 @@ export class Sparks {
       vx = (vx / l) * s; vy = (vy / l) * s; vz = (vz / l) * s;
       this.pos[i * 3] = x; this.pos[i * 3 + 1] = y; this.pos[i * 3 + 2] = z;
       this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
-      this.life[i] = 0.25 + Math.random() * 0.45;
+      this.life[i] = 0.25 + Math.random() * 0.5;
       const g = gain * (0.6 + Math.random() * 0.8);
       this.base[i * 3] = colour.r * g; this.base[i * 3 + 1] = colour.g * g; this.base[i * 3 + 2] = colour.b * g;
     }
@@ -251,50 +346,77 @@ export class Sparks {
 
   update(dt: number, floorY: number): void {
     const p = this.pos;
+    const lp = this.linePos;
+    const lc = this.lineCol;
     for (let i = 0; i < this.size; i++) {
       if (this.life[i] <= 0) continue;
       this.life[i] -= dt;
-      if (this.life[i] <= 0) { p[i * 3 + 1] = -1000; this.col[i * 3] = this.col[i * 3 + 1] = this.col[i * 3 + 2] = 0; continue; }
-      this.vel[i * 3 + 1] -= 9.8 * dt;
-      p[i * 3] += this.vel[i * 3] * dt;
-      p[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
-      p[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
-      if (p[i * 3 + 1] < floorY + 0.01) { p[i * 3 + 1] = floorY + 0.01; this.vel[i * 3 + 1] *= -0.35; this.vel[i * 3] *= 0.6; this.vel[i * 3 + 2] *= 0.6; }
+      const o = i * 3;
+      const l = i * 6;
+      if (this.life[i] <= 0) {
+        p[o + 1] = -1000;
+        this.col[o] = this.col[o + 1] = this.col[o + 2] = 0;
+        lp[l + 1] = lp[l + 4] = -1000;
+        lc.fill(0, l, l + 6);
+        continue;
+      }
+      this.vel[o + 1] -= 9.8 * dt;
+      p[o] += this.vel[o] * dt;
+      p[o + 1] += this.vel[o + 1] * dt;
+      p[o + 2] += this.vel[o + 2] * dt;
+      if (p[o + 1] < floorY + 0.01) { p[o + 1] = floorY + 0.01; this.vel[o + 1] *= -0.35; this.vel[o] *= 0.6; this.vel[o + 2] *= 0.6; }
       const f = Math.min(1, this.life[i] / 0.3);
-      this.col[i * 3] = this.base[i * 3] * f;
-      this.col[i * 3 + 1] = this.base[i * 3 + 1] * f * f;
-      this.col[i * 3 + 2] = this.base[i * 3 + 2] * f * f * f;
+      // White-hot to orange to deep red as it cools.
+      this.col[o] = this.base[o] * f;
+      this.col[o + 1] = this.base[o + 1] * f * f;
+      this.col[o + 2] = this.base[o + 2] * f * f * f;
+      const k = Sparks.STREAK_S;
+      lp[l] = p[o]; lp[l + 1] = p[o + 1]; lp[l + 2] = p[o + 2];
+      lp[l + 3] = p[o] - this.vel[o] * k; lp[l + 4] = p[o + 1] - this.vel[o + 1] * k; lp[l + 5] = p[o + 2] - this.vel[o + 2] * k;
+      lc[l] = this.col[o] * 0.7; lc[l + 1] = this.col[o + 1] * 0.7; lc[l + 2] = this.col[o + 2] * 0.7;
+      lc[l + 3] = lc[l + 4] = lc[l + 5] = 0;
     }
     this.points.geometry.attributes.position.needsUpdate = true;
     this.points.geometry.attributes.color.needsUpdate = true;
+    this.streaks.geometry.attributes.position.needsUpdate = true;
+    this.streaks.geometry.attributes.color.needsUpdate = true;
   }
 
   clear(): void {
     this.life.fill(0);
-    for (let i = 0; i < this.size; i++) this.pos[i * 3 + 1] = -1000;
+    for (let i = 0; i < this.size; i++) { this.pos[i * 3 + 1] = -1000; this.linePos[i * 6 + 1] = this.linePos[i * 6 + 4] = -1000; }
+    this.lineCol.fill(0);
     this.points.geometry.attributes.position.needsUpdate = true;
+    this.streaks.geometry.attributes.position.needsUpdate = true;
+    this.streaks.geometry.attributes.color.needsUpdate = true;
   }
 
   dispose(): void {
     this.points.geometry.dispose();
     (this.points.material as PointsMaterial).dispose();
+    this.streaks.geometry.dispose();
+    this.streaks.material.dispose();
     this.tex.dispose();
   }
 }
 
-interface FlashSlot { sprite: Sprite; mat: SpriteMaterial; life: number; total: number; size0: number; size1: number; colour: Color; gain: number }
+export type FlashShape = "glow" | "star" | "ring";
 
-/** Short camera-facing glows: muzzle flashes, impact and hit flashes, the parry burst. */
+interface FlashSlot { sprite: Sprite; mat: SpriteMaterial; life: number; total: number; size0: number; size1: number; colour: Color; gain: number; shape: FlashShape }
+
+/** Short camera-facing glows: muzzle flashes, impact and hit flashes, the parry burst and its shock ring. */
 export class Flashes {
   readonly group = new Group();
   private readonly slots: FlashSlot[] = [];
   private next = 0;
   private readonly tex: Texture;
   private readonly star: Texture;
+  private readonly ring: Texture;
 
-  constructor(size = 40) {
+  constructor(size = 48) {
     this.tex = radialTexture([[0, "rgba(255,255,255,1)"], [0.18, "rgba(255,255,255,0.75)"], [0.5, "rgba(255,255,255,0.18)"], [1, "rgba(255,255,255,0)"]]);
     this.star = starTexture();
+    this.ring = radialTexture([[0, "rgba(255,255,255,0)"], [0.62, "rgba(255,255,255,0)"], [0.82, "rgba(255,255,255,0.9)"], [0.9, "rgba(255,255,255,0.35)"], [1, "rgba(255,255,255,0)"]], 128);
     for (let i = 0; i < size; i++) {
       const mat = new SpriteMaterial({ map: this.tex, color: 0xffffff, transparent: true, blending: AdditiveBlending, depthWrite: false, depthTest: true });
       const sprite = new Sprite(mat);
@@ -302,11 +424,11 @@ export class Flashes {
       sprite.renderOrder = 42;
       sprite.frustumCulled = false;
       this.group.add(sprite);
-      this.slots.push({ sprite, mat, life: 0, total: 1, size0: 0, size1: 0, colour: new Color(), gain: 1 });
+      this.slots.push({ sprite, mat, life: 0, total: 1, size0: 0, size1: 0, colour: new Color(), gain: 1, shape: "glow" });
     }
   }
 
-  spawn(x: number, y: number, z: number, colour: Color, gain: number, size0: number, size1: number, seconds: number, star = false): void {
+  spawn(x: number, y: number, z: number, colour: Color, gain: number, size0: number, size1: number, seconds: number, shape: FlashShape = "glow"): void {
     const s = this.slots[this.next];
     this.next = (this.next + 1) % this.slots.length;
     s.sprite.position.set(x, y, z);
@@ -315,7 +437,8 @@ export class Flashes {
     s.size1 = size1;
     s.colour.copy(colour);
     s.gain = gain;
-    s.mat.map = star ? this.star : this.tex;
+    s.shape = shape;
+    s.mat.map = shape === "star" ? this.star : shape === "ring" ? this.ring : this.tex;
     s.mat.rotation = Math.random() * Math.PI;
     s.sprite.visible = true;
   }
@@ -326,7 +449,8 @@ export class Flashes {
       s.life -= dt;
       if (s.life <= 0) { s.sprite.visible = false; continue; }
       const k = 1 - s.life / s.total;
-      const size = s.size0 + (s.size1 - s.size0) * Math.sqrt(k);
+      // A ring races out and thins; glows bloom open and die.
+      const size = s.shape === "ring" ? s.size0 + (s.size1 - s.size0) * (1 - (1 - k) * (1 - k)) : s.size0 + (s.size1 - s.size0) * Math.sqrt(k);
       s.sprite.scale.set(size, size, 1);
       s.mat.color.copy(s.colour).multiplyScalar(s.gain * (1 - k) * (1 - k));
     }
@@ -340,6 +464,7 @@ export class Flashes {
     for (const s of this.slots) s.mat.dispose();
     this.tex.dispose();
     this.star.dispose();
+    this.ring.dispose();
   }
 }
 
@@ -368,144 +493,145 @@ function starTexture(): Texture {
   }
   return new CanvasTexture(canvas);
 }
+const SCORCH_VERTEX = /* glsl */ `
+attribute float aLevel;
+varying vec2 vUv;
+varying float vLevel;
+void main() {
+  vUv = uv;
+  vLevel = aLevel;
+  vec4 mv = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  gl_Position = aLevel > 0.0 ? projectionMatrix * mv : vec4(2.0, 2.0, 2.0, 1.0);
+}`;
+const SCORCH_FRAGMENT = /* glsl */ `
+uniform sampler2D map;
+varying vec2 vUv;
+varying float vLevel;
+void main() {
+  vec4 t = texture2D(map, vUv);
+  gl_FragColor = vec4(t.rgb, t.a * clamp(vLevel, 0.0, 1.0));
+}`;
+const EMBER_FRAGMENT = /* glsl */ `
+uniform sampler2D map;
+varying vec2 vUv;
+varying float vLevel;
+void main() {
+  float h = clamp(vLevel, 0.0, 1.5);
+  // White-yellow at the strike, cherry red as it cools.
+  vec3 c = vec3(5.0 * h, 1.9 * h * h, 0.6 * h * h * h * h);
+  float a = texture2D(map, vUv).a;
+  gl_FragColor = vec4(c * a, a * min(h, 1.0));
+}`;
 
-interface ScorchSlot { mesh: Mesh<PlaneGeometry, MeshBasicMaterial>; glow: Mesh<PlaneGeometry, MeshBasicMaterial>; age: number }
-
-/** Burn marks where bolts strike walls and floor: a hot glow that cools, then a dark mark that fades after a while. */
+/**
+ * Burn marks where bolts strike walls and floor: a cherry-hot glow that
+ * cools, then a dark mark that fades after a while. Two instanced meshes
+ * (marks and glows), so a wall full of burns is two draw calls.
+ */
 export class Scorches {
   readonly group = new Group();
-  private readonly slots: ScorchSlot[] = [];
+  private readonly marks: InstancedMesh<PlaneGeometry, ShaderMaterial>;
+  private readonly glows: InstancedMesh<PlaneGeometry, ShaderMaterial>;
+  private readonly markLevel: Float32Array;
+  private readonly glowLevel: Float32Array;
+  private readonly age: Float32Array;
+  private readonly heat: Float32Array;
   private next = 0;
   private readonly geo = new PlaneGeometry(1, 1);
   private readonly tex = scorchTexture();
-  private readonly glowTex = radialTexture([[0, "rgba(255,255,255,1)"], [0.25, "rgba(255,255,255,0.5)"], [1, "rgba(255,255,255,0)"]]);
+  private readonly glowTex = emberTexture();
   private readonly q = new Quaternion();
+  private readonly spin = new Quaternion();
   private readonly n = new Vector3();
-  static readonly HOT_S = 1.6;
+  private readonly z = new Vector3(0, 0, 1);
+  private readonly p = new Vector3();
+  private readonly s = new Vector3();
+  private readonly m = new Matrix4();
+  static readonly HOT_S = 2.4;
   static readonly LIFE_S = 24;
 
-  constructor(size = 64) {
-    for (let i = 0; i < size; i++) {
-      const mesh = new Mesh(this.geo, new MeshBasicMaterial({
-        map: this.tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-        color: 0xffffff, blending: NormalBlending, toneMapped: false,
-      }));
-      const glow = new Mesh(this.geo, new MeshBasicMaterial({
-        map: this.glowTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
-        blending: AdditiveBlending, color: 0xffffff,
-      }));
-      mesh.visible = glow.visible = false;
-      mesh.renderOrder = 30;
-      glow.renderOrder = 31;
-      this.group.add(mesh, glow);
-      this.slots.push({ mesh, glow, age: Infinity });
-    }
+  constructor(private readonly size = 64) {
+    this.markLevel = new Float32Array(size);
+    this.glowLevel = new Float32Array(size);
+    this.age = new Float32Array(size).fill(Infinity);
+    this.heat = new Float32Array(size);
+    const make = (fragment: string, map: Texture, level: Float32Array, additive: boolean, offset: number) => {
+      const geo = this.geo.clone();
+      geo.setAttribute("aLevel", new InstancedBufferAttribute(level, 1).setUsage(DynamicDrawUsage));
+      const mat = new ShaderMaterial({
+        uniforms: { map: { value: map } },
+        vertexShader: SCORCH_VERTEX,
+        fragmentShader: fragment,
+        transparent: true,
+        depthWrite: false,
+        blending: additive ? AdditiveBlending : NormalBlending,
+        polygonOffset: true,
+        polygonOffsetFactor: offset,
+        polygonOffsetUnits: offset,
+      });
+      const mesh = new InstancedMesh(geo, mat, size);
+      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      return mesh;
+    };
+    this.marks = make(SCORCH_FRAGMENT, this.tex, this.markLevel, false, -2);
+    this.glows = make(EMBER_FRAGMENT, this.glowTex, this.glowLevel, true, -3);
+    this.marks.renderOrder = 30;
+    this.glows.renderOrder = 31;
+    this.group.add(this.marks, this.glows);
   }
 
-  add(x: number, y: number, z: number, nx: number, ny: number, nz: number): void {
-    const s = this.slots[this.next];
-    this.next = (this.next + 1) % this.slots.length;
+  /** A burn at (x, y, z) on a surface facing (nx, ny, nz); `heat` scales its glow. */
+  add(x: number, y: number, z: number, nx: number, ny: number, nz: number, heat = 1): void {
+    const i = this.next;
+    this.next = (this.next + 1) % this.size;
     const n = this.n.set(nx, ny, nz);
     if (n.lengthSq() < 1e-6) n.set(0, 1, 0);
     n.normalize();
-    this.q.setFromUnitVectors(new Vector3(0, 0, 1), n);
-    const size = 0.32 + Math.random() * 0.18;
-    for (const m of [s.mesh, s.glow]) {
-      m.position.set(x + n.x * 0.012, y + n.y * 0.012, z + n.z * 0.012);
-      m.quaternion.copy(this.q);
-      m.rotateZ(Math.random() * Math.PI * 2);
-      m.visible = true;
-    }
-    s.mesh.scale.setScalar(size);
-    s.glow.scale.setScalar(size * 0.75);
-    s.age = 0;
+    this.q.setFromUnitVectors(this.z, n).multiply(this.spin.setFromAxisAngle(this.z, Math.random() * Math.PI * 2));
+    const size = 0.36 + Math.random() * 0.22;
+    this.p.set(x + n.x * 0.012, y + n.y * 0.012, z + n.z * 0.012);
+    this.marks.setMatrixAt(i, this.m.compose(this.p, this.q, this.s.setScalar(size)));
+    this.glows.setMatrixAt(i, this.m.compose(this.p, this.q, this.s.setScalar(size * 0.7)));
+    this.marks.instanceMatrix.needsUpdate = true;
+    this.glows.instanceMatrix.needsUpdate = true;
+    this.age[i] = 0;
+    this.heat[i] = heat;
   }
 
   update(dt: number): void {
-    for (const s of this.slots) {
-      if (!Number.isFinite(s.age)) continue;
-      s.age += dt;
-      if (s.age >= Scorches.LIFE_S) { s.age = Infinity; s.mesh.visible = s.glow.visible = false; continue; }
-      const hot = Math.max(0, 1 - s.age / Scorches.HOT_S);
-      s.glow.visible = hot > 0;
-      s.glow.material.color.setRGB(4 * hot, 1.4 * hot * hot, 0.3 * hot * hot * hot);
-      const fadeOut = Math.min(1, (Scorches.LIFE_S - s.age) / 4);
-      s.mesh.material.opacity = 0.85 * fadeOut;
+    let any = false;
+    for (let i = 0; i < this.size; i++) {
+      if (!Number.isFinite(this.age[i])) continue;
+      any = true;
+      this.age[i] += dt;
+      if (this.age[i] >= Scorches.LIFE_S) { this.age[i] = Infinity; this.markLevel[i] = this.glowLevel[i] = 0; continue; }
+      const hot = Math.max(0, 1 - this.age[i] / Scorches.HOT_S);
+      this.glowLevel[i] = hot * this.heat[i];
+      this.markLevel[i] = 0.85 * Math.min(1, (Scorches.LIFE_S - this.age[i]) / 4);
     }
+    if (!any) return;
+    (this.marks.geometry.attributes.aLevel as InstancedBufferAttribute).needsUpdate = true;
+    (this.glows.geometry.attributes.aLevel as InstancedBufferAttribute).needsUpdate = true;
   }
 
   clear(): void {
-    for (const s of this.slots) { s.age = Infinity; s.mesh.visible = s.glow.visible = false; }
+    this.age.fill(Infinity);
+    this.markLevel.fill(0);
+    this.glowLevel.fill(0);
+    (this.marks.geometry.attributes.aLevel as InstancedBufferAttribute).needsUpdate = true;
+    (this.glows.geometry.attributes.aLevel as InstancedBufferAttribute).needsUpdate = true;
   }
 
   dispose(): void {
     this.geo.dispose();
+    this.marks.geometry.dispose();
+    this.glows.geometry.dispose();
+    this.marks.material.dispose();
+    this.glows.material.dispose();
+    this.marks.dispose();
+    this.glows.dispose();
     this.tex.dispose();
     this.glowTex.dispose();
-    for (const s of this.slots) { s.mesh.material.dispose(); s.glow.material.dispose(); }
-  }
-}
-
-/** A venting blaster's plume: soft grey puffs rising and spreading. */
-export class Steam {
-  readonly points: Points;
-  private readonly pos: Float32Array;
-  private readonly vel: Float32Array;
-  private readonly life: Float32Array;
-  private next = 0;
-  private readonly tex: Texture;
-
-  constructor(private readonly size = 160) {
-    this.pos = new Float32Array(size * 3);
-    this.vel = new Float32Array(size * 3);
-    this.life = new Float32Array(size);
-    for (let i = 0; i < size; i++) this.pos[i * 3 + 1] = -1000;
-    const geo = new BufferGeometry();
-    geo.setAttribute("position", new BufferAttribute(this.pos, 3));
-    this.tex = radialTexture([[0, "rgba(255,255,255,0.55)"], [0.5, "rgba(255,255,255,0.2)"], [1, "rgba(255,255,255,0)"]], 32);
-    this.points = new Points(geo, new PointsMaterial({
-      size: 0.22, map: this.tex, color: 0x8a9096, transparent: true, opacity: 0.5, depthWrite: false, sizeAttenuation: true,
-    }));
-    this.points.frustumCulled = false;
-    this.points.renderOrder = 43;
-  }
-
-  emit(x: number, y: number, z: number, count: number): void {
-    for (let k = 0; k < count; k++) {
-      const i = this.next;
-      this.next = (this.next + 1) % this.size;
-      this.pos[i * 3] = x + (Math.random() - 0.5) * 0.05;
-      this.pos[i * 3 + 1] = y;
-      this.pos[i * 3 + 2] = z + (Math.random() - 0.5) * 0.05;
-      this.vel[i * 3] = (Math.random() - 0.5) * 0.5;
-      this.vel[i * 3 + 1] = 0.6 + Math.random() * 0.6;
-      this.vel[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
-      this.life[i] = 0.6 + Math.random() * 0.5;
-    }
-  }
-
-  update(dt: number): void {
-    for (let i = 0; i < this.size; i++) {
-      if (this.life[i] <= 0) continue;
-      this.life[i] -= dt;
-      if (this.life[i] <= 0) { this.pos[i * 3 + 1] = -1000; continue; }
-      this.pos[i * 3] += this.vel[i * 3] * dt;
-      this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
-      this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
-      this.vel[i * 3 + 1] *= 1 - dt * 0.8;
-    }
-    this.points.geometry.attributes.position.needsUpdate = true;
-  }
-
-  clear(): void {
-    this.life.fill(0);
-    for (let i = 0; i < this.size; i++) this.pos[i * 3 + 1] = -1000;
-    this.points.geometry.attributes.position.needsUpdate = true;
-  }
-
-  dispose(): void {
-    this.points.geometry.dispose();
-    (this.points.material as PointsMaterial).dispose();
-    this.tex.dispose();
   }
 }

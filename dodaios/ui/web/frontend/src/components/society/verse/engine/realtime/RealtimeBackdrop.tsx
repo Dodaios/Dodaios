@@ -289,6 +289,13 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
     const tune = tuning();
     if (tune || tuned.current) applyTuning(loaded, bloom, tune);
     tuned.current = !!tune;
+    if (!tune) {
+      // A duel asks for a stronger bloom above a higher threshold: its bolts glow, the deck's fixtures stay as tuned.
+      const b = runtime.bloomOverride ?? BLOOM;
+      bloom.strength = b.strength;
+      bloom.radius = b.radius;
+      bloom.threshold = b.threshold;
+    }
     gl.toneMapping = AgXToneMapping;
     gl.toneMappingExposure = Math.pow(2, deck.exposure + (tune?.exposureBias ?? 0));
     gl.autoClear = true;
