@@ -65,7 +65,10 @@ async def test_management_persists_and_echoes_same_roster_without_starting_work(
     )
     assert updated.success, updated.error
     stored = await runtime.roster.get("scout")
-    assert updated.output["response"]["agent"] == stored.to_dict()
+    row = dict(updated.output["response"]["agent"])
+    # The route adds a derived display field (whether the seat pays per token).
+    assert isinstance(row.pop("billed_per_token"), bool)
+    assert row == stored.to_dict()
     assert stored.title == "Invoice reviewer" and stored.state == "paused"
     assert stored.daily_budget_usd == 2
     status = await SocietyStatusTool(runtime_resolver=lambda: runtime).execute(
