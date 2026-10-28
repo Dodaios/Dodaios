@@ -200,3 +200,193 @@ async def test_hosted_provider_turn_is_untouched() -> None:
     )
     assert m._evidence_required_tool != "search_web"
     assert out == reply
+
+
+# --- the system-run search ----------------------------------------------------
+
+from types import SimpleNamespace  # noqa: E402
+
+from dodaios.brain.public_fact_gate import (  # noqa: E402
+    prefetch_public_fact_evidence,
+    search_has_evidence,
+)
+
+_RESULTS = {
+    "status": "ok",
+    "query": "train Espagne",
+    "results": [{
+        "title": "Collision ferroviaire de Los Yébenes",  # i18n-allow: real 2026-10-28 result
+        "snippet": "Deux trains sont entrés en collision le 28 octobre 2026.",  # i18n-allow
+        "url": "https://fr.wikipedia.org/wiki/Collision_ferroviaire_de_Los_Yébenes",
+    }],
+}
+
+
+class _Gateway:
+    def __init__(self, output=None, *, tools=("search_web",), delay=0.0, fail=False):
+        self.output = _RESULTS if output is None else output
+        self.tools = tools
+        self.delay = delay
+        self.fail = fail
+        self.calls: list[tuple[str, dict]] = []
+
+    def catalog(self):
+        return [SimpleNamespace(name=name) for name in self.tools]
+
+    async def execute(self, name, args, request):
+        import asyncio
+
+        self.calls.append((name, args))
+        if self.delay:
+            await asyncio.sleep(self.delay)
+        if self.fail:
+            raise RuntimeError("backend down")
+        return SimpleNamespace(success=True, output=self.output)
+
+
+@pytest.mark.asyncio
+async def test_prefetch_returns_the_results_as_text() -> None:
+    gateway = _Gateway()
+    text = await prefetch_public_fact_evidence("train Espagne", gateway=gateway)
+    assert text is not None and "Los Yébenes" in text
+    assert gateway.calls == [("search_web", {"query": "train Espagne", "max_results": 5})]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "gateway",
+    [
+        _Gateway(tools=("wiki_recall",)),
+        _Gateway(output={"status": "ok", "results": []}),
+        _Gateway(fail=True),
+        _Gateway(delay=0.5),
+    ],
+    ids=["no-search-tool", "no-results", "failure", "timeout"],
+)
+async def test_prefetch_degrades_to_none(gateway: _Gateway) -> None:
+    assert await prefetch_public_fact_evidence("q", gateway=gateway, timeout_s=0.1) is None
+
+
+def test_evidence_test_matches_the_realtime_rule() -> None:
+    assert search_has_evidence(_RESULTS)
+    assert not search_has_evidence({"status": "error", "results": [{"a": 1}]})
+    assert not search_has_evidence("text")
+
+
+@pytest.mark.asyncio
+async def test_local_turn_answers_from_the_system_search(monkeypatch) -> None:
+    from dodaios.core import runtime_refs
+
+    gateway = _Gateway()
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: gateway)
+    grounded = "Selon Wikipédia, deux trains sont entrés en collision à Los Yébenes."  # i18n-allow
+    m = _manager("local-openai", grounded, executed=set())  # the model itself called no tool
+    out = await m.generate(
+        "regarde ce qui s'est passé avec le train aujourd'hui",  # i18n-allow: live
+        trace_id=uuid4(),
+        use_history=False,
+    )
+    assert gateway.calls, "the system ran the search"
+    assert "Los Yébenes" in m._evidence_directive
+    assert out == grounded
+
+
+@pytest.mark.asyncio
+async def test_failed_system_search_keeps_the_honest_backstop(monkeypatch) -> None:
+    from dodaios.core import runtime_refs
+
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: _Gateway(fail=True))
+    m = _manager("local-openai", _INVENTED, executed=set())
+    out = await m.generate(
+        "regarde ce qui s'est passé avec le train aujourd'hui",  # i18n-allow: live
+        trace_id=uuid4(),
+        use_history=False,
+    )
+    assert out == public_fact_unfulfilled_answer("fr")
+
+
+# --- vague questions ------------------------------------------------------------
+
+from dodaios.brain.public_fact_gate import (  # noqa: E402
+    public_fact_clarifying_question,
+    public_fact_search_query,
+)
+from dodaios.core.protocols import BrainMessage  # noqa: E402
+
+
+def test_a_question_with_a_subject_is_searched_as_asked() -> None:
+    text = "quelle est la terniere tragedie en espagne"  # i18n-allow: live, with its typo
+    assert public_fact_search_query(text) == text
+
+
+def test_a_generic_event_borrows_its_subject_from_the_last_turns() -> None:
+    query = public_fact_search_query(
+        "tu as pas vu un accident",  # i18n-allow: live utterance
+        ("et en espagne", "regarde ce qui s'est passé avec le train aujourd'hui"),  # i18n-allow
+    )
+    assert query == "accident espagne train"
+
+
+def test_a_generic_event_without_context_is_too_vague_to_search() -> None:
+    assert public_fact_search_query("tu as pas vu un accident") is None  # i18n-allow: live
+    assert public_fact_search_query("did you see an accident?") is None
+
+
+@pytest.mark.asyncio
+async def test_vague_question_gets_a_question_not_a_claim(monkeypatch) -> None:
+    from dodaios.core import runtime_refs
+
+    gateway = _Gateway()
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: gateway)
+    m = _manager("local-openai", "Aucun accident n'a été signalé aujourd'hui.", set())  # i18n-allow
+    out = await m.generate("tu as pas vu un accident", trace_id=uuid4(), use_history=False)  # i18n-allow
+    assert not gateway.calls, "nothing to search for"
+    assert out == public_fact_clarifying_question("fr")
+
+
+@pytest.mark.asyncio
+async def test_vague_question_is_asked_back_in_the_conversation_language(monkeypatch) -> None:
+    from dodaios.core import runtime_refs
+
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: _Gateway())
+    m = _manager("local-openai", "What was the accident about?", set())  # live: English
+    out = await m.generate("tu as pas vu un accident", trace_id=uuid4(), use_history=False)  # i18n-allow
+    assert out == public_fact_clarifying_question("fr")
+
+
+class _FlakyGateway(_Gateway):
+    """Empty page first, results second: the free backend's real behaviour."""
+
+    async def execute(self, name, args, request):
+        self.calls.append((name, args))
+        output = {"status": "empty", "results": []} if len(self.calls) == 1 else _RESULTS
+        return SimpleNamespace(success=True, output=output)
+
+
+@pytest.mark.asyncio
+async def test_prefetch_retries_an_empty_page_once() -> None:
+    gateway = _FlakyGateway()
+    text = await prefetch_public_fact_evidence("train Espagne", gateway=gateway)
+    assert text is not None and len(gateway.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_vague_follow_up_searches_with_the_conversation_subject(monkeypatch) -> None:
+    from dodaios.core import runtime_refs
+
+    gateway = _Gateway()
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: gateway)
+    grounded = "Selon Wikipédia, deux trains sont entrés en collision à Los Yébenes."  # i18n-allow
+    m = _manager("local-openai", grounded, set())
+    history = [
+        BrainMessage(role="user", content="regarde ce qui s'est passé avec le train aujourd'hui"),  # i18n-allow
+        BrainMessage(role="assistant", content="Je regarde."),  # i18n-allow
+        BrainMessage(role="user", content="et en espagne"),  # i18n-allow
+        BrainMessage(role="assistant", content="D'accord."),  # i18n-allow
+    ]
+    out = await m.generate(
+        "tu as pas vu un accident", trace_id=uuid4(), use_history=False,  # i18n-allow
+        history_override=history,
+    )
+    assert gateway.calls[0][1]["query"] == "accident espagne train"
+    assert out == grounded

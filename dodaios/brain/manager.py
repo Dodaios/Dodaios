@@ -5583,6 +5583,25 @@ class BrainManager:
                 return content.strip()[-1_200:]
         return ""
 
+    def _recent_user_turn_texts(self, count: int, *, use_history: bool) -> tuple[str, ...]:
+        """The last ``count`` user messages of this task's history, newest first."""
+        override = _TURN_HISTORY_OVERRIDE.get()
+        history = (
+            tuple(override)
+            if override is not None
+            else tuple(self._history if use_history else ())
+        )
+        found: list[str] = []
+        for message in reversed(history):
+            if len(found) >= count:
+                break
+            if getattr(message, "role", None) != "user":
+                continue
+            content = getattr(message, "content", "")
+            if isinstance(content, str) and content.strip():
+                found.append(content.strip()[-1_200:])
+        return tuple(found)
+
     def _contextual_routing_state(
         self, user_text: str, *, use_history: bool
     ) -> tuple[str, tuple[str, ...]]:
@@ -10754,6 +10773,7 @@ class BrainManager:
         self._evidence_required_tool = ""
         self._evidence_required_is_write = False
         self._evidence_required_domain = ""
+        self._public_fact_prefetched = False
         # AD-S4: a trigger noted by the speech pipeline / chat hook takes
         # precedence — it carries the captured content and the source label.
         self._consume_pending_skill_trigger(user_text)
@@ -11258,6 +11278,31 @@ class BrainManager:
                     _pf_provider,
                     SEARCH_TOOL,
                 )
+                # The small model calls the tool only now and then; run the one
+                # search here and hand it the results (the realtime grounding).
+                # A question naming no event ("an accident?") borrows its
+                # subject from the last turns, or is answered with a question.
+                from dodaios.brain.public_fact_gate import (
+                    PUBLIC_FACT_CLARIFY_DIRECTIVE,
+                    PUBLIC_FACT_CLARIFY_DOMAIN,
+                    prefetch_public_fact_evidence,
+                    public_fact_evidence_directive,
+                    public_fact_search_query,
+                )
+
+                _pf_query = public_fact_search_query(
+                    user_text, self._recent_user_turn_texts(2, use_history=use_history)
+                )
+                if _pf_query is None:
+                    self._evidence_directive = PUBLIC_FACT_CLARIFY_DIRECTIVE
+                    self._evidence_required_domain = PUBLIC_FACT_CLARIFY_DOMAIN
+                else:
+                    _pf_evidence = await prefetch_public_fact_evidence(
+                        _pf_query, trace_id=turn_trace_id
+                    )
+                    if _pf_evidence is not None:
+                        self._evidence_directive = public_fact_evidence_directive(_pf_evidence)
+                        self._public_fact_prefetched = True
 
         # Phase 5 / ADR-0006: pre-call budget gate. Block rather than request
         # when cooldown is active or the task/daily budget is exhausted.
@@ -12151,12 +12196,24 @@ class BrainManager:
         # recovery has already populated ``_turn_executed`` when it succeeded.
         if self._evidence_required_tool:
             from dodaios.brain.public_fact_gate import (
+                PUBLIC_FACT_CLARIFY_DOMAIN,
                 PUBLIC_FACT_DOMAIN,
                 public_fact_answer_unverified,
+                public_fact_clarifying_question,
                 public_fact_unfulfilled_answer,
             )
 
-            if self._evidence_required_domain == PUBLIC_FACT_DOMAIN:
+            if self._evidence_required_domain == PUBLIC_FACT_CLARIFY_DOMAIN:
+                # Too vague to search: ask, in the conversation's language (the
+                # small model asked its own question in English on 2026-10-28).
+                _replacement = (
+                    None
+                    if self._last_turn_suppressed
+                    else public_fact_clarifying_question(honesty_lang)
+                )
+            elif self._evidence_required_domain == PUBLIC_FACT_DOMAIN:
+                if getattr(self, "_public_fact_prefetched", False):
+                    _turn_executed = {*_turn_executed, self._evidence_required_tool}
                 _replacement = (
                     public_fact_unfulfilled_answer(honesty_lang)
                     if public_fact_answer_unverified(
