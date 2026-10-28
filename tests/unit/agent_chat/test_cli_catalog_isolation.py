@@ -320,3 +320,31 @@ async def test_claude_effort_is_folded_onto_the_models_own_ladder(monkeypatch, t
     [(sent, prompt)] = seen
     assert sent == "high"
     assert "Reasoning effort for this turn: high" in prompt
+
+
+def test_agy_models_probe_never_runs_in_the_agent_workspace(monkeypatch, tmp_path):
+    """agy boots its global MCP servers for ``models``; on Windows an argument
+    like ``pkg@>=0.26.0`` reaches cmd.exe unquoted and leaves an empty file
+    named ``0.26.0`` in the probe's folder. A fresh agent's workspace stays clean."""
+    import subprocess
+    import tempfile
+
+    workspace = tmp_path / "agent" / "workspace"
+    workspace.mkdir(parents=True)
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "temp"))
+    monkeypatch.setattr(rc, "_account_env", lambda platform: {})
+    monkeypatch.setattr(rc, "agy_argv_prefix", lambda: ["agy"])
+    monkeypatch.setattr(rc, "_AGY_CATALOG", {"at": 0.0, "rows": None})
+    seen: list[str] = []
+
+    def run(*args, **kwargs):
+        seen.append(kwargs["cwd"])
+        # What cmd.exe's redirect does with the unquoted MCP argument.
+        (Path(kwargs["cwd"]) / "0.26.0").write_text("", encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout=b"")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with rc.cli_catalog_scope(cwd=workspace):
+        rc.read_agy_models()
+    assert seen and Path(seen[0]) != workspace
+    assert list(workspace.iterdir()) == []

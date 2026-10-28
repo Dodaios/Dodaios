@@ -1226,6 +1226,26 @@ def _agy_catalog_cached() -> list[dict[str, Any]] | None:
     return rows if isinstance(rows, list) else None
 
 
+def agy_probe_cwd() -> Path:
+    """An empty, app-owned folder the ``agy models`` probe runs in.
+
+    agy boots every MCP server of its global ``mcp_config.json`` even for
+    ``models``, through ``cmd.exe`` on Windows. A server argument like
+    ``pkg@>=0.26.0`` reaches cmd unquoted and its ``>`` redirects into an
+    empty file named ``0.26.0`` in the probe's folder. Run in an agent's
+    workspace (or the home folder) that left a stray file in every fresh
+    agent; this scratch folder keeps it out of anything the person reads.
+    """
+    import tempfile
+
+    folder = Path(tempfile.gettempdir()) / "dodaios-agy-probe"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return _catalog_cwd()
+    return folder
+
+
 def read_agy_models(timeout_s: float = 8.0, *, required_model: str = "") -> list[dict[str, Any]]:
     """``agy --output-format json models`` -> the folded catalog (cached 10 min).
 
@@ -1254,7 +1274,8 @@ def read_agy_models(timeout_s: float = 8.0, *, required_model: str = "") -> list
             capture_output=True,
             timeout=timeout_s,
             env=env,
-            cwd=str(cwd),
+            # Never the workspace: see agy_probe_cwd.
+            cwd=str(agy_probe_cwd()),
             creationflags=NO_WINDOW_CREATIONFLAGS,
         )
         text = proc.stdout.decode("utf-8", errors="replace")
