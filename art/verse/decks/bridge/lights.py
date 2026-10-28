@@ -10,6 +10,8 @@ aft rooms get the kit's regular 2.4 m panel grid at 3.6 m.
 
 from __future__ import annotations
 
+import math
+
 from lib import kit, scene
 from mathutils import Matrix
 
@@ -26,11 +28,47 @@ def _panel(prefix, x, z, size, height):
     ceiling.light_panel(prefix, (x, -z, height), size)
 
 
+def _ceiling_reach(h: float) -> float:
+    """Plan setback behind the sill face where the hall ceiling at height ``h``
+    ends: halfway into the header beam of the leaning viewport wall. The
+    hall outline stops at the sill face, so without this the ceiling left an
+    open band above the beam (seen from eye level)."""
+    from . import viewport as V
+
+    lean = math.radians(V.LEAN)
+    beam_y = (-0.45, 1.2)  # room-side and back faces of the beam (viewport._header)
+
+    def setback(y: float) -> float:
+        # Point on the beam face y at height h, in the lean frame of viewport.build_run.
+        s = (h - V.WIN_Z0 + y * math.sin(lean)) / math.cos(lean)
+        return V.WIN_Y0 + y * math.cos(lean) + s * math.sin(lean)
+
+    return (setback(beam_y[0]) + setback(beam_y[1])) / 2
+
+
+def hall_ceiling_outline(h: float) -> list[tuple[float, float]]:
+    """Hall outline with its forward edges (centre run and both chamfers)
+    pushed out to meet the viewport wall's header beam at height ``h``."""
+    d = _ceiling_reach(h)
+    x0, x1 = L.SIDE_WALL_X
+    z_front = L.VP_FACE_Z - d
+    # Chamfer line x + z = c0 + VP_FACE_Z, offset outward along (-1, -1) / sqrt 2.
+    k = L.VP_CENTRE_X[0] + L.VP_FACE_Z - d * math.sqrt(2.0)
+    return [
+        (x0, k - x0),
+        (k - z_front, z_front),
+        (L.mirror_x(k - z_front), z_front),
+        (x1, k - x0),
+        (x1, L.BULKHEAD_Z[0]),
+        (x0, L.BULKHEAD_Z[0]),
+    ]
+
+
 def build_hall() -> None:
     from kit.architecture import ceiling
 
     h = L.HALL_CEILING
-    ceiling.ceiling_slab("CEIL_bridge", L.poly(L.hall_outline()), h, thickness=0.12)
+    ceiling.ceiling_slab("CEIL_bridge", L.poly(hall_ceiling_outline(h)), h, thickness=0.12)
     count = 0
     # Walkway rails of light.
     for x in (L.AXIS_X - 2.4, L.AXIS_X + 2.4):
