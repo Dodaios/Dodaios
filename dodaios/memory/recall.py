@@ -10,7 +10,10 @@ connection; concurrent writers from other processes are not the goal.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import weakref
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +22,15 @@ import aiosqlite
 from .migration_runner import run_migrations
 
 SCHEMA_FILE = Path(__file__).parent / "schema.sql"
+
+log = logging.getLogger(__name__)
+
+# Every store with an open connection. An aiosqlite connection runs on its own
+# NON-daemon thread, so one left open keeps the interpreter from exiting: the
+# main thread waits in threading._shutdown() until systemd kills the service
+# (BC-250 2026-10-29: each browser voice session built a brain whose store was
+# never closed; reproduced, the stop hung until SIGKILL every time).
+_OPEN_STORES: weakref.WeakSet[RecallStore] = weakref.WeakSet()
 
 
 def _sanitize_fts5_query(query: str) -> str:
@@ -67,6 +79,7 @@ class RecallStore:
         if self._conn is not None:
             return
         self._conn = await aiosqlite.connect(self._db_path, isolation_level=None)
+        _OPEN_STORES.add(self)
         self._conn.row_factory = aiosqlite.Row
         schema = SCHEMA_FILE.read_text(encoding="utf-8")
         await self._conn.executescript(schema)
@@ -74,8 +87,9 @@ class RecallStore:
 
     async def close(self) -> None:
         if self._conn is not None:
-            await self._conn.close()
-            self._conn = None
+            conn, self._conn = self._conn, None
+            _OPEN_STORES.discard(self)
+            await conn.close()
 
     async def __aenter__(self) -> RecallStore:
         await self.open()
@@ -407,3 +421,19 @@ class RecallStore:
         rows = await cur.fetchall()
         await cur.close()
         return [dict(r) for r in rows]
+
+
+async def close_open_recall_stores(*, timeout_s: float = 5.0) -> int:
+    """Close every store whose connection is still open; the number closed.
+
+    Called at shutdown so a store nobody closed cannot keep the process alive.
+    Each close is bounded; a store that does not close in time is logged.
+    """
+    closed = 0
+    for store in list(_OPEN_STORES):
+        try:
+            await asyncio.wait_for(store.close(), timeout=timeout_s)
+            closed += 1
+        except Exception:  # noqa: BLE001 — shutdown continues with the next store
+            log.warning("RecallStore %s did not close cleanly", store._db_path, exc_info=True)
+    return closed

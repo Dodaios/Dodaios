@@ -252,6 +252,7 @@ def _build_classic_browser_session(
         language_code=_resolve_language(cfg),
         bus=bus,
         config=cfg,
+        owns_brain=True,
     )
 
 

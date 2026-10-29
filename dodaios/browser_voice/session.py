@@ -155,12 +155,15 @@ class BrowserVoiceSession:
         max_session_seconds: int = 1800,
         bus: Any = None,
         config: Any = None,
+        owns_brain: bool = False,
     ) -> None:
         self.session_id = session_id
         self._send_binary = send_binary
         self._send_json = send_json
         self._stt = stt
         self._brain = brain
+        # A brain built for this session alone is released when it ends.
+        self._owns_brain = owns_brain
         self._tts = tts
         # Shared config reference so _speak can read [tts].volume per turn (a live
         # change lands on the next utterance). None in test factories → full.
@@ -506,6 +509,17 @@ class BrowserVoiceSession:
                 self._queued.clear()
                 self._start_turn(queued)
 
+    async def _close_brain(self) -> None:
+        """Release the session's own brain (its recorder and its store)."""
+        closer = getattr(self._brain, "aclose", None)
+        if not callable(closer):
+            return
+        try:
+            await asyncio.wait_for(closer(), timeout=5.0)
+        except Exception:  # noqa: BLE001 — ending a session must never raise
+            log.warning("browser_voice[%s] brain did not close cleanly", self.session_id,
+                        exc_info=True)
+
     async def _complete_bus_turn(
         self, turn_id: str | None, user_text: str, jarvis_text: str
     ) -> None:
@@ -686,6 +700,8 @@ class BrowserVoiceSession:
         for task in list(self._side_tasks):
             task.cancel()
         self._queued.clear()
+        if self._owns_brain:
+            await self._close_brain()
         log.info(
             "browser_voice[%s] ended: reason=%s turns=%d dur=%.1fs",
             self.session_id,

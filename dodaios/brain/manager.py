@@ -2411,6 +2411,9 @@ class BrainManager:
         )
         self._core_memory = core_memory
         self._recall = recall
+        # The message recorder the factory attached to the bus for this brain,
+        # detached again by aclose() (see own_message_recorder).
+        self._message_recorder: tuple[Any, Any] | None = None
         self._tools = tools or {}
         self._local_action_tools = dict(local_action_tools or {})
         self._tool_executor = tool_executor
@@ -4789,6 +4792,34 @@ class BrainManager:
         """
         self._jarvis_agent_status_fn = status_fn
         self._jarvis_agent_cancel_fn = cancel_fn
+
+    def own_message_recorder(self, recorder: Any, bus: Any) -> None:
+        """Take ownership of the recorder the factory attached to ``bus``."""
+        self._message_recorder = (recorder, bus)
+
+    async def aclose(self) -> None:
+        """Release what this brain owns: its message recorder and its store.
+
+        A brain built for one browser voice session used to keep both forever:
+        the recorder stayed on the shared bus (every later answer was recorded
+        once more per past session) and the store's aiosqlite connection, which
+        runs on a non-daemon thread, kept the process from exiting at shutdown.
+        Idempotent; never raises.
+        """
+        owned = getattr(self, "_message_recorder", None)
+        self._message_recorder = None
+        if owned is not None:
+            recorder, bus = owned
+            try:
+                recorder.detach(bus)
+            except Exception:  # noqa: BLE001 — closing must never raise
+                log.debug("message recorder detach failed", exc_info=True)
+        recall = getattr(self, "_recall", None)
+        if recall is not None and callable(getattr(recall, "close", None)):
+            try:
+                await recall.close()
+            except Exception:  # noqa: BLE001 — closing must never raise
+                log.debug("recall store close failed", exc_info=True)
 
     def _live_tool_names(self) -> tuple[str, ...]:
         """Names of every tool attached RIGHT NOW — the honest-refusal evidence.

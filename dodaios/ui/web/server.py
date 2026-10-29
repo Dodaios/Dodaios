@@ -4586,6 +4586,17 @@ class WebServer:
         self._server = None
         self._serve_task = None
 
+        # A recall store nobody closed keeps a non-daemon aiosqlite thread, and
+        # the process could not exit until systemd killed it (BC-250 2026-10-29).
+        try:
+            from dodaios.memory.recall import close_open_recall_stores
+
+            closed = await close_open_recall_stores()
+            if closed:
+                logger.info("Closed {} recall store(s) left open", closed)
+        except Exception as exc:  # noqa: BLE001 - shutdown continues best-effort
+            logger.opt(exception=exc).warning("Recall store cleanup failed")
+
         # Browser/desktop realtime owners must release their ephemeral threads
         # before their shared process is reaped. Keep this unconditional: a
         # failed startup can complete the Codex handshake before uvicorn marks

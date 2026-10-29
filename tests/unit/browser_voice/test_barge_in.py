@@ -195,3 +195,30 @@ async def test_a_french_session_is_recorded_as_french():
     assert (done.user_lang, done.jarvis_lang) == ("fr", "fr")
     assert session._lang_short() == "en"  # the scrubber keeps its own locale set
     await session.end()
+
+
+# --- the session's own brain ----------------------------------------------------
+
+
+class _ClosableBrain(FakeBrain):
+    def __init__(self) -> None:
+        super().__init__("ok")
+        self.closed = 0
+
+    async def aclose(self) -> None:
+        self.closed += 1
+
+
+async def test_ending_a_session_releases_the_brain_built_for_it():
+    brain = _ClosableBrain()
+    session = _make_session(_Sink(), brain=brain, owns_brain=True)
+    await session.end(reason="client_stop")
+    await session.end(reason="ws_closed")
+    assert brain.closed == 1
+
+
+async def test_a_shared_brain_is_left_alone():
+    brain = _ClosableBrain()
+    session = _make_session(_Sink(), brain=brain)
+    await session.end(reason="client_stop")
+    assert brain.closed == 0

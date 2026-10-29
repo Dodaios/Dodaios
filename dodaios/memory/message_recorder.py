@@ -49,6 +49,11 @@ class MessageRecorder:
         bus.subscribe(MessageSent, self._on_message_sent)
         bus.subscribe(ResponseGenerated, self._on_response_generated)
 
+    def detach(self, bus: EventBus) -> None:
+        """Stop recording; a detached recorder no longer writes anything."""
+        bus.unsubscribe(MessageSent, self._on_message_sent)
+        bus.unsubscribe(ResponseGenerated, self._on_response_generated)
+
     async def _on_message_sent(self, event: MessageSent) -> None:
         if not event.text:
             return
