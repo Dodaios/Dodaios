@@ -1154,7 +1154,15 @@ def main(argv: list[str] | None = None) -> int:
     step_macos_bundle_name(dry_run=args.dry_run)
     if not step_desktop_integration(enabled=with_desktop, dry_run=args.dry_run):
         sys.exit(4)
-    if not step_ui_bundle_check() and not args.dry_run:
+    # --dry-run must not compile. step_ui_bundle_check builds a missing bundle
+    # with npm, and main does not track dist. On the macOS suite that compile
+    # ran inside a dry-run test until the file budget killed it.
+    if args.dry_run:
+        console.print(
+            "[muted]│    (dry-run) check the UI build, and create it with npm "
+            "when the checkout has none[/]"
+        )
+    elif not step_ui_bundle_check():
         sys.exit(5)
 
     # Summary FIRST, launch LAST: when the app window appears, the terminal
