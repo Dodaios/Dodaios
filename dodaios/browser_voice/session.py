@@ -560,7 +560,7 @@ class BrowserVoiceSession:
             PeakLimiter,
             apply_output_gain_pcm16,
         )
-        from dodaios.browser_voice.audio import resample_pcm16  # noqa: PLC0415 — off-rate fallback
+        from dodaios.telephony.audio import Resampler  # noqa: PLC0415 — off-rate fallback
 
         # Master output volume (shared with the local speaker + telephony sinks)
         # so the setting works over the browser too — the only voice path on a
@@ -572,6 +572,9 @@ class BrowserVoiceSession:
         self._speaking = True
         self._spoken_text = text
         sent = 0
+        # One resampler per utterance: a fresh state for every chunk put a
+        # click at each chunk boundary (the 22,050 Hz French Piper voice).
+        resampler: Resampler | None = None
         try:
             stream = self._tts.synthesize(text, language_code=self.language_code)
             iterator = stream.__aiter__()
@@ -608,7 +611,9 @@ class BrowserVoiceSession:
                         {"type": "tts_start", "sample_rate": TTS_SAMPLE_RATE}
                     )
                 if rate != TTS_SAMPLE_RATE:
-                    pcm = resample_pcm16(pcm, rate, TTS_SAMPLE_RATE)
+                    if resampler is None or resampler.from_rate != rate:
+                        resampler = Resampler(rate, TTS_SAMPLE_RATE)
+                    pcm = resampler.process(pcm)
                 pcm = apply_output_gain_pcm16(
                     pcm,
                     vol,
