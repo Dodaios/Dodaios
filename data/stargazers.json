@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 302,
+  "count": 303,
   "forks": 109,
-  "placed": 59,
-  "stated": 72,
-  "generatedAt": "2026-10-29T21:52:53.569Z",
+  "placed": 60,
+  "stated": 73,
+  "generatedAt": "2026-10-29T23:10:44.299Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -186,6 +186,13 @@
       "lon": -75.52,
       "label": "Manizales",
       "country": "Colombia",
+      "count": 1
+    },
+    {
+      "lat": -25.953,
+      "lon": 32.587,
+      "label": "Maputo",
+      "country": "Mozambique",
       "count": 1
     },
     {
