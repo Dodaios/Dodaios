@@ -145,6 +145,7 @@ import {
 } from "./offscreenBuffer";
 import { installQuerySuppression } from "./terminalQueries";
 import { installSynchronizedOutput } from "./terminalSynchronizedOutput";
+import { keepPresentedRendererAwake, wakePresentedRenderer } from "./presentedRenderer";
 import { FULL_SCREEN_ERASE_SCAN_TAIL, hasFullScreenErase } from "./terminalRepaint";
 import {
   bindTerminalScrollRegion,
@@ -1396,8 +1397,16 @@ export function AgenticTerminal({
     const showPane = (afterFlush?: () => void) => {
       // The Verse window is a reader even while the IDE tile is off the stage.
       if (!activeRef.current && !presentedHost) return;
+      // Output held for a size the hidden tile never had would sit until the
+      // offscreen deadline — about a second — while the user is already
+      // typing into the window. The window is measurable; the report is not
+      // what they are waiting on.
+      if (presentedHost && awaitingSizeReport && measurable()) {
+        awaitingSizeReport = false;
+      }
       if (paneVisible) {
-        afterFlush?.();
+        if (awaitingSizeReport) afterFlush?.();
+        else flushHeld(afterFlush);
         return;
       }
       paneVisible = true;
@@ -1426,6 +1435,12 @@ export function AgenticTerminal({
      * state: the document becoming visible again, and the pane being resized.
      */
     const revealIfOnScreen = () => {
+      // The IDE tile is off the stage on purpose while the window has the
+      // xterm. That must not count as "nobody is looking".
+      if (presentedHost) {
+        showPane();
+        return;
+      }
       if (!activeRef.current) return;
       if (paneVisible) return;
       const box = container.getBoundingClientRect();
@@ -1566,8 +1581,21 @@ export function AgenticTerminal({
       // offscreen still counts as painted. It has a screen; nobody is looking
       // at it. Cheap to call per chunk: React bails out on an unchanged value.
       setPainted(true);
-      if (!paneVisible) recheckParked();
-      if (paneVisible && !awaitingSizeReport) {
+      // The Verse window is the reader. Parking its bytes until
+      // OFFSCREEN_MAX_HOLD_MS is the pause between a keystroke and the glyph:
+      // the hidden IDE tile is not the surface being watched, and a paused
+      // xterm renderer would keep the previous frame even after the write.
+      if (presentedHost && awaitingSizeReport && measurable()) {
+        awaitingSizeReport = false;
+      }
+      // Recheck BEFORE the decision. A parked pane that is actually on screen
+      // un-parks itself here, and this same chunk is what the user is waiting
+      // to see — reading the flag from before the recheck parked it again.
+      if (!paneVisible && !presentedHost) recheckParked();
+      if ((paneVisible || presentedHost !== null) && !awaitingSizeReport) {
+        if (presentedHost) wakePresentedRenderer(term);
+        // Older parked bytes belong under this chunk, never after it.
+        if (offscreen.pending > 0) flushHeld();
         writeToTerminal(text, afterWrite);
         return;
       }
@@ -1994,6 +2022,7 @@ export function AgenticTerminal({
     let presentedWatch: ResizeObserver | null = null;
     let presentedTimer: number | undefined;
     let releasePresentedExtras = () => {};
+    let releasePresentedRenderer = () => {};
     const releasePresented = () => {
       if (!presentedHost) return;
       if (presentedTimer !== undefined) window.clearTimeout(presentedTimer);
@@ -2001,6 +2030,8 @@ export function AgenticTerminal({
       presentedWatch?.disconnect();
       presentedWatch = null;
       presentedHost = null;
+      releasePresentedRenderer();
+      releasePresentedRenderer = () => {};
       releasePresentedExtras();
       releasePresentedExtras = () => {};
       const element = term.element;
@@ -2014,6 +2045,9 @@ export function AgenticTerminal({
       presentedHost = host;
       const element = term.element;
       if (element && element.parentElement !== host) host.appendChild(element);
+      // Before the flush below, so the bytes just released actually land on
+      // the canvas and a late intersection entry cannot pause them again.
+      releasePresentedRenderer = keepPresentedRendererAwake(term);
       attachTerminalBridge(host, {
         getSelection: () => term.getSelection(),
         paste: (text) => term.paste(text),
@@ -2033,7 +2067,10 @@ export function AgenticTerminal({
           presentedTimer = window.setTimeout(() => {
             presentedTimer = undefined;
             // This window is the one the user is reading, so it takes the size.
-            if (presentedHost) sendResize(true);
+            if (!presentedHost) return;
+            wakePresentedRenderer(term);
+            showPane();
+            sendResize(true);
           }, 80);
         });
         presentedWatch.observe(host);

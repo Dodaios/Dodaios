@@ -83,6 +83,7 @@ vi.mock("@xterm/xterm", () => ({
       harness.writes.push(RESET);
     }
     resize() {}
+    refresh() {}
     dispose() {}
     clearTextureAtlas() {}
   },
@@ -119,6 +120,7 @@ vi.mock("@/lib/agenticIdeApi", () => ({ attachToTerminal: vi.fn() }));
 
 import { AgenticTerminal } from "./AgenticTerminal";
 import { OFFSCREEN_MAX_HOLD_MS } from "./offscreenBuffer";
+import { presentTerminal } from "@/lib/liveTerminals";
 
 class ResizeObserverHarness implements ResizeObserver {
   constructor(_callback: ResizeObserverCallback) {}
@@ -197,6 +199,32 @@ describe("AgenticTerminal off-screen output", () => {
 
     act(() => harness.fire?.(true));
     expect(harness.writes).toEqual(["frame one frame two frame three"]);
+  });
+
+  it("writes immediately while the Verse window is showing a parked pane", () => {
+    // The IDE tile is off the stage for the whole time the office covers it.
+    // Holding the echo until OFFSCREEN_MAX_HOLD_MS is the one-second lag.
+    const view = render(
+      <AgenticTerminal
+        name="Dana"
+        workspaceId="ws"
+        displayName="Claude Code"
+        appearance="dark"
+        fontSize={13}
+        active={false}
+      />,
+    );
+    const host = document.createElement("div");
+    const release = presentTerminal("ws", ["Dana"], host);
+    expect(release).toEqual(expect.any(Function));
+    act(() => harness.fire?.(false));
+    harness.writes = [];
+
+    act(() => harness.handlers?.onOutput("echo"));
+
+    expect(harness.writes).toContain("echo");
+    release?.();
+    view.unmount();
   });
 
   it("writes a flooded hidden pane out rather than losing its frame", () => {

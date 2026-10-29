@@ -586,6 +586,10 @@
 }
 .verse-takeover-host { position: absolute; inset: 0; z-index: 1; }
 .verse-takeover-host:empty { pointer-events: none; }
+/* Once the xterm is in the window its canvas is transparent, and the polled
+   replay sits underneath. An opaque host keeps that replay from showing
+   through and reading as a one-second-late copy of the screen. */
+.verse-takeover-host:not(:empty) { background: #0b0c0f; }
 .verse-takeover-host > .xterm { width: 100%; height: 100%; }
 /* The server's replay, until the pane's own xterm is in the window. Same face as the terminal: monospace on black. */
 .verse-takeover-replay {
