@@ -39,6 +39,11 @@ except Exception:  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
+#: watchdog event types a plain READ produces. A reload reads every doc, so
+#: reacting to these made each reload schedule the next one (BC-250 2026-10-29:
+#: a reload every 0.6 s for hours, a quarter of a core while idle).
+_READ_ONLY_EVENTS = frozenset({"opened", "closed_no_write"})
+
 
 class DocRegistry:
     """Indexes all Markdown files under the configured roots.
@@ -211,6 +216,8 @@ class DocRegistry:
         class _Handler(FileSystemEventHandler):  # type: ignore[misc]
             def on_any_event(self, event: Any) -> None:  # noqa: D401
                 if getattr(event, "is_directory", False):
+                    return
+                if getattr(event, "event_type", "") in _READ_ONLY_EVENTS:
                     return
                 src = str(getattr(event, "src_path", ""))
                 if not (src.endswith(".md") or src.endswith(".markdown")):
