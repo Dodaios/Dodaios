@@ -216,9 +216,14 @@ class PiperLocalTTS:
             timeout=15,
             check=True,
         )
-        # sherpa-onnx expects one outer group per synthesis segment.
-        # Supplying one group per word can terminate playback after the first.
-        ipa = "".join(char for char in result.stdout if not char.isspace() and char not in "ˈˌ")
+        # sherpa-onnx expects one outer group per synthesis segment: supplying
+        # one group per word can end playback after the first. Inside that one
+        # group the word spaces and the stress marks stay. Piper voices are
+        # trained on eSpeak IPA with both (the French voice maps ' ' to id 3
+        # and 'ˈ' 'ˌ' to 120 and 121); without them a clause is read as one
+        # long word, too fast and with swallowed words (BC-250 2026-10-29,
+        # siwis: 12-18 % shorter, round-trip word error 32 % against 11 %).
+        ipa = " ".join(result.stdout.split())
         if not ipa:
             raise RuntimeError("eSpeak NG did not return phonemes for Piper.")
         return [[ord(char) for char in ipa]]
