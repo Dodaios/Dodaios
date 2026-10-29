@@ -50,6 +50,16 @@ _INT16_FULL_SCALE = 32767.0
 #: Speed factor handed to the synthesiser. 1.0 is the voice's natural pace.
 _DEFAULT_SPEED = 1.0
 
+#: Markdown a model may emit: emphasis, code and heading marks anywhere, and a
+#: list dash or quote mark at the start of a line. eSpeak reads "**" aloud as
+#: "astérisque astérisque"; a voice must say the words, not the markup.
+_MARKUP_RE = re.compile(r"[*_`#~|]+|^[ \t]*(?:[-•>]|\d+[.)])[ \t]+", re.MULTILINE)
+
+
+def _speech_text(text: str) -> str:
+    """The words of ``text`` without Markdown, on one line."""
+    return " ".join(_MARKUP_RE.sub(" ", text or "").split())
+
 
 class PiperLocalTTS:
     """Local neural text-to-speech (keyless, on-device, multilingual by voice)."""
@@ -209,8 +219,12 @@ class PiperLocalTTS:
         voice_language = language.split("-", 1)[0]
         if shutil.which("espeak-ng") is None:
             raise RuntimeError("eSpeak NG is required for local Piper TTS.")
+        # The text goes on stdin, never as an argument: a clause starting with
+        # "-" (a Markdown bullet) was read as an option and returned nothing,
+        # which ended the whole answer mid-way (BC-250 2026-10-29).
         result = subprocess.run(  # noqa: S603 - fixed executable and arguments
-            ["espeak-ng", "-q", "-v", voice_language, "--ipa", text],
+            ["espeak-ng", "-q", "-v", voice_language, "--ipa", "--stdin"],
+            input=text,
             capture_output=True,
             text=True,
             timeout=15,
@@ -240,7 +254,9 @@ class PiperLocalTTS:
         segments: list[tuple[str, int]] = []
         for part in parts:
             chunk = part.replace("∯", ".").strip()
-            if not chunk:
+            # Nothing to say (a lone mark, a list dash): skip it rather than
+            # fail the whole answer on a clause without phonemes.
+            if not any(char.isalnum() for char in chunk):
                 continue
             punctuation = chunk[-1]
             pause = 310 if punctuation in ".!?。！？" else 170 if punctuation in ",;:" else 0
@@ -266,7 +282,7 @@ class PiperLocalTTS:
         language_code: str | None = None,
     ) -> AsyncIterator[AudioChunk]:
         """Speak *text* with the voice matching this turn's output language."""
-        spoken = (text or "").strip()
+        spoken = _speech_text(text)
         if not spoken:
             return
         model_id = self._resolve_voice(voice, language_code)

@@ -81,3 +81,55 @@ def test_subprocess_is_called_without_a_shell(monkeypatch: pytest.MonkeyPatch) -
     assert seen["argv"][:5] == ["espeak-ng", "-q", "-v", "fr", "--ipa"]
     assert seen["shell"] is False
     assert subprocess is piper_local.subprocess
+
+
+# --- Markdown and leading dashes (BC-250 2026-10-29) ------------------------
+#
+# A Qwen answer in Markdown ("- **Les Numériques** discusses ...") stopped the
+# voice mid-answer: the clause reached eSpeak as an argument starting with "-",
+# was read as an option, returned no phonemes, and the whole rest of the answer
+# was dropped. With the text on stdin eSpeak read the markup aloud instead
+# ("astérisque astérisque").
+
+MARKDOWN_ANSWER = (
+    "Les dernières nouvelles :\n"  # i18n-allow: French fixture
+    "- **20 Minutes** parle de la mission.\n"  # i18n-allow: French fixture
+    "- **Les Numériques** évoque une base lunaire.\n"  # i18n-allow: French fixture
+    "1. *Sources* : `nasa.gov`."  # i18n-allow: French fixture
+)
+
+
+def test_text_goes_to_espeak_on_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(argv: list[str], **kwargs: object) -> SimpleNamespace:
+        seen["argv"], seen["input"] = argv, kwargs.get("input")
+        return SimpleNamespace(stdout="lez nymeʁˈik\n")
+
+    monkeypatch.setattr(piper_local.shutil, "which", lambda _name: "/usr/bin/espeak-ng")
+    monkeypatch.setattr(piper_local.subprocess, "run", fake_run)
+    PiperLocalTTS._phonemize("- Les Numériques", "fr-FR")  # i18n-allow: French fixture
+    assert "--stdin" in seen["argv"]
+    assert "- Les Numériques" not in seen["argv"], "never an argument eSpeak may parse"
+    assert seen["input"] == "- Les Numériques"
+
+
+def test_markdown_is_spoken_as_words() -> None:
+    spoken = piper_local._speech_text(MARKDOWN_ANSWER)
+    assert "*" not in spoken and "`" not in spoken
+    assert "20 Minutes parle de la mission." in spoken  # i18n-allow: French fixture
+    assert not spoken.startswith("-")
+
+
+def test_a_clause_with_nothing_to_say_is_skipped() -> None:
+    segments = PiperLocalTTS._prosody_segments("Bonjour. - . ** , fin.")  # i18n-allow
+    assert [text for text, _pause in segments] == ["Bonjour.", "fin."]  # i18n-allow
+
+
+@pytest.mark.skipif(shutil.which("espeak-ng") is None, reason="eSpeak NG is not installed")
+def test_every_clause_of_a_markdown_answer_gets_phonemes() -> None:
+    for clause, _pause in PiperLocalTTS._prosody_segments(piper_local._speech_text(MARKDOWN_ANSWER)):
+        (group,) = PiperLocalTTS._phonemize(clause, "fr-FR")
+        ipa = "".join(map(chr, group))
+        assert group, clause
+        assert "asteʁisk" not in ipa, f"markup read aloud in {clause!r}"
