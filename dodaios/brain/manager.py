@@ -11334,6 +11334,39 @@ class BrainManager:
                     if _pf_evidence is not None:
                         self._evidence_directive = public_fact_evidence_directive(_pf_evidence)
                         self._public_fact_prefetched = True
+            elif not self._evidence_directive and not self._brain_can_call_tools(
+                _pf_provider, self._fast_model(_pf_provider)
+            ):
+                # A hosted model without tools (the print-mode Claude CLI) cannot
+                # search either (BC-250 2026-10-29: "je ne peux pas faire de
+                # recherche en direct ici" about the latest Artemis II news). Run
+                # the search for an explicitly fresh public fact and hand it the
+                # results; its own answer is never replaced afterwards.
+                from dodaios.brain.public_fact_gate import (
+                    hosted_fresh_fact_query,
+                    prefetch_public_fact_evidence,
+                    public_fact_evidence_directive,
+                )
+
+                _pf_query = hosted_fresh_fact_query(
+                    user_text,
+                    provider=_pf_provider,
+                    local_providers=LOCAL_PROVIDERS,
+                    previous_user_text=self._previous_user_turn_text(use_history=use_history),
+                    recent_user_texts=self._recent_user_turn_texts(2, use_history=use_history),
+                )
+                if _pf_query is not None:
+                    _pf_evidence = await prefetch_public_fact_evidence(
+                        _pf_query, trace_id=turn_trace_id
+                    )
+                    if _pf_evidence is not None:
+                        self._evidence_directive = public_fact_evidence_directive(_pf_evidence)
+                        log.info(
+                            "Public-fact search: tool-less provider %s answers from a "
+                            "system-run %s",
+                            _pf_provider,
+                            SEARCH_TOOL,
+                        )
 
         # Phase 5 / ADR-0006: pre-call budget gate. Block rather than request
         # when cooldown is active or the task/daily budget is exhausted.

@@ -85,3 +85,19 @@ def test_evergreen_requests_are_not_graded_fresh(utterance: str) -> None:
     """Without a freshness word nothing is fresh; grounding of evergreen facts
     stays a decision of the active model (requires_public_fact_grounding)."""
     assert not plan_turn(utterance, tool_names=TOOLS).requires_public_fact_grounding
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "Que s'est-il passé en Espagne hier",  # i18n-allow: live transcript 2026-10-29
+        "Qu'est-ce qui est arrivé à la NASA hier soir ?",  # i18n-allow: French fixture
+    ],
+)
+def test_french_yesterday_events_are_fresh(utterance: str) -> None:
+    assert plan_turn(utterance, tool_names=TOOLS).requires_public_fact_grounding
+
+
+def test_german_hier_means_here_and_stays_local() -> None:
+    plan = plan_turn("Was ist hier los?", tool_names=TOOLS)  # i18n-allow: German fixture
+    assert TurnReason.CURRENT_DATA not in plan.reasons

@@ -179,7 +179,10 @@ _CURRENT_RE = re.compile(
     # person's own past, never a freshness request.
     r"actuel\w*|aujourd\W?\s?hui|ce\s+soir|demain|maintenant|en\s+ce\s+moment|"  # i18n-allow: French
     r"recemment|recent\w*|derni(?:er|ere)s?(?!\s+fois)|actualite\w*|"  # i18n-allow: French
-    r"nouvelles|meteo|en\s+direct|statut|en\s+ligne)\b"  # i18n-allow: French speech input
+    r"nouvelles|meteo|en\s+direct|statut|en\s+ligne|"  # i18n-allow: French speech input
+    # French "hier" (yesterday) only in an unmistakably French frame: alone it
+    # is the German "here" ("Was ist hier los?").  # i18n-allow: German example
+    r"(?:passe|arrive)\w*(?:\s+\w+){0,3}\s+hier|hier\s+(?:soir|matin|apres[\s-]midi))\b"  # i18n-allow
 )
 
 # Factual question/request shapes are deliberately narrower than the general

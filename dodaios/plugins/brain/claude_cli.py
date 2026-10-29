@@ -342,6 +342,14 @@ class ClaudeCliBrain:
             lines.append(f"{speaker}: {message.content}")
         if prefs:
             lines.extend(["", prefs])
+        # Search results the brain ran for this turn: the flattened prompt keeps
+        # nothing else of the system prompt, and without them a news question
+        # got "I cannot search live" (BC-250 2026-10-29).
+        from dodaios.brain.public_fact_gate import extract_public_fact_evidence  # noqa: PLC0415
+
+        evidence = extract_public_fact_evidence(req.system)
+        if evidence:
+            lines.extend(["", evidence])
         # The reply-language directive rides LAST (highest recency) so the CLI
         # model answers in the turn's resolved language instead of anchoring to
         # the persona's own language — the sibling bug of 2026-06-21.

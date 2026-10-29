@@ -103,7 +103,11 @@ _SELF_OR_MATH_RE = re.compile(
     r"\b(?:who are you|what(?:'s| is) your name|what can you do|"
     r"qui es[\s-]tu|tu es qui|t['’]?\s?es qui|ton nom|"  # i18n-allow: French
     r"tu t['’]?\s?appelles|(?:que|qu['’]?\s?est[\s-]ce que tu) sais"  # i18n-allow: French
-    r"(?:[\s-]tu)? faire|tu sais faire quoi)\b|"  # i18n-allow: French speech input
+    r"(?:[\s-]tu)? faire|tu sais faire quoi|"  # i18n-allow: French speech input
+    # The model the assistant runs on is its own state, never web news
+    # ("quel est le modele que tu utilises actuellement", live 2026-10-29).
+    r"(?:which|what) model (?:are you|do you)|"
+    r"modele (?:que tu utilises|que vous utilisez|utilise)|tu utilises quel modele)\b|"  # i18n-allow
     r"\d+\s*(?:[-+*/x×]|plus|minus|times|divided by|moins|fois|divise par)\s*\d+"  # i18n-allow
 )
 
@@ -271,7 +275,7 @@ async def prefetch_public_fact_evidence(
             trace_id=trace_id or uuid4(),
             origin="brain_public_fact_grounding",
             user_utterance=text,
-            rationale="An on-device model needs public-fact grounding before answering.",
+            rationale="The model needs public-fact grounding before answering.",
         )
         loop = asyncio.get_running_loop()
         deadline = loop.time() + max(0.05, float(timeout_s))
@@ -300,9 +304,62 @@ async def prefetch_public_fact_evidence(
         return None
 
 
+#: Closes the results block, so a flattened prompt (the print-mode CLI keeps
+#: almost nothing of the system prompt) can lift the whole block out of it.
+_EVIDENCE_END = "End of web search results."
+
+
 def public_fact_evidence_directive(evidence: str) -> str:
     """The mandate when the search already ran: answer from these results."""
-    return f"{PUBLIC_FACT_EVIDENCE_DIRECTIVE}\n\nWeb search results:\n{evidence}"
+    return f"{PUBLIC_FACT_EVIDENCE_DIRECTIVE}\n\nWeb search results:\n{evidence}\n{_EVIDENCE_END}"
+
+
+def extract_public_fact_evidence(system_prompt: str | None) -> str:
+    """The search-results block inside a system prompt, or ``""``."""
+    text = str(system_prompt or "")
+    start = text.find(PUBLIC_FACT_EVIDENCE_DIRECTIVE)
+    if start < 0:
+        return ""
+    end = text.find(_EVIDENCE_END, start)
+    if end < 0:
+        return ""
+    return text[start : end + len(_EVIDENCE_END)]
+
+
+def hosted_fresh_fact_query(
+    user_text: str,
+    *,
+    provider: str | None,
+    local_providers: Iterable[str],
+    previous_user_text: str = "",
+    recent_user_texts: Iterable[str] = (),
+) -> str | None:
+    """The query to search for a hosted model that cannot call tools, or ``None``.
+
+    The print-mode Claude CLI has no tools on this path, so a news question
+    reached it with nothing to answer from (BC-250 2026-10-29: "je ne peux pas
+    faire de recherche en direct ici"). Unlike the on-device rule, only an
+    explicitly FRESH public fact is searched: a capable hosted model answers
+    evergreen facts itself, and its answer is never replaced afterwards.
+    """
+    name = (provider or "").strip().lower()
+    if not name or name in {p.strip().lower() for p in local_providers}:
+        return None
+    text = (user_text or "").strip()
+    if not text or _SELF_OR_MATH_RE.search(_normalize(text)):
+        return None
+    try:
+        plan = plan_turn(
+            text,
+            tool_names=(SEARCH_TOOL,),
+            context=(previous_user_text,) if previous_user_text else (),
+            requires_public_fact_grounding=False,
+        )
+    except Exception:  # noqa: BLE001 — a routing guard must never break a turn
+        return None
+    if not plan.requires_public_fact_grounding:
+        return None
+    return public_fact_search_query(text, recent_user_texts)
 
 
 _CLARIFY: dict[str, str] = {
@@ -334,6 +391,8 @@ __all__ = [
     "PUBLIC_FACT_DOMAIN",
     "PUBLIC_FACT_EVIDENCE_DIRECTIVE",
     "SEARCH_TOOL",
+    "extract_public_fact_evidence",
+    "hosted_fresh_fact_query",
     "prefetch_public_fact_evidence",
     "public_fact_clarifying_question",
     "public_fact_search_query",
