@@ -183,7 +183,7 @@ RECOMMENDED_MODELS: tuple[RecommendedModel, ...] = (
     # ── vision fallback (Screen Context / Computer-Use below 3 GB) ──────────
     RecommendedModel(
         id="qwen3-vl:2b-instruct",
-        label="Qwen 3 VL 2B",
+        label="Qwen 3 VL 2B Instruct",
         size_gb=1.9,
         purpose="Sees your screen on a machine too small for a multimodal chat model.",
         role="vision",

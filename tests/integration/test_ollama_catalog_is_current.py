@@ -42,8 +42,8 @@ _ACCEPT = {"Accept": "application/vnd.docker.distribution.manifest.v2+json"}
 
 #: Every tag the shortlist names, listed here so a retired one fails by NAME
 #: even if someone trims it from RECOMMENDED_MODELS without reading this file.
-#: Re-checked on 2026-10-29: ``qwen3-vl:2b`` read as a year old, so the vision
-#: fallback is the current ``qwen3-vl:2b-instruct`` tag of the same size.
+#: ``qwen3-vl:2b`` aged out of the library's "1 year ago" line on 2026-10-29;
+#: ``qwen3-vl:2b-instruct`` is the same 1.9 GB vision model, refreshed since.
 _SHORTLIST_2026_08_24 = (
     "granite4.1:3b",
     "qwen3.5:4b",

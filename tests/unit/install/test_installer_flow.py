@@ -315,6 +315,52 @@ def test_launch_fallback_hint_is_shown_on_every_desktop_os(monkeypatch, capsys) 
     assert "dodaios.ui.web.launcher" in linux_out
 
 
+def test_dry_run_does_not_compile_a_missing_ui(monkeypatch, tmp_path, capsys) -> None:
+    """A dry-run on a main checkout must not shell out to npm.
+
+    main does not track dodaios/ui/web/dist. The macOS suite's whole-file
+    budget killed this module because a dry-run still called
+    step_ui_bundle_check, and that builds the missing bundle with npm ci and
+    npm run build whenever npm is on PATH.
+    """
+    frontend = tmp_path / "dodaios" / "ui" / "web" / "frontend"
+    frontend.mkdir(parents=True)
+    (frontend / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(installer, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(installer, "is_update_run", lambda: False)
+    monkeypatch.setattr(installer, "write_managed_marker", lambda **kwargs: None)
+    monkeypatch.setattr(installer.sys, "platform", "linux")
+    monkeypatch.setenv("DISPLAY", ":99")
+    for step in (
+        "step_preflight",
+        "step_pip_install",
+        "step_models",
+        "step_cli_links",
+        "step_worker_cli",
+        "step_macos_bundle_name",
+        "step_summary",
+    ):
+        monkeypatch.setattr(installer, step, lambda **kwargs: None)
+    monkeypatch.setattr(installer, "step_desktop_integration", lambda **kwargs: True)
+    calls: list[list[str]] = []
+
+    def refuse(cmd, **kwargs):
+        calls.append(list(cmd))
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(installer, "run_captured", refuse)
+    monkeypatch.setattr(installer, "run_noted", refuse)
+    monkeypatch.setattr(installer.shutil, "which", lambda name: "/usr/local/bin/npm")
+
+    rc = installer.main(["--dry-run", "--no-launch"])
+
+    assert rc == 0
+    assert calls == []
+    out = capsys.readouterr().out
+    assert "dry-run" in out
+    assert "npm" in out
+
+
 def test_linux_gui_gets_full_profile_and_app_menu_registration(
     monkeypatch, capsys, fresh_install
 ) -> None:

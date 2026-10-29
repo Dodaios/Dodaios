@@ -11,6 +11,9 @@ versioning per [SemVer](https://semver.org/).
 
 ### Changed
 
+- The small-machine vision download is `qwen3-vl:2b-instruct` (1.9 GB, refreshed
+  in the library). The previous tag `qwen3-vl:2b` is still published but Ollama
+  shows it as a year old, so a new install no longer offers it.
 - The `personal-jarvis` package on PyPI is now a thin pointer to `dodaios`
   instead of a second copy of the app: it installs `dodaios` at the same
   version, maps every extra (`personal-jarvis[full]` installs `dodaios[full]`)
