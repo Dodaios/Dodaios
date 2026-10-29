@@ -189,11 +189,11 @@ async def test_recommendations_mark_what_is_already_there(fake_tags) -> None:
     result = await pull.recommendations()
     by_id = {m["id"]: m for m in result["models"]}
     assert by_id["qwen3.5"]["installed"] is True
-    assert by_id["qwen3-vl:2b"]["installed"] is False
+    assert by_id["qwen3-vl:2b-instruct"]["installed"] is False
     # The vision fallback must be findable AS the vision entry — it is the one
     # that makes Screen Context work on a machine too small for a multimodal
     # chat pick, and the chat picks that see the screen say so themselves.
-    assert by_id["qwen3-vl:2b"]["vision"] is True
+    assert by_id["qwen3-vl:2b-instruct"]["vision"] is True
     assert by_id["qwen3.5"]["vision"] is True
     assert result["server_reachable"] is True
     assert result["curated_reviewed_on"] == pull.CURATED_REVIEWED_ON.isoformat()
@@ -438,7 +438,7 @@ async def test_the_vision_pick_is_the_multimodal_chat_model_where_it_fits(
     _machine(monkeypatch, ram=4.0, accel=0.0)
     result = await pull.recommendations()
     vision_pick = next(m for m in result["models"] if "vision" in m["recommended_for"])
-    assert vision_pick["id"] == "qwen3-vl:2b"
+    assert vision_pick["id"] == "qwen3-vl:2b-instruct"
 
 
 def test_the_shortlist_review_date_is_not_a_year_old() -> None:
@@ -478,7 +478,7 @@ async def test_real_registry_sizes_replace_the_estimates(fake_tags, monkeypatch)
     assert by_id["qwen3.5"]["size_gb"] == 9.0
     # A model the registry did not answer for keeps its curated estimate rather
     # than vanishing or reporting zero.
-    assert by_id["qwen3-vl:2b"]["size_gb"] == 1.9
+    assert by_id["qwen3-vl:2b-instruct"]["size_gb"] == 1.9
 
 
 async def test_an_offline_registry_leaves_a_usable_panel(fake_tags, monkeypatch) -> None:
