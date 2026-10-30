@@ -101,6 +101,7 @@ const LIVE = {
 
 let calls: { url: string; method: string; body: unknown }[] = [];
 let prefs: { disabled: string[]; api_only: string[]; hidden_models: Record<string, string[]> };
+let routeOverrides: { providers?: unknown; families?: unknown; agents?: unknown };
 
 beforeEach(() => {
   voiceMode.mode = "realtime";
@@ -108,12 +109,14 @@ beforeEach(() => {
   voiceMode.setMode = vi.fn();
   calls = [];
   prefs = { disabled: [], api_only: [], hidden_models: {} };
+  routeOverrides = {};
   _resetProvidersCacheForTests();
-  const routes: Record<string, unknown> = {
-    "/api/providers/families": { families: FAMILIES },
+  const routes: Record<string, unknown | (() => unknown)> = {
+    "/api/providers/families": () => routeOverrides.families ?? { families: FAMILIES },
     "/api/providers/section-health": { sections: {}, checked_at: 0, cached: false },
-    "/api/providers": { providers: PROVIDERS },
-    "/api/jarvis-agent/status": AGENTS,
+    "/api/providers/local-openai/base-url": { base_url: "http://localhost:8000" },
+    "/api/providers": () => routeOverrides.providers ?? { providers: PROVIDERS },
+    "/api/jarvis-agent/status": () => routeOverrides.agents ?? AGENTS,
     "/api/jarvis-agent/switch": { ok: true },
     "/api/claude/status": CLAUDE_STATUS,
     "/api/codex/status": null,
@@ -131,7 +134,8 @@ beforeEach(() => {
       const match = Object.keys(routes)
         .sort((a, b) => b.length - a.length)
         .find((prefix) => url.startsWith(prefix));
-      const body = match ? routes[match] : {};
+      const route = match ? routes[match] : {};
+      const body = typeof route === "function" ? route() : route;
       const ok = body !== null;
       return { ok, status: ok ? 200 : 404, json: async () => body ?? {}, text: async () => "" } as Response;
     }),
@@ -218,6 +222,63 @@ describe("ApiKeysView — Live calls", () => {
 });
 
 describe("ApiKeysView — Agents", () => {
+  it("shows and saves the local OpenAI-compatible server URL and optional key", async () => {
+    routeOverrides.providers = {
+      providers: [
+        ...PROVIDERS,
+        {
+          id: "remote-compatible", label: "Remote compatibility endpoint", tier: "brain", auth_mode: "api_key",
+          secret_keys: ["remote_compatible_api_key"], secrets_set: { remote_compatible_api_key: false }, configured: false,
+          active: false, billing: "api", supports_base_url: true, default_base_url: null, base_url: null,
+        },
+        {
+          id: "local-openai", label: "Local server (OpenAI-compatible)", tier: "brain", auth_mode: "none",
+          secret_keys: ["local_openai_api_key"], secrets_set: { local_openai_api_key: false }, configured: false,
+          active: false, billing: "local", supports_base_url: true, default_base_url: null, base_url: null,
+        },
+      ],
+    };
+    routeOverrides.families = {
+      families: [
+        ...FAMILIES,
+        {
+          id: "local", label: "On this computer", logo_id: "local-openai", local: true,
+          key_slot: null, key_present: false, separate_keys: [], dashboard_url: null, signup_url: null,
+          subscription: null, provider_ids: ["local-openai"], hidden_ids: [], agent_ids: ["local-openai"],
+        },
+      ],
+    };
+    routeOverrides.agents = {
+      ...AGENTS,
+      mapping: [
+        ...AGENTS.mapping,
+        { jarvis: "local-openai", label: "Local server (OpenAI-compatible)", key_set: false, keyless: true, is_active_brain: false, billing: "local" },
+      ],
+    };
+
+    renderPage();
+    await screen.findByTestId("apikeys-voice");
+    openAgents();
+    fireEvent.click(within(await screen.findByTestId("agent-provider-local")).getByRole("button", { name: "On this computer" }));
+
+    const detail = await screen.findByTestId("agent-provider-detail-local");
+    const url = within(detail).getByRole("textbox", { name: "Server URL" });
+    fireEvent.change(url, { target: { value: "http://localhost:8000/v1" } });
+    fireEvent.click(within(detail).getByTestId("provider-base-url-save"));
+    await waitFor(() => {
+      const save = calls.find((call) => call.method === "PUT" && call.url === "/api/providers/local-openai/base-url");
+      expect(save?.body).toEqual({ base_url: "http://localhost:8000/v1" });
+    });
+
+    expect(within(detail).getByText("Local provider — runs without credentials. The key below is optional, only for servers that enforce one (e.g. vLLM --api-key).")).toBeTruthy();
+    fireEvent.change(within(detail).getByTestId("local-openai-key-input"), { target: { value: "local-test-key" } });
+    fireEvent.click(within(detail).getByTestId("local-openai-key-save"));
+    await waitFor(() => {
+      const save = calls.find((call) => call.method === "POST" && call.url === "/api/secrets/local_openai_api_key");
+      expect(save?.body).toEqual({ value: "local-test-key", scope: "everywhere" });
+    });
+  });
+
   it("lists each company once with its subscription account", async () => {
     renderPage();
     await screen.findByTestId("apikeys-voice");

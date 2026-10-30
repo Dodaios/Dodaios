@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, FlaskConical, Loader2, LogIn, LogOut } from "lucide-react";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
-import { ProviderTestControl } from "@/components/providers/ProviderTierSection";
+import { BaseUrlField, ProviderTestControl } from "@/components/providers/ProviderTierSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -322,6 +322,15 @@ function ProviderDetail({
   const name = displayName(family);
   const subscription = entry.access === "subscription";
   const keyed = entry.access === "api_key";
+  // The OpenAI-compatible local server is the local agent provider with both
+  // a configurable endpoint and an optional credential. Ollama has its own
+  // URL controls on its provider card and does not use an API key.
+  const localOpenAi = entry.access === "local"
+    ? state.members.find((member) =>
+        entry.rows.some((row) => row.jarvis === member.id)
+        && member.supports_base_url
+        && member.secret_keys.length > 0)
+    : undefined;
   const testCard = keyed
     ? TEST_TIER_ORDER.map((tier) => state.members.find((m) => m.tier === tier && m.auth_mode === "api_key")).find(Boolean)
     : undefined;
@@ -365,6 +374,22 @@ function ProviderDetail({
           {entry.access === "local" && (
             <SettingsRow title={t("providers_page.local_title")} />
           )}
+          {localOpenAi?.supports_base_url && (
+            <div className="px-4 py-3">
+              <BaseUrlField descriptor={localOpenAi} onChanged={onChanged} />
+            </div>
+          )}
+          {localOpenAi?.secret_keys.map((slot) => (
+            <KeyField
+              key={slot}
+              slot={slot}
+              present={Boolean(localOpenAi.secrets_set[slot])}
+              providerLabel={localOpenAi.label}
+              description={t("apikeys_view.local_optional_key_hint")}
+              onChanged={onChanged}
+              testId="local-openai-key"
+            />
+          ))}
           {entry.rows.map((row) => (
             <DefaultRow
               key={row.jarvis}

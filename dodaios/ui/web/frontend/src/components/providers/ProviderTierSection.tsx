@@ -1373,6 +1373,8 @@ export function BaseUrlField({
       <div className="flex gap-2">
         <input
           type="url"
+          aria-label={t("apikeys_base_url.label")}
+          data-testid="provider-base-url-input"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={
@@ -1383,6 +1385,7 @@ export function BaseUrlField({
         <Button
           size="sm"
           variant="secondary"
+          data-testid="provider-base-url-save"
           onClick={save}
           disabled={saving || !dirty}
         >
