@@ -11334,14 +11334,14 @@ class BrainManager:
                     if _pf_evidence is not None:
                         self._evidence_directive = public_fact_evidence_directive(_pf_evidence)
                         self._public_fact_prefetched = True
-            elif not self._evidence_directive and not self._brain_can_call_tools(
-                _pf_provider, self._fast_model(_pf_provider)
-            ):
+            elif not self._evidence_directive:
                 # A hosted model without tools (the print-mode Claude CLI) cannot
                 # search either (BC-250 2026-10-29: "je ne peux pas faire de
                 # recherche en direct ici" about the latest Artemis II news). Run
                 # the search for an explicitly fresh public fact and hand it the
-                # results; its own answer is never replaced afterwards.
+                # results; its own answer is never replaced afterwards. The cheap
+                # text check runs first: the capability probe builds the primary
+                # brain, which only a turn that needs a search may do.
                 from dodaios.brain.public_fact_gate import (
                     hosted_fresh_fact_query,
                     prefetch_public_fact_evidence,
@@ -11355,7 +11355,9 @@ class BrainManager:
                     previous_user_text=self._previous_user_turn_text(use_history=use_history),
                     recent_user_texts=self._recent_user_turn_texts(2, use_history=use_history),
                 )
-                if _pf_query is not None:
+                if _pf_query is not None and not self._brain_can_call_tools(
+                    _pf_provider, self._fast_model(_pf_provider)
+                ):
                     _pf_evidence = await prefetch_public_fact_evidence(
                         _pf_query, trace_id=turn_trace_id
                     )

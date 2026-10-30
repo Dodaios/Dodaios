@@ -162,6 +162,48 @@ async def test_a_hosted_model_with_tools_keeps_its_own_judgement(monkeypatch) ->
     assert not gateway.calls
 
 
+def _recording_manager(created: list[str]) -> BrainManager:
+    """The configured primary differs from the brain the chain really uses."""
+    m = _manager("Berne est la ville fédérale.")  # i18n-allow: French fixture
+    m._build_fallback_chain = lambda _l: [("chain-brain", "")]  # type: ignore[method-assign]
+
+    def _get_brain(name: str, _model: str | None) -> _ToolLessBrain:
+        created.append(name)
+        return _ToolLessBrain()
+
+    m._get_brain = _get_brain  # type: ignore[method-assign]
+    return m
+
+
+@pytest.mark.asyncio
+async def test_a_turn_with_nothing_to_search_never_probes_the_primary(monkeypatch) -> None:
+    # Full unit run 2026-10-29: the capability probe ran before the cheap
+    # fresh-fact check, so every turn built the configured primary brain ahead
+    # of the fallback chain (test_blind_provider_is_skipped_for_a_screen_turn).
+    from dodaios.core import runtime_refs
+
+    gateway = _Gateway()
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: gateway)
+    created: list[str] = []
+    m = _recording_manager(created)
+    await m.generate("Quelle est la capitale de la Suisse", trace_id=uuid4(), use_history=False)  # i18n-allow
+    assert created and set(created) == {"chain-brain"}, created
+    assert not gateway.calls
+
+
+@pytest.mark.asyncio
+async def test_a_fresh_fact_turn_still_probes_and_searches(monkeypatch) -> None:
+    from dodaios.core import runtime_refs
+
+    gateway = _Gateway()
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: gateway)
+    created: list[str] = []
+    m = _recording_manager(created)
+    await m.generate(ARTEMIS, trace_id=uuid4(), use_history=False)
+    assert created[0] == "claude-cli", "the tool-less primary is probed for a news turn"
+    assert gateway.calls and gateway.calls[0][0] == "search_web"
+
+
 # --- the print-mode CLI prompt ----------------------------------------------
 
 
