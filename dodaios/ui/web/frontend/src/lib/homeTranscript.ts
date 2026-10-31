@@ -40,7 +40,7 @@ import {
   type ThinkingStep,
 } from "@/lib/thinkingSteps";
 import { readVoiceTranscript } from "@/lib/liveTranscript";
-import { userAttachments, type UserAttachment } from "@/components/agentchat/reduce";
+import { userAttachments, type UserAttachment } from "@/components/agentchat/userAttachment";
 
 export type TranscriptWho = "user" | "assistant" | "steps";
 

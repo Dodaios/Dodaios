@@ -1988,8 +1988,13 @@ class LiveVoiceSession:
 
     async def submit_composer(
         self, *, request_id: str, text: str, attachments: list[tuple[str, list[dict], str]],
+        display_attachments: list[dict] | None = None,
     ) -> None:
         """Deliver an explicit composer submission to the existing call."""
+        chips = tuple(
+            row for row in (display_attachments or [])
+            if isinstance(row, dict) and isinstance(row.get("name"), str) and row["name"]
+        )
         async with self._composer_lock:
             if not self.is_active or self._recovering or self._resume_needs_input:
                 raise RuntimeError("The voice connection is not ready; your input is retained.")
@@ -1997,21 +2002,30 @@ class LiveVoiceSession:
                 return
             if len(self._composer_requests) >= 2048:
                 raise RuntimeError("This call has reached its input limit.")
+            new_files = 0
             for key, content, note in attachments:
                 if key in self._composer_attachments:
                     continue
                 await self._attach_composer_content(content)
                 self._composer_attachments.add(key)
-                await self._record_composer_input("file-" + key, note)
+                # A backend that writes its own typed captions still needs the
+                # chips on the file line. The others hang them on the sentence.
+                file_chips = chips if new_files == 0 and self._composer_captions_owned else ()
+                new_files += 1
+                await self._record_composer_input("file-" + key, note, attachments=file_chips)
             if attachments and not text:
                 text = "Describe the attached file or image and its relevant contents."
             if text:
                 if not self._composer_captions_owned:
-                    await self._record_composer_input("typed-" + request_id, text)
+                    await self._record_composer_input(
+                        "typed-" + request_id, text, attachments=chips,
+                    )
                 await self.handle_control({"type": "text_input", "text": text})
             self._composer_requests.add(request_id)
 
-    async def _record_composer_input(self, identifier: str, text: str) -> None:
+    async def _record_composer_input(
+        self, identifier: str, text: str, attachments: tuple[dict, ...] = (),
+    ) -> None:
         assert self._ledger is not None
         timestamp = max(self._last_end.values()) + 1
         fragment = TranscriptFragment(
@@ -2024,6 +2038,7 @@ class LiveVoiceSession:
             session_id=self.session_id, trace_id=self._indicator_trace_id,
             event_id=identifier, role="user", text=text,
             start_ms=timestamp, end_ms=timestamp,
+            attachments=attachments,
         )
         if self._bus is not None:
             await self._bus.publish(caption)

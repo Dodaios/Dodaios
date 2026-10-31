@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from dodaios.core.events import BrainTurnCompleted
+from dodaios.core.events import BrainTurnCompleted, VoiceTranscriptUpdated
 from dodaios.live.config import LiveConfig
 from dodaios.live.state import LiveLedger
 from dodaios.live.tools import LiveTools
@@ -1663,15 +1663,20 @@ async def test_composer_file_only_enter_starts_one_reply_in_the_same_call(make_s
 
 @pytest.mark.asyncio
 async def test_composer_image_and_text_reach_same_active_backend_turn(make_session):
-    session, reasoning, _, _, _, _ = make_session([
+    session, reasoning, _, _, bus, _ = make_session([
         completed_response("image-question", [spoken_result("The screenshot shows a chart.")]),
     ])
     image = ("image-one", [
         {"type": "input_text", "text": "User screenshot"},
         {"type": "input_image", "image_url": "data:image/png;base64,aW1hZ2U="},
     ], "User screenshot")
+    chip = {
+        "name": "shot.png", "kind": "image", "described_by": "vision", "size_bytes": 5,
+        "url": "/api/agent-chat/attachments/file?reference=shot.png",
+    }
     await session.submit_composer(
         request_id="image-question", text="What is in this screenshot?", attachments=[image],
+        display_attachments=[chip, {"kind": "image"}],
     )
     await wait_for_jobs(session)
     assert len(reasoning.requests) == 1
@@ -1682,3 +1687,8 @@ async def test_composer_image_and_text_reach_same_active_backend_turn(make_sessi
     spoken = [event["content"] for event in session._connection.sent
               if event["type"] == "session.commentary.append"]
     assert spoken == ["The screenshot shows a chart."]
+    shown = [
+        event for event in bus.events
+        if isinstance(event, VoiceTranscriptUpdated) and event.attachments
+    ]
+    assert [row["name"] for row in shown[0].attachments] == ["shot.png"]

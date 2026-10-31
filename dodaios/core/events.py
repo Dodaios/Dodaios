@@ -127,6 +127,8 @@ class VoiceTranscriptUpdated(Event):
     start_ms: int = 0
     end_ms: int = 0
     revision: int = 1
+    # Display receipts for files the person attached. Empty for spoken captions.
+    attachments: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

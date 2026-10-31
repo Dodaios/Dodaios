@@ -26,6 +26,10 @@ def test_live_uploads_keep_images_and_extract_documents_in_one_content_path(tmp_
     assert "Attached document contents" in rows[0][1][0]["text"]
     assert rows[1][1][1]["type"] == "input_image"
     assert rows[1][1][1]["image_url"].startswith("data:image/png;base64,")
+    assert rows[0][3]["name"] == "note.txt" and "url" not in rows[0][3]
+    assert rows[1][3]["name"] == "shot.png"
+    assert rows[1][3]["url"].startswith("/api/agent-chat/attachments/file?")
+    assert "private" not in rows[1][3]["url"]
 
 
 def test_live_upload_never_reads_a_foreign_file(tmp_path):

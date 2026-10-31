@@ -4,6 +4,9 @@ import { hideAskBlocks } from "./askFence";
 import { hideMeetingPass } from "./meetingPass";
 import { readToolChoices, type ToolChoice } from "./toolChoices";
 import { parseApprovalCard, parseSavedRule, type ApprovalCardInfo, type RuleScope, type SavedApprovalRule } from "./actionCard/approvalInfo";
+import { userAttachments, type UserAttachment } from "./userAttachment";
+
+export { userAttachments, type UserAttachment };
 
 /**
  * Fold the agent-chat event log into the timeline the column renders.
@@ -274,22 +277,6 @@ function teamEventOf(prompt: string): TeamEvent | undefined {
   return match ? TEAM_EVENTS[match[1]] : undefined;
 }
 
-/** One file's receipt in the timeline — enough to say what was sent, no more. */
-export interface UserAttachment {
-  name: string;
-  kind: string;
-  /** `vision` / `extraction` / `none` — whether the model could read it. */
-  describedBy: string;
-  /**
-   * Where the file itself can be fetched from, same-origin — set for an image
-   * that lives inside an open workspace (a drop the Agentic IDE stored; the
-   * backend folds it in, `dodaios/agentic_ide/prompt_receipts.py`). The
-   * timeline draws the picture when it has this and a chip when it does not.
-   */
-  url?: string;
-  sizeBytes?: number;
-}
-
 export interface TurnItem {
   type: "turn";
   id: string;
@@ -386,35 +373,12 @@ export const EMPTY_TIMELINE: Timeline = {
   sessionPatch: null,
 };
 
-/** The attachment receipts off one `user_message`, tolerant of any shape. */
 /** Who wrote a message on the person's behalf (`author` on `user_message`), if anyone. */
 function messageAuthor(raw: unknown): { agentId: string; name: string } | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const row = raw as Record<string, unknown>;
   const name = typeof row.name === "string" ? row.name : "";
   return name ? { agentId: typeof row.agent_id === "string" ? row.agent_id : "", name } : undefined;
-}
-
-export function userAttachments(raw: unknown): UserAttachment[] {
-  if (!Array.isArray(raw)) return [];
-  const out: UserAttachment[] = [];
-  for (const entry of raw) {
-    if (!entry || typeof entry !== "object") continue;
-    const row = entry as Record<string, unknown>;
-    const name = str(row.name);
-    if (name) {
-      const url = str(row.url);
-      out.push({
-        name,
-        kind: str(row.kind),
-        describedBy: str(row.described_by),
-        ...(typeof row.size_bytes === "number" && Number.isFinite(row.size_bytes) && row.size_bytes >= 0
-          ? { sizeBytes: row.size_bytes } : {}),
-        ...(url ? { url } : {}),
-      });
-    }
-  }
-  return out;
 }
 
 function str(v: unknown, fallback = ""): string {

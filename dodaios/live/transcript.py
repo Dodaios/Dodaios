@@ -35,6 +35,7 @@ class LiveTranscript:
         start_ms: int,
         end_ms: int,
         snapshot: bool = False,
+        attachments: tuple[dict, ...] = (),
     ) -> VoiceTranscriptUpdated:
         old = self._current.get(role)
         late = old is not None and start_ms < old.start_ms
@@ -68,6 +69,7 @@ class LiveTranscript:
                 end_ms=end_ms,
                 trace_id=trace_id,
                 source_layer="live.transcript",
+                attachments=attachments,
             )
         else:
             assert old is not None
@@ -77,6 +79,7 @@ class LiveTranscript:
                 end_ms=max(old.end_ms, end_ms),
                 revision=old.revision + 1,
                 timestamp_ns=time.time_ns(),
+                attachments=attachments or old.attachments,
             )
         recent = self._recent[role]
         if old is not None and not new:

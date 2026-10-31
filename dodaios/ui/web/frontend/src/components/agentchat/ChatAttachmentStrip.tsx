@@ -5,8 +5,8 @@ import { attachmentMedia } from "@/components/agentchat/useChatAttachments";
 import type { ChatAttachment } from "@/lib/agentChatApi";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { MediaPreview } from "./ChatMarkdown";
-import type { UserAttachment } from "./reduce";
+import { MediaPreview } from "./MediaPreview";
+import type { UserAttachment } from "./userAttachment";
 
 /** Stored display receipts use the same media viewer as ordinary chat messages. */
 export function MessageAttachments({ files }: { files: UserAttachment[] }) {

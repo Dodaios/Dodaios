@@ -34,6 +34,17 @@ describe("continuous voice conversation", () => {
     expect(trace.who === "steps" && trace.steps.some(step => step.detail === "Checking the setting")).toBe(true);
   });
 
+  it("keeps a sent file on the caption and does not drop it when a later revision omits the field", () => {
+    const chip = { name: "shot.png", kind: "image", described_by: "vision", size_bytes: 5, url: "/api/agent-chat/attachments/file?reference=shot.png" };
+    const lines = reduceTranscript([], "VoiceTranscriptUpdated", { ...caption("u", "user", "Look"), attachments: [chip, { kind: "image" }] }, 1);
+    const user = lines[0];
+    expect(user.who === "user" && user.attachments).toEqual([
+      { name: "shot.png", kind: "image", describedBy: "vision", sizeBytes: 5, url: "/api/agent-chat/attachments/file?reference=shot.png" },
+    ]);
+    const revised = reduceTranscript(lines, "VoiceTranscriptUpdated", caption("u", "user", "Look at this", 2), 2);
+    expect(revised[0].who === "user" && revised[0].attachments).toEqual(user.who === "user" ? user.attachments : []);
+  });
+
   it("ignores late captions and hangups from the previous session", () => {
     const home = useHomeStore.getState();
     home.resetTranscript();

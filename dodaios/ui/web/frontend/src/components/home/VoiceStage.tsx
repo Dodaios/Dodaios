@@ -12,14 +12,31 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
 import { Greeting } from "@/components/home/Greeting";
 import { PetMark } from "@/components/pets/PetMark";
-import { VoiceComposer } from "@/components/home/VoiceComposer";
 import { VoiceGlow } from "@/components/home/VoiceGlow";
 import { useSpokenCursor } from "@/components/home/useSpokenCursor";
 import { TurnSteps, traceWorthShowing } from "@/components/home/TurnSteps";
 import { traceModel } from "@/lib/thinkingSteps";
 import { SHOWN_KIND } from "@/lib/homeTranscript";
-import { MessageAttachments } from "@/components/agentchat/ChatAttachmentStrip";
-import type { UserAttachment } from "@/components/agentchat/reduce";
+import type { UserAttachment } from "@/components/agentchat/userAttachment";
+
+// The bar and the sent-file chips pull the drop parser and the media viewer,
+// so they load beside the startup chunk instead of inside it.
+const VoiceComposer = lazy(() =>
+  import("@/components/home/VoiceComposer").then((module) => ({ default: module.VoiceComposer })),
+);
+const MessageAttachments = lazy(() =>
+  import("@/components/agentchat/ChatAttachmentStrip").then((module) => ({
+    default: module.MessageAttachments,
+  })),
+);
+
+function VoiceBar({ hint, onExit }: { hint: string; onExit?: () => void }) {
+  return (
+    <Suspense fallback={<div className="h-[72px] w-full" />}>
+      <VoiceComposer hint={hint} onExit={onExit} />
+    </Suspense>
+  );
+}
 
 const ChatMarkdown = lazy(() =>
   import("@/components/agentchat/ChatMarkdown").then((module) => ({
@@ -88,7 +105,7 @@ export function VoiceStage({ onExit }: { onExit?: () => void } = {}) {
         <VoiceGlow active={active} thinking={voiceState === "thinking"} />
         <div className="relative flex w-full max-w-[680px] flex-1 flex-col justify-center gap-7 px-6 pb-[14vh]">
           <Greeting subtitle={t("home.voice_subtitle")} />
-          <VoiceComposer hint={hint} onExit={onExit} />
+          <VoiceBar hint={hint} onExit={onExit} />
         </div>
       </div>
     );
@@ -147,7 +164,7 @@ export function VoiceStage({ onExit }: { onExit?: () => void } = {}) {
 
       <div className="relative w-full max-w-[720px] px-6 pb-4 pt-2">
         {!atEnd && <ScrollToEndButton onClick={jumpToEnd} testId="voice-scroll-end" />}
-        <VoiceComposer hint={hint} onExit={onExit} />
+        <VoiceBar hint={hint} onExit={onExit} />
       </div>
     </div>
   );
@@ -207,7 +224,11 @@ export function TranscriptLine({
         ) : (
           text
         )}
-        {user && <MessageAttachments files={attachments} />}
+        {user && attachments.length > 0 && (
+          <Suspense fallback={null}>
+            <MessageAttachments files={attachments} />
+          </Suspense>
+        )}
         {live && !reading && (
           <span
             className="ml-0.5 inline-block h-[1em] w-0.5 translate-y-0.5 animate-pulse bg-current motion-reduce:animate-none"

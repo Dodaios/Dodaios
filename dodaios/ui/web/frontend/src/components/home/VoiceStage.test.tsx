@@ -153,11 +153,11 @@ describe("VoiceStage transcript", () => {
     expect(vp.scrollTop).toBe(120);
   });
 
-  it("is one centred column with no lane before anything is said", () => {
+  it("is one centred column with no lane before anything is said", async () => {
     render();
     expect(screen.getByTestId("voice-stage").dataset.empty).toBe("true");
     expect(document.querySelector("[data-radix-scroll-area-viewport]")).toBeNull();
-    expect(screen.getByTestId("voice-composer")).toBeTruthy();
+    expect(await screen.findByTestId("voice-composer")).toBeTruthy();
   });
 
   it("shows the words still being said under the finished ones", () => {

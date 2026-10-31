@@ -204,7 +204,7 @@ class ComposerInput(BaseModel):
 
 
 @router.get("/composer", summary="Read the active call accepting keyboard input")
-async def composer_session() -> dict:
+def composer_session() -> dict:
     from dodaios.live.runtime import active
 
     session = next((s for s in active() if s.is_active and s.composer_available), None)
@@ -231,12 +231,15 @@ async def _composer_cwd(request: Request, session: Any) -> str:
     return folder
 
 
-def _composer_attachments(cwd: str, raw: list[dict]) -> list[tuple[str, list[dict], str]]:
+def _composer_attachments(
+    cwd: str, raw: list[dict],
+) -> list[tuple[str, list[dict], str, dict]]:
     """Resolve only uploaded files in this call's drop folder."""
     import base64
     import hashlib
     import mimetypes
     from pathlib import Path
+    from urllib.parse import urlencode
 
     from dodaios.agent_chat.attachments import compose, to_analysis
     from dodaios.agentic_ide.drops import dereference
@@ -257,11 +260,12 @@ def _composer_attachments(cwd: str, raw: list[dict]) -> list[tuple[str, list[dic
         ):
             raise ValueError("The attachment is not an existing upload in this chat folder.")
         note = compose("[Files supplied by the user, context rather than a new request]", [item])
+        size = path.stat().st_size
         content = [{"type": "input_text", "text": note}]
+        mime = mimetypes.guess_type(path.name)[0] or ""
         if item.kind == "image":
-            if path.stat().st_size > MAX_BYTES:
+            if size > MAX_BYTES:
                 raise ValueError("This image is too large for live input.")
-            mime = mimetypes.guess_type(path.name)[0] or ""
             if mime not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
                 raise ValueError("This image format is not supported by live input.")
             content.append({
@@ -275,8 +279,18 @@ def _composer_attachments(cwd: str, raw: list[dict]) -> list[tuple[str, list[dic
             raise ValueError(
                 "No readable text could be extracted from this file; it remains attached."
             )
+        receipt = {
+            "name": path.name,
+            "kind": item.kind,
+            "described_by": item.described_by,
+            "size_bytes": size,
+        }
+        if mime.startswith(("image/", "video/")) and mime != "image/svg+xml":
+            receipt["url"] = "/api/agent-chat/attachments/file?" + urlencode({
+                "cwd": cwd, "reference": item.reference,
+            })
         key = hashlib.sha256((item.reference + "\0" + item.detail).encode()).hexdigest()
-        result.append((key, content, note))
+        result.append((key, content, note, receipt))
     return result
 
 
@@ -291,34 +305,14 @@ async def submit_composer(body: ComposerInput, request: Request) -> dict:
         )
     cwd = await _composer_cwd(request, session)
     try:
-        attachments = await asyncio.to_thread(_composer_attachments, cwd, body.attachments)
-        # Display receipts reference the same validated uploads; never persist browser blob URLs.
-        from pathlib import Path
-        from urllib.parse import urlencode
-
-        from dodaios.agent_chat.media import MEDIA_TYPES
-        from dodaios.agentic_ide.drops import dereference
-
-        display = []
-        for row in body.attachments:
-            reference = str(row.get("reference") or "")
-            path = (Path(cwd) / dereference(reference)).resolve()
-            mime = MEDIA_TYPES.get(path.suffix.lower(), "")
-            receipt = {
-                "name": path.name, "kind": row.get("kind", ""),
-                "described_by": row.get("described_by", ""),
-                "size_bytes": path.stat().st_size,
-            }
-            if mime.startswith(("image/", "video/")) and mime != "image/svg+xml":
-                receipt["url"] = "/api/agent-chat/attachments/file?" + urlencode({
-                    "cwd": cwd, "reference": reference,
-                })
-            display.append(receipt)
+        built = await asyncio.to_thread(_composer_attachments, cwd, body.attachments)
+        attachments = [(key, content, note) for key, content, note, _receipt in built]
+        display = [receipt for _key, _content, _note, receipt in built]
         await on_session_loop(
             session, session.submit_composer,
             request_id=body.request_id, text=body.text.strip(), attachments=attachments,
             display_attachments=display,
         )
-    except (ValueError, RuntimeError) as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"session_id": session.session_id, "accepted": True}
