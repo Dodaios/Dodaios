@@ -6,6 +6,7 @@ quarter of a core. watchdog 6 reports a plain read of a file as `opened` and
 `closed_no_write`; the watcher reloaded on any event of a .md file, and a
 reload reads every .md file, so each reload scheduled the next one.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -61,6 +62,25 @@ async def test_reading_the_docs_does_not_trigger_another_reload(tmp_path: Path) 
         assert registry.start_watcher(asyncio.get_running_loop())
         await registry.reload()  # reads every .md file, as each reload does
         assert await _count_reloads(registry, 1.5) == 0
+    finally:
+        registry.close()
+
+
+def test_a_read_does_not_count_as_a_doc_change(tmp_path: Path) -> None:
+    """macOS delivers a read as ``modified`` because the access time moved."""
+    root = tmp_path / "docs"
+    root.mkdir()
+    page = root / "router.md"
+    page.write_text(DOC, encoding="utf-8")
+    registry = DocRegistry([root], index_db=None)
+    try:
+        registry._remember_docs()
+        page.read_bytes()
+        assert registry._doc_bytes_changed(str(page)) is False
+        page.write_text(DOC.replace("Body.", "Edited body."), encoding="utf-8")
+        assert registry._doc_bytes_changed(str(page)) is True
+        page.unlink()
+        assert registry._doc_bytes_changed(str(page)) is True
     finally:
         registry.close()
 

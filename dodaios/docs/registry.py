@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import threading
 import time
+import unicodedata
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -39,10 +41,26 @@ except Exception:  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
-#: watchdog event types a plain READ produces. A reload reads every doc, so
-#: reacting to these made each reload schedule the next one (BC-250 2026-10-29:
-#: a reload every 0.6 s for hours, a quarter of a core while idle).
+#: watchdog event types a plain READ produces on inotify. A reload reads every
+#: doc, so reacting to these made each reload schedule the next one
+#: (BC-250 2026-10-29: a reload every 0.6 s for hours, a quarter of a core
+#: while idle). macOS FSEvents has no open/close events: a read arrives as
+#: ``modified`` because the access time moved, and that case is filtered by
+#: comparing mtime and size instead.
 _READ_ONLY_EVENTS = frozenset({"opened", "closed_no_write"})
+
+
+def _watch_key(path: str) -> str:
+    """One key for a seeded path and for the path an observer reports.
+
+    FSEvents normalizes to NFC. Windows events can differ in slash and case
+    from the path ``rglob`` returned.
+    """
+    return os.path.normcase(os.path.normpath(unicodedata.normalize("NFC", path)))
+
+
+def _is_watched_doc(path: str) -> bool:
+    return path.endswith(".md") or path.endswith(".markdown")
 
 
 class DocRegistry:
@@ -70,6 +88,9 @@ class DocRegistry:
         self._observers: list[Any] = []
         self._pending_reload: float | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        # mtime_ns and size, keyed by ``_watch_key``. A matching signature is a
+        # read, not an edit. macOS reports that read as ``modified``.
+        self._doc_signatures: dict[str, tuple[int, int]] = {}
         self.search = DocSearch(index_db)
 
     # ------------------------------------------------------------------
@@ -210,6 +231,9 @@ class DocRegistry:
             return False
 
         self._loop = loop or asyncio.get_event_loop()
+        # Seed before the observer starts, so the read a reload is about to do
+        # compares equal and does not schedule the next reload.
+        self._remember_docs()
 
         registry_self = self
 
@@ -220,7 +244,9 @@ class DocRegistry:
                 if getattr(event, "event_type", "") in _READ_ONLY_EVENTS:
                     return
                 src = str(getattr(event, "src_path", ""))
-                if not (src.endswith(".md") or src.endswith(".markdown")):
+                if not _is_watched_doc(src):
+                    return
+                if not registry_self._doc_bytes_changed(src):
                     return
                 registry_self._schedule_reload()
 
@@ -238,6 +264,43 @@ class DocRegistry:
             except Exception as exc:  # noqa: BLE001
                 log.warning("Doc-Watcher for %s failed: %s", root, exc)
         return started_any
+
+    def _remember_docs(self) -> None:
+        """Record mtime and size of every watched doc."""
+        signatures: dict[str, tuple[int, int]] = {}
+        for root in self.roots:
+            if not root.exists():
+                continue
+            for path in root.rglob("*"):
+                if not path.is_file() or not _is_watched_doc(path.name):
+                    continue
+                try:
+                    st = path.stat()
+                except OSError:
+                    continue  # removed during the walk; the next pass records it
+                signatures[_watch_key(str(path))] = (st.st_mtime_ns, st.st_size)
+        with self._thread_lock:
+            self._doc_signatures = signatures
+
+    def _doc_bytes_changed(self, src: str) -> bool:
+        """True when the Markdown file's bytes changed, or the file is gone.
+
+        A plain read updates the access time and leaves mtime and size alone.
+        On macOS that still arrives as ``modified``.
+        """
+        key = _watch_key(src)
+        try:
+            st = os.stat(src)
+        except OSError:
+            # Vanished between the event and the stat. The index still reloads.
+            with self._thread_lock:
+                self._doc_signatures.pop(key, None)
+            return True
+        signature = (st.st_mtime_ns, st.st_size)
+        with self._thread_lock:
+            previous = self._doc_signatures.get(key)
+            self._doc_signatures[key] = signature
+        return previous != signature
 
     def stop_watcher(self) -> None:
         for obs in self._observers:
