@@ -100,7 +100,7 @@ def test_python_typescript_payload_parity(event_class, interface):
         Path(__file__).resolve().parents[2] / "dodaios/ui/web/frontend/src/lib/liveTranscript.ts"
     ).read_text(encoding="utf-8")
     body = source.split(f"export interface {interface} {{", 1)[1].split("}", 1)[0]
-    assert set(re.findall(r"^\s+(\w+):", body, re.MULTILINE)) == (
+    assert set(re.findall(r"^\s+(\w+)\??:", body, re.MULTILINE)) == (
         {f.name for f in fields(event_class)} - {f.name for f in fields(Event)}
     )
     value = event_class()

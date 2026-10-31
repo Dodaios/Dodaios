@@ -205,7 +205,7 @@ def test_backend_and_renderer_recognize_the_same_media_extensions():
 
     source = (
         Path(__file__).resolve().parents[3]
-        / "dodaios/ui/web/frontend/src/components/agentchat/ChatMarkdown.tsx"
+        / "dodaios/ui/web/frontend/src/components/agentchat/MediaPreview.tsx"
     ).read_text(encoding="utf-8")
     block = source.split("const EXTENSIONS:", 1)[1].split("};", 1)[0]
     frontend = dict(re.findall(r'(\w+): "(image|video|audio)"', block))
