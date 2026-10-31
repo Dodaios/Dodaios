@@ -12278,13 +12278,17 @@ class BrainManager:
                     else public_fact_clarifying_question(honesty_lang)
                 )
             elif self._evidence_required_domain == PUBLIC_FACT_DOMAIN:
+                # The system search grounds the fact check only. It is not a
+                # tool the model ran, so it must not silence the action-honesty
+                # gate later in this turn.
+                _fact_executed = _turn_executed
                 if getattr(self, "_public_fact_prefetched", False):
-                    _turn_executed = {*_turn_executed, self._evidence_required_tool}
+                    _fact_executed = {*_turn_executed, self._evidence_required_tool}
                 _replacement = (
                     public_fact_unfulfilled_answer(honesty_lang)
                     if public_fact_answer_unverified(
                         response_text,
-                        executed=_turn_executed,
+                        executed=_fact_executed,
                         suppressed=self._last_turn_suppressed,
                     )
                     else None
@@ -12319,7 +12323,10 @@ class BrainManager:
 
         _marker_free, _claimed_tools = strip_tool_markers(response_text)
         if _claimed_tools:
-            _phantom = sorted(set(_claimed_tools) - set(_turn_executed))
+            _marker_executed = _turn_executed
+            if getattr(self, "_public_fact_prefetched", False):
+                _marker_executed = {*_turn_executed, "search_web"}
+            _phantom = sorted(set(_claimed_tools) - set(_marker_executed))
             if "search_web" in _phantom:
                 from dodaios.brain.public_fact_gate import public_fact_unfulfilled_answer
 

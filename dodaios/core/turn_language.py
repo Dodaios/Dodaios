@@ -71,10 +71,11 @@ __all__ = [
 #: outside a turn, ``""`` inside one before the language is known.
 TURN_LANGUAGE: ContextVar[str | None] = ContextVar("jarvis.turn_language", default=None)
 
-#: The codes an explicit ``brain.reply_language`` pin may carry (``"auto"`` is
-#: deliberately absent — it means "no pin, mirror the input").
-# Speech languages need not have a translated interface or system catalog.
-_REPLY_PINS: frozenset[str] = frozenset((*SUPPORTED_LOCALES, "fr"))
+#: The codes an explicit ``brain.reply_language`` pin may carry when that pin
+#: also selects translated system phrases (``"auto"`` is deliberately absent —
+#: it means "no pin, mirror the input"). French is a speech pin without a
+#: catalog; it lives on the brain's reply-language set, not here.
+_REPLY_PINS: frozenset[str] = frozenset(SUPPORTED_LOCALES)
 
 #: A turn with at most this many word tokens is a "thin" turn — a one- or
 #: two-word interjection ("Now", "Stop now", "jetzt", a lone loanword). A thin

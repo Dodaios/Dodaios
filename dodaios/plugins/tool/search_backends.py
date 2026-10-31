@@ -160,6 +160,11 @@ def _default_ddgs_searcher(query: str, max_results: int) -> list[dict[str, Any]]
         return list(ddgs.text(query, **text_kwargs) or [])
 
 
+# Identity of the real searcher. A test that replaces ``_default_ddgs_searcher``
+# must not fall through into a second live Yahoo call.
+_BUILTIN_DDGS_SEARCHER = _default_ddgs_searcher
+
+
 async def ddg_serp_search(
     query: str,
     max_results: int,
@@ -297,9 +302,10 @@ async def run_search(
     if serp.status == "ok" and serp.results:
         return serp
 
-    # Retry Yahoo individually when DDGS multi-engine search fails.
-    # Keep injected searchers deterministic for existing tests.
-    if searcher is None:
+    # Retry Yahoo alone when the multi-engine SERP is empty. An injected
+    # searcher, or a test that replaced the default searcher, already decided
+    # that outcome: a second call would leave the unit tests and hit the network.
+    if searcher is None and _default_ddgs_searcher is _BUILTIN_DDGS_SEARCHER:
         def yahoo_search(q: str, limit: int) -> list[dict[str, Any]]:
             from ddgs import DDGS
 

@@ -288,7 +288,27 @@ async def test_local_turn_answers_from_the_system_search(monkeypatch) -> None:
     )
     assert gateway.calls, "the system ran the search"
     assert "Los Yébenes" in m._evidence_directive
+    assert "untrusted data" in m._evidence_directive
     assert out == grounded
+
+
+@pytest.mark.asyncio
+async def test_system_search_does_not_excuse_an_unbacked_action(monkeypatch) -> None:
+    from dodaios.brain.action_honesty import action_not_started_phrase
+    from dodaios.core import runtime_refs
+
+    gateway = _Gateway()
+    monkeypatch.setattr(runtime_refs, "get_supervisor_tool_gateway", lambda: gateway)
+    claimed = "I have opened Chrome for you."
+    m = _manager("local-openai", claimed, executed=set())
+    out = await m.generate(
+        "regarde ce qui s'est passé avec le train aujourd'hui",  # i18n-allow: live
+        trace_id=uuid4(),
+        use_history=False,
+    )
+    assert gateway.calls, "the system ran the search"
+    assert "opened Chrome" not in out
+    assert out == action_not_started_phrase("fr")
 
 
 @pytest.mark.asyncio

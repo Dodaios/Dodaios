@@ -72,7 +72,11 @@ def browser_voice_enabled(cfg: Any) -> bool:
 
 
 def _resolve_language(cfg: Any) -> str:
-    pin = getattr(getattr(cfg, "brain", None), "reply_language", "") or ""
+    pin = str(getattr(getattr(cfg, "brain", None), "reply_language", "") or "").strip().lower()
+    # French is a spoken pin without a translated phrase catalog, so the
+    # catalog resolver would narrow it to English. The voice still follows it.
+    if pin in _LANG_MAP:
+        return _LANG_MAP[pin]
     language = resolve_output_language(pin, "", "", default=DEFAULT_LOCALE)
     return _LANG_MAP.get(language, _LANG_MAP[DEFAULT_LOCALE])
 

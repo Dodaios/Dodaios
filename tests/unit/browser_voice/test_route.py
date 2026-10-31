@@ -158,9 +158,11 @@ def _broker_auth_message() -> dict[str, str]:
 def test_classic_fallback_language_uses_canonical_default_and_pin() -> None:
     auto_cfg = SimpleNamespace(brain=SimpleNamespace(reply_language="auto"))
     spanish_cfg = SimpleNamespace(brain=SimpleNamespace(reply_language="es"))
+    french_cfg = SimpleNamespace(brain=SimpleNamespace(reply_language="fr"))
 
     assert route_mod._resolve_language(auto_cfg) == "en-US"
     assert route_mod._resolve_language(spanish_cfg) == "es-ES"
+    assert route_mod._resolve_language(french_cfg) == "fr-FR"
 
 
 def test_audio_queue_drops_oldest_without_blocking() -> None:
