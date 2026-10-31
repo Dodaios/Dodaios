@@ -283,6 +283,8 @@ export class FighterAnimator {
   private rollW = 0;
   private death: { t: number; yaw: number } | null = null;
   private getUp: { t: number } | null = null;
+  /** Fall direction from a knockout event that has not yet met a dead view. */
+  private fallYaw: number | null = null;
   private wasAlive = true;
   private readonly hits = new Map<string, OneShot>();
   /** Shots still kicking: age (s) and size. */
@@ -318,11 +320,16 @@ export class FighterAnimator {
     this.parryT = 0;
   }
 
-  /** Knocked out by a shooter standing at (fromX, fromZ): the body turns to face them and falls back, away. */
+  /**
+   * Knocked out by a shooter standing at (fromX, fromZ). The event only
+   * records the fall direction. The corpse clip follows the view's `alive`
+   * flag, so an event that arrives while the body is already up cannot pin
+   * the fallen pose onto the next round.
+   */
   knockedOut(x: number, z: number, fromX: number, fromZ: number): void {
-    if (this.death) return;
     const yaw = Math.hypot(fromX - x, fromZ - z) > 0.05 ? Math.atan2(fromX - x, fromZ - z) : this.legsYaw;
-    this.death = { t: 0, yaw };
+    this.fallYaw = yaw;
+    if (this.death && this.death.t < 0.15) this.death.yaw = yaw;
   }
 
   /** Advance by `dt` seconds with this frame's fighter state. */
@@ -332,15 +339,23 @@ export class FighterAnimator {
     this.clock += dt;
     if (!this.primed) { this.legsYaw = p.aimYaw; this.primed = true; this.wasAlive = p.alive; }
 
-    // Life: a knockout without its event still falls; a revived body gets up.
-    if (!p.alive && !this.death) this.death = { t: 0, yaw: this.legsYaw };
-    if (p.alive && !this.wasAlive) {
+    // The corpse pose follows the view. A knockout event may arrive a frame
+    // early or a frame late; it only supplies the fall direction.
+    if (!p.alive) {
+      if (!this.death) this.death = { t: 0, yaw: this.fallYaw ?? this.legsYaw };
+      this.getUp = null;
+    } else if (this.death || !this.wasAlive) {
       this.death = null;
-      this.getUp = { t: 0 };
-      this.legsYaw = p.aimYaw;
-      this.turn = null;
-      this.roll = null;
-      this.hits.clear();
+      this.fallYaw = null;
+      if (!this.getUp) {
+        this.getUp = { t: 0 };
+        this.legsYaw = p.aimYaw;
+        this.turn = null;
+        this.roll = null;
+        this.hits.clear();
+      }
+    } else {
+      this.fallYaw = null;
     }
     this.wasAlive = p.alive;
     if (this.death) this.death.t = Math.min(TIMING.death, this.death.t + dt);

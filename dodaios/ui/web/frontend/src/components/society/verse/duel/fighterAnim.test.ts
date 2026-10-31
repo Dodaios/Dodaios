@@ -193,6 +193,53 @@ describe("fighter animator", () => {
     expect(weightOf(f, DUEL_CLIPS.idle)).toBeCloseTo(1);
   });
 
+  it("does not keep the corpse when a death event arrives after the body is alive again", () => {
+    // DuelLayer poses the body, then routes the frame's events. A death from the
+    // round already over must not pin the fallen clip while the next round walks.
+    const a = new FighterAnimator(DEFAULT_LOCO);
+    a.update(dt, input());
+    a.knockedOut(0, 0, 0, -10);
+    a.update(dt, input({ alive: false }));
+    for (let i = 0; i < 40; i += 1) a.update(dt, input({ alive: false }));
+    let f = a.update(dt, input({ alive: true }));
+    a.knockedOut(0, 0, 0, -10);
+    for (let i = 0; i < 180; i += 1) f = a.update(dt, input({ alive: true, vz: 4.8 }));
+    expect(weightOf(f, DUEL_CLIPS.death)).toBe(0);
+    expect(weightOf(f, DUEL_CLIPS.getUp)).toBe(0);
+    expect(weightOf(f, "A_Combat_Run_F")).toBeGreaterThan(0.9);
+  });
+
+  it("does not lay the body down when the death event arrives while the view is still alive", () => {
+    const a = new FighterAnimator(DEFAULT_LOCO);
+    a.update(dt, input());
+    a.knockedOut(0, 0, 0, -10);
+    let f = a.update(dt, input({ alive: true, vz: 4.8 }));
+    for (let i = 0; i < 30; i += 1) f = a.update(dt, input({ alive: true, vz: 4.8 }));
+    expect(weightOf(f, DUEL_CLIPS.death)).toBe(0);
+    expect(weightOf(f, "A_Combat_Run_F")).toBeGreaterThan(0.5);
+  });
+
+  it("turns toward the shooter when the death event arrives in the same frame as the dead view", () => {
+    const a = new FighterAnimator(DEFAULT_LOCO);
+    a.update(dt, input());
+    let f = a.update(dt, input({ alive: false }));
+    a.knockedOut(0, 0, 0, -10);
+    for (let i = 0; i < 200; i += 1) f = a.update(dt, input({ alive: false }));
+    expect(Math.abs(f.legsYaw)).toBeCloseTo(Math.PI, 2);
+    expect(weightOf(f, DUEL_CLIPS.death)).toBeCloseTo(1);
+  });
+
+  it("forgets a fall direction that never became a knockout", () => {
+    const a = new FighterAnimator(DEFAULT_LOCO);
+    a.update(dt, input({ aimYaw: 0 }));
+    a.knockedOut(0, 0, 0, -10);
+    a.update(dt, input({ alive: true }));
+    let f = a.update(dt, input({ alive: false }));
+    for (let i = 0; i < 200; i += 1) f = a.update(dt, input({ alive: false }));
+    expect(Math.abs(f.legsYaw)).toBeLessThan(0.2);
+    expect(weightOf(f, DUEL_CLIPS.death)).toBeCloseTo(1);
+  });
+
   it("flinches additively toward the hit and staggers on its own reflected bolt", () => {
     const a = new FighterAnimator(DEFAULT_LOCO);
     a.update(dt, input());
