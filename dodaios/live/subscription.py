@@ -919,6 +919,18 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
             raise
         return True
 
+    _composer_captions_owned = True
+
+    async def _attach_composer_content(self, content: list[dict]) -> None:
+        # Keep uploaded files in the existing client-delegation backend context.
+        # A file alone never starts a second request or interrupts speech.
+        await self._connection.send({
+            "type": "session.thinking.append", "delegation_id": None,
+            "content": "The user attached files to this conversation. Delegate the next "
+            "question about them to the backend. Do not answer until asked.",
+        })
+        self._pending_images.extend(content)
+
     async def attach_appshot(self, image: bytes, mime: str, note: str) -> bool:
         import base64
 

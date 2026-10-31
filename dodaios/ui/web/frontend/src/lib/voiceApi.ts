@@ -185,3 +185,35 @@ export async function fetchVoiceRuntimeState(): Promise<VoiceRuntimeState | null
     return null;
   }
 }
+
+
+/** Read the active GPT-Live call without starting another connection. */
+export async function fetchVoiceComposerSession(): Promise<string | null> {
+  const response = await fetch("/api/live/composer", { cache: "no-store" });
+  if (!response.ok) throw new Error("Voice input is unavailable.");
+  const body = (await response.json()) as { session_id?: unknown };
+  return typeof body.session_id === "string" ? body.session_id : null;
+}
+
+/** Submit into the existing live call. The request id is reused after an uncertain reply. */
+export async function submitVoiceComposer(
+  sessionId: string,
+  text: string,
+  attachments: import("./agentChatApi").ChatAttachment[],
+  requestId: string,
+): Promise<void> {
+  const response = await fetch("/api/live/composer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      request_id: requestId,
+      text,
+      attachments,
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(typeof body?.detail === "string" ? body.detail : "Voice input was not accepted.");
+  }
+}

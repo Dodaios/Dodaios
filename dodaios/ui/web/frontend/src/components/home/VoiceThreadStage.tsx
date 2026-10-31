@@ -1,4 +1,5 @@
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
+import { MessageAttachments } from "@/components/agentchat/ChatAttachmentStrip";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Mic } from "lucide-react";
 
@@ -178,6 +179,7 @@ function SpokenTurn({ message }: { message: ChatMessage }) {
         )}
         {!isUser && trace && <ThoughtTraceDisclosure trace={trace} />}
         {isUser ? <div className="whitespace-pre-wrap">{message.content}</div> : <ChatMarkdown text={message.content} className="prose prose-sm mt-1.5 max-w-none dark:prose-invert" />}
+        {isUser && <MessageAttachments files={message.attachments ?? []} />}
       </div>
     </div>
   );

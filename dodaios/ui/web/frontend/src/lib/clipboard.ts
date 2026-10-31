@@ -71,6 +71,25 @@ export async function robustPaste(): Promise<string | null> {
   return browserPaste();
 }
 
+/** Read Explorer's copied file list through the existing desktop clipboard bridge. */
+export async function robustPasteFiles(): Promise<string[] | null> {
+  if (typeof fetch !== "function") return null;
+  try {
+    const response = await fetch("/api/clipboard/files", {
+      method: "GET",
+      credentials: "same-origin",
+    });
+    if (!response.ok) return null;
+    const result = (await response.json().catch(() => null)) as {
+      paths?: unknown;
+    } | null;
+    if (!Array.isArray(result?.paths)) return null;
+    return result.paths.filter((path): path is string => typeof path === "string" && path.length > 0);
+  } catch {
+    return null;
+  }
+}
+
 async function browserPaste(): Promise<string | null> {
   if (
     typeof navigator === "undefined" ||

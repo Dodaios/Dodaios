@@ -10,12 +10,13 @@ import { Clipboard, Copy, Scissors, TextSelect } from "lucide-react";
 
 import { useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
-import { robustCopy, robustPaste } from "@/lib/clipboard";
+import { robustCopy, robustPaste, robustPasteFiles } from "@/lib/clipboard";
 import {
   capabilitiesFor,
   captureEditSnapshot,
   deleteSelection,
   pasteInto,
+  restoreEditFocus,
   selectAll,
   type EditCapabilities,
   type EditSnapshot,
@@ -133,6 +134,14 @@ export function EditContextMenu() {
         return;
       }
       // Paste.
+      if (snapshot.filePasteBridge) {
+        const paths = await robustPasteFiles();
+        if (paths && paths.length > 0) {
+          restoreEditFocus(snapshot);
+          snapshot.filePasteBridge.pastePaths(paths);
+          return;
+        }
+      }
       const text = await robustPaste();
       if (text === null) {
         pushToast("error", t("edit_menu.paste_unavailable"));

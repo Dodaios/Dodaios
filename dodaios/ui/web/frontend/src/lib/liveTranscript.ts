@@ -7,6 +7,7 @@ export interface VoiceTranscriptSnapshot {
   start_ms: number;
   end_ms: number;
   revision: number;
+  attachments?: unknown;
 }
 
 export interface ReasoningSummarySnapshot {

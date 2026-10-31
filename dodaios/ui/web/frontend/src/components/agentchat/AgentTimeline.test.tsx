@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AgentTimeline, timeStamps } from "./AgentTimeline";
 import { EMPTY_TIMELINE, reduceEvents, type TimelineItem } from "./reduce";
@@ -33,9 +33,13 @@ describe("the person's turn with files", () => {
     const turn = screen.getByTestId("agent-message-user");
     expect(turn.textContent).toContain("look at this");
     expect(turn.textContent).not.toContain("## Task");
-    const image = within(turn).getByTestId("agent-message-image") as HTMLImageElement;
+    const preview = within(turn).getByTestId("agent-message-image");
+    const image = within(preview).getByRole("img", { name: "shot.png" });
     expect(image.getAttribute("src")).toBe(SHOT.url);
     expect(image.getAttribute("alt")).toBe("shot.png");
+    fireEvent.click(within(preview).getByRole("button"));
+    expect(within(screen.getByRole("dialog")).getByRole("img", { name: "shot.png" }).getAttribute("src"))
+      .toBe(SHOT.url);
   });
 
   it("keeps the chip for a file with nothing to draw", () => {

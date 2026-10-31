@@ -5,6 +5,22 @@ import { attachmentMedia } from "@/components/agentchat/useChatAttachments";
 import type { ChatAttachment } from "@/lib/agentChatApi";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { MediaPreview } from "./ChatMarkdown";
+import type { UserAttachment } from "./reduce";
+
+/** Stored display receipts use the same media viewer as ordinary chat messages. */
+export function MessageAttachments({ files }: { files: UserAttachment[] }) {
+  if (!files.length) return null;
+  return <div data-testid="transcript-attachments" className="mt-2 flex min-w-0 flex-wrap gap-3 not-italic">
+    {files.map((file, index) => <div key={`${file.url ?? file.name}-${index}`} className="min-w-0 max-w-full">
+      {file.kind === "image" && file.url ? <MediaPreview src={file.url} label={file.name} kind="image" /> :
+        <span className="inline-flex max-w-full flex-wrap gap-1 break-all rounded border border-border px-2 py-1 text-xs">
+          {file.name} · {file.name.split(".").pop()}
+          {file.sizeBytes !== undefined && ` · ${file.sizeBytes} B`}
+        </span>}
+    </div>)}
+  </div>;
+}
 
 /**
  * The files waiting to go in with the next message.

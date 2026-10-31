@@ -7,9 +7,11 @@ Reading is denied outright: the embedded browser withholds the ``clipboard-read`
 permission, so a right-click "Paste" has no browser path at all and depends on
 ``read_text`` below.
 
-Only text is supported here. Clipboard contents are passed through stdin or a
-native memory buffer, never process arguments or logs. Missing display/tooling
-returns ``False``/``None`` instead of raising, preserving headless operation.
+Text is supported on every desktop platform. Windows additionally exposes the
+``CF_HDROP`` file list that Explorer places on the clipboard for Copy. Clipboard
+contents are passed through stdin or native memory, never process arguments or
+logs. Missing display/tooling returns ``False``/``None`` instead of raising,
+preserving headless operation.
 """
 from __future__ import annotations
 
@@ -78,6 +80,22 @@ def read_text() -> str | None:
     if raw is None:
         return None
     return raw.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def read_file_paths() -> list[str] | None:
+    """Return files copied by the local Windows Explorer.
+
+    ``[]`` means that the clipboard currently carries no file list. ``None``
+    means that the clipboard could not be read. Other platforms deliberately
+    report an empty list: their browser paste events remain the source of file
+    bytes and no native path permission is implied here.
+    """
+    if not detect_capabilities().display_present:
+        log.info("clipboard: no display present; native file paste is unavailable")
+        return None
+    if detect_platform() != "win32":
+        return []
+    return _read_windows_file_paths_native()
 
 
 def _utf8_env() -> dict[str, str] | None:
@@ -222,6 +240,66 @@ def _read_windows_native() -> str | None:
         user32.CloseClipboard()
 
 
+def _read_windows_file_paths_native() -> list[str] | None:
+    """Read Explorer's ``CF_HDROP`` clipboard payload with Win32 APIs."""
+    try:
+        from ctypes import wintypes
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+
+        user32.OpenClipboard.argtypes = [wintypes.HWND]
+        user32.OpenClipboard.restype = wintypes.BOOL
+        user32.IsClipboardFormatAvailable.argtypes = [wintypes.UINT]
+        user32.IsClipboardFormatAvailable.restype = wintypes.BOOL
+        user32.GetClipboardData.argtypes = [wintypes.UINT]
+        user32.GetClipboardData.restype = wintypes.HANDLE
+        user32.CloseClipboard.argtypes = []
+        user32.CloseClipboard.restype = wintypes.BOOL
+        shell32.DragQueryFileW.argtypes = [
+            wintypes.HANDLE,
+            wintypes.UINT,
+            wintypes.LPWSTR,
+            wintypes.UINT,
+        ]
+        shell32.DragQueryFileW.restype = wintypes.UINT
+    except (AttributeError, OSError) as exc:
+        log.warning("clipboard: Win32 file-list API unavailable (%s)", exc)
+        return None
+
+    opened = False
+    for _attempt in range(_WINDOWS_CLIPBOARD_RETRIES):
+        if user32.OpenClipboard(None):
+            opened = True
+            break
+        time.sleep(_WINDOWS_CLIPBOARD_RETRY_S)
+    if not opened:
+        log.warning("clipboard: Win32 clipboard remained busy")
+        return None
+
+    try:
+        if not user32.IsClipboardFormatAvailable(15):  # CF_HDROP
+            return []
+        handle = user32.GetClipboardData(15)
+        if not handle:
+            return []
+        count = shell32.DragQueryFileW(handle, 0xFFFFFFFF, None, 0)
+        paths: list[str] = []
+        for index in range(count):
+            length = shell32.DragQueryFileW(handle, index, None, 0)
+            if length == 0:
+                continue
+            buffer = ctypes.create_unicode_buffer(length + 1)
+            if shell32.DragQueryFileW(handle, index, buffer, length + 1):
+                paths.append(buffer.value)
+        return paths
+    except (AttributeError, OSError, ValueError) as exc:
+        log.warning("clipboard: Win32 file-list read failed (%s)", exc)
+        return None
+    finally:
+        user32.CloseClipboard()
+
+
 def _run_command(command: Sequence[str], text: str) -> bool:
     """Feed clipboard text to a fixed OS command through UTF-8 stdin.
 
@@ -345,4 +423,4 @@ def _write_windows(text: str) -> bool:
         user32.CloseClipboard()
 
 
-__all__ = ["read_text", "write_text"]
+__all__ = ["read_file_paths", "read_text", "write_text"]

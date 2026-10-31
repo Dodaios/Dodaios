@@ -63,6 +63,32 @@ def test_windows_dispatches_to_native_unicode_writer(
     assert calls == ["Unicode: café"]
 
 
+def test_windows_dispatches_to_native_file_list_reader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        clipboard, "detect_capabilities", lambda: _capabilities(True)
+    )
+    monkeypatch.setattr(clipboard, "detect_platform", lambda: "win32")
+    expected = [r"C:\pictures\one.png", r"C:\documents\notes.txt"]
+    monkeypatch.setattr(
+        clipboard, "_read_windows_file_paths_native", lambda: expected
+    )
+
+    assert clipboard.read_file_paths() == expected
+
+
+def test_non_windows_file_clipboard_does_not_invent_local_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        clipboard, "detect_capabilities", lambda: _capabilities(True)
+    )
+    monkeypatch.setattr(clipboard, "detect_platform", lambda: "darwin")
+
+    assert clipboard.read_file_paths() == []
+
+
 def test_linux_prefers_wayland_clipboard_tool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

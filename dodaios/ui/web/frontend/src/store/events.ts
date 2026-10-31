@@ -370,6 +370,7 @@ export interface PushToastOptions {
 }
 
 export interface ChatMessage {
+  attachments?: import("@/components/agentchat/reduce").UserAttachment[];
   id: string;
   role: MessageRole;
   content: string;

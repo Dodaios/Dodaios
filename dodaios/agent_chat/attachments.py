@@ -100,6 +100,7 @@ async def ingest(
     paths: list[str] | None = None,
     uploads: Sequence[tuple[str, DropSource]] | None = None,
     provider: str = "",
+    always_copy: bool = False,
 ) -> list[Any]:
     """Store what was dropped in ``cwd`` and read what is in it.
 
@@ -136,7 +137,7 @@ async def ingest(
         if not candidate:
             continue
         inside = drops.within_workspace(candidate, folder)
-        if inside is not None:
+        if inside is not None and not always_copy:
             reference = drops.reference(inside, agent=provider)
             references.append(reference)
             try:

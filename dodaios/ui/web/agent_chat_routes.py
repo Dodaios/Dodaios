@@ -1672,6 +1672,7 @@ async def attach_files(
     paths: str | None = Form(default=None),  # noqa: B008
     session_id: str | None = Form(default=None),  # noqa: B008
     cwd: str | None = Form(default=None),  # noqa: B008
+    voice_session_id: str | None = Form(default=None),  # noqa: B008
     provider: str = Form(default=""),  # noqa: B008
     surface: str = Form(default="agent"),  # noqa: B008
 ) -> dict[str, Any]:
@@ -1699,6 +1700,18 @@ async def attach_files(
     attach works before the first message, when no session exists yet.
     """
     svc = (await _async_service(request))
+    if voice_session_id:
+        from dodaios.live.runtime import active
+        from dodaios.ui.web.live_routes import _composer_cwd
+
+        voice_session = next(
+            (s for s in active()
+             if s.session_id == voice_session_id and s.is_active and s.composer_available),
+            None,
+        )
+        if voice_session is None:
+            raise HTTPException(409, "The selected voice call is no longer available.")
+        session_id, cwd, surface = None, await _composer_cwd(request, voice_session), "jarvis"
     folder = ""
     if session_id:
         session = svc.store.get_session(session_id)
@@ -1726,6 +1739,7 @@ async def attach_files(
             paths=(paths or "").splitlines(),
             uploads=uploads,
             provider=provider,
+            always_copy=bool(voice_session_id),
         )
     except chat_attachments.AttachmentError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  attachFilePasteBridge,
   attachTerminalBridge,
   capabilitiesFor,
   captureEditSnapshot,
@@ -81,6 +82,30 @@ describe("captureEditSnapshot", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
     expect(findTerminalBridge(el)).toBeNull();
+  });
+
+  it("captures and releases the file-paste bridge on an editable field", () => {
+    const el = makeTextarea("");
+    const pastePaths = vi.fn();
+    const release = attachFilePasteBridge(el, { pastePaths });
+
+    expect(captureEditSnapshot(el).filePasteBridge?.pastePaths).toBe(pastePaths);
+    release();
+    expect(captureEditSnapshot(el).filePasteBridge).toBeNull();
+  });
+
+  it("finds a file-paste bridge registered on the composer container", () => {
+    const composer = document.createElement("div");
+    const field = document.createElement("div");
+    field.contentEditable = "true";
+    composer.appendChild(field);
+    document.body.appendChild(composer);
+    const pastePaths = vi.fn();
+    const release = attachFilePasteBridge(composer, { pastePaths });
+
+    expect(captureEditSnapshot(field).filePasteBridge?.pastePaths).toBe(pastePaths);
+    release();
+    expect(captureEditSnapshot(field).filePasteBridge).toBeNull();
   });
 });
 

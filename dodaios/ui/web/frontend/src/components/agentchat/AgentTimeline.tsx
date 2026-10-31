@@ -143,19 +143,9 @@ export function AgentTimeline({
                   file.url && (mediaKind(file.url) === "video" || mediaKind(file.url) === "audio") ? (
                     <MediaPreview key={file.name} src={file.url} label={file.name} kind={mediaKind(file.url)!} />
                   ) : (file.kind === "image" || (file.url && mediaKind(file.url) === "image")) && file.url ? (
-                    <img
-                      key={file.name}
-                      src={file.url}
-                      alt={file.name}
-                      title={file.name}
-                      loading="lazy"
-                      decoding="async"
-                      data-testid="agent-message-image"
-                      // A picture is its own fill. The frame and the wash
-                      // behind it were describing an object that was
-                      // already fully described.
-                      className="max-h-60 max-w-full rounded-lg object-contain"
-                    />
+                    <span key={file.name} data-testid="agent-message-image" className="min-w-0 max-w-full">
+                      <MediaPreview src={file.url} label={file.name} kind="image" />
+                    </span>
                   ) : (
                   <span
                     key={file.name}

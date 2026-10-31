@@ -18,6 +18,8 @@ import { useSpokenCursor } from "@/components/home/useSpokenCursor";
 import { TurnSteps, traceWorthShowing } from "@/components/home/TurnSteps";
 import { traceModel } from "@/lib/thinkingSteps";
 import { SHOWN_KIND } from "@/lib/homeTranscript";
+import { MessageAttachments } from "@/components/agentchat/ChatAttachmentStrip";
+import type { UserAttachment } from "@/components/agentchat/reduce";
 
 const ChatMarkdown = lazy(() =>
   import("@/components/agentchat/ChatMarkdown").then((module) => ({
@@ -124,6 +126,7 @@ export function VoiceStage({ onExit }: { onExit?: () => void } = {}) {
                 key={m.id}
                 who={m.who === "user" ? t("home.transcript_you") : assistantName}
                 text={m.text}
+                attachments={m.attachments}
                 lineId={m.id}
                 user={m.who === "user"}
                 playbackEligible={active && lastIsAnswer && i === lines.length - 1}
@@ -168,6 +171,7 @@ export function TranscriptLine({
   live = false,
   playbackEligible = false,
   lineId = "",
+  attachments = [],
 }: {
   who: string;
   text: string;
@@ -175,6 +179,7 @@ export function TranscriptLine({
   live?: boolean;
   playbackEligible?: boolean;
   lineId?: string;
+  attachments?: UserAttachment[];
 }) {
   const spoken = useSpokenCursor(text, !user && playbackEligible, lineId);
   const reading = !user && spoken !== null;
@@ -185,9 +190,9 @@ export function TranscriptLine({
       data-who={user ? "user" : "assistant"}
     >
       <span className="sr-only">{who}: </span>
-      <span
+      <div
         className={cn(
-          "max-w-[80%] whitespace-pre-wrap text-reading",
+          "min-w-0 max-w-[80%] whitespace-pre-wrap text-reading",
           user ? "jarvis-user-bubble rounded-[20px] px-4 py-2.5 italic" : "text-foreground",
           live && !reading && (user ? "opacity-70" : "text-muted-foreground"),
         )}
@@ -202,13 +207,14 @@ export function TranscriptLine({
         ) : (
           text
         )}
+        {user && <MessageAttachments files={attachments} />}
         {live && !reading && (
           <span
             className="ml-0.5 inline-block h-[1em] w-0.5 translate-y-0.5 animate-pulse bg-current motion-reduce:animate-none"
             aria-hidden
           />
         )}
-      </span>
+      </div>
     </div>
   );
 }

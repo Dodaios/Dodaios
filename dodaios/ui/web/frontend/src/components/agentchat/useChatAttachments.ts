@@ -52,6 +52,8 @@ export interface ChatAttachments {
   dragHandlers: ReturnType<typeof usePaneFileDrag>["handlers"];
   /** Attach files chosen by hand (the paperclip) or read off the clipboard. */
   attachFiles: (files: File[]) => void;
+  /** Attach local paths granted by the desktop clipboard bridge. */
+  attachPaths: (paths: string[]) => void;
   /** Put on the text box: claims a pasted IMAGE, never a pasted text. */
   onPaste: (event: React.ClipboardEvent) => void;
   remove: (name: string) => void;
@@ -183,6 +185,7 @@ function subscribeHeld(listener: () => void): () => void {
 export function useChatAttachments(
   target: {
     sessionId: string | null;
+    voiceSessionId?: string;
     cwd: string;
     provider: string;
     surface: AgentChatSurface;
@@ -198,7 +201,7 @@ export function useChatAttachments(
   const held = useSyncExternalStore(subscribeHeld, () => heldFor(owner, key));
   const { attachments, previews } = held;
   const [analyzing, setAnalyzing] = useState(0);
-  const { sessionId, cwd, provider, surface } = target;
+  const { sessionId, voiceSessionId, cwd, provider, surface } = target;
 
   // Object URLs hold the picture in memory until revoked. Files that are not
   // kept for a draft go with the composer; kept ones wait for send or remove.
@@ -220,6 +223,7 @@ export function useChatAttachments(
           files: payload.files,
           paths: payload.paths,
           sessionId,
+          voiceSessionId,
           cwd,
           provider,
           surface,
@@ -264,7 +268,7 @@ export function useChatAttachments(
         setAnalyzing((n) => Math.max(0, n - 1));
       }
     },
-    [sessionId, cwd, provider, surface, onProblem, owner, key],
+    [sessionId, voiceSessionId, cwd, provider, surface, onProblem, owner, key],
   );
 
   const { dragging, handlers: dragHandlers } = usePaneFileDrag(
@@ -282,6 +286,13 @@ export function useChatAttachments(
   const attachFiles = useCallback(
     (files: File[]) => {
       if (files.length > 0) void attach({ paths: [], files });
+    },
+    [attach],
+  );
+
+  const attachPaths = useCallback(
+    (paths: string[]) => {
+      if (paths.length > 0) void attach({ paths, files: [] });
     },
     [attach],
   );
@@ -334,6 +345,7 @@ export function useChatAttachments(
     dragging,
     dragHandlers,
     attachFiles,
+    attachPaths,
     onPaste,
     remove,
     clear,

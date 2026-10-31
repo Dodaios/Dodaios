@@ -8,8 +8,10 @@ import {
 } from "@/lib/thinkingSteps";
 import type { MessageRole } from "@/types/messages";
 import { createHistoryRequests } from "@/lib/historyRequests";
+import { userAttachments } from "@/components/agentchat/reduce";
 
 export interface ChatTurn {
+  attachments?: unknown;
   role: string;
   text: string;
   ts_ms: number;
@@ -131,6 +133,7 @@ export function detailToMessages(detail: ConversationDetail): ChatMessage[] {
       content: m.text,
       ts: m.ts_ms,
       thread_id: detail.id,
+      attachments: userAttachments(m.attachments),
     };
     const trace = m.role === "assistant" && m.trace ? replayTrace(m.trace) : null;
     if (trace) message.trace = trace;

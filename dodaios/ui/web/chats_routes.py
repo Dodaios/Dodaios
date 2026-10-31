@@ -79,6 +79,7 @@ class ChatTurn(BaseModel):
     role: str
     text: str
     ts_ms: int = 0
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
     # The reasoning trace behind an assistant reply — the event list
     # ``dodaios.state.turn_trace`` stores (``{started_ms, ended_ms, events}``),
     # replayed by the UI into the "Thought for Ns" steps. None for user and
@@ -300,6 +301,7 @@ def _live_voice_messages(events: list[Any]) -> list[ChatTurn]:
         if previous and revision <= previous["revision"]:
             continue
         segments[segment_id] = {
+            "attachments": payload.get("attachments") or (previous or {}).get("attachments", []),
             "role": role, "text": str(payload.get("text", "")), "revision": revision,
             "start": previous["start"] if previous else event.ts_ms,
             "end": event.ts_ms, "audio_start": int(payload.get("start_ms", 0)),
@@ -329,6 +331,7 @@ def _live_voice_messages(events: list[Any]) -> list[ChatTurn]:
             trace_start = item["end"] + 1
         messages.append(ChatTurn(
             role=item["role"], text=item["text"], ts_ms=item["start"], trace=trace,
+            attachments=item["attachments"],
         ))
     return messages
 

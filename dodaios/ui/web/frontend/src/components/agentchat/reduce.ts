@@ -287,6 +287,7 @@ export interface UserAttachment {
    * timeline draws the picture when it has this and a chip when it does not.
    */
   url?: string;
+  sizeBytes?: number;
 }
 
 export interface TurnItem {
@@ -394,7 +395,7 @@ function messageAuthor(raw: unknown): { agentId: string; name: string } | undefi
   return name ? { agentId: typeof row.agent_id === "string" ? row.agent_id : "", name } : undefined;
 }
 
-function userAttachments(raw: unknown): UserAttachment[] {
+export function userAttachments(raw: unknown): UserAttachment[] {
   if (!Array.isArray(raw)) return [];
   const out: UserAttachment[] = [];
   for (const entry of raw) {
@@ -407,6 +408,8 @@ function userAttachments(raw: unknown): UserAttachment[] {
         name,
         kind: str(row.kind),
         describedBy: str(row.described_by),
+        ...(typeof row.size_bytes === "number" && Number.isFinite(row.size_bytes) && row.size_bytes >= 0
+          ? { sizeBytes: row.size_bytes } : {}),
         ...(url ? { url } : {}),
       });
     }

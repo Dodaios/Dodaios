@@ -126,6 +126,37 @@ def test_a_path_inside_the_folder_is_referenced_where_it_lies(
     assert not (tmp_path / ".jarvis" / "drops").exists()
 
 
+def test_live_call_copies_an_in_folder_path_into_its_verified_drop_store(
+    tmp_path: Path, described, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The live input endpoint accepts only the existing upload receipt."""
+    from dodaios.live import runtime
+
+    class Call:
+        session_id = "live-call"
+        is_active = True
+        composer_available = True
+        _composer_cwd = str(tmp_path)
+
+    monkeypatch.setattr(runtime, "_active", {})
+    monkeypatch.setattr(runtime, "_owners", {})
+    source = tmp_path / "notes.png"
+    source.write_bytes(PNG)
+    with TestClient(_app(tmp_path)) as client:
+        client.portal.call(runtime.register, Call())
+        response = client.post(
+            "/api/agent-chat/attachments",
+            data={"voice_session_id": "live-call", "paths": str(source)},
+        )
+        client.portal.call(runtime.unregister, "live-call")
+    assert response.status_code == 200, response.text
+    (row,) = response.json()["attachments"]
+    assert ".jarvis/drops/" in row["reference"]
+    from dodaios.agentic_ide.drops import dereference
+
+    assert (tmp_path / dereference(row["reference"])).read_bytes() == PNG
+
+
 def test_an_attached_picture_is_served_back_for_its_thumbnail(
     tmp_path: Path, described
 ) -> None:

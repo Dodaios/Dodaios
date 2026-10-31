@@ -9,6 +9,7 @@ import { useFileDropGuard } from "@/hooks/useFileDropGuard";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
+import { EditContextMenu } from "@/components/EditContextMenu";
 import type { AgentChatCatalog, ChatAttachment } from "@/lib/agentChatApi";
 import { WORKSPACE_PATH_TYPE } from "@/components/agentic/paneDrop";
 import { NATIVE_DROP_EVENT } from "@/lib/nativeDrop";
@@ -92,6 +93,15 @@ function composer() {
   );
 }
 
+function composerWithEditMenu() {
+  return render(
+    <AgentChatStoreProvider store={useAgentChatStore}>
+      <AgentComposer />
+      <EditContextMenu />
+    </AgentChatStoreProvider>,
+  );
+}
+
 /** A DataTransfer stand-in: jsdom's own carries neither files nor types. */
 function transfer(files: File[]) {
   return {
@@ -150,6 +160,64 @@ describe("chat composer attachments", () => {
     ) as [string, RequestInit];
     expect(url).toContain("/api/agent-chat/attachments");
     expect((init.body as FormData).get("session_id")).toBe("s-1");
+  });
+
+  it("attaches Explorer files through the desktop context-menu Paste action", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/clipboard/files")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ paths: ["C:\\drop\\shot.png"] }),
+        } as Response;
+      }
+      if (String(url).includes("/api/agent-chat/attachments")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ attachments: [ATTACHMENT], cwd: "C:\\work" }),
+        } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+    composerWithEditMenu();
+    const box = screen.getByTestId("composer-chip-field");
+
+    fireEvent.contextMenu(box, { clientX: 40, clientY: 40 });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: /Paste/i }));
+    });
+
+    await waitFor(() => expect(screen.getByTestId("chat-attachment-shot.png")).toBeDefined());
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/clipboard/files"))).toBe(true);
+  });
+
+  it("keeps multiple context-menu files usable once after repeated Paste", async () => {
+    const paths = ["C:\\drop\\shot.png", "C:\\drop\\notes.txt"];
+    fetchMock.mockImplementation(async (url: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => String(url).includes("/api/clipboard/files")
+        ? { paths }
+        : { attachments: [ATTACHMENT, { ...ATTACHMENT, name: "notes.txt", reference: "notes.txt" }], cwd: "C:\\work" },
+    } as Response));
+    composerWithEditMenu();
+    const box = screen.getByTestId("composer-chip-field");
+    for (let attempt = 0; attempt < 2; attempt++) {
+      fireEvent.contextMenu(box, { clientX: 40, clientY: 40 });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("menuitem", { name: /Paste/i }));
+      });
+      await waitFor(() => {
+        expect(screen.getAllByTestId("chat-attachment-shot.png")).toHaveLength(1);
+        expect(screen.getAllByTestId("chat-attachment-notes.txt")).toHaveLength(1);
+      });
+    }
+    const uploads = fetchMock.mock.calls.filter(([url]) => String(url).includes("/attachments"));
+    expect(uploads).toHaveLength(2);
+    for (const [, init] of uploads) {
+      expect((init!.body as FormData).get("paths")).toBe(paths.join("\n"));
+    }
   });
 
   it("leaves a pasted TEXT alone so ordinary copy-paste keeps working", async () => {

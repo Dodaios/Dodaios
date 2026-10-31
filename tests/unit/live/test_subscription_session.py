@@ -1591,3 +1591,94 @@ async def test_an_unvoiced_task_result_stays_owed_in_the_subscription_session(ma
     assert session._task_reports == [task] and task.report_attempts == 1
     assert session._report_state == "" and session._task_report_told is None
     assert session.take_report_outcome() == ""  # never read as an agent reply's outcome
+
+@pytest.mark.asyncio
+async def test_composer_files_are_retained_and_idempotent(make_session):
+    session, reasoning, _, _, _, _ = make_session([
+        completed_response("first", [spoken_result("First file described.")]),
+        completed_response("second", [spoken_result("First file read.")]),
+        completed_response("third", [spoken_result("Second file described.")]),
+        completed_response("fourth", [spoken_result("Both files read.")]),
+    ])
+    one = (
+        "one", [{"type": "input_text", "text": "First attached document: alpha"}], "Attached alpha",
+    )
+    two = (
+        "two", [{"type": "input_text", "text": "Second attached document: beta"}], "Attached beta",
+    )
+    await session.submit_composer(request_id="upload-one", text="", attachments=[one])
+    await session.submit_composer(request_id="upload-one", text="", attachments=[one])
+    await wait_for_jobs(session)
+    assert len(reasoning.requests) == 1
+    assert len(session._ledger.transcript(session.session_id)) >= 2
+    await session.submit_composer(
+        request_id="question-one", text="Read the first file", attachments=[one],
+    )
+    await session.submit_composer(
+        request_id="question-one", text="Read the first file", attachments=[one],
+    )
+    await wait_for_jobs(session)
+    assert len(reasoning.requests) == 2
+    assert "alpha" in json.dumps(reasoning.requests[1]["input"])
+    await session.submit_composer(request_id="upload-two", text="", attachments=[two])
+    await wait_for_jobs(session)
+    assert len(reasoning.requests) == 3
+    await session.submit_composer(
+        request_id="question-two", text="Compare both files", attachments=[],
+    )
+    await wait_for_jobs(session)
+    context = json.dumps(reasoning.requests[3]["input"])
+    assert "alpha" in context and "beta" in context
+    assert session.is_active
+    assert session._connection.closed is False
+
+
+@pytest.mark.asyncio
+async def test_composer_closed_call_never_accepts_or_loses_the_pending_request(make_session):
+    session, reasoning, _, _, _, _ = make_session([])
+    session._closing = True
+    with pytest.raises(RuntimeError, match="not ready"):
+        await session.submit_composer(request_id="not-sent", text="Hello", attachments=[])
+    assert "not-sent" not in session._composer_requests
+    assert not reasoning.requests
+
+
+@pytest.mark.asyncio
+async def test_composer_file_only_enter_starts_one_reply_in_the_same_call(make_session):
+    session, reasoning, _, _, _, _ = make_session([
+        completed_response("file-only", [spoken_result("The document says alpha.")]),
+    ])
+    file = ("file-one", [{"type": "input_text", "text": "Attached document: alpha"}], "File alpha")
+    await session.submit_composer(request_id="file-only", text="", attachments=[file])
+    await session.submit_composer(request_id="file-only", text="", attachments=[file])
+    await wait_for_jobs(session)
+    assert len(reasoning.requests) == 1
+    context = json.dumps(reasoning.requests[0]["input"])
+    assert "Describe the attached file" in context and "alpha" in context
+    assert session.is_active and not session._connection.closed
+    spoken = [event["content"] for event in session._connection.sent
+              if event["type"] == "session.commentary.append"]
+    assert spoken == ["The document says alpha."]
+
+
+@pytest.mark.asyncio
+async def test_composer_image_and_text_reach_same_active_backend_turn(make_session):
+    session, reasoning, _, _, _, _ = make_session([
+        completed_response("image-question", [spoken_result("The screenshot shows a chart.")]),
+    ])
+    image = ("image-one", [
+        {"type": "input_text", "text": "User screenshot"},
+        {"type": "input_image", "image_url": "data:image/png;base64,aW1hZ2U="},
+    ], "User screenshot")
+    await session.submit_composer(
+        request_id="image-question", text="What is in this screenshot?", attachments=[image],
+    )
+    await wait_for_jobs(session)
+    assert len(reasoning.requests) == 1
+    context = json.dumps(reasoning.requests[0]["input"])
+    assert "What is in this screenshot?" in context
+    assert "data:image/png;base64,aW1hZ2U=" in context
+    assert session.is_active and not session._connection.closed
+    spoken = [event["content"] for event in session._connection.sent
+              if event["type"] == "session.commentary.append"]
+    assert spoken == ["The screenshot shows a chart."]

@@ -40,6 +40,7 @@ import {
   type ThinkingStep,
 } from "@/lib/thinkingSteps";
 import { readVoiceTranscript } from "@/lib/liveTranscript";
+import { userAttachments, type UserAttachment } from "@/components/agentchat/reduce";
 
 export type TranscriptWho = "user" | "assistant" | "steps";
 
@@ -53,6 +54,7 @@ interface TranscriptLineBase {
 /** Heard words (user) or a spoken / typed answer (assistant). */
 export interface TranscriptTextLine extends TranscriptLineBase {
   who: "user" | "assistant";
+  attachments?: UserAttachment[];
   /**
    * The spoken kind (`SpeechSpoken.spoken_kind`) when the line was said out
    * loud — "reply", "preamble", … Pieces of one answer join only when their
@@ -361,6 +363,7 @@ export function transcriptFromMessages(
     role: string;
     content: string;
     ts: number;
+    attachments?: UserAttachment[];
     trace?: { steps: ThinkingStep[]; durationMs: number };
   }>,
 ): TranscriptLine[] {
@@ -383,7 +386,7 @@ export function transcriptFromMessages(
         durationMs: m.trace.durationMs,
       });
     }
-    lines.push({ id: nextId(m.ts), ts: m.ts, who: m.role, text });
+    lines.push({ id: nextId(m.ts), ts: m.ts, who: m.role, text, attachments: m.attachments });
   }
   return cap(lines);
 }
@@ -406,12 +409,14 @@ export function reduceTranscript(
       if (index >= 0) {
         const previous = lines[index] as TranscriptTextLine;
         if ((previous.revision ?? 0) >= snapshot.revision) return lines;
-        return replaceAt(lines, index, { ...previous, text: snapshot.text, revision: snapshot.revision });
+        return replaceAt(lines, index, { ...previous, text: snapshot.text, revision: snapshot.revision,
+          attachments: snapshot.attachments === undefined ? previous.attachments : userAttachments(snapshot.attachments) });
       }
       // Captions are independent of model turns and can overlap a running
       // tool. A new user segment must not mark background work as complete.
       return cap([...lines, {
         id, ts: tsMs, who: snapshot.role, text: snapshot.text, revision: snapshot.revision,
+        attachments: userAttachments(snapshot.attachments),
       }]);
     }
     case "TranscriptFinal": {

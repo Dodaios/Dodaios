@@ -24,8 +24,14 @@ export interface TerminalBridge {
   focus(): void;
 }
 
+export interface FilePasteBridge {
+  pastePaths(paths: string[]): void;
+}
+
 const BRIDGE_KEY = "__jarvisTerminalBridge";
 const TERMINAL_SELECTOR = "[data-jarvis-terminal]";
+const FILE_PASTE_BRIDGE_KEY = "__jarvisFilePasteBridge";
+const FILE_PASTE_BRIDGE_SELECTOR = "[data-jarvis-file-paste]";
 
 /** Register a terminal so the context menu can copy from / paste into it. */
 export function attachTerminalBridge(
@@ -46,6 +52,29 @@ export function findTerminalBridge(
   return (bridge as TerminalBridge) ?? null;
 }
 
+/** Register an editable field that can turn copied Explorer paths into attachments. */
+export function attachFilePasteBridge(
+  element: HTMLElement,
+  bridge: FilePasteBridge,
+): () => void {
+  element.setAttribute("data-jarvis-file-paste", "");
+  (element as unknown as Record<string, unknown>)[FILE_PASTE_BRIDGE_KEY] = bridge;
+  return () => {
+    const host = element as unknown as Record<string, unknown>;
+    if (host[FILE_PASTE_BRIDGE_KEY] === bridge) {
+      delete host[FILE_PASTE_BRIDGE_KEY];
+      element.removeAttribute("data-jarvis-file-paste");
+    }
+  };
+}
+
+function findFilePasteBridge(element: Element | null): FilePasteBridge | null {
+  if (!element) return null;
+  const host = element.closest<HTMLElement>(FILE_PASTE_BRIDGE_SELECTOR) ?? element;
+  const bridge = (host as unknown as Record<string, unknown>)[FILE_PASTE_BRIDGE_KEY];
+  return (bridge as FilePasteBridge) ?? null;
+}
+
 export type EditTargetKind = "field" | "terminal" | "plain";
 
 /**
@@ -58,6 +87,7 @@ export interface EditSnapshot {
   kind: EditTargetKind;
   element: HTMLElement | null;
   bridge: TerminalBridge | null;
+  filePasteBridge: FilePasteBridge | null;
   /** Text currently selected, wherever the selection lives. */
   selectedText: string;
   /** True when text can be written at the target. */
@@ -101,11 +131,13 @@ export function captureEditSnapshot(target: EventTarget | null): EditSnapshot {
     typeof window !== "undefined" ? window.getSelection() : null;
 
   const bridge = findTerminalBridge(element);
+  const filePasteBridge = findFilePasteBridge(element);
   if (bridge) {
     return {
       kind: "terminal",
       element,
       bridge,
+      filePasteBridge,
       selectedText: bridge.getSelection() || "",
       editable: true,
       selectionStart: null,
@@ -125,6 +157,7 @@ export function captureEditSnapshot(target: EventTarget | null): EditSnapshot {
       kind: "field",
       element,
       bridge: null,
+      filePasteBridge,
       selectedText: selected,
       editable: isWritable(element),
       selectionStart: start,
@@ -145,6 +178,7 @@ export function captureEditSnapshot(target: EventTarget | null): EditSnapshot {
       kind: "field",
       element: editableHost,
       bridge: null,
+      filePasteBridge,
       selectedText: docSelection?.toString() ?? "",
       editable: true,
       selectionStart: null,
@@ -157,6 +191,7 @@ export function captureEditSnapshot(target: EventTarget | null): EditSnapshot {
     kind: "plain",
     element,
     bridge: null,
+    filePasteBridge,
     selectedText: docSelection?.toString() ?? "",
     editable: false,
     selectionStart: null,
@@ -166,7 +201,7 @@ export function captureEditSnapshot(target: EventTarget | null): EditSnapshot {
 }
 
 /** Put focus and caret back where they were when the menu opened. */
-function restore(snapshot: EditSnapshot): void {
+export function restoreEditFocus(snapshot: EditSnapshot): void {
   const { element } = snapshot;
   if (!element) return;
   if (snapshot.bridge) {
@@ -199,7 +234,7 @@ function restore(snapshot: EditSnapshot): void {
  */
 export function pasteInto(snapshot: EditSnapshot, text: string): boolean {
   if (!text) return false;
-  restore(snapshot);
+  restoreEditFocus(snapshot);
 
   if (snapshot.bridge) {
     snapshot.bridge.paste(text);
@@ -244,7 +279,7 @@ function insertTextManually(snapshot: EditSnapshot, text: string): boolean {
 export function deleteSelection(snapshot: EditSnapshot): boolean {
   if (!snapshot.editable || !snapshot.selectedText) return false;
   if (snapshot.bridge) return false; // a terminal's scrollback is not editable
-  restore(snapshot);
+  restoreEditFocus(snapshot);
   try {
     if (document.execCommand("delete")) return true;
   } catch {

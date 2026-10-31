@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from dodaios.core.config import BrainTierConfig
 from dodaios.live.config import LiveConfig
@@ -193,3 +194,131 @@ async def use_live_key_for_agent(request: Request) -> dict:
     await asyncio.to_thread(set_worker_model, cfg.live.backend_model)
     cfg.brain.worker = BrainTierConfig(provider="openai", model=cfg.live.backend_model)
     return {"provider": "openai", "model": cfg.live.backend_model}
+
+
+class ComposerInput(BaseModel):
+    session_id: str = Field(min_length=1, max_length=128)
+    request_id: str = Field(min_length=1, max_length=128)
+    text: str = Field(default="", max_length=32000)
+    attachments: list[dict[str, Any]] = Field(default_factory=list, max_length=16)
+
+
+@router.get("/composer", summary="Read the active call accepting keyboard input")
+async def composer_session() -> dict:
+    from dodaios.live.runtime import active
+
+    session = next((s for s in active() if s.is_active and s.composer_available), None)
+    return {"session_id": session.session_id if session else None}
+
+
+async def _composer_cwd(request: Request, session: Any) -> str:
+    """Use the running call's existing chat binding and one stable folder."""
+    from dodaios.agent_chat.voice_mirror import VoiceChatMirror
+    from dodaios.ui.web.agent_chat_routes import _async_service
+
+    folder = getattr(session, "_composer_cwd", "")
+    if folder:
+        return folder
+    svc = await _async_service(request)
+    target = (
+        None if getattr(svc, "voice_session_continued", None)
+        else VoiceChatMirror._target_session(svc, session.session_id)
+    )
+    if target is not None:
+        svc.pin_voice_call(session.session_id, target.session_id)
+    folder = (target.cwd if target is not None else "") or svc.default_cwd("jarvis")
+    session._composer_cwd = folder
+    return folder
+
+
+def _composer_attachments(cwd: str, raw: list[dict]) -> list[tuple[str, list[dict], str]]:
+    """Resolve only uploaded files in this call's drop folder."""
+    import base64
+    import hashlib
+    import mimetypes
+    from pathlib import Path
+
+    from dodaios.agent_chat.attachments import compose, to_analysis
+    from dodaios.agentic_ide.drops import dereference
+    from dodaios.core.image_references import MAX_BYTES
+
+    root = Path(cwd).resolve()
+    result = []
+    analyses = to_analysis(raw)
+    if len(analyses) != len(raw):
+        raise ValueError("An attachment has invalid upload metadata.")
+    for item in analyses:
+        relative = dereference(item.reference)
+        path = (root / relative).resolve()
+        if (
+            not relative
+            or not path.is_relative_to(root / ".jarvis" / "drops")
+            or not path.is_file()
+        ):
+            raise ValueError("The attachment is not an existing upload in this chat folder.")
+        note = compose("[Files supplied by the user, context rather than a new request]", [item])
+        content = [{"type": "input_text", "text": note}]
+        if item.kind == "image":
+            if path.stat().st_size > MAX_BYTES:
+                raise ValueError("This image is too large for live input.")
+            mime = mimetypes.guess_type(path.name)[0] or ""
+            if mime not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+                raise ValueError("This image format is not supported by live input.")
+            content.append({
+                "type": "input_image",
+                "image_url": (
+                    f"data:{mime};base64,"
+                    + base64.b64encode(path.read_bytes()).decode("ascii")
+                ),
+            })
+        elif not item.detail:
+            raise ValueError(
+                "No readable text could be extracted from this file; it remains attached."
+            )
+        key = hashlib.sha256((item.reference + "\0" + item.detail).encode()).hexdigest()
+        result.append((key, content, note))
+    return result
+
+
+@router.post("/composer", summary="Send text or files into the running live call")
+async def submit_composer(body: ComposerInput, request: Request) -> dict:
+    from dodaios.live.runtime import active, on_session_loop
+
+    session = next((s for s in active() if s.session_id == body.session_id), None)
+    if session is None or not session.composer_available:
+        raise HTTPException(
+            status_code=409, detail="The selected voice call is no longer available."
+        )
+    cwd = await _composer_cwd(request, session)
+    try:
+        attachments = await asyncio.to_thread(_composer_attachments, cwd, body.attachments)
+        # Display receipts reference the same validated uploads; never persist browser blob URLs.
+        from pathlib import Path
+        from urllib.parse import urlencode
+
+        from dodaios.agent_chat.media import MEDIA_TYPES
+        from dodaios.agentic_ide.drops import dereference
+
+        display = []
+        for row in body.attachments:
+            reference = str(row.get("reference") or "")
+            path = (Path(cwd) / dereference(reference)).resolve()
+            mime = MEDIA_TYPES.get(path.suffix.lower(), "")
+            receipt = {
+                "name": path.name, "kind": row.get("kind", ""),
+                "described_by": row.get("described_by", ""),
+                "size_bytes": path.stat().st_size,
+            }
+            if mime.startswith(("image/", "video/")) and mime != "image/svg+xml":
+                receipt["url"] = "/api/agent-chat/attachments/file?" + urlencode({
+                    "cwd": cwd, "reference": reference,
+                })
+            display.append(receipt)
+        await on_session_loop(
+            session, session.submit_composer,
+            request_id=body.request_id, text=body.text.strip(), attachments=attachments,
+            display_attachments=display,
+        )
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"session_id": session.session_id, "accepted": True}

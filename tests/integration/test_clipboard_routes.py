@@ -114,6 +114,46 @@ def test_empty_clipboard_is_a_successful_empty_read(
     assert response.json() == {"text": ""}
 
 
+def test_desktop_read_returns_copied_file_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = [r"C:\pictures\one.png", r"C:\documents\notes.txt"]
+    monkeypatch.setattr(clipboard_routes, "read_file_paths", lambda: paths)
+
+    response = _client(native=True).get("/api/clipboard/files")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"paths": paths}
+
+
+def test_headless_file_clipboard_read_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called = False
+
+    def _unexpected() -> list[str]:
+        nonlocal called
+        called = True
+        return [r"C:\private\secret.txt"]
+
+    monkeypatch.setattr(clipboard_routes, "read_file_paths", _unexpected)
+    response = _client(native=False).get("/api/clipboard/files")
+
+    assert response.status_code == 404
+    assert called is False
+
+
+def test_empty_file_clipboard_is_a_successful_empty_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(clipboard_routes, "read_file_paths", lambda: [])
+
+    response = _client(native=True).get("/api/clipboard/files")
+
+    assert response.status_code == 200
+    assert response.json() == {"paths": []}
+
+
 def test_copy_route_declares_danger_metadata() -> None:
     schema = _client(native=True).app.openapi()
     operation = schema["paths"]["/api/clipboard/text"]["post"]

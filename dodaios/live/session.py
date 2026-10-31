@@ -215,6 +215,9 @@ class LiveVoiceSession:
         self._transcript = LiveTranscript()
         self._last_role = ""
         self._last_end = {"user": -1, "assistant": -1}
+        self._composer_lock = asyncio.Lock()
+        self._composer_requests: set[str] = set()
+        self._composer_attachments: set[str] = set()
         self._delegation_responses: dict[str, str] = {}
         # The thinking model's reasoning summary while it streams: per
         # reasoning item, its summary parts by index, and when the item last
@@ -1967,6 +1970,68 @@ class LiveVoiceSession:
             self._report_state = ""
             raise
         return True
+
+    composer_available = True
+    _composer_captions_owned = False
+
+    async def _attach_composer_content(self, content: list[dict]) -> None:
+        await self._connection.send({
+            "type": "response.item.create",
+            "item": {"type": "message", "role": "user", "content": content},
+        })
+        await self._connection.send({
+            "type": "session.thinking.append", "delegation_id": None,
+            "content": "The user attached files to this conversation. Their contents are in "
+            "your backend context. Delegate the next question about them. "
+            "Do not answer merely because files arrived.",
+        })
+
+    async def submit_composer(
+        self, *, request_id: str, text: str, attachments: list[tuple[str, list[dict], str]],
+    ) -> None:
+        """Deliver an explicit composer submission to the existing call."""
+        async with self._composer_lock:
+            if not self.is_active or self._recovering or self._resume_needs_input:
+                raise RuntimeError("The voice connection is not ready; your input is retained.")
+            if request_id in self._composer_requests:
+                return
+            if len(self._composer_requests) >= 2048:
+                raise RuntimeError("This call has reached its input limit.")
+            for key, content, note in attachments:
+                if key in self._composer_attachments:
+                    continue
+                await self._attach_composer_content(content)
+                self._composer_attachments.add(key)
+                await self._record_composer_input("file-" + key, note)
+            if attachments and not text:
+                text = "Describe the attached file or image and its relevant contents."
+            if text:
+                if not self._composer_captions_owned:
+                    await self._record_composer_input("typed-" + request_id, text)
+                await self.handle_control({"type": "text_input", "text": text})
+            self._composer_requests.add(request_id)
+
+    async def _record_composer_input(self, identifier: str, text: str) -> None:
+        assert self._ledger is not None
+        timestamp = max(self._last_end.values()) + 1
+        fragment = TranscriptFragment(
+            self.session_id, identifier, "user", text, timestamp, timestamp,
+        )
+        if not await asyncio.to_thread(self._ledger.append, fragment):
+            return
+        self._last_end["user"] = timestamp
+        caption = self._transcript.feed(
+            session_id=self.session_id, trace_id=self._indicator_trace_id,
+            event_id=identifier, role="user", text=text,
+            start_ms=timestamp, end_ms=timestamp,
+        )
+        if self._bus is not None:
+            await self._bus.publish(caption)
+        await self._send_json({
+            "type": "transcript", "role": "user", "text": caption.text,
+            "fragment": text, "event_id": identifier, "is_final": True,
+            "start_ms": timestamp, "end_ms": timestamp,
+        })
 
     async def attach_appshot(self, image: bytes, mime: str, note: str) -> bool:
         """Put an appshot into the thinking backend's context, silently.

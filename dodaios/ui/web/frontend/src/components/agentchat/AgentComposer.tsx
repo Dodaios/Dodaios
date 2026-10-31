@@ -48,6 +48,7 @@ import { useAppshotClaim } from "@/components/agentchat/useAppshotClaim";
 import { PetMark } from "@/components/pets/PetMark";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { fill, useT } from "@/i18n";
+import { attachFilePasteBridge } from "@/lib/editActions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -237,6 +238,11 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   // seat honours is the catalog row's word (`typeahead`), read from the
   // runner, so a seat that would take the slash as text never gets a list.
   const cardRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    return attachFilePasteBridge(card, { pastePaths: files.attachPaths });
+  }, [files.attachPaths]);
   const commands = useChatCommands({ value, setValue,
     attachments: files.attachments, attachmentsBusy: files.analyzing > 0, onAttachmentsSent: files.clear,
     onModel: () => cardRef.current?.querySelector<HTMLButtonElement>('[data-testid="composer-model"]')?.click(),

@@ -545,6 +545,7 @@ export async function attachChatFiles(payload: {
   files?: File[];
   paths?: string[];
   sessionId?: string | null;
+  voiceSessionId?: string;
   cwd?: string;
   provider?: string;
   surface?: AgentChatSurface;
@@ -562,6 +563,7 @@ export async function attachChatFilesIn(payload: Parameters<typeof attachChatFil
   for (const file of payload.files ?? []) form.append("files", file, file.name);
   if (payload.paths?.length) form.append("paths", payload.paths.join("\n"));
   if (payload.sessionId) form.append("session_id", payload.sessionId);
+  if (payload.voiceSessionId) form.append("voice_session_id", payload.voiceSessionId);
   if (payload.cwd) form.append("cwd", payload.cwd);
   if (payload.provider) form.append("provider", payload.provider);
   if (payload.surface) form.append("surface", payload.surface);

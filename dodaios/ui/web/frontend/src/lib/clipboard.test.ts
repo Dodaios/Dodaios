@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { robustCopy, robustPaste, saveOrDownload } from "./clipboard";
+import { robustCopy, robustPaste, robustPasteFiles, saveOrDownload } from "./clipboard";
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
 const originalExecCommand = Object.getOwnPropertyDescriptor(document, "execCommand");
@@ -261,5 +261,44 @@ describe("robustPaste", () => {
     stubRest({ ok: false });
 
     await expect(robustPaste()).resolves.toBeNull();
+  });
+});
+
+describe("robustPasteFiles", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("reads copied Explorer paths through the desktop route", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ paths: ["C:/pictures/one.png", "C:/documents/notes.txt"] }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(robustPasteFiles()).resolves.toEqual([
+      "C:/pictures/one.png",
+      "C:/documents/notes.txt",
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith("/api/clipboard/files", {
+      method: "GET",
+      credentials: "same-origin",
+    });
+  });
+
+  it("rejects malformed path entries without inventing a file", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ paths: ["C:/pictures/one.png", 42, ""] }),
+    })));
+
+    await expect(robustPasteFiles()).resolves.toEqual(["C:/pictures/one.png"]);
+  });
+
+  it("returns null when the desktop route is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
+
+    await expect(robustPasteFiles()).resolves.toBeNull();
   });
 });

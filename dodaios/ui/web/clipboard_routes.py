@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from dodaios.platform.clipboard import read_text, write_text
+from dodaios.platform.clipboard import read_file_paths, read_text, write_text
 
 router = APIRouter(prefix="/api/clipboard", tags=["clipboard"])
 
@@ -27,6 +27,12 @@ class ClipboardReadResponse(BaseModel):
     """Current text on the local desktop clipboard."""
 
     text: str
+
+
+class ClipboardFilesResponse(BaseModel):
+    """Files copied in the local desktop's file manager."""
+
+    paths: list[str]
 
 
 @router.post(
@@ -67,5 +73,20 @@ def read_text_from_system_clipboard(request: Request) -> ClipboardReadResponse:
     if text is None:
         raise HTTPException(status_code=503, detail="native-clipboard-unavailable")
     return ClipboardReadResponse(text=text)
+
+
+@router.get(
+    "/files",
+    response_model=ClipboardFilesResponse,
+    summary="Read copied files from the local desktop clipboard",
+)
+def read_files_from_system_clipboard(request: Request) -> ClipboardFilesResponse:
+    """Return Explorer file paths only to the local desktop application."""
+    if not bool(getattr(request.app.state, "native_file_actions", False)):
+        raise HTTPException(status_code=404, detail="native-clipboard-disabled")
+    paths = read_file_paths()
+    if paths is None:
+        raise HTTPException(status_code=503, detail="native-clipboard-unavailable")
+    return ClipboardFilesResponse(paths=paths)
 
 __all__ = ["router"]
