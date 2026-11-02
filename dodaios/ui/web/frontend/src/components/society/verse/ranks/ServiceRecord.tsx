@@ -208,13 +208,21 @@ export function parseDuelRecord(raw: unknown): DuelRecord {
   return { totals, sets };
 }
 
-/** The duel record, read when the record opens and again after every award (a paid set is an award). */
+/** How often an open record reads the duels again; sets that pay nothing raise no award. */
+export const DUEL_REFRESH_MS = 30_000;
+
+/**
+ * The duel record, read when the record opens, after every award (a paid set is
+ * an award), when the window gets focus again, and every DUEL_REFRESH_MS while
+ * open, so sets that pay nothing (unfinished, under 60 s, past the daily cap)
+ * still show up.
+ */
 function useDuelRecord(): DuelRecord | null {
   const latestSeq = useProgression((s) => s.snapshot?.latestSeq ?? 0);
   const [record, setRecord] = useState<DuelRecord | null>(null);
   useEffect(() => {
     let live = true;
-    (async () => {
+    const read = async () => {
       try {
         const res = await fetch(`/api/progression/duels?limit=${DUEL_SETS_SHOWN}`);
         if (!res.ok) return;
@@ -224,8 +232,16 @@ function useDuelRecord(): DuelRecord | null {
         // An older backend without duels, or none at all: the section says "no sets yet".
         console.debug("Duel record not read", error);
       }
-    })();
-    return () => { live = false; };
+    };
+    void read();
+    const onFocus = () => { void read(); };
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(() => { void read(); }, DUEL_REFRESH_MS);
+    return () => {
+      live = false;
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
   }, [latestSeq]);
   return record;
 }

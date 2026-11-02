@@ -77,6 +77,20 @@ describe("ServiceRecord duel section", () => {
     expect(rows[1].textContent).toContain("Unfinished · Adaptive");
   });
 
+  it("reads again on focus, so a set that paid nothing still shows up", async () => {
+    const fewer = { ...DUELS, duel_stats: { ...DUELS.duel_stats, matches: 12 } };
+    let calls = 0;
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(calls++ === 0 ? fewer : DUELS), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    openRecord();
+    render(<ServiceRecord />);
+    const dialog = screen.getByRole("dialog");
+    const sets = () => dialog.querySelector('[data-stat="sets"] .vr-num')?.textContent;
+    await waitFor(() => expect(sets()).toBe("12"));
+    window.dispatchEvent(new Event("focus"));
+    await waitFor(() => expect(sets()).toBe("13"));
+  });
+
   it("says no sets yet without a backend", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     openRecord();
