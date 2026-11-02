@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
-import { MonitorUp, RotateCcw, Unplug } from "lucide-react";
+import { Download, MonitorUp, RotateCcw, Unplug } from "lucide-react";
+import { useEventStore } from "@/store/events";
+import { useVerseModeStore } from "@/store/verseMode";
 import { encodeKey, encodeMouseButton, encodeMouseMove, encodeWheel, type PanelPoint } from "./panelInput";
-import { browserDeps, VerseStreamSession, type StreamDeps, type StreamPhase } from "./streamSession";
+import { browserDeps, VerseStreamSession, type StreamDeps, type StreamPhase, type VerseHostStatus } from "./streamSession";
 import { usePanelVisibility } from "./usePanelVisibility";
 import { useVerseStreamText } from "./strings";
 
@@ -14,12 +16,23 @@ interface VerseStreamPanelProps {
 }
 
 /**
+ * Opens the full-window Verse (the Agents section's Verse face), where WP17's launcher card
+ * offers the optional download with its size, progress and cancel.
+ */
+export function openVerseDownload(): void {
+  useVerseModeStore.getState().request();
+  useEventStore.getState().setActiveSection("agents");
+}
+
+/**
  * The IDE side panel's live view of the Unreal Verse (WP20.3).
  *
  * Streams only while the panel is on screen; hidden, scrolled away or minimised, the session
  * closes in the same task. When the full Verse window opens the panel keeps the last frame and
- * says "Verse is open" (WP20.5). Without a Verse (not installed, no GPU) or after a failed start
- * it shows a plain card instead.
+ * says "Verse is open" (WP20.5). The Verse is an optional download: while the host reports
+ * `not_installed` the panel shows a plain card with a link to download it and never starts a
+ * stream. Without a GPU (`unsupported`), without a Verse host or after a failed start it shows a
+ * plain card too.
  */
 export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
   const text = useVerseStreamText();
@@ -31,6 +44,7 @@ export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
   const [phase, setPhase] = useState<StreamPhase>("connecting");
   const [attempt, setAttempt] = useState(0);
   const [hasStill, setHasStill] = useState(false);
+  const [hostStatus, setHostStatus] = useState<VerseHostStatus | null>(null);
   const { visible, geometry } = usePanelVisibility(frameRef);
   const geometryRef = useRef(geometry);
   geometryRef.current = geometry;
@@ -48,10 +62,20 @@ export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
     setHasStill(true);
   }, []);
 
-  // One session per visible stretch; hiding the panel ends it at once.
+  // One session per visible stretch; hiding the panel ends it at once. Each showing asks the
+  // host first, so a Verse downloaded meanwhile streams on the next showing.
   useEffect(() => {
     if (!visible) return;
-    const session = new VerseStreamSession(streamDeps, geometryRef.current, {
+    let live = true;
+    let session: VerseStreamSession | null = null;
+    const begin = (status: VerseHostStatus | null) => {
+      if (!live) return;
+      setHostStatus(status);
+      if (status === "not_installed" || status === "unsupported") return;
+      session = startSession();
+    };
+    const startSession = () => {
+      const next = new VerseStreamSession(streamDeps, geometryRef.current, {
       onPhase: (next) => {
         if (next === "verse_open") keepLastFrame();
         if (next === "streaming") setHasStill(false);
@@ -65,11 +89,20 @@ export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
         }
       },
     });
-    sessionRef.current = session;
-    void session.start();
+      sessionRef.current = next;
+      void next.start();
+      return next;
+    };
+    if (streamDeps.fetchStatus) {
+      void streamDeps.fetchStatus().then(begin, () => begin(null));
+    } else {
+      begin(null);
+    }
     return () => {
-      session.stop();
-      if (sessionRef.current === session) sessionRef.current = null;
+      live = false;
+      const current = session as VerseStreamSession | null;
+      current?.stop();
+      if (current && sessionRef.current === current) sessionRef.current = null;
     };
   }, [visible, attempt, streamDeps, keepLastFrame]);
 
@@ -117,7 +150,9 @@ export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
     if (at) sessionRef.current?.sendInput(encodeWheel(event.deltaY, at));
   };
 
-  const showCard = phase === "unavailable" || phase === "failed";
+  const notInstalled = hostStatus === "not_installed";
+  const unsupported = hostStatus === "unsupported";
+  const showCard = !notInstalled && (unsupported || phase === "unavailable" || phase === "failed");
   return (
     <div
       ref={frameRef}
@@ -149,7 +184,7 @@ export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
         data-testid="verse-stream-still"
         className={`absolute inset-0 h-full w-full object-contain opacity-60 ${phase === "verse_open" && hasStill ? "" : "hidden"}`}
       />
-      {phase === "connecting" && (
+      {phase === "connecting" && !notInstalled && !unsupported && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground" data-testid="verse-stream-connecting">
           {text.connecting}
         </div>
@@ -165,8 +200,8 @@ export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background p-6 text-center" data-testid="verse-stream-fallback">
           <Unplug className="h-5 w-5 text-muted-foreground" aria-hidden />
           <p className="text-sm text-foreground">{phase === "failed" ? text.failed : text.unavailable}</p>
-          {phase === "unavailable" && <p className="text-xs text-muted-foreground">{text.unavailableHint}</p>}
-          <button
+          {(unsupported || phase === "unavailable") && <p className="text-xs text-muted-foreground">{text.unavailableHint}</p>}
+          {!unsupported && <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => {
@@ -177,6 +212,21 @@ export function VerseStreamPanel({ deps }: VerseStreamPanelProps) {
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             {text.retry}
+          </button>}
+        </div>
+      )}
+      {notInstalled && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background p-6 text-center" data-testid="verse-stream-not-installed">
+          <p className="text-sm text-foreground">{text.notInstalled}</p>
+          <p className="text-xs text-muted-foreground">{text.notInstalledHint}</p>
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={openVerseDownload}
+            className="inline-flex items-center gap-1.5 text-sm text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden />
+            {text.download}
           </button>
         </div>
       )}

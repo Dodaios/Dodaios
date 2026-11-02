@@ -1,4 +1,4 @@
-import type { SignalTicket, SocketLike, StreamDeps } from "./streamSession";
+import type { SignalTicket, SocketLike, StreamDeps, VerseHostStatus } from "./streamSession";
 
 /** Test doubles for the panel stream: a scripted signalling socket, peer and data channel. */
 
@@ -97,18 +97,30 @@ export interface FakeWorld {
   timers: { callback: () => void; ms: number; cleared: boolean }[];
   ticket: SignalTicket | null;
   ticketCalls: number;
+  /** What `GET /api/verse/status` answers; null as when the route is missing. */
+  status: VerseHostStatus | null;
+  statusCalls: number;
 }
 
-export function fakeWorld(ticket: SignalTicket | null = { ticket: "tk-1", path: "/api/verse/signal", protocol: "verse.signal/1" }): FakeWorld {
+export function fakeWorld(
+  ticket: SignalTicket | null = { ticket: "tk-1", path: "/api/verse/signal", protocol: "verse.signal/1" },
+  status: VerseHostStatus | null = "running",
+): FakeWorld {
   const world: FakeWorld = {
     sockets: [],
     peers: [],
     timers: [],
     ticket,
     ticketCalls: 0,
+    status,
+    statusCalls: 0,
     deps: undefined as unknown as StreamDeps,
   };
   world.deps = {
+    fetchStatus: async () => {
+      world.statusCalls += 1;
+      return world.status;
+    },
     fetchTicket: async () => {
       world.ticketCalls += 1;
       return world.ticket;

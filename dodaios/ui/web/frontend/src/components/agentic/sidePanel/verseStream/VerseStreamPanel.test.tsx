@@ -1,6 +1,9 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEventStore } from "@/store/events";
+import { useVerseModeStore } from "@/store/verseMode";
 import { VerseStreamPanel } from "./VerseStreamPanel";
+import { readHostStatus } from "./streamSession";
 import { readUnrealPreview } from "./useUnrealPreviewFlag";
 import { VERSE_STREAM_LOCALES, verseStreamText } from "./strings";
 import { fakeWorld, flush, FakeChannel } from "./testFakes";
@@ -126,6 +129,57 @@ describe("VerseStreamPanel", () => {
     expect(socket.closedWith).toBeNull(); // the panel stays visible to the Verse
   });
 
+  it("shows the download card and never streams while the Verse is not installed", async () => {
+    const world = fakeWorld(undefined, "not_installed");
+    render(<VerseStreamPanel deps={world.deps} />);
+    intersect(true);
+    await act(flush);
+    expect(world.statusCalls).toBe(1);
+    expect(world.ticketCalls).toBe(0);
+    expect(world.sockets).toHaveLength(0);
+    expect(screen.queryByTestId("verse-stream-connecting")).toBeNull();
+    expect(screen.queryByTestId("verse-stream-fallback")).toBeNull();
+    const card = screen.getByTestId("verse-stream-not-installed");
+    expect(card.textContent).toContain(verseStreamText("en").notInstalled);
+    fireEvent.click(screen.getByRole("button", { name: verseStreamText("en").download }));
+    expect(useVerseModeStore.getState().requested).toBe(true);
+    expect(useEventStore.getState().activeSection).toBe("agents");
+    act(() => useVerseModeStore.setState({ requested: false }));
+  });
+
+  it("streams on the next showing once the Verse was downloaded", async () => {
+    const world = fakeWorld(undefined, "not_installed");
+    render(<VerseStreamPanel deps={world.deps} />);
+    intersect(true);
+    await act(flush);
+    expect(world.sockets).toHaveLength(0);
+    intersect(false);
+    world.status = "stopped";
+    intersect(true);
+    await act(flush);
+    expect(world.statusCalls).toBe(2);
+    expect(world.ticketCalls).toBe(1);
+    expect(screen.queryByTestId("verse-stream-not-installed")).toBeNull();
+  });
+
+  it("shows the plain card without a retry on a machine that cannot run the Verse", async () => {
+    const world = fakeWorld(undefined, "unsupported");
+    render(<VerseStreamPanel deps={world.deps} />);
+    intersect(true);
+    await act(flush);
+    expect(world.ticketCalls).toBe(0);
+    expect(screen.getByTestId("verse-stream-fallback").textContent).toContain(verseStreamText("en").unavailableHint);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("still tries the stream when the host has no status route", async () => {
+    const world = fakeWorld(undefined, null);
+    render(<VerseStreamPanel deps={world.deps} />);
+    intersect(true);
+    await act(flush);
+    expect(world.ticketCalls).toBe(1);
+  });
+
   it("shows the plain card without a Verse host and retries", async () => {
     const world = fakeWorld(null);
     render(<VerseStreamPanel deps={world.deps} />);
@@ -156,6 +210,14 @@ describe("verse stream strings and flag", () => {
       for (const key of keys) expect(text[key].length).toBeGreaterThan(0);
     }
     expect(verseStreamText("xx")).toBe(verseStreamText("en"));
+  });
+
+  it("reads the host status strictly", () => {
+    expect(readHostStatus({ status: "not_installed" })).toBe("not_installed");
+    expect(readHostStatus({ status: "running", state: "ready" })).toBe("running");
+    expect(readHostStatus({ status: "installing" })).toBeNull();
+    expect(readHostStatus({})).toBeNull();
+    expect(readHostStatus(null)).toBeNull();
   });
 
   it("reads verse.unreal_preview strictly", () => {

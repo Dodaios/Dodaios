@@ -5,11 +5,25 @@ import { useUiLanguage } from "@/i18n";
  * Unreal Verse is behind the `verse.unreal_preview` flag; the deletion PR moves them into the
  * locale files with the rest of the Verse strings.
  */
-type TextKey = "connecting" | "verseOpen" | "verseOpenHint" | "unavailable" | "unavailableHint" | "failed" | "retry" | "label";
+type TextKey =
+  | "notInstalled"
+  | "notInstalledHint"
+  | "download"
+  | "connecting"
+  | "verseOpen"
+  | "verseOpenHint"
+  | "unavailable"
+  | "unavailableHint"
+  | "failed"
+  | "retry"
+  | "label";
 export type VerseStreamText = Readonly<Record<TextKey, string>>;
 
 const STRINGS: Readonly<Record<"en" | "de" | "es" | "pt" | "zh", VerseStreamText>> = {
   en: {
+    notInstalled: "The Verse is not downloaded",
+    notInstalledHint: "The Verse is an optional download. Once it is on this computer, it shows here.",
+    download: "Download the Verse",
     connecting: "Starting the Verse view…",
     verseOpen: "Verse is open",
     verseOpenHint: "The Verse is showing in its own window.",
@@ -20,6 +34,9 @@ const STRINGS: Readonly<Record<"en" | "de" | "es" | "pt" | "zh", VerseStreamText
     label: "Dodaios Verse, live view",
   },
   de: {
+    notInstalled: "Das Verse ist nicht heruntergeladen", // i18n-allow: German locale strings
+    notInstalledHint: "Das Verse ist ein optionaler Download. Sobald es auf diesem Computer ist, erscheint es hier.", // i18n-allow: German locale strings
+    download: "Verse herunterladen", // i18n-allow: German locale strings
     connecting: "Verse-Ansicht startet…", // i18n-allow: German locale strings
     verseOpen: "Verse ist geöffnet", // i18n-allow: German locale strings
     verseOpenHint: "Das Verse läuft gerade in seinem eigenen Fenster.", // i18n-allow: German locale strings
@@ -30,6 +47,9 @@ const STRINGS: Readonly<Record<"en" | "de" | "es" | "pt" | "zh", VerseStreamText
     label: "Dodaios Verse, Live-Ansicht", // i18n-allow: German locale strings
   },
   es: {
+    notInstalled: "El Verse no está descargado",
+    notInstalledHint: "El Verse es una descarga opcional. Cuando esté en este ordenador, aparecerá aquí.",
+    download: "Descargar el Verse",
     connecting: "Iniciando la vista del Verse…",
     verseOpen: "El Verse está abierto",
     verseOpenHint: "El Verse se muestra en su propia ventana.",
@@ -40,6 +60,9 @@ const STRINGS: Readonly<Record<"en" | "de" | "es" | "pt" | "zh", VerseStreamText
     label: "Dodaios Verse, vista en directo",
   },
   pt: {
+    notInstalled: "O Verse não está transferido",
+    notInstalledHint: "O Verse é uma transferência opcional. Quando estiver neste computador, aparece aqui.",
+    download: "Transferir o Verse",
     connecting: "Iniciando a vista do Verse…",
     verseOpen: "O Verse está aberto",
     verseOpenHint: "O Verse está a ser mostrado na sua própria janela.",
@@ -50,6 +73,9 @@ const STRINGS: Readonly<Record<"en" | "de" | "es" | "pt" | "zh", VerseStreamText
     label: "Dodaios Verse, vista ao vivo",
   },
   zh: {
+    notInstalled: "尚未下载 Verse",
+    notInstalledHint: "Verse 是可选下载内容。下载到这台电脑后，就会显示在这里。",
+    download: "下载 Verse",
     connecting: "正在启动 Verse 视图…",
     verseOpen: "Verse 已打开",
     verseOpenHint: "Verse 正在自己的窗口中显示。",
