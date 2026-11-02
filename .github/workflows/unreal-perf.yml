@@ -12,8 +12,9 @@ on:
 permissions:
   contents: read
 
+# Schedule and manual runs only. One group per ref; with_lock.py serialises the machine.
 concurrency:
-  group: unreal-perf
+  group: unreal-perf-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

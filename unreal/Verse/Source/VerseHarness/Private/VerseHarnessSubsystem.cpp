@@ -46,14 +46,19 @@ void UVerseHarnessSubsystem::Deinitialize()
 	Super::Deinitialize();
 }
 
-void UVerseHarnessSubsystem::Quit(const TCHAR* Why)
+void UVerseHarnessSubsystem::Quit(const TCHAR* Why, uint8 ExitCode)
 {
 	if (bQuitRequested)
 	{
 		return;
 	}
 	bQuitRequested = true;
-	UE_LOG(LogVerseHarness, Display, TEXT("[VerseHarness] exit: %s"), Why);
+	UE_LOG(LogVerseHarness, Display, TEXT("[VerseHarness] exit %d: %s"), int32(ExitCode), Why);
+	if (ExitCode != 0)
+	{
+		FPlatformMisc::RequestExitWithStatus(false, ExitCode, TEXT("VerseHarness"));
+		return;
+	}
 	FPlatformMisc::RequestExit(false, TEXT("VerseHarness"));
 }
 
@@ -70,14 +75,14 @@ void UVerseHarnessSubsystem::StartDrivers(UWorld* World)
 		if (!FFileHelper::LoadFileToString(Text, *Path) || !FVerseHarnessScenario::Parse(Text, Scenario, Error))
 		{
 			UE_LOG(LogVerseHarness, Error, TEXT("[VerseHarness] scenario %s: %s"), *Path, *Error);
-			Quit(TEXT("bad scenario"));
+			Quit(TEXT("bad scenario"), 2);
 			return;
 		}
 		Balance = NewObject<UVerseBalanceGauntletController>(this);
 		if (!Balance->Start(World, Scenario, Error))
 		{
 			UE_LOG(LogVerseHarness, Error, TEXT("[VerseHarness] cannot start: %s"), *Error);
-			Quit(TEXT("start failed"));
+			Quit(TEXT("start failed"), 2);
 		}
 		return;
 	}
@@ -173,7 +178,9 @@ bool UVerseHarnessSubsystem::TickHarness(float DeltaS)
 	}
 	if (Balance && !Balance->Tick())
 	{
-		Quit(TEXT("balance run finished"));
+		// A failed unit or the wall-clock guard leaves the run short: exit non-zero (balance.py).
+		const bool bShort = Balance->HasFailed() || Balance->GetEndReason() != TEXT("all units played");
+		Quit(*(TEXT("balance run finished: ") + Balance->GetEndReason()), bShort ? 3 : 0);
 	}
 	if (Capture && !Capture->Tick(DeltaS))
 	{

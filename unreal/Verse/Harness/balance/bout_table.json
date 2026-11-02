@@ -5,6 +5,7 @@
   "killsPerBout": 22.0,
   "boutSimS": 120.0,
   "jobs": 4,
+  "provisional": "null brain (no kill in any bout); killsPerBout is the default 22; bouts cut at the 120 s speed-mode limit",
   "gates": {
     "BG1": {
       "p": 0.75,
@@ -12,7 +13,7 @@
       "unit": "bouts",
       "boutsPerPairing": 201,
       "pairings": 1,
-      "wallHours": 0.03
+      "wallHours": null
     },
     "BG2": {
       "p": 0.75,
@@ -20,7 +21,7 @@
       "unit": "bouts",
       "boutsPerPairing": 201,
       "pairings": 1,
-      "wallHours": 0.03
+      "wallHours": null
     },
     "BG3": {
       "p": 0.9,
@@ -28,7 +29,7 @@
       "unit": "bouts",
       "boutsPerPairing": 97,
       "pairings": 4,
-      "wallHours": 0.05
+      "wallHours": null
     },
     "BG4": {
       "p": 0.5,
@@ -36,7 +37,7 @@
       "unit": "bouts",
       "boutsPerPairing": 267,
       "pairings": 17,
-      "wallHours": 0.62
+      "wallHours": null
     },
     "BG5": {
       "p": 0.45,
@@ -44,7 +45,7 @@
       "unit": "kills",
       "boutsPerPairing": 13,
       "pairings": 18,
-      "wallHours": 0.03
+      "wallHours": null
     },
     "BG6": {
       "p": 0.4,
@@ -52,7 +53,7 @@
       "unit": "kills",
       "boutsPerPairing": 12,
       "pairings": 2,
-      "wallHours": 0.0
+      "wallHours": null
     },
     "BG7": {
       "p": 0.55,
@@ -60,7 +61,7 @@
       "unit": "kills",
       "boutsPerPairing": 13,
       "pairings": 1,
-      "wallHours": 0.0
+      "wallHours": null
     },
     "BG8": {
       "p": 0.5,
@@ -68,7 +69,7 @@
       "unit": "kills",
       "boutsPerPairing": 13,
       "pairings": 6,
-      "wallHours": 0.01
+      "wallHours": null
     },
     "BG9": {
       "p": 0.5,
@@ -76,7 +77,7 @@
       "unit": "kills",
       "boutsPerPairing": 13,
       "pairings": 1,
-      "wallHours": 0.0
+      "wallHours": null
     },
     "BG10": {
       "p": 0.5,
@@ -84,10 +85,15 @@
       "unit": "kills",
       "boutsPerPairing": 13,
       "pairings": 2,
-      "wallHours": 0.0
+      "wallHours": null
     }
   },
-  "queueBouts": 267,
+  "fullWidthQueueBouts": 267,
+  "queueBouts": 40,
+  "queueHalfWidth": {
+    "boutShare": 0.148,
+    "killShare": 0.033
+  },
   "nightlyBouts": 267,
   "measured": {
     "run": "speed-s11",
@@ -104,5 +110,5 @@
     },
     "nullBrain": true
   },
-  "note": "Measured 2026-11-02 on the reference box with the null brain on an empty map (4 processes, -nullrhi, -benchmark, fixed 60 Hz). This is the engine floor: remeasure with balance.py --speed once WP08, WP02 and the hangar level land; the bout counts below are set by the interval width, not by speed"
+  "note": "Measured 2026-11-02 on the reference box with the null brain on an empty map (4 processes, -nullrhi, -benchmark, fixed 60 Hz). xRealTimePerProcess is the engine floor, an upper bound; the wall-time rows stay null until balance.py --speed is rerun with the real brain on LV_Hangar (WP08, WP02, WP11). Bout counts come from the interval width, not from speed. The merge queue plays queueBouts per pairing; queueHalfWidth is the 95 % interval it gives"
 }

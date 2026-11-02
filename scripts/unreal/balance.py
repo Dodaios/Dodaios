@@ -27,6 +27,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import statistics
 import subprocess
 import sys
@@ -80,6 +81,24 @@ DEFAULT_KILLS_PER_BOUT = 22.0
 F5_MIN_WINDOWS = 2000
 F5_FACING_DEG = 15.0
 F5_MAX_EXCESS = 0.05
+#: L1 (bot.md 10): the scan runs after a 30-minute match; the bout has no kill cap.
+L1_MATCH_S = 1800.0
+NO_KILL_CAP = 1_000_000
+#: The end reason of a scenario every unit of which was played (speed.json "end").
+END_ALL_PLAYED = "all units played"
+#: Bouts per pairing in the merge queue (unreal-gauntlet.yml). Shorter than the table's
+#: +-0.06 count on purpose: the queue gates are one-sided and catch large regressions; the
+#: bout table records the interval width this count gives.
+QUEUE_BOUTS = 40
+#: balance.py --speed caps each bout at this much match time.
+SPEED_BOUT_LIMIT_S = 120.0
+#: Automation tests that carry the external fairness verdicts (bot.md 10): a test counts for a
+#: gate when its path holds ``.<gate id>`` or one of the words.
+FAIRNESS_TESTS = {
+    "F2": ("PerceptBoundary",),
+    "F3": ("Counterfactual",),
+    "BR1": ("BrainReplay",),
+}
 
 
 # --- statistics ---
@@ -170,6 +189,7 @@ class Pairing:
     match_time_limit_s: float | None = None
     scenario: str | None = None
     same_process: bool = False
+    kills_to_win: int | None = None
 
     def to_json(self) -> dict:
         return {"id": self.id, "set": self.set, "a": self.a, "b": self.b}
@@ -239,7 +259,9 @@ def build_pairings(
                     _model(tier="hard", trick="repeek"),
                     ".l1",
                     matches=1,
-                    bouts_per_match=3,
+                    bouts_per_match=1,
+                    match_time_limit_s=L1_MATCH_S,
+                    kills_to_win=NO_KILL_CAP,
                     same_process=True,
                 )
             )
@@ -285,7 +307,7 @@ class Unit:
             "bouts": self.bouts,
             "a": self.pairing.a,
             "b": self.pairing.b,
-            "killsToWin": int(cfg.get("killsToWin", 15)),
+            "killsToWin": int(self.pairing.kills_to_win or cfg.get("killsToWin", 15)),
             "matchTimeLimitS": float(
                 self.pairing.match_time_limit_s or cfg.get("matchTimeLimitS", 600)
             ),
@@ -396,45 +418,58 @@ def read_bouts(root: Path) -> list[dict]:
 
 
 FIRE_AUDIT_TAG = "[VerseFireAudit]"
+_AUDIT_FIELD = re.compile(r"\b(\w+)\"?\s*[=:]\s*\"?([\w.:\-]+)")
 
 
-def parse_fire_audit(text: str) -> dict[tuple[str, int, int, str], dict[str, int]]:
-    """Counts per (pairing, match, bout, side) and mode from ``[VerseFireAudit]`` log lines.
+def parse_fire_audit(text: str) -> tuple[list[tuple[float, str]], int]:
+    """Bot shots of ``[VerseFireAudit]`` log lines as ``(ServerTimeMs, mode)``, plus unparsed lines.
 
-    Line format (written by VerseBot for each bot shot, bot.md frozen interface):
-    ``[VerseFireAudit] pairing=<id> match=<m> bout=<n> side=<A|B> mode=<mode> ...`` with mode
-    one of Visible, Suppression, Prefire, WallShot.
+    ``FVerseBotFireAudit { ServerTimeMs, Mode, ... }`` and its log format belong to VerseBot
+    (WP08). VerseBot cannot know harness pairing, match or bout ids, so the harness
+    attributes each line itself: it reads the two fields it needs, ``ServerTimeMs`` and
+    ``Mode`` (key=value or JSON after the tag, keys in any case, an enum prefix such as
+    ``EVerseBotFireMode::`` dropped) and maps the time onto the bout windows
+    (``serverStartMs``/``serverEndMs``) that UVerseBalanceGauntletController writes. The tag and
+    these two field names are a contract request to the integration owner.
     """
-    counts: dict[tuple[str, int, int, str], dict[str, int]] = {}
+    shots: list[tuple[float, str]] = []
+    unparsed = 0
+    modes = {m.lower(): m for m in AUDIT_MODES}
     for line in text.splitlines():
         at = line.find(FIRE_AUDIT_TAG)
         if at < 0:
             continue
-        fields = dict(
-            part.split("=", 1) for part in line[at + len(FIRE_AUDIT_TAG) :].split() if "=" in part
-        )
+        fields = {k.lower(): v for k, v in _AUDIT_FIELD.findall(line[at + len(FIRE_AUDIT_TAG) :])}
         try:
-            key = (fields["pairing"], int(fields["match"]), int(fields["bout"]), fields["side"])
+            server_ms = float(fields["servertimems"])
         except (KeyError, ValueError):
+            unparsed += 1
             continue
-        mode = fields.get("mode", "Unclassified")
-        bucket = counts.setdefault(key, {})
-        bucket[mode] = bucket.get(mode, 0) + 1
-    return counts
+        mode = fields.get("mode", "").split("::")[-1]
+        shots.append((server_ms, modes.get(mode.lower(), "Unclassified")))
+    return shots, unparsed
 
 
-def merge_fire_audit(
-    bouts: list[dict], audit: Mapping[tuple[str, int, int, str], Mapping[str, int]]
-) -> None:
-    for bout in bouts:
-        for side in ("A", "B"):
-            key = (bout["pairing"], bout["match"], bout["bout"], side)
-            if key in audit:
-                stats = bout[side.lower()]
-                merged = dict(stats.get("fireAudit") or {})
-                for mode, n in audit[key].items():
-                    merged[mode] = merged.get(mode, 0) + n
-                stats["fireAudit"] = merged
+def attribute_fire_audit(bouts: list[dict], shots: Sequence[tuple[float, str]]) -> int:
+    """Counts each shot into the bout of the same process whose server window holds it.
+
+    Returns the number of shots outside every window (bouts follow each other without a gap,
+    so any such shot is an attribution failure and fails F4).
+    """
+    windows = sorted(
+        (float(b["serverStartMs"]), float(b["serverEndMs"]), b)
+        for b in bouts
+        if "serverStartMs" in b and "serverEndMs" in b
+    )
+    outside = 0
+    for server_ms, mode in shots:
+        bout = next((b for lo, hi, b in windows if lo <= server_ms <= hi), None)
+        if bout is None:
+            outside += 1
+            continue
+        audit = bout.setdefault("fireAudit", {})
+        audit[mode] = audit.get(mode, 0) + 1
+    return outside
 
 
 # --- aggregation ---
@@ -539,9 +574,8 @@ def _pairing_metrics(
     metrics["engagementRangeHist"] = hist
     metrics["spawnKills"] = sum(1 for k in kills if k.get("spawnKill"))
     audit: dict = {}
-    for s, slot in (("a", p.a), ("b", p.b)):
-        if not _is_bot(slot):
-            continue
+    bot_sides = [s for s, slot in (("a", p.a), ("b", p.b)) if _is_bot(slot)]
+    for s in bot_sides:
         modes = {m: 0 for m in AUDIT_MODES}
         shots = _side_sum(rows, s, "shots")
         for r in rows:
@@ -551,6 +585,17 @@ def _pairing_metrics(
         modes["Unclassified"] = max(0, shots - sum(modes.values()))
         modes["shots"] = shots
         audit[s] = modes
+    if bot_sides:
+        # Audit lines attributed by bout window (attribute_fire_audit) carry no side.
+        total = {m: sum(audit[s][m] for s in bot_sides) for m in AUDIT_MODES}
+        for r in rows:
+            for mode, count in (r.get("fireAudit") or {}).items():
+                if mode in total:
+                    total[mode] += int(count)
+        shots = sum(audit[s]["shots"] for s in bot_sides)
+        total["Unclassified"] = max(0, shots - sum(total.values()))
+        total["shots"] = shots
+        audit["bots"] = total
     metrics["fireAudit"] = audit
     metrics["learningDelta"] = _round(_learning_delta(rows, kills))
     metrics["adaptiveTrace"] = [float(v) for r in rows for v in r.get("adaptiveTrace", [])]
@@ -650,12 +695,27 @@ def f5_statistic(
     return (true_hits - decoy_hits) / len(windows)
 
 
+def _inside(path: Path, folders: Sequence[Path]) -> bool:
+    resolved = path.resolve()
+    return any(resolved == f or f in resolved.parents for f in folders)
+
+
 def l1_scan(
-    roots: Iterable[Path], fields: Sequence[str], since: float, bridge_frames: Iterable[str] = ()
+    roots: Iterable[Path],
+    fields: Sequence[str],
+    since: float,
+    bridge_frames: Iterable[str] = (),
+    exclude: Iterable[Path] = (),
 ) -> list[str]:
-    """Files under ``roots`` written since ``since`` or bridge frames that hold match memory."""
+    """Files under ``roots`` written since ``since`` or bridge frames that hold match memory.
+
+    ``exclude`` names folders the harness itself writes during the run (the run folder with its
+    job logs, scenarios and bout records); engine process logs (``*.log`` under ``Logs``) are
+    exempt too. Everything else the run left behind is scanned.
+    """
     hits: list[str] = []
     needles = [f.encode("utf-8") for f in fields]
+    skip = [Path(f).resolve() for f in exclude]
     for root in roots:
         if not root.exists():
             continue
@@ -663,11 +723,9 @@ def l1_scan(
             try:
                 if not path.is_file() or path.stat().st_mtime < since:
                     continue
-                if path.suffix.lower() in (".log", ".jsonl") and path.parent.name in (
-                    "Logs",
-                    "balance",
-                ):
-                    # Process logs and the harness' own bout records name fields by design.
+                if _inside(path, skip):
+                    continue
+                if path.suffix.lower() == ".log" and "Logs" in path.parts:
                     continue
                 data = path.read_bytes()
             except OSError:
@@ -920,16 +978,26 @@ def gate_bg10(metrics: Mapping[str, dict], cfg: Mapping) -> Gate:
     return _verdict("BG10", checks, {})
 
 
-def gate_f4(metrics: Mapping[str, dict]) -> Gate:
+def _bot_audit(m: Mapping) -> list[Mapping]:
+    audit = m.get("fireAudit") or {}
+    return [audit["bots"]] if "bots" in audit else list(audit.values())
+
+
+def gate_f4(metrics: Mapping[str, dict], unattributed: int = 0) -> Gate:
     played = [m for m in metrics.values() if m["bouts"]]
     if not played:
         return Gate("F4", "not_run", "no bouts played")
-    unclassified = sum(a.get("Unclassified", 0) for m in played for a in m["fireAudit"].values())
-    shots = sum(a.get("shots", 0) for m in played for a in m["fireAudit"].values())
+    unclassified = sum(a.get("Unclassified", 0) for m in played for a in _bot_audit(m))
+    shots = sum(a.get("shots", 0) for m in played for a in _bot_audit(m))
+    if shots == 0 and unattributed == 0:
+        return Gate("F4", "not_run", "no bot shot fired (null brain until WP08 lands)")
     return _verdict(
         "F4",
-        [(f"unclassified bot shots {unclassified} of {shots} == 0", unclassified == 0)],
-        {"botShots": shots, "unclassified": unclassified},
+        [
+            (f"unclassified bot shots {unclassified} of {shots} == 0", unclassified == 0),
+            (f"audit lines outside every bout window {unattributed} == 0", unattributed == 0),
+        ],
+        {"botShots": shots, "unclassified": unclassified, "unattributed": unattributed},
     )
 
 
@@ -1001,19 +1069,50 @@ def gate_external(gate: str, checks: Mapping[str, Mapping], what: str) -> Gate:
     return Gate(gate, entry.get("status", "not_run"), entry.get("detail", what))
 
 
+def checks_from_automation(root: Path) -> dict[str, dict]:
+    """F2, F3 and BR1 verdicts from every automation ``index.json`` under ``root``.
+
+    A gate passes when every test that carries it succeeded, fails when one did not, and is
+    left out (not_run) when no test carries it yet.
+    """
+    found: dict[str, list[tuple[str, str]]] = {g: [] for g in FAIRNESS_TESTS}
+    for index in sorted(root.rglob("index.json")) if root.exists() else []:
+        try:
+            tests = json.loads(index.read_text(encoding="utf-8-sig")).get("tests", [])
+        except (OSError, ValueError):
+            continue
+        for test in tests:
+            path = str(test.get("fullTestPath", ""))
+            for gate, words in FAIRNESS_TESTS.items():
+                parts = path.split(".")
+                if gate in parts or any(w in path for w in words):
+                    found[gate].append((path, str(test.get("state", ""))))
+    checks: dict[str, dict] = {}
+    for gate, rows in found.items():
+        if not rows:
+            continue
+        bad = [path for path, state in rows if state != "Success"]
+        checks[gate] = {
+            "status": "fail" if bad else "pass",
+            "detail": (f"failed: {', '.join(bad[:5])}" if bad else f"{len(rows)} tests passed"),
+        }
+    return checks
+
+
 def gate_bg11(parts: Mapping[str, Gate], nightly: bool) -> Gate:
     want = ["F3", "F4"] + (["F5", "F7", "L1"] if nightly else [])
     states = {g: parts[g].status for g in want if g in parts}
     failed = [g for g, s in states.items() if s == "fail"]
     if failed:
         return Gate("BG11", "fail", "failed: " + ", ".join(failed), states)
-    if all(s == "not_run" for s in states.values()):
-        return Gate("BG11", "not_run", "no fairness test ran", states)
-    not_run = [g for g, s in states.items() if s == "not_run"]
-    detail = "passed: " + ", ".join(g for g, s in states.items() if s == "pass")
-    if not_run:
-        detail += "; not run (listed, not silent): " + ", ".join(not_run)
-    return Gate("BG11", "pass", detail, states)
+    missing = [g for g in want if states.get(g) != "pass"]
+    if missing:
+        passed = [g for g in want if states.get(g) == "pass"]
+        detail = "not run: " + ", ".join(missing)
+        if passed:
+            detail += "; passed: " + ", ".join(passed)
+        return Gate("BG11", "not_run", detail, states)
+    return Gate("BG11", "pass", "passed: " + ", ".join(want), states)
 
 
 def evaluate_gates(
@@ -1025,6 +1124,7 @@ def evaluate_gates(
     nightly: bool = False,
     static_root: Path | None = None,
     only: Iterable[str] | None = None,
+    audit_unattributed: int = 0,
 ) -> list[Gate]:
     metrics = {m["id"]: m for m in metrics_list}
     checks = checks or {}
@@ -1043,7 +1143,7 @@ def evaluate_gates(
         "F1": gate_static("F1", check_bot_isolation.check_isolation(source), "bot isolation"),
         "F2": gate_external("F2", checks, "percept boundary automation tests"),
         "F3": gate_external("F3", checks, "counterfactual invariance automation test"),
-        "F4": gate_f4(metrics),
+        "F4": gate_f4(metrics, audit_unattributed),
         "F5": gate_f5(metrics),
         "F6": gate_static("F6", check_bot_isolation.check_symmetry(source), "perception symmetry"),
         "F7": gate_f7(metrics),
@@ -1148,8 +1248,15 @@ def bout_table(
     bout_sim_s: float = 240.0,
     jobs: int = common.MAX_HEADLESS_JOBS,
     pairings_per_gate: Mapping[str, int] | None = None,
+    provisional: str | None = None,
+    queue_bouts: int = QUEUE_BOUTS,
 ) -> dict:
-    """Bouts per pairing for a 95 % interval of at most +-0.06, and their wall time."""
+    """Bouts per pairing for a 95 % interval of at most +-0.06, and their wall time.
+
+    ``provisional`` names why the speed sample does not stand for a real bout (null brain,
+    a default kill count, bouts cut by the speed-mode time limit); the wall-time rows are then
+    left out (``null``) instead of reporting a number that is far too low.
+    """
     x = float(speed["xRealTimePerProcess"])
     rows = {}
     for gate, (p, unit) in GATE_TRIALS.items():
@@ -1163,8 +1270,11 @@ def bout_table(
             "unit": unit,
             "boutsPerPairing": bouts,
             "pairings": pairings,
-            "wallHours": round(wall_h, 2),
+            "wallHours": None if provisional else round(wall_h, 2),
         }
+    bout_lo, bout_hi = wilson(round(queue_bouts * 0.5), queue_bouts) or (0.0, 1.0)
+    kills = round(queue_bouts * kills_per_bout)
+    kill_lo, kill_hi = wilson(round(kills * 0.5), kills) or (0.0, 1.0)
     return {
         "schema": "verse.bout_table/1",
         "halfWidth": HALF_WIDTH,
@@ -1172,8 +1282,14 @@ def bout_table(
         "killsPerBout": kills_per_bout,
         "boutSimS": bout_sim_s,
         "jobs": jobs,
+        "provisional": provisional,
         "gates": rows,
-        "queueBouts": max(rows[g]["boutsPerPairing"] for g in ("BG1", "BG2", "BG4")),
+        "fullWidthQueueBouts": max(rows[g]["boutsPerPairing"] for g in ("BG1", "BG2", "BG4")),
+        "queueBouts": queue_bouts,
+        "queueHalfWidth": {
+            "boutShare": round((bout_hi - bout_lo) / 2, 3),
+            "killShare": round((kill_hi - kill_lo) / 2, 3),
+        },
         "nightlyBouts": max(r["boutsPerPairing"] for r in rows.values()),
     }
 
@@ -1255,17 +1371,75 @@ def run_jobs(
     return results
 
 
-def collect(run_dir: Path) -> tuple[list[dict], list[dict], str]:
-    bouts = read_bouts(run_dir)
-    speed_docs = [load_json(p) for p in sorted(run_dir.rglob("speed.json"))]
-    log_text = "\n".join(
-        p.read_text(encoding="utf-8", errors="replace") for p in sorted(run_dir.rglob("job*.log"))
+def _read_bout_file(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
+
+
+def collect(run_dir: Path) -> tuple[list[dict], list[dict], str, int]:
+    """Bouts, speed documents, the fire-audit log path and the unattributed audit line count.
+
+    Audit lines are attributed per process folder (``job<k>/``): its log and its bouts share
+    one server clock.
+    """
+    bouts: list[dict] = []
+    audit_lines: list[str] = []
+    unattributed = 0
+    folders = sorted(
+        {p.parent for p in run_dir.rglob("bouts.jsonl")}
+        | {p.parent for p in run_dir.rglob("job*.log")}
     )
-    merge_fire_audit(bouts, parse_fire_audit(log_text))
+    for folder in folders:
+        job_bouts = _read_bout_file(folder / "bouts.jsonl")
+        text = "\n".join(
+            p.read_text(encoding="utf-8", errors="replace") for p in sorted(folder.glob("job*.log"))
+        )
+        shots, unparsed = parse_fire_audit(text)
+        unattributed += unparsed + attribute_fire_audit(job_bouts, shots)
+        audit_lines += [line for line in text.splitlines() if FIRE_AUDIT_TAG in line]
+        bouts += job_bouts
+    speed_docs = [load_json(p) for p in sorted(run_dir.rglob("speed.json"))]
     audit_log = run_dir / "fire_audit.log"
-    audit_lines = [line for line in log_text.splitlines() if FIRE_AUDIT_TAG in line]
     audit_log.write_text("\n".join(audit_lines) + ("\n" if audit_lines else ""), encoding="utf-8")
-    return bouts, speed_docs, str(audit_log)
+    return bouts, speed_docs, str(audit_log), unattributed
+
+
+def planned_units(run_dir: Path) -> dict[tuple[str, int], int]:
+    """(pairing, match) -> planned bouts, from the run's scenario files."""
+    plan: dict[tuple[str, int], int] = {}
+    for path in sorted(run_dir.rglob("scenario.json")):
+        for unit in load_json(path).get("units", []):
+            plan[(unit["pairing"], int(unit["match"]))] = int(unit["bouts"])
+    return plan
+
+
+def completeness(
+    run_dir: Path,
+    bouts: Sequence[dict],
+    speed_docs: Sequence[Mapping],
+    results: Sequence[Mapping] = (),
+) -> list[str]:
+    """Why the run is short: failed or killed jobs, early ends, units with missing bouts."""
+    problems = [
+        f"job {r['job']} exited {r['returncode']} (log {r['log']})"
+        for r in results
+        if r.get("returncode") != 0
+    ]
+    for doc in speed_docs:
+        end = doc.get("end", "")
+        if doc.get("failed") or end != END_ALL_PLAYED:
+            problems.append(f"job {doc.get('job')} ended early: {end or 'no end reason'}")
+    played: dict[tuple[str, int], int] = {}
+    for b in bouts:
+        key = (b["pairing"], int(b["match"]))
+        played[key] = played.get(key, 0) + 1
+    for (pairing, match), want in sorted(planned_units(run_dir).items()):
+        got = played.get((pairing, match), 0)
+        if got < want:
+            problems.append(f"unit {pairing}#{match}: {got} of {want} bouts")
+    return problems
 
 
 def summarize(gates: Sequence[Gate]) -> int:
@@ -1306,6 +1480,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--checks", type=Path, help="JSON {gate: {status, detail}} for F2, F3, BR1, L1."
     )
     parser.add_argument(
+        "--checks-from-automation",
+        type=Path,
+        help="Folder of automation reports (index.json) that give F2, F3 and BR1.",
+    )
+    parser.add_argument(
         "--from-bouts", type=Path, help="Recompute the report from a run folder; no run."
     )
     parser.add_argument("--plan", action="store_true", help="Print the units per job and exit.")
@@ -1329,7 +1508,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             common.UnrealScriptError(f"unknown gate ids: {sorted(set(only) - set(GATE_IDS))}")
         )
     patch = load_json(args.patch) if args.patch else None
-    checks = load_json(args.checks) if args.checks else None
+    checks = load_json(args.checks) if args.checks else {}
+    if args.checks_from_automation:
+        checks = {**checks_from_automation(args.checks_from_automation), **checks}
     sets = args.sets or (["ladder"] if args.speed else ["all"])
     if args.speed:
         sets = ["ladder"]
@@ -1343,7 +1524,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.from_bouts:
         run_dir = args.from_bouts.resolve()
-        bouts_list, speed_docs, audit_log = collect(run_dir)
+        bouts_list, speed_docs, audit_log, unattributed = collect(run_dir)
+        incomplete = completeness(run_dir, bouts_list, speed_docs)
         played = {b["pairing"] for b in bouts_list}
         pairings = [p for p in build_pairings(["all"], cfg, tricks) if p.id in played] or pairings
     else:
@@ -1351,7 +1533,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.speed:
             units = units[: max(1, args.jobs)]
             for u in units:
-                u.pairing.match_time_limit_s = 120.0
+                u.pairing.match_time_limit_s = SPEED_BOUT_LIMIT_S
         shards = shard_units(units, args.jobs)
         if args.plan:
             for k, shard in enumerate(shards):
@@ -1372,12 +1554,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except common.UnrealScriptError as error:
             return common.exit_with(error)
-        bad = [r for r in results if r["returncode"] != 0]
-        for r in bad:
-            common.log(f"job {r['job']} exited {r['returncode']} (log {r['log']})")
-        bouts_list, speed_docs, audit_log = collect(run_dir)
-        if bad and not bouts_list:
-            return 1
+        bouts_list, speed_docs, audit_log, unattributed = collect(run_dir)
+        incomplete = completeness(run_dir, bouts_list, speed_docs, results)
+    for problem in incomplete:
+        common.log(f"incomplete run: {problem}")
 
     speed = speed_summary(speed_docs)
     if args.speed:
@@ -1387,17 +1567,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         sim_bouts = [float(b["durationS"]) for b in bouts_list] or [240.0]
         kills = [len(b.get("kills", [])) for b in bouts_list]
-        kpb = (
-            statistics.mean(kills)
-            if kills and statistics.mean(kills) > 0
-            else DEFAULT_KILLS_PER_BOUT
-        )
+        measured_kills = bool(kills) and statistics.mean(kills) > 0
+        kpb = statistics.mean(kills) if measured_kills else DEFAULT_KILLS_PER_BOUT
+        why = []
+        if all(not b.get("kills") for b in bouts_list):
+            why.append("null brain (no kill in any bout)")
+        if not measured_kills:
+            why.append(f"killsPerBout is the default {DEFAULT_KILLS_PER_BOUT:g}")
+        if any(float(b["durationS"]) >= SPEED_BOUT_LIMIT_S - 0.5 for b in bouts_list):
+            why.append(f"bouts cut at the {SPEED_BOUT_LIMIT_S:g} s speed-mode limit")
         table = bout_table(
             speed,
             kills_per_bout=kpb,
             bout_sim_s=max(statistics.mean(sim_bouts), 1.0),
             jobs=max(1, args.jobs),
             pairings_per_gate=pairings_per_gate(cfg),
+            provisional="; ".join(why) or None,
         )
         table["measured"] = {
             "run": run,
@@ -1406,7 +1591,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         (run_dir / "speed_report.json").write_text(json.dumps(table, indent=2), encoding="utf-8")
         print(json.dumps(table, indent=2))
-        return 0
+        return 1 if incomplete else 0
 
     started = min((p.stat().st_mtime for p in run_dir.rglob("scenario.json")), default=time.time())
     l1 = None
@@ -1416,12 +1601,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         data_dir = os.environ.get("DODAIOS_DATA_DIR")
         if data_dir:
             roots.append(Path(data_dir))
-        l1 = l1_scan(roots, fields, started)
+        l1 = l1_scan(roots, fields, started, exclude=[run_dir])
     metrics = aggregate(
         pairings, bouts_list, float(cfg["reset"]["windowS"]), cfg["adaptive"]["killWindow"]
     )
     gates = evaluate_gates(
-        metrics, cfg, checks=checks, l1_findings=l1, nightly=args.nightly, only=only
+        metrics,
+        cfg,
+        checks=checks,
+        l1_findings=l1,
+        nightly=args.nightly,
+        only=only,
+        audit_unattributed=unattributed,
     )
     report = build_report(
         run,
@@ -1435,6 +1626,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         speed=speed,
         fire_audit_log=audit_log,
     )
+    report["incomplete"] = incomplete
     problems = validate(report, "balance.schema.json")
     if problems:
         return common.exit_with(
@@ -1443,7 +1635,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     common.log(f"report: {run_dir / 'report.json'}")
-    return summarize(gates)
+    code = summarize(gates)
+    if incomplete:
+        print(f"balance: FAIL (incomplete run: {len(incomplete)} problems, see report.json)")
+        return 1
+    return code
 
 
 def _table_bouts() -> int:

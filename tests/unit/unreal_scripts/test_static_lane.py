@@ -285,6 +285,28 @@ def test_unreal_workflows_follow_the_policy(name):
             assert "${{" not in step.get("run", ""), f"{name}: expression inside run (use env)"
 
 
+@pytest.mark.parametrize("name", ["unreal-build.yml", "unreal-gauntlet.yml", "unreal-perf.yml"])
+def test_self_hosted_lanes_queue_per_ref_and_never_cancel(name):
+    group = _load(name)["concurrency"]
+    assert group["cancel-in-progress"] is False
+    # A shared group keeps one pending run and cancels the others (merge-queue entries).
+    assert "github.ref" in group["group"]
+
+
+@pytest.mark.parametrize("name", ["unreal-build.yml", "unreal-gauntlet.yml"])
+def test_merge_queue_entries_without_unreal_paths_skip_the_self_hosted_job(name):
+    workflow = _load(name)
+    assert "merge_group" in workflow[True]
+    changes = workflow["jobs"]["changes"]
+    assert changes["runs-on"] == "ubuntu-24.04" and changes["timeout-minutes"] <= 5
+    script = changes["steps"][0]["run"]
+    for prefix in ("unreal/", "art/verse/", "docs/verse/unreal/", "scripts/unreal/"):
+        assert prefix in script
+    first = workflow["jobs"]["win64" if name == "unreal-build.yml" else "gauntlet"]
+    assert first["needs"] == "changes"
+    assert "needs.changes.outputs.unreal == 'true'" in first["if"]
+
+
 def test_static_lane_is_hosted_fast_and_lfs_off():
     job = _load("unreal-static.yml")["jobs"]["static"]
     assert job["runs-on"] == "ubuntu-24.04"

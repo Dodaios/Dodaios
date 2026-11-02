@@ -67,6 +67,7 @@
         }
       }
     },
-    "fireAuditLog": {"type": ["string", "null"]}
+    "fireAuditLog": {"type": ["string", "null"]},
+    "incomplete": {"type": "array", "items": {"type": "string"}}
   }
 }

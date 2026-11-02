@@ -14,6 +14,9 @@
     "winner": {"enum": ["A", "B", "none"]},
     "durationS": {"type": "number", "minimum": 0},
     "matchTimeStartS": {"type": "number", "minimum": 0},
+    "serverStartMs": {"type": "number", "minimum": 0},
+    "serverEndMs": {"type": "number", "minimum": 0},
+    "fireAudit": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
     "kills": {
       "type": "array",
       "items": {

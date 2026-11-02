@@ -38,7 +38,7 @@ private:
 	bool TickHarness(float DeltaS);
 	void StartDrivers(UWorld* World);
 	void TickNet(UWorld* World, float DeltaS);
-	void Quit(const TCHAR* Why);
+	void Quit(const TCHAR* Why, uint8 ExitCode = 0);
 
 	FTSTicker::FDelegateHandle TickHandle;
 

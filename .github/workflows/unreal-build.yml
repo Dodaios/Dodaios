@@ -22,16 +22,54 @@ on:
 permissions:
   contents: read
 
-# One Unreal job at a time on the box; scripts/unreal/with_lock.py serialises it against
-# local agent builds as well. Waiters queue, they are never cancelled.
+# One concurrency group per ref: GitHub keeps only one pending run per group, so a shared
+# group would let a newer merge-queue entry cancel an older pending one. Machine-wide
+# serialisation (one Unreal job at a time, also against local agent builds) is the job of
+# scripts/unreal/with_lock.py, which every Unreal step goes through.
 concurrency:
-  group: unreal-build
+  group: unreal-build-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  changes:
+    name: unreal-build (path filter)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      unreal: ${{ steps.diff.outputs.unreal }}
+    steps:
+      - id: diff
+        name: Unreal paths in this change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          # Only merge-queue entries are filtered here; the other triggers carry their own
+          # path filter or run on a schedule. Any doubt (API error, 300+ files) means run.
+          if [ "$EVENT" != "merge_group" ]; then
+            echo "unreal=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files=$(gh api "repos/$REPO/compare/$BASE...$HEAD" --jq '.files[].filename'); then
+            echo "unreal=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          count=$(printf '%s\n' "$files" | grep -c . || true)
+          pattern='^(unreal/|art/verse/|docs/verse/unreal/|scripts/unreal/|\.github/workflows/unreal-)'
+          if [ "$count" -ge 300 ] || printf '%s\n' "$files" | grep -qE "$pattern"; then
+            echo "unreal=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "unreal=false" >> "$GITHUB_OUTPUT"
+            echo "no Unreal path in this queue entry; the lane is skipped"
+          fi
+
   win64:
     name: unreal-build (Win64 Editor + Game, automation, netcode)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: changes
+    if: needs.changes.outputs.unreal == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, windows, unreal]
     timeout-minutes: 240
     defaults:

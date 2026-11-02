@@ -2,14 +2,19 @@
 """Static fairness checks F1 (isolation) and F6 (symmetry) of contracts/bot.md section 10.
 
 F1: ``Source/VerseBot/**`` never reads the truth about the opponent. It uses
-none of ``GetPlayerPawn``, ``GetPlayerController``, actor iterators or
-``GetAllActorsOfClass`` over pawns, ``GetPawn()`` on another controller,
+none of ``GetPlayerPawn``, ``GetPlayerCharacter``, ``GetPlayerController``,
+actor iterators, ``GetAllActorsOfClass`` or ``GetActorOfClass`` over pawns, a
+generic ``TActorIterator<AActor>``/``TActorRange<AActor>`` in a file that casts to
+a pawn, ``GetPawn()`` on another controller,
 another actor's ability system component, ``IVersePieceQuery::GetPieceState``
 outside ``FVersePieceBelief``; no EQS context returns an ``AVerseCharacter``;
-raw world traces only on ``VerseSight`` or through ``TestSight``.
+raw world traces only on ``VerseSight`` or through ``TestSight``. That sight
+traces ignore pawn capsules is a property of the ``VerseSight`` channel set-up and
+is checked at run time by F2, not here.
 
 F6: the harness person models read the same ``FVersePerceptFrame`` under the
-same rules as the bot, and hearing ranges come from ``DA_Audibility``
+same rules as the bot: the model controller subscribes to ``OnPerceptFrame``
+(naming the type is not enough), and hearing ranges come from ``DA_Audibility``
 (``UVerseAudibilityTable``), never from numbers in code.
 
 Comments and string literals are stripped before matching.
@@ -41,6 +46,11 @@ PAWNISH = r"(?:AVerseCharacter|ACharacter|APawn|AVerseDefaultCharacter)"
 RULES: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ("F1.player-pawn", re.compile(r"\bGetPlayerPawn\s*\("), "GetPlayerPawn reads the opponent"),
     (
+        "F1.player-character",
+        re.compile(r"\bGetPlayerCharacter\s*\("),
+        "GetPlayerCharacter reads the opponent",
+    ),
+    (
         "F1.player-controller",
         re.compile(r"\bGet(?:First)?PlayerController(?:Iterator)?\s*\("),
         "GetPlayerController reaches the person's controller",
@@ -54,6 +64,11 @@ RULES: tuple[tuple[str, re.Pattern[str], str], ...] = (
         "F1.all-actors",
         re.compile(rf"\bGetAllActors(?:OfClass|WithInterface|WithTag)?\s*\([^;]*{PAWNISH}"),
         "GetAllActorsOfClass on pawns",
+    ),
+    (
+        "F1.actor-of-class",
+        re.compile(rf"\bGetActors?OfClass\s*(?:<\s*{PAWNISH}\s*>|\([^;]*{PAWNISH})"),
+        "GetActorOfClass on pawns",
     ),
     (
         "F1.other-pawn",
@@ -76,6 +91,9 @@ RULES: tuple[tuple[str, re.Pattern[str], str], ...] = (
         "a raw world trace that is not on VerseSight (use IVersePenetrationQuery::TestSight)",
     ),
 )
+GENERIC_ITERATOR = re.compile(r"\bT(?:Actor|Object)(?:Iterator|Range)\s*<\s*(?:AActor|UObject)\s*>")
+PAWN_CAST = re.compile(rf"\bCast(?:Checked)?\s*<\s*{PAWNISH}\s*>")
+PERCEPT_SUBSCRIBE = re.compile(r"\bOnPerceptFrame\s*(?:\.|->)\s*Add\w*\s*\(")
 PIECE_STATE = re.compile(r"\bGetPieceState\s*\(")
 EQS_CONTEXT = re.compile(r"\bUEnvQueryContext\w*")
 EQS_PAWN = re.compile(r"\bAVerseCharacter\b")
@@ -140,6 +158,12 @@ def check_isolation(source: Path = DEFAULT_SOURCE) -> list[str]:
                     f"{_rel(path, source)}:{_line_of(code, match.start())}: F1.piece-state: "
                     "IVersePieceQuery::GetPieceState outside FVersePieceBelief"
                 )
+        if PAWN_CAST.search(code):
+            for match in GENERIC_ITERATOR.finditer(code):
+                findings.append(
+                    f"{_rel(path, source)}:{_line_of(code, match.start())}: F1.actor-iterator: "
+                    "a generic actor iterator in a file that casts to a pawn"
+                )
         if EQS_CONTEXT.search(code):
             for match in EQS_PAWN.finditer(code):
                 findings.append(
@@ -160,9 +184,15 @@ def check_symmetry(source: Path = DEFAULT_SOURCE) -> list[str]:
     models = _model_files(source)
     for path in models:
         findings += [f.replace(": F1.", ": F6.model.", 1) for f in scan_rules(path, source, RULES)]
-    if models and not any(PERCEPT_FRAME.search(p.read_text(encoding="utf-8")) for p in models):
+    model_code = [strip_code(p.read_text(encoding="utf-8", errors="replace")) for p in models]
+    if models and not any(PERCEPT_FRAME.search(code) for code in model_code):
         findings.append(
             "VerseHarness: F6.model-input: person models do not read FVersePerceptFrame"
+        )
+    if models and not any(PERCEPT_SUBSCRIBE.search(code) for code in model_code):
+        findings.append(
+            "VerseHarness: F6.model-subscribe: no person model subscribes to OnPerceptFrame, "
+            "so no frame ever reaches it"
         )
     hearing_dirs = [source / "VerseBot", source / "VerseCombat" / "Private" / "Perception"]
     for directory in hearing_dirs:

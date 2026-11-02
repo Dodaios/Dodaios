@@ -111,7 +111,7 @@ def test_command_is_the_dedicated_server_of_bot_md_11_1(tmp_path):
 
 
 def test_fixture_bouts_give_the_hand_calculated_metrics(cfg):
-    bouts, _speed, _log = balance.collect(FIXTURE_RUN)
+    bouts, _speed, _log, _out = balance.collect(FIXTURE_RUN)
     pairing = next(p for p in balance.build_pairings(["ladder"], cfg) if p.id == "hard_vs_normal")
     (m,) = balance.aggregate([pairing], bouts)
     assert m["bouts"] == 4 and m["kills"] == 60
@@ -132,7 +132,7 @@ def test_fixture_bouts_give_the_hand_calculated_metrics(cfg):
 
 
 def test_gates_on_the_fixture_equal_the_hand_calculation(cfg, tmp_path):
-    bouts, _speed, _log = balance.collect(FIXTURE_RUN)
+    bouts, _speed, _log, _out = balance.collect(FIXTURE_RUN)
     metrics = balance.aggregate(balance.build_pairings(["ladder"], cfg), bouts)
     gates = {g.id: g for g in balance.evaluate_gates(metrics, cfg, static_root=tmp_path)}
     assert gates["BG1"].status == "pass"
@@ -144,7 +144,13 @@ def test_gates_on_the_fixture_equal_the_hand_calculation(cfg, tmp_path):
     assert gates["F4"].status == "pass" and gates["F4"].values["unclassified"] == 0
     assert gates["BG12"].status == "pass" and gates["BG12"].values["contactMedianS"] == 6.0
     assert gates["F1"].status == "pass" and gates["F6"].status == "pass"
-    assert gates["BG11"].status == "pass" and "F3" in gates["BG11"].detail
+    # F3 comes from an automation run; without it BG11 is not a pass.
+    assert gates["BG11"].status == "not_run" and "F3" in gates["BG11"].detail
+    checks = {"F3": {"status": "pass", "detail": "20 seeds"}}
+    gates = {
+        g.id: g for g in balance.evaluate_gates(metrics, cfg, static_root=tmp_path, checks=checks)
+    }
+    assert gates["BG11"].status == "pass"
 
 
 def _m(pid, **kw):
@@ -297,23 +303,177 @@ def test_l1_scan_finds_match_memory_in_new_files(tmp_path):
         [tmp_path], ["PositionHeatmap", "PeekHabits"], since, ['{"t":"duel.result"}']
     )
     assert len(hits) == 1 and "PositionHeatmap" in hits[0]
+    # The run's own job folder is exempt; a bot log elsewhere is not.
+    run = tmp_path / "Harness" / "balance" / "r1" / "job0"
+    run.mkdir(parents=True)
+    (run / "job0.log").write_text("PeekHabits", encoding="utf-8")
+    (run / "bouts.jsonl").write_text("PeekHabits", encoding="utf-8")
+    (tmp_path / "Bot").mkdir()
+    (tmp_path / "Bot" / "bot.log").write_text("PeekHabits", encoding="utf-8")
+    hits = balance.l1_scan(
+        [tmp_path], ["PeekHabits"], since, exclude=[tmp_path / "Harness" / "balance" / "r1"]
+    )
+    assert len(hits) == 1 and "bot.log" in hits[0]
     assert balance.l1_scan([], ["PeekHabits"], since, ['{"PeekHabits":1}'])
 
 
-def test_fire_audit_lines_merge_into_bouts():
+def test_fire_audit_lines_are_attributed_by_server_window():
     text = (
-        "x [VerseFireAudit] pairing=p match=0 bout=1 side=A mode=Visible\n"
-        "[VerseFireAudit] pairing=p match=0 bout=1 side=A mode=WallShot\nnoise\n"
+        "x [VerseFireAudit] ServerTimeMs=1500 Mode=Visible bTargetVisible=1\n"
+        '[VerseFireAudit] {"serverTimeMs": 2500, "mode": "EVerseBotFireMode::WallShot"}\n'
+        "[VerseFireAudit] ServerTimeMs=2600 Mode=Guess\n"
+        "[VerseFireAudit] ServerTimeMs=9000 Mode=Visible\n"
+        "[VerseFireAudit] Mode=Visible\nnoise\n"
     )
-    audit = balance.parse_fire_audit(text)
-    assert audit == {("p", 0, 1, "A"): {"Visible": 1, "WallShot": 1}}
-    bouts = [{"pairing": "p", "match": 0, "bout": 1, "a": {}, "b": {}}]
-    balance.merge_fire_audit(bouts, audit)
-    assert bouts[0]["a"]["fireAudit"] == {"Visible": 1, "WallShot": 1}
+    shots, unparsed = balance.parse_fire_audit(text)
+    assert shots == [
+        (1500.0, "Visible"),
+        (2500.0, "WallShot"),
+        (2600.0, "Unclassified"),
+        (9000.0, "Visible"),
+    ]
+    assert unparsed == 1
+    bouts = [
+        {"bout": 0, "serverStartMs": 1000, "serverEndMs": 2000, "a": {}, "b": {}},
+        {"bout": 1, "serverStartMs": 2000, "serverEndMs": 3000, "a": {}, "b": {}},
+    ]
+    assert balance.attribute_fire_audit(bouts, shots) == 1
+    assert bouts[0]["fireAudit"] == {"Visible": 1}
+    assert bouts[1]["fireAudit"] == {"WallShot": 1, "Unclassified": 1}
+
+
+def test_f4_counts_window_attributed_shots_against_bot_shots(cfg):
+    pairing = next(p for p in balance.build_pairings(["ladder"], cfg) if p.id == "hard_vs_normal")
+    bout = {
+        "pairing": pairing.id,
+        "match": 0,
+        "bout": 0,
+        "spawnSideA": 0,
+        "winner": "none",
+        "durationS": 10.0,
+        "kills": [],
+        "a": {"shots": 3},
+        "b": {"shots": 2},
+        "fireAudit": {"Visible": 4},
+    }
+    (m,) = balance.aggregate([pairing], [bout])
+    assert m["fireAudit"]["bots"] == {
+        "Visible": 4,
+        "Suppression": 0,
+        "Prefire": 0,
+        "WallShot": 0,
+        "Unclassified": 1,
+        "shots": 5,
+    }
+    assert balance.gate_f4({m["id"]: m}).status == "fail"
+    bout["fireAudit"] = {"Visible": 4, "Prefire": 1}
+    (m,) = balance.aggregate([pairing], [bout])
+    assert balance.gate_f4({m["id"]: m}).status == "pass"
+    assert balance.gate_f4({m["id"]: m}, unattributed=2).status == "fail"
+
+
+def test_f4_with_no_bot_shot_is_not_run():
+    m = _m("hard_vs_normal", fireAudit={"bots": {"Unclassified": 0, "shots": 0}})
+    gate = balance.gate_f4({"hard_vs_normal": m})
+    assert gate.status == "not_run" and "null brain" in gate.detail
+
+
+def test_bg11_passes_only_when_every_part_passed():
+    def parts(**states):
+        return {g: balance.Gate(g, s, "") for g, s in states.items()}
+
+    assert balance.gate_bg11(parts(F3="pass", F4="pass"), False).status == "pass"
+    assert balance.gate_bg11(parts(F3="not_run", F4="pass"), False).status == "not_run"
+    assert balance.gate_bg11(parts(F3="fail", F4="not_run"), False).status == "fail"
+    nightly = parts(F3="pass", F4="pass", F5="pass", F7="not_run", L1="pass")
+    gate = balance.gate_bg11(nightly, True)
+    assert gate.status == "not_run" and "F7" in gate.detail
+
+
+def _job(run: Path, k: int, units: list[dict], bouts: list[dict], speed: dict | None) -> None:
+    job = run / f"job{k}"
+    job.mkdir(parents=True)
+    (job / "scenario.json").write_text(json.dumps({"units": units}), encoding="utf-8")
+    (job / "bouts.jsonl").write_text("".join(json.dumps(b) + "\n" for b in bouts), encoding="utf-8")
+    if speed is not None:
+        (job / "speed.json").write_text(json.dumps(speed), encoding="utf-8")
+
+
+def test_completeness_names_crashed_jobs_guards_and_short_units(tmp_path):
+    run = tmp_path / "run"
+    full = {"pairing": "p", "match": 0, "bouts": 2}
+    short = {"pairing": "q", "match": 1, "bouts": 3}
+    _job(run, 0, [full], [{"pairing": "p", "match": 0}] * 2, {"job": 0, "end": "all units played"})
+    _job(
+        run,
+        1,
+        [short],
+        [{"pairing": "q", "match": 1}],
+        {"job": 1, "end": "wall-clock guard reached"},
+    )
+    bouts = [{"pairing": "p", "match": 0}] * 2 + [{"pairing": "q", "match": 1}]
+    speed = [json.loads((run / f"job{k}" / "speed.json").read_text()) for k in (0, 1)]
+    results = [
+        {"job": 0, "returncode": 0, "log": "l0"},
+        {"job": 1, "returncode": 3, "log": "l1"},
+    ]
+    problems = balance.completeness(run, bouts, speed, results)
+    assert any("job 1 exited 3" in p for p in problems)
+    assert any("wall-clock guard" in p for p in problems)
+    assert any("q#1: 1 of 3 bouts" in p for p in problems)
+    assert not any("p#0" in p for p in problems)
+
+
+def test_from_bouts_fails_a_short_run(tmp_path):
+    run = tmp_path / "run"
+    lines = (FIXTURE_RUN / "job0" / "bouts.jsonl").read_text(encoding="utf-8").splitlines()
+    unit = {"pairing": "hard_vs_normal", "match": 0, "bouts": len(lines) + 1}
+    _job(run, 0, [unit], [json.loads(x) for x in lines], {"job": 0, "end": "all units played"})
+    code = balance.main(["--from-bouts", str(run), "--gates", "BG1", "--worktree", str(tmp_path)])
+    assert code == 1
+    report = json.loads((run / "report.json").read_text(encoding="utf-8"))
+    assert report["incomplete"] == [
+        f"unit hard_vs_normal#0: {len(lines)} of {len(lines) + 1} bouts"
+    ]
+
+
+def test_checks_from_automation_reports(tmp_path):
+    report = tmp_path / "Automation" / "20261102-1"
+    report.mkdir(parents=True)
+    tests = [
+        {"fullTestPath": "Verse.Bot.Fairness.Counterfactual.Seed1", "state": "Success"},
+        {"fullTestPath": "Verse.Bot.Fairness.Counterfactual.Seed2", "state": "Fail"},
+        {"fullTestPath": "Verse.Combat.Perception.F2.Opaque", "state": "Success"},
+        {"fullTestPath": "Verse.Harness.World.TierAndPatch", "state": "Success"},
+    ]
+    (report / "index.json").write_text(json.dumps({"tests": tests}), encoding="utf-8-sig")
+    checks = balance.checks_from_automation(tmp_path / "Automation")
+    assert checks["F3"]["status"] == "fail" and "Seed2" in checks["F3"]["detail"]
+    assert checks["F2"]["status"] == "pass"
+    assert "BR1" not in checks
+    assert balance.checks_from_automation(tmp_path / "missing") == {}
+
+
+def test_l1_pairing_is_one_30_minute_match_without_a_kill_cap(cfg):
+    (pairing,) = [p for p in balance.build_pairings(["fairness"], cfg) if p.id.endswith(".l1")]
+    (unit,) = balance.plan_units([pairing], 200, 1, 10)
+    doc = unit.to_json(cfg, None)
+    assert doc["matchTimeLimitS"] == 1800.0 and doc["bouts"] == 1
+    assert doc["killsToWin"] >= 1_000_000
+
+
+def test_queue_bout_count_matches_the_workflow():
+    workflow = (
+        Path(__file__).resolve().parents[3] / ".github" / "workflows" / "unreal-gauntlet.yml"
+    ).read_text(encoding="utf-8")
+    assert f"--bouts {balance.QUEUE_BOUTS} " in workflow
+    table = json.loads(balance.BOUT_TABLE_FILE.read_text(encoding="utf-8"))
+    assert table["queueBouts"] == balance.QUEUE_BOUTS
+    assert table["provisional"] and all(row["wallHours"] is None for row in table["gates"].values())
 
 
 def test_report_matches_the_balance_schema(cfg, tmp_path):
-    bouts, _speed, log = balance.collect(FIXTURE_RUN)
+    bouts, _speed, log, _out = balance.collect(FIXTURE_RUN)
     metrics = balance.aggregate(balance.build_pairings(["ladder"], cfg), bouts)
     gates = balance.evaluate_gates(metrics, cfg, static_root=tmp_path)
     report = balance.build_report(
@@ -363,7 +523,13 @@ def test_speed_summary_and_bout_table(cfg):
     )
     assert table["gates"]["BG4"]["boutsPerPairing"] == 267
     assert table["gates"]["BG6"]["boutsPerPairing"] == math.ceil(257 / 22)
-    assert table["queueBouts"] == 267
+    assert table["fullWidthQueueBouts"] == 267
+    assert table["queueBouts"] == balance.QUEUE_BOUTS
+    assert table["queueHalfWidth"]["boutShare"] == pytest.approx(0.148, abs=0.002)
+    assert table["gates"]["BG1"]["wallHours"] is not None and table["provisional"] is None
+    rough = balance.bout_table(speed, provisional="null brain")
+    assert rough["provisional"] == "null brain"
+    assert all(row["wallHours"] is None for row in rough["gates"].values())
     assert balance.speed_summary([]) is None
 
 

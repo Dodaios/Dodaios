@@ -10,6 +10,9 @@
 
 #include "VerseModelController.generated.h"
 
+class APawn;
+class UVerseHarnessPerceptFeed;
+
 /**
  * A person model in the balance harness (bot.md 11.1, 11.2; frozen interface): the same brain
  * as the bot with person parameters and optional trick overrides. It perceives only through
@@ -17,6 +20,11 @@
  *
  * Until VerseBot's FVerseBotBrainCore lands (WP08) the brain is the null brain: an empty input
  * frame every tick. SetBrain plugs the real one in without touching the model or trick layers.
+ *
+ * The loop: AttachPerception subscribes to OnPerceptFrame of the percept source (the harness
+ * feed until UVersePerceptionService lands, WP07). Every frame runs Think and applies the result
+ * to the possessed pawn through ApplyInputToPawn, so the trick layer acts even with the null
+ * brain (a rusher runs, a silent model crouches).
  */
 UCLASS()
 class VERSEHARNESS_API AVerseModelController : public AController
@@ -30,8 +38,28 @@ public:
 
 	virtual void PostInitializeComponents() override;
 
+	virtual void Destroyed() override;
+
 	void Configure(const FVersePersonModel& InModel, const FVerseTrickConfig& InTrick, uint32 InSeed);
 	void SetBrain(FBrain InBrain);
+
+	/** Subscribes to the feed's OnPerceptFrame and registers as an observer (one source at a time). */
+	void AttachPerception(UVerseHarnessPerceptFeed* Feed, const FVersePerceptionProfile& Profile);
+	void DetachPerception();
+
+	/** OnPerceptFrame handler: Think on this controller's frames, then drive the pawn. */
+	void HandlePerceptFrame(AController* Observer, const FVersePerceptFrame& Percepts);
+
+	/** Frames this controller has thought about since Configure. */
+	int64 GetFramesThought() const { return FramesThought; }
+
+	/**
+	 * Applies one input frame to a pawn: look to the control rotation, Move in pawn space to
+	 * movement input, Jump, Crouch and Prone to an ACharacter. The VerseMovement and VerseCombat
+	 * input path of AVerseCharacter (combat-state.md 11.1, bot.md B1) takes the whole frame once it
+	 * lands; until then fire, ADS, reload, lean, sprint, gadgets and slots have no consumer.
+	 */
+	static void ApplyInputToPawn(AController& Controller, APawn& Pawn, const FVerseInputFrame& Input);
 
 	/** One server tick: brain, then reaction delay and turn-rate limit, then trick overrides. */
 	FVerseInputFrame Think(const FVersePerceptFrame& Percepts, double NowS, float DeltaS);
@@ -58,4 +86,8 @@ private:
 	FVerseInputFrame LastInput;
 	bool bSawLastTick = false;
 	double ReactUntilS = 0.0;
+	double LastFrameS = -1.0;
+	int64 FramesThought = 0;
+	TWeakObjectPtr<UVerseHarnessPerceptFeed> PerceptSource;
+	FDelegateHandle PerceptHandle;
 };

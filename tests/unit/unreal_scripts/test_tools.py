@@ -80,6 +80,18 @@ def test_perf_csv_stats(tmp_path):
     assert stats["physicsMsAvg"] == 1.2 and stats["gpuMsAvg"] == 7.0
 
 
+def test_perf_reads_per_process_vram():
+    text = (
+        "GPU 00000000:01:00.0\n    Processes\n        Process ID : 11\n"
+        "            Used GPU Memory : 900 MiB\n        Process ID : 42\n"
+        "            Type : C+G\n            Used GPU Memory : 2048 MiB\n"
+        "        Process ID : 77\n            Used GPU Memory : Not available\n"
+    )
+    assert perf.parse_process_vram(text, 42) == 2048.0
+    assert perf.parse_process_vram(text, 77) is None
+    assert perf.parse_process_vram(text, 5) is None
+
+
 def test_perf_budgets_and_stability(tmp_path):
     budgets = perf.load_json(perf.BUDGETS_FILE)
     stats = {"fpsAvg": 125.0, "frameMsP99": 10.5, "gameThreadMsAvg": 3.0, "physicsMsAvg": 1.0}
@@ -89,6 +101,15 @@ def test_perf_budgets_and_stability(tmp_path):
     assert status["ramMbPeak"] == "not_measured"
     slow = perf.check_budgets({**stats, "fpsAvg": 100.0}, {}, budgets, "1440p")
     assert {r["budget"]: r["status"] for r in slow}["fpsAvg"] == "fail"
+    passed, incomplete = perf.run_verdict(0, stats, rows)
+    assert not passed and incomplete == ["ramMbPeak not measured"]
+    measured = perf.check_budgets(
+        stats, {"vramMbPeak": 5000.0, "ramMbPeak": 3000.0}, budgets, "1440p"
+    )
+    assert perf.run_verdict(0, stats, measured) == (True, [])
+    assert perf.run_verdict(1, {}, measured)[1] == ["replay exited 1", "no CSV profile"]
+    assert not perf.run_verdict(0, stats, slow)[0]
+    assert any("0.5 ms" in u for u in perf.UNCHECKED_BUDGETS)
     a = {"stats": {"fpsAvg": 120.0, "frameMsP99": 10.0}}
     assert perf.compare(a, {"stats": {"fpsAvg": 117.0, "frameMsP99": 10.2}})["pass"]
     assert not perf.compare(a, {"stats": {"fpsAvg": 110.0, "frameMsP99": 10.0}})["pass"]
@@ -182,7 +203,18 @@ def test_done_check_lanes_by_path():
     assert done_check.needed_lanes(["dodaios/x.py"]) == []
     assert done_check.needed_lanes(["docs/verse/unreal/README.md"]) == ["static"]
     assert done_check.needed_lanes(["unreal/Verse/Source/VerseBot/A.cpp"]) == ["static", "build"]
+    assert done_check.needed_lanes(["scripts/unreal/balance.py"]) == ["static"]
+    assert done_check.needed_lanes([".github/workflows/unreal-build.yml"]) == ["static"]
+    assert done_check.needed_lanes([".github/workflows/ci.yml"]) == []
     assert done_check.is_visible(["unreal/Verse/Content/Verse/A.uasset"])
+
+
+def test_done_check_work_package_sources():
+    assert done_check.work_package("wp7") == "WP07"
+    assert done_check.work_package(None, "claude/verse-wp10-harness") == "WP10"
+    body = "Summary\nWork-Package: WP12 (decks)\n"
+    assert done_check.work_package(None, "claude/verse-wp10-harness", body) == "WP12"
+    assert done_check.work_package(None, "main", "") is None
 
 
 def test_done_check_verdicts(tmp_path):
@@ -201,13 +233,21 @@ def test_done_check_verdicts(tmp_path):
     runs["unreal-build.yml"][0]["conclusion"] = "success"
     visible = done_check.evaluate(["unreal/Verse/Content/A.uasset"], "c", tmp_path, fake)
     assert visible["verdict"] == "NOT DONE" and "screenshot" in visible["problems"][0]
-    shot = tmp_path / "unreal" / "Verse" / "Saved" / "Harness" / "proof" / "WP11" / "11.1"
-    shot.mkdir(parents=True)
+    proof = tmp_path / "unreal" / "Verse" / "Saved" / "Harness" / "proof"
+    (proof / "WP11").mkdir(parents=True)
+    (proof / "WP11" / "loose.png").write_bytes(b"png")
+    content = ["unreal/Verse/Content/A.uasset"]
+    loose = done_check.evaluate(content, "c", tmp_path, fake, wp="WP11")
+    assert loose["verdict"] == "NOT DONE", "a PNG outside a sub-task folder does not count"
+    shot = proof / "WP11" / "11.1"
+    shot.mkdir()
     (shot / "a.png").write_bytes(b"png")
-    assert (
-        done_check.evaluate(["unreal/Verse/Content/A.uasset"], "c", tmp_path, fake)["verdict"]
-        == "DONE"
-    )
+    assert done_check.evaluate(content, "c", tmp_path, fake, wp="WP11")["verdict"] == "DONE"
+    other = done_check.evaluate(content, "c", tmp_path, fake, wp="WP12")
+    assert other["verdict"] == "NOT DONE", "another package's screenshot does not count"
+    stale = done_check.evaluate(content, "c", tmp_path, fake, wp="WP11", since=4e9)
+    assert stale["verdict"] == "NOT DONE", "a screenshot older than the commit does not count"
+    assert done_check.evaluate(content, "c", tmp_path, fake)["verdict"] == "NOT DONE"
 
 
 # --- check_bot_isolation (F1, F6) ---
@@ -231,6 +271,9 @@ def _source(tmp_path: Path, files: dict[str, str]) -> Path:
         "APawn* Them = OtherController->GetPawn();",
         "auto* Asc = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target);",
         "GetWorld()->LineTraceSingleByChannel(Hit, A, B, ECC_Visibility);",
+        "ACharacter* C = UGameplayStatics::GetPlayerCharacter(this, 0);",
+        "AActor* A = UGameplayStatics::GetActorOfClass(this, AVerseCharacter::StaticClass());",
+        "for (TActorIterator<AActor> It(W); It; ++It) { if (auto* P = Cast<APawn>(*It)) {} }",
     ],
 )
 def test_f1_flags_every_truth_read(tmp_path, code):
@@ -279,7 +322,8 @@ def test_f6_symmetry(tmp_path):
     root = _source(
         tmp_path,
         {
-            MODEL: "void T(const FVersePerceptFrame& F) {}",
+            MODEL: "void T(const FVersePerceptFrame& F) {} "
+            "void A() { Feed->OnPerceptFrame.AddUObject(this, &T); }",
             "VerseBot/Private/Hearing.cpp": "float HearingRangeM = 25.0f;",
         },
     )

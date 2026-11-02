@@ -186,6 +186,38 @@ def check_budgets(stats: Mapping, memory: Mapping, budgets: Mapping, profile: st
     return out
 
 
+#: architecture.md 7 budgets this run does not check, listed in perf.json so a pass is never
+#: read as covering them.
+UNCHECKED_BUDGETS = (
+    "GPU frame split at 1440p (Nanite + base pass, Lumen, shadows, translucency, post + TSR)",
+    "bot at most 0.5 ms per server tick (needs VerseBot timing, WP08)",
+    "VRAM Panel / Dormant 3 GB / 2 GB and System RAM Dormant 1.5 GB",
+    "Dormant CPU, cold start, Dormant to Visible (verse host, WP17)",
+    "panel stream and bridge counters (WP16, WP20)",
+    "destruction: 400 active debris bodies, 64 fracture events/s (counters, WP06)",
+    "network, size and floor (netcode test, package step, probe)",
+)
+
+
+def run_verdict(
+    code: int, stats: Mapping, budget_rows: Sequence[Mapping]
+) -> tuple[bool, list[str]]:
+    """Pass only when the replay ran, gave frame stats and every budget was measured and met.
+
+    A budget that could not be measured makes the run incomplete, which is not a pass.
+    """
+    incomplete = []
+    if code != 0:
+        incomplete.append(f"replay exited {code}")
+    if not stats:
+        incomplete.append("no CSV profile")
+    incomplete += [
+        f"{r['budget']} not measured" for r in budget_rows if r["status"] == "not_measured"
+    ]
+    failed = any(r["status"] == "fail" for r in budget_rows)
+    return (not incomplete and not failed), incomplete
+
+
 def compare(a: Mapping, b: Mapping, max_rel: float = 0.03) -> dict:
     """A10.5: two runs of the same replay differ by at most ``max_rel`` in fps and p99."""
     out = {"pass": True, "metrics": {}}
@@ -216,6 +248,35 @@ def gpu_memory_used_mb(run: Callable[..., common.Completed] = common.run) -> flo
         return None
 
 
+def process_vram_mb(pid: int, run: Callable[..., common.Completed] = common.run) -> float | None:
+    """VRAM of one process from ``nvidia-smi -q -d PIDS``; None when the driver does not say.
+
+    Under the Windows WDDM driver model the per-process figure is often "Not available"; the
+    sampler then falls back to whole-GPU use minus the baseline and records that method.
+    """
+    if not shutil.which("nvidia-smi"):
+        return None
+    result = run(["nvidia-smi", "-q", "-d", "PIDS"], capture=True)
+    return parse_process_vram(result.stdout or "", pid)
+
+
+def parse_process_vram(text: str, pid: int) -> float | None:
+    current = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        key, _, value = line.partition(":")
+        key, value = key.strip().lower(), value.strip()
+        if key == "process id":
+            current = int(value) if value.isdigit() else None
+        elif key == "used gpu memory" and current == pid:
+            number = value.split()[0] if value else ""
+            try:
+                return float(number)
+            except ValueError:
+                return None
+    return None
+
+
 def process_ram_mb(pid: int) -> float | None:
     try:
         import psutil
@@ -235,13 +296,22 @@ class Sampler(threading.Thread):
         self.baseline = gpu_memory_used_mb()
         self.vram_peak: float | None = None
         self.ram_peak: float | None = None
+        #: "process" (per-process VRAM) or "device-delta" (whole GPU minus the baseline; other
+        #: GPU users such as STT or local models shift it).
+        self.vram_method: str | None = None
         self.stop = threading.Event()
 
     def run(self) -> None:
         while not self.stop.wait(self.period):
-            vram = gpu_memory_used_mb()
-            if vram is not None and self.baseline is not None:
-                self.vram_peak = max(self.vram_peak or 0.0, vram - self.baseline)
+            own = process_vram_mb(self.pid)
+            if own is not None:
+                self.vram_method = "process"
+                self.vram_peak = max(self.vram_peak or 0.0, own)
+            elif self.vram_method != "process":
+                vram = gpu_memory_used_mb()
+                if vram is not None and self.baseline is not None:
+                    self.vram_method = "device-delta"
+                    self.vram_peak = max(self.vram_peak or 0.0, vram - self.baseline)
             ram = process_ram_mb(self.pid)
             if ram is not None:
                 self.ram_peak = max(self.ram_peak or 0.0, ram)
@@ -306,8 +376,13 @@ def run_once(out_dir: Path, profile_name: str, budgets: Mapping, worktree: Path)
         sampler.join(timeout=5)
     csv_path = newest_csv(project.parent, started)
     stats = frame_stats(read_csv(csv_path)) if csv_path else {}
-    memory = {"vramMbPeak": _r(sampler.vram_peak), "ramMbPeak": _r(sampler.ram_peak)}
+    memory = {
+        "vramMbPeak": _r(sampler.vram_peak),
+        "ramMbPeak": _r(sampler.ram_peak),
+        "vramMethod": sampler.vram_method,
+    }
     budget_rows = check_budgets(stats, memory, budgets, profile_name)
+    passed, incomplete = run_verdict(code, stats, budget_rows)
     report = {
         "schema": "verse.perf/1",
         "profile": profile_name,
@@ -317,7 +392,9 @@ def run_once(out_dir: Path, profile_name: str, budgets: Mapping, worktree: Path)
         "memory": memory,
         "budgets": budget_rows,
         "screenshots": sorted(str(p) for p in out_dir.glob("*.png")),
-        "pass": code == 0 and bool(stats) and all(r["status"] != "fail" for r in budget_rows),
+        "incomplete": incomplete,
+        "unchecked": list(UNCHECKED_BUDGETS),
+        "pass": passed,
     }
     (out_dir / "perf.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     return report
