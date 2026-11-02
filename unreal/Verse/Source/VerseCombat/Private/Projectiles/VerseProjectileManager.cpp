@@ -234,30 +234,40 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 		Resolve(Bolt, Result, Body.Zone, Hit.bKillingBlow != 0, Victim, Body.ImpactWorld);
 	};
 
+	// Every bolt that ends without a body hit sends a cosmetic impact (victim -1, zone None, no
+	// damage): presentation ends the drawn bolt there and places the impact (WP02.11).
+	auto SendImpact = [&](const FVector& Where, float DistanceM)
+	{
+		FVerseHitEvent Impact;
+		Impact.InstigatorId = VerseCombatIds::IdOf(Shooter);
+		Impact.VictimId = -1;
+		Impact.WeaponId = W->WeaponId;
+		Impact.ShotCounter = Bolt.Fire.ShotCounter;
+		Impact.ImpactWorld = Where;
+		Impact.Direction = Bolt.Dir;
+		Impact.DistanceM = DistanceM;
+		Impact.ServerTime = float(EndTime);
+		if (ShooterWeapon)
+		{
+			ShooterWeapon->MulticastHitCosmetic(Impact);
+		}
+		else
+		{
+			UVerseWeaponComponent::RaiseLocalImpact(this, Impact); // no shooter component: local viewers only
+		}
+	};
+
 	auto HitWorld = [&]()
 	{
 		const FVector Where = FVector(WorldHit.ImpactPoint);
 		const float DistanceM = float((Bolt.Travelled + WorldDist) / 100.0);
+		SendImpact(Where, DistanceM);
 		if (AVerseBulwark* Bulwark = Cast<AVerseBulwark>(WorldHit.GetActor()))
 		{
 			// The damage after all factors goes to the field; a Bulwark never lets a bolt through.
 			Bulwark->ApplyBoltDamage(W->BaseDamage * FVerseDamageMath::Falloff(*W, DistanceM) * Bolt.Factor, Shooter);
 			Resolve(Bolt, EVerseShotResult::Blocked, EVerseHitZone::None, false, Bulwark, Where);
 			return;
-		}
-		// Impact VFX on clients come from this cosmetic copy (victim -1, zone None); it carries no damage.
-		if (ShooterWeapon)
-		{
-			FVerseHitEvent Impact;
-			Impact.InstigatorId = VerseCombatIds::IdOf(Shooter);
-			Impact.VictimId = -1;
-			Impact.WeaponId = W->WeaponId;
-			Impact.ShotCounter = Bolt.Fire.ShotCounter;
-			Impact.ImpactWorld = Where;
-			Impact.Direction = Bolt.Dir;
-			Impact.DistanceM = DistanceM;
-			Impact.ServerTime = float(EndTime);
-			ShooterWeapon->MulticastHitCosmetic(Impact);
 		}
 		Resolve(Bolt, EVerseShotResult::Miss, EVerseHitZone::None, false, WorldHit.GetActor(), Where);
 	};
@@ -269,14 +279,20 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 			continue;
 		}
 		const double PieceDist = FVector::Dist(P0, Piece.Entry);
-		if (bBody && Body.Distance < PieceDist)
+		// The nearest of world (Bulwarks included), body and piece wins. The world trace may stop on
+		// this piece's own proxy, so a world hit counts as nearer only 1 cm before the entry.
+		const bool bWorldFirst = bWorld && WorldDist < PieceDist - 1.0;
+		const bool bBodyFirst = bBody && Body.Distance < PieceDist;
+		if (bWorldFirst || bBodyFirst)
 		{
-			HitBody();
-			return;
-		}
-		if (bWorld && WorldDist < PieceDist - 1.0)
-		{
-			HitWorld();
+			if (bBodyFirst && (!bWorldFirst || Body.Distance <= WorldDist))
+			{
+				HitBody();
+			}
+			else
+			{
+				HitWorld();
+			}
 			return;
 		}
 
@@ -294,6 +310,7 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 		const float Cost = Row ? UVersePenetrationTable::PassCost(*Row, Piece.TracedThicknessCm) : TNumericLimits<float>::Max();
 		if (Bolt.Power < Cost || Bolt.Passes >= MaxPasses)
 		{
+			SendImpact(Piece.Entry, float((Bolt.Travelled + PieceDist) / 100.0));
 			Resolve(Bolt, EVerseShotResult::HitPiece, EVerseHitZone::None, false, nullptr, Piece.Entry);
 			return;
 		}

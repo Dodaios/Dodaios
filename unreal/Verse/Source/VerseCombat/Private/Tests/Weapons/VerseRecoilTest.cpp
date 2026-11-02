@@ -220,10 +220,11 @@ bool FVerseRecoilPatternMean::RunTest(const FString&)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseRecoilClientServerMatch, "Verse.Combat.Recoil.ClientServerMatch", VERSE_WP02_TEST_FLAGS)
-bool FVerseRecoilClientServerMatch::RunTest(const FString&)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseRecoilDeterminism, "Verse.Combat.Recoil.Determinism", VERSE_WP02_TEST_FLAGS)
+bool FVerseRecoilDeterminism::RunTest(const FString&)
 {
-	// Server and owning client: independent states, identical seed, stance, ADS and look input.
+	// Two independent states fed the same seed, stance, ADS and look input end identical (the
+	// server path itself is R5, Verse.Combat.Recoil.ClientServerMatch in VerseServerFireTest.cpp).
 	for (const UVerseWeaponDefinition* W : VerseWp02Test::AllWeapons(*this))
 	{
 		FVerseRecoilState Server, Client;

@@ -53,6 +53,15 @@ void FVerseSpread::DecayTo(const UVerseWeaponDefinition& W, float Now, float Dt)
 	}
 }
 
+void FVerseSpread::DecayUntilShot(const UVerseWeaponDefinition& W, float Now)
+{
+	const float Elapsed = Now - (LastShotTime + W.BloomRecoveryDelay);
+	if (Elapsed > 0.f)
+	{
+		Bloom = FMath::Max(0.f, Bloom - W.BloomRecoveryRate * Elapsed);
+	}
+}
+
 void FVerseSpread::OnShot(const UVerseWeaponDefinition& W, float Now)
 {
 	if (IsFirstShot(W, Now))
@@ -72,6 +81,29 @@ FVector FVerseSpread::ShotDirection(const FVector& Forward, float SigmaDeg, uint
 {
 	FVerseRng Rng(Seed, uint64(FMath::Max(0, ShotIndex)), EVerseRngSalt::Spread);
 	return Rng.ConeDirection(Forward, FMath::Max(0.f, SigmaDeg));
+}
+
+bool FVerseSpread::ValidateDirection(const FVector& Dir, const FVector& ServerForward, float SigmaDeg, uint32 Seed, int32 ShotIndex)
+{
+	const FVector A = Dir.GetSafeNormal();
+	const FVector F = ServerForward.GetSafeNormal(UE_SMALL_NUMBER, FVector::ForwardVector);
+	if (A.IsNearlyZero())
+	{
+		return false;
+	}
+	auto AngleDeg = [](const FVector& X, const FVector& Y)
+	{
+		return FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(FVector::DotProduct(X, Y), -1.0, 1.0)));
+	};
+	// FindBestAxisVectors switches its reference axis where |Z| meets max(|X|, |Y|); close to that,
+	// a forward a little off the client's may draw from another basis.
+	const double Horizontal = FMath::Max(FMath::Abs(F.X), FMath::Abs(F.Y));
+	if (FMath::Abs(FMath::Abs(F.Z) - Horizontal) < 0.1)
+	{
+		return AngleDeg(A, F) <= double(SigmaDeg) + DirectionToleranceDeg;
+	}
+	const FVector Expected = ShotDirection(F, SigmaDeg, Seed, ShotIndex);
+	return AngleDeg(A, Expected) <= DirectionToleranceDeg;
 }
 
 bool FVerseSpread::ValidateFire(const FVector& Origin, const FVector& Dir, const FVector& RewoundEye,

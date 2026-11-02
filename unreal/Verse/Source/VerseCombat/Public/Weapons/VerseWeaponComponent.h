@@ -69,6 +69,7 @@ public:
 	UVerseWeaponComponent();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void BeginPlay() override;
 
 	static UVerseWeaponComponent* FindOn(const AActor* Actor);
 
@@ -76,9 +77,19 @@ public:
 	UPROPERTY(Replicated)
 	uint8 AdsBlend = 0;
 
-	/** Match seed for the per-shot seed hash; the game mode sets it on both sides. */
+	/** Match seed for the per-shot seed hash. The server draws one per spawn (BeginPlay) unless the game mode set it; it replicates. */
 	UPROPERTY(Replicated)
 	uint32 MatchSeed = 0;
+
+	/** Server: sets the match seed (game mode, per match). */
+	void SetMatchSeed(uint32 Seed);
+
+	/** How far a fire request's client time may lead the server clock, s. */
+	static constexpr float MaxClientLeadS = 0.05f;
+	/** How far it may lag behind; older requests are rejected (the latency advance is capped at 250 ms regardless). */
+	static constexpr float MaxClientLagS = 0.5f;
+	/** Shots the server-clock cadence lets through back to back (unreliable RPCs arrive bunched). */
+	static constexpr float ServerBurstShots = 3.f;
 
 	UFUNCTION(Server, Unreliable)
 	void ServerFire(uint16 ShotCounter, uint32 Seed, FVector_NetQuantize10 Origin, FVector_NetQuantizeNormal Dir, float ClientServerTime);
@@ -119,12 +130,23 @@ public:
 	/** Owner: the answer for a shot (ClientConfirmShot lands here). */
 	void HandleConfirm(uint16 ShotCounter, EVerseShotResult Result);
 
+	/** Raises a cosmetic impact (victim -1) on the local hub when this world has a viewer (not a dedicated server). */
+	static void RaiseLocalImpact(const UObject* WorldContext, const FVerseHitEvent& Impact);
+
 	/** Player id of the shooter as events carry it. */
 	int32 GetShooterId() const;
 
 	const FVerseRecoilState& GetRecoil() const { return Recoil; }
 	const FVerseSpread& GetSpread() const { return Spread; }
 	const FVerseFirePredictor& GetPredictor() const { return Predictor; }
+
+	/** Server simulation of this shooter's recoil and spread from the requests it accepted (R5, 4.4). */
+	const FVerseRecoilState& GetServerRecoil() const { return ServerRecoil; }
+	const FVerseSpread& GetServerSpread() const { return ServerSpread; }
+	/** Kick, sigma and shot index the server derived for the last request that passed the clock checks. */
+	FVector2f GetLastServerKick() const { return LastServerKick; }
+	float GetLastServerSigma() const { return LastServerSigma; }
+	int32 GetLastServerShotIndex() const { return LastServerShotIndex; }
 
 	/** Owner-side predicted state of the active weapon. */
 	const FVerseWeaponSlotState& GetPredictedSlot() const { return PredictedSlot; }
@@ -161,4 +183,14 @@ private:
 
 	/** Server cadence check on client times. */
 	float ServerLastShotClientTime = -1000.f;
+	/** Server-clock cadence: shots allowed now (refills at 1 / FireInterval per server second). */
+	float ServerShotBudget = ServerBurstShots;
+	float ServerBudgetTime = -1.f;
+	/** Server simulation of the owner's recoil and spread. */
+	FVerseRecoilState ServerRecoil;
+	FVerseSpread ServerSpread;
+	uint16 ServerLastCounter = 0;
+	FVector2f LastServerKick = FVector2f::ZeroVector;
+	float LastServerSigma = 0.f;
+	int32 LastServerShotIndex = 0;
 };

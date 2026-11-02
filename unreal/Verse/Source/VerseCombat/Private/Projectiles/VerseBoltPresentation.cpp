@@ -181,10 +181,10 @@ void UVerseBoltPresentation::EnsureRender()
 	{
 		return;
 	}
-	UStaticMesh* Cylinder = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-	// Placeholder look (engine basic shape material, colour parameter); the glowing bolt material is WP14.9.
-	UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	UStaticMesh* Cylinder = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Verse/Test/WP02/SM_WP02_Cylinder.SM_WP02_Cylinder"));
+	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Verse/Test/WP02/SM_WP02_Sphere.SM_WP02_Sphere"));
+	// Placeholder look (own WP02 test material, colour parameter); the glowing bolt material is WP14.9.
+	UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Verse/Test/WP02/M_WP02_Placeholder.M_WP02_Placeholder"));
 	if (!Cylinder || !Sphere || !Base)
 	{
 		return;

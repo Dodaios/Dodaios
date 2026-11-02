@@ -68,6 +68,13 @@ public:
 
 private:
 	void Raise(EVerseGadgetEventKind Kind);
+
+	/** Clients raise the spawn event (Deploy) from replication: a multicast in the spawn frame has no open channel yet. */
+	UFUNCTION()
+	void OnRep_SpawnEvent();
+
+	UPROPERTY(ReplicatedUsing = OnRep_SpawnEvent)
+	FVerseGadgetEvent SpawnEvent;
 	void OnOwnerDeath(const FVerseDeathEvent& Death);
 
 	UPROPERTY(Replicated)

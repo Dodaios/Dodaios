@@ -141,6 +141,42 @@ bool FVerseGadgetBulwark::RunTest(const FString&)
 		TestEqual(TEXT("field blocks pawns"), B->Field->GetCollisionResponseToChannel(ECC_Pawn), ECR_Block);
 	}
 
+	// GD1 / trace order inside one 5 m step: a Bulwark, then a pawn, then a piece. The field is the
+	// nearest hit; neither the pawn nor the piece is touched.
+	{
+		VerseGadgetTest::FScene Scene;
+		FFakeVersePenetrationQuery Query;
+		FFakeVersePieceDamage PieceDamage;
+		FFakeVersePiece Wall;
+		Wall.PieceIndex = 9;
+		Wall.Material = EVersePenetrationMaterial::ContainerWall;
+		Wall.Bounds = FBox(FVector(420, -200, -100), FVector(425, 200, 300));
+		Query.Pieces.Add(Wall);
+		Scene.Manager->SetPenetrationQuery(&Query);
+		Scene.Manager->SetPieceDamage(&PieceDamage);
+		UVerseGadgetDefinition* Tough = VerseGadgetTest::Copy(Def);
+		Tough->MaxHealth = 1e6f;
+		AVerseBulwark* B = VerseGadgetTest::SpawnBulwark(Scene.World.World, *Tough, FVector(200, 0, 0), nullptr);
+		APawn* Between = Scene.TargetBehind(FVector(330, 0, 0));
+		Scene.World.TickFrames(2);
+		TArray<FVerseHitEvent> Impacts;
+		UVerseEventHub::Get(Scene.World.World)->OnHit.AddLambda([&Impacts](const FVerseHitEvent& E) { Impacts.Add(E); });
+		for (int32 I = 0; I < 20; ++I)
+		{
+			Scene.FireAt(*G, FVector(0, 0, 40 + 4 * I), FVector(500, 0, 40 + 4 * I), uint16(I + 1));
+		}
+		Scene.Step(2);
+		const int32 Blocked = Scene.Results.FilterByPredicate([B](const FVerseBoltResult& R)
+		{
+			return R.Result == EVerseShotResult::Blocked && R.HitActor.Get() == B;
+		}).Num();
+		TestEqual(TEXT("GD1 one segment: every bolt stops at the Bulwark first"), Blocked, 20);
+		TestEqual(TEXT("the pawn behind the field in the same segment is untouched"), double(VerseWp02Test::HealthOf(Between)), 1e6, 1e-3);
+		TestEqual(TEXT("the piece behind is untouched"), PieceDamage.Calls.Num(), 0);
+		TestEqual(TEXT("a cosmetic impact for every stop at the field"),
+			Impacts.FilterByPredicate([](const FVerseHitEvent& E) { return E.VictimId == -1; }).Num(), 20);
+	}
+
 	// It disappears on the tick its health reaches 0; the next bolt goes through.
 	{
 		VerseGadgetTest::FScene Scene;

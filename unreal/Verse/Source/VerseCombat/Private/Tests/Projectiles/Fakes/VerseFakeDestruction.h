@@ -3,9 +3,8 @@
 #include "CoreMinimal.h"
 #include "Destruction/VerseDestructionInterfaces.h"
 #include "Destruction/VerseDestructionTypes.h"
-#include "UObject/Object.h"
 
-#include "VerseFakeDestruction.generated.h"
+#if WITH_DEV_AUTOMATION_TESTS
 
 /** One fake piece: an axis-aligned slab of one penetration material. */
 struct FFakeVersePiece
@@ -18,13 +17,11 @@ struct FFakeVersePiece
 /**
  * WP03 fake (work-packages.md 0.3): IVersePenetrationQuery over a list of slabs. TraceBolt returns
  * every slab the segment enters, in order, with entry, exit and traced thickness; it never decides
- * a pass itself (the combat loop does). TestSight is always clear. Test code only.
+ * a pass itself (the combat loop does). TestSight is always clear. A plain C++ object, compiled
+ * only with the automation tests.
  */
-UCLASS(Transient)
-class UFakeVersePenetrationQuery : public UObject, public IVersePenetrationQuery
+class FFakeVersePenetrationQuery : public IVersePenetrationQuery
 {
-	GENERATED_BODY()
-
 public:
 	TArray<FFakeVersePiece> Pieces;
 	mutable int32 Calls = 0;
@@ -85,3 +82,5 @@ public:
 		Calls.Add(Damage);
 	}
 };
+
+#endif // WITH_DEV_AUTOMATION_TESTS

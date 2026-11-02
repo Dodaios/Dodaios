@@ -33,6 +33,8 @@ class VERSECOMBAT_API AVerseBreachCharge : public AActor
 public:
 	AVerseBreachCharge();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** Bulwarks within this distance of a detonation are removed, cm. */
@@ -72,6 +74,13 @@ public:
 
 private:
 	void Raise(EVerseGadgetEventKind Kind);
+
+	/** Clients raise the spawn event (Plant) from replication: a multicast in the spawn frame has no open channel yet. */
+	UFUNCTION()
+	void OnRep_SpawnEvent();
+
+	UPROPERTY(ReplicatedUsing = OnRep_SpawnEvent)
+	FVerseGadgetEvent SpawnEvent;
 
 	UPROPERTY()
 	TObjectPtr<const UVerseGadgetDefinition> Definition;

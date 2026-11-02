@@ -1,3 +1,4 @@
+#include "Components/BoxComponent.h"
 #include "Damage/VerseDamageMath.h"
 #include "Destruction/VersePenetrationTable.h"
 #include "Events/VerseEventHub.h"
@@ -146,7 +147,8 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 	// A target behind two container walls: the rifle passes both and keeps 0.75 x 0.75.
 	{
 		VerseProjectileTest::FRig Rig;
-		UFakeVersePenetrationQuery* Query = NewObject<UFakeVersePenetrationQuery>();
+		FFakeVersePenetrationQuery QueryStorage;
+		FFakeVersePenetrationQuery* Query = &QueryStorage;
 		FFakeVersePieceDamage PieceDamage;
 		Query->Pieces = {Wall(1, EVersePenetrationMaterial::ContainerWall, 520, Container),
 			Wall(2, EVersePenetrationMaterial::ContainerWall, 910, Container)};
@@ -189,7 +191,8 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 	// The pistol (50, two passes): 50 - 25 - 25 passes two container walls and stops at the third; concrete stops everything.
 	{
 		VerseProjectileTest::FRig Rig;
-		UFakeVersePenetrationQuery* Query = NewObject<UFakeVersePenetrationQuery>();
+		FFakeVersePenetrationQuery QueryStorage;
+		FFakeVersePenetrationQuery* Query = &QueryStorage;
 		FFakeVersePieceDamage PieceDamage;
 		// Slightly under the reference thickness, so 25 + 25 fits the 50 exactly without float edge.
 		const double Thin = Container * 0.95;
@@ -204,7 +207,8 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 	}
 	{
 		VerseProjectileTest::FRig Rig;
-		UFakeVersePenetrationQuery* Query = NewObject<UFakeVersePenetrationQuery>();
+		FFakeVersePenetrationQuery QueryStorage;
+		FFakeVersePenetrationQuery* Query = &QueryStorage;
 		FFakeVersePieceDamage PieceDamage;
 		Query->Pieces = {Wall(7, EVersePenetrationMaterial::Concrete, 300, 30.0)};
 		Rig.Manager->SetPenetrationQuery(Query);
@@ -217,7 +221,8 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 	// MaxPenetrations cap: four thin sheets, the rifle (3 passes) stops at the 4th.
 	{
 		VerseProjectileTest::FRig Rig;
-		UFakeVersePenetrationQuery* Query = NewObject<UFakeVersePenetrationQuery>();
+		FFakeVersePenetrationQuery QueryStorage;
+		FFakeVersePenetrationQuery* Query = &QueryStorage;
 		FFakeVersePieceDamage PieceDamage;
 		for (uint16 I = 0; I < 4; ++I)
 		{
@@ -236,7 +241,8 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 	// A body in front of a wall is hit first; a body behind concrete is never hit.
 	{
 		VerseProjectileTest::FRig Rig;
-		UFakeVersePenetrationQuery* Query = NewObject<UFakeVersePenetrationQuery>();
+		FFakeVersePenetrationQuery QueryStorage;
+		FFakeVersePenetrationQuery* Query = &QueryStorage;
 		Query->Pieces = {Wall(1, EVersePenetrationMaterial::Concrete, 800, 30.0)};
 		FFakeVersePieceDamage PieceDamage;
 		Rig.Manager->SetPenetrationQuery(Query);
@@ -285,33 +291,80 @@ bool FVerseProjectileCost::RunTest(const FString&)
 			VerseWp02Test::HumanCapsules(P->GetActorLocation(), Out);
 		});
 	}
+	// Real work for the traces: two container walls across the whole fan (every bolt passes both),
+	// 30 pieces beside it, and 24 bolt-blocking pillars in the world off the fan.
+	FFakeVersePenetrationQuery Query;
+	FFakeVersePieceDamage PieceDamage;
+	const double WallCm = UVersePenetrationTable::MakeContractRows()[int32(EVersePenetrationMaterial::ContainerWall)].RefThicknessCm;
+	for (int32 I = 0; I < 2; ++I)
+	{
+		FFakeVersePiece Wall;
+		Wall.PieceIndex = uint16(I + 1);
+		Wall.Material = EVersePenetrationMaterial::ContainerWall;
+		Wall.Bounds = FBox(FVector(1500 + 400 * I, -2000, 0), FVector(1500 + 400 * I + WallCm, 2000, 400));
+		Query.Pieces.Add(Wall);
+	}
+	for (int32 I = 0; I < 30; ++I)
+	{
+		FFakeVersePiece Side;
+		Side.PieceIndex = uint16(100 + I);
+		Side.Material = EVersePenetrationMaterial::Concrete;
+		const double X = 500.0 * I;
+		Side.Bounds = FBox(FVector(X, -9000, 0), FVector(X + 30, -8800, 400));
+		Query.Pieces.Add(Side);
+	}
+	Rig.Manager->SetPenetrationQuery(&Query);
+	Rig.Manager->SetPieceDamage(&PieceDamage);
+	for (int32 I = 0; I < 24; ++I)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		AActor* Pillar = Rig.World.World->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity, Params);
+		UBoxComponent* Box = NewObject<UBoxComponent>(Pillar, TEXT("Box"));
+		Box->SetBoxExtent(FVector(50, 50, 300));
+		Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		Box->SetCollisionResponseToAllChannels(ECR_Block);
+		Pillar->SetRootComponent(Box);
+		Box->RegisterComponent();
+		Pillar->SetActorLocation(FVector(1000.0 + 500.0 * I, (I % 2) ? 9500.0 : -9500.0, 300.0));
+	}
 	Rig.World.TickFrames(2);
 	Rig.Lag->Record(Rig.Now);
-	for (int32 I = 0; I < 64; ++I)
-	{
-		const FVector Dir = FRotator(0.0, -30.0 + I, 0.0).Vector();
-		Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(FVector(0, 0, 150), Dir, uint16(I + 1)), *G, 0.f, nullptr);
-	}
-	TestEqual(TEXT("64 bolts in flight"), Rig.Manager->NumActive(), 64);
-	// Warm up, then measure 20 ticks with all 64 alive (150 m range = 30 ticks).
-	Rig.Step(2);
+
+	// Five waves of 64 bolts, 20 measured ticks each (150 m range = 30 ticks), after two warm-up ticks.
 	TArray<double> Ms;
-	for (int32 I = 0; I < 20; ++I)
+	int32 MinAlive = 64;
+	for (int32 Wave = 0; Wave < 5; ++Wave)
 	{
-		Rig.Step();
-		Ms.Add(Rig.Manager->GetLastStepSeconds() * 1000.0);
+		Rig.Manager->Clear();
+		for (int32 I = 0; I < 64; ++I)
+		{
+			const FVector Dir = FRotator(0.0, -30.0 + I * 0.95, 0.0).Vector();
+			Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(FVector(0, 0, 150), Dir, uint16(Wave * 64 + I + 1)), *G, 0.f, nullptr);
+		}
+		Rig.Step(2);
+		for (int32 I = 0; I < 20; ++I)
+		{
+			Rig.Step();
+			Ms.Add(Rig.Manager->GetLastStepSeconds() * 1000.0);
+			MinAlive = FMath::Min(MinAlive, Rig.Manager->NumActive());
+		}
 	}
-	TestEqual(TEXT("still 64 in flight"), Rig.Manager->NumActive(), 64);
+	TestEqual(TEXT("64 in flight through every measured tick"), MinAlive, 64);
+	TestTrue(TEXT("bolts passed the walls"), PieceDamage.Calls.Num() >= 64 * 5);
 	Ms.Sort();
 	const double Median = Ms[Ms.Num() / 2];
+	const double P99 = Ms[FMath::Min(Ms.Num() - 1, int32(FMath::CeilToInt(Ms.Num() * 0.99)) - 1)];
 	const double Max = Ms.Last();
-	AddInfo(FString::Printf(TEXT("projectile manager, 64 bolts: median %.4f ms, max %.4f ms per tick"), Median, Max));
-	TestTrue(FString::Printf(TEXT("median %.4f ms <= 0.2 ms"), Median), Median <= 0.2);
+	AddInfo(FString::Printf(TEXT("projectile manager, 64 bolts, %d ticks: median %.4f ms, p99 %.4f ms, max %.4f ms per tick"), Ms.Num(), Median, P99, Max));
+	TestTrue(FString::Printf(TEXT("A2.8: p99 %.4f ms <= 0.2 ms"), P99), P99 <= 0.2);
 
 	TSharedRef<FJsonObject> Proof = MakeShared<FJsonObject>();
 	Proof->SetNumberField(TEXT("bolts"), 64);
 	Proof->SetNumberField(TEXT("median_ms"), Median);
+	Proof->SetNumberField(TEXT("p99_ms"), P99);
 	Proof->SetNumberField(TEXT("max_ms"), Max);
+	Proof->SetNumberField(TEXT("ticks"), Ms.Num());
 	VerseWp02Test::WriteProof(TEXT("2.7"), TEXT("projectile_cost.json"), Proof);
 	return true;
 }

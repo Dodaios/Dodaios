@@ -43,6 +43,13 @@ struct VERSECOMBAT_API FVerseSpread
 	/** Decay bloom up to `Now`; call each tick or before a shot. */
 	void DecayTo(const UVerseWeaponDefinition& W, float Now, float Dt);
 
+	/**
+	 * The server's decay between two shots: bloom drops at BloomRecoveryRate from LastShotTime +
+	 * BloomRecoveryDelay up to `Now`. Call once per shot, before SigmaFor (matches the owner's per-tick
+	 * DecayTo within one tick).
+	 */
+	void DecayUntilShot(const UVerseWeaponDefinition& W, float Now);
+
 	/** Registers a shot at `Now`: first shot resets bloom to 0, then bloom += BloomPerShot (capped). */
 	void OnShot(const UVerseWeaponDefinition& W, float Now);
 
@@ -51,6 +58,14 @@ struct VERSECOMBAT_API FVerseSpread
 
 	/** dir = uniform in the cone of half-angle sigma around Forward, from VerseRng(seed, n, Spread). */
 	static FVector ShotDirection(const FVector& Forward, float SigmaDeg, uint32 Seed, int32 ShotIndex);
+
+	/**
+	 * Server check of the drawn direction (4.4): the direction the server derives from its forward,
+	 * its sigma, the seed and the shot index, against the client's, within DirectionToleranceDeg. A
+	 * client that skips spread or steers the shot fails it. Near the aim pitch where the cone basis
+	 * of ShotDirection switches axes, the check falls back to the sigma + tolerance cone.
+	 */
+	static bool ValidateDirection(const FVector& Dir, const FVector& ServerForward, float SigmaDeg, uint32 Seed, int32 ShotIndex);
 
 	/** Server check of a fire request (4.4). False means the shot is answered with Rejected. */
 	static bool ValidateFire(const FVector& Origin, const FVector& Dir, const FVector& RewoundEye,

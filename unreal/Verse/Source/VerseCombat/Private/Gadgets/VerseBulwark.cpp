@@ -44,7 +44,7 @@ AVerseBulwark::AVerseBulwark()
 	Look->SetupAttachment(Field);
 	Look->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Look->SetCastShadow(false);
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Game/Verse/Test/WP02/SM_WP02_Box.SM_WP02_Box"));
 	if (Cube.Succeeded())
 	{
 		Look->SetStaticMesh(Cube.Object);
@@ -56,6 +56,7 @@ void AVerseBulwark::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AVerseBulwark, Health);
 	DOREPLIFETIME(AVerseBulwark, MaxHealth);
+	DOREPLIFETIME_CONDITION(AVerseBulwark, SpawnEvent, COND_InitialOnly);
 }
 
 void AVerseBulwark::InitBulwark(const UVerseGadgetDefinition& Def, AActor* InOwnerPawn, double Now)
@@ -102,7 +103,20 @@ void AVerseBulwark::Raise(EVerseGadgetEventKind Kind)
 	E.Location = GetActorLocation();
 	E.ServerTime = VerseCombatEvents::ServerTime(this);
 	VerseCombatEvents::RaiseGadget(this, E);
+	if (Kind == EVerseGadgetEventKind::Deploy)
+	{
+		SpawnEvent = E; // reaches clients with the actor's first bunch (OnRep_SpawnEvent)
+		return;
+	}
 	MulticastGadgetEvent(E);
+}
+
+void AVerseBulwark::OnRep_SpawnEvent()
+{
+	if (!HasAuthority())
+	{
+		VerseCombatEvents::RaiseGadget(this, SpawnEvent);
+	}
 }
 
 void AVerseBulwark::MulticastGadgetEvent_Implementation(const FVerseGadgetEvent& Event)

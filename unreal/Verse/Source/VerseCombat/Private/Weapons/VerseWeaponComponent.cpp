@@ -16,6 +16,8 @@
 #include "Stubs/VerseNullStubs.h"
 #include "VerseGameplayTags.h"
 #include "Weapons/VerseCombatEvents.h"
+#include "HAL/PlatformTime.h"
+#include "VerseRng.h"
 
 namespace
 {
@@ -56,6 +58,23 @@ void UVerseWeaponComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Params.bIsPushBased = true;
 	DOREPLIFETIME_WITH_PARAMS_FAST(UVerseWeaponComponent, AdsBlend, Params);
 	DOREPLIFETIME_WITH_PARAMS_FAST(UVerseWeaponComponent, MatchSeed, Params);
+}
+
+void UVerseWeaponComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	const AActor* Owner = GetOwner();
+	if (Owner && Owner->HasAuthority() && MatchSeed == 0)
+	{
+		// One seed per spawn unless the game mode sets a match seed; clients get it with the actor.
+		SetMatchSeed(FVerseRng::Hash(uint32(FPlatformTime::Cycles()), uint32(GetUniqueID()), uint32(FMath::Rand())));
+	}
+}
+
+void UVerseWeaponComponent::SetMatchSeed(uint32 Seed)
+{
+	MatchSeed = Seed;
+	MARK_PROPERTY_DIRTY_FROM_NAME(UVerseWeaponComponent, MatchSeed, this);
 }
 
 UVerseWeaponComponent* UVerseWeaponComponent::FindOn(const AActor* Actor)
@@ -280,8 +299,25 @@ EVerseShotResult UVerseWeaponComponent::HandleServerFire(uint16 ShotCounter, uin
 	{
 		return Reject();
 	}
+	// The client's predicted server time: never ahead of the server clock, never far behind it.
+	if (!FMath::IsFinite(ClientServerTime) || ClientServerTime > Now + MaxClientLeadS || ClientServerTime < Now - MaxClientLagS)
+	{
+		return Reject();
+	}
 	// Cadence on the client's clock (the owner's shots arrive in order); 1 ms grace.
 	if (ClientServerTime + 0.001f < ServerLastShotClientTime + W->FireInterval())
+	{
+		return Reject();
+	}
+	// Cadence on the server's clock: no more shots than elapsed server time allows, plus a small burst
+	// for requests that arrive bunched. Forged client times cannot raise the rate.
+	const float Interval = FMath::Max(W->FireInterval(), 1e-3f);
+	if (ServerBudgetTime >= 0.f)
+	{
+		ServerShotBudget = FMath::Min(ServerBurstShots, ServerShotBudget + FMath::Max(0.f, Now - ServerBudgetTime) / Interval);
+	}
+	ServerBudgetTime = Now;
+	if (ServerShotBudget < 1.f - 1e-3f)
 	{
 		return Reject();
 	}
@@ -289,16 +325,40 @@ EVerseShotResult UVerseWeaponComponent::HandleServerFire(uint16 ShotCounter, uin
 	{
 		return Reject();
 	}
+
+	// The server's own recoil and spread for this shot (R5, 4.4), on the client's shot time. Every
+	// request that passed the clock checks was really fired by the owner, so the simulation advances
+	// even when the shot is rejected below; counter gaps (lost requests) advance it too.
+	FVerseSpreadInput In;
+	In.Stance = Move.GetStance();
+	In.AdsBlend = GetAdsBlend01();
+	In.bAirborne = Move.IsAirborne();
+	In.HorizontalSpeedMps = float(Owner->GetVelocity().Size2D() / 100.0);
+	const uint16 Gap = uint16(ShotCounter - ServerLastCounter - 1);
+	ServerRecoil.BeginShot(*W, ClientServerTime);
+	if (Gap > 0 && Gap < 16 && ServerRecoil.ShotIndex > 0)
+	{
+		ServerRecoil.ShotIndex += Gap;
+		ServerSpread.Bloom = FMath::Min(W->BloomMax, ServerSpread.Bloom + Gap * W->BloomPerShot);
+	}
+	ServerSpread.DecayUntilShot(*W, ClientServerTime);
+	const float Sigma = ServerSpread.SigmaFor(*W, In, ClientServerTime);
+	const int32 ShotIndex = ServerRecoil.ShotIndex;
+	const FVector2f Kick = ServerRecoil.KickFor(*W, FVerseRecoilState::Multiplier(*W, In.Stance, In.AdsBlend), Seed);
+	ServerRecoil.OnShot(Kick, ClientServerTime);
+	ServerSpread.OnShot(*W, ClientServerTime);
+	ServerLastCounter = ShotCounter;
+	ServerLastShotClientTime = ClientServerTime;
+	ServerShotBudget -= 1.f;
+	LastServerKick = Kick;
+	LastServerSigma = Sigma;
+	LastServerShotIndex = ShotIndex;
+
 	if (bServerValidates)
 	{
-		FVerseSpreadInput In;
-		In.Stance = Move.GetStance();
-		In.AdsBlend = GetAdsBlend01();
-		In.bAirborne = Move.IsAirborne();
-		In.HorizontalSpeedMps = float(Owner->GetVelocity().Size2D() / 100.0);
-		const float Sigma = FMath::Max(FVerseSpread::RestingSigma(*W, In, W->BloomMax),
-			FMath::Max(W->FirstShotSpread.X, W->FirstShotSpread.Y));
-		if (!FVerseSpread::ValidateFire(Origin, Dir, ServerEye(ClientServerTime), ServerForward(), Sigma))
+		const FVector Forward = ServerForward();
+		if (!FVerseSpread::ValidateFire(Origin, Dir, ServerEye(ClientServerTime), Forward, Sigma) ||
+			!FVerseSpread::ValidateDirection(Dir, Forward, Sigma, Seed, ShotIndex))
 		{
 			return Reject();
 		}
@@ -307,7 +367,6 @@ EVerseShotResult UVerseWeaponComponent::HandleServerFire(uint16 ShotCounter, uin
 	{
 		return Reject();
 	}
-	ServerLastShotClientTime = ClientServerTime;
 
 	if (State)
 	{
@@ -336,7 +395,8 @@ EVerseShotResult UVerseWeaponComponent::HandleServerFire(uint16 ShotCounter, uin
 
 	if (UVerseProjectileManager* Manager = UVerseProjectileManager::Get(this))
 	{
-		Manager->SpawnBoltFrom(E, *W, FMath::Max(0.f, Now - ClientServerTime), Owner);
+		// The latency advance comes from the validated client time and is capped at 250 ms by the manager.
+		Manager->SpawnBoltFrom(E, *W, FMath::Clamp(Now - ClientServerTime, 0.f, UVerseProjectileManager::MaxLatencyS), Owner);
 	}
 	return EVerseShotResult::Miss;
 }
@@ -384,11 +444,34 @@ void UVerseWeaponComponent::MulticastFire_Implementation(const FVerseFireEvent& 
 	VerseCombatEvents::RaiseFire(this, E);
 }
 
+void UVerseWeaponComponent::RaiseLocalImpact(const UObject* WorldContext, const FVerseHitEvent& Impact)
+{
+	const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	if (!World || World->GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	if (UVerseEventHub* Hub = UVerseEventHub::Get(WorldContext))
+	{
+		Hub->OnHit.Broadcast(Impact);
+	}
+}
+
 void UVerseWeaponComponent::MulticastHitCosmetic_Implementation(const FVerseHitEvent& E)
 {
 	const AActor* Owner = GetOwner();
-	if (!Owner || Owner->HasAuthority())
+	if (!Owner)
 	{
+		return;
+	}
+	if (Owner->HasAuthority())
+	{
+		// Body hits reached the server's hub through the damage service; world, piece and Bulwark
+		// impacts reach a listen-server or standalone viewer here.
+		if (E.VictimId == -1)
+		{
+			RaiseLocalImpact(this, E);
+		}
 		return;
 	}
 	// The victim's owner gets the reliable copy instead.

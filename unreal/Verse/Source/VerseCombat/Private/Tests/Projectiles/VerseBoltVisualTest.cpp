@@ -54,8 +54,8 @@ namespace VerseBoltVisual
 		FActorSpawnParameters P;
 		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-		UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
-		UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+		UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Verse/Test/WP02/SM_WP02_Plane.SM_WP02_Plane"));
+		UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Verse/Test/WP02/M_WP02_Placeholder.M_WP02_Placeholder"));
 		if (AStaticMeshActor* Floor = World->SpawnActor<AStaticMeshActor>(FVector(3000, 0, 0), FRotator::ZeroRotator, P))
 		{
 			Floor->SetMobility(EComponentMobility::Movable);

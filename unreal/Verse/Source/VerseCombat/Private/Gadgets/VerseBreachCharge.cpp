@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
+#include "Net/UnrealNetwork.h"
 #include "Gadgets/VerseBulwark.h"
 #include "Stubs/VerseNullStubs.h"
 #include "UObject/ConstructorHelpers.h"
@@ -26,11 +27,17 @@ AVerseBreachCharge::AVerseBreachCharge()
 	SetRootComponent(Look);
 	Look->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Look->SetRelativeScale3D(FVector(0.1, 0.3, 0.3));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Game/Verse/Test/WP02/SM_WP02_Box.SM_WP02_Box"));
 	if (Cube.Succeeded())
 	{
 		Look->SetStaticMesh(Cube.Object);
 	}
+}
+
+void AVerseBreachCharge::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION(AVerseBreachCharge, SpawnEvent, COND_InitialOnly);
 }
 
 void AVerseBreachCharge::InitCharge(const UVerseGadgetDefinition& Def, AActor* InOwnerPawn, uint16 InPieceIndex,
@@ -57,7 +64,20 @@ void AVerseBreachCharge::Raise(EVerseGadgetEventKind Kind)
 	E.Location = GetActorLocation();
 	E.ServerTime = VerseCombatEvents::ServerTime(this);
 	VerseCombatEvents::RaiseGadget(this, E);
+	if (Kind == EVerseGadgetEventKind::Plant)
+	{
+		SpawnEvent = E; // reaches clients with the actor's first bunch (OnRep_SpawnEvent)
+		return;
+	}
 	MulticastGadgetEvent(E);
+}
+
+void AVerseBreachCharge::OnRep_SpawnEvent()
+{
+	if (!HasAuthority())
+	{
+		VerseCombatEvents::RaiseGadget(this, SpawnEvent);
+	}
 }
 
 void AVerseBreachCharge::MulticastGadgetEvent_Implementation(const FVerseGadgetEvent& Event)
