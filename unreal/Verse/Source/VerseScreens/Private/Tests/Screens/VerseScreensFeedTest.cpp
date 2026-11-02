@@ -256,7 +256,13 @@ bool FVerseScreensFeedRouting::RunTest(const FString&)
 	TestEqual(TEXT("malformed frame rejected"), Rig.Screens->Stats().Rejected, 1);
 
 	// JSON frames (cells.json/1) for T2 and screens.gone.
-	for (const TSharedPtr<FJsonValue>& Env : VerseBridgeGolden::Load(TEXT("messages/screens.frame.json"))->AsArray())
+	// Keep the loaded document alive: a range-for over a temporary's member array dangles.
+	const TSharedPtr<FJsonValue> Frames = VerseBridgeGolden::Load(TEXT("messages/screens.frame.json"));
+	if (!TestTrue(TEXT("screens.frame golden loads"), Frames.IsValid()))
+	{
+		return false;
+	}
+	for (const TSharedPtr<FJsonValue>& Env : Frames->AsArray())
 	{
 		Rig.Screens->HandleBridgeFrame(*Env->AsObject());
 	}
@@ -306,7 +312,12 @@ bool FVerseScreensChatTails::RunTest(const FString&)
 	const TArray<TSharedPtr<FJsonValue>>& Watched = Watch->Data->GetArrayField(TEXT("agents"));
 	TestEqual(TEXT("at most 6 agents"), Watched.Num(), 6);
 	TestEqual(TEXT("nearest owner first"), Watched[0]->AsString(), FString(TEXT("ag_7f1")));
-	for (const TSharedPtr<FJsonValue>& Env : VerseBridgeGolden::Load(TEXT("messages/chat_tails.update.json"))->AsArray())
+	const TSharedPtr<FJsonValue> Tails = VerseBridgeGolden::Load(TEXT("messages/chat_tails.update.json"));
+	if (!TestTrue(TEXT("chat_tails.update golden loads"), Tails.IsValid()))
+	{
+		return false;
+	}
+	for (const TSharedPtr<FJsonValue>& Env : Tails->AsArray())
 	{
 		Rig.Screens->HandleBridgeFrame(*Env->AsObject());
 	}
@@ -315,12 +326,21 @@ bool FVerseScreensChatTails::RunTest(const FString&)
 	TestNotEqual(TEXT("error lines stand out from agent lines"), Consoles[1]->KindColour(TEXT("error")), Consoles[1]->KindColour(TEXT("agent")));
 	FVerseTerminalDrawList List;
 	TestEqual(TEXT("console draws its lines"), Consoles[0]->Redraw(List), 3);
-	TestEqual(TEXT("newest line at the bottom"), FString(List.Texts.Last().Text), FString(TEXT("The retry waits 30 s; I changed it to back off.")));
+	if (TestTrue(TEXT("console has text"), List.Texts.Num() > 0))
+	{
+		TestEqual(TEXT("newest line at the bottom"), FString(List.Texts.Last().Text), FString(TEXT("The retry waits 30 s; I changed it to back off.")));
+	}
 	Consoles[7]->Redraw(List);
-	TestEqual(TEXT("a console without an owner shows the vacant page"), FString(List.Texts[0].Text), FString(TEXT("VACANT")));
+	if (TestTrue(TEXT("vacant console has text"), List.Texts.Num() > 0))
+	{
+		TestEqual(TEXT("a console without an owner shows the vacant page"), FString(List.Texts[0].Text), FString(TEXT("VACANT")));
+	}
 	Rig.Link->Strings.Add(TEXT("verse.screen.vacant"), TEXT("FREI"));
 	Consoles[7]->Redraw(List);
-	TestEqual(TEXT("the vacant text is localized"), FString(List.Texts[0].Text), FString(TEXT("FREI")));
+	if (TestTrue(TEXT("localized vacant console has text"), List.Texts.Num() > 0))
+	{
+		TestEqual(TEXT("the vacant text is localized"), FString(List.Texts[0].Text), FString(TEXT("FREI")));
+	}
 	FJsonObject Same;
 	Same.SetStringField(TEXT("agent_id"), TEXT("ag_02c"));
 	Same.SetStringField(TEXT("version"), TEXT("evt_01K2"));
