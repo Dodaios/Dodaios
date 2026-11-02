@@ -175,6 +175,42 @@ def test_unsettled_chats_get_rules_only() -> None:
     assert brain.prompts == []
 
 
+def _thread(user: list[str], *, settled: bool) -> TitleRequest:
+    return TitleRequest(
+        kind=chat_titles.KIND_TYPED, conv_id="thread", version=str(len(user)),
+        message_count=len(user), updated_ms=1, settled=settled, seed=user[0],
+        loader=lambda: [("user", text) for text in user],
+        auto_title=lambda text: text, name_early=True,
+    )
+
+
+def test_a_running_thread_is_named_from_its_first_message() -> None:
+    brain = _ScriptedBrain("1: Terminaltitel im Thread-Modus")
+    titler = _titler(brain)
+    request = _thread(["Hallo, die Terminaltitel im Thread-Modus sind schlecht"], settled=False)
+    titler.titles_for([request])
+    _drain_queue(titler)
+    assert titler.titles_for([request]) == {("agent", "thread"): "Terminaltitel im Thread-Modus"}
+    assert len(brain.prompts) == 1
+
+
+def test_a_running_thread_is_not_renamed_until_it_settles() -> None:
+    brain = _ScriptedBrain("1: First name")
+    titler = _titler(brain)
+    titler.titles_for([_thread(["Fix the login test"], settled=False)])
+    _drain_queue(titler)
+    grown = _thread(["Fix the login test", "a", "b", "c", "d", "e"], settled=False)
+    titler.titles_for([grown])
+    _drain_queue(titler)
+    assert titler.titles_for([grown]) == {("agent", "thread"): "First name"}
+    assert len(brain.prompts) == 1
+
+
+def test_a_wish_for_something_keeps_what_is_wished() -> None:
+    title = tidy_title(["Hallo, ich möchte bitte, dass wenn Sub-Agents gespawnt werden"])
+    assert title == "Wenn Sub-Agents gespawnt werden"
+
+
 def test_without_a_subscription_the_rules_title_stands() -> None:
     titler = _titler(None)
     request = _voice("a", ["Hallo", "Kannst du bitte das Wetter prüfen"])
