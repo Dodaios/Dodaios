@@ -182,7 +182,7 @@ namespace VerseCrewPlanner
 		FString Table;
 		for (const FVerseCrewSocket& S : Deck.Sockets)
 		{
-			if (S.StationKind == TEXT("team") && !S.StationId.IsEmpty())
+			if (S.StationKind.Equals(TEXT("team"), ESearchCase::CaseSensitive) && !S.StationId.IsEmpty())
 			{
 				Table = S.StationId;
 				break;
@@ -207,7 +207,7 @@ namespace VerseCrewPlanner
 
 	TArray<int32> VenueSockets(const FVerseCrewDeck& Deck, EVerseCrewVenue Venue)
 	{
-		auto Is = [](const TCHAR* Name) { return [Name](const FString& G) { return G == Name; }; };
+		auto Is = [](const TCHAR* Name) { return [Name](const FString& G) { return G.Equals(Name, ESearchCase::CaseSensitive); }; };
 		auto Has = [](const TCHAR* Name) { return [Name](const FString& G) { return G.Contains(Name, ESearchCase::CaseSensitive); }; };
 		auto Append = [](TArray<int32> A, const TArray<int32>& B) { A.Append(B); return A; };
 		switch (Venue)
@@ -224,7 +224,7 @@ namespace VerseCrewPlanner
 		case EVerseCrewVenue::Viewport:
 			return Append(Of(Deck, EVerseCrewSocketKind::Stand, Is(TEXT("viewport"))),
 				Of(Deck, EVerseCrewSocketKind::Waypoint, [](const FString& G) {
-					return G.Contains(TEXT("viewport"), ESearchCase::CaseSensitive) || G == TEXT("vp") || G.StartsWith(TEXT("vp_"), ESearchCase::CaseSensitive);
+					return G.Contains(TEXT("viewport"), ESearchCase::CaseSensitive) || G.Equals(TEXT("vp"), ESearchCase::CaseSensitive) || G.StartsWith(TEXT("vp_"), ESearchCase::CaseSensitive);
 				}));
 		case EVerseCrewVenue::Bunk:
 			return Of(Deck, EVerseCrewSocketKind::Bunk, [](const FString&) { return true; });
@@ -347,9 +347,16 @@ namespace VerseCrewPlanner
 		}
 		for (const TPair<FString, FString>& Pair : Previous)
 		{
+			// A member's current seat replaces its last home only when that seat is a console or
+			// terminal itself. Sitting at the briefing table or in the mess keeps the home, so no
+			// console changes because a colleague left (parity C-09). planner.ts lets any seat win.
 			if (Pair.Value.StartsWith(TEXT("seat:")))
 			{
-				PreviousSeats.Add(Pair.Key, Pair.Value.Mid(5));
+				const FString SeatId = Pair.Value.Mid(5);
+				if (SeatsById.Contains(SeatId) || !PreviousSeats.Contains(Pair.Key))
+				{
+					PreviousSeats.Add(Pair.Key, SeatId);
+				}
 			}
 		}
 		for (const EVerseCrewRole Role : { EVerseCrewRole::Officer, EVerseCrewRole::Technician })

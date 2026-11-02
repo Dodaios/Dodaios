@@ -236,7 +236,7 @@ FVerseCrewMember FVerseCrewRoster::MemberOf(const FRow& Row, bool bPane) const
 		M.Name = StringOr(F, TEXT("name"), M.Id);
 		M.Title = StringOr(F, TEXT("title"));
 		M.Tier = StringOr(F, TEXT("tier"));
-		M.bLead = M.Tier == TEXT("lead");
+		M.bLead = M.Tier.Equals(TEXT("lead"), ESearchCase::CaseSensitive);
 		M.Look = StringOr(F, TEXT("look"));
 		const TSharedPtr<FJsonObject>* Figure = nullptr;
 		if (F->TryGetObjectField(TEXT("figure"), Figure) && Figure && Figure->IsValid())
@@ -254,7 +254,7 @@ FVerseCrewMember FVerseCrewRoster::MemberOf(const FRow& Row, bool bPane) const
 		}
 		// A paused lifecycle is paused duty whatever the run state says (dutyStatus.ts precedence);
 		// the backend already folds it in, this keeps an older relay honest.
-		if (StringOr(F, TEXT("lifecycle"), TEXT("active")) == TEXT("paused"))
+		if (StringOr(F, TEXT("lifecycle"), TEXT("active")).Equals(TEXT("paused"), ESearchCase::CaseSensitive))
 		{
 			M.Duty = EVerseCrewDuty::Paused;
 		}

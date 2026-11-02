@@ -34,6 +34,8 @@ namespace VerseCrewVisual
 		TMap<FName, FVector> Origins;
 		int32 Shots = 0;
 		FString Dir;
+		TSharedPtr<FFakeVerseCrewBridge> Bridge;
+		TMap<FName, int32> CrewInShot;
 	};
 
 	UWorld* GameWorld()
@@ -131,13 +133,12 @@ bool FVerseCrewVisualTest::RunTest(const FString&)
 	{
 		Panes.Add(A::Pane(FString::Printf(TEXT("ws_1:T%d"), I + 1), PaneDuties[I]));
 	}
-	FFakeVerseCrewBridge Bridge;
+	S->Bridge = MakeShared<FFakeVerseCrewBridge>();
+	FFakeVerseCrewBridge& Bridge = *S->Bridge;
 	Bridge.Send(Crew, TEXT("roster.snapshot"), A::Snapshot(Agents, Panes));
 	Bridge.Send(Crew, TEXT("companion.snapshot"), FFakeVerseCrewBridge::GoldenFrames(TEXT("companion.snapshot"))[0]->GetObjectField(TEXT("data")).ToSharedRef());
 	const FVector HangarLift = Crew->FindDeck(FName(TEXT("hangar")))->Lift()->Location;
 	Crew->SetCommanderOverride(HangarLift + FVector(-300.f, -300.f, 90.f), 180.f);
-	// Two newcomers walk from the shuttle to the lift for the hangar shot.
-	Bridge.Send(Crew, TEXT("roster.delta"), A::Delta({ A::Agent(TEXT("ag_new1"), TEXT("Nova"), TEXT("idle")), A::Agent(TEXT("ag_new2"), TEXT("Rook"), TEXT("idle")) }));
 	Crew->ReplanNow();
 	S->Camera = World->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator);
 	if (APlayerController* PC = World->GetFirstPlayerController())
@@ -151,16 +152,27 @@ bool FVerseCrewVisualTest::RunTest(const FString&)
 		FVector Offset;
 		FRotator Rotation;
 		const TCHAR* File;
+		// Two newcomers join right before this shot, so they are caught walking from the
+		// shuttle to the lift (the walk is about 15 s; the shots before it take longer).
+		bool bArrivals = false;
 	};
 	const TArray<FShot> Shots = {
 		{ FName(TEXT("bridge")), FVector(3600.f, -700.f, 1500.f), FRotator(-38.f, 90.f, 0.f), TEXT("deck_bridge.png") },
-		{ FName(TEXT("ops")), FVector(4000.f, 1200.f, 1700.f), FRotator(-40.f, 60.f, 0.f), TEXT("deck_ops.png") },
-		{ FName(TEXT("engineering")), FVector(2400.f, 2000.f, 1300.f), FRotator(-40.f, 35.f, 0.f), TEXT("deck_engineering.png") },
-		{ FName(TEXT("hangar")), FVector(5000.f, 2000.f, 1600.f), FRotator(-40.f, 60.f, 0.f), TEXT("deck_hangar.png") },
+		// Framed on where the planner puts the crew of each fixture deck (bunks and mess on ops,
+		// the terminal rows on engineering, the shuttle-to-lift walk on the hangar).
+		{ FName(TEXT("ops")), FVector(3400.f, 400.f, 2500.f), FRotator(-40.f, 90.f, 0.f), TEXT("deck_ops.png") },
+		{ FName(TEXT("engineering")), FVector(100.f, 2300.f, 1500.f), FRotator(-40.f, 0.f, 0.f), TEXT("deck_engineering.png") },
+		{ FName(TEXT("hangar")), FVector(5900.f, 2000.f, 2000.f), FRotator(-40.f, 90.f, 0.f), TEXT("deck_hangar.png"), true },
 	};
 	for (const FShot& Shot : Shots)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S, Shot]() {
+			UVerseCrewSubsystem* C = S->Crew.Get();
+			if (Shot.bArrivals && C && S->Bridge)
+			{
+				S->Bridge->Send(C, TEXT("roster.delta"), FVerseCrewTestWorld::Delta({ FVerseCrewTestWorld::Agent(TEXT("ag_new1"), TEXT("Nova"), TEXT("idle")), FVerseCrewTestWorld::Agent(TEXT("ag_new2"), TEXT("Rook"), TEXT("idle")) }));
+				C->ReplanNow();
+			}
 			if (ACameraActor* Camera = S->Camera.Get())
 			{
 				Camera->SetActorLocationAndRotation(S->Origins[Shot.Deck] + Shot.Offset, Shot.Rotation);
@@ -172,6 +184,14 @@ bool FVerseCrewVisualTest::RunTest(const FString&)
 		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S, Shot]() {
 			FScreenshotRequest::RequestScreenshot(S->Dir / Shot.File, false, false);
 			++S->Shots;
+			int32& OnDeck = S->CrewInShot.FindOrAdd(Shot.Deck);
+			if (UVerseCrewSubsystem* C = S->Crew.Get())
+			{
+				for (const TSharedPtr<FJsonValue>& Row : C->DumpJson()->GetArrayField(TEXT("crew")))
+				{
+					OnDeck += Row->AsObject()->GetStringField(TEXT("deck")) == Shot.Deck.ToString() ? 1 : 0;
+				}
+			}
 			return true;
 		}));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
@@ -196,6 +216,11 @@ bool FVerseCrewVisualTest::RunTest(const FString&)
 			S->Camera->Destroy();
 		}
 		TestEqual(TEXT("four deck shots requested"), S->Shots, 4);
+		for (const FName& Deck : S->Decks)
+		{
+			const int32* N = S->CrewInShot.Find(Deck);
+			TestTrue(FString::Printf(TEXT("crew on %s when its shot was taken (%d)"), *Deck.ToString(), N ? *N : 0), N && *N > 0);
+		}
 		return true;
 	}));
 	return true;
