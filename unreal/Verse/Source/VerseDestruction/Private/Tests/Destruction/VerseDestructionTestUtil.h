@@ -84,7 +84,7 @@ namespace VerseDestructionTest
 			Defs.Add(MakePiece(EVersePieceClass::GlassPane, FVector(-200.0, Row * 600.0 + 60.0, 0), Serial++));
 			Defs.Add(MakePiece(EVersePieceClass::CeilingPanel, FVector(100.0, Row * 600.0 + 60.0, 280.0), Serial++));
 		}
-		for (int32 Index = 0; Index < 150; ++Index)
+		for (int32 Index = 0; Index < 210; ++Index)
 		{
 			Defs.Add(MakePiece(Index % 2 ? EVersePieceClass::WallPanel : EVersePieceClass::CladdingWall,
 				FVector(3000.0 + (Index % 10) * 250.0, (Index / 10) * 600.0, 0), Serial++));

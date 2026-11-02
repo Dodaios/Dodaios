@@ -70,6 +70,10 @@ namespace Verse::Destruction::Rules
 				Out.Hp = 0.f;
 				return Out;
 			}
+			if (State != EVersePieceState::Intact)
+			{
+				return Out; // glass has no Holed or Breached state; never move back
+			}
 			Out.Hp = FMath::Max(0.f, Hp - FMath::Max(0.f, Amount));
 			Out.State = (Row.bDestroyedAtZeroHp && Out.Hp <= 0.f) ? EVersePieceState::Destroyed : EVersePieceState::Damaged;
 			return Out;
