@@ -1,351 +1,254 @@
 /**
- * The Memory section: what the assistant and its agents remember, as linked
- * Markdown pages in the Obsidian vault.
+ * The Memory section: the personal memory vault (ADR-0044).
  *
- *   ┌────────────┬────────────────────────────────────────────────┐
- *   │ navigation │  toolbar: back · title          health · vault │
- *   │ search     ├────────────────────────────────────────────────┤
- *   │ areas      │  overview | area list | agents | page | map    │
- *   │ agents     │                                                │
- *   └────────────┴────────────────────────────────────────────────┘
+ *   ┌──────────────────────────────────────────────┬──────────────────┐
+ *   │ Memory · what the assistant knows about you  │ Always in mind   │
+ *   │ [ tell me something to remember …    ][Save] │ (the prompt      │
+ *   │ search · kind chips · history                │  block, verbatim)│
+ *   │ About you ──────────────────────────────     │ Recent changes   │
+ *   │  sentence                    pin edit end ✕  │ Take it with you │
+ *   │ People ─────────────────────────────────     │  export · import │
+ *   └──────────────────────────────────────────────┴──────────────────┘
  *
- * Pages are addressed by vault path everywhere (`/api/wiki/index`, `/read`,
- * `/map`), so two files that share a name are never confused again.
+ * Every row is one atomic memory. An edit is a new version (the old one
+ * stays in the history), "no longer true" closes it with a date, and
+ * forgetting erases every version.
  */
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, FileText, FolderKanban, Lightbulb, Settings2, Shapes } from "lucide-react";
-import { fill, useLocaleChunk, useT } from "@/i18n";
-import { useRunLocale } from "@/components/runs/format";
-import { useEventStore } from "@/store/events";
-import { useWikiLive } from "@/hooks/useWikiLive";
 import {
-  MEMORY_KEYS,
-  createMemoryPage,
-  tidyMemory,
-  useMemoryIndex,
-  type MemoryPageSummary,
-} from "@/lib/memoryApi";
-import { KNOWLEDGE_AREAS, SYSTEM_AREA, type MemoryArea } from "@/lib/memoryModel";
+  Brain,
+  Check,
+  CircleOff,
+  Download,
+  History,
+  Loader2,
+  Pencil,
+  Pin,
+  PinOff,
+  Search,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { fill, useLocaleChunk, useT } from "@/i18n";
+import { cn } from "@/lib/utils";
+import { useEventStore } from "@/store/events";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { MemoryNav, type NavTarget } from "@/components/memory/MemoryNav";
-import { MemoryHome } from "@/components/memory/MemoryHome";
-import { PageList } from "@/components/memory/PageList";
-import { AgentDirectory } from "@/components/memory/AgentDirectory";
-import { PageReader } from "@/components/memory/PageReader";
-import { MemorySearch } from "@/components/memory/MemorySearch";
-import { MemoryHealth } from "@/components/memory/MemoryHealth";
-import { ConfirmDialog, NewPageDialog, type CreatableKind } from "@/components/memory/MemoryDialogs";
-import { ObsidianStatus } from "@/components/wiki/ObsidianStatus";
-import { ObsidianSetupDialog } from "@/components/wiki/ObsidianSetupDialog";
-import type { ObsidianStatus as ObsidianStatusType } from "@/types/setup";
+import { BrandedSelect } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/memory/MemoryDialogs";
+import {
+  MEMORY_KINDS,
+  VAULT_KEYS,
+  addMemory,
+  editMemory,
+  endMemory,
+  exportUrl,
+  forgetMemory,
+  importBundle,
+  pinMemory,
+  useVaultActivity,
+  useVaultHistory,
+  useVaultItems,
+  useVaultOverview,
+  type MemoryKind,
+  type VaultMemory,
+} from "@/lib/personalMemoryApi";
 
-// The force-directed map pulls in its own canvas engine; load it on first use.
-const MemoryMap = lazy(() => import("@/components/memory/MemoryMap"));
+type Filter = MemoryKind | "all";
 
-type Route =
-  | { view: "home" }
-  | { view: "map"; focus: string | null }
-  | { view: "area"; area: MemoryArea }
-  | { view: "page"; path: string };
-
-const AREA_ICONS: Record<string, JSX.Element> = {
-  entities: <Shapes />,
-  projects: <FolderKanban />,
-  concepts: <Lightbulb />,
-  journal: <FileText />,
-  system: <Settings2 />,
-};
-
-function sameRoute(a: Route, b: Route): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+function day(stamp: string | null | undefined): string {
+  if (!stamp) return "";
+  const date = new Date(stamp);
+  if (Number.isNaN(date.getTime())) return stamp.slice(0, 10);
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 export function MemoryView(): JSX.Element {
   const t = useT();
   useLocaleChunk("memory");
-  const language = useRunLocale();
-  useWikiLive();
+  const name = useEventStore((s) => s.assistantName) || "Dodaios";
   const queryClient = useQueryClient();
-  const indexQuery = useMemoryIndex();
-  const index = indexQuery.data;
-
-  const [history, setHistory] = useState<Route[]>([{ view: "home" }]);
-  const route = history[history.length - 1];
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [creating, setCreating] = useState<{ title: string; kind: CreatableKind } | null>(null);
-  const [tidy, setTidy] = useState<string[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [showHistory, setShowHistory] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [setupHint, setSetupHint] = useState<ObsidianStatusType | null>(null);
+  const [forgetting, setForgetting] = useState<VaultMemory | null>(null);
 
-  const go = useCallback((next: Route) => {
-    setHistory((stack) => (sameRoute(stack[stack.length - 1], next) ? stack : [...stack.slice(-30), next]));
-  }, []);
-  const back = useCallback(() => setHistory((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack)), []);
-  const openPage = useCallback((path: string) => go({ view: "page", path }), [go]);
+  const overview = useVaultOverview();
+  const items = useVaultItems(query, showHistory);
 
+  const refresh = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: VAULT_KEYS.all }),
+    [queryClient],
+  );
   const notify = useCallback((message: string) => {
     setToast(message);
     window.setTimeout(() => setToast((current) => (current === message ? null : current)), 3200);
   }, []);
-
-  // Ctrl/Cmd+K opens search while the section is on screen.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setSearchOpen((value) => !value);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  // Another section asked for a page by name (a contact's wiki link, say).
-  const pageRequest = useEventStore((s) => s.wikiPageRequest);
-  useEffect(() => {
-    if (!pageRequest || !index) return;
-    const wanted = pageRequest.slug.replace(/\\/g, "/").replace(/\.md$/i, "").toLowerCase();
-    const match =
-      index.pages.find((page) => page.path.replace(/\.md$/i, "").toLowerCase() === wanted) ??
-      index.pages.find((page) => page.group === "knowledge" && page.slug.toLowerCase() === wanted.split("/").pop()) ??
-      index.pages.find((page) => page.slug.toLowerCase() === wanted.split("/").pop());
-    if (match) openPage(match.path);
-    else notify(t("memory_view.page_missing_title"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- answer each request once, when the index is there
-  }, [pageRequest?.seq, Boolean(index)]);
-
-  // First visit: walk through the Obsidian setup when it still needs a step.
-  useEffect(() => {
-    const controller = new AbortController();
-    (async () => {
+  const run = useCallback(
+    async (work: () => Promise<unknown>, done?: string) => {
       try {
-        const [statusResp, stateResp] = await Promise.all([
-          fetch("/api/setup/obsidian/status", { signal: controller.signal }),
-          fetch("/api/setup/state", { signal: controller.signal }),
-        ]);
-        if (!statusResp.ok || !stateResp.ok) return;
-        const status = (await statusResp.json()) as ObsidianStatusType;
-        const state = (await stateResp.json()) as { obsidian_setup_seen: boolean };
-        if (state.obsidian_setup_seen === false && status.recommended_action !== "ok") setSetupHint(status);
-      } catch (err) {
-        if ((err as { name?: string })?.name !== "AbortError") console.debug("[MemoryView] setup probe failed:", err);
-      }
-    })();
-    return () => controller.abort();
-  }, []);
-
-  const navigate = useCallback(
-    (target: NavTarget) => {
-      if (target.view === "home") go({ view: "home" });
-      else if (target.view === "map") go({ view: "map", focus: null });
-      else if (target.view === "area") go({ view: "area", area: target.area });
-      else {
-        const agent = index?.agents.find((item) => item.agent_id === target.agentId);
-        const pages = (agent?.pages ?? [])
-          .map((path) => index?.pages.find((page) => page.path === path))
-          .filter((page): page is MemoryPageSummary => Boolean(page));
-        const first =
-          pages.find((page) => page.kind === "memory" && !page.empty) ??
-          pages.find((page) => page.kind === "profile" && !page.empty) ??
-          pages.find((page) => !page.empty) ??
-          pages[0];
-        if (first) openPage(first.path);
+        await work();
+        await refresh();
+        if (done) notify(done);
+      } catch (error) {
+        notify(error instanceof Error ? error.message : String(error));
       }
     },
-    [go, index, openPage],
+    [notify, refresh],
   );
 
-  const createPage = useCallback(
-    async (kind: CreatableKind, title: string) => {
-      const result = await createMemoryPage(kind, title);
-      await queryClient.invalidateQueries({ queryKey: MEMORY_KEYS.all });
-      setCreating(null);
-      notify(fill(t("memory_view.created"), { title }));
-      openPage(result.path);
-    },
-    [notify, openPage, queryClient, t],
-  );
+  const rows = useMemo(() => {
+    const all = items.data?.items ?? [];
+    return filter === "all" ? all : all.filter((m) => m.kind === filter);
+  }, [items.data, filter]);
 
-  const startTidy = useCallback(async () => {
-    try {
-      const preview = await tidyMemory(true);
-      if (preview.count === 0) notify(t("memory_view.tidy_nothing"));
-      else setTidy(preview.paths);
-    } catch (err) {
-      notify(err instanceof Error ? err.message : String(err));
-    }
-  }, [notify, t]);
+  const grouped = useMemo(() => {
+    if (query.trim()) return [{ kind: null as MemoryKind | null, rows }];
+    return MEMORY_KINDS.map((kind) => ({ kind, rows: rows.filter((m) => m.kind === kind) })).filter(
+      (group) => group.rows.length > 0,
+    );
+  }, [rows, query]);
 
-  const currentPage = route.view === "page" ? index?.pages.find((page) => page.path === route.path) : undefined;
-  const activeNav: NavTarget["view"] | MemoryArea | null =
-    route.view === "page"
-      ? currentPage?.group === "agents"
-        ? "agents"
-        : null
-      : route.view === "area"
-        ? route.area
-        : route.view;
+  if (overview.isError) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <EmptyState
+          icon={<Brain />}
+          title={t("vault.offline_title")}
+          description={t("vault.offline_body")}
+        />
+      </div>
+    );
+  }
 
-  const obsidian = useMemo(
-    () => <ObsidianStatus onOpenSetup={(status) => setSetupHint(status)} />,
-    [],
-  );
-
-  const toolbarTitle =
-    route.view === "page"
-      ? currentPage?.title ?? ""
-      : route.view === "area"
-        ? route.area === "agents"
-          ? t("memory_view.area_agents")
-          : t(`memory_view.area_${route.area}`)
-        : route.view === "map"
-          ? t("memory_view.map")
-          : t("memory_view.overview");
+  const stats = overview.data?.stats;
+  const byKind = stats?.by_kind ?? {};
 
   return (
-    <div className="flex h-full min-h-0 bg-sidebar" data-testid="memory-view">
-      <MemoryNav
-        index={index}
-        active={activeNav}
-        activeAgentId={currentPage?.agent_id ?? null}
-        onNavigate={navigate}
-        onSearch={() => setSearchOpen(true)}
-        onNewPage={() => setCreating({ title: "", kind: "entity" })}
-      />
+    <div data-testid="memory-vault-view" className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto grid w-full max-w-[1180px] gap-8 px-6 pb-16 pt-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <main className="min-w-0">
+            <header>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground-strong">
+                {t("vault.title")}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {stats
+                  ? fill(t("vault.subtitle"), { name, count: stats.current })
+                  : t("vault.loading")}
+              </p>
+            </header>
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-xl border-l border-t border-border bg-background">
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-          <button
-            type="button"
-            onClick={back}
-            disabled={history.length < 2}
-            aria-label={t("memory_view.back")}
-            title={t("memory_view.back")}
-            className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-          </button>
-          <span className="min-w-0 truncate text-sm font-medium text-foreground" data-testid="memory-toolbar-title">
-            {toolbarTitle}
-          </span>
-          <div className="ml-auto flex items-center gap-1">
-            <MemoryHealth />
-            {obsidian}
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {indexQuery.isLoading ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground" role="status">
-              {t("memory_view.loading")}
-            </div>
-          ) : indexQuery.isError || !index ? (
-            <div className="flex flex-1 items-center justify-center p-8">
-              <EmptyState
-                icon={<BookOpen />}
-                title={t("memory_view.load_error_title")}
-                description={indexQuery.error instanceof Error ? indexQuery.error.message : t("memory_view.load_error_body")}
-              />
-            </div>
-          ) : route.view === "page" ? (
-            <PageReader
-              key={route.path}
-              path={route.path}
-              index={index}
-              language={language}
-              onOpen={openPage}
-              onArea={(area) => go({ view: "area", area })}
-              onShowOnMap={(path) => go({ view: "map", focus: path })}
-              onCreate={(title) => setCreating({ title, kind: "entity" })}
-              onArchived={back}
-              notify={notify}
+            <Composer
+              onSave={(text, kind) =>
+                run(() => addMemory(text, kind), t("vault.saved"))
+              }
             />
-          ) : route.view === "map" ? (
-            <Suspense fallback={<div className="flex-1" />}>
-              <MemoryMap focus={route.focus} onOpen={openPage} />
-            </Suspense>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {route.view === "home" ? (
-                <MemoryHome
-                  index={index}
-                  language={language}
-                  onOpen={openPage}
-                  onNewPage={() => setCreating({ title: "", kind: "entity" })}
-                  onShowAgents={() => go({ view: "area", area: "agents" })}
-                />
-              ) : route.area === "agents" ? (
-                <AgentDirectory index={index} language={language} onOpen={openPage} onTidy={() => void startTidy()} />
-              ) : (
-                <AreaList
-                  area={route.area}
-                  pages={index.pages}
-                  language={language}
-                  onOpen={openPage}
-                  onNew={
-                    index.writable && route.area !== "system" && route.area !== "journal"
-                      ? () =>
-                          setCreating({
-                            title: "",
-                            kind: route.area === "projects" ? "project" : route.area === "concepts" ? "concept" : "entity",
-                          })
-                      : undefined
-                  }
-                />
-              )}
-            </div>
-          )}
-        </div>
-      </main>
 
-      <MemorySearch
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        index={index}
-        onOpen={openPage}
-        onCreate={(title) => setCreating({ title, kind: "entity" })}
-      />
-      <NewPageDialog
-        open={creating !== null}
-        initialTitle={creating?.title ?? ""}
-        initialKind={creating?.kind ?? "entity"}
-        onClose={() => setCreating(null)}
-        onCreate={createPage}
-      />
+            <div className="mt-6 flex flex-wrap items-center gap-2">
+              <label className="relative flex min-w-[220px] flex-1 items-center">
+                <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
+                <input
+                  data-testid="vault-search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t("vault.search_placeholder")}
+                  aria-label={t("vault.search_placeholder")}
+                  className="h-9 w-full rounded-md border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </label>
+              <Button
+                variant={showHistory ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={showHistory}
+                data-testid="vault-history-toggle"
+                onClick={() => setShowHistory((value) => !value)}
+              >
+                <History /> {t("vault.show_history")}
+              </Button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-1.5" role="tablist" aria-label={t("vault.kinds_label")}>
+              <Chip active={filter === "all"} onClick={() => setFilter("all")}>
+                {t("vault.kind_all")}
+                <span className="tabular-nums text-muted-foreground">{stats?.current ?? 0}</span>
+              </Chip>
+              {MEMORY_KINDS.filter((kind) => (byKind[kind] ?? 0) > 0 || filter === kind).map((kind) => (
+                <Chip key={kind} active={filter === kind} onClick={() => setFilter(kind)}>
+                  {t(`vault.kind_${kind}`)}
+                  <span className="tabular-nums text-muted-foreground">{byKind[kind] ?? 0}</span>
+                </Chip>
+              ))}
+            </div>
+
+            {items.isLoading ? (
+              <p className="mt-10 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> {t("vault.loading")}
+              </p>
+            ) : rows.length === 0 ? (
+              <EmptyState
+                className="mt-6"
+                icon={<Brain />}
+                title={query.trim() ? t("vault.no_results") : t("vault.empty_title")}
+                description={query.trim() ? undefined : fill(t("vault.empty_body"), { name })}
+              />
+            ) : (
+              grouped.map((group) => (
+                <section key={group.kind ?? "results"} className="mt-8" data-testid={`vault-group-${group.kind ?? "results"}`}>
+                  <h2 className="mb-2.5 flex items-baseline gap-2 px-1 text-sm font-medium text-foreground">
+                    {group.kind ? t(`vault.kind_${group.kind}`) : t("vault.results")}
+                    <span className="tabular-nums text-muted-foreground">{group.rows.length}</span>
+                  </h2>
+                  <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+                    {group.rows.map((memory) => (
+                      <MemoryRow
+                        key={memory.id}
+                        memory={memory}
+                        onPin={() => run(() => pinMemory(memory.id, !memory.pinned))}
+                        onEdit={(text) => run(() => editMemory(memory.id, text), t("vault.updated"))}
+                        onEnd={() => run(() => endMemory(memory.id), t("vault.ended"))}
+                        onForget={() => setForgetting(memory)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))
+            )}
+          </main>
+
+          <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
+            <AlwaysInMind block={overview.data?.prompt_block ?? ""} name={name} />
+            <RecentChanges />
+            <Portability onImported={(message) => run(async () => undefined, message)} onError={notify} />
+          </aside>
+        </div>
+      </div>
+
       <ConfirmDialog
-        open={tidy !== null}
-        title={fill(t("memory_view.tidy_title"), { count: tidy?.length ?? 0 })}
-        description={t("memory_view.tidy_body")}
-        confirmLabel={t("memory_view.tidy_confirm")}
-        items={tidy ?? []}
-        onClose={() => setTidy(null)}
+        open={forgetting !== null}
+        title={t("vault.forget_title")}
+        description={fill(t("vault.forget_body"), { name })}
+        confirmLabel={t("vault.forget")}
+        items={forgetting ? [forgetting.text] : undefined}
+        onClose={() => setForgetting(null)}
         onConfirm={async () => {
-          const result = await tidyMemory(false);
-          await queryClient.invalidateQueries({ queryKey: MEMORY_KEYS.all });
-          setTidy(null);
-          notify(fill(t("memory_view.tidy_done"), { count: result.count }));
+          const target = forgetting;
+          if (!target) return;
+          await forgetMemory(target.id);
+          setForgetting(null);
+          await refresh();
+          notify(t("vault.forgotten"));
         }}
       />
-      {setupHint && (
-        <ObsidianSetupDialog
-          open
-          onClose={() => setSetupHint(null)}
-          initialStatus={setupHint}
-          onComplete={async () => {
-            try {
-              await fetch("/api/setup/state/obsidian-seen", { method: "POST" });
-            } catch (err) {
-              console.debug("[MemoryView] mark-obsidian-seen failed:", err);
-            }
-          }}
-        />
-      )}
+
       {toast && (
         <div
           role="status"
-          data-testid="memory-toast"
-          className="pointer-events-none fixed bottom-10 right-6 z-[110] max-w-sm rounded-lg border border-border bg-popover px-4 py-3 text-sm text-foreground shadow-float"
+          className="pointer-events-none fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 rounded-lg border border-border bg-popover px-4 py-2 text-sm text-popover-foreground shadow-float"
         >
           {toast}
         </div>
@@ -354,43 +257,347 @@ export function MemoryView(): JSX.Element {
   );
 }
 
-function AreaList({
-  area,
-  pages,
-  language,
-  onOpen,
-  onNew,
+function Chip({
+  active,
+  onClick,
+  children,
 }: {
-  area: MemoryArea;
-  pages: MemoryPageSummary[];
-  language: string;
-  onOpen: (path: string) => void;
-  onNew?: () => void;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active
+          ? "border-accent/60 bg-accent/10 text-foreground-strong"
+          : "border-border bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Composer({ onSave }: { onSave: (text: string, kind: MemoryKind | "") => Promise<void> }) {
+  const t = useT();
+  const [text, setText] = useState("");
+  const [kind, setKind] = useState<MemoryKind | "">("");
+  const [busy, setBusy] = useState(false);
+  const options = useMemo(
+    () => [
+      { value: "", label: t("vault.kind_auto") },
+      ...MEMORY_KINDS.filter((k) => k !== "ephemeral").map((k) => ({ value: k, label: t(`vault.kind_${k}`) })),
+    ],
+    [t],
+  );
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const value = text.trim();
+    if (!value || busy) return;
+    setBusy(true);
+    try {
+      await onSave(value, kind);
+      setText("");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form
+      onSubmit={submit}
+      data-testid="vault-composer"
+      className="mt-6 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2 focus-within:border-accent/50"
+    >
+      <input
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        placeholder={t("vault.composer_placeholder")}
+        aria-label={t("vault.composer_placeholder")}
+        maxLength={2000}
+        className="h-9 min-w-[200px] flex-1 bg-transparent px-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
+      />
+      <BrandedSelect
+        value={kind}
+        options={options}
+        onValueChange={(value) => setKind(value as MemoryKind | "")}
+        ariaLabel={t("vault.kind_label")}
+        className="w-[170px]"
+        testId="vault-composer-kind"
+      />
+      <Button type="submit" size="sm" disabled={!text.trim() || busy}>
+        {busy ? <Loader2 className="animate-spin" /> : <Check />}
+        {t("vault.remember")}
+      </Button>
+    </form>
+  );
+}
+
+function MemoryRow({
+  memory,
+  onPin,
+  onEdit,
+  onEnd,
+  onForget,
+}: {
+  memory: VaultMemory;
+  onPin: () => void;
+  onEdit: (text: string) => Promise<void>;
+  onEnd: () => void;
+  onForget: () => void;
 }) {
   const t = useT();
-  const def = [...KNOWLEDGE_AREAS, SYSTEM_AREA].find((item) => item.id === area) ?? KNOWLEDGE_AREAS[0];
-  const inArea = pages.filter((page) => def.matches(page));
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(memory.text);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const meta = [
+    t(`vault.origin_${memory.origin}`),
+    // An imported memory's start date is the import, not when it became true.
+    memory.valid_from && memory.origin !== "imported" ? fill(t("vault.since"), { date: day(memory.valid_from) }) : "",
+    memory.valid_to ? fill(t("vault.until"), { date: day(memory.valid_to) }) : "",
+    memory.entities.length ? memory.entities.join(", ") : "",
+  ].filter(Boolean);
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    const value = draft.trim();
+    if (!value || value === memory.text) {
+      setEditing(false);
+      return;
+    }
+    await onEdit(value);
+    setEditing(false);
+  };
+
   return (
-    <PageList
-      title={t(def.labelKey)}
-      description={t(def.descriptionKey)}
-      pages={inArea}
-      language={language}
-      onOpen={onOpen}
-      emptyIcon={AREA_ICONS[area] ?? <BookOpen />}
-      emptyTitle={t("memory_view.area_empty_title")}
-      emptyBody={t(`memory_view.area_${area}_empty`)}
-      actions={
-        onNew ? (
-          <button
-            type="button"
-            onClick={onNew}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-          >
-            {t("memory_view.new_page")}
-          </button>
-        ) : undefined
-      }
-    />
+    <li
+      data-testid="vault-row"
+      data-current={memory.current || undefined}
+      className={cn("group px-4 py-3", !memory.current && "opacity-60")}
+    >
+      {editing ? (
+        <form onSubmit={save} className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => event.key === "Escape" && setEditing(false)}
+            aria-label={t("vault.edit")}
+            className="h-8 flex-1 rounded-md border border-border-strong bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <Button type="submit" size="sm">
+            <Check /> {t("vault.save")}
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+            <X />
+          </Button>
+        </form>
+      ) : (
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-sm leading-relaxed text-foreground", !memory.current && "line-through decoration-muted-foreground/50")}>
+              {memory.pinned && <Pin className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px text-accent" aria-label={t("vault.pinned")} />}
+              {memory.text}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {meta.join(" · ")}
+              {memory.sensitivity === "sensitive" && (
+                <span className="ml-1.5 rounded border border-border px-1 py-px text-[10px] uppercase tracking-wide">
+                  {t("vault.sensitive")}
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            {memory.supersedes_id && (
+              <IconButton label={t("vault.history")} onClick={() => setHistoryOpen((v) => !v)}>
+                <History />
+              </IconButton>
+            )}
+            {memory.current && (
+              <>
+                <IconButton label={memory.pinned ? t("vault.unpin") : t("vault.pin")} onClick={onPin}>
+                  {memory.pinned ? <PinOff /> : <Pin />}
+                </IconButton>
+                <IconButton
+                  label={t("vault.edit")}
+                  onClick={() => {
+                    setDraft(memory.text);
+                    setEditing(true);
+                  }}
+                >
+                  <Pencil />
+                </IconButton>
+                <IconButton label={t("vault.end")} onClick={onEnd}>
+                  <CircleOff />
+                </IconButton>
+              </>
+            )}
+            <IconButton label={t("vault.forget")} onClick={onForget} danger>
+              <Trash2 />
+            </IconButton>
+          </div>
+        </div>
+      )}
+      {historyOpen && <Versions id={memory.id} />}
+    </li>
+  );
+}
+
+function IconButton({
+  label,
+  onClick,
+  danger = false,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:h-3.5 [&>svg]:w-3.5",
+        danger ? "hover:text-destructive" : "hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Versions({ id }: { id: string }) {
+  const t = useT();
+  const history = useVaultHistory(id);
+  const versions = history.data?.versions ?? [];
+  return (
+    <ol className="mt-3 space-y-1.5 border-l border-border pl-3" data-testid="vault-versions">
+      {versions.map((version) => (
+        <li key={version.id} className="text-xs">
+          <span className="text-muted-foreground">{day(version.valid_from)} · </span>
+          <span className={version.current ? "text-foreground" : "text-muted-foreground line-through"}>
+            {version.text}
+          </span>
+          {version.current && <span className="ml-1.5 text-accent">{t("vault.now")}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Panel({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <h2 className="text-sm font-medium text-foreground">{title}</h2>
+      {hint && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>}
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function AlwaysInMind({ block, name }: { block: string; name: string }) {
+  const t = useT();
+  const body = block.split("\n").slice(2).join("\n").trim();
+  return (
+    <Panel title={t("vault.always_title")} hint={fill(t("vault.always_hint"), { name })}>
+      {body ? (
+        <pre
+          data-testid="vault-prompt-block"
+          className="max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-background/60 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground"
+        >
+          {body}
+        </pre>
+      ) : (
+        <p className="text-xs text-muted-foreground">{t("vault.always_empty")}</p>
+      )}
+    </Panel>
+  );
+}
+
+function RecentChanges() {
+  const t = useT();
+  const activity = useVaultActivity();
+  const entries = (activity.data?.entries ?? []).filter((e) => e.action !== "pin" && e.action !== "unpin");
+  return (
+    <Panel title={t("vault.recent_title")}>
+      {entries.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t("vault.recent_empty")}</p>
+      ) : (
+        <ul className="space-y-2" data-testid="vault-activity">
+          {entries.slice(0, 8).map((entry) => (
+            <li key={entry.seq} className="text-xs leading-snug">
+              <span className="font-medium text-foreground">{t(`vault.action_${entry.action}`)}</span>
+              <span className="text-muted-foreground"> · {day(entry.at)}</span>
+              {entry.text && <p className="mt-0.5 line-clamp-2 text-muted-foreground">{entry.text}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function Portability({ onImported, onError }: { onImported: (message: string) => void; onError: (message: string) => void }) {
+  const t = useT();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const report = await importBundle(file);
+      onImported(fill(t("vault.import_done"), { added: report.added, skipped: report.skipped }));
+    } catch (error) {
+      onError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+  return (
+    <Panel title={t("vault.portable_title")} hint={t("vault.portable_hint")}>
+      <div className="flex flex-col gap-2">
+        <Button asChild variant="secondary" size="sm" className="justify-start">
+          <a href={exportUrl("bundle")} download data-testid="vault-export-bundle">
+            <Download /> {t("vault.export_bundle")}
+          </a>
+        </Button>
+        <Button asChild variant="ghost" size="sm" className="justify-start">
+          <a href={exportUrl("markdown")} download data-testid="vault-export-markdown">
+            <Download /> {t("vault.export_markdown")}
+          </a>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start"
+          disabled={busy}
+          onClick={() => fileRef.current?.click()}
+          data-testid="vault-import"
+        >
+          {busy ? <Loader2 className="animate-spin" /> : <Upload />} {t("vault.import")}
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          onChange={(event) => void pick(event.target.files?.[0])}
+        />
+      </div>
+    </Panel>
   );
 }
