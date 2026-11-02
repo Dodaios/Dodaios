@@ -461,3 +461,12 @@ async def test_a_turn_is_briefed_on_requests_still_running_behind_it(
     assert text == "What is the weather tomorrow?"  # the person's words, nothing added
     briefing = kw["turn_override"].system_extra
     assert "Tell Kai to fix the login bug." in briefing and "do not wait for it" in briefing
+
+
+def test_build_override_preserves_ultra_reasoning_effort(tmp_path):
+    svc = _service(None)
+    session = _jarvis_session(svc, tmp_path, provider="openai-codex", effort="ultra")
+    override = runner_brain.build_override(
+        session, None, stance="normal", cwd=tmp_path, ref="test-ref"
+    )
+    assert override.reasoning_effort == "ultra"
