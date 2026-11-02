@@ -1,0 +1,9 @@
+[
+  {
+    "type": "focus.return_to_app",
+    "ts": 1793612716.0,
+    "data": {
+      "reason": "return_key"
+    }
+  }
+]

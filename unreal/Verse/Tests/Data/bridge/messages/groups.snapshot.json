@@ -1,0 +1,24 @@
+[
+  {
+    "type": "groups.snapshot",
+    "seq": 14,
+    "ts": 1793612340.5,
+    "data": {
+      "groups": [
+        {
+          "group_id": "grp_a",
+          "name": "Release crew",
+          "members": [
+            "ag_7f1",
+            "ag_02c"
+          ],
+          "lead": "ag_02c",
+          "goal": {
+            "goal_id": "g_9",
+            "state": "running"
+          }
+        }
+      ]
+    }
+  }
+]

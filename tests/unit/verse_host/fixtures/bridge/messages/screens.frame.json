@@ -1,0 +1,113 @@
+[
+  {
+    "type": "screens.frame",
+    "seq": 91,
+    "base": 88,
+    "ts": 1793612361.2,
+    "data": {
+      "pane_id": "ws_91:T1",
+      "kind": "delta",
+      "cols": 132,
+      "rows": 40,
+      "cursor": [
+        39,
+        2
+      ],
+      "style": "styled",
+      "rows_changed": [
+        {
+          "row": 38,
+          "runs": [
+            {
+              "col": 0,
+              "text": "✔ tests passed",
+              "fg": "#4fb86a",
+              "bg": null,
+              "attrs": [
+                "bold"
+              ]
+            },
+            {
+              "col": 14,
+              "text": " (42)",
+              "fg": {
+                "i": 8
+              },
+              "bg": null,
+              "attrs": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "type": "screens.frame",
+    "seq": 82,
+    "ts": 1793612360.03,
+    "data": {
+      "pane_id": "ws_91:T1",
+      "kind": "snapshot",
+      "cols": 132,
+      "rows": 40,
+      "cursor": [
+        1,
+        2
+      ],
+      "style": "styled",
+      "ref": 1,
+      "cut": false,
+      "at": 1793612359.4,
+      "rows_changed": [
+        {
+          "row": 0,
+          "runs": [
+            {
+              "col": 0,
+              "text": "$ pytest -q",
+              "fg": null,
+              "bg": null,
+              "attrs": []
+            }
+          ]
+        },
+        {
+          "row": 1,
+          "runs": [
+            {
+              "col": 0,
+              "text": "> ",
+              "fg": {
+                "i": 2
+              },
+              "bg": null,
+              "attrs": [
+                "bold"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "type": "screens.frame",
+    "seq": 83,
+    "ts": 1793612360.05,
+    "data": {
+      "pane_id": "ws_91:T2",
+      "kind": "snapshot",
+      "cols": 240,
+      "rows": 60,
+      "cursor": [
+        -1,
+        -1
+      ],
+      "style": "plain",
+      "ref": 2,
+      "cut": true,
+      "at": null,
+      "rows_changed": []
+    }
+  }
+]
