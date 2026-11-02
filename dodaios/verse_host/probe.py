@@ -10,8 +10,10 @@ no D3D12 device lives in the app process. Results are cached per run.
 
 Install check: the first existing ``Verse`` executable of
 :func:`candidate_executables` (``DODAIOS_VERSE_EXE``, the installed build
-under ``<DATA_DIR>/verse/build``, the app's own ``verse`` folder, a dev
-staged build under ``unreal/Verse/Saved/StagedBuilds``).
+under ``<DATA_DIR>/verse/build`` that the on-demand download writes
+(``install_port``), a dev staged build under ``unreal/Verse/Saved/StagedBuilds``).
+The installer and app updates never carry the Verse, so a fresh install is
+``not_installed`` until the user downloads it.
 
 ``DODAIOS_VERSE_PROBE=pass`` or ``=fail`` overrides the GPU check (tests,
 CI runners without a GPU).
@@ -20,13 +22,14 @@ CI runners without a GPU).
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
+from .env import getenv
 
 MIN_VRAM_MB = 6 * 1024
 PROBE_TIMEOUT_S = 20.0
@@ -231,7 +234,7 @@ _cache: GpuReport | None = None
 def probe_gpu(*, refresh: bool = False) -> GpuReport:
     """The GPU verdict, from a child process, cached for this app run."""
     global _cache
-    override = os.environ.get("DODAIOS_VERSE_PROBE", "").strip().lower()
+    override = getenv("DODAIOS_VERSE_PROBE").strip().lower()
     if override in ("pass", "fail"):
         return GpuReport(override == "pass", "override", reason=f"DODAIOS_VERSE_PROBE={override}")
     if _cache is not None and not refresh:
@@ -258,7 +261,7 @@ def exe_name() -> str:
 
 def candidate_executables() -> list[Path]:
     out: list[Path] = []
-    env = os.environ.get("DODAIOS_VERSE_EXE")
+    env = getenv("DODAIOS_VERSE_EXE")
     if env:
         out.append(Path(env))
     try:
@@ -268,7 +271,6 @@ def candidate_executables() -> list[Path]:
     except Exception:  # noqa: BLE001,S110 - no data dir in some test contexts
         pass
     app_root = Path(__file__).resolve().parents[2]
-    out.append(app_root / "verse" / exe_name())
     platform_dir = "Windows" if sys.platform == "win32" else "Linux"
     out.append(app_root / "unreal" / "Verse" / "Saved" / "StagedBuilds" / platform_dir / exe_name())
     return out
