@@ -293,3 +293,56 @@ def test_a_chat_without_a_ready_app_spawns_exactly_as_before(monkeypatch):
     )
     assert "--mcp-config" not in plan.argv
     assert "--append-system-prompt" not in plan.argv
+
+
+@pytest.mark.asyncio
+async def test_image_artifacts_reach_the_mcp_client_as_image_content():
+    """A screenshot is useless to the chat if only "Screenshot captured" arrives (#1072)."""
+    import base64
+
+    import mcp.types as types
+
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32).decode("ascii")
+
+    @dataclass
+    class _ImageResult:
+        success: bool = True
+        output: Any = "Screenshot captured"
+        error: str | None = None
+        artifacts: tuple[Any, ...] = (
+            {"type": "image", "mime": "image/png", "data": png},
+            {"type": "file", "path": "C:/tmp/x.txt"},
+            {"type": "image", "mime": "text/plain", "data": "aGVsbG8="},
+            {"type": "image", "mime": "image/jpeg"},
+            "not-a-dict",
+        )
+
+    class ImageGateway(_Gateway):
+        async def execute(self, name, arguments, request):
+            self.calls.append((name, arguments, request))
+            return _ImageResult()
+
+    runtime_refs.set_supervisor_tool_gateway(ImageGateway(names=("screenshot",)))
+    instance = server.build_server()
+    request = types.CallToolRequest(
+        params=types.CallToolRequestParams(name="screenshot", arguments={})
+    )
+    response = await instance.request_handlers[types.CallToolRequest](request)
+    content = response.root.content
+    assert not response.root.isError
+    assert content[0].type == "text" and content[0].text == "Screenshot captured"
+    images = [c for c in content if c.type == "image"]
+    assert len(images) == 1
+    assert images[0].mimeType == "image/png" and images[0].data == png
+
+
+def test_failed_results_and_oversized_images_are_handled():
+    @dataclass
+    class _R:
+        success: bool
+        artifacts: Any = None
+
+    assert server._image_contents(_R(False, ({"type": "image", "data": "x"},))) == []
+    assert server._image_contents(_R(True, None)) == []
+    many = tuple({"type": "image", "mime": "image/png", "data": "aGk="} for _ in range(10))
+    assert len(server._image_contents(_R(True, many))) == server._MCP_MAX_IMAGES
