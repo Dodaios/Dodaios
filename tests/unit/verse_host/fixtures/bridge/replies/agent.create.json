@@ -1,0 +1,50 @@
+[
+  {
+    "request": {
+      "type": "agent.create",
+      "id": "c-66",
+      "ts": 1793612594.0,
+      "data": {
+        "name": "Ilka",
+        "title": "Test writer",
+        "figure": {
+          "archetype": "pilot",
+          "palette": "oxide"
+        }
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 325,
+      "ts": 1793612594.05,
+      "re": "c-66",
+      "data": {
+        "ok": true,
+        "result": {
+          "agent_id": "ag_9c4"
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "agent.create",
+      "id": "c-67",
+      "ts": 1793612600.0,
+      "data": {}
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 326,
+      "ts": 1793612600.05,
+      "re": "c-67",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "rate_limited",
+          "message": "agent.create is limited to 1 per 5 s."
+        }
+      }
+    }
+  }
+]

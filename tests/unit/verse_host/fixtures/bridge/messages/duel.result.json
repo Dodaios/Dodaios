@@ -1,0 +1,108 @@
+[
+  {
+    "type": "duel.result",
+    "id": "c-60",
+    "ts": 1793612500.0,
+    "data": {
+      "match_id": "m_01JD…",
+      "session_id": "s_01JD…",
+      "set_index": 3,
+      "mode": "deathmatch_1v1",
+      "ruleset": "endless/1",
+      "opponent": {
+        "kind": "bot",
+        "tier": "hard",
+        "adaptive": false
+      },
+      "started_at": 1793612200.0,
+      "ended_at": 1793612500.0,
+      "match_time_s": 296.4,
+      "end_reason": "set_complete",
+      "outcome": "won",
+      "score": {
+        "player": 10,
+        "opponent": 7
+      },
+      "stats": {
+        "kills": 10,
+        "deaths": 7,
+        "headshots": 4,
+        "finishers": 1,
+        "melee_kills": 1,
+        "shots_fired": 540,
+        "shots_hit": 201,
+        "damage_dealt": 2760,
+        "damage_taken": 2210,
+        "walls_breached": 2,
+        "bulwarks_placed": 3,
+        "best_streak": 4
+      },
+      "weapons": [
+        {
+          "weapon_id": "graveline",
+          "kills": 8,
+          "headshots": 4,
+          "shots_fired": 410,
+          "shots_hit": 152
+        }
+      ],
+      "build": {
+        "version": "0.1.0",
+        "changelist": "a1b2c3d"
+      }
+    }
+  },
+  {
+    "type": "duel.result",
+    "id": "c-61",
+    "ts": 1793612541.0,
+    "data": {
+      "match_id": "m_01JE0002",
+      "session_id": "s_01JD…",
+      "set_index": 4,
+      "mode": "deathmatch_1v1",
+      "ruleset": "endless/1",
+      "opponent": {
+        "kind": "bot",
+        "tier": "elite",
+        "adaptive": true
+      },
+      "started_at": 1793612200.0,
+      "ended_at": 1793612541.0,
+      "match_time_s": 41.0,
+      "end_reason": "player_left",
+      "outcome": "unfinished",
+      "score": {
+        "player": 2,
+        "opponent": 3
+      },
+      "stats": {
+        "kills": 2,
+        "deaths": 3,
+        "headshots": 1,
+        "finishers": 0,
+        "melee_kills": 0,
+        "shots_fired": 540,
+        "shots_hit": 201,
+        "damage_dealt": 2760,
+        "damage_taken": 2210,
+        "walls_breached": 2,
+        "bulwarks_placed": 3,
+        "best_streak": 1
+      },
+      "weapons": [
+        {
+          "weapon_id": "graveline",
+          "kills": 2,
+          "headshots": 1,
+          "shots_fired": 80,
+          "shots_hit": 30
+        }
+      ],
+      "build": {
+        "version": "0.1.0",
+        "changelist": "a1b2c3d"
+      }
+    }
+  }
+]

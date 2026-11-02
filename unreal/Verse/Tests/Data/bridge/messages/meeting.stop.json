@@ -1,0 +1,10 @@
+[
+  {
+    "type": "meeting.stop",
+    "id": "c-45",
+    "ts": 1793612400.0,
+    "data": {
+      "group_id": "grp_a"
+    }
+  }
+]
