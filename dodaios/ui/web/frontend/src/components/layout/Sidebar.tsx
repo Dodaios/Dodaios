@@ -661,7 +661,7 @@ function NavRow({
   warn?: boolean;
   /** Plain-language hover text for the warn dot. */
   warnTitle?: string;
-  /** Test id / tour id when the row is not a section of its own (the Verse). */
+  /** Test id when the row is not a section of its own (the Verse). */
   rowId?: string;
   onClick: () => void;
 }) {
@@ -696,7 +696,7 @@ function NavRow({
           type="button"
           data-testid={`nav-row-${id}`}
           {...prefetch}
-          data-tour={`nav-${id}`}
+          data-tour={`nav-${item.id}`}
           onClick={onClick}
           title={compact ? `${label}${hint ? ` — ${hint}` : ""}` : hint}
           aria-label={compact ? label : undefined}

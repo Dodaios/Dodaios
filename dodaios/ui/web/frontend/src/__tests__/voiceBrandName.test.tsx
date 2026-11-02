@@ -16,7 +16,7 @@
  * rule, so this file also covers the section's "API Keys" tab and the locale
  * values it renders.
  */
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -140,11 +140,14 @@ function renderSidebar() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <Sidebar />
     </QueryClientProvider>,
   );
+  // The voice row lives behind "More" since 2026-11-02.
+  fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
+  return view;
 }
 
 function renderVoiceApiKeysTab() {
