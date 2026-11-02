@@ -326,10 +326,9 @@ export function Sidebar({
   // retired "Jarvis Tools" folder used to be — it was the only entry hiding
   // behind "Show more" that users reached for daily, while the tools folder
   // duplicated exactly what "Show more" already lists.
-  // "Built for you" and the voice section moved behind "More" (2026-11-02):
-  // the main list is the agents, the IDE, the Verse, the extensions and the
-  // artifacts — nothing else.
-  const primaryIds = ["chats", "agents", "visualization", "agentic-ide", "plugins", "marketplace"];
+  // "Built for you" moved behind "More" (2026-11-02): the main list is the
+  // agents, the IDE, the Verse, the voice, the extensions and the artifacts.
+  const primaryIds = ["chats", "agents", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"];
   // The Settings hub owns its entries — they live in the hub's left
   // navigation now, so "Show more" must not list them a second time. The set
   // itself is named once in `navGroups` (`SETTINGS_HUB_IDS`).
@@ -560,12 +559,14 @@ export function Sidebar({
               {!railed && <span>{t("sidebar.new_chat")}</span>}
             </button></li>
             {/* The order the maintainer chose (2026-11-02): the agents, where
-                they code, the Verse, then the extensions and the artifacts.
+                they code, the Verse, the voice, then the extensions and the
+                artifacts.
                 Everything else sits behind "More". */}
             {renderRow(findItem("agents"))}
             {renderRow(findItem("agentic-ide"))}
             <NavRow key="verse" rowId="verse" item={verseItem} label={resolveNavLabel(t, verseItem)}
               compact={railed} active={active === "agentic-ide" && verseOn} onClick={openVerse} />
+            {renderRow(findItem("dictation"))}
           </ul>
           <ul className="space-y-px">
             {renderRow({ ...findItem("plugins"), labelKey: "sidebar.extensions_label" })}
