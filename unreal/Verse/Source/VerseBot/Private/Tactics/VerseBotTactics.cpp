@@ -20,6 +20,7 @@ namespace
 	constexpr float SearchVisitCm = 400.f;
 	constexpr float SearchRadiusCm = 6000.f;
 	constexpr float SearchRetargetS = 8.f;
+	constexpr int32 SearchPathChecks = 5;
 
 	using EState = EVerseBotState;
 
@@ -486,7 +487,7 @@ namespace VerseBotTactics
 					// per metre of distance (static arena data, 3.3).
 					TArray<FVerseBotCoverPoint> Points;
 					Ctx.Query.World->GetCoverPoints(Self.Location, SearchRadiusCm, Points);
-					float BestGain = -1.f;
+					TArray<TPair<float, FVector>, TInlineAllocator<64>> Ranked;
 					for (const FVerseBotCoverPoint& P : Points)
 					{
 						const float* Last = Mem.Visited.Find(P.Id);
@@ -496,11 +497,18 @@ namespace VerseBotTactics
 						{
 							continue;
 						}
-						const float Gain = FMath::Min(Age, 120.f) / (Dist + 8.f) + float(Rng.Range(0.0, 0.01));
-						if (Gain > BestGain)
+						Ranked.Emplace(FMath::Min(Age, 120.f) / (Dist + 8.f) + float(Rng.Range(0.0, 0.01)), P.Location);
+					}
+					Ranked.StableSort([](const TPair<float, FVector>& A, const TPair<float, FVector>& B) { return A.Key > B.Key; });
+					// The best few by gain that a path actually reaches.
+					float BestGain = -1.f;
+					for (int32 i = 0; i < FMath::Min(Ranked.Num(), SearchPathChecks); ++i)
+					{
+						if (Ctx.Query.World->FindPath(Self.Location, Ranked[i].Value, false).bValid)
 						{
-							BestGain = Gain;
-							Mem.SearchTarget = P.Location;
+							BestGain = Ranked[i].Key;
+							Mem.SearchTarget = Ranked[i].Value;
+							break;
 						}
 					}
 					if (BestGain < 0.f)

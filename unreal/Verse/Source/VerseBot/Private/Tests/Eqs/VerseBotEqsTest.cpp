@@ -13,7 +13,7 @@
 
 namespace VerseBotEqsTest
 {
-	struct FScene
+	struct FEqsScene
 	{
 		FFakeVerseBotWorldQueries World;
 		FFakeVerseBotBelief Belief;
@@ -23,7 +23,7 @@ namespace VerseBotEqsTest
 		UVerseBotTier* Tier = nullptr;
 		FVerseBotQueryContext Ctx;
 
-		explicit FScene(FName TierId, const FVector& BotAt, const FVector& TopAt)
+		explicit FEqsScene(FName TierId, const FVector& BotAt, const FVector& TopAt)
 		{
 			FFakeVerseBotWorldQueries::BuildStandardArena(World);
 			Tier = NewObject<UVerseBotTier>();
@@ -43,7 +43,7 @@ namespace VerseBotEqsTest
 			Belief.Mass = 0.7f;
 			Belief.SupportedMass = 0.7f;
 		}
-		~FScene() { Tier->RemoveFromRoot(); }
+		~FEqsScene() { Tier->RemoveFromRoot(); }
 
 		const FVerseBotQueryContext& Build()
 		{
@@ -68,7 +68,7 @@ bool FVerseBotEqsCoverTest::RunTest(const FString& Parameters)
 {
 	using namespace VerseBotEqsTest;
 	{
-		FScene S(TEXT("hard"), FVector(0.f, -300.f, 0.f), FVector(-500.f, 1500.f, 0.f));
+		FEqsScene S(TEXT("hard"), FVector(0.f, -300.f, 0.f), FVector(-500.f, 1500.f, 0.f));
 		const FVerseBotQueryContext& Ctx = S.Build();
 		TestTrue(TEXT("BeliefTop is the TopCluster centre"), VerseBotEqs::BeliefTop(Ctx).Equals(S.Summary.TopCenter));
 		TestTrue(TEXT("BeliefFacing is the facing estimate"), VerseBotEqs::BeliefFacing(Ctx).Equals(FVector(0, 1, 0), 1e-4));
@@ -89,7 +89,7 @@ bool FVerseBotEqsCoverTest::RunTest(const FString& Parameters)
 	}
 	{
 		// Learned danger heat (7.2) pushes cover away from where the person shoots from.
-		FScene S(TEXT("elite"), FVector(0.f, -300.f, 0.f), FVector(-500.f, 1500.f, 0.f));
+		FEqsScene S(TEXT("elite"), FVector(0.f, -300.f, 0.f), FVector(-500.f, 1500.f, 0.f));
 		const FVerseBotCoverResult Before = VerseBotEqs::Cover(S.Build(), EVerseBotCoverMode::Near);
 		for (int32 i = 0; i < 60; ++i)
 		{
@@ -104,7 +104,7 @@ bool FVerseBotEqsCoverTest::RunTest(const FString& Parameters)
 	}
 	{
 		// PeekCorner: a peek that sees BeliefTop; the repeat penalty lowers a thrice-used edge.
-		FScene S(TEXT("elite"), FVector(-500.f, 440.f, 0.f), FVector(-500.f, 1500.f, 0.f));
+		FEqsScene S(TEXT("elite"), FVector(-500.f, 440.f, 0.f), FVector(-500.f, 1500.f, 0.f));
 		FVerseBotCoverPoint From;
 		From.Location = FVector(-460.f, 520.f, 0.f);
 		From.Facing = FVector(0, 1, 0);
@@ -129,7 +129,7 @@ bool FVerseBotEqsTacticalTest::RunTest(const FString& Parameters)
 	using namespace VerseBotEqsTest;
 	// The north panel (piece 1) is a penetrable, breachable wall at y 6.0-6.4 m.
 	{
-		FScene S(TEXT("elite"), FVector(0.f, 300.f, 0.f), FVector(0.f, 900.f, 0.f));
+		FEqsScene S(TEXT("elite"), FVector(0.f, 300.f, 0.f), FVector(0.f, 900.f, 0.f));
 		const FVerseBotWallbangResult W = VerseBotEqs::WallbangSpot(S.Build());
 		TestTrue(TEXT("wallbang spot through the panel"), W.bFound);
 		TestEqual(TEXT("one piece on the path"), W.Pieces, 1);
@@ -165,7 +165,7 @@ bool FVerseBotEqsTacticalTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("too little damage left"), FVerseBotFireClassifier::HasWallShotAuthority(E, *Loose));
 	}
 	{
-		FScene S(TEXT("elite"), FVector(0.f, 200.f, 0.f), FVector(0.f, 1200.f, 0.f));
+		FEqsScene S(TEXT("elite"), FVector(0.f, 200.f, 0.f), FVector(0.f, 1200.f, 0.f));
 		S.Self.GadgetCharges[1] = 2;
 		const FVerseBotBreachResult B = VerseBotEqs::BreachSpot(S.Build());
 		TestTrue(TEXT("breach spot found"), B.bFound);
@@ -177,7 +177,7 @@ bool FVerseBotEqsTacticalTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("a piece believed breached is not a breach target"), Open.bFound && Open.PieceIndex == 1);
 	}
 	{
-		FScene S(TEXT("elite"), FVector(400.f, 1000.f, 0.f), FVector(0.f, 1200.f, 0.f));
+		FEqsScene S(TEXT("elite"), FVector(400.f, 1000.f, 0.f), FVector(0.f, 1200.f, 0.f));
 		const FVerseBotFinisherResult F = VerseBotEqs::FinisherApproach(S.Build());
 		TestTrue(TEXT("finisher approach found"), F.bFound);
 		TestTrue(TEXT("approach more than 100 deg off the believed facing"), VerseBotEqs::OffFacingDeg(S.Ctx, F.Approach) > 100.f);

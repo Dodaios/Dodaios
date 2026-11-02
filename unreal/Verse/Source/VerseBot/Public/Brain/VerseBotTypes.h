@@ -64,8 +64,7 @@ struct VERSEBOT_API FVerseBotPresentation
 	UPROPERTY(BlueprintReadOnly, Category = "Bot")
 	EVerseBotState State = EVerseBotState::Search;
 
-	/** The Bot.State.* tag of State. */
-	UPROPERTY(BlueprintReadOnly, Category = "Bot")
+	/** The Bot.State.* tag of State (not reflected: VerseBot links no GameplayTags module of its own). */
 	FGameplayTag StateTag;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Bot")

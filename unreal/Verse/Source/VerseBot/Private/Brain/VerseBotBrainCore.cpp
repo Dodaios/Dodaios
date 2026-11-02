@@ -14,6 +14,7 @@ namespace
 	/** Stuck: wants to move, moved less than 0.5 m in 3 s (BG12). */
 	constexpr float StuckWindowS = 3.f;
 	constexpr float StuckMinMoveCm = 50.f;
+	constexpr float StuckReplanS = 1.f;
 	/** Knife reflex inside 2 m frontal, finisher reflex inside 1.5 m rear or flank (5.2). */
 	constexpr float KnifeRangeCm = 200.f;
 	constexpr float FinisherRangeCm = 150.f;
@@ -104,6 +105,7 @@ void FVerseBotBrainCore::Init(const UVerseBotTier& InTier, const FConfig& InConf
 	LastPersonZone = INDEX_NONE;
 	StuckRef = FVector::ZeroVector;
 	StuckSinceS = 0.f;
+	bStuckReplanned = false;
 	VisibleBurst = 0;
 	BurstRestUntilS = 0.f;
 	BeliefSummary = FVerseBotBeliefSummary();
@@ -742,17 +744,31 @@ FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& Frame, IVer
 			StuckRef = Frame.Self.Location;
 			StuckSinceS = NowS;
 			bStuckCounted = false;
+			bStuckReplanned = false;
 		}
-		else if (NowS - StuckSinceS > StuckWindowS && !bStuckCounted)
+		else
 		{
-			++StuckEvents;
-			bStuckCounted = true;
+			if (NowS - StuckSinceS > StuckReplanS && !bStuckReplanned)
+			{
+				// No progress: drop the move targets and re-plan on the next tick (6.1 path invalidation).
+				bStuckReplanned = true;
+				TacticsMem.bHasSearchTarget = false;
+				TacticsMem.bHasFlankPoint = false;
+				PathTarget = FVector(1.0e9);
+				NextDecisionS = NowS;
+			}
+			if (NowS - StuckSinceS > StuckWindowS && !bStuckCounted)
+			{
+				++StuckEvents;
+				bStuckCounted = true;
+			}
 		}
 	}
 	else
 	{
 		StuckRef = Frame.Self.Location;
 		StuckSinceS = NowS;
+		bStuckReplanned = false;
 	}
 
 	if (Sight)

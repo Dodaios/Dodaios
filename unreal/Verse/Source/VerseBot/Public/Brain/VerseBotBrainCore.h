@@ -151,6 +151,7 @@ private:
 	FVector StuckRef = FVector::ZeroVector;
 	float StuckSinceS = 0.f;
 	bool bStuckCounted = false;
+	bool bStuckReplanned = false;
 
 	// Reflex state
 	bool bAdsHeld = false;

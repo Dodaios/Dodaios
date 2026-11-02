@@ -14,7 +14,7 @@ namespace VerseBotTacticsTest
 	using EState = EVerseBotState;
 
 	/** A scripted context over the standard arena: the bot at the origin's south, belief north. */
-	struct FScene
+	struct FTacticsScene
 	{
 		FFakeVerseBotWorldQueries World;
 		FFakeVerseBotBelief Belief;
@@ -26,7 +26,7 @@ namespace VerseBotTacticsTest
 		UVerseBotTier* Tier = nullptr;
 		FVerseBotTacticsContext Ctx;
 
-		explicit FScene(FName TierId)
+		explicit FTacticsScene(FName TierId)
 		{
 			FFakeVerseBotWorldQueries::BuildStandardArena(World);
 			Tier = NewObject<UVerseBotTier>();
@@ -49,7 +49,7 @@ namespace VerseBotTacticsTest
 			Summary.FacingAgeS = 1.f;
 			Summary.SinceSightingS = 3.f;
 		}
-		~FScene() { Tier->RemoveFromRoot(); }
+		~FTacticsScene() { Tier->RemoveFromRoot(); }
 
 		FVerseBotTacticsContext& Build()
 		{
@@ -91,7 +91,7 @@ bool FVerseBotTacticsUtilityTest::RunTest(const FString& Parameters)
 {
 	using namespace VerseBotTacticsTest;
 	{
-		FScene S(TEXT("hard"));
+		FTacticsScene S(TEXT("hard"));
 		S.Sight.PelvisLocation = FVector(0.f, 0.f, 95.f);
 		S.Sight.VisibleMask = 0xff;
 		S.Build();
@@ -106,25 +106,25 @@ bool FVerseBotTacticsUtilityTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("Attack on a sighting"), EState(B), EState::Attack);
 	}
 	{
-		FScene S(TEXT("hard"));
+		FTacticsScene S(TEXT("hard"));
 		S.Self.Health = 20.f;
 		TestEqual(TEXT("Retreat when low against a healthy estimate"), S.Best(), EState::Retreat);
 	}
 	{
-		FScene S(TEXT("hard"));
+		FTacticsScene S(TEXT("hard"));
 		S.Self.Magazine = 3;
 		S.Summary.State = EVerseBeliefState::Lost;
 		S.Summary.Confidence = 0.1f;
 		TestEqual(TEXT("Reload with a low magazine and no threat"), S.Best(), EState::Reload);
 	}
 	{
-		FScene S(TEXT("hard"));
+		FTacticsScene S(TEXT("hard"));
 		S.Summary.State = EVerseBeliefState::Lost;
 		S.Summary.Confidence = 0.1f;
 		TestEqual(TEXT("Search when the belief is lost"), S.Best(), EState::Search);
 	}
 	{
-		FScene S(TEXT("hard"));
+		FTacticsScene S(TEXT("hard"));
 		S.Summary.SinceSightingS = 0.8f;
 		S.Summary.Velocity = FVector(0.f, -400.f, 0.f); // toward the bot
 		S.Cache.Cover[int32(EVerseBotCoverMode::Near)].bFound = true;
@@ -132,19 +132,19 @@ bool FVerseBotTacticsUtilityTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("Hold with cover and an approaching belief"), S.Best(), EState::Hold);
 	}
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Summary.SinceSightingS = 3.f;
 		TestEqual(TEXT("Flank a still belief after 1.5-8 s without sight"), S.Best(), EState::Flank);
 	}
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Summary.SinceSightingS = 9.f;
 		S.Summary.SpreadCm = 150.f;
 		S.Cache.Finisher.bFound = true;
 		TestEqual(TEXT("Stalk a static, facing-away belief with Spread < 2 m"), S.Best(), EState::StalkForFinisher);
 	}
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Summary.SinceSightingS = 9.f;
 		S.Build();
 		S.Ctx.bBulwarkReady = true;
@@ -155,7 +155,7 @@ bool FVerseBotTacticsUtilityTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("DeployBulwark with no cover within 6 m"), EState(B), EState::DeployBulwark);
 	}
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Summary.SinceSightingS = 9.f;
 		S.Cache.Breach.bFound = true;
 		S.Cache.Breach.Score = 0.5f;
@@ -168,7 +168,7 @@ bool FVerseBotTacticsUtilityTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("Breach a believed-intact piece on the way"), EState(B), EState::Breach);
 	}
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Summary.SinceSightingS = 9.f;
 		S.Build();
 		S.Ctx.bWallbangAuthorised = true;
@@ -192,7 +192,7 @@ bool FVerseBotTacticsTickTest::RunTest(const FString& Parameters)
 	using namespace VerseBotTacticsTest;
 	// Hold: Go -> Hide -> Peek -> Hide with the contract times.
 	{
-		FScene S(TEXT("hard"));
+		FTacticsScene S(TEXT("hard"));
 		FVerseBotCoverPoint Cover;
 		Cover.Location = S.Self.Location;
 		Cover.bHigh = false;
@@ -233,7 +233,7 @@ bool FVerseBotTacticsTickTest::RunTest(const FString& Parameters)
 	}
 	// StalkForFinisher: silent crouch-walk, melee press inside 1.5 m when the finisher can activate.
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Summary.TopCenter = S.Self.Location + FVector(0.f, 120.f, 0.f);
 		FVerseBotTacticsMemory Mem;
 		FVerseRng Rng(4);
@@ -247,7 +247,7 @@ bool FVerseBotTacticsTickTest::RunTest(const FString& Parameters)
 	}
 	// DeployBulwark: one GadgetA press at the spot; Breach: GadgetB at the plant point, then wait.
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Self.GadgetCharges[0] = 1;
 		FVerseBotTacticsMemory Mem;
 		FVerseRng Rng(5);
@@ -258,7 +258,7 @@ bool FVerseBotTacticsTickTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("Bulwark deployed once"), First.bGadgetA && !Second.bGadgetA);
 	}
 	{
-		FScene S(TEXT("elite"));
+		FTacticsScene S(TEXT("elite"));
 		S.Cache.Breach.bFound = true;
 		S.Cache.Breach.PieceIndex = 2;
 		S.Cache.Breach.PlantPoint = S.Self.Location;
