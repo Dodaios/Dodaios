@@ -57,6 +57,18 @@ UNIFORM_COLOURS = {
 }
 #: Clips rendered by --qa and the clip fractions shown.
 QA_CLIPS = {
+    "A_Crouch_Move_R": (0.0, 0.5),
+    "A_Stand_Move_BL": (0.0, 0.5),
+    "A_Prone_Move_F": (0.0, 0.5),
+    "A_Rifle_Equip": (0.0, 0.5),
+    "A_Pistol_Reload_Empty": (0.3, 0.75),
+    "A_Hit_Torso_Front": (0.2,),
+    "A_Death_Left": (1.0,),
+    "A_Jump_Start": (1.0,),
+    "A_Land": (0.25,),
+    "A_Prone_Enter": (0.5,),
+    "A_Crew_Bunk": (0.0,),
+    "A_Crew_Walk": (0.0,),
     "A_Stand_Idle": (0.0,),
     "A_Rifle_Idle": (0.0,),
     "A_Rifle_ADS": (0.0,),
