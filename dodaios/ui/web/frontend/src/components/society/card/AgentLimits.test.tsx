@@ -1,11 +1,11 @@
 /**
  * The limits and permissions in the agent pane's Tools & access tab — the
- * budget, ceiling, approval mode and concurrency a person can change after
+ * ceiling, approval mode and concurrency a person can change after
  * the agent exists.
  *
  * What this pins is the part that would break silently: Save sends ONLY the
  * fields that changed. The route re-derives an agent's focus whenever a title
- * or description arrives, so a budget edit that carried prose or tool lists
+ * or description arrives, so a limits edit that carried prose or tool lists
  * along would quietly rewrite the tools the agent reaches for.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -114,13 +114,6 @@ describe("the agent pane's limits and permissions", () => {
     expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PATCH")).toBe(false);
   });
 
-  test("a budget edit sends the budget and nothing that would re-derive the tools", async () => {
-    renderTab();
-    fireEvent.change(await screen.findByTestId("agent-budget-input"), { target: { value: "7.5" } });
-    fireEvent.click(screen.getByTestId("agent-pane-save"));
-    await waitFor(() => expect(patchBody()).toEqual({ daily_budget_usd: 7.5 }));
-  });
-
   test("raising the legacy ceiling asks first, then saves it", async () => {
     renderTab();
     const ceiling = await screen.findByTestId("agent-pane-ceiling");
@@ -142,32 +135,6 @@ describe("the agent pane's limits and permissions", () => {
     expect(screen.queryByTestId("agent-pane-widen")).toBeNull();
   });
 
-  test("an empty budget means no cap rather than a broken number", async () => {
-    renderTab();
-    fireEvent.change(await screen.findByTestId("agent-budget-input"), { target: { value: "" } });
-    fireEvent.click(screen.getByTestId("agent-pane-save"));
-    await waitFor(() => expect(patchBody().daily_budget_usd).toBe(0));
-  });
-
-  test("switching the cap off sends 0, which is the scheduler's no-cap", async () => {
-    renderTab();
-    fireEvent.click(await screen.findByTestId("agent-budget-switch"));
-    expect(screen.queryByTestId("agent-budget-input")).toBeNull();
-    fireEvent.click(screen.getByTestId("agent-pane-save"));
-    await waitFor(() => expect(patchBody()).toEqual({ daily_budget_usd: 0 }));
-  });
-
-  test("a stored 0 reads as the cap switched off, and turning it on restores a number", async () => {
-    renderTab({ dailyBudgetUsd: 0 });
-    const toggle = await screen.findByTestId("agent-budget-switch");
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(screen.queryByTestId("agent-budget-input")).toBeNull();
-    fireEvent.click(toggle);
-    expect(screen.getByTestId("agent-budget-input")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("agent-pane-save"));
-    await waitFor(() => expect(patchBody()).toEqual({ daily_budget_usd: 2 }));
-  });
-
   test("after a save, a later change to the agent is adopted rather than shadowed by a stale draft", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     const tree = (agent: SocietyAgent) => (
@@ -187,18 +154,18 @@ describe("the agent pane's limits and permissions", () => {
     const saved: SocietyAgent = { ...AGENT, browserAllowedDomains: ["alpha.example", "zeta.example"] };
     view.rerender(tree(saved));
     await waitFor(() => expect(screen.queryByTestId("agent-pane-savebar")).toBeNull());
-    // An approved proposal then moves the budget: the tab shows it, with nothing "unsaved".
-    view.rerender(tree({ ...saved, dailyBudgetUsd: 5 }));
-    await waitFor(() => expect((screen.getByTestId("agent-budget-input") as HTMLInputElement).value).toBe("5"));
+    // An approved proposal then moves the job count: the tab shows it, with nothing "unsaved".
+    view.rerender(tree({ ...saved, maxConcurrentRuns: 3 }));
+    await waitFor(() => expect((screen.getByTestId("agent-jobs-input") as HTMLInputElement).value).toBe("3"));
     expect(screen.queryByTestId("agent-pane-savebar")).toBeNull();
   });
 
   test("Discard returns every field to the saved value", async () => {
     renderTab();
-    const input = (await screen.findByTestId("agent-budget-input")) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "9" } });
+    const input = (await screen.findByTestId("agent-jobs-input")) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "4" } });
     fireEvent.click(await screen.findByText("Discard"));
-    expect((screen.getByTestId("agent-budget-input") as HTMLInputElement).value).toBe("2");
+    expect((screen.getByTestId("agent-jobs-input") as HTMLInputElement).value).toBe("1");
     expect(screen.queryByTestId("agent-pane-savebar")).toBeNull();
   });
 });

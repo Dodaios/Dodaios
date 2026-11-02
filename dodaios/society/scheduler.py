@@ -8,8 +8,7 @@ board and applies, in order, for every ``ASSIGN``:
 3. the delegation depth — an ASSIGN whose parent chain already holds two
    ASSIGNs is refused (depth ≤ 2, no recursion);
 4. the target — must resolve to exactly one active agent;
-5. the budgets — the global ``BudgetTracker`` pre-spawn check and the
-   target's own ``daily_budget_usd`` against today's spend;
+5. the global ``BudgetTracker`` pre-spawn check;
 6. the target's concurrency cap;
 7. the per-trace message cap.
 
@@ -40,7 +39,7 @@ from .events import USER_ACTOR as _USER
 from .events import MsgType, SocietyEnvelope, Tier
 from .failure_reasons import FailureReason, classify_error, retry_action
 from .roster import AgentRecord, AgentState, Roster
-from .store import SocietyStore, day_start_ms
+from .store import SocietyStore
 
 log = logging.getLogger(__name__)
 
@@ -229,16 +228,6 @@ class SocietyScheduler:
                 self._budget.assert_under_limit(env.trace_id)
             except Exception as exc:  # noqa: BLE001 — BudgetExceeded is the tracker's own type
                 await self._veto(env, FailureReason.BUDGET_EXHAUSTED, str(exc))
-                return
-        if target.daily_budget_usd > 0:
-            spent = await self._store.cost_since(target.agent_id, day_start_ms(env.ts_ms))
-            if spent >= target.daily_budget_usd:
-                await self._veto(
-                    env,
-                    FailureReason.BUDGET_EXHAUSTED,
-                    f"{display_name(target)} spent ${spent:.2f} of "
-                    f"${target.daily_budget_usd:.2f} today",
-                )
                 return
         if self.active_runs(target.agent_id) >= target.max_concurrent_runs:
             await self._veto(

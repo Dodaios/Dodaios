@@ -124,10 +124,6 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSaving
         ? t("society.agent_pane.tools_allowlist_detail").replace("{0}", String(agent.toolGrants.length))
         : t("society.agent_pane.tools_all_detail");
 
-  const perToken = agent.billedPerToken !== false;
-  const capped = agent.dailyBudgetUsd > 0;
-  const spent = agent.stats.spentTodayUsd;
-  const share = capped ? Math.min(1, spent / agent.dailyBudgetUsd) : 0;
   const lastActive = agent.stats.lastActiveMs
     ? new Date(agent.stats.lastActiveMs).toLocaleDateString(locale, { day: "numeric", month: "short" })
     : t("society.card.never");
@@ -164,9 +160,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSaving
           </button>
         }
       >
-        {lead ? (
-          <PaneHint>{t("society.card.instructions_hint")}</PaneHint>
-        ) : agent.description.trim() ? (
+        {lead ? null : agent.description.trim() ? (
           <button
             type="button"
             className="ap-instructions text-left"
@@ -262,20 +256,6 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage, onModelSaving
 
       <div className="ap-record" data-testid="agent-pane-record">
         <p>{recordLine(t, locale, agent, lastActive)}</p>
-        {/* A subscription or local model spends nothing per run: no dollar lines. */}
-        {perToken ? (
-          <p>
-            {t("society.card.meter_today")}:{" "}
-            {capped
-              ? t("society.card.spent_of").replace("{0}", spent.toFixed(2)).replace("{1}", agent.dailyBudgetUsd.toFixed(2))
-              : `$${spent.toFixed(2)} · ${t("society.card.no_cap")}`}
-          </p>
-        ) : null}
-        {perToken && capped ? (
-          <div className="ap-meter" data-full={share >= 1 ? "true" : undefined} role="img" aria-label={`${t("society.card.meter_today")}: $${spent.toFixed(2)}`}>
-            <span className="ap-meter-fill" style={{ width: `${Math.round(share * 100)}%` }} />
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -329,7 +309,6 @@ function LeadModelRow() {
           </span>
         </div>
       </div>
-      <PaneHint>{t("society.card.brain_shared_hint")}</PaneHint>
     </>
   );
 }

@@ -53,7 +53,6 @@ STARTER_TEAM: Final[tuple[dict[str, Any], ...]] = (
             "tasks and hand them to the right teammate."
         ),
         "permission_ceiling": "monitor",
-        "daily_budget_usd": 3.0,
     },
     {
         "name": "Archivist",
@@ -65,7 +64,6 @@ STARTER_TEAM: Final[tuple[dict[str, Any], ...]] = (
             "wiki already knows."
         ),
         "permission_ceiling": "safe",
-        "daily_budget_usd": 1.0,
     },
 )
 

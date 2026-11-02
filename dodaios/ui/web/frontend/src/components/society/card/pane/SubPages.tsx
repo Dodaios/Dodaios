@@ -49,7 +49,6 @@ export function InstructionsPage({ agent, sample }: { agent: SocietyAgent; sampl
   return (
     <div className="ap-body" data-testid="agent-pane-instructions-page">
       <PaneSection>
-        <PaneHint>{t("society.profile_card.instructions_hint")}</PaneHint>
         <textarea
           className="ap-input min-h-[240px]"
           value={draft}
@@ -84,7 +83,6 @@ export function SkillsPage({ agent, sample }: { agent: SocietyAgent; sample: boo
   const rows = skills.data ?? [];
   return (
     <div className="ap-body" data-testid="agent-pane-skills-page">
-      <PaneHint>{t("society.agent_pane.skills_hint")}</PaneHint>
       {rows.length === 0 ? (
         <PaneHint>{skills.isLoading ? t("society.profile_card.loading") : t("society.agent_pane.skills_none")}</PaneHint>
       ) : (
@@ -109,7 +107,6 @@ export function FilesPage({ agent }: { agent: SocietyAgent }) {
   const sandbox = agent.executionEnvironment === "sandbox";
   return (
     <div className="ap-body" data-testid="agent-pane-files-page">
-      <PaneHint>{t(sandbox ? "society.sandbox.storage" : "society.agent_pane.files_hint")}</PaneHint>
       <div className="ap-rows">
         <div className="ap-row">
           <span className="min-w-0 flex-1">
