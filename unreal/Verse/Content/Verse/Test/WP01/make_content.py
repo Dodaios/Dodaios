@@ -44,7 +44,14 @@ def make_tuning():
         factory.set_editor_property("data_asset_class", unreal.VerseMovementTuning)
         tools = unreal.AssetToolsHelpers.get_asset_tools()
         asset = tools.create_asset(TUNING, TUNING_DIR, unreal.VerseMovementTuning, factory)
-    ok, error = asset.import_json_file(json_path)
+    # The binding returns (ok, error) or only the out string, depending on the engine version.
+    result = asset.import_json_file(json_path)
+    if isinstance(result, tuple):
+        ok, error = (result + ("",))[:2] if len(result) < 2 else result[:2]
+    elif isinstance(result, str):
+        ok, error = result == "", result
+    else:
+        ok, error = bool(result), ""
     if not ok:
         fail(f"tuning import: {error}")
         return

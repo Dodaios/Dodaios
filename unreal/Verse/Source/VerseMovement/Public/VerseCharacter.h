@@ -53,6 +53,8 @@ public:
 	/** World camera position and rotation (eye, stance and lean applied). */
 	FVector GetEyeLocation() const;
 	FRotator GetEyeRotation() const;
+	/** Aim: the control rotation, or the actor yaw plus the replicated view pitch on proxies. */
+	FRotator GetAimRotation() const;
 
 	/** Last frame ApplyInputFrame consumed. */
 	const FVerseInputFrame& GetLastAppliedFrame() const { return LastAppliedFrame; }

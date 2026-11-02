@@ -351,7 +351,7 @@ void AVerseCharacter::UpdateBodyPose(float DeltaSeconds)
 	const float Lean = Movement->GetLean();
 	const float LeanOffset = Lean * Tuning.LeanCameraOffset * 100.f;
 	FirstPersonCamera->SetRelativeLocation(FVector(0.f, LeanOffset, SmoothedEyeHeight - HalfHeight));
-	const FRotator Aim = GetBaseAimRotation();
+	const FRotator Aim = GetAimRotation();
 	FirstPersonCamera->SetWorldRotation(FRotator(Aim.Pitch, Aim.Yaw, Lean * Tuning.LeanRollDeg));
 
 	const bool bProne = Movement->GetStance() == EVerseStance::Prone;
@@ -407,5 +407,17 @@ FRotator AVerseCharacter::GetEyeRotation() const
 void AVerseCharacter::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
 {
 	OutLocation = GetEyeLocation();
-	OutRotation = GetBaseAimRotation();
+	OutRotation = GetAimRotation();
+}
+
+FRotator AVerseCharacter::GetAimRotation() const
+{
+	// Not GetBaseAimRotation: that asks GetActorEyesViewPoint, which asks back here.
+	if (Controller)
+	{
+		return Controller->GetControlRotation();
+	}
+	FRotator Aim = GetActorRotation();
+	Aim.Pitch = FRotator::NormalizeAxis(float(GetRemoteViewPitch()) * 360.f / 65536.f);
+	return Aim;
 }
