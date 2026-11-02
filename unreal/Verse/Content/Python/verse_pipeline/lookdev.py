@@ -514,7 +514,7 @@ class Runner:
         # `-ExecutePythonScript` quits the editor on the tick after the script
         # returns unless the script asks to stay alive (EditorPythonExecuter);
         # `finish` quits it itself.
-        self.u.EditorPythonScriptingLibrary.set_keep_python_script_alive(True)
+        self.u.EditorPythonScripting.set_keep_python_script_alive(True)
         self.handle = self.u.register_slate_post_tick_callback(self.tick)
 
     def finish(self):
