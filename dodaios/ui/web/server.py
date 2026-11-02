@@ -849,6 +849,11 @@ class WebServer:
         )
         app.state.progression = self._progression
         app.include_router(progression_router)
+        # The Unreal Verse host (dodaios/verse_host): status, launch and the
+        # verse.bridge/1 socket. Nothing starts until the first show.
+        from .verse_routes import router as verse_router
+
+        app.include_router(verse_router)
         # Default: no recorder wired up — _init_session_stack() in start()
         # sets this once it succeeds.
         app.state.session_store = None
