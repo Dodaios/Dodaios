@@ -12,6 +12,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 #include "Noise/VerseAudibilityTable.h"
 #include "Internationalization/Regex.h"
 #include "Sound/SoundAttenuation.h"
@@ -603,6 +604,9 @@ bool FVerseAudioLimiter::RunTest(const FString&)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseAudioShippedCues, "Verse.UI.Audio.ShippedCues", VERSE_AUDIO_TEST_FLAGS)
 bool FVerseAudioShippedCues::RunTest(const FString&)
 {
+	// Headless test runs create no audio device, so the default (BINKA) decoder is never
+	// registered and loading a sound wave would fail an engine ensure.
+	FModuleManager::Get().LoadModule(TEXT("BinkAudioDecoder"));
 	const UVerseAudioCueSet* Set = LoadObject<UVerseAudioCueSet>(nullptr, UVerseAudioCueSet::DefaultAssetPath);
 	if (!TestNotNull(TEXT("DA_AudioCues is imported"), Set))
 	{
