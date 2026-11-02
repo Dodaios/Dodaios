@@ -9,9 +9,9 @@ AVerseInputFrameController::AVerseInputFrameController()
 
 void AVerseInputFrameController::SubmitFrame(const FVerseInputFrame& Frame)
 {
-	if (AVerseCharacter* Character = Cast<AVerseCharacter>(GetPawn()))
+	if (AVerseCharacter* Driven = Cast<AVerseCharacter>(GetPawn()))
 	{
-		Character->SubmitInputFrame(Frame);
+		Driven->SubmitInputFrame(Frame);
 		++SubmittedCount;
 	}
 }
