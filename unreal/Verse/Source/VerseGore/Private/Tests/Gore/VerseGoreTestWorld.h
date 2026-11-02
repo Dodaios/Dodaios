@@ -87,6 +87,7 @@ namespace VerseGoreTest
 			Component->SetWorldScale3D(SizeCm / 100.0);
 			Component->SetCollisionProfileName(TEXT("BlockAll"));
 			Component->RecreatePhysicsState();
+			Settle();
 			return Actor;
 		}
 
@@ -117,7 +118,17 @@ namespace VerseGoreTest
 				}
 			}
 			Bodies.Add(Id, Mesh);
+			Settle();
 			return Mesh;
+		}
+
+		/** One world tick so new bodies and boxes are in the physics query structure. */
+		void Settle()
+		{
+			if (World && World->bIsWorldInitialized)
+			{
+				World->Tick(LEVELTICK_All, 1.f / 60.f);
+			}
 		}
 
 		/** Steps gore time in fixed frames. */

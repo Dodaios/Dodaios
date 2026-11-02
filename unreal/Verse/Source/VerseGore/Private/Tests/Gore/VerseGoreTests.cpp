@@ -347,13 +347,13 @@ bool FVerseGorePoolTest::RunTest(const FString&)
 	auto Radius = [Pool]() { return Pool->DecalSize.Y * Pool->GetComponentScale().Y; };
 	const double Full = W.Gore->GetTuning().PoolRadiusCm;
 	TestTrue(TEXT("starts small"), Radius() < Full * 0.15);
+	W.Gore->HandleDeath(Death);
+	TestEqual(TEXT("a second death within 3 s is the same pool"), W.Gore->GetPoolDecals().Num(), 1);
 	W.Advance(2.0);
 	const double Mid = Radius();
 	TestTrue(FString::Printf(TEXT("half way at 2 s (%.1f cm)"), Mid), Mid > Full * 0.4 && Mid < Full * 0.95);
 	W.Advance(2.0);
 	TestTrue(FString::Printf(TEXT("full at 4 s (%.1f cm)"), Radius()), FMath::IsNearlyEqual(Radius(), Full, Full * 0.02));
-	W.Gore->HandleDeath(Death);
-	TestEqual(TEXT("a second death within 3 s is the same pool"), W.Gore->GetPoolDecals().Num(), 1);
 
 	for (int32 Id = 10; Id < 30; ++Id)
 	{
