@@ -503,7 +503,8 @@ def _state_cell(state: str, i: int) -> Cell:
         tap = "tap2" if i % 4 in (1, 2) else "tap"
         return _C(eyes="up_left" if i < 4 else "up_right", beak="closed", flips=("rest", tap))
     if state == "talking":
-        flips = (("rest", "rest"), ("rest", "rest"), ("half", "rest"), _HALF)[i]
+        # A flipper lifts to gesture from the first frame, so talking never reads as idle.
+        flips = (("rest", "half"), ("rest", "half"), ("half", "rest"), _HALF)[i]
         return _C(dy=0 if i < 2 else -1, beak=bp.TALK_MOUTHS[i], flips=flips)
     if state == "success":
         air = _HOP[i] <= -1

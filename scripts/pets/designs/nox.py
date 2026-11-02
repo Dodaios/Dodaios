@@ -442,7 +442,8 @@ def design(bp):  # noqa: C901, PLR0915 - one closure per pet keeps the module se
             tap = i % 4 == 2
             return Look(tilt=-0.06, wings=("fold", "chin"), head=(0, 1 if tap else 0))
         if state == "talking":
-            t = ("rest", "rest", "flick", "perk")[i]
+            # The tufts lift from the first frame, so talking never reads as idle.
+            t = ("flick", "flick", "perk", "perk")[i]
             return Look(tufts=(t, t))
         if state == "success":
             return Look(wings=(hop_wings[i], hop_wings[i]), tufts=("perk", "perk"))

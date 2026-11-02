@@ -9039,6 +9039,9 @@ DESIGN_MODULES: tuple[str, ...] = (
     "pip", "hazel", "otto", "nox", "kiko", "inky", "toasty", "cassie", "sprout", "flick", "aurelia",
 )
 DESIGNS_DIR = Path(__file__).resolve().parent / "designs"
+#: This builder, handed to every design module. Captured while the module runs,
+#: because a loader (like the test) may unregister it from ``sys.modules`` later.
+_THIS_MODULE = sys.modules[__name__]
 
 
 def load_design(pet_id: str) -> PetDesign:
@@ -9056,7 +9059,7 @@ def load_design(pet_id: str) -> PetDesign:
         spec.loader.exec_module(module)
     finally:
         sys.modules.pop(spec.name, None)
-    pet = module.design(sys.modules[__name__])
+    pet = module.design(_THIS_MODULE)
     if pet.id != pet_id:
         raise ValueError(f"{path.name} builds {pet.id!r}, expected {pet_id!r}")
     return pet
