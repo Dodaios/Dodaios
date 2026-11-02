@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Finisher/A_Finisher_Attacker.A_Finisher_Attacker",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Finisher_Attacker.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "21a164c858dff7a432604f446b6ffb179eccb2693173f96e992e82345916bdbf"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Finisher_Attacker",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": false
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

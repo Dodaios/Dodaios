@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Weapons/Knife/A_Knife_Strike.A_Knife_Strike",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Knife_Strike.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "1295b1606f22e3a30a2a953ee7798b2cf079cdbc7cbc4284439262398415999b"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Knife_Strike",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 60,
+      "loop": false
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

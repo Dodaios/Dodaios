@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Weapons/Pistol/A_Pistol_Idle.A_Pistol_Idle",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Pistol_Idle.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0b63add4dc3164d43782afefa0bfd4a82f4d08ede24a477b8f776b4cb612e950"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Pistol_Idle",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 60,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

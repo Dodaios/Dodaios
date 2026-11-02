@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Weapons/Pistol/A_Pistol_Reload_Empty.A_Pistol_Reload_Empty",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Pistol_Reload_Empty.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0159980ddf470909b36b0dbb1de5c22f11a45d21ca747fa8fb57b1072ea9ac69"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Pistol_Reload_Empty",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 60,
+      "loop": false
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

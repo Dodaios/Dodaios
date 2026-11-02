@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Reactions/A_Death_Right.A_Death_Right",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Death_Right.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "4e5fd52a4bdc8ca1b838878d1099f6ea4f2e7e5499c3815a97465334f69d5985"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Death_Right",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": false
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

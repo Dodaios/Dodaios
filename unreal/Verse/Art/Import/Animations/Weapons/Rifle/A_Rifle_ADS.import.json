@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Weapons/Rifle/A_Rifle_ADS.A_Rifle_ADS",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Rifle_ADS.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "e74110812b675d2ad0ef61b85585bea2b9095bb4c5f67e965a3bb7feed0c7dbd"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Rifle_ADS",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 60,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

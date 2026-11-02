@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Reactions/A_KillCam_Pistol_Fire.A_KillCam_Pistol_Fire",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_KillCam_Pistol_Fire.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "a3ff9c4c09d3377f28bf152cf2ed5191c5602fd2a92cc61b61f2fcc52eef348c"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_KillCam_Pistol_Fire",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

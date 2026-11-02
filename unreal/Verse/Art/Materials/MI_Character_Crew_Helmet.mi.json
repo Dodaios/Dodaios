@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Crew_Helmet",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Helmet",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.14
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.012,
+      0.012,
+      0.013,
+      1.0
+    ]
+  }
+}

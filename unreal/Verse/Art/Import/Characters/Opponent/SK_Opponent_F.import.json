@@ -1,0 +1,162 @@
+{
+  "asset_path": "/Game/Verse/Characters/Opponent/SK_Opponent_F.SK_Opponent_F",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/meshes/SK_Opponent_F.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "6d0d6044a1d947206a15a99f06a1a91ffe4467940df037f410dc2f8c728fb6d9"
+  },
+  "kind": "skeletal_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "auto",
+    "screen_sizes": [
+      1.0,
+      0.5,
+      0.25,
+      0.12
+    ]
+  },
+  "mesh": {
+    "bones": [
+      "Root",
+      "Hips",
+      "Spine_01",
+      "Spine_02",
+      "Spine_03",
+      "Neck",
+      "Head",
+      "Camera",
+      "Clavicle_L",
+      "UpperArm_L",
+      "UpperArm_Twist_L",
+      "LowerArm_L",
+      "LowerArm_Twist_L",
+      "Hand_L",
+      "Thumb_01_L",
+      "Thumb_02_L",
+      "Thumb_03_L",
+      "Index_01_L",
+      "Index_02_L",
+      "Index_03_L",
+      "Middle_01_L",
+      "Middle_02_L",
+      "Middle_03_L",
+      "Ring_01_L",
+      "Ring_02_L",
+      "Ring_03_L",
+      "Pinky_01_L",
+      "Pinky_02_L",
+      "Pinky_03_L",
+      "Weapon_L",
+      "Clavicle_R",
+      "UpperArm_R",
+      "UpperArm_Twist_R",
+      "LowerArm_R",
+      "LowerArm_Twist_R",
+      "Hand_R",
+      "Thumb_01_R",
+      "Thumb_02_R",
+      "Thumb_03_R",
+      "Index_01_R",
+      "Index_02_R",
+      "Index_03_R",
+      "Middle_01_R",
+      "Middle_02_R",
+      "Middle_03_R",
+      "Ring_01_R",
+      "Ring_02_R",
+      "Ring_03_R",
+      "Pinky_01_R",
+      "Pinky_02_R",
+      "Pinky_03_R",
+      "Weapon_R",
+      "Thigh_L",
+      "Thigh_Twist_L",
+      "Calf_L",
+      "Calf_Twist_L",
+      "Foot_L",
+      "Ball_L",
+      "Thigh_R",
+      "Thigh_Twist_R",
+      "Calf_R",
+      "Calf_Twist_R",
+      "Foot_R",
+      "Ball_R",
+      "IK_Foot_Root",
+      "IK_Foot_L",
+      "IK_Foot_R",
+      "IK_Hand_Root",
+      "IK_Hand_Gun",
+      "IK_Hand_L",
+      "IK_Hand_R"
+    ],
+    "bounds_cm": {
+      "max": [
+        43.322,
+        16.731,
+        170.809
+      ],
+      "min": [
+        -43.329,
+        -20.417,
+        -0.005
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Gloves.MI_Character_Opponent_Gloves",
+        "slot": "M_Gloves"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Undersuit.MI_Character_Opponent_Undersuit",
+        "slot": "M_Undersuit"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Armor.MI_Character_Opponent_Armor",
+        "slot": "M_Armor"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Accent.MI_Character_Opponent_Accent",
+        "slot": "M_Accent"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Belt.MI_Character_Opponent_Belt",
+        "slot": "M_Belt"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Visor.MI_Character_Opponent_Visor",
+        "slot": "M_Visor"
+      }
+    ],
+    "triangles": 14007,
+    "uv_sets": 1,
+    "vertices": 7201
+  },
+  "name": "SK_Opponent_F",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "uniform": "Opponent",
+      "variant": "F"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  }
+}

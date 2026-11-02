@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Opponent_Gloves",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Gloves",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.48
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.00518,
+      0.00561,
+      0.00605,
+      1.0
+    ]
+  }
+}

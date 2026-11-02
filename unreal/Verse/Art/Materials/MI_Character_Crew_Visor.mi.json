@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Crew_Visor",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Visor",
+  "scalars": {
+    "Metallic": 0.4,
+    "Roughness": 0.05
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.004,
+      0.005,
+      0.006,
+      1.0
+    ]
+  }
+}

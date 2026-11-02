@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Characters/Rig/PHYS_Verse_Human.PHYS_Verse_Human",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/meshes/SK_Commander_M.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "f90ee1f505aa311e64c8270e83f2e71e05b69c93bafc55755575a7d80feae452"
+  },
+  "kind": "physics_asset",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515"
+    ]
+  },
+  "lightmap": "none",
+  "name": "PHYS_Verse_Human",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "skeleton.HIT_BODIES"
+  }
+}
