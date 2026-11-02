@@ -10,7 +10,9 @@
 * `turn_<Weapon>_<view>`: weapon turnarounds under a hard work light,
 * `fp_<Weapon>`: first-person framings,
 * `ref_<view>`: reference views of a deck corner in Military-Industrial Noir,
-* `vfx_<view>`: bolts in flight (own amber, foe red), muzzle flash, impact.
+* `vfx_<view>`: bolts in flight (own amber, foe red), muzzle flash, impact,
+* `vfx_cost` in `lookdev.json`: A14.5, the frame cost of 64 and 1024 bolts in
+  flight at 2560x1440 (see `measure_bolt_cost`).
 
 Rendering needs frames, so the module returns `{"deferred": true}` and runs
 a small state machine on the editor's tick; it writes the report and quits
@@ -38,6 +40,10 @@ CHART_W, CHART_H = 1200, 800
 WARMUP_S = 20.0
 STABLE_MAX_S = 600.0
 CAPTURES_PER_SHOT = 6
+COST_W, COST_H = 2560, 1440
+COST_ROUNDS = 24
+COST_INNER = 4
+COST_SETS = {"bolts_64": 64, "bolts_1024": 1024}
 
 #: Look profile of the reference scenes (style-unreal.md "Look profile").
 PROFILE = {
@@ -370,6 +376,85 @@ def build_vfx(scene: Scene) -> None:
     scene.mesh(rifle.object_path, (-55, 0, 105), (0, 0, 0), g)
 
 
+def build_bolt_swarm(scene: Scene) -> dict[str, str]:
+    """Bolts in flight for A14.5, in front of the cost camera; returns set -> group.
+
+    `bolts_64` is 64 bolts (half own, half foe); `bolts_1024` adds 960 more,
+    so a timing difference large enough to measure divides back to 64.
+    """
+    specs, _ = _specs()
+    path = {v.asset: v.object_path for v in specs.VFX}["SM_Vfx_Bolt"]
+    foe = scene.u.load_asset(
+        "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Vfx_BoltFoe.MI_Weapon_Vfx_BoltFoe"
+    )
+    groups = {"bolts_64": "cost_64", "bolts_1024": "cost_960"}
+    for i in range(COST_SETS["bolts_1024"]):
+        group = "cost_64" if i < COST_SETS["bolts_64"] else "cost_960"
+        col, row, layer = i % 16, (i // 16) % 8, i // 128
+        loc = (3600 + 120 * layer, -900 + 120 * col, 300 + 110 * row)
+        bolt = scene.mesh(path, loc, (0, 180 if i % 2 else 0, 0), group)
+        if foe is not None and i % 2:
+            bolt.static_mesh_component.set_material(0, foe)
+    return groups
+
+
+def measure_bolt_cost(u, scene: Scene, cap: "Capture", groups: dict[str, str]) -> dict:
+    """A14.5: frame cost of bolts in flight at 2560x1440, an upper bound on GPU time.
+
+    Each sample is `capture_scene()` followed by a one-pixel readback, which
+    flushes the render thread and waits for the GPU, so its wall time holds
+    the full render of the frame. The configurations (no bolts, 64, 1024)
+    alternate inside every round, so drift and other machine load hit all of
+    them alike; the medians are compared. The difference includes the
+    render-thread cost of the extra draws as well, so it bounds the GPU cost
+    of the bolts from above.
+    """
+
+    def show(n: int) -> None:
+        scene.show("cost_64", n >= COST_SETS["bolts_64"])
+        scene.show("cost_960", n >= COST_SETS["bolts_1024"])
+
+    def sample() -> float:
+        cap.comp.capture_scene()
+        u.RenderingLibrary.read_render_target_pixel(scene.world, cap.rt, 1, 1)
+        start = time.perf_counter()
+        for _ in range(COST_INNER):
+            cap.comp.capture_scene()
+            u.RenderingLibrary.read_render_target_pixel(scene.world, cap.rt, 1, 1)
+        return (time.perf_counter() - start) * 1000.0 / COST_INNER
+
+    configs = {"none": 0, **COST_SETS}
+    times: dict[str, list[float]] = {k: [] for k in configs}
+    for _ in range(COST_ROUNDS):
+        for name, n in configs.items():
+            show(n)
+            times[name].append(sample())
+    show(0)
+
+    def median(values: list[float]) -> float:
+        ordered = sorted(values)
+        mid = len(ordered) // 2
+        return ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+
+    med = {k: median(v) for k, v in times.items()}
+    delta_64 = med["bolts_64"] - med["none"]
+    delta_1024 = med["bolts_1024"] - med["none"]
+    per_64_from_1024 = delta_1024 * 64.0 / COST_SETS["bolts_1024"]
+    return {
+        "resolution": [COST_W, COST_H],
+        "rounds": COST_ROUNDS,
+        "captures_per_sample": COST_INNER,
+        "median_ms": {k: round(v, 4) for k, v in med.items()},
+        "samples_ms": {k: [round(x, 4) for x in v] for k, v in times.items()},
+        "delta_64_ms": round(delta_64, 4),
+        "delta_1024_ms": round(delta_1024, 4),
+        "per_64_from_1024_ms": round(per_64_from_1024, 4),
+        "bound_ms": round(max(delta_64, per_64_from_1024, 0.0), 4),
+        "limit_ms": 0.1,
+        "method": "wall time of capture + readback, medians, includes render-thread cost",
+    }
+
+
 def build_chart(scene: Scene, agx) -> list[dict]:
     """24 unlit patches facing -X at x = 2000; returns their pixel centres."""
     patches = []
@@ -485,7 +570,9 @@ class Runner:
         build_reference(scene)
         build_vfx(scene)
         patches = build_chart(scene, agx)
+        cost_groups = build_bolt_swarm(scene)
         cap = Capture(scene, WIDTH, HEIGHT)
+        cost_cap = Capture(scene, COST_W, COST_H)
         chart_cap = Capture(scene, CHART_W, CHART_H)
         chart_cap_srgb = Capture(scene, CHART_W, CHART_H, srgb=True)
         self.probe = cap
@@ -505,6 +592,8 @@ class Runner:
             for name in ("ref", "vfx", "chart", "turn"):
                 scene.show(name, name in groups)
             scene.show("fog", "chart" not in groups)
+            scene.show("cost_64", False)
+            scene.show("cost_960", False)
 
         def chart():
             only({"chart"})
@@ -590,6 +679,21 @@ class Runner:
                 self.report["frames"].append(cap.shoot(f"vfx_{view}"))
 
             self.shots.append(vfx)
+
+        def vfx_cost():
+            only({"ref"})
+            if state["placed"] is not None:
+                state["placed"].destroy_actor()
+                state["placed"] = None
+            cost_cap.setup((2200, 0, 700), (3800, 0, 700), 70.0, look)
+            self.report["vfx_cost"] = measure_bolt_cost(u, scene, cost_cap, cost_groups)
+            scene.show("cost_64", True)
+            scene.show("cost_960", True)
+            self.report["frames"].append(cost_cap.shoot("vfx_cost_1024_bolts"))
+            scene.show("cost_64", False)
+            scene.show("cost_960", False)
+
+        self.shots.append(vfx_cost)
 
 
 def _extent(actor) -> float:

@@ -307,3 +307,70 @@ def test_design_sheet_lists_every_weapon_and_the_checklist():
     for spec in specs.ARSENAL:
         assert spec.display_name in text.replace(" ", "")
     assert "No-copy checklist" in text
+
+
+# -- A14.5 bolt cost --------------------------------------------------------
+
+
+class _FakeUnreal:
+    """Just enough of `unreal` for `measure_bolt_cost` (no editor)."""
+
+    class RenderingLibrary:
+        @staticmethod
+        def read_render_target_pixel(*_args):
+            return None
+
+
+class _FakeScene:
+    def __init__(self):
+        self.world = None
+        self.visible: dict[str, bool] = {}
+
+    def show(self, group: str, visible: bool) -> None:
+        self.visible[group] = visible
+
+
+class _FakeCapture:
+    rt = None
+
+    def __init__(self, scene: _FakeScene, clock: list[float]):
+        scene_ref, clock_ref = scene, clock
+
+        class Comp:
+            def capture_scene(self_inner):
+                cost = 5.0
+                cost += 0.02 if scene_ref.visible.get("cost_64") else 0.0
+                cost += 0.30 if scene_ref.visible.get("cost_960") else 0.0
+                clock_ref[0] += cost / 1000.0
+
+        self.comp = Comp()
+
+
+def test_bolt_cost_measures_the_difference_of_medians(monkeypatch):
+    from verse_pipeline import lookdev
+
+    clock = [0.0]
+    monkeypatch.setattr(lookdev.time, "perf_counter", lambda: clock[0])
+    scene = _FakeScene()
+    result = lookdev.measure_bolt_cost(_FakeUnreal, scene, _FakeCapture(scene, clock), {})
+    assert result["resolution"] == [2560, 1440]
+    assert result["delta_64_ms"] == pytest.approx(0.02, abs=1e-6)
+    assert result["delta_1024_ms"] == pytest.approx(0.32, abs=1e-6)
+    assert result["per_64_from_1024_ms"] == pytest.approx(0.02, abs=1e-6)
+    assert result["bound_ms"] == pytest.approx(0.02, abs=1e-6)
+    assert scene.visible == {"cost_64": False, "cost_960": False}
+
+
+def test_bolt_cost_verdict_uses_the_bound():
+    sys.path.insert(0, str(REPO / "art" / "verse" / "weapons" / "look"))
+    import evaluate
+
+    base = {
+        "median_ms": {},
+        "delta_64_ms": 0.01,
+        "per_64_from_1024_ms": 0.04,
+        "method": "x",
+    }
+    assert evaluate.vfx_cost({"vfx_cost": {**base, "bound_ms": 0.04}})["pass"]
+    assert not evaluate.vfx_cost({"vfx_cost": {**base, "bound_ms": 0.2}})["pass"]
+    assert not evaluate.vfx_cost({})["pass"]

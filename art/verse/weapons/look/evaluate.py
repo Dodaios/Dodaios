@@ -10,9 +10,11 @@ Reads `unreal/Verse/Saved/Harness/proof/WP14/lookdev/` (written by
 * A14.3: banned pixels (art-pipeline 8.3 rendered-pixel rule) per frame,
 * A14.4: mean and max CIEDE2000 of the chart rendered in Unreal against the
   Blender AgX render of the same scene-linear patches, plus the same number
-  for the LUT alone (offline trilinear lookup).
+  for the LUT alone (offline trilinear lookup),
+* A14.5: the frame cost bound of 64 bolts in flight at 2560x1440 that the
+  lookdev run measured (`vfx_cost`), against 0.1 ms.
 
-Exit 0 only when A14.1, A14.3 and A14.4 pass.
+Exit 0 only when A14.1, A14.3, A14.4 and A14.5 pass.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ FRAMES = PROOF / "lookdev"
 LOOK = REPO / "art" / "verse" / ".cache" / "unreal" / "look"
 RECORDS = REPO / "unreal" / "Verse" / "Art" / "Import"
 DELTA_E_MAX = 3.0
+VFX_COST_MAX_MS = 0.1
 PATCH_HALF = 6
 
 
@@ -79,6 +82,17 @@ def banned(report: dict) -> dict:
     return out
 
 
+def vfx_cost(report: dict) -> dict:
+    cost = report.get("vfx_cost")
+    if not cost:
+        return {"pass": False, "reason": "lookdev wrote no vfx_cost"}
+    keys = ("median_ms", "delta_64_ms", "per_64_from_1024_ms", "bound_ms", "method")
+    out = {k: cost[k] for k in keys}
+    out["limit_ms"] = VFX_COST_MAX_MS
+    out["pass"] = cost["bound_ms"] <= VFX_COST_MAX_MS
+    return out
+
+
 def budgets() -> dict:
     out = {}
     for spec in specs.ARSENAL:
@@ -109,10 +123,12 @@ def main() -> int:
             other = chart_error(report, "chart_agx_srgb_target.png")
             metrics["chart_srgb_target"] = {"mean": other["mean"], "max": other["max"]}
         metrics["A14.3"] = banned(report)
+        metrics["A14.5"] = vfx_cost(report)
         metrics["lookdev_errors"] = report.get("errors", [])
     ok = all(v["pass"] for v in metrics["A14.1"].values())
     ok = ok and metrics.get("A14.4", {"mean": 99})["mean"] <= DELTA_E_MAX
     ok = ok and all(v["banned"] == 0 for v in metrics.get("A14.3", {"x": {"banned": 1}}).values())
+    ok = ok and metrics.get("A14.5", {"pass": False})["pass"]
     metrics["pass"] = ok
     PROOF.mkdir(parents=True, exist_ok=True)
     (PROOF / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
@@ -122,6 +138,7 @@ def main() -> int:
         "chart_mean_dE": round(metrics.get("A14.4", {}).get("mean", -1), 3),
         "chart_max_dE": round(metrics.get("A14.4", {}).get("max", -1), 3),
         "banned_total": sum(v["banned"] for v in metrics.get("A14.3", {}).values()),
+        "bolt_cost_bound_ms": metrics.get("A14.5", {}).get("bound_ms"),
         "pass": ok,
     }
     print(json.dumps(summary, indent=2))
