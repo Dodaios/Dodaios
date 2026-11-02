@@ -1,0 +1,11 @@
+[
+  {
+    "type": "lifecycle.quit",
+    "seq": 205,
+    "ts": 1793612705.0,
+    "data": {
+      "reason": "app_quit",
+      "deadline_ms": 3000
+    }
+  }
+]
