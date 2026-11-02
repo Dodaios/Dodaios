@@ -456,39 +456,28 @@ def render_transcript(
     The model reading this IS the second speaker, whatever it is called (the
     assistant on the app's own chat, a named agent on its seat), so its own
     lines are labelled ``You``. Nothing parses these labels.
+
+    A turn's tool calls appear as the same labelled tool record the in-process
+    brain replays (``runner_brain.brain_history_from_events``): each call with
+    its bounded result, worded as data. A bare "[used tool X]" line without the
+    result taught smaller models to type that line instead of calling the tool
+    (issue #978).
     """
-    from dodaios.agent_chat.runner_api import messages_from_events
+    from dodaios.agent_chat.runner_brain import brain_history_from_events
 
     lines: list[str] = []
-    for message in messages_from_events(history):
+    for message in brain_history_from_events(history, max_messages=None):
+        text = message.content.strip() if isinstance(message.content, str) else ""
+        if not text:
+            continue
         if message.role == "user":
-            text = message.content if isinstance(message.content, str) else ""
-            if text.strip():
-                lines.append(f"Person: {text.strip()}")
+            lines.append(f"Person: {text}")
         elif message.role == "assistant":
-            text = _prose(message.content)
-            if text.strip():
-                lines.append(f"You: {text.strip()}")
+            lines.append(f"You: {text}")
     out = "\n\n".join(lines)
     if len(out) > max_chars:
         out = "…" + out[-max_chars:]
     return out
-
-
-def _prose(content: str | list[dict[str, Any]]) -> str:
-    # Only a tool_use block makes a marker; one typed in a reply is an
-    # imitation and must not be replayed (see dodaios.brain.tool_marker).
-    from dodaios.brain.tool_marker import replay_text
-
-    if isinstance(content, str):
-        return replay_text(content)
-    bits: list[str] = []
-    for block in content:
-        if block.get("type") == "text":
-            bits.append(replay_text(str(block.get("text") or "")))
-        elif block.get("type") == "tool_use":
-            bits.append(f"[used tool {block.get('name') or 'tool'}]")
-    return "\n".join(b for b in bits if b.strip())
 
 
 def _preamble_of(text: str) -> str:
