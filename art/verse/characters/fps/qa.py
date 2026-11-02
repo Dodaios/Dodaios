@@ -170,8 +170,15 @@ def first_person(rig, mesh_ob, poses, clip, out: Path) -> Path:
     eye = (rig.ob.matrix_world @ cam_bone).translation
     cam.location = eye
     cam.rotation_euler = Euler((math.radians(90.0), 0.0, math.radians(180.0)))
+    # The owner never sees their own head (13.5: the engine hides the Head
+    # bone); without this the camera looks at the inside of the skull.
+    mask = mesh_ob.modifiers.new("QA_HideHead", "MASK")
+    mask.vertex_group = "Head"
+    mask.invert_vertex_group = True
+    mask.threshold = 0.5
     p = out / f"{clip.name}_fp.png"
     render(p)
+    mesh_ob.modifiers.remove(mask)
     box.hide_render = True
     mesh_ob.hide_set(True)
     mesh_ob.hide_render = True
