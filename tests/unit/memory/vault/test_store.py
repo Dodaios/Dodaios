@@ -77,7 +77,8 @@ def test_forget_purges_every_version_and_blocks_inferred_rewrite(vault):
 
 
 def test_secrets_are_refused(vault):
-    result = vault.remember("My OpenAI key is sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD")
+    fake_key = "sk-" + "proj-" + "abcdefghijklmnopqrstuvwxyz0123456789ABCD"
+    result = vault.remember(f"My OpenAI key is {fake_key}")
     assert result.action == "refused"
     assert vault.stats()["current"] == 0
 

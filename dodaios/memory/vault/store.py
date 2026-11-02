@@ -13,6 +13,7 @@ Rules the store enforces:
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 import secrets
@@ -32,6 +33,8 @@ from dodaios.memory.vault.models import (
     WriteResult,
     content_hash,
 )
+
+log = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 
@@ -477,6 +480,7 @@ class MemoryVault:
         try:
             rows = self._db.execute(sql, args).fetchall()
         except sqlite3.OperationalError:
+            log.warning("memory vault: search failed for %r", query, exc_info=True)
             return []
         query_words = set(tokens)
         hits: list[SearchHit] = []
@@ -777,6 +781,6 @@ def _recency(recorded_at: str, now: str) -> float:
         age_days = (
             datetime.fromisoformat(now) - datetime.fromisoformat(recorded_at)
         ).total_seconds() / 86400
-    except ValueError:
+    except ValueError:  # an unparsable stamp gets no recency penalty, by design
         return 1.0
     return 0.7 + 0.3 * math.exp(-max(age_days, 0.0) / 365.0)
