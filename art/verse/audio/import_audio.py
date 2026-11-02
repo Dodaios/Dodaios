@@ -58,7 +58,8 @@ def run_editor(verify: bool, log: Path) -> None:
         "-nullrhi",
         "-unattended",
         "-nosplash",
-        "-NoSound",
+        # No -NoSound: without the audio mixer the BINKA decoder is not
+        # registered and the sound-wave factory fails an ensure on import.
         "-nop4",
         f"-abslog={log}",
     ]

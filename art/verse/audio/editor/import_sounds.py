@@ -154,7 +154,19 @@ def verify(cues_doc):
     log(f"verified {len(have)} cues")
 
 
+def load_decoders():
+    """Register the audio decoders a commandlet never loads on its own.
+
+    A commandlet creates no audio device, so the BINKA decoder (the default
+    compression) is not registered and every imported or loaded sound wave
+    fails an ensure in the engine, which turns the run's exit code red.
+    """
+    for module in ("BinkAudioDecoder",):
+        unreal.SystemLibrary.execute_console_command(None, f"Module Load {module}")
+
+
 def main():
+    load_decoders()
     cues_doc = load_json(DATA / "cues.json")
     if VERIFY:
         verify(cues_doc)
