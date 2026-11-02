@@ -1,0 +1,23 @@
+[
+  {
+    "type": "settings.changed",
+    "seq": 211,
+    "ts": 1793612711.0,
+    "data": {
+      "gore": "reduced"
+    }
+  },
+  {
+    "type": "settings.changed",
+    "seq": 212,
+    "ts": 1793612712.0,
+    "data": {
+      "lang": "en",
+      "strings": {
+        "verse.ranks.duty.working": "On watch"
+      },
+      "return_key": "F9",
+      "reduced_motion": true
+    }
+  }
+]
