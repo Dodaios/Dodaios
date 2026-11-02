@@ -10365,7 +10365,11 @@
     "send_message": "Enviar mensaje",
     "queue_title": "Poner en cola para cuando el agente termine",
     "copy_message": "Copiar mensaje",
-    "scroll_newest": "Ir al mensaje más reciente"
+    "scroll_newest": "Ir al mensaje más reciente",
+    "open_side_by_side": "Abrir al lado",
+    "drop_side_by_side": "Suelta para abrirlo al lado",
+    "drop_replace": "Suelta para reemplazar este hilo",
+    "close_column": "Cerrar {target}"
   },
   "ide_view": {
     "split_right": "Derecha",

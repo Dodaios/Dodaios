@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import type { AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { createAgentChatStore, type ProviderOption } from "@/store/agentChat";
@@ -14,6 +15,40 @@ import { fill, translate } from "@/i18n";
 
 /** The IDE threads' chat store — one socket, one draft, one session list. */
 export const useThreadChatStore = createAgentChatStore("agent", "threads");
+
+/** A thread chat store: the main one, or a side column's own. */
+export type ThreadChatStore = typeof useThreadChatStore;
+
+/**
+ * The store a thread view and its composer talk to. The main column uses the
+ * default; every side column provides its own, so each holds its own socket
+ * and conversation while they sit next to each other.
+ */
+export const ThreadChatContext = createContext<ThreadChatStore>(useThreadChatStore);
+
+export function useThreadChat(): ThreadChatStore {
+  return useContext(ThreadChatContext);
+}
+
+/** What a dragged thread row carries: its session id, so only a thread is a valid drop. */
+export const THREAD_DRAG_MIME = "application/x-jarvis-thread";
+/** The dragged thread's project, carried next to its session id. */
+export const THREAD_PROJECT_DRAG_MIME = "application/x-jarvis-thread-project";
+
+/**
+ * The thread being dragged right now. A drag's data can only be read on the
+ * drop, but the thread columns must know during the drag whether it is
+ * already on screen, so the row says it here too.
+ */
+let draggedThreadId: string | null = null;
+
+export function setDraggedThread(sessionId: string | null): void {
+  draggedThreadId = sessionId;
+}
+
+export function draggedThread(): string | null {
+  return draggedThreadId;
+}
 
 /** How a row in the thread list reads at a glance. */
 export type ThreadStatus = "approval" | "running" | "unseen" | "idle";

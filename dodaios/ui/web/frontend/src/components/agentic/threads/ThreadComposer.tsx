@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
 import { AccessPicker, AgentModelPicker, EffortPicker, modelsOf } from "./ThreadPickers";
 import { useRecalledMessages } from "./recalledMessages";
-import { rememberSeat, rememberedSeat, threadAgents, useThreadChatStore } from "./threadModel";
+import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./threadModel";
 
 /** A message typed while the agent was still working, sent when it is free. */
 interface QueuedMessage {
@@ -116,6 +116,7 @@ function ApprovalPanel({ timeline }: { timeline: Timeline }) {
 
 function ApprovalCard({ pending, count }: { pending: PendingApproval; count: number }) {
   const t = useT();
+  const chat = useThreadChat();
   const [sending, setSending] = useState<ApprovalDecision | null>(null);
   const [error, setError] = useState("");
   const input = pending.input && typeof pending.input === "object" ? pending.input as Record<string, unknown> : {};
@@ -130,7 +131,7 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
     setSending(decision);
     setError("");
     try {
-      await useThreadChatStore.getState().decide(pending.approvalId, decision);
+      await chat.getState().decide(pending.approvalId, decision);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSending(null);
@@ -177,6 +178,7 @@ function waitingPlan(timeline: Timeline): TurnItem | null {
  */
 function PlanPanel({ timeline, provider }: { timeline: Timeline; provider: ProviderOption | null }) {
   const t = useT();
+  const chat = useThreadChat();
   const turn = waitingPlan(timeline);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -187,7 +189,7 @@ function PlanPanel({ timeline, provider }: { timeline: Timeline; provider: Provi
     setSending(true);
     setError("");
     try {
-      await useThreadChatStore.getState().resolvePlan(turn.id, decision);
+      await chat.getState().resolvePlan(turn.id, decision);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -218,6 +220,7 @@ function PlanPanel({ timeline, provider }: { timeline: Timeline; provider: Provi
 
 function QuestionPanel({ timeline }: { timeline: Timeline }) {
   const t = useT();
+  const chat = useThreadChat();
   const open = openQuestion(timeline);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -231,7 +234,7 @@ function QuestionPanel({ timeline }: { timeline: Timeline }) {
     setSending(true);
     setError("");
     try {
-      await useThreadChatStore.getState().answerQuestion(question.questionId, index, payload);
+      await chat.getState().answerQuestion(question.questionId, index, payload);
       setText("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -257,7 +260,7 @@ function QuestionPanel({ timeline }: { timeline: Timeline }) {
         <form className="mt-2 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (text.trim()) void answer({ text: text.trim() }); }}>
           <input value={text} onChange={(event) => setText(event.target.value)} placeholder={t("ide_threads.own_answer")} disabled={sending}
             className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring" />
-          <button type="button" disabled={sending} onClick={() => void useThreadChatStore.getState().skipQuestion(question.questionId).catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))}
+          <button type="button" disabled={sending} onClick={() => void chat.getState().skipQuestion(question.questionId).catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))}
             className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary">{t("ide_threads.skip")}</button>
         </form>
         {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
@@ -298,15 +301,16 @@ export function ThreadComposer({
   /** False while the IDE section is hidden: its keys belong to whatever is on screen. */
   onScreen?: boolean;
 }) {
-  const draft = useThreadChatStore((state) => state.draft);
-  const timeline = useThreadChatStore((state) => state.timeline);
-  const activeSessionId = useThreadChatStore((state) => state.activeSessionId);
-  const activeSession = useThreadChatStore((state) => state.activeSession);
-  const catalog = useThreadChatStore((state) => state.catalog);
-  const connections = useThreadChatStore((state) => state.connections);
-  const liveModels = useThreadChatStore((state) => state.liveModels);
-  const busy = useThreadChatStore((state) => state.busy);
-  const lastError = useThreadChatStore((state) => state.lastError);
+  const chat = useThreadChat();
+  const draft = chat((state) => state.draft);
+  const timeline = chat((state) => state.timeline);
+  const activeSessionId = chat((state) => state.activeSessionId);
+  const activeSession = chat((state) => state.activeSession);
+  const catalog = chat((state) => state.catalog);
+  const connections = chat((state) => state.connections);
+  const liveModels = chat((state) => state.liveModels);
+  const busy = chat((state) => state.busy);
+  const lastError = chat((state) => state.lastError);
   const [value, setValueState] = useState(() => drafts.get(threadKey) ?? "");
   const [queue, setQueueState] = useState<QueuedMessage[]>(() => queues.get(threadKey) ?? []);
   // After Stop the queue waits: the person halted the agent, it must not start the next job.
@@ -343,10 +347,10 @@ export function ThreadComposer({
     if (providers.some((option) => option.id === draft.provider && option.connected)) return;
     const seat = rememberedSeat();
     const remembered = seat && providers.find((option) => option.id === seat.provider && option.connected);
-    if (remembered && seat) { void useThreadChatStore.getState().setDraft(seat); return; }
+    if (remembered && seat) { void chat.getState().setDraft(seat); return; }
     const first = providers.find((option) => option.connected) ?? providers[0];
-    if (first && first.id !== draft.provider) void useThreadChatStore.getState().setDraft({ provider: first.id });
-  }, [activeSessionId, providers, draft.provider]);
+    if (first && first.id !== draft.provider) void chat.getState().setDraft({ provider: first.id });
+  }, [chat, activeSessionId, providers, draft.provider]);
 
   // A model change can leave the picked effort off that model's ladder (Opus
   // 4.6 has no xhigh, Gemini 3.1 Pro no medium); fold it the way the backend
@@ -360,8 +364,8 @@ export function ThreadComposer({
     const ladder = effortLadder(provider, modelsOf(provider, liveModels), draft.model);
     if (!ladder.some(Boolean)) return;
     const next = snapEffort(draft.effort, ladder, provider.default_effort);
-    if (next !== draft.effort) void useThreadChatStore.getState().setDraft({ effort: next });
-  }, [provider, liveModels, draft.model, draft.effort, activeSessionId, activeSession]);
+    if (next !== draft.effort) void chat.getState().setDraft({ effort: next });
+  }, [chat, provider, liveModels, draft.model, draft.effort, activeSessionId, activeSession]);
 
   const setValue = useCallback((next: string) => {
     setValueState(next);
@@ -397,7 +401,7 @@ export function ThreadComposer({
   const files = useChatAttachments(
     { sessionId: activeSessionId, cwd: draft.cwd, provider: draft.provider, surface: "agent" },
     (message) => setProblem(message),
-    { owner: useThreadChatStore, key: threadKey },
+    { owner: chat, key: threadKey },
   );
   const triggers = useMemo(() => provider?.typeahead ?? [], [provider]);
   const typeahead = useComposerTypeahead(textareaRef, value, setValue, {
@@ -408,7 +412,7 @@ export function ThreadComposer({
   });
 
   const dispatch = useCallback(async (text: string, attachments: ChatAttachment[]) => {
-    const store = useThreadChatStore.getState();
+    const store = chat.getState();
     if (!store.activeSessionId) {
       setStarting(true);
       try {
@@ -422,9 +426,9 @@ export function ThreadComposer({
         setStarting(false);
       }
     }
-    await useThreadChatStore.getState().send(text, attachments, [], onSessionCreated);
-    return !useThreadChatStore.getState().lastError;
-  }, [prepareDraft, onSessionCreated]);
+    await chat.getState().send(text, attachments, [], onSessionCreated);
+    return !chat.getState().lastError;
+  }, [chat, prepareDraft, onSessionCreated]);
 
   // A queued message goes out the moment the agent is free again.
   useEffect(() => {
@@ -466,10 +470,10 @@ export function ThreadComposer({
       setQueue((current) => [...current, { id: ++queueId.current, text, attachments }]);
       return;
     }
-    const before = useThreadChatStore.getState();
+    const before = chat.getState();
     keepSent({ text, files: held, sentMs: Date.now(), sessionId: before.activeSessionId, afterSeq: before.timeline.lastSeq });
     const sent = await dispatch(text, attachments);
-    if (!sent && !useThreadChatStore.getState().activeSessionId) {
+    if (!sent && !chat.getState().activeSessionId) {
       // Nothing was created: give the words back instead of losing them.
       setValue(text);
     }
@@ -485,7 +489,7 @@ export function ThreadComposer({
     lastSent = null;
     setPaused(true);
     if (activeSessionId) useRecalledMessages.getState().hide(activeSessionId, asked.id);
-    void useThreadChatStore.getState().cancel("thread-recall");
+    void chat.getState().cancel("thread-recall");
     const current = drafts.get(threadKey) ?? "";
     setValue(current.trim() ? `${text}\n${current}` : text);
     files.restore(held);
@@ -517,9 +521,9 @@ export function ThreadComposer({
 
   // A pick the person made is the seat every new thread starts on.
   const pick = async (patch: Partial<Pick<ComposerDraft, "provider" | "model" | "effort" | "permissionMode">>) => {
-    const store = useThreadChatStore.getState();
+    const store = chat.getState();
     await store.setDraft(patch);
-    rememberSeat(useThreadChatStore.getState().draft);
+    rememberSeat(chat.getState().draft);
   };
 
   const canSend = (value.trim().length > 0 || files.attachments.length > 0 || dictation.dictating) && files.analyzing === 0 && !starting;
@@ -562,7 +566,8 @@ export function ThreadComposer({
         onPaste={files.onPaste}
         className="block max-h-[40vh] min-h-[84px] w-full resize-none bg-transparent px-4 pb-2 pt-4 text-base leading-6 text-foreground outline-none placeholder:text-faint-foreground sm:px-5" />
       <div className="flex min-w-0 items-center justify-between gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
-        <div className="-ms-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
+        {/* The pickers keep their width: a narrow column (side by side) scrolls the row instead of stacking them. */}
+        <div className="-ms-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0">
         <AgentModelPicker providers={providers} liveModels={liveModels} draft={draft}
           lockedProvider={started && activeSessionId ? draft.provider : null}
           onPick={(nextProvider, model) => void pick(nextProvider !== draft.provider ? { provider: nextProvider, model } : { model })} />
@@ -576,7 +581,7 @@ export function ThreadComposer({
             startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
           {running && !canSend
             ? <button type="button" aria-label={t("ide_threads.stop_agent")} title={t("ide_threads.stop")} data-testid="thread-stop"
-              onClick={() => { setPaused(true); void useThreadChatStore.getState().cancel("thread-stop-button"); }}
+              onClick={() => { setPaused(true); void chat.getState().cancel("thread-stop-button"); }}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Square className="h-3 w-3 fill-current" />
             </button>

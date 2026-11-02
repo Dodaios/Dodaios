@@ -40,12 +40,36 @@ export interface ThreadSelection {
 /** `ThreadSelection.team` of a team thread that has not started yet. */
 export const TEAM_DRAFT = "new";
 
+/** A thread open in a side column next to the main one. */
+export interface SplitThread {
+  sessionId: string;
+  projectId: string;
+}
+
+/** How many threads can sit side by side, the main column included. */
+export const MAX_THREAD_COLUMNS = 4;
+
+/** One column of the thread layout: the main one (`null`) or a side thread. */
+export type ThreadColumn = SplitThread | null;
+
+/** The columns left to right: the side threads with the main one at `mainAt`. */
+export function threadColumns(split: readonly SplitThread[], mainAt: number): ThreadColumn[] {
+  const at = Math.max(0, Math.min(mainAt, split.length));
+  return [...split.slice(0, at), null, ...split.slice(at)];
+}
+
+function fromColumns(columns: readonly ThreadColumn[]): { split: SplitThread[]; mainAt: number } {
+  const mainAt = Math.max(0, columns.indexOf(null));
+  return { split: columns.filter((column): column is SplitThread => column !== null), mainAt };
+}
+
 const LAYOUT_KEY = "jarvis.agenticIde.layout.v1";
 const SELECTION_KEY = "jarvis.agenticIde.threadSelection.v1";
 const PROJECT_OF_KEY = "jarvis.agenticIde.threadProjects.v1";
 const SEEN_KEY = "jarvis.agenticIde.threadSeen.v1";
 const ARCHIVED_KEY = "jarvis.agenticIde.threadArchived.v1";
 const ORDER_KEY = "jarvis.agenticIde.threadOrder.v1";
+const SPLIT_KEY = "jarvis.agenticIde.threadSplit.v1";
 /** Bounds on the two maps kept in storage — oldest entries go first. */
 const MAX_REMEMBERED = 400;
 /**
@@ -106,6 +130,21 @@ const parseOrder = (raw: unknown): Record<string, string[]> | null => {
   return out;
 };
 
+const parseSplit = (raw: unknown): { split: SplitThread[]; mainAt: number } | null => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const row = raw as Record<string, unknown>;
+  const split: SplitThread[] = [];
+  for (const entry of Array.isArray(row.split) ? row.split : []) {
+    if (!entry || typeof entry !== "object") continue;
+    const { sessionId, projectId } = entry as Record<string, unknown>;
+    if (typeof sessionId !== "string" || !sessionId || split.some((thread) => thread.sessionId === sessionId)) continue;
+    split.push({ sessionId, projectId: typeof projectId === "string" ? projectId : "" });
+    if (split.length >= MAX_THREAD_COLUMNS - 1) break;
+  }
+  const mainAt = typeof row.mainAt === "number" && Number.isInteger(row.mainAt) ? Math.max(0, Math.min(row.mainAt, split.length)) : 0;
+  return { split, mainAt };
+};
+
 /** Drop the oldest keys once a map outgrows `limit` (insertion order). */
 function bounded<T>(map: Record<string, T>, limit = MAX_REMEMBERED): Record<string, T> {
   const keys = Object.keys(map);
@@ -137,6 +176,10 @@ interface IdeThreadsState {
   focusNonce: number;
   /** What was on screen before the team start form opened; its cancel goes back there. */
   beforeTeamDraft: ThreadSelection | null;
+  /** Threads open side by side with the main one, left to right. */
+  split: SplitThread[];
+  /** Where the main column sits among the side ones: 0 is the far left. */
+  mainAt: number;
 
   setLayout: (layout: IdeLayout) => void;
   /** Open an existing thread. */
@@ -164,6 +207,24 @@ interface IdeThreadsState {
   restoreThread: (sessionId: string) => void;
   /** Keep a project's threads in this order. */
   setThreadOrder: (projectId: string, sessionIds: readonly string[]) => void;
+  /**
+   * Show a thread in its own column at `index` among all columns, the main one
+   * included. A thread already in a side column moves there; `replace` swaps
+   * out the column at `index` instead (on the main column it opens there).
+   */
+  placeColumn: (thread: SplitThread, index: number, replace?: boolean) => void;
+  /** Close a side column. */
+  closeColumn: (sessionId: string) => void;
+  /** Close the main column: the side thread next to it takes its place. */
+  closeMainColumn: () => void;
+}
+
+/** The side columns without `sessionId`; the same state when it had none. */
+function withoutSplit(state: Pick<IdeThreadsState, "split" | "mainAt">, sessionId: string | null): Pick<IdeThreadsState, "split" | "mainAt"> {
+  if (!sessionId || !state.split.some((thread) => thread.sessionId === sessionId)) return { split: state.split, mainAt: state.mainAt };
+  const next = fromColumns(threadColumns(state.split, state.mainAt).filter((column) => column?.sessionId !== sessionId));
+  write(SPLIT_KEY, next);
+  return next;
 }
 
 export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
@@ -175,6 +236,7 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
   order: read(ORDER_KEY, parseOrder, {}),
   focusNonce: 0,
   beforeTeamDraft: null,
+  ...read(SPLIT_KEY, parseSplit, { split: [], mainAt: 0 }),
 
   setLayout: (layout) => {
     if (get().layout === layout) return;
@@ -184,7 +246,8 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
   openThread: (sessionId, projectId) => {
     const selection = { projectId, sessionId };
     write(SELECTION_KEY, selection);
-    set({ selection });
+    // A thread shows in one column only: picked for the main one, it leaves its side column.
+    set({ selection, ...withoutSplit(get(), sessionId) });
   },
   newThread: (projectId) => {
     const selection = { projectId, sessionId: null };
@@ -212,14 +275,14 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
   openMemberThread: (sessionId, projectId, teamId) => {
     const selection = { projectId, sessionId, fromTeam: teamId };
     write(SELECTION_KEY, selection);
-    set({ selection });
+    set({ selection, ...withoutSplit(get(), sessionId) });
   },
   adoptThread: (sessionId, projectId) => {
     const selection = { projectId, sessionId };
     const projectOf = projectId ? bounded({ ...get().projectOf, [sessionId]: projectId }) : get().projectOf;
     write(SELECTION_KEY, selection);
     write(PROJECT_OF_KEY, projectOf);
-    set({ selection, projectOf });
+    set({ selection, projectOf, ...withoutSplit(get(), sessionId) });
   },
   rememberProject: (sessionId, projectId) => {
     const projectOf = bounded({ ...get().projectOf, [sessionId]: projectId });
@@ -246,7 +309,7 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
       ? { projectId: get().selection.projectId, sessionId: null }
       : get().selection;
     write(SELECTION_KEY, selection);
-    set({ projectOf, seen, archived, order, selection });
+    set({ projectOf, seen, archived, order, selection, ...withoutSplit(get(), sessionId) });
   },
   archiveThread: (sessionId) => {
     const { [sessionId]: _previous, ...rest } = get().archived;
@@ -259,7 +322,7 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
       ? { projectId: get().selection.projectId, sessionId: null }
       : get().selection;
     write(SELECTION_KEY, selection);
-    set({ archived, order, selection });
+    set({ archived, order, selection, ...withoutSplit(get(), sessionId) });
   },
   restoreThread: (sessionId) => {
     if (!(sessionId in get().archived)) return;
@@ -271,5 +334,43 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
     const order = { ...get().order, [projectId]: [...sessionIds] };
     write(ORDER_KEY, order);
     set({ order });
+  },
+  placeColumn: (thread, index, replace = false) => {
+    const state = get();
+    // The main column's thread is already on screen.
+    if (thread.sessionId === state.selection.sessionId) return;
+    const columns = threadColumns(state.split, state.mainAt);
+    const from = columns.findIndex((column) => column?.sessionId === thread.sessionId);
+    let at = Math.max(0, Math.min(index, columns.length));
+    // A thread already in a column only moves; replacing is for a new one when every column is taken.
+    if (replace && from < 0) {
+      const slot = Math.min(at, columns.length - 1);
+      if (columns[slot] === null) {
+        get().openThread(thread.sessionId, thread.projectId);
+        return;
+      }
+      columns.splice(slot, 1, thread);
+    } else {
+      if (from >= 0) {
+        columns.splice(from, 1);
+        if (from < at) at -= 1;
+      } else if (columns.length >= MAX_THREAD_COLUMNS) {
+        return;
+      }
+      columns.splice(at, 0, thread);
+    }
+    const next = fromColumns(columns);
+    write(SPLIT_KEY, next);
+    set(next);
+  },
+  closeColumn: (sessionId) => {
+    set(withoutSplit(get(), sessionId));
+  },
+  closeMainColumn: () => {
+    const { split, mainAt } = get();
+    if (split.length === 0) return;
+    // The neighbour on the right moves in, else the one on the left.
+    const heir = split[mainAt] ?? split[mainAt - 1];
+    get().openThread(heir.sessionId, heir.projectId);
   },
 }));
