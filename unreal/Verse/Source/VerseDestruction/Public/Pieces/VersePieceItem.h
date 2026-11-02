@@ -80,6 +80,15 @@ struct VERSEDESTRUCTION_API FVersePieceItem : public FFastArraySerializerItem
 	void PostReplicatedChange(const FVersePieceItemArray& InArraySerializer);
 };
 
+template <>
+struct TStructOpsTypeTraits<FVersePieceItem> : public TStructOpsTypeTraitsBase2<FVersePieceItem>
+{
+	enum
+	{
+		WithNetSerializer = true,
+	};
+};
+
 /** The manager's fast array (destruction.md 3.3). */
 USTRUCT()
 struct VERSEDESTRUCTION_API FVersePieceItemArray : public FFastArraySerializer
@@ -97,15 +106,6 @@ struct VERSEDESTRUCTION_API FVersePieceItemArray : public FFastArraySerializer
 	{
 		return FFastArraySerializer::FastArrayDeltaSerialize<FVersePieceItem, FVersePieceItemArray>(Items, DeltaParms, *this);
 	}
-};
-
-template <>
-struct TStructOpsTypeTraits<FVersePieceItem> : public TStructOpsTypeTraitsBase2<FVersePieceItem>
-{
-	enum
-	{
-		WithNetSerializer = true,
-	};
 };
 
 template <>

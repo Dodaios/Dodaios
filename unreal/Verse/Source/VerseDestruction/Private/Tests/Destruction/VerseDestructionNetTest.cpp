@@ -35,7 +35,7 @@ namespace
 			&& A.Epoch == B.Epoch;
 	}
 
-	TArray<FVersePieceDef> Row(int32 Count)
+	TArray<FVersePieceDef> ContainerRow(int32 Count)
 	{
 		TArray<FVersePieceDef> Defs;
 		for (int32 Index = 0; Index < Count; ++Index)
@@ -89,7 +89,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDestructionNetManagerTick, "Verse.Destruc
 bool FVerseDestructionNetManagerTick::RunTest(const FString&)
 {
 	FTestWorld W(TEXT("VerseDestructionManagerTick"));
-	const TArray<FVersePieceDef> Defs = Row(24);
+	const TArray<FVersePieceDef> Defs = ContainerRow(24);
 	for (const FVersePieceDef& Def : Defs)
 	{
 		W.SpawnPiece(Def);
@@ -147,7 +147,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDestructionNetStreaming, "Verse.Destructi
 bool FVerseDestructionNetStreaming::RunTest(const FString&)
 {
 	FTestWorld W(TEXT("VerseDestructionStreaming"));
-	const TArray<FVersePieceDef> Defs = Row(6);
+	const TArray<FVersePieceDef> Defs = ContainerRow(6);
 	UVersePieceManifest* Manifest = NewObject<UVersePieceManifest>();
 	for (const FVersePieceDef& Def : Defs)
 	{

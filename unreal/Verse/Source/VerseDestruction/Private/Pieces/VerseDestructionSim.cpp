@@ -643,6 +643,7 @@ void FVerseDestructionSim::PushEvent(const FVerseFractureEvent& Event, uint32 No
 	Pending.bMulticast = Event.PieceIndex == AllPieces || MulticastTimesMs.Num() < Tuning.MaxFractureEventsPerSecond;
 	if (Pending.bMulticast)
 	{
+		Deferred.Remove(Event.PieceIndex); // a newer event of the piece supersedes a waiting one
 		MulticastTimesMs.Add(NowMs);
 		Counters.PeakEventsPerSecond = FMath::Max(Counters.PeakEventsPerSecond, MulticastTimesMs.Num());
 	}

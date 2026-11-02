@@ -177,7 +177,7 @@ bool FVerseDestructionDeterminism::RunTest(const FString&)
 		for (const FVersePendingFracture& Pending : Sim.DrainEvents())
 		{
 			const FVerseFractureEvent& E = Pending.Event;
-			if (E.ToState != EVersePieceState::Damaged && E.PieceIndex != Verse::Destruction::AllPieces && ServerHoles.ByPiece.Remove(E.PieceIndex) > 0)
+			if (Pending.bPublishLocal && E.ToState != EVersePieceState::Damaged && E.PieceIndex != Verse::Destruction::AllPieces && ServerHoles.ByPiece.Remove(E.PieceIndex) > 0)
 			{
 				LastChangeMs[E.PieceIndex] = Now;
 				LateQueue.AddUnique(E.PieceIndex);
