@@ -1,0 +1,12 @@
+[
+  {
+    "type": "unsubscribe",
+    "id": "c-8",
+    "ts": 1793612398.0,
+    "data": {
+      "topics": [
+        "meetings"
+      ]
+    }
+  }
+]
