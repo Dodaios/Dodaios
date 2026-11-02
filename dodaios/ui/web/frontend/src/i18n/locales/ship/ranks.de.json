@@ -73,6 +73,9 @@
         "simulator_record": "Simulatorrekord",
         "team_briefing": "Teambesprechung",
         "inspection": "Deckinspektion",
+        "duel_won": "Duellsatz gewonnen",
+        "duel_lost": "Duellsatz verloren",
+        "duel_finisher": "Duell-Finisher",
         "task_done": "Aufgabe erledigt",
         "task_blocked": "Aufgabe als blockiert gemeldet",
         "quest_done": "Quest abgeschlossen",
@@ -95,6 +98,9 @@
         "simulator_record": "Einen neuen Bestwert im Simulatorraum aufstellen.",
         "team_briefing": "Eine Teambesprechung im Besprechungsraum abhalten.",
         "inspection": "Jeden Raum eines Decks abgehen, einmal pro Deck und Tag.",
+        "duel_won": "Gewinne einen Duellsatz in der Hangar-Arena; stärkere Gegner zahlen mehr.",
+        "duel_lost": "Spiele einen Duellsatz von mindestens einer Minute zu Ende, auch wenn du ihn verlierst.",
+        "duel_finisher": "Setze einen Finisher in einem Duellsatz, der zählt.",
         "task_done": "Eine Aufgabe erledigen.",
         "task_blocked": "Eine Aufgabe mit Begründung als blockiert melden.",
         "quest_done": "Eine Quest abschließen.",
@@ -155,7 +161,34 @@
         "earn_hint": "Jede Vergabe wird gegen das Logbuch des Schiffs geprüft: Dasselbe zahlt nie zweimal.",
         "crew_empty": "Noch keine Offiziere an Bord.",
         "companion": "Begleitdrohne",
-        "sound": "Schiffsglocke bei Beförderungen"
+        "sound": "Schiffsglocke bei Beförderungen",
+        "duel": {
+          "title": "Duelle",
+          "empty": "Noch keine Duellsätze. Starte einen an der Waffenkammer im Hangar.",
+          "sets": "Sätze",
+          "record": "Gewonnen / verloren",
+          "won_lost": "{won} / {lost}",
+          "kd": "K/D",
+          "headshots": "Kopftreffer",
+          "finishers": "Finisher",
+          "best_streak": "Beste Serie",
+          "unfinished": "Abgebrochen",
+          "recent": "Letzte Sätze",
+          "score": "{player} : {opponent}",
+          "outcome": {
+            "won": "Gewonnen",
+            "lost": "Verloren",
+            "unfinished": "Abgebrochen"
+          },
+          "tier": {
+            "normal": "Normal",
+            "hard": "Schwer",
+            "elite": "Elite",
+            "adaptive": "Adaptiv",
+            "person": "Person",
+            "unknown": "Gegner"
+          }
+        }
       },
       "promo": {
         "eyebrow": "Beförderung",

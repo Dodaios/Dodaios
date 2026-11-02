@@ -73,6 +73,9 @@
         "simulator_record": "Simulator record",
         "team_briefing": "Team briefing",
         "inspection": "Deck inspection",
+        "duel_won": "Duel set won",
+        "duel_lost": "Duel set lost",
+        "duel_finisher": "Duel finisher",
         "task_done": "Task done",
         "task_blocked": "Task reported blocked",
         "quest_done": "Quest done",
@@ -95,6 +98,9 @@
         "simulator_record": "Set a new best in the simulator room.",
         "team_briefing": "Hold a team briefing in the briefing room.",
         "inspection": "Walk every room of a deck, once per deck a day.",
+        "duel_won": "Win a duel set in the hangar arena; harder opponents pay more.",
+        "duel_lost": "Play a duel set of at least a minute to the end, even when you lose it.",
+        "duel_finisher": "Land a finisher in a duel set that pays.",
         "task_done": "Finish a task.",
         "task_blocked": "Report a task as blocked, with the reason.",
         "quest_done": "Complete a quest.",
@@ -155,7 +161,34 @@
         "earn_hint": "Every award is checked against the ship's own ledger: the same thing never pays twice.",
         "crew_empty": "No officers aboard yet.",
         "companion": "Companion drone",
-        "sound": "Ship's bell on promotions"
+        "sound": "Ship's bell on promotions",
+        "duel": {
+          "title": "Duels",
+          "empty": "No duel sets yet. Start one at the armoury in the hangar.",
+          "sets": "Sets",
+          "record": "Won / lost",
+          "won_lost": "{won} / {lost}",
+          "kd": "K/D",
+          "headshots": "Headshots",
+          "finishers": "Finishers",
+          "best_streak": "Best streak",
+          "unfinished": "Left unfinished",
+          "recent": "Recent sets",
+          "score": "{player} : {opponent}",
+          "outcome": {
+            "won": "Won",
+            "lost": "Lost",
+            "unfinished": "Unfinished"
+          },
+          "tier": {
+            "normal": "Normal",
+            "hard": "Hard",
+            "elite": "Elite",
+            "adaptive": "Adaptive",
+            "person": "Person",
+            "unknown": "Opponent"
+          }
+        }
       },
       "promo": {
         "eyebrow": "Promotion",

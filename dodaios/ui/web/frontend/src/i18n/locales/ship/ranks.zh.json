@@ -73,6 +73,9 @@
         "simulator_record": "模拟器纪录",
         "team_briefing": "团队简报",
         "inspection": "甲板巡视",
+        "duel_won": "决斗局获胜",
+        "duel_lost": "决斗局落败",
+        "duel_finisher": "决斗终结技",
         "task_done": "完成工作",
         "task_blocked": "报告工作受阻",
         "quest_done": "完成任务",
@@ -95,6 +98,9 @@
         "simulator_record": "在模拟室创下新纪录。",
         "team_briefing": "在简报室召开团队简报。",
         "inspection": "走遍一层甲板的所有房间，每层甲板每天一次。",
+        "duel_won": "在机库竞技场赢下一局决斗；对手越强，奖励越多。",
+        "duel_lost": "打完一局至少一分钟的决斗，即使输了也算。",
+        "duel_finisher": "在计分的决斗局中完成一次终结技。",
         "task_done": "完成一项工作。",
         "task_blocked": "说明原因并报告工作受阻。",
         "quest_done": "完成一项任务。",
@@ -155,7 +161,34 @@
         "earn_hint": "每次奖励都会对照舰上的日志核验：同一件事绝不会奖励两次。",
         "crew_empty": "舰上还没有军官。",
         "companion": "随行机器人",
-        "sound": "晋升时鸣响船钟"
+        "sound": "晋升时鸣响船钟",
+        "duel": {
+          "title": "决斗",
+          "empty": "还没有决斗记录。到机库的军械库开始一局。",
+          "sets": "局数",
+          "record": "胜 / 负",
+          "won_lost": "{won} / {lost}",
+          "kd": "击杀/死亡",
+          "headshots": "爆头",
+          "finishers": "终结技",
+          "best_streak": "最佳连杀",
+          "unfinished": "未完成",
+          "recent": "最近的对局",
+          "score": "{player} : {opponent}",
+          "outcome": {
+            "won": "胜",
+            "lost": "负",
+            "unfinished": "未完成"
+          },
+          "tier": {
+            "normal": "普通",
+            "hard": "困难",
+            "elite": "精英",
+            "adaptive": "自适应",
+            "person": "玩家",
+            "unknown": "对手"
+          }
+        }
       },
       "promo": {
         "eyebrow": "晋升",
