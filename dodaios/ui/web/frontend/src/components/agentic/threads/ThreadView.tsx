@@ -8,6 +8,7 @@ import { fill, translate, useT } from "@/i18n";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore } from "@/store/ideThreads";
 import { useThreadTerminalsStore } from "@/store/threadTerminals";
+import { openSubagentOf, useThreadSubagentsStore, type SubagentRow } from "@/store/threadSubagents";
 import { ThreadBranchBar, type ThreadCheckout } from "./ThreadBranchBar";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadMenuItem, ThreadPopover } from "./ThreadPopover";
@@ -47,8 +48,13 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
   const [base, setBase] = useState("");
   const [projectMenu, setProjectMenu] = useState(false);
   const [composerHeight, setComposerHeight] = useState(160);
-  // The sub-agent whose conversation shows instead of the main thread's, by its spawn call.
-  const [openAgent, setOpenAgent] = useState<string | null>(null);
+  // The sub-agent whose conversation shows instead of the main thread's, by its spawn
+  // call. It lives in a store so the sidebar's sub-agent rows open it too.
+  const openAgent = useThreadSubagentsStore((state) => openSubagentOf(state.open, selection.sessionId));
+  const setOpenAgent = useCallback((id: string | null) => {
+    const sessionId = useIdeThreadsStore.getState().selection.sessionId;
+    if (sessionId) useThreadSubagentsStore.getState().openAgent(sessionId, id);
+  }, []);
   // Sub-agents the CLI filed on its own (Codex), read for the open thread.
   const [discovered, setDiscovered] = useState<{ sessionId: string; agents: DiscoveredAgent[] } | null>(null);
   const projectAnchor = useRef<HTMLButtonElement | null>(null);
@@ -207,8 +213,21 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
   const agentItems = useMemo(() => (agent ? [subagentTurn(agent)] : []), [agent]);
   const userCount = timeline.items.filter((item) => item.type === "user").length;
 
+  // The sidebar lists the open thread's sub-agents under it.
+  useEffect(() => {
+    const rows: SubagentRow[] = agents.map((entry) => ({
+      id: entry.id, parentId: entry.parentId, depth: entry.depth, title: entry.title,
+      agentType: entry.agentType, status: entry.status, waiting: entry.waiting,
+    }));
+    useThreadSubagentsStore.getState().publish(selection.team ? null : selection.sessionId, rows);
+  }, [agents, selection.sessionId, selection.team]);
+  useEffect(() => () => useThreadSubagentsStore.getState().publish(null, []), []);
+
   // Another thread, or a new message to the main agent, brings the main conversation back.
-  useEffect(() => { setOpenAgent(null); }, [selection.sessionId]);
+  useEffect(() => {
+    const open = useThreadSubagentsStore.getState().open;
+    if (open && open.sessionId !== selection.sessionId) useThreadSubagentsStore.getState().openAgent(open.sessionId, null);
+  }, [selection.sessionId]);
   const sentCount = useRef(userCount);
   useEffect(() => {
     if (userCount > sentCount.current) setOpenAgent(null);

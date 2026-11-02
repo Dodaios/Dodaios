@@ -186,14 +186,17 @@ const TURN_STATUS: Record<SubagentStatus, TurnStatus> = { running: "running", do
 
 /**
  * A sub-agent's conversation as a turn, so the thread draws it exactly like
- * the main agent's work: its steps, thoughts and answer. A CLI that only
- * reported the answer shows that answer as the text.
+ * the main agent's work: its steps, thoughts and answer. Where the steps do
+ * not end in the answer (a CLI that only reported the answer, or one that
+ * streamed the steps and handed the final report back separately), the
+ * reported answer closes the turn.
  */
 export function subagentTurn(entry: SubagentEntry): TurnItem {
-  const answer: TextBlock[] = !entry.streamed && entry.summary.trim()
+  const running = entry.status === "running";
+  const endsInText = entry.blocks.length > 0 && entry.blocks[entry.blocks.length - 1].kind === "text";
+  const answer: TextBlock[] = !running && !endsInText && entry.summary.trim()
     ? [{ kind: "text", id: `answer:${entry.id}`, text: entry.summary }]
     : [];
-  const running = entry.status === "running";
   return {
     type: "turn",
     id: `agent:${entry.id}`,

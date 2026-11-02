@@ -115,6 +115,28 @@ describe("sub-agents in the timeline", () => {
     expect(subagentTurn(entry).blocks).toEqual([{ kind: "text", id: "answer:c1", text: "Two issues." }]);
   });
 
+  it("closes a streamed conversation with the report it handed back when its steps end in a tool", () => {
+    const turn = turnOf([
+      ev("turn_started", { turn_id: "t1", provider: "claude-cli" }),
+      ev("tool_call", { turn_id: "t1", call_id: "spawn", name: "Agent", input: { description: "Review", prompt: "Review it" } }),
+      ev("subagent_started", { turn_id: "t1", agent_id: "spawn", description: "Review", prompt: "Review it" }),
+      ev("tool_call", { turn_id: "t1", agent_id: "spawn", call_id: "read", name: "Read", input: { file_path: "a.py" } }),
+      ev("tool_result", { turn_id: "t1", agent_id: "spawn", call_id: "read", output: "x", is_error: false }),
+      ev("subagent_finished", { turn_id: "t1", agent_id: "spawn", status: "done" }),
+      ev("subagent_finished", { turn_id: "t1", agent_id: "spawn", status: "done", summary: "## Review\nNo issues." }),
+    ]);
+    const [entry] = listSubagents([turn]);
+    expect(entry.streamed).toBe(true);
+    const blocks = subagentTurn(entry).blocks;
+    expect(blocks[blocks.length - 1]).toEqual({ kind: "text", id: "answer:spawn", text: "## Review\nNo issues." });
+  });
+
+  it("does not repeat an answer the streamed conversation already ends in", () => {
+    const [entry] = listSubagents([turnOf([...claudeRun(), ...finished()])]);
+    const texts = subagentTurn(entry).blocks.filter((block) => block.kind === "text");
+    expect(texts).toHaveLength(1);
+  });
+
   it("reads a Codex agent's answer from its finished report", () => {
     const turn = turnOf([
       ev("turn_started", { turn_id: "t1", provider: "codex-cli" }),
