@@ -13,6 +13,7 @@ REST (the app's own session auth):
 * ``GET/POST /api/verse/flags``        ``unreal_preview`` (the launcher card), ``dev_bridge``
 * ``POST /api/verse/launcher/start``   the shared coding-agent launch sequence
 * ``POST /api/verse/launcher/cancel``
+* ``POST /api/verse/qa``                a ``Verse.QA.*`` command run inside Verse (QA env only)
 
 WebSockets (their own auth; exempt from the session cookie check):
 
@@ -180,6 +181,22 @@ async def verse_set_flags(body: FlagsBody, request: Request) -> dict[str, Any]:
         else:
             host.remove_dev_discovery()
     return await verse_flags(request)
+
+
+class QaBody(BaseModel):
+    command: str = Field(pattern=r"^Verse\.QA\.[A-Za-z0-9_.]+$")
+    args: list[str] = Field(default_factory=list)
+
+
+@router.post("/qa", summary="Run a Verse.QA.* command inside Verse (DODAIOS_VERSE_QA=1 only)")
+async def verse_qa(body: QaBody, request: Request) -> dict[str, Any]:
+    try:
+        return await _host(request).qa_exec(body.command, body.args)
+    except P.BridgeError as exc:
+        status = 503 if exc.code == "unavailable" else 400
+        raise HTTPException(status_code=status, detail=exc.message) from exc
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail="Verse did not answer.") from exc
 
 
 @router.post("/launcher/start", summary="Open coding panes and brief them (shared sequence)")

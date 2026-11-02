@@ -425,10 +425,10 @@ bool FVerseCellsFrame::FromJson(const TSharedPtr<FJsonObject>& Data, FVerseCells
 		Out.CursorCol = int16((*Cursor)[1]->AsNumber());
 	}
 	bool bOk = true;
-	const TArray<TSharedPtr<FJsonValue>>* Rows = nullptr;
-	if (Data->TryGetArrayField(TEXT("rows_changed"), Rows))
+	const TArray<TSharedPtr<FJsonValue>>* RowList = nullptr;
+	if (Data->TryGetArrayField(TEXT("rows_changed"), RowList))
 	{
-		for (const TSharedPtr<FJsonValue>& RowValue : *Rows)
+		for (const TSharedPtr<FJsonValue>& RowValue : *RowList)
 		{
 			const TSharedPtr<FJsonObject> RowObj = RowValue->AsObject();
 			FVerseCellRow& Row = Out.RowsChanged.AddDefaulted_GetRef();

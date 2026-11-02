@@ -132,13 +132,13 @@ void FVerseBridgeClient::Tick(double Now)
 			Hello->SetNumberField(TEXT("pid"), double(FPlatformProcess::GetCurrentProcessId()));
 			Hello->SetNumberField(TEXT("last_seq"), double(LastSeq));
 			TSharedPtr<FJsonObject> Enc = MakeShared<FJsonObject>();
-			TArray<TSharedPtr<FJsonValue>> Screens;
+			TArray<TSharedPtr<FJsonValue>> ScreenEncodings;
 			if (!bPreferJsonScreens)
 			{
-				Screens.Add(MakeShared<FJsonValueString>(TEXT("cells.bin/1")));
+				ScreenEncodings.Add(MakeShared<FJsonValueString>(TEXT("cells.bin/1")));
 			}
-			Screens.Add(MakeShared<FJsonValueString>(TEXT("cells.json/1")));
-			Enc->SetArrayField(TEXT("screens"), Screens);
+			ScreenEncodings.Add(MakeShared<FJsonValueString>(TEXT("cells.json/1")));
+			Enc->SetArrayField(TEXT("screens"), ScreenEncodings);
 			Hello->SetObjectField(TEXT("encodings"), Enc);
 			TSharedPtr<FJsonObject> Caps = MakeShared<FJsonObject>();
 			Caps->SetBoolField(TEXT("panel_stream"), true);

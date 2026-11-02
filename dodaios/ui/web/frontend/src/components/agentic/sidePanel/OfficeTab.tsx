@@ -3,6 +3,7 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 import { translate, useLocaleChunk } from "@/i18n";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { VerseLoadingScreen } from "@/components/society/verse/VerseLoadingScreen";
+import { VerseHostMount } from "@/components/verseHost/VerseHostMount";
 
 // The ship is a WebGL scene with its own chunk: nothing of it loads until
 // someone opens this tab.
@@ -50,7 +51,7 @@ export function OfficeTab() {
   const ready = useLocaleChunk("society");
   const openTab = useIdeSidePanelStore((state) => state.openTab);
   return (
-    <div data-testid="ide-office-tab" className="h-full min-h-0 w-full">
+    <div data-testid="ide-office-tab" className="relative h-full min-h-0 w-full">
       <OfficeTabBoundary>
         {ready && (
           <Suspense fallback={<div className="relative h-full w-full"><VerseLoadingScreen /></div>}>
@@ -58,6 +59,8 @@ export function OfficeTab() {
           </Suspense>
         )}
       </OfficeTabBoundary>
+      {/* The Unreal Verse launcher (WP17), behind verse.unreal_preview until the deletion PR. */}
+      <VerseHostMount />
     </div>
   );
 }

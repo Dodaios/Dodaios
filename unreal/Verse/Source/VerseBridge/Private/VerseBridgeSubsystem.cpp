@@ -11,6 +11,7 @@
 #include "InputCoreTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/App.h"
+#include "Misc/CommandLine.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -217,9 +218,9 @@ void UVerseBridgeSubsystem::ReleaseInstance()
 void UVerseBridgeSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	BridgeClient = MakeUnique<FVerseBridgeClient>();
-	EngineHost = MakeUnique<FVerseEngineLifecycleHost>(GetGameInstance(), BridgeClient.Get());
-	LifecycleController = MakeUnique<FVerseLifecycleController>(*EngineHost, *BridgeClient);
+	BridgeClient = MakeShared<FVerseBridgeClient>();
+	EngineHost = MakeShared<FVerseEngineLifecycleHost>(GetGameInstance(), BridgeClient.Get());
+	LifecycleController = MakeShared<FVerseLifecycleController>(*EngineHost, *BridgeClient);
 
 	FVerseBridgeClient::FDiscovery Discovery;
 	const bool bSupervised = !FPlatformMisc::GetEnvironmentVariable(TEXT("DODAIOS_VERSE_TOKEN")).IsEmpty();
