@@ -109,7 +109,7 @@ def is_loopback_host(host: str | None) -> bool:
         return True
     try:
         addr = ipaddress.ip_address(host.split("%", 1)[0])
-    except ValueError:
+    except ValueError:  # not an IP literal, so not loopback
         return False
     if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
         addr = addr.ipv4_mapped
@@ -153,7 +153,7 @@ class IceCandidate:
             return None
         try:
             port = int(parts[5])
-        except ValueError:
+        except ValueError:  # a malformed port means not a candidate
             return None
         return cls(transport=parts[2].lower(), address=parts[4], port=port, kind=parts[7].lower())
 
@@ -180,7 +180,7 @@ class LocalIcePolicy:
             return True
         try:
             addr = ipaddress.ip_address(parsed.address.split("%", 1)[0])
-        except ValueError:
+        except ValueError:  # an unparsable address is simply not allowed
             return False
         return addr.is_loopback or addr in self._local
 
@@ -204,7 +204,7 @@ def _panel_geometry(data: dict[str, Any]) -> dict[str, Any] | None:
         w = int(data["w"])
         h = int(data["h"])
         dpr = float(data.get("dpr", 1.0))
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError):  # malformed geometry is answered by the caller
         return None
     if not (0 < w <= MAX_PANEL_PX and 0 < h <= MAX_PANEL_PX and 0 < dpr <= MAX_DPR):
         return None
@@ -399,7 +399,7 @@ class SignalHub:
     async def _serve_player(self, ws: Any) -> None:
         try:
             hello = await asyncio.wait_for(_first_frame(ws), timeout=self._hello_timeout)
-        except TimeoutError:
+        except TimeoutError:  # no hello in time closes the socket below
             await _close(ws, CLOSE_BAD_HELLO, "no hello")
             return
         if not isinstance(hello, dict) or hello.get("type") != "hello":
@@ -547,7 +547,7 @@ def _decode(raw: dict[str, Any]) -> dict[str, Any] | None | bool:
             return None
         try:
             text = data.decode("utf-8")
-        except UnicodeDecodeError:
+        except UnicodeDecodeError:  # undecodable bytes are dropped as unusable
             return False
     if not isinstance(text, str):
         return False
@@ -555,7 +555,7 @@ def _decode(raw: dict[str, Any]) -> dict[str, Any] | None | bool:
         return None
     try:
         message = json.loads(text)
-    except ValueError:
+    except ValueError:  # non-JSON frames are dropped as unusable
         return False
     if not isinstance(message, dict) or not isinstance(message.get("type"), str):
         return False
