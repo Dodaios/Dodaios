@@ -54,8 +54,13 @@ void FVerseBotAdaptiveController::OnKill(bool bPersonKill)
 
 bool FVerseBotAdaptiveController::OnBotRespawn()
 {
-	const bool bChanged = Pending != Applied;
-	Applied = Pending;
+	// A9.5 "steps never above 0.05" binds the applied value too: several bot kills in a row chain
+	// pending steps (the bot does not respawn when it kills), so the applied skill walks toward the
+	// pending one by at most MaxStepPerKill per respawn; the remainder waits for the next respawn.
+	const float MaxStep = Config.IsValid() ? FMath::Max(0.f, Config->MaxStepPerKill) : 0.f;
+	const float Next = Applied + FMath::Clamp(Pending - Applied, -MaxStep, MaxStep);
+	const bool bChanged = Next != Applied;
+	Applied = Next;
 	if (Trace.Num() > 0)
 	{
 		Trace.Last().AppliedSkill = Applied;
