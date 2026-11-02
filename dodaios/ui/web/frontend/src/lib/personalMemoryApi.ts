@@ -50,7 +50,19 @@ export interface VaultOverview {
   };
   kinds: MemoryKind[];
   prompt_block: string;
+  /** Ids of the memories the always-on block holds right now. */
+  in_mind_ids: string[];
+  budget_chars: number;
+  used_chars: number;
   imported: boolean;
+}
+
+export interface VaultFile {
+  name: string;
+  kind: MemoryKind | "index";
+  bytes: number;
+  lines: number;
+  content: string;
 }
 
 export interface VaultActivity {
@@ -104,7 +116,16 @@ export const VAULT_KEYS = {
   items: (q: string, history: boolean) => ["memory-vault", "items", q, history] as const,
   history: (id: string) => ["memory-vault", "history", id] as const,
   activity: ["memory-vault", "activity"] as const,
+  files: ["memory-vault", "files"] as const,
 };
+
+export function useVaultFiles(enabled = true) {
+  return useQuery({
+    queryKey: VAULT_KEYS.files,
+    enabled,
+    queryFn: () => request<{ files: VaultFile[] }>(`${BASE}/files`),
+  });
+}
 
 export function useVaultOverview() {
   return useQuery({ queryKey: VAULT_KEYS.overview, queryFn: () => request<VaultOverview>(BASE) });
