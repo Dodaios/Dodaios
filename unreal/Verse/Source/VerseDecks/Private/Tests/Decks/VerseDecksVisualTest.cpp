@@ -173,6 +173,11 @@ bool FVerseVisualDecksTest::RunTest(const FString&)
 				if (bThere)
 				{
 					State->Timings->SetNumberField(Deck.ToString() + TEXT("_cold_load_s"), Subsystem->GetLastColdLoadS());
+					State->Timings->SetNumberField(Deck.ToString() + TEXT("_ceiling_actors"), Subsystem->NumCeilingActors());
+					if (Subsystem->NumCeilingActors() == 0)
+					{
+						AddError(FString::Printf(TEXT("deck %s has no ceiling actors for the overview cutaway"), *Deck.ToString()));
+					}
 					return true;
 				}
 				if (FPlatformTime::Seconds() - State->StartedAt > 60.0)
@@ -222,6 +227,11 @@ bool FVerseVisualDecksTest::RunTest(const FString&)
 						State->Camera = Camera;
 					}
 					Camera->SetActorLocationAndRotation(View.Location, View.Rotation);
+					// The overview is a cutaway (no ceilings); eye-level views keep them.
+					if (UVerseDeckSubsystem* Subsystem = Decks())
+					{
+						Subsystem->SetCutawayOverride(View.Name.EndsWith(TEXT("_overview")));
+					}
 					if (APlayerController* Controller = World->GetFirstPlayerController())
 					{
 						Controller->SetViewTarget(Camera);
@@ -242,6 +252,10 @@ bool FVerseVisualDecksTest::RunTest(const FString&)
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, State]() -> bool
 		{
 			UVerseDeckSubsystem* Subsystem = Decks();
+			if (Subsystem != nullptr)
+			{
+				Subsystem->SetCutawayOverride(TOptional<bool>());
+			}
 			if (Subsystem == nullptr || !Subsystem->RequestDeck(TEXT("ops")))
 			{
 				AddError(TEXT("lift ride to ops did not start"));

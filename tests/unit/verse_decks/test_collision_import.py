@@ -28,10 +28,27 @@ def test_no_collision_stays_off():
 
 
 def test_every_shell_record_is_authored_with_primitives():
-    records = sorted((ROOT / "unreal/Verse/Art/Import/Decks").glob("*/*.import.json"))
+    records = sorted((ROOT / "unreal/Verse/Art/Import/Decks").glob("*/*_Shell.import.json"))
     assert records
     for path in records:
         collision = json.loads(path.read_text(encoding="utf-8"))["collision"]
         assert collision["source"] == "authored", path.name
         assert collision["primitives"] >= 1, path.name
         assert import_meshes.wants_collision_import(collision["source"], "interchange")
+
+
+def test_ceilings_are_separate_and_never_collide():
+    """The overview cutaway hides `<zone>_ceiling`; ceilings carry no collision and no nav."""
+    placements = sorted((ROOT / "unreal/Verse/Art/Placements").glob("*/*.placement.json"))
+    ceilings = []
+    for path in placements:
+        for entry in json.loads(path.read_text(encoding="utf-8"))["placements"]:
+            if entry["id"].endswith("_ceiling"):
+                ceilings.append(entry)
+                assert entry["piece"].endswith("_Ceiling"), entry["id"]
+                assert entry["nav"] == "none", entry["id"]
+    decks = {entry["asset"].split("/")[4] for entry in ceilings}
+    assert {"Bridge", "Ops", "Engineering"} <= decks
+    for path in sorted((ROOT / "unreal/Verse/Art/Import/Decks").glob("*/*_Ceiling.import.json")):
+        collision = json.loads(path.read_text(encoding="utf-8"))["collision"]
+        assert collision["source"] == "none", path.name

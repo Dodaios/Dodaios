@@ -6,6 +6,7 @@
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformTime.h"
@@ -256,6 +257,69 @@ void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLif
 		}
 		Camera = DeckCamera;
 	}
+	CollectCeilings(World);
+	UpdateCutaway();
+}
+
+bool UVerseDeckSubsystem::IsCeilingActor(const AActor& Actor)
+{
+	for (const FName& Tag : Actor.Tags)
+	{
+		const FString Text = Tag.ToString();
+		if (Text.StartsWith(TEXT("verse.pid:")) && Text.EndsWith(TEXT("_ceiling")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void UVerseDeckSubsystem::CollectCeilings(UWorld* World)
+{
+	Ceilings.Reset();
+	bCutaway = false;
+	if (World == nullptr)
+	{
+		return;
+	}
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		if (IsCeilingActor(**It))
+		{
+			Ceilings.Add(*It);
+		}
+	}
+	UE_LOG(LogVerseDecks, Log, TEXT("deck %s: %d ceiling actors"), *CurrentDeck.ToString(), Ceilings.Num());
+}
+
+void UVerseDeckSubsystem::SetCutawayOverride(TOptional<bool> Override)
+{
+	CutawayOverride = Override;
+	UpdateCutaway();
+}
+
+void UVerseDeckSubsystem::UpdateCutaway()
+{
+	const AVerseDeckCamera* DeckCamera = Camera.Get();
+	const bool bWant = CutawayOverride.IsSet()
+		? CutawayOverride.GetValue()
+		: DeckCamera != nullptr && DeckCamera->GetView() == EVerseDeckView::Overview;
+	if (bWant != bCutaway)
+	{
+		ApplyCutaway(bWant);
+	}
+}
+
+void UVerseDeckSubsystem::ApplyCutaway(bool bOn)
+{
+	bCutaway = bOn;
+	for (const TWeakObjectPtr<AActor>& Weak : Ceilings)
+	{
+		if (AActor* Ceiling = Weak.Get())
+		{
+			Ceiling->SetActorHiddenInGame(bOn);
+		}
+	}
 }
 
 void UVerseDeckSubsystem::NotifyVisible()
@@ -300,6 +364,7 @@ void UVerseDeckSubsystem::TickDecks(double NowS)
 	{
 		StartLoad(Lift.Target(), true);
 	}
+	UpdateCutaway();
 	for (const EVerseLiftCue Cue : Lift.TakeCues())
 	{
 		OnLiftCue.Broadcast(Cue);

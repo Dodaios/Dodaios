@@ -9,6 +9,7 @@
 
 #include "VerseDeckSubsystem.generated.h"
 
+class AActor;
 class AVerseDeckCamera;
 class AVerseDeckLighting;
 class AVerseSpaceView;
@@ -69,6 +70,19 @@ public:
 	double GetLastColdLoadS() const { return LastColdLoadS; }
 
 	AVerseDeckCamera* GetCamera() const { return Camera.Get(); }
+
+	/**
+	 * The overview is a cutaway, as today's plate: the deck's `<zone>_ceiling` meshes (ceilings,
+	 * their fixtures and the upper parts of cut walls) are hidden while the deck camera shows
+	 * the overview, and shown in third and first person.
+	 */
+	bool IsCutaway() const { return bCutaway; }
+	/** Captures and tests: force the cutaway on or off; unset follows the deck camera. */
+	void SetCutawayOverride(TOptional<bool> Override);
+	/** Ceiling actors found on the current deck. */
+	int32 NumCeilingActors() const { return Ceilings.Num(); }
+	/** True for an actor placed as `<zone>_ceiling` (tag `verse.pid:<zone>_ceiling`). */
+	static bool IsCeilingActor(const AActor& Actor);
 	AVerseSpaceView* GetSpaceView() const { return SpaceView.Get(); }
 	FVerseWorldActionReporter& GetReporter() { return Reporter; }
 
@@ -97,6 +111,9 @@ private:
 	void OnLoaded(FName Deck, bool bByLift, bool bOk, double StartedAt);
 	void SpawnDeckActors(UWorld* World, FName Deck, bool bByLift);
 	void DefaultLoad(const FVerseDeckInfo& Deck, TFunction<void(bool)> Done);
+	void CollectCeilings(UWorld* World);
+	void UpdateCutaway();
+	void ApplyCutaway(bool bOn);
 	void RegisterQa();
 	void UnregisterQa();
 	double Now() const;
@@ -126,4 +143,7 @@ private:
 	TWeakObjectPtr<AVerseDeckCamera> Camera;
 	TWeakObjectPtr<AVerseDeckLighting> Lighting;
 	TWeakObjectPtr<AVerseSpaceView> SpaceView;
+	TArray<TWeakObjectPtr<AActor>> Ceilings;
+	TOptional<bool> CutawayOverride;
+	bool bCutaway = false;
 };
