@@ -59,7 +59,12 @@ from .schema import (
     WSWelcome,
     event_to_ws_envelope,
 )
-from .spa_build import build_is_complete, holding_page_html, recover_conflicted_index
+from .spa_build import (
+    build_is_complete,
+    holding_page_html,
+    missing_build_watch,
+    recover_conflicted_index,
+)
 from .surface_security import SurfaceSecurity, set_browser_login_required
 
 if TYPE_CHECKING:
@@ -2409,6 +2414,10 @@ class WebServer:
         if self.cfg.ui.dev_mode:
             return
 
+        # An install without dist/ would otherwise sit on "Updating…" forever
+        # with nothing in the log (issue #1057).
+        missing_build_watch.note_startup(INDEX_FILE)
+
         if ASSETS_DIR.is_dir():
             app.mount(
                 "/assets",
@@ -2464,6 +2473,7 @@ class WebServer:
         # holding page below says what is happening and comes back on its own.
         # See dodaios/ui/web/spa_build.py.
         if INDEX_FILE.is_file() and build_is_complete(INDEX_FILE, DIST_DIR):
+            missing_build_watch.clear()
             return FileResponse(
                 str(INDEX_FILE),
                 headers={
@@ -2473,6 +2483,7 @@ class WebServer:
             )
         recovered = recover_conflicted_index(INDEX_FILE, DIST_DIR)
         if recovered is not None:
+            missing_build_watch.clear()
             return HTMLResponse(
                 content=recovered,
                 headers={
@@ -2480,10 +2491,12 @@ class WebServer:
                     "Pragma": "no-cache",
                 },
             )
-        return self._spa_placeholder_response()
+        return self._spa_placeholder_response(
+            build_missing=missing_build_watch.observe(INDEX_FILE)
+        )
 
     @staticmethod
-    def _spa_placeholder_response() -> HTMLResponse:
+    def _spa_placeholder_response(*, build_missing: bool = False) -> HTMLResponse:
         """The boot splash, while dist/ is between two builds.
 
         It is deliberately the SAME splash the window opens with — same ground,
@@ -2500,7 +2513,7 @@ class WebServer:
         cure.
         """
         return HTMLResponse(
-            content=holding_page_html(),
+            content=holding_page_html(build_missing=build_missing),
             status_code=200,
             headers={
                 "Cache-Control": "no-store, max-age=0",

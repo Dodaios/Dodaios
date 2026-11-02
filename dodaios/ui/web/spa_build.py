@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+import time
 from pathlib import Path
 
 __all__ = [
@@ -41,6 +43,9 @@ __all__ = [
     "build_is_complete",
     "recover_conflicted_index",
     "holding_page_html",
+    "MissingBuildWatch",
+    "MISSING_BUILD_GRACE_S",
+    "missing_build_watch",
     "HOLDING_ATTRIBUTE",
     "HOLDING_MARKER",
 ]
@@ -173,7 +178,81 @@ def recover_conflicted_index(index_file: Path, dist_dir: Path) -> str | None:
     return None
 
 
-def holding_page_html() -> str:
+# How long dist/ may stay without a complete build before the holding page
+# stops saying "Updating…" and says the build is missing. A real rebuild leaves
+# it incomplete for about seven seconds (measured 2026-08-22, see above); a
+# slow machine running a cold `npm run build` gets generous headroom on top.
+MISSING_BUILD_GRACE_S = 90.0
+
+_log = logging.getLogger(__name__)
+
+
+class MissingBuildWatch:
+    """Tell a rebuild in flight apart from a UI build that is simply absent.
+
+    The holding page used to say "Updating…" and poll forever when an install
+    shipped without ``dist/`` (issue #1057), and nothing in the log said why.
+    The server reports every holding-page answer here: once the build has been
+    unavailable for longer than :data:`MISSING_BUILD_GRACE_S`, or was already
+    missing when the server started, the page says so and one WARNING names
+    the path. A complete build resets the watch.
+    """
+
+    def __init__(self, grace_s: float = MISSING_BUILD_GRACE_S) -> None:
+        self._grace_s = grace_s
+        self._lock = threading.Lock()
+        self._since: float | None = None
+        self._missing_at_startup = False
+        self._warned = False
+
+    def note_startup(self, index_file: Path, *, now: float | None = None) -> bool:
+        """Record whether the server started without ``index.html``."""
+        if index_file.is_file():
+            return False
+        with self._lock:
+            self._missing_at_startup = True
+            if self._since is None:
+                self._since = time.monotonic() if now is None else now
+        self._warn_once(index_file, "at startup")
+        return True
+
+    def observe(self, index_file: Path, *, now: float | None = None) -> bool:
+        """A holding page is about to be served. Is the build missing for real?"""
+        current = time.monotonic() if now is None else now
+        with self._lock:
+            if self._since is None:
+                self._since = current
+            missing = self._missing_at_startup or current - self._since >= self._grace_s
+        if missing:
+            self._warn_once(index_file, f"for more than {int(self._grace_s)} seconds")
+        return missing
+
+    def clear(self) -> None:
+        """A complete build is on disk again."""
+        with self._lock:
+            self._since = None
+            self._missing_at_startup = False
+            self._warned = False
+
+    def _warn_once(self, index_file: Path, when: str) -> None:
+        with self._lock:
+            if self._warned:
+                return
+            self._warned = True
+        _log.warning(
+            "UI build missing %s: no complete frontend build at %s. The window "
+            "shows a 'UI build missing' notice until one appears. Reinstall the "
+            "app, or run `npm run build` in dodaios/ui/web/frontend in a source "
+            "checkout.",
+            when,
+            index_file,
+        )
+
+
+missing_build_watch = MissingBuildWatch()
+
+
+def holding_page_html(*, build_missing: bool = False) -> str:
     """The page a window gets while a rebuild is between two states on disk.
 
     It is the boot splash, deliberately: the same ground, the same ring, the
@@ -187,7 +266,21 @@ def holding_page_html() -> str:
     area keeps producing. Instead it asks the server for the entry document and
     reloads only once the answer is no longer this page — meaning a complete
     build is on disk and a reload will land on something that runs.
+
+    ``build_missing`` swaps "Updating…" for a notice that the UI build is not
+    installed, with the two ways to get one. The page keeps polling, so a build
+    that does land still takes over on its own.
     """
+    if build_missing:
+        status = (
+            '<div class="sub">UI build missing</div>'
+            '<div class="hint">The web interface files (dodaios/ui/web/dist) are '
+            "not installed. Reinstall the app, or run <code>npm run build</code> "
+            "in dodaios/ui/web/frontend in a source checkout. This page reloads "
+            "on its own once the build is there.</div>"
+        )
+    else:
+        status = '<div class="sub">Updating…</div>'
     return (
         "<!doctype html>"
         '<html lang="en" class="dark"><head>'
@@ -217,12 +310,16 @@ def holding_page_html() -> str:
         "color:var(--jbs-name)}"
         "#s .sub{font-size:12px;color:var(--jbs-sub);letter-spacing:0.06em;"
         "text-transform:uppercase}"
+        "#s .hint{max-width:440px;padding:0 16px;font-size:13px;line-height:1.5;"
+        "text-align:center;color:var(--jbs-name)}"
+        "#s .hint code{font-family:ui-monospace,Consolas,monospace;"
+        "color:var(--jbs-accent)}"
         "@keyframes sp{to{transform:rotate(360deg)}}"
         "</style></head><body>"
         f'<div id="s" data-state="{HOLDING_MARKER}">'
         '<div class="ring"></div>'
         '<div class="name"></div>'
-        '<div class="sub">Updating…</div>'
+        f"{status}"
         "</div>"
         "<script>(function(){try{var n=(localStorage.getItem("
         "'jarvis.assistantName')||'').trim();if(n){"
