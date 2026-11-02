@@ -1,7 +1,11 @@
 """Shared pytest fixtures for all test suites."""
 from __future__ import annotations
 
+import atexit
+import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -10,6 +14,27 @@ from urllib.parse import urlsplit
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+
+# Hermetic data dir (#458). ``dodaios.core.config.DATA_DIR`` is resolved once,
+# at import, from ``JARVIS_DATA_DIR`` or ``<repo>/data``. In an installer-managed
+# checkout ``<repo>/data`` is the user's live data, so any store without its own
+# test redirect (the cost ledger, the society databases, ...) would write there.
+# Point the whole session at a fresh temp dir before the first dodaios import.
+# A value inherited from the caller is overridden on purpose: a shell or an app
+# pane may carry the user's real data dir. Tests that need a specific value
+# still monkeypatch it themselves; subprocesses inherit the temp dir.
+_TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="dodaios-test-data-"))
+os.environ["JARVIS_DATA_DIR"] = str(_TEST_DATA_DIR)
+atexit.register(shutil.rmtree, _TEST_DATA_DIR, ignore_errors=True)
+
+# ``memory.data_dir`` (the anchor for the session, chat, society and
+# self-build stores) defaults to the cwd-relative "./data", which is the
+# checkout's data dir when pytest runs from the repo root. Default it to the
+# same temp dir; a test or TOML that sets the field explicitly still wins.
+from dodaios.core.config import MemoryConfig  # noqa: E402
+
+MemoryConfig.model_fields["data_dir"].default = str(_TEST_DATA_DIR)
+MemoryConfig.model_rebuild(force=True)
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402

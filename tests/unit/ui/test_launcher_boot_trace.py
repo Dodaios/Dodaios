@@ -25,7 +25,9 @@ def test_early_log_path_matches_the_data_dir_the_app_uses(monkeypatch):
     from dodaios.ui.desktop_log import desktop_log_path
 
     monkeypatch.delenv("JARVIS_DATA_DIR", raising=False)
-    assert desktop_log_path() == config.DATA_DIR / "jarvis_desktop.log"
+    # config.DATA_DIR was resolved at import under the suite's JARVIS_DATA_DIR;
+    # resolve config's own rule again without the override.
+    assert desktop_log_path() == config._resolve_data_dir() / "jarvis_desktop.log"
 
 
 def test_early_log_path_honours_the_env_override(monkeypatch, tmp_path: Path):
