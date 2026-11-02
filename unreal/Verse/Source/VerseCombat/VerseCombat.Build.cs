@@ -9,5 +9,9 @@ public class VerseCombat : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "NetCore" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseMovement", "VerseDestruction" });
+		// GAS for health, damage effects and the gadget abilities (architecture.md 2 rule 4, 3.2 "Abilities").
+		PublicDependencyModuleNames.AddRange(new string[] { "GameplayTags", "GameplayAbilities", "GameplayTasks" });
+		// Json: the weapon and gadget definition importer (WP02.1).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
 	}
 }
