@@ -926,9 +926,15 @@ async def _credential_line(rt: Any, agent_id: str) -> str:
             f"never shown to you): {names}."
         )
     if logins:
+        from .login_tool import username_hint
+
+        users = {
+            info.key: await asyncio.to_thread(vault.public_username, agent_id, info.key)
+            for info in logins
+        }
         sites = "; ".join(
-            f"{info.label} on {info.domain}: <secret>{info.placeholders[0]}</secret> / "
-            f"<secret>{info.placeholders[1]}</secret>"
+            f"{info.label} on {info.domain}: username {username_hint(info, users[info.key])}, "
+            f"password <secret>{info.placeholders[1]}</secret>"
             for info in logins
         )
         line += (
