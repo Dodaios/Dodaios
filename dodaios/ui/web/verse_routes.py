@@ -14,6 +14,10 @@ REST (the app's own session auth):
 * ``POST /api/verse/launcher/start``   the shared coding-agent launch sequence
 * ``POST /api/verse/launcher/cancel``
 * ``POST /api/verse/qa``                a ``Verse.QA.*`` command run inside Verse (QA env only)
+* ``POST   /api/verse/install``           start the on-demand download (README Delivery)
+* ``DELETE /api/verse/install``           cancel a running download, else remove the Verse
+* ``GET    /api/verse/install/progress``  ``{state, done_bytes, total_bytes, version,
+  installed_version, download_bytes, install_bytes, error, bytes_per_s}``
 
 WebSockets (their own auth; exempt from the session cookie check):
 
@@ -197,6 +201,34 @@ async def verse_qa(body: QaBody, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=status, detail=exc.message) from exc
     except TimeoutError as exc:
         raise HTTPException(status_code=504, detail="Verse did not answer.") from exc
+
+
+@router.get("/install/progress", summary="Download size and progress of the optional Verse")
+async def verse_install_progress(request: Request, refresh: bool = False) -> dict[str, Any]:
+    return await _host(request).install.progress(refresh=refresh)
+
+
+@router.post("/install", summary="Download and install the Verse (never part of the app install)")
+async def verse_install(request: Request) -> dict[str, Any]:
+    host = _host(request)
+    if host.check().status == "unsupported":
+        raise HTTPException(status_code=409, detail="This computer cannot run the Verse.")
+    return await host.install.start()
+
+
+@router.delete("/install", summary="Cancel the running download, or remove the installed Verse")
+async def verse_uninstall(request: Request) -> dict[str, Any]:
+    from dodaios.verse_host.install_port import InstallError
+
+    job = _host(request).install
+    if job.running:
+        await job.cancel()
+        return {"cancelled": True, "removed": False, **(await job.progress())}
+    try:
+        progress = await job.remove()
+    except InstallError as exc:
+        raise HTTPException(status_code=500, detail=exc.message) from exc
+    return {"cancelled": False, "removed": True, **progress}
 
 
 @router.post("/launcher/start", summary="Open coding panes and brief them (shared sequence)")

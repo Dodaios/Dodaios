@@ -4,6 +4,10 @@
  * every `VerseStatusChanged` the socket forwards (`VERSE_STATUS_EVENT`), with a
  * slow poll as a safety net. Shown behind the `verse.unreal_preview` flag.
  *
+ * The Verse is an optional download (README Delivery): while the status is
+ * `not_installed` the card shows the download size and "Download the Verse",
+ * then the progress with a cancel button (`VerseInstallPanel`).
+ *
  * Opening hands the foreground to `Verse.exe`: the backend (the desktop
  * process) allows it to take focus and sends `lifecycle.show`; the app window
  * comes back when Verse returns focus (`focus.return_to_app`).
@@ -11,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUiLanguage } from "@/i18n";
 import { VERSE_STATUS_EVENT } from "./openRequest";
+import { VerseInstallPanel } from "./VerseInstallPanel";
 import { launcherText, type LauncherKey } from "./strings";
 import {
   fetchVerseStatus,
@@ -106,6 +111,7 @@ export function VerseLauncherCard({ className = "" }: { className?: string }) {
           {t("crash_report")}: {status.crash_report}
         </p>
       )}
+      {s === "not_installed" && <VerseInstallPanel onInstalled={() => void refresh()} />}
       {error && <p role="alert" className="mt-2 text-xs text-destructive">{t("failed", { reason: error })}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         {canRun && (

@@ -23,6 +23,7 @@ from typing import Any
 from . import probe as probe_mod
 from . import protocol as P
 from .bridge import BridgeHub, BridgeSession, TokenBox, mint_token
+from .install_port import InstallJob, VerseInstaller, load_installer
 from .ports import AppBackend, BackendPort
 from .relays.chat_tails import ChatTailsRelay
 from .relays.commands import CommandsRelay
@@ -88,6 +89,7 @@ class VerseHost:
         data_dir: Path | None = None,
         supervisor: Supervisor | None = None,
         app_version: str | None = None,
+        installer: VerseInstaller | None = None,
     ) -> None:
         if data_dir is None:
             from dodaios.core.config import DATA_DIR
@@ -136,6 +138,11 @@ class VerseHost:
         self.dev_file: Path | None = None
         self.qa: dict[str, Any] = {}
         self._roster: RosterRelay | None = None
+        self.install = InstallJob(
+            installer or load_installer(Path(data_dir)),
+            on_change=self._install_changed,
+            before_remove=self._before_remove,
+        )
         self._wire()
 
     # ------------------------------------------------------------------ wiring
@@ -256,6 +263,16 @@ class VerseHost:
             "fps": self.fps if running else None,
             "crash_report": sup.crash_report,
         }
+
+    async def _install_changed(self) -> None:
+        """A download finished or the Verse was removed: find the executable again."""
+        self.capability = None
+        self.check()
+        await self._status_changed()
+
+    async def _before_remove(self) -> None:
+        if self.supervisor.running:
+            await self.supervisor.stop("update")
 
     async def _status_changed(self) -> None:
         if not self.supervisor.running:
