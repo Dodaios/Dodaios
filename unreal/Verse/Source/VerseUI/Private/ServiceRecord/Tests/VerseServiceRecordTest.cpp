@@ -68,9 +68,9 @@ bool FVerseRecordCurveTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("40 XP is level 2"), FVerseServiceRecordModel::LevelForXp(40), 2);
 	TestEqual(TEXT("5230 XP is level 18"), FVerseServiceRecordModel::LevelForXp(5230), 18);
 	TestEqual(TEXT("15 ranks"), FVerseServiceRecordModel::Ladder().Num(), 15);
-	TestEqual(TEXT("level 14 holds lieutenant"), FVerseServiceRecordModel::RankFor(14).Id, FName(TEXT("lieutenant")));
-	TestEqual(TEXT("level 16 still lieutenant"), FVerseServiceRecordModel::RankFor(16).Id, FName(TEXT("lieutenant")));
-	TestEqual(TEXT("next after 14"), FVerseServiceRecordModel::NextRank(14)->Id, FName(TEXT("senior_lieutenant")));
+	TestEqual(TEXT("level 14 holds lieutenant"), FVerseServiceRecordModel::RankFor(14).Id.ToString(), FString(TEXT("lieutenant")));
+	TestEqual(TEXT("level 16 still lieutenant"), FVerseServiceRecordModel::RankFor(16).Id.ToString(), FString(TEXT("lieutenant")));
+	TestEqual(TEXT("next after 14"), FVerseServiceRecordModel::NextRank(14)->Id.ToString(), FString(TEXT("senior_lieutenant")));
 	TestNull(TEXT("nothing above the top"), FVerseServiceRecordModel::NextRank(50));
 	return true;
 }
@@ -100,7 +100,7 @@ bool FVerseRecordSnapshotTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("finishers"), D.Finishers, 4);
 	TestEqual(TEXT("best streak"), D.BestStreak, 6);
 	TestTrue(TEXT("K/D 96 / 81"), FMath::IsNearlyEqual(D.KillDeathRatio(), 96.f / 81.f));
-	TestEqual(TEXT("hard tier"), D.ByTier.FindRef(TEXT("hard")), FIntPoint(5, 3));
+	TestTrue(TEXT("hard tier 5 / 3"), D.ByTier.FindRef(TEXT("hard")) == FIntPoint(5, 3));
 	FJsonObject NotASnapshot;
 	TestFalse(TEXT("a frame without subjects is refused"), Model.ApplySnapshot(NotASnapshot));
 	return true;
