@@ -283,7 +283,7 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 				S.StandInWeapon(Body, ClipName);
 			}});
 	}
-	// A13.5 pair: the rifle idle with a wall 20 cm in front of the hands, and without it.
+	// A13.5 pair: the rifle at ADS (the weapon in the owner's view) with a wall 20 cm in front of the hands, and without it.
 	// The third shot hides the body: the pixels that differ from "off" are the body's (the A13.5 mask).
 	for (const int32 Variant : {0, 1, 2})
 	{
@@ -293,7 +293,7 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 		Shots.Add({Names[Variant], [bWall, bBody](UWorld* World)
 			{
 				FStage& S = Shared();
-				USkeletalMeshComponent* Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, TEXT("A_Rifle_Idle"), 0.f);
+				USkeletalMeshComponent* Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, TEXT("A_Rifle_ADS"), 0.f);
 				const FTransform Eye = Body->GetSocketTransform(TEXT("Camera"));
 				const FVector Hand = Body->GetSocketLocation(TEXT("Hand_L"));
 				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 100.f);
@@ -301,7 +301,7 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 				Body->SetOnlyOwnerSee(false);
 				if (bBody)
 				{
-					S.StandInWeapon(Body, TEXT("A_Rifle_Idle"));
+					S.StandInWeapon(Body, TEXT("A_Rifle_ADS"));
 				}
 				Body->SetVisibility(bBody);
 				if (bWall)
