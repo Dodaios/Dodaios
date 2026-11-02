@@ -89,6 +89,7 @@ def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ANN001, ARG001
     ])
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is not None:
+        reporter.ensure_newline()
         reporter.write_sep("=", "stray writes into <repo>/data", red=True)
         reporter.write_line(message)
     else:
