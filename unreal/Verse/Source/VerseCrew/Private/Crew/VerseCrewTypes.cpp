@@ -30,13 +30,14 @@ namespace VerseCrew
 		return H;
 	}
 
+	// Duty values are exact lower-case enum strings (bridge 4.2); FString == ignores case, so compare case-sensitively.
 	bool TryParseDuty(const FString& Value, EVerseCrewDuty& Out)
 	{
-		if (Value == TEXT("working")) { Out = EVerseCrewDuty::Working; return true; }
-		if (Value == TEXT("waiting")) { Out = EVerseCrewDuty::Waiting; return true; }
-		if (Value == TEXT("idle")) { Out = EVerseCrewDuty::Idle; return true; }
-		if (Value == TEXT("paused")) { Out = EVerseCrewDuty::Paused; return true; }
-		if (Value == TEXT("error")) { Out = EVerseCrewDuty::Error; return true; }
+		if (Value.Equals(TEXT("working"), ESearchCase::CaseSensitive)) { Out = EVerseCrewDuty::Working; return true; }
+		if (Value.Equals(TEXT("waiting"), ESearchCase::CaseSensitive)) { Out = EVerseCrewDuty::Waiting; return true; }
+		if (Value.Equals(TEXT("idle"), ESearchCase::CaseSensitive)) { Out = EVerseCrewDuty::Idle; return true; }
+		if (Value.Equals(TEXT("paused"), ESearchCase::CaseSensitive)) { Out = EVerseCrewDuty::Paused; return true; }
+		if (Value.Equals(TEXT("error"), ESearchCase::CaseSensitive)) { Out = EVerseCrewDuty::Error; return true; }
 		return false;
 	}
 

@@ -47,7 +47,7 @@ namespace VerseCrewPlannerTest
 		return Crew;
 	}
 
-	void CheckGoldenPlan(FAutomationTestBase& Test, const FString& Label, const FVerseCrewDeck& Deck, const FVerseCrewDeckPlan& Plan, const TSharedPtr<FJsonObject>& Want)
+	void CheckGoldenPlan(FAutomationTestBase& Test, const FString& Label, const FVerseCrewDeck& Deck, const FVerseCrewDeckPlan& Plan, const TSharedPtr<FJsonObject>& Want, bool bCheckHomes = true)
 	{
 		const TSharedPtr<FJsonObject> Placements = Want->GetObjectField(TEXT("placements"));
 		Test.TestEqual(Label + TEXT(": placement count"), Plan.Placements.Num(), Placements->Values.Num());
@@ -63,6 +63,10 @@ namespace VerseCrewPlannerTest
 			Test.TestEqual(FString::Printf(TEXT("%s: %s venue"), *Label, *Pair.Key), FString(VerseCrew::VenueName(Got->Intent.Venue)), W->GetStringField(TEXT("venue")));
 			Test.TestEqual(FString::Printf(TEXT("%s: %s activity"), *Label, *Pair.Key), FString(VerseCrew::ActivityName(Got->Intent.Activity)), W->GetStringField(TEXT("activity")));
 			Test.TestEqual(FString::Printf(TEXT("%s: %s faces commander"), *Label, *Pair.Key), Got->Intent.bFaceCommander, W->GetBoolField(TEXT("face")));
+		}
+		if (!bCheckHomes)
+		{
+			return;
 		}
 		const TSharedPtr<FJsonObject> Homes = Want->GetObjectField(TEXT("homes"));
 		Test.TestEqual(Label + TEXT(": home count"), Plan.Homes.Num(), Homes->Values.Num());
@@ -184,10 +188,12 @@ bool FVerseCrewPlacementGoldenTest::RunTest(const FString&)
 		In2.Previous = &Previous;
 		In2.Homes = &First.Homes;
 		const FVerseCrewDeckPlan Second = VerseCrewPlanner::PlaceOnDeck(In2);
-		CheckGoldenPlan(*this, DeckId.ToString() + TEXT(" second"), Deck, Second, P->GetObjectField(TEXT("second")));
+		// Homes of the second plan follow parity C-09 (checked below), not planner.ts: there a
+		// member at the briefing table loses its home console when a colleague leaves.
+		CheckGoldenPlan(*this, DeckId.ToString() + TEXT(" second"), Deck, Second, P->GetObjectField(TEXT("second")), false);
 		for (const TPair<FString, FString>& Home : First.Homes)
 		{
-			if (Home.Key != TEXT("ag_02") && Second.Homes.Contains(Home.Key))
+			if (Home.Key != TEXT("ag_02") && TestTrue(FString::Printf(TEXT("%s still has a home console"), *Home.Key), Second.Homes.Contains(Home.Key)))
 			{
 				TestEqual(FString::Printf(TEXT("%s keeps console after a colleague left"), *Home.Key), Second.Homes[Home.Key], Home.Value);
 			}
