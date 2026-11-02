@@ -1,0 +1,17 @@
+{
+ "schema": "verse.audio.occlusion/1",
+ "owner": "WP19",
+ "note": "Sound through a piece: transmission loss and a low-pass per penetration-table material (destruction.md 2 wire order). Holes and breaches open the path because the penetration query honours them.",
+ "max_loss_db": -36.0,
+ "open_lowpass_hz": 20000.0,
+ "materials": [
+  {"material": "SheetMetal", "transmission_db": -9.0, "lowpass_hz": 2500.0},
+  {"material": "ContainerWall", "transmission_db": -12.0, "lowpass_hz": 1500.0},
+  {"material": "Glass", "transmission_db": -4.0, "lowpass_hz": 6000.0},
+  {"material": "CladdingPanel", "transmission_db": -10.0, "lowpass_hz": 2000.0},
+  {"material": "CatwalkGrating", "transmission_db": -1.0, "lowpass_hz": 15000.0},
+  {"material": "CeilingPanel", "transmission_db": -6.0, "lowpass_hz": 3000.0},
+  {"material": "Concrete", "transmission_db": -20.0, "lowpass_hz": 700.0},
+  {"material": "ArmorSteel", "transmission_db": -18.0, "lowpass_hz": 900.0}
+ ]
+}
