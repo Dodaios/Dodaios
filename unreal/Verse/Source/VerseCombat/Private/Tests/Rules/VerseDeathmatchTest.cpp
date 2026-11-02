@@ -244,7 +244,7 @@ bool FVerseDeathmatchSpawnSelectionTest::RunTest(const FString& Parameters)
 		auto NoPath = [](const FVector&, const FVector&) { return -1.f; };
 		const FVerseSpawnChoice Choice = VerseSpawnSelection::Choose(C, Eye, Clear, NoPath, 7, 0);
 		TestEqual(TEXT("no path: euclidean"), Choice.Index, 0);
-		TestTrue(TEXT("no path: distance is euclidean"), FMath::IsNearlyEqual(Choice.DistanceCm, float(FVector::Dist(Eye, C[0].Floor)), 0.5f));
+		TestTrue(TEXT("no path: distance is euclidean"), FMath::IsNearlyEqual(Choice.DistanceCm, float(FVector::Dist(Eye - FVector(0, 0, VerseSpawnSelection::EyeHeightCm), C[0].Floor)), 0.5f));
 	}
 	// Ties within 1 m go to VerseRng(seed, deaths): deterministic, and both sides get picked.
 	{
