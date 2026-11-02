@@ -86,8 +86,8 @@ namespace VerseBotFakes
 		/** Kicks being applied: remaining amount and time left. */
 		TArray<TPair<FVector2D, double>> Kicking;
 
-		int32 Magazine = 30;
-		bool bInfiniteAmmo = true;
+		/** Rounds on the own HUD; a large count stands in for infinite ammo (never refilled mid-spray). */
+		int32 Magazine = 1000000;
 		int32 ShotIndex = 0;
 		double LastShotS = -1.0e9;
 		int32 ShotsFired = 0;
@@ -166,15 +166,9 @@ namespace VerseBotFakes
 				++ShotIndex;
 				++ShotsFired;
 				LastShotS = TimeS;
-				if (!bInfiniteAmmo)
-				{
-					--Magazine;
-				}
-				else
-				{
-					// The HUD count still drops so the bot sees the shot.
-					Magazine = Magazine > 1 ? Magazine - 1 : 30;
-				}
+				// The HUD count drops on every shot, so the bot sees each one. Infinite ammo starts
+				// from a count that never runs out instead of refilling: a refill would hide a shot.
+				--Magazine;
 			}
 			// Apply kicks over the kick time (linear here; WP02 eases out).
 			for (int32 I = Kicking.Num() - 1; I >= 0; --I)
