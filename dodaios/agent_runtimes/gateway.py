@@ -43,9 +43,10 @@ from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from email.utils import parsedate_to_datetime
-from typing import Any, Final
+from typing import Any, Final, get_args
 
 from dodaios.agent_runtimes.model_limits import ModelLimits, resolve_limits
+from dodaios.core.protocols import ReasoningEffort
 
 log = logging.getLogger(__name__)
 
@@ -166,9 +167,9 @@ def _final_finish(finish: str, calls: int) -> str:
     runtimes retry it with a larger budget instead of running it."""
     return "tool_calls" if calls and finish == "stop" else finish
 
-_EFFORTS: Final[frozenset[str]] = frozenset(
-    {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
-)
+# The shared ladder, not a copy of it: a level added there (``ultra``, #1060)
+# must reach the provider instead of being dropped here as unknown.
+_EFFORTS: Final[frozenset[str]] = frozenset(get_args(ReasoningEffort))
 
 
 def grant_token(

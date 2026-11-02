@@ -11,13 +11,14 @@ import json
 import time
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from dodaios.agent_runtimes import gateway
+from dodaios.core.protocols import ReasoningEffort
 from dodaios.live.subscription_reasoning import SubscriptionReasoningError
 from dodaios.ui.web.runtime_gateway_routes import router
 from dodaios.ui.web.surface_security import SurfaceSecurity
@@ -1032,3 +1033,25 @@ def test_a_later_answer_clears_the_kept_failure() -> None:
     gateway._answered(signal)
     assert gateway.last_failure(signal) == ""
     gateway._answered(None)
+
+
+@pytest.mark.parametrize("effort", sorted(get_args(ReasoningEffort)))
+def test_every_shared_effort_level_reaches_the_provider(effort: str) -> None:
+    """The gateway keeps no ladder of its own (#1060): every level of the shared
+    ``ReasoningEffort`` — ``ultra`` included once it is there — passes through,
+    on the request body and on the runner's per-turn effort alike."""
+    _, request = gateway.chat_request({**_CHAT, "reasoning_effort": effort})
+    assert request.reasoning_effort == effort
+
+    token = gateway.grant_token("effort-probe", "openai")
+    signal = gateway.watch_failure(token, effort=effort)
+    try:
+        grant = gateway._GRANTS[token]
+        assert gateway._turn_effort(grant) == effort
+    finally:
+        gateway.unwatch_failure(token, signal)
+
+
+def test_an_unknown_effort_level_is_dropped() -> None:
+    _, request = gateway.chat_request({**_CHAT, "reasoning_effort": "turbo"})
+    assert request.reasoning_effort is None
