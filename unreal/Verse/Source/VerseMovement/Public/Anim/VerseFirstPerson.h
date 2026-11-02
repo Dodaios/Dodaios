@@ -26,6 +26,13 @@ class VERSEMOVEMENT_API UVerseFirstPersonLibrary : public UBlueprintFunctionLibr
 	GENERATED_BODY()
 
 public:
+	/**
+	 * Defaults: the scale pulls first-person primitives towards the camera, so a
+	 * barrel tip about 85 cm out stays in front of a wall 20 cm past the support
+	 * hand (A13.5), while hands 35 cm out stay past the 10 cm near plane (a scale
+	 * of 0.2 put them inside it). ADS sights closer than 17 cm need a nearer
+	 * per-view near plane from the pawn's camera.
+	 */
 	/** Bone hidden on the owner's first-person body. */
 	static const FName HiddenBone;
 
@@ -34,7 +41,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
 	static void ConfigureOwnerView(USkeletalMeshComponent* FirstPersonBody, USkeletalMeshComponent* WorldBody,
-		UCameraComponent* Camera, float FirstPersonFieldOfView = 74.f, float FirstPersonScale = 0.2f);
+		UCameraComponent* Camera, float FirstPersonFieldOfView = 80.f, float FirstPersonScale = 0.6f);
 
 	/** Weapons and gadgets held by the owner render like the first-person body. */
 	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
