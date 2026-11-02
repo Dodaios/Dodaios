@@ -40,6 +40,8 @@ namespace VerseDecksVisual
 	{
 		FString OutDir;
 		TSharedRef<FJsonObject> Timings = MakeShared<FJsonObject>();
+		/** Every shot's camera, for today's reference renders of the same spots (`views.json`). */
+		TArray<TSharedPtr<FJsonValue>> Views;
 		double StartedAt = 0.0;
 		TWeakObjectPtr<ACameraActor> Camera;
 	};
@@ -209,6 +211,23 @@ bool FVerseVisualDecksTest::RunTest(const FString&)
 			}));
 		for (const FView& View : ViewsFor(Manifest, 4))
 		{
+			{
+				const TSharedRef<FJsonObject> Shot = MakeShared<FJsonObject>();
+				Shot->SetStringField(TEXT("name"), View.Name);
+				Shot->SetStringField(TEXT("deck"), Deck.ToString());
+				const FVector Forward = View.Rotation.Vector();
+				TArray<TSharedPtr<FJsonValue>> Location;
+				TArray<TSharedPtr<FJsonValue>> Direction;
+				for (int32 Axis = 0; Axis < 3; ++Axis)
+				{
+					Location.Add(MakeShared<FJsonValueNumber>(View.Location[Axis]));
+					Direction.Add(MakeShared<FJsonValueNumber>(Forward[Axis]));
+				}
+				Shot->SetArrayField(TEXT("location_cm"), Location);
+				Shot->SetArrayField(TEXT("forward"), Direction);
+				Shot->SetNumberField(TEXT("hfov_deg"), 85.0);
+				State->Views.Add(MakeShared<FJsonValueObject>(Shot));
+			}
 			ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([State, View]() -> bool
 				{
 					UWorld* World = GameWorld();
@@ -286,6 +305,10 @@ bool FVerseVisualDecksTest::RunTest(const FString&)
 			const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Json);
 			FJsonSerializer::Serialize(State->Timings, Writer);
 			FFileHelper::SaveStringToFile(Json, *FPaths::Combine(State->OutDir, TEXT("load_times.json")));
+			FString ViewsJson;
+			const TSharedRef<TJsonWriter<>> ViewsWriter = TJsonWriterFactory<>::Create(&ViewsJson);
+			FJsonSerializer::Serialize(State->Views, ViewsWriter);
+			FFileHelper::SaveStringToFile(ViewsJson, *FPaths::Combine(State->OutDir, TEXT("views.json")));
 			return true;
 		}));
 	return true;
