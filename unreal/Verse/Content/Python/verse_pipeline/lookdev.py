@@ -80,7 +80,7 @@ class Scene:
 
     def spawn(self, cls, loc=(0, 0, 0), rot=(0, 0, 0), group="base"):
         u = self.u
-        actor = self.eas.spawn_actor_from_class(cls, u.Vector(*loc), u.Rotator(*rot))
+        actor = self.eas.spawn_actor_from_class(cls, u.Vector(*loc), _rotator(u, rot))
         self.groups.setdefault(group, []).append(actor)
         return actor
 
@@ -88,9 +88,7 @@ class Scene:
         for actor in self.groups.get(group, []):
             actor.set_actor_hidden_in_game(not visible)
             actor.set_is_temporarily_hidden_in_editor(not visible)
-            for comp in actor.get_components_by_class(self.u.PrimitiveComponent):
-                comp.set_visibility(visible, True)
-            for comp in actor.get_components_by_class(self.u.LightComponent):
+            for comp in actor.get_components_by_class(self.u.SceneComponent):
                 comp.set_visibility(visible, True)
 
     def mid(self, master: str, vectors=None, scalars=None):
@@ -167,6 +165,11 @@ class Scene:
         return actor
 
 
+def _rotator(u, rot):
+    """`rot` is (pitch, yaw, roll) degrees; `unreal.Rotator` takes (roll, pitch, yaw)."""
+    return u.Rotator(roll=rot[2], pitch=rot[0], yaw=rot[1])
+
+
 def _look_rot(loc, target):
     dx, dy, dz = (t - s for s, t in zip(loc, target, strict=True))
     yaw = math.degrees(math.atan2(dy, dx))
@@ -196,15 +199,17 @@ def _post_settings(u, *, bias: float, bloom: float, fog=True):
 
 
 class Capture:
-    def __init__(self, scene: Scene, width: int, height: int):
+    def __init__(self, scene: Scene, width: int, height: int, srgb: bool = False):
         u = scene.u
+        fmt = u.TextureRenderTargetFormat
+        target_format = fmt.RTF_RGBA8_SRGB if srgb else fmt.RTF_RGBA8
         self.u = u
         self.scene = scene
         self.rt = u.RenderingLibrary.create_render_target2d(
             scene.world,
             width,
             height,
-            u.TextureRenderTargetFormat.RTF_RGBA8,
+            target_format,
             u.LinearColor(0, 0, 0, 1),
             False,
         )
@@ -220,7 +225,7 @@ class Capture:
     def setup(self, loc, target, fov, settings, ortho_width: float | None = None):
         u = self.u
         self.actor.set_actor_location_and_rotation(
-            u.Vector(*loc), u.Rotator(*_look_rot(loc, target)), False, False
+            u.Vector(*loc), _rotator(u, _look_rot(loc, target)), False, False
         )
         self.comp.set_editor_property("fov_angle", fov)
         self.comp.set_editor_property("post_process_settings", settings)
@@ -269,7 +274,7 @@ def build_room(scene: Scene) -> None:
     scene.box((4000, 40, 1200), (0, -900, 600), wall)
     scene.box((40, 4000, 1200), (-900, 0, 600), steel)
     scene.box((120, 120, 100), (0, 0, 50), steel)  # pedestal
-    fog = scene.spawn(u.ExponentialHeightFog, (0, 0, 0))
+    fog = scene.spawn(u.ExponentialHeightFog, (0, 0, 0), group="fog")
     comp = fog.get_component_by_class(u.ExponentialHeightFogComponent)
     f = PROFILE["fog"]
     comp.set_editor_property("fog_density", f["density"])
@@ -482,6 +487,7 @@ class Runner:
         patches = build_chart(scene, agx)
         cap = Capture(scene, WIDTH, HEIGHT)
         chart_cap = Capture(scene, CHART_W, CHART_H)
+        chart_cap_srgb = Capture(scene, CHART_W, CHART_H, srgb=True)
         self.probe = cap
         look = _post_settings(u, bias=PROFILE["exposure_bias"], bloom=PROFILE["bloom"])
         chart_settings = _post_settings(u, bias=0.0, bloom=0.0)
@@ -498,6 +504,7 @@ class Runner:
         def only(groups):
             for name in ("ref", "vfx", "chart", "turn"):
                 scene.show(name, name in groups)
+            scene.show("fog", "chart" not in groups)
 
         def chart():
             only({"chart"})
@@ -505,6 +512,10 @@ class Runner:
                 (1000, 0, 1000), (2000, 0, 1000), 30.0, chart_settings, ortho_width=ortho
             )
             self.report["frames"].append(chart_cap.shoot("chart_agx"))
+            chart_cap_srgb.setup(
+                (1000, 0, 1000), (2000, 0, 1000), 30.0, chart_settings, ortho_width=ortho
+            )
+            self.report["frames"].append(chart_cap_srgb.shoot("chart_agx_srgb_target"))
 
         self.shots.append(chart)
 

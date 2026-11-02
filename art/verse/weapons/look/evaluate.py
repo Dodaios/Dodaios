@@ -51,8 +51,8 @@ def lut_error() -> dict:
     return {"mean": sum(errors) / len(errors), "max": max(errors)}
 
 
-def chart_error(report: dict) -> dict:
-    frame = _image(FRAMES / report["chart"]["frame"])
+def chart_error(report: dict, frame_name: str | None = None) -> dict:
+    frame = _image(FRAMES / (frame_name or report["chart"]["frame"]))
     ref = _image(LOOK / "chart_agx_reference.png")[0]
     patches = []
     for (x, y), want in zip(report["chart"]["pixels"], ref, strict=True):
@@ -105,6 +105,9 @@ def main() -> int:
     if report_path.is_file():
         report = json.loads(report_path.read_text("utf-8"))
         metrics["A14.4"] = chart_error(report)
+        if "chart_agx_srgb_target.png" in report.get("frames", []):
+            other = chart_error(report, "chart_agx_srgb_target.png")
+            metrics["chart_srgb_target"] = {"mean": other["mean"], "max": other["max"]}
         metrics["A14.3"] = banned(report)
         metrics["lookdev_errors"] = report.get("errors", [])
     ok = all(v["pass"] for v in metrics["A14.1"].values())
