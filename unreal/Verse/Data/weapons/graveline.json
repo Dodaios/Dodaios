@@ -1,0 +1,107 @@
+{
+	"$schema": "verse.weapon/1",
+	"WeaponId": "graveline",
+	"DisplayName": "Graveline",
+	"Slot": "Primary",
+	"FireMode": "Auto",
+	"BurstCount": 3,
+	"RPM": 690,
+	"MagazineSize": 30,
+	"bClosedBolt": true,
+	"ReserveRounds": 120,
+	"ReloadTactical": 2.1,
+	"ReloadEmpty": 2.8,
+	"ReloadCommitFraction": 0.6,
+	"EquipTime": 0.45,
+	"HolsterTime": 0.3,
+	"BaseDamage": 28,
+	"ZoneMultipliers": {
+		"Head": 2.5,
+		"Neck": 1.5,
+		"UpperTorso": 1.0,
+		"LowerTorso": 0.9,
+		"Arm": 0.75,
+		"Leg": 0.7
+	},
+	"FalloffStart": 25,
+	"FalloffEnd": 45,
+	"FalloffMinFraction": 0.75,
+	"ProjectileSpeed": 300,
+	"MaxRange": 150,
+	"PenetrationPower": 100,
+	"MaxPenetrations": 3,
+	"PieceDamage": 10,
+	"HoleRadiusMm": 15,
+	"RecoilPitchCurve": [
+		[
+			0,
+			0.45
+		],
+		[
+			8,
+			0.62
+		]
+	],
+	"RecoilYawCurve": [
+		[
+			0,
+			0.1
+		],
+		[
+			10,
+			0.1
+		],
+		[
+			11,
+			-0.15
+		]
+	],
+	"RecoilRandomFraction": 0.15,
+	"RecoilKickTime": 0.01,
+	"RecoilRecoveryRate": 1.8,
+	"RecoilRecoveryDelay": 0.12,
+	"PatternResetTime": 0.35,
+	"RecoilStanceMultiplier": {
+		"Stand": 1.0,
+		"Crouch": 0.85,
+		"Prone": 0.65,
+		"Slide": 1.3
+	},
+	"RecoilAdsMultiplier": 0.8,
+	"ViewPunchScale": 1.0,
+	"AdsTime": 0.25,
+	"AdsFov": 55,
+	"AdsMoveSpeedMultiplier": 0.6,
+	"SpreadBase": {
+		"Stand": [
+			1.6,
+			0.15
+		],
+		"Crouch": [
+			1.2,
+			0.1
+		],
+		"Prone": [
+			0.8,
+			0.05
+		],
+		"Slide": [
+			3.0,
+			1.5
+		]
+	},
+	"FirstShotSpread": [
+		0.9,
+		0.0
+	],
+	"FirstShotRestTime": 0.35,
+	"SpreadMovePerMps": 0.25,
+	"SpreadAirborne": 3.0,
+	"BloomPerShot": 0.12,
+	"BloomMax": 1.5,
+	"BloomRecoveryRate": 4.0,
+	"BloomRecoveryDelay": 0.1,
+	"NoiseLoudness": 1.0,
+	"BoltColorOwn": "Verse.Presentation.Bolt.Amber",
+	"BoltColorFoe": "Verse.Presentation.Bolt.Red"
+}

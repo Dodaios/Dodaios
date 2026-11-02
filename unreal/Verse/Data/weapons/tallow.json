@@ -1,0 +1,159 @@
+{
+	"$schema": "verse.weapon/1",
+	"WeaponId": "tallow",
+	"DisplayName": "Tallow",
+	"Slot": "Secondary",
+	"FireMode": "Semi",
+	"BurstCount": 3,
+	"RPM": 380,
+	"MagazineSize": 15,
+	"bClosedBolt": true,
+	"ReserveRounds": 60,
+	"ReloadTactical": 1.5,
+	"ReloadEmpty": 1.9,
+	"ReloadCommitFraction": 0.6,
+	"EquipTime": 0.3,
+	"HolsterTime": 0.25,
+	"BaseDamage": 34,
+	"ZoneMultipliers": {
+		"Head": 2.2,
+		"Neck": 1.4,
+		"UpperTorso": 1.0,
+		"LowerTorso": 0.9,
+		"Arm": 0.75,
+		"Leg": 0.7
+	},
+	"FalloffStart": 12,
+	"FalloffEnd": 30,
+	"FalloffMinFraction": 0.6,
+	"ProjectileSpeed": 300,
+	"MaxRange": 100,
+	"PenetrationPower": 50,
+	"MaxPenetrations": 2,
+	"PieceDamage": 6,
+	"HoleRadiusMm": 12,
+	"RecoilPitchCurve": [
+		[
+			0,
+			1.2
+		]
+	],
+	"RecoilYawCurve": [
+		[
+			0,
+			0.15
+		],
+		[
+			1,
+			-0.15
+		],
+		[
+			2,
+			0.15
+		],
+		[
+			3,
+			-0.15
+		],
+		[
+			4,
+			0.15
+		],
+		[
+			5,
+			-0.15
+		],
+		[
+			6,
+			0.15
+		],
+		[
+			7,
+			-0.15
+		],
+		[
+			8,
+			0.15
+		],
+		[
+			9,
+			-0.15
+		],
+		[
+			10,
+			0.15
+		],
+		[
+			11,
+			-0.15
+		],
+		[
+			12,
+			0.15
+		],
+		[
+			13,
+			-0.15
+		],
+		[
+			14,
+			0.15
+		],
+		[
+			15,
+			-0.15
+		],
+		[
+			16,
+			0.15
+		]
+	],
+	"RecoilRandomFraction": 0.15,
+	"RecoilKickTime": 0.01,
+	"RecoilRecoveryRate": 3.0,
+	"RecoilRecoveryDelay": 0.1,
+	"PatternResetTime": 0.3,
+	"RecoilStanceMultiplier": {
+		"Stand": 1.0,
+		"Crouch": 0.85,
+		"Prone": 0.65,
+		"Slide": 1.3
+	},
+	"RecoilAdsMultiplier": 0.85,
+	"ViewPunchScale": 1.0,
+	"AdsTime": 0.18,
+	"AdsFov": 65,
+	"AdsMoveSpeedMultiplier": 0.8,
+	"SpreadBase": {
+		"Stand": [
+			1.2,
+			0.2
+		],
+		"Crouch": [
+			1.0,
+			0.15
+		],
+		"Prone": [
+			0.8,
+			0.1
+		],
+		"Slide": [
+			2.5,
+			1.2
+		]
+	},
+	"FirstShotSpread": [
+		0.7,
+		0.0
+	],
+	"FirstShotRestTime": 0.3,
+	"SpreadMovePerMps": 0.2,
+	"SpreadAirborne": 3.0,
+	"BloomPerShot": 0.25,
+	"BloomMax": 1.5,
+	"BloomRecoveryRate": 4.0,
+	"BloomRecoveryDelay": 0.1,
+	"NoiseLoudness": 1.0,
+	"BoltColorOwn": "Verse.Presentation.Bolt.Amber",
+	"BoltColorFoe": "Verse.Presentation.Bolt.Red"
+}

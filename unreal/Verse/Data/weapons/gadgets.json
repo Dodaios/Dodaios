@@ -1,0 +1,43 @@
+{
+	"$schema": "verse.gadgets/1",
+	"gadgets": [
+		{
+			"GadgetId": "bulwark",
+			"DisplayName": "Bulwark",
+			"Charges": 1,
+			"Cooldown": 20,
+			"UseTime": 0.6,
+			"Lifetime": 25,
+			"PlaceRange": 1.5,
+			"MaxHealth": 400,
+			"Size": [
+				1.8,
+				1.4,
+				0.1
+			],
+			"PawnDamage": 0,
+			"PawnRadius": 0,
+			"PieceBreachRadius": 0,
+			"bSelfDamage": false
+		},
+		{
+			"GadgetId": "breach_charge",
+			"DisplayName": "Breach Charge",
+			"Charges": 2,
+			"Cooldown": 0,
+			"UseTime": 1.0,
+			"Lifetime": 2.5,
+			"PlaceRange": 1.5,
+			"MaxHealth": 0,
+			"Size": [
+				0.3,
+				0.3,
+				0.1
+			],
+			"PawnDamage": 120,
+			"PawnRadius": 3.0,
+			"PieceBreachRadius": 150,
+			"bSelfDamage": true
+		}
+	]
+}
