@@ -27,6 +27,13 @@ MAX_VFX_TRIANGLES = 2_000
 #: Sockets every firearm carries (art-pipeline 12.2).
 FIREARM_SOCKETS = ("SOCKET_Muzzle", "SOCKET_Sight", "SOCKET_Support", "SOCKET_Eject")
 KNIFE_SOCKETS = ("SOCKET_Tip",)
+#: Static bone that carries the socket empties in the FBX. The Interchange
+#: skeletal importer keys the sockets found directly under the root joint by
+#: the joint's uid instead of its bone name and then drops them (UE 5.7), so
+#: the empties sit on this child of `Root` with Root's exact head and tail;
+#: `verse_pipeline.weapons` re-binds each socket to its spec bone after the
+#: import, which keeps its local transform because both bones coincide.
+SOCKET_BASE = "SocketBase"
 
 #: Material slots (Blender names); `lib/unreal_materials.py` maps them to
 #: `/Game/Verse/Materials/Instances/Weapons/MI_Weapon_*`.
@@ -92,6 +99,14 @@ class WeaponSpec:
 
 def _b(name, parent, head, tail) -> Bone:
     return Bone(name, parent, tuple(head), tuple(tail))
+
+
+def export_bones(spec: "WeaponSpec") -> tuple[Bone, ...]:
+    """The bones written to the FBX: the spec bones plus `SOCKET_BASE` on Root."""
+    if spec.kind != "skeletal" or not spec.sockets:
+        return spec.bones
+    root = next(b for b in spec.bones if b.parent is None)
+    return (*spec.bones, Bone(SOCKET_BASE, root.name, root.head, root.tail))
 
 
 def _firearm_bones(*, mag, bolt, trigger, bolt_name="Bolt") -> tuple[Bone, ...]:

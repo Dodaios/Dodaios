@@ -7,7 +7,8 @@ After the FBX import, `finish_import`
 * for skeletal weapons renames the importer's `<Mesh>_Skeleton` to
   `SKEL_Weapon_<Name>` (the skeleton record beside the mesh record) and
   renames the sockets Interchange made from the FBX `SOCKET_<Name>` empties
-  (it strips the prefix) back to the contract names `SOCKET_<Name>`,
+  (it strips the prefix) back to the contract names `SOCKET_<Name>` and
+  re-binds them from the carrier bone `SocketBase` to their spec bone,
 * gives a gadget whose record says `auto_box` one box of simple collision.
 
 `facts` and `check` are A14.1 on the imported asset.
@@ -96,8 +97,23 @@ def _name_sockets(unreal, mesh, spec) -> list[str]:
         short = socket.name.removeprefix("SOCKET_")
         if socket.name not in existing and short in existing:
             subsystem.rename_socket(mesh, short, socket.name)
+    errors = []
+    by_name = {
+        str(item.get_editor_property("socket_name")): item
+        for item in (mesh.get_socket_by_index(i) for i in range(mesh.num_sockets()))
+    }
+    for socket in spec.sockets:
+        item = by_name.get(socket.name)
+        if item is None:
+            continue
+        if str(item.get_editor_property("bone_name")) != socket.bone:
+            item.set_socket_parent(mesh, socket.bone)
+        if str(item.get_editor_property("bone_name")) != socket.bone:
+            errors.append(f"{spec.asset}: {socket.name} not on bone {socket.bone}")
     missing = [s.name for s in spec.sockets if s.name not in _socket_names(mesh)]
-    return [f"{spec.asset}: sockets missing after import: {missing}"] if missing else []
+    if missing:
+        errors.append(f"{spec.asset}: sockets missing after import: {missing}")
+    return errors
 
 
 def _auto_box(unreal, record: dict, asset) -> list[str]:

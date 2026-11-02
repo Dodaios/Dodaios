@@ -374,3 +374,17 @@ def test_bolt_cost_verdict_uses_the_bound():
     assert evaluate.vfx_cost({"vfx_cost": {**base, "bound_ms": 0.04}})["pass"]
     assert not evaluate.vfx_cost({"vfx_cost": {**base, "bound_ms": 0.2}})["pass"]
     assert not evaluate.vfx_cost({})["pass"]
+
+
+@pytest.mark.parametrize(
+    "spec", [s for s in specs.ARSENAL if s.kind == "skeletal"], ids=lambda s: s.asset
+)
+def test_socket_base_bone_coincides_with_root(spec):
+    bones = specs.export_bones(spec)
+    root = bones[0]
+    base = bones[-1]
+    assert root.name == "Root" and root.parent is None
+    assert base.name == specs.SOCKET_BASE and base.parent == "Root"
+    assert (base.head, base.tail) == (root.head, root.tail)
+    assert len(bones) <= specs.MAX_WEAPON_BONES
+    assert all(s.bone in {b.name for b in spec.bones} for s in spec.sockets)

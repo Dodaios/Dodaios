@@ -100,7 +100,7 @@ class Scene:
     def mid(self, master: str, vectors=None, scalars=None):
         u = self.u
         parent = u.load_asset(M + master + "." + master)
-        mid = u.KismetMaterialLibrary.create_dynamic_material_instance(self.world, parent)
+        mid = u.MaterialLibrary.create_dynamic_material_instance(self.world, parent)
         for k, v in (vectors or {}).items():
             mid.set_vector_parameter_value(k, u.LinearColor(*v, 1.0))
         for k, v in (scalars or {}).items():

@@ -3,9 +3,10 @@
 Called by `scripts/verse/_export_unreal_entry.py weapons`. Skeletal weapons
 are exported like `lib/unreal_export.build_rig` (armature node named
 `Armature`, so `Root` is the first bone). Their sockets are empties named
-`SOCKET_<Name>` parented to their bone: the Interchange skeletal importer
-turns them into mesh sockets `<Name>`, which `verse_pipeline.weapons`
-renames to the contract's `SOCKET_<Name>` (art-pipeline 12.2). Static
+`SOCKET_<Name>` parented to the static bone `specs.SOCKET_BASE`: the
+Interchange skeletal importer turns them into mesh sockets `<Name>`, which
+`verse_pipeline.weapons` renames to the contract's `SOCKET_<Name>`
+(art-pipeline 12.2) and re-binds to their spec bone. Static
 gadgets and VFX go through `unreal_export.export_static_mesh`.
 """
 
@@ -48,7 +49,7 @@ def export_skeletal(spec: specs.WeaponSpec, out_dir: Path) -> dict:
     with bpy.context.temp_override(active_object=arm_obj, object=arm_obj):
         bpy.ops.object.mode_set(mode="EDIT")
         edit = arm_data.edit_bones
-        for bone in spec.bones:
+        for bone in specs.export_bones(spec):
             eb = edit.new(bone.name)
             eb.head = bone.head
             eb.tail = bone.tail
@@ -83,7 +84,7 @@ def export_skeletal(spec: specs.WeaponSpec, out_dir: Path) -> dict:
         material_slots=slots,
         collision_primitives=0,
         sockets=sorted(spec.socket_names()),
-        bones=[bone.name for bone in spec.bones],
+        bones=[bone.name for bone in specs.export_bones(spec)],
     ).as_dict()
     result["source"] = _source(spec.asset, fn.__name__)
     result["kind"] = "skeletal_mesh"
@@ -107,7 +108,7 @@ def _write_skeletal_fbx(spec: specs.WeaponSpec, arm_obj, body, path: Path) -> st
         scene.objects.link(empty)
         empty.parent = arm_obj
         empty.parent_type = "BONE"
-        empty.parent_bone = socket.bone
+        empty.parent_bone = specs.SOCKET_BASE  # re-bound to socket.bone on import
         view_layer.update()
         empty.matrix_world = Matrix.Translation(Vector(socket.location) * ux.CM)
         empties.append(empty)
