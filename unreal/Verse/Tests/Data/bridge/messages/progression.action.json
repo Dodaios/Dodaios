@@ -1,0 +1,20 @@
+[
+  {
+    "type": "progression.action",
+    "id": "c-52",
+    "ts": 1793612395.0,
+    "data": {
+      "action": "inspection",
+      "ref": "hangar"
+    }
+  },
+  {
+    "type": "progression.action",
+    "id": "c-53",
+    "ts": 1793612396.0,
+    "data": {
+      "action": "walk_together",
+      "ref": ""
+    }
+  }
+]

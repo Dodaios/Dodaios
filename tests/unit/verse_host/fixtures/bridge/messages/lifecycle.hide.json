@@ -1,0 +1,10 @@
+[
+  {
+    "type": "lifecycle.hide",
+    "seq": 202,
+    "ts": 1793612702.0,
+    "data": {
+      "reason": "app_focus"
+    }
+  }
+]

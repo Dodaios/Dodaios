@@ -1,0 +1,25 @@
+[
+  {
+    "type": "reply",
+    "seq": 4190,
+    "ts": 1793612345.5,
+    "re": "c-17",
+    "data": {
+      "ok": true,
+      "result": {}
+    }
+  },
+  {
+    "type": "reply",
+    "seq": 4191,
+    "ts": 1793612345.6,
+    "re": "c-18",
+    "data": {
+      "ok": false,
+      "error": {
+        "code": "not_found",
+        "message": "Pane is gone."
+      }
+    }
+  }
+]

@@ -1,0 +1,51 @@
+{
+  "name": "meetings",
+  "description": "A four-round team meeting with rotating speakers, then it settles; groups arrive and leave.",
+  "topics": [
+    "groups",
+    "meetings"
+  ],
+  "watch_screens": [],
+  "watch_chat_tails": [],
+  "state": {
+    "groups.snapshot": {
+      "groups": [
+        {
+          "group_id": "grp_a",
+          "name": "Release crew",
+          "members": [
+            "ag_000",
+            "ag_001",
+            "ag_002"
+          ],
+          "lead": "ag_000",
+          "goal": {
+            "goal_id": "g_9",
+            "state": "running"
+          }
+        }
+      ]
+    }
+  },
+  "replies": {
+    "meeting.start": [
+      {
+        "ok": false,
+        "error": {
+          "code": "conflict",
+          "message": "The person declined."
+        }
+      }
+    ]
+  },
+  "steps": [
+    {"at_ms": 200, "frame": {"type": "meetings.update", "data": {"group_id": "grp_a", "running": true, "round": 1, "speaker": "ag_000", "room": {"room_id": "room_44", "phase": "open", "topic": "Ship 4.2?", "rounds": 1, "max_rounds": 4}, "messages": [{"id": "evt_m01", "speaker": "ag_000", "text": "Tests are green on all three platforms."}]}}},
+    {"at_ms": 400, "frame": {"type": "meetings.update", "data": {"group_id": "grp_a", "running": true, "round": 2, "speaker": "ag_001", "room": {"room_id": "room_44", "phase": "open", "topic": "Ship 4.2?", "rounds": 2, "max_rounds": 4}, "messages": [{"id": "evt_m01", "speaker": "ag_000", "text": "Tests are green on all three platforms."}, {"id": "evt_m02", "speaker": "ag_001", "text": "Docs lag behind the settings change."}]}}},
+    {"at_ms": 600, "frame": {"type": "meetings.update", "data": {"group_id": "grp_a", "running": true, "round": 3, "speaker": "ag_002", "room": {"room_id": "room_44", "phase": "open", "topic": "Ship 4.2?", "rounds": 3, "max_rounds": 4}, "messages": [{"id": "evt_m01", "speaker": "ag_000", "text": "Tests are green on all three platforms."}, {"id": "evt_m02", "speaker": "ag_001", "text": "Docs lag behind the settings change."}, {"id": "evt_m03", "speaker": "ag_002", "text": "I can write the missing settings page today."}]}}},
+    {"at_ms": 800, "frame": {"type": "meetings.update", "data": {"group_id": "grp_a", "running": true, "round": 4, "speaker": "ag_000", "room": {"room_id": "room_44", "phase": "open", "topic": "Ship 4.2?", "rounds": 4, "max_rounds": 4}, "messages": [{"id": "evt_m01", "speaker": "ag_000", "text": "Tests are green on all three platforms."}, {"id": "evt_m02", "speaker": "ag_001", "text": "Docs lag behind the settings change."}, {"id": "evt_m03", "speaker": "ag_002", "text": "I can write the missing settings page today."}, {"id": "evt_m04", "speaker": "ag_000", "text": "Then we ship after the docs land."}]}}},
+    {"at_ms": 1000, "frame": {"type": "meetings.update", "data": {"group_id": "grp_a", "running": false, "round": 4, "speaker": null, "room": {"room_id": "room_44", "phase": "settle", "topic": "Ship 4.2?", "rounds": 4, "max_rounds": 4}, "messages": [{"id": "evt_m01", "speaker": "ag_000", "text": "Tests are green on all three platforms."}, {"id": "evt_m02", "speaker": "ag_001", "text": "Docs lag behind the settings change."}, {"id": "evt_m03", "speaker": "ag_002", "text": "I can write the missing settings page today."}, {"id": "evt_m04", "speaker": "ag_000", "text": "Then we ship after the docs land."}], "reason": "consensus"}}},
+    {"at_ms": 1100, "frame": {"type": "groups.delta", "data": {"upsert": {"groups": [{"group_id": "grp_b", "name": "Docs crew", "members": ["ag_003", "ag_005"], "lead": "ag_003", "goal": null}]}, "remove": {"groups": []}}}},
+    {"at_ms": 1200, "frame": {"type": "groups.delta", "data": {"upsert": {"groups": [{"group_id": "grp_a", "goal": {"goal_id": "g_9", "state": "done"}}]}, "remove": {"groups": ["grp_b"]}}}},
+    {"at_ms": 1300, "expect": {"type": "meeting.start"}, "timeout_ms": 5000, "optional": true, "note": "The Verse may start a meeting; the person declines (conflict)."}
+  ]
+}

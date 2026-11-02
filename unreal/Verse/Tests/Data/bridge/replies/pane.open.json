@@ -1,0 +1,66 @@
+[
+  {
+    "request": {
+      "type": "pane.open",
+      "id": "c-62",
+      "ts": 1793612590.0,
+      "data": {
+        "pane_id": "ws_91:T1"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 319,
+      "ts": 1793612590.05,
+      "re": "c-62",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "pane.open",
+      "id": "c-63",
+      "ts": 1793612591.0,
+      "data": {
+        "pane_id": "ws_91:T1",
+        "open": "changes"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 320,
+      "ts": 1793612591.05,
+      "re": "c-63",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "pane.open",
+      "id": "c-68",
+      "ts": 1793612590.0,
+      "data": {
+        "pane_id": "ws_91:T3"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 321,
+      "ts": 1793612590.05,
+      "re": "c-68",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "not_found",
+          "message": "Pane is gone."
+        }
+      }
+    }
+  }
+]
