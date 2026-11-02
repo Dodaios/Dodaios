@@ -1,0 +1,29 @@
+{
+  "schema": "verse.ui.keys/1",
+  "note": "Bindable actions and default keys (WP18.8). Key names are Unreal FKey names. Actions with a \"ui\" field are handled by VerseUI; the rest are gameplay input, published as the Verse.Settings.Key.<action> console variables. The return key is app-backed (welcome.settings.return_key).",
+  "actions": [
+    { "action": "move_forward", "key": "W", "label": "verse.key.move_forward" },
+    { "action": "move_back", "key": "S", "label": "verse.key.move_back" },
+    { "action": "move_left", "key": "A", "label": "verse.key.move_left" },
+    { "action": "move_right", "key": "D", "label": "verse.key.move_right" },
+    { "action": "sprint", "key": "LeftShift", "label": "verse.key.sprint" },
+    { "action": "crouch", "key": "LeftControl", "label": "verse.key.crouch" },
+    { "action": "prone", "key": "Z", "label": "verse.key.prone" },
+    { "action": "jump", "key": "SpaceBar", "label": "verse.key.jump" },
+    { "action": "lean_left", "key": "Q", "label": "verse.key.lean_left" },
+    { "action": "lean_right", "key": "E", "label": "verse.key.lean_right" },
+    { "action": "fire", "key": "LeftMouseButton", "label": "verse.key.fire" },
+    { "action": "ads", "key": "RightMouseButton", "label": "verse.key.ads" },
+    { "action": "reload", "key": "R", "label": "verse.key.reload" },
+    { "action": "melee", "key": "V", "label": "verse.key.melee" },
+    { "action": "gadget_a", "key": "G", "label": "verse.key.gadget_a" },
+    { "action": "gadget_b", "key": "T", "label": "verse.key.gadget_b" },
+    { "action": "slot_primary", "key": "One", "label": "verse.key.slot_primary" },
+    { "action": "slot_secondary", "key": "Two", "label": "verse.key.slot_secondary" },
+    { "action": "slot_melee", "key": "Three", "label": "verse.key.slot_melee" },
+    { "action": "interact", "key": "F", "label": "verse.key.interact" },
+    { "action": "verse_bar", "key": "Tab", "label": "verse.key.verse_bar", "ui": "verse_bar" },
+    { "action": "skip_kill_cam", "key": "Enter", "label": "verse.key.skip_kill_cam", "ui": "skip_kill_cam" },
+    { "action": "return_to_app", "key": "F10", "label": "verse.key.return_to_app", "ui": "return_to_app" }
+  ]
+}

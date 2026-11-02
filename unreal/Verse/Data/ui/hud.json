@@ -1,0 +1,25 @@
+{
+  "schema": "verse.ui.hud/1",
+  "note": "HUD and kill cam tuning (WP18). Times in seconds, camera offsets in centimetres. set_target mirrors the ruleset's first-to value (combat-state 9.1) until AVersePlayerState carries it.",
+  "safe_fraction": 0.025,
+  "decks": ["bridge", "ops", "engineering", "hangar"],
+  "timing": {
+    "hit_marker_s": 0.30,
+    "headshot_marker_s": 0.40,
+    "kill_marker_s": 0.70,
+    "blocked_marker_s": 0.40,
+    "damage_indicator_s": 1.6,
+    "feed_entry_s": 6.0,
+    "feed_max": 5,
+    "set_target": 10
+  },
+  "kill_cam": {
+    "window_s": 4.0,
+    "end_margin_s": 0.25,
+    "min_length_s": 0.5,
+    "camera_back_cm": 260,
+    "camera_up_cm": 70,
+    "camera_right_cm": 45,
+    "finisher_cut_s": 2.5
+  }
+}
