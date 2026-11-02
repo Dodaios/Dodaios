@@ -69,3 +69,7 @@ dodaios/ui/web/dist/**        linguist-generated=true
 # rebuild makes hundreds of files look modified (line endings only) and that
 # noise blocks the fast-forward of anyone following main. No eol conversion.
 dodaios/ui/web/dist/**        -text
+
+# The Unreal Verse ships as its own package (docs/verse/unreal/README.md,
+# Delivery), so the release source archive (`git archive`) never carries it.
+unreal/** export-ignore

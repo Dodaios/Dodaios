@@ -17,7 +17,8 @@ What it does, in order — and it stops at the first real problem:
 3. **Relevant tests** — ``scripts/ci/select_tests.py`` picks the test files
    the diff can affect and ``scripts/ci/run_tests_parallel.py`` runs them in
    isolated processes. The full suite runs in CI.
-4. **Push** — a feature branch gets a pull request labelled ``auto-merge``
+4. **Push** — Git LFS objects the branch adds go up first (``git lfs push``),
+   then a feature branch gets a pull request labelled ``auto-merge``
    with GitHub's auto-merge requested: once the CI gate is green GitHub adds
    it to the merge queue by itself. The merge train keeps it current.
 
@@ -117,6 +118,41 @@ def active_freeze(pull_request: dict, runner=run) -> merge_freeze.Freeze | None:
     return merge_freeze.active_freeze(
         repo.stdout.strip(), gh_json, exempt=int(number) if number else None
     )
+
+
+def lfs_paths(paths: list[str], runner=run) -> list[str]:
+    """The paths among ``paths`` that ``.gitattributes`` routes through Git LFS."""
+    found: list[str] = []
+    for start in range(0, len(paths), 200):  # far below the Windows command-line limit
+        attrs = runner(["git", "check-attr", "-z", "filter", "--", *paths[start : start + 200]])
+        if attrs.returncode != 0:
+            continue
+        fields = attrs.stdout.split("\0")
+        triples = zip(fields[0::3], fields[1::3], fields[2::3], strict=False)
+        found += [path for path, _attr, value in triples if value == "lfs"]
+    return found
+
+
+def push_lfs_objects(remote: str, branch: str, upstream: str, runner=run) -> bool:
+    """Upload the branch's LFS objects before the push (architecture 8.4).
+
+    ``core.hooksPath`` keeps git-lfs's own pre-push hook out, so a plain push
+    would carry pointers without objects. True when there is nothing to upload
+    or the upload worked.
+    """
+    changed = runner(["git", "diff", "--name-only", "--diff-filter=AM", f"{upstream}...HEAD"])
+    paths = [p for p in changed.stdout.splitlines() if p]
+    if not lfs_paths(paths, runner):
+        return True
+    if runner(["git", "lfs", "version"]).returncode != 0:
+        print("This branch adds Git LFS files but git-lfs is not installed; install it first.")
+        return False
+    pushed = runner(["git", "lfs", "push", remote, branch])
+    print(pushed.stdout + pushed.stderr)
+    if pushed.returncode != 0:
+        print("git lfs push failed; the branch was not pushed.")
+        return False
+    return True
 
 
 def report_gate() -> None:
@@ -248,6 +284,8 @@ def main(argv: list[str] | None = None) -> int:
         print("\nChecks passed; --no-push given, nothing pushed.")
         return 0
     step("4/4 push")
+    if not push_lfs_objects(args.remote, branch, upstream):
+        return 6
     if direct:
         push = run(["git", "push", args.remote, "HEAD:main"])
         print(push.stdout + push.stderr)
