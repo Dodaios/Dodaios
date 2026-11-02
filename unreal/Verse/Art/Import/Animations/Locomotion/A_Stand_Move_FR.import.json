@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Locomotion/A_Stand_Move_FR.A_Stand_Move_FR",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Stand_Move_FR.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "df50a76a8afd9fbfb8e1a9caf94a12b22066daa8ded6172f25903394874015ce"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Stand_Move_FR",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

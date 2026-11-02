@@ -665,8 +665,8 @@ def test_export_records_follow_the_kit_rules(tmp_path):
 
 
 def test_reserved_export_modes_exit_2(capsys):
-    assert export_unreal.main(["characters"]) == 2
-    assert "WP13" in capsys.readouterr().err
+    assert export_unreal.main(["weapons"]) == 2
+    assert "WP14" in capsys.readouterr().err
 
 
 def test_collision_import_flag_keeps_authored_primitives_under_interchange():

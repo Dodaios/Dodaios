@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Crew/A_Crew_Stand.A_Crew_Stand",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Crew_Stand.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "f2159c9bde5d7c7c4d32ee6b52606e20d649052124e73844a946b48ad5da2541"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Crew_Stand",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

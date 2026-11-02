@@ -10,15 +10,19 @@ assets that ship, the committed import records
     python scripts/verse/export_unreal.py calib
     python scripts/verse/export_unreal.py weapons [--only SK_Weapon_Graveline,...]
     python scripts/verse/export_unreal.py textures [--only T_Verse_Grade_LUT_M]
-    python scripts/verse/export_unreal.py {deck <deck> [--zone Z] | characters}
+    python scripts/verse/export_unreal.py characters [--only A,B] [--no-lock]
+    python scripts/verse/export_unreal.py deck <deck> [--zone Z]
 
 `calib` exports the `fbx-ue/1` calibration assets (`kit/calib.py`) into the
 cache only; `python scripts/unreal/import_art.py calib` imports and checks
 them. `weapons` exports the WP14 arsenal (`art/verse/weapons`) and writes its
 records under `unreal/Verse/Art/Import/Weapons/` and `Art/Import/VFX/`.
 `textures` bakes the texture sets builders own (today WP14's grade LUT
-`T_Verse_Grade_LUT_M`). `deck` and `characters` are reserved for the
-packages that own that art (WP11/WP12, WP13) and exit 2 until they land.
+`T_Verse_Grade_LUT_M`). `characters` (WP13) builds `SKEL_Verse_Human`, the
+character meshes and every clip (`art/verse/characters/rig_fps.py`) and writes
+their records, MI recipes and the grip reference; `--only A,B` limits it to
+named assets. `deck` is reserved for the packages that own that art
+(WP11/WP12) and exits 2 until they land.
 """
 
 from __future__ import annotations
@@ -41,7 +45,6 @@ GENERATOR = "export_unreal.py"
 #: Reserved modes and the package that owns them (work-packages.md).
 RESERVED = {
     "deck": "WP12 (agent decks, hangar day zones) and WP11 (arena zones)",
-    "characters": "WP13",
 }
 
 #: Kit module prefix -> (content folder under /Game/Verse/Kit, record folder).
@@ -377,6 +380,41 @@ def export_textures(only: list[str]) -> int:
     return 0
 
 
+CHARACTERS_ENTRY = HERE.parent.parent / "art" / "verse" / "characters" / "rig_fps.py"
+
+
+def export_characters(only: str, lock: bool = True) -> int:
+    """WP13: rig, meshes and clips in one Blender run, then their records.
+
+    The run is CPU only (no render); `--no-lock` skips the machine lock for it.
+    """
+    out_dir = art_common.CACHE_ROOT / "characters"
+    result = art_common.CACHE_ROOT / "results" / "characters.json"
+    result.unlink(missing_ok=True)
+    args = ["--out", str(out_dir), "--result", str(result)]
+    if only:
+        args += ["--only", only]
+    if lock:
+        with art_common.heavy_lock("export_unreal characters"):
+            blender.run(CHARACTERS_ENTRY, args, lock=False, device="cpu", timeout=3600)
+    else:
+        blender.run(CHARACTERS_ENTRY, args, lock=False, device="cpu", timeout=3600)
+    payload = json.loads(result.read_text(encoding="utf-8"))
+    sys.path.insert(0, str(art_common.REPO_ROOT / "art" / "verse"))
+    from characters.fps import records  # noqa: PLC0415 - needs art/verse on sys.path
+
+    changed = records.write_all(
+        payload, art_common.PROJECT_DIR, art_common.REPO_ROOT / "art" / "verse"
+    )
+    for path in changed:
+        print(f"[verse] characters: wrote {art_common.rel(Path(path))}")
+    print(
+        f"[verse] characters: {len(payload['meshes'])} meshes, {len(payload['clips'])} clips,"
+        f" {len(changed)} files changed"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -392,7 +430,9 @@ def main(argv: list[str] | None = None) -> int:
     weapons.add_argument("--only", default="", help="comma-separated asset names")
     textures = sub.add_parser("textures", help="bake texture sets (WP14: T_Verse_Grade_LUT_M)")
     textures.add_argument("--only", default="", help="comma-separated texture names")
-    sub.add_parser("characters", help="reserved")
+    chars = sub.add_parser("characters", help="WP13: rig, meshes, clips and their records")
+    chars.add_argument("--only", default="")
+    chars.add_argument("--no-lock", action="store_true", help="CPU-only run outside the lock")
     options = parser.parse_args(argv)
     try:
         if options.mode == "piece":
@@ -403,6 +443,8 @@ def main(argv: list[str] | None = None) -> int:
             return export_textures([n for n in options.only.split(",") if n])
         if options.mode == "weapons":
             return export_weapons([n for n in options.only.split(",") if n])
+        if options.mode == "characters":
+            return export_characters(options.only, lock=not options.no_lock)
     except blender.BlenderError as error:
         print(error, file=sys.stderr)
         return 1

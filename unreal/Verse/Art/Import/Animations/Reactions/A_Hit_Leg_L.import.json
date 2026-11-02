@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Reactions/A_Hit_Leg_L.A_Hit_Leg_L",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Hit_Leg_L.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "18de9b7c8eed4eba1ddcb19565815f347ca13f520b643c5f447f7f48ff372080"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Hit_Leg_L",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": false
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

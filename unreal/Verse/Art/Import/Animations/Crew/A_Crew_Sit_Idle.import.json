@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Crew/A_Crew_Sit_Idle.A_Crew_Sit_Idle",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Crew_Sit_Idle.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "4da79f93b0bb22d953700af6c4b743b09a56e2c18f7cbd181c840262ea520ad6"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Crew_Sit_Idle",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

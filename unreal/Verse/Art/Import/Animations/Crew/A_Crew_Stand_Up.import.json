@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Crew/A_Crew_Stand_Up.A_Crew_Stand_Up",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Crew_Stand_Up.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0b3ab6756a2b3cf45bc2a9a224817d6f899b071b94c562ad58665a06711b6a9d"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Crew_Stand_Up",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": false
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

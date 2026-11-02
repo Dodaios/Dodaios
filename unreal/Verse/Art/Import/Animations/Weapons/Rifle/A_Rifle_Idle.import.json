@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Weapons/Rifle/A_Rifle_Idle.A_Rifle_Idle",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Rifle_Idle.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "c1f4445acccc8163a370f94333451477b389c67cd54094ab5d2980ce676a8a14"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Rifle_Idle",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 60,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Locomotion/A_Crouch_Move_B.A_Crouch_Move_B",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Crouch_Move_B.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b8b853ee166d57f74f17e01c77e89bb745505abf212102228f64d6d348d71466"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Crouch_Move_B",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}
