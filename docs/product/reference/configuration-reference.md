@@ -67,7 +67,16 @@ value under the `JARVIS_` name, and that is the name a program it starts sees.
 |---|---|
 | Active configuration | Non-blank `JARVIS_CONFIG`; otherwise `<project-folder>/jarvis.toml` |
 | Named profiles | `<project-folder>/profiles/<profile>.yaml` |
+| Data directory | Non-blank `JARVIS_DATA_DIR`; otherwise `<project-folder>/data` (`data-dev` for the dev instance) |
 | Local credential fallback | `JARVIS_DATA_DIR/credentials.json` when set; otherwise the writable project data directory, with a per-user fallback such as `%LOCALAPPDATA%\Jarvis` on Windows or `~/.jarvis` elsewhere |
+
+The data directory holds the saved agents, chats, memory and other runtime
+state. Pointing `JARVIS_DATA_DIR` at a different folder starts the app on that
+folder's state: a new or empty folder shows only the default agent, while the
+agents and chats in the previous folder stay where they were. Point the
+variable back to see them again. Each start logs
+`Data directory: <path> (source: JARVIS_DATA_DIR)` or `(source: default)`, and
+`GET /api/diagnostics/data-dir` returns the same `path` and `source`.
 
 Nested environment names use two underscores between path segments. For
 example, `JARVIS__UI__LANGUAGE=en` targets the interface language. Common

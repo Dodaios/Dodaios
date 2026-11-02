@@ -2863,6 +2863,12 @@ class WebServer:
 
         _attach_permission_bus(self.bus, asyncio.get_running_loop())
 
+        # Which data directory holds the agents, chats and settings this run
+        # shows: a switched JARVIS_DATA_DIR otherwise looks like lost data.
+        from dodaios.core.config import log_data_dir_once
+
+        log_data_dir_once()
+
         await self.prepare_app()
         import uvicorn
 
