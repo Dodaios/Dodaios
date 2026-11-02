@@ -58,7 +58,8 @@ def test_a_login_keeps_its_values_out_of_the_index(vault: CredentialVault) -> No
     assert info.placeholders == ("reddit_username", "reddit_password")
     assert vault.has_login("ada", "reddit") and not vault.has_login("bob", "reddit")
     index = next(vault._root.glob("*.json")).read_text(encoding="utf-8")
-    assert USER not in index and PASSWORD not in index and "reddit.com" in index
+    assert USER not in index and PASSWORD not in index
+    assert json.loads(index)["logins"][0]["domain"] == "reddit.com"
     # Tokens and logins share the index file; writing one keeps the other.
     assert [row.env for row in vault.list("ada")] == ["GITHUB_TOKEN"]
     assert vault.browser_secrets("ada") == {
@@ -199,7 +200,8 @@ async def test_the_briefing_names_stored_logins_by_placeholder(
     monkeypatch.setattr(credentials, "vault_for", lambda _data_dir: vault)
     vault.store_login("ada", "hacker_news", USER, PASSWORD, url="news.ycombinator.com")
     line = await _credential_line(SimpleNamespace(data_dir=tmp_path), "ada")
-    assert "<secret>hacker_news_password</secret>" in line and "ycombinator.com" in line
+    assert "<secret>hacker_news_password</secret>" in line
+    assert vault.list_logins("ada")[0].domain == "ycombinator.com"
     assert USER not in line and PASSWORD not in line
 
 
