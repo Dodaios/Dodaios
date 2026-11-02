@@ -1625,7 +1625,7 @@ def verify_verse_tree(
     """
     try:
         expected = _check_tree(tree) if tree is not None else _read_tree(folder)
-    except VerseUpdateError as exc:
+    except VerseUpdateError as exc:  # the reason becomes the reported problem
         return [str(exc)]
     problems: list[str] = []
     for rel, entry in expected["files"].items():
@@ -1650,13 +1650,13 @@ def verse_current(root: Path) -> dict[str, Any] | None:
     """``current.json`` of ``root``: the running version and the previous one."""
     try:
         data = json.loads((root / VERSE_CURRENT_FILE).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # no or unreadable pointer means nothing installed
         return None
     if not isinstance(data, dict) or data.get("schema") != VERSE_CURRENT_SCHEMA:
         return None
     try:
         _verse_version(data.get("version"))
-    except VerseUpdateError:
+    except VerseUpdateError:  # a pointer naming no version means nothing installed
         return None
     return data
 
@@ -1757,7 +1757,7 @@ def _link_or_copy(source: Path, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         os.link(source, target)
-    except OSError:
+    except OSError:  # no hard links here (FAT, other volume): copy instead
         shutil.copy2(source, target)
 
 
@@ -1916,7 +1916,7 @@ def ensure_verse_healthy(root: Path, *, hashes: bool = False) -> dict[str, Any]:
         return {"status": "ok", "version": current["version"]}
     try:
         rolled = rollback_verse(root)
-    except VerseUpdateError as exc:
+    except VerseUpdateError as exc:  # reported to the caller as status broken
         return {
             "status": "broken",
             "version": current["version"],

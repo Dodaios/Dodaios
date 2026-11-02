@@ -8,7 +8,7 @@
 #    boot, hangar and a bot-vs-bot arena, for at most <seconds> plus start-up.
 # 2. Vulkan first frame, only when a Vulkan device exists in the container.
 # 3. Window activation: X11 (_NET_ACTIVE_WINDOW under a window manager) and
-#    Wayland (the xdg_activation_v1 global of a headless compositor).
+#    Wayland (the xdg_activation_v1 global of a headless wlroots compositor).
 # Writes /out/result.json; scripts/unreal/package.py reads it.
 set -u
 
@@ -59,11 +59,13 @@ x_pid=$!
 sleep 1
 DISPLAY=:98 openbox >/dev/null 2>&1 &
 wm_pid=$!
-weston --backend=headless-backend.so --socket=wl-verse-smoke >/dev/null 2>&1 &
-weston_pid=$!
+# A headless wlroots compositor: it implements xdg_activation_v1.
+WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 sway -c /dev/null >"${out}/sway.log" 2>&1 &
+sway_pid=$!
 sleep 3
-python3 /smoke/activation_check.py --x11 :98 --wayland wl-verse-smoke >"${out}/activation.json" 2>"${out}/activation.err"
-kill "${weston_pid}" "${wm_pid}" "${x_pid}" 2>/dev/null
+wl_socket="$(cd "${XDG_RUNTIME_DIR}" && ls wayland-* 2>/dev/null | grep -v lock | head -n 1)"
+python3 /smoke/activation_check.py --x11 :98 ${wl_socket:+--wayland "${wl_socket}"}   >"${out}/activation.json" 2>"${out}/activation.err"
+kill "${sway_pid}" "${wm_pid}" "${x_pid}" 2>/dev/null
 
 python3 - "${out}" "${server_ok}" "${server_rc}" "${server_seconds}" "${vulkan}" <<'PY'
 import json, sys
@@ -78,8 +80,9 @@ if server_ok != "true":
 if vulkan == "fail":
     problems.append("no Vulkan first frame although a device exists")
 for name in ("x11", "wayland"):
-    if activation.get(name) == "fail":
-        problems.append(f"{name} activation is not available")
+    # The container provides both servers, so a skip is a failure here too.
+    if activation.get(name) != "ok":
+        problems.append(f"{name} activation is not available ({activation.get(name)})")
 json.dump({"schema": "verse.linux-smoke/1", "server_ok": server_ok == "true",
            "server_exit": int(rc), "server_seconds": int(secs), "vulkan": vulkan,
            "activation": activation, "problems": problems},
