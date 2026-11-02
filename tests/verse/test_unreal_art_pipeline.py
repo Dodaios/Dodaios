@@ -515,11 +515,17 @@ def test_import_plan_skips_unchanged_exports():
     rec = _record()
     other = _record("SM_Wall_240")
     tex = dict(_record("T_A_BC"), kind="texture")
-    steps = import_assets.plan([rec, other, tex], {rec["asset_path"]: rec["export"]["sha256"]})
+    gc = dict(_record("GC_A"), kind="geometry_collection")
+    skel = dict(_record("SKEL_A"), kind="skeleton")
+    steps = import_assets.plan(
+        [rec, other, tex, gc, skel], {rec["asset_path"]: rec["export"]["sha256"]}
+    )
     assert [(r["name"], a) for r, a in steps] == [
         ("SM_Wall_480", "skip"),
         ("SM_Wall_240", "import"),
-        ("T_A_BC", "unsupported"),
+        ("T_A_BC", "import"),
+        ("GC_A", "unsupported"),
+        ("SKEL_A", "with_mesh"),
     ]
 
 

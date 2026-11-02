@@ -1,0 +1,69 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Hookbill/SK_Weapon_Hookbill.SK_Weapon_Hookbill",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Hookbill.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0c78c190d531b41980e0b2f09af3aee5e246f898fd842b4387b92a7369d38b04"
+  },
+  "kind": "skeletal_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bones": [
+      "Root"
+    ],
+    "bounds_cm": {
+      "max": [
+        25.5,
+        1.386,
+        2.5
+      ],
+      "min": [
+        -7.2,
+        -1.386,
+        -2.5
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Grip.MI_Weapon_Grip",
+        "slot": "M_Weapon_Grip"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Steel.MI_Weapon_Steel",
+        "slot": "M_Weapon_Steel"
+      }
+    ],
+    "sockets": [
+      "SOCKET_Tip"
+    ],
+    "triangles": 644,
+    "uv_sets": 1,
+    "vertices": 336
+  },
+  "name": "SK_Weapon_Hookbill",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_Hookbill"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_hookbill"
+  }
+}

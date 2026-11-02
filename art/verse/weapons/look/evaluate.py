@@ -1,0 +1,129 @@
+"""WP14 evidence numbers from the lookdev frames and the records (host Python).
+
+    python art/verse/weapons/look/evaluate.py
+
+Reads `unreal/Verse/Saved/Harness/proof/WP14/lookdev/` (written by
+`python scripts/unreal/import_art.py wp14`) and the baked look files in
+`art/verse/.cache/unreal/look/`, and writes `metrics.json` beside the frames:
+
+* A14.1: bones, sockets and triangles per weapon record,
+* A14.3: banned pixels (art-pipeline 8.3 rendered-pixel rule) per frame,
+* A14.4: mean and max CIEDE2000 of the chart rendered in Unreal against the
+  Blender AgX render of the same scene-linear patches, plus the same number
+  for the LUT alone (offline trilinear lookup).
+
+Exit 0 only when A14.1, A14.3 and A14.4 pass.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(REPO / "art" / "verse"))
+
+from weapons import specs  # noqa: E402
+from weapons.look import agx, palette  # noqa: E402
+
+PROOF = REPO / "unreal" / "Verse" / "Saved" / "Harness" / "proof" / "WP14"
+FRAMES = PROOF / "lookdev"
+LOOK = REPO / "art" / "verse" / ".cache" / "unreal" / "look"
+RECORDS = REPO / "unreal" / "Verse" / "Art" / "Import"
+DELTA_E_MAX = 3.0
+PATCH_HALF = 6
+
+
+def _image(path: Path):
+    import numpy as np
+    from PIL import Image
+
+    return np.asarray(Image.open(path).convert("RGB"), dtype=np.float64) / 255.0
+
+
+def lut_error() -> dict:
+    lut = _image(LOOK / "T_Verse_Grade_LUT_M.png").tolist()
+    ref = _image(LOOK / "chart_agx_reference.png")[0]
+    errors = [
+        agx.delta_e(agx.sample(lut, p), r) for p, r in zip(agx.chart_linear(), ref, strict=True)
+    ]
+    return {"mean": sum(errors) / len(errors), "max": max(errors)}
+
+
+def chart_error(report: dict) -> dict:
+    frame = _image(FRAMES / report["chart"]["frame"])
+    ref = _image(LOOK / "chart_agx_reference.png")[0]
+    patches = []
+    for (x, y), want in zip(report["chart"]["pixels"], ref, strict=True):
+        region = frame[y - PATCH_HALF : y + PATCH_HALF + 1, x - PATCH_HALF : x + PATCH_HALF + 1]
+        got = region.reshape(-1, 3).mean(axis=0)
+        patches.append(
+            {
+                "got": [round(v, 4) for v in got],
+                "want": [round(v, 4) for v in want],
+                "delta_e": agx.delta_e(got, want),
+            }
+        )
+    values = [p["delta_e"] for p in patches]
+    return {"mean": sum(values) / len(values), "max": max(values), "patches": patches}
+
+
+def banned(report: dict) -> dict:
+    out = {}
+    for name in report.get("frames", []):
+        if name.startswith("chart"):
+            continue
+        hits, total = palette.count_banned_image(FRAMES / name)
+        out[name] = {"banned": hits, "pixels": total}
+    return out
+
+
+def budgets() -> dict:
+    out = {}
+    for spec in specs.ARSENAL:
+        folder = spec.folder.removeprefix("/Game/Verse/")
+        record = json.loads((RECORDS / folder / f"{spec.asset}.import.json").read_text("utf-8"))
+        mesh = record["mesh"]
+        bones = mesh.get("bones", [])
+        sockets = mesh.get("sockets", [])
+        out[spec.asset] = {
+            "triangles": mesh["triangles"],
+            "cap": spec.triangle_cap,
+            "bones": len(bones),
+            "sockets": sockets,
+            "pass": mesh["triangles"] <= spec.triangle_cap
+            and len(bones) <= specs.MAX_WEAPON_BONES
+            and all(s in sockets for s in specs.required_sockets(spec)),
+        }
+    return out
+
+
+def main() -> int:
+    metrics: dict = {"A14.1": budgets(), "lut_offline": lut_error()}
+    report_path = FRAMES / "lookdev.json"
+    if report_path.is_file():
+        report = json.loads(report_path.read_text("utf-8"))
+        metrics["A14.4"] = chart_error(report)
+        metrics["A14.3"] = banned(report)
+        metrics["lookdev_errors"] = report.get("errors", [])
+    ok = all(v["pass"] for v in metrics["A14.1"].values())
+    ok = ok and metrics.get("A14.4", {"mean": 99})["mean"] <= DELTA_E_MAX
+    ok = ok and all(v["banned"] == 0 for v in metrics.get("A14.3", {"x": {"banned": 1}}).values())
+    metrics["pass"] = ok
+    PROOF.mkdir(parents=True, exist_ok=True)
+    (PROOF / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+    summary = {
+        "A14.1": all(v["pass"] for v in metrics["A14.1"].values()),
+        "lut_offline_mean_dE": round(metrics["lut_offline"]["mean"], 3),
+        "chart_mean_dE": round(metrics.get("A14.4", {}).get("mean", -1), 3),
+        "chart_max_dE": round(metrics.get("A14.4", {}).get("max", -1), 3),
+        "banned_total": sum(v["banned"] for v in metrics.get("A14.3", {}).values()),
+        "pass": ok,
+    }
+    print(json.dumps(summary, indent=2))
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

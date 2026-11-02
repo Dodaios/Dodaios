@@ -7,17 +7,21 @@ is kept in the asset's metadata tag `VerseExportSha256`.
 
 from __future__ import annotations
 
-from verse_pipeline import import_meshes, records
+from verse_pipeline import import_meshes, records, weapons
 
 SHA_TAG = "VerseExportSha256"
-SUPPORTED = {"static_mesh", "proxy_mesh", "skeletal_mesh"}
+SUPPORTED = {"static_mesh", "proxy_mesh", "skeletal_mesh", "texture"}
+#: Kinds the importer creates together with another record's asset.
+WITH_MESH = {"skeleton"}
 
 
 def plan(all_records: list[dict], stored: dict[str, str]) -> list[tuple[dict, str]]:
     """(record, action) with action `import`, `skip` or `unsupported`. Pure."""
     out = []
     for record in all_records:
-        if record["kind"] not in SUPPORTED:
+        if record["kind"] in WITH_MESH:
+            out.append((record, "with_mesh"))
+        elif record["kind"] not in SUPPORTED:
             out.append((record, "unsupported"))
         elif stored.get(record["asset_path"]) == record["export"]["sha256"]:
             out.append((record, "skip"))
@@ -50,7 +54,7 @@ def run(only: list[str], *, save: bool = True) -> dict:
     used = import_meshes.use_importer()
     for record, action in steps:
         name = record["name"]
-        if action == "skip":
+        if action in ("skip", "with_mesh"):
             report["skipped"].append(name)
             continue
         if action == "unsupported":
@@ -58,13 +62,24 @@ def run(only: list[str], *, save: bool = True) -> dict:
             continue
         try:
             fbx = records.export_file(record)
-            if record["kind"] == "skeletal_mesh":
+            if record["kind"] == "texture":
+                from verse_pipeline import import_textures
+
+                asset = import_textures.import_texture(record, fbx, save=False)
+            elif record["kind"] == "skeletal_mesh":
                 asset = import_meshes.import_skeletal(record, fbx, save=False)
             else:
                 asset = import_meshes.import_static(record, fbx, save=False)
+            if weapons.is_wp14(record):
+                for line in weapons.finish_import(record, asset):
+                    report["errors"].append(line)
             unreal.EditorAssetLibrary.set_metadata_tag(asset, SHA_TAG, record["export"]["sha256"])
             if save:
                 unreal.EditorAssetLibrary.save_loaded_asset(asset, only_if_is_dirty=False)
+                if record["kind"] == "skeletal_mesh":
+                    skel = asset.get_editor_property("skeleton")
+                    if skel is not None:
+                        unreal.EditorAssetLibrary.save_loaded_asset(skel, only_if_is_dirty=False)
             report["imported"].append(name)
         except Exception as error:  # report every asset, then fail once
             report["errors"].append(f"{name}: {type(error).__name__}: {error}")

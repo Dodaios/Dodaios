@@ -1,0 +1,55 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Skitter/SKEL_Weapon_Skitter.SKEL_Weapon_Skitter",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Skitter.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "f5b767f9dae33cad15e19ac3349be2a2b7f5a2e551e0e486f0b14e1ac915d51f"
+  },
+  "kind": "skeleton",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "mesh": {
+    "bones": [
+      "Root",
+      "Magazine",
+      "Bolt",
+      "Trigger"
+    ],
+    "bounds_cm": {
+      "max": [
+        39.5,
+        2.45,
+        10.5
+      ],
+      "min": [
+        -19.6,
+        -3.6,
+        -16.4
+      ]
+    },
+    "material_slots": [],
+    "sockets": [
+      "SOCKET_Eject",
+      "SOCKET_Muzzle",
+      "SOCKET_Sight",
+      "SOCKET_Support"
+    ],
+    "triangles": 2848,
+    "uv_sets": 1,
+    "vertices": 1480
+  },
+  "name": "SKEL_Weapon_Skitter",
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_Skitter"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_skitter"
+  }
+}

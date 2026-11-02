@@ -1,0 +1,33 @@
+{
+  "name": "MI_Weapon_Polymer",
+  "owner": "WP14",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Weapon.M_Verse_Weapon",
+  "replaces": "M_Weapon_Polymer",
+  "scalars": {
+    "EdgeMetallic": 0.0,
+    "EdgeWear": 0.6,
+    "GrimeAmount": 0.55,
+    "Metallic": 0.0,
+    "NoiseScale": 12.0,
+    "OilAmount": 0.2,
+    "RoughnessMax": 0.72,
+    "RoughnessMin": 0.45
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.0072,
+      0.0072,
+      0.0076,
+      1.0
+    ],
+    "EdgeTint": [
+      0.026,
+      0.027,
+      0.03,
+      1.0
+    ]
+  }
+}

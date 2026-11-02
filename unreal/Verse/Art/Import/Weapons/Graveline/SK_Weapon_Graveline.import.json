@@ -1,0 +1,87 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Graveline/SK_Weapon_Graveline.SK_Weapon_Graveline",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Graveline.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "8bfdf6419280ccdaf62e520fc0a9c425af5545394f97dcb6e50abf07398022c3"
+  },
+  "kind": "skeletal_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bones": [
+      "Root",
+      "Magazine",
+      "Bolt",
+      "Trigger"
+    ],
+    "bounds_cm": {
+      "max": [
+        73.25,
+        3.6,
+        13.3
+      ],
+      "min": [
+        -31.75,
+        -3.3,
+        -13.59
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Steel.MI_Weapon_Steel",
+        "slot": "M_Weapon_Steel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Polymer.MI_Weapon_Polymer",
+        "slot": "M_Weapon_Polymer"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Grip.MI_Weapon_Grip",
+        "slot": "M_Weapon_Grip"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Optic.MI_Weapon_Optic",
+        "slot": "M_Weapon_Optic"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Reticle.MI_Weapon_Reticle",
+        "slot": "M_Weapon_Reticle"
+      }
+    ],
+    "sockets": [
+      "SOCKET_Eject",
+      "SOCKET_Muzzle",
+      "SOCKET_Sight",
+      "SOCKET_Support"
+    ],
+    "triangles": 3984,
+    "uv_sets": 1,
+    "vertices": 2072
+  },
+  "name": "SK_Weapon_Graveline",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_Graveline"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_graveline"
+  }
+}

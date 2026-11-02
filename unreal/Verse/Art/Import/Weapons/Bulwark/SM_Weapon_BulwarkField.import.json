@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Bulwark/SM_Weapon_BulwarkField.SM_Weapon_BulwarkField",
+  "collision": {
+    "primitives": 1,
+    "profile": "Verse_Prop",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SM_Weapon_BulwarkField.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "e8eb4955fe93a681f5872ef7cd7d07aa5a483fa5f36365a26641f3a5753b76fa"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        0.5,
+        44.1,
+        124.3
+      ],
+      "min": [
+        -0.5,
+        -44.1,
+        15.7
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Field.MI_Weapon_Field",
+        "slot": "M_Weapon_Field"
+      }
+    ],
+    "triangles": 4536,
+    "uv_sets": 1,
+    "vertices": 2352
+  },
+  "name": "SM_Weapon_BulwarkField",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SM_Weapon_BulwarkField"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_bulwark_field"
+  }
+}

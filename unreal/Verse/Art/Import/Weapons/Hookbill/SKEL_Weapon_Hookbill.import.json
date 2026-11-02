@@ -1,0 +1,49 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Hookbill/SKEL_Weapon_Hookbill.SKEL_Weapon_Hookbill",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Hookbill.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0c78c190d531b41980e0b2f09af3aee5e246f898fd842b4387b92a7369d38b04"
+  },
+  "kind": "skeleton",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "mesh": {
+    "bones": [
+      "Root"
+    ],
+    "bounds_cm": {
+      "max": [
+        25.5,
+        1.386,
+        2.5
+      ],
+      "min": [
+        -7.2,
+        -1.386,
+        -2.5
+      ]
+    },
+    "material_slots": [],
+    "sockets": [
+      "SOCKET_Tip"
+    ],
+    "triangles": 644,
+    "uv_sets": 1,
+    "vertices": 336
+  },
+  "name": "SKEL_Weapon_Hookbill",
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_Hookbill"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_hookbill"
+  }
+}

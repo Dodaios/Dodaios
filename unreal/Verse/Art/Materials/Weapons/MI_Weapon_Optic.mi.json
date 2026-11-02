@@ -1,0 +1,29 @@
+{
+  "name": "MI_Weapon_Optic",
+  "owner": "WP14",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Glass.M_Verse_Glass",
+  "replaces": "M_Weapon_Optic",
+  "scalars": {
+    "EmissiveNits": 0.0,
+    "Fade": 1.0,
+    "Opacity": 0.45,
+    "Roughness": 0.04
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.004,
+      0.0042,
+      0.0045,
+      1.0
+    ],
+    "EmissiveColor": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  }
+}
