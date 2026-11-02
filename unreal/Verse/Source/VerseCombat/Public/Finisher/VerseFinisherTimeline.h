@@ -116,17 +116,33 @@ struct VERSECOMBAT_API FVerseFinisherViewState
 	bool bKnifeInHand = false;
 	/** At 2.5 s (or on an abort) the active weapon is back in hand. */
 	bool bActiveWeaponEquipped = true;
+	/**
+	 * Victim only: dead from Recover on; its view target and fade belong to the death view or
+	 * kill cam owner (combat-state.md 9.1), so the finisher no longer drives them.
+	 */
+	bool bReleasedToDeathView = false;
 
 	bool operator==(const FVerseFinisherViewState& O) const
 	{
-		return View == O.View && bKnifeInHand == O.bKnifeInHand && bActiveWeaponEquipped == O.bActiveWeaponEquipped;
+		return View == O.View && bKnifeInHand == O.bKnifeInHand && bActiveWeaponEquipped == O.bActiveWeaponEquipped
+			&& bReleasedToDeathView == O.bReleasedToDeathView;
 	}
 };
 
 namespace VerseFinisher
 {
-	/** Camera and hands at Elapsed seconds after Locked for a participant's own view. */
+	/**
+	 * The attacker's camera and hands at Elapsed seconds after Locked: third person from Locked,
+	 * first person with the active weapon back at 2.5 s or on an abort.
+	 */
 	VERSECOMBAT_API FVerseFinisherViewState EvaluateView(double Elapsed, bool bAborted, EVerseGoreLevel Gore);
+
+	/**
+	 * The victim's view: the same shot as the attacker (no knife, no weapon) until Recover; from
+	 * Recover on it is dead and released to the death view (bReleasedToDeathView). On an abort it
+	 * is alive and back in first person with its weapon.
+	 */
+	VERSECOMBAT_API FVerseFinisherViewState EvaluateVictimView(double Elapsed, bool bAborted, EVerseGoreLevel Gore);
 
 	/**
 	 * Third-person finisher camera: to the side of the pair at DistanceCm, HeightCm above the

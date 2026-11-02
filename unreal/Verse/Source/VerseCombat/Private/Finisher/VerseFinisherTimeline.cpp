@@ -185,6 +185,25 @@ FVerseFinisherViewState VerseFinisher::EvaluateView(double Elapsed, bool bAborte
 	return S;
 }
 
+FVerseFinisherViewState VerseFinisher::EvaluateVictimView(double Elapsed, bool bAborted, EVerseGoreLevel Gore)
+{
+	FVerseFinisherViewState S;
+	if (bAborted || Elapsed < -TimeTolerance)
+	{
+		return S;
+	}
+	if (Elapsed + TimeTolerance >= RecoverAt)
+	{
+		S.bReleasedToDeathView = true;
+		S.bActiveWeaponEquipped = false;
+		return S;
+	}
+	S = EvaluateView(Elapsed, false, Gore);
+	S.bKnifeInHand = false;
+	S.bActiveWeaponEquipped = false;
+	return S;
+}
+
 FTransform VerseFinisher::CameraTransform(const FTransform& Attacker, const FTransform& Victim, double DistanceCm,
 	double HeightCm)
 {

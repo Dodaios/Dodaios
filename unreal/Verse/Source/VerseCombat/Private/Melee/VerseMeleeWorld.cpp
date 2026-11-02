@@ -54,13 +54,22 @@ void VerseMelee::SetPhase(APawn* Pawn, EVerseCombatPhase Phase)
 	}
 }
 
-void VerseMelee::EndSpawnProtection(APawn* Pawn)
+void VerseMelee::EndSpawnProtection(APawn* Pawn, double ServerNow)
 {
 	UVerseCombatStateComponent* State = Pawn ? Pawn->FindComponentByClass<UVerseCombatStateComponent>() : nullptr;
-	if (State && State->bSpawnProtected)
+	if (!State)
+	{
+		return;
+	}
+	if (State->bSpawnProtected)
 	{
 		State->bSpawnProtected = false;
 		MARK_PROPERTY_DIRTY_FROM_NAME(UVerseCombatStateComponent, bSpawnProtected, State);
+	}
+	if (double(State->SpawnProtectedUntil) > ServerNow)
+	{
+		State->SpawnProtectedUntil = float(ServerNow);
+		MARK_PROPERTY_DIRTY_FROM_NAME(UVerseCombatStateComponent, SpawnProtectedUntil, State);
 	}
 }
 

@@ -57,8 +57,12 @@ namespace VerseMelee
 	/** Sets the combat phase on the pawn's UVerseCombatStateComponent (server, push model). */
 	VERSECOMBAT_API void SetPhase(APawn* Pawn, EVerseCombatPhase Phase);
 
-	/** Ends spawn protection on the first own offensive action (combat-state.md 9.3). */
-	VERSECOMBAT_API void EndSpawnProtection(APawn* Pawn);
+	/**
+	 * Ends spawn protection on the first own offensive action (combat-state.md 9.3): clears the
+	 * flag and pulls SpawnProtectedUntil back to ServerNow, so protection derived from the end
+	 * time cannot come back on the next tick.
+	 */
+	VERSECOMBAT_API void EndSpawnProtection(APawn* Pawn, double ServerNow);
 
 	/** Capsule half height, 0 when the pawn has no capsule. */
 	VERSECOMBAT_API double HalfHeightOf(const APawn* Pawn);

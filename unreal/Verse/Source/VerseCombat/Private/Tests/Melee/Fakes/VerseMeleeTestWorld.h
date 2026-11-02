@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "GameFramework/WorldSettings.h"
 #include "HAL/FileManager.h"
 #include "Melee/VerseMeleeComponent.h"
@@ -62,6 +63,16 @@ struct FVerseMeleeTestWorld
 		UVerseMeleeComponent* Melee = NewObject<UVerseMeleeComponent>(Character, TEXT("Melee"));
 		Melee->RegisterComponent();
 		return Character;
+	}
+
+	/** A player controller (no local player) possessing Pawn; standalone, so it counts as local. */
+	APlayerController* Possess(APawn* Pawn)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		APlayerController* Controller = World->SpawnActor<APlayerController>(APlayerController::StaticClass(), Params);
+		Controller->Possess(Pawn);
+		return Controller;
 	}
 
 	static UVerseMeleeComponent* Melee(const APawn* Pawn) { return Pawn->FindComponentByClass<UVerseMeleeComponent>(); }

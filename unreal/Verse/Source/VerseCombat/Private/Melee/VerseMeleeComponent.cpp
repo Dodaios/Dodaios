@@ -3,8 +3,11 @@
 #include "Camera/CameraActor.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Combat/VerseMeleeDefinition.h"
+#include "Damage/VerseCombatStateComponent.h"
 #include "Engine/World.h"
 #include "Events/VerseEventHub.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -29,6 +32,24 @@ namespace
 		FVector Location = Pawn->GetActorLocation();
 		Location.Z -= VerseMelee::HalfHeightOf(Pawn);
 		return FTransform(FRotator(0.0, Pawn->GetActorRotation().Yaw, 0.0), Location);
+	}
+
+	bool IsDead(const APawn* Pawn)
+	{
+		const UVerseCombatStateComponent* State = Pawn ? Pawn->FindComponentByClass<UVerseCombatStateComponent>() : nullptr;
+		return State && State->Phase == EVerseCombatPhase::Dead;
+	}
+
+	/** The local player controller of Viewer: its own, or the one a lock remembered (a dead victim may be unpossessed). */
+	APlayerController* LocalPlayerController(APawn* Viewer, AController* Remembered)
+	{
+		AController* Controller = Viewer ? Viewer->GetController() : nullptr;
+		if (!Controller)
+		{
+			Controller = Remembered;
+		}
+		APlayerController* PC = Cast<APlayerController>(Controller);
+		return PC && PC->IsLocalController() ? PC : nullptr;
 	}
 }
 
@@ -164,7 +185,7 @@ bool UVerseMeleeComponent::HandleMeleePress(double ViewServerTime, EVerseMeleeOu
 		return false;
 	}
 	// A melee press is an offensive action (combat-state.md 9.3).
-	VerseMelee::EndSpawnProtection(Me);
+	VerseMelee::EndSpawnProtection(Me, Now);
 
 	const double ViewTime = FMath::Clamp(ViewServerTime, Now - MaxRewindS, Now);
 	const FTransform MeBase = World->GetBaseTransformAt(Me, ViewTime);
@@ -291,6 +312,9 @@ void UVerseMeleeComponent::StartFinisher(APawn* Victim, double Now)
 
 	VerseMelee::SetPhase(Me, EVerseCombatPhase::FinisherAttacker);
 	VerseMelee::SetPhase(Victim, EVerseCombatPhase::FinisherVictim);
+	// 7.4 "no input": both pawns are held from Locked to release (owning clients lock on the event).
+	LockPawn(Me, SessionWarpTarget.Rotator().Yaw);
+	LockPawn(Victim, VictimPaired.Rotator().Yaw);
 	// The server snaps the victim to the paired pose at once; clients smooth to it (4.6).
 	Victim->SetActorLocationAndRotation(ActorFromBase(VictimPaired, Victim).GetLocation(), VictimPaired.GetRotation());
 
@@ -374,6 +398,7 @@ void UVerseMeleeComponent::AdvanceFinisherServer(double Now)
 		{
 			VerseMelee::SetPhase(Me, EVerseCombatPhase::Alive);
 		}
+		ReleaseLocks();
 		SessionVictim.Reset();
 	}
 }
@@ -415,7 +440,9 @@ void UVerseMeleeComponent::BeginPresentation(const FVerseFinisherEvent& E)
 	{
 		VictimFrom = Victim->GetActorTransform();
 		VictimTo = FVerseFinisherPose::VictimFromWarpTarget(WarpTarget, Tuning.PairedOffsetCm, VictimFrom.GetLocation().Z);
+		LockPawn(Victim, VictimTo.Rotator().Yaw);
 	}
+	LockPawn(Me, WarpTarget.Rotator().Yaw);
 	SnapStartTime = Now;
 	LastViews.Reset();
 	Knife.Confirm(EVerseMeleeOutcome::Finisher);
@@ -454,6 +481,96 @@ void UVerseMeleeComponent::TickPresentation(double Now)
 	}
 }
 
+bool UVerseMeleeComponent::IsPawnLocked(const APawn* Pawn) const
+{
+	return Pawn && Locks.ContainsByPredicate([Pawn](const FPawnLock& L) { return L.Pawn.Get() == Pawn; });
+}
+
+void UVerseMeleeComponent::LockPawn(APawn* Pawn, double PairedYaw)
+{
+	if (!Pawn)
+	{
+		return;
+	}
+	if (FPawnLock* Existing = Locks.FindByPredicate([Pawn](const FPawnLock& L) { return L.Pawn.Get() == Pawn; }))
+	{
+		Existing->Yaw = PairedYaw;
+		return;
+	}
+	// The server holds every pawn; a client holds only the pawn it controls (the rest follow replication).
+	const bool bAuthority = Pawn->HasAuthority();
+	const bool bLocal = Pawn->IsLocallyControlled();
+	if (!bAuthority && !bLocal)
+	{
+		return;
+	}
+	FPawnLock Lock;
+	Lock.Pawn = Pawn;
+	Lock.Yaw = PairedYaw;
+	if (AController* Controller = Pawn->GetController())
+	{
+		Controller->SetIgnoreMoveInput(true);
+		Controller->SetIgnoreLookInput(true);
+		Lock.Controller = Controller;
+		Lock.bInputIgnored = true;
+		// bUseControllerRotationYaw puts the actor back to the control rotation every frame, so the
+		// control rotation carries the paired yaw.
+		const FRotator Paired(0.0, PairedYaw, 0.0);
+		Controller->SetControlRotation(Paired);
+		APlayerController* PC = Cast<APlayerController>(Controller);
+		if (PC && bAuthority && !bLocal)
+		{
+			PC->ClientSetRotation(Paired, false);
+		}
+	}
+	if (ACharacter* Character = Cast<ACharacter>(Pawn))
+	{
+		if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
+		{
+			Lock.PrevMovementMode = uint8(Movement->MovementMode.GetValue());
+			Lock.PrevCustomMode = Movement->CustomMovementMode;
+			Movement->StopMovementImmediately();
+			Movement->DisableMovement();
+			Lock.bMovementStopped = true;
+		}
+	}
+	Locks.Add(Lock);
+}
+
+void UVerseMeleeComponent::HoldLocks()
+{
+	for (const FPawnLock& Lock : Locks)
+	{
+		// A bot's focus or a stray rotation update must not turn a locked pawn.
+		AController* Controller = Lock.Controller.Get();
+		if (Controller && Lock.bInputIgnored
+			&& FMath::Abs(FRotator::NormalizeAxis(Controller->GetControlRotation().Yaw - Lock.Yaw)) > 0.01)
+		{
+			Controller->SetControlRotation(FRotator(0.0, Lock.Yaw, 0.0));
+		}
+	}
+}
+
+void UVerseMeleeComponent::ReleaseLocks()
+{
+	for (const FPawnLock& Lock : Locks)
+	{
+		AController* Controller = Lock.Controller.Get();
+		if (Controller && Lock.bInputIgnored)
+		{
+			Controller->SetIgnoreMoveInput(false);
+			Controller->SetIgnoreLookInput(false);
+		}
+		// A dead pawn's movement belongs to the death path (ragdoll, respawn).
+		ACharacter* Character = Cast<ACharacter>(Lock.Pawn.Get());
+		if (Character && Lock.bMovementStopped && !IsDead(Character) && Character->GetCharacterMovement())
+		{
+			Character->GetCharacterMovement()->SetMovementMode(EMovementMode(Lock.PrevMovementMode), Lock.PrevCustomMode);
+		}
+	}
+	Locks.Reset();
+}
+
 void UVerseMeleeComponent::UpdateLocalViews(double Elapsed)
 {
 	APawn* Me = OwnerPawn();
@@ -462,38 +579,50 @@ void UVerseMeleeComponent::UpdateLocalViews(double Elapsed)
 	{
 		return;
 	}
-	const FVerseFinisherViewState State = VerseFinisher::EvaluateView(Elapsed, bPresentAborted, GoreLevel);
+	// Per role (7.4): only the attacker returns to first person with its weapon; the victim is
+	// released to the death view at Recover.
+	const EVerseGoreLevel Gore = VerseMelee::GetLocalGoreLevel();
 	const FTransform Camera = VerseFinisher::CameraTransform(Me->GetActorTransform(),
 		Victim ? Victim->GetActorTransform() : Me->GetActorTransform(), Tuning.CameraDistanceCm, Tuning.CameraHeightCm);
-	for (APawn* Viewer : {Me, Victim})
+	const TPair<APawn*, FVerseFinisherViewState> Viewers[] = {
+		{Me, VerseFinisher::EvaluateView(Elapsed, bPresentAborted, Gore)},
+		{Victim, VerseFinisher::EvaluateVictimView(Elapsed, bPresentAborted, Gore)}};
+	for (const TPair<APawn*, FVerseFinisherViewState>& V : Viewers)
 	{
-		if (!Viewer)
+		if (!V.Key)
 		{
 			continue;
 		}
-		const FVerseFinisherViewState* Last = LastViews.Find(Viewer);
-		if (!Last || !(*Last == State))
+		const FVerseFinisherViewState* Last = LastViews.Find(V.Key);
+		const bool bWasBlack = Last && Last->View == EVerseFinisherView::Black;
+		if (!Last || !(*Last == V.Value))
 		{
-			LastViews.Add(Viewer, State);
-			OnFinisherView.Broadcast(Viewer, State);
+			LastViews.Add(V.Key, V.Value);
+			OnFinisherView.Broadcast(V.Key, V.Value);
 		}
-		ApplyView(Viewer, State, Camera);
+		ApplyView(V.Key, V.Value, Camera, bWasBlack);
 	}
 }
 
-void UVerseMeleeComponent::ApplyView(APawn* Viewer, const FVerseFinisherViewState& State, const FTransform& Camera)
+void UVerseMeleeComponent::ApplyView(APawn* Viewer, const FVerseFinisherViewState& State, const FTransform& Camera, bool bWasBlack)
 {
-	if (!Viewer->IsLocallyControlled())
-	{
-		return;
-	}
-	APlayerController* Controller = Cast<APlayerController>(Viewer->GetController());
+	const FPawnLock* Lock = Locks.FindByPredicate([Viewer](const FPawnLock& L) { return L.Pawn.Get() == Viewer; });
+	APlayerController* Controller = LocalPlayerController(Viewer, Lock ? Lock->Controller.Get() : nullptr);
 	if (!Controller)
 	{
 		return;
 	}
-	const bool bThird = State.View != EVerseFinisherView::FirstPerson;
-	if (bThird)
+	APlayerCameraManager* CameraManager = Controller->PlayerCameraManager;
+	if (State.bReleasedToDeathView)
+	{
+		// The death view owns the view target and the fade now; only undo the cut this component made.
+		if (bWasBlack && CameraManager)
+		{
+			CameraManager->StopCameraFade();
+		}
+		return;
+	}
+	if (State.View != EVerseFinisherView::FirstPerson)
 	{
 		if (!FinisherCamera)
 		{
@@ -515,14 +644,15 @@ void UVerseMeleeComponent::ApplyView(APawn* Viewer, const FVerseFinisherViewStat
 	{
 		Controller->SetViewTargetWithBlend(Viewer, float(Tuning.CameraBlendS));
 	}
-	if (APlayerCameraManager* CameraManager = Controller->PlayerCameraManager)
+	if (CameraManager)
 	{
 		if (State.View == EVerseFinisherView::Black)
 		{
 			CameraManager->SetManualCameraFade(1.f, FLinearColor::Black, false);
 		}
-		else
+		else if (bWasBlack)
 		{
+			// Only the cut this component started; a fade another system started stays.
 			CameraManager->StopCameraFade();
 		}
 	}
@@ -533,13 +663,17 @@ void UVerseMeleeComponent::EndPresentation()
 	if (bPresenting)
 	{
 		bPresenting = false;
-		const FVerseFinisherViewState Done;
-		for (APawn* Viewer : {OwnerPawn(), PresentVictim.Get()})
+		UpdateLocalViews(VerseFinisher::EndAt);
+		// A dead victim still viewing the finisher camera means no death view took it: fall back
+		// to its own pawn before the camera goes.
+		APawn* Victim = PresentVictim.Get();
+		if (Victim && FinisherCamera)
 		{
-			if (Viewer)
+			const FPawnLock* Lock = Locks.FindByPredicate([Victim](const FPawnLock& L) { return L.Pawn.Get() == Victim; });
+			APlayerController* Controller = LocalPlayerController(Victim, Lock ? Lock->Controller.Get() : nullptr);
+			if (Controller && Controller->GetViewTarget() == FinisherCamera)
 			{
-				OnFinisherView.Broadcast(Viewer, Done);
-				ApplyView(Viewer, Done, Viewer->GetActorTransform());
+				Controller->SetViewTarget(Victim);
 			}
 		}
 	}
@@ -548,6 +682,7 @@ void UVerseMeleeComponent::EndPresentation()
 		FinisherCamera->Destroy();
 		FinisherCamera = nullptr;
 	}
+	ReleaseLocks();
 	PresentVictim.Reset();
 	LastViews.Reset();
 }
@@ -576,6 +711,7 @@ void UVerseMeleeComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 			AdvanceFinisherServer(Now);
 		}
 	}
+	HoldLocks();
 	TickPresentation(Now);
 	if (!Session.bActive && !bPresenting && PendingStrikes.Num() == 0)
 	{

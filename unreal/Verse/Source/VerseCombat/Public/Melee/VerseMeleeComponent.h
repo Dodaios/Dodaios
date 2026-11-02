@@ -10,6 +10,7 @@
 #include "VerseMeleeComponent.generated.h"
 
 class ACameraActor;
+class AController;
 class APawn;
 class IVerseMeleeWorld;
 class UVerseMeleeDefinition;
@@ -22,7 +23,9 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnVerseFinisherView, APawn* /*Viewer*/, co
  * plays the same timeline from FVerseFinisherEvent (reliable multicast) and the hub's OnFinisher.
  *
  * The finisher runs as a server-driven sequence in this component (validate, lock both,
- * phases, abort on attacker death, release). It is shaped so a GAS ability can own it once
+ * phases, abort on attacker death, release). Locking a pawn ignores its controller's move and
+ * look input, stops its character movement and holds its control rotation at the paired yaw,
+ * on the server and on the machine that controls it, until release or abort. It is shaped so a GAS ability can own it once
  * VerseCombat links GameplayAbilities; the attacker's warp to Warp_Finisher is evaluated
  * here from the event on every machine (the motion warping component needs the MotionWarping
  * module edge, also pending).
@@ -69,19 +72,21 @@ public:
 	bool IsInFinisher() const { return Session.bActive || bPresenting; }
 	const FVerseMeleeClock& GetClock() const { return Clock; }
 
-	/** Gore level of this viewer (set from UVerseSettings by the primary module). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Verse|Melee")
-	EVerseGoreLevel GoreLevel = EVerseGoreLevel::Full;
-
 	/** Optional asset; when unset the component imports Data/melee/hookbill.json. */
 	UPROPERTY(EditAnywhere, Category = "Verse|Melee")
 	TObjectPtr<UVerseMeleeDefinition> Definition;
 
-	/** Raised on the machine of a local participant whenever its finisher view changes. */
+	/**
+	 * Raised on every machine whenever a participant's finisher view changes. A victim's state
+	 * with bReleasedToDeathView hands its view target and fade to the death view owner.
+	 */
 	FOnVerseFinisherView OnFinisherView;
 
 	/** Server time on this machine (game state clock; world time without a game state). */
 	double ServerNow() const;
+
+	/** The pawn is held in the paired pose by this component (no move or look input, movement off). */
+	bool IsPawnLocked(const APawn* Pawn) const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -102,7 +107,23 @@ private:
 	void TickPresentation(double Now);
 	void EndPresentation();
 	void UpdateLocalViews(double Elapsed);
-	void ApplyView(APawn* Viewer, const FVerseFinisherViewState& State, const FTransform& Camera);
+	void ApplyView(APawn* Viewer, const FVerseFinisherViewState& State, const FTransform& Camera, bool bWasBlack);
+	void LockPawn(APawn* Pawn, double PairedYaw);
+	void HoldLocks();
+	void ReleaseLocks();
+
+	/** What LockPawn changed on one pawn, so ReleaseLocks undoes exactly that. */
+	struct FPawnLock
+	{
+		TWeakObjectPtr<APawn> Pawn;
+		TWeakObjectPtr<AController> Controller;
+		double Yaw = 0.0;
+		bool bInputIgnored = false;
+		bool bMovementStopped = false;
+		uint8 PrevMovementMode = 0;
+		uint8 PrevCustomMode = 0;
+	};
+	TArray<FPawnLock> Locks;
 
 	struct FPendingStrike
 	{

@@ -60,6 +60,14 @@ namespace VerseMelee
 	VERSECOMBAT_API extern const FName KnifeWeaponId;
 
 	/**
+	 * Gore level of the person at this machine (combat-state.md 8: local per viewer). One value
+	 * per machine, set by the primary module from UVerseSettings; every finisher this machine
+	 * shows (as attacker, victim or neither) reads it. Full until set.
+	 */
+	VERSECOMBAT_API void SetLocalGoreLevel(EVerseGoreLevel Gore);
+	VERSECOMBAT_API EVerseGoreLevel GetLocalGoreLevel();
+
+	/**
 	 * The non-geometric finisher conditions of 7.2: victim Alive (a victim already in a finisher
 	 * is not Alive, so it cannot be hit by a second one), not spawn protected, not prone, not
 	 * mantling; attacker Alive, grounded and not prone.

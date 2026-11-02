@@ -7,6 +7,21 @@ const FName VerseMelee::KnifeWeaponId(TEXT("hookbill"));
 
 namespace
 {
+	EVerseGoreLevel GLocalGoreLevel = EVerseGoreLevel::Full;
+}
+
+void VerseMelee::SetLocalGoreLevel(EVerseGoreLevel Gore)
+{
+	GLocalGoreLevel = Gore;
+}
+
+EVerseGoreLevel VerseMelee::GetLocalGoreLevel()
+{
+	return GLocalGoreLevel;
+}
+
+namespace
+{
 	FVector2D FacingOf(const FTransform& Base)
 	{
 		const double YawRad = FMath::DegreesToRadians(Base.Rotator().Yaw);

@@ -1,6 +1,7 @@
 #include "Combat/VerseMeleeDefinition.h"
 #include "Events/VerseEventHub.h"
 #include "Finisher/VerseFinisherTimeline.h"
+#include "GameFramework/PlayerController.h"
 #include "Melee/VerseMeleeComponent.h"
 #include "Melee/VerseMeleeRules.h"
 #include "Misc/AutomationTest.h"
@@ -65,8 +66,10 @@ namespace VerseFinisherTest
 
 }
 
-// A4.3: phase times 0.25/0.9/1.8/2.1/2.5 s within 1 tick on the server and on two lagged
-// clients. The clients play the timeline from the server's stamp in the Locked event.
+// Unit check for A4.3 (not the acceptance run): the timeline math on a simulated transport.
+// Phase times 0.25/0.9/1.8/2.1/2.5 s within 1 tick when clients play the timeline from the
+// server's stamp in the Locked event. A4.3 itself needs the WP10 netcode run (one server, two
+// lagged -game clients) that measures the phases on every machine; that is still open.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseFinisherTimelineTest, "Verse.Combat.Finisher.Timeline", VERSE_FINISHER_TEST_FLAGS)
 bool FVerseFinisherTimelineTest::RunTest(const FString& Parameters)
 {
@@ -170,10 +173,10 @@ bool FVerseFinisherTimelineTest::RunTest(const FString& Parameters)
 		Runs.Add(RunObj + TEXT("}"));
 	}
 
-	const FString Json = FString::Printf(TEXT("{\"test\": \"Verse.Combat.Finisher.Timeline\", \"kind\": \"simulated netcode: 60 Hz server, reliable ordered delivery 50-70 ms one way, 1 %% loss resent after a round trip, clients at 120 and 90 Hz with +-3 ms clock error\", \"tick_s\": %.6f, \"worst_error_s\": %.6f, \"runs\": [\n%s\n]}\n"),
+	const FString Json = FString::Printf(TEXT("{\"test\": \"Verse.Combat.Finisher.Timeline\", \"kind\": \"unit check, not A4.3 acceptance: simulated netcode: 60 Hz server, reliable ordered delivery 50-70 ms one way, 1 %% loss resent after a round trip, clients at 120 and 90 Hz with +-3 ms clock error\", \"tick_s\": %.6f, \"worst_error_s\": %.6f, \"runs\": [\n%s\n]}\n"),
 		ServerTick, WorstError, *FString::Join(Runs, TEXT(",\n")));
 	TestTrue(TEXT("timeline JSON written"), VerseWp04WriteProof(TEXT("4.3"), TEXT("finisher_timeline.json"), Json));
-	AddInfo(FString::Printf(TEXT("A4.3: %d runs, worst phase error %.4f s (tick %.4f s)"), RunCount, WorstError, ServerTick));
+	AddInfo(FString::Printf(TEXT("A4.3 unit check (simulated): %d runs, worst phase error %.4f s (tick %.4f s)"), RunCount, WorstError, ServerTick));
 	TestTrue(TEXT("every phase within 1 tick"), WorstError <= ServerTick + 1e-9);
 	return true;
 }
@@ -273,7 +276,9 @@ bool FVerseFinisherD5Test::RunTest(const FString& Parameters)
 	return true;
 }
 
-// A4.5: attacker position error at Takedown at most 5 cm, on the server and on both lagged clients.
+// Unit check for A4.5 (not the acceptance run): the warp pose math reaches the target at
+// Takedown from any start sampled at the receive time. It measures no replicated actor; A4.5
+// needs the WP10 netcode run that measures the real attacker position on every machine.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseFinisherWarpTest, "Verse.Combat.Finisher.Warp", VERSE_FINISHER_TEST_FLAGS)
 bool FVerseFinisherWarpTest::RunTest(const FString& Parameters)
 {
@@ -325,9 +330,9 @@ bool FVerseFinisherWarpTest::RunTest(const FString& Parameters)
 		}
 	}
 	VerseWp04WriteProof(TEXT("4.4"), TEXT("finisher_warp.json"), FString::Printf(
-		TEXT("{\"test\": \"Verse.Combat.Finisher.Warp\", \"pairs\": 200, \"worst_server_error_cm\": %.6f, \"worst_client_error_cm\": %.6f, \"samples\": [\n%s\n]}\n"),
+		TEXT("{\"test\": \"Verse.Combat.Finisher.Warp\", \"kind\": \"unit check of the pose math, not A4.5 acceptance\", \"pairs\": 200, \"worst_server_error_cm\": %.6f, \"worst_client_error_cm\": %.6f, \"samples\": [\n%s\n]}\n"),
 		WorstServer, WorstClient, *FString::Join(Samples, TEXT(",\n"))));
-	AddInfo(FString::Printf(TEXT("A4.5: worst warp error at Takedown: server %.3f cm, clients %.3f cm"), WorstServer, WorstClient));
+	AddInfo(FString::Printf(TEXT("A4.5 unit check (pose math): worst warp error at Takedown: server %.3f cm, clients %.3f cm"), WorstServer, WorstClient));
 	TestTrue(TEXT("server error at most 5 cm"), WorstServer <= 5.0);
 	TestTrue(TEXT("client error at most 5 cm"), WorstClient <= 5.0);
 	return true;
@@ -360,6 +365,27 @@ bool FVerseFinisherCameraTest::RunTest(const FString& Parameters)
 	const FVerseFinisherViewState Aborted = VerseFinisher::EvaluateView(1.0, true, EVerseGoreLevel::Reduced);
 	TestEqual(TEXT("abort: first person at once"), Aborted.View, EVerseFinisherView::FirstPerson);
 	TestTrue(TEXT("abort: weapon back"), Aborted.bActiveWeaponEquipped);
+
+	// The victim's view (7.4, 9.1): the same shot without the knife until Recover, then released
+	// to the death view; never first person with a weapon after its death.
+	for (double T = 0.0; T < 3.0; T += 1.0 / 120.0)
+	{
+		const FVerseFinisherViewState Victim = VerseFinisher::EvaluateVictimView(T, false, EVerseGoreLevel::Reduced);
+		const bool bDead = T + 1e-4 >= VerseFinisher::RecoverAt;
+		if (Victim.bKnifeInHand || Victim.bActiveWeaponEquipped || Victim.bReleasedToDeathView != bDead)
+		{
+			AddError(FString::Printf(TEXT("victim view at %.3f s: knife %d weapon %d released %d"), T,
+				int32(Victim.bKnifeInHand), int32(Victim.bActiveWeaponEquipped), int32(Victim.bReleasedToDeathView)));
+		}
+		if (!bDead && Victim.View != VerseFinisher::EvaluateView(T, false, EVerseGoreLevel::Reduced).View)
+		{
+			AddError(FString::Printf(TEXT("victim view at %.3f s is not the attacker's shot"), T));
+		}
+	}
+	const FVerseFinisherViewState VictimAbort = VerseFinisher::EvaluateVictimView(1.0, true, EVerseGoreLevel::Full);
+	TestEqual(TEXT("abort: the living victim is back in first person"), VictimAbort.View, EVerseFinisherView::FirstPerson);
+	TestTrue(TEXT("abort: the living victim has its weapon"), VictimAbort.bActiveWeaponEquipped);
+	TestFalse(TEXT("abort: the living victim is not handed to the death view"), VictimAbort.bReleasedToDeathView);
 
 	const FTransform A(FRotator::ZeroRotator, FVector(0.0, 0.0, 88.0));
 	const FTransform V(FRotator::ZeroRotator, FVector(70.0, 0.0, 88.0));
@@ -495,8 +521,12 @@ bool FVerseFinisherWorldTest::RunTest(const FString& Parameters)
 	bool bAttackerThird = false;
 	bool bVictimThird = false;
 	bool bBackToFirst = false;
+	bool bVictimReleased = false;
+	bool bVictimRearmed = false;
 	for (const TPair<APawn*, FVerseFinisherViewState>& V : Views)
 	{
+		bVictimReleased |= V.Key == Victim && V.Value.bReleasedToDeathView;
+		bVictimRearmed |= V.Key == Victim && V.Value.bActiveWeaponEquipped;
 		bAttackerThird |= V.Key == Attacker && V.Value.View == EVerseFinisherView::ThirdPerson;
 		bVictimThird |= V.Key == Victim && V.Value.View == EVerseFinisherView::ThirdPerson;
 		bBackToFirst |= V.Key == Attacker && V.Value.View == EVerseFinisherView::FirstPerson && V.Value.bActiveWeaponEquipped;
@@ -504,6 +534,8 @@ bool FVerseFinisherWorldTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("attacker view went third person"), bAttackerThird);
 	TestTrue(TEXT("victim view went third person"), bVictimThird);
 	TestTrue(TEXT("attacker back in first person with the weapon"), bBackToFirst);
+	TestTrue(TEXT("dead victim released to the death view"), bVictimReleased);
+	TestFalse(TEXT("dead victim never re-armed in first person"), bVictimRearmed);
 
 	// Abort: the attacker dies at 1.0 s; the victim is released with full health.
 	ACharacter* A2 = W.Spawn(FVector(0.0, 800.0, 0.0), 90.0);
@@ -534,6 +566,134 @@ bool FVerseFinisherWorldTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("victim released Alive"), FVerseMeleeTestWorld::State(V2)->Phase, EVerseCombatPhase::Alive);
 	TestEqual(TEXT("victim health unchanged"), W.Port().GetHealth(V2), 100.f);
 	TestEqual(TEXT("attacker stays Dead"), FVerseMeleeTestWorld::State(A2)->Phase, EVerseCombatPhase::Dead);
+	return true;
+}
+
+// WP04.3 / 7.4 "no input": both pawns possessed by controllers that keep pushing movement and
+// look input through the whole finisher. Neither moves or turns out of the paired pose; both
+// get their input and movement back at release, and the abort releases the living victim.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseFinisherLockTest, "Verse.Combat.Finisher.Lock", VERSE_FINISHER_TEST_FLAGS)
+bool FVerseFinisherLockTest::RunTest(const FString& Parameters)
+{
+	FVerseMeleeTestWorld W;
+	ACharacter* Attacker = W.Spawn(FVector(0.0, 0.0, 0.0), 0.0);
+	ACharacter* Victim = W.Spawn(FVector(100.0, 30.0, 0.0), 10.0);
+	APlayerController* AttackerPC = W.Possess(Attacker);
+	APlayerController* VictimPC = W.Possess(Victim);
+	for (ACharacter* C : {Attacker, Victim})
+	{
+		C->bUseControllerRotationYaw = true;
+		C->GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	}
+	W.Step(3);
+
+	// Sanity: the input does move a pawn before the finisher.
+	const FVector Before = Victim->GetActorLocation();
+	for (int32 I = 0; I < 6; ++I)
+	{
+		Victim->AddMovementInput(FVector(0.0, 1.0, 0.0), 1.f);
+		W.Step();
+	}
+	TestTrue(TEXT("movement input moves a free pawn"), FVector::Dist2D(Before, Victim->GetActorLocation()) > 1.0);
+	Victim->GetCharacterMovement()->StopMovementImmediately();
+	W.Step();
+
+	UVerseMeleeComponent* Melee = FVerseMeleeTestWorld::Melee(Attacker);
+	const double Start = W.Now();
+	EVerseMeleeOutcome Outcome;
+	TestTrue(TEXT("press accepted"), Melee->HandleMeleePress(Start, Outcome));
+	TestEqual(TEXT("finisher"), Outcome, EVerseMeleeOutcome::Finisher);
+	TestTrue(TEXT("attacker locked"), Melee->IsPawnLocked(Attacker));
+	TestTrue(TEXT("victim locked"), Melee->IsPawnLocked(Victim));
+	TestTrue(TEXT("attacker move input ignored"), AttackerPC->IsMoveInputIgnored());
+	TestTrue(TEXT("victim move input ignored"), VictimPC->IsMoveInputIgnored());
+	TestTrue(TEXT("attacker look input ignored"), AttackerPC->IsLookInputIgnored());
+	TestTrue(TEXT("victim look input ignored"), VictimPC->IsLookInputIgnored());
+	TestEqual(TEXT("attacker movement off"), Attacker->GetCharacterMovement()->MovementMode.GetValue(), MOVE_None);
+	TestEqual(TEXT("victim movement off"), Victim->GetCharacterMovement()->MovementMode.GetValue(), MOVE_None);
+
+	const FVector VictimPaired = Victim->GetActorLocation();
+	const double VictimYaw = Victim->GetActorRotation().Yaw;
+	double WorstVictimDrift = 0.0;
+	double WorstAttackerDrift = 0.0;
+	double WorstYaw = 0.0;
+	FVector AttackerHeld = FVector::ZeroVector;
+	bool bHeld = false;
+	while (W.Now() - Start < VerseFinisher::EndAt - 0.03)
+	{
+		for (ACharacter* C : {Attacker, Victim})
+		{
+			C->AddMovementInput(FVector(1.0, 1.0, 0.0), 1.f);
+			C->AddControllerYawInput(15.f);
+			// What PlayerController::UpdateRotation does every frame for bUseControllerRotationYaw.
+			if (AController* Controller = C->GetController())
+			{
+				C->FaceRotation(Controller->GetControlRotation(), float(FVerseMeleeTestWorld::Tick));
+			}
+		}
+		W.Step();
+		const double Elapsed = W.Now() - Start;
+		if (FVerseMeleeTestWorld::State(Victim)->Phase != EVerseCombatPhase::Dead)
+		{
+			WorstVictimDrift = FMath::Max(WorstVictimDrift, FVector::Dist(VictimPaired, Victim->GetActorLocation()));
+			WorstYaw = FMath::Max(WorstYaw, FMath::Abs(FRotator::NormalizeAxis(Victim->GetActorRotation().Yaw - VictimYaw)));
+		}
+		// The warp owns the attacker up to Takedown; after that it must hold the warp target.
+		if (Elapsed > VerseFinisher::TakedownAt + 0.12)
+		{
+			if (!bHeld)
+			{
+				bHeld = true;
+				AttackerHeld = Attacker->GetActorLocation();
+			}
+			WorstAttackerDrift = FMath::Max(WorstAttackerDrift, FVector::Dist(AttackerHeld, Attacker->GetActorLocation()));
+		}
+	}
+	TestTrue(FString::Printf(TEXT("victim held in the paired pose (drift %.3f cm)"), WorstVictimDrift), WorstVictimDrift < 0.5);
+	TestTrue(FString::Printf(TEXT("victim kept the paired yaw (%.3f deg)"), WorstYaw), WorstYaw < 0.1);
+	TestTrue(FString::Printf(TEXT("attacker held at the warp target (drift %.3f cm)"), WorstAttackerDrift), bHeld && WorstAttackerDrift < 0.5);
+
+	W.Step(6);
+	TestFalse(TEXT("finisher over"), Melee->IsInFinisher());
+	TestFalse(TEXT("attacker released"), Melee->IsPawnLocked(Attacker));
+	TestFalse(TEXT("attacker move input back"), AttackerPC->IsMoveInputIgnored());
+	TestFalse(TEXT("attacker look input back"), AttackerPC->IsLookInputIgnored());
+	TestFalse(TEXT("victim controller input counters balanced"), VictimPC->IsMoveInputIgnored());
+	TestEqual(TEXT("attacker movement restored"), Attacker->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Flying);
+	const FVector Free = Attacker->GetActorLocation();
+	for (int32 I = 0; I < 6; ++I)
+	{
+		Attacker->AddMovementInput(FVector(0.0, 1.0, 0.0), 1.f);
+		W.Step();
+	}
+	TestTrue(TEXT("attacker moves again after release"), FVector::Dist2D(Free, Attacker->GetActorLocation()) > 1.0);
+
+	// Abort: the attacker dies at 1.0 s; the living victim gets input and movement back.
+	ACharacter* A2 = W.Spawn(FVector(0.0, 800.0, 0.0), 90.0);
+	ACharacter* V2 = W.Spawn(FVector(0.0, 900.0, 0.0), 90.0);
+	W.Possess(A2);
+	APlayerController* V2PC = W.Possess(V2);
+	V2->GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	W.Step(2);
+	const double Start2 = W.Now();
+	TestTrue(TEXT("abort case: press accepted"), FVerseMeleeTestWorld::Melee(A2)->HandleMeleePress(Start2, Outcome));
+	bool bShot = false;
+	while (W.Now() - Start2 < 1.2)
+	{
+		W.Step();
+		if (!bShot && W.Now() - Start2 >= 1.0)
+		{
+			bShot = true;
+			FVerseHitEvent Shot;
+			Shot.Source = EVerseDamageSource::Bolt;
+			Shot.VictimId = VerseMelee::PlayerIdOf(A2);
+			Shot.Damage = 500.f;
+			W.Port().ApplyMeleeHit(nullptr, A2, Shot);
+		}
+	}
+	TestFalse(TEXT("abort: victim released"), FVerseMeleeTestWorld::Melee(A2)->IsPawnLocked(V2));
+	TestFalse(TEXT("abort: victim move input back"), V2PC->IsMoveInputIgnored());
+	TestEqual(TEXT("abort: victim movement restored"), V2->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Flying);
 	return true;
 }
 
