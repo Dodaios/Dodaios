@@ -268,11 +268,11 @@ void UVerseMovementQa::TickShoot(float DeltaSeconds)
 			F.Pressed = (T > 0.2f && T < 0.25f) ? uint32(EVerseInputButton::Jump) : 0u;
 			return T < 2.f;
 		});
-		Look(FVector(LedgeFaceX - 40.f, LaneY - 520.f, 170.f), FVector(LedgeFaceX - 40.f, LaneY, 120.f));
+		Look(FVector(LedgeFaceX - 70.f, LaneY - 360.f, 150.f), FVector(LedgeFaceX - 40.f, LaneY, 140.f));
 		Next();
 		break;
 	case 1:
-		if (M->IsMantling() && M->GetMantleElapsed() > M->GetMantleDuration() * 0.5f && !bShotTaken)
+		if (M->IsMantling() && M->GetMantleElapsed() > M->GetMantleDuration() * 0.4f && !bShotTaken)
 		{
 			Shot(TEXT("mantle_side"));
 			bShotTaken = true;

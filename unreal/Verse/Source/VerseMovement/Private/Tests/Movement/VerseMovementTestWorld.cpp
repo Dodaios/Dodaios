@@ -42,9 +42,18 @@ AVerseCharacter* FVerseMovementTestWorld::SpawnPawn(const FVector& FeetAt, float
 	{
 		return nullptr;
 	}
-	AController* Controller = Driver == EDriver::Person
-		? static_cast<AController*>(World->SpawnActor<APlayerController>())
-		: static_cast<AController*>(World->SpawnActor<AVerseInputFrameController>());
+	AController* Controller = nullptr;
+	if (Driver == EDriver::Person)
+	{
+		// A person's controller without a viewport: mark it local, as a local player would.
+		APlayerController* Person = World->SpawnActor<APlayerController>();
+		Person->SetAsLocalPlayerController();
+		Controller = Person;
+	}
+	else
+	{
+		Controller = World->SpawnActor<AVerseInputFrameController>();
+	}
 	Controller->Possess(Pawn);
 	Place(*Pawn, FeetAt, Yaw);
 	Tick(2);

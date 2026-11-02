@@ -573,7 +573,10 @@ void UVerseCharacterMovement::UpdateLean(float DeltaSeconds)
 		const float Allowance = ComputeLeanAllowance(Next);
 		Next = FMath::Sign(Next) * FMath::Min(FMath::Abs(Next), Allowance);
 	}
-	LeanQuantized = IVerseMovementQuery::QuantizeLean(Next);
+	// Round toward the target, so quantising never slows the lean below its enter time.
+	const float Scaled = FMath::Clamp(Next * 127.f, -127.f, 127.f);
+	LeanQuantized = int8(Target > Current ? FMath::CeilToInt(Scaled - KINDA_SMALL_NUMBER)
+		: (Target < Current ? FMath::FloorToInt(Scaled + KINDA_SMALL_NUMBER) : FMath::RoundToInt(Scaled)));
 	if (LeanQuantized != 0 && ComputeLeanAllowance(LeanQuantized) * 127.f < FMath::Abs(float(LeanQuantized)))
 	{
 		// Rounding moved the camera past the wall check: step back toward zero.
@@ -1045,7 +1048,9 @@ void UVerseCharacterMovement::OnClientCorrectionReceived(FNetworkPredictionData_
 	FVector ServerGravityDirection)
 {
 	++NetStats.Corrections[int32(GetMoveKind())];
-	UE_LOG(LogVerseMovement, Verbose, TEXT("correction during %s at %.3f"), *StaticEnum<EVerseMoveKind>()->GetNameStringByValue(int64(GetMoveKind())), TimeStamp);
+	UE_LOG(LogVerseMovement, Display, TEXT("correction during %s at %.3f: error %.1f cm, server mode %d, stance %d"),
+		*StaticEnum<EVerseMoveKind>()->GetNameStringByValue(int64(GetMoveKind())), TimeStamp,
+		UpdatedComponent ? FVector::Dist(UpdatedComponent->GetComponentLocation(), NewLocation) : -1.0, int32(ServerMovementMode), int32(Stance));
 	Super::OnClientCorrectionReceived(ClientData, TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition,
 		ServerMovementMode, ServerGravityDirection);
 }

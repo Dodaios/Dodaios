@@ -48,7 +48,7 @@ namespace
 FVerseInputScript VerseMovementScripts::MakeSoak(uint64 Seed, float Duration, TWeakObjectPtr<AVerseCharacter> Pawn, const FVector& CourseOrigin)
 {
 	TSharedRef<FSoakState> State = MakeShared<FSoakState>(Seed);
-	return [State, Duration, Pawn, CourseOrigin](float Time, float DeltaSeconds, FVerseInputFrame& Frame) -> bool
+	return [State, Seed, Duration, Pawn, CourseOrigin](float Time, float DeltaSeconds, FVerseInputFrame& Frame) -> bool
 	{
 		AVerseCharacter* Character = Pawn.Get();
 		if (!Character || Time >= Duration)
@@ -56,10 +56,13 @@ FVerseInputScript VerseMovementScripts::MakeSoak(uint64 Seed, float Duration, TW
 			return false;
 		}
 		FSoakState& S = *State;
-		const FVector Home = CourseOrigin + FVector(300.f, 2400.f, 0.f);
+		// Each seed keeps to its own half of the ledge lanes, so two soak pawns rarely collide.
+		const int32 Half = int32(Seed % 2);
+		const FVector Home = CourseOrigin + FVector(300.f, Half ? 2800.f : 400.f, 0.f);
 		if (Time >= S.SegmentEnd)
 		{
-			S.Segment = ESegment(S.Rng.RangeInt(0, int32(ESegment::Count) - 1));
+			// A third of the segments are mantle runs; the rest is spread over the other moves.
+			S.Segment = S.Rng.Chance(0.33) ? ESegment::MantleRun : ESegment(S.Rng.RangeInt(0, int32(ESegment::MantleRun) - 1));
 			S.SegmentStart = Time;
 			S.SegmentEnd = Time + float(S.Rng.Range(1.2, 3.5));
 			S.TurnRate = float(S.Rng.Range(-60.0, 60.0));
@@ -67,7 +70,7 @@ FVerseInputScript VerseMovementScripts::MakeSoak(uint64 Seed, float Duration, TW
 			S.bHasGoal = false;
 			if (S.Segment == ESegment::MantleRun)
 			{
-				const int32 Lane = S.Rng.RangeInt(0, 3);
+				const int32 Lane = Half * 2 + S.Rng.RangeInt(0, 1);
 				S.Goal = CourseOrigin + FVector(VerseMovementCourse::LedgeFaceX + 100.f,
 					VerseMovementCourse::LedgeLaneY(Lane) + float(S.Rng.Range(-150.0, 150.0)), 0.f);
 				S.bHasGoal = true;
@@ -121,7 +124,7 @@ FVerseInputScript VerseMovementScripts::MakeSoak(uint64 Seed, float Duration, TW
 		case ESegment::MantleRun:
 		{
 			const float Distance = FVector::Dist2D(Character->GetActorLocation(), S.Goal);
-			if (Distance < 260.f && !S.bJumped)
+			if (Distance < 200.f && !S.bJumped)
 			{
 				Buttons |= uint32(EVerseInputButton::Jump);
 				if (Character->GetVerseMovement()->IsMantling())

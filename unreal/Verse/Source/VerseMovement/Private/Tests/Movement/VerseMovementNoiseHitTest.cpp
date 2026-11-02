@@ -16,6 +16,7 @@
 #include "VerseCollision.h"
 #include "VerseGameplayTags.h"
 #include "VerseHitZones.h"
+#include "UObject/StrongObjectPtr.h"
 
 namespace
 {
@@ -71,7 +72,7 @@ bool FVerseMovementNoiseTest::RunTest(const FString& Parameters)
 	FVerseMovementTestWorld W;
 	if (!TestTrue(TEXT("test world"), W.IsValid())) return false;
 	if (!TestNotNull(TEXT("event hub"), UVerseEventHub::Get(W.GetWorld()))) return false;
-	const UVerseAudibilityTable* Audibility = NewObject<UVerseAudibilityTable>();
+	const TStrongObjectPtr<UVerseAudibilityTable> Audibility(NewObject<UVerseAudibilityTable>());
 	const FVector Open(-2400.f, OpenFloorY, 0.f);
 	AVerseCharacter* Pawn = W.SpawnPawn(Open, 0.f);
 	if (!TestNotNull(TEXT("pawn"), Pawn)) return false;
@@ -211,7 +212,7 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 	{
 		FHitResult Hit;
 		const FVector From = Target + Pawn->GetActorForwardVector() * 300.f;
-		FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseHitZoneTest), true);
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseHitZoneTest), false);
 		if (!W.GetWorld()->LineTraceSingleByChannel(Hit, From, Target - Pawn->GetActorForwardVector() * 300.f, VerseCollision::HitBody, Params))
 		{
 			return EVerseHitZone::None;
@@ -247,7 +248,7 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 	FHitResult LegHit;
 	const FVector Behind = Pawn->GetActorLocation() - Pawn->GetActorForwardVector() * 110.f;
 	const bool bLeg = W.GetWorld()->LineTraceSingleByChannel(LegHit, Behind + FVector(0.f, 0.f, 200.f), Behind - FVector(0.f, 0.f, 50.f),
-		VerseCollision::HitBody, FCollisionQueryParams(SCENE_QUERY_STAT(VerseProneLegs), true));
+		VerseCollision::HitBody, FCollisionQueryParams(SCENE_QUERY_STAT(VerseProneLegs), false));
 	TestTrue(TEXT("the prone legs behind the capsule can be hit"), bLeg && VerseHitZones::ZoneForHit(LegHit) == EVerseHitZone::Leg);
 	return true;
 }

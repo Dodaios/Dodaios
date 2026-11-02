@@ -385,7 +385,17 @@ void AVerseCharacter::UpdateBodyPose(float DeltaSeconds)
 	const FVector UprightLocation(0.f, 0.f, -HalfHeight);
 	const FVector LyingLocation(Tuning.ProneRadius * 200.f - Tuning.ProneBodyLength * 100.f, 0.f, -HalfHeight + 15.f);
 	const FVector Location = FMath::Lerp(UprightLocation, LyingLocation, SmoothedProneAlpha);
-	const FRotator Rotation = (LeanQuat * Pose).Rotator();
+	// Crouch and slide: the placeholder shrinks to the crouch height; a slide also leans back.
+	const EVerseStance Stance = Movement->GetStance();
+	const bool bLow = Stance == EVerseStance::Crouch || Stance == EVerseStance::Slide;
+	const float SlideTilt = Stance == EVerseStance::Slide ? FMath::DegreesToRadians(-30.f) : 0.f;
+	const FQuat SlideQuat(FVector::RightVector, SlideTilt);
+	const FRotator Rotation = (SlideQuat * LeanQuat * Pose).Rotator();
+	const FVector Scale(1.f, 1.f, bLow ? Tuning.CrouchHeight / Tuning.StandHeight : 1.f);
+	if (!Body->GetRelativeScale3D().Equals(Scale, 0.001))
+	{
+		Body->SetRelativeScale3D(Scale);
+	}
 	if (Body->GetRelativeLocation().Equals(Location, 0.01) && Body->GetRelativeRotation().Equals(Rotation, 0.01))
 	{
 		return;

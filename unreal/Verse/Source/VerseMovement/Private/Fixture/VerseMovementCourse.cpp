@@ -154,7 +154,7 @@ void AVerseMovementTestGameMode::Tick(float DeltaSeconds)
 	if (QuitAfter > 0.f && Elapsed >= QuitAfter)
 	{
 		QuitAfter = 0.f;
-		if (!ReportPath.IsEmpty())
+		if (!ReportPath.IsEmpty() && TActorIterator<AVerseCharacter>(GetWorld()))
 		{
 			FFileHelper::SaveStringToFile(BuildServerReport(), *ReportPath);
 		}
@@ -167,7 +167,8 @@ void AVerseMovementTestGameMode::Tick(float DeltaSeconds)
 		return;
 	}
 	ReportTimer += DeltaSeconds;
-	if (ReportTimer >= 5.f)
+	// Keep the last report that still had pawns: the soak clients leave before the server quits.
+	if (ReportTimer >= 5.f && TActorIterator<AVerseCharacter>(GetWorld()))
 	{
 		ReportTimer = 0.f;
 		FFileHelper::SaveStringToFile(BuildServerReport(), *ReportPath);
@@ -176,7 +177,7 @@ void AVerseMovementTestGameMode::Tick(float DeltaSeconds)
 
 void AVerseMovementTestGameMode::EndPlay(const EEndPlayReason::Type Reason)
 {
-	if (!ReportPath.IsEmpty())
+	if (!ReportPath.IsEmpty() && TActorIterator<AVerseCharacter>(GetWorld()))
 	{
 		FFileHelper::SaveStringToFile(BuildServerReport(), *ReportPath);
 	}
