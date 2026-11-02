@@ -411,6 +411,35 @@ def test_requirements_recompile_is_no_upgrade_and_byte_compared(
     assert "not a byte-identical" in gate._verify_reproducible_requirements()
 
 
+def test_bump_helper_reuses_the_gate_compile_command(
+    gate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spec = importlib.util.spec_from_file_location(
+        "bump_locked_package", _ROOT / "scripts" / "ci" / "bump_locked_package.py"
+    )
+    assert spec is not None and spec.loader is not None
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    commands: list[list[str]] = []
+
+    def record(command: list[str], *, cwd: Path):
+        del cwd
+        commands.append(command)
+        return gate.CommandResult(0)
+
+    monkeypatch.setattr(helper.subprocess, "run", record)
+    monkeypatch.setattr(helper.matrix, "_verify_uv_version", lambda: None)
+    monkeypatch.setattr(helper.matrix, "_verify_uv_lock", lambda: None)
+    monkeypatch.setattr(helper.matrix, "_verify_reproducible_requirements", lambda: None)
+    assert helper.main(["pypdf==6.21.4"]) == 0
+    upgrade = ["--upgrade-package", "pypdf==6.21.4"]
+    assert commands[0][:2] == ["uv", "lock"] and upgrade[1] in commands[0]
+    assert commands[1] == helper.matrix.requirements_compile_command(*upgrade)
+    no_upgrade = gate.requirements_compile_command()
+    assert [part for part in commands[1] if part not in upgrade] == no_upgrade
+    assert helper.main([]) == 2
+
+
 def test_mock_pylock_fixture_is_valid_toml() -> None:
     fixture = b"""lock-version = \"1.0\"\n[[packages]]\nname = \"example\"\nversion = \"1.0\"\n"""
     assert tomllib.loads(fixture.decode())["packages"][0]["name"] == "example"

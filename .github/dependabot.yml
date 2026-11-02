@@ -108,9 +108,9 @@ updates:
   #
   # `open-pull-requests-limit: 0` disables VERSION updates only. Dependabot
   # SECURITY updates are configured separately in the repository settings and
-  # still fire, so advisories keep reaching the repo — they are then serviced by
-  # hand through the compile command above, which is also what the header of
-  # `requirements.in` instructs.
+  # still fire, so advisories keep reaching the repo. Their requirements.txt is
+  # never the gate's recompile, so service each one by resetting its branch onto
+  # main and running `python scripts/ci/bump_locked_package.py NAME==VERSION`.
   - package-ecosystem: pip
     directory: /
     # New releases wait a week before a PR, so a hijacked publish is
