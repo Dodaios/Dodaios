@@ -113,7 +113,7 @@ public:
 	void SetLeanTarget(int8 Target) { LeanTargetQuantized = Target; }
 
 	/** Lean -1..1 as the camera and hit bodies use it (the dequantised move value). */
-	float GetLean() const { return IVerseMovementQuery::LeanFromQuantized(GetLeanQuantized()); }
+	float GetLean() const;
 	/** Feet-relative eye height of the current stance and transition. */
 	float GetTargetEyeHeight() const;
 	bool IsSliding() const { return MovementMode == MOVE_Custom && CustomMovementMode == uint8(EVerseCustomMove::Slide); }
@@ -213,6 +213,8 @@ protected:
 	EVerseStance Stance = EVerseStance::Stand;
 	EVerseBodyShape BodyShape = EVerseBodyShape::Stand;
 	int8 LeanQuantized = 0;
+	/** Lean as simulated; LeanQuantized is what travels and what other modules read. */
+	float LeanValue = 0.f;
 	float ProneTransitionRemaining = 0.f;
 	bool bProneExiting = false;
 	float SlideElapsed = 0.f;

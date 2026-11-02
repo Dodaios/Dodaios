@@ -157,6 +157,15 @@ bool UVerseCharacterMovement::IsMantling() const
 	return MantleElapsed >= 0.f;
 }
 
+float UVerseCharacterMovement::GetLean() const
+{
+	if (CharacterOwner && CharacterOwner->GetLocalRole() == ROLE_SimulatedProxy)
+	{
+		return IVerseMovementQuery::LeanFromQuantized(GetLeanQuantized());
+	}
+	return LeanValue;
+}
+
 int8 UVerseCharacterMovement::GetLeanQuantized() const
 {
 	if (CharacterOwner && CharacterOwner->GetLocalRole() == ROLE_SimulatedProxy)
@@ -565,7 +574,7 @@ void UVerseCharacterMovement::UpdateLean(float DeltaSeconds)
 	const bool bAllowed = (Stance == EVerseStance::Stand || Stance == EVerseStance::Crouch) && !IsSprinting()
 		&& MantleElapsed < 0.f && ProneTransitionRemaining <= 0.f;
 	const float Target = bAllowed ? IVerseMovementQuery::LeanFromQuantized(LeanTargetQuantized) : 0.f;
-	const float Current = IVerseMovementQuery::LeanFromQuantized(LeanQuantized);
+	const float Current = LeanValue;
 	const float Step = DeltaSeconds / FMath::Max(TuningValues.LeanEnterTime, KINDA_SMALL_NUMBER);
 	float Next = FMath::Abs(Target - Current) <= Step ? Target : Current + FMath::Sign(Target - Current) * Step;
 	if (!FMath::IsNearlyZero(Next))
@@ -573,15 +582,8 @@ void UVerseCharacterMovement::UpdateLean(float DeltaSeconds)
 		const float Allowance = ComputeLeanAllowance(Next);
 		Next = FMath::Sign(Next) * FMath::Min(FMath::Abs(Next), Allowance);
 	}
-	// Round toward the target, so quantising never slows the lean below its enter time.
-	const float Scaled = FMath::Clamp(Next * 127.f, -127.f, 127.f);
-	LeanQuantized = int8(Target > Current ? FMath::CeilToInt(Scaled - KINDA_SMALL_NUMBER)
-		: (Target < Current ? FMath::FloorToInt(Scaled + KINDA_SMALL_NUMBER) : FMath::RoundToInt(Scaled)));
-	if (LeanQuantized != 0 && ComputeLeanAllowance(LeanQuantized) * 127.f < FMath::Abs(float(LeanQuantized)))
-	{
-		// Rounding moved the camera past the wall check: step back toward zero.
-		LeanQuantized = int8(LeanQuantized > 0 ? LeanQuantized - 1 : LeanQuantized + 1);
-	}
+	LeanValue = FMath::Clamp(Next, -1.f, 1.f);
+	LeanQuantized = IVerseMovementQuery::QuantizeLean(LeanValue);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1039,6 +1041,7 @@ void UVerseCharacterMovement::MoveAutonomous(float ClientTimeStamp, float DeltaT
 			|| (bAllowedNow && FMath::Abs(Client - int32(LeanBefore)) <= MaxStep))
 		{
 			LeanQuantized = int8(Client);
+			LeanValue = IVerseMovementQuery::LeanFromQuantized(LeanQuantized);
 		}
 		else
 		{
@@ -1073,6 +1076,7 @@ void FVerseMoveState::Capture(const UVerseCharacterMovement& M)
 	Stance = M.Stance;
 	BodyShape = M.BodyShape;
 	LeanQuantized = M.LeanQuantized;
+	LeanValue = M.LeanValue;
 	ProneTransitionRemaining = M.ProneTransitionRemaining;
 	bProneExiting = M.bProneExiting;
 	SlideElapsed = M.SlideElapsed;
@@ -1096,6 +1100,7 @@ void FVerseMoveState::Restore(UVerseCharacterMovement& M) const
 		M.SetBodyShape(BodyShape, false, false);
 	}
 	M.LeanQuantized = LeanQuantized;
+	M.LeanValue = LeanValue;
 	M.ProneTransitionRemaining = ProneTransitionRemaining;
 	M.bProneExiting = bProneExiting;
 	M.SlideElapsed = SlideElapsed;

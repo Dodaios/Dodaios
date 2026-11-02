@@ -10,6 +10,7 @@
 #include "Noise/VerseAudibilityTable.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/SkeletalBodySetup.h"
 #include "Tests/Movement/VerseMovementTestWorld.h"
 #include "VerseCharacter.h"
 #include "VerseCharacterMovement.h"
@@ -222,6 +223,10 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 				VerseCollision::HitBody, FCollisionQueryParams(SCENE_QUERY_STAT(VerseHitZoneScan), false));
 			const EVerseHitZone Zone = bHit ? VerseHitZones::ZoneForHit(Hit) : EVerseHitZone::None;
 			OutProfile += FString::Printf(TEXT("%d"), int32(Zone));
+			if (bHit && FMath::IsNearlyEqual(FMath::Fmod(Height, 40.f), 2.5f))
+			{
+				OutProfile += FString::Printf(TEXT("[%s %s z%.0f]"), *Hit.BoneName.ToString(), *GetNameSafe(Hit.GetComponent()), Hit.ImpactPoint.Z - Floor);
+			}
 			if (Zone != EVerseHitZone::None)
 			{
 				FVector2f& Range = OutRange.FindOrAdd(Zone, FVector2f(Height, Height));
@@ -231,6 +236,14 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 		}
 	};
 	Run(W, *Pawn, 0u, FVector2f::ZeroVector, 0.5f);
+	for (const USkeletalBodySetup* Setup : Mesh->GetPhysicsAsset()->SkeletalBodySetups)
+	{
+		const FBodyInstance* Instance = Setup ? Mesh->GetBodyInstance(Setup->BoneName) : nullptr;
+		const FKSphylElem* Sphyl = Setup && Setup->AggGeom.SphylElems.Num() ? &Setup->AggGeom.SphylElems[0] : nullptr;
+		AddInfo(FString::Printf(TEXT("body %s: at %s, capsule r %.1f len %.1f, bounds %s"), Setup ? *Setup->BoneName.ToString() : TEXT("?"),
+			Instance ? *(Instance->GetUnrealWorldTransform().GetLocation() - Pawn->GetActorLocation()).ToCompactString() : TEXT("-"),
+			Sphyl ? Sphyl->Radius : -1.f, Sphyl ? Sphyl->Length : -1.f, Instance ? *Instance->GetBodyBounds().GetExtent().ToCompactString() : TEXT("-")));
+	}
 	const FVector Head = BodyLocation(TEXT("Head"));
 	const bool bHasCamera = Mesh->GetBoneIndex(TEXT("Camera")) != INDEX_NONE;
 	const FVector CameraBone = bHasCamera ? Mesh->GetBoneLocation(TEXT("Camera")) : FVector::ZeroVector;

@@ -23,6 +23,7 @@ struct FVerseMoveState
 	EVerseStance Stance = EVerseStance::Stand;
 	EVerseBodyShape BodyShape = EVerseBodyShape::Stand;
 	int8 LeanQuantized = 0;
+	float LeanValue = 0.f;
 	float ProneTransitionRemaining = 0.f;
 	bool bProneExiting = false;
 	float SlideElapsed = 0.f;
