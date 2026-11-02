@@ -1,6 +1,6 @@
 #include "Misc/AutomationTest.h"
 
-#if WITH_DEV_AUTOMATION_TESTS
+#if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
@@ -20,7 +20,8 @@
 
 // Verse.Visual.Gore.Pairs: Full vs Reduced screenshot pairs of a body hit, a wall spatter, a pool
 // and a finisher (WP05 evidence), and the GPU cost of gore_storm at 1440p (A5.4). Runs only in a
-// rendered `-game` process (scripts/unreal/screenshot.py --suite Verse.Visual.Gore).
+// rendered `-game` process of the editor binary (scripts/unreal/screenshot.py --suite Verse.Visual.Gore);
+// editor-only APIs (material compile errors, shader compile flush) keep it out of game builds.
 
 namespace VerseGoreVisual
 {
@@ -229,7 +230,7 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 		Wait(10);
 		// Body hit: droplets in the air.
 		Do([S]() { S->Gore->HandleHit(HitOn(*S, EVerseHitZone::UpperTorso, 45.f)); S->Gore->HandleHit(HitOn(*S, EVerseHitZone::Head, 60.f)); });
-		Wait(2);
+		Wait(6);
 		Do([S]() { Shoot(*S, TEXT("body_hit")); });
 		Wait(6);
 		// Wall spatter after the droplets settle.
@@ -363,9 +364,9 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 	return true;
 }
 
-#endif // WITH_DEV_AUTOMATION_TESTS
+#endif // WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 
-#if WITH_DEV_AUTOMATION_TESTS
+#if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 
 #include "MaterialShared.h"
 #include "Materials/Material.h"
@@ -415,4 +416,4 @@ bool FVerseGoreVisualMaterials::RunTest(const FString&)
 	return true;
 }
 
-#endif // WITH_DEV_AUTOMATION_TESTS
+#endif // WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
