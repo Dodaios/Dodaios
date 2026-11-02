@@ -71,7 +71,7 @@ namespace VerseBoltVisual
 		if (ADirectionalLight* Light = World->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-35, 30, 0), P))
 		{
 			Light->SetMobility(EComponentMobility::Movable);
-			Light->GetComponent()->SetIntensity(6.f);
+			Light->GetLightComponent()->SetIntensity(6.f);
 			S->Spawned.Add(Light);
 		}
 		if (ACameraActor* Camera = World->SpawnActor<ACameraActor>(FVector(0, 0, 160), FRotator(-4, 0, 0), P))
