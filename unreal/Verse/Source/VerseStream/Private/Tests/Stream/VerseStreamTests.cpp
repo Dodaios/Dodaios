@@ -344,6 +344,82 @@ bool FVerseStreamDriverSettingsTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+namespace
+{
+	/** The console driver with the plugin and the window replaced by recordings. */
+	class FRecordingConsoleDriver : public FVerseConsoleStreamDriver
+	{
+	public:
+		bool bCommandsWork = true;
+		FWindowState Window;
+		mutable TArray<FWindowState> Requests;
+
+		virtual bool IsAvailable() const override { return true; }
+
+	protected:
+		virtual bool RunCommand(const TCHAR* Command) const override { return bCommandsWork; }
+		virtual FWindowState CurrentWindow() const override { return Window; }
+		virtual void RequestWindow(const FWindowState& State) const override { Requests.Add(State); }
+	};
+
+	FVerseStreamConfig PanelConfig(int32 W, int32 H)
+	{
+		FVerseStreamConfig Config;
+		Config.SignalUrl = TEXT("ws://127.0.0.1:1/api/verse/signal?role=streamer&key=k");
+		Config.RenderSize = FIntPoint(W, H);
+		return Config;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseStreamDriverWindowRestoreTest, "Verse.Stream.Driver.WindowRestore", TestFlags)
+bool FVerseStreamDriverWindowRestoreTest::RunTest(const FString& Parameters)
+{
+	FRecordingConsoleDriver Driver;
+	Driver.Window.ResX = 2560;
+	Driver.Window.ResY = 1440;
+	Driver.Window.Mode = EWindowMode::WindowedFullscreen;
+
+	bool bOk = false;
+	Driver.Start(PanelConfig(960, 600), [&bOk](bool bStarted, const FString&) { bOk = bStarted; });
+	TestTrue(TEXT("started"), bOk);
+	if (!TestEqual(TEXT("one window request on start"), Driver.Requests.Num(), 1))
+	{
+		Driver.Stop();
+		return false;
+	}
+	TestEqual(TEXT("panel width"), Driver.Requests[0].ResX, 960);
+	TestEqual(TEXT("panel height"), Driver.Requests[0].ResY, 600);
+	TestEqual(TEXT("panel is windowed"), static_cast<int32>(Driver.Requests[0].Mode), static_cast<int32>(EWindowMode::Windowed));
+
+	Driver.Resize(FIntPoint(800, 500));
+	Driver.Stop();
+	if (TestEqual(TEXT("resize and restore requested"), Driver.Requests.Num(), 3))
+	{
+		TestEqual(TEXT("restored width"), Driver.Requests[2].ResX, 2560);
+		TestEqual(TEXT("restored height"), Driver.Requests[2].ResY, 1440);
+		TestEqual(TEXT("restored mode"), static_cast<int32>(Driver.Requests[2].Mode), static_cast<int32>(EWindowMode::WindowedFullscreen));
+	}
+
+	// A second Stop restores nothing again.
+	Driver.Stop();
+	TestEqual(TEXT("no second restore"), Driver.Requests.Num(), 3);
+
+	// A start the plugin refuses gives the window back right away.
+	FRecordingConsoleDriver Failing;
+	Failing.bCommandsWork = false;
+	Failing.Window.ResX = 1920;
+	Failing.Window.ResY = 1080;
+	Failing.Window.Mode = EWindowMode::Fullscreen;
+	Failing.Start(PanelConfig(960, 600), [&bOk](bool bStarted, const FString&) { bOk = bStarted; });
+	TestFalse(TEXT("failed start"), bOk);
+	if (TestEqual(TEXT("panel size then restore"), Failing.Requests.Num(), 2))
+	{
+		TestEqual(TEXT("failed start restores width"), Failing.Requests[1].ResX, 1920);
+		TestEqual(TEXT("failed start restores mode"), static_cast<int32>(Failing.Requests[1].Mode), static_cast<int32>(EWindowMode::Fullscreen));
+	}
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseContractStreamStateTest, "Verse.Contract.Stream.StateMessages", TestFlags)
 bool FVerseContractStreamStateTest::RunTest(const FString& Parameters)
 {
