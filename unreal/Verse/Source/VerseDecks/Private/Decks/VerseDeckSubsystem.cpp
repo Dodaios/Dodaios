@@ -1,0 +1,334 @@
+#include "Decks/VerseDeckSubsystem.h"
+
+#include "Camera/VerseDeckCamera.h"
+#include "Decks/VerseDeckLook.h"
+#include "Dom/JsonObject.h"
+#include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
+#include "HAL/PlatformTime.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
+#include "Misc/DateTime.h"
+#include "Misc/Parse.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
+#include "Space/VerseSpaceView.h"
+#include "UObject/UObjectGlobals.h"
+#include "VerseLog.h"
+
+namespace VerseDeckSubsystemPrivate
+{
+	/** Commander sample interval for inspection (`useWorldActions.ts` TICK_MS). */
+	constexpr double SampleS = 0.5;
+
+	FString PackageOf(const FString& LevelPath)
+	{
+		FString Package = LevelPath;
+		int32 Dot = INDEX_NONE;
+		if (Package.FindChar(TEXT('.'), Dot))
+		{
+			Package.LeftInline(Dot);
+		}
+		return Package;
+	}
+
+	FString Condensed(const TSharedRef<FJsonObject>& Root)
+	{
+		FString Out;
+		const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer =
+			TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
+		FJsonSerializer::Serialize(Root, Writer);
+		return Out;
+	}
+}
+
+void UVerseDeckSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+	PlacementsDir = Verse::Decks::PlacementsDir();
+	Reporter.Sink = [this](const FVerseWorldAction& Action)
+	{
+		UE_LOG(LogVerseDecks, Log, TEXT("world action %s"), *FVerseWorldActionReporter::ToBridgeJson(Action, TEXT("local"), FDateTime::UtcNow().ToUnixTimestampDecimal()));
+		OnWorldAction.Broadcast(Action);
+	};
+
+#if !UE_BUILD_SHIPPING
+	// Content override for every deck (parity Q-09).
+	FString Requested;
+	if (FParse::Value(FCommandLine::Get(), TEXT("VerseDeck="), Requested) && Verse::Decks::Find(FName(*Requested)))
+	{
+		StartupDeck = FName(*Requested);
+	}
+#endif
+
+	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
+		{
+			TickDecks(Now());
+			return true;
+		}));
+	PostLoadHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddWeakLambda(this, [this](UWorld* World)
+		{
+			if (PendingDone && World && World->GetPackage()->GetName() == PendingLevel)
+			{
+				TFunction<void(bool)> Done = MoveTemp(PendingDone);
+				PendingDone = nullptr;
+				Done(true);
+			}
+		});
+	RegisterQa();
+}
+
+void UVerseDeckSubsystem::Deinitialize()
+{
+	UnregisterQa();
+	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
+	FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(PostLoadHandle);
+	PendingDone = nullptr;
+	Super::Deinitialize();
+}
+
+UVerseDeckSubsystem* UVerseDeckSubsystem::Get(const UObject* WorldContextObject)
+{
+	const UWorld* World = GEngine ? GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull) : nullptr;
+	const UGameInstance* Instance = World ? World->GetGameInstance() : nullptr;
+	return Instance ? Instance->GetSubsystem<UVerseDeckSubsystem>() : nullptr;
+}
+
+double UVerseDeckSubsystem::Now() const
+{
+	return Clock ? Clock() : FPlatformTime::Seconds();
+}
+
+UWorld* UVerseDeckSubsystem::CurrentWorld() const
+{
+	const UGameInstance* Instance = GetGameInstance();
+	return Instance ? Instance->GetWorld() : nullptr;
+}
+
+const FVerseDeckManifest* UVerseDeckSubsystem::GetManifest(FName Deck)
+{
+	if (const FVerseDeckManifest* Cached = Manifests.Find(Deck))
+	{
+		return Cached;
+	}
+	FVerseDeckManifest Manifest;
+	FString Error;
+	if (!FVerseDeckManifest::Load(Deck, PlacementsDir, Manifest, Error))
+	{
+		UE_LOG(LogVerseDecks, Warning, TEXT("%s"), *Error);
+		return nullptr;
+	}
+	return &Manifests.Add(Deck, MoveTemp(Manifest));
+}
+
+bool UVerseDeckSubsystem::RequestDeck(FName Deck)
+{
+	if (Verse::Decks::Find(Deck) == nullptr || bLoadInFlight)
+	{
+		return false;
+	}
+	if (!Lift.Request(CurrentDeck, Deck, Now(), bReducedMotion))
+	{
+		return false;
+	}
+	for (const EVerseLiftCue Cue : Lift.TakeCues())
+	{
+		OnLiftCue.Broadcast(Cue);
+	}
+	TickDecks(Now());
+	return true;
+}
+
+bool UVerseDeckSubsystem::LoadDeckDirect(FName Deck)
+{
+	if (Verse::Decks::Find(Deck) == nullptr || bLoadInFlight || Lift.IsBusy())
+	{
+		return false;
+	}
+	StartLoad(Deck, false);
+	return true;
+}
+
+void UVerseDeckSubsystem::StartLoad(FName Deck, bool bByLift)
+{
+	const FVerseDeckInfo* Info = Verse::Decks::Find(Deck);
+	check(Info);
+	bLoadInFlight = true;
+	const double StartedAt = Now();
+	TWeakObjectPtr<UVerseDeckSubsystem> Weak(this);
+	TFunction<void(bool)> Done = [Weak, Deck, bByLift, StartedAt](bool bOk)
+	{
+		if (UVerseDeckSubsystem* Self = Weak.Get())
+		{
+			Self->OnLoaded(Deck, bByLift, bOk, StartedAt);
+		}
+	};
+	if (LevelLoader)
+	{
+		LevelLoader(*Info, MoveTemp(Done));
+	}
+	else
+	{
+		DefaultLoad(*Info, MoveTemp(Done));
+	}
+}
+
+void UVerseDeckSubsystem::DefaultLoad(const FVerseDeckInfo& Deck, TFunction<void(bool)> Done)
+{
+	UWorld* World = CurrentWorld();
+	if (World == nullptr)
+	{
+		Done(false);
+		return;
+	}
+	PendingLevel = VerseDeckSubsystemPrivate::PackageOf(Deck.LevelPath);
+	PendingDone = MoveTemp(Done);
+	UE_LOG(LogVerseDecks, Log, TEXT("opening %s"), *PendingLevel);
+	UGameplayStatics::OpenLevel(World, FName(*PendingLevel));
+}
+
+void UVerseDeckSubsystem::OnLoaded(FName Deck, bool bByLift, bool bOk, double StartedAt)
+{
+	bLoadInFlight = false;
+	const double NowS = Now();
+	if (!bOk)
+	{
+		UE_LOG(LogVerseDecks, Warning, TEXT("deck %s failed to load"), *Deck.ToString());
+		Lift.NotifyFailed(NowS);
+		return;
+	}
+	CurrentDeck = Deck;
+	if (bByLift)
+	{
+		Lift.NotifyArrived(NowS);
+	}
+	else
+	{
+		LastColdLoadS = NowS - StartedAt;
+	}
+	UE_LOG(LogVerseDecks, Log, TEXT("arrived on %s after %.3f s (%s)"), *Deck.ToString(), NowS - StartedAt, bByLift ? TEXT("lift") : TEXT("direct"));
+	SpawnDeckActors(CurrentWorld(), Deck, bByLift);
+	Reporter.NotifyArrived(Deck);
+	OnDeckArrived.Broadcast(Deck, bByLift);
+}
+
+void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLift)
+{
+	const FVerseDeckManifest* Manifest = GetManifest(Deck);
+	if (World == nullptr || !World->IsGameWorld() || Manifest == nullptr)
+	{
+		return;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	Params.ObjectFlags |= RF_Transient;
+
+	AVerseDeckLighting* Lights = World->SpawnActor<AVerseDeckLighting>(Params);
+	if (Lights)
+	{
+		Lights->Build(*Manifest);
+		Lighting = Lights;
+	}
+	SpaceView = World->SpawnActor<AVerseSpaceView>(Params);
+
+	AVerseDeckCamera* DeckCamera = World->SpawnActor<AVerseDeckCamera>(Params);
+	if (DeckCamera)
+	{
+		FTransform Arrival;
+		if (Manifest->ArrivalTransform(bByLift, Arrival))
+		{
+			DeckCamera->FrameArrival(Arrival);
+			if (APlayerController* Controller = World->GetFirstPlayerController())
+			{
+				if (APawn* Pawn = Controller->GetPawn())
+				{
+					float Radius = 0.f;
+					float HalfHeight = 0.f;
+					Pawn->GetSimpleCollisionCylinder(Radius, HalfHeight);
+					Pawn->SetActorLocationAndRotation(Arrival.GetLocation() + FVector(0.0, 0.0, HalfHeight), Arrival.Rotator(), false, nullptr, ETeleportType::TeleportPhysics);
+					Controller->SetControlRotation(Arrival.Rotator());
+				}
+				Controller->SetViewTarget(DeckCamera);
+			}
+		}
+		Camera = DeckCamera;
+	}
+}
+
+void UVerseDeckSubsystem::NotifyVisible()
+{
+	Reporter.NotifyVisible();
+}
+
+void UVerseDeckSubsystem::NotifyCommanderFeet(const FVector& FeetCm)
+{
+	const FVerseDeckManifest* Manifest = CurrentDeck.IsNone() ? nullptr : GetManifest(CurrentDeck);
+	if (Manifest)
+	{
+		Reporter.NotifyPosition(*Manifest, FeetCm, Day ? Day() : FDateTime::Now().ToString(TEXT("%Y-%m-%d")));
+	}
+}
+
+void UVerseDeckSubsystem::TickDecks(double NowS)
+{
+	UWorld* World = CurrentWorld();
+	if (!bStartupDone && World && World->IsGameWorld() && World->HasBegunPlay())
+	{
+		bStartupDone = true;
+		if (!StartupDeck.IsNone())
+		{
+			LoadDeckDirect(StartupDeck);
+		}
+		else if (CurrentDeck.IsNone() && !LevelLoader)
+		{
+			// Booted straight into a deck level (the default map or a travel URL): that is the arrival.
+			const FString Package = World->GetPackage()->GetName();
+			for (const FVerseDeckInfo& Info : Verse::Decks::All())
+			{
+				if (VerseDeckSubsystemPrivate::PackageOf(Info.LevelPath) == Package)
+				{
+					OnLoaded(Info.Id, false, true, NowS);
+					break;
+				}
+			}
+		}
+	}
+	if (Lift.Tick(NowS))
+	{
+		StartLoad(Lift.Target(), true);
+	}
+	for (const EVerseLiftCue Cue : Lift.TakeCues())
+	{
+		OnLiftCue.Broadcast(Cue);
+	}
+	if (!CurrentDeck.IsNone() && (LastSampleAt < 0.0 || NowS - LastSampleAt >= VerseDeckSubsystemPrivate::SampleS))
+	{
+		LastSampleAt = NowS;
+		const APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
+		if (const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr)
+		{
+			float Radius = 0.f;
+			float HalfHeight = 0.f;
+			Pawn->GetSimpleCollisionCylinder(Radius, HalfHeight);
+			NotifyCommanderFeet(Pawn->GetActorLocation() - FVector(0.0, 0.0, HalfHeight));
+		}
+	}
+}
+
+FString UVerseDeckSubsystem::StateJson() const
+{
+	const TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
+	const FVerseDeckInfo* Info = Verse::Decks::Find(CurrentDeck);
+	Root->SetStringField(TEXT("deck"), CurrentDeck.IsNone() ? FString() : CurrentDeck.ToString());
+	Root->SetNumberField(TEXT("number"), Info ? Info->Number : 0);
+	static const TCHAR* Phases[] = { TEXT("idle"), TEXT("doors_closing"), TEXT("riding"), TEXT("doors_opening") };
+	Root->SetStringField(TEXT("lift"), Phases[static_cast<int32>(Lift.Phase())]);
+	Root->SetNumberField(TEXT("last_ride_s"), Lift.LastRideS());
+	Root->SetNumberField(TEXT("last_load_s"), Lift.LastLoadS());
+	Root->SetNumberField(TEXT("last_cold_load_s"), LastColdLoadS);
+	Root->SetBoolField(TEXT("deck_missing"), Lift.DeckMissing());
+	return VerseDeckSubsystemPrivate::Condensed(Root);
+}
