@@ -7,10 +7,6 @@
 #include "Pieces/VersePieceManifest.h"
 #include "Pieces/VersePieceTypes.h"
 #include "StaticMeshResources.h"
-#if WITH_EDITOR
-#include "MeshDescription.h"
-#include "StaticMeshAttributes.h"
-#endif
 
 void FVerseMeshSoup::AddQuad(const FVector& A, const FVector& B, const FVector& C, const FVector& D)
 {
@@ -271,26 +267,6 @@ float UVerseDestructibleValidator::RefThicknessCm(EVersePieceClass Class)
 bool UVerseDestructibleValidator::ReadMesh(const UStaticMesh& Mesh, FVerseMeshSoup& Out)
 {
 	Out = FVerseMeshSoup();
-#if WITH_EDITOR
-	if (const FMeshDescription* Description = Mesh.GetMeshDescription(0))
-	{
-		FStaticMeshConstAttributes Attributes(*Description);
-		const TVertexAttributesConstRef<FVector3f> Positions = Attributes.GetVertexPositions();
-		TMap<FVertexID, int32> Index;
-		for (const FVertexID Vertex : Description->Vertices().GetElementIDs())
-		{
-			Index.Add(Vertex, Out.Positions.Add(FVector(Positions[Vertex])));
-		}
-		for (const FTriangleID Triangle : Description->Triangles().GetElementIDs())
-		{
-			for (const FVertexID Vertex : Description->GetTriangleVertices(Triangle))
-			{
-				Out.Indices.Add(Index[Vertex]);
-			}
-		}
-		return Out.NumTriangles() > 0;
-	}
-#endif
 	const FStaticMeshRenderData* RenderData = Mesh.GetRenderData();
 	if (!RenderData || RenderData->LODResources.Num() == 0)
 	{

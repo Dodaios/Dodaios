@@ -4,12 +4,9 @@
 
 #include "Debris/VerseDebrisBudget.h"
 #include "Destruction/VersePenetrationTable.h"
-#include "Dom/JsonObject.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
 
 using namespace VerseDestructionTest;
 
@@ -152,36 +149,36 @@ namespace
 
 	void WriteProof(const FStormResult& R)
 	{
-		TSharedRef<FJsonObject> Json = MakeShared<FJsonObject>();
-		Json->SetStringField(TEXT("scenario"), TEXT("destruction_storm"));
-		Json->SetStringField(TEXT("package"), TEXT("WP06"));
-		Json->SetStringField(TEXT("sub_task"), TEXT("WP06.11"));
-		Json->SetNumberField(TEXT("duration_s"), R.DurationS);
-		Json->SetNumberField(TEXT("fracture_events"), R.Fractures);
-		Json->SetNumberField(TEXT("peak_multicast_events_per_s"), R.PeakEventsPerSecond);
-		Json->SetNumberField(TEXT("events_over_rate_dropped_multicast"), R.EventsOverRate);
-		Json->SetNumberField(TEXT("peak_debris_bodies_high"), R.PeakBodiesHigh);
-		Json->SetNumberField(TEXT("peak_debris_bodies_low"), R.PeakBodiesLow);
-		Json->SetNumberField(TEXT("peak_bodies_per_fracture"), R.PeakPerFracture);
-		Json->SetNumberField(TEXT("peak_geometry_collection_actors"), R.PeakActors);
-		Json->SetNumberField(TEXT("peak_nav_tiles_in_flight"), R.PeakNavInFlight);
-		Json->SetNumberField(TEXT("repairs"), R.Repairs);
-		Json->SetNumberField(TEXT("peak_active_drones"), R.PeakDrones);
-		Json->SetNumberField(TEXT("state_item_packed_bytes"), R.ItemBytes);
-		Json->SetNumberField(TEXT("item_writes"), R.ItemWrites);
-		Json->SetNumberField(TEXT("sim_ms_per_tick_max"), R.SimMsPerTickMax);
-		Json->SetStringField(TEXT("physics_ms"), TEXT("not measured headless: needs the rendered lane (unreal-perf)"));
-		TSharedRef<FJsonObject> Budgets = MakeShared<FJsonObject>();
-		Budgets->SetNumberField(TEXT("debris_bodies_high"), 400);
-		Budgets->SetNumberField(TEXT("debris_bodies_low"), 150);
-		Budgets->SetNumberField(TEXT("bodies_per_fracture"), 40);
-		Budgets->SetNumberField(TEXT("geometry_collection_actors"), 32);
-		Budgets->SetNumberField(TEXT("fracture_events_per_s"), 64);
-		Budgets->SetNumberField(TEXT("nav_tiles_in_flight"), 4);
-		Json->SetObjectField(TEXT("budgets"), Budgets);
-		FString Text;
-		const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Text);
-		FJsonSerializer::Serialize(Json, Writer);
+		// Hand-written JSON: the module links no JSON library.
+		const TPair<const TCHAR*, double> Numbers[] = {
+			{TEXT("duration_s"), double(R.DurationS)},
+			{TEXT("fracture_events"), double(R.Fractures)},
+			{TEXT("peak_multicast_events_per_s"), double(R.PeakEventsPerSecond)},
+			{TEXT("events_over_rate_dropped_multicast"), double(R.EventsOverRate)},
+			{TEXT("peak_debris_bodies_high"), double(R.PeakBodiesHigh)},
+			{TEXT("peak_debris_bodies_low"), double(R.PeakBodiesLow)},
+			{TEXT("peak_bodies_per_fracture"), double(R.PeakPerFracture)},
+			{TEXT("peak_geometry_collection_actors"), double(R.PeakActors)},
+			{TEXT("peak_nav_tiles_in_flight"), double(R.PeakNavInFlight)},
+			{TEXT("repairs"), double(R.Repairs)},
+			{TEXT("peak_active_drones"), double(R.PeakDrones)},
+			{TEXT("state_item_packed_bytes"), double(R.ItemBytes)},
+			{TEXT("item_writes"), double(R.ItemWrites)},
+			{TEXT("sim_ms_per_tick_max"), double(R.SimMsPerTickMax)},
+			{TEXT("budget_debris_bodies_high"), double(400)},
+			{TEXT("budget_debris_bodies_low"), double(150)},
+			{TEXT("budget_bodies_per_fracture"), double(40)},
+			{TEXT("budget_geometry_collection_actors"), double(32)},
+			{TEXT("budget_fracture_events_per_s"), double(64)},
+			{TEXT("budget_nav_tiles_in_flight"), double(4)},
+		};
+		FString Text = TEXT("{\n  \"scenario\": \"destruction_storm\",\n  \"package\": \"WP06\",\n  \"sub_task\": \"WP06.11\",\n");
+		Text += TEXT("  \"physics_ms\": \"not measured headless: needs the rendered lane (unreal-perf)\"");
+		for (const TPair<const TCHAR*, double>& Field : Numbers)
+		{
+			Text += FString::Printf(TEXT(",\n  \"%s\": %s"), Field.Key, *FString::SanitizeFloat(Field.Value));
+		}
+		Text += TEXT("\n}\n");
 		const FString Path = FPaths::ProjectSavedDir() / TEXT("Harness/proof/WP06/WP06.11/destruction_storm.json");
 		FFileHelper::SaveStringToFile(Text, *Path);
 	}

@@ -66,6 +66,6 @@ public:
 	/** Proxies of every reachable state, GC, material and manifest, plus the geometry of every mesh it can read. */
 	static FVerseValidationReport ValidatePiece(const AVerseDestructible& Piece, const UVersePieceManifest* Manifest);
 
-	/** Triangles of a static mesh (editor: mesh description; else CPU-readable render data). False if unreadable. */
+	/** Triangles of LOD 0 of a static mesh (render data; cooked meshes need CPU access). False if unreadable. */
 	static bool ReadMesh(const UStaticMesh& Mesh, FVerseMeshSoup& Out);
 };
