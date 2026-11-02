@@ -1,0 +1,11 @@
+{
+  "schema": "verse.rules/1",
+  "ruleset": "endless/1",
+  "respawn_delay_s": 3.0,
+  "spawn_protection_max_s": 2.0,
+  "kills_per_set": 10,
+  "health_regen_per_s": 0.0,
+  "max_armor": 0.0,
+  "loadout": {},
+  "notes": "Endless 1v1 deathmatch, start values of contracts/combat-state.md 9.1-9.3 (tuning, owned by the balance harness). The loadout map takes EVerseLoadoutSlot names to weapon or gadget data asset paths once WP02 lands them; empty means the game mode's default loadout."
+}
