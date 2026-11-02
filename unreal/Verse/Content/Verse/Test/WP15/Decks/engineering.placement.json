@@ -1,0 +1,2118 @@
+{
+ "schema": "verse.placement/1",
+ "deck": "engineering",
+ "zone": "crew_fixture",
+ "bounds_cm": {
+  "min": [
+   440.0,
+   216.5,
+   -10.0
+  ],
+  "max": [
+   8040.0,
+   4980.0,
+   640.0
+  ]
+ },
+ "level": "/Game/Verse/Decks/Engineering/LV_Engineering",
+ "source": {
+  "builder": "unreal/Verse/Content/Verse/Test/WP15/Tools/make_crew_fixture_decks.py",
+  "sha256": "6a14129a9c5cfdafa37ed2b81900a4c9aa7ce0260d3346a315c1ed35c575acd0"
+ },
+ "generator": {
+  "script": "make_crew_fixture_decks.py",
+  "version": "1",
+  "blender": "none"
+ },
+ "placements": [],
+ "sockets": [
+  {
+   "id": "main",
+   "kind": "lift",
+   "location": [
+    440.0,
+    4165.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": {
+    "id": "lift",
+    "kind": "lift"
+   }
+  },
+  {
+   "id": "EngLobbyDirectory",
+   "kind": "screen",
+   "location": [
+    620.0,
+    4151.4,
+    158.05
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null,
+   "size_cm": [
+    50.0,
+    34.0
+   ]
+  },
+  {
+   "id": "master__1",
+   "kind": "screen",
+   "location": [
+    1320.0,
+    355.35,
+    118.2
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   },
+   "size_cm": [
+    156.0,
+    60.0
+   ]
+  },
+  {
+   "id": "master__2",
+   "kind": "screen",
+   "location": [
+    1510.0,
+    355.35,
+    118.2
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   },
+   "size_cm": [
+    156.0,
+    60.0
+   ]
+  },
+  {
+   "id": "master__3",
+   "kind": "screen",
+   "location": [
+    1700.0,
+    355.35,
+    118.2
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   },
+   "size_cm": [
+    156.0,
+    60.0
+   ]
+  },
+  {
+   "id": "master__4",
+   "kind": "screen",
+   "location": [
+    1890.0,
+    355.35,
+    118.2
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   },
+   "size_cm": [
+    156.0,
+    60.0
+   ]
+  },
+  {
+   "id": "master__5",
+   "kind": "screen",
+   "location": [
+    2080.0,
+    355.35,
+    118.2
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   },
+   "size_cm": [
+    156.0,
+    60.0
+   ]
+  },
+  {
+   "id": "master_wall",
+   "kind": "screen",
+   "location": [
+    1700.0,
+    216.5,
+    340.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   },
+   "size_cm": [
+    940.0,
+    240.0
+   ]
+  },
+  {
+   "id": "plot_table",
+   "kind": "screen",
+   "location": [
+    1700.0,
+    960.0,
+    94.7
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   },
+   "size_cm": [
+    450.0,
+    210.0
+   ]
+  },
+  {
+   "id": "reactor_ring__ring_1",
+   "kind": "screen",
+   "location": [
+    5872.35,
+    1727.65,
+    97.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.92388,
+    0.382683
+   ],
+   "room": "reactor",
+   "station": null,
+   "size_cm": [
+    88.0,
+    46.0
+   ]
+  },
+  {
+   "id": "reactor_ring__ring_2",
+   "kind": "screen",
+   "location": [
+    4927.65,
+    1727.65,
+    97.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.382683,
+    0.92388
+   ],
+   "room": "reactor",
+   "station": null,
+   "size_cm": [
+    88.0,
+    46.0
+   ]
+  },
+  {
+   "id": "reactor_ring__ring_3",
+   "kind": "screen",
+   "location": [
+    4927.65,
+    2672.35,
+    97.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.382683,
+    0.92388
+   ],
+   "room": "reactor",
+   "station": null,
+   "size_cm": [
+    88.0,
+    46.0
+   ]
+  },
+  {
+   "id": "reactor_ring__ring_4",
+   "kind": "screen",
+   "location": [
+    5872.35,
+    2672.35,
+    97.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.92388,
+    0.382683
+   ],
+   "room": "reactor",
+   "station": null,
+   "size_cm": [
+    88.0,
+    46.0
+   ]
+  },
+  {
+   "id": "term_1",
+   "kind": "screen",
+   "location": [
+    740.0,
+    1422.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_10",
+   "kind": "screen",
+   "location": [
+    1220.0,
+    3102.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_11",
+   "kind": "screen",
+   "location": [
+    2180.0,
+    3102.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_12",
+   "kind": "screen",
+   "location": [
+    2660.0,
+    3102.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_2",
+   "kind": "screen",
+   "location": [
+    1220.0,
+    1422.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_3",
+   "kind": "screen",
+   "location": [
+    2180.0,
+    1422.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_4",
+   "kind": "screen",
+   "location": [
+    2660.0,
+    1422.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_5",
+   "kind": "screen",
+   "location": [
+    740.0,
+    2262.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_6",
+   "kind": "screen",
+   "location": [
+    1220.0,
+    2262.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_7",
+   "kind": "screen",
+   "location": [
+    2180.0,
+    2262.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_8",
+   "kind": "screen",
+   "location": [
+    2660.0,
+    2262.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "term_9",
+   "kind": "screen",
+   "location": [
+    740.0,
+    3102.84,
+    114.27
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    130.0,
+    62.0
+   ]
+  },
+  {
+   "id": "workshop_11",
+   "kind": "screen",
+   "location": [
+    740.0,
+    3656.76,
+    121.17
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    40.0,
+    25.0
+   ]
+  },
+  {
+   "id": "workshop_12",
+   "kind": "screen",
+   "location": [
+    1220.0,
+    3656.76,
+    121.17
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    40.0,
+    25.0
+   ]
+  },
+  {
+   "id": "workshop_13",
+   "kind": "screen",
+   "location": [
+    2180.0,
+    3656.76,
+    121.17
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    40.0,
+    25.0
+   ]
+  },
+  {
+   "id": "workshop_14",
+   "kind": "screen",
+   "location": [
+    2660.0,
+    3656.76,
+    121.17
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null,
+   "size_cm": [
+    40.0,
+    25.0
+   ]
+  },
+  {
+   "id": "term_1",
+   "kind": "seat",
+   "location": [
+    740.0,
+    1525.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_10",
+   "kind": "seat",
+   "location": [
+    1220.0,
+    3205.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_11",
+   "kind": "seat",
+   "location": [
+    2180.0,
+    3205.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_12",
+   "kind": "seat",
+   "location": [
+    2660.0,
+    3205.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_2",
+   "kind": "seat",
+   "location": [
+    1220.0,
+    1525.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_3",
+   "kind": "seat",
+   "location": [
+    2180.0,
+    1525.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_4",
+   "kind": "seat",
+   "location": [
+    2660.0,
+    1525.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_5",
+   "kind": "seat",
+   "location": [
+    740.0,
+    2365.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_6",
+   "kind": "seat",
+   "location": [
+    1220.0,
+    2365.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_7",
+   "kind": "seat",
+   "location": [
+    2180.0,
+    2365.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_8",
+   "kind": "seat",
+   "location": [
+    2660.0,
+    2365.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_9",
+   "kind": "seat",
+   "location": [
+    740.0,
+    3205.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "commander",
+   "kind": "spawn",
+   "location": [
+    440.0,
+    4260.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null,
+   "spawn": {
+    "team": "any",
+    "duel": false
+   }
+  },
+  {
+   "id": "drone",
+   "kind": "spawn",
+   "location": [
+    3103.0,
+    4980.0,
+    6.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "bay",
+   "station": null,
+   "spawn": {
+    "team": "any",
+    "duel": false
+   }
+  },
+  {
+   "id": "EngLobbyDirectory",
+   "kind": "stand",
+   "location": [
+    620.0,
+    4205.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "EngLobbyLockers__1",
+   "kind": "stand",
+   "location": [
+    770.0,
+    4245.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "EngLobbyLockers__2",
+   "kind": "stand",
+   "location": [
+    830.0,
+    4245.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "EngLobbyLockers__3",
+   "kind": "stand",
+   "location": [
+    890.0,
+    4245.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "EngLobbyLockers__4",
+   "kind": "stand",
+   "location": [
+    950.0,
+    4245.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "reactor_ring__ring_1",
+   "kind": "stand",
+   "location": [
+    5823.56,
+    1776.44,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.382683,
+    0.92388
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "reactor_ring__ring_2",
+   "kind": "stand",
+   "location": [
+    4976.44,
+    1776.44,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.92388,
+    0.382683
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "reactor_ring__ring_3",
+   "kind": "stand",
+   "location": [
+    4976.44,
+    2623.56,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.92388,
+    0.382683
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "reactor_ring__ring_4",
+   "kind": "stand",
+   "location": [
+    5823.56,
+    2623.56,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.382683,
+    0.92388
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "term_1",
+   "kind": "stand",
+   "location": [
+    740.0,
+    1595.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_10",
+   "kind": "stand",
+   "location": [
+    1220.0,
+    3275.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_11",
+   "kind": "stand",
+   "location": [
+    2180.0,
+    3275.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_12",
+   "kind": "stand",
+   "location": [
+    2660.0,
+    3275.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_2",
+   "kind": "stand",
+   "location": [
+    1220.0,
+    1595.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_3",
+   "kind": "stand",
+   "location": [
+    2180.0,
+    1595.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_4",
+   "kind": "stand",
+   "location": [
+    2660.0,
+    1595.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_5",
+   "kind": "stand",
+   "location": [
+    740.0,
+    2435.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_6",
+   "kind": "stand",
+   "location": [
+    1220.0,
+    2435.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_7",
+   "kind": "stand",
+   "location": [
+    2180.0,
+    2435.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_8",
+   "kind": "stand",
+   "location": [
+    2660.0,
+    2435.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "term_9",
+   "kind": "stand",
+   "location": [
+    740.0,
+    3275.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_1",
+   "kind": "stand",
+   "location": [
+    3120.0,
+    960.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_10",
+   "kind": "stand",
+   "location": [
+    3640.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "workshop_11",
+   "kind": "stand",
+   "location": [
+    740.0,
+    3722.4,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_12",
+   "kind": "stand",
+   "location": [
+    1220.0,
+    3722.4,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_13",
+   "kind": "stand",
+   "location": [
+    2180.0,
+    3722.4,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_14",
+   "kind": "stand",
+   "location": [
+    2660.0,
+    3722.4,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_2",
+   "kind": "stand",
+   "location": [
+    3120.0,
+    2640.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_3",
+   "kind": "stand",
+   "location": [
+    3120.0,
+    3600.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_4",
+   "kind": "stand",
+   "location": [
+    1580.0,
+    1140.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_5",
+   "kind": "stand",
+   "location": [
+    1820.0,
+    1140.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": null
+  },
+  {
+   "id": "workshop_6",
+   "kind": "stand",
+   "location": [
+    2040.0,
+    4290.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "bay",
+   "station": null
+  },
+  {
+   "id": "workshop_7",
+   "kind": "stand",
+   "location": [
+    7520.0,
+    1700.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "workshop_8",
+   "kind": "stand",
+   "location": [
+    7520.0,
+    2700.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "workshop_9",
+   "kind": "stand",
+   "location": [
+    3640.0,
+    1400.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "lift",
+   "kind": "station",
+   "location": [
+    440.0,
+    4330.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "master",
+   "kind": "station",
+   "location": [
+    1700.0,
+    535.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "control",
+   "station": {
+    "id": "master",
+    "kind": "coding_launcher"
+   }
+  },
+  {
+   "id": "patrol_core_1",
+   "kind": "waypoint",
+   "location": [
+    5400.0,
+    1500.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_core_2",
+   "kind": "waypoint",
+   "location": [
+    5400.0,
+    950.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_core_3",
+   "kind": "waypoint",
+   "location": [
+    6650.0,
+    2200.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_core_4",
+   "kind": "waypoint",
+   "location": [
+    6100.0,
+    2200.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_core_5",
+   "kind": "waypoint",
+   "location": [
+    5400.0,
+    2900.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_core_6",
+   "kind": "waypoint",
+   "location": [
+    5400.0,
+    3450.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_core_7",
+   "kind": "waypoint",
+   "location": [
+    4150.0,
+    2200.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_core_8",
+   "kind": "waypoint",
+   "location": [
+    4700.0,
+    2200.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_gallery_1",
+   "kind": "waypoint",
+   "location": [
+    3660.0,
+    4520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "patrol_gallery_2",
+   "kind": "waypoint",
+   "location": [
+    4800.0,
+    4520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "patrol_gallery_3",
+   "kind": "waypoint",
+   "location": [
+    6000.0,
+    4520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "patrol_gallery_4",
+   "kind": "waypoint",
+   "location": [
+    7200.0,
+    4520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "patrol_gallery_5",
+   "kind": "waypoint",
+   "location": [
+    8040.0,
+    4520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_1",
+   "kind": "waypoint",
+   "location": [
+    3720.0,
+    720.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.053295,
+    0.998579
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_2",
+   "kind": "waypoint",
+   "location": [
+    5400.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.053295,
+    0.998579
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_3",
+   "kind": "waypoint",
+   "location": [
+    7080.0,
+    720.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.558686,
+    0.829379
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_4",
+   "kind": "waypoint",
+   "location": [
+    7680.0,
+    2200.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.83924,
+    0.54376
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_5",
+   "kind": "waypoint",
+   "location": [
+    7080.0,
+    3540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.999137,
+    0.041527
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_6",
+   "kind": "waypoint",
+   "location": [
+    5400.0,
+    3680.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.999071,
+    0.043096
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_7",
+   "kind": "waypoint",
+   "location": [
+    3780.0,
+    3540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.752702,
+    0.658361
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "patrol_hall_8",
+   "kind": "waypoint",
+   "location": [
+    3600.0,
+    2200.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.677967,
+    0.735092
+   ],
+   "room": "reactor",
+   "station": null
+  },
+  {
+   "id": "service_1",
+   "kind": "waypoint",
+   "location": [
+    2640.0,
+    4700.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.045276,
+    0.998975
+   ],
+   "room": "bay",
+   "station": null
+  },
+  {
+   "id": "service_2",
+   "kind": "waypoint",
+   "location": [
+    3300.0,
+    4640.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.034987,
+    0.999388
+   ],
+   "room": null,
+   "station": null
+  },
+  {
+   "id": "service_3",
+   "kind": "waypoint",
+   "location": [
+    4440.0,
+    4560.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "service_4",
+   "kind": "waypoint",
+   "location": [
+    5880.0,
+    4560.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "service_5",
+   "kind": "waypoint",
+   "location": [
+    4440.0,
+    4560.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.999388,
+    0.034987
+   ],
+   "room": "gallery",
+   "station": null
+  },
+  {
+   "id": "service_6",
+   "kind": "waypoint",
+   "location": [
+    3300.0,
+    4640.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.998975,
+    0.045276
+   ],
+   "room": null,
+   "station": null
+  }
+ ],
+ "rooms": [
+  {
+   "id": "bay",
+   "name": "Maintenance Bay",
+   "polygon_cm": [
+    [
+     1540.0,
+     5200.0
+    ],
+    [
+     3200.0,
+     5200.0
+    ],
+    [
+     3200.0,
+     4140.0
+    ],
+    [
+     1540.0,
+     4140.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "control",
+   "name": "Engineering Control",
+   "polygon_cm": [
+    [
+     200.0,
+     4060.0
+    ],
+    [
+     3200.0,
+     4060.0
+    ],
+    [
+     3200.0,
+     200.0
+    ],
+    [
+     200.0,
+     200.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": true
+  },
+  {
+   "id": "gallery",
+   "name": "Power Conduit Gallery",
+   "polygon_cm": [
+    [
+     3400.0,
+     5200.0
+    ],
+    [
+     8200.0,
+     5200.0
+    ],
+    [
+     8200.0,
+     3840.0
+    ],
+    [
+     3400.0,
+     3840.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "lobby",
+   "name": "Turbolift Lobby",
+   "polygon_cm": [
+    [
+     200.0,
+     5200.0
+    ],
+    [
+     1460.0,
+     5200.0
+    ],
+    [
+     1460.0,
+     4140.0
+    ],
+    [
+     200.0,
+     4140.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "reactor",
+   "name": "Reactor Shaft",
+   "polygon_cm": [
+    [
+     3300.0,
+     3810.0
+    ],
+    [
+     8200.0,
+     3810.0
+    ],
+    [
+     8200.0,
+     200.0
+    ],
+    [
+     3300.0,
+     200.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  }
+ ]
+}

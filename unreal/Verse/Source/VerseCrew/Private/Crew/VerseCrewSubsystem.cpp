@@ -1,0 +1,1234 @@
+#include "Crew/VerseCrewSubsystem.h"
+
+#include "Combat/VerseCombatTypes.h"
+#include "Crew/VerseCrewPawn.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/HitResult.h"
+#include "Engine/SkeletalMesh.h"
+#include "Engine/World.h"
+#include "Events/VerseEventHub.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/DateTime.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "UObject/UnrealType.h"
+#include "VerseLog.h"
+
+namespace VerseCrewQa
+{
+	// Private/QA/VerseCrewQa.cpp: registers Verse.QA.SetDuty while any crew subsystem lives.
+	void AddSubsystem(UVerseCrewSubsystem* Subsystem);
+	void RemoveSubsystem(UVerseCrewSubsystem* Subsystem);
+}
+
+namespace
+{
+	const FName CrewDeckHangar(TEXT("hangar"));
+	const FName CrewDeckBridge(TEXT("bridge"));
+	constexpr float CrewCapsuleHalfHeightCm = 90.f;
+
+	bool InsideXY(const FBox& Box, const FVector& P)
+	{
+		return P.X > Box.Min.X && P.X < Box.Max.X && P.Y > Box.Min.Y && P.Y < Box.Max.Y && P.Z > Box.Min.Z && P.Z < Box.Max.Z;
+	}
+
+	/**
+	 * Recast path through the engine's navigation system without a link-time dependency on the
+	 * NavigationSystem module (VerseCrew.Build.cs lists Core, CoreUObject, Engine only): the
+	 * static UFUNCTION FindPathToLocationSynchronously is called through reflection. Returns
+	 * false when the world has no navigation system or no path.
+	 */
+	bool FindNavPath(UWorld* World, const FVector& From, const FVector& To, TArray<FVector>& OutPoints)
+	{
+		if (!World || !World->GetNavigationSystem())
+		{
+			return false;
+		}
+		static TWeakObjectPtr<UClass> NavClass;
+		static TWeakObjectPtr<UFunction> FindPath;
+		if (!FindPath.IsValid())
+		{
+			NavClass = FindObject<UClass>(nullptr, TEXT("/Script/NavigationSystem.NavigationSystemV1"));
+			FindPath = NavClass.IsValid() ? NavClass->FindFunctionByName(TEXT("FindPathToLocationSynchronously")) : nullptr;
+			if (!FindPath.IsValid())
+			{
+				return false;
+			}
+		}
+		UFunction* Function = FindPath.Get();
+		uint8* Params = static_cast<uint8*>(FMemory::Malloc(FMath::Max<int32>(Function->ParmsSize, 1), 16));
+		FMemory::Memzero(Params, Function->ParmsSize);
+		for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		{
+			It->InitializeValue_InContainer(Params);
+		}
+		bool bOk = false;
+		FObjectProperty* WorldParam = CastField<FObjectProperty>(Function->FindPropertyByName(TEXT("WorldContextObject")));
+		FStructProperty* StartParam = CastField<FStructProperty>(Function->FindPropertyByName(TEXT("PathStart")));
+		FStructProperty* EndParam = CastField<FStructProperty>(Function->FindPropertyByName(TEXT("PathEnd")));
+		FObjectProperty* ReturnParam = CastField<FObjectProperty>(Function->GetReturnProperty());
+		if (WorldParam && StartParam && EndParam && ReturnParam)
+		{
+			WorldParam->SetObjectPropertyValue_InContainer(Params, World);
+			*StartParam->ContainerPtrToValuePtr<FVector>(Params) = From;
+			*EndParam->ContainerPtrToValuePtr<FVector>(Params) = To;
+			NavClass->GetDefaultObject()->ProcessEvent(Function, Params);
+			if (UObject* Path = ReturnParam->GetObjectPropertyValue_InContainer(Params))
+			{
+				if (FArrayProperty* Points = CastField<FArrayProperty>(Path->GetClass()->FindPropertyByName(TEXT("PathPoints"))))
+				{
+					FScriptArrayHelper Helper(Points, Points->ContainerPtrToValuePtr<void>(Path));
+					for (int32 I = 0; I < Helper.Num(); ++I)
+					{
+						OutPoints.Add(*reinterpret_cast<const FVector*>(Helper.GetRawPtr(I)));
+					}
+					bOk = OutPoints.Num() >= 2;
+				}
+			}
+		}
+		for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		{
+			It->DestroyValue_InContainer(Params);
+		}
+		FMemory::Free(Params);
+		return bOk;
+	}
+}
+
+UVerseCrewSubsystem* UVerseCrewSubsystem::Get(const UObject* WorldContextObject)
+{
+	const UWorld* World = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
+	return World ? World->GetSubsystem<UVerseCrewSubsystem>() : nullptr;
+}
+
+bool UVerseCrewSubsystem::DoesSupportWorldType(const EWorldType::Type WorldType) const
+{
+	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE;
+}
+
+void UVerseCrewSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+	Collection.InitializeDependency<UVerseEventHub>();
+	FString Error;
+	if (!Presentation.LoadFrom(FVerseCrewPresentation::DefaultDataDir(), Error))
+	{
+		UE_LOG(LogVerseCrew, Warning, TEXT("Crew presentation data: %s; built-in values in use."), *Error);
+	}
+	if (!Tuning.LoadFrom(FVerseCrewTuning::DefaultPath(), Error))
+	{
+		UE_LOG(LogVerseCrew, Warning, TEXT("Crew tuning: %s; built-in values in use."), *Error);
+	}
+	WalkTogether.WalkCm = Tuning.WalkTogetherMetres * 100.f;
+	WalkTogether.HeelCm = Tuning.HeelMetres * 100.f;
+	WalkTogether.CooldownSeconds = Tuning.WalkTogetherCooldownSeconds;
+	BaseEpochMs = (FDateTime::UtcNow() - FDateTime(1970, 1, 1)).GetTotalMilliseconds();
+	if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+	{
+		ArenaHandle = Hub->OnArenaSwitch.AddUObject(this, &UVerseCrewSubsystem::HandleArenaSwitch);
+	}
+	VerseCrewQa::AddSubsystem(this);
+}
+
+void UVerseCrewSubsystem::Deinitialize()
+{
+	VerseCrewQa::RemoveSubsystem(this);
+	if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+	{
+		Hub->OnArenaSwitch.Remove(ArenaHandle);
+	}
+	const UWorld* World = GetWorld();
+	if (World && !World->bIsTearingDown)
+	{
+		TArray<FString> Keys;
+		Bodies.GetKeys(Keys);
+		for (const FString& Key : Keys)
+		{
+			DespawnBody(Key);
+		}
+		if (Drone)
+		{
+			Drone->Destroy();
+		}
+	}
+	Bodies.Reset();
+	Drone = nullptr;
+	Super::Deinitialize();
+}
+
+TStatId UVerseCrewSubsystem::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(UVerseCrewSubsystem, STATGROUP_Tickables);
+}
+
+int64 UVerseCrewSubsystem::GetNowMs() const
+{
+	return BaseEpochMs + static_cast<int64>(ClockSeconds * 1000.0);
+}
+
+FString UVerseCrewSubsystem::BodyKey(FName Deck, const FString& MemberId)
+{
+	return Deck.ToString() + TEXT("|") + MemberId;
+}
+
+// --- bridge in ------------------------------------------------------------------------------
+
+bool UVerseCrewSubsystem::HandleBridgeFrame(const FString& JsonText)
+{
+	TSharedPtr<FJsonObject> Frame;
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonText);
+	if (!FJsonSerializer::Deserialize(Reader, Frame) || !Frame.IsValid())
+	{
+		return false;
+	}
+	return HandleBridgeObject(Frame.ToSharedRef());
+}
+
+bool UVerseCrewSubsystem::HandleBridgeObject(const TSharedRef<FJsonObject>& Frame)
+{
+	FString Type;
+	if (!Frame->TryGetStringField(TEXT("type"), Type))
+	{
+		return false;
+	}
+	const TSharedPtr<FJsonObject>* DataPtr = nullptr;
+	const TSharedRef<FJsonObject> Data = Frame->TryGetObjectField(TEXT("data"), DataPtr) && DataPtr && DataPtr->IsValid()
+		? DataPtr->ToSharedRef()
+		: MakeShared<FJsonObject>();
+	if (Type == TEXT("roster.snapshot") || Type == TEXT("roster.delta"))
+	{
+		HandleRoster(Type, Frame, Data);
+		return true;
+	}
+	if (Type == TEXT("groups.snapshot") || Type == TEXT("groups.delta"))
+	{
+		HandleGroups(Type, Frame, Data);
+		return true;
+	}
+	if (Type == TEXT("meetings.update"))
+	{
+		if (Meetings.ApplyMeetingUpdate(Data))
+		{
+			bPlanDirty = true;
+		}
+		return true;
+	}
+	if (Type == TEXT("companion.snapshot") || Type == TEXT("companion.update"))
+	{
+		Companion.Apply(Data);
+		return true;
+	}
+	if (Type == TEXT("progression.awarded"))
+	{
+		HandleAwarded(Data);
+		return true;
+	}
+	return false;
+}
+
+bool UVerseCrewSubsystem::AcceptSequenced(const FString& Topic, const TSharedRef<FJsonObject>& Frame, bool bSnapshot)
+{
+	double Seq = 0.0;
+	const bool bHasSeq = Frame->TryGetNumberField(TEXT("seq"), Seq);
+	if (bSnapshot)
+	{
+		if (bHasSeq)
+		{
+			LastSeq.Add(Topic, static_cast<int64>(Seq));
+		}
+		return true;
+	}
+	const int64* Last = LastSeq.Find(Topic);
+	double Base = 0.0;
+	if (!Last || !Frame->TryGetNumberField(TEXT("base"), Base) || static_cast<int64>(Base) != *Last)
+	{
+		RequestResync(Topic);
+		return false;
+	}
+	if (bHasSeq)
+	{
+		LastSeq.Add(Topic, static_cast<int64>(Seq));
+	}
+	return true;
+}
+
+void UVerseCrewSubsystem::RequestResync(const FString& Topic)
+{
+	++Stats.Resyncs;
+	const TSharedRef<FJsonObject> Data = MakeShared<FJsonObject>();
+	Data->SetStringField(TEXT("topic"), Topic);
+	SendCommand(TEXT("resync"), Data);
+}
+
+void UVerseCrewSubsystem::HandleRoster(const FString& Type, const TSharedRef<FJsonObject>& Frame, const TSharedRef<FJsonObject>& Data)
+{
+	const bool bSnapshot = Type.EndsWith(TEXT(".snapshot"));
+	if (!AcceptSequenced(TEXT("roster"), Frame, bSnapshot))
+	{
+		return;
+	}
+	const bool bFirst = !Roster.HasSnapshot();
+	const FVerseCrewRosterChange Change = bSnapshot ? Roster.ApplySnapshot(Data) : Roster.ApplyDelta(Data);
+	// Agents that join after the first snapshot arrive by shuttle (parity C-13).
+	if (!bFirst)
+	{
+		for (const FString& Id : Change.Added)
+		{
+			if (!Roster.IsPane(Id))
+			{
+				ArrivingUntil.Add(Id, ClockSeconds + Tuning.ArrivalSeconds);
+				++Stats.Arrivals;
+			}
+		}
+	}
+	for (const FString& Id : Change.Removed)
+	{
+		ArrivingUntil.Remove(Id);
+		DutyOverrides.Remove(Id);
+		if (SelectedId == Id)
+		{
+			SelectedId.Reset();
+		}
+	}
+	if (!Change.IsEmpty())
+	{
+		bPlanDirty = true;
+		// Duty changes show at once, also before the next re-plan moves anyone.
+		RefreshDuties(EffectiveMembers());
+	}
+}
+
+void UVerseCrewSubsystem::HandleGroups(const FString& Type, const TSharedRef<FJsonObject>& Frame, const TSharedRef<FJsonObject>& Data)
+{
+	const bool bSnapshot = Type.EndsWith(TEXT(".snapshot"));
+	if (!AcceptSequenced(TEXT("groups"), Frame, bSnapshot))
+	{
+		return;
+	}
+	if (bSnapshot)
+	{
+		Meetings.ApplyGroupsSnapshot(Data);
+	}
+	else
+	{
+		Meetings.ApplyGroupsDelta(Data);
+	}
+	bPlanDirty = true;
+}
+
+void UVerseCrewSubsystem::HandleAwarded(const TSharedRef<FJsonObject>& Data)
+{
+	FString Kind;
+	Data->TryGetStringField(TEXT("subject_kind"), Kind);
+	double Level = 0.0;
+	double Previous = 0.0;
+	if (Kind == TEXT("person") && Data->TryGetNumberField(TEXT("level"), Level) && Data->TryGetNumberField(TEXT("previous_level"), Previous)
+		&& Presentation.RankForLevel(static_cast<int32>(Level)).Id != Presentation.RankForLevel(static_cast<int32>(Previous)).Id)
+	{
+		// A commander promotion: the crew salutes (parity C-19).
+		SaluteUntilSeconds = ClockSeconds + Tuning.SaluteSeconds;
+	}
+}
+
+// --- bridge out -----------------------------------------------------------------------------
+
+bool UVerseCrewSubsystem::SendCommand(const FString& Type, const TSharedRef<FJsonObject>& Data, bool bOpenCommand)
+{
+	if (bOpenCommand)
+	{
+		// Open commands: 4/s (bridge-protocol.md 11). Above that the server answers
+		// rate_limited; do not send what it would refuse.
+		OpenCommandTimes.RemoveAll([this](double T) { return ClockSeconds - T >= 1.0; });
+		if (OpenCommandTimes.Num() >= FMath::Max(1, FMath::RoundToInt(Tuning.OpenCommandsPerSecond)))
+		{
+			++Stats.CommandsRateLimited;
+			return false;
+		}
+		OpenCommandTimes.Add(ClockSeconds);
+	}
+	++Stats.CommandsSent;
+	if (Sink)
+	{
+		Sink(Type, Data);
+	}
+	return true;
+}
+
+void UVerseCrewSubsystem::SendWorldAction(const FString& Action, const FString& Ref)
+{
+	const TSharedRef<FJsonObject> Data = MakeShared<FJsonObject>();
+	Data->SetStringField(TEXT("action"), Action);
+	Data->SetStringField(TEXT("ref"), Ref);
+	SendCommand(TEXT("progression.action"), Data);
+}
+
+// --- decks ----------------------------------------------------------------------------------
+
+void UVerseCrewSubsystem::RegisterDeck(const FVerseCrewDeck& Deck)
+{
+	Decks.Add(Deck.Id, Deck);
+	bPlanDirty = true;
+}
+
+void UVerseCrewSubsystem::SetLoadedDecks(const TArray<FName>& DeckIds)
+{
+	for (const FName& Old : LoadedDecks)
+	{
+		if (!DeckIds.Contains(Old))
+		{
+			// The deck left the screen: its crew goes with it.
+			TArray<FString> Keys;
+			for (const TPair<FString, FBody>& Pair : Bodies)
+			{
+				if (Pair.Value.Deck == Old)
+				{
+					Keys.Add(Pair.Key);
+				}
+			}
+			for (const FString& Key : Keys)
+			{
+				DespawnBody(Key);
+			}
+			DecksPlannedOnce.Remove(Old);
+			Plans.Remove(Old);
+		}
+	}
+	LoadedDecks = DeckIds;
+	bPlanDirty = true;
+}
+
+void UVerseCrewSubsystem::SetCommanderDeck(FName DeckId)
+{
+	CommanderDeck = DeckId;
+	Briefed.Reset();
+}
+
+bool UVerseCrewSubsystem::RegisterFixtureDecks(const TMap<FName, FVector>& OriginsCm, FString& OutError)
+{
+	for (const TPair<FName, FVector>& Pair : OriginsCm)
+	{
+		FVerseCrewDeck Deck;
+		if (!VerseCrew::LoadFixtureDeck(Pair.Key, Pair.Value, Deck, OutError))
+		{
+			return false;
+		}
+		RegisterDeck(Deck);
+	}
+	return true;
+}
+
+// --- commander ------------------------------------------------------------------------------
+
+void UVerseCrewSubsystem::SetCommanderOverride(TOptional<FVector> Location, float HeadingDeg)
+{
+	CommanderOverride = Location;
+	CommanderHeadingDeg = HeadingDeg;
+}
+
+FVector UVerseCrewSubsystem::GetCommanderLocation() const
+{
+	if (CommanderOverride.IsSet())
+	{
+		return CommanderOverride.GetValue();
+	}
+	const UWorld* World = GetWorld();
+	const APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	return Pawn ? Pawn->GetActorLocation() : FVector::ZeroVector;
+}
+
+// --- arena ----------------------------------------------------------------------------------
+
+FBox UVerseCrewSubsystem::ArenaBoundsWorld() const
+{
+	const FVerseCrewDeck* Hangar = Decks.Find(CrewDeckHangar);
+	const FVector Origin = Hangar ? Hangar->OriginCm : FVector::ZeroVector;
+	return Tuning.ArenaBoundsCm.ShiftBy(Origin);
+}
+
+void UVerseCrewSubsystem::HandleArenaSwitch(const FVerseArenaSwitchEvent& Event)
+{
+	if (!Event.Deck.IsNone() && Event.Deck != CrewDeckHangar)
+	{
+		return;
+	}
+	bArenaOn = Event.bArenaOn;
+	if (bArenaOn)
+	{
+		HideCrewInArena();
+	}
+	ReplanNow();
+}
+
+void UVerseCrewSubsystem::HideCrewInArena()
+{
+	const FBox Arena = ArenaBoundsWorld();
+	TArray<FString> Keys;
+	for (const TPair<FString, FBody>& Pair : Bodies)
+	{
+		const AVerseCrewPawn* Pawn = Pair.Value.Pawn.Get();
+		if (Pair.Value.Deck == CrewDeckHangar && Pawn && InsideXY(Arena, Pawn->GetActorLocation()))
+		{
+			Keys.Add(Pair.Key);
+		}
+	}
+	for (const FString& Key : Keys)
+	{
+		DespawnBody(Key);
+	}
+}
+
+FVector UVerseCrewSubsystem::ClampOutOfArena(FName Deck, const FVector& Location) const
+{
+	if (!bArenaOn || Deck != CrewDeckHangar)
+	{
+		return Location;
+	}
+	const FBox Arena = ArenaBoundsWorld();
+	if (!InsideXY(Arena, Location))
+	{
+		return Location;
+	}
+	// Push out through the nearest side.
+	const float Margin = Tuning.CrewRadiusCm;
+	const float ToMinX = Location.X - Arena.Min.X;
+	const float ToMaxX = Arena.Max.X - Location.X;
+	const float ToMinY = Location.Y - Arena.Min.Y;
+	const float ToMaxY = Arena.Max.Y - Location.Y;
+	const float Best = FMath::Min(FMath::Min(ToMinX, ToMaxX), FMath::Min(ToMinY, ToMaxY));
+	FVector Out = Location;
+	if (Best == ToMinX) Out.X = Arena.Min.X - Margin;
+	else if (Best == ToMaxX) Out.X = Arena.Max.X + Margin;
+	else if (Best == ToMinY) Out.Y = Arena.Min.Y - Margin;
+	else Out.Y = Arena.Max.Y + Margin;
+	return Out;
+}
+
+TSet<FString> UVerseCrewSubsystem::BlockedSockets(const FVerseCrewDeck& Deck) const
+{
+	TSet<FString> Blocked;
+	if (bArenaOn && Deck.Id == CrewDeckHangar)
+	{
+		const FBox Arena = ArenaBoundsWorld();
+		for (const FVerseCrewSocket& Socket : Deck.Sockets)
+		{
+			if (InsideXY(Arena, Socket.Location + FVector(0.f, 0.f, 1.f)))
+			{
+				Blocked.Add(Socket.Key());
+			}
+		}
+	}
+	return Blocked;
+}
+
+// --- planning -------------------------------------------------------------------------------
+
+TArray<FVerseCrewMember> UVerseCrewSubsystem::EffectiveMembers() const
+{
+	TArray<FVerseCrewMember> Members = Roster.Members();
+	for (FVerseCrewMember& M : Members)
+	{
+		if (const EVerseCrewDuty* Forced = DutyOverrides.Find(M.Id))
+		{
+			M.Duty = *Forced;
+		}
+	}
+	return Members;
+}
+
+void UVerseCrewSubsystem::ReplanNow()
+{
+	Replan();
+}
+
+void UVerseCrewSubsystem::Replan()
+{
+	++Stats.Replans;
+	bPlanDirty = false;
+	LastReplanSeconds = ClockSeconds;
+	const TArray<FVerseCrewMember> Members = EffectiveMembers();
+	const TMap<FString, EVerseCrewRoundPart> Rounds = Meetings.Rounds();
+	const int64 NowMs = GetNowMs();
+	for (const FName& DeckId : LoadedDecks)
+	{
+		const FVerseCrewDeck* Deck = Decks.Find(DeckId);
+		if (!Deck)
+		{
+			continue;
+		}
+		const TSet<FString> Blocked = BlockedSockets(*Deck);
+		TMap<FString, FString>& Previous = PreviousKeys.FindOrAdd(DeckId);
+		const FVerseCrewDeckPlan* Last = Plans.Find(DeckId);
+		FVerseCrewPlanInput Input;
+		Input.Deck = Deck;
+		Input.Crew = Members;
+		Input.Rounds = &Rounds;
+		Input.NowMs = NowMs;
+		Input.Previous = &Previous;
+		Input.Homes = Last ? &Last->Homes : nullptr;
+		Input.Blocked = &Blocked;
+		FVerseCrewDeckPlan Plan = VerseCrewPlanner::PlaceOnDeck(Input);
+		Previous.Reset();
+		for (const TPair<FString, FVerseCrewPlacement>& P : Plan.Placements)
+		{
+			Previous.Add(P.Key, P.Value.SocketKey);
+		}
+		ReconcileDeck(*Deck, Plan, Members);
+		Plans.Add(DeckId, MoveTemp(Plan));
+		DecksPlannedOnce.Add(DeckId);
+	}
+	ReconcileArrivals(Members);
+	RefreshDuties(Members);
+}
+
+void UVerseCrewSubsystem::ReconcileDeck(const FVerseCrewDeck& Deck, const FVerseCrewDeckPlan& Plan, const TArray<FVerseCrewMember>& Members)
+{
+	const bool bDeckOpening = !DecksPlannedOnce.Contains(Deck.Id);
+	const FVerseCrewSocket* Lift = Deck.Lift();
+	TMap<FString, const FVerseCrewMember*> ById;
+	for (const FVerseCrewMember& M : Members)
+	{
+		ById.Add(M.Id, &M);
+	}
+	for (const TPair<FString, FVerseCrewPlacement>& Pair : Plan.Placements)
+	{
+		const FVerseCrewMember* const* Member = ById.Find(Pair.Key);
+		if (!Member || !Deck.Sockets.IsValidIndex(Pair.Value.SocketIndex))
+		{
+			continue;
+		}
+		const FVerseCrewSocket& Socket = Deck.Sockets[Pair.Value.SocketIndex];
+		const FVector Goal = Socket.Location + FVector(0.f, 0.f, CrewCapsuleHalfHeightCm);
+		const FString Key = BodyKey(Deck.Id, Pair.Key);
+		FBody* Body = Bodies.Find(Key);
+		if (!Body)
+		{
+			// Members on the deck when it opens stand in place; later ones come by lift (parity C-14).
+			const bool bPlaced = bDeckOpening || !Lift;
+			const FVector Start = bPlaced ? Goal : Lift->Location + FVector(0.f, 0.f, CrewCapsuleHalfHeightCm);
+			AVerseCrewPawn* Pawn = SpawnPawn(**Member, ClampOutOfArena(Deck.Id, Start), bPlaced ? Socket.HeadingDeg : Lift->HeadingDeg);
+			if (!Pawn)
+			{
+				continue;
+			}
+			FBody& Fresh = Bodies.Add(Key);
+			Fresh.Pawn = Pawn;
+			Fresh.MemberId = Pair.Key;
+			Fresh.Deck = Deck.Id;
+			Fresh.PaceCmS = VerseCrew::WalkPaceCmPerSecond(Pair.Key);
+			Fresh.LastProgressSeconds = ClockSeconds;
+			Body = &Fresh;
+			Body->SocketKey.Reset();
+		}
+		if (Body->Goal != EGoal::Socket || Body->SocketKey != Pair.Value.SocketKey || Body->GoalActivity != Pair.Value.Intent.Activity
+			|| Body->bFaceCommander != Pair.Value.Intent.bFaceCommander)
+		{
+			SetBodyGoal(*Body, EGoal::Socket, Goal, Socket.HeadingDeg, Pair.Value.Intent.Activity, Pair.Value.Intent.bFaceCommander, Pair.Value.SocketKey);
+		}
+	}
+	// Bodies on this deck without a placement: leave by the lift (parity C-15).
+	TArray<FString> Gone;
+	for (TPair<FString, FBody>& Pair : Bodies)
+	{
+		FBody& Body = Pair.Value;
+		if (Body.Deck != Deck.Id || Body.Goal == EGoal::Arrive || Plan.Placements.Contains(Body.MemberId))
+		{
+			continue;
+		}
+		if (Body.Goal == EGoal::Leave)
+		{
+			continue;
+		}
+		if (!Lift)
+		{
+			Gone.Add(Pair.Key);
+			continue;
+		}
+		SetBodyGoal(Body, EGoal::Leave, Lift->Location + FVector(0.f, 0.f, CrewCapsuleHalfHeightCm), Lift->HeadingDeg, EVerseCrewActivity::Walk, false, Lift->Key());
+	}
+	for (const FString& Key : Gone)
+	{
+		DespawnBody(Key);
+	}
+}
+
+void UVerseCrewSubsystem::ReconcileArrivals(const TArray<FVerseCrewMember>& Members)
+{
+	for (auto It = ArrivingUntil.CreateIterator(); It; ++It)
+	{
+		if (ClockSeconds >= It.Value())
+		{
+			It.RemoveCurrent();
+		}
+	}
+	const FVerseCrewDeck* Hangar = Decks.Find(CrewDeckHangar);
+	if (!Hangar || !LoadedDecks.Contains(CrewDeckHangar))
+	{
+		return;
+	}
+	const FVerseCrewSocket* Spawn = Hangar->ArrivalSpawn();
+	const FVerseCrewSocket* Lift = Hangar->Lift();
+	if (!Spawn || !Lift)
+	{
+		return;
+	}
+	const FVector SpawnAt = Spawn->Location + FVector(0.f, 0.f, CrewCapsuleHalfHeightCm);
+	if (bArenaOn && InsideXY(ArenaBoundsWorld(), SpawnAt))
+	{
+		// The shuttle stands in the arena while it is on: the newcomer takes the lift directly.
+		return;
+	}
+	const FVerseCrewDeckPlan* Plan = Plans.Find(CrewDeckHangar);
+	for (const FVerseCrewMember& M : Members)
+	{
+		if (!ArrivingUntil.Contains(M.Id) || (Plan && Plan->Placements.Contains(M.Id)))
+		{
+			continue;
+		}
+		const FString Key = BodyKey(CrewDeckHangar, M.Id);
+		if (Bodies.Contains(Key))
+		{
+			continue;
+		}
+		AVerseCrewPawn* Pawn = SpawnPawn(M, SpawnAt, Spawn->HeadingDeg);
+		if (!Pawn)
+		{
+			continue;
+		}
+		FBody& Body = Bodies.Add(Key);
+		Body.Pawn = Pawn;
+		Body.MemberId = M.Id;
+		Body.Deck = CrewDeckHangar;
+		Body.PaceCmS = VerseCrew::WalkPaceCmPerSecond(M.Id);
+		Body.LastProgressSeconds = ClockSeconds;
+		SetBodyGoal(Body, EGoal::Arrive, Lift->Location + FVector(0.f, 0.f, CrewCapsuleHalfHeightCm), Lift->HeadingDeg, EVerseCrewActivity::Walk, false, Lift->Key());
+	}
+}
+
+bool UVerseCrewSubsystem::IsArriving(const FString& MemberId) const
+{
+	return ArrivingUntil.Contains(MemberId);
+}
+
+USkeletalMesh* UVerseCrewSubsystem::BodyMesh()
+{
+	if (!bBodyMeshTried)
+	{
+		bBodyMeshTried = true;
+		if (!Tuning.BodyMesh.IsEmpty())
+		{
+			CachedBodyMesh = LoadObject<USkeletalMesh>(nullptr, *Tuning.BodyMesh, nullptr, LOAD_NoWarn | LOAD_Quiet);
+		}
+	}
+	return CachedBodyMesh;
+}
+
+AVerseCrewPawn* UVerseCrewSubsystem::SpawnPawn(const FVerseCrewMember& Member, const FVector& Location, float HeadingDeg)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	Params.ObjectFlags |= RF_Transient;
+	AVerseCrewPawn* Pawn = World->SpawnActor<AVerseCrewPawn>(AVerseCrewPawn::StaticClass(), Location, FRotator(0.f, HeadingDeg, 0.f), Params);
+	if (!Pawn)
+	{
+		return nullptr;
+	}
+	Pawn->SetupMember(Member, Presentation.LookOf(Member), BodyMesh(), Tuning);
+	Pawn->ApplyDuty(Presentation.DutyLook(Member.Duty));
+	Pawn->SetSelected(SelectedId == Member.Id);
+	++Stats.Spawned;
+	return Pawn;
+}
+
+void UVerseCrewSubsystem::DespawnBody(const FString& Key)
+{
+	FBody Body;
+	if (!Bodies.RemoveAndCopyValue(Key, Body))
+	{
+		return;
+	}
+	if (AVerseCrewPawn* Pawn = Body.Pawn.Get())
+	{
+		Pawn->Destroy();
+	}
+	++Stats.Despawned;
+}
+
+void UVerseCrewSubsystem::SetBodyGoal(FBody& Body, EGoal Goal, const FVector& Location, float HeadingDeg, EVerseCrewActivity Activity, bool bFace,
+	const FString& SocketKey)
+{
+	Body.Goal = Goal;
+	Body.GoalLocation = Location;
+	Body.GoalHeading = HeadingDeg;
+	Body.GoalActivity = Activity;
+	Body.bFaceCommander = bFace;
+	Body.SocketKey = SocketKey;
+	Body.BestDistanceCm = TNumericLimits<float>::Max();
+	Body.LastProgressSeconds = ClockSeconds;
+	Body.bStuckReported = false;
+	const AVerseCrewPawn* Pawn = Body.Pawn.Get();
+	const FVector From = Pawn ? Pawn->GetActorLocation() : Location;
+	Body.bArrived = FVector::Dist2D(From, Location) <= Tuning.ArriveToleranceCm && Goal == EGoal::Socket;
+	BuildPath(Body, From);
+}
+
+void UVerseCrewSubsystem::BuildPath(FBody& Body, const FVector& From)
+{
+	Body.Path.Reset();
+	Body.PathIndex = 0;
+	TArray<FVector> Nav;
+	if (FindNavPath(GetWorld(), From - FVector(0.f, 0.f, CrewCapsuleHalfHeightCm), Body.GoalLocation - FVector(0.f, 0.f, CrewCapsuleHalfHeightCm), Nav))
+	{
+		for (int32 I = 1; I < Nav.Num(); ++I)
+		{
+			Body.Path.Add(Nav[I] + FVector(0.f, 0.f, CrewCapsuleHalfHeightCm));
+		}
+		Body.Path.Last() = Body.GoalLocation;
+	}
+	else
+	{
+		Body.Path.Add(Body.GoalLocation);
+	}
+}
+
+void UVerseCrewSubsystem::RefreshDuties(const TArray<FVerseCrewMember>& Members)
+{
+	TMap<FString, EVerseCrewDuty> Duty;
+	for (const FVerseCrewMember& M : Members)
+	{
+		Duty.Add(M.Id, M.Duty);
+	}
+	for (TPair<FString, FBody>& Pair : Bodies)
+	{
+		AVerseCrewPawn* Pawn = Pair.Value.Pawn.Get();
+		const EVerseCrewDuty* D = Duty.Find(Pair.Value.MemberId);
+		if (Pawn && D && (Pawn->Duty != *D || Pawn->GetDutyLook().LabelKey.IsEmpty()))
+		{
+			Pawn->ApplyDuty(Presentation.DutyLook(*D));
+		}
+	}
+}
+
+// --- tick -----------------------------------------------------------------------------------
+
+void UVerseCrewSubsystem::Tick(float DeltaSeconds)
+{
+	const double Start = FPlatformTime::Seconds();
+	ClockSeconds += DeltaSeconds;
+	if (bPlanDirty || ClockSeconds - LastReplanSeconds >= Tuning.ReplanSeconds)
+	{
+		Replan();
+	}
+	StepBodies(DeltaSeconds);
+	StepCompanion(DeltaSeconds);
+	if (ClockSeconds - LastWorldActionSeconds >= Tuning.WorldActionTickSeconds)
+	{
+		LastWorldActionSeconds = ClockSeconds;
+		StepWorldActions();
+	}
+	const double Ms = (FPlatformTime::Seconds() - Start) * 1000.0;
+	Stats.LastTickMs = Ms;
+	Stats.MaxTickMs = FMath::Max(Stats.MaxTickMs, Ms);
+	Stats.TotalTickMs += Ms;
+	++Stats.Ticks;
+}
+
+void UVerseCrewSubsystem::StepBodies(float DeltaSeconds)
+{
+	if (DeltaSeconds <= 0.f)
+	{
+		return;
+	}
+	struct FMover
+	{
+		FBody* Body;
+		AVerseCrewPawn* Pawn;
+		FVector Location;
+	};
+	TArray<FMover> Movers;
+	Movers.Reserve(Bodies.Num());
+	TArray<FString> Finished;
+	for (TPair<FString, FBody>& Pair : Bodies)
+	{
+		AVerseCrewPawn* Pawn = Pair.Value.Pawn.Get();
+		if (!Pawn)
+		{
+			Finished.Add(Pair.Key);
+			continue;
+		}
+		Movers.Add({ &Pair.Value, Pawn, Pawn->GetActorLocation() });
+	}
+	const FVector Commander = GetCommanderLocation();
+	const bool bSalute = ClockSeconds < SaluteUntilSeconds;
+	const float Radius = Tuning.CrewRadiusCm;
+	for (int32 I = 0; I < Movers.Num(); ++I)
+	{
+		FMover& M = Movers[I];
+		FBody& Body = *M.Body;
+		FVector Location = M.Location;
+		FRotator Rotation = M.Pawn->GetActorRotation();
+		EVerseCrewActivity Activity = Body.GoalActivity;
+		bool bMoved = false;
+		if (!Body.bArrived && Body.Path.Num() > 0)
+		{
+			const FVector Target = Body.Path[FMath::Min(Body.PathIndex, Body.Path.Num() - 1)];
+			FVector ToTarget = Target - Location;
+			ToTarget.Z = 0.f;
+			const float Dist = ToTarget.Size();
+			const float FinalDist = FVector::Dist2D(Location, Body.GoalLocation);
+			FVector Desired = Dist > KINDA_SMALL_NUMBER ? ToTarget / Dist * Body.PaceCmS : FVector::ZeroVector;
+			// Crowd avoidance: separation from the other bodies on the deck, with a keep-right
+			// bias so two walkers on one line pass instead of stalling. It fades out on the last
+			// metre so neighbouring seats can still be reached.
+			if (FinalDist > 100.f)
+			{
+				FVector Push = FVector::ZeroVector;
+				for (int32 J = 0; J < Movers.Num(); ++J)
+				{
+					if (J == I || Movers[J].Body->Deck != Body.Deck)
+					{
+						continue;
+					}
+					FVector Away = Location - Movers[J].Location;
+					Away.Z = 0.f;
+					const float D = Away.Size();
+					if (D < 2.f * Radius && D > KINDA_SMALL_NUMBER)
+					{
+						const float Strength = (2.f * Radius - D) / (2.f * Radius);
+						Push += Away / D * Strength;
+						const FVector Ahead = Desired.GetSafeNormal();
+						if (FVector::DotProduct(-Away / D, Ahead) > 0.5f)
+						{
+							Push += FVector(-Ahead.Y, Ahead.X, 0.f) * 0.5f * Strength;
+						}
+					}
+				}
+				Desired += Push * Body.PaceCmS * Tuning.SeparationGain;
+				Desired = Desired.GetClampedToMaxSize(Body.PaceCmS * 1.25f);
+			}
+			const float Step = Desired.Size() * DeltaSeconds;
+			if (Dist <= FMath::Max(Step, Tuning.ArriveToleranceCm) && Body.PathIndex >= Body.Path.Num() - 1)
+			{
+				Location = Body.GoalLocation;
+				Body.bArrived = true;
+			}
+			else if (Dist <= FMath::Max(Step, Tuning.ArriveToleranceCm))
+			{
+				Location = FVector(Target.X, Target.Y, Location.Z);
+				++Body.PathIndex;
+			}
+			else
+			{
+				Location += Desired * DeltaSeconds;
+				Location.Z = FMath::FInterpTo(Location.Z, Target.Z, DeltaSeconds, 4.f);
+			}
+			Location = ClampOutOfArena(Body.Deck, Location);
+			Body.Velocity = Desired;
+			if (!Desired.IsNearlyZero())
+			{
+				Rotation = FMath::RInterpTo(Rotation, FRotator(0.f, Desired.Rotation().Yaw, 0.f), DeltaSeconds, 8.f);
+			}
+			Activity = Body.bArrived ? Body.GoalActivity : EVerseCrewActivity::Walk;
+			bMoved = true;
+			// Stuck watch: progress toward the goal within StuckSeconds.
+			const float Remaining = FVector::Dist2D(Location, Body.GoalLocation);
+			if (Remaining < Body.BestDistanceCm - 5.f)
+			{
+				Body.BestDistanceCm = Remaining;
+				Body.LastProgressSeconds = ClockSeconds;
+			}
+			else if (!Body.bStuckReported && ClockSeconds - Body.LastProgressSeconds > Tuning.StuckSeconds)
+			{
+				Body.bStuckReported = true;
+				++Stats.StuckEvents;
+				UE_LOG(LogVerseCrew, Warning, TEXT("Crew member %s made no progress for %.1f s; placing it at its goal."), *Body.MemberId, Tuning.StuckSeconds);
+				Location = Body.GoalLocation;
+				Body.bArrived = true;
+			}
+		}
+		if (Body.bArrived)
+		{
+			if (Body.Goal == EGoal::Leave || Body.Goal == EGoal::Arrive)
+			{
+				if (Body.Goal == EGoal::Arrive)
+				{
+					// Reported aboard: it took the lift and does not arrive again.
+					ArrivingUntil.Remove(Body.MemberId);
+				}
+				Finished.Add(BodyKey(Body.Deck, Body.MemberId));
+				continue;
+			}
+			float Yaw = Body.GoalHeading;
+			if (Body.bFaceCommander)
+			{
+				const FVector To = Commander - Location;
+				if (!To.IsNearlyZero())
+				{
+					Yaw = To.Rotation().Yaw;
+				}
+			}
+			const FRotator Want(0.f, Yaw, 0.f);
+			if (!Rotation.Equals(Want, 0.5f))
+			{
+				Rotation = FMath::RInterpTo(Rotation, Want, DeltaSeconds, 6.f);
+				bMoved = true;
+			}
+			Activity = bSalute && Body.GoalActivity != EVerseCrewActivity::Sleep ? EVerseCrewActivity::StandGuard : Body.GoalActivity;
+		}
+		if (bMoved)
+		{
+			M.Pawn->SetActorLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+			M.Location = Location;
+		}
+		M.Pawn->SetActivity(Activity, Tuning);
+		M.Pawn->UpdateBeacon(ClockSeconds);
+	}
+	for (const FString& Key : Finished)
+	{
+		DespawnBody(Key);
+	}
+}
+
+void UVerseCrewSubsystem::StepCompanion(float DeltaSeconds)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	if (!Companion.IsActive())
+	{
+		if (Drone)
+		{
+			Drone->Destroy();
+			Drone = nullptr;
+		}
+		return;
+	}
+	const FVector Commander = GetCommanderLocation();
+	float Heading = CommanderHeadingDeg;
+	if (!CommanderOverride.IsSet())
+	{
+		const APlayerController* Controller = World->GetFirstPlayerController();
+		if (const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr)
+		{
+			Heading = Pawn->GetActorRotation().Yaw;
+		}
+	}
+	const FRotator Facing(0.f, Heading, 0.f);
+	const FVector Heel = Commander + Facing.RotateVector(FVector(Tuning.CompanionHeelOffsetCm.X, Tuning.CompanionHeelOffsetCm.Y, 0.f))
+		+ FVector(0.f, 0.f, Tuning.CompanionHoverCm - CrewCapsuleHalfHeightCm);
+	if (!Drone)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		Params.ObjectFlags |= RF_Transient;
+		Drone = World->SpawnActor<AVerseCompanionDrone>(AVerseCompanionDrone::StaticClass(), Heel, Facing, Params);
+		if (!Drone)
+		{
+			return;
+		}
+	}
+	Drone->PetId = Companion.PetId;
+	Drone->Look = Companion.Look;
+	const FVector Now = Drone->GetActorLocation();
+	const FVector To = Heel - Now;
+	const float Dist = To.Size();
+	if (Dist < 1.f)
+	{
+		return;
+	}
+	// Cruise at the drone's pace, faster the further behind it is, so it stays at heel even
+	// when the commander sprints (parity C-21).
+	const float Speed = FMath::Clamp(Tuning.CompanionPaceCmS + Dist * 8.f, Tuning.CompanionPaceCmS, Tuning.CompanionMaxCmS);
+	const FVector Next = Dist <= Speed * DeltaSeconds ? Heel : Now + To / Dist * Speed * DeltaSeconds;
+	Drone->SetActorLocationAndRotation(Next, FRotator(0.f, To.Rotation().Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+}
+
+void UVerseCrewSubsystem::StepWorldActions()
+{
+	const FVector Commander = GetCommanderLocation();
+	FVector DroneAt;
+	const bool bDrone = Drone && Companion.IsActive();
+	if (bDrone)
+	{
+		DroneAt = Drone->GetActorLocation();
+	}
+	if (WalkTogether.Sample(Commander, bDrone ? &DroneAt : nullptr, ClockSeconds))
+	{
+		SendWorldAction(TEXT("walk_together"), FString());
+	}
+	// team_briefing: a team round running while the commander is on the bridge, once per round.
+	const TArray<FString> Running = Meetings.RunningGroups();
+	for (auto It = Briefed.CreateIterator(); It; ++It)
+	{
+		if (!Running.Contains(*It))
+		{
+			It.RemoveCurrent();
+		}
+	}
+	if (CommanderDeck == CrewDeckBridge)
+	{
+		for (const FString& Group : Running)
+		{
+			if (!Briefed.Contains(Group))
+			{
+				Briefed.Add(Group);
+				SendWorldAction(TEXT("team_briefing"), Group);
+			}
+		}
+	}
+}
+
+// --- interaction ----------------------------------------------------------------------------
+
+bool UVerseCrewSubsystem::ClickMember(const FString& MemberId)
+{
+	if (!Roster.Contains(MemberId))
+	{
+		return false;
+	}
+	if (SelectedId != MemberId)
+	{
+		ClearSelection();
+		SelectedId = MemberId;
+		for (const TPair<FString, FBody>& Pair : Bodies)
+		{
+			if (Pair.Value.MemberId == MemberId && Pair.Value.Pawn.IsValid())
+			{
+				Pair.Value.Pawn->SetSelected(true);
+			}
+		}
+		return true;
+	}
+	// Second click on the selected member opens it in the app (bridge-protocol.md 11).
+	const TSharedRef<FJsonObject> Data = MakeShared<FJsonObject>();
+	if (Roster.IsPane(MemberId))
+	{
+		Data->SetStringField(TEXT("pane_id"), MemberId);
+		return SendCommand(TEXT("pane.open"), Data, true);
+	}
+	Data->SetStringField(TEXT("agent_id"), MemberId);
+	return SendCommand(TEXT("agent.open"), Data, true);
+}
+
+bool UVerseCrewSubsystem::ClickActor(const AActor* Actor)
+{
+	const AVerseCrewPawn* Pawn = Cast<AVerseCrewPawn>(Actor);
+	return Pawn ? ClickMember(Pawn->MemberId) : false;
+}
+
+bool UVerseCrewSubsystem::ClickUnderCursor(APlayerController* Controller)
+{
+	if (!Controller)
+	{
+		return false;
+	}
+	FHitResult Hit;
+	// Visibility: walls block the trace, so a member behind a wall is never picked (parity V-16).
+	if (!Controller->GetHitResultUnderCursor(ECC_Visibility, false, Hit))
+	{
+		return false;
+	}
+	return ClickActor(Hit.GetActor());
+}
+
+void UVerseCrewSubsystem::ClearSelection()
+{
+	for (const TPair<FString, FBody>& Pair : Bodies)
+	{
+		if (Pair.Value.Pawn.IsValid() && Pair.Value.Pawn->bSelected)
+		{
+			Pair.Value.Pawn->SetSelected(false);
+		}
+	}
+	SelectedId.Reset();
+}
+
+// --- QA and state ---------------------------------------------------------------------------
+
+void UVerseCrewSubsystem::SetDutyOverride(const FString& MemberId, TOptional<EVerseCrewDuty> Duty)
+{
+	if (Duty.IsSet())
+	{
+		DutyOverrides.Add(MemberId, Duty.GetValue());
+	}
+	else
+	{
+		DutyOverrides.Remove(MemberId);
+	}
+	bPlanDirty = true;
+	RefreshDuties(EffectiveMembers());
+}
+
+AVerseCrewPawn* UVerseCrewSubsystem::FindPawn(const FString& MemberId) const
+{
+	for (const TPair<FString, FBody>& Pair : Bodies)
+	{
+		if (Pair.Value.MemberId == MemberId && Pair.Value.Pawn.IsValid())
+		{
+			return Pair.Value.Pawn.Get();
+		}
+	}
+	return nullptr;
+}
+
+TArray<AVerseCrewPawn*> UVerseCrewSubsystem::GetPawns() const
+{
+	TArray<AVerseCrewPawn*> Out;
+	for (const TPair<FString, FBody>& Pair : Bodies)
+	{
+		if (Pair.Value.Pawn.IsValid())
+		{
+			Out.Add(Pair.Value.Pawn.Get());
+		}
+	}
+	return Out;
+}
+
+AVerseCompanionDrone* UVerseCrewSubsystem::GetDrone() const
+{
+	return Drone;
+}
+
+TSharedRef<FJsonObject> UVerseCrewSubsystem::DumpJson() const
+{
+	const TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
+	TArray<TSharedPtr<FJsonValue>> Crew;
+	for (const TPair<FString, FBody>& Pair : Bodies)
+	{
+		const AVerseCrewPawn* Pawn = Pair.Value.Pawn.Get();
+		if (!Pawn)
+		{
+			continue;
+		}
+		const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
+		const FVector L = Pawn->GetActorLocation();
+		Row->SetStringField(TEXT("id"), Pawn->MemberId);
+		Row->SetStringField(TEXT("deck"), Pair.Value.Deck.ToString());
+		Row->SetStringField(TEXT("duty"), VerseCrew::DutyName(Pawn->Duty));
+		Row->SetStringField(TEXT("raw_duty"), Roster.RawDuty(Pawn->MemberId));
+		Row->SetStringField(TEXT("activity"), VerseCrew::ActivityName(Pawn->Activity));
+		Row->SetStringField(TEXT("socket"), Pair.Value.SocketKey);
+		Row->SetStringField(TEXT("rank"), Pawn->RankId);
+		Row->SetStringField(TEXT("uniform"), Pawn->Uniform);
+		Row->SetNumberField(TEXT("beacon"), static_cast<double>(static_cast<uint8>(Pawn->Beacon)));
+		Row->SetBoolField(TEXT("arrived"), Pair.Value.bArrived);
+		Row->SetArrayField(TEXT("location"), { MakeShared<FJsonValueNumber>(L.X), MakeShared<FJsonValueNumber>(L.Y), MakeShared<FJsonValueNumber>(L.Z) });
+		Row->SetNumberField(TEXT("yaw"), Pawn->GetActorRotation().Yaw);
+		Crew.Add(MakeShared<FJsonValueObject>(Row));
+	}
+	Root->SetArrayField(TEXT("crew"), Crew);
+	Root->SetNumberField(TEXT("agents"), Roster.NumAgents());
+	Root->SetNumberField(TEXT("panes"), Roster.NumPanes());
+	Root->SetBoolField(TEXT("arena_on"), bArenaOn);
+	Root->SetStringField(TEXT("companion"), Companion.IsActive() ? Companion.PetId : FString());
+	return Root;
+}
