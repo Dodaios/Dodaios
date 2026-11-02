@@ -51,8 +51,14 @@ void UVerseDeckSubsystem::RegisterQa()
 		};
 	};
 
-	const TPair<FString, TPair<FString, FVerseQaHandler>> Commands[] = {
-		{ TEXT("Verse.QA.View.Set"), { TEXT("Verse.QA.View.Set overview|third|first"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>& Args) -> FString
+	struct FCommand
+	{
+		const TCHAR* Name;
+		const TCHAR* Help;
+		FVerseQaHandler Handler;
+	};
+	FCommand Commands[] = {
+		{ TEXT("Verse.QA.View.Set"), TEXT("Verse.QA.View.Set overview|third|first"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>& Args) -> FString
 			{
 				const TOptional<EVerseDeckView> View = Args.Num() > 0 ? Verse::DeckView::FromName(Args[0]) : TOptional<EVerseDeckView>();
 				if (!View.IsSet())
@@ -61,8 +67,8 @@ void UVerseDeckSubsystem::RegisterQa()
 				}
 				Cam.SetView(View.GetValue());
 				return Cam.StateJson();
-			}) } },
-		{ TEXT("Verse.QA.View.Look"), { TEXT("Verse.QA.View.Look <dx px> <dy px>"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>& Args) -> FString
+			}) },
+		{ TEXT("Verse.QA.View.Look"), TEXT("Verse.QA.View.Look <dx px> <dy px>"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>& Args) -> FString
 			{
 				double Dx = 0.0;
 				double Dy = 0.0;
@@ -72,8 +78,8 @@ void UVerseDeckSubsystem::RegisterQa()
 				}
 				Cam.Look(static_cast<float>(Dx), static_cast<float>(Dy), true);
 				return Cam.StateJson();
-			}) } },
-		{ TEXT("Verse.QA.View.Zoom"), { TEXT("Verse.QA.View.Zoom <factor> (> 1 out)"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>& Args) -> FString
+			}) },
+		{ TEXT("Verse.QA.View.Zoom"), TEXT("Verse.QA.View.Zoom <factor> (> 1 out)"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>& Args) -> FString
 			{
 				double Factor = 0.0;
 				if (!Number(Args, 0, Factor) || Factor <= 0.0)
@@ -82,12 +88,12 @@ void UVerseDeckSubsystem::RegisterQa()
 				}
 				Cam.Zoom(static_cast<float>(Factor));
 				return Cam.StateJson();
-			}) } },
-		{ TEXT("Verse.QA.View.State"), { TEXT("Verse.QA.View.State"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>&) -> FString
+			}) },
+		{ TEXT("Verse.QA.View.State"), TEXT("Verse.QA.View.State"), WithCamera([](AVerseDeckCamera& Cam, const TArray<FString>&) -> FString
 			{
 				return Cam.StateJson();
-			}) } },
-		{ TEXT("Verse.QA.Space.Set"), { TEXT("Verse.QA.Space.Set <field>=<number> ..."), [Weak](const TArray<FString>& Args) -> FString
+			}) },
+		{ TEXT("Verse.QA.Space.Set"), TEXT("Verse.QA.Space.Set <field>=<number> ..."), [Weak](const TArray<FString>& Args) -> FString
 			{
 				UVerseDeckSubsystem* Self = Weak.Get();
 				AVerseSpaceView* Space = Self ? Self->GetSpaceView() : nullptr;
@@ -105,19 +111,19 @@ void UVerseDeckSubsystem::RegisterQa()
 					}
 				}
 				return Space->Look.ToJson(Space->ElapsedS);
-			} } },
-		{ TEXT("Verse.QA.Space.State"), { TEXT("Verse.QA.Space.State"), [Weak](const TArray<FString>&) -> FString
+			} },
+		{ TEXT("Verse.QA.Space.State"), TEXT("Verse.QA.Space.State"), [Weak](const TArray<FString>&) -> FString
 			{
 				UVerseDeckSubsystem* Self = Weak.Get();
 				AVerseSpaceView* Space = Self ? Self->GetSpaceView() : nullptr;
 				return Space ? Space->Look.ToJson(Space->ElapsedS) : QaError(TEXT("no space view (no deck loaded)"));
-			} } },
+			} },
 	};
-	for (const auto& Command : Commands)
+	for (FCommand& Command : Commands)
 	{
-		if (Registry->Register(Command.Key, Command.Value.Key, Command.Value.Value))
+		if (Registry->Register(Command.Name, Command.Help, MoveTemp(Command.Handler)))
 		{
-			QaCommands.Add(Command.Key);
+			QaCommands.Add(Command.Name);
 		}
 	}
 }

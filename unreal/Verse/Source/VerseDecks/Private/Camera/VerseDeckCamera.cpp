@@ -132,9 +132,10 @@ TOptional<double> AVerseDeckCamera::Trace(const FVector& From, const FVector& To
 		return {};
 	}
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseDeckCamera), false, this);
-	if (const APlayerController* Controller = World->GetFirstPlayerController())
+	const APlayerController* Controller = World->GetFirstPlayerController();
+	if (const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr)
 	{
-		Params.AddIgnoredActor(Controller->GetPawn());
+		Params.AddIgnoredActor(Pawn);
 	}
 	FHitResult Hit;
 	if (World->LineTraceSingleByChannel(Hit, From, To, ECC_Camera, Params))
