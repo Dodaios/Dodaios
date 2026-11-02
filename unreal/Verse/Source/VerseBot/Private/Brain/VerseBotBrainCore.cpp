@@ -15,10 +15,11 @@ namespace
 	constexpr float StuckWindowS = 3.f;
 	constexpr float StuckMinMoveCm = 50.f;
 	constexpr float StuckReplanS = 1.f;
+	constexpr float StuckTargetMinCm = 150.f;
 	/** Knife reflex inside 2 m frontal, finisher reflex inside 1.5 m rear or flank (5.2). */
 	constexpr float KnifeRangeCm = 200.f;
 	constexpr float FinisherRangeCm = 150.f;
-	constexpr float WaypointReachCm = 60.f;
+	constexpr float WaypointReachCm = 30.f;
 	constexpr float BrainChestCm = 120.f;
 	/** A sighting starting within 1.5 m of a cover edge counts as a peek there (7.1). */
 	constexpr float PeekEdgeRadiusCm = 150.f;
@@ -78,6 +79,7 @@ void FVerseBotBrainCore::Init(const UVerseBotTier& InTier, const FConfig& InConf
 	LastBeliefStepS = 0.f;
 	DecisionIndex = 0;
 	FMemory::Memzero(StateCounts);
+	FMemory::Memzero(StuckByState);
 	bHadSighting = false;
 	LastSightingS = -1.0e6f;
 	bWasAlive = false;
@@ -106,6 +108,8 @@ void FVerseBotBrainCore::Init(const UVerseBotTier& InTier, const FConfig& InConf
 	StuckRef = FVector::ZeroVector;
 	StuckSinceS = 0.f;
 	bStuckReplanned = false;
+	bNavFailCounted = false;
+	NavFailures = 0;
 	VisibleBurst = 0;
 	BurstRestUntilS = 0.f;
 	BeliefSummary = FVerseBotBeliefSummary();
@@ -586,8 +590,18 @@ FVector FVerseBotBrainCore::NextWaypoint(const FVector& Target, bool bCrouch)
 	}
 	if (!Path.bValid || Path.Waypoints.Num() == 0)
 	{
-		return Target;
+		// No nav to the target: stand and let the next decision pick another (BG12 nav failure).
+		if (PathDecision == DecisionIndex && !bNavFailCounted)
+		{
+			++NavFailures;
+			bNavFailCounted = true;
+			NextDecisionS = FMath::Min(NextDecisionS, NowS + 0.2f);
+			TacticsMem.bHasSearchTarget = false;
+			TacticsMem.bHasFlankPoint = false;
+		}
+		return Self;
 	}
+	bNavFailCounted = false;
 	while (PathIndex < Path.Waypoints.Num() - 1 && FVector::Dist2D(Path.Waypoints[PathIndex], Self) < WaypointReachCm)
 	{
 		++PathIndex;
@@ -604,7 +618,7 @@ FVerseInputFrame FVerseBotBrainCore::ToInput(const FVerseBotIntent& Intent, cons
 	if (Intent.bHasMoveTarget)
 	{
 		const FVector Way = NextWaypoint(Intent.MoveTarget, Intent.Stance == EVerseStance::Crouch);
-		const FVector Dir = (Way - S.Location).GetSafeNormal2D();
+		const FVector Dir = Way.Equals(S.Location) ? FVector::ZeroVector : (Way - S.Location).GetSafeNormal2D();
 		const FVector Local = FRotator(0.f, S.ViewRotation.Yaw, 0.f).UnrotateVector(Dir);
 		Move = FVector2f(float(Local.X), float(Local.Y));
 	}
@@ -737,7 +751,7 @@ FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& Frame, IVer
 	ApplyFireGate(Intent, AimResult);
 
 	// Health: stuck events.
-	if (Intent.bHasMoveTarget)
+	if (Intent.bHasMoveTarget && Path.bValid && FVector::Dist2D(Intent.MoveTarget, Frame.Self.Location) > StuckTargetMinCm)
 	{
 		if (FVector::Dist2D(Frame.Self.Location, StuckRef) > StuckMinMoveCm)
 		{
@@ -760,6 +774,7 @@ FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& Frame, IVer
 			if (NowS - StuckSinceS > StuckWindowS && !bStuckCounted)
 			{
 				++StuckEvents;
+				++StuckByState[int32(Selector.Current())];
 				bStuckCounted = true;
 			}
 		}

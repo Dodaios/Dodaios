@@ -285,6 +285,8 @@ bool FVerseBotHealthTest::RunTest(const FString& Parameters)
 	int32 Stuck = 0;
 	float Minutes = 0.f;
 	TArray<double> Us;
+	int32 ByState[VerseBot::NumStates] = {};
+	int32 Decisions[VerseBot::NumStates] = {};
 	for (int32 Seed = 1; Seed <= 6; ++Seed)
 	{
 		FFakeVerseDuelSim::FConfig Cfg;
@@ -297,14 +299,25 @@ bool FVerseBotHealthTest::RunTest(const FString& Parameters)
 		Stuck += Sim.Brain.GetStuckEvents();
 		Minutes += 10.f;
 		Us.Append(Sim.ThinkUs);
+		for (int32 i = 0; i < VerseBot::NumStates; ++i)
+		{
+			ByState[i] += Sim.Brain.GetStuckByState()[i];
+			Decisions[i] += Sim.Brain.GetStateCounts()[i];
+		}
+	}
+	FString PerState;
+	for (int32 i = 0; i < VerseBot::NumStates; ++i)
+	{
+		PerState += FString::Printf(TEXT("%s\"%s\": {\"decisions\": %d, \"stuck\": %d}"), i == 0 ? TEXT("") : TEXT(", "),
+			VerseBot::StateName(EVerseBotState(i)), Decisions[i], ByState[i]);
 	}
 	const float Median = VerseBotTestProof::Median(Contacts);
 	const float StuckPer10 = float(Stuck) / (Minutes / 10.f);
 	const double P99 = VerseBotTestProof::Percentile(Us, 99.0);
 	VerseBotTestProof::Write(TEXT("8.3"), TEXT("bg12_health.json"),
-		FString::Printf(TEXT("{\n  \"gate\": \"BG12\",\n  \"opponent\": \"hider\",\n  \"tier\": \"hard\",\n  \"contacts\": %d,\n  \"timeToContactS_median\": %.2f,\n  \"stuckEventsPer10Min\": %.2f,\n  \"thinkUsP99\": %.2f\n}\n"),
-			Contacts.Num(), Median, StuckPer10, P99));
-	AddInfo(FString::Printf(TEXT("hider: %d contacts, median %.1f s, stuck %.2f per 10 min, p99 %.1f us"), Contacts.Num(), Median, StuckPer10, P99));
+		FString::Printf(TEXT("{\n  \"gate\": \"BG12\",\n  \"opponent\": \"hider\",\n  \"tier\": \"hard\",\n  \"contacts\": %d,\n  \"timeToContactS_median\": %.2f,\n  \"stuckEventsPer10Min\": %.2f,\n  \"thinkUsP99\": %.2f,\n  \"states\": {%s}\n}\n"),
+			Contacts.Num(), Median, StuckPer10, P99, *PerState));
+	AddInfo(FString::Printf(TEXT("hider: %d contacts, median %.1f s, stuck %.2f per 10 min, p99 %.1f us; states %s"), Contacts.Num(), Median, StuckPer10, P99, *PerState));
 	TestTrue(TEXT("the hider is found"), Contacts.Num() >= 6);
 	TestTrue(TEXT("timeToContactS median <= 25 s"), Median <= 25.f);
 	TestTrue(TEXT("stuck events <= 1 per 10 min"), StuckPer10 <= 1.f);

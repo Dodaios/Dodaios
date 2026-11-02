@@ -69,6 +69,10 @@ public:
 	const int32* GetStateCounts() const { return StateCounts; }
 	/** Ticks the bot wanted to move but made no progress for 3 s (BG12 stuck events). */
 	int32 GetStuckEvents() const { return StuckEvents; }
+	/** Paths the belief nav could not build (BG12 navFailures). */
+	int32 GetNavFailures() const { return NavFailures; }
+	/** Stuck events by the state the bot was in. */
+	const int32* GetStuckByState() const { return StuckByState; }
 
 private:
 	void BuildContext(const FVersePerceptFrame& Frame, IVerseBotWorldQueries& World);
@@ -118,6 +122,7 @@ private:
 	float LastBeliefStepS = 0.f;
 	int32 DecisionIndex = 0;
 	int32 StateCounts[VerseBot::NumStates] = {};
+	int32 StuckByState[VerseBot::NumStates] = {};
 
 	// Triggers (5.2)
 	bool bHadSighting = false;
@@ -152,6 +157,8 @@ private:
 	float StuckSinceS = 0.f;
 	bool bStuckCounted = false;
 	bool bStuckReplanned = false;
+	bool bNavFailCounted = false;
+	int32 NavFailures = 0;
 
 	// Reflex state
 	bool bAdsHeld = false;

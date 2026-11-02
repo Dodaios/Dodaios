@@ -109,7 +109,7 @@ namespace VerseBotTactics
 		}
 
 		// Reload: magazine at or below the tactical fraction, no sight, threat low or in cover.
-		if (Ctx.MagazineFrac <= T.TacticalReloadAtFrac && !bSight)
+		if (Ctx.MagazineFrac <= T.TacticalReloadAtFrac && !bSight && Ctx.Query.Self->Reserve > 0)
 		{
 			const bool bSafe = B.Confidence < 0.5f || DistTop > QuietRangeCm || Ctx.bInCover || !bUsable;
 			const bool bEmpty = Ctx.MagazineFrac <= 0.f;
@@ -254,13 +254,11 @@ namespace VerseBotTactics
 			const FVector Away = (Self.Location - Target).GetSafeNormal2D();
 			if (bReason)
 			{
-				I.bHasMoveTarget = true;
-				I.MoveTarget = Target + Away * 0.6f * Ctx.Query.PreferredRangeCm;
+				MoveTo(Target + Away * 0.6f * Ctx.Query.PreferredRangeCm);
 			}
 			else if (Dist < 0.6f * Ctx.Query.PreferredRangeCm)
 			{
-				I.bHasMoveTarget = true;
-				I.MoveTarget = Self.Location + Away * 300.f;
+				MoveTo(Self.Location + Away * 300.f);
 			}
 			break;
 		}

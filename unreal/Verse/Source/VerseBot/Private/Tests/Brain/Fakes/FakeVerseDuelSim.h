@@ -357,15 +357,17 @@ public:
 			const FRotator Yaw(0.f, BotView.Yaw, 0.f);
 			const float Speed = In.IsHeld(EVerseInputButton::Sprint) ? 650.f : In.IsHeld(EVerseInputButton::Crouch) ? 200.f : 450.f;
 			const FVector Wish = Yaw.RotateVector(FVector(In.Move.X, In.Move.Y, 0.f)) * Speed;
-			const FVector Next = BotPos + Wish * Dt;
-			if (World.IsWalkable(Next))
+			// Slide along walls like a character movement component: full step, else one axis.
+			const FVector Steps[3] = {Wish * Dt, FVector(Wish.X, 0.f, 0.f) * Dt, FVector(0.f, Wish.Y, 0.f) * Dt};
+			BotVel = FVector::ZeroVector;
+			for (const FVector& Step : Steps)
 			{
-				BotVel = Wish;
-				BotPos = Next;
-			}
-			else
-			{
-				BotVel = FVector::ZeroVector;
+				if (!Step.IsNearlyZero() && World.IsWalkable(BotPos + Step))
+				{
+					BotPos += Step;
+					BotVel = Step / Dt;
+					break;
+				}
 			}
 			if (In.WasPressed(EVerseInputButton::Reload) && BotMag < 30 && BotReserve > 0)
 			{

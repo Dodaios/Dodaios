@@ -187,6 +187,10 @@ public:
 		++Calls;
 		FVerseBotPath P;
 		const FVector F(From.X, From.Y, 0.f), T(To.X, To.Y, 0.f);
+		if (!IsWalkable(T))
+		{
+			return P; // no nav at the target
+		}
 		if (ClearWalk(F, T))
 		{
 			P.bValid = true;
