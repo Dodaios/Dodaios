@@ -35,7 +35,7 @@ vi.mock("@/components/society/card/BuildingCardOverlay", () => {
 });
 afterEach(cleanup);
 
-it("never evaluates closed dialog modules; creates agents without a dialog", async () => {
+it("never evaluates the Verse or dialog modules; creates agents without a dialog", async () => {
   const client = new QueryClient();
   render(<QueryClientProvider client={client}><SocietyView /></QueryClientProvider>);
   expect(loaded).toEqual({ building: 0, world: 0 });
@@ -48,21 +48,8 @@ it("never evaluates closed dialog modules; creates agents without a dialog", asy
   expect(screen.getByLabelText("Existing chat draft")).toBe(draft);
   expect((draft as HTMLInputElement).value).toBe("Keep this draft");
 
-  const worldTab = screen.getByRole("tab", { name: "society.shell.mode_verse" });
-  fireEvent.pointerEnter(worldTab);
-  await waitFor(() => expect(loaded.world).toBe(1));
+  // The Verse has no entry on this page any more: its chunk stays unloaded.
+  expect(loaded).toEqual({ building: 0, world: 0 });
   expect(screen.queryByTestId("society-world-surface")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Open foundry" })).toBeNull();
-  fireEvent.click(worldTab);
-  fireEvent.click(await screen.findByRole("button", { name: "Open foundry" }));
-  expect(await screen.findByRole("dialog", { name: "Building" })).toBeTruthy();
-  expect(screen.getByText("foundry")).toBeTruthy();
-  expect(loaded).toEqual({ building: 1, world: 1 });
-  fireEvent.click(screen.getByRole("button", { name: "Close building" }));
-  fireEvent.click(screen.getByRole("button", { name: "Open docks" }));
-  expect(await screen.findByRole("dialog", { name: "Building" })).toBeTruthy();
-  expect(screen.getByText("plugins")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Close building" }));
-  expect(screen.queryByRole("dialog")).toBeNull();
   client.clear();
 });

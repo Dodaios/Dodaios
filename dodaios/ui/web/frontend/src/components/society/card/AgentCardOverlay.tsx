@@ -19,7 +19,6 @@ import { useRosterActivity } from "../roster/useRosterActivity";
 import type { SocietyChatGroup } from "@/lib/societyChatGroups";
 import { OptionsRail } from "./OptionsRail";
 import { AgentChatLayout } from "./AgentChatLayout";
-import { AgentHeader } from "./AgentHeader";
 import { HeaderModelSlotContext } from "./headerModelSlot";
 
 export interface AgentCardOverlayProps {
@@ -90,7 +89,7 @@ export function AgentCardOverlay({
       )}
       <AgentChatLayout
         resetKey={agent.agentId}
-        roster={({ collapsed, onToggleCollapsed }) => (
+        roster={({ collapsed, onToggleCollapsed, onToggleDetails }) => (
           <RosterRail
             agents={roster}
             groups={groups}
@@ -101,7 +100,7 @@ export function AgentCardOverlay({
             teamsPending={teamsPending}
             sample={sample}
             activeAgentId={agent.agentId}
-            onOpen={(id) => { if (id !== agent.agentId) onSelectAgent?.(id); }}
+            onOpen={(id) => { if (id === agent.agentId) onToggleDetails(); else onSelectAgent?.(id); }}
             onCreate={() => onCreate?.()}
             side="left"
             className="w-full border-0"
@@ -112,7 +111,7 @@ export function AgentCardOverlay({
             keyboard={active}
           />
         )}
-        header={(details) => <AgentHeader agent={agent} details={details} />}
+        header={() => null}
         options={<OptionsRail agent={agent} onRetired={onClose} sample={sample} onModelSavingChange={setModelSaving} />}
       >
         <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={t("society.card.chat")} data-testid="agent-card-chat">

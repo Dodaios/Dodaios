@@ -40,9 +40,10 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-it("puts the bell in the caption beside the mode switch", () => {
+it("keeps the caption clear of the bell", () => {
   render(<SocietyView />);
-  expect(screen.getByTestId("mode-switch").contains(screen.getByTestId("attention-bell"))).toBe(true);
+  expect(screen.queryByTestId("mode-switch")).toBeNull();
+  expect(screen.queryByTestId("attention-bell")).toBeNull();
 });
 
 it("opens the requested agent and reveals the card", async () => {

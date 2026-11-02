@@ -38,6 +38,8 @@ export interface RosterSlotState {
   /** Show the avatar rail instead of rows. */
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /** Opens or closes the details pane (a press on the open agent's row). */
+  onToggleDetails: () => void;
 }
 
 /** What the chat header needs to open and close the details pane from its name pill. */
@@ -267,7 +269,7 @@ export function AgentChatLayout({ children, options, roster, header, resetKey }:
         <div className="as-region" style={{ zIndex: rosterSheet ? 30 : undefined }}>
           <div ref={rosterRef} className={cn("flex min-h-0 flex-1 flex-col", rosterSheet && "as-roster-overlay")}
             style={rosterSheet ? { width: ROSTER_DEFAULT } : undefined} data-testid="shell-roster">
-            {roster({ collapsed: rosterCollapsed, onToggleCollapsed: toggleRoster })}
+            {roster({ collapsed: rosterCollapsed, onToggleCollapsed: toggleRoster, onToggleDetails: togglePane })}
           </div>
           {layout.roster === "full" ? separator("roster", rosterWidth) : null}
         </div>

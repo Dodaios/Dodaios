@@ -117,6 +117,12 @@
   background: hsl(var(--background));
 }
 
+/* Where the page reaches the window's top edge, each column keeps the
+   caption's height clear in its own colour (set by the Agents page). */
+.as-shell > .as-region {
+  padding-top: var(--as-caption-gap, 0px);
+}
+
 /* The pane's content draws its own edge (the details rail has a left border). */
 .as-pane {
   background: hsl(var(--sidebar));

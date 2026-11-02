@@ -1,5 +1,5 @@
 /**
- * The workspace wires the frame together: roster, header and chat in one
+ * The workspace wires the frame together: roster and chat in one
  * grid, a model save in the details pane held against the composer's Send,
  * and the keyboard shortcuts live only while the section is on screen.
  */
@@ -60,11 +60,12 @@ function mount(props: Partial<Parameters<typeof AgentCardOverlay>[0]> = {}) {
 }
 
 describe("AgentCardOverlay", () => {
-  it("renders roster, header, chat and details once, without a render storm", () => {
+  it("renders roster, chat and details once, without a render storm", () => {
     renders.chat = 0;
     mount();
     expect(screen.getByTestId("society-roster-rail")).toBeTruthy();
-    expect(screen.getByTestId("agent-header-name").textContent).toBe("Alpha");
+    // No name pill over the chat: the chat reaches the top of its column.
+    expect(screen.queryByTestId("agent-header")).toBeNull();
     // The details pane is mounted but closed: the section opens on a plain chat.
     expect(screen.getByRole("complementary", { name: "Details", hidden: true }).textContent).toContain("Alpha");
     expect(screen.getByTestId("shell-details").hidden).toBe(true);
@@ -79,10 +80,15 @@ describe("AgentCardOverlay", () => {
     expect(screen.getByTestId("chat-probe").dataset.saving).toBe("yes");
   });
 
-  it("opens the details pane from the name pill", () => {
-    mount();
-    fireEvent.click(screen.getByTestId("shell-details-toggle"));
+  it("opens and closes the details pane from the open agent's roster row", () => {
+    const { onSelectAgent } = mount();
+    const row = document.querySelector<HTMLButtonElement>('[data-testid="society-roster-rail"] [aria-current="true"]');
+    expect(row).toBeTruthy();
+    fireEvent.click(row!);
     expect(screen.getByTestId("shell-details").hidden).toBe(false);
+    fireEvent.click(row!);
+    expect(screen.getByTestId("shell-details").hidden).toBe(true);
+    expect(onSelectAgent).not.toHaveBeenCalled();
   });
 
   it("steps to the next agent with Alt + Arrow Down only while active", () => {
