@@ -50,6 +50,14 @@ matches the Blender AgX render of the same scene-linear values with a mean
 CIEDE2000 of at most 3 (A14.4); the offline error of the LUT alone is in the
 metrics too.
 
+VFX cost (A14.5): the lookdev run places 1024 bolts (`SM_Vfx_Bolt`, half own,
+half foe) in front of a 2560 x 1440 scene capture and times capture plus a
+one-pixel readback with no bolts, 64 and 1024 bolts, alternating in every
+round. The medians give `delta_64_ms` and `delta_1024_ms`; the bound is the
+larger of `delta_64_ms` and `delta_1024_ms * 64 / 1024`. It includes the
+render-thread cost of the draws, so it bounds the GPU cost from above and
+must be at most 0.1 ms.
+
 ## 4. Weapon design sheet (WP14.3)
 
 All weapons are original. Names are fictional. Every part is fully black:
