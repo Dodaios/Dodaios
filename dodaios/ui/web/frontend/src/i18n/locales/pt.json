@@ -10227,6 +10227,15 @@
     "signin_not_yet": "— instalar ainda não liga nada."
   },
   "ide_threads": {
+    "header": {
+      "label": "Thread: {thread}",
+      "review_changes": "Revisar alterações",
+      "show_in_git": "Mostrar alterações no Git",
+      "more": "Mais ações para {thread}",
+      "maximize": "Ocultar a barra lateral",
+      "restore": "Mostrar a barra lateral",
+      "close": "Fechar thread (vai para o arquivo)"
+    },
     "layout_aria": "Disposição do IDE",
     "layout_grid": "Grelha de terminais",
     "layout_threads": "Threads",

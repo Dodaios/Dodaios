@@ -10227,6 +10227,15 @@
     "signin_not_yet": "— die Installation verbindet noch nichts."
   },
   "ide_threads": {
+    "header": {
+      "label": "Thread: {thread}",
+      "review_changes": "Änderungen prüfen",
+      "show_in_git": "Änderungen in Git zeigen",
+      "more": "Weitere Aktionen für {thread}",
+      "maximize": "Seitenleiste ausblenden",
+      "restore": "Seitenleiste einblenden",
+      "close": "Thread schließen (kommt ins Archiv)"
+    },
     "layout_aria": "IDE-Layout",
     "layout_grid": "Terminal-Raster",
     "layout_threads": "Threads",

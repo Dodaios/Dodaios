@@ -10227,6 +10227,15 @@
     "signin_not_yet": "— instalarlo todavía no conecta nada."
   },
   "ide_threads": {
+    "header": {
+      "label": "Hilo: {thread}",
+      "review_changes": "Revisar cambios",
+      "show_in_git": "Mostrar cambios en Git",
+      "more": "Más acciones para {thread}",
+      "maximize": "Ocultar la barra lateral",
+      "restore": "Mostrar la barra lateral",
+      "close": "Cerrar hilo (pasa al archivo)"
+    },
     "layout_aria": "Diseño del IDE",
     "layout_grid": "Cuadrícula de terminales",
     "layout_threads": "Hilos",

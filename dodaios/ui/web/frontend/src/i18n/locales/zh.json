@@ -10227,6 +10227,15 @@
     "signin_not_yet": "——安装后尚不会连接任何内容。"
   },
   "ide_threads": {
+    "header": {
+      "label": "线程：{thread}",
+      "review_changes": "查看更改",
+      "show_in_git": "在 Git 中显示更改",
+      "more": "{thread} 的更多操作",
+      "maximize": "隐藏侧边栏",
+      "restore": "显示侧边栏",
+      "close": "关闭线程（移入归档）"
+    },
     "layout_aria": "IDE 布局",
     "layout_grid": "终端网格",
     "layout_threads": "线程",
