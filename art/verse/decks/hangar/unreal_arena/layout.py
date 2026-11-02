@@ -30,9 +30,12 @@ LEVELS = {"L0": 0.0, "L1": 3.0, "L2": 6.0}
 #: Height bands that count as one level for the A11.1 share rule.
 LEVEL_BANDS = (("L0", -1.0, 1.5), ("L1", 1.5, 4.5), ("L2", 4.5, 9.0))
 
-#: Launch well opening (x0, x1, z0, z1); 26 m deep, the floor never breaks.
+#: Launch well opening (x0, x1, z0, z1); 26 m deep, the floor never breaks. Supersedes the
+#: hangar_layout.py well (8..38, 8..20) for the Unreal hangar (arena.md 1).
 WELL = (27.0, 37.0, 9.0, 19.0)
 WELL_DEPTH = 26.0
+#: Hero wall pier, x extent (it closes the north perimeter between its two runs).
+PIER = (49.0, 51.0)
 
 ZONES = ("shell", "arena_canyon", "arena_shuttle", "arena_booth", "arena_catwalks", "armoury")
 ARENA_ZONES = ("arena_canyon", "arena_shuttle", "arena_booth", "arena_catwalks")
@@ -54,6 +57,32 @@ REF_THICKNESS_M = {
     "cladding_panel": 0.04,
     "catwalk_grating": 0.03,
     "ceiling_panel": 0.025,
+}
+
+
+#: Hangar haze and post settings of WP11.12 (art-pipeline 8.2 "Haze", 6.3 Lumen only):
+#: exponential height fog plus volumetric fog with neutral grey scattering (albedo
+#: saturation 0, never coloured fog), dense enough that the 21 m truss lights draw
+#: visible cones. The placement schema has no volume kind, so this is data for the
+#: level owner (arena.md 9); the values are what the visual lane tunes against.
+HAZE = {
+    "fog": "exponential_height",
+    "fog_density": 0.035,
+    "fog_height_falloff": 0.12,
+    "fog_start_distance_m": 4.0,
+    "fog_inscattering_rgb": (0.42, 0.42, 0.42),
+    "volumetric": True,
+    "volumetric_albedo_rgb": (0.85, 0.85, 0.85),
+    "volumetric_extinction_scale": 1.0,
+    "volumetric_view_distance_m": 60.0,
+}
+POST = {
+    "gi": "lumen",
+    "reflections": "lumen",
+    "exposure": "manual",
+    "exposure_compensation_ev": 0.0,
+    "bloom_intensity": 0.35,
+    "vignette": 0.25,
 }
 
 
@@ -246,11 +275,17 @@ def _shell(out: Layout) -> None:
             )
         )
     # Hero wall pier: splits the north catwalk, so the 50 m run along the wall is two.
-    out.boxes.append(Box("hero_pier", z, 49.0, 51.0, 1.5, 7.0, 0.0, 12.0, "HeroPier", layer="base"))
+    out.boxes.append(Box("hero_pier", z, *PIER, 1.5, 7.0, 0.0, 12.0, "HeroPier", layer="base"))
     # Arena perimeter: blast barriers plus a see-through mesh fence, arena layer only.
     ax0, ax1, az0, az1 = ARENA
     barrier = dict(zone=z, family="BlastBarrier", h0=0.0, h1=4.5, layer="arena")
     fence = dict(zone=z, family="ArenaFence", h0=4.5, h1=10.0, sight=False, layer="arena")
+    # North run along z = az0: closes the strip between the hero wall and the
+    # arena; it stops at the hero pier, which closes the gap itself.
+    px0, px1 = PIER
+    for k, (a, b) in enumerate(((ax0 - 0.6, px0), (px1, ax1 + 0.6)), 1):
+        out.boxes.append(Box(f"barrier_north_{k}", x0=a, x1=b, z0=az0 - 0.6, z1=az0, **barrier))
+        out.boxes.append(Box(f"fence_north_{k}", x0=a, x1=b, z0=az0 - 0.6, z1=az0, **fence))
     for name, x0, x1, z0, z1 in (
         ("west", ax0 - 0.6, ax0, az0, az1),
         ("south", ax0 - 0.6, ax1 + 0.6, az1, az1 + 0.6),
@@ -446,9 +481,9 @@ def _catwalks(out: Layout) -> None:
         Ramp("stair_gantry", z, 57.8, 59.8, 28.0, 36.0, 0.0, h, "z"),
     ]
     out.lights += [
-        Light("cat_north_a", z, 34.0, 5.0, 8.8, "rect", 3600.0, 2400.0, 9.0, source_size_m=1.2),
-        Light("cat_north_b", z, 52.0, 5.0, 8.8, "rect", 3600.0, 2400.0, 9.0, source_size_m=1.2),
-        Light("cat_gantry", z, 50.0, 37.5, h + 2.3, "rect", 3200.0, 1500.0, 6.0, source_size_m=0.8),
+        Light("cat_north_a", z, 34.0, 5.0, 8.8, "rect", 4500.0, 2400.0, 9.0, source_size_m=1.2),
+        Light("cat_north_b", z, 52.0, 5.0, 8.8, "rect", 4500.0, 2400.0, 9.0, source_size_m=1.2),
+        Light("cat_gantry", z, 50.0, 37.5, h + 2.3, "rect", 4500.0, 1500.0, 6.0, source_size_m=0.8),
     ]
 
 
@@ -581,8 +616,8 @@ def _booth(out: Layout) -> None:
     )
     out.ramps.append(Ramp("stair_booth_floor", z, 38.0, 39.6, 34.0, 42.0, l1, 0.0, "z"))
     out.lights += [
-        Light("booth_a", z, 30.0, 37.0, l1 + 2.9, "rect", 3500.0, 1800.0, 7.0, source_size_m=1.0),
-        Light("booth_b", z, 35.0, 37.0, l1 + 2.9, "rect", 3500.0, 1800.0, 7.0, source_size_m=1.0),
+        Light("booth_a", z, 30.0, 37.0, l1 + 2.9, "rect", 4500.0, 1800.0, 7.0, source_size_m=1.0),
+        Light("booth_b", z, 35.0, 37.0, l1 + 2.9, "rect", 4500.0, 1800.0, 7.0, source_size_m=1.0),
     ]
 
 
@@ -707,8 +742,8 @@ def _shuttle(out: Layout) -> None:
         Box("lowwall_w", z, 33.6, 36.0, 28.4, 29.0, 0.0, 1.1, "LowBarrier"),
     ]
     out.lights += [
-        Light("cabin_a", z, 50.0, 19.0, l1 - 0.5, "rect", 3800.0, 1200.0, 6.0, source_size_m=0.8),
-        Light("cabin_b", z, 50.0, 30.0, l1 - 0.5, "rect", 3800.0, 1200.0, 6.0, source_size_m=0.8),
+        Light("cabin_a", z, 50.0, 19.0, l1 - 0.5, "rect", 4500.0, 1200.0, 6.0, source_size_m=0.8),
+        Light("cabin_b", z, 50.0, 30.0, l1 - 0.5, "rect", 4500.0, 1200.0, 6.0, source_size_m=0.8),
     ]
 
 
@@ -724,14 +759,14 @@ ROW_X0 = (60.6, 60.6 + CONTAINER_W + AISLE, 60.6 + 2 * (CONTAINER_W + AISLE))
 ROWS = (
     ((11.0, 17.0, True), (17.0, 23.0, True), (25.0, 31.0, False), (31.0, 37.0, False)),
     (
-        (5.0, 11.0, False),
+        (5.5, 11.0, False),
         (13.0, 19.0, False),
         (19.0, 25.0, False),
         (27.0, 33.0, True),
         (33.0, 39.0, True),
     ),
     (
-        (5.0, 11.0, False),
+        (5.5, 11.0, False),
         (11.0, 17.0, False),
         (19.0, 25.0, False),
         (27.0, 33.0, False),
@@ -832,7 +867,7 @@ def _canyon(out: Layout) -> None:
             (ROW_X0[0] + CONTAINER_W + AISLE / 2, ROW_X0[1] + CONTAINER_W + AISLE / 2), 1
         ):
             out.lights.append(
-                Light(f"aisle_{k}{a}", z, ax, cz, 7.5, "spot", 3200.0, 5000.0, 10.0, cone_deg=60.0)
+                Light(f"aisle_{k}{a}", z, ax, cz, 7.5, "spot", 4300.0, 5000.0, 10.0, cone_deg=60.0)
             )
 
 
@@ -909,8 +944,8 @@ def _armoury(out: Layout) -> None:
         ),
     ]
     out.lights += [
-        Light("armoury_a", z, 82.0, 54.0, h - 0.1, "rect", 3800.0, 3000.0, 8.0, source_size_m=1.2),
-        Light("armoury_b", z, 92.0, 54.0, h - 0.1, "rect", 3800.0, 3000.0, 8.0, source_size_m=1.2),
+        Light("armoury_a", z, 82.0, 54.0, h - 0.1, "rect", 4500.0, 3000.0, 8.0, source_size_m=1.2),
+        Light("armoury_b", z, 92.0, 54.0, h - 0.1, "rect", 4500.0, 3000.0, 8.0, source_size_m=1.2),
     ]
 
 

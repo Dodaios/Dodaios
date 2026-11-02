@@ -63,6 +63,17 @@ def test_nav_is_one_island(graph):
     assert graph.islands() == [graph.count]
 
 
+def test_arena_is_sealed_from_the_hall(lay):
+    """Built over the whole hall in arena mode, no walkable node outside the
+    arena bounds may reach one inside (the perimeter is closed on all sides)."""
+    hall = nav.build(lay, bounds=(2.5, 97.5, 1.5, 61.6))
+    ax0, ax1, az0, az1 = L.ARENA
+    inside = (hall.xs > ax0) & (hall.xs < ax1) & (hall.zs > az0) & (hall.zs < az1)
+    assert inside.any() and (~inside).any()
+    shared = set(hall.labels[inside].tolist()) & set(hall.labels[~inside].tolist())
+    assert not shared, f"{int((~inside & np.isin(hall.labels, list(shared))).sum())} nodes leak"
+
+
 def test_ceiling_is_21_m_and_floor_is_whole(lay):
     ceiling = next(b for b in lay.boxes if b.id == "ceiling")
     assert ceiling.h0 == pytest.approx(21.0)
@@ -179,8 +190,20 @@ def test_spawn_sockets_and_armoury_station(docs):
 def test_lights_are_warm_work_lights(docs):
     lights = [s["light"] for d in docs.values() for s in d["sockets"] if s["kind"] == "light"]
     assert lights
-    # Military-Industrial Noir: hard, warm-to-neutral sources, never cold (README Look).
-    assert all(3000 <= li["kelvin"] <= 4500 for li in lights)
+    # art-pipeline 8.2: hard work lights at 4300-6500 K.
+    assert all(4300 <= li["kelvin"] <= 6500 for li in lights)
+
+
+def test_haze_is_neutral_volumetric_height_fog():
+    # art-pipeline 8.2 "Haze" and 8.3 "Coloured fog" (saturation > 0.1 fails), 6.3 Lumen only.
+    import colorsys
+
+    assert L.HAZE["fog"] == "exponential_height" and L.HAZE["volumetric"] is True
+    assert L.HAZE["fog_density"] > 0
+    for key in ("fog_inscattering_rgb", "volumetric_albedo_rgb"):
+        _, sat, _ = colorsys.rgb_to_hsv(*L.HAZE[key])
+        assert sat <= 0.1, key
+    assert L.POST["gi"] == "lumen" and L.POST["reflections"] == "lumen"
 
 
 def test_placements_are_deterministic(lay):

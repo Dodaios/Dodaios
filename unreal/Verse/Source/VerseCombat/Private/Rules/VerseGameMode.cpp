@@ -12,8 +12,79 @@
 #include "Rules/VerseRulesetConfig.h"
 #include "Rules/VerseRuleset_Deathmatch.h"
 #include "Rules/VerseSpawnPoint.h"
+#include "UObject/UnrealType.h"
 #include "VerseCollision.h"
 #include "VerseLog.h"
+
+namespace
+{
+	/**
+	 * Navmesh path length in cm, or -1 when there is no navigation system or no path.
+	 * VerseCombat has no NavigationSystem edge in the module DAG (architecture 2), so the static
+	 * UFUNCTION UNavigationSystemV1::FindPathToLocationSynchronously is called through
+	 * reflection and the returned UNavigationPath's PathPoints are summed (as VerseCrew does).
+	 */
+	float NavPathLength(UWorld* World, const FVector& From, const FVector& To)
+	{
+		if (!World || !World->GetNavigationSystem())
+		{
+			return -1.f;
+		}
+		static TWeakObjectPtr<UClass> NavClass;
+		static TWeakObjectPtr<UFunction> FindPath;
+		if (!FindPath.IsValid())
+		{
+			NavClass = FindObject<UClass>(nullptr, TEXT("/Script/NavigationSystem.NavigationSystemV1"));
+			FindPath = NavClass.IsValid() ? NavClass->FindFunctionByName(TEXT("FindPathToLocationSynchronously")) : nullptr;
+			if (!FindPath.IsValid())
+			{
+				return -1.f;
+			}
+		}
+		UFunction* Function = FindPath.Get();
+		uint8* Params = static_cast<uint8*>(FMemory::Malloc(FMath::Max<int32>(Function->ParmsSize, 1), 16));
+		FMemory::Memzero(Params, Function->ParmsSize);
+		for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		{
+			It->InitializeValue_InContainer(Params);
+		}
+		float Length = -1.f;
+		FObjectProperty* WorldParam = CastField<FObjectProperty>(Function->FindPropertyByName(TEXT("WorldContextObject")));
+		FStructProperty* StartParam = CastField<FStructProperty>(Function->FindPropertyByName(TEXT("PathStart")));
+		FStructProperty* EndParam = CastField<FStructProperty>(Function->FindPropertyByName(TEXT("PathEnd")));
+		FObjectProperty* ReturnParam = CastField<FObjectProperty>(Function->GetReturnProperty());
+		if (WorldParam && StartParam && EndParam && ReturnParam)
+		{
+			WorldParam->SetObjectPropertyValue_InContainer(Params, World);
+			*StartParam->ContainerPtrToValuePtr<FVector>(Params) = From;
+			*EndParam->ContainerPtrToValuePtr<FVector>(Params) = To;
+			NavClass->GetDefaultObject()->ProcessEvent(Function, Params);
+			if (UObject* Path = ReturnParam->GetObjectPropertyValue_InContainer(Params))
+			{
+				if (FArrayProperty* Points = CastField<FArrayProperty>(Path->GetClass()->FindPropertyByName(TEXT("PathPoints"))))
+				{
+					FScriptArrayHelper Helper(Points, Points->ContainerPtrToValuePtr<void>(Path));
+					if (Helper.Num() >= 2)
+					{
+						double Sum = 0.0;
+						for (int32 I = 1; I < Helper.Num(); ++I)
+						{
+							Sum += FVector::Dist(*reinterpret_cast<const FVector*>(Helper.GetRawPtr(I - 1)),
+								*reinterpret_cast<const FVector*>(Helper.GetRawPtr(I)));
+						}
+						Length = float(Sum);
+					}
+				}
+			}
+		}
+		for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		{
+			It->DestroyValue_InContainer(Params);
+		}
+		FMemory::Free(Params);
+		return Length;
+	}
+}
 
 AVerseGameMode::AVerseGameMode()
 {
@@ -144,6 +215,11 @@ void AVerseGameMode::GetLoadout(const AVersePlayerState* Player, TMap<EVerseLoad
 	}
 }
 
+bool AVerseGameMode::ShouldResetDestruction(EVerseBoundary Boundary) const
+{
+	return Ruleset ? Ruleset->ShouldResetDestruction(Boundary) : false;
+}
+
 FVerseRulesHost AVerseGameMode::MakeDefaultHost()
 {
 	FVerseRulesHost Host;
@@ -200,10 +276,19 @@ FVerseRulesHost AVerseGameMode::MakeDefaultHost()
 		}
 		return !World->LineTraceTestByChannel(A, B, VerseCollision::Bolt, Params);
 	};
-	// VerseCombat has no NavigationSystem edge in the module DAG (architecture 2), so the
-	// default is "no path" and selection uses the Euclidean distance (9.2 fallback). The
-	// integration step sets a navmesh path-length function here (arena.md, open items).
-	Host.PathLength = [](const FVector&, const FVector&) { return -1.f; };
+	Host.FloorPoint = [](const AVersePlayerState* P, FVector& OutFloor) {
+		const APawn* Pawn = P ? P->GetPawn() : nullptr;
+		if (!Pawn)
+		{
+			return false;
+		}
+		OutFloor = Pawn->GetNavAgentLocation();
+		return true;
+	};
+	// Navmesh path length through reflection; "no path" (-1) falls back to Euclidean (9.2).
+	Host.PathLength = [Self](const FVector& A, const FVector& B) {
+		return NavPathLength(Self.IsValid() ? Self->GetWorld() : nullptr, A, B);
+	};
 	Host.PawnNear = [Self](const FVector& Floor, float RadiusCm, const AVersePlayerState* Ignore) {
 		UWorld* World = Self.IsValid() ? Self->GetWorld() : nullptr;
 		if (!World)

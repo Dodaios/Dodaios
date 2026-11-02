@@ -14,6 +14,21 @@ class UPrimaryDataAsset;
 class UVerseCombatStateComponent;
 
 /**
+ * A boundary in a match at which a ruleset may want the destructible pieces reset
+ * (destruction.md 11). Arena on, arena off and match end always reset fully and are not asked;
+ * respawns never reset. VerseCombat asks UVerseRuleset::ShouldResetDestruction, VerseDestruction
+ * executes the reset (WP06).
+ */
+UENUM()
+enum class EVerseBoundary : uint8
+{
+	/** One round of a round-based mode. */
+	Round,
+	/** One set of an endless mode (deathmatch: first to KillsPerSet). */
+	Set,
+};
+
+/**
  * Everything a ruleset needs from the world, as functions. AVerseGameMode fills it from the
  * real world (FillDefaultHost); tests fill it with a scripted world, so the rules run the same
  * code in both. Every function may be left empty; the ruleset then uses the documented fallback.
@@ -34,7 +49,9 @@ struct VERSECOMBAT_API FVerseRulesHost
 	TFunction<bool(const AVersePlayerState*, FVector&)> EyePoint;
 	/** Is the segment clear on VerseBolt against the current piece proxies? Fallback: clear. */
 	TFunction<bool(const FVector&, const FVector&)> LineClear;
-	/** Navmesh path length in cm; negative when there is no path. Fallback: Euclidean. */
+	/** Floor point under a player's pawn (the navmesh agent location); false without a pawn. Fallback: eye minus 165 cm. */
+	TFunction<bool(const AVersePlayerState*, FVector&)> FloorPoint;
+	/** Navmesh path length in cm, floor point to floor point; negative when there is no path. Fallback: Euclidean. */
 	TFunction<float(const FVector&, const FVector&)> PathLength;
 	/** Is a pawn other than `Ignore`'s within the radius of `Floor`? */
 	TFunction<bool(const FVector& Floor, float RadiusCm, const AVersePlayerState* Ignore)> PawnNear;
@@ -66,6 +83,8 @@ public:
 	virtual float GetSpawnProtection(const AVersePlayerState* P) const;
 	virtual bool IsSetOver(AVersePlayerState*& OutWinner) const { return false; }
 	virtual void BuildSetSummary(FVerseSetSummary& Out) const {}
+	/** Reset the destructible pieces at this boundary? (destruction.md 11) Endless modes: no. */
+	virtual bool ShouldResetDestruction(EVerseBoundary Boundary) const { return false; }
 
 	/** Replaces the world functions (tests, the harness). */
 	void SetHost(const FVerseRulesHost& InHost) { Host = InHost; }

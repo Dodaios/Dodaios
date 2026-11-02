@@ -24,10 +24,10 @@ is `(100 x, 100 z, 100 h)` cm. The three.js numbers do not carry over (README,
 |---|---|
 | Hall | 100 x 62 m, ceiling underside at 21 m, hull walls and hero wall solid concrete |
 | Hall floor | concrete, `Verse_Architecture`, no `destructible` block: never breaks (A11.7) |
-| Launch well | opening x 27..37, z 9..19, 26 m deep, railed; the pit is outside the nav |
+| Launch well | opening x 27..37, z 9..19, 26 m deep, railed; the pit is outside the nav. This supersedes the well of `hangar_layout.py` (x 8..38, z 8..20) and the worked example of coordinates 3.1 for the Unreal hangar: WP12 day zones and WP15 crew sockets must keep clear of x 27..37, z 9..19 and may use the old well area as floor |
 | Arena | x 25..75, z 4..44: 50 x 40 m, walkable extent 49 x 39.5 m |
 | Levels | L0 floor 0 m, L1 3.0 m, L2 6.0 to 6.3 m |
-| Perimeter | blast barriers 4.5 m plus a see-through fence to 10 m on the west, south and east edges, arena layer only |
+| Perimeter | blast barriers 4.5 m plus a see-through fence to 10 m on all four edges, arena layer only; the north run (z 3.4..4) stops at the hero pier (x 49..51), which closes the gap. Checked by `test_arena_is_sealed_from_the_hall`: nav built over the whole hall in arena mode, no node outside the arena reaches one inside |
 
 ## 2. Zones
 
@@ -49,8 +49,8 @@ breakable ones use `Verse_Destructible` with the class of
 
 ## 3. Levels, lanes and cover rhythm
 
-Nav shares (A11.1, at least 15 % each): L0 64.6 %, L1 18.0 %, L2 17.3 % of
-1,994 m², one connected island.
+Nav shares (A11.1, at least 15 % each): L0 65.0 %, L1 18.4 %, L2 16.5 % of
+1,949 m², one connected island.
 
 | Link | From | To |
 |---|---|---|
@@ -106,7 +106,13 @@ least 22.6 m apart by path (A11.2 asks 20 m).
 Selection and protection are `UVerseRuleset_Deathmatch` (combat-state 9.2,
 9.3): out of the opponent's sight if any spawn is, then the farthest by path,
 ties within 1 m by `VerseRng(match seed, death count)`; a spawn with a pawn,
-Bulwark or armed breach charge within 3 m is skipped.
+Bulwark or armed breach charge within 3 m is skipped. Path length is the
+navmesh path from the opponent's floor point (`APawn::GetNavAgentLocation`)
+to the spawn floor, queried through reflection on
+`UNavigationSystemV1::FindPathToLocationSynchronously` (VerseCombat has no
+NavigationSystem module edge); no path falls back to the Euclidean distance.
+The spawn list is sorted by `SpawnId`, then actor name, before the tie break,
+so a seeded match picks the same spawns however World Partition loads them.
 
 ## 5. Destructibles
 
@@ -134,9 +140,9 @@ glass, grating, railings and the fence let sight through, as in the game.
 | Measure | Value | Gate |
 |---|---|---|
 | Longest unbroken sightline (2 m lattice, 262,450 pairs) | 38.8 m | A11.5: at most 40 m |
-| Sightline histogram, 5 m bins from 0 | 4616, 9153, 9459, 5914, 3750, 1552, 819, 190, 0 | |
-| Time to contact, walker model, 120 runs | median 7.6 s (p10 1.2 s, p90 14.6 s) | A11.5: 6-15 s for normal vs normal |
-| Hider (explorer seeker vs camper on the 8 least-seen spots), 60 runs | median 17.3 s | BG12 with `hider`: at most 25 s |
+| Sightline histogram, 5 m bins from 0 | 4625, 9284, 9367, 5939, 3656, 1524, 780, 176, 0 | |
+| Time to contact, walker model, 120 runs | median 6.25 s (p10 1.0 s, p90 14.8 s) | A11.5: 6-15 s for normal vs normal |
+| Hider (explorer seeker vs camper on the 8 least-seen spots), 60 runs | median 17.25 s | BG12 with `hider`: at most 25 s |
 
 The walker and explorer are design-time stand-ins: seeded, deterministic,
 4.8 m/s, no hearing. A11.5 is final only with normal-tier bots from the
@@ -168,17 +174,25 @@ death) and raises one `FVerseSetSummary` per finished set and one
 ## 9. Lighting (WP11.12)
 
 Hard work lights from the roof truss (20 spots at 18.5 m, 4300 K, 55°),
-low warm aisle spots in the canyon (3200 K), rect lights in the booth, the
-gunship cabin, the catwalk ceiling and the armoury (3500-3800 K). All
-movable with shadows (art-pipeline 6.3: Lumen only). Haze and the palette
-shares of art-pipeline 8.1 are measured on the rendered build (open, below).
+low aisle spots in the canyon (4300 K), rect lights in the booth, the
+gunship cabin, the catwalk ceiling and the armoury (4500 K): all inside the
+4300-6500 K of art-pipeline 8.2. All movable with shadows (art-pipeline 6.3:
+Lumen only).
+
+Haze and post are data in `layout.py` (`HAZE`, `POST`), written to
+`look.json` by the build tool: exponential height fog (density 0.035,
+falloff 0.12, start 4 m) plus volumetric fog with neutral grey scattering
+(albedo saturation 0, art-pipeline 8.3), Lumen GI and reflections, manual
+exposure. The placement schema has no volume kind, so the level owner puts
+the fog actor and the post volume into `LV_Hangar` from these values (open,
+below). Palette shares of art-pipeline 8.1 are measured on the rendered build.
 
 ## 10. Open items
 
 | Item | Needs |
 |---|---|
 | Placement files into `unreal/Verse/Art/Placements/hangar/` and `sync_placements` into `LV_Hangar` | Graybox meshes `SM_<Family>` / `GC_<Family>` and their import records: the static gate refuses placements without records. The `deck` mode of `scripts/verse/export_unreal.py` is reserved and owned by the integration owner |
-| Navmesh path length for spawn selection | `VerseCombat` has no `NavigationSystem` edge in the module DAG; the default host uses the 9.2 Euclidean fallback until the integration step sets `FVerseRulesHost::PathLength` |
+| Fog actor and post volume in `LV_Hangar` | The level owner, from `look.json` (no volume kind in `verse.placement/1`) |
 | Screenshots, palette shares, perf JSON, 600 MB deck budget (A11.6), switch timing in the real level (A11.4) | The imported level and the visual lane (WP10.8) |
 | A11.4 "0 pieces not Intact, 0 crew in the arena" | WP06 reset and WP15 crew listeners on `OnArenaSwitch` |
 | A11.5 with bots, BG12 | WP08 decisions and WP10 Gauntlet runs |

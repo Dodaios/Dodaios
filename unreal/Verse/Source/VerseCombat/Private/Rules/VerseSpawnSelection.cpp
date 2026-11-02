@@ -8,7 +8,8 @@ FVerseSpawnChoice VerseSpawnSelection::Choose(
 	TFunctionRef<bool(const FVector& From, const FVector& To)> LineClear,
 	TFunctionRef<float(const FVector& From, const FVector& To)> PathLength,
 	uint64 MatchSeed,
-	uint64 DeathCount)
+	uint64 DeathCount,
+	const TOptional<FVector>& OpponentFloor)
 {
 	FVerseSpawnChoice Out;
 	const int32 Count = Candidates.Num();
@@ -38,7 +39,9 @@ FVerseSpawnChoice VerseSpawnSelection::Choose(
 	if (OpponentEye.IsSet())
 	{
 		const FVector Eye = OpponentEye.GetValue();
-		// The opponent's feet are below the eye; path lengths start from the floor under it.
+		// Sight starts at the eye; path lengths start from the floor under it, where a navmesh
+		// query can project (a query from the eye point finds no polygon on a catwalk).
+		const FVector Feet = OpponentFloor.IsSet() ? OpponentFloor.GetValue() : Eye - FVector(0.0, 0.0, EyeHeightCm);
 		for (const int32 i : Open)
 		{
 			const FVerseSpawnCandidate& C = Candidates[i];
@@ -52,8 +55,8 @@ FVerseSpawnChoice VerseSpawnSelection::Choose(
 				}
 			}
 			Out.Visible[i] = bSeen;
-			const float Path = PathLength(Eye, C.Floor);
-			Out.Distances[i] = Path >= 0.f ? Path : float(FVector::Dist(Eye, C.Floor));
+			const float Path = PathLength(Feet, C.Floor);
+			Out.Distances[i] = Path >= 0.f ? Path : float(FVector::Dist(Feet, C.Floor));
 		}
 	}
 

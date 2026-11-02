@@ -36,6 +36,8 @@ public:
 	virtual AVerseSpawnPoint* ChooseSpawn(const AVersePlayerState* P) override;
 	virtual bool IsSetOver(AVersePlayerState*& OutWinner) const override;
 	virtual void BuildSetSummary(FVerseSetSummary& Out) const override;
+	/** Endless deathmatch never resets the world between sets (destruction.md 11). */
+	virtual bool ShouldResetDestruction(EVerseBoundary Boundary) const override { return false; }
 	virtual void BeginDestroy() override;
 
 	/** Runs respawns and protection timeouts up to `ServerTime`. Ticked every frame unless bAutoTick is off. */

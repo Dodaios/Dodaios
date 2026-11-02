@@ -32,7 +32,8 @@ struct VERSECOMBAT_API FVerseSpawnChoice
  *
  *   candidates = not blocked (all of them when every one is blocked)
  *   visible(c) = a line from the opponent's eye to any probe point of c is clear
- *   dist(c)    = path length from the opponent to c (Euclidean when there is no path)
+ *   dist(c)    = path length from the opponent's floor point to c (Euclidean when there is
+ *                no path); the floor point is OpponentFloor, or the eye minus EyeHeightCm
  *   pool       = the candidates out of sight, or all candidates when none is
  *   pick       = the largest dist in the pool; ties within 1 m broken by VerseRng(seed, deaths)
  *
@@ -42,6 +43,8 @@ namespace VerseSpawnSelection
 {
 	inline constexpr float BlockRadiusCm = 300.f;
 	inline constexpr float TieCm = 100.f;
+	/** Eye height above the floor (combat-state.md 9.2) when no floor point is given. */
+	inline constexpr float EyeHeightCm = 165.f;
 
 	VERSECOMBAT_API FVerseSpawnChoice Choose(
 		const TArray<FVerseSpawnCandidate>& Candidates,
@@ -49,5 +52,6 @@ namespace VerseSpawnSelection
 		TFunctionRef<bool(const FVector& From, const FVector& To)> LineClear,
 		TFunctionRef<float(const FVector& From, const FVector& To)> PathLength,
 		uint64 MatchSeed,
-		uint64 DeathCount);
+		uint64 DeathCount,
+		const TOptional<FVector>& OpponentFloor = TOptional<FVector>());
 }

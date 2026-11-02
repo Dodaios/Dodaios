@@ -42,8 +42,10 @@ public:
 	float ModifyDamage(const FVerseDamageContext& Ctx, float Damage) const;
 	void NotifyPlayerAction(AVersePlayerState* Player, EVersePlayerAction Action);
 	void GetLoadout(const AVersePlayerState* Player, TMap<EVerseLoadoutSlot, const UPrimaryDataAsset*>& Out) const;
+	/** Forwards UVerseRuleset::ShouldResetDestruction; false without a ruleset. */
+	bool ShouldResetDestruction(EVerseBoundary Boundary) const;
 
-	/** The world functions a ruleset gets in a real match (navmesh path length: see arena.md). */
+	/** The world functions a ruleset gets in a real match (path length: navmesh through reflection). */
 	FVerseRulesHost MakeDefaultHost();
 
 	/** The config the ruleset is built from; loads the rules JSON on first use. */

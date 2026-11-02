@@ -11,6 +11,7 @@ Writes, all under the ignored proof folder
   `verse.placement/1` form. They move to `unreal/Verse/Art/Placements/hangar/`
   in the same PR that imports their graybox meshes, because the static gate
   refuses placements whose assets have no import record (art-pipeline 14).
+* `look.json`: haze and post settings of WP11.12 for the level owner.
 * `flow.json`: the WP11.11 flow report (sightlines, spawn spacing, time to
   contact; `--bot-log` adds the harness bot runs).
 * `plan_<level>.png`: top-down plan per level (needs matplotlib; skipped without).
@@ -142,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
     files = write_placements(lay, args.out / "placements")
     report = flow.report(graph, lay, quick=args.quick, bot_log=args.bot_log)
     (args.out / "flow.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    look = {"schema": "verse.hangar-look/1", "owner": L.OWNER, "haze": L.HAZE, "post": L.POST}
+    (args.out / "look.json").write_text(json.dumps(look, indent=2) + "\n", encoding="utf-8")
     plots = plot_levels(lay, graph, args.out)
     print(f"placements: {len(files)} zones -> {args.out / 'placements'}")
     print(

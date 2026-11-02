@@ -63,7 +63,20 @@ void UVerseRuleset_Deathmatch::Unsubscribe()
 
 UVerseRuleset_Deathmatch::FPlayerRecord& UVerseRuleset_Deathmatch::Record(const AVersePlayerState* P)
 {
-	return Records.FindOrAdd(TWeakObjectPtr<const AVersePlayerState>(P));
+	const TWeakObjectPtr<const AVersePlayerState> Key(P);
+	if (FPlayerRecord* Found = Records.Find(Key))
+	{
+		return *Found;
+	}
+	// A player first seen mid-set (a bot spawned by a later OnArenaSwitch listener) gets its
+	// identity now, so the set summary never reports player 0.
+	FPlayerRecord& Added = Records.Add(Key);
+	if (P)
+	{
+		Added.Line.PlayerId = P->GetPlayerId();
+		Added.Line.bIsBot = P->IsBotPlayer();
+	}
+	return Added;
 }
 
 const UVerseRuleset_Deathmatch::FPlayerRecord* UVerseRuleset_Deathmatch::FindRecord(const AVersePlayerState* P) const
@@ -437,6 +450,15 @@ AVerseSpawnPoint* UVerseRuleset_Deathmatch::ChooseSpawn(const AVersePlayerState*
 {
 	TArray<AVerseSpawnPoint*> Points = Host.SpawnPoints ? Host.SpawnPoints() : TArray<AVerseSpawnPoint*>();
 	Points.RemoveAll([](const AVerseSpawnPoint* S) { return S == nullptr; });
+	// Actor iteration order is not stable across World Partition loads; the seeded tie break
+	// indexes into this list, so order it by SpawnId, then by actor name.
+	Points.Sort([](const AVerseSpawnPoint& A, const AVerseSpawnPoint& B) {
+		if (A.SpawnId != B.SpawnId)
+		{
+			return A.SpawnId.LexicalLess(B.SpawnId);
+		}
+		return A.GetFName().LexicalLess(B.GetFName());
+	});
 	if (Points.IsEmpty())
 	{
 		UE_LOG(LogVerseCombat, Warning, TEXT("Deathmatch: no AVerseSpawnPoint in the arena"));
@@ -453,18 +475,24 @@ AVerseSpawnPoint* UVerseRuleset_Deathmatch::ChooseSpawn(const AVersePlayerState*
 	}
 	// 1v1: the opponent is the only other player; with more, the nearest living enemy would be used.
 	TOptional<FVector> OpponentEye;
+	TOptional<FVector> OpponentFloor;
 	for (const AVersePlayerState* Other : GetPlayers())
 	{
 		FVector Eye;
 		if (Other != P && IsAlive(Other) && Host.EyePoint && Host.EyePoint(Other, Eye))
 		{
 			OpponentEye = Eye;
+			FVector Floor;
+			if (Host.FloorPoint && Host.FloorPoint(Other, Floor))
+			{
+				OpponentFloor = Floor;
+			}
 			break;
 		}
 	}
 	auto LineClear = [this](const FVector& A, const FVector& B) { return Host.LineClear ? Host.LineClear(A, B) : true; };
 	auto PathLength = [this](const FVector& A, const FVector& B) { return Host.PathLength ? Host.PathLength(A, B) : -1.f; };
-	LastChoice = VerseSpawnSelection::Choose(Candidates, OpponentEye, LineClear, PathLength, MatchSeed, DeathCount);
+	LastChoice = VerseSpawnSelection::Choose(Candidates, OpponentEye, LineClear, PathLength, MatchSeed, DeathCount, OpponentFloor);
 	return Points.IsValidIndex(LastChoice.Index) ? Points[LastChoice.Index] : nullptr;
 }
 

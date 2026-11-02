@@ -75,6 +75,7 @@ namespace VerseDeathmatchTest
 		AVersePlayerState* Person = nullptr;
 		AVersePlayerState* Bot = nullptr;
 		TArray<AVerseSpawnPoint*> Spawns;
+		TArray<AVersePlayerState*> Players;
 		TMap<const AVersePlayerState*, FVector> Feet;
 		TMap<const AVersePlayerState*, float> LastRespawn;
 		TArray<FVerseSetSummary> Summaries;
@@ -90,6 +91,7 @@ namespace VerseDeathmatchTest
 			Bot = TestWorld.Spawn<AVersePlayerState>();
 			Bot->SetPlayerId(2);
 			Bot->BotTier = TEXT("normal");
+			Players = {Person, Bot};
 			for (const FVector& Floor : SpawnFloors)
 			{
 				Spawns.Add(TestWorld.Spawn<AVerseSpawnPoint>(Floor));
@@ -101,7 +103,7 @@ namespace VerseDeathmatchTest
 			FVerseRulesHost Host;
 			Host.ServerTime = [this]() { return Time; };
 			Host.UnixNow = [this]() { return 1.8e9 + Time; };
-			Host.Players = [this]() { return TArray<AVersePlayerState*>{Person, Bot}; };
+			Host.Players = [this]() { return Players; };
 			Host.SpawnPoints = [this]() { return Spawns; };
 			Host.SpawnFloor = [](const AVerseSpawnPoint* S) { return S->GetActorLocation(); };
 			Host.EyePoint = [this](const AVersePlayerState* P, FVector& Out) {
@@ -263,6 +265,46 @@ bool FVerseDeathmatchSpawnSelectionTest::RunTest(const FString& Parameters)
 		const FVerseSpawnChoice First = VerseSpawnSelection::Choose(C, TOptional<FVector>(), Clear, Euclid, 99, 0);
 		TestTrue(TEXT("no opponent: a valid pick"), First.Index == 0 || First.Index == 1);
 	}
+	// Path length starts at the opponent's floor point, not the eye.
+	{
+		TArray<FVerseSpawnCandidate> C = Make({{2600, 500, 0}});
+		auto Clear = [](const FVector&, const FVector&) { return false; };
+		FVector From = FVector::ZeroVector;
+		auto Record = [&From](const FVector& A, const FVector&) { From = A; return 1.f; };
+		VerseSpawnSelection::Choose(C, Eye, Clear, Record, 7, 0);
+		TestEqual(TEXT("path from eye minus eye height"), From, Eye - FVector(0, 0, VerseSpawnSelection::EyeHeightCm));
+		const FVector Floor(4000, 2000, 600);
+		VerseSpawnSelection::Choose(C, Eye, Clear, Record, 7, 0, Floor);
+		TestEqual(TEXT("path from the given floor point"), From, Floor);
+	}
+	// The ruleset orders the spawn points itself: a shuffled list gives the same picks.
+	{
+		FDuel Duel;
+		TArray<AVerseSpawnPoint*> Picks;
+		for (uint64 Seed = 1; Seed <= 8; ++Seed)
+		{
+			Duel.Rules->MatchSeed = Seed;
+			Picks.Add(Duel.Rules->ChooseSpawn(Duel.Person));
+		}
+		FRandomStream Shuffle(42);
+		for (int32 i = Duel.Spawns.Num() - 1; i > 0; --i)
+		{
+			Duel.Spawns.Swap(i, Shuffle.RandRange(0, i));
+		}
+		for (uint64 Seed = 1; Seed <= 8; ++Seed)
+		{
+			Duel.Rules->MatchSeed = Seed;
+			TestTrue(TEXT("shuffled spawn list: same pick"), Duel.Rules->ChooseSpawn(Duel.Person) == Picks[Seed - 1]);
+		}
+		TSet<AVerseSpawnPoint*> Distinct;
+		for (AVerseSpawnPoint* Pick : Picks)
+		{
+			Distinct.Add(Pick);
+		}
+		TestTrue(TEXT("first spawns are seeded across points"), Distinct.Num() > 1);
+		TestFalse(TEXT("deathmatch never resets destruction at a set"), Duel.Rules->ShouldResetDestruction(EVerseBoundary::Set));
+		TestFalse(TEXT("deathmatch never resets destruction at a round"), Duel.Rules->ShouldResetDestruction(EVerseBoundary::Round));
+	}
 	return true;
 }
 
@@ -309,7 +351,7 @@ bool FVerseDeathmatchInvariantsTest::RunTest(const FString& Parameters)
 				const FVector F = C->GetActorLocation();
 				if (FVector::Dist(F, *OppFeet) > VerseSpawnSelection::BlockRadiusCm && Hidden(F))
 				{
-					BestHidden = FMath::Max(BestHidden, PathLength(Eye, F));
+					BestHidden = FMath::Max(BestHidden, PathLength(*OppFeet, F));
 				}
 			}
 			++Checked;
@@ -320,7 +362,7 @@ bool FVerseDeathmatchInvariantsTest::RunTest(const FString& Parameters)
 				{
 					++D2Fail;
 				}
-				else if (PathLength(Eye, S->GetActorLocation()) < BestHidden - VerseSpawnSelection::TieCm)
+				else if (PathLength(*OppFeet, S->GetActorLocation()) < BestHidden - VerseSpawnSelection::TieCm)
 				{
 					++D3Fail;
 				}
@@ -504,6 +546,30 @@ bool FVerseDeathmatchSetSummaryTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("unfinished kills"), U.Person.Kills, 1);
 	}
 	TestFalse(TEXT("match stopped"), Duel.Rules->IsMatchRunning());
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDeathmatchLateRecordTest, "Verse.Combat.Deathmatch.LateRecord",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::EngineFilter)
+
+// A bot first seen after OnMatchStart (spawned by a later arena-switch listener) is named in
+// the first set summary with its id and as a bot, not as player 0.
+bool FVerseDeathmatchLateRecordTest::RunTest(const FString& Parameters)
+{
+	FDuel Duel;
+	Duel.Players = {Duel.Person};
+	Duel.Rules->OnMatchStart();
+	Duel.Players = {Duel.Person, Duel.Bot};
+	Duel.Fire(Duel.Bot);
+	Duel.Rules->EndMatch();
+	if (!TestEqual(TEXT("one unfinished summary"), Duel.Summaries.Num(), 1))
+	{
+		return false;
+	}
+	const FVerseSetSummary& S = Duel.Summaries[0];
+	TestEqual(TEXT("late opponent id"), S.Opponent.PlayerId, 2);
+	TestTrue(TEXT("late opponent is a bot"), S.Opponent.bIsBot);
+	TestEqual(TEXT("late opponent shot counted"), S.Opponent.ShotsFired, 1);
 	return true;
 }
 
