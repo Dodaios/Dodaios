@@ -108,6 +108,9 @@ FOLDER_OWNERS: tuple[tuple[str, str], ...] = (
     ("/Game/Verse/Audio/", "WP19"),
 )
 _TEST_FOLDER = re.compile(r"^/Game/Verse/Test/(WP\d{2})/")
+#: G0 fixtures built in the editor by scripts/unreal/g0_content.py (G0.9 SK_Test_Human and its
+#: skeleton and physics asset), not by the art pipeline: they carry no import record.
+G0_GENERATED = "/Game/Verse/Test/G0/"
 
 #: Folder names that may not appear under unreal/ or art/verse/ (section 10.1).
 BANNED_FOLDERS = {
@@ -410,7 +413,9 @@ class Checker:
                 on_disk.add(object_path)
                 for error in name_errors(name):
                     self.fail(path, error)
-                if path.suffix == ".uasset" and name.startswith(IMPORTED_PREFIXES):
+                generated = object_path.startswith(G0_GENERATED)
+                imported = name.startswith(IMPORTED_PREFIXES) and not generated
+                if path.suffix == ".uasset" and imported:
                     if object_path not in records:
                         self.fail(path, "no import record in unreal/Verse/Art/Import/")
                 if ENGINE_CONTENT.search(object_path):
