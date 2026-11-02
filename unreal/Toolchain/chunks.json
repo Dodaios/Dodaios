@@ -1,0 +1,15 @@
+{
+  "schema": "verse.chunks/1",
+  "about": "IoStore chunk per deck (docs/verse/unreal/work-packages.md WP22.3). Chunk 0 carries the startup map, code-referenced content and everything two decks share; each deck level and the actors World Partition streams for it land in its own chunk, so a change to one deck ships as one chunk in the delta. scripts/unreal/package.py chunks prints the config lines that apply these rules.",
+  "size_gate": {
+    "payload_max_bytes": 2000000000,
+    "delta_typical_max_bytes": 300000000
+  },
+  "chunks": [
+    {"id": 0, "name": "core", "maps": []},
+    {"id": 1, "name": "bridge", "maps": ["/Game/Verse/Decks/Bridge/LV_Bridge"]},
+    {"id": 2, "name": "ops", "maps": ["/Game/Verse/Decks/Ops/LV_Ops"]},
+    {"id": 3, "name": "engineering", "maps": ["/Game/Verse/Decks/Engineering/LV_Engineering"]},
+    {"id": 4, "name": "hangar", "maps": ["/Game/Verse/Decks/Hangar/LV_Hangar"]}
+  ]
+}
