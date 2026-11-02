@@ -1,5 +1,5 @@
 /**
- * Where the Unreal Verse launcher card sits on the Verse view: the top-right
+ * Where the Unreal Verse launcher card sits on the Verse view: the bottom-right
  * corner, only while the `verse.unreal_preview` flag is on (`GET /api/verse/flags`).
  * Renders nothing otherwise, so the three.js Verse is untouched until parity.
  */
@@ -19,7 +19,7 @@ export function VerseHostMount() {
   }, []);
   if (!on) return null;
   return (
-    <div className="pointer-events-none absolute right-4 top-4 z-30 flex justify-end">
+    <div className="pointer-events-none absolute bottom-6 right-4 z-30 flex justify-end">
       <div className="pointer-events-auto"><VerseLauncherCard /></div>
     </div>
   );

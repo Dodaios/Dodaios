@@ -45,9 +45,11 @@ private:
 	bool AcquireInstance();
 	void ReleaseInstance();
 
-	TUniquePtr<FVerseBridgeClient> BridgeClient;
-	TUniquePtr<FVerseEngineLifecycleHost> EngineHost;
-	TUniquePtr<FVerseLifecycleController> LifecycleController;
+	// Shared pointers: their deleters are bound where the objects are made, so the
+	// engine host can stay a private type of the .cpp.
+	TSharedPtr<FVerseBridgeClient> BridgeClient;
+	TSharedPtr<FVerseEngineLifecycleHost> EngineHost;
+	TSharedPtr<FVerseLifecycleController> LifecycleController;
 	TSharedPtr<FVerseReturnKeyProcessor> ReturnKey;
 	FTSTicker::FDelegateHandle TickHandle;
 	FDelegateHandle EndFrameHandle;

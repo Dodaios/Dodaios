@@ -132,6 +132,7 @@ class _Out:
     key: str | None = None  # screens: one slot per pane
     ref: int | None = None  # screens: binary when set
     feed: bool = False
+    rid: str | None = None  # server -> Verse command id
 
 
 class Outbox:
@@ -269,6 +270,8 @@ class BridgeSession:
         self._log_budget = RateLimit(10, 1.0)
         self.rates = default_rate_limits()
         self._command_tasks: set[asyncio.Task[None]] = set()
+        self._requests: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        self._request_ids = itertools.count(1)
         self.lifecycle: dict[str, Any] = {"state": "booting"}
         self.ready_ms: int | None = None
         self.panel_stream: dict[str, Any] = {"state": "stopped"}
@@ -330,7 +333,7 @@ class BridgeSession:
             self.bytes_sent += len(blob)
             self.screen_bytes += len(blob)
         else:
-            text = P.encode(P.frame(item.type, seq, data, base=base, re=item.re))
+            text = P.encode(P.frame(item.type, seq, data, base=base, re=item.re, id=item.rid))
             await asyncio.wait_for(self.transport.send_text(text), SEND_TIMEOUT_S)
             size = len(text.encode("utf-8"))
             self.bytes_sent += size
@@ -400,6 +403,23 @@ class BridgeSession:
                 log.exception("verse bridge: notice %s failed", inbound.type)
             return
         self.warn_once(inbound.type, "unknown message type ignored")
+
+    async def request(self, type_: str, data: dict[str, Any], *, timeout_s: float = 10.0) -> dict:
+        """A server -> Verse command (``qa.exec``); returns the ``data`` of Verse's reply."""
+        rid = f"s-{next(self._request_ids)}"
+        future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+        self._requests[rid] = future
+        self.outbox.put(_Out(type_, data, rid=rid))
+        try:
+            return await asyncio.wait_for(future, timeout_s)
+        finally:
+            self._requests.pop(rid, None)
+
+    def resolve(self, msg: P.Inbound) -> None:
+        re_ = msg.raw.get("re")
+        future = self._requests.get(re_) if isinstance(re_, str) else None
+        if future is not None and not future.done():
+            future.set_result(msg.data)
 
     async def _run_command(self, handler: Handler, inbound: P.Inbound) -> None:
         assert inbound.id is not None
@@ -518,7 +538,11 @@ class BridgeHub:
             )
             log.log(py_level, "Verse [%s] %s", category, text)
 
+        async def reply(session: BridgeSession, msg: P.Inbound) -> None:
+            session.resolve(msg)
+
         self.notice("ping", ping)
+        self.notice("reply", reply)
         self.notice("log", log_notice)
         self.command("subscribe", self._subscribe)
         self.command("unsubscribe", self._unsubscribe)

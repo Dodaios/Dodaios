@@ -353,6 +353,19 @@ class VerseHost:
             return False
         return await self.hub.push_all("settings.changed", changed)
 
+    async def qa_exec(self, command: str, args: list[str]) -> dict[str, Any]:
+        """Run a ``Verse.QA.*`` command inside Verse (Shipping too); needs DODAIOS_VERSE_QA=1."""
+        from .relays.commands import qa_enabled
+
+        if not qa_enabled():
+            raise P.BridgeError("unavailable", "QA commands need DODAIOS_VERSE_QA=1.")
+        if not command.startswith("Verse.QA."):
+            raise P.BridgeError("bad_request", "command must be a Verse.QA.* command.")
+        session = self.hub.current
+        if session is None:
+            raise P.BridgeError("unavailable", "Verse is not connected.")
+        return await session.request("qa.exec", {"command": command, "args": list(args)})
+
     async def _publish_settings(self, changed: dict[str, Any]) -> None:
         bus = self.backend.bus
         if bus is None:

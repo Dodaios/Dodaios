@@ -159,6 +159,7 @@ def frame(
     base: int | None = None,
     re: str | None = None,
     ts: float | None = None,
+    id: str | None = None,  # noqa: A002 - the envelope field is called id
 ) -> dict[str, Any]:
     """A server -> Verse frame in envelope order ``type, seq, base, re, ts, data``."""
     out: dict[str, Any] = {"type": type_, "seq": seq}
@@ -166,6 +167,8 @@ def frame(
         out["base"] = base
     if re is not None:
         out["re"] = re
+    if id is not None:
+        out["id"] = id
     out["ts"] = round(now() if ts is None else ts, 3)
     out["data"] = data
     return out

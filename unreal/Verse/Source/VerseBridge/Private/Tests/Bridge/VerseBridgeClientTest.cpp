@@ -187,11 +187,11 @@ bool FVerseLifecycleStatesTest::RunTest(const FString& Parameters)
 	FFakeHost Host;
 	FVerseBridgeClient Client;
 	FVerseLifecycleController L(Host, Client);
-	TestEqual(TEXT("boots"), L.GetState(), EVerseLifecycleState::Booting);
+	TestTrue(TEXT("boots"), L.GetState() == EVerseLifecycleState::Booting);
 	int32 Duels = 0;
 	L.OnQuickStartDuel.AddLambda([&Duels]() { ++Duels; });
 	L.HandleFrame(Server(TEXT("lifecycle.show"), TEXT("{\"monitor\":{\"x\":0,\"y\":0,\"w\":2560,\"h\":1440,\"dpi\":144},\"reason\":\"quick_start_duel\"}")));
-	TestEqual(TEXT("visible"), L.GetState(), EVerseLifecycleState::Visible);
+	TestTrue(TEXT("visible"), L.GetState() == EVerseLifecycleState::Visible);
 	TestEqual(TEXT("quick start"), Duels, 1);
 	L.HandleFrame(Server(TEXT("gpu.yield"), TEXT("{\"by\":\"local_model\"}")));
 	TestTrue(TEXT("visible drops to low"), Host.Calls.Contains(TEXT("low")));
@@ -200,25 +200,25 @@ bool FVerseLifecycleStatesTest::RunTest(const FString& Parameters)
 	L.HandleFrame(Server(TEXT("settings.changed"), TEXT("{\"return_key\":\"F9\"}")));
 	TestEqual(TEXT("return key rebinds live"), L.GetReturnKey(), FString(TEXT("F9")));
 	L.ReturnToApp();
-	TestEqual(TEXT("return key -> dormant"), L.GetState(), EVerseLifecycleState::Dormant);
+	TestTrue(TEXT("return key -> dormant"), L.GetState() == EVerseLifecycleState::Dormant);
 	TestTrue(TEXT("foreground allowed before hiding"), Host.Calls.IndexOfByKey(TEXT("allow:0")) < Host.Calls.FindLast(TEXT("hide")));
 	TestFalse(TEXT("dormant renders nothing"), Host.bRendering);
 	TestEqual(TEXT("dormant ticks at 2 Hz"), Host.MaxFps, 2.f);
 	L.HandleFrame(Server(TEXT("panel.visibility"), TEXT("{\"visible\":true,\"w\":480,\"h\":320,\"dpr\":1.5}")));
-	TestEqual(TEXT("panel"), L.GetState(), EVerseLifecycleState::Panel);
+	TestTrue(TEXT("panel"), L.GetState() == EVerseLifecycleState::Panel);
 	L.HandleFrame(Server(TEXT("lifecycle.show"), TEXT("{\"monitor\":{\"x\":0,\"y\":0,\"w\":1920,\"h\":1080,\"dpi\":96},\"reason\":\"verse_view\"}")));
-	TestEqual(TEXT("panel -> visible"), L.GetState(), EVerseLifecycleState::Visible);
+	TestTrue(TEXT("panel -> visible"), L.GetState() == EVerseLifecycleState::Visible);
 	L.HandleFrame(Server(TEXT("focus.app_took")));
-	TestEqual(TEXT("app took focus while the panel streams"), L.GetState(), EVerseLifecycleState::Panel);
+	TestTrue(TEXT("app took focus while the panel streams"), L.GetState() == EVerseLifecycleState::Panel);
 	L.HandleFrame(Server(TEXT("panel.visibility"), TEXT("{\"visible\":false,\"w\":0,\"h\":0,\"dpr\":1}")));
-	TestEqual(TEXT("panel hidden -> dormant"), L.GetState(), EVerseLifecycleState::Dormant);
+	TestTrue(TEXT("panel hidden -> dormant"), L.GetState() == EVerseLifecycleState::Dormant);
 	TestTrue(TEXT("show measured"), L.GetLastShowSeconds() >= 0.0);
 	L.HandleFrame(Server(TEXT("gpu.yield"), TEXT("{\"by\":\"blender_cook\"}")));
-	TestEqual(TEXT("dormant quits at once on gpu.yield"), L.GetState(), EVerseLifecycleState::Exiting);
+	TestTrue(TEXT("dormant quits at once on gpu.yield"), L.GetState() == EVerseLifecycleState::Exiting);
 	TestTrue(TEXT("state saved"), Host.Calls.Contains(TEXT("save")));
 	TestTrue(TEXT("exit requested"), Host.bExit);
 	L.HandleFrame(Server(TEXT("lifecycle.show"), TEXT("{\"monitor\":{\"x\":0,\"y\":0,\"w\":1,\"h\":1,\"dpi\":96},\"reason\":\"verse_view\"}")));
-	TestEqual(TEXT("exiting is final"), L.GetState(), EVerseLifecycleState::Exiting);
+	TestTrue(TEXT("exiting is final"), L.GetState() == EVerseLifecycleState::Exiting);
 	return true;
 }
 
