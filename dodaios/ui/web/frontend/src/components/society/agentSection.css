@@ -608,8 +608,8 @@ button.as-name-pill:focus-visible {
 }
 
 /* The lead, large and centred above the list, like a contact header: a face
-   and a name, no box. Hover and selection only touch a soft circle behind the
-   face. */
+   and a name, no box and no disc behind the face. Selection shows in the
+   name; keyboard focus keeps a ring. */
 .as-hero {
   display: flex;
   min-width: 0;
@@ -636,17 +636,7 @@ button.as-name-pill:focus-visible {
   height: 80px;
   place-items: center;
   border-radius: 999px;
-  transition:
-    background-color var(--as-dur-2) var(--as-ease),
-    box-shadow var(--as-dur-2) var(--as-ease);
-}
-
-.as-hero:hover .as-hero-face {
-  background: hsl(var(--secondary) / 0.6);
-}
-
-.as-hero[data-active="true"] .as-hero-face {
-  background: var(--as-tint-wash);
+  transition: box-shadow var(--as-dur-2) var(--as-ease);
 }
 
 .as-hero:focus-visible .as-hero-face {
