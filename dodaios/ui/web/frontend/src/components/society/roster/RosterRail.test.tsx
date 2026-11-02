@@ -7,6 +7,8 @@ import { useRetireStore } from "@/components/society/world/retireStore";
 import { useEventStore } from "@/store/events";
 import { RosterRail, type RosterRailProps } from "./RosterRail";
 
+// Every agent wears a pet; these tests count their own requests, so the pets answer stays out of fetch.
+vi.mock("@/hooks/usePets", async (original) => ({ ...(await original<typeof import("@/hooks/usePets")>()), usePetById: () => null }));
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useUiLanguage: () => "en" }));
 
 afterEach(() => {

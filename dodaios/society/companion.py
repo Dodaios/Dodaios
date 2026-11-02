@@ -97,22 +97,26 @@ class CompanionAppearance(BaseModel):
     followDistanceM: float = Field(default=1.0, ge=0.5, le=2.0)
 
 
+#: The built-in pets an agent can wear by default (``dodaios/ui/pets/builtin``).
+#: Gigi is left out: it is the lead's own face. Mirrors ``DEFAULT_PETS`` in
+#: ``frontend/src/components/society/companion/appearance.ts``.
+DEFAULT_PETS: tuple[str, ...] = (
+    "ember", "miso", "bolt", "brew", "mochi", "shelly", "cocoa", "dodaios",
+)
+
+
 def random_companion() -> dict[str, Any]:
     """A random, valid companion look for a newly created agent.
 
-    A new agent starts as a pixel creature; the shape underneath is what it
-    shows once its creature is taken off.
+    A new agent wears a random built-in pet; the shape underneath is only
+    the fallback for a machine that lacks that pet.
     """
     rng = secrets.SystemRandom()
     look = CompanionAppearance(
         shape=rng.choice(COMPANION_SHAPES),  # type: ignore[arg-type]
         color=rng.choice(COMPANION_COLORS),
         eyes=rng.choice(("dots", "lines")),  # type: ignore[arg-type]
-        creature=CompanionCreature(
-            seed=rng.randrange(100_000),
-            palette=rng.choice(CREATURE_PALETTES),
-            eyes=rng.choice(CREATURE_EYES),
-        ),
+        pet=rng.choice(DEFAULT_PETS),
     ).model_dump()
     return _bare(look)
 

@@ -10,14 +10,14 @@ vi.mock("./CompanionPreview", () => ({ CompanionPreview: () => <div data-testid=
 vi.mock("../figures/AgentFigureViewer", () => ({ AgentFigureViewer: () => <div data-testid="character-preview" /> }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: ["gigi", "cocoa"].map(id => ({
+const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: ["gigi", "ember", "miso", "bolt", "brew", "mochi", "shelly", "cocoa", "dodaios"].map(id => ({
   id, name: id, description: "", builtin: true, frame_size: 48, animations: { idle: { row: 0, frames: 1, fps: 1, loop: true } }, sheet_url: `/api/pets/${id}/sheet.png`,
 })) };
 
-function setup(fail = false, legacy = false, unpicked = false) {
+function setup(fail = false, legacy = false, companion: Record<string, unknown> = { pet: "ember" }) {
   const original = SAMPLE_ROSTER.find(a => a.tier !== "lead")!;
   const figure = legacy ? { contract: 1 as const, archetype: "biped" as const, base: "rogue", parts: {} } : original.figure!;
-  const agent = { ...original, agentId: "appearance-test", figure: { ...figure, companion: { ...defaultCompanion("test"), shape: "circle" as const, ...(unpicked ? {} : { look: "shape" as const }) } } };
+  const agent = { ...original, agentId: "appearance-test", figure: { ...figure, companion: { ...defaultCompanion("test"), shape: "circle" as const, pet: undefined, ...companion } } };
   const close = vi.fn();
   // The look picker reads agent levels; an unreachable level system leaves every look open.
   const fetcher = vi.fn(async (url: RequestInfo | URL) => String(url).startsWith("/api/progression")
@@ -30,45 +30,62 @@ function setup(fail = false, legacy = false, unpicked = false) {
   return { agent, fetcher, close, saves };
 }
 
-it("saves companion edits without overwriting character parts or other agent fields", async () => {
+it("saves a picked pet without overwriting character parts or other agent fields", async () => {
   const { agent, saves } = setup();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.shapes.cloud" }));
+  fireEvent.click(await screen.findByRole("button", { name: "cocoa" }));
   fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
   await waitFor(() => expect(saves()).toHaveLength(1));
   const [, init] = saves()[0] as unknown as [string, RequestInit];
   const body = JSON.parse(init.body as string);
   expect(Object.keys(body)).toEqual(["avatar"]);
-  expect(body.avatar.companion.shape).toBe("cloud");
+  expect(body.avatar.companion.pet).toBe("cocoa");
   expect(body.avatar.parts).toEqual(agent.figure?.parts);
   expect(body.avatar.base).toBe(agent.figure?.base);
 });
 
-it("protects an unsaved companion after a rejected save", async () => {
+it("protects an unsaved pet choice after a rejected save", async () => {
   const { close } = setup(true);
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.shapes.cloud" }));
+  fireEvent.click(await screen.findByRole("button", { name: "cocoa" }));
   fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
   await screen.findByRole("alert");
-  expect(screen.getByRole("button", { name: "society.companion.shapes.cloud" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "cocoa" }).getAttribute("aria-pressed")).toBe("true");
   fireEvent.click(screen.getAllByRole("button", { name: "society.card.close" })[0]);
   expect(close).not.toHaveBeenCalled();
   expect(screen.getByText("society.profile_card.unsaved")).toBeTruthy();
 });
 
-it("keeps the companion choice while editing the character", async () => {
+it("keeps the pet choice while editing the character", async () => {
   setup();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.shapes.cloud" }));
+  fireEvent.click(await screen.findByRole("button", { name: "cocoa" }));
   fireEvent.click(screen.getByRole("tab", { name: "society.companion.character" }));
   await screen.findByTestId("character-preview");
   fireEvent.click(screen.getByRole("tab", { name: "society.companion.companion" }));
-  expect(screen.getByRole("button", { name: "society.companion.shapes.cloud" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "cocoa" }).getAttribute("aria-pressed")).toBe("true");
 });
 
-it("keeps shape customization without size or following-distance sliders", () => {
+it("offers only pets: no shapes, no pixel creatures, no colours and no sliders", async () => {
   setup();
+  expect(await screen.findByRole("button", { name: "ember" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "ember" }).getAttribute("aria-pressed")).toBe("true");
+  for (const gone of ["society.companion.look_creature", "society.companion.look_shape", "society.companion.look_pet", "society.companion.shapes.cloud"]) {
+    expect(screen.queryByRole("button", { name: gone })).toBeNull();
+  }
+  expect(screen.queryByTestId("creature-picker")).toBeNull();
+  expect(screen.queryByLabelText("society.companion.custom_color")).toBeNull();
   expect(screen.queryByRole("slider")).toBeNull();
-  expect(screen.queryByText("society.companion.size")).toBeNull();
-  expect(screen.queryByText("society.companion.distance")).toBeNull();
-  expect(screen.getByRole("button", { name: "society.companion.shapes.cloud" })).toBeTruthy();
+});
+
+it("opens an agent that still wears a pixel creature on a pet, and saves no creature", async () => {
+  const { saves } = setup(false, false, { creature: { seed: 24, palette: "neon", eyes: "dot" }, look: "shape" });
+  const picker = await screen.findByTestId("companion-pet-picker");
+  await waitFor(() => expect(within(picker).getAllByRole("button", { pressed: true })).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: "cocoa" }));
+  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
+  await waitFor(() => expect(saves()).toHaveLength(1));
+  const companion = JSON.parse((saves()[0] as unknown as [string, RequestInit])[1].body as string).avatar.companion;
+  expect(companion.pet).toBe("cocoa");
+  expect(companion.creature).toBeUndefined();
+  expect(companion.look).toBeUndefined();
 });
 
 it("saves a chosen hairstyle on the recipe without dropping its colours", async () => {
@@ -83,93 +100,4 @@ it("saves a chosen hairstyle on the recipe without dropping its colours", async 
   const body = JSON.parse(init.body as string);
   expect(body.avatar.hairStyle).toBe("beanie");
   expect(body.avatar.palette).toEqual(agent.figure?.palette);
-});
-
-it("lets an agent wear a pet instead of its shape, and take the shape back", async () => {
-  const { saves } = setup();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_pet" }));
-  fireEvent.click(await screen.findByRole("button", { name: "cocoa" }));
-  expect(screen.queryByRole("button", { name: "society.companion.shapes.cloud" })).toBeNull();
-  // A pet brings its own colours: no colour picker beside it.
-  expect(screen.queryByLabelText("society.companion.custom_color")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
-  await waitFor(() => expect(saves()).toHaveLength(1));
-  const worn = JSON.parse((saves()[0] as unknown as [string, RequestInit])[1].body as string);
-  expect(worn.avatar.companion).toMatchObject({ pet: "cocoa", shape: "circle" });
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_shape" }));
-  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
-  await waitFor(() => expect(saves()).toHaveLength(2));
-  const bare = JSON.parse((saves()[1] as unknown as [string, RequestInit])[1].body as string);
-  expect("pet" in bare.avatar.companion).toBe(false);
-});
-
-it("saves a pixel creature with the look and brings the chosen one back after a detour over the shape", async () => {
-  const { saves } = setup();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_creature" }));
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.creature.palettes.neon" }));
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.creature.eye_kinds.visor" }));
-  // Back to the shape and to the creature again: the picked one returns, the shape was never lost.
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_shape" }));
-  expect(screen.queryByTestId("creature-picker")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_creature" }));
-  expect(screen.getByRole("button", { name: "society.companion.creature.palettes.neon" }).getAttribute("aria-pressed")).toBe("true");
-  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
-  await waitFor(() => expect(saves()).toHaveLength(1));
-  const [, init] = saves()[0] as unknown as [string, RequestInit];
-  const companion = JSON.parse(init.body as string).avatar.companion;
-  expect(companion.creature).toMatchObject({ palette: "neon", eyes: "visor" });
-  expect(Number.isInteger(companion.creature.seed)).toBe(true);
-  expect(companion.shape).toBe("circle");
-  expect(companion.pet).toBeUndefined();
-  expect(companion.look).toBeUndefined();
-});
-
-it("stores no creature when the look goes back to the shape", async () => {
-  const { saves } = setup();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_creature" }));
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_shape" }));
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.shapes.cloud" }));
-  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
-  await waitFor(() => expect(saves()).toHaveLength(1));
-  const [, init] = saves()[0] as unknown as [string, RequestInit];
-  const companion = JSON.parse(init.body as string).avatar.companion;
-  expect(companion.creature).toBeUndefined();
-  expect(companion.look).toBe("shape");
-});
-
-it("opens an agent that never picked a look on its pixel creature, and stores the shape once it is chosen", async () => {
-  const { saves } = setup(false, false, true);
-  expect(screen.getByRole("button", { name: "society.companion.look_creature" }).getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByTestId("creature-picker")).toBeTruthy();
-  // The creature previews on its own canvas stage; the 3D studio is for shapes and pets.
-  expect(screen.getByTestId("creature-stage")).toBeTruthy();
-  expect(screen.queryByTestId("preview")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.creature.state_names.asking" }));
-  expect(screen.getByTestId("creature-stage").dataset.creatureState).toBe("asking");
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_shape" }));
-  expect(screen.queryByTestId("creature-stage")).toBeNull();
-  expect(await screen.findByTestId("preview")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
-  await waitFor(() => expect(saves()).toHaveLength(1));
-  const [, init] = saves()[0] as unknown as [string, RequestInit];
-  expect(JSON.parse(init.body as string).avatar.companion.look).toBe("shape");
-});
-
-it("rolls a whole new creature at once: figure, colour world and eyes, and wears it", async () => {
-  const { saves } = setup();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.look_creature" }));
-  const pressedWorld = () => screen.getAllByRole("button", { pressed: true }).map(button => button.getAttribute("aria-label") ?? "").find(label => label.startsWith("society.companion.creature.palettes."));
-  const before = pressedWorld();
-  fireEvent.click(screen.getByRole("button", { name: "society.companion.creature.roll" }));
-  const rolled = pressedWorld();
-  expect(rolled).toBeTruthy();
-  expect(rolled).not.toBe(before);
-  // The rolled figure is worn and leads the row of choices.
-  const figures = within(screen.getByTestId("creature-picker")).getAllByRole("button").filter(button => (button.getAttribute("aria-label") ?? "").startsWith("society.companion.creature.number"));
-  expect(figures[0].getAttribute("aria-pressed")).toBe("true");
-  fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
-  await waitFor(() => expect(saves()).toHaveLength(1));
-  const [, init] = saves()[0] as unknown as [string, RequestInit];
-  const creature = JSON.parse(init.body as string).avatar.companion.creature;
-  expect("society.companion.creature.palettes." + creature.palette).toBe(rolled);
 });

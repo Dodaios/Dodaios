@@ -17,6 +17,11 @@ export const COMPANION_SIZE_M = 0.5;
 export const COMPANION_FOLLOW_DISTANCE_M = 1;
 /** `PetId` in `dodaios/society/companion.py` (built-in slug or a drawn pet's `u<hex>`). */
 export const PET_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+/**
+ * The built-in pets an agent wears when nobody picked one (`DEFAULT_PETS` in
+ * `dodaios/society/companion.py`). Gigi stays the lead's own face.
+ */
+export const DEFAULT_PETS = ["ember", "miso", "bolt", "brew", "mochi", "shelly", "cocoa", "dodaios"] as const;
 export const companionSchema = z.object({
   shape: z.enum(COMPANION_SHAPES), color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   eyes: z.enum(["dots", "lines"]).default("lines"), enabled: z.boolean().default(true),
@@ -49,12 +54,24 @@ export function defaultCompanion(identity: string): CompanionAppearance {
     shape: COMPANION_SHAPES[identityHash(`shape:${identity}`) % COMPANION_SHAPES.length]!,
     color: COMPANION_COLORS[identityHash(`color:${identity}`) % DEFAULT_COLOR_COUNT]!,
     eyes: "lines", enabled: true, accessories: {}, sizeM: COMPANION_SIZE_M, followDistanceM: COMPANION_FOLLOW_DISTANCE_M,
+    pet: defaultPet(identity),
   };
 }
 
+/** The built-in pet an agent wears until one is picked for it; stable per agent. */
+export function defaultPet(identity: string): string {
+  return DEFAULT_PETS[identityHash(`pet:${identity}`) % DEFAULT_PETS.length]!;
+}
+
+/**
+ * Agents wear pets only. A look saved before that (a shape or a pixel
+ * creature) is shown with the agent's default pet instead.
+ */
 export function resolveCompanion(identity: string, stored?: unknown): CompanionAppearance {
   const parsed = companionSchema.safeParse(stored);
-  return parsed.success ? parsed.data : defaultCompanion(identity);
+  if (!parsed.success) return defaultCompanion(identity);
+  const { creature: _creature, look: _look, ...look } = parsed.data;
+  return { ...look, pet: look.pet ?? defaultPet(identity) };
 }
 
 /** The same plain black ink in profiles and in the map, without catchlights. */

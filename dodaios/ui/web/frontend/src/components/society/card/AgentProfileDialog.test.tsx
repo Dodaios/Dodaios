@@ -16,9 +16,14 @@ const knowledge = { files: [
   { path: "skills/check/SKILL.md", name: "check/SKILL.md", kind: "skills", updated_ms: 3, size: 50 },
 ], learned_instructions: ["Check source dates."], reviews: { pending: 0, done: 1 }, last_review: { state: "done", updated_ms: 1000 } };
 
+const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: ["gigi", "cocoa"].map(id => ({
+  id, name: id, description: "", builtin: true, frame_size: 48, animations: { idle: { row: 0, frames: 1, fps: 1, loop: true } }, sheet_url: `/api/pets/${id}/sheet.png`,
+})) };
+
 function setup(options: { lead?: boolean; sample?: boolean; fetcher?: typeof fetch; knowledgeFailure?: boolean } = {}) {
   const fetcher = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     if (String(url).endsWith("/knowledge")) return json(knowledge, options.knowledgeFailure ? 500 : 200);
+    if (String(url).startsWith("/api/pets")) return json(PETS);
     return options.fetcher ? options.fetcher(url, init) : json({});
   });
   vi.stubGlobal("fetch", fetcher);
@@ -115,14 +120,13 @@ it("opens the avatar profile without selecting the chat and leaves name-click na
 it("customizes the agent's look and saves it with the character recipe kept", async () => {
   const { fetcher } = setup();
   fireEvent.click(screen.getAllByRole("button", { name: "society.profile_card.look" })[0]);
-  // Accessories belong to the shape; an agent that never picked a look opens on its pixel creature.
-  fireEvent.click(await screen.findByRole("button", { name: "society.companion.look_shape" }));
-  fireEvent.click(await screen.findByRole("button", { name: "society.companion.items.suit" }));
+  // The look is a pet, picked from My Pets.
+  fireEvent.click(await screen.findByRole("button", { name: "cocoa" }));
   fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
   await screen.findByText("society.profile_card.saved");
   const call = fetcher.mock.calls.find(([url, init]) => String(url) === "/api/society/agents/research" && init?.method === "PATCH");
   const body = JSON.parse(String(call?.[1]?.body));
-  expect(body.avatar.companion.accessories).toEqual({ outfit: "suit" });
+  expect(body.avatar.companion.pet).toBe("cocoa");
   const { companion: _old, ...recipe } = agent.figure ?? {};
   expect(body.avatar).toMatchObject(recipe);
   expect(body.title).toBe("Researcher");

@@ -16,6 +16,7 @@ from dodaios.society.companion import (
     COMPANION_SHAPES,
     CREATURE_EYES,
     CREATURE_PALETTES,
+    DEFAULT_PETS,
     CompanionAppearance,
     random_companion,
 )
@@ -103,10 +104,9 @@ async def test_every_new_agent_gets_a_valid_random_companion(roster: Roster):
         companion = CompanionAppearance.model_validate(agent.avatar["companion"])
         assert companion.shape in COMPANION_SHAPES
         assert companion.color in COMPANION_COLORS
-        # A new agent starts as a pixel creature.
-        assert companion.creature is not None
-        assert companion.creature.palette in CREATURE_PALETTES
-        assert companion.creature.eyes in CREATURE_EYES
+        # A new agent starts with a built-in pet, never a pixel creature.
+        assert companion.pet in DEFAULT_PETS
+        assert companion.creature is None
 
 
 async def test_an_explicit_avatar_is_kept(roster: Roster):
@@ -129,6 +129,15 @@ def test_companion_choices_match_the_frontend():
     assert shapes and colors
     assert tuple(re.findall(r'"([^"]+)"', shapes.group(1))) == COMPANION_SHAPES
     assert tuple(re.findall(r'"([^"]+)"', colors.group(1))) == COMPANION_COLORS
+
+
+def test_default_pets_match_the_frontend_and_exist():
+    source = APPEARANCE_TS.read_text(encoding="utf-8")
+    pets = re.search(r"DEFAULT_PETS = \[([^\]]*)\]", source)
+    assert pets
+    assert tuple(re.findall(r'"([^"]+)"', pets.group(1))) == DEFAULT_PETS
+    builtin = Path(__file__).resolve().parents[2] / "dodaios" / "ui" / "pets" / "builtin"
+    assert all((builtin / pet).is_dir() for pet in DEFAULT_PETS)
 
 
 def test_creature_choices_match_the_frontend():
