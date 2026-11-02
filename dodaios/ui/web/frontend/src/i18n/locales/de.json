@@ -10365,7 +10365,11 @@
     "send_message": "Nachricht senden",
     "queue_title": "Einreihen, bis der Agent fertig ist",
     "copy_message": "Nachricht kopieren",
-    "scroll_newest": "Zur neuesten Nachricht scrollen"
+    "scroll_newest": "Zur neuesten Nachricht scrollen",
+    "open_side_by_side": "Daneben öffnen",
+    "drop_side_by_side": "Loslassen, um daneben zu öffnen",
+    "drop_replace": "Loslassen, um diesen Thread zu ersetzen",
+    "close_column": "{target} schließen"
   },
   "ide_view": {
     "split_right": "Rechts",

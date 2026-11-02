@@ -105,3 +105,35 @@ def test_window_the_browser_showed_by_itself_is_handed_back(
 
     assert (embed.handed == ["released"]) is handed_back
     assert (("show", browser_embed.SW_HIDE) in user32.calls) is not handed_back
+
+
+@pytest.mark.parametrize(("on_screen", "state"), [(False, "embedded"), (True, "released")])
+def test_left_over_window_is_parked_or_handed_back(
+    monkeypatch: pytest.MonkeyPatch, on_screen: bool, state: str,
+) -> None:
+    """A window a crashed app left behind gets watched (hidden) or becomes a normal window."""
+    embed = browser_embed.ChromeEmbed()
+    record = {"hwnd": CHROME, "pid": 1, "browser": "chrome", "profile": "Profile 3"}
+    embed._api = SimpleNamespace(user32=SimpleNamespace(IsWindowVisible=lambda _h: on_screen))
+    monkeypatch.setattr(embed, "_left_over", lambda _spec: record)
+
+    def adopt(_spec: Any, _profile: str, _host: int) -> bool:
+        embed._chrome, embed._state = CHROME, "embedded"
+        return True
+
+    def give_back(**_kw: Any) -> None:
+        embed._chrome, embed._state = 0, "released"
+
+    monkeypatch.setattr(embed, "_adopt_left_over", adopt)
+    monkeypatch.setattr(embed, "_give_back", give_back)
+
+    assert embed._park(SimpleNamespace(), "Profile 3") is True
+    assert embed._state == state
+
+
+def test_nothing_to_park_without_a_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(browser_embed, "_is_windows", lambda: True)
+    embed = browser_embed.ChromeEmbed()
+    monkeypatch.setattr(embed, "_read_state", lambda: None)
+    assert embed.park_left_over() is False
+    assert embed._thread is None

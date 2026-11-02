@@ -100,7 +100,14 @@ from dodaios.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
 log = logging.getLogger(__name__)
 
 _READLINE_LIMIT: Final[int] = 16 * 1024 * 1024
-_TURN_TIMEOUT_S: Final[float] = 3600.0
+#: A coding-agent turn has no wall-clock limit: a session may run for days.
+#: Stop ends it; a stalled ACP runtime ends through its own watchdog.
+_TURN_TIMEOUT_S: Final[float | None] = None
+#: A CLI that sent its terminal result and then printed nothing for this long
+#: is stuck, not busy (background sub-agents keep printing while they work).
+_EXIT_AFTER_RESULT_S: Final[float] = 600.0
+#: agy's print mode stops itself after 5 min unless told otherwise.
+_AGY_PRINT_TIMEOUT: Final[str] = f"{365 * 24 * 3600}s"
 
 
 class CliUnavailable(RuntimeError):
@@ -1108,9 +1115,9 @@ def plan_agy(
         "stream-json",
         "--add-dir",
         str(work),
-        # agy's own print timeout is 5 min; ours is the long one.
+        # agy's own print timeout is 5 min; a turn here has no limit.
         "--print-timeout",
-        f"{int(_TURN_TIMEOUT_S // 60)}m",
+        _AGY_PRINT_TIMEOUT,
     ]
     if mode == "plan":
         argv += ["--mode", "plan"]
@@ -3718,7 +3725,7 @@ async def resume_hosted_cli_turn(handle: TurnHandle, proc: Any) -> str | None:
         placement=None,
         tree=None,
         bridge=None,
-        timeout_s=max(60.0, _TURN_TIMEOUT_S - elapsed),
+        timeout_s=_TURN_TIMEOUT_S,
     )
     await handle.emit(
         make_event(
@@ -4108,7 +4115,7 @@ async def _drive_cli(
     placement: Any,
     tree: Any,
     bridge: Any | None,
-    timeout_s: float = _TURN_TIMEOUT_S,
+    timeout_s: float | None = _TURN_TIMEOUT_S,
 ) -> _Outcome:
     """Read a started CLI to its end: translate, answer, and judge the outcome.
 
@@ -4588,11 +4595,27 @@ async def _drive_cli(
     watcher = asyncio.create_task(_watch_cancel())
     provider_watcher = asyncio.create_task(_watch_provider_failure())
     stall_watcher = asyncio.create_task(_watch_stall())
+    exit_watcher: asyncio.Task[None] | None = None
+    lingered = [False]
     try:
         # EOF is not process exit: a CLI may close both pipes and keep
-        # running. The deadline must also cover waiting for the process.
+        # running. The deadlines must also cover waiting for the process.
         deadline = None if getattr(handle, "goal_turn", False) else timeout_s
-        async with asyncio.timeout(deadline):
+        async with asyncio.timeout(deadline) as scope:
+
+            async def _watch_exit_after_result() -> None:
+                # No limit on the work itself, but a CLI that gave its final
+                # answer and then stays alive in silence is stuck, not busy.
+                while True:
+                    await asyncio.sleep(_ACP_WATCH_TICK_S)
+                    if not getattr(state, "saw_result", False):
+                        continue
+                    if time.monotonic() - activity[0] > _EXIT_AFTER_RESULT_S:
+                        break
+                lingered[0] = True
+                scope.reschedule(asyncio.get_running_loop().time())
+
+            exit_watcher = asyncio.create_task(_watch_exit_after_result())
             await asyncio.gather(pump, drain, feeder)
             await proc.wait()
     except TimeoutError:
@@ -4607,7 +4630,13 @@ async def _drive_cli(
         await _acp_cancel()
         _kill(proc)
         status = "error"
-        error_text = f"{runner} did not finish within {int(_TURN_TIMEOUT_S)} s."
+        if lingered[0]:
+            error_text = (
+                f"{runner} did not finish within {int(_EXIT_AFTER_RESULT_S)} s"
+                " of its final answer."
+            )
+        else:
+            error_text = f"{runner} did not finish within {int(timeout_s or 0)} s."
     except asyncio.CancelledError:
         if hosted and not handle.cancel.is_set():
             # The app is going away, nobody pressed Stop: the CLI keeps working
@@ -4623,6 +4652,8 @@ async def _drive_cli(
         watcher.cancel()
         provider_watcher.cancel()
         stall_watcher.cancel()
+        if exit_watcher is not None:
+            exit_watcher.cancel()
         for task in (pump, drain, feeder):
             if not task.done():
                 task.cancel()

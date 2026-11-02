@@ -92,7 +92,6 @@ MAX_WAIT_ATTEMPTS: Final[int] = 120
 REVIEW_DELAY_S: Final[float] = 1.5
 LEAD_RETRY_S: Final[float] = 10.0
 MAX_LEAD_WAIT_ATTEMPTS: Final[int] = 90
-LEAD_TURN_TIMEOUT_S: Final[float] = 30 * 60.0
 SWEEP_S: Final[float] = 60.0
 #: A task with no sign of life for this long is checked against the scheduler.
 STALL_MS: Final[int] = 3 * 60 * 1000
@@ -1199,34 +1198,30 @@ class TeamLeads:
         svc = self._rt.chat_service()
         ok, final, error = False, "", ""
         try:
-            try:
-                await asyncio.wait_for(svc.wait_turn(session_id), timeout=LEAD_TURN_TIMEOUT_S)
-            except TimeoutError:  # A turn this long is stopped; the person may resume.
-                error = "The lead's turn took too long and was stopped."
-                await self._cancel_turn(session_id, turn_id)
-            else:
-                terminal = None
-                for _ in range(6):
-                    terminal = await asyncio.to_thread(
-                        svc.store.turn_terminal, session_id, turn_id
-                    )
-                    if terminal is not None:
-                        break
-                    await asyncio.sleep(0.5)
-                payload = (terminal or {}).get("payload", {})
-                ok = payload.get("status") in ("ok", "done", "completed")
-                if not ok:
-                    error = str(payload.get("error") or payload.get("status") or "")
-                    error = error or "The lead's turn did not finish."
-                events = await asyncio.to_thread(svc.store.list_events, session_id, tail=200)
-                final = next(
-                    (
-                        str(e["payload"].get("text") or "")
-                        for e in reversed(events)
-                        if e["kind"] == "assistant_text" and e["payload"].get("turn_id") == turn_id
-                    ),
-                    "",
+            # A lead's turn may run as long as the work needs; Stop ends it.
+            await svc.wait_turn(session_id)
+            terminal = None
+            for _ in range(6):
+                terminal = await asyncio.to_thread(
+                    svc.store.turn_terminal, session_id, turn_id
                 )
+                if terminal is not None:
+                    break
+                await asyncio.sleep(0.5)
+            payload = (terminal or {}).get("payload", {})
+            ok = payload.get("status") in ("ok", "done", "completed")
+            if not ok:
+                error = str(payload.get("error") or payload.get("status") or "")
+                error = error or "The lead's turn did not finish."
+            events = await asyncio.to_thread(svc.store.list_events, session_id, tail=200)
+            final = next(
+                (
+                    str(e["payload"].get("text") or "")
+                    for e in reversed(events)
+                    if e["kind"] == "assistant_text" and e["payload"].get("turn_id") == turn_id
+                ),
+                "",
+            )
         except asyncio.CancelledError:
             self._release_turn(goal_id, lead_id)
             raise
