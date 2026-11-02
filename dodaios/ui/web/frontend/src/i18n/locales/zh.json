@@ -10351,7 +10351,11 @@
     "send_message": "发送消息",
     "queue_title": "排队，待智能体完成后发送",
     "copy_message": "复制消息",
-    "scroll_newest": "滚动到最新消息"
+    "scroll_newest": "滚动到最新消息",
+    "open_side_by_side": "并排打开",
+    "drop_side_by_side": "松开以并排打开",
+    "drop_replace": "松开以替换此线程",
+    "close_column": "关闭 {target}"
   },
   "ide_view": {
     "split_right": "右侧",

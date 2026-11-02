@@ -10351,7 +10351,11 @@
     "send_message": "Send message",
     "queue_title": "Queue for when the agent is done",
     "copy_message": "Copy message",
-    "scroll_newest": "Scroll to the newest message"
+    "scroll_newest": "Scroll to the newest message",
+    "open_side_by_side": "Open side by side",
+    "drop_side_by_side": "Drop to open side by side",
+    "drop_replace": "Drop to replace this thread",
+    "close_column": "Close {target}"
   },
   "ide_view": {
     "split_right": "Right",

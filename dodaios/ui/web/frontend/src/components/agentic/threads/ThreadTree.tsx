@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Folder, FolderOpen, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePlus, Trash2, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -8,18 +8,16 @@ import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
-import { TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
+import { MAX_THREAD_COLUMNS, TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
 import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
-import { arrangeThreads, moveThreadId, projectIdFor, shortAge, threadStatus, threadTitle, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
+import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, arrangeThreads, moveThreadId, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
 /** Threads a project shows before "Show more". */
 const FOLDED_COUNT = 6;
 /** How often the list asks for fresh session rows while it is on screen. */
 const POLL_MS = 4000;
-/** What a dragged thread row carries, so only a thread row is a valid drop. */
-const THREAD_DRAG_MIME = "application/x-jarvis-thread";
 
 function readExpansion(): Record<string, boolean> {
   try {
@@ -82,6 +80,8 @@ export function ThreadTree() {
   const archiveThread = useIdeThreadsStore((state) => state.archiveThread);
   const restoreThread = useIdeThreadsStore((state) => state.restoreThread);
   const setThreadOrder = useIdeThreadsStore((state) => state.setThreadOrder);
+  const split = useIdeThreadsStore((state) => state.split);
+  const placeColumn = useIdeThreadsStore((state) => state.placeColumn);
   const [expansion, setExpansion] = useState(readExpansion);
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [renaming, setRenaming] = useState<{ sessionId: string; title: string } | null>(null);
@@ -150,7 +150,7 @@ export function ThreadTree() {
     if (next.some((id, index) => id !== ids[index])) setThreadOrder(projectId, next);
   };
 
-  const clearDrag = () => { setDragged(null); setDropTarget(null); };
+  const clearDrag = () => { setDragged(null); setDropTarget(null); setDraggedThread(null); };
 
   const remove = async (sessionId: string) => {
     setConfirmDelete(null);
@@ -253,8 +253,11 @@ export function ThreadTree() {
           return <div key={session.session_id} data-testid={`thread-row-${session.session_id}`}
             draggable
             onDragStart={(event) => {
+              // Within the list it reorders; dropped on the thread view it opens side by side.
               event.dataTransfer.setData(THREAD_DRAG_MIME, session.session_id);
+              event.dataTransfer.setData(THREAD_PROJECT_DRAG_MIME, project.id);
               event.dataTransfer.effectAllowed = "move";
+              setDraggedThread(session.session_id);
               setDragged({ sessionId: session.session_id, projectId: project.id });
             }}
             onDragEnd={clearDrag}
@@ -392,6 +395,10 @@ export function ThreadTree() {
   const menuArchived = menuSession !== null && menuSession.session_id in archived;
   // A thread that is working or waiting for an answer stays in view: archived, nobody would see it ask.
   const menuBusy = Boolean(menuSession?.running) || Boolean(menuSession?.pending_approvals?.length);
+  // "Open side by side": not for the thread the main column shows, nor when every column is taken.
+  const menuInMain = menuSession !== null && selection.sessionId === menuSession.session_id;
+  const menuInSide = menuSession !== null && split.some((thread) => thread.sessionId === menuSession.session_id);
+  const columnsFull = split.length + 1 >= MAX_THREAD_COLUMNS;
 
   return <div data-testid="ide-thread-tree" className="flex-1 px-2 pb-3 pt-2">
     <div className="flex h-8 items-center justify-between gap-2 pl-2 pr-1 text-[15px] font-semibold text-foreground">
@@ -426,6 +433,9 @@ export function ThreadTree() {
         : <div role="menu">
           <ThreadMenuItem icon={<Pencil className="h-3.5 w-3.5" />} label={t("ide_threads.rename")}
             onSelect={() => { setRenaming({ sessionId: menuSession.session_id, title: threadTitle(menuSession) }); setMenu(null); }} />
+          <ThreadMenuItem icon={<Columns2 className="h-3.5 w-3.5" />} label={t("ide_threads.open_side_by_side")}
+            disabled={menuInMain || menuInSide || columnsFull}
+            onSelect={() => { placeColumn({ sessionId: menuSession.session_id, projectId: menu.projectId }, split.length + 1); setMenu(null); }} />
           <ThreadMenuItem icon={<SquarePlus className="h-3.5 w-3.5" />} label={t("ide_threads.new_thread_here")}
             onSelect={() => { newThread(menu.projectId); setMenu(null); }} />
           {menuArchived

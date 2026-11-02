@@ -6,7 +6,7 @@ import type { AgentChatSession } from "@/lib/agentChatApi";
 import { useEventStore } from "@/store/events";
 import { fill, translate, useT } from "@/i18n";
 import { useIdeProjectsStore } from "@/store/ideProjects";
-import { useIdeThreadsStore } from "@/store/ideThreads";
+import { useIdeThreadsStore, type SplitThread, type ThreadSelection } from "@/store/ideThreads";
 import { useThreadTerminalsStore } from "@/store/threadTerminals";
 import { ThreadBranchBar, type ThreadCheckout } from "./ThreadBranchBar";
 import { ThreadComposer } from "./ThreadComposer";
@@ -15,7 +15,7 @@ import { ThreadTimeline } from "./ThreadTimeline";
 import { OpenSubagent, SubagentHeader, SubagentSwitcher } from "./ThreadSubagents";
 import { useRecalledMessages, withoutRecalled } from "./recalledMessages";
 import { fetchDiscoveredAgents, listSubagents, mergeDiscovered, subagentPath, subagentTurn, type DiscoveredAgent } from "./subagents";
-import { projectIdFor, rememberedSeat, useThreadChatStore } from "./threadModel";
+import { projectIdFor, rememberedSeat, useThreadChat, useThreadChatStore } from "./threadModel";
 import { TeamThreadView } from "./team/TeamThreadView";
 
 /**
@@ -26,23 +26,36 @@ import { TeamThreadView } from "./team/TeamThreadView";
  * opens the thread picked in the sidebar, or a draft in a project whose first
  * message starts the thread — in the project's checkout or a fresh worktree.
  */
-export function ThreadView({ onScreen }: { onScreen: boolean }) {
+export function ThreadView({ onScreen, column }: {
+  onScreen: boolean;
+  /** A side column's thread; absent for the main column, which shows what the sidebar picked. */
+  column?: SplitThread;
+}) {
   const t = useT();
+  // The main column's store, or the side column's own (from its provider).
+  const chatStore = useThreadChat();
   const pushToast = useEventStore((state) => state.pushToast);
   const projects = useIdeProjectsStore((state) => state.projects);
   const activeWorkspaceId = useIdeProjectsStore((state) => state.activeWorkspaceId);
   const connectProject = useIdeProjectsStore((state) => state.connectProject);
-  const selection = useIdeThreadsStore((state) => state.selection);
+  const picked = useIdeThreadsStore((state) => state.selection);
+  const selection = useMemo<ThreadSelection>(
+    () => (column ? { projectId: column.projectId, sessionId: column.sessionId } : picked),
+    [column?.projectId, column?.sessionId, picked],
+  );
   const projectOf = useIdeThreadsStore((state) => state.projectOf);
-  const focusNonce = useIdeThreadsStore((state) => state.focusNonce);
+  const sidebarFocus = useIdeThreadsStore((state) => state.focusNonce);
+  // A side column never takes the focus a sidebar click asks for.
+  const focusNonce = column ? 0 : sidebarFocus;
+  // The thread list is the sidebar's, kept fresh there; a side column's own store holds one thread.
   const sessions = useThreadChatStore((state) => state.sessions);
-  const activeSessionId = useThreadChatStore((state) => state.activeSessionId);
-  const activeSession = useThreadChatStore((state) => state.activeSession);
-  const timeline = useThreadChatStore((state) => state.timeline);
+  const activeSessionId = chatStore((state) => state.activeSessionId);
+  const activeSession = chatStore((state) => state.activeSession);
+  const timeline = chatStore((state) => state.timeline);
   const recalled = useRecalledMessages((state) => (activeSessionId ? state.bySession[activeSessionId] : undefined));
-  const draft = useThreadChatStore((state) => state.draft);
-  const catalog = useThreadChatStore((state) => state.catalog);
-  const lastError = useThreadChatStore((state) => state.lastError);
+  const draft = chatStore((state) => state.draft);
+  const catalog = chatStore((state) => state.catalog);
+  const lastError = chatStore((state) => state.lastError);
   const [checkout, setCheckout] = useState<ThreadCheckout>("current");
   const [base, setBase] = useState("");
   const [projectMenu, setProjectMenu] = useState(false);
@@ -72,14 +85,14 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
   }, [originatingProject]);
 
   // The terminal drawer and its caption toggle open shells in this folder.
-  useEffect(() => { useThreadTerminalsStore.getState().setFolder(folder); }, [folder]);
+  useEffect(() => { if (!column) useThreadTerminalsStore.getState().setFolder(folder); }, [column, folder]);
 
   // Keep the store on what the sidebar picked. A draft's first message
   // creates its session: that is this project's thread now — unless the
   // person moved on while it was being created; then it only remembers where
   // it belongs, and the thread they picked is what shows.
   useEffect(() => {
-    const store = useThreadChatStore.getState();
+    const store = chatStore.getState();
     const threads = useIdeThreadsStore.getState();
     const pending = startingIn.current;
     const created = pending && store.activeSessionId && store.activeSessionId !== selection.sessionId ? store.activeSessionId : null;
@@ -102,7 +115,7 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
 
   // The agents are listed the moment the view opens, not when a menu is.
   useEffect(() => {
-    const store = useThreadChatStore.getState();
+    const store = chatStore.getState();
     if (!store.catalog || store.catalogStale) void store.loadCatalog();
   }, []);
 
@@ -113,23 +126,23 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
     setCheckout("current");
     setBase("");
     // Never picked here yet: the seat of the newest thread is the last choice made.
-    const store = useThreadChatStore.getState();
+    const store = chatStore.getState();
     const cli = new Set((store.catalog?.providers ?? []).filter((row) => row.agent).map((row) => row.id));
     const newest = [...store.sessions].filter((row) => cli.has(row.provider)).sort((x, y) => y.created_ms - x.created_ms)[0];
     const seat = rememberedSeat() ?? (newest
       ? { provider: newest.provider, model: newest.model, effort: newest.effort, permissionMode: newest.permission_mode }
       : null);
-    const draftNow = useThreadChatStore.getState().draft;
+    const draftNow = chatStore.getState().draft;
     if (seat && (seat.provider !== draftNow.provider || seat.model !== draftNow.model
       || seat.effort !== draftNow.effort || seat.permissionMode !== draftNow.permissionMode)) {
-      void useThreadChatStore.getState().setDraft(seat);
+      void chatStore.getState().setDraft(seat);
     }
   }, [isDraft, selection.projectId, sessions.length > 0, Boolean(catalog)]);
 
   // A draft runs in its project's folder.
   useEffect(() => {
     if (!isDraft || !project || activeSessionId || startingIn.current) return;
-    if (useThreadChatStore.getState().draft.cwd !== project.path) void useThreadChatStore.getState().setDraft({ cwd: project.path });
+    if (chatStore.getState().draft.cwd !== project.path) void chatStore.getState().setDraft({ cwd: project.path });
   }, [isDraft, project, activeSessionId, draft.cwd]);
 
   // Keep the open thread marked as read.

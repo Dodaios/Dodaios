@@ -31,7 +31,7 @@ import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { useIdeSkillsStore } from "@/store/ideSkills";
 import { useIdeThreadsStore } from "@/store/ideThreads";
-import { ThreadView } from "@/components/agentic/threads/ThreadView";
+import { ThreadColumns } from "@/components/agentic/threads/ThreadColumns";
 import { ThreadTerminalDrawer } from "@/components/agentic/threads/ThreadTerminalDrawer";
 import { CodeEditorStage } from "@/components/agentic/editor/CodeEditorStage";
 import { useCodeEditorStore } from "@/store/codeEditor";
@@ -587,7 +587,7 @@ export function AgenticIdeView({ onScreen = true }: AgenticIdeViewProps) {
       {/* The thread over its terminal drawer. The drawer stays mounted in the
           grid too, so its shells keep running while the layout switches. */}
       <div className={cn("h-full min-h-0 flex-col", threads ? "flex" : "hidden")}>
-        {threads && <div className="min-h-0 flex-1"><ThreadView onScreen={onScreen && !editorShown} /></div>}
+        {threads && <div className="min-h-0 flex-1"><ThreadColumns onScreen={onScreen && !editorShown} /></div>}
         <ThreadTerminalDrawer onScreen={onScreen && threads && !editorShown && !panelCoversGrid} />
       </div>
       {/* The grid stays mounted behind the threads: its terminals keep running
