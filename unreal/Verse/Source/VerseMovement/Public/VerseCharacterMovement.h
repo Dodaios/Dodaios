@@ -149,8 +149,11 @@ public:
 	/** Footsteps and movement noise on every machine, with the surface (audio, WP19). */
 	FOnVerseFootstep OnFootstep;
 
-	/** Applies the capsule of a body shape, keeping the feet planted. False when it does not fit. */
-	bool SetBodyShape(EVerseBodyShape Shape, bool bCheckFit);
+	/**
+	 * Applies the capsule of a body shape, keeping the feet planted (bKeepFeet) or the centre
+	 * (replays: the server's corrected location already belongs to that shape). False when it does not fit.
+	 */
+	bool SetBodyShape(EVerseBodyShape Shape, bool bCheckFit, bool bKeepFeet = true);
 	EVerseBodyShape GetBodyShape() const { return BodyShape; }
 	/** For simulated proxies: adopt the replicated stance without checks. */
 	void ApplyReplicatedStance(EVerseStance NewStance);

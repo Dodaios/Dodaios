@@ -207,31 +207,57 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 		const FBodyInstance* Body = Mesh->GetBodyInstance(Bone);
 		return Body ? Body->GetUnrealWorldTransform().GetLocation() : Mesh->GetBoneLocation(Bone);
 	};
-	// Traces come from the front, where the A-pose arms do not cover the torso.
-	auto TraceZone = [&W, Pawn](const FVector& Target)
+	// Scan: one trace from the front every 5 cm of height; the zone hit first at each height.
+	auto Scan = [&W, Pawn](const FVector& Through, TMap<EVerseHitZone, FVector2f>& OutRange, FString& OutProfile)
 	{
-		FHitResult Hit;
-		const FVector From = Target + Pawn->GetActorForwardVector() * 300.f;
-		FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseHitZoneTest), false);
-		if (!W.GetWorld()->LineTraceSingleByChannel(Hit, From, Target - Pawn->GetActorForwardVector() * 300.f, VerseCollision::HitBody, Params))
+		OutRange.Reset();
+		OutProfile.Reset();
+		const float Floor = FVerseMovementTestWorld::Feet(*Pawn).Z;
+		const FVector Forward = Pawn->GetActorForwardVector();
+		for (float Height = 2.5f; Height < 200.f; Height += 5.f)
 		{
-			return EVerseHitZone::None;
+			const FVector Point(Through.X, Through.Y, Floor + Height);
+			FHitResult Hit;
+			const bool bHit = W.GetWorld()->LineTraceSingleByChannel(Hit, Point + Forward * 300.f, Point - Forward * 300.f,
+				VerseCollision::HitBody, FCollisionQueryParams(SCENE_QUERY_STAT(VerseHitZoneScan), false));
+			const EVerseHitZone Zone = bHit ? VerseHitZones::ZoneForHit(Hit) : EVerseHitZone::None;
+			OutProfile += FString::Printf(TEXT("%d"), int32(Zone));
+			if (Zone != EVerseHitZone::None)
+			{
+				FVector2f& Range = OutRange.FindOrAdd(Zone, FVector2f(Height, Height));
+				Range.X = FMath::Min(Range.X, Height);
+				Range.Y = FMath::Max(Range.Y, Height);
+			}
 		}
-		return VerseHitZones::ZoneForHit(Hit);
 	};
 	Run(W, *Pawn, 0u, FVector2f::ZeroVector, 0.5f);
 	const FVector Head = BodyLocation(TEXT("Head"));
-	const FVector Pelvis = BodyLocation(TEXT("Hips"));
 	const bool bHasCamera = Mesh->GetBoneIndex(TEXT("Camera")) != INDEX_NONE;
 	const FVector CameraBone = bHasCamera ? Mesh->GetBoneLocation(TEXT("Camera")) : FVector::ZeroVector;
-	TestEqual(TEXT("a trace at head height hits the Head zone"), int32(TraceZone(Head)), int32(EVerseHitZone::Head));
-	TestEqual(TEXT("a trace at the pelvis hits the lower torso"), int32(TraceZone(Pelvis)), int32(EVerseHitZone::LowerTorso));
+	TMap<EVerseHitZone, FVector2f> Standing;
+	FString Profile;
+	Scan(Pawn->GetActorLocation(), Standing, Profile);
+	AddInfo(FString::Printf(TEXT("standing zone profile, 5 cm steps from the floor: %s"), *Profile));
+	for (const EVerseHitZone Zone : {EVerseHitZone::Head, EVerseHitZone::UpperTorso, EVerseHitZone::LowerTorso, EVerseHitZone::Leg})
+	{
+		TestTrue(FString::Printf(TEXT("standing: a front trace hits zone %d"), int32(Zone)), Standing.Contains(Zone));
+	}
+	if (Standing.Contains(EVerseHitZone::Head) && Standing.Contains(EVerseHitZone::Leg) && Standing.Contains(EVerseHitZone::LowerTorso))
+	{
+		TestTrue(TEXT("head zone sits above the lower torso"), Standing[EVerseHitZone::Head].Y > Standing[EVerseHitZone::LowerTorso].Y);
+		TestTrue(TEXT("lower torso sits above the legs"), Standing[EVerseHitZone::LowerTorso].X > Standing[EVerseHitZone::Leg].X);
+		TestTrue(TEXT("standing head above 1.4 m"), Standing[EVerseHitZone::Head].Y > 140.f);
+	}
 
 	Run(W, *Pawn, uint32(EVerseInputButton::LeanRight), FVector2f::ZeroVector, 0.5f);
 	const FVector LeanHead = BodyLocation(TEXT("Head"));
 	const float Moved = (LeanHead - Head) | Pawn->GetActorRightVector();
 	AddInfo(FString::Printf(TEXT("lean right moved the head body %.1f cm to the right"), Moved));
 	TestTrue(TEXT("lean moves the head body at least 25 cm"), Moved >= 25.f);
+	TMap<EVerseHitZone, FVector2f> LeanSide;
+	Scan(LeanHead, LeanSide, Profile);
+	AddInfo(FString::Printf(TEXT("leaning: profile through the leaned head: %s"), *Profile));
+	TestTrue(TEXT("leaning: the head is hit where the leaned head is"), LeanSide.Contains(EVerseHitZone::Head));
 	if (bHasCamera)
 	{
 		TestTrue(TEXT("the Camera bone (bot eye) moves with the lean"), ((Mesh->GetBoneLocation(TEXT("Camera")) - CameraBone) | Pawn->GetActorRightVector()) >= 25.f);
@@ -244,12 +270,25 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 	AddInfo(FString::Printf(TEXT("prone head body %.1f cm above the floor"), ProneHead.Z - Feet));
 	TestTrue(TEXT("prone lays the head body below 50 cm"), ProneHead.Z - Feet < 50.f);
 	TestTrue(TEXT("prone moves the head body forward"), ((ProneHead - Pawn->GetActorLocation()) | Pawn->GetActorForwardVector()) > 10.f);
-	TestNotEqual(TEXT("the standing head point is empty while prone"), int32(TraceZone(Head)), int32(EVerseHitZone::Head));
-	FHitResult LegHit;
+	TMap<EVerseHitZone, FVector2f> Prone;
+	Scan(Pawn->GetActorLocation(), Prone, Profile);
+	AddInfo(FString::Printf(TEXT("prone profile through the capsule: %s"), *Profile));
+	for (const TPair<EVerseHitZone, FVector2f>& Entry : Prone)
+	{
+		TestTrue(FString::Printf(TEXT("prone: zone %d stays below 60 cm"), int32(Entry.Key)), Entry.Value.Y < 60.f);
+	}
+	// Legs trail behind the capsule: a side trace there hits a leg (mesh body or prone body box).
 	const FVector Behind = Pawn->GetActorLocation() - Pawn->GetActorForwardVector() * 110.f;
-	const bool bLeg = W.GetWorld()->LineTraceSingleByChannel(LegHit, Behind + FVector(0.f, 0.f, 200.f), Behind - FVector(0.f, 0.f, 50.f),
-		VerseCollision::HitBody, FCollisionQueryParams(SCENE_QUERY_STAT(VerseProneLegs), false));
-	TestTrue(TEXT("the prone legs behind the capsule can be hit"), bLeg && VerseHitZones::ZoneForHit(LegHit) == EVerseHitZone::Leg);
+	bool bLeg = false;
+	for (float Height = 2.5f; Height < 45.f && !bLeg; Height += 5.f)
+	{
+		const FVector Point(Behind.X, Behind.Y, Feet + Height);
+		FHitResult Hit;
+		const FVector Side = Pawn->GetActorRightVector() * 300.f;
+		bLeg = W.GetWorld()->LineTraceSingleByChannel(Hit, Point + Side, Point - Side, VerseCollision::HitBody,
+			FCollisionQueryParams(SCENE_QUERY_STAT(VerseProneLegs), false)) && VerseHitZones::ZoneForHit(Hit) == EVerseHitZone::Leg;
+	}
+	TestTrue(TEXT("the prone legs behind the capsule can be hit"), bLeg);
 	return true;
 }
 

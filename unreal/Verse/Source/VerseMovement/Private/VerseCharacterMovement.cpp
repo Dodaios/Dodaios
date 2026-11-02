@@ -248,7 +248,7 @@ bool UVerseCharacterMovement::BodyShapeFits(EVerseBodyShape Shape, const FVector
 	return !GetWorld()->OverlapBlockingTestByChannel(Center, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), Capsule, Params, Response);
 }
 
-bool UVerseCharacterMovement::SetBodyShape(EVerseBodyShape Shape, bool bCheckFit)
+bool UVerseCharacterMovement::SetBodyShape(EVerseBodyShape Shape, bool bCheckFit, bool bKeepFeet)
 {
 	if (!CharacterOwner || !CharacterOwner->GetCapsuleComponent())
 	{
@@ -272,7 +272,7 @@ bool UVerseCharacterMovement::SetBodyShape(EVerseBodyShape Shape, bool bCheckFit
 	}
 	Capsule->SetCapsuleSize(NewRadius, NewHalf, true);
 	// Keep the feet planted. Simulated proxies get their location from the server.
-	if (CharacterOwner->GetLocalRole() != ROLE_SimulatedProxy)
+	if (bKeepFeet && CharacterOwner->GetLocalRole() != ROLE_SimulatedProxy)
 	{
 		UpdatedComponent->SetWorldLocation(Feet + FVector(0.f, 0.f, NewHalf), false, nullptr, ETeleportType::TeleportPhysics);
 		bForceNextFloorCheck = true;
@@ -1015,6 +1015,7 @@ void UVerseCharacterMovement::MoveAutonomous(float ClientTimeStamp, float DeltaT
 {
 	const bool bServerOfRemote = CharacterOwner && CharacterOwner->GetLocalRole() == ROLE_Authority
 		&& CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy;
+	const int8 LeanBefore = LeanQuantized;
 	if (bServerOfRemote)
 	{
 		if (const FVerseCharacterNetworkMoveData* Data = static_cast<const FVerseCharacterNetworkMoveData*>(GetCurrentNetworkMoveData()))
@@ -1027,13 +1028,22 @@ void UVerseCharacterMovement::MoveAutonomous(float ClientTimeStamp, float DeltaT
 	if (bServerOfRemote && PendingClientLean != NoClientLean)
 	{
 		++NetStats.ServerMoves;
-		if (FMath::Abs(int32(PendingClientLean) - int32(LeanQuantized)) <= LeanAdoptTolerance)
+		// Adopt the client's lean when it is one the move could reach: within the lean rate of this
+		// move's (server-timed) delta from the previous value, and inside the wall check. A lost
+		// packet stretches the server's delta, so the server's own value may lag; the client's wins.
+		const int32 Client = PendingClientLean;
+		const float MaxStep = DeltaTime / FMath::Max(TuningValues.LeanEnterTime, KINDA_SMALL_NUMBER) * 127.f + LeanAdoptTolerance;
+		const bool bAllowedNow = Client == 0 || ((Stance == EVerseStance::Stand || Stance == EVerseStance::Crouch) && MantleElapsed < 0.f
+			&& FMath::Abs(float(Client)) <= ComputeLeanAllowance(float(Client)) * 127.f + LeanAdoptTolerance);
+		if (FMath::Abs(Client - int32(LeanQuantized)) <= LeanAdoptTolerance
+			|| (bAllowedNow && FMath::Abs(Client - int32(LeanBefore)) <= MaxStep))
 		{
-			LeanQuantized = int8(PendingClientLean);
+			LeanQuantized = int8(Client);
 		}
 		else
 		{
 			++NetStats.LeanMismatches;
+			UE_LOG(LogVerseMovement, Display, TEXT("lean refused: client %d, server %d, before %d, dt %.3f"), Client, int32(LeanQuantized), int32(LeanBefore), DeltaTime);
 		}
 		PendingClientLean = NoClientLean;
 		if (AVerseCharacter* Character = GetVerseCharacter())
@@ -1083,7 +1093,7 @@ void FVerseMoveState::Restore(UVerseCharacterMovement& M) const
 	M.Stance = Stance;
 	if (M.BodyShape != BodyShape)
 	{
-		M.SetBodyShape(BodyShape, false);
+		M.SetBodyShape(BodyShape, false, false);
 	}
 	M.LeanQuantized = LeanQuantized;
 	M.ProneTransitionRemaining = ProneTransitionRemaining;

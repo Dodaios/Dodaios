@@ -202,15 +202,23 @@ bool FVerseMovementSlideTest::RunTest(const FString& Parameters)
 	int32 SlideTicks = 0;
 	float PeakSpeed = 0.f;
 	bool bStarted = false;
-	Hold(W, *Pawn, Sprint | Crouch, FVector2f(1.f, 0.f), 2.f, Prev, [&]
+	// Hold sprint and crouch until the slide has ended (the cooldown starts there).
+	for (int32 Tick = 0; Tick < 150; ++Tick)
 	{
+		W.Drive(*Pawn, VerseTestFrame(FVector2f(1.f, 0.f), Sprint | Crouch, Prev));
+		Prev = Sprint | Crouch;
+		W.Tick();
 		if (M->IsSliding())
 		{
 			bStarted = true;
 			++SlideTicks;
 			PeakSpeed = FMath::Max(PeakSpeed, float(Pawn->GetVelocity().Size2D()));
 		}
-	});
+		else if (bStarted)
+		{
+			break;
+		}
+	}
 	const float SlideSeconds = SlideTicks * FVerseMovementTestWorld::Dt;
 	AddInfo(FString::Printf(TEXT("slide %.3f s, peak %.2f m/s"), SlideSeconds, PeakSpeed / 100.f));
 	TestTrue(TEXT("slide starts from sprint"), bStarted);
@@ -224,7 +232,7 @@ bool FVerseMovementSlideTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("cooldown still running"), M->GetSlideCooldownRemaining() > 0.f);
 	Hold(W, *Pawn, Sprint | Crouch, FVector2f(1.f, 0.f), 0.1f, Prev);
 	TestFalse(TEXT("second slide blocked during the 1.0 s cooldown"), M->IsSliding());
-	Hold(W, *Pawn, Sprint, FVector2f(1.f, 0.f), 1.0f, Prev);
+	Hold(W, *Pawn, Sprint, FVector2f(1.f, 0.f), 0.8f, Prev);
 	TestEqual(TEXT("cooldown over"), M->GetSlideCooldownRemaining(), 0.f);
 	Hold(W, *Pawn, Sprint | Crouch, FVector2f(1.f, 0.f), 0.1f, Prev);
 	TestTrue(TEXT("slide allowed after the cooldown"), M->IsSliding());
@@ -284,7 +292,7 @@ namespace
 }
 
 // A1.2: 1,000 seeded approaches: 0.5-2.0 m succeed at least 99.5 %; 2.1 m never mantles; time within a tick.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseMovementMantleTest, "Verse.Movement.Mantle", MovesTestFlags)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseMovementMantleTest, "Verse.Movement.Mantle.Ledges", MovesTestFlags)
 bool FVerseMovementMantleTest::RunTest(const FString& Parameters)
 {
 	FVerseMovementTestWorld W;
