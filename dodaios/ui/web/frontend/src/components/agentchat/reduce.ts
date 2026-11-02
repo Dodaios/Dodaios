@@ -141,6 +141,14 @@ export function isQuestionTool(name: string): boolean {
 export interface CredentialState {
   requestId: string;
   asker: string;
+  /**
+   * `token`: one secret value. `login`: a website username and password
+   * (society/login_tool.py). `plugin` / `cli`: connect a service
+   * (society/connect_tool.py); then `env` is the plugin id or CLI name.
+   */
+  kind: CredentialKind;
+  /** The sign-in page of a `login` card. */
+  url: string;
   env: string;
   label: string;
   description: string;
@@ -150,11 +158,19 @@ export interface CredentialState {
   status: string | null;
 }
 
+export type CredentialKind = "token" | "login" | "plugin" | "cli";
+
 /** The tool an agent asks for a credential with — bare or behind an MCP prefix. */
 export const CREDENTIAL_TOOL = "society_request_credential";
+/** The tools that open the same kind of card: a website login, a connection. */
+const CARD_TOOLS = [CREDENTIAL_TOOL, "society_request_login", "society_request_connect"];
 
 export function isCredentialTool(name: string): boolean {
-  return name === CREDENTIAL_TOOL || name.endsWith(`__${CREDENTIAL_TOOL}`);
+  return CARD_TOOLS.some((tool) => name === tool || name.endsWith(`__${tool}`));
+}
+
+function credentialKind(raw: unknown): CredentialKind {
+  return raw === "login" || raw === "plugin" || raw === "cli" ? raw : "token";
 }
 
 /** The call shows a card the person answers: a question or a credential field. */
@@ -1266,6 +1282,8 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       const credential: CredentialState = {
         requestId,
         asker: str(p.asker),
+        kind: credentialKind(p.kind),
+        url: str(p.url),
         env,
         label: str(p.label) || env,
         description: str(p.description),

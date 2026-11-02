@@ -46,31 +46,56 @@ def _text(value: Any, limit: int) -> str:
     return " ".join(str(value or "").split())[:limit]
 
 
+#: The two kinds of field: one secret value, or a website login (two values).
+TOKEN: Final[str] = "token"  # noqa: S105 — a field kind, not a secret
+LOGIN: Final[str] = "login"
+#: Connect cards (dodaios/society/connect_tool.py): ``env`` is the plugin id or CLI name.
+PLUGIN: Final[str] = "plugin"
+CLI: Final[str] = "cli"
+KINDS: Final[frozenset[str]] = frozenset({TOKEN, LOGIN, PLUGIN, CLI})
+
+
 @dataclass(frozen=True, slots=True)
 class CredentialSpec:
-    """What the field asks for. ``env`` is validated by the asking tool."""
+    """What the field asks for. ``env`` is validated by the asking tool.
+
+    A ``login`` field asks for a username and a password for the website at
+    ``url``; its ``env`` is the login's key and the submitted value is one
+    JSON object with both.
+    """
 
     env: str
     label: str
     description: str = ""
     placeholder: str = ""
     replace: bool = False
+    kind: str = TOKEN
+    url: str = ""
 
     @classmethod
     def build(
         cls, env: str, label: Any, description: Any = "", placeholder: Any = "",
-        *, replace: bool = False,
+        *, replace: bool = False, kind: Any = TOKEN, url: Any = "",
     ) -> CredentialSpec:
         name = _text(label, 80)
         if not name:
             raise ValueError("label is required: say what the credential is, e.g. 'GitHub token'")
-        return cls(env, name, _text(description, 400), _text(placeholder, 80), replace)
+        field_kind = kind if kind in KINDS else TOKEN
+        return cls(
+            env, name, _text(description, 400), _text(placeholder, 80), replace,
+            field_kind, _text(url, 300) if field_kind == LOGIN else "",
+        )
 
     def to_payload(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "env": self.env, "label": self.label, "description": self.description,
             "placeholder": self.placeholder, "replace": self.replace,
         }
+        if self.kind != TOKEN:
+            payload["kind"] = self.kind
+        if self.kind == LOGIN:
+            payload["url"] = self.url
+        return payload
 
 
 class _OpenCredential:
@@ -134,6 +159,7 @@ class CredentialRequests:
                 str(payload.get("env") or ""), payload.get("label"),
                 payload.get("description"), payload.get("placeholder"),
                 replace=bool(payload.get("replace")),
+                kind=payload.get("kind") or TOKEN, url=payload.get("url") or "",
             )
             assert self._restore_save is not None
             save = self._restore_save(session_id, spec)
@@ -155,7 +181,10 @@ class CredentialRequests:
             raise RuntimeError("this chat has no running turn to ask in")
         # Repeated asks for the same variable reuse the person's existing field.
         for rid, card in self._open.items():
-            if card.session_id == session_id and not card.done and card.spec.env == spec.env:
+            if (
+                card.session_id == session_id and not card.done
+                and card.spec.env == spec.env and card.spec.kind == spec.kind
+            ):
                 return rid
         key = (session_id, turn_id)
         if self._asked.get(key, 0) >= MAX_REQUESTS_PER_TURN:

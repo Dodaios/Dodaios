@@ -7597,6 +7597,36 @@
     "request_busy": "Dieser Token wird bereits geprüft. Warte kurz und versuche es dann erneut.",
     "failed": "Die Zugangsdaten konnten nicht gespeichert werden."
   },
+  "login_card": {
+    "title": "Bei {site} anmelden",
+    "subtitle": "Öffnet ein sicheres Formular",
+    "open": "Öffnen",
+    "username": "Benutzername oder E-Mail",
+    "password": "Passwort",
+    "footer": "Sicher gespeichert. {agent} sieht es nie; der Browser tippt es nur auf {host} ein.",
+    "save": "Speichern",
+    "decline": "Nicht jetzt",
+    "close": "Schließen",
+    "saved": "{site}-Login gespeichert",
+    "declined": "{site}-Login nicht angegeben",
+    "invalid": "Gib den Benutzernamen oder die E-Mail und das Passwort ein.",
+    "storage_failed": "Der Login konnte nicht sicher gespeichert werden. Bitte versuche es erneut.",
+    "failed": "Der Login konnte nicht gespeichert werden."
+  },
+  "connect_card": {
+    "title": "{label} verbinden",
+    "subtitle": "{agent} braucht das, um weiterzumachen",
+    "connect": "Verbinden",
+    "connecting": "Verbinde…",
+    "not_now": "Nicht jetzt",
+    "waiting": "Schließ die Anmeldung ab, die Karte aktualisiert sich selbst",
+    "code": "Gib auf der Anmeldeseite den Code {code} ein",
+    "open_again": "Anmeldeseite erneut öffnen",
+    "timeout": "Noch keine Verbindung. Drück auf Verbinden, um es erneut zu versuchen.",
+    "failed": "{label} konnte nicht verbunden werden. Versuch es erneut.",
+    "connected": "{label} verbunden",
+    "declined": "{label} nicht verbunden"
+  },
   "question_card": {
     "aria": "Rückfrage des Agenten",
     "title_one": "{agent} hat eine Frage",

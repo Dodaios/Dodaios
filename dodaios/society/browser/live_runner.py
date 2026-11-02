@@ -29,6 +29,52 @@ os.environ["BROWSER_USE_LOGGING_LEVEL"] = "error"
 PROTOCOL_VERSION = 2
 
 
+_SECRET_TAG = "<secret>"  # noqa: S105 — the placeholder tag, not a secret
+_HIDE_ACTIVE_FIELD = """() => {
+  let el = document.activeElement;
+  while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+  if (el && "value" in el) el.style.setProperty("-webkit-text-security", "disc", "important");
+}"""
+
+
+def typed_secret(proposal: dict) -> bool:
+    """The action types a stored login placeholder."""
+    return any(
+        isinstance(params, dict) and _SECRET_TAG in str(params.get("text") or "")
+        for params in proposal.values()
+    )
+
+
+def scrub_secrets(secrets: dict | None, value: Any) -> Any:
+    """``value`` with every stored login value replaced by its placeholder."""
+    if not secrets:
+        return value
+    pairs = sorted(
+        (
+            (secret, name)
+            for scoped in secrets.values()
+            if isinstance(scoped, dict)
+            for name, secret in scoped.items()
+            if secret
+        ),
+        key=lambda pair: len(pair[0]),
+        reverse=True,
+    )
+
+    def walk(item: Any) -> Any:
+        if isinstance(item, str):
+            for secret, name in pairs:
+                item = item.replace(secret, f"<secret>{name}</secret>")
+            return item
+        if isinstance(item, dict):
+            return {key: walk(child) for key, child in item.items()}
+        if isinstance(item, list):
+            return [walk(child) for child in item]
+        return item
+
+    return walk(value)
+
+
 def emit(kind: str, **values: Any) -> None:
     WIRE.write(json.dumps({"kind": kind, **values}, ensure_ascii=True) + "\n")
     WIRE.flush()
@@ -815,6 +861,8 @@ class Worker:
                     result = ActionResult(error=f"{type(exc).__name__}: browser action failed")
                 finally:
                     worker.visual_action = False
+                if typed_secret(proposal):
+                    await worker.hide_typed_value()
                 emit("action_result", id=answer["permit"], result=result.model_dump(mode="json"))
                 return result
 
@@ -828,8 +876,13 @@ class Worker:
 
             register_window_actions(tools, self, ActionResult)
         started = time.monotonic()
+        secrets = args.get("sensitive_data") or None
         self.agent = Agent(
             task=args["task"],
+            # Stored website logins: the model writes <secret>name</secret>, the
+            # browser types the value only on its site, and every observation the
+            # model reads has the value replaced by the placeholder again.
+            sensitive_data=secrets,
             llm=JarvisModel(),
             browser=self.browser,
             tools=tools,
@@ -872,7 +925,7 @@ class Worker:
                 max_steps=args.get("max_steps", 25), on_step_start=before_step, on_step_end=step
             )
             successful = history.is_successful() is True
-            return {
+            return scrub_secrets(secrets, {
                 "ok": successful,
                 "final_result": history.final_result(),
                 "urls": history.urls(),
@@ -882,7 +935,7 @@ class Worker:
                 "error": None if successful else "Browser task did not complete successfully",
                 # One SDK owns downloads; a second Playwright save would duplicate files.
                 "artifacts": sorted(set(self.browser.downloaded_files) - previous_downloads),
-            }
+            })
         finally:
             self.agent = None
             self.cursor_on = False
@@ -891,6 +944,17 @@ class Worker:
             if self.pointer:
                 self.pointer.clear()
             self.step_idle.set()
+
+    async def hide_typed_value(self) -> None:
+        """Draw the field the agent just typed a secret into as dots.
+
+        A password field already is; a username or email field would show the
+        value in the next screenshot the model reads.
+        """
+        # A page that blocks the style still never hands the text to the model.
+        with contextlib.suppress(Exception):
+            page = await self.focused()
+            await page.evaluate(_HIDE_ACTIVE_FIELD)
 
     async def command(self, op: str, args: dict) -> dict:
         # Cancellation must stay available while a transition waits for the job.

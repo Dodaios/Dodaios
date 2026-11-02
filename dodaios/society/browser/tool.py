@@ -223,6 +223,9 @@ class BrowserTool:
         except LLMUnavailable as exc:
             return _failure(exc.reason, str(exc))
         steps_seen: list[dict[str, Any]] = []
+        from .bridge import stored_logins
+
+        logins = await stored_logins(caller.agent_id)
 
         async def _on_step(event: dict[str, Any]) -> None:
             if event.get("kind") != "step":
@@ -251,6 +254,7 @@ class BrowserTool:
                 max_steps=int(args.get("max_steps") or DEFAULT_MAX_STEPS),
                 start_url=str(args.get("url") or "").strip(),
                 on_step=_on_step,
+                sensitive_data=logins,
             )
         except BrowserUnavailable as exc:
             return _failure(exc.reason, str(exc))

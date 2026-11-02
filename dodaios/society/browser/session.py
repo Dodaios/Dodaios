@@ -319,6 +319,7 @@ class BrowserJobs:
         start_url: str = "",
         on_step: StepCallback | None = None,
         wall_s: float = RUN_WALL_S,
+        sensitive_data: dict[str, dict[str, str]] | None = None,
     ) -> BrowserOutcome:
         async with self._lock(agent.agent_id):
             proc = await self._spawn(agent.agent_id)
@@ -335,6 +336,8 @@ class BrowserJobs:
                     "calculate_cost": True,
                 }
             )
+            if sensitive_data:
+                request["sensitive_data"] = sensitive_data
             try:
                 await self._send(proc, request)
                 done = await self._read_lines(proc, wall_s=wall_s, on_line=on_step)

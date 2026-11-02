@@ -900,6 +900,7 @@ class LiveSessions:
         files: list[str] | None = None,
         trace_id: str = "",
         chat_session_id: str = "",
+        sensitive_data: dict[str, dict[str, str]] | None = None,
     ) -> dict:
         session = await self.ensure(agent)
         await claim_browser(session, chat_session_id)
@@ -926,6 +927,7 @@ class LiveSessions:
                         "model": agent.model,
                         "vision": vision,
                         "files": files or [],
+                        "sensitive_data": sensitive_data or {},
                     },
                     timeout=600,
                 )

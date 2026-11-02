@@ -37,5 +37,6 @@ KEEP_GOING_ON_TOOL_FAILURE = (
 #: Society agents: the one way a secret reaches an agent (dodaios/society/credential_tool.py).
 CREDENTIAL_GUIDANCE = (
     "Secrets reach you only through society_request_credential, as environment variables "
-    "in society_shell; never ask for, show or store one anywhere else."
+    "in society_shell, and website logins only through society_request_login, as browser "
+    "placeholders; never ask for, show or store one anywhere else."
 )

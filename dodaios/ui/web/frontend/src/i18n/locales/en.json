@@ -7597,6 +7597,36 @@
     "request_busy": "This token is already being checked. Please wait, then try again.",
     "failed": "The credential could not be stored."
   },
+  "login_card": {
+    "title": "Sign in to {site}",
+    "subtitle": "Opens a secure form",
+    "open": "Open",
+    "username": "Username or email",
+    "password": "Password",
+    "footer": "Stored securely. {agent} never sees it; the browser types it only on {host}.",
+    "save": "Save",
+    "decline": "Not now",
+    "close": "Close",
+    "saved": "{site} login saved",
+    "declined": "{site} login not provided",
+    "invalid": "Enter the username or email and the password.",
+    "storage_failed": "The login could not be saved securely. Please try again.",
+    "failed": "The login could not be stored."
+  },
+  "connect_card": {
+    "title": "Connect {label}",
+    "subtitle": "{agent} needs this to continue",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "not_now": "Not now",
+    "waiting": "Finish signing in, the card updates by itself",
+    "code": "Enter code {code} on the sign-in page",
+    "open_again": "Open the sign-in page again",
+    "timeout": "No connection yet. Press Connect to try again.",
+    "failed": "{label} could not be connected. Try again.",
+    "connected": "{label} connected",
+    "declined": "{label} not connected"
+  },
   "question_card": {
     "aria": "Question from the agent",
     "title_one": "{agent} has a question",

@@ -741,6 +741,42 @@ async def delete_agent_credential(agent_id: str, env: str, request: Request) -> 
     return {"ok": True, "env": env}
 
 
+@router.get(
+    "/agents/{agent_id}/logins",
+    summary="List the website logins an agent stored (sites only, never the values)",
+)
+async def list_agent_logins(agent_id: str, request: Request) -> dict[str, Any]:
+    from dodaios.society.credentials import vault_for
+
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(agent_id)
+    if agent is None:
+        raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)})
+    rows = await asyncio.to_thread(vault_for(rt.data_dir).list_logins, agent.agent_id)
+    return {"agent_id": agent.agent_id, "logins": [row.to_dict() for row in rows]}
+
+
+@router.delete(
+    "/agents/{agent_id}/logins/{key}",
+    summary="Delete one of an agent's stored website logins",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def delete_agent_login(agent_id: str, key: str, request: Request) -> dict[str, Any]:
+    from dodaios.society.credentials import CredentialError, vault_for
+
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(agent_id)
+    if agent is None:
+        raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)})
+    try:
+        deleted = await asyncio.to_thread(vault_for(rt.data_dir).delete_login, agent.agent_id, key)
+    except CredentialError as exc:
+        raise HTTPException(500, str(exc)) from exc
+    if not deleted:
+        raise HTTPException(404, "no such login")
+    return {"ok": True, "key": key}
+
+
 async def _valid_group_members(rt: SocietyRuntime, members: list[str]) -> list[str]:
     if len(set(members)) != len(members):
         raise HTTPException(422, "group members must be unique")

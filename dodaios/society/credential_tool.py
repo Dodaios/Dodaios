@@ -76,7 +76,9 @@ class RequestCredentialTool:
         "stays open until the user saves or cancels, even if the turn ends. Continue unrelated "
         "work and respond to new messages while the user obtains the credential. If nothing "
         "else can be done now, finish your reply so the user can ask questions. On a later "
-        "turn, wait_for checks the existing field's status immediately without opening another."
+        "turn, wait_for checks the existing field's status immediately without opening another. "
+        "To sign in to a website in your browser with a username and password, use "
+        "society_request_login instead."
     )
     schema: dict[str, Any] = {
         "type": "object",
