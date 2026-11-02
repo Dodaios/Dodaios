@@ -1,0 +1,567 @@
+{
+  "bounds_cm": {
+    "max": [
+      7360.0,
+      2700.0,
+      1155.0
+    ],
+    "min": [
+      5240.0,
+      140.0,
+      -300.0
+    ]
+  },
+  "deck": "ops",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Ops/LV_Ops",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "simulator",
+      "main": false,
+      "name": "Simulator Room",
+      "polygon_cm": [
+        [
+          5300.0,
+          200.0
+        ],
+        [
+          5300.0,
+          2640.0
+        ],
+        [
+          7300.0,
+          2640.0
+        ],
+        [
+          7300.0,
+          200.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "screen-sim_1",
+      "kind": "screen",
+      "location": [
+        5700.0,
+        963.39,
+        110.1
+      ],
+      "props": {
+        "corners_cm": "[[5678.0,959.76,124.65],[5722.0,959.76,124.65],[5722.0,967.02,95.54],[5678.0,967.02,95.54]]",
+        "manifest_id": "sim_1",
+        "normal": "[0.0,0.970296,0.241922]",
+        "owner": "sim_1",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        44.0,
+        30.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "screen-sim_2",
+      "kind": "screen",
+      "location": [
+        6100.0,
+        963.39,
+        110.1
+      ],
+      "props": {
+        "corners_cm": "[[6078.0,959.76,124.65],[6122.0,959.76,124.65],[6122.0,967.02,95.54],[6078.0,967.02,95.54]]",
+        "manifest_id": "sim_2",
+        "normal": "[0.0,0.970296,0.241922]",
+        "owner": "sim_2",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        44.0,
+        30.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "screen-sim_3",
+      "kind": "screen",
+      "location": [
+        6500.0,
+        963.39,
+        110.1
+      ],
+      "props": {
+        "corners_cm": "[[6478.0,959.76,124.65],[6522.0,959.76,124.65],[6522.0,967.02,95.54],[6478.0,967.02,95.54]]",
+        "manifest_id": "sim_3",
+        "normal": "[0.0,0.970296,0.241922]",
+        "owner": "sim_3",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        44.0,
+        30.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "screen-sim_4",
+      "kind": "screen",
+      "location": [
+        6900.0,
+        963.39,
+        110.1
+      ],
+      "props": {
+        "corners_cm": "[[6878.0,959.76,124.65],[6922.0,959.76,124.65],[6922.0,967.02,95.54],[6878.0,967.02,95.54]]",
+        "manifest_id": "sim_4",
+        "normal": "[0.0,0.970296,0.241922]",
+        "owner": "sim_4",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        44.0,
+        30.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "screen-sim_instructor",
+      "kind": "screen",
+      "location": [
+        6250.04,
+        1371.16,
+        104.6
+      ],
+      "props": {
+        "corners_cm": "[[6225.04,1364.91,115.43],[6275.04,1364.91,115.43],[6275.04,1377.41,93.77],[6225.04,1377.41,93.77]]",
+        "manifest_id": "sim_instructor",
+        "normal": "[0.0,0.866025,0.5]",
+        "owner": "sim_instructor",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        50.0,
+        25.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "screen-sim_instructor__aux",
+      "kind": "screen",
+      "location": [
+        6344.57,
+        1421.34,
+        87.39
+      ],
+      "props": {
+        "corners_cm": "[[6334.32,1403.1,90.05],[6365.5,1421.1,90.05],[6354.82,1439.58,84.73],[6323.65,1421.58,84.73]]",
+        "manifest_id": "sim_instructor__aux",
+        "normal": "[-0.120961,0.209511,0.970296]",
+        "owner": "sim_instructor",
+        "socket_kind": "screen",
+        "yaw_deg": "-30.01"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.866069,
+        0.4999244
+      ],
+      "size_cm": [
+        36.0,
+        22.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "screen-sim_main",
+      "kind": "screen",
+      "location": [
+        6300.0,
+        213.0,
+        255.0
+      ],
+      "props": {
+        "corners_cm": "[[5865.0,213.0,360.0],[6735.0,213.0,360.0],[6735.0,213.0,150.0],[5865.0,213.0,150.0]]",
+        "manifest_id": "sim_main",
+        "normal": "[0.0,1.0,0.0]",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        869.9999999999999,
+        210.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "seat-sim_1",
+      "kind": "seat",
+      "location": [
+        5700.0,
+        1040.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "sim_1",
+        "owner": "sim_1",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "seat-sim_2",
+      "kind": "seat",
+      "location": [
+        6100.0,
+        1040.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "sim_2",
+        "owner": "sim_2",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "seat-sim_3",
+      "kind": "seat",
+      "location": [
+        6500.0,
+        1040.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "sim_3",
+        "owner": "sim_3",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "seat-sim_4",
+      "kind": "seat",
+      "location": [
+        6900.0,
+        1040.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "sim_4",
+        "owner": "sim_4",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "seat-sim_instructor",
+      "kind": "seat",
+      "location": [
+        6250.04,
+        1457.81,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "sim_instructor",
+        "owner": "sim_instructor",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "stand-sim_1",
+      "kind": "stand",
+      "location": [
+        5700.0,
+        1155.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "sim_1",
+        "owner": "sim_1",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "stand-sim_2",
+      "kind": "stand",
+      "location": [
+        6100.0,
+        1155.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "sim_2",
+        "owner": "sim_2",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "stand-sim_3",
+      "kind": "stand",
+      "location": [
+        6500.0,
+        1155.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "sim_3",
+        "owner": "sim_3",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "stand-sim_4",
+      "kind": "stand",
+      "location": [
+        6900.0,
+        1155.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "sim_4",
+        "owner": "sim_4",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "stand-sim_instructor",
+      "kind": "stand",
+      "location": [
+        6250.04,
+        1523.81,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "sim_instructor",
+        "owner": "sim_instructor",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    },
+    {
+      "id": "station-games",
+      "kind": "station",
+      "location": [
+        6460.0,
+        1540.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "games",
+        "sockets.screen": "sim_1,sim_2,sim_3,sim_4,sim_instructor,sim_instructor__aux,sim_main",
+        "sockets.seat": "sim_1,sim_2,sim_3,sim_4,sim_instructor",
+        "sockets.stand": "sim_1,sim_2,sim_3,sim_4,sim_instructor",
+        "station_kind": "games",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "games",
+        "kind": "games"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/ops/zones.py",
+    "sha256": "76f0a5b9a7b20f69766dbd5871881b2b53fda1bd03ef3041e1f36dfa375baaf3"
+  },
+  "zone": "simulator"
+}

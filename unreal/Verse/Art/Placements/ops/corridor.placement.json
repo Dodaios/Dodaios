@@ -1,0 +1,1022 @@
+{
+  "bounds_cm": {
+    "max": [
+      9240.0,
+      3360.0,
+      1110.0
+    ],
+    "min": [
+      360.0,
+      2640.0,
+      -300.0
+    ]
+  },
+  "deck": "ops",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Ops/LV_Ops",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "corridor",
+      "main": true,
+      "name": "Main Corridor",
+      "polygon_cm": [
+        [
+          420.0,
+          2760.0
+        ],
+        [
+          420.0,
+          3240.0
+        ],
+        [
+          9180.0,
+          3240.0
+        ],
+        [
+          9180.0,
+          2760.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-lobby_e",
+      "kind": "door",
+      "location": [
+        7980.0,
+        3300.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lobby_e",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-lobby_w",
+      "kind": "door",
+      "location": [
+        7220.0,
+        3300.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lobby_w",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-mess_e",
+      "kind": "door",
+      "location": [
+        2580.0,
+        2700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_e",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-mess_w",
+      "kind": "door",
+      "location": [
+        840.0,
+        2700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_w",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-quartermaster",
+      "kind": "door",
+      "location": [
+        8700.0,
+        2700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "quartermaster",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-quarters_e",
+      "kind": "door",
+      "location": [
+        3000.0,
+        3300.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "quarters_e",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-quarters_w",
+      "kind": "door",
+      "location": [
+        1080.0,
+        3300.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "quarters_w",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-records",
+      "kind": "door",
+      "location": [
+        4200.0,
+        2700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "records",
+        "width": "3.6",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-simulator",
+      "kind": "door",
+      "location": [
+        6600.0,
+        2700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "simulator",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-storage",
+      "kind": "door",
+      "location": [
+        8820.0,
+        3300.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "storage",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-team_a",
+      "kind": "door",
+      "location": [
+        4600.0,
+        3300.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "team_a",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-team_b",
+      "kind": "door",
+      "location": [
+        6420.0,
+        3300.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "team_b",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_16_e",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        1642.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_16_e",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_16_w",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        1558.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_16_w",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_38_e",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        3842.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_38_e",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_38_w",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        3758.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_38_w",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_60_e",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        6042.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_60_e",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_60_w",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        5958.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_60_w",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_82_e",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        8242.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_82_e",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-blast_82_w",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        8158.0,
+        2750.0,
+        210.0
+      ],
+      "props": {
+        "blink_hz": "0.0",
+        "colour": "#f4f7ff",
+        "manifest_id": "blast_82_w",
+        "yaw_deg": "0.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_1",
+      "kind": "waypoint",
+      "location": [
+        720.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_1",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_10",
+      "kind": "waypoint",
+      "location": [
+        5040.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_10",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_11",
+      "kind": "waypoint",
+      "location": [
+        5520.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_11",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_12",
+      "kind": "waypoint",
+      "location": [
+        6120.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_12",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_13",
+      "kind": "waypoint",
+      "location": [
+        6480.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_13",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_14",
+      "kind": "waypoint",
+      "location": [
+        6960.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_14",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_15",
+      "kind": "waypoint",
+      "location": [
+        7440.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_15",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_16",
+      "kind": "waypoint",
+      "location": [
+        7920.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_16",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_17",
+      "kind": "waypoint",
+      "location": [
+        8400.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_17",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_18",
+      "kind": "waypoint",
+      "location": [
+        8880.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_18",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_2",
+      "kind": "waypoint",
+      "location": [
+        1200.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_2",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_3",
+      "kind": "waypoint",
+      "location": [
+        1800.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_3",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_4",
+      "kind": "waypoint",
+      "location": [
+        2160.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_4",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_5",
+      "kind": "waypoint",
+      "location": [
+        2640.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_5",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_6",
+      "kind": "waypoint",
+      "location": [
+        3120.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_6",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_7",
+      "kind": "waypoint",
+      "location": [
+        3600.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_7",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_8",
+      "kind": "waypoint",
+      "location": [
+        4080.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_8",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-corridor_9",
+      "kind": "waypoint",
+      "location": [
+        4560.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "corridor_9",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_a_1",
+      "kind": "waypoint",
+      "location": [
+        840.0,
+        2920.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_a_1",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_a_2",
+      "kind": "waypoint",
+      "location": [
+        8880.0,
+        2920.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_a_2",
+        "yaw_deg": "-90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_a_3",
+      "kind": "waypoint",
+      "location": [
+        8880.0,
+        3080.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_a_3",
+        "yaw_deg": "-90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_a_4",
+      "kind": "waypoint",
+      "location": [
+        840.0,
+        3080.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_a_4",
+        "yaw_deg": "90.0"
+      },
+      "room": "corridor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/ops/zones.py",
+    "sha256": "76f0a5b9a7b20f69766dbd5871881b2b53fda1bd03ef3041e1f36dfa375baaf3"
+  },
+  "zone": "corridor"
+}

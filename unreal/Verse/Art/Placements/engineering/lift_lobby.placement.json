@@ -1,0 +1,339 @@
+{
+  "bounds_cm": {
+    "max": [
+      1520.0,
+      5260.0,
+      1058.05
+    ],
+    "min": [
+      140.0,
+      4065.0,
+      -300.0
+    ]
+  },
+  "deck": "engineering",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Engineering/LV_Engineering",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "lobby",
+      "main": false,
+      "name": "Turbolift Lobby",
+      "polygon_cm": [
+        [
+          200.0,
+          5200.0
+        ],
+        [
+          1460.0,
+          5200.0
+        ],
+        [
+          1460.0,
+          4140.0
+        ],
+        [
+          200.0,
+          4140.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-control_lobby",
+      "kind": "door",
+      "location": [
+        1220.0,
+        4125.0,
+        0.0
+      ],
+      "props": {
+        "height": "3.0",
+        "manifest_id": "control_lobby",
+        "owner": "control_lobby",
+        "socket_kind": "door",
+        "state": "open",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "lift-main",
+      "kind": "lift",
+      "location": [
+        440.0,
+        4165.0,
+        0.0
+      ],
+      "props": {
+        "decks": "all",
+        "height": "2.6",
+        "manifest_id": "main",
+        "owner": "main",
+        "socket_kind": "lift",
+        "width": "1.5",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    },
+    {
+      "id": "light-lift_call",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        540.0,
+        4150.0,
+        135.0
+      ],
+      "props": {
+        "blink_hz": "0.5",
+        "colour": "#ff9a2a",
+        "manifest_id": "lift_call",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-EngLobbyDirectory",
+      "kind": "screen",
+      "location": [
+        620.0,
+        4151.4,
+        158.05
+      ],
+      "props": {
+        "corners_cm": "[[595.0,4149.33,174.92],[645.0,4149.33,174.92],[645.0,4153.47,141.18],[595.0,4153.47,141.18]]",
+        "manifest_id": "EngLobbyDirectory",
+        "normal": "[0.0,0.992546,0.121869]",
+        "owner": "EngLobbyDirectory",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        50.0,
+        34.0
+      ],
+      "station": null
+    },
+    {
+      "id": "spawn-commander",
+      "kind": "spawn",
+      "location": [
+        440.0,
+        4260.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "commander",
+        "owner": "main",
+        "socket_kind": "spawn",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "spawn": {
+        "duel": false,
+        "team": "any"
+      },
+      "station": null
+    },
+    {
+      "id": "stand-EngLobbyDirectory",
+      "kind": "stand",
+      "location": [
+        620.0,
+        4205.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "EngLobbyDirectory",
+        "owner": "EngLobbyDirectory",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-EngLobbyLockers__1",
+      "kind": "stand",
+      "location": [
+        770.0,
+        4245.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "EngLobbyLockers__1",
+        "owner": "EngLobbyLockers",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-EngLobbyLockers__2",
+      "kind": "stand",
+      "location": [
+        830.0,
+        4245.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "EngLobbyLockers__2",
+        "owner": "EngLobbyLockers",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-EngLobbyLockers__3",
+      "kind": "stand",
+      "location": [
+        890.0,
+        4245.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "EngLobbyLockers__3",
+        "owner": "EngLobbyLockers",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-EngLobbyLockers__4",
+      "kind": "stand",
+      "location": [
+        950.0,
+        4245.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "EngLobbyLockers__4",
+        "owner": "EngLobbyLockers",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "station-lift",
+      "kind": "station",
+      "location": [
+        440.0,
+        4330.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift",
+        "sockets.lift": "main",
+        "station_kind": "lift",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/engineering/zones.py",
+    "sha256": "c17b309e2d639181442a01e49c048bc9a9ea3bf1579cf2c0eb0601c1fb373981"
+  },
+  "zone": "lift_lobby"
+}

@@ -1,0 +1,288 @@
+{
+  "bounds_cm": {
+    "max": [
+      8260.0,
+      5260.0,
+      900.0
+    ],
+    "min": [
+      3240.0,
+      3780.0,
+      -300.0
+    ]
+  },
+  "deck": "engineering",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Engineering/LV_Engineering",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "gallery",
+      "main": false,
+      "name": "Power Conduit Gallery",
+      "polygon_cm": [
+        [
+          3400.0,
+          5200.0
+        ],
+        [
+          8200.0,
+          5200.0
+        ],
+        [
+          8200.0,
+          3840.0
+        ],
+        [
+          3400.0,
+          3840.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-bay_gallery",
+      "kind": "door",
+      "location": [
+        3300.0,
+        4640.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "bay_gallery",
+        "width": "2.4",
+        "yaw_deg": "90.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_gallery_1",
+      "kind": "waypoint",
+      "location": [
+        3660.0,
+        4520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_gallery_1",
+        "yaw_deg": "90.0"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_gallery_2",
+      "kind": "waypoint",
+      "location": [
+        4800.0,
+        4520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_gallery_2",
+        "yaw_deg": "90.0"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_gallery_3",
+      "kind": "waypoint",
+      "location": [
+        6000.0,
+        4520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_gallery_3",
+        "yaw_deg": "90.0"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_gallery_4",
+      "kind": "waypoint",
+      "location": [
+        7200.0,
+        4520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_gallery_4",
+        "yaw_deg": "90.0"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_gallery_5",
+      "kind": "waypoint",
+      "location": [
+        8040.0,
+        4520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_gallery_5",
+        "yaw_deg": "-90.0"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-service_2",
+      "kind": "waypoint",
+      "location": [
+        3300.0,
+        4640.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "service_2",
+        "yaw_deg": "94.01"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        -0.0349867,
+        0.9993878
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-service_3",
+      "kind": "waypoint",
+      "location": [
+        4440.0,
+        4560.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "service_3",
+        "yaw_deg": "90.0"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-service_4",
+      "kind": "waypoint",
+      "location": [
+        5880.0,
+        4560.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "service_4",
+        "yaw_deg": "-90.0"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-service_5",
+      "kind": "waypoint",
+      "location": [
+        4440.0,
+        4560.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "service_5",
+        "yaw_deg": "-85.99"
+      },
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.9993878,
+        0.0349867
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-service_6",
+      "kind": "waypoint",
+      "location": [
+        3300.0,
+        4640.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "service_6",
+        "yaw_deg": "-84.81"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.9989745,
+        0.0452758
+      ],
+      "station": null
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/engineering/zones.py",
+    "sha256": "c17b309e2d639181442a01e49c048bc9a9ea3bf1579cf2c0eb0601c1fb373981"
+  },
+  "zone": "gallery"
+}

@@ -1,0 +1,472 @@
+{
+  "bounds_cm": {
+    "max": [
+      9360.0,
+      5860.0,
+      1036.15
+    ],
+    "min": [
+      7040.0,
+      4640.0,
+      -300.0
+    ]
+  },
+  "deck": "ops",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Ops/LV_Ops",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "medbay",
+      "main": false,
+      "name": "Medical Bay",
+      "polygon_cm": [
+        [
+          7100.0,
+          4700.0
+        ],
+        [
+          7100.0,
+          5800.0
+        ],
+        [
+          9300.0,
+          5800.0
+        ],
+        [
+          9300.0,
+          4700.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "screen-med_1",
+      "kind": "screen",
+      "location": [
+        7443.4,
+        5008.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[7425.35,4998.13,148.2],[7463.98,5008.48,148.2],[7461.46,5017.89,124.1],[7422.82,5007.54,124.1]]",
+        "manifest_id": "med_1",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_1",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-med_2",
+      "kind": "screen",
+      "location": [
+        7903.4,
+        5008.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[7885.35,4998.13,148.2],[7923.98,5008.48,148.2],[7921.46,5017.89,124.1],[7882.83,5007.54,124.1]]",
+        "manifest_id": "med_2",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_2",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-med_3",
+      "kind": "screen",
+      "location": [
+        8363.4,
+        5008.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[8345.35,4998.13,148.2],[8383.98,5008.48,148.2],[8381.46,5017.89,124.1],[8342.83,5007.54,124.1]]",
+        "manifest_id": "med_3",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_3",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-med_4",
+      "kind": "screen",
+      "location": [
+        8823.4,
+        5008.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[8805.35,4998.13,148.2],[8843.98,5008.48,148.2],[8841.46,5017.89,124.1],[8802.83,5007.54,124.1]]",
+        "manifest_id": "med_4",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_4",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-med_5",
+      "kind": "screen",
+      "location": [
+        7443.4,
+        5488.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[7425.35,5478.13,148.2],[7463.98,5488.48,148.2],[7461.46,5497.89,124.1],[7422.82,5487.54,124.1]]",
+        "manifest_id": "med_5",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_5",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-med_6",
+      "kind": "screen",
+      "location": [
+        7903.4,
+        5488.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[7885.35,5478.13,148.2],[7923.98,5488.48,148.2],[7921.46,5497.89,124.1],[7882.83,5487.54,124.1]]",
+        "manifest_id": "med_6",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_6",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-med_7",
+      "kind": "screen",
+      "location": [
+        8363.4,
+        5488.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[8345.35,5478.13,148.2],[8383.98,5488.48,148.2],[8381.46,5497.89,124.1],[8342.83,5487.54,124.1]]",
+        "manifest_id": "med_7",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_7",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-med_8",
+      "kind": "screen",
+      "location": [
+        8823.4,
+        5488.01,
+        136.15
+      ],
+      "props": {
+        "corners_cm": "[[8805.35,5478.13,148.2],[8843.98,5488.48,148.2],[8841.46,5497.89,124.1],[8802.83,5487.54,124.1]]",
+        "manifest_id": "med_8",
+        "normal": "[-0.239973,0.895591,0.374607]",
+        "owner": "med_bed_8",
+        "socket_kind": "screen",
+        "yaw_deg": "-15.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7933533,
+        0.6087614
+      ],
+      "size_cm": [
+        40.0,
+        26.0
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_1",
+      "kind": "stand",
+      "location": [
+        7529.5,
+        5106.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_1",
+        "owner": "med_bed_1",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_2",
+      "kind": "stand",
+      "location": [
+        7989.5,
+        5106.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_2",
+        "owner": "med_bed_2",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_3",
+      "kind": "stand",
+      "location": [
+        8449.5,
+        5106.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_3",
+        "owner": "med_bed_3",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_4",
+      "kind": "stand",
+      "location": [
+        8909.5,
+        5106.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_4",
+        "owner": "med_bed_4",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_5",
+      "kind": "stand",
+      "location": [
+        7529.5,
+        5586.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_5",
+        "owner": "med_bed_5",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_6",
+      "kind": "stand",
+      "location": [
+        7989.5,
+        5586.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_6",
+        "owner": "med_bed_6",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_7",
+      "kind": "stand",
+      "location": [
+        8449.5,
+        5586.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_7",
+        "owner": "med_bed_7",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-medbay_8",
+      "kind": "stand",
+      "location": [
+        8909.5,
+        5586.65,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "medbay_8",
+        "owner": "med_bed_8",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "medbay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/ops/zones.py",
+    "sha256": "76f0a5b9a7b20f69766dbd5871881b2b53fda1bd03ef3041e1f36dfa375baaf3"
+  },
+  "zone": "medbay"
+}

@@ -1,0 +1,902 @@
+{
+  "bounds_cm": {
+    "max": [
+      6900.0,
+      3300.0,
+      1614.0
+    ],
+    "min": [
+      300.0,
+      300.0,
+      -300.0
+    ]
+  },
+  "deck": "bridge",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Bridge/LV_Bridge",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "bridge",
+      "main": true,
+      "name": "Command Bridge",
+      "polygon_cm": [
+        [
+          360.0,
+          1320.0
+        ],
+        [
+          960.0,
+          720.0
+        ],
+        [
+          3180.0,
+          720.0
+        ],
+        [
+          3180.0,
+          2880.0
+        ],
+        [
+          360.0,
+          2880.0
+        ],
+        [
+          360.0,
+          3120.0
+        ],
+        [
+          6840.0,
+          3120.0
+        ],
+        [
+          6840.0,
+          2880.0
+        ],
+        [
+          4020.0,
+          2880.0
+        ],
+        [
+          4020.0,
+          720.0
+        ],
+        [
+          6240.0,
+          720.0
+        ],
+        [
+          6840.0,
+          1320.0
+        ],
+        [
+          6840.0,
+          840.0
+        ],
+        [
+          6360.0,
+          360.0
+        ],
+        [
+          840.0,
+          360.0
+        ],
+        [
+          360.0,
+          840.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-brief",
+      "kind": "door",
+      "location": [
+        2640.0,
+        3240.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "brief",
+        "socket_kind": "door",
+        "width": "1.96",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-main",
+      "kind": "door",
+      "location": [
+        3600.0,
+        3240.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "main",
+        "socket_kind": "door",
+        "width": "3.16",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-ready",
+      "kind": "door",
+      "location": [
+        4560.0,
+        3240.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "ready",
+        "socket_kind": "door",
+        "width": "1.96",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "holo-strategy",
+      "kind": "holo",
+      "location": [
+        3600.0,
+        1320.0,
+        94.0
+      ],
+      "props": {
+        "height": "1.6",
+        "manifest_id": "strategy",
+        "owner": "strategy",
+        "radius": "1.2",
+        "socket_kind": "holo",
+        "yaw_deg": "0.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-bridge_ceiling",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 255000.0,
+        "kelvin": 6200.0,
+        "shadows": true,
+        "source_size_cm": 120.0,
+        "type": "rect"
+      },
+      "location": [
+        3600.0,
+        1800.0,
+        714.0
+      ],
+      "props": {
+        "count": "85",
+        "kelvin": "6200.0",
+        "light_kind": "ceiling_grid",
+        "manifest_id": "bridge_ceiling",
+        "socket_kind": "light",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-command__c",
+      "kind": "screen",
+      "location": [
+        3600.0,
+        774.26,
+        121.17
+      ],
+      "props": {
+        "corners_cm": "[[3574.0,768.98,132.5],[3626.0,768.98,132.5],[3626.0,779.55,109.84],[3574.0,779.55,109.84]]",
+        "manifest_id": "command__c",
+        "normal": "[0.0,0.906308,0.422618]",
+        "owner": "command",
+        "socket_kind": "screen",
+        "station_kind": "agents_list",
+        "yaw_deg": "0.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        52.0,
+        25.0
+      ],
+      "station": {
+        "id": "command",
+        "kind": "agents_list"
+      }
+    },
+    {
+      "id": "screen-command__l",
+      "kind": "screen",
+      "location": [
+        3488.83,
+        809.1,
+        121.17
+      ],
+      "props": {
+        "corners_cm": "[[3469.82,817.25,132.5],[3501.34,792.62,132.5],[3507.84,800.95,109.84],[3476.32,825.58,109.84]]",
+        "manifest_id": "command__l",
+        "normal": "[0.557979,0.71418,0.422618]",
+        "owner": "command",
+        "socket_kind": "screen",
+        "station_kind": "agents_list",
+        "yaw_deg": "38.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.4383711,
+        0.898794
+      ],
+      "size_cm": [
+        40.0,
+        25.0
+      ],
+      "station": {
+        "id": "command",
+        "kind": "agents_list"
+      }
+    },
+    {
+      "id": "screen-command__r",
+      "kind": "screen",
+      "location": [
+        3711.17,
+        809.1,
+        121.17
+      ],
+      "props": {
+        "corners_cm": "[[3698.66,792.62,132.5],[3730.18,817.25,132.5],[3723.68,825.58,109.84],[3692.16,800.95,109.84]]",
+        "manifest_id": "command__r",
+        "normal": "[-0.557979,0.71418,0.422618]",
+        "owner": "command",
+        "socket_kind": "screen",
+        "station_kind": "agents_list",
+        "yaw_deg": "-38.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.898794,
+        0.4383711
+      ],
+      "size_cm": [
+        40.0,
+        25.0
+      ],
+      "station": {
+        "id": "command",
+        "kind": "agents_list"
+      }
+    },
+    {
+      "id": "stand-command",
+      "kind": "stand",
+      "location": [
+        3600.0,
+        862.9,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "command",
+        "owner": "command",
+        "socket_kind": "stand",
+        "station_kind": "agents_list",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "command",
+        "kind": "agents_list"
+      }
+    },
+    {
+      "id": "stand-command_aide",
+      "kind": "stand",
+      "location": [
+        3840.0,
+        900.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "command_aide",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s1",
+      "kind": "stand",
+      "location": [
+        3798.63,
+        1237.72,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s1",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "-67.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.9807853,
+        0.1950903
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s2",
+      "kind": "stand",
+      "location": [
+        3682.28,
+        1121.37,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s2",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "-22.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.8314696,
+        0.5555702
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s3",
+      "kind": "stand",
+      "location": [
+        3517.72,
+        1121.37,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s3",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "22.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.5555702,
+        0.8314696
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s4",
+      "kind": "stand",
+      "location": [
+        3401.37,
+        1237.72,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s4",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "67.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.1950903,
+        0.9807853
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s5",
+      "kind": "stand",
+      "location": [
+        3401.37,
+        1402.28,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s5",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "112.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.1950903,
+        0.9807853
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s6",
+      "kind": "stand",
+      "location": [
+        3517.72,
+        1518.63,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s6",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "157.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.5555702,
+        0.8314696
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s7",
+      "kind": "stand",
+      "location": [
+        3682.28,
+        1518.63,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s7",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "-157.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.8314696,
+        0.5555702
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-strategy__s8",
+      "kind": "stand",
+      "location": [
+        3798.63,
+        1402.28,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "strategy__s8",
+        "owner": "strategy",
+        "socket_kind": "stand",
+        "yaw_deg": "-112.5"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.9807853,
+        0.1950903
+      ],
+      "station": null
+    },
+    {
+      "id": "station-command",
+      "kind": "station",
+      "location": [
+        3600.0,
+        862.9,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "command",
+        "owner": "command",
+        "socket_kind": "station",
+        "sockets.screen": "command__c,command__l,command__r",
+        "sockets.stand": "command",
+        "sockets.station": "command",
+        "station_kind": "agents_list",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "command",
+        "kind": "agents_list"
+      }
+    },
+    {
+      "id": "waypoint-aft_p",
+      "kind": "waypoint",
+      "location": [
+        1800.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "aft_p",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-aft_s",
+      "kind": "waypoint",
+      "location": [
+        5400.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "aft_s",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-vp_1",
+      "kind": "waypoint",
+      "location": [
+        1440.0,
+        445.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "vp_1",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-vp_2",
+      "kind": "waypoint",
+      "location": [
+        2160.0,
+        445.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "vp_2",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-vp_3",
+      "kind": "waypoint",
+      "location": [
+        2880.0,
+        445.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "vp_3",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-vp_4",
+      "kind": "waypoint",
+      "location": [
+        4320.0,
+        445.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "vp_4",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-vp_5",
+      "kind": "waypoint",
+      "location": [
+        5040.0,
+        445.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "vp_5",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-vp_6",
+      "kind": "waypoint",
+      "location": [
+        5760.0,
+        445.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "vp_6",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-walk_p_1",
+      "kind": "waypoint",
+      "location": [
+        3310.0,
+        1680.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "walk_p_1",
+        "socket_kind": "waypoint",
+        "yaw_deg": "-90.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-walk_p_2",
+      "kind": "waypoint",
+      "location": [
+        3310.0,
+        2160.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "walk_p_2",
+        "socket_kind": "waypoint",
+        "yaw_deg": "-90.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-walk_p_3",
+      "kind": "waypoint",
+      "location": [
+        3310.0,
+        2640.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "walk_p_3",
+        "socket_kind": "waypoint",
+        "yaw_deg": "-90.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-walk_s_1",
+      "kind": "waypoint",
+      "location": [
+        3890.0,
+        1680.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "walk_s_1",
+        "socket_kind": "waypoint",
+        "yaw_deg": "90.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-walk_s_2",
+      "kind": "waypoint",
+      "location": [
+        3890.0,
+        2160.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "walk_s_2",
+        "socket_kind": "waypoint",
+        "yaw_deg": "90.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-walk_s_3",
+      "kind": "waypoint",
+      "location": [
+        3890.0,
+        2640.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "walk_s_3",
+        "socket_kind": "waypoint",
+        "yaw_deg": "90.0"
+      },
+      "room": "bridge",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/bridge/zones.py",
+    "sha256": "38c2b6f765a275558a982a20ee001087f3babaf1d62911c353396f0f2cf9979d"
+  },
+  "zone": "command"
+}

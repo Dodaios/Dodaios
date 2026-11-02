@@ -1,0 +1,293 @@
+{
+  "bounds_cm": {
+    "max": [
+      6900.0,
+      4380.0,
+      1254.0
+    ],
+    "min": [
+      4320.0,
+      3300.0,
+      -300.0
+    ]
+  },
+  "deck": "bridge",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Bridge/LV_Bridge",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "ready",
+      "main": false,
+      "name": "Ready Room",
+      "polygon_cm": [
+        [
+          4380.0,
+          4320.0
+        ],
+        [
+          6840.0,
+          4320.0
+        ],
+        [
+          6840.0,
+          3360.0
+        ],
+        [
+          4380.0,
+          3360.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "light-ready_ceiling",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 15000.0,
+        "kelvin": 6200.0,
+        "shadows": true,
+        "source_size_cm": 120.0,
+        "type": "rect"
+      },
+      "location": [
+        5610.0,
+        3840.0,
+        354.0
+      ],
+      "props": {
+        "count": "5",
+        "kelvin": "6200.0",
+        "light_kind": "ceiling_fixtures",
+        "manifest_id": "ready_ceiling",
+        "socket_kind": "light",
+        "yaw_deg": "180.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-ready_room",
+      "kind": "screen",
+      "location": [
+        5640.0,
+        3654.73,
+        77.89
+      ],
+      "props": {
+        "corners_cm": "[[5665.0,3668.51,80.32],[5615.0,3668.51,80.32],[5615.0,3640.94,75.46],[5665.0,3640.94,75.46]]",
+        "manifest_id": "ready_room",
+        "normal": "[0.0,-0.173648,0.984808]",
+        "owner": "ready_room",
+        "socket_kind": "screen",
+        "station_kind": "service_record",
+        "yaw_deg": "180.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        50.0,
+        28.000000000000004
+      ],
+      "station": {
+        "id": "ready_room",
+        "kind": "service_record"
+      }
+    },
+    {
+      "id": "seat-ready_guest_1",
+      "kind": "seat",
+      "location": [
+        5560.0,
+        3774.13,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "ready_guest_1",
+        "owner": "ready_guest_1",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-ready_guest_2",
+      "kind": "seat",
+      "location": [
+        5720.0,
+        3774.13,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "ready_guest_2",
+        "owner": "ready_guest_2",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-ready_room",
+      "kind": "seat",
+      "location": [
+        5640.0,
+        3592.79,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "ready_room",
+        "owner": "ready_room",
+        "socket_kind": "seat",
+        "station_kind": "service_record",
+        "yaw_deg": "0.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "ready_room",
+        "kind": "service_record"
+      }
+    },
+    {
+      "id": "seat-ready_sofa_1",
+      "kind": "seat",
+      "location": [
+        4800.0,
+        3795.0,
+        42.0
+      ],
+      "props": {
+        "manifest_id": "ready_sofa_1",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-ready_sofa_2",
+      "kind": "seat",
+      "location": [
+        4920.0,
+        3795.0,
+        42.0
+      ],
+      "props": {
+        "manifest_id": "ready_sofa_2",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-ready_case",
+      "kind": "stand",
+      "location": [
+        6300.0,
+        3970.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "ready_case",
+        "owner": "ready_case",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "station-ready_room",
+      "kind": "station",
+      "location": [
+        5640.0,
+        3590.79,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "ready_room",
+        "owner": "ready_room",
+        "socket_kind": "station",
+        "sockets.screen": "ready_room",
+        "sockets.seat": "ready_room",
+        "sockets.station": "ready_room",
+        "station_kind": "service_record",
+        "station_yaw_deg": "0.0",
+        "yaw_deg": "0.0"
+      },
+      "room": "ready",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "ready_room",
+        "kind": "service_record"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/bridge/zones.py",
+    "sha256": "38c2b6f765a275558a982a20ee001087f3babaf1d62911c353396f0f2cf9979d"
+  },
+  "zone": "ready_room"
+}

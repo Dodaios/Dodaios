@@ -1,0 +1,810 @@
+{
+  "bounds_cm": {
+    "max": [
+      8260.0,
+      3885.0,
+      1100.0
+    ],
+    "min": [
+      3240.0,
+      140.0,
+      -300.0
+    ]
+  },
+  "deck": "engineering",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Engineering/LV_Engineering",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "reactor",
+      "main": false,
+      "name": "Reactor Shaft",
+      "polygon_cm": [
+        [
+          3300.0,
+          3810.0
+        ],
+        [
+          8200.0,
+          3810.0
+        ],
+        [
+          8200.0,
+          200.0
+        ],
+        [
+          3300.0,
+          200.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-gallery_1",
+      "kind": "door",
+      "location": [
+        3960.0,
+        3825.0,
+        0.0
+      ],
+      "props": {
+        "height": "3.0",
+        "manifest_id": "gallery_1",
+        "owner": "gallery_1",
+        "socket_kind": "door",
+        "state": "open",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-gallery_2",
+      "kind": "door",
+      "location": [
+        5400.0,
+        3825.0,
+        0.0
+      ],
+      "props": {
+        "height": "3.0",
+        "manifest_id": "gallery_2",
+        "owner": "gallery_2",
+        "socket_kind": "door",
+        "state": "open",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-gallery_3",
+      "kind": "door",
+      "location": [
+        7200.0,
+        3825.0,
+        0.0
+      ],
+      "props": {
+        "height": "3.0",
+        "manifest_id": "gallery_3",
+        "owner": "gallery_3",
+        "socket_kind": "door",
+        "state": "open",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-core",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1600.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        5400.0,
+        2200.0,
+        200.0
+      ],
+      "props": {
+        "colour": "#ffb47a",
+        "intensity": "1.0",
+        "manifest_id": "core",
+        "pulse_hz": "0.12",
+        "radius": "16.0",
+        "yaw_deg": "0.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-reactor_ring__ring_1",
+      "kind": "screen",
+      "location": [
+        5872.35,
+        1727.65,
+        97.0
+      ],
+      "props": {
+        "corners_cm": "[[5855.59,1682.18,107.8],[5917.82,1744.41,107.8],[5889.1,1773.13,86.2],[5826.87,1710.9,86.2]]",
+        "manifest_id": "reactor_ring__ring_1",
+        "normal": "[-0.331967,0.331967,0.882948]",
+        "owner": "reactor_ring",
+        "socket_kind": "screen",
+        "yaw_deg": "-45.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.9238795,
+        0.3826834
+      ],
+      "size_cm": [
+        88.0,
+        46.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-reactor_ring__ring_2",
+      "kind": "screen",
+      "location": [
+        4927.65,
+        1727.65,
+        97.0
+      ],
+      "props": {
+        "corners_cm": "[[4882.18,1744.41,107.8],[4944.41,1682.18,107.8],[4973.13,1710.9,86.2],[4910.9,1773.13,86.2]]",
+        "manifest_id": "reactor_ring__ring_2",
+        "normal": "[0.331967,0.331967,0.882948]",
+        "owner": "reactor_ring",
+        "socket_kind": "screen",
+        "yaw_deg": "45.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.3826834,
+        0.9238795
+      ],
+      "size_cm": [
+        88.0,
+        46.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-reactor_ring__ring_3",
+      "kind": "screen",
+      "location": [
+        4927.65,
+        2672.35,
+        97.0
+      ],
+      "props": {
+        "corners_cm": "[[4944.41,2717.82,107.8],[4882.18,2655.59,107.8],[4910.9,2626.87,86.2],[4973.13,2689.1,86.2]]",
+        "manifest_id": "reactor_ring__ring_3",
+        "normal": "[0.331967,-0.331967,0.882948]",
+        "owner": "reactor_ring",
+        "socket_kind": "screen",
+        "yaw_deg": "135.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.3826834,
+        0.9238795
+      ],
+      "size_cm": [
+        88.0,
+        46.0
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-reactor_ring__ring_4",
+      "kind": "screen",
+      "location": [
+        5872.35,
+        2672.35,
+        97.0
+      ],
+      "props": {
+        "corners_cm": "[[5917.82,2655.59,107.8],[5855.59,2717.82,107.8],[5826.87,2689.1,86.2],[5889.1,2626.87,86.2]]",
+        "manifest_id": "reactor_ring__ring_4",
+        "normal": "[-0.331967,-0.331967,0.882948]",
+        "owner": "reactor_ring",
+        "socket_kind": "screen",
+        "yaw_deg": "-135.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.9238795,
+        0.3826834
+      ],
+      "size_cm": [
+        88.0,
+        46.0
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-reactor_ring__ring_1",
+      "kind": "stand",
+      "location": [
+        5823.56,
+        1776.44,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "reactor_ring__ring_1",
+        "owner": "reactor_ring",
+        "socket_kind": "stand",
+        "yaw_deg": "135.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.3826834,
+        0.9238795
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-reactor_ring__ring_2",
+      "kind": "stand",
+      "location": [
+        4976.44,
+        1776.44,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "reactor_ring__ring_2",
+        "owner": "reactor_ring",
+        "socket_kind": "stand",
+        "yaw_deg": "-135.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.9238795,
+        0.3826834
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-reactor_ring__ring_3",
+      "kind": "stand",
+      "location": [
+        4976.44,
+        2623.56,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "reactor_ring__ring_3",
+        "owner": "reactor_ring",
+        "socket_kind": "stand",
+        "yaw_deg": "-45.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.9238795,
+        0.3826834
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-reactor_ring__ring_4",
+      "kind": "stand",
+      "location": [
+        5823.56,
+        2623.56,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "reactor_ring__ring_4",
+        "owner": "reactor_ring",
+        "socket_kind": "stand",
+        "yaw_deg": "45.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.3826834,
+        0.9238795
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-workshop_10",
+      "kind": "stand",
+      "location": [
+        3640.0,
+        3000.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "workshop_10",
+        "yaw_deg": "90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-workshop_7",
+      "kind": "stand",
+      "location": [
+        7520.0,
+        1700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "workshop_7",
+        "yaw_deg": "90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-workshop_8",
+      "kind": "stand",
+      "location": [
+        7520.0,
+        2700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "workshop_8",
+        "yaw_deg": "90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-workshop_9",
+      "kind": "stand",
+      "location": [
+        3640.0,
+        1400.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "workshop_9",
+        "yaw_deg": "90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_1",
+      "kind": "waypoint",
+      "location": [
+        5400.0,
+        1500.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_1",
+        "owner": "reactor_catwalk_1",
+        "socket_kind": "waypoint",
+        "yaw_deg": "0.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_2",
+      "kind": "waypoint",
+      "location": [
+        5400.0,
+        950.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_2",
+        "owner": "reactor_catwalk_1",
+        "socket_kind": "waypoint",
+        "yaw_deg": "0.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_3",
+      "kind": "waypoint",
+      "location": [
+        6650.0,
+        2200.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_3",
+        "owner": "reactor_catwalk_2",
+        "socket_kind": "waypoint",
+        "yaw_deg": "-90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_4",
+      "kind": "waypoint",
+      "location": [
+        6100.0,
+        2200.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_4",
+        "owner": "reactor_catwalk_2",
+        "socket_kind": "waypoint",
+        "yaw_deg": "-90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_5",
+      "kind": "waypoint",
+      "location": [
+        5400.0,
+        2900.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_5",
+        "owner": "reactor_catwalk_3",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_6",
+      "kind": "waypoint",
+      "location": [
+        5400.0,
+        3450.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_6",
+        "owner": "reactor_catwalk_3",
+        "socket_kind": "waypoint",
+        "yaw_deg": "180.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_7",
+      "kind": "waypoint",
+      "location": [
+        4150.0,
+        2200.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_7",
+        "owner": "reactor_catwalk_4",
+        "socket_kind": "waypoint",
+        "yaw_deg": "90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_core_8",
+      "kind": "waypoint",
+      "location": [
+        4700.0,
+        2200.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_core_8",
+        "owner": "reactor_catwalk_4",
+        "socket_kind": "waypoint",
+        "yaw_deg": "90.0"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_1",
+      "kind": "waypoint",
+      "location": [
+        3720.0,
+        720.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_1",
+        "yaw_deg": "96.11"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.0532945,
+        0.9985788
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_2",
+      "kind": "waypoint",
+      "location": [
+        5400.0,
+        540.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_2",
+        "yaw_deg": "83.89"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0532945,
+        0.9985788
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_3",
+      "kind": "waypoint",
+      "location": [
+        7080.0,
+        720.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_3",
+        "yaw_deg": "22.07"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.5586864,
+        0.829379
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_4",
+      "kind": "waypoint",
+      "location": [
+        7680.0,
+        2200.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_4",
+        "yaw_deg": "-24.12"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.8392405,
+        0.5437605
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_5",
+      "kind": "waypoint",
+      "location": [
+        7080.0,
+        3540.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_5",
+        "yaw_deg": "-85.24"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        0.9991374,
+        0.0415269
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_6",
+      "kind": "waypoint",
+      "location": [
+        5400.0,
+        3680.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_6",
+        "yaw_deg": "-94.94"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.9990709,
+        0.0430963
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_7",
+      "kind": "waypoint",
+      "location": [
+        3780.0,
+        3540.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_7",
+        "yaw_deg": "-172.35"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7527022,
+        0.6583611
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-patrol_hall_8",
+      "kind": "waypoint",
+      "location": [
+        3600.0,
+        2200.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "patrol_hall_8",
+        "yaw_deg": "175.37"
+      },
+      "room": "reactor",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.6779672,
+        0.7350921
+      ],
+      "station": null
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/engineering/zones.py",
+    "sha256": "c17b309e2d639181442a01e49c048bc9a9ea3bf1579cf2c0eb0601c1fb373981"
+  },
+  "zone": "reactor"
+}

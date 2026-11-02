@@ -1,0 +1,210 @@
+{
+  "bounds_cm": {
+    "max": [
+      7760.0,
+      6220.0,
+      1355.0
+    ],
+    "min": [
+      6140.0,
+      4540.0,
+      -300.0
+    ]
+  },
+  "deck": "hangar",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Hangar/LV_Hangar",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "lift_lobby",
+      "main": false,
+      "name": "Lift Lobby",
+      "polygon_cm": [
+        [
+          6200.0,
+          6160.0
+        ],
+        [
+          7700.0,
+          6160.0
+        ],
+        [
+          7700.0,
+          4600.0
+        ],
+        [
+          6200.0,
+          4600.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-lift_a",
+      "kind": "door",
+      "location": [
+        6800.0,
+        5072.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift_a",
+        "width": "2.0",
+        "yaw_deg": "0.0"
+      },
+      "room": "lift_lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    },
+    {
+      "id": "door-lift_b",
+      "kind": "door",
+      "location": [
+        7200.0,
+        5072.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift_b",
+        "width": "2.0",
+        "yaw_deg": "0.0"
+      },
+      "room": "lift_lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    },
+    {
+      "id": "lift-main",
+      "kind": "lift",
+      "location": [
+        6800.0,
+        5100.0,
+        0.0
+      ],
+      "props": {
+        "decks": "all",
+        "manifest_id": "main",
+        "yaw_deg": "0.0"
+      },
+      "room": "lift_lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "light-lift_beacon",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 400.0,
+        "kelvin": 5600.0,
+        "shadows": true,
+        "type": "point"
+      },
+      "location": [
+        7000.0,
+        4900.0,
+        455.0
+      ],
+      "props": {
+        "blink_hz": "0.5",
+        "colour": "#ff4a1a",
+        "manifest_id": "lift_beacon",
+        "yaw_deg": "0.0"
+      },
+      "room": "lift_lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "spawn-commander",
+      "kind": "spawn",
+      "location": [
+        7000.0,
+        5420.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "commander",
+        "yaw_deg": "0.0"
+      },
+      "room": "lift_lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "spawn": {
+        "duel": false,
+        "team": "any"
+      },
+      "station": null
+    },
+    {
+      "id": "station-lift",
+      "kind": "station",
+      "location": [
+        6800.0,
+        5240.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift",
+        "sockets.door": "lift_a,lift_b",
+        "station_kind": "lift",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "lift_lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/hangar/zones/lift_lobby.py",
+    "sha256": "6479bab6673fce7e4a2b0e7d064aff2e2e8d992dde9c5397b41d1f8ded037715"
+  },
+  "zone": "lift_lobby"
+}

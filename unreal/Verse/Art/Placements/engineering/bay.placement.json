@@ -1,0 +1,173 @@
+{
+  "bounds_cm": {
+    "max": [
+      3260.0,
+      5260.0,
+      906.0
+    ],
+    "min": [
+      1440.0,
+      4065.0,
+      -300.0
+    ]
+  },
+  "deck": "engineering",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Engineering/LV_Engineering",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "bay",
+      "main": false,
+      "name": "Maintenance Bay",
+      "polygon_cm": [
+        [
+          1540.0,
+          5200.0
+        ],
+        [
+          3200.0,
+          5200.0
+        ],
+        [
+          3200.0,
+          4140.0
+        ],
+        [
+          1540.0,
+          4140.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-control_bay",
+      "kind": "door",
+      "location": [
+        2300.0,
+        4125.0,
+        0.0
+      ],
+      "props": {
+        "height": "3.0",
+        "manifest_id": "control_bay",
+        "owner": "control_bay",
+        "socket_kind": "door",
+        "state": "open",
+        "width": "2.4",
+        "yaw_deg": "0.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-lobby_bay",
+      "kind": "door",
+      "location": [
+        1500.0,
+        4700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lobby_bay",
+        "width": "2.4",
+        "yaw_deg": "90.0"
+      },
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "id": "spawn-drone",
+      "kind": "spawn",
+      "location": [
+        3103.0,
+        4980.0,
+        6.0
+      ],
+      "props": {
+        "manifest_id": "drone",
+        "owner": "EngDroneDock",
+        "socket_kind": "spawn",
+        "yaw_deg": "-90.0"
+      },
+      "room": "bay",
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      "spawn": {
+        "duel": false,
+        "team": "any"
+      },
+      "station": null
+    },
+    {
+      "id": "stand-workshop_6",
+      "kind": "stand",
+      "location": [
+        2040.0,
+        4290.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "workshop_6",
+        "yaw_deg": "180.0"
+      },
+      "room": "bay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "waypoint-service_1",
+      "kind": "waypoint",
+      "location": [
+        2640.0,
+        4700.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "service_1",
+        "yaw_deg": "95.19"
+      },
+      "room": "bay",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.0452758,
+        0.9989745
+      ],
+      "station": null
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/engineering/zones.py",
+    "sha256": "c17b309e2d639181442a01e49c048bc9a9ea3bf1579cf2c0eb0601c1fb373981"
+  },
+  "zone": "bay"
+}

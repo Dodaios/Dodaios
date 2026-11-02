@@ -1,0 +1,229 @@
+{
+  "bounds_cm": {
+    "max": [
+      9360.0,
+      4660.0,
+      1045.06
+    ],
+    "min": [
+      7440.0,
+      140.0,
+      -300.0
+    ]
+  },
+  "deck": "ops",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Ops/LV_Ops",
+  "placements": [],
+  "rooms": [
+    {
+      "id": "quartermaster",
+      "main": false,
+      "name": "Quartermaster",
+      "polygon_cm": [
+        [
+          7500.0,
+          200.0
+        ],
+        [
+          7500.0,
+          2640.0
+        ],
+        [
+          9300.0,
+          2640.0
+        ],
+        [
+          9300.0,
+          200.0
+        ]
+      ],
+      "z_cm": 0.0
+    },
+    {
+      "id": "storage",
+      "main": false,
+      "name": "Stores",
+      "polygon_cm": [
+        [
+          8300.0,
+          3360.0
+        ],
+        [
+          8300.0,
+          4600.0
+        ],
+        [
+          9300.0,
+          4600.0
+        ],
+        [
+          9300.0,
+          3360.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "screen-fitting",
+      "kind": "screen",
+      "location": [
+        8400.0,
+        1065.6,
+        145.06
+      ],
+      "props": {
+        "corners_cm": "[[8335.0,1060.03,184.67],[8465.0,1060.03,184.67],[8465.0,1071.16,105.44],[8335.0,1071.16,105.44]]",
+        "manifest_id": "fitting",
+        "normal": "[0.0,0.990268,0.139173]",
+        "owner": "fitting",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "quartermaster",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        130.0,
+        80.0
+      ],
+      "station": {
+        "id": "quartermaster",
+        "kind": "quartermaster"
+      }
+    },
+    {
+      "id": "screen-quartermaster",
+      "kind": "screen",
+      "location": [
+        8475.0,
+        1787.85,
+        110.19
+      ],
+      "props": {
+        "corners_cm": "[[8453.0,1781.52,122.11],[8497.0,1781.52,122.11],[8497.0,1794.19,98.27],[8453.0,1794.19,98.27]]",
+        "manifest_id": "quartermaster",
+        "normal": "[0.0,0.882948,0.469472]",
+        "owner": "quartermaster",
+        "socket_kind": "screen",
+        "station_kind": "quartermaster",
+        "yaw_deg": "0.0"
+      },
+      "room": "quartermaster",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        44.0,
+        27.0
+      ],
+      "station": {
+        "id": "quartermaster",
+        "kind": "quartermaster"
+      }
+    },
+    {
+      "id": "stand-fitting",
+      "kind": "stand",
+      "location": [
+        8400.0,
+        1145.2,
+        12.0
+      ],
+      "props": {
+        "manifest_id": "fitting",
+        "owner": "fitting",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "quartermaster",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "quartermaster",
+        "kind": "quartermaster"
+      }
+    },
+    {
+      "id": "stand-quartermaster_clerk",
+      "kind": "stand",
+      "location": [
+        8400.0,
+        1712.5,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "quartermaster_clerk",
+        "owner": "quartermaster",
+        "socket_kind": "stand",
+        "station_kind": "quartermaster",
+        "yaw_deg": "0.0"
+      },
+      "room": "quartermaster",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "quartermaster",
+        "kind": "quartermaster"
+      }
+    },
+    {
+      "id": "station-quartermaster",
+      "kind": "station",
+      "location": [
+        8400.0,
+        1892.5,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "quartermaster",
+        "owner": "quartermaster",
+        "socket_kind": "station",
+        "sockets.screen": "fitting,quartermaster",
+        "sockets.stand": "fitting,quartermaster_clerk",
+        "sockets.station": "quartermaster",
+        "station_kind": "quartermaster",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "quartermaster",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "quartermaster",
+        "kind": "quartermaster"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/ops/zones.py",
+    "sha256": "76f0a5b9a7b20f69766dbd5871881b2b53fda1bd03ef3041e1f36dfa375baaf3"
+  },
+  "zone": "quartermaster"
+}
