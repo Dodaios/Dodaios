@@ -29,11 +29,17 @@ How it works:
 Every native call runs on one thread of the embed's own that pumps messages:
 the window events are delivered there.
 
-Limits that come with a foreign window: a popup of the app that overlaps the
-panel would sit below the browser (the page hides the browser while one does),
-and a link opened from another program can land in this window when it was
-the browser's last active one. Links clicked in the app itself go to the panel
-on purpose: ``open_tab`` makes its window the active one and opens a tab there.
+Links from other programs: the browser sends a link opened anywhere else
+(a mail, a chat, the desktop) to its last active window, which is often the
+panel's, hidden or not. The browser then brings that window to the front by
+itself. When that happens without the user clicking into the panel, the window
+is handed back as a normal browser window on the spot, so the link shows up
+where the user expects it and the panel offers to open a new one. Links
+clicked in the app itself go to the panel on purpose: ``open_tab`` makes its
+window the active one and opens a tab there.
+
+A popup of the app that overlaps the panel would sit below the browser (the
+page hides the browser while one does).
 """
 
 from __future__ import annotations
@@ -85,6 +91,8 @@ CALL_TIMEOUT_S = 5.0
 LEASE_S = 3.0
 #: How long a closed window gets to go away before it is shown again.
 CLOSE_GRACE_S = 2.0
+#: How long the window's own activation after a deliberate one of ours counts as ours.
+OWN_ACTIVATION_S = 2.0
 #: Where the window in use is remembered, so a restarted app takes it back.
 STATE_FILE_NAME = "ide_browser_window.json"
 
@@ -216,6 +224,7 @@ class _Api:
         sig(u.GetWindowThreadProcessId, wintypes.DWORD, H, ctypes.POINTER(wintypes.DWORD))
         sig(u.SetForegroundWindow, B, H)
         sig(u.GetForegroundWindow, H)
+        sig(u.GetCursorPos, B, ctypes.POINTER(wintypes.POINT))
         sig(u.SetWinEventHook, wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD,
             wintypes.HMODULE, self.WINEVENTPROC, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD)
         sig(u.UnhookWinEvent, B, wintypes.HANDLE)
@@ -326,6 +335,11 @@ class ChromeEmbed:
         #: one for a while (the page reloaded or crashed without saying so)
         #: the window hides instead of staying over whatever loads next.
         self._lease_until = 0.0
+        #: The window that was in front before the current one (any program).
+        self._last_foreground = 0
+        #: Until then, the browser window coming up is our own doing (a launch,
+        #: a tab opened from the app), not a link from another program.
+        self._own_until = 0.0
 
     # -- public API -----------------------------------------------------------
 
@@ -449,6 +463,7 @@ class ChromeEmbed:
         self._sync()
         if not self._shown:
             return False
+        self._own_until = time.monotonic() + OWN_ACTIVATION_S
         user32.SetForegroundWindow(hwnd)
         return True
 
@@ -624,6 +639,8 @@ class ChromeEmbed:
             self._host = host or self._host
             self._clip_key = None
             self._state, self._reason = "embedded", ""
+            # It is still on screen from the last run: not a link from elsewhere.
+            self._own_until = time.monotonic() + OWN_ACTIVATION_S
         if self._profile != profile:
             self._give_back(close=True, focus=False)
             return False
@@ -849,8 +866,12 @@ class ChromeEmbed:
         window = int(hwnd or 0)
         try:
             if event == EVENT_SYSTEM_FOREGROUND:
+                previous, self._last_foreground = self._last_foreground, window
                 if window == self._chrome:
-                    self._raise_host_below_browser()
+                    if self._is_link_from_elsewhere(previous):
+                        self._hand_over_to_desktop()
+                    else:
+                        self._raise_host_below_browser()
                 elif window == self._host:
                     self._sync()
                 return
@@ -859,6 +880,39 @@ class ChromeEmbed:
             self._sync()
         except Exception:  # noqa: BLE001 - an event must never end the loop
             logger.debug("Browser panel event failed", exc_info=True)
+
+    # -- links from other programs (embed thread) ---------------------------------
+
+    def _is_link_from_elsewhere(self, previous: int) -> bool:
+        """Whether the browser brought the panel's window up by itself.
+
+        The browser does that when another program opens a link and this
+        window was its last active one. The user can only bring it up by
+        clicking into the shown panel (it has no taskbar button and no Alt+Tab
+        entry): coming from the app, or with the pointer on the panel.
+        """
+        if time.monotonic() < self._own_until:
+            return False
+        if not self._shown:
+            return True  # the panel is hidden: nobody could have clicked it
+        if previous and previous in (self._host, self._chrome):
+            return False
+        return not self._pointer_on_window()
+
+    def _pointer_on_window(self) -> bool:
+        api = self._load_api()
+        point = api.wt.POINT()
+        if not api.user32.GetCursorPos(ctypes.byref(point)):
+            return True  # unknown: leave the window where it is
+        x, y, w, h = api.rect(self._chrome)
+        return x <= point.x < x + w and y <= point.y < y + h
+
+    def _hand_over_to_desktop(self) -> None:
+        """Give the window back as a normal browser window, in front, with the new link."""
+        logger.info("Browser panel window got a link from another program; handed back")
+        self._give_back(close=False, focus=True)
+        with self._lock:
+            self._reason = "external_link"
 
     # -- native work (runs on the embed thread) --------------------------------
 
@@ -899,6 +953,7 @@ class ChromeEmbed:
             self._host = host or self._host
             self._clip_key = None
             self._state, self._reason = "embedded", ""
+            self._own_until = time.monotonic() + OWN_ACTIVATION_S
         self._hook_browser_events()
         self._remember()
         self._sync()
@@ -963,8 +1018,13 @@ class ChromeEmbed:
         self._syncing = True
         try:
             if not self._should_show() or self._page_rect is None:
-                self._shown = False
+                was_shown, self._shown = self._shown, False
                 if user32.IsWindowVisible(hwnd):
+                    if not was_shown and time.monotonic() >= self._own_until:
+                        # Hidden by us and shown again by the browser itself:
+                        # another program opened a link in it.
+                        self._hand_over_to_desktop()
+                        return
                     user32.ShowWindow(hwnd, SW_HIDE)
                 return
             if user32.IsIconic(hwnd) or user32.IsZoomed(hwnd):
