@@ -119,7 +119,17 @@ float SolveFeet(TConstArrayView<int32> Parents, TArray<FTransform>& Local, TArra
 	TArray<FVector, TInlineAllocator<2>> Targets;
 	for (const FFootInput& Foot : Feet)
 	{
-		Targets.Add(CS.IsValidIndex(Foot.Foot) ? CS[Foot.Foot].GetLocation() + FVector(0, 0, Foot.FloorOffset) : FVector::ZeroVector);
+		if (!CS.IsValidIndex(Foot.Foot))
+		{
+			Targets.Add(FVector::ZeroVector);
+			continue;
+		}
+		// The clip's ankle height over its flat floor (z = 0) has to hold along the
+		// floor normal once the sole tilts, which is h / cos(slope) vertically.
+		const FVector Ankle = CS[Foot.Foot].GetLocation();
+		const double Cos = FMath::Clamp(Foot.FloorNormal.GetSafeNormal(UE_SMALL_NUMBER, FVector::UpVector).Z, 0.25, 1.0);
+		const double Lift = FMath::Max(Ankle.Z, 0.0) * (1.0 / Cos - 1.0);
+		Targets.Add(Ankle + FVector(0, 0, Foot.FloorOffset + Lift));
 	}
 	FTransform PelvisCS = CS[Pelvis];
 	PelvisCS.AddToTranslation(FVector(0, 0, Drop));

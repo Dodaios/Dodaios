@@ -124,6 +124,41 @@ namespace VerseVisual
 			return Comp;
 		}
 
+		/**
+		 * A stand-in weapon on `Weapon_R` until WP14's weapons land: a box around the
+		 * reference grip (barrel along +Y, the weapon frame), rendered first person.
+		 */
+		void StandInWeapon(USkeletalMeshComponent* Body, const FString& Clip)
+		{
+			UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+			if (!Cube || !Body || !Body->GetOwner())
+			{
+				return;
+			}
+			// Sizes in cm (X across, Y along the barrel, Z up) and centre in the weapon frame.
+			FVector Size(5.0, 75.0, 14.0);
+			FVector Centre(0.0, 17.5, -3.0);
+			if (Clip.Contains(TEXT("Pistol")))
+			{
+				Size = FVector(3.5, 21.0, 14.0);
+				Centre = FVector(0.0, 7.5, -4.0);
+			}
+			else if (Clip.Contains(TEXT("Knife")))
+			{
+				Size = FVector(1.0, 22.0, 3.0);
+				Centre = FVector(0.0, 9.0, 0.0);
+			}
+			UStaticMeshComponent* Weapon = NewObject<UStaticMeshComponent>(Body->GetOwner());
+			Weapon->SetMobility(EComponentMobility::Movable);
+			Weapon->SetStaticMesh(Cube);
+			Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Weapon->SetupAttachment(Body, TEXT("Weapon_R"));
+			Weapon->SetRelativeLocation(Centre);
+			Weapon->SetRelativeScale3D(Size / 100.0);
+			Weapon->RegisterComponent();
+			UVerseFirstPersonLibrary::MarkFirstPerson(Weapon);
+		}
+
 		void Look(UWorld* World, const FVector& From, const FVector& At, float Fov = 40.f)
 		{
 			Camera = Spawn<ACameraActor>(World, From, (At - From).Rotation());
@@ -220,7 +255,7 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 				{
 					FStage& S = Shared();
 					S.Character(World, Path, FVector::ZeroVector, Yaw, TEXT("A_Stand_Idle"), 0.f);
-					S.Look(World, FVector(0, 420, 110), FVector(0, 0, 95), 30.f);
+					S.Look(World, FVector(0, 680, 100), FVector(0, 0, 92), 30.f);
 				}});
 		}
 	}
@@ -245,6 +280,7 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 90.f);
 				UVerseFirstPersonLibrary::ConfigureOwnerView(Body, nullptr, S.Camera->GetCameraComponent());
 				Body->SetOnlyOwnerSee(false);
+				S.StandInWeapon(Body, ClipName);
 			}});
 	}
 	// A13.5 pair: the rifle idle with a wall 20 cm in front of the hands, and without it.
@@ -263,6 +299,10 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 90.f);
 				UVerseFirstPersonLibrary::ConfigureOwnerView(Body, nullptr, S.Camera->GetCameraComponent());
 				Body->SetOnlyOwnerSee(false);
+				if (bBody)
+				{
+					S.StandInWeapon(Body, TEXT("A_Rifle_Idle"));
+				}
 				Body->SetVisibility(bBody);
 				if (bWall)
 				{
