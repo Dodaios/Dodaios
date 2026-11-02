@@ -51,6 +51,29 @@ def influence_stats(mesh_ob) -> tuple[int, float]:
     return worst, err
 
 
+def _make_active(arm) -> None:
+    """`UE._to_centimetres` toggles edit mode on the view layer's active object,
+    so the armature must be active (and selected) first, or its bones stay in
+    metres while the mesh and the location keys become centimetres."""
+    view_layer = bpy.context.view_layer
+    for obj in view_layer.objects:
+        obj.select_set(False)
+    arm.select_set(True)
+    view_layer.objects.active = arm
+
+
+def _tallest_head(arm) -> float:
+    return max(b.head_local.z for b in arm.data.bones) * 1.0
+
+
+def check_centimetres(arm, metres_tallest: float, path: Path) -> None:
+    """Fail when the armature's rest did not reach centimetres with the data."""
+    got = _tallest_head(arm)
+    want = metres_tallest * UE.CM
+    if abs(got - want) > 0.01 * want:
+        raise UE.ExportError(f"{path.name}: bone rest at {got:.3f}, want {want:.3f} (centimetres)")
+
+
 def check_bones(path: Path) -> None:
     """Fail when a bone of `SKEL_Verse_Human` did not reach the FBX (A13.1)."""
     data = path.read_bytes()
@@ -76,7 +99,10 @@ def export_mesh(name: str, arm_ob, mesh_ob, out_dir: Path, slots: list[dict]) ->
     box = UE.bounds_cm(me)
     tris = UE.triangle_count(me)
     path = out_dir / f"{name}.fbx"
+    metres = _tallest_head(arm)
+    _make_active(arm)
     digest = UE._write_fbx(col, [arm, body], path)
+    check_centimetres(arm, metres, path)
     check_bones(path)
     return {
         "name": name,
@@ -105,7 +131,10 @@ def _write_anim_fbx(col, arm, path: Path, frames: int, fps: int) -> str:
     scene.frame_end = max(1, frames - 1)
     view_layer = bpy.context.view_layer
     view_layer.update()
+    metres = _tallest_head(arm)
+    _make_active(arm)
     UE._to_centimetres([arm])
+    check_centimetres(arm, metres, path)
     units = scene.unit_settings
     units.scale_length = 1.0 / UE.CM
     for obj in view_layer.objects:
