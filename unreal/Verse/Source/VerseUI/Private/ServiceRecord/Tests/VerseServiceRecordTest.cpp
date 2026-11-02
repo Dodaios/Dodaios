@@ -196,7 +196,10 @@ bool FVerseRecordViewTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("next rank"), Fact(TEXT("next")), FString(TEXT("Senior Lieutenant")));
 	TestEqual(TEXT("sets"), Fact(TEXT("sets")), FString(TEXT("12")));
 	TestEqual(TEXT("won / lost"), Fact(TEXT("won_lost")), FString(TEXT("7 / 5")));
-	TestEqual(TEXT("K/D"), Fact(TEXT("kd")), FString(TEXT("1.19")));
+	// Two decimals in the running culture (the box runs German: "1,19").
+	FNumberFormattingOptions TwoDecimals;
+	TwoDecimals.SetMinimumFractionalDigits(2).SetMaximumFractionalDigits(2);
+	TestEqual(TEXT("K/D"), Fact(TEXT("kd")), FText::AsNumber(96.f / 81.f, &TwoDecimals).ToString());
 	TestEqual(TEXT("headshots"), Fact(TEXT("headshots")), FString(TEXT("31")));
 	TestEqual(TEXT("finishers"), Fact(TEXT("finishers")), FString(TEXT("4")));
 	TestEqual(TEXT("best streak"), Fact(TEXT("best_streak")), FString(TEXT("6")));
