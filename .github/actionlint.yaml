@@ -1,0 +1,5 @@
+# actionlint configuration.
+self-hosted-runner:
+  # The dev box that builds and cooks the Unreal Verse (unreal-package.yml).
+  labels:
+    - unreal
