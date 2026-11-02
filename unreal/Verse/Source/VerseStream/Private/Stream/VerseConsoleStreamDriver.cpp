@@ -59,14 +59,50 @@ bool FVerseConsoleStreamDriver::RunCommand(const TCHAR* Command) const
 	return Cmd->Execute(TArray<FString>(), World, *GLog);
 }
 
+FVerseConsoleStreamDriver::FWindowState FVerseConsoleStreamDriver::CurrentWindow() const
+{
+	FWindowState State;
+	State.ResX = GSystemResolution.ResX;
+	State.ResY = GSystemResolution.ResY;
+	State.Mode = GSystemResolution.WindowMode;
+	return State;
+}
+
+void FVerseConsoleStreamDriver::RequestWindow(const FWindowState& State) const
+{
+	if (GEngine == nullptr)
+	{
+		return;
+	}
+	FSystemResolution::RequestResolutionChange(State.ResX, State.ResY, State.Mode);
+}
+
 void FVerseConsoleStreamDriver::ApplyRenderSize(FIntPoint RenderSize) const
 {
-	if (RenderSize.X <= 0 || RenderSize.Y <= 0 || GEngine == nullptr)
+	if (RenderSize.X <= 0 || RenderSize.Y <= 0)
 	{
 		return;
 	}
 	// The default streamer captures the back buffer, so the window renders at the panel's size.
-	FSystemResolution::RequestResolutionChange(RenderSize.X, RenderSize.Y, EWindowMode::Windowed);
+	FWindowState Panel;
+	Panel.ResX = RenderSize.X;
+	Panel.ResY = RenderSize.Y;
+	Panel.Mode = EWindowMode::Windowed;
+	RequestWindow(Panel);
+}
+
+void FVerseConsoleStreamDriver::RestoreWindow()
+{
+	if (!bSavedWindow)
+	{
+		return;
+	}
+	bSavedWindow = false;
+	// A headless or not yet sized window has nothing worth restoring.
+	if (SavedWindow.ResX > 0 && SavedWindow.ResY > 0)
+	{
+		RequestWindow(SavedWindow);
+	}
 }
 
 void FVerseConsoleStreamDriver::Start(const FVerseStreamConfig& Config, FOnStarted OnStarted)
@@ -97,9 +133,15 @@ void FVerseConsoleStreamDriver::Start(const FVerseStreamConfig& Config, FOnStart
 		}
 		MaxFps->Set(*FString::FromInt(Config.Fps), ECVF_SetByCode);
 	}
+	if (!bSavedWindow)
+	{
+		SavedWindow = CurrentWindow();
+		bSavedWindow = true;
+	}
 	ApplyRenderSize(Config.RenderSize);
 	if (!RunCommand(StartCommand))
 	{
+		Stop();
 		OnStarted(false, VerseStream::ErrorStreamerUnavailable);
 		return;
 	}
@@ -121,6 +163,7 @@ void FVerseConsoleStreamDriver::Stop()
 		SetVar(TEXT("t.MaxFPS"), SavedMaxFps);
 		bSavedMaxFps = false;
 	}
+	RestoreWindow();
 	// Leave no signalling URL (it carries the streamer key) in the console variable.
 	SetVar(UrlVar, FString());
 }
