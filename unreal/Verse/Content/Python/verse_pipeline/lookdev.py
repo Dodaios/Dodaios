@@ -498,7 +498,23 @@ class Runner:
         self.last_probe = b""
         self.done = False
 
+    def log(self, message: str) -> None:
+        line = f"[verse_lookdev] {message}"
+        print(line)
+        try:
+            OUT.mkdir(parents=True, exist_ok=True)
+            with (OUT / "lookdev.log").open("a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+        except OSError:
+            pass
+
     def start(self):
+        (OUT / "lookdev.log").unlink(missing_ok=True)
+        self.log("start")
+        # `-ExecutePythonScript` quits the editor on the tick after the script
+        # returns unless the script asks to stay alive (EditorPythonExecuter);
+        # `finish` quits it itself.
+        self.u.EditorPythonScriptingLibrary.set_keep_python_script_alive(True)
         self.handle = self.u.register_slate_post_tick_callback(self.tick)
 
     def finish(self):
@@ -506,15 +522,20 @@ class Runner:
         self.done = True
         self.report["ok"] = not self.report["errors"] and bool(self.report["frames"])
         self.report["seconds"] = round(time.monotonic() - self.started, 1)
-        OUT.mkdir(parents=True, exist_ok=True)
-        (OUT / "lookdev.json").write_text(
-            json.dumps(self.report, indent=2) + "\n", encoding="utf-8"
-        )
+        self.log(f"finish ok={self.report['ok']} frames={len(self.report['frames'])}")
+        text = json.dumps(self.report, indent=2, default=str) + "\n"
+        targets = [OUT / "lookdev.json"]
         if self.result_path:
-            Path(self.result_path).write_text(
-                json.dumps(self.report, indent=2) + "\n", encoding="utf-8"
-            )
+            targets.append(Path(self.result_path))
+        for target in targets:
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(text, encoding="utf-8")
+                self.log(f"wrote {target}")
+            except Exception as error:  # never quit without saying why
+                self.log(f"could not write {target}: {type(error).__name__}: {error}")
         if os.environ.get("VERSE_PIPELINE_QUIT") == "1":
+            self.log("quit")
             u.SystemLibrary.quit_editor()
 
     def tick(self, _dt):
@@ -527,12 +548,15 @@ class Runner:
 
             self.report["errors"].append(f"{type(error).__name__}: {error}")
             self.report["traceback"] = traceback.format_exc()
+            self.log(f"error in stage {self.stage}: {type(error).__name__}: {error}")
             self.finish()
 
     def _tick(self):
         if self.stage == "setup":
+            self.log("setup")
             self._setup()
             self.stage = "warmup"
+            self.log(f"setup done, {len(self.shots)} shots")
             return
         elapsed = time.monotonic() - self.started
         if self.stage == "warmup":
@@ -556,6 +580,7 @@ class Runner:
                 self.finish()
                 return
             fn = self.shots.pop(0)
+            self.log(f"shot {getattr(fn, '__name__', '?')}, {len(self.shots)} left")
             fn()
 
     def _setup(self):
