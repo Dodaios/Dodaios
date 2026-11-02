@@ -20,6 +20,14 @@ entry ``some name``.
                                                     # added lines + commit messages
     echo "feat(verse): ..." | python scripts/unreal/check_forbidden_names.py --stdin
     python scripts/unreal/check_forbidden_names.py --hash "two words"
+    python scripts/unreal/check_forbidden_names.py --folders  # banned folders, engine content
+    python scripts/unreal/check_forbidden_names.py --hash-file extra.sha256 FILE...
+                                                    # an extra list (tests plant one)
+
+``--folders`` fails on a folder under ``unreal/`` or ``art/verse/`` named like a
+folder the root ``.gitignore`` or the junk gate bans, in any case (architecture.md
+8.4; the engine-required ``unreal/Verse/Build/`` is the one exception), and on
+engine sample content paths (art-pipeline.md 11).
 """
 
 from __future__ import annotations
@@ -170,6 +178,59 @@ def scan_diff(base: str, hashes: set[str]) -> list[str]:
 
 _SELF = "scripts/unreal/forbidden_names.sha256"
 
+#: Folder names banned under unreal/ and art/verse/ (architecture.md 8.4), compared lower-case.
+BANNED_FOLDERS = frozenset(
+    {
+        "build",
+        "models",
+        "env",
+        "logs",
+        "dist",
+        "secrets",
+        "credentials",
+        "traces",
+        "blobs",
+        "video",
+        "videos",
+        "film",
+        "films",
+        "renders",
+        "evidence",
+        "recordings",
+        "screenshots",
+    }
+)
+FOLDER_SCOPE = ("unreal/", "art/verse/")
+FOLDER_EXCEPTIONS = ("unreal/Verse/Build/",)
+#: Engine content packs and sample characters (art-pipeline.md 11, 12.3).
+ENGINE_CONTENT = re.compile(
+    r"(?:^|/)(?:StarterContent|Mannequins?)(?:/|$)|(?:^|/)(?:SKM_Manny|SKM_Quinn|SK_Mannequin)[^/]*$",
+    re.I,
+)
+
+
+def scan_folders(paths: Iterable[str]) -> list[str]:
+    """Banned folder names and engine-content paths among repo-relative file paths."""
+    findings: set[str] = set()
+    for rel in paths:
+        rel = rel.replace("\\", "/")
+        if not rel.startswith(FOLDER_SCOPE):
+            continue
+        if ENGINE_CONTENT.search(rel):
+            findings.add(f"{rel}: engine sample content is never used (art-pipeline 11)")
+        if rel.startswith(FOLDER_EXCEPTIONS):
+            rest = rel[len("unreal/Verse/Build/") :]
+            parts = rest.split("/")[:-1]
+            prefix = "unreal/Verse/Build/"
+        else:
+            parts = rel.split("/")[:-1]
+            prefix = ""
+        for depth, name in enumerate(parts):
+            if name.lower() in BANNED_FOLDERS:
+                folder = prefix + "/".join(parts[: depth + 1])
+                findings.add(f"{folder}/: folder name '{name}' is banned (architecture 8.4)")
+    return sorted(findings)
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -177,6 +238,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--diff", metavar="BASE", help="Scan added lines and commits since BASE.")
     parser.add_argument("--stdin", action="store_true", help="Scan text from stdin.")
     parser.add_argument("--hash", metavar="PHRASE", action="append", help="Print entry hashes.")
+    parser.add_argument(
+        "--hash-file",
+        type=Path,
+        action="append",
+        default=[],
+        help="An extra hash list (repeatable).",
+    )
+    parser.add_argument(
+        "--folders",
+        action="store_true",
+        help="Check folder names and engine-content paths of tracked files.",
+    )
     args = parser.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -187,7 +260,18 @@ def main(argv: list[str] | None = None) -> int:
             for h in sorted(entry_hashes(phrase)):
                 print(h)
         return 0
+    if args.folders:
+        listed = args.paths or [p for p in _git("ls-files", "--", *FOLDER_SCOPE).splitlines() if p]
+        found = scan_folders(listed)
+        for line in found:
+            print(f"check_forbidden_names: {line}")
+        if found:
+            return 1
+        print(f"check_forbidden_names: folders clean ({len(listed)} paths)")
+        return 0
     hashes = load_hashes()
+    for extra in args.hash_file:
+        hashes |= load_hashes(extra)
     if args.stdin:
         findings = [f"stdin: forbidden name ({hit})" for hit in scan_text(sys.stdin.read(), hashes)]
     elif args.diff:

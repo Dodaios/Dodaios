@@ -1,0 +1,16 @@
+{
+  "schema": "verse.balance_sets/1",
+  "map": "/Game/Verse/Decks/Hangar/LV_Hangar",
+  "killsToWin": 15,
+  "matchTimeLimitS": 600,
+  "boutsPerMatch": 10,
+  "tiers": ["normal", "hard", "elite"],
+  "learning": {"bot": "hard", "opponents": ["repeek", "watcher", "camper"]},
+  "reset": {"bot": "hard", "opponent": "repeek", "windowS": 300},
+  "adaptive": {"opponents": ["skilled", "average"], "killWindow": [30, 60]},
+  "queue": {"sets": ["ladder", "tricks"], "tricks": ["spray", "camper", "rusher", "wallspam"], "gates": ["BG1", "BG2", "BG4", "BG11"]},
+  "scenarios": {
+    "wall_opened_unseen": "scenarios/wall_opened_unseen.json",
+    "destruction_storm": "scenarios/destruction_storm.json"
+  }
+}
