@@ -7,6 +7,7 @@
 
 #include "VerseDestructible.generated.h"
 
+class UGeometryCollection;
 class UStaticMesh;
 class UStaticMeshComponent;
 
@@ -27,6 +28,34 @@ struct VERSEDESTRUCTION_API FVersePieceVariant
 	/** Piece-local centre of the opening (variant choice, destruction.md 3.1). */
 	UPROPERTY(EditAnywhere, Category = "Destructible")
 	FVector OpeningCentroid = FVector::ZeroVector;
+};
+
+/**
+ * One authored debris burst of a state (destruction.md 10): GC_<Piece>_<State>_<n>, the chunks
+ * of the Intact fracture that fly out of that opening (Holed, Breached) or of the whole piece
+ * (Destroyed), at most the class's body budget. A piece may ship several sizes per state; the
+ * debris subsystem takes the largest one the budget grants.
+ */
+USTRUCT(BlueprintType)
+struct VERSEDESTRUCTION_API FVersePieceDebrisSet
+{
+	GENERATED_BODY()
+
+	/** Holed, Breached or Destroyed. */
+	UPROPERTY(EditAnywhere, Category = "Destructible")
+	EVersePieceState State = EVersePieceState::Destroyed;
+
+	/** Holed / Breached variant index; ignored for Destroyed. */
+	UPROPERTY(EditAnywhere, Category = "Destructible")
+	uint8 Variant = 0;
+
+	/** Soft, so a server never loads it. */
+	UPROPERTY(EditAnywhere, Category = "Destructible")
+	TSoftObjectPtr<UGeometryCollection> Collection;
+
+	/** Rigid bodies (leaf chunks) of Collection; the validator checks it against the asset. */
+	UPROPERTY(EditAnywhere, Category = "Destructible")
+	int32 Bodies = 0;
 };
 
 /**
@@ -66,9 +95,16 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Destructible|Proxies")
 	FVersePieceVariant Remains;
 
-	/** GC_<Piece>, client debris (UGeometryCollection; soft so servers never load it). */
+	/** GC_<Piece>, the full fracture (input of the per-state sets); never spawned as a whole. */
 	UPROPERTY(EditAnywhere, Category = "Destructible|Debris", meta = (AllowedClasses = "/Script/GeometryCollectionEngine.GeometryCollection"))
 	TSoftObjectPtr<UObject> GeometryCollection;
+
+	/** Per-state debris bursts (GC_<Piece>_<State>_<n>); an empty list means no rigid debris. */
+	UPROPERTY(EditAnywhere, Category = "Destructible|Debris")
+	TArray<FVersePieceDebrisSet> DebrisSets;
+
+	/** The debris sets of a state and variant (Destroyed ignores the variant). */
+	TArray<const FVersePieceDebrisSet*> FindDebrisSets(EVersePieceState State, uint8 Variant) const;
 
 	/** Mantle links through a low breach (live while Breached), piece-local. */
 	UPROPERTY(EditAnywhere, Category = "Destructible|Nav")
@@ -77,6 +113,17 @@ public:
 	/** Drop-down links to the floor below (live while Destroyed; catwalks), piece-local. */
 	UPROPERTY(EditAnywhere, Category = "Destructible|Nav")
 	TArray<FVersePieceNavLink> DropLinks;
+
+	/**
+	 * Piece-local vertices of the Intact proxy, captured in the editor (construction, save) so
+	 * cooked builds and the dedicated server run the 150 cm breach test on the same points as
+	 * the editor (destruction.md 3.2). Empty: the proxy box corners.
+	 */
+	UPROPERTY(VisibleAnywhere, Category = "Destructible|Proxies")
+	TArray<FVector> ProxyVertices;
+
+	/** Fills ProxyVertices from the Intact proxy's source geometry (editor only; no-op in cooked builds). */
+	void CaptureProxyVertices();
 
 	/** Used only when no Intact proxy mesh is set (tests, graybox): the Intact proxy box, piece-local. */
 	UPROPERTY(EditAnywhere, Category = "Destructible|Proxies")
@@ -106,6 +153,16 @@ public:
 
 	virtual void PostLoad() override;
 	virtual void OnConstruction(const FTransform& Transform) override;
+#if WITH_EDITOR
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
+#endif
+
+protected:
+	/** Registers with the arena's manager (World Partition streaming, destruction.md 8). */
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+public:
 
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Destructible")

@@ -6,7 +6,14 @@
 #include "Pieces/VerseDestructible.h"
 #include "Pieces/VersePieceManifest.h"
 #include "Pieces/VersePieceTypes.h"
+#include "Debris/VerseDebrisBudget.h"
+#include "Debris/VerseDebrisSubsystem.h"
+#include "GeometryCollection/GeometryCollectionObject.h"
 #include "StaticMeshResources.h"
+#if WITH_EDITORONLY_DATA
+#include "MeshAttributes.h"
+#include "MeshDescription.h"
+#endif
 
 void FVerseMeshSoup::AddQuad(const FVector& A, const FVector& B, const FVector& C, const FVector& D)
 {
@@ -267,6 +274,31 @@ float UVerseDestructibleValidator::RefThicknessCm(EVersePieceClass Class)
 bool UVerseDestructibleValidator::ReadMesh(const UStaticMesh& Mesh, FVerseMeshSoup& Out)
 {
 	Out = FVerseMeshSoup();
+#if WITH_EDITORONLY_DATA
+	// The source geometry: for a Nanite mesh LOD 0 render data is only the fallback mesh.
+	if (const FMeshDescription* Source = Mesh.GetMeshDescription(0))
+	{
+		const FMeshConstAttributes Attributes(*Source);
+		const TVertexAttributesConstRef<FVector3f> Positions = Attributes.GetVertexPositions();
+		TMap<FVertexID, int32> Slot;
+		for (const FVertexID Vertex : Source->Vertices().GetElementIDs())
+		{
+			Slot.Add(Vertex, Out.Positions.Add(FVector(Positions[Vertex])));
+		}
+		for (const FTriangleID Triangle : Source->Triangles().GetElementIDs())
+		{
+			for (const FVertexID Vertex : Source->GetTriangleVertices(Triangle))
+			{
+				Out.Indices.Add(Slot.FindChecked(Vertex));
+			}
+		}
+		if (Out.NumTriangles() > 0)
+		{
+			return true;
+		}
+		Out = FVerseMeshSoup();
+	}
+#endif
 	const FStaticMeshRenderData* RenderData = Mesh.GetRenderData();
 	if (!RenderData || RenderData->LODResources.Num() == 0)
 	{
@@ -328,12 +360,44 @@ FVerseValidationReport UVerseDestructibleValidator::ValidatePiece(const AVerseDe
 		CheckVariants(Piece.HoledVariants, TEXT("Holed"));
 		CheckVariants(Piece.BreachedVariants, TEXT("Breached"));
 	}
-	// Glass breaks into Niagara shards only (destruction.md 2); every other class ships GC_<Piece>.
-	if (Class != EVersePieceClass::GlassPane && Piece.GeometryCollection.IsNull())
+	// Glass breaks into Niagara shards only (destruction.md 2); every other class ships its
+	// per-state debris sets (GC_<Piece>_<State>_<n>), each within the per-fracture body cap and
+	// declaring the chunk count the asset really has.
+	if (Class != EVersePieceClass::GlassPane && Piece.DebrisSets.Num() == 0)
 	{
-		Report.Errors.Add(TEXT("missing geometry collection"));
+		Report.Errors.Add(TEXT("missing debris geometry collection sets"));
 	}
-	if (Manifest && Manifest->IndexOf(Piece.GetPieceGuid()) == INDEX_NONE)
+	const int32 MaxPerFracture = FVerseDebrisBudget::FConfig::High().MaxBodiesPerFracture;
+	for (int32 Index = 0; Index < Piece.DebrisSets.Num(); ++Index)
+	{
+		const FVersePieceDebrisSet& Set = Piece.DebrisSets[Index];
+		if (Set.Collection.IsNull())
+		{
+			Report.Errors.Add(FString::Printf(TEXT("debris set %d has no geometry collection"), Index));
+			continue;
+		}
+		if (Set.Bodies <= 0 || Set.Bodies > MaxPerFracture)
+		{
+			Report.Errors.Add(FString::Printf(TEXT("debris set %d declares %d bodies, allowed 1 to %d"), Index, Set.Bodies, MaxPerFracture));
+		}
+		if (const UGeometryCollection* Collection = Set.Collection.LoadSynchronous())
+		{
+			const int32 Real = UVerseDebrisSubsystem::CountBodies(*Collection);
+			if (Real != Set.Bodies)
+			{
+				Report.Errors.Add(FString::Printf(TEXT("debris set %d declares %d bodies, the asset has %d"), Index, Set.Bodies, Real));
+			}
+		}
+		else
+		{
+			Report.Errors.Add(FString::Printf(TEXT("debris set %d: %s does not load"), Index, *Set.Collection.ToString()));
+		}
+	}
+	if (!Manifest)
+	{
+		Report.Errors.Add(TEXT("no manifest to check the piece against"));
+	}
+	else if (Manifest->IndexOf(Piece.GetPieceGuid()) == INDEX_NONE)
 	{
 		Report.Errors.Add(TEXT("piece is not in the manifest"));
 	}
@@ -346,21 +410,32 @@ FVerseValidationReport UVerseDestructibleValidator::ValidatePiece(const AVerseDe
 	const float Ref = RefThicknessCm(Class);
 	auto CheckMesh = [&Report, &Axis](const UStaticMesh* Mesh, float Thickness, const FString& Label)
 	{
-		FVerseMeshSoup Soup;
-		if (Mesh && ReadMesh(*Mesh, Soup))
+		if (!Mesh)
 		{
-			Report.Merge(CheckSolid(Soup, Axis, Thickness), Label + TEXT(": "));
+			return; // a missing mesh is reported by the proxy checks above
 		}
+		FVerseMeshSoup Soup;
+		if (!ReadMesh(*Mesh, Soup))
+		{
+			Report.Errors.Add(Label + TEXT(": geometry not readable (no source mesh, no CPU-accessible render data)"));
+			return;
+		}
+		Report.Merge(CheckSolid(Soup, Axis, Thickness), Label + TEXT(": "));
 	};
 	CheckMesh(Piece.GetRenderComponent() ? Piece.GetRenderComponent()->GetStaticMesh() : nullptr, Ref, TEXT("render"));
 	CheckMesh(Piece.IntactProxy, Ref, TEXT("proxy Intact"));
 	for (int32 Index = 0; Index < Piece.HoledVariants.Num(); ++Index)
 	{
-		CheckMesh(Piece.HoledVariants[Index].Proxy, 0.f, FString::Printf(TEXT("proxy Holed %d"), Index));
+		// Proxies keep the exact material thickness in every state (DR5, destruction.md 9).
+		CheckMesh(Piece.HoledVariants[Index].Proxy, Ref, FString::Printf(TEXT("proxy Holed %d"), Index));
+		CheckMesh(Piece.HoledVariants[Index].Render, Ref, FString::Printf(TEXT("render Holed %d"), Index));
 	}
 	for (int32 Index = 0; Index < Piece.BreachedVariants.Num(); ++Index)
 	{
-		CheckMesh(Piece.BreachedVariants[Index].Proxy, 0.f, FString::Printf(TEXT("proxy Breached %d"), Index));
+		CheckMesh(Piece.BreachedVariants[Index].Proxy, Ref, FString::Printf(TEXT("proxy Breached %d"), Index));
+		CheckMesh(Piece.BreachedVariants[Index].Render, Ref, FString::Printf(TEXT("render Breached %d"), Index));
 	}
+	CheckMesh(Piece.Remains.Proxy, 0.f, TEXT("proxy Remains"));
+	CheckMesh(Piece.Remains.Render, 0.f, TEXT("render Remains"));
 	return Report;
 }

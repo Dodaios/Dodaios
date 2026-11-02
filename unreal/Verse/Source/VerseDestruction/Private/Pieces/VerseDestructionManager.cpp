@@ -7,8 +7,12 @@
 #include "EngineUtils.h"
 #include "Events/VerseEventHub.h"
 #include "Net/UnrealNetwork.h"
+#include "Net/Core/PushModel/PushModel.h"
+#include "NavigationSystem.h"
+#include "UObject/CoreNet.h"
 #include "Pieces/VerseDestructible.h"
 #include "Pieces/VersePieceManifest.h"
+#include "Debris/VerseDebrisSubsystem.h"
 #include "Repair/VerseRepairDrone.h"
 #include "VerseLog.h"
 
@@ -41,8 +45,11 @@ AVerseDestructionManager* AVerseDestructionManager::Get(const UObject* WorldCont
 void AVerseDestructionManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AVerseDestructionManager, Pieces);
-	DOREPLIFETIME(AVerseDestructionManager, Epoch);
+	// Push model (destruction.md 3.3): the properties are only compared after a write marked them.
+	FDoRepLifetimeParams Params;
+	Params.bIsPushBased = true;
+	DOREPLIFETIME_WITH_PARAMS_FAST(AVerseDestructionManager, Pieces, Params);
+	DOREPLIFETIME_WITH_PARAMS_FAST(AVerseDestructionManager, Epoch, Params);
 }
 
 uint32 AVerseDestructionManager::GetServerTimeMs() const
@@ -84,11 +91,23 @@ void AVerseDestructionManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+bool AVerseDestructionManager::IsMissingClientManifest() const
+{
+	const bool bNetworkedClient = !HasAuthority() && GetNetMode() != NM_Standalone;
+	return bNetworkedClient && (!Manifest || Manifest->PieceGuids.Num() == 0);
+}
+
 void AVerseDestructionManager::RegisterPieces()
 {
 	UWorld* World = GetWorld();
 	if (!World)
 	{
+		return;
+	}
+	if (IsMissingClientManifest())
+	{
+		// Sorting only the GUIDs this client has loaded would shift PieceIndex against the server.
+		UE_LOG(LogVerseDestruction, Error, TEXT("%s: a networked client needs DA_PieceManifest; destruction stays off here"), *GetName());
 		return;
 	}
 	TMap<FGuid, AVerseDestructible*> ByGuid;
@@ -113,15 +132,13 @@ void AVerseDestructionManager::RegisterPieces()
 		UVersePieceManifest::SortGuids(Order);
 	}
 	PieceActors.Reset();
+	SlotOfGuid.Reset();
 	TArray<FVersePieceDef> Defs;
 	for (const FGuid& Guid : Order)
 	{
 		AVerseDestructible* const* Found = ByGuid.Find(Guid);
 		AVerseDestructible* Piece = Found ? *Found : nullptr;
-		if (!Piece)
-		{
-			UE_LOG(LogVerseDestruction, Warning, TEXT("manifest piece %s is not in the world"), *Guid.ToString());
-		}
+		SlotOfGuid.Add(Guid, PieceActors.Num());
 		if (Piece)
 		{
 			Piece->SetPieceIndex(PieceActors.Num());
@@ -129,7 +146,7 @@ void AVerseDestructionManager::RegisterPieces()
 		}
 		else
 		{
-			// Keep the index stable: a missing piece is an inert slot.
+			// Not loaded (yet): an inert slot keeps the index stable until the piece streams in.
 			FVersePieceDef Missing;
 			Missing.Guid = Guid;
 			Missing.Material = EVersePenetrationMaterial::Concrete;
@@ -143,6 +160,7 @@ void AVerseDestructionManager::RegisterPieces()
 	{
 		Pieces.Items = Sim.GetItems();
 		Pieces.MarkArrayDirty();
+		MARK_PROPERTY_DIRTY_FROM_NAME(AVerseDestructionManager, Pieces, this);
 	}
 	else
 	{
@@ -152,7 +170,53 @@ void AVerseDestructionManager::RegisterPieces()
 			OnItemReplicated(Item, true);
 		}
 	}
+	UVerseDebrisSubsystem* Debris = World->GetSubsystem<UVerseDebrisSubsystem>();
+	for (AVerseDestructible* Piece : PieceActors)
+	{
+		if (Piece && Debris)
+		{
+			Debris->PreloadPiece(*Piece);
+		}
+	}
 	bRegistered = true;
+}
+
+void AVerseDestructionManager::RegisterPiece(AVerseDestructible& Piece)
+{
+	if (!bRegistered)
+	{
+		return; // RegisterPieces at BeginPlay picks it up
+	}
+	const int32* Slot = SlotOfGuid.Find(Piece.GetPieceGuid());
+	if (!Slot)
+	{
+		UE_LOG(LogVerseDestruction, Error, TEXT("%s (%s) is not in the manifest; it stays inert"), *Piece.GetName(), *Piece.GetPieceGuid().ToString());
+		return;
+	}
+	if (PieceActors[*Slot] == &Piece)
+	{
+		return;
+	}
+	PieceActors[*Slot] = &Piece;
+	Piece.SetPieceIndex(*Slot);
+	Sim.SetDef(uint16(*Slot), Piece.MakeDef());
+	if (const FVersePieceItem* Item = FindItem(uint16(*Slot)))
+	{
+		Piece.ApplyPresentation(Item->State, Item->Variant, Item->RepairFrom);
+	}
+	if (UVerseDebrisSubsystem* Debris = GetWorld() ? GetWorld()->GetSubsystem<UVerseDebrisSubsystem>() : nullptr)
+	{
+		Debris->PreloadPiece(Piece);
+	}
+}
+
+void AVerseDestructionManager::UnregisterPiece(AVerseDestructible& Piece)
+{
+	const int32 Index = Piece.GetPieceIndex();
+	if (PieceActors.IsValidIndex(Index) && PieceActors[Index] == &Piece)
+	{
+		PieceActors[Index] = nullptr;
+	}
 }
 
 void AVerseDestructionManager::SpawnDrones()
@@ -198,7 +262,7 @@ void AVerseDestructionManager::ApplyPieceDamage(const FVersePieceDamage& Damage)
 		return;
 	}
 	Sim.ApplyDamage(Damage, GetServerTimeMs());
-	ServerStep(GetServerTimeMs());
+	ApplyDirtyItems();
 }
 
 void AVerseDestructionManager::ApplyHoleCap(uint16 PieceIndex, const FVector& LocalCentroidCm)
@@ -208,7 +272,7 @@ void AVerseDestructionManager::ApplyHoleCap(uint16 PieceIndex, const FVector& Lo
 		return;
 	}
 	Sim.ApplyHoleCap(PieceIndex, LocalCentroidCm, GetServerTimeMs());
-	ServerStep(GetServerTimeMs());
+	ApplyDirtyItems();
 }
 
 void AVerseDestructionManager::ApplyDroneDamage(int32 DroneIndex, float Amount)
@@ -218,7 +282,7 @@ void AVerseDestructionManager::ApplyDroneDamage(int32 DroneIndex, float Amount)
 		return;
 	}
 	Sim.ApplyDroneDamage(DroneIndex, Amount, GetServerTimeMs());
-	ServerStep(GetServerTimeMs());
+	ApplyDirtyItems();
 }
 
 void AVerseDestructionManager::FullReset()
@@ -228,7 +292,7 @@ void AVerseDestructionManager::FullReset()
 		return;
 	}
 	Sim.FullReset(GetServerTimeMs());
-	ServerStep(GetServerTimeMs());
+	ApplyDirtyItems();
 }
 
 void AVerseDestructionManager::HandleArenaSwitch(const FVerseArenaSwitchEvent& Event)
@@ -259,13 +323,19 @@ void AVerseDestructionManager::Tick(float DeltaSeconds)
 	{
 		const uint32 NowMs = GetServerTimeMs();
 		Sim.Tick(NowMs, [this](const FBox& Box) { return IsEncroached(Box); });
-		ServerStep(NowMs);
+		ApplyDirtyItems();
+		PublishTick();
 	}
 }
 
-void AVerseDestructionManager::ServerStep(uint32 NowMs)
+void AVerseDestructionManager::ApplyDirtyItems()
 {
-	for (const uint16 Index : Sim.DrainDirtyItems())
+	const TArray<uint16> DirtyItems = Sim.DrainDirtyItems();
+	if (DirtyItems.Num() > 0)
+	{
+		MARK_PROPERTY_DIRTY_FROM_NAME(AVerseDestructionManager, Pieces, this);
+	}
+	for (const uint16 Index : DirtyItems)
 	{
 		if (!Pieces.Items.IsValidIndex(Index))
 		{
@@ -292,10 +362,20 @@ void AVerseDestructionManager::ServerStep(uint32 NowMs)
 	if (Epoch != Sim.GetEpoch())
 	{
 		Epoch = Sim.GetEpoch();
+		MARK_PROPERTY_DIRTY_FROM_NAME(AVerseDestructionManager, Epoch, this);
 	}
+}
+
+void AVerseDestructionManager::PublishTick()
+{
+	// Every input of this tick is in the sim by now, so several hits on one piece in one frame
+	// (pellets, a breach plus bolts) leave one event (destruction.md 4).
 	for (const FVersePendingFracture& Pending : Sim.DrainEvents())
 	{
-		PublishLocal(Pending.Event);
+		if (Pending.bPublishLocal)
+		{
+			PublishLocal(Pending.Event);
+		}
 		if (Pending.bMulticast && GetNetMode() != NM_Standalone)
 		{
 			MulticastFracture(Pending.Event);
@@ -316,12 +396,33 @@ void AVerseDestructionManager::ServerStep(uint32 NowMs)
 	SyncDrones();
 }
 
+int32 AVerseDestructionManager::CompletedNavTiles() const
+{
+	const FVerseNavDirtyQueue& Nav = Sim.GetNav();
+	if (Nav.NumInFlight() == 0)
+	{
+		return 0;
+	}
+	const UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (!NavSys || !NavSys->GetDefaultNavDataInstance())
+	{
+		return Nav.NumInFlight(); // no navmesh in this world: nothing rebuilds, nothing to wait for
+	}
+	// Real feedback: the released tiles are rebuilt once the navigation system has taken every
+	// dirty area and has no tile job queued or running.
+	if (NavSys->HasDirtyAreasQueued() || NavSys->GetNumRemainingBuildTasks() > 0 || NavSys->GetNumRunningBuildTasks() > 0)
+	{
+		return 0;
+	}
+	return Nav.NumInFlight();
+}
+
 void AVerseDestructionManager::ReleaseNavTiles()
 {
-	// The generic navigation hook has no completion callback, so every server tick frees the
-	// slots of the previous release: at most NavMaxTilesInFlight tiles are handed over per tick.
+	// Once per server tick: slots free only when the navmesh confirms the rebuild, so at most
+	// NavMaxTilesInFlight tiles are ever handed over and not yet rebuilt (destruction.md 6.1).
 	FVerseNavDirtyQueue& Nav = Sim.GetNav();
-	for (const FVerseNavDirtyQueue::FTile& Tile : Nav.Release(Nav.NumInFlight()))
+	for (const FVerseNavDirtyQueue::FTile& Tile : Nav.Release(CompletedNavTiles()))
 	{
 		AVerseDestructible* Piece = Tile.PieceIndex != INDEX_NONE ? GetPieceActor(uint16(Tile.PieceIndex)) : nullptr;
 		UStaticMeshComponent* Proxy = Piece ? Piece->GetProxyComponent() : nullptr;
@@ -431,11 +532,85 @@ TArray<uint16> AVerseDestructionManager::GetPiecesInBox(const FBox& WorldBox) co
 	return Sim.GetPiecesInBox(WorldBox);
 }
 
-int32 FVersePieceItem::PackedBits()
+bool FVersePieceItem::HasFractureRecord() const
 {
-	// PieceIndex 11 (<= 2,000), State 3, HealthQ 8, Variant 2 (<= 4), RepairFrom 3, Seed 32,
-	// Impulse 3 x 16, Location 3 x 16, StateTimeMs 32, Epoch 16 (destruction.md 3.3).
-	return 11 + 3 + 8 + 2 + 3 + 32 + 48 + 48 + 32 + 16;
+	return LastSeed != 0 || LastImpulse[0] != 0 || LastImpulse[1] != 0 || LastImpulse[2] != 0 || LastLocation[0] != 0
+		|| LastLocation[1] != 0 || LastLocation[2] != 0;
+}
+
+namespace
+{
+	template <typename T>
+	void SerializeBitsOf(FArchive& Ar, T& Value, int32 Bits)
+	{
+		uint64 Raw = Ar.IsSaving() ? uint64(Value) & ((uint64(1) << Bits) - 1) : 0;
+		Ar.SerializeBits(&Raw, Bits);
+		if (Ar.IsLoading())
+		{
+			Value = T(Raw);
+		}
+	}
+
+	void SerializeInt16(FArchive& Ar, int16& Value)
+	{
+		uint16 Raw = uint16(Value);
+		SerializeBitsOf(Ar, Raw, 16);
+		Value = int16(Raw);
+	}
+}
+
+bool FVersePieceItem::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+	bOutSuccess = PieceIndex < (1u << MaxPieceIndexBits);
+	SerializeBitsOf(Ar, PieceIndex, MaxPieceIndexBits);
+	uint8 StateBits = uint8(State);
+	SerializeBitsOf(Ar, StateBits, 3);
+	State = EVersePieceState(StateBits);
+	SerializeBitsOf(Ar, HealthQ, 8);
+	SerializeBitsOf(Ar, Variant, 2);
+	if (State == EVersePieceState::Repairing)
+	{
+		uint8 From = uint8(RepairFrom);
+		SerializeBitsOf(Ar, From, 3);
+		RepairFrom = EVersePieceState(From);
+	}
+	else if (Ar.IsLoading())
+	{
+		RepairFrom = EVersePieceState::Intact;
+	}
+	uint8 bRecord = Ar.IsSaving() && HasFractureRecord() ? 1 : 0;
+	SerializeBitsOf(Ar, bRecord, 1);
+	if (bRecord)
+	{
+		SerializeBitsOf(Ar, LastSeed, 32);
+		for (int32 Axis = 0; Axis < 3; ++Axis)
+		{
+			SerializeInt16(Ar, LastImpulse[Axis]);
+		}
+		for (int32 Axis = 0; Axis < 3; ++Axis)
+		{
+			SerializeInt16(Ar, LastLocation[Axis]);
+		}
+	}
+	else if (Ar.IsLoading())
+	{
+		LastSeed = 0;
+		FMemory::Memzero(LastImpulse, sizeof(LastImpulse));
+		FMemory::Memzero(LastLocation, sizeof(LastLocation));
+	}
+	SerializeBitsOf(Ar, StateTimeMs, 32);
+	SerializeBitsOf(Ar, Epoch, 16);
+	bOutSuccess = bOutSuccess && !Ar.IsError();
+	return true;
+}
+
+int32 FVersePieceItem::MeasureWireBytes(const FVersePieceItem& Item)
+{
+	FNetBitWriter Writer(nullptr, 1024);
+	FVersePieceItem Copy = Item;
+	bool bOk = false;
+	Copy.NetSerialize(Writer, nullptr, bOk);
+	return int32((Writer.GetNumBits() + 7) / 8);
 }
 
 void FVersePieceItem::PostReplicatedAdd(const FVersePieceItemArray& InArraySerializer)

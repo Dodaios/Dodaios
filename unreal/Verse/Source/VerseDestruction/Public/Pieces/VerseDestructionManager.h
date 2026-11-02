@@ -37,7 +37,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Destruction")
 	TObjectPtr<UVerseDestructionTuning> Tuning;
 
-	/** DA_PieceManifest of this arena; without it pieces are ordered by the same GUID rule at BeginPlay. */
+	/**
+	 * DA_PieceManifest of this arena. Required on networked clients (PieceIndex must match the
+	 * server); a standalone or server world without it orders the loaded pieces by the same GUID rule.
+	 */
 	UPROPERTY(EditAnywhere, Category = "Destruction")
 	TObjectPtr<UVersePieceManifest> Manifest;
 
@@ -83,6 +86,17 @@ public:
 	/** Registers the world's pieces in manifest order. Called from BeginPlay; tests may call it again. */
 	void RegisterPieces();
 
+	/**
+	 * A piece that began play (World Partition streaming) takes its manifest slot and, on a
+	 * client, shows the current replicated item at once. Called by AVerseDestructible::BeginPlay.
+	 */
+	void RegisterPiece(AVerseDestructible& Piece);
+	/** A piece that streamed out leaves its slot (the replicated state stays). */
+	void UnregisterPiece(AVerseDestructible& Piece);
+
+	/** True when this manager is a client of a networked game and has no manifest (refuses to register). */
+	bool IsMissingClientManifest() const;
+
 	int32 NumPieces() const { return Pieces.Items.Num(); }
 	AVerseDestructible* GetPieceActor(uint16 PieceIndex) const;
 	const FVersePieceItem* FindItem(uint16 PieceIndex) const;
@@ -91,6 +105,10 @@ public:
 
 	/** Server time in ms used for every state record. */
 	uint32 GetServerTimeMs() const;
+
+	/** Nav tiles handed to the navigation system and not confirmed rebuilt yet. */
+	int32 GetNavTilesInFlight() const { return Sim.GetNav().NumInFlight(); }
+	int32 GetPeakNavTilesInFlight() const { return Sim.GetNav().GetPeakInFlight(); }
 
 	/** Tests: stands in for the fast array delivering these items to a client. */
 	void ReceiveItemsForTest(TConstArrayView<FVersePieceItem> InItems, bool bInitial);
@@ -112,12 +130,16 @@ protected:
 	void OnRep_Epoch();
 
 private:
-	void ServerStep(uint32 NowMs);
+	/** After any server input: copies dirty sim items into the fast array and the piece actors. */
+	void ApplyDirtyItems();
+	/** Once per server tick: events (coalesced per piece and tick), noise, nav tiles, drones. */
+	void PublishTick();
 	void PublishLocal(const FVerseFractureEvent& Event);
 	void HandleArenaSwitch(const FVerseArenaSwitchEvent& Event);
 	void SpawnDrones();
 	void SyncDrones();
 	void ReleaseNavTiles();
+	int32 CompletedNavTiles() const;
 	bool IsEncroached(const FBox& WorldBox) const;
 
 	UPROPERTY(Replicated)
@@ -141,5 +163,7 @@ private:
 	FDamageSink DamageSink;
 	FVerseDestructionSim Sim;
 	FDelegateHandle ArenaSwitchHandle;
+	/** Manifest GUID -> PieceIndex, built at registration. */
+	TMap<FGuid, int32> SlotOfGuid;
 	bool bRegistered = false;
 };

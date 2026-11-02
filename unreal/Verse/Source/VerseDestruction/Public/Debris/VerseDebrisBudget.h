@@ -67,7 +67,14 @@ public:
 	/** True if the debris type has a Niagara part (shards, dust, sparks). */
 	static bool HasNiagara(EVerseDebrisType Type);
 
+	/** Reserves bodies for a burst (at most the grant); Commit then charges the real count. */
 	FGrant Request(const FRequest& Request, double NowS);
+
+	/**
+	 * The burst really simulates RealBodies (<= the grant; the spawned set's chunk count, or 0
+	 * when nothing spawned, which frees the reservation). The real peaks count only committed bodies.
+	 */
+	void Commit(int32 BurstId, int32 RealBodies);
 
 	/** Advances sleep, despawn and fade; returns bursts whose actors must be destroyed now. */
 	TArray<int32> Tick(double NowS);
@@ -80,6 +87,10 @@ public:
 	int32 GetPeakBodies() const { return PeakBodies; }
 	int32 GetPeakActors() const { return PeakActors; }
 	int32 GetPeakBodiesPerFracture() const { return PeakPerFracture; }
+	/** Peaks of the committed (really spawned) bodies, actors and bodies per fracture. */
+	int32 GetPeakRealBodies() const { return PeakRealBodies; }
+	int32 GetPeakRealActors() const { return PeakRealActors; }
+	int32 GetPeakRealBodiesPerFracture() const { return PeakRealPerFracture; }
 	const FConfig& GetConfig() const { return Config; }
 	const TArray<FBurst>& GetBursts() const { return Bursts; }
 
@@ -92,4 +103,7 @@ private:
 	int32 PeakBodies = 0;
 	int32 PeakActors = 0;
 	int32 PeakPerFracture = 0;
+	int32 PeakRealBodies = 0;
+	int32 PeakRealActors = 0;
+	int32 PeakRealPerFracture = 0;
 };

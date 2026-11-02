@@ -9,6 +9,9 @@ Registers, for every piece of `catalogue.catalogue()`:
   export, art-pipeline 3.1); never rendered.
 - `SM_<Piece>_Frac`: the seeded Voronoi chunks, one object per chunk, the
   input of `verse_pipeline.geometry_collections` (`GC_<Piece>`). Not for glass.
+- `SM_<Piece>_Frac_<State>[_<n>]`: the chunks one state's burst spawns
+  (`GC_<Piece>_<State>[_<n>]`, at most the class's body count), from
+  `catalogue.debris_sets`. The piece's `DebrisSets` list points at them.
 
 The geometry lives in `geometry.py` and `catalogue.py` (pure Python, tested by
 `tests/test_destructible_kit.py`); this module only turns it into objects.
@@ -78,6 +81,13 @@ def _frac(spec: cat.PieceSpec, name: str) -> None:
         )
 
 
+def _debris(spec: cat.PieceSpec, debris: cat.DebrisSet, name: str) -> None:
+    for chunk in debris.chunks:
+        _object(
+            f"{name}_Chunk_{chunk.cell:02d}", chunk.to_mesh(), MATERIAL[spec.material], nav="none"
+        )
+
+
 def _register(spec: cat.PieceSpec) -> None:
     dims = (spec.width, spec.depth or spec.thickness, spec.height or spec.thickness)
     for look in spec.looks():
@@ -99,6 +109,14 @@ def _register(spec: cat.PieceSpec) -> None:
         kit.register_variant(
             frac_name, lambda s=spec, n=frac_name: _frac(s, n), dims=dims, nav="none"
         )
+        for debris in cat.debris_sets(spec, fracture_seed(spec)):
+            set_name = f"{frac_name}_{debris.name_suffix}"
+            kit.register_variant(
+                set_name,
+                lambda s=spec, d=debris, n=set_name: _debris(s, d, n),
+                dims=dims,
+                nav="none",
+            )
 
 
 def load_all() -> None:

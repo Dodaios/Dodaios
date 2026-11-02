@@ -47,6 +47,8 @@ struct FVersePendingFracture
 {
 	FVerseFractureEvent Event;
 	bool bMulticast = true;
+	/** False for a deferred over-rate event: it was published on the server when it happened. */
+	bool bPublishLocal = true;
 };
 
 /** Counters of the destruction budgets (destruction.md 10), read by the storm scenario. */
@@ -57,6 +59,9 @@ struct VERSEDESTRUCTION_API FVerseDestructionCounters
 	int32 EventsMulticast = 0;
 	int32 EventsCoalesced = 0;
 	int32 EventsOverRate = 0;
+	/** Over-rate events multicast later, and the ones that aged out (> 1 s) first. */
+	int32 EventsDeferredSent = 0;
+	int32 EventsDeferredDropped = 0;
 	int32 PeakEventsPerSecond = 0;
 	int32 ItemWrites = 0;
 	int32 Repairs = 0;
@@ -75,6 +80,9 @@ class VERSEDESTRUCTION_API FVerseDestructionSim
 public:
 	/** Answers whether a pawn overlaps a world box (repair encroachment, destruction.md 7). */
 	using FEncroachFn = TFunctionRef<bool(const FBox& WorldBox)>;
+
+	/** Replaces the static description of one slot (a piece that registered after Init). */
+	void SetDef(uint16 PieceIndex, FVersePieceDef Def);
 
 	/** Pieces in manifest order (index = PieceIndex). Docks: one drone each. */
 	void Init(TArray<FVersePieceDef> InDefs, const FVerseDestructionSimTuning& InTuning, TConstArrayView<FVector> DroneDocks, uint64 InSeed);
@@ -103,6 +111,7 @@ public:
 	/** Piece indices whose replicated item changed since the last drain. */
 	TArray<uint16> DrainDirtyItems();
 	FVerseNavDirtyQueue& GetNav() { return Nav; }
+	const FVerseNavDirtyQueue& GetNav() const { return Nav; }
 
 	// --- Reads ---
 
@@ -129,7 +138,7 @@ public:
 	/** Hash of every piece's proxy state and variant (determinism gate A6.7). */
 	static uint32 ProxyHash(TConstArrayView<FVersePieceItem> InItems);
 
-	/** Bytes of the items written since the last reset burst measurement. */
+	/** Wire bytes of the last reset burst: fast array header plus element id and NetSerialize bytes per written item. */
 	int32 GetLastResetBurstBytes() const { return LastResetBurstBytes; }
 
 private:
@@ -170,7 +179,10 @@ private:
 	TArray<FVersePendingFracture> Events;
 	/** Piece -> index into Events for this tick (coalescing). */
 	TMap<uint16, int32> EventOfPiece;
+	/** Over-rate events waiting for room in the multicast window, one per piece (coalesced). */
+	TMap<uint16, FVerseFractureEvent> Deferred;
 	uint32 EventTickMs = 0;
+	uint32 LastTickMs = 0;
 	TArray<uint32> MulticastTimesMs;
 	TArray<FVerseNoiseEvent> Noise;
 	TSet<uint16> Dirty;

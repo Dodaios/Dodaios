@@ -9,7 +9,7 @@ and ceiling panel. Owner: WP06. Zone owners place them; they never edit them.
 | `geometry.py` | Solids: boxes, slabs with real openings, corrugated sheet, bar grating; convex clipping; seeded Voronoi fracture | no |
 | `catalogue.py` | The pieces, their reference thickness, Holed and Breached variants (up to 4 each), proxy boxes, opening centroids, fracture chunks | no |
 | `validate.py` | The builder validator: closed, manifold, thickness by inward ray sampling within 10 % | no |
-| `pieces.py` | Registers `SM_<Piece>`, `SM_<Piece>_<State>_<n>`, `SM_<Piece>_Proxy_<State>[_<n>]` and `SM_<Piece>_Frac` as kit pieces | yes |
+| `pieces.py` | Registers `SM_<Piece>`, `SM_<Piece>_<State>_<n>`, `SM_<Piece>_Proxy_<State>[_<n>]`, `SM_<Piece>_Frac` and `SM_<Piece>_Frac_<State>[_<n>]` as kit pieces | yes |
 | `tests/test_destructible_kit.py` | pytest of all of the above | no |
 
 Run the tests: `python -m pytest art/verse/kit/destructible/tests -q`.
@@ -40,6 +40,7 @@ object per chunk; `verse_pipeline.geometry_collections` turns that set into `GC_
 | Non-convex pieces | The container wall fractures strip by strip (each corrugation run is convex), the grating bar by bar |
 | Ceiling panel | One chunk: the whole tile falls |
 | Glass | No geometry collection: Niagara shards only |
+| Per-state bursts | `catalogue.debris_sets` picks, per Holed / Breached variant, only the chunks whose centre lies in that opening (nearest the opening first) and, for Destroyed, the largest chunks, each set at most the material's body count (`DEBRIS_BODIES`, tuning.json). Exported as `SM_<Piece>_Frac_<State>[_<n>]` for `GC_<Piece>_<State>[_<n>]`; the runtime spawns the set that fits the grant and charges the budget with its real chunk count, so a standing Holed wall never gets a full chunk set inside it |
 | Fallback | The editor fracture tool with the same seed, if the GC import below cannot build from chunks |
 
 Not proven yet, and owned outside this folder: the export host

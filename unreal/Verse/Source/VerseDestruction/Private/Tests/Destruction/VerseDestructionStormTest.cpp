@@ -3,6 +3,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Debris/VerseDebrisBudget.h"
+#include "Debris/VerseDebrisSubsystem.h"
 #include "Destruction/VersePenetrationTable.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/FileHelper.h"
@@ -12,7 +13,13 @@ using namespace VerseDestructionTest;
 
 namespace
 {
-	/** Client debris replica fed only by multicast events. */
+	/**
+	 * Client debris replica fed only by multicast events. It picks the burst the way the debris
+	 * subsystem does: the authored set of the new state (the kit ships one per state at the
+	 * class's body count, art/verse/kit/destructible DEBRIS_BODIES) that fits the grant, and
+	 * charges the budget with that set's chunk count. Headless runs cannot count Chaos particles;
+	 * the rendered lane measures those.
+	 */
 	struct FDebrisClient
 	{
 		FVerseDebrisBudget Budget;
@@ -40,7 +47,14 @@ namespace
 			Request.PieceIndex = Event.PieceIndex;
 			Request.Type = Row ? Row->DebrisType : EVerseDebrisType::SparksOnly;
 			Request.ToState = Event.ToState;
-			Budget.Request(Request, NowS);
+			const FVerseDebrisBudget::FGrant Grant = Budget.Request(Request, NowS);
+			if (Grant.BurstId != 0)
+			{
+				const int32 Authored = FVerseDebrisBudget::DesiredBodies(Request.Type, Request.ToState);
+				const TArray<int32> Sets = {Authored};
+				const int32 Pick = UVerseDebrisSubsystem::PickSet(Sets, Grant.Bodies);
+				Budget.Commit(Grant.BurstId, Pick == INDEX_NONE ? 0 : Sets[Pick]);
+			}
 		}
 	};
 
@@ -59,6 +73,8 @@ namespace
 		int32 PeakDrones = 0;
 		double SimMsPerTickMax = 0.0;
 		int32 ItemBytes = 0;
+		int32 ResetBurstBytes = 0;
+		int32 EventsDeferredSent = 0;
 		int32 ItemWrites = 0;
 		uint32 FinalHash = 0;
 		TArray<uint32> HashPerSecond;
@@ -68,6 +84,21 @@ namespace
 	 * destruction_storm (destruction.md 10): two breach charges plus a full magazine (30 bolts)
 	 * into a container row every 2 s, rows in turn, with repair drones running.
 	 */
+	FStormResult RunStorm(int32 DurationS, uint64 Seed);
+}
+
+namespace VerseDestructionTest
+{
+	uint32 StormFinalHash(int32 DurationS, uint64 Seed, TArray<uint32>& OutPerSecond)
+	{
+		const FStormResult R = RunStorm(DurationS, Seed);
+		OutPerSecond = R.HashPerSecond;
+		return R.FinalHash;
+	}
+}
+
+namespace
+{
 	FStormResult RunStorm(int32 DurationS, uint64 Seed)
 	{
 		FVerseDestructionSim Sim;
@@ -112,7 +143,7 @@ namespace
 			const double NowS = double(Now) / 1000.0;
 			for (const FVersePendingFracture& Pending : Sim.DrainEvents())
 			{
-				++Result.Fractures;
+				Result.Fractures += Pending.bPublishLocal ? 1 : 0;
 				if (Pending.bMulticast)
 				{
 					High.OnEvent(Pending.Event, NowS);
@@ -122,7 +153,11 @@ namespace
 			High.Budget.Tick(NowS);
 			Low.Budget.Tick(NowS);
 			Sim.DrainNoise();
-			Sim.DrainDirtyItems();
+			for (const uint16 Index : Sim.DrainDirtyItems())
+			{
+				Result.ItemBytes = FMath::Max(Result.ItemBytes, FVersePieceItem::MeasureWireBytes(Sim.GetItem(Index)));
+			}
+			// Model: a released tile rebuilds within one server tick (the manager waits for the navmesh).
 			Sim.GetNav().Release(Sim.GetNav().NumInFlight());
 			Result.PeakNavInFlight = FMath::Max(Result.PeakNavInFlight, Sim.GetNav().GetPeakInFlight());
 			Result.SimMsPerTickMax = FMath::Max(Result.SimMsPerTickMax, (FPlatformTime::Seconds() - Start) * 1000.0);
@@ -135,15 +170,17 @@ namespace
 		const FVerseDestructionCounters& C = Sim.GetCounters();
 		Result.PeakEventsPerSecond = C.PeakEventsPerSecond;
 		Result.EventsOverRate = C.EventsOverRate;
-		Result.PeakBodiesHigh = High.Budget.GetPeakBodies();
-		Result.PeakBodiesLow = Low.Budget.GetPeakBodies();
-		Result.PeakPerFracture = FMath::Max(High.Budget.GetPeakBodiesPerFracture(), Low.Budget.GetPeakBodiesPerFracture());
-		Result.PeakActors = FMath::Max(High.Budget.GetPeakActors(), Low.Budget.GetPeakActors());
+		Result.PeakBodiesHigh = High.Budget.GetPeakRealBodies();
+		Result.PeakBodiesLow = Low.Budget.GetPeakRealBodies();
+		Result.PeakPerFracture = FMath::Max(High.Budget.GetPeakRealBodiesPerFracture(), Low.Budget.GetPeakRealBodiesPerFracture());
+		Result.PeakActors = FMath::Max(High.Budget.GetPeakRealActors(), Low.Budget.GetPeakRealActors());
+		Result.EventsDeferredSent = C.EventsDeferredSent;
 		Result.Repairs = C.Repairs;
 		Result.PeakDrones = C.PeakActiveDrones;
-		Result.ItemBytes = (FVersePieceItem::PackedBits() + 7) / 8;
 		Result.ItemWrites = C.ItemWrites;
 		Result.FinalHash = FVerseDestructionSim::ProxyHash(Sim.GetItems());
+		Sim.FullReset(uint32(DurationS) * 1000);
+		Result.ResetBurstBytes = Sim.GetLastResetBurstBytes();
 		return Result;
 	}
 
@@ -159,10 +196,12 @@ namespace
 			{TEXT("peak_debris_bodies_low"), double(R.PeakBodiesLow)},
 			{TEXT("peak_bodies_per_fracture"), double(R.PeakPerFracture)},
 			{TEXT("peak_geometry_collection_actors"), double(R.PeakActors)},
-			{TEXT("peak_nav_tiles_in_flight"), double(R.PeakNavInFlight)},
+			{TEXT("peak_nav_tiles_in_flight_one_tick_rebuild_model"), double(R.PeakNavInFlight)},
+			{TEXT("deferred_multicast_events_sent"), double(R.EventsDeferredSent)},
 			{TEXT("repairs"), double(R.Repairs)},
 			{TEXT("peak_active_drones"), double(R.PeakDrones)},
-			{TEXT("state_item_packed_bytes"), double(R.ItemBytes)},
+			{TEXT("state_item_max_wire_bytes_measured"), double(R.ItemBytes)},
+			{TEXT("reset_burst_bytes_measured"), double(R.ResetBurstBytes)},
 			{TEXT("item_writes"), double(R.ItemWrites)},
 			{TEXT("sim_ms_per_tick_max"), double(R.SimMsPerTickMax)},
 			{TEXT("budget_debris_bodies_high"), double(400)},
@@ -173,7 +212,8 @@ namespace
 			{TEXT("budget_nav_tiles_in_flight"), double(4)},
 		};
 		FString Text = TEXT("{\n  \"scenario\": \"destruction_storm\",\n  \"package\": \"WP06\",\n  \"sub_task\": \"WP06.11\",\n");
-		Text += TEXT("  \"physics_ms\": \"not measured headless: needs the rendered lane (unreal-perf)\"");
+		Text += TEXT("  \"physics_ms\": \"not measured headless: needs the rendered lane (unreal-perf)\",\n");
+		Text += TEXT("  \"debris_bodies_source\": \"authored set chunk counts committed to the budget; Chaos particle counts need the rendered lane\"");
 		for (const TPair<const TCHAR*, double>& Field : Numbers)
 		{
 			Text += FString::Printf(TEXT(",\n  \"%s\": %s"), Field.Key, *FString::SanitizeFloat(Field.Value));
@@ -202,101 +242,8 @@ bool FVerseDestructionStorm::RunTest(const FString&)
 	TestTrue(TEXT("at most 64 multicast fracture events per second"), R.PeakEventsPerSecond <= 64);
 	TestTrue(TEXT("at most 4 nav tiles in flight"), R.PeakNavInFlight <= 4);
 	TestTrue(TEXT("at most 3 drones active"), R.PeakDrones <= 3);
-	TestTrue(TEXT("a state item packs into about 20-26 bytes"), R.ItemBytes <= 26);
-	return true;
-}
-
-// A6.7: server and 2 clients agree on every proxy state after a 10-minute storm (hash per
-// second). Client 1 gets every item write one tick late; client 2 loses 25 % of the sends and
-// gets the latest value on the retry (fast array semantics). Both also lose 30 % of the
-// unreliable events, which must not matter.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDestructionDeterminism, "Verse.Destruction.Determinism", VERSE_DESTRUCTION_TEST_FLAGS)
-bool FVerseDestructionDeterminism::RunTest(const FString&)
-{
-	FVerseDestructionSim Sim;
-	Sim.Init(MakeArena(), FVerseDestructionSimTuning::Contract(), Docks(4), 0xD7);
-	TArray<FVersePieceItem> Client1 = Sim.GetItems();
-	TArray<FVersePieceItem> Client2 = Sim.GetItems();
-	TArray<uint16> Late;
-	TSet<uint16> Unsent;
-	FVerseRng Net(0xD7, 1, EVerseRngSalt::Harness);
-	FVerseRng Rng(0xD7, 2, EVerseRngSalt::Harness);
-	int32 Seconds = 0;
-	int32 HashMismatches = 0;
-	int32 Wave = 0;
-	uint32 NextSecond = 1000;
-	const uint32 EndMs = 600 * 1000;
-	for (uint32 Now = 0; Now < EndMs; Now += TickMs)
-	{
-		if (Now >= uint32(Wave) * 2000)
-		{
-			const int32 Row = Wave % 30;
-			for (int32 Charge = 0; Charge < 2; ++Charge)
-			{
-				const uint16 Target = uint16(Row * 10 + Rng.RangeInt(0, 7));
-				FVersePieceDamage D = Breach(Sim.GetDef(Target), FVector(Rng.Range(-80, 80), -5, Rng.Range(30, 150)));
-				D.PieceIndex = Target;
-				Sim.ApplyDamage(D, Now);
-			}
-			++Wave;
-		}
-		if (Now - uint32(Wave - 1) * 2000 < 1000)
-		{
-			const uint16 Target = uint16(((Wave - 1) % 30) * 10 + Rng.RangeInt(0, 9));
-			FVersePieceDamage D = Bolt(Sim.GetDef(Target), 10.f, FVector(Rng.Range(-50, 50), -1, Rng.Range(100, 200)));
-			D.PieceIndex = Target;
-			Sim.ApplyDamage(D, Now);
-		}
-		Sim.Tick(Now, NeverEncroached);
-		Sim.DrainEvents(); // unreliable events never change client state
-		Sim.DrainNoise();
-		// Client 1: one tick late.
-		for (const uint16 Index : Late)
-		{
-			Client1[Index] = Sim.GetItem(Index);
-		}
-		Late = Sim.DrainDirtyItems();
-		// Client 2: lossy; a lost item is resent with its latest value.
-		for (const uint16 Index : Late)
-		{
-			Unsent.Add(Index);
-		}
-		for (auto It = Unsent.CreateIterator(); It; ++It)
-		{
-			if (!Net.Chance(0.25))
-			{
-				Client2[*It] = Sim.GetItem(*It);
-				It.RemoveCurrent();
-			}
-		}
-		if (Now >= NextSecond)
-		{
-			NextSecond += 1000;
-			++Seconds;
-			// Compare once the network has caught up with this second's writes.
-			for (const uint16 Index : Late)
-			{
-				Client1[Index] = Sim.GetItem(Index);
-			}
-			Late.Reset();
-			for (const uint16 Index : Unsent)
-			{
-				Client2[Index] = Sim.GetItem(Index);
-			}
-			Unsent.Reset();
-			const uint32 Truth = FVerseDestructionSim::ProxyHash(Sim.GetItems());
-			HashMismatches += (FVerseDestructionSim::ProxyHash(Client1) != Truth) ? 1 : 0;
-			HashMismatches += (FVerseDestructionSim::ProxyHash(Client2) != Truth) ? 1 : 0;
-		}
-	}
-	TestTrue(TEXT("ten minutes simulated"), Seconds >= 599);
-	TestEqual(TEXT("hash per second: server and 2 clients agree"), HashMismatches, 0);
-	TestTrue(TEXT("pieces were repaired during the storm"), Sim.GetCounters().Repairs > 0);
-	// Same seed, same inputs: the server replays bit-identically.
-	const FStormResult A = RunStorm(30, 0xBEEF);
-	const FStormResult B = RunStorm(30, 0xBEEF);
-	TestEqual(TEXT("replay: same per-second hashes"), A.HashPerSecond, B.HashPerSecond);
-	TestEqual(TEXT("replay: same final hash"), A.FinalHash, B.FinalHash);
+	TestTrue(FString::Printf(TEXT("a state item measures at most 26 bytes on the wire (%d)"), R.ItemBytes), R.ItemBytes > 0 && R.ItemBytes <= 26);
+	TestTrue(FString::Printf(TEXT("the reset burst after the storm is under 16 KB (%d bytes)"), R.ResetBurstBytes), R.ResetBurstBytes < 16 * 1024);
 	return true;
 }
 

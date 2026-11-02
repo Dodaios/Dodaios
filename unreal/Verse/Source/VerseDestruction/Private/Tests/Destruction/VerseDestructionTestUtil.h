@@ -10,6 +10,7 @@
 #include "Pieces/VerseDestructible.h"
 #include "Pieces/VerseDestructionManager.h"
 #include "Pieces/VerseDestructionSim.h"
+#include "Pieces/VersePieceManifest.h"
 #include "Pieces/VersePieceTypes.h"
 #include "VerseRng.h"
 
@@ -182,12 +183,13 @@ namespace VerseDestructionTest
 			return Piece;
 		}
 
-		AVerseDestructionManager* SpawnManager(bool bClient, int32 NumDocks = 0)
+		AVerseDestructionManager* SpawnManager(bool bClient, int32 NumDocks = 0, UVersePieceManifest* Manifest = nullptr)
 		{
 			FActorSpawnParameters Params;
 			Params.bDeferConstruction = true;
 			AVerseDestructionManager* Manager = World->SpawnActor<AVerseDestructionManager>(AVerseDestructionManager::StaticClass(), FTransform::Identity, Params);
 			Manager->DroneDocks = VerseDestructionTest::Docks(NumDocks);
+			Manager->Manifest = Manifest;
 			if (bClient)
 			{
 				Manager->SetRole(ROLE_SimulatedProxy);

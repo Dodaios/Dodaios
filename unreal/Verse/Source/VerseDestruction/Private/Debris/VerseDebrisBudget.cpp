@@ -133,6 +133,26 @@ FVerseDebrisBudget::FGrant FVerseDebrisBudget::Request(const FRequest& Request, 
 	return Grant;
 }
 
+void FVerseDebrisBudget::Commit(int32 BurstId, int32 RealBodies)
+{
+	const int32 Index = Bursts.IndexOfByPredicate([BurstId](const FBurst& Burst) { return Burst.Id == BurstId; });
+	if (Index == INDEX_NONE)
+	{
+		return;
+	}
+	FBurst& Burst = Bursts[Index];
+	ensureMsgf(RealBodies <= Burst.Bodies, TEXT("debris burst %d simulates %d bodies, granted %d"), BurstId, RealBodies, Burst.Bodies);
+	Burst.Bodies = FMath::Clamp(RealBodies, 0, Burst.Bodies);
+	if (Burst.Bodies == 0)
+	{
+		Bursts.RemoveAt(Index);
+		return;
+	}
+	PeakRealBodies = FMath::Max(PeakRealBodies, ActiveBodies());
+	PeakRealActors = FMath::Max(PeakRealActors, AliveActors());
+	PeakRealPerFracture = FMath::Max(PeakRealPerFracture, Burst.Bodies);
+}
+
 TArray<int32> FVerseDebrisBudget::Tick(double NowS)
 {
 	TArray<int32> Removed;

@@ -118,6 +118,41 @@ def test_fracture_is_seeded_closed_and_within_budget(spec):
         assert [c.seed_point for c in spec.fracture_chunks(seed + 1)] != [c.seed_point for c in a]
 
 
+@pytest.mark.parametrize(
+    "spec",
+    [p for p in PIECES if p.piece_class != "GlassPane"],
+    ids=[p.name for p in PIECES if p.piece_class != "GlassPane"],
+)
+def test_debris_sets_fit_the_body_budget_and_their_openings(spec):
+    seed = 0x0600 + len(spec.name)
+    sets = cat.debris_sets(spec, seed)
+    budget = cat.DEBRIS_BODIES[spec.material]
+    assert {s.state for s in sets} == set(budget), "one set per state that throws rigid debris"
+    full = spec.fracture_chunks(seed)
+    for debris in sets:
+        assert 1 <= len(debris.chunks) <= budget[debris.state] <= cat.MAX_BODIES
+        cells = {c.cell for c in full}
+        assert {c.cell for c in debris.chunks} <= cells, "a set is a subset of the fracture"
+        if debris.state in ("Holed", "Breached"):
+            openings = (spec.holed if debris.state == "Holed" else spec.breached)[debris.variant]
+            inside = [
+                c
+                for c in debris.chunks
+                if cat._in_openings(cat._chunk_centre(c), openings, cat.OPENING_MARGIN_M)
+            ]
+            assert inside or len(debris.chunks) == 1, "only opening chunks fly from a standing wall"
+            assert len(debris.chunks) < len(full) or len(full) <= budget[debris.state]
+    holed = [s for s in sets if s.state == "Holed"]
+    assert len(holed) == (len(spec.holed) if "Holed" in budget else 0)
+
+
+def test_glass_has_no_rigid_debris():
+    glass = [p for p in PIECES if p.piece_class == "GlassPane"]
+    assert glass
+    for spec in glass:
+        assert cat.debris_sets(spec, 1) == []
+
+
 def test_fracture_conserves_volume():
     spec = cat.by_name("SM_WallPanel_240")
     whole = g.Convex.from_mesh(spec.render_shells([])[0]).volume()

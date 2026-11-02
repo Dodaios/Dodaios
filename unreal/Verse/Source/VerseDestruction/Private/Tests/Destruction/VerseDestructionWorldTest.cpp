@@ -110,6 +110,7 @@ bool FVerseDestructionWorld::RunTest(const FString&)
 	Damage.PieceIndex = uint16(GlassIndex);
 	IVersePieceDamage& Sink = Manager->GetPieceDamage();
 	Sink.ApplyPieceDamage(Damage);
+	Manager->Tick(0.f); // events, noise and nav go out once per server tick
 	TestEqual(TEXT("IVersePieceQuery state"), Manager->GetPieceState(uint16(GlassIndex)), EVersePieceState::Destroyed);
 	TestEqual(TEXT("the piece shows it"), Glass->GetPresentedState(), EVersePieceState::Destroyed);
 	TestFalse(TEXT("destroyed glass has no gameplay bounds"), Manager->GetPieceBounds(uint16(GlassIndex)).IsValid != 0);
@@ -126,6 +127,7 @@ bool FVerseDestructionWorld::RunTest(const FString&)
 
 	// Reset on the arena switch, with the reset event on the hub.
 	Manager->FullReset();
+	Manager->Tick(0.f);
 	TestEqual(TEXT("reset brings the glass back"), Manager->GetPieceState(uint16(GlassIndex)), EVersePieceState::Intact);
 	TestEqual(TEXT("epoch bumped"), int32(Manager->GetEpoch()), 1);
 	TestTrue(TEXT("reset event for all pieces"), Fractures.ContainsByPredicate([](const FVerseFractureEvent& E)

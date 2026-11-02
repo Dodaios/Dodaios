@@ -57,6 +57,9 @@ void FVerseDestructionSim::Init(TArray<FVersePieceDef> InDefs, const FVerseDestr
 	}
 	Events.Reset();
 	EventOfPiece.Reset();
+	Deferred.Reset();
+	EventTickMs = 0;
+	LastTickMs = 0;
 	MulticastTimesMs.Reset();
 	Noise.Reset();
 	Dirty.Reset();
@@ -66,6 +69,21 @@ void FVerseDestructionSim::Init(TArray<FVersePieceDef> InDefs, const FVerseDestr
 uint32 FVerseDestructionSim::NextSeed()
 {
 	return FVerseRng(Seed, SeedCounter++, EVerseRngSalt::Fracture).NextU32();
+}
+
+void FVerseDestructionSim::SetDef(uint16 PieceIndex, FVersePieceDef Def)
+{
+	if (!IsValidPiece(PieceIndex))
+	{
+		return;
+	}
+	const bool bWasInert = VerseMaterialNeverBreaks(Defs[PieceIndex].Material) && Items[PieceIndex].State == EVersePieceState::Intact;
+	Defs[PieceIndex] = MoveTemp(Def);
+	if (bWasInert)
+	{
+		// A piece that streamed in late takes its slot with full HP (destruction.md 8).
+		Server[PieceIndex].Hp = Tuning.ClassRow(Defs[PieceIndex].Class).MaxHp;
+	}
 }
 
 bool FVerseDestructionSim::CanBreak(uint16 PieceIndex) const
@@ -137,11 +155,12 @@ void FVerseDestructionSim::ApplyOne(uint16 PieceIndex, const FVersePieceDamage& 
 
 	const bool bStateChanged = Out.State != Before;
 	const bool bHpChanged = !FMath::IsNearlyEqual(HpBefore, Piece.Hp);
+	// Any further damage restarts the 60 s (destruction.md 7), also on a piece already at 0 HP
+	// that keeps taking hole-making bolts, so nothing is repaired while it is still under fire
+	// and a recalled drone is not sent straight back.
+	Piece.LastDamageMs = NowMs;
 	if (bStateChanged || bHpChanged)
 	{
-		// "60 s after the piece's last state-changing or hole-making damage"; a bolt that
-		// lowers HP made a hole or a dent on the piece, both restart the timer.
-		Piece.LastDamageMs = NowMs;
 		Piece.bDamagedSinceRepair = true;
 	}
 	if (bStateChanged)
@@ -390,6 +409,7 @@ int32 FVerseDestructionSim::NumActiveDrones() const
 
 void FVerseDestructionSim::Tick(uint32 NowMs, FEncroachFn IsEncroached)
 {
+	LastTickMs = NowMs;
 	const uint32 RecheckMs = SecondsToMs(Tuning.RepairEncroachRecheckS);
 	for (FVerseDroneState& Drone : Drones)
 	{
@@ -553,6 +573,10 @@ void FVerseDestructionSim::FullReset(uint32 NowMs)
 		Item.HealthQ = 255;
 		Item.Variant = 0;
 		Item.RepairFrom = EVersePieceState::Intact;
+		// An Intact piece carries no fracture record, so the reset item packs small.
+		Item.LastSeed = 0;
+		FMemory::Memzero(Item.LastImpulse, sizeof(Item.LastImpulse));
+		FMemory::Memzero(Item.LastLocation, sizeof(Item.LastLocation));
 		Item.StateTimeMs = NowMs;
 		Item.Epoch = Epoch;
 		MarkDirty(uint16(Index));
@@ -567,7 +591,13 @@ void FVerseDestructionSim::FullReset(uint32 NowMs)
 		}
 	}
 	// Every changed piece marked its tiles dirty above; the queue rebuilds them (destruction.md 11).
-	LastResetBurstBytes = Written * ((FVersePieceItem::PackedBits() + 7) / 8) + 30;
+	// The burst is what the fast array sends: its header, then element id and packed item per write.
+	LastResetBurstBytes = Written > 0 ? FVersePieceItem::FastArrayHeaderBytes : 0;
+	for (const uint16 Index : Dirty)
+	{
+		LastResetBurstBytes += FVersePieceItem::FastArrayItemIdBytes + FVersePieceItem::MeasureWireBytes(Items[Index]);
+	}
+	Deferred.Reset();
 
 	FVerseFractureEvent Event;
 	Event.PieceIndex = AllPieces;
@@ -618,7 +648,19 @@ void FVerseDestructionSim::PushEvent(const FVerseFractureEvent& Event, uint32 No
 	}
 	else
 	{
+		// Over the cap: published locally now, multicast later once the window has room,
+		// coalesced per piece (destruction.md 4). The fast array stays the truth meanwhile.
 		Counters.EventsOverRate += 1;
+		if (FVerseFractureEvent* Waiting = Deferred.Find(Event.PieceIndex))
+		{
+			const EVersePieceState From = Waiting->FromState;
+			*Waiting = Event;
+			Waiting->FromState = From;
+		}
+		else
+		{
+			Deferred.Add(Event.PieceIndex, Event);
+		}
 	}
 	if (Event.PieceIndex != AllPieces)
 	{
@@ -657,9 +699,41 @@ void FVerseDestructionSim::MarkNav(uint16 PieceIndex, EVersePieceState OldState,
 
 TArray<FVersePendingFracture> FVerseDestructionSim::DrainEvents()
 {
-	Counters.EventsPublished += Events.Num();
+	// Deferred over-rate events go out as soon as the sliding second has room; one older than
+	// a second is dropped (the item has long arrived), and so is one of an old epoch.
+	if (Deferred.Num() > 0)
+	{
+		const uint32 NowMs = FMath::Max(EventTickMs, LastTickMs);
+		while (MulticastTimesMs.Num() > 0 && NowMs - MulticastTimesMs[0] >= 1000)
+		{
+			MulticastTimesMs.RemoveAt(0, 1, EAllowShrinking::No);
+		}
+		for (auto It = Deferred.CreateIterator(); It; ++It)
+		{
+			const FVerseFractureEvent& Waiting = It.Value();
+			if (Waiting.Epoch != Epoch || NowMs - Waiting.ServerTimeMs >= 1000)
+			{
+				Counters.EventsDeferredDropped += 1;
+				It.RemoveCurrent();
+				continue;
+			}
+			if (MulticastTimesMs.Num() >= Tuning.MaxFractureEventsPerSecond)
+			{
+				break;
+			}
+			FVersePendingFracture& Late = Events.AddDefaulted_GetRef();
+			Late.Event = Waiting;
+			Late.bMulticast = true;
+			Late.bPublishLocal = false; // published on the server when it happened
+			MulticastTimesMs.Add(NowMs);
+			Counters.PeakEventsPerSecond = FMath::Max(Counters.PeakEventsPerSecond, MulticastTimesMs.Num());
+			Counters.EventsDeferredSent += 1;
+			It.RemoveCurrent();
+		}
+	}
 	for (const FVersePendingFracture& Pending : Events)
 	{
+		Counters.EventsPublished += Pending.bPublishLocal ? 1 : 0;
 		Counters.EventsMulticast += Pending.bMulticast ? 1 : 0;
 	}
 	EventOfPiece.Reset();
