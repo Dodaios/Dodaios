@@ -1,0 +1,108 @@
+{
+  "schema": "verse.bout_table/1",
+  "halfWidth": 0.06,
+  "xRealTimePerProcess": 61.315,
+  "killsPerBout": 22.0,
+  "boutSimS": 120.0,
+  "jobs": 4,
+  "gates": {
+    "BG1": {
+      "p": 0.75,
+      "trials": 201,
+      "unit": "bouts",
+      "boutsPerPairing": 201,
+      "pairings": 1,
+      "wallHours": 0.03
+    },
+    "BG2": {
+      "p": 0.75,
+      "trials": 201,
+      "unit": "bouts",
+      "boutsPerPairing": 201,
+      "pairings": 1,
+      "wallHours": 0.03
+    },
+    "BG3": {
+      "p": 0.9,
+      "trials": 97,
+      "unit": "bouts",
+      "boutsPerPairing": 97,
+      "pairings": 4,
+      "wallHours": 0.05
+    },
+    "BG4": {
+      "p": 0.5,
+      "trials": 267,
+      "unit": "bouts",
+      "boutsPerPairing": 267,
+      "pairings": 17,
+      "wallHours": 0.62
+    },
+    "BG5": {
+      "p": 0.45,
+      "trials": 265,
+      "unit": "kills",
+      "boutsPerPairing": 13,
+      "pairings": 18,
+      "wallHours": 0.03
+    },
+    "BG6": {
+      "p": 0.4,
+      "trials": 257,
+      "unit": "kills",
+      "boutsPerPairing": 12,
+      "pairings": 2,
+      "wallHours": 0.0
+    },
+    "BG7": {
+      "p": 0.55,
+      "trials": 265,
+      "unit": "kills",
+      "boutsPerPairing": 13,
+      "pairings": 1,
+      "wallHours": 0.0
+    },
+    "BG8": {
+      "p": 0.5,
+      "trials": 267,
+      "unit": "kills",
+      "boutsPerPairing": 13,
+      "pairings": 6,
+      "wallHours": 0.01
+    },
+    "BG9": {
+      "p": 0.5,
+      "trials": 267,
+      "unit": "kills",
+      "boutsPerPairing": 13,
+      "pairings": 1,
+      "wallHours": 0.0
+    },
+    "BG10": {
+      "p": 0.5,
+      "trials": 267,
+      "unit": "kills",
+      "boutsPerPairing": 13,
+      "pairings": 2,
+      "wallHours": 0.0
+    }
+  },
+  "queueBouts": 267,
+  "nightlyBouts": 267,
+  "measured": {
+    "run": "speed-s11",
+    "speed": {
+      "processes": 4,
+      "xRealTimePerProcess": 61.315,
+      "xRealTimeMean": 62.649,
+      "simS": 960.0,
+      "wallS": 3.914,
+      "startupS": 9.278,
+      "peakRamMbPerProcess": 1467.8,
+      "targetXRealTime": 20.0,
+      "meetsTarget": true
+    },
+    "nullBrain": true
+  },
+  "note": "Measured 2026-11-02 on the reference box with the null brain on an empty map (4 processes, -nullrhi, -benchmark, fixed 60 Hz). This is the engine floor: remeasure with balance.py --speed once WP08, WP02 and the hangar level land; the bout counts below are set by the interval width, not by speed"
+}
