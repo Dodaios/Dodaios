@@ -1,0 +1,26 @@
+{
+  "name": "MI_Rubber_Black",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Rubber_Black",
+  "scalars": {
+    "EdgeWear": 0.4,
+    "Grime": 0.3,
+    "Metallic": 0.0,
+    "RoughnessMax": 0.95,
+    "RoughnessMin": 0.75
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.025,
+      0.025,
+      0.025,
+      1.0
+    ]
+  }
+}

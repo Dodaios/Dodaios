@@ -1,0 +1,22 @@
+{
+  "name": "MI_Glass_Clear",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Glass.M_Verse_Glass",
+  "replaces": "M_Glass_Clear",
+  "scalars": {
+    "Opacity": 0.18,
+    "RoughnessMax": 0.08,
+    "RoughnessMin": 0.02
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.7,
+      0.75,
+      0.78,
+      1.0
+    ]
+  }
+}

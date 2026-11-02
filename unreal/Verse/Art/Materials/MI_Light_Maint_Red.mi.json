@@ -1,0 +1,20 @@
+{
+  "name": "MI_Light_Maint_Red",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "replaces": "M_Light_Maint_Red",
+  "scalars": {
+    "EmissiveNits": 1200.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "EmissiveColor": [
+      0.8,
+      0.05,
+      0.03,
+      1.0
+    ]
+  }
+}

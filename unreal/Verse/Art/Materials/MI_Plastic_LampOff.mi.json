@@ -1,0 +1,26 @@
+{
+  "name": "MI_Plastic_LampOff",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Plastic_LampOff",
+  "scalars": {
+    "EdgeWear": 0.4,
+    "Grime": 0.3,
+    "Metallic": 0.0,
+    "RoughnessMax": 0.6,
+    "RoughnessMin": 0.35
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.06,
+      0.06,
+      0.062,
+      1.0
+    ]
+  }
+}

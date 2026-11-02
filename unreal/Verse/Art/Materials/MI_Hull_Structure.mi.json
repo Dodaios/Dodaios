@@ -1,0 +1,26 @@
+{
+  "name": "MI_Hull_Structure",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Hull_Structure",
+  "scalars": {
+    "EdgeWear": 0.4,
+    "Grime": 0.3,
+    "Metallic": 0.7,
+    "RoughnessMax": 0.8,
+    "RoughnessMin": 0.45
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.03,
+      0.032,
+      0.035,
+      1.0
+    ]
+  }
+}
