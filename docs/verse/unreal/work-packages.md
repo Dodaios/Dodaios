@@ -857,7 +857,7 @@ handler (the route answers close 1013 until it lands).
 | 17.10 | Locale and settings in `welcome` and `settings.changed`; `settings.set`; `POST /api/verse/settings/import`; `companion` topic; `qa.exec` gate (BW10, BW12) | Relays and route |
 | 17.11 | Unreal `VerseBridge`: WS client, JSON and binary codec, reconnect with `last_seq`, typed feed subsystems, command sender with replies | Client |
 | 17.12 | Unreal lifecycle: Booting, Visible, Panel, Dormant, Exiting; return key; foreground hand-off both ways; single-instance mutex; `gpu.yield`; X11 and Wayland activation | Lifecycle |
-| 17.13 | Web launcher card (status, launch, quick-start duel) and desktop foreground hand-off; `npm run build` check | Frontend |
+| 17.13 | Web launcher card (status, launch, quick-start duel) and desktop foreground hand-off; for `not_installed` the card shows size and a "Download the Verse" button with progress and cancel (routes `POST/DELETE /api/verse/install`, `GET /api/verse/install/progress` calling WP22's `verse_host/install`); remove in Settings; `npm run build` check | Frontend |
 
 | Id | Acceptance test | Pass |
 |---|---|---|
@@ -1051,15 +1051,19 @@ same numbers.
 
 ### WP22 Packaging, installer, updater, Linux
 
-**Goal.** Windows and Linux builds packaged, chunked per deck, shipped inside
-the normal installer, updated by delta packages, with machines without a GPU
-unaffected.
+**Goal.** Windows and Linux builds packaged, chunked per deck, published as an
+optional per-platform release asset that the app downloads only when the user
+asks for it (README Delivery), updated by delta packages once installed, with
+machines without a GPU unaffected. The normal installer and app updates never
+carry the Verse.
 
 **Owned.** `scripts/unreal/package.py`; `.github/workflows/unreal-package.yml`
 (workflow policy of architecture 8.2); `unreal/Toolchain/**` (`toolchains.json`,
 `ddc.json`); `unreal/Verse/Build/**` (engine-required platform resources);
 `packaging/windows/verse/**`, `packaging/linux/verse/**`; the Verse download
-and delta logic in `dodaios/core/installer_update.py`; the
+and delta logic in `dodaios/core/installer_update.py`; the on-demand
+installer `dodaios/verse_host/install/**` (download, resume, signature and
+hash check, unpack, uninstall, delta apply; called by WP17's routes); the
 `GIT_LFS_SKIP_SMUDGE=1` lines in `install/**`, `dodaios/core/main_follow.py`
 and `dodaios/ui/web/update_routes.py`; `tests/unit/installer/test_verse_*.py`.
 
@@ -1077,8 +1081,8 @@ owner.
 | 22.2 | BuildCookRun Win64 and Linux Shipping; Harness absent from Shipping | `package.py` |
 | 22.3 | IoStore chunk per deck; shipped PSO cache | Chunk rules |
 | 22.4 | Delta packages: chunk diff, apply, hash verify, rollback | Delta tool |
-| 22.5 | Updater: raised size cap for the Verse payload (today `MAX_INSTALLER_BYTES = 1_500_000_000`, `installer_update.py:106`), Verse channel, resumable download, signature hand-off | Updater |
-| 22.6 | Installer integration on Windows and Linux; `GIT_LFS_SKIP_SMUDGE=1` in clone paths | Installers |
+| 22.5 | On-demand install: Verse release asset per platform with manifest (version, size, hashes, signature), resumable download with progress, verify, unpack into the user data folder, uninstall; `MAX_INSTALLER_BYTES` stays unchanged | `verse_host/install` |
+| 22.6 | Installers and app updates on Windows and Linux carry no Verse payload; `GIT_LFS_SKIP_SMUDGE=1` in clone paths; installed Verses get a separate Verse update channel | Installers |
 | 22.7 | Linux smoke: container or VM, `-nullrhi` server run, Vulkan first frame where a device exists, X11 and Wayland activation check | Nightly job |
 | 22.8 | Signing hand-off to the existing signing workflow; no keys on the runner | Workflow step |
 | 22.9 | Disk hygiene: DDC cap 40 GB, `Intermediate` pruning, alert below 40 GB free | Script |
@@ -1088,6 +1092,7 @@ owner.
 | A22.1 | Size | Payload at most 2 GB compressed at parity; typical delta at most 300 MB |
 | A22.2 | Cold start | At most 8 s to first frame on the reference box with the shipped PSO cache |
 | A22.3 | No GPU | Install on a GPU-less VM: app runs, Verse status `unsupported`, 0 errors in the app log |
+| A22.7 | On demand | Fresh install: Verse status `not_installed`, installer size unchanged against the previous release; download from the card installs and launches; an interrupted download resumes; a tampered package is rejected; uninstall frees the folder and returns to `not_installed` |
 | A22.4 | LFS | A fresh installer clone and an in-app update each download 0 bytes of `unreal/**` LFS objects; the release source archive contains no `unreal/` path |
 | A22.5 | Update | Delta applies with 100 % hash match; a corrupted chunk rolls back to the previous version |
 | A22.6 | Linux | Linux Game target builds in `unreal-build`; 60 s server smoke passes nightly |

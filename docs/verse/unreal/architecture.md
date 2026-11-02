@@ -464,5 +464,5 @@ lands the repo changes in one PR by the integration owner.
 | RK12 | Self-hosted runner on a public repo | Untrusted code on the person's own machine | Fork PRs never reach it; dedicated user; no signing keys on the runner |
 | RK13 | Disk | 106 GB free (2026-11-02); engine, DDC, LFS, two platform builds | DDC cap, `Intermediate` pruning in `build.py`, alert below 40 GB free |
 | RK14 | Binary asset merges | `.uasset` cannot merge across parallel agents | One File Per Actor, zone ownership in `work-packages.md`, C++ and DataAssets as text-like surfaces, LFS locking for shared maps |
-| RK15 | Install size vs updater | 1.5 GB cap today (`installer_update.py:106`) | IoStore chunk per deck, delta packages, raise the cap (README) |
+| RK15 | Install size vs updater | 1.5 GB cap today (`installer_update.py:106`) | The Verse is never part of the installer or app update; it is an optional on-demand package (README Delivery), so the cap stays. IoStore chunk per deck, delta packages for installed Verses |
 | RK16 | Gore and paired finisher animation | No rig with weapon/IK bones today, no clips with root motion | New rig early in the art track; finisher gated on motion warping working over the network |
