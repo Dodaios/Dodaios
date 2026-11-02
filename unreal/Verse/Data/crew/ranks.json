@@ -1,0 +1,28 @@
+{
+  "schema": "verse.crew.ranks/1",
+  "owner": "WP15",
+  "note": "Rank ladder of dodaios/progression/rules.py RANKS with the plate patterns of ranks/ranks.ts; tier uniforms and tile colours in the Verse style.",
+  "ranks": [
+    { "id": "recruit", "level": 1, "tier": "deck", "plate": "000|010" },
+    { "id": "deckhand", "level": 3, "tier": "deck", "plate": "000|101" },
+    { "id": "technician", "level": 5, "tier": "deck", "plate": "000|111" },
+    { "id": "senior_technician", "level": 8, "tier": "deck", "plate": "010|111" },
+    { "id": "ensign", "level": 11, "tier": "line", "plate": "010|000" },
+    { "id": "lieutenant", "level": 14, "tier": "line", "plate": "101|000" },
+    { "id": "senior_lieutenant", "level": 17, "tier": "line", "plate": "111|000" },
+    { "id": "commander", "level": 21, "tier": "line", "plate": "111|010" },
+    { "id": "captain", "level": 25, "tier": "line", "plate": "111|101" },
+    { "id": "line_captain", "level": 29, "tier": "command", "plate": "010|010" },
+    { "id": "commodore", "level": 33, "tier": "command", "plate": "101|010" },
+    { "id": "rear_admiral", "level": 37, "tier": "flag", "plate": "010|101" },
+    { "id": "vice_admiral", "level": 41, "tier": "flag", "plate": "101|101" },
+    { "id": "admiral", "level": 45, "tier": "flag", "plate": "101|111" },
+    { "id": "fleet_admiral", "level": 50, "tier": "flag", "plate": "111|111" }
+  ],
+  "tiers": {
+    "deck": { "uniform": "deck", "tile": "#a9adb2" },
+    "line": { "uniform": "line", "tile": "#d08a2e" },
+    "command": { "uniform": "command", "tile": "#b8432f" },
+    "flag": { "uniform": "flag", "tile": "#c8a24a" }
+  }
+}
