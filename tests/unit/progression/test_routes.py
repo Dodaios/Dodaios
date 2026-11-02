@@ -39,7 +39,8 @@ def test_the_first_read_carries_the_whole_rulebook(client: TestClient):
     assert body["decks"] == list(VERSE_DECKS)
     uniform = next(r for r in body["rewards"] if r["reward_id"] == "uniform_line")
     assert uniform == {
-        "reward_id": "uniform_line", "slot": "uniform",
+        "reward_id": "uniform_line",
+        "slot": "uniform",
         "levels": {"person": 11, "agent": None, "pet": None},
     }
     assert body["looks"] and all(look["agent"] == 1 for look in body["looks"])

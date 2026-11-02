@@ -231,11 +231,11 @@ class ProgressionService:
             await self._announce(award)
         if fresh:
             await self._announce_duel(result)
-        totals = await asyncio.to_thread(self.duels.totals)
+        totals = await asyncio.to_thread(self.duels.bridge_totals)
+        # Exactly the reply result of bridge-protocol 10 (golden schema ``result.duel.result``).
         return {
             "recorded": True,
-            "duplicate": not fresh,
-            "awards": awards,
+            "awards": [{"xp_source": a["xp_source"], "xp": a["xp"]} for a in awards],
             "duel_stats": totals,
         }
 
@@ -301,6 +301,11 @@ class ProgressionService:
         """Duel totals for ``GET /api/progression`` and the bridge snapshot."""
         self._ledger_first()
         return self.duels.totals()
+
+    def bridge_duel_stats(self) -> dict[str, Any]:
+        """Duel totals in the strict ``duel_stats`` shape of ``progression.snapshot``."""
+        self._ledger_first()
+        return self.duels.bridge_totals()
 
     def recent_duels(self, limit: int = 20) -> list[dict[str, Any]]:
         self._ledger_first()

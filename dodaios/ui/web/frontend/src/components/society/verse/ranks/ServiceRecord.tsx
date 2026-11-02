@@ -176,7 +176,7 @@ export interface DuelRecord {
 }
 
 const DUEL_OUTCOMES = ["won", "lost", "unfinished"] as const;
-const DUEL_TIERS = ["normal", "hard", "elite", "adaptive", "person"] as const;
+const DUEL_TIERS = ["normal", "hard", "elite", "adaptive", "player"] as const;
 /** How many of the latest sets the record lists. */
 export const DUEL_SETS_SHOWN = 5;
 

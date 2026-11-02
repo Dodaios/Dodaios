@@ -105,7 +105,5 @@ def test_every_id_has_words_in_every_language():
 
 
 def test_every_agent_look_is_a_real_accessory():
-    catalog = json.loads(
-        (_SOCIETY / "companion/accessories.json").read_text(encoding="utf-8")
-    )
+    catalog = json.loads((_SOCIETY / "companion/accessories.json").read_text(encoding="utf-8"))
     assert set(LOOK_UNLOCKS) == {item["id"] for item in catalog["items"]}

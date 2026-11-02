@@ -42,6 +42,8 @@ _MAX_COUNT = 1_000_000
 _MAX_MATCH_TIME_S = 86_400.0
 _MAX_ID = 80
 _MAX_WEAPONS = 32
+#: Tier keys the bridge's ``duel_stats.by_tier`` may carry.
+BRIDGE_TIERS: tuple[str, ...] = ("normal", "hard", "elite", "adaptive")
 
 _STAT_FIELDS: tuple[str, ...] = (
     "kills",
@@ -571,6 +573,34 @@ class DuelStatsStore:
             for row in weapons
         }
         return result
+
+    def bridge_totals(self) -> dict[str, Any]:
+        """The totals as ``verse.bridge/1`` carries them (``duel_stats`` in the golden schema).
+
+        The bridge shape is strict: the core counts, and per bot tier only
+        wins and losses; sets against a player or an unknown tier stay out of
+        ``by_tier`` but count in the totals.
+        """
+        full = self.totals()
+        keys = (
+            "matches",
+            "wins",
+            "losses",
+            "unfinished",
+            "kills",
+            "deaths",
+            "headshots",
+            "finishers",
+            "best_streak",
+        )
+        return {
+            **{key: full[key] for key in keys},
+            "by_tier": {
+                tier: {"wins": row["wins"], "losses": row["losses"]}
+                for tier, row in full["by_tier"].items()
+                if tier in BRIDGE_TIERS
+            },
+        }
 
     def recent(self, *, limit: int = 20) -> list[dict[str, Any]]:
         """The newest results first, each with its awards and weapon lines."""

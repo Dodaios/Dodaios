@@ -19,8 +19,7 @@ from dodaios.progression.duel_stats import DuelResultError
 from dodaios.progression.service import ProgressionService
 
 _GOLDEN = (
-    Path(__file__).resolve().parents[2]
-    / "unit/verse_host/fixtures/bridge/messages/duel.result.json"
+    Path(__file__).resolve().parents[1] / "verse_host/fixtures/bridge/replies/duel.result.json"
 )
 
 
@@ -115,9 +114,9 @@ async def test_a_hundred_sends_of_one_match_store_one_row_and_pay_once(setup):
     assert service.duels.count() == 1
     assert _ledger(service) == [("duel_won", 60)]
     assert len(seen) == 1
-    assert first["duplicate"] is False and first["awards"][0]["xp"] == 60
+    assert first["awards"] == [{"xp_source": "duel_won", "xp": 60}]
     for reply in replies:
-        assert reply["recorded"] is True and reply["duplicate"] is True
+        assert reply["recorded"] is True
         assert reply["awards"] == first["awards"]
         assert reply["duel_stats"]["matches"] == 1
 
@@ -158,7 +157,7 @@ async def test_a_row_whose_awards_a_crash_cut_off_is_paid_on_the_next_send(setup
 async def test_a_won_set_pays_the_tier_multiplier(setup, tier, adaptive, xp):
     service, _, _, _ = setup
     reply = await service.record_duel(duel(opponent={"tier": tier, "adaptive": adaptive}))
-    assert reply["awards"] == [{"xp_source": "duel_won", "xp": xp, "seq": 1}]
+    assert reply["awards"] == [{"xp_source": "duel_won", "xp": xp}]
 
 
 async def test_a_lost_set_pays_duel_lost_and_finishers_pay_in_a_paying_set(setup):
@@ -242,7 +241,7 @@ async def test_more_than_one_kill_per_two_seconds_is_clamped_and_logged(setup, c
         for r in caplog.records
     )
     # Weapon kills never exceed the set's kills.
-    assert stats["by_weapon"]["graveline"]["kills"] <= 50
+    assert service.duel_stats()["by_weapon"]["graveline"]["kills"] <= 50
 
 
 async def test_a_plausible_set_is_not_clamped(setup, caplog):
@@ -305,6 +304,38 @@ async def test_without_the_event_type_the_result_still_records(setup, monkeypatc
     monkeypatch.delattr(events, "VerseDuelRecorded", raising=False)
     reply = await service.record_duel(duel("m_noevent"))
     assert reply["recorded"] is True
+
+
+_SCHEMA = (
+    Path(__file__).resolve().parents[3]
+    / "unreal/Verse/Tests/Data/bridge/verse.bridge.1.schema.json"
+)
+
+
+@pytest.mark.skipif(not _SCHEMA.exists(), reason="G0.11 bridge schema not on this branch")
+async def test_every_reply_and_the_snapshot_stats_match_the_bridge_schema(setup):
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads(_SCHEMA.read_text(encoding="utf-8"))
+
+    def check(def_name: str, value: Any) -> None:
+        jsonschema.validate(value, {**schema, "$ref": f"#/$defs/{def_name}"})
+
+    service, _, _, _ = setup
+    payloads = [
+        duel("a"),
+        duel("b", outcome="lost", stats={"finishers": 2}),
+        duel("c", outcome="unfinished", opponent={"tier": "elite", "adaptive": True}),
+        duel("d", opponent={"kind": "player", "tier": None}),
+        duel("a"),
+    ]
+    for payload in payloads:
+        if payload["opponent"].get("tier") is None:
+            payload["opponent"].pop("tier")
+        else:
+            check("data.duel.result", payload)
+        check("result.duel.result", await service.record_duel(payload))
+    check("duel_stats", service.bridge_duel_stats())
+    assert set(service.bridge_duel_stats()["by_tier"]) == {"hard", "adaptive"}
 
 
 @pytest.mark.skipif(not _GOLDEN.exists(), reason="G0.11 golden fixtures not on this branch")

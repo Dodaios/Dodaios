@@ -157,7 +157,7 @@ def test_a_non_finite_number_is_refused():
 def test_the_rulebook_pays_per_the_contract():
     assert DUEL_TIER_MULTIPLIERS == {"normal": 1.0, "hard": 1.5, "elite": 2.0, "adaptive": 1.5}
     assert duel_tier_key("bot", "elite", True) == "adaptive"
-    assert duel_tier_key("person", "", False) == "person"
+    assert duel_tier_key("player", "", False) == "player"
     pay = dict(
         duel_awards(
             mode="deathmatch_1v1", outcome="won", match_time_s=60.0, tier_key="hard", finishers=2

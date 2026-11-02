@@ -215,7 +215,10 @@ DUEL_TIER_MULTIPLIERS: Final[dict[str, float]] = {
 
 
 def duel_tier_key(opponent_kind: str, tier: str, adaptive: bool) -> str:
-    """The key a set is filed and paid under: ``adaptive``, a bot tier or the opponent kind."""
+    """The key a set is filed and paid under: ``adaptive``, a bot tier, or ``player``.
+
+    ``opponent.kind`` is ``bot`` or ``player`` (another person, later).
+    """
     if opponent_kind == "bot":
         if adaptive:
             return "adaptive"
