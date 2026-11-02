@@ -239,7 +239,10 @@ def test_file_timeout_scales_with_history_but_is_bounded():
     )
 
 
-def test_runner_reports_failures_and_passes(tmp_path):
+def test_runner_reports_failures_and_passes(tmp_path, monkeypatch):
+    # Sibling test processes may touch the shared checkout meanwhile; the
+    # checkout guard has its own tests (test_checkout_guard.py).
+    monkeypatch.setattr(run_tests_parallel, "checkout_changes", lambda before, outputs: [])
     repo = run_tests_parallel.REPO_ROOT
     rel = Path(f"tests/unit/ci/_runner_probe_{tmp_path.name}")
     probe = repo / rel
@@ -356,6 +359,7 @@ def test_a_slow_file_enters_the_duration_history_and_the_run_stays_green(
     )
     # One file per batch, as a file with a long history runs.
     monkeypatch.setattr(run_tests_parallel, "BATCH_MAX_FILES", 1)
+    monkeypatch.setattr(run_tests_parallel, "checkout_changes", lambda before, outputs: [])
     try:
         for name in (slow, quick):
             (repo / name).write_text("def test_ok():\n    assert True\n")
