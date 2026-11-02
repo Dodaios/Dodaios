@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -271,6 +272,72 @@ def pane_done_gate(workspace_id: str = Query(..., min_length=1)) -> dict:
         if not pane.computer_id
     ]
     return {"panes": done_gate_status.board(records)}
+
+
+#: The one entry a thread's answers are keyed by, in place of a pane's name.
+THREAD_KEY = "thread"
+
+
+def _thread_folder_and_agent(request: Request, session_id: str) -> tuple[Any, str, str] | None:
+    """An IDE thread's session, its folder and its CLI agent; None when it has no local folder."""
+    from dodaios.agent_chat.catalog import provider_row
+    from dodaios.ui.web.agent_chat_routes import _service
+
+    session = _service(request).store.get_session(session_id)
+    if session is None or session.surface != "agent":
+        raise HTTPException(status_code=404, detail="Thread not found.")
+    folder = allowed_thread_folder(session.cwd) if session.cwd else None
+    if folder is None:
+        return None
+    row = provider_row(session.provider)
+    return session, str(folder), row.agent if row is not None else ""
+
+
+@router.get("/thread-status", summary="GitHub branch, pull request and CI status of a thread")
+def thread_github_status(
+    request: Request,
+    session_id: str = Query(..., min_length=1),
+    wait: float = Query(
+        0, ge=0, le=5, description="Seconds to wait for a read already running to finish"
+    ),
+    instant: bool = Query(
+        False, description="Answer from the last read at once; the caller asks again"
+    ),
+) -> dict:
+    """What ``/session-status`` says about a pane, for an IDE thread.
+
+    The thread's coding CLI session names the branches it worked on, the same
+    way a pane's does; the answer has one entry, under ``thread``.
+    """
+    if not instant:
+        wait = _LEGACY_WAIT_S
+    found = _thread_folder_and_agent(request, session_id)
+    if found is None:
+        return {"panes": {THREAD_KEY: None}}
+    session, folder, agent = found
+    record = PaneBranchRecord(
+        pane=THREAD_KEY,
+        history_id=session.session_id,
+        folder=folder,
+        agent=agent,
+        session_id=session.vendor_session or "",
+        home=account_home(agent, session.account_id),
+        started_at=(session.created_ms or 0) / 1000,
+    )
+    return github_status.board(f"thread:{session.session_id}", [record], wait=wait)
+
+
+@router.get("/thread-done-gate", summary="The agent done gate's last verdict for a thread")
+def thread_done_gate(request: Request, session_id: str = Query(..., min_length=1)) -> dict:
+    """What ``/done-gate`` says about a pane, for an IDE thread, under ``thread``."""
+    found = _thread_folder_and_agent(request, session_id)
+    if found is None:
+        return {"panes": {THREAD_KEY: None}}
+    session, folder, _agent = found
+    record = done_gate_status.PaneGateRecord(
+        pane=THREAD_KEY, folder=folder, session_id=session.vendor_session or ""
+    )
+    return {"panes": done_gate_status.board([record])}
 
 
 # The editors a branch's checkout is offered in, when installed.

@@ -70,8 +70,11 @@ function start(workspaceId: string): Entry {
     controller = new AbortController();
     const timeout = setTimeout(() => controller?.abort(), 15_000);
     try {
-      const query = new URLSearchParams({ workspace_id: workspaceId });
-      const response = await fetch(`/api/agentic-ide/git/done-gate?${query}`, { signal: controller.signal });
+      // A thread's verdict is kept under `thread:<session id>`.
+      const thread = workspaceId.startsWith("thread:") ? workspaceId.slice("thread:".length) : "";
+      const query = new URLSearchParams(thread ? { session_id: thread } : { workspace_id: workspaceId });
+      const route = thread ? "thread-done-gate" : "done-gate";
+      const response = await fetch(`/api/agentic-ide/git/${route}?${query}`, { signal: controller.signal });
       if (response.ok) {
         const data = await response.json() as { panes?: unknown };
         const panes = clean(data.panes);
