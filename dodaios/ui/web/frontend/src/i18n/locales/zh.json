@@ -7595,6 +7595,36 @@
     "request_busy": "正在检查此令牌。请稍等后重试。",
     "failed": "无法保存凭据。"
   },
+  "login_card": {
+    "title": "登录 {site}",
+    "subtitle": "打开安全表单",
+    "open": "打开",
+    "username": "用户名或邮箱",
+    "password": "密码",
+    "footer": "已安全保存。{agent} 永远看不到它；浏览器只会在 {host} 上输入。",
+    "save": "保存",
+    "decline": "暂不",
+    "close": "关闭",
+    "saved": "{site} 登录信息已保存",
+    "declined": "未提供 {site} 登录信息",
+    "invalid": "请输入用户名或邮箱以及密码。",
+    "storage_failed": "无法安全保存登录信息，请重试。",
+    "failed": "无法保存登录信息。"
+  },
+  "connect_card": {
+    "title": "连接 {label}",
+    "subtitle": "{agent} 需要它才能继续",
+    "connect": "连接",
+    "connecting": "正在连接…",
+    "not_now": "暂不",
+    "waiting": "完成登录后，卡片会自动更新",
+    "code": "在登录页面输入代码 {code}",
+    "open_again": "再次打开登录页面",
+    "timeout": "尚未连接。点击连接重试。",
+    "failed": "无法连接 {label}，请重试。",
+    "connected": "{label} 已连接",
+    "declined": "{label} 未连接"
+  },
   "question_card": {
     "aria": "智能体的提问",
     "title_one": "{agent} 有一个问题",

@@ -4,6 +4,8 @@ import { fill, useT } from "@/i18n";
 import { AgentChatApiError, declineAgentChatCredential, submitAgentChatCredential, type CredentialResult } from "@/lib/agentChatApi";
 import { useAgentChat } from "./AgentChatStoreContext";
 import { ActionCard } from "./actionCard/ActionCard";
+import { ConnectCard } from "./ConnectCard";
+import { LoginCard } from "./LoginCard";
 import type { CredentialState } from "./reduce";
 
 /**
@@ -16,6 +18,12 @@ import type { CredentialState } from "./reduce";
  */
 
 export const CredentialCard = memo(function CredentialCard({ credential }: { credential: CredentialState }) {
+  if (credential.kind === "login") return <LoginCard credential={credential} />;
+  if (credential.kind === "plugin" || credential.kind === "cli") return <ConnectCard credential={credential} />;
+  return <TokenCard credential={credential} />;
+});
+
+function TokenCard({ credential }: { credential: CredentialState }) {
   const t = useT();
   const descriptionId = useId();
   const agent = credential.asker || t("credential_card.fallback_agent");
@@ -29,7 +37,7 @@ export const CredentialCard = memo(function CredentialCard({ credential }: { cre
       )}
     </div>
   );
-});
+}
 
 function OpenCard({ credential, descriptionId }: { credential: CredentialState; descriptionId: string }) {
   const t = useT();

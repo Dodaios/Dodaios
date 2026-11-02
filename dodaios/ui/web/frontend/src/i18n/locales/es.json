@@ -7595,6 +7595,36 @@
     "request_busy": "Este token ya se está comprobando. Espera un momento e inténtalo de nuevo.",
     "failed": "No se pudo guardar la credencial."
   },
+  "login_card": {
+    "title": "Iniciar sesión en {site}",
+    "subtitle": "Abre un formulario seguro",
+    "open": "Abrir",
+    "username": "Usuario o correo",
+    "password": "Contraseña",
+    "footer": "Se guarda de forma segura. {agent} nunca lo ve; el navegador solo lo escribe en {host}.",
+    "save": "Guardar",
+    "decline": "Ahora no",
+    "close": "Cerrar",
+    "saved": "Inicio de sesión de {site} guardado",
+    "declined": "Inicio de sesión de {site} no proporcionado",
+    "invalid": "Introduce el usuario o correo y la contraseña.",
+    "storage_failed": "No se pudo guardar el inicio de sesión de forma segura. Inténtalo de nuevo.",
+    "failed": "No se pudo guardar el inicio de sesión."
+  },
+  "connect_card": {
+    "title": "Conectar {label}",
+    "subtitle": "{agent} lo necesita para continuar",
+    "connect": "Conectar",
+    "connecting": "Conectando…",
+    "not_now": "Ahora no",
+    "waiting": "Termina de iniciar sesión; la tarjeta se actualiza sola",
+    "code": "Introduce el código {code} en la página de inicio de sesión",
+    "open_again": "Abrir de nuevo la página de inicio de sesión",
+    "timeout": "Aún no hay conexión. Pulsa Conectar para intentarlo de nuevo.",
+    "failed": "No se pudo conectar {label}. Inténtalo de nuevo.",
+    "connected": "{label} conectado",
+    "declined": "{label} no conectado"
+  },
   "question_card": {
     "aria": "Pregunta del agente",
     "title_one": "{agent} tiene una pregunta",
