@@ -60,6 +60,7 @@ def _commands(monkeypatch, legacy: tuple[str, ...], *, desktop: bool) -> list[li
 
     monkeypatch.setattr(installer, "installed_legacy_distributions", lambda: legacy)
     monkeypatch.setattr(installer, "run_quiet", capture)
+    monkeypatch.setattr(installer, "dependency_check_passes", lambda *_a, **_k: True)
     monkeypatch.setattr(installer, "repair_distribution_metadata", lambda **_kwargs: True)
     installer.step_pip_install(with_desktop=desktop, with_voice_local=False, dry_run=False)
     return commands

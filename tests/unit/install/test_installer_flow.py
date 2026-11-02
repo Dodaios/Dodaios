@@ -154,8 +154,7 @@ def test_headless_pip_plan_stays_base_floor(capsys) -> None:
     assert ".[desktop]" not in out
 
 
-@pytest.mark.parametrize("desktop", [True, False])
-def test_native_crypto_index_reaches_the_installer_profile(monkeypatch, desktop) -> None:
+def test_native_crypto_index_reaches_the_installer_profile(monkeypatch) -> None:
     from scripts import native_crypto_index
 
     options = native_crypto_index.pip_options("darwin", "x86_64")
@@ -167,13 +166,42 @@ def test_native_crypto_index_reaches_the_installer_profile(monkeypatch, desktop)
         return 0
 
     monkeypatch.setattr(installer, "run_quiet", capture)
+    monkeypatch.setattr(installer, "dependency_check_passes", lambda *_a, **_k: True)
     monkeypatch.setattr(installer, "repair_distribution_metadata", lambda **_kwargs: True)
-    installer.step_pip_install(with_desktop=desktop, with_voice_local=False, dry_run=False)
-    profile = ".[full]" if desktop else "."
+    installer.step_pip_install(with_desktop=True, with_voice_local=False, dry_run=False)
     command = next(
-        command for command in commands if profile in command and "--no-deps" not in command
+        command for command in commands if ".[full]" in command and "--no-deps" not in command
     )
     assert command[command.index("--find-links") + 1] == native_crypto_index.wheel_links_url()
+
+
+def test_lockfile_carries_the_native_crypto_source() -> None:
+    """Both profiles install requirements.txt, which names the scoped source itself."""
+    from scripts import native_crypto_index
+
+    lockfile = (REPO / "requirements.txt").read_text(encoding="utf-8")
+    assert f"--find-links {native_crypto_index.wheel_links_url()}" in lockfile
+
+
+@pytest.mark.parametrize("desktop", [True, False])
+def test_runtime_dependencies_come_from_the_hashed_lockfile(monkeypatch, desktop) -> None:
+    """#456: headless no longer resolves open ranges against host packages."""
+    commands = []
+
+    def capture(command, **_kwargs):
+        commands.append(command)
+        return 0
+
+    monkeypatch.setattr(installer, "run_quiet", capture)
+    monkeypatch.setattr(installer, "dependency_check_passes", lambda *_a, **_k: True)
+    monkeypatch.setattr(installer, "installed_legacy_distributions", lambda: ())
+    monkeypatch.setattr(installer, "repair_distribution_metadata", lambda **_kwargs: True)
+    installer.step_pip_install(with_desktop=desktop, with_voice_local=False, dry_run=False)
+    pip = [str(installer.venv_python()), "-m", "pip"]
+    tails = [command[len(pip):] for command in commands]
+    assert ["install", "--require-hashes", "-r", "requirements.txt"] in tails
+    # The only unpinned install of the checkout itself is the entry-point one.
+    assert [tail for tail in tails if "." in tail] == [["install", "-e", ".", "--no-deps"]]
 
 
 @pytest.mark.parametrize("update", [False, True])

@@ -999,9 +999,10 @@ over a failure.
   containerization.
 - **`pyproject.toml` runtime deps are not themselves hash-pinned.**
   The pinning lives in `requirements.txt`; `pyproject.toml` carries
-  version ranges (e.g. `pydantic>=2.9,<3.0`). A user who installs via
-  `pip install -e .` (headless branch) gets the latest matching
-  versions from PyPI without hash checks. Hardening this requires
+  version ranges (e.g. `pydantic>=2.9,<3.0`). The installer installs
+  both profiles from the hashed lockfile (the headless branch moved to
+  it in #456), but a user who runs `pip install -e .` by hand gets the
+  latest matching versions from PyPI without hash checks. Hardening this requires
   embedding hashes into PEP 631 dependency declarations, which is
   not standardised. Wave 6.2 will look at the `[tool.uv.sources]`
   hash-pinning extension if uv stabilises that surface.
