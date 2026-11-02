@@ -59,6 +59,8 @@ def locked_os_keyring(monkeypatch, tmp_path):
     """Install a locked (non-fail) OS keyring; file store writes under tmp."""
     original = keyring.get_keyring()
     keyring.set_keyring(_LockedKeyring())
+    # The suite-wide JARVIS_DATA_DIR would win over DATA_DIR for the file store.
+    monkeypatch.delenv("JARVIS_DATA_DIR", raising=False)
     monkeypatch.setattr(c, "DATA_DIR", tmp_path)
     monkeypatch.setattr(c, "_KEYRING_BACKEND_READY", False)
     if hasattr(c, "_FILE_BACKEND_ACTIVE"):
