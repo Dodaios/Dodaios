@@ -176,7 +176,12 @@ def run_quiet(cmd: list[str], *, label: str, cwd: Path | None = None) -> int:
 
 
 def run_captured(
-    cmd: list[str], *, label: str, cwd: Path | None = None, timeout: float | None = None
+    cmd: list[str],
+    *,
+    label: str,
+    cwd: Path | None = None,
+    timeout: float | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a captured command behind the standard gold spinner.
 
@@ -191,7 +196,7 @@ def run_captured(
     def _run() -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             cmd, cwd=cwd, capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=timeout,
+            encoding="utf-8", errors="replace", timeout=timeout, env=env,
         )
 
     if console.is_terminal:
@@ -887,6 +892,36 @@ def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
     return False
 
 
+# The UI build (tsc + vite) outgrows V8's default heap on a small machine: the
+# macOS installer smoke runner (7 GB) aborted in vite with "Abort trap: 6"
+# (#1033). A user's own NODE_OPTIONS always wins.
+UI_BUILD_NODE_OPTIONS = "--max-old-space-size=4096"
+# Lines worth keeping from a long build log even when they are not in its tail:
+# a V8 OOM prints its "FATAL ERROR ... heap out of memory" header first and
+# then a 50-frame native stack that pushes it out of any short tail.
+_UI_BUILD_KEY_LINE = r"fatal|error|heap|out of memory|abort|killed|signal"
+
+
+def _ui_build_env() -> dict[str, str]:
+    env = dict(os.environ)
+    if not env.get("NODE_OPTIONS", "").strip():
+        env["NODE_OPTIONS"] = UI_BUILD_NODE_OPTIONS
+    return env
+
+
+def _ui_build_diagnostics(output: str, *, tail: int = 15, key_lines: int = 10) -> list[str]:
+    """The tail of a failed build's output, preceded by its key lines from before it."""
+    import re
+
+    lines = [line for line in output.splitlines() if line.strip()]
+    head, last = lines[:-tail], lines[-tail:]
+    pattern = re.compile(_UI_BUILD_KEY_LINE, re.IGNORECASE)
+    keys = [line for line in head if pattern.search(line)][:key_lines]
+    if keys:
+        return [*keys, "...", *last]
+    return last
+
+
 def _build_ui_bundle(index: Path) -> bool:
     """Build the UI for a checkout that has none (main tracks no bundle).
 
@@ -908,13 +943,16 @@ def _build_ui_bundle(index: Path) -> bool:
             "is missing"
         )
         return False
+    env = _ui_build_env()
     for args, label in (
         (["ci"], "installing the UI build tools (npm ci)"),
         (["run", "build"], "building the UI (npm run build)"),
     ):
         cmd_name = f"npm {' '.join(args)}"
         try:
-            result = run_captured([npm, *args], cwd=frontend, label=label, timeout=1800)
+            result = run_captured(
+                [npm, *args], cwd=frontend, label=label, timeout=1800, env=env
+            )
         except (OSError, subprocess.TimeoutExpired) as exc:
             note(f"UI build command '{cmd_name}' failed: {rich_escape(str(exc))}")
             return False
@@ -931,9 +969,9 @@ def _build_ui_bundle(index: Path) -> bool:
                 )
                 if part and part.strip()
             )
-            output_tail = combined.splitlines()[-15:]
+            output_tail = _ui_build_diagnostics(combined)
             if output_tail:
-                note("npm output tail:")
+                note("npm output (key lines, then the tail):")
                 for line in output_tail:
                     note(rich_escape(line))
             return False

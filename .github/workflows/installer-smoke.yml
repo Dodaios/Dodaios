@@ -172,6 +172,16 @@ jobs:
         with:
           python-version: "3.11"
 
+      # The installer builds the UI with npm when the checkout has no bundle
+      # (main tracks none). Pin the same Node as ci.yml's frontend build; the
+      # macOS image's Homebrew node@24 aborted in vite (#1033).
+      - name: Set up Node 22 (UI build)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dodaios/ui/web/frontend/package-lock.json
+
       - name: Run the real Stage-1 Bash bootstrap through the Linux desktop step
         if: matrix.os == 'ubuntu-latest'
         shell: bash
