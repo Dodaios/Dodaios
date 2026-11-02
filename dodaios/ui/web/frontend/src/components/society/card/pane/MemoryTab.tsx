@@ -122,7 +122,6 @@ export function MemoryTab({
             ))}
           </div>
         )}
-        <PaneHint>{t("society.profile_card.knowledge_hint")}</PaneHint>
       </PaneSection>
 
       <PaneSection

@@ -163,21 +163,10 @@ async def test_global_budget_vetoes(tmp_path: Path):
     await store.close()
 
 
-async def test_agent_daily_budget_vetoes(world):
+async def test_agent_daily_budget_no_longer_vetoes(world):
+    """A stored per-agent daily cap is inert: spend never stops a dispatch."""
     store, roster, _, dispatcher, _ = world
     await roster.update("scout", {"daily_budget_usd": 1.0})
-    await store.append_and_publish(
-        SocietyEnvelope(msg_type=MsgType.DIGEST, from_agent="scout", trace_id="old", cost_usd=1.5)
-    )
-    await store.append_and_publish(_assign("jarvis", "scout"))
-    assert dispatcher.calls == []
-    assert await _vetoes(store, "t1") == [str(FailureReason.BUDGET_EXHAUSTED)]
-
-
-async def test_zero_daily_budget_skips_the_gate(world):
-    """0 is the stored form of 'no cap': spend does not veto a dispatch."""
-    store, roster, _, dispatcher, _ = world
-    await roster.update("scout", {"daily_budget_usd": 0})
     await store.append_and_publish(
         SocietyEnvelope(msg_type=MsgType.DIGEST, from_agent="scout", trace_id="old", cost_usd=99.0)
     )
