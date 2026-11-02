@@ -73,13 +73,17 @@ void AVerseGoreActor::SetLook(UStaticMesh* DropletMesh, UMaterialInterface* Drop
 	MakeCosmetic(Flashes);
 }
 
-UDecalComponent* AVerseGoreActor::NewDecal(UMaterialInterface* Material, const FVector& Size)
+UDecalComponent* AVerseGoreActor::NewDecal(UMaterialInterface* Material, const FVector& Size, const FLinearColor& Color,
+	int32 SortOrder, const FTransform& Transform)
 {
 	UDecalComponent* Decal = NewObject<UDecalComponent>(this, NAME_None, RF_Transient);
 	Decal->SetupAttachment(RootComponent);
 	Decal->SetMobility(EComponentMobility::Movable);
 	Decal->SetDecalMaterial(Material);
 	Decal->DecalSize = Size;
+	Decal->DecalColor = Color;
+	Decal->SortOrder = SortOrder;
+	Decal->SetWorldTransform(Transform);
 	Decal->SetFadeScreenSize(0.002f);
 	Decal->bDestroyOwnerAfterFade = false;
 	Decal->SetIsReplicated(false);

@@ -153,7 +153,8 @@ private:
 	void SpawnFlash(const FVector& Location);
 	bool PlaceSpatterDecal(const FVector& Location, const FVector& Normal, float Size, uint32 Seed);
 	void AddWound(USkeletalMeshComponent* Mesh, FName Bone, const FVector& BoneLocal, float Damage);
-	void ApplyWounds(FWoundSet& Set);
+	/** Writes the wound slots to the body materials: only `Changed`, or all when INDEX_NONE. Slot i = ring entry i. */
+	void ApplyWounds(FWoundSet& Set, int32 Changed = INDEX_NONE);
 	void StartPool(int32 VictimId, const FVector& BodyLocation, const AActor* Ignore);
 	void UpdatePools();
 	void UpdateDroplets(float DeltaSeconds);

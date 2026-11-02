@@ -306,8 +306,11 @@ bool FVerseGoreWoundTest::RunTest(const FString&)
 		Mid->GetScalarParameterValue(VerseGoreParams::WoundCount, Count);
 		TestEqual(TEXT("material wound count"), Count, 16.f);
 		FLinearColor Newest;
-		Mid->GetVectorParameterValue(VerseGoreParams::WoundSlot(15), Newest);
-		TestTrue(TEXT("newest wound in the last slot"), FVector(Newest.R, Newest.G, Newest.B).Equals(Expected[19], 0.1));
+		Mid->GetVectorParameterValue(VerseGoreParams::WoundSlot(19 % 16), Newest);
+		TestTrue(TEXT("newest wound replaced the oldest slot"), FVector(Newest.R, Newest.G, Newest.B).Equals(Expected[19], 0.1));
+		FLinearColor Kept;
+		Mid->GetVectorParameterValue(VerseGoreParams::WoundSlot(5), Kept);
+		TestTrue(TEXT("other slots keep their wound"), FVector(Kept.R, Kept.G, Kept.B).Equals(Expected[5], 0.1));
 	}
 	else
 	{
@@ -357,7 +360,7 @@ bool FVerseGorePoolTest::RunTest(const FString&)
 
 	for (int32 Id = 10; Id < 30; ++Id)
 	{
-		W.AddBody(Id, FVector(150.0 * (Id - 10), 400.0, 0.0));
+		W.AddBody(Id, FVector(-1400.0 + 140.0 * (Id - 10), 400.0, 0.0));
 		Death.VictimId = Id;
 		W.Gore->HandleDeath(Death);
 	}
@@ -424,7 +427,14 @@ bool FVerseGoreReducedTest::RunTest(const FString&)
 	TestEqual(TEXT("a neutral flash per hit"), B.FlashesSpawned, 1000);
 
 	// Cut to black, with a local viewer.
-	APlayerController* Viewer = W.World->SpawnActor<APlayerController>();
+	FActorSpawnParameters ViewerParams;
+	ViewerParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	APlayerController* Viewer = W.World->SpawnActor<APlayerController>(APlayerController::StaticClass(), FTransform::Identity, ViewerParams);
+	TestNotNull(TEXT("viewer spawned"), Viewer);
+	if (Viewer && !Viewer->PlayerCameraManager)
+	{
+		Viewer->SpawnPlayerCameraManager();
+	}
 	TestNotNull(TEXT("viewer with a camera manager"), Viewer ? Viewer->PlayerCameraManager.Get() : nullptr);
 	FVerseFinisherEvent Finisher;
 	Finisher.AttackerId = 1;

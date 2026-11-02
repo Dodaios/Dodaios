@@ -627,10 +627,17 @@ bool UVerseGoreSubsystem::PlaceSpatterDecal(const FVector& Location, const FVect
 	UMaterialInterface* Material = bDrip && DripMaterial ? DripMaterial.Get()
 		: (SpatterMaterials.Num() > 0 ? SpatterMaterials[Rng.RangeInt(0, SpatterMaterials.Num() - 1)].Get() : nullptr);
 
+	// Size and orientation travel in one transform (decal size stays 1 on the projected axes), so a
+	// recycled decal costs one transform update; colour and sort order are set once at creation.
+	FRotator Rotation = (-Normal).Rotation();
+	Rotation.Roll = float(Rng.Range(0.0, 360.0));
+	const FTransform Transform(Rotation, Location, FVector(1.0, Extent, Extent));
 	UDecalComponent* Decal = nullptr;
 	if (SpatterRing.Num() < Tuning.MaxSpatterDecals)
 	{
-		Decal = Actor->NewDecal(Material, FVector(Tuning.DecalDepthCm, Extent, Extent));
+		// Decal colour: R = opacity, G = darkening (read by M_Gore_Decal).
+		const FLinearColor Color(float(Rng.Range(0.85, 1.0)), float(Rng.Range(0.7, 1.0)), 1.f, 1.f);
+		Decal = Actor->NewDecal(Material, FVector(Tuning.DecalDepthCm, 1.0, 1.0), Color, 1, Transform);
 		SpatterRing.Add(Decal);
 	}
 	else
@@ -643,15 +650,12 @@ bool UVerseGoreSubsystem::PlaceSpatterDecal(const FVector& Location, const FVect
 		{
 			return false;
 		}
-		Decal->SetDecalMaterial(Material);
-		Decal->DecalSize = FVector(Tuning.DecalDepthCm, Extent, Extent);
-		Decal->MarkRenderStateDirty();
+		if (Decal->GetDecalMaterial() != Material)
+		{
+			Decal->SetDecalMaterial(Material);
+		}
+		Decal->SetWorldTransform(Transform);
 	}
-	FRotator Rotation = (-Normal).Rotation();
-	Rotation.Roll = float(Rng.Range(0.0, 360.0));
-	Decal->SetWorldLocationAndRotation(Location, Rotation);
-	Decal->SetDecalColor(FLinearColor(1.f, float(Rng.Range(0.7, 1.0)), 1.f, float(Rng.Range(0.85, 1.0))));
-	Decal->SetSortOrder(1);
 	++Budget.DecalsSpawned;
 	return true;
 }
@@ -690,20 +694,22 @@ void UVerseGoreSubsystem::AddWound(USkeletalMeshComponent* Mesh, FName Bone, con
 	const float Alpha = FMath::Clamp((Damage - 10.f) / 50.f, 0.f, 1.f);
 	const FVector4f Wound(FVector3f(RefPose), FMath::Lerp(Tuning.WoundRadiusMinCm, Tuning.WoundRadiusMaxCm, Alpha));
 	const int32 Max = FMath::Min(Tuning.MaxWoundsPerCharacter, 16);
+	int32 Written = INDEX_NONE;
 	if (Set->Wounds.Num() < Max)
 	{
-		Set->Wounds.Add(Wound);
+		Written = Set->Wounds.Add(Wound);
 	}
 	else
 	{
-		Set->Wounds[Set->Next] = Wound;   // oldest first
+		Written = Set->Next;
+		Set->Wounds[Written] = Wound;   // oldest first
 		Set->Next = (Set->Next + 1) % Max;
 		++Budget.WoundsRecycled;
 	}
-	ApplyWounds(*Set);
+	ApplyWounds(*Set, Set->bMaterialsResolved ? Written : INDEX_NONE);
 }
 
-void UVerseGoreSubsystem::ApplyWounds(FWoundSet& Set)
+void UVerseGoreSubsystem::ApplyWounds(FWoundSet& Set, int32 Changed)
 {
 	USkeletalMeshComponent* Mesh = Set.Mesh.Get();
 	if (!Mesh)
@@ -723,7 +729,9 @@ void UVerseGoreSubsystem::ApplyWounds(FWoundSet& Set)
 			}
 		}
 	}
-	const TArray<FVector4f> Ordered = GetWounds(Mesh);
+	// Slot i holds ring entry i (the mask does not care about order), so a new wound writes one
+	// slot plus the count; a full rewrite only happens when the set is cleared.
+	const int32 Count = Set.Wounds.Num();
 	for (const TWeakObjectPtr<UMaterialInstanceDynamic>& Weak : Set.Materials)
 	{
 		UMaterialInstanceDynamic* Mid = Weak.Get();
@@ -731,11 +739,19 @@ void UVerseGoreSubsystem::ApplyWounds(FWoundSet& Set)
 		{
 			continue;
 		}
-		Mid->SetScalarParameterValue(VerseGoreParams::WoundCount, float(Ordered.Num()));
-		for (int32 Index = 0; Index < 16; ++Index)
+		Mid->SetScalarParameterValue(VerseGoreParams::WoundCount, float(Count));
+		if (!Set.Wounds.IsValidIndex(Changed))
 		{
-			const FVector4f W = Ordered.IsValidIndex(Index) ? Ordered[Index] : FVector4f(0.f, 0.f, 0.f, 0.f);
-			Mid->SetVectorParameterValue(VerseGoreParams::WoundSlot(Index), FLinearColor(W.X, W.Y, W.Z, W.W));
+			for (int32 Index = 0; Index < 16; ++Index)
+			{
+				const FVector4f W = Set.Wounds.IsValidIndex(Index) ? Set.Wounds[Index] : FVector4f(0.f, 0.f, 0.f, 0.f);
+				Mid->SetVectorParameterValue(VerseGoreParams::WoundSlot(Index), FLinearColor(W.X, W.Y, W.Z, W.W));
+			}
+		}
+		else
+		{
+			const FVector4f& W = Set.Wounds[Changed];
+			Mid->SetVectorParameterValue(VerseGoreParams::WoundSlot(Changed), FLinearColor(W.X, W.Y, W.Z, W.W));
 		}
 	}
 }
@@ -800,12 +816,11 @@ void UVerseGoreSubsystem::StartPool(int32 VictimId, const FVector& BodyLocation,
 	Pool.VictimId = VictimId;
 	Pool.StartTime = GoreTime;
 	Pool.Radius = Tuning.PoolRadiusCm;
-	UDecalComponent* Decal = Actor->NewDecal(PoolMaterial, FVector(Tuning.DecalDepthCm, Pool.Radius, Pool.Radius));
 	FRotator Rotation = (-Floor.ImpactNormal).Rotation();
 	Rotation.Roll = float(FVerseRng(uint64(VictimId), uint64(Budget.DeathsHandled), EVerseRngSalt::None).Range(0.0, 360.0));
-	Decal->SetWorldLocationAndRotation(Floor.ImpactPoint, Rotation);
-	Decal->SetWorldScale3D(FVector(1.0, Tuning.PoolStartFraction, Tuning.PoolStartFraction));
-	Decal->SetSortOrder(0);
+	const FTransform Transform(Rotation, Floor.ImpactPoint, FVector(1.0, Tuning.PoolStartFraction, Tuning.PoolStartFraction));
+	UDecalComponent* Decal = Actor->NewDecal(PoolMaterial, FVector(Tuning.DecalDepthCm, Pool.Radius, Pool.Radius),
+		FLinearColor::White, 0, Transform);
 	Pool.Decal = Decal;
 	Pools.Add(Pool);
 }
@@ -1062,10 +1077,15 @@ void UVerseGoreSubsystem::SetCameraFade(bool bBlack)
 	{
 		return;
 	}
-	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+	// Actor iteration, not the world's controller list: it also finds controllers that have not
+	// begun play yet (a viewer joining mid-finisher).
+	for (TActorIterator<APlayerController> It(World); It; ++It)
 	{
-		APlayerController* Controller = It->Get();
-		if (!Controller || !Controller->IsLocalController() || !Controller->PlayerCameraManager)
+		APlayerController* Controller = *It;
+		// Every controller of a client or standalone world is the viewer's; on a listen server
+		// the remote players' controllers are skipped.
+		if (!Controller || !Controller->PlayerCameraManager
+			|| (World->GetNetMode() == NM_ListenServer && !Controller->IsLocalController()))
 		{
 			continue;
 		}

@@ -14,6 +14,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Misc/App.h"
 #include "Misc/FileHelper.h"
+#include "ShaderCompiler.h"
 #include "Tests/Gore/VerseGoreTestWorld.h"
 #include "UnrealClient.h"
 
@@ -201,7 +202,26 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([Step]() { Step(); return true; }));
 	};
 
-	// Shaders and streaming settle first.
+	// One warm-up hit loads every gore material; shaders and streaming settle before the first shot.
+	Do([S]()
+	{
+		S->Gore->HandleHit(HitOn(*S, EVerseHitZone::UpperTorso, 45.f));
+		FVerseDeathEvent Death;
+		Death.VictimId = 2;
+		S->Hub->OnDeath.Broadcast(Death);
+		S->Gore->SetGoreLevel(EVerseGoreLevel::Reduced);
+		S->Gore->HandleHit(HitOn(*S, EVerseHitZone::UpperTorso, 45.f));
+		S->Gore->SetGoreLevel(EVerseGoreLevel::Full);
+		Look(*S, FVector(-260.0, -170.0, 150.0), FVector(0.0, 0.0, 120.0));
+	});
+	Wait(30);
+	Do([]()
+	{
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+	});
 	Wait(90);
 	for (const EVerseGoreLevel Level : {EVerseGoreLevel::Full, EVerseGoreLevel::Reduced})
 	{
@@ -297,6 +317,8 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 		return true;
 	}));
 	Wait(30);
+	// Steady storm from here: decals and pools exist, so the per-hit cost is the recycling path.
+	Do([S]() { S->Gore->ResetBudget(); });
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S]()
 	{
 		// Storm continues at 30 hits/s (one hit per frame at the 30 fps benchmark step).
@@ -326,6 +348,7 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 		AddInfo(FString::Printf(TEXT("gore_storm GPU %.3f ms (baseline %.3f, storm %.3f) at %dx%d"), Delta, S->BaselineMs, S->LoadedMs, Size.X, Size.Y));
 		TestTrue(FString::Printf(TEXT("gore_storm GPU cost %.3f ms <= 0.3 ms at 1440p"), Delta), Delta <= 0.3);
 		TestTrue(TEXT("measured at 1440p"), Size.Y >= 1440);
+		TestTrue(FString::Printf(TEXT("rendered storm game thread per hit %.4f ms <= 0.05 ms"), B.HitMeanMs), B.HitMeanMs <= 0.05);
 		TestTrue(TEXT("GPU frame timing available"), S->BaselineMs > 0.0);
 		S->Gore->Purge();
 		S->Gore->SetVictimResolver(nullptr);
@@ -337,6 +360,58 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 			}
 		}
 	});
+	return true;
+}
+
+#endif // WITH_DEV_AUTOMATION_TESTS
+
+#if WITH_DEV_AUTOMATION_TESTS
+
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "SceneInterface.h"
+
+// Verse.Visual.Gore.Materials: every gore material compiles for the running shader platform
+// (needs an RHI, so it runs with the visual suite).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseGoreVisualMaterials, "Verse.Visual.Gore.Materials",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+bool FVerseGoreVisualMaterials::RunTest(const FString&)
+{
+	if (!FApp::CanEverRender())
+	{
+		AddInfo(TEXT("no RHI: gore material compilation needs a rendered run (screenshot.py)"));
+		return true;
+	}
+	UWorld* World = VerseGoreVisual::GameWorld();
+	if (!TestTrue(TEXT("game world with a scene"), World && World->Scene))
+	{
+		return false;
+	}
+	const EShaderPlatform Platform = World->Scene->GetShaderPlatform();
+	const TCHAR* Paths[] = {
+		TEXT("/Game/Verse/Gore/M_Gore_Decal.M_Gore_Decal"),
+		TEXT("/Game/Verse/Gore/M_Gore_Droplet.M_Gore_Droplet"),
+		TEXT("/Game/Verse/Gore/M_Gore_Flash.M_Gore_Flash"),
+		TEXT("/Game/Verse/Test/WP05/M_Gore_TestBody.M_Gore_TestBody"),
+	};
+	for (const TCHAR* Path : Paths)
+	{
+		UMaterial* Material = LoadObject<UMaterial>(nullptr, Path);
+		if (!TestNotNull(FString::Printf(TEXT("%s loads"), Path), Material))
+		{
+			continue;
+		}
+		FMaterialResource* Resource = Material->GetMaterialResource(Platform);
+		if (!TestNotNull(FString::Printf(TEXT("%s has a resource"), Path), Resource))
+		{
+			continue;
+		}
+		Resource->FinishCompilation();
+		for (const FString& Error : Resource->GetCompileErrors())
+		{
+			AddError(FString::Printf(TEXT("%s: %s"), Path, *Error));
+		}
+	}
 	return true;
 }
 

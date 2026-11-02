@@ -1,11 +1,12 @@
 """Editor step of the gore asset build (WP05): textures, materials, instances.
 
-Runs inside the Unreal editor (``UnrealEditor-Cmd -run=pythonscript``), started
+Runs inside the headless Unreal editor (``-ExecutePythonScript``), started
 by ``art/verse/gore/build.py`` under the machine lock. Inputs come from the
 environment:
 
     VERSE_GORE_TEXTURES   folder with the baked ``T_Gore_*_M.png`` masks
     VERSE_GORE_RESULT     JSON report path
+    VERSE_GORE_QUIT       "1": quit the editor when done
 
 Creates or replaces, under ``/Game/Verse/Gore`` (owned by WP05):
 
@@ -95,6 +96,8 @@ def import_textures(folder: str) -> dict:
         set_prop(texture, "srgb", False)
         set_prop(texture, "compression_settings", unreal.TextureCompressionSettings.TC_MASKS)
         set_prop(texture, "lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+        # Gore appears the frame it is hit; a streaming mip would show a flat square first.
+        set_prop(texture, "never_stream", True)
         textures[name] = texture
         REPORT["assets"].append(f"{GORE}/{name}")
     return textures
@@ -134,7 +137,8 @@ def build_decal_master(textures: dict):
                   parameter_name="Mask", texture=textures["T_Gore_Spatter_0_M"],
                   sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
     decal = node(material, unreal.MaterialExpressionDecalColor, -900, 300)
-    decal_a = mask(material, node, decal, "a", -700, 300)
+    # Decal colour (float3): R = opacity, G = darkening (VerseGore sets it per decal).
+    decal_a = mask(material, node, decal, "r", -700, 300)
     decal_g = mask(material, node, decal, "g", -700, 400)
     opacity_scale = node(material, unreal.MaterialExpressionScalarParameter, -700, 200,
                          parameter_name="Opacity", default_value=1.0)
@@ -240,15 +244,15 @@ def build_wound_mask(owner, make, x0: int, y0: int):
                     parameter_name=f"Verse_Wound_{index:02d}",
                     default_value=unreal.LinearColor(0.0, 0.0, 0.0, 0.0))
         centre = mask(owner, make, slot, "rgb", x0 + 200, y)
-        radius = mask(owner, make, slot, "a", x0 + 200, y + 60)
         distance = make(owner, unreal.MaterialExpressionDistance, x0 + 400, y)
         link(interp, "", distance, "A")
         link(centre, "", distance, "B")
+        # A vector parameter's default output is RGB; the radius is its "A" output.
         inside = make(owner, unreal.MaterialExpressionSubtract, x0 + 600, y)
-        link(radius, "", inside, "A")
+        link(slot, "A", inside, "A")
         link(distance, "", inside, "B")
         soft = make(owner, unreal.MaterialExpressionMultiply, x0 + 600, y + 60, const_b=0.4)
-        link(radius, "", soft, "A")
+        link(slot, "A", soft, "A")
         soft_min = make(owner, unreal.MaterialExpressionMax, x0 + 750, y + 60, const_b=0.05)
         link(soft, "", soft_min, "A")
         ratio = make(owner, unreal.MaterialExpressionDivide, x0 + 900, y)
@@ -335,3 +339,5 @@ finally:
             json.dump(REPORT, handle, indent=2, sort_keys=True)
     unreal.log(f"[verse_gore] ok={REPORT['ok']} assets={len(REPORT['assets'])} "
                f"warnings={len(REPORT['warnings'])}")
+    if os.environ.get("VERSE_GORE_QUIT") == "1":
+        unreal.SystemLibrary.quit_editor()

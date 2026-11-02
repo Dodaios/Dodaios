@@ -23,8 +23,9 @@ class VERSEGORE_API AVerseGoreActor : public AActor
 public:
 	AVerseGoreActor();
 
-	/** A new decal component (no collision, not saved), registered on this actor. */
-	UDecalComponent* NewDecal(UMaterialInterface* Material, const FVector& Size);
+	/** A new decal component (no collision, not saved), registered on this actor at `Transform`. */
+	UDecalComponent* NewDecal(UMaterialInterface* Material, const FVector& Size, const FLinearColor& Color, int32 SortOrder,
+		const FTransform& Transform);
 
 	/** Droplets of blood bursts. */
 	UPROPERTY(VisibleAnywhere, Category = "Gore")

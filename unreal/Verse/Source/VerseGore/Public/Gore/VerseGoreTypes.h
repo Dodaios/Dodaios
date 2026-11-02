@@ -63,7 +63,7 @@ struct VERSEGORE_API FVerseGoreTuning
 
 	/** Reduced: neutral impact flash life, s, and size, cm. */
 	float FlashLifeSeconds = 0.08f;
-	float FlashSizeCm = 9.f;
+	float FlashSizeCm = 14.f;
 
 	/** Finisher cut to black is ended by Recover or Aborted; this is the safety end, s. */
 	float CutToBlackTimeoutSeconds = 4.f;
