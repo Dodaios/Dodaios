@@ -1,0 +1,91 @@
+{
+  "asset_path": "/Game/Verse/Decks/Bridge/Briefing/SM_Bridge_Briefing_Ceiling.SM_Bridge_Briefing_Ceiling",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/bridge/SM_Bridge_Briefing_Ceiling.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "f73e96e0c2a4d160ada7f476c61e1383a2451fb9caf669b2f7a22b8ace8bd336"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        1470.0,
+        360.0,
+        368.0
+      ],
+      "min": [
+        -990.0,
+        -600.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
+        "slot": "M_Ceiling_Panel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_CeilingPanel.MI_Light_CeilingPanel",
+        "slot": "M_Light_CeilingPanel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
+        "slot": "M_Wall_PaintedLight"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_WallStrip.MI_Light_WallStrip",
+        "slot": "M_Light_WallStrip"
+      }
+    ],
+    "triangles": 14926,
+    "uv_sets": 1,
+    "vertices": 8572
+  },
+  "name": "SM_Bridge_Briefing_Ceiling",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "briefing"
+    },
+    "builder": "art/verse/decks/bridge/build.py",
+    "function": "build"
+  }
+}

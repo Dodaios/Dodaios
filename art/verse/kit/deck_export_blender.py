@@ -228,7 +228,10 @@ def main(argv: list[str]) -> None:
         if zone is None:
             bpy.data.meshes.remove(mesh)
             continue
-        per_zone.setdefault(zone, []).append((original.name, mesh))
+        # Ceilings, their fixtures and ghosts are hidden from today's plate camera; in Unreal they
+        # are a separate mesh the deck camera hides in the overview (the cutaway).
+        ceiling = not original.visible_camera or bool(original.get("ceiling_ghost"))
+        per_zone.setdefault(zone, []).append((original.name, mesh, ceiling))
 
     shells = []
     options.out.mkdir(parents=True, exist_ok=True)
@@ -236,27 +239,39 @@ def main(argv: list[str]) -> None:
     for zone, meshes in sorted(per_zone.items()):
         cx, cy, cz = zones.zones[zone]["centre"]
         offset = Matrix.Translation(Vector((-cx, -cy, -cz)))
-        collection = bpy.data.collections.new(f"WP12_{zone}")
-        for source, mesh in meshes:
-            mesh.transform(offset)
-            _clean(mesh)  # after the last transform: float rounding can collapse tiny faces
-            if not mesh.polygons:
+        zone_title = "".join(p.capitalize() for p in zone.split("_"))
+        for kind in ("shell", "ceiling"):
+            want = kind == "ceiling"
+            parts = [(source, mesh) for source, mesh, ceiling in meshes if ceiling == want]
+            if kind == "ceiling" and not parts:
                 continue
-            item = bpy.data.objects.new(f"{unreal_export.strip_suffix(source)}_part", mesh)
-            collection.objects.link(item)
-        floors = zones.zones[zone].get("floors", [])[: unreal_export.MAX_PRIMITIVES]
-        for nn, box in enumerate(floors):
-            x0, y0, x1, y1, z = box
-            _floor_box(nn, (x0 - cx, y0 - cy, x1 - cx, y1 - cy, z - cz), collection)
-        name = f"SM_{title}_{''.join(p.capitalize() for p in zone.split('_'))}_Shell"
-        result = cap_fit.export(name, collection, options.out, cap=cap_fit.DEFAULT_CAP)
-        entry = result.as_dict()
-        entry["zone"] = zone
-        entry["origin_m"] = [cx, cy, cz]
-        entry["parts"] = len(meshes)
-        shells.append(entry)
-        tris = entry["triangles"]
-        print(f"[verse] {options.deck}/{zone}: shell {name}, {tris} tris, {len(meshes)} parts")
+            collection = bpy.data.collections.new(f"WP12_{zone}_{kind}")
+            linked = 0
+            for source, mesh in parts:
+                mesh.transform(offset)
+                _clean(mesh)  # after the last transform: float rounding can collapse tiny faces
+                if not mesh.polygons:
+                    continue
+                item = bpy.data.objects.new(f"{unreal_export.strip_suffix(source)}_part", mesh)
+                collection.objects.link(item)
+                linked += 1
+            if kind == "ceiling" and not linked:
+                continue
+            if kind == "shell":
+                floors = zones.zones[zone].get("floors", [])[: unreal_export.MAX_PRIMITIVES]
+                for nn, box in enumerate(floors):
+                    x0, y0, x1, y1, z = box
+                    _floor_box(nn, (x0 - cx, y0 - cy, x1 - cx, y1 - cy, z - cz), collection)
+            name = f"SM_{title}_{zone_title}_{kind.capitalize()}"
+            result = cap_fit.export(name, collection, options.out, cap=cap_fit.DEFAULT_CAP)
+            entry = result.as_dict()
+            entry["zone"] = zone
+            entry["kind"] = kind
+            entry["origin_m"] = [cx, cy, cz]
+            entry["parts"] = len(parts)
+            shells.append(entry)
+            tris = entry["triangles"]
+            print(f"[verse] {options.deck}/{zone}: {kind} {name}, {tris} tris, {len(parts)} parts")
 
     options.result.parent.mkdir(parents=True, exist_ok=True)
     options.result.write_text(

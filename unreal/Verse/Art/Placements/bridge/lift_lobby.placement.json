@@ -368,6 +368,35 @@
       "station": null
     },
     {
+      "asset": "/Game/Verse/Decks/Bridge/LiftLobby/SM_Bridge_LiftLobby_Ceiling.SM_Bridge_LiftLobby_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "lift_lobby_ceiling",
+      "location": [
+        3600.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Bridge_LiftLobby_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Bridge/LiftLobby/SM_Bridge_LiftLobby_Shell.SM_Bridge_LiftLobby_Shell",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Bridge_Base",
@@ -631,7 +660,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/bridge/zones.py",
-    "sha256": "7aa2a7f893f9593f6647465d24e2dad72e1e67efbfa9c12d7e1d7e805acd37b9"
+    "sha256": "e9a134d4aba55990ae5b4ed330a802eb1277ec1e4819dc13d7115253104df54c"
   },
   "zone": "lift_lobby"
 }

@@ -1,0 +1,99 @@
+{
+  "asset_path": "/Game/Verse/Decks/Hangar/LiftLobby/SM_Hangar_LiftLobby_Ceiling.SM_Hangar_LiftLobby_Ceiling",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/hangar/SM_Hangar_LiftLobby_Ceiling.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "c8d2510ca4a3dc5dea92e0e278b3d935030be4395dc378a0f22158b28beb06d1"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        408.0,
+        776.8,
+        440.0
+      ],
+      "min": [
+        -311.0,
+        759.4,
+        140.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_TrimRed.MI_Paint_TrimRed",
+        "slot": "M_Paint_TrimRed"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
+        "slot": "M_Hull_Pipe"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Backlit.MI_Light_Backlit",
+        "slot": "M_Light_Backlit"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      }
+    ],
+    "triangles": 808,
+    "uv_sets": 1,
+    "vertices": 488
+  },
+  "name": "SM_Hangar_LiftLobby_Ceiling",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "lift_lobby"
+    },
+    "builder": "art/verse/decks/hangar/build.py",
+    "function": "build"
+  }
+}

@@ -20,6 +20,35 @@
   "level": "/Game/Verse/Decks/Engineering/LV_Engineering",
   "placements": [
     {
+      "asset": "/Game/Verse/Decks/Engineering/Bay/SM_Engineering_Bay_Ceiling.SM_Engineering_Bay_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "bay_ceiling",
+      "location": [
+        2350.0,
+        4857.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Bay_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Engineering/Bay/SM_Engineering_Bay_Shell.SM_Engineering_Bay_Shell",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
@@ -1038,7 +1067,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/engineering/zones.py",
-    "sha256": "b22d2151dca1e9efc5171640ada7b1164a718b36d9856c2296639bb4718d3985"
+    "sha256": "d44de706b1e92743dc5f46eb6b3f6691fe675d91063568263dd7c3bc3ba415a2"
   },
   "zone": "bay"
 }

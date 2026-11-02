@@ -20,6 +20,35 @@
   "level": "/Game/Verse/Decks/Hangar/LV_Hangar",
   "placements": [
     {
+      "asset": "/Game/Verse/Decks/Hangar/LiftLobby/SM_Hangar_LiftLobby_Ceiling.SM_Hangar_LiftLobby_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Hangar_Base",
+      "destructible": null,
+      "id": "lift_lobby_ceiling",
+      "location": [
+        6950.0,
+        5380.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hangar_LiftLobby_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Hangar/LiftLobby/SM_Hangar_LiftLobby_Shell.SM_Hangar_LiftLobby_Shell",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Hangar_Base",
@@ -234,7 +263,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/hangar/zones/lift_lobby.py",
-    "sha256": "500f60197f806901e7d448afeb05333e2036c1bb7bfc1739cfc42b954c9f941e"
+    "sha256": "2f5e136a3e89b3637ec30e830c65c27fd3dabc6f23d603c623abdcf0d76c4804"
   },
   "zone": "lift_lobby"
 }

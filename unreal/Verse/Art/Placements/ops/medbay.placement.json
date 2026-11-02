@@ -1151,6 +1151,35 @@
       "station": null
     },
     {
+      "asset": "/Game/Verse/Decks/Ops/Medbay/SM_Ops_Medbay_Ceiling.SM_Ops_Medbay_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "medbay_ceiling",
+      "location": [
+        8520.0,
+        5400.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Ops_Medbay_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Ops/Medbay/SM_Ops_Medbay_Shell.SM_Ops_Medbay_Shell",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Ops_Base",
@@ -1627,7 +1656,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/ops/zones.py",
-    "sha256": "f65a857c65a5e6e00a0cd1b2d76f99b88922643c3fa7c2c19395b0f34c1d2955"
+    "sha256": "21746f87a36d95f95fdbf268d3830e4522c16e0cd250f64dd3e5a8f81bbf7e05"
   },
   "zone": "medbay"
 }

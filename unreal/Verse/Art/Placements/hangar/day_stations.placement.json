@@ -52,6 +52,35 @@
       }
     },
     {
+      "asset": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Ceiling.SM_Hangar_DayStations_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Hangar_Day",
+      "destructible": null,
+      "id": "day_stations_ceiling",
+      "location": [
+        5100.0,
+        5380.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hangar_DayStations_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Shell.SM_Hangar_DayStations_Shell",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Hangar_Day",
@@ -203,7 +232,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/hangar/zones/day_stations.py",
-    "sha256": "1644e19cadd477ec58b74f9e383b2f847ffe6f3e75fe787ecfbe47e9b63fbff5"
+    "sha256": "929a1fa4797be13ed01202592a7498c738818d74da03bfc02b594478e4233072"
   },
   "zone": "day_stations"
 }

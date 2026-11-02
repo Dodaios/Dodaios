@@ -1,0 +1,83 @@
+{
+  "asset_path": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Ceiling.SM_Engineering_Reactor_Ceiling",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Reactor_Ceiling.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "ef8c552558e0e5bd02c08e44746bc6633574facc05075f1fbf7b16fe8131e3ca"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        2205.0,
+        1902.5,
+        1630.0
+      ],
+      "min": [
+        -2795.0,
+        -1737.5,
+        440.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
+        "slot": "M_Ceiling_Panel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_CeilingPanel.MI_Light_CeilingPanel",
+        "slot": "M_Light_CeilingPanel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
+        "slot": "M_Wall_Charcoal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      }
+    ],
+    "triangles": 13876,
+    "uv_sets": 1,
+    "vertices": 7256
+  },
+  "name": "SM_Engineering_Reactor_Ceiling",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "reactor"
+    },
+    "builder": "art/verse/decks/engineering/build.py",
+    "function": "build"
+  }
+}

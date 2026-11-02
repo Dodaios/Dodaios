@@ -526,15 +526,17 @@ def geometry_placements(deck: str, result: Mapping[str, Any]) -> tuple[dict, lis
     for shell in result["shells"]:
         zone = shell["zone"]
         name = shell["name"]
+        kind = shell.get("kind", "shell")
         per_zone.setdefault(zone, []).append({
-            "id": f"{zone}_shell",
+            # `<zone>_ceiling` is what the deck subsystem hides for the overview cutaway.
+            "id": f"{zone}_{kind}",
             "piece": name,
             "asset": f"/Game/Verse/Decks/{_title(deck)}/{_title(zone)}/{name}.{name}",
             "location": ue_space.location_to_ue(shell["origin_m"]),
             "rotation": [0.0, 0.0, 0.0, 1.0],
             "scale": [1.0, 1.0, 1.0],
             "room": None,
-            "nav": "walk",
+            "nav": "walk" if kind == "shell" else "none",
             "mobility": "static",
             "data_layer": _data_layer(deck, zone),
             "collision": "Verse_Architecture",

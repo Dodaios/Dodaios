@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Reactor_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "78c3b9861efee4734507366bad6d6b9d64db6741621484c08b5e07b6151f149a"
+    "sha256": "997ddf7707eecaa84ae28b2bf982457059c2bf6c99c69dd92d36863e3e03225d"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         2955.0,
         3292.5,
-        1630.0
+        1200.0
       ],
       "min": [
         -6545.0,
@@ -73,27 +73,11 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
         "slot": "M_Deck_Marking_White"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
-        "slot": "M_Ceiling_Panel"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_CeilingPanel.MI_Light_CeilingPanel",
-        "slot": "M_Light_CeilingPanel"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
-        "slot": "M_Wall_Charcoal"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
-        "slot": "M_Recess_Dark"
       }
     ],
-    "triangles": 39304,
+    "triangles": 25428,
     "uv_sets": 1,
-    "vertices": 20456
+    "vertices": 13200
   },
   "name": "SM_Engineering_Reactor_Shell",
   "nanite": {
