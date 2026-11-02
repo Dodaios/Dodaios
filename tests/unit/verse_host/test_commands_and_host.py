@@ -306,3 +306,31 @@ async def test_no_secrets_cross_the_bridge(tmp_path: Path) -> None:
         hits += SECRET.findall(text)
     assert hits == [], hits
     assert len(t.sent) > 20
+
+
+async def test_qa_exec_server_to_verse(tmp_path: Path, monkeypatch) -> None:
+    """qa.exec S->V: the backend forwards a Verse.QA.* command and returns Verse's reply."""
+    import pytest
+
+    from dodaios.verse_host import protocol as P
+
+    host, _ = make_host(tmp_path)
+    monkeypatch.delenv("DODAIOS_VERSE_QA", raising=False)
+    with pytest.raises(P.BridgeError):
+        await host.qa_exec("Verse.QA.Stats", [])
+    monkeypatch.setenv("DODAIOS_VERSE_QA", "1")
+    t, task = await connect(host)
+    pending = asyncio.ensure_future(host.qa_exec("Verse.QA.Stats", []))
+    sent = await t.wait_for(lambda f: f["type"] == "qa.exec")
+    assert sent["id"].startswith("s-") and sent["data"] == {"command": "Verse.QA.Stats", "args": []}
+    t.push(
+        {
+            "type": "reply",
+            "re": sent["id"],
+            "ts": 1.0,
+            "data": {"ok": True, "result": {"result": {"fps": 120}}},
+        }
+    )
+    answer = await asyncio.wait_for(pending, 3)
+    assert answer["result"]["result"] == {"fps": 120}
+    await close(t, task)
