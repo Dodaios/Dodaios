@@ -643,6 +643,9 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   // A call that still waits for the person never folds away.
   const waiting = useMemo(() => work.filter((row) => row.kind === "pending" && waitsForPerson(row.block)), [work]);
   const agentsWorking = useMemo(() => running ? listSubagents([turn]).filter((entry) => entry.status === "running").length : 0, [turn, running]);
+  // The agent ended its message and waits for its background tasks: the answer
+  // above reads finished, so the live line says what it still waits for.
+  const waitingOn = running ? turn.waitingOn ?? [] : [];
   const extraRows = extras ?? [];
   const folded = !running && (work.length > 0 || extraRows.length > 0);
   const duration = turn.durationMs != null ? traceDuration(turn.durationMs) : "";
@@ -713,8 +716,15 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {shown.slice(extraAt).map(renderRow)}
     {running
       ? <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
-        <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
-          {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
+        {waitingOn.length > 0
+          ? <>
+            <span className="whitespace-nowrap" data-testid="thread-waiting-background">
+              {fill(t(`thread_turn.waiting_background_${plural(lang, waitingOn.length)}`), { count: waitingOn.length })} · <Elapsed since={turn.startedMs} />
+            </span>
+            <span className="min-w-0 truncate" title={waitingOn.join("\n")}>&nbsp;· {waitingOn.join(", ")}</span>
+          </>
+          : <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
+            {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>}
       </div>
       : <>
         {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}

@@ -1745,6 +1745,13 @@ class _ClaudeState:
     agents: dict[str, _ClaudeState] = field(default_factory=dict)
     #: The CLI's task id -> the spawning call, for task updates that name only the task.
     agent_tasks: dict[str, str] = field(default_factory=dict)
+    #: Tasks the CLI still runs (task id -> what it does): background shells
+    #: and agents. They keep the CLI alive after the agent's message ended.
+    open_tasks: dict[str, str] = field(default_factory=dict)
+    #: The main agent ended its message; only open tasks can wake it again.
+    idle: bool = False
+    #: The task list the last ``background_wait`` event named.
+    wait_sent: tuple[str, ...] = ()
 
 
 #: Streamed characters per estimated output token (English and code average).
@@ -1912,6 +1919,40 @@ def _claude_subagent_line(
     return out
 
 
+def _claude_track_task(obj: dict[str, Any], st: _ClaudeState) -> None:
+    """Keep the set of tasks the CLI still runs, shells and agents alike."""
+    subtype = str(obj.get("subtype") or "")
+    task_id = str(obj.get("task_id") or "")
+    if not task_id or subtype not in _CLAUDE_TASK_SUBTYPES:
+        return
+    if subtype == "task_started":
+        what = str(obj.get("description") or "").strip().splitlines()
+        st.open_tasks[task_id] = what[0][:120] if what else str(obj.get("task_type") or "task")
+        return
+    if subtype == "task_updated":
+        patch = obj.get("patch") if isinstance(obj.get("patch"), dict) else {}
+        if str(patch.get("status") or "") in {"", "running", "pending"}:
+            return
+    if subtype in {"task_updated", "task_notification"}:
+        st.open_tasks.pop(task_id, None)
+
+
+def _claude_wait_events(st: _ClaudeState) -> list[dict[str, Any]]:
+    """``background_wait`` whenever what the idle agent waits for changes.
+
+    Claude Code can end its message while background shells or agents still
+    run: the CLI stays alive and wakes the agent again when they finish. The
+    answer then reads finished while the turn is not, so the timeline says
+    what it waits for. An empty list: it no longer waits (it works again,
+    or nothing is left open).
+    """
+    tasks = tuple(st.open_tasks.values()) if st.idle else ()
+    if tasks == st.wait_sent:
+        return []
+    st.wait_sent = tasks
+    return [make_event("background_wait", {"turn_id": st.turn_id, "tasks": list(tasks)})]
+
+
 def _claude_task_events(obj: dict[str, Any], st: _ClaudeState) -> list[dict[str, Any]]:
     """A sub-agent's life from Claude Code's task lines: started, working, finished.
 
@@ -2000,8 +2041,10 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
 
     if kind == "system":
         # init / hooks / status are nothing the timeline shows; a sub-agent's
-        # life (started, working, finished) is.
-        return _claude_task_events(obj, st)
+        # life (started, working, finished) is, and so is a wait on open tasks.
+        out = _claude_task_events(obj, st)
+        _claude_track_task(obj, st)
+        return out + _claude_wait_events(st)
 
     if kind == "stream_event":
         ev = obj.get("event") or {}
@@ -2009,6 +2052,9 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         if et == "message_start":
             mid = ((ev.get("message") or {}).get("id")) or uuid.uuid4().hex
             st.current_message_id = str(mid)
+            # The agent works again (a finished task woke it): no longer waiting.
+            st.idle = False
+            out.extend(_claude_wait_events(st))
         elif et == "content_block_start":
             block = ev.get("content_block") or {}
             if block.get("type") == "thinking":
@@ -2065,6 +2111,9 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
                 if event is not None:
                     out.append(event)
         elif et == "message_delta":
+            if (ev.get("delta") or {}).get("stop_reason") == "end_turn":
+                st.idle = True
+                out.extend(_claude_wait_events(st))
             # The end of a message: its usage carries the true output count.
             usage_end = ev.get("usage")
             mid = st.current_message_id
@@ -2199,6 +2248,8 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
 
     if kind == "result":
         st.saw_result = True
+        st.idle = True
+        out.extend(_claude_wait_events(st))
         st.result_text = str(obj.get("result") or "")
         if obj.get("is_error"):
             st.status = "error"

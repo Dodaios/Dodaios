@@ -38,7 +38,10 @@ for an approval and a blue dot for news since it was last opened.
   reading text, the work in between as folded rows ("Ran 3 commands, read 2
   files") that open to each call, its diff or its output. A running turn ends
   in a live "Working for 12s" line; a finished one says how long it worked and
-  which files it changed.
+  which files it changed. When the agent has written its message but still
+  waits for background tasks it started (a test run, a push), the line says
+  so instead: "Waiting for 2 background tasks · 21m 40s", with the tasks
+  named. The agent picks up again when they finish.
 - **Composer:** one toolbar — coding agent and model, reasoning effort, access
   mode — beside the paperclip and the send button. A new thread starts on the
   agent, model, effort and access the person picked last (else the newest

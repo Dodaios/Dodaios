@@ -7738,6 +7738,8 @@
     "steps_so_far": "{summary}, {count} steps so far",
     "subagents_working_one": "{count} sub-agent working",
     "subagents_working_other": "{count} sub-agents working",
+    "waiting_background_one": "Waiting for {count} background task",
+    "waiting_background_other": "Waiting for {count} background tasks",
     "files_changed_one": "{count} file changed",
     "files_changed_other": "{count} files changed",
     "changed_files": "Changed files",

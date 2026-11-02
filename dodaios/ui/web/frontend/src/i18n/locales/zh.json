@@ -7738,6 +7738,8 @@
     "steps_so_far": "{summary}，目前 {count} 步",
     "subagents_working_one": "{count} 个子代理正在工作",
     "subagents_working_other": "{count} 个子代理正在工作",
+    "waiting_background_one": "正在等待 {count} 个后台任务",
+    "waiting_background_other": "正在等待 {count} 个后台任务",
     "files_changed_one": "已更改 {count} 个文件",
     "files_changed_other": "已更改 {count} 个文件",
     "changed_files": "已更改的文件",

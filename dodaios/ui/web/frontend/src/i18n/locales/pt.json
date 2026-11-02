@@ -7738,6 +7738,8 @@
     "steps_so_far": "{summary}, {count} passos até agora",
     "subagents_working_one": "{count} subagente a trabalhar",
     "subagents_working_other": "{count} subagentes a trabalhar",
+    "waiting_background_one": "À espera de {count} tarefa em segundo plano",
+    "waiting_background_other": "À espera de {count} tarefas em segundo plano",
     "files_changed_one": "{count} ficheiro alterado",
     "files_changed_other": "{count} ficheiros alterados",
     "changed_files": "Ficheiros alterados",

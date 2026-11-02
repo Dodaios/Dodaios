@@ -48,6 +48,10 @@ Kinds (``payload`` keys in brackets):
                         duration_ms?] — live only: what the sub-agent is doing now
 ``subagent_finished``  [turn_id, agent_id, status, summary?, tokens?, tool_uses?,
                         duration_ms?]   status: done | failed | stopped
+``background_wait``    [turn_id, tasks] — the agent ended its message but the CLI
+                        still runs background tasks (shells, agents) and will wake
+                        it when they finish; ``tasks`` names them, [] = no longer
+                        waiting
 ``turn_finished``      [turn_id, status, duration_ms, usage, error, cost_usd]
                         status: done | cancelled | error
 ``session_updated``    [title?, provider?, model?, effort?, cwd?, permission_mode?]
