@@ -10,8 +10,9 @@ Library and CLI. Every Blender job of the pipeline goes through `run()`:
   `scripts/verse` on `sys.path` (so builders can `import lib.scene`), picks the
   Cycles device (OptiX, then CUDA, then CPU) and runs the target script as
   `__main__`. A Python exception inside Blender exits with code 1.
-- Heavy jobs hold a cross-process GPU lock (`art/verse/.cache/gpu.lock`), so
-  only one Cycles render runs at a time on the shared GPU; other callers wait.
+- Heavy jobs hold the machine-wide `gpu-heavy` lock of
+  `scripts/unreal/with_lock.py`, so only one Cycles render, Unreal build or
+  cook runs at a time on the shared box; other callers wait.
 - The Blender log streams to the console and to a log file.
 
 CLI:
@@ -24,7 +25,6 @@ CLI:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import shutil
 import subprocess
@@ -37,13 +37,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from filelock import FileLock, Timeout
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ART_ROOT = REPO_ROOT / "art" / "verse"
 CACHE_ROOT = ART_ROOT / ".cache"
 LOG_ROOT = CACHE_ROOT / "logs"
-GPU_LOCK_PATH = CACHE_ROOT / "gpu.lock"
 BOOTSTRAP = Path(__file__).with_name("_bootstrap.py")
 DEFAULT_BLENDER = Path("C:/Program Files/Blender Foundation/Blender 5.0/blender.exe")
 DONE_MARKER = "[verse] bootstrap: done"
@@ -83,30 +80,28 @@ def find_blender() -> Path:
 
 @contextmanager
 def gpu_lock(label: str, timeout: float | None = None) -> Iterator[None]:
-    """Hold the machine-wide GPU lock; wait while another job renders."""
-    GPU_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
-    owner_path = GPU_LOCK_PATH.with_suffix(".owner")
-    lock = FileLock(str(GPU_LOCK_PATH))
-    started = time.monotonic()
-    announced = False
-    while True:
-        try:
-            lock.acquire(timeout=5)
-            break
-        except Timeout:
-            waited = time.monotonic() - started
-            if timeout is not None and waited > timeout:
-                raise BlenderError(f"GPU lock not acquired within {timeout:.0f} s") from None
-            if not announced:
-                holder = owner_path.read_text(encoding="utf-8") if owner_path.exists() else "?"
-                print(f"[verse] waiting for the GPU lock (held by {holder.strip()})", flush=True)
-                announced = True
+    """Hold the machine-wide ``gpu-heavy`` lock; wait while another job runs.
+
+    The same lock as Unreal builds, cooks and rendered tests
+    (``scripts/unreal/with_lock.py``), so a Cycles render never runs beside a
+    compile. Inside a job that already holds it the lock is not taken again.
+    """
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from scripts.unreal.with_lock import LockTimeout, MachineLock
+
+    lock = MachineLock(
+        f"blender {label}",
+        wait_timeout=timeout,
+        echo=lambda message: print(f"[verse] {message}", flush=True),
+    )
     try:
-        owner = {"pid": os.getpid(), "job": label, "since": time.strftime("%H:%M:%S")}
-        owner_path.write_text(json.dumps(owner), encoding="utf-8")
+        lock.acquire()
+    except LockTimeout as error:
+        raise BlenderError(str(error)) from None
+    try:
         yield
     finally:
-        owner_path.unlink(missing_ok=True)
         lock.release()
 
 
