@@ -5,7 +5,7 @@
     "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Tallow.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "25fb1688f7aa7c88f359d6936ae3599e52ac679dead6910ccc65e13ddcb51d23"
+    "sha256": "4213e30d0148dcc3f26cc2327e77ed0b2669aa50dd83122c9425a9716fae2788"
   },
   "kind": "skeleton",
   "license": {
@@ -17,7 +17,8 @@
       "Root",
       "Magazine",
       "Slide",
-      "Trigger"
+      "Trigger",
+      "SocketBase"
     ],
     "bounds_cm": {
       "max": [

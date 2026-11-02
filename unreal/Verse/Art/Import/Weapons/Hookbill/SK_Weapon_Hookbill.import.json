@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Hookbill.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "2b343efd6c29b743d9b2399852f03edc2b37e9b452c8a3a863cf923f67d8c00d"
+    "sha256": "ec73bab9dd2081094037352d16878e622d6421032fd7b23362ed5e7ba57908e1"
   },
   "kind": "skeletal_mesh",
   "license": {
@@ -22,7 +22,8 @@
   },
   "mesh": {
     "bones": [
-      "Root"
+      "Root",
+      "SocketBase"
     ],
     "bounds_cm": {
       "max": [

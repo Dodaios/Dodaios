@@ -288,7 +288,7 @@ def build_room(scene: Scene) -> None:
         "fog_inscattering_luminance",
         u.LinearColor(f["luminance"], f["luminance"], f["luminance"], 1),
     )
-    comp.set_editor_property("volumetric_fog", f["volumetric"])
+    comp.set_editor_property("enable_volumetric_fog", f["volumetric"])
     comp.set_editor_property("volumetric_fog_albedo", u.Color(230, 230, 230, 255))
     w = PROFILE["work_light"]
     scene.spot(
