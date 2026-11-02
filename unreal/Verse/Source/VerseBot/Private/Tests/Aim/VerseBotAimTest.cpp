@@ -317,7 +317,8 @@ bool FVerseBotAimTrackingTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("partial exposure aims at a visible knee"),
 		Tracker.AimPoint(Target, Eye, 300.0).Sample == EVerseSightSample::KneeLeft || Tracker.AimPoint(Target, Eye, 300.0).Sample == EVerseSightSample::KneeRight);
 
-	// A-D strafing (reverse every 0.3 s around y = 0): the motion window reads the middle.
+	// A-D strafing (reverse every 0.15 s around y = 0, a full wobble per 300 ms window): the motion
+	// window reads the middle instead of chasing each reversal.
 	auto StrafeError = [](double WindowMs)
 	{
 		FVerseBotTrackParams Q;
@@ -328,13 +329,13 @@ bool FVerseBotAimTrackingTest::RunTest(const FString& Parameters)
 		FVerseBotTargetTracker Tr;
 		Tr.Reset(Q, 5);
 		Tr.BeginEngagement();
-		double Y = 0.0;
-		double Dir = 1.0;
+		double Y = -30.0;
+		double Dir = -1.0;
 		double ErrSum = 0.0;
 		int32 Count = 0;
 		for (int32 T = 0; T < 600; ++T)
 		{
-			if (T % 18 == 0) Dir = -Dir;
+			if (T % 9 == 0) Dir = -Dir;
 			Y += Dir * 400.0 / 60.0;
 			FVerseSightPercept S;
 			S.PelvisLocation = FVector(1500, Y, 126);
@@ -354,7 +355,7 @@ bool FVerseBotAimTrackingTest::RunTest(const FString& Parameters)
 	const double Reading = StrafeError(300.0);
 	AddInfo(FString::Printf(TEXT("strafing: mean distance of the aim from the wobble centre %.1f cm chasing, %.1f cm with the 300 ms read"),
 		Chasing, Reading));
-	TestTrue(TEXT("the motion window aims nearer the middle of the wobble"), Reading < Chasing);
+	TestTrue(TEXT("the motion window aims nearer the middle of the wobble"), Reading < 0.7 * Chasing);
 	return true;
 }
 
@@ -615,7 +616,6 @@ bool FVerseBotAimTraceTest::RunTest(const FString& Parameters)
 			FVerseRng Script(500 + E, 0, EVerseRngSalt::Harness);
 			VerseBotFakes::FFakeDuelRig Rig;
 			Rig.Init(*Set.Get(Name), 900 + E);
-			Rig.bInfiniteAmmo = true;
 			// Start looking away; the target appears 8-30 deg off, 10-25 m away, strafing 2-4 m/s.
 			Rig.bTargetVisible = false;
 			for (int32 T = 0; T < 30; ++T) Rig.Step();
