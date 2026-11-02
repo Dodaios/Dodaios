@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dodaios.dev/schema/verse.mi-1.json",
+  "title": "verse.mi/1",
+  "description": "Material instance recipe (docs/verse/unreal/contracts/art-pipeline.md 7). verse_pipeline.materials creates or updates the MI asset from it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "parent", "scalars", "vectors", "textures", "switches", "owner", "replaces"],
+  "properties": {
+    "schema": { "const": "verse.mi/1" },
+    "name": { "type": "string", "pattern": "^MI_[A-Za-z0-9][A-Za-z0-9_]{0,60}$" },
+    "parent": {
+      "enum": [
+        "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+        "/Game/Verse/Materials/Master/M_Verse_Floor.M_Verse_Floor",
+        "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+        "/Game/Verse/Materials/Master/M_Verse_Glass.M_Verse_Glass",
+        "/Game/Verse/Materials/Master/M_Verse_Screen.M_Verse_Screen",
+        "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+        "/Game/Verse/Materials/Master/M_Verse_Weapon.M_Verse_Weapon",
+        "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal"
+      ]
+    },
+    "scalars": { "type": "object", "additionalProperties": { "type": "number" } },
+    "vectors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": { "type": "number", "minimum": 0 }
+      }
+    },
+    "textures": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^/Game/Verse/[A-Za-z0-9_/]+/(T_[A-Za-z0-9_]+)\\.(T_[A-Za-z0-9_]+)$" }
+    },
+    "switches": { "type": "object", "additionalProperties": { "type": "boolean" } },
+    "owner": { "type": "string", "pattern": "^WP[0-9]{2}$" },
+    "replaces": { "type": ["string", "null"], "pattern": "^M_[A-Za-z0-9_]+$" }
+  }
+}
