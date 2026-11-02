@@ -251,6 +251,7 @@ class ProgressionService:
                 return fresh, list(row["awards"]), []
             # A new row, or one whose awards a crash interrupted: the ledger's
             # per-ref uniqueness keeps a rerun from paying anything twice.
+            ref = f"duel:{result.match_id}"
             paid: list[Award] = []
             for source, xp in duel_awards(
                 mode=result.mode,
@@ -260,10 +261,13 @@ class ProgressionService:
                 finishers=result.stats["finishers"],
             ):
                 rule = dataclasses.replace(RULES_BY_SOURCE[source], xp=xp)
-                award = self.store.award(PERSON_ID, rule, ref=f"duel:{result.match_id}")
+                award = self.store.award(PERSON_ID, rule, ref=ref)
                 if award is not None:
                     paid.append(award)
-            summaries = [{"xp_source": a.source, "xp": a.xp, "seq": a.seq} for a in paid]
+            # Summaries from the ledger, not only from this run: after a crash
+            # between paying and finish() the rerun pays nothing new, yet the
+            # set still paid what the ledger holds for its ref.
+            summaries = self.duels.paid_awards(PERSON_ID, ref)
             self.duels.finish(result.match_id, summaries)
             return fresh, summaries, paid
 

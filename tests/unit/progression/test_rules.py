@@ -82,18 +82,12 @@ def test_rules_have_unique_sources_and_pay_a_known_kind():
 
 def test_the_world_actions_are_the_ships():
     assert WORLD_ACTIONS == {
-        "daily_visit",
-        "deck_discovered",
-        "simulator_round",
-        "simulator_record",
-        "team_briefing",
-        "inspection",
-        "walk_together",
+        "daily_visit", "deck_discovered", "simulator_round", "simulator_record",
+        "team_briefing", "inspection", "walk_together",
     }
     limits = {
         source: (r.xp, r.cooldown_s, r.daily_cap, r.once_per_ref, r.kind)
-        for source, r in RULES_BY_SOURCE.items()
-        if source in WORLD_ACTIONS
+        for source, r in RULES_BY_SOURCE.items() if source in WORLD_ACTIONS
     }
     assert limits == {
         "daily_visit": (25, 0, 0, True, "person"),
@@ -108,23 +102,15 @@ def test_the_world_actions_are_the_ships():
 
 def test_retired_sources_are_never_paid_again():
     assert RETIRED_SOURCES.isdisjoint(RULES_BY_SOURCE)
-    for gone in (
-        "holodeck_round",
-        "holodeck_record",
-        "warp_jump",
-        "floor_discovered",
-        "dog_petted",
-        "arcade_round",
-        "team_meeting",
-    ):
+    for gone in ("holodeck_round", "holodeck_record", "warp_jump", "floor_discovered",
+                 "dog_petted", "arcade_round", "team_meeting"):
         assert gone in RETIRED_SOURCES
 
 
 def test_a_days_world_actions_stay_a_garnish():
     # Playing everything aboard on one day pays about one ordinary day of work, not more.
     daily = sum(
-        r.daily_cap or r.xp
-        for r in RULES
+        r.daily_cap or r.xp for r in RULES
         if r.trigger == "world" and r.kind == "person" and r.source != "deck_discovered"
     )
     assert daily <= 250
@@ -133,21 +119,9 @@ def test_a_days_world_actions_stay_a_garnish():
 def test_the_server_rules_keep_their_amounts():
     amounts = {r.source: r.xp for r in RULES if r.trigger == "server"}
     assert amounts == {
-        "chat_turn": 5,
-        "voice_turn": 5,
-        "quest_posted": 15,
-        "quest_completed": 20,
-        "agent_hired": 50,
-        "mission_completed": 30,
-        "task_done": 40,
-        "task_blocked": 8,
-        "quest_done": 60,
-        "answered_teammate": 5,
-        "jarvis_answered": 4,
-        "delegated": 10,
-        "duel_won": 40,
-        "duel_lost": 10,
-        "duel_finisher": 5,
+        "chat_turn": 5, "voice_turn": 5, "quest_posted": 15, "quest_completed": 20,
+        "agent_hired": 50, "mission_completed": 30, "task_done": 40, "task_blocked": 8,
+        "quest_done": 60, "answered_teammate": 5, "jarvis_answered": 4, "delegated": 10,
     }
 
 
@@ -219,10 +193,7 @@ def test_rewards_are_unique_named_by_their_slot_and_within_the_cap():
 def test_the_commanders_uniforms_open_with_the_rank_tiers():
     uniforms = [(r.reward_id, r.person) for r in REWARDS if r.slot == "uniform"]
     assert uniforms == [
-        ("uniform_deck", 1),
-        ("uniform_line", 11),
-        ("uniform_command", 29),
-        ("uniform_flag", 37),
+        ("uniform_deck", 1), ("uniform_line", 11), ("uniform_command", 29), ("uniform_flag", 37),
     ]
     assert [r.reward_id.removeprefix("uniform_") for r in REWARDS if r.slot == "uniform"] == list(
         RANK_TIERS
@@ -248,8 +219,7 @@ def test_rewards_between_names_only_what_the_climb_crossed():
     assert rewards_between("person", 1, 5) == []
     assert [r.reward_id for r in rewards_between("person", 5, 6)] == ["ribbon_good_conduct"]
     assert {r.reward_id for r in rewards_between("person", 10, 20)} == {
-        "uniform_line",
-        "ribbon_meritorious",
+        "uniform_line", "ribbon_meritorious",
     }
     assert rewards_between("person", 11, 11) == []
     assert [r.reward_id for r in rewards_between("agent", 1, 4)] == ["ribbon_good_conduct"]

@@ -224,20 +224,12 @@ async def test_the_daily_caps_of_world_actions_hold(setup, clock):
 async def test_unknown_or_server_only_actions_are_refused(setup):
     service, _, _, _ = setup
     refused = (
-        ("chat_turn", ""),
-        ("cheat", ""),
-        ("deck_discovered", "roof"),
-        ("deck_discovered", ""),
-        ("inspection", ""),
-        ("inspection", "holodeck"),
+        ("chat_turn", ""), ("cheat", ""), ("deck_discovered", "roof"), ("deck_discovered", ""),
+        ("inspection", ""), ("inspection", "holodeck"),
         # The starship's and the office tower's actions are gone.
-        ("deck_discovered", "holodeck"),
-        ("deck_discovered", "honors"),
-        ("holodeck_round", ""),
-        ("warp_jump", "home"),
-        ("floor_discovered", "agents"),
-        ("dog_petted", ""),
-        ("arcade_round", ""),
+        ("deck_discovered", "holodeck"), ("deck_discovered", "honors"),
+        ("holodeck_round", ""), ("warp_jump", "home"),
+        ("floor_discovered", "agents"), ("dog_petted", ""), ("arcade_round", ""),
     )
     for action, ref in refused:
         with pytest.raises(UnknownAction):
@@ -248,12 +240,8 @@ async def test_old_ledger_rows_with_retired_sources_still_read(setup):
     service, _, _, _ = setup
     await service.award("person", "chat_turn", ref="x")
     conn = service.store._connection()
-    for source, xp, ref in (
-        ("dog_petted", 3, ""),
-        ("holodeck_round", 8, ""),
-        ("warp_jump", 5, "home@1"),
-        ("deck_discovered", 20, "honors"),
-    ):
+    for source, xp, ref in (("dog_petted", 3, ""), ("holodeck_round", 8, ""),
+                            ("warp_jump", 5, "home@1"), ("deck_discovered", 20, "honors")):
         conn.execute(
             "INSERT INTO progression_awards"
             " (subject_id, source, xp, level_before, level_after, ref, ts_ms)"
@@ -264,11 +252,7 @@ async def test_old_ledger_rows_with_retired_sources_still_read(setup):
             "UPDATE progression_subjects SET xp = xp + ? WHERE subject_id = 'person'", (xp,)
         )
     assert {row["source"] for row in service.store.recent()} == {
-        "chat_turn",
-        "dog_petted",
-        "holodeck_round",
-        "warp_jump",
-        "deck_discovered",
+        "chat_turn", "dog_petted", "holodeck_round", "warp_jump", "deck_discovered",
     }
     row = service.snapshot()[0]
     assert row["xp"] == 5 + 3 + 8 + 5 + 20

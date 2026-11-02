@@ -141,6 +141,23 @@ async def test_a_row_whose_awards_a_crash_cut_off_is_paid_on_the_next_send(setup
     assert _ledger(service) == [("duel_won", 60)]
 
 
+async def test_a_crash_after_paying_before_finish_keeps_the_paid_awards(setup, monkeypatch):
+    service, _, _, _ = setup
+    real_finish = service.duels.finish
+    monkeypatch.setattr(service.duels, "finish", lambda *a, **k: None)  # the crash
+    first = await service.record_duel(duel("m_paid"))
+    assert _ledger(service) == [("duel_won", 60)]
+    assert service.duels.get("m_paid")["awards_done"] is False
+    monkeypatch.setattr(service.duels, "finish", real_finish)
+    again = await service.record_duel(duel("m_paid"))
+    assert [(a["xp_source"], a["xp"]) for a in again["awards"]] == [("duel_won", 60)]
+    assert again["awards"] == first["awards"]
+    stored = service.duels.get("m_paid")
+    assert stored["awards_done"] is True
+    assert [(a["xp_source"], a["xp"]) for a in stored["awards"]] == [("duel_won", 60)]
+    assert _ledger(service) == [("duel_won", 60)]
+
+
 # ------------------------------------------------------------------ A21.2 XP
 
 

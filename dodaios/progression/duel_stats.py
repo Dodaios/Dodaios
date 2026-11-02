@@ -485,6 +485,25 @@ class DuelStatsStore:
                 (json.dumps(awards), match_id),
             )
 
+    def paid_awards(self, subject_id: str, ref: str) -> list[dict[str, Any]]:
+        """Every award the XP ledger holds for ``ref``, oldest first.
+
+        The ledger (``progression_awards``, store.py) lives in the same file. A
+        resend after a crash between paying and ``finish`` pays nothing new (the
+        ledger refuses a repeated ref), so its summaries come from here.
+        """
+        with self._lock:
+            rows = (
+                self._connection()
+                .execute(
+                    "SELECT source, xp, seq FROM progression_awards"
+                    " WHERE subject_id = ? AND ref = ? ORDER BY seq",
+                    (subject_id, ref),
+                )
+                .fetchall()
+            )
+        return [{"xp_source": r[0], "xp": int(r[1]), "seq": int(r[2])} for r in rows]
+
     # ------------------------------------------------------------ reads
 
     def get(self, match_id: str) -> dict[str, Any] | None:
