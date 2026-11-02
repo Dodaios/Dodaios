@@ -104,3 +104,76 @@ export async function importBrowserSettings(storage: Pick<Storage, "getItem"> = 
   const body = (await post("/api/verse/settings/import", { values })) as { imported?: unknown };
   return Array.isArray(body.imported) ? body.imported.filter((k): k is string => typeof k === "string") : [];
 }
+
+/**
+ * The optional Verse download (README Delivery): the app install never carries
+ * the Verse. `GET /api/verse/install/progress`, `POST /api/verse/install`,
+ * `DELETE /api/verse/install` (cancels a running download, else removes it).
+ */
+export type InstallState =
+  | "idle"
+  | "downloading"
+  | "verifying"
+  | "installing"
+  | "installed"
+  | "cancelled"
+  | "failed"
+  | "removing"
+  | "unavailable";
+
+export interface InstallProgress {
+  state: InstallState;
+  done_bytes: number;
+  total_bytes: number;
+  version: string | null;
+  installed_version: string | null;
+  download_bytes: number | null;
+  install_bytes: number | null;
+  error: string | null;
+  bytes_per_s: number | null;
+}
+
+const INSTALL_STATES: readonly InstallState[] = [
+  "idle", "downloading", "verifying", "installing", "installed", "cancelled", "failed", "removing", "unavailable",
+];
+
+export function parseInstall(body: unknown): InstallProgress {
+  const raw = (body ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+  return {
+    state: INSTALL_STATES.includes(raw.state as InstallState) ? (raw.state as InstallState) : "unavailable",
+    done_bytes: num(raw.done_bytes) ?? 0,
+    total_bytes: num(raw.total_bytes) ?? 0,
+    version: str(raw.version),
+    installed_version: str(raw.installed_version),
+    download_bytes: num(raw.download_bytes),
+    install_bytes: num(raw.install_bytes),
+    error: str(raw.error),
+    bytes_per_s: num(raw.bytes_per_s),
+  };
+}
+
+export function isInstalling(p: InstallProgress | null): boolean {
+  return !!p && (p.state === "downloading" || p.state === "verifying" || p.state === "installing");
+}
+
+export async function fetchInstallProgress(): Promise<InstallProgress> {
+  return parseInstall(await call("/api/verse/install/progress"));
+}
+
+export async function startInstall(): Promise<InstallProgress> {
+  return parseInstall(await post("/api/verse/install"));
+}
+
+/** Cancel the running download, or remove the installed Verse when none runs. */
+export async function cancelOrRemoveInstall(): Promise<InstallProgress> {
+  return parseInstall(await call("/api/verse/install", { method: "DELETE" }));
+}
+
+/** `7.4 GB`, `820 MB`: decimal units, one decimal from GB up. */
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`;
+  return `${Math.max(0, Math.round(bytes / 1e3))} KB`;
+}
