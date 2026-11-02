@@ -333,7 +333,7 @@ void UVerseAudioSubsystem::Tick(float DeltaTime)
 
 float UVerseAudioSubsystem::RangeForNoise(FName NoiseTag, float Loudness) const
 {
-	const FGameplayTag Tag = FGameplayTag::RequestGameplayTag(NoiseTag, false);
+	const FGameplayTag Tag = Verse::Audio::NoiseTagByName(NoiseTag);
 	if (!Tag.IsValid() || !CueSet)
 	{
 		return 0.f;

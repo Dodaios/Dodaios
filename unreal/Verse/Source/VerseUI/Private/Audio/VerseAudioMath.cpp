@@ -5,12 +5,25 @@
 #include "Destruction/VerseDestructionInterfaces.h"
 #include "Noise/VerseAudibilityTable.h"
 #include "Sound/SoundAttenuation.h"
+#include "VerseGameplayTags.h"
 
 namespace Verse::Audio
 {
 	float DbToGain(float Db)
 	{
 		return FMath::Pow(10.f, Db / 20.f);
+	}
+
+	FGameplayTag NoiseTagByName(FName TagName)
+	{
+		for (const FGameplayTag& Tag : VerseTags::AllNoiseTags())
+		{
+			if (Tag.GetTagName() == TagName)
+			{
+				return Tag;
+			}
+		}
+		return FGameplayTag();
 	}
 
 	float DistanceGain(float DistanceM, float RangeM, const FVerseAudioMixSettings& Mix)

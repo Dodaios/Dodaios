@@ -3,6 +3,7 @@
 #include "Audio/VerseAudioTypes.h"
 #include "CoreMinimal.h"
 #include "Destruction/VerseDestructionTypes.h"
+#include "GameplayTagContainer.h"
 #include "Math/RandomStream.h"
 
 class IVersePenetrationQuery;
@@ -15,6 +16,9 @@ struct FSoundAttenuationSettings;
 namespace Verse::Audio
 {
 	VERSEUI_API float DbToGain(float Db);
+
+	/** The Noise.* tag of bot.md 3.2 with this name; an invalid tag for any other name. */
+	VERSEUI_API FGameplayTag NoiseTagByName(FName TagName);
 
 	/**
 	 * Gain at a distance: 1 inside ReferenceM, then (ReferenceM / d) ^ Rolloff floored at FloorDb, and

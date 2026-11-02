@@ -646,7 +646,7 @@ bool FVerseAudioShippedCues::RunTest(const FString&)
 			Sounds += Sound ? 1 : 0;
 		}
 		bOk &= Cue->Licence == Licence && (Licence == TEXT("own") || Licence.StartsWith(TEXT("cc0:")));
-		bOk &= Noise.IsEmpty() || FGameplayTag::RequestGameplayTag(FName(*Noise), false).IsValid();
+		bOk &= Noise.IsEmpty() || Verse::Audio::NoiseTagByName(FName(*Noise)).IsValid();
 		TestTrue(*FString::Printf(TEXT("cue %s: %d variants, licence %s, noise tag valid"), *Id.ToString(), Want, *Licence), bOk);
 		Problems += bOk ? 0 : 1;
 	}
