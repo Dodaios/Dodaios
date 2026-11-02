@@ -4,6 +4,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { MeetingChat } from "./MeetingChat";
 import type { SocietyAgent } from "../data";
 
+// Every agent wears a pet; these tests count their own requests, so the pets answer stays out of fetch.
+vi.mock("@/hooks/usePets", async (original) => ({ ...(await original<typeof import("@/hooks/usePets")>()), usePetById: () => null }));
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 

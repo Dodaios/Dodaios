@@ -24,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { AgentNameTaken, RuntimeProviderUnsupported, rowToAgent, useCreateSocietyAgent, type SocietyAgent } from "../data";
 import type { SocietyAgentRow } from "@/lib/societyApi";
 import { defaultCompanion, type CompanionAppearance } from "../companion/appearance";
-import { randomCreature } from "../companion/creature";
 import { announceSpawn } from "../world/spawnStore";
 import { useCreateAgentDialog, type CreateAgentMode } from "./createAgentStore";
 import { seedFirstMessage } from "./firstMessage";
@@ -42,9 +41,9 @@ const CompanionEditor = lazy(() =>
 
 const MODES: readonly { id: CreateAgentMode }[] = [{ id: "quick" }, { id: "starter" }, { id: "import" }];
 
-/** A new agent starts as a pixel creature; the shape underneath is there for a change of mind. */
+/** A new agent starts with a random built-in pet. */
 function randomCompanion(): CompanionAppearance {
-  return { ...defaultCompanion(`${Date.now()}:${Math.random()}`), creature: randomCreature() };
+  return defaultCompanion(`${Date.now()}:${Math.random()}`);
 }
 
 function starterSeat(pick: SeatPick, companion: CompanionAppearance): StarterSeat {
