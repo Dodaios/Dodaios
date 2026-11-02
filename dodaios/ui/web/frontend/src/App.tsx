@@ -64,9 +64,7 @@ import { SubscriptionRealtimeTransportBroker } from "@/components/voice/Subscrip
 import { BrowserRealtimeControl } from "@/components/voice/BrowserRealtimeControl";
 import { cn } from "@/lib/utils";
 import { useTilingStore } from "@/store/tiling";
-
-/** Where the collapsed/expanded choice for the nav sidebar is remembered. */
-const NAV_COLLAPSED_KEY = "jarvis.sidebar.collapsed.v1";
+import { useNavSidebarStore } from "@/store/navSidebar";
 
 /** Sections that fill the whole window instead of sitting beside the nav. */
 const FULLSCREEN_SECTIONS: readonly SectionId[] = ["agents", "docs", "memory"];
@@ -236,26 +234,13 @@ export default function App() {
    * (private-mode WebView, storage disabled) degrades to the expanded default
    * rather than taking the shell down with it.
    */
-  const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem(NAV_COLLAPSED_KEY) === "true";
-    } catch {
-      return false;
-    }
-  });
+  const navCollapsed = useNavSidebarStore((state) => state.collapsed);
   // Dragging the seam is itself an "I want the sidebar" gesture: a drag that
   // left the rail state behind would snap straight back to icons and read as a
   // broken handle.
   const startSidebarResize = useCallback(
     (event: React.PointerEvent) => {
-      if (navCollapsed) {
-        setNavCollapsed(false);
-        try {
-          window.localStorage.setItem(NAV_COLLAPSED_KEY, "false");
-        } catch {
-          /* storage unavailable — the choice simply does not survive a restart */
-        }
-      }
+      if (navCollapsed) useNavSidebarStore.getState().setCollapsed(false);
       sidebar.startResize(event);
     },
     [navCollapsed, sidebar],

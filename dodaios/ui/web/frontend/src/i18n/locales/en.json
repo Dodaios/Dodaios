@@ -10229,6 +10229,15 @@
     "signin_not_yet": "— installing does not connect anything yet."
   },
   "ide_threads": {
+    "header": {
+      "label": "Thread: {thread}",
+      "review_changes": "Review changes",
+      "show_in_git": "Show changes in Git",
+      "more": "More actions for {thread}",
+      "maximize": "Hide the sidebar",
+      "restore": "Show the sidebar",
+      "close": "Close thread (moves it to the archive)"
+    },
     "layout_aria": "IDE layout",
     "layout_grid": "Terminal grid",
     "layout_threads": "Threads",

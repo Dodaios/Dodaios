@@ -82,20 +82,24 @@ export function PaneChangesDialog({
   pane,
   folder,
   branch,
+  title: titleOverride,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId: string;
-  /** The pane's call-sign. */
+  /** The pane's call-sign; empty for a thread, which is read by its `folder`. */
   pane: string;
-  /** Set only for a pane on its own git worktree. */
+  /** Set only for a pane on its own git worktree, or for a thread's folder. */
   folder?: string;
   branch?: string;
+  /** The name in the dialog's title, in place of the pane's (a thread's title). */
+  title?: string;
 }): JSX.Element {
   const t = useT();
   // Until the strings land, `t()` answers with keys; the dialog waits for them.
   const stringsReady = useLocaleChunk("pane_review");
-  const title = usePaneTitle(workspaceId, pane) || pane;
+  const paneTitle = usePaneTitle(workspaceId, pane) || pane;
+  const title = titleOverride || paneTitle;
   const openFile = useCodeEditorStore((state) => state.openFile);
   const [scope, setScope] = useState<ChangeScope>("pane");
   const [revision, setRevision] = useState(0);
@@ -210,8 +214,8 @@ export function PaneChangesDialog({
         >
           {!stringsReady ? (
             <div className="flex flex-1 items-center justify-center">
-              <Dialog.Title className="sr-only">{pane}</Dialog.Title>
-              <Dialog.Description className="sr-only">{pane}</Dialog.Description>
+              <Dialog.Title className="sr-only">{title}</Dialog.Title>
+              <Dialog.Description className="sr-only">{title}</Dialog.Description>
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
             </div>
           ) : (<>

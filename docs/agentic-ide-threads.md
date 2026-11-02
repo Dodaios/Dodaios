@@ -34,6 +34,12 @@ for an approval and a blue dot for news since it was last opened.
 
 - **New thread:** the small plus on a project row. The empty thread asks what
   to build in the project; the project name is a picker.
+- **Title bar:** an open thread has the same controls as a grid pane's
+  header: review the changes in the thread's folder, show them in the Git
+  tab, more actions (rename, new thread, archive), fold the app sidebar to
+  its rail for more room, a new thread in the project, and close — which
+  moves the thread to the archive (not while it works or waits for an
+  approval).
 - **Conversation:** the person's messages on the right, the agent's answer as
   reading text, the work in between as folded rows ("Ran 3 commands, read 2
   files") that open to each call, its diff or its output. A running turn ends

@@ -11,6 +11,7 @@ import { useThreadTerminalsStore } from "@/store/threadTerminals";
 import { openSubagentOf, useThreadSubagentsStore, type SubagentRow } from "@/store/threadSubagents";
 import { ThreadBranchBar, type ThreadCheckout } from "./ThreadBranchBar";
 import { ThreadComposer } from "./ThreadComposer";
+import { ThreadHeader } from "./ThreadHeader";
 import { ThreadMenuItem, ThreadPopover } from "./ThreadPopover";
 import { ThreadTimeline } from "./ThreadTimeline";
 import { OpenSubagent, SubagentHeader, SubagentSwitcher } from "./ThreadSubagents";
@@ -271,6 +272,7 @@ export function ThreadView({ onScreen }: { onScreen: boolean }) {
 
   return <div className="relative flex h-full min-h-0 flex-col" data-testid="thread-view">
     {memberOf && <BackToTeam teamId={memberOf} projectId={project.id} />}
+    {session && !empty && <ThreadHeader session={session} projectId={project.id} folder={folder} workspaceId={activeWorkspaceId} />}
     {empty
       ? <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5 pb-10">
         <h2 className="text-center text-2xl font-normal tracking-tight text-foreground sm:text-3xl">

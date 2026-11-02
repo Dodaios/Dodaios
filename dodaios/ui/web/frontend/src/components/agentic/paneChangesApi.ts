@@ -71,6 +71,7 @@ export interface PaneChanges {
 /** Where a pane's work lives: its own worktree folder, else the workspace's shared one. */
 export interface PaneChangesTarget {
   workspaceId: string;
+  /** The pane's call-sign; empty for a thread, which is read by its `folder` alone. */
   pane: string;
   /** Set only for a pane on its own git worktree. */
   folder?: string;
@@ -146,7 +147,8 @@ function reading(body: ChangesBody, extra: Pick<PaneChanges, "folderTotal" | "ow
 
 export async function fetchPaneChanges(target: PaneChangesTarget, scope: ChangeScope): Promise<PaneChanges> {
   const ownCheckout = Boolean(target.folder);
-  if (scope === "pane" || ownCheckout) {
+  // A thread has no pane: its folder's uncommitted work is what it changed.
+  if ((scope === "pane" || ownCheckout) && target.pane) {
     try {
       return reading(await read<ChangesBody>(paneUrl(target, "changes")), { folderTotal: null, ownCheckout });
     } catch (error) {
