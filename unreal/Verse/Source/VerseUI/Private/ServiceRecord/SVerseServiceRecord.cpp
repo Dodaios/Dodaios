@@ -23,9 +23,11 @@ namespace
 		return FCoreStyle::GetDefaultFontStyle(bBold ? "Bold" : "Regular", Size);
 	}
 
+	// The record's figures are culture-invariant, like the web record's (rankModel.ts figure()):
+	// thousands grouped with a space, no decimals. Both records show the same characters.
 	FText Figure(int64 Value)
 	{
-		return FText::AsNumber(Value);
+		return FText::FromString(SVerseServiceRecord::FormatFigure(Value));
 	}
 
 	FText TierName(FName Tier)
@@ -177,9 +179,7 @@ TMap<FString, FText> SVerseServiceRecord::DescribeFacts(const FVerseServiceRecor
 	const FVerseDuelTotals& D = RecordModel.Duels();
 	Facts.Add(TEXT("sets"), Figure(D.Matches));
 	Facts.Add(TEXT("won_lost"), FText::Format(LOCTEXT("won_lost_value", "{0} / {1}"), Figure(D.Wins), Figure(D.Losses)));
-	FNumberFormattingOptions TwoDecimals;
-	TwoDecimals.SetMinimumFractionalDigits(2).SetMaximumFractionalDigits(2);
-	Facts.Add(TEXT("kd"), FText::AsNumber(D.KillDeathRatio(), &TwoDecimals));
+	Facts.Add(TEXT("kd"), FText::FromString(SVerseServiceRecord::FormatRatio(D.KillDeathRatio())));
 	Facts.Add(TEXT("headshots"), Figure(D.Headshots));
 	Facts.Add(TEXT("finishers"), Figure(D.Finishers));
 	Facts.Add(TEXT("best_streak"), Figure(D.BestStreak));
@@ -219,6 +219,28 @@ FText SVersePromotionNotice::Detail() const
 	return Promotion.IsNewRank()
 		? FText::Format(LOCTEXT("promoted_detail", "{0}, level {1}"), VerseRankName(Promotion.RankId), FText::AsNumber(Promotion.Level))
 		: FText::Format(LOCTEXT("level_detail", "Level {0}"), FText::AsNumber(Promotion.Level));
+}
+
+FString SVerseServiceRecord::FormatFigure(int64 Value)
+{
+	const bool bNegative = Value < 0;
+	const FString Digits = FString::Printf(TEXT("%lld"), bNegative ? -Value : Value);
+	FString Out;
+	for (int32 i = 0; i < Digits.Len(); ++i)
+	{
+		if (i > 0 && (Digits.Len() - i) % 3 == 0)
+		{
+			Out.AppendChar(TEXT(' '));
+		}
+		Out.AppendChar(Digits[i]);
+	}
+	return bNegative ? TEXT("-") + Out : Out;
+}
+
+FString SVerseServiceRecord::FormatRatio(float Value)
+{
+	// Two decimals with a point, as the web's toFixed(2); Printf ignores the running culture.
+	return FString::Printf(TEXT("%.2f"), Value);
 }
 
 #undef LOCTEXT_NAMESPACE

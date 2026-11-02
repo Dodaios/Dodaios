@@ -1,4 +1,6 @@
 #include "Framework/Application/SlateApplication.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -196,10 +198,21 @@ bool FVerseRecordViewTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("next rank"), Fact(TEXT("next")), FString(TEXT("Senior Lieutenant")));
 	TestEqual(TEXT("sets"), Fact(TEXT("sets")), FString(TEXT("12")));
 	TestEqual(TEXT("won / lost"), Fact(TEXT("won_lost")), FString(TEXT("7 / 5")));
-	// Two decimals in the running culture (the box runs German: "1,19").
-	FNumberFormattingOptions TwoDecimals;
-	TwoDecimals.SetMinimumFractionalDigits(2).SetMaximumFractionalDigits(2);
-	TestEqual(TEXT("K/D"), Fact(TEXT("kd")), FText::AsNumber(96.f / 81.f, &TwoDecimals).ToString());
+	// The value itself, then the text: two decimals with a point in every culture, as the web's toFixed(2).
+	TestTrue(TEXT("K/D value"), FMath::IsNearlyEqual(Model->Duels().KillDeathRatio(), 1.185f, 0.01f));
+	TestEqual(TEXT("K/D"), Fact(TEXT("kd")), FString(TEXT("1.19")));
+	{
+		// A culture with a decimal comma must not change the record's characters.
+		const FString Previous = FInternationalization::Get().GetCurrentCulture()->GetName();
+		FInternationalization::Get().SetCurrentCulture(TEXT("de"));
+		const TMap<FString, FText> German = SVerseServiceRecord::DescribeFacts(*Model);
+		FInternationalization::Get().SetCurrentCulture(Previous);
+		const FText* Kd = German.Find(TEXT("kd"));
+		TestEqual(TEXT("K/D under de"), Kd ? Kd->ToString() : FString(), FString(TEXT("1.19")));
+	}
+	TestEqual(TEXT("figure grouping"), SVerseServiceRecord::FormatFigure(1234567), FString(TEXT("1 234 567")));
+	TestEqual(TEXT("figure small"), SVerseServiceRecord::FormatFigure(999), FString(TEXT("999")));
+	TestEqual(TEXT("figure negative"), SVerseServiceRecord::FormatFigure(-1234), FString(TEXT("-1 234")));
 	TestEqual(TEXT("headshots"), Fact(TEXT("headshots")), FString(TEXT("31")));
 	TestEqual(TEXT("finishers"), Fact(TEXT("finishers")), FString(TEXT("4")));
 	TestEqual(TEXT("best streak"), Fact(TEXT("best_streak")), FString(TEXT("6")));

@@ -1,4 +1,5 @@
 #include "ServiceRecord/VerseServiceRecordSubsystem.h"
+#include "Dom/JsonObject.h"
 
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"

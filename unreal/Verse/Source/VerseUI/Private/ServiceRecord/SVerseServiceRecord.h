@@ -22,6 +22,10 @@ public:
 
 	/** The texts the panel shows, keyed by fact (`rank`, `level`, `xp`, `next`, `sets`, ...). */
 	static TMap<FString, FText> DescribeFacts(const FVerseServiceRecordModel& RecordModel);
+	/** A whole number as both records print it: thousands grouped with a space ("12 340"). */
+	static FString FormatFigure(int64 Value);
+	/** A ratio as both records print it: two decimals with a point ("1.19"), in every culture. */
+	static FString FormatRatio(float Value);
 
 private:
 	TSharedPtr<FVerseServiceRecordModel> Model;

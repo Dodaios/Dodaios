@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Dom/JsonObject.h"
+class FJsonObject;
 #include "Templates/Function.h"
 
 // The Unreal service record's data (WP21.7): the commander's level, XP and rank, the duel totals,

@@ -1,4 +1,5 @@
 #include "ServiceRecord/VerseServiceRecordModel.h"
+#include "Dom/JsonObject.h"
 
 #include "VerseLog.h"
 
