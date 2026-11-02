@@ -22,6 +22,8 @@ import threading
 from pathlib import Path
 from typing import Any, Final
 
+from .env import getenv
+
 log = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS: Final[dict[str, Any]] = {
@@ -199,8 +201,9 @@ class SettingsStore:
 
     def flag(self, name: str, env: str | None = None) -> bool:
         """A boolean flag of this store, overridden by ``env`` when set."""
-        if env and os.environ.get(env) not in (None, ""):
-            return os.environ.get(env, "").strip().lower() in ("1", "true", "yes", "on")
+        value = getenv(env) if env else ""
+        if value:
+            return value.strip().lower() in ("1", "true", "yes", "on")
         return bool(self.get(name, False))
 
     def set_flag(self, name: str, value: bool) -> None:

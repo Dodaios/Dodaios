@@ -271,7 +271,11 @@ class Supervisor:
             self.state.status = "stopped"
             return False
         token = self._mint()
-        env = {k: v for k, v in os.environ.items() if not k.startswith("DODAIOS_VERSE_TOKEN")}
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if not k.startswith(("DODAIOS_VERSE_TOKEN", "JARVIS_VERSE_TOKEN"))
+        }
         env["DODAIOS_VERSE_BRIDGE"] = self._bridge_url()
         env["DODAIOS_VERSE_TOKEN"] = token
         env["DODAIOS_VERSE_APP_PID"] = str(os.getpid())

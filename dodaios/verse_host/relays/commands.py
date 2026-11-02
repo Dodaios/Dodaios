@@ -11,13 +11,13 @@ launcher (single flight, ``busy``, ``launcher.cancel``). ``qa.exec`` answers
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from dodaios.agentic_ide.launch_sequence import LaunchBusy, LaunchSequence
 
 from .. import protocol as P
+from ..env import getenv
 from ..ports import NotFound, split_pane_id
 from .base import RelayBase
 
@@ -27,7 +27,7 @@ QaHandler = Callable[[list[str]], Awaitable[Any]]
 
 
 def qa_enabled() -> bool:
-    return os.environ.get("DODAIOS_VERSE_QA", "").strip() == "1"
+    return getenv("DODAIOS_VERSE_QA").strip() == "1"
 
 
 class CommandsRelay(RelayBase):
