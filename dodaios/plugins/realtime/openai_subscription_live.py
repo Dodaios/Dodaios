@@ -49,6 +49,47 @@ _CALL_ID = re.compile(
 )
 
 
+def _static_message(code: str, plan: str = "") -> str:
+    """The fixed, provider-free text for one classified failure ``code``."""
+    plan = plan.strip().lower()
+    named = f" ({plan.replace('_', ' ').title()} plan)" if _PLAN.fullmatch(plan) else ""
+    messages = {
+        "authentication_required": "Reconnect your ChatGPT subscription before starting voice.",
+        "access_denied": "The ChatGPT account does not allow this GPT-Live session.",
+        "voice_not_offered": (
+            f"The selected ChatGPT account{named} is not offered subscription voice. "
+            "Check its plan or select another account in Agent accounts."
+        ),
+        "quota_exhausted": "The ChatGPT subscription voice allowance is exhausted.",
+        "rate_limited": "ChatGPT subscription voice is temporarily rate limited.",
+        "invalid_configuration": "The selected subscription voice configuration was rejected.",
+        "invalid_response": "ChatGPT subscription voice returned an invalid response.",
+        "connection_lost": "The ChatGPT subscription voice connection was lost.",
+        "control_unavailable": "The ChatGPT subscription voice control connection failed.",
+        "provider_error": "ChatGPT subscription voice is temporarily unavailable.",
+    }
+    return messages.get(code, messages["provider_error"])
+
+
+_STATIC_CODES = (
+    "authentication_required",
+    "access_denied",
+    "voice_not_offered",
+    "quota_exhausted",
+    "rate_limited",
+    "invalid_configuration",
+    "invalid_response",
+    "connection_lost",
+    "control_unavailable",
+    "provider_error",
+)
+_NAMED_PLAN_MESSAGE = re.compile(
+    r"The selected ChatGPT account \(([A-Za-z0-9][A-Za-z0-9_ -]{0,31}) plan\) is not "
+    r"offered subscription voice\. Check its plan or select another account in "
+    r"Agent accounts\.\Z"
+)
+
+
 class SubscriptionLiveError(RuntimeError):
     """Static, safe error classification for UI recovery and no-key fallback."""
 
@@ -57,24 +98,38 @@ class SubscriptionLiveError(RuntimeError):
     ) -> None:
         self.code = code
         self.allocation_unconfirmed = allocation_unconfirmed
-        plan = plan.strip().lower()
-        named = f" ({plan.replace('_', ' ').title()} plan)" if _PLAN.fullmatch(plan) else ""
-        messages = {
-            "authentication_required": "Reconnect your ChatGPT subscription before starting voice.",
-            "access_denied": "The ChatGPT account does not allow this GPT-Live session.",
-            "voice_not_offered": (
-                f"The selected ChatGPT account{named} is not offered subscription voice. "
-                "Check its plan or select another account in Agent accounts."
-            ),
-            "quota_exhausted": "The ChatGPT subscription voice allowance is exhausted.",
-            "rate_limited": "ChatGPT subscription voice is temporarily rate limited.",
-            "invalid_configuration": "The selected subscription voice configuration was rejected.",
-            "invalid_response": "ChatGPT subscription voice returned an invalid response.",
-            "connection_lost": "The ChatGPT subscription voice connection was lost.",
-            "control_unavailable": "The ChatGPT subscription voice control connection failed.",
-            "provider_error": "ChatGPT subscription voice is temporarily unavailable.",
-        }
-        super().__init__(messages.get(code, messages["provider_error"]))
+        super().__init__(_static_message(code, plan))
+
+
+def static_failure_message(error: BaseException | str | None) -> str | None:
+    """Return the safe, classified text behind a subscription voice failure.
+
+    Accepts the raised exception (its cause/context chain is searched for a
+    :class:`SubscriptionLiveError`) or a failure string a session recorded.
+    A string only counts when it is exactly one of the static messages, so raw
+    provider text can never come back out of this function.
+    """
+    if isinstance(error, BaseException):
+        seen: set[int] = set()
+        current: BaseException | None = error
+        while current is not None and id(current) not in seen:
+            seen.add(id(current))
+            if isinstance(current, SubscriptionLiveError):
+                text = str(current)
+                return text if static_failure_message(text) else None
+            current = current.__cause__ or current.__context__
+        return static_failure_message(str(error))
+    if not isinstance(error, str):
+        return None
+    text = error.strip()
+    if any(text == _static_message(code) for code in _STATIC_CODES):
+        return text
+    match = _NAMED_PLAN_MESSAGE.match(text)
+    if match is not None and text == _static_message(
+        "voice_not_offered", match.group(1).lower().replace(" ", "_")
+    ):
+        return text
+    return None
 
 
 def _error_code(status: int | None, error: dict | None = None) -> str:
