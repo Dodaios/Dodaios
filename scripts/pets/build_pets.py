@@ -9029,7 +9029,36 @@ DODAIOS = PetDesign(
 )
 
 
-PETS: tuple[PetDesign, ...] = (GIGI, MISO, BREW, BOLT, MOCHI, SHELLY, EMBER, COCOA, DODAIOS)
+CORE_PETS: tuple[PetDesign, ...] = (GIGI, MISO, BREW, BOLT, MOCHI, SHELLY, EMBER, COCOA, DODAIOS)
+
+#: Pets drawn in their own module, ``scripts/pets/designs/<id>.py``, in the
+#: order they ship. Each module defines ``design(bp) -> PetDesign`` and gets
+#: this builder module as ``bp``, so it uses the same helpers, palette and
+#: poses without a circular import.
+DESIGN_MODULES: tuple[str, ...] = (
+    "pip", "hazel", "otto", "nox", "kiko", "inky", "toasty", "cassie", "sprout", "flick", "aurelia",
+)
+DESIGNS_DIR = Path(__file__).resolve().parent / "designs"
+
+
+def load_design(pet_id: str) -> PetDesign:
+    """Load ``designs/<pet_id>.py`` and build its pet with this module's helpers."""
+    import importlib.util
+
+    path = DESIGNS_DIR / f"{pet_id}.py"
+    spec = importlib.util.spec_from_file_location(f"pet_design_{pet_id}", path)
+    if spec is None or spec.loader is None:
+        raise FileNotFoundError(path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    pet = module.design(sys.modules[__name__])
+    if pet.id != pet_id:
+        raise ValueError(f"{path.name} builds {pet.id!r}, expected {pet_id!r}")
+    return pet
+
+
+def all_pets() -> tuple[PetDesign, ...]:
+    return CORE_PETS + tuple(load_design(pet_id) for pet_id in DESIGN_MODULES)
 
 
 # ---------------------------------------------------------------------------
@@ -9192,10 +9221,15 @@ def save_json(data: dict, path: Path) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
-def build_all(out_dir: Path) -> list[Path]:
-    """Write ``out_dir/builtin/<id>/`` for every pet and ``out_dir/template/``."""
+def build_all(out_dir: Path, only: Sequence[str] | None = None) -> list[Path]:
+    """Write ``out_dir/builtin/<id>/`` for every pet (or ``only`` these) and ``template/``."""
     written: list[Path] = []
-    for pet in PETS:
+    if only:
+        core = {pet.id: pet for pet in CORE_PETS}
+        pets: tuple[PetDesign, ...] = tuple(core[i] if i in core else load_design(i) for i in only)
+    else:
+        pets = all_pets()
+    for pet in pets:
         folder = out_dir / "builtin" / pet.id
         folder.mkdir(parents=True, exist_ok=True)
         save_png(build_sheet(pet), folder / "sheet.png")
@@ -9221,8 +9255,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=REPO_ROOT / "dodaios" / "ui" / "pets",
         help="folder that receives builtin/ and template/ (default: the package)",
     )
+    parser.add_argument(
+        "--only",
+        default="",
+        help="comma-separated pet ids to build (a preview; the default builds every pet)",
+    )
     args = parser.parse_args(argv)
-    for path in build_all(args.out):
+    only = [pet_id for pet_id in args.only.split(",") if pet_id]
+    for path in build_all(args.out, only or None):
         print(path)
     return 0
 
