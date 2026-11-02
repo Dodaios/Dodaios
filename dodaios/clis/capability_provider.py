@@ -201,6 +201,33 @@ PLUGIN_CLI_OVERLAP: dict[str, str] = {
 }
 
 
+def connected_overlap_clis(cli_registry: Any) -> dict[str, dict[str, str]]:
+    """Plugin id -> the connected CLI that takes precedence over it.
+
+    The same rule ``suppress_plugin_tools_covered_by_cli`` applies per turn
+    (a ``cli_<name>`` tool is active), read once for the plugins page so a
+    connected plugin's card can say its tools stand back behind the CLI
+    (#601). Each value is ``{"name": "gh", "label": "GitHub CLI"}``.
+    Defensive: an absent or failing registry yields ``{}``.
+    """
+    if cli_registry is None:
+        return {}
+    try:
+        active = {t.name for t in cli_registry.active_tools()}
+        specs = cli_registry.catalog().all()
+        out: dict[str, dict[str, str]] = {}
+        for plugin_id, cli_name in PLUGIN_CLI_OVERLAP.items():
+            if f"{TOOL_NAME_PREFIX}{cli_name}" not in active:
+                continue
+            spec = specs.get(cli_name)
+            label = str(getattr(spec, "display_name", "") or cli_name)
+            out[plugin_id] = {"name": cli_name, "label": label}
+        return out
+    except Exception:  # noqa: BLE001 — a hint must never break the plugin list
+        log.debug("plugin/CLI overlap lookup failed", exc_info=True)
+        return {}
+
+
 def equivalent_grants(grants: Iterable[str]) -> tuple[str, ...]:
     """A plugin grant also names the CLI for the same service.
 

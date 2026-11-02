@@ -1550,6 +1550,7 @@
     "err_pending_publisher": "This connection is pending publisher setup. Please try again when browser sign-in is available.",
     "connection_unavailable": "Connection unavailable",
     "unsupported_device": "Unsupported on this device",
+    "cli_precedence": "{cli} is connected and is used first; name the {plugin} plugin to use it.",
     "installed_count": "{count} installed",
     "attention_one": "{plugin} needs reconnecting",
     "attention_many": "{count} connections need reconnecting",

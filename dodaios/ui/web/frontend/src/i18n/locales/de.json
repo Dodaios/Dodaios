@@ -1550,6 +1550,7 @@
     "err_pending_publisher": "Diese Verbindung wartet noch auf die Einrichtung durch den Herausgeber. Versuche es erneut, sobald die Browser-Anmeldung verfügbar ist.",
     "connection_unavailable": "Verbindung nicht verfügbar",
     "unsupported_device": "Auf diesem Gerät nicht unterstützt",
+    "cli_precedence": "{cli} ist verbunden und wird zuerst genutzt; nenne das {plugin}-Plugin, um es zu verwenden.",
     "installed_count": "{count} installiert",
     "attention_one": "{plugin} muss neu verbunden werden",
     "attention_many": "{count} Verbindungen müssen neu verbunden werden",

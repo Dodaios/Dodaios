@@ -40,6 +40,7 @@ import type { AddPluginMode } from "@/views/AddConnectorDialog";
 import {
   BrandTile,
   categoryLabel,
+  cliPrecedenceText,
   GrantExpiry,
   type Plugin,
   pluginStatusLabel,
@@ -278,6 +279,11 @@ export function PluginRow({
             )}
             {plugin.status === "needs_reauth" && (
               <span className="block truncate text-xs text-warning"><ReauthExplanation plugin={plugin} inline /></span>
+            )}
+            {cliPrecedenceText(plugin) && (
+              <span data-testid="plugin-cli-precedence" className="block truncate text-xs text-muted-foreground" title={cliPrecedenceText(plugin)}>
+                {cliPrecedenceText(plugin)}
+              </span>
             )}
             <GrantExpiry plugin={plugin} />
           </span>

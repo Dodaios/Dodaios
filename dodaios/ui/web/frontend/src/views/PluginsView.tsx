@@ -137,6 +137,11 @@ interface CatalogPlugin {
   auth_standard?: { ready: boolean; source: string; fallback: boolean } | null;
   status: PluginStatus;
   live_callable?: boolean;
+  /** The connected CLI that is used before this plugin (e.g. "gh"); the brain
+   *  hides the plugin's tools unless the user names the plugin. Set only while
+   *  the plugin is connected. */
+  covered_by_cli?: string | null;
+  covered_by_cli_label?: string | null;
   unavailable_reason?: string | null;
   /** Stable code for `unavailable_reason` (dodaios/marketplace/amd_mcp.py
    *  AMD_UNAVAILABLE_REASONS); translated at render, else the English text. */
@@ -239,6 +244,8 @@ export interface Plugin {
   status: PluginStatus;
   featured?: boolean;
   liveCallable?: boolean;
+  /** Display name of the connected CLI that is used before this plugin. */
+  coveredByCli?: string;
   unavailableReason?: string;
   unavailableReasonCode?: string;
   longevity: Longevity;
@@ -280,6 +287,17 @@ export function unavailableReasonText(plugin: Plugin): string | undefined {
   );
 }
 
+/** The quiet line on a connected plugin whose CLI counterpart is connected
+ *  too: the CLI is used first, so the plugin's tools only appear when the
+ *  user names the plugin (#601). Undefined when no CLI stands in front. */
+export function cliPrecedenceText(plugin: Plugin): string | undefined {
+  if (plugin.status !== "connected" || !plugin.coveredByCli) return undefined;
+  return fill(translate("plugins_view.cli_precedence"), {
+    cli: plugin.coveredByCli,
+    plugin: plugin.name,
+  });
+}
+
 /** A shipped plugin's longevity note in the UI language (keyed by plugin id);
  *  a marketplace or uploaded plugin's own note is shown as published. */
 function longevityNoteText(plugin: Plugin): string | undefined {
@@ -308,6 +326,7 @@ function adapt(p: CatalogPlugin): Plugin {
     status: p.status,
     featured: p.featured ?? false,
     liveCallable: p.live_callable ?? false,
+    coveredByCli: p.covered_by_cli ? (p.covered_by_cli_label || p.covered_by_cli) : undefined,
     unavailableReason: p.unavailable_reason ?? undefined,
     unavailableReasonCode: p.unavailable_reason_code ?? undefined,
     longevity: p.longevity ?? "self_renewing",
@@ -1458,10 +1477,15 @@ function PluginDetail({
         </div>
       </header>
 
-      {(plugin.unavailableReason || plugin.status === "needs_reauth" || plugin.description) && (
+      {(plugin.unavailableReason || plugin.status === "needs_reauth" || plugin.description || cliPrecedenceText(plugin)) && (
         <div className="flex flex-col gap-3">
           {plugin.unavailableReason && (
             <p className="text-base text-muted-foreground">{unavailableReasonText(plugin)}</p>
+          )}
+          {cliPrecedenceText(plugin) && (
+            <p data-testid="plugin-cli-precedence" className="text-xs text-muted-foreground">
+              {cliPrecedenceText(plugin)}
+            </p>
           )}
           {plugin.status === "needs_reauth" ? (
             <div className="rounded-lg bg-secondary px-3 py-2.5 text-xs">

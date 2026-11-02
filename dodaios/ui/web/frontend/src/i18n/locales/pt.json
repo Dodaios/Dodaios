@@ -1550,6 +1550,7 @@
     "err_pending_publisher": "Esta ligação aguarda configuração por parte do editor. Tenta novamente quando o início de sessão no browser estiver disponível.",
     "connection_unavailable": "Ligação indisponível",
     "unsupported_device": "Não suportado neste dispositivo",
+    "cli_precedence": "{cli} está ligado e é usado primeiro; menciona o plugin de {plugin} para o usar.",
     "installed_count": "{count} instalados",
     "attention_one": "É preciso voltar a ligar {plugin}",
     "attention_many": "É preciso voltar a ligar {count} ligações",

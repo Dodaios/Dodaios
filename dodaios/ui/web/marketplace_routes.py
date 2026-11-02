@@ -397,7 +397,10 @@ def _mcp_live(
 
 
 @router.get("/plugins")
-async def list_plugins(response: Response) -> dict[str, Any]:
+async def list_plugins(
+    response: Response,
+    request: Request = None,  # type: ignore[assignment]  # direct calls in tests pass none
+) -> dict[str, Any]:
     # Never let an embedded webview (pywebview/WebView2) serve a stale cached
     # plugin list: WebView2 heuristically caches this GET, so after a catalog
     # change the desktop window kept showing the old/empty list while a fresh
@@ -408,6 +411,13 @@ async def list_plugins(response: Response) -> dict[str, Any]:
     store = TokenStore()
     enriched: list[dict[str, Any]] = []
     connected = 0
+    # A connected CLI for the same service takes precedence: the brain hides
+    # this plugin's tools unless the user names the plugin (#601). The card
+    # says so instead of a bare "Connected · Live".
+    from dodaios.clis.capability_provider import connected_overlap_clis
+
+    cli_registry = getattr(request.app.state, "cli_registry", None) if request is not None else None
+    covering_clis = connected_overlap_clis(cli_registry)
     for spec in catalog.plugins:
         item = spec.model_dump(mode="json")
         meta = _plugin_status_meta(spec.id, store)
@@ -471,6 +481,9 @@ async def list_plugins(response: Response) -> dict[str, Any]:
             except Exception:  # noqa: BLE001
                 native_live = False
         item["live_callable"] = mcp_live or native_live
+        covering = covering_clis.get(spec.id) if status == "connected" else None
+        item["covered_by_cli"] = covering["name"] if covering else None
+        item["covered_by_cli_label"] = covering["label"] if covering else None
         if status == "connected":
             connected += 1
         enriched.append(item)

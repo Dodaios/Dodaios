@@ -1550,6 +1550,7 @@
     "err_pending_publisher": "此连接正等待发布方完成设置。浏览器登录可用后请重试。",
     "connection_unavailable": "连接不可用",
     "unsupported_device": "此设备不支持",
+    "cli_precedence": "{cli} 已连接并会优先使用；如需使用 {plugin} 插件，请在请求中点名该插件。",
     "installed_count": "已安装 {count} 个",
     "attention_one": "{plugin} 需要重新连接",
     "attention_many": "{count} 个连接需要重新连接",
