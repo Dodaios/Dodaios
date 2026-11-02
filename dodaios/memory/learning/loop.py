@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -298,9 +299,7 @@ class JarvisLearningLoop:
             wait, lambda: self._schedule(key, reason="quiet conversation", force=True)
         )
 
-    def _schedule(
-        self, key: str, *, reason: str, drop: bool = False, force: bool = False
-    ) -> None:
+    def _schedule(self, key: str, *, reason: str, drop: bool = False, force: bool = False) -> None:
         """Start a background review; ``drop`` forgets the conversation after it.
 
         A conversation whose unreviewed turns hold no signal is settled here,
@@ -698,6 +697,32 @@ def _open_vault(config: Any) -> None:
         return
     if vault is not None:
         log.info("memory vault: %s (%d current memories)", vault.path, vault.stats()["current"])
+        threading.Thread(
+            target=_import_legacy_once,
+            args=(config, vault),
+            name="memory-vault-import",
+            daemon=True,
+        ).start()
+
+
+def _import_legacy_once(config: Any, vault: Any) -> None:
+    """Copy the old wiki, notebooks and profile into a new vault, once (chunk 4)."""
+    from dodaios.core.config import DATA_DIR
+    from dodaios.memory.vault import legacy_import
+    from dodaios.memory.vault import runtime as vault_runtime
+
+    try:
+        from dodaios.society.memory import resolve_society_vault
+
+        wiki_root = resolve_society_vault(config)
+    except Exception:  # noqa: BLE001 — no wiki configured: import the other sources only
+        log.info("memory vault import: no wiki vault found", exc_info=True)
+        wiki_root = None
+    try:
+        if legacy_import.import_once(vault, wiki_root=wiki_root, data_dir=DATA_DIR):
+            vault_runtime.changed()
+    except Exception:  # noqa: BLE001 — a failed import is retried on the next boot
+        log.warning("memory vault: importing the old memory failed", exc_info=True)
 
 
 def _connect_write_feedback(bus: Any) -> None:
