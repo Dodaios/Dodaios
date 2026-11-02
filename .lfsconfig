@@ -1,0 +1,5 @@
+# Installs and in-app updates never download the Unreal Verse binaries
+# (docs/verse/unreal/architecture.md 8.4). Developers and the Unreal runner
+# override it with: git config lfs.fetchexclude ""
+[lfs]
+	fetchexclude = unreal/**

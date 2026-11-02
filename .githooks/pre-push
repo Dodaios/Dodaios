@@ -34,6 +34,9 @@
 #      leaked key is permanent and unrecoverable, which is why this one is worth
 #      its ~1.5 s even though CI also runs it.
 #
+#   3. GIT LFS upload — `git lfs pre-push`, only when git-lfs is installed, so
+#      Unreal assets reach the remote with the branch (architecture 8.4).
+#
 # Together: under two seconds. A push is a push again.
 #
 # This hook is VERSIONED in .githooks/; the orchestrator wires it via
@@ -96,6 +99,20 @@ if [ -f "$privkey_gate" ]; then
     fi
 fi
 
+# --- 3) GIT LFS upload (FAIL-CLOSED when git-lfs is installed) ---------------
+# core.hooksPath points here, so `git lfs install` cannot add its own pre-push
+# hook; without this line a push carries LFS pointers but not the objects
+# (Unreal .uasset/.umap, docs/verse/unreal/architecture.md 8.4). Machines
+# without git-lfs skip it; CI's LFS pointer check is the backstop.
+lfs_hit=0
+if command -v git-lfs >/dev/null 2>&1; then
+    git lfs pre-push "$remote_name" "$remote_url" < "$refs_file"
+    if [ "$?" -ne 0 ]; then
+        status=1
+        lfs_hit=1
+    fi
+fi
+
 rm -f "$refs_file"
 
 if [ "$status" -ne 0 ]; then
@@ -108,6 +125,10 @@ if [ "$status" -ne 0 ]; then
         echo "pre-push BLOCKED: PRIVATE-KEY gate (private key / passphrase in the tree)."
         echo "  Signing private keys live ONLY in GitHub Actions secrets, never in the"
         echo "  repo. Remove the key material shown above (public keys are fine)."
+    fi
+    if [ "$lfs_hit" -ne 0 ]; then
+        echo "pre-push BLOCKED: git lfs pre-push could not upload the LFS objects."
+        echo "  Check the remote and your LFS credentials, then push again."
     fi
     echo "Bypass once with:  git push --no-verify   (layer-3 CI is the backstop)."
 fi
