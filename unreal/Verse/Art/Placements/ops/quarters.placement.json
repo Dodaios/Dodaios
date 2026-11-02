@@ -2955,8 +2955,8 @@
       "destructible": null,
       "id": "quarters_shell",
       "location": [
-        2000.0,
-        4580.0,
+        1800.0,
+        4680.0,
         0.0
       ],
       "mobility": "static",

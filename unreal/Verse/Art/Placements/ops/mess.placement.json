@@ -838,8 +838,8 @@
       "destructible": null,
       "id": "mess_shell",
       "location": [
-        1700.0,
-        1420.0,
+        1490.0,
+        1440.0,
         0.0
       ],
       "mobility": "static",

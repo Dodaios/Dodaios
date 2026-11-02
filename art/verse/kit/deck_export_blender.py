@@ -34,6 +34,8 @@ import bpy
 from lib import kit, unreal_export
 from mathutils import Matrix, Vector
 
+from kit import cap_fit
+
 KIT_MODULES = ("kit.architecture", "kit.props.command", "kit.props.industrial")
 SKIP_PREFIXES = ("SOCKET_", "ROOM_", "UCX_", "UBX_", "USP_", "UCP_", "RT_")
 SKIP_COLLECTIONS = ("Occluders", "Sockets", "NavOnly")
@@ -247,7 +249,7 @@ def main(argv: list[str]) -> None:
             x0, y0, x1, y1, z = box
             _floor_box(nn, (x0 - cx, y0 - cy, x1 - cx, y1 - cy, z - cz), collection)
         name = f"SM_{title}_{''.join(p.capitalize() for p in zone.split('_'))}_Shell"
-        result = unreal_export.export_static_mesh(name, collection, options.out)
+        result = cap_fit.export(name, collection, options.out, cap=cap_fit.DEFAULT_CAP)
         entry = result.as_dict()
         entry["zone"] = zone
         entry["origin_m"] = [cx, cy, cz]

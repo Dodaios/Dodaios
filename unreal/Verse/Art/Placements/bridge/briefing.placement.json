@@ -116,8 +116,8 @@
       "destructible": null,
       "id": "briefing_shell",
       "location": [
-        1590.0,
-        3840.0,
+        1350.0,
+        3960.0,
         0.0
       ],
       "mobility": "static",

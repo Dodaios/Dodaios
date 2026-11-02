@@ -1830,8 +1830,8 @@
       "destructible": null,
       "id": "quartermaster_shell",
       "location": [
-        8400.0,
-        2400.0,
+        8730.0,
+        2360.0,
         0.0
       ],
       "mobility": "static",

@@ -1450,8 +1450,8 @@
       "destructible": null,
       "id": "ready_room_shell",
       "location": [
-        5610.0,
-        3840.0,
+        5970.0,
+        3960.0,
         0.0
       ],
       "mobility": "static",

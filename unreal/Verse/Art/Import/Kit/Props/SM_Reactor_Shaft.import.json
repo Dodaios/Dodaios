@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Reactor_Shaft.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "c7676b584809850ad71a62aa9b6457a732ac7a712abc79d58f195034f5e66a5a"
+    "sha256": "2bd10312eb0e56bb6202a3c822c23a5d1c4015a0fa5b8206f3b4c109a4d44abb"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,14 +23,14 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        1420.0,
-        1420.0,
-        -120.0
+        1419.878,
+        1419.872,
+        -120.128
       ],
       "min": [
-        -1420.0,
-        -1420.0,
-        -6400.0
+        -1419.892,
+        -1419.872,
+        -6399.884
       ]
     },
     "material_slots": [
@@ -83,9 +83,9 @@
         "slot": "M_TMP_PropsInd_LampDim"
       }
     ],
-    "triangles": 1576683,
+    "triangles": 184396,
     "uv_sets": 1,
-    "vertices": 841607
+    "vertices": 121372
   },
   "name": "SM_Reactor_Shaft",
   "nanite": {

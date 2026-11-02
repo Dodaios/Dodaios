@@ -375,7 +375,7 @@
       "id": "lift_lobby_shell",
       "location": [
         3600.0,
-        3780.0,
+        3960.0,
         0.0
       ],
       "mobility": "static",

@@ -23,6 +23,8 @@ import bmesh
 import bpy
 from lib import kit, unreal_export
 
+from kit import cap_fit
+
 MODULES = ("kit.architecture", "kit.props.command", "kit.props.industrial")
 MIN_FACE_AREA = 1e-7  # m2; well below any visible face, above the exporter check after scaling
 
@@ -99,11 +101,16 @@ def main(argv: list[str]) -> None:
             pdef = registry[name]
             master = kit.build_master(name)
             _clean_collection(master, done)
-            result = unreal_export.export_static_mesh(
-                name, master, options.out, root_name=kit.MASTER_ROOT
+            source = _source_of(pdef.builder, pdef.params)
+            result = cap_fit.export(
+                name,
+                master,
+                options.out,
+                cap=cap_fit.cap_for(source["builder"]),
+                root_name=kit.MASTER_ROOT,
             )
             entry = result.as_dict()
-            entry["source"] = _source_of(pdef.builder, pdef.params)
+            entry["source"] = source
             entry["nav"] = pdef.nav
             results.append(entry)
             print(f"[verse] exported {name}: {entry['triangles']} tris", flush=True)

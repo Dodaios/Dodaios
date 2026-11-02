@@ -1157,8 +1157,8 @@
       "destructible": null,
       "id": "medbay_shell",
       "location": [
-        8200.0,
-        5250.0,
+        8520.0,
+        5400.0,
         0.0
       ],
       "mobility": "static",

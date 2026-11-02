@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Quartermaster_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "e88faa8111bf0079f0c6b5d04cf472bb4dc10c9bba76c9694987742902fb2eb3"
+    "sha256": "41c4239a02c31ab55e09f558e51f799f7a7a335533cd737dc28e17e0cc2c62a6"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,13 +23,13 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        900.0,
-        2300.0,
+        570.0,
+        2340.0,
         460.0
       ],
       "min": [
-        -930.5,
-        -2200.0,
+        -1260.5,
+        -2160.0,
         -30.0
       ]
     },
@@ -167,7 +167,7 @@
         "slot": "M_Light_RedTrim"
       }
     ],
-    "triangles": 129752,
+    "triangles": 129754,
     "uv_sets": 1,
     "vertices": 72086
   },
