@@ -212,3 +212,77 @@ def test_friends_list_endpoint(
     body = resp.json()
     assert len(body["friends"]) == 1
     assert body["friends"][0]["display_name"] == "Bob"
+
+
+@pytest.mark.parametrize(
+    "friend_url",
+    [
+        "http://169.254.169.254",  # cloud metadata endpoint
+        "http://[::ffff:169.254.169.254]",
+        "http://0.0.0.0:8765",
+        "file:///etc/passwd",
+        "http://b:8765/api/v1/anything",
+        "http://user:secret@b:8765",
+        "http://b:8765?x=1",
+    ],
+)
+def test_pair_accept_refuses_unsafe_friend_url(
+    owner_client: TestClient, friend_keys: tuple[str, str], friend_url: str
+) -> None:
+    init = owner_client.post(
+        "/api/v1/pair/initiate", json={},
+        headers={"X-Admin-Token": "test-admin"},
+    ).json()
+    _, friend_pub = friend_keys
+    resp = owner_client.post("/api/v1/pair/accept", json={
+        "token": init["token"],
+        "friend_pubkey": friend_pub,
+        "friend_url": friend_url,
+        "friend_display_name": "Bob",
+    })
+    assert resp.status_code == 422
+    with owner_client.app.state.session_factory() as session:
+        assert session.query(Friend).count() == 0
+        assert session.get(PairToken, init["token"]).used_at is None
+
+
+def test_pair_token_consumed_by_a_concurrent_accept_is_refused(
+    owner_client: TestClient, friend_keys: tuple[str, str]
+) -> None:
+    """A second accept that read the token before the first one committed loses."""
+    from sqlalchemy import event
+
+    init = owner_client.post(
+        "/api/v1/pair/initiate", json={},
+        headers={"X-Admin-Token": "test-admin"},
+    ).json()
+    factory = owner_client.app.state.session_factory
+    engine = factory.kw["bind"]
+
+    fired: list[bool] = []
+
+    def _concurrent_winner(conn, cursor, statement, parameters, context, executemany):
+        # Just before this request consumes the token, another one does.
+        if not fired and statement.lstrip().upper().startswith("UPDATE PAIR_TOKENS"):
+            fired.append(True)
+            with engine.begin() as other:
+                other.exec_driver_sql(
+                    "UPDATE pair_tokens SET used_at = CURRENT_TIMESTAMP WHERE token = ?",
+                    (init["token"],),
+                )
+
+    _, friend_pub = friend_keys
+    event.listen(engine, "before_cursor_execute", _concurrent_winner)
+    try:
+        resp = owner_client.post("/api/v1/pair/accept", json={
+            "token": init["token"],
+            "friend_pubkey": friend_pub,
+            "friend_url": "http://b:8765",
+            "friend_display_name": "Bob",
+        })
+    finally:
+        event.remove(engine, "before_cursor_execute", _concurrent_winner)
+    assert fired, "the accept never reached its consuming UPDATE"
+    assert resp.status_code == 401
+    with factory() as session:
+        assert session.query(Friend).count() == 0
