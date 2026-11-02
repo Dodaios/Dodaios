@@ -107,7 +107,6 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
       {rows.length === 0 && live.isPending && <li className="text-[12px] text-muted-foreground">{t("society.profile_card.loading")}</li>}
       {rows.length === 0 && !live.isPending && !live.error && <li className="rounded-2xl bg-card px-4 py-5 text-center">
                 <p className="text-[14px] font-medium text-foreground">{t("society.card.no_routines")}</p>
-        <p className="mx-auto mt-1 max-w-[30ch] text-[13px] leading-snug text-muted-foreground">{own("empty_body")}</p>
         {!isSample && <button type="button" onClick={setUpInChat} className="mt-3 inline-flex items-center rounded-full bg-secondary px-3.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-border">{own("setup_in_chat")}</button>}
       </li>}
       {rows.map((routine) => <RoutineRow key={routine.id} routine={routine} lastRun={lastRunOf(routine)} parked={parked.has(routine.id)}
