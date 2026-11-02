@@ -117,6 +117,7 @@ async def probe() -> None:
 
 class Worker:
     def __init__(self) -> None:
+        self.logins_typed: list[str] = []
         self.pending: dict[str, asyncio.Future] = {}
         self.context: Any = None
         self.browser: Any = None
@@ -862,7 +863,20 @@ class Worker:
                 finally:
                     worker.visual_action = False
                 if typed_secret(proposal):
-                    await worker.hide_typed_value()
+                    typed = str(result.extracted_content or "")
+                    if result.error is None and typed.startswith("Typed ") and typed != (
+                        "Typed sensitive data"
+                    ):
+                        worker.logins_typed.append(typed.removeprefix("Typed ").strip())
+                        await worker.hide_typed_value()
+                    elif result.error is None:
+                        # The placeholder stayed literal: this page is not the login's site.
+                        result = ActionResult(
+                            error=(
+                                "The stored login was not filled in: it is typed only on its "
+                                "own website over HTTPS. Check the page address."
+                            )
+                        )
                 emit("action_result", id=answer["permit"], result=result.model_dump(mode="json"))
                 return result
 
@@ -877,6 +891,7 @@ class Worker:
             register_window_actions(tools, self, ActionResult)
         started = time.monotonic()
         secrets = args.get("sensitive_data") or None
+        self.logins_typed = []
         self.agent = Agent(
             task=args["task"],
             # Stored website logins: the model writes <secret>name</secret>, the
@@ -935,6 +950,7 @@ class Worker:
                 "error": None if successful else "Browser task did not complete successfully",
                 # One SDK owns downloads; a second Playwright save would duplicate files.
                 "artifacts": sorted(set(self.browser.downloaded_files) - previous_downloads),
+                "logins_typed": list(dict.fromkeys(self.logins_typed)),
             })
         finally:
             self.agent = None

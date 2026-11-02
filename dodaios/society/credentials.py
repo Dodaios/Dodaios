@@ -287,6 +287,16 @@ def login_site(raw: Any) -> tuple[str, str]:
     return f"https://{host}{path}"[:300], domain
 
 
+def username_is_private(username: str) -> bool:
+    """An email address is private; a site username is public on its own profile.
+
+    A public username is shown to the agent and typed as it is: hiding it
+    would mask every mention of that name (often the project's own name) in
+    the chat and in every page the browser reads.
+    """
+    return "@" in username
+
+
 def _login_field(value: Any, what: str, *, strip: bool) -> str:
     text = str(value if isinstance(value, str) else "")
     if strip:
@@ -546,7 +556,8 @@ class CredentialVault:
                 self._logins[agent_id] = logins
                 needles = [(value, env) for env, value in loaded.items()]
                 for key, (username, password) in logins.items():
-                    needles.append((username, f"{key} username"))
+                    if username_is_private(username):
+                        needles.append((username, f"{key} username"))
                     needles.append((password, f"{key} password"))
                 self._masks[agent_id] = sorted(
                     ((form, name) for value, name in needles for form in _encodings(value)),
@@ -687,10 +698,20 @@ class CredentialVault:
             if info is None:
                 continue
             user_name, pass_name = info.placeholders
-            out.setdefault(info.domain_pattern, {}).update(
-                {user_name: username, pass_name: password}
-            )
+            scoped = out.setdefault(info.domain_pattern, {})
+            scoped[pass_name] = password
+            if username_is_private(username):
+                scoped[user_name] = username
         return out
+
+    def public_username(self, agent_id: str, key: str) -> str | None:
+        """The login's username when it is not private, else ``None``."""
+        self.values(agent_id)
+        with self._lock:
+            pair = self._logins.get(agent_id, {}).get(key)
+        if pair is None or username_is_private(pair[0]):
+            return None
+        return pair[0]
 
     def is_loaded(self, agent_id: str) -> bool:
         return agent_id in self._values

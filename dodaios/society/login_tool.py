@@ -40,15 +40,24 @@ __all__ = ["LOGIN_TOOL_NAME", "RequestLoginTool", "login_usage_note"]
 LOGIN_TOOL_NAME: Final[str] = "society_request_login"
 
 
-def login_usage_note(info: LoginInfo) -> str:
-    """How the agent uses a stored login without ever seeing it."""
-    user, password = info.placeholders
+def username_hint(info: LoginInfo, username: str | None) -> str:
+    """What the agent types as the username: the name itself or its placeholder."""
+    return username if username else f"<secret>{info.placeholders[0]}</secret>"
+
+
+def login_usage_note(info: LoginInfo, username: str | None = None) -> str:
+    """How the agent uses a stored login without ever seeing the password."""
+    password = info.placeholders[1]
     return (
-        f"Sign in with society_browser on {info.domain}. In the browser task write the "
-        f"placeholders literally: username <secret>{user}</secret>, password "
-        f"<secret>{password}</secret>. The browser types the real values only on "
-        f"{info.domain} and its subdomains; you never see them. Never ask the user to type "
-        "the login in the chat and never try to read the typed values back."
+        f"Sign in with society_browser on {info.domain}. In the browser task give the "  # noqa: S608
+        f"username {username_hint(info, username)} and the password "
+        f"<secret>{password}</secret>, written literally. The browser types the secret "
+        f"values only on {info.domain} and its subdomains; you never see them. Use the "
+        "page's sign-in form, not a create-account form. The browser result lists the "
+        "secret fields it really filled under logins_typed. If the site rejects the login, "
+        "ask again with replace only when the sign-in form was used and the password is in "
+        "logins_typed; otherwise retry the sign-in once. Never ask the user to type the "
+        "login in the chat and never try to read the typed values back."
     )
 
 
@@ -227,16 +236,16 @@ class RequestLoginTool:
         info = next((row for row in vault.list_logins(self._agent_id) if row.key == key), None)
         if info is None:
             return ToolResult(success=False, output=None, error="The login was not stored.")
-        user, password = info.placeholders
+        username = vault.public_username(self._agent_id, key)
         return ToolResult(
             success=True,
             output={
                 "status": status,
                 "site": info.label,
                 "domain": info.domain,
-                "username_placeholder": f"<secret>{user}</secret>",
-                "password_placeholder": f"<secret>{password}</secret>",
-                "note": login_usage_note(info),
+                "username": username_hint(info, username),
+                "password_placeholder": f"<secret>{info.placeholders[1]}</secret>",
+                "note": login_usage_note(info, username),
             },
         )
 

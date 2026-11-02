@@ -291,3 +291,35 @@ async def test_a_restored_connect_card_still_checks_the_connection(
     assert save is not None
     with pytest.raises(CredentialError):
         await save("connected")
+
+
+def test_a_public_username_is_typed_as_is_and_never_masked(vault: CredentialVault) -> None:
+    # A site username such as the project's own name is public; masking it
+    # would rewrite every mention of the project in the chat and the pages.
+    vault.store_login("ada", "hacker_news", "dodaios", PASSWORD, url="news.ycombinator.com")
+    assert vault.browser_secrets("ada") == {
+        "*.ycombinator.com": {"hacker_news_password": PASSWORD}
+    }
+    assert vault.public_username("ada", "hacker_news") == "dodaios"
+    text = "mcp__dodaios__society_ask_user posts for Dodaios/dodaios"
+    assert vault.redact("ada", text) == text
+    assert vault.redact("ada", f"pw={PASSWORD}") == "pw=[credential hacker_news password]"
+
+
+def test_an_email_username_stays_a_placeholder(vault: CredentialVault) -> None:
+    vault.store_login("ada", "reddit", USER, PASSWORD, url="reddit.com")
+    assert vault.public_username("ada", "reddit") is None
+    assert set(vault.browser_secrets("ada")["*.reddit.com"]) == {
+        "reddit_username", "reddit_password"
+    }
+
+
+async def test_the_agent_gets_a_public_username_in_plain_text(tmp_path: Path, vault) -> None:
+    vault.store_login("ada", "hacker_news", "dodaios", PASSWORD, url="news.ycombinator.com")
+    tool = RequestLoginTool(_runtime(None), "ada", session_id=SID)
+    result = await tool.execute(
+        {"site": "Hacker News", "url": "news.ycombinator.com/login", "description": "why"}, None
+    )
+    assert result.output["status"] == "available"
+    assert result.output["username"] == "dodaios"
+    assert "logins_typed" in result.output["note"] and PASSWORD not in json.dumps(result.output)
