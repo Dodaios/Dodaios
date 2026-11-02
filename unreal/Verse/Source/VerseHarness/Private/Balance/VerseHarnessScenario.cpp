@@ -1,20 +1,17 @@
 #include "Balance/VerseHarnessScenario.h"
 
-#include "Dom/JsonObject.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
+#include "VerseHarnessJson.h"
 
 namespace VerseHarnessScenarioPrivate
 {
-	bool ParseSlot(const TSharedPtr<FJsonObject>& Obj, FVerseHarnessSlot& Out, FString& OutError)
+	bool ParseSlot(const FVerseJson* Obj, FVerseHarnessSlot& Out, FString& OutError)
 	{
-		if (!Obj.IsValid())
+		if (!Obj || !Obj->IsObject())
 		{
 			OutError = TEXT("slot is not an object");
 			return false;
 		}
-		const FString Kind = Obj->GetStringField(TEXT("kind"));
+		const FString Kind = Obj->StringOr(TEXT("kind"));
 		if (Kind == TEXT("bot"))
 		{
 			Out.Kind = EVerseHarnessSlotKind::Bot;
@@ -29,19 +26,19 @@ namespace VerseHarnessScenarioPrivate
 			return false;
 		}
 		FString Text;
-		if (Obj->TryGetStringField(TEXT("tier"), Text))
+		if (Obj->TryString(TEXT("tier"), Text))
 		{
 			Out.Tier = FName(*Text);
 		}
-		if (Obj->TryGetStringField(TEXT("model"), Text))
+		if (Obj->TryString(TEXT("model"), Text))
 		{
 			Out.Model = FName(*Text);
 		}
-		if (Obj->TryGetStringField(TEXT("trick"), Text))
+		if (Obj->TryString(TEXT("trick"), Text))
 		{
 			Out.Trick = FName(*Text);
 		}
-		Obj->TryGetBoolField(TEXT("learning"), Out.bLearning);
+		Obj->TryBool(TEXT("learning"), Out.bLearning);
 		if (Out.IsBot() && Out.Tier.IsNone())
 		{
 			OutError = TEXT("a bot slot needs a tier");
@@ -73,77 +70,66 @@ bool FVerseHarnessScenario::Parse(const FString& JsonText, FVerseHarnessScenario
 {
 	using namespace VerseHarnessScenarioPrivate;
 
-	TSharedPtr<FJsonObject> Root;
-	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(JsonText), Root) || !Root.IsValid())
+	const TSharedPtr<FVerseJson> Root = FVerseJson::Parse(JsonText, OutError);
+	if (!Root.IsValid() || !Root->IsObject())
 	{
-		OutError = TEXT("not a JSON object");
+		OutError = TEXT("not a JSON object: ") + OutError;
 		return false;
 	}
-	if (Root->GetStringField(TEXT("schema")) != TEXT("verse.scenario/1"))
+	if (Root->StringOr(TEXT("schema")) != TEXT("verse.scenario/1"))
 	{
 		OutError = TEXT("schema is not verse.scenario/1");
 		return false;
 	}
 	Out = FVerseHarnessScenario();
-	Out.Run = Root->GetStringField(TEXT("run"));
-	Out.Map = Root->GetStringField(TEXT("map"));
-	Out.OutputDir = Root->GetStringField(TEXT("output"));
-	Root->TryGetNumberField(TEXT("job"), Out.Job);
-	Root->TryGetNumberField(TEXT("maxWallS"), Out.MaxWallS);
-	const TSharedPtr<FJsonObject>* Trace = nullptr;
-	if (Root->TryGetObjectField(TEXT("trace"), Trace))
+	Out.Run = Root->StringOr(TEXT("run"));
+	Out.Map = Root->StringOr(TEXT("map"));
+	Out.OutputDir = Root->StringOr(TEXT("output"));
+	Root->TryInt(TEXT("job"), Out.Job);
+	Root->TryNumber(TEXT("maxWallS"), Out.MaxWallS);
+	if (const FVerseJson* Trace = Root->ObjectField(TEXT("trace")))
 	{
-		(*Trace)->TryGetBoolField(TEXT("bearing"), Out.bTraceBearing);
-		(*Trace)->TryGetBoolField(TEXT("fireAudit"), Out.bTraceFireAudit);
+		Trace->TryBool(TEXT("bearing"), Out.bTraceBearing);
+		Trace->TryBool(TEXT("fireAudit"), Out.bTraceFireAudit);
 	}
 	if (Out.Run.IsEmpty() || Out.OutputDir.IsEmpty() || Out.Map.IsEmpty())
 	{
 		OutError = TEXT("run, map and output are required");
 		return false;
 	}
-	const TArray<TSharedPtr<FJsonValue>>* Units = nullptr;
-	if (!Root->TryGetArrayField(TEXT("units"), Units) || Units->Num() == 0)
+	const TArray<TSharedPtr<FVerseJson>>* Units = Root->ArrayField(TEXT("units"));
+	if (!Units || Units->Num() == 0)
 	{
 		OutError = TEXT("units must be a non-empty array");
 		return false;
 	}
-	for (const TSharedPtr<FJsonValue>& Value : *Units)
+	for (const TSharedPtr<FVerseJson>& U : *Units)
 	{
-		const TSharedPtr<FJsonObject> U = Value->AsObject();
-		if (!U.IsValid())
+		if (!U.IsValid() || !U->IsObject())
 		{
 			OutError = TEXT("a unit is not an object");
 			return false;
 		}
 		FVerseHarnessUnit Unit;
-		Unit.Pairing = U->GetStringField(TEXT("pairing"));
-		U->TryGetStringField(TEXT("set"), Unit.Set);
-		U->TryGetNumberField(TEXT("match"), Unit.Match);
+		Unit.Pairing = U->StringOr(TEXT("pairing"));
+		U->TryString(TEXT("set"), Unit.Set);
+		U->TryInt(TEXT("match"), Unit.Match);
 		double Seed = 0.0;
-		U->TryGetNumberField(TEXT("seed"), Seed);
+		U->TryNumber(TEXT("seed"), Seed);
 		Unit.Seed = uint32(FMath::Clamp(Seed, 0.0, 4294967295.0));
-		U->TryGetNumberField(TEXT("bouts"), Unit.Bouts);
-		U->TryGetNumberField(TEXT("killsToWin"), Unit.KillsToWin);
-		U->TryGetNumberField(TEXT("matchTimeLimitS"), Unit.MatchTimeLimitS);
+		U->TryInt(TEXT("bouts"), Unit.Bouts);
+		U->TryInt(TEXT("killsToWin"), Unit.KillsToWin);
+		U->TryNumber(TEXT("matchTimeLimitS"), Unit.MatchTimeLimitS);
 		FString Scenario;
-		if (U->TryGetStringField(TEXT("scenario"), Scenario))
+		if (U->TryString(TEXT("scenario"), Scenario))
 		{
 			Unit.Scenario = FName(*Scenario);
 		}
-		const TSharedPtr<FJsonObject>* Patch = nullptr;
-		if (U->TryGetObjectField(TEXT("tierPatch"), Patch))
+		if (const FVerseJson* Patch = U->ObjectField(TEXT("tierPatch")))
 		{
-			const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Unit.TierPatchJson);
-			FJsonSerializer::Serialize(Patch->ToSharedRef(), Writer);
+			Unit.TierPatchJson = Patch->ToString();
 		}
-		const TSharedPtr<FJsonObject>* SlotA = nullptr;
-		const TSharedPtr<FJsonObject>* SlotB = nullptr;
-		if (!U->TryGetObjectField(TEXT("a"), SlotA) || !U->TryGetObjectField(TEXT("b"), SlotB))
-		{
-			OutError = FString::Printf(TEXT("unit %s needs slots a and b"), *Unit.Pairing);
-			return false;
-		}
-		if (!ParseSlot(*SlotA, Unit.A, OutError) || !ParseSlot(*SlotB, Unit.B, OutError))
+		if (!ParseSlot(U->Find(TEXT("a")), Unit.A, OutError) || !ParseSlot(U->Find(TEXT("b")), Unit.B, OutError))
 		{
 			OutError = FString::Printf(TEXT("unit %s: %s"), *Unit.Pairing, *OutError);
 			return false;

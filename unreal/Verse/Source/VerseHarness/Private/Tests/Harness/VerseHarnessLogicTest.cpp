@@ -5,6 +5,7 @@
 #include "Balance/VerseTrickOverrides.h"
 #include "Capture/VerseCaptureDirector.h"
 #include "Misc/AutomationTest.h"
+#include "VerseHarnessJson.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -310,6 +311,29 @@ bool FVerseHarnessCaptureScriptTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("shot"), S.Shots[0].Id, FString(TEXT("mid")));
 	FVerseCaptureScript Bad;
 	TestFalse(TEXT("needs views or keys"), FVerseCaptureScript::Parse(TEXT(R"({"schema":"verse.capture/1"})"), Bad, Error));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseHarnessJsonTest, "Verse.Harness.Json.RoundTrip", VerseHarnessTestPrivate::Flags)
+bool FVerseHarnessJsonTest::RunTest(const FString& Parameters)
+{
+	FString Error;
+	const TSharedPtr<FVerseJson> Doc = FVerseJson::Parse(TEXT("{\"a\": [1, 2.5, -3e2], \"s\": \"x\\\"y\n\", \"b\": true, \"n\": null, \"o\": {}}"), Error);
+	if (!TestTrue(TEXT("parses: ") + Error, Doc.IsValid()))
+	{
+		return false;
+	}
+	const TArray<TSharedPtr<FVerseJson>>* A = Doc->ArrayField(TEXT("a"));
+	TestTrue(TEXT("array"), A && A->Num() == 3 && (*A)[2]->Number == -300.0);
+	TestEqual(TEXT("escapes"), Doc->StringOr(TEXT("s")), FString(TEXT("x\"y\n")));
+	bool B = false;
+	TestTrue(TEXT("bool"), Doc->TryBool(TEXT("b"), B) && B);
+	TestEqual(TEXT("compact round trip"), Doc->ToString(), FString(TEXT("{\"a\":[1,2.5,-300],\"s\":\"x\\\"y\n\",\"b\":true,\"n\":null,\"o\":{}}")));
+	TestFalse(TEXT("trailing garbage fails"), FVerseJson::Parse(TEXT("{} x"), Error).IsValid());
+	TestFalse(TEXT("unterminated fails"), FVerseJson::Parse(TEXT("{\"a\": [1, 2"), Error).IsValid());
+	FVerseJsonWriter W;
+	W.Str(TEXT("k"), TEXT("v")).Num(TEXT("n"), 0.25).Null(TEXT("z"));
+	TestEqual(TEXT("writer"), W.Close(), FString(TEXT("{\"k\":\"v\",\"n\":0.25,\"z\":null}")));
 	return true;
 }
 

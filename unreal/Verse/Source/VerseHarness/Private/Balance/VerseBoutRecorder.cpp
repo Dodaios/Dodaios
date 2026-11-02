@@ -1,9 +1,6 @@
 #include "Balance/VerseBoutRecorder.h"
 
-#include "Dom/JsonObject.h"
-#include "Policies/CondensedJsonPrintPolicy.h"
-#include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
+#include "VerseHarnessJson.h"
 
 namespace VerseBoutPrivate
 {
@@ -26,29 +23,24 @@ namespace VerseBoutPrivate
 
 	int32 Index(EVerseSide Side) { return Side == EVerseSide::A ? 0 : 1; }
 
-	TSharedRef<FJsonObject> SideJson(const FVerseBoutSide& S)
+	FString SideJson(const FVerseBoutSide& S)
 	{
-		TSharedRef<FJsonObject> O = MakeShared<FJsonObject>();
-		O->SetNumberField(TEXT("kills"), S.Kills);
-		O->SetNumberField(TEXT("deaths"), S.Deaths);
-		O->SetNumberField(TEXT("shots"), S.Shots);
-		O->SetNumberField(TEXT("hits"), S.Hits);
-		O->SetNumberField(TEXT("headshotHits"), S.HeadshotHits);
-		TArray<TSharedPtr<FJsonValue>> Contact;
-		for (float T : S.TimeToContactS)
-		{
-			Contact.Add(MakeShared<FJsonValueNumber>(T));
-		}
-		O->SetArrayField(TEXT("timeToContactS"), Contact);
-		O->SetNumberField(TEXT("bulwarkUses"), S.BulwarkUses);
-		O->SetNumberField(TEXT("breachUses"), S.BreachUses);
-		O->SetNumberField(TEXT("reloadsInFight"), S.ReloadsInFight);
-		O->SetNumberField(TEXT("stuckEvents"), S.StuckEvents);
-		O->SetObjectField(TEXT("fireAudit"), MakeShared<FJsonObject>());
-		// Bot timing and nav health come from VerseBot once it lands (WP08); unknown until then.
-		O->SetField(TEXT("botMsP99"), MakeShared<FJsonValueNull>());
-		O->SetField(TEXT("navFailures"), MakeShared<FJsonValueNull>());
-		return O;
+		FVerseJsonWriter O;
+		O.Num(TEXT("kills"), S.Kills)
+			.Num(TEXT("deaths"), S.Deaths)
+			.Num(TEXT("shots"), S.Shots)
+			.Num(TEXT("hits"), S.Hits)
+			.Num(TEXT("headshotHits"), S.HeadshotHits)
+			.Numbers(TEXT("timeToContactS"), S.TimeToContactS)
+			.Num(TEXT("bulwarkUses"), S.BulwarkUses)
+			.Num(TEXT("breachUses"), S.BreachUses)
+			.Num(TEXT("reloadsInFight"), S.ReloadsInFight)
+			.Num(TEXT("stuckEvents"), S.StuckEvents)
+			.Raw(TEXT("fireAudit"), TEXT("{}"))
+			// Bot timing and nav health come from VerseBot once it lands (WP08); unknown until then.
+			.Null(TEXT("botMsP99"))
+			.Null(TEXT("navFailures"));
+		return O.Close();
 	}
 }
 
@@ -248,50 +240,41 @@ FString FVerseBoutRecorder::ToJsonLine(const FString& Pairing, int32 Match, int3
 {
 	using namespace VerseBoutPrivate;
 
-	TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
-	Root->SetStringField(TEXT("schema"), TEXT("verse.bout/1"));
-	Root->SetStringField(TEXT("pairing"), Pairing);
-	Root->SetNumberField(TEXT("match"), Match);
-	Root->SetNumberField(TEXT("bout"), Bout);
-	Root->SetNumberField(TEXT("seed"), Seed);
-	Root->SetNumberField(TEXT("spawnSideA"), SpawnSideA);
-	const EVerseSide W = Winner();
-	Root->SetStringField(TEXT("winner"), W == EVerseSide::A ? TEXT("A") : (W == EVerseSide::B ? TEXT("B") : TEXT("none")));
-	Root->SetNumberField(TEXT("durationS"), FMath::RoundToDouble(DurationS * 1000.0) / 1000.0);
-	Root->SetNumberField(TEXT("matchTimeStartS"), FMath::RoundToDouble(MatchTimeStartS * 1000.0) / 1000.0);
-	TArray<TSharedPtr<FJsonValue>> KillValues;
+	const auto Ms = [](double V) { return FMath::RoundToDouble(V * 1000.0) / 1000.0; };
+	TArray<FString> KillValues;
 	for (const FVerseBoutKill& K : KillList)
 	{
-		TSharedRef<FJsonObject> O = MakeShared<FJsonObject>();
-		O->SetNumberField(TEXT("t"), FMath::RoundToDouble(K.T * 1000.0) / 1000.0);
-		O->SetStringField(TEXT("killer"), K.Killer == EVerseSide::A ? TEXT("A") : TEXT("B"));
-		O->SetStringField(TEXT("cause"), CauseName(K.Cause));
-		O->SetBoolField(TEXT("headshot"), K.bHeadshot);
-		O->SetBoolField(TEXT("wall"), K.bWall);
+		FVerseJsonWriter O;
+		O.Num(TEXT("t"), Ms(K.T))
+			.Str(TEXT("killer"), K.Killer == EVerseSide::A ? TEXT("A") : TEXT("B"))
+			.Str(TEXT("cause"), CauseName(K.Cause))
+			.Bool(TEXT("headshot"), K.bHeadshot)
+			.Bool(TEXT("wall"), K.bWall);
 		if (K.RangeM >= 0.f)
 		{
-			O->SetNumberField(TEXT("rangeM"), K.RangeM);
+			O.Num(TEXT("rangeM"), K.RangeM);
 		}
 		if (K.TtkS >= 0.f)
 		{
-			O->SetNumberField(TEXT("ttkS"), K.TtkS);
+			O.Num(TEXT("ttkS"), K.TtkS);
 		}
-		O->SetBoolField(TEXT("spawnKill"), K.bSpawnKill);
-		KillValues.Add(MakeShared<FJsonValueObject>(O));
+		O.Bool(TEXT("spawnKill"), K.bSpawnKill);
+		KillValues.Add(O.Close());
 	}
-	Root->SetArrayField(TEXT("kills"), KillValues);
-	Root->SetObjectField(TEXT("a"), SideJson(SideA));
-	Root->SetObjectField(TEXT("b"), SideJson(SideB));
-	TArray<TSharedPtr<FJsonValue>> Trace;
-	for (float S : AdaptiveTrace)
-	{
-		Trace.Add(MakeShared<FJsonValueNumber>(S));
-	}
-	Root->SetArrayField(TEXT("adaptiveTrace"), Trace);
-
-	FString Line;
-	const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer =
-		TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Line);
-	FJsonSerializer::Serialize(Root, Writer);
-	return Line;
+	const EVerseSide W = Winner();
+	FVerseJsonWriter Root;
+	Root.Str(TEXT("schema"), TEXT("verse.bout/1"))
+		.Str(TEXT("pairing"), Pairing)
+		.Num(TEXT("match"), Match)
+		.Num(TEXT("bout"), Bout)
+		.Num(TEXT("seed"), Seed)
+		.Num(TEXT("spawnSideA"), SpawnSideA)
+		.Str(TEXT("winner"), W == EVerseSide::A ? TEXT("A") : (W == EVerseSide::B ? TEXT("B") : TEXT("none")))
+		.Num(TEXT("durationS"), Ms(DurationS))
+		.Num(TEXT("matchTimeStartS"), Ms(MatchTimeStartS))
+		.Raw(TEXT("kills"), TEXT("[") + FString::Join(KillValues, TEXT(",")) + TEXT("]"))
+		.Raw(TEXT("a"), SideJson(SideA))
+		.Raw(TEXT("b"), SideJson(SideB))
+		.Numbers(TEXT("adaptiveTrace"), AdaptiveTrace);
+	return Root.Close();
 }

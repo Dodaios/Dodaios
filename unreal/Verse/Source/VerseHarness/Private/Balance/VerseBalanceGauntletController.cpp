@@ -1,7 +1,6 @@
 #include "Balance/VerseBalanceGauntletController.h"
 
 #include "Balance/VerseModelController.h"
-#include "Dom/JsonObject.h"
 #include "Engine/World.h"
 #include "Events/VerseEventHub.h"
 #include "GameFramework/GameModeBase.h"
@@ -12,9 +11,8 @@
 #include "HAL/PlatformTime.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
 #include "UObject/UObjectGlobals.h"
+#include "VerseHarnessJson.h"
 #include "VerseLog.h"
 
 namespace VerseBalancePrivate
@@ -306,20 +304,19 @@ void UVerseBalanceGauntletController::Finish(const TCHAR* Why)
 	}
 	const double WallS = FPlatformTime::Seconds() - WallStartS;
 	const double SimS = Now() - SimStartS;
-	TSharedRef<FJsonObject> Speed = MakeShared<FJsonObject>();
-	Speed->SetStringField(TEXT("schema"), TEXT("verse.speed/1"));
-	Speed->SetStringField(TEXT("run"), Scenario.Run);
-	Speed->SetNumberField(TEXT("job"), Scenario.Job);
-	Speed->SetNumberField(TEXT("simS"), SimS);
-	Speed->SetNumberField(TEXT("wallS"), WallS);
-	Speed->SetNumberField(TEXT("startupS"), StartupS);
-	Speed->SetNumberField(TEXT("ticks"), double(Ticks));
-	Speed->SetNumberField(TEXT("xRealTime"), WallS > 0.0 ? SimS / WallS : 0.0);
-	Speed->SetNumberField(TEXT("peakRamMb"), double(FPlatformMemory::GetStats().PeakUsedPhysical) / (1024.0 * 1024.0));
-	Speed->SetStringField(TEXT("botController"), BotControllerKind);
-	Speed->SetStringField(TEXT("end"), Why);
-	FString Text;
-	FJsonSerializer::Serialize(Speed, TJsonWriterFactory<>::Create(&Text));
+	FVerseJsonWriter Speed;
+	Speed.Str(TEXT("schema"), TEXT("verse.speed/1"))
+		.Str(TEXT("run"), Scenario.Run)
+		.Num(TEXT("job"), Scenario.Job)
+		.Num(TEXT("simS"), SimS)
+		.Num(TEXT("wallS"), WallS)
+		.Num(TEXT("startupS"), StartupS)
+		.Num(TEXT("ticks"), double(Ticks))
+		.Num(TEXT("xRealTime"), WallS > 0.0 ? SimS / WallS : 0.0)
+		.Num(TEXT("peakRamMb"), double(FPlatformMemory::GetStats().PeakUsedPhysical) / (1024.0 * 1024.0))
+		.Str(TEXT("botController"), BotControllerKind)
+		.Str(TEXT("end"), Why);
+	const FString Text = Speed.Close();
 	FFileHelper::SaveStringToFile(Text, *FPaths::Combine(Scenario.OutputDir, TEXT("speed.json")),
 		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
 	UE_LOG(LogVerseHarness, Display, TEXT("[VerseHarness] done (%s): %.1f s simulated in %.1f s wall, %.1fx real time"), Why, SimS,

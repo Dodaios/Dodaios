@@ -1,10 +1,8 @@
 #include "Balance/VersePersonModels.h"
 
-#include "Dom/JsonObject.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
+#include "VerseHarnessJson.h"
 
 namespace VersePersonModelsPrivate
 {
@@ -36,16 +34,16 @@ namespace VersePersonModelsPrivate
 	};
 	static_assert(UE_ARRAY_COUNT(TrickNames) == VerseTrickCount, "one name per trick");
 
-	float Num(const TSharedPtr<FJsonObject>& Obj, const TCHAR* Field, float Default)
+	float Num(const FVerseJson* Obj, const TCHAR* Field, float Default)
 	{
 		double Value = Default;
-		return Obj.IsValid() && Obj->TryGetNumberField(Field, Value) ? float(Value) : Default;
+		return Obj && Obj->TryNumber(Field, Value) ? float(Value) : Default;
 	}
 
-	bool Flag(const TSharedPtr<FJsonObject>& Obj, const TCHAR* Field)
+	bool Flag(const FVerseJson* Obj, const TCHAR* Field)
 	{
 		bool Value = false;
-		return Obj.IsValid() && Obj->TryGetBoolField(Field, Value) && Value;
+		return Obj && Obj->TryBool(Field, Value) && Value;
 	}
 }
 
@@ -95,28 +93,28 @@ bool FVersePersonModelSet::Parse(const FString& JsonText, FVersePersonModelSet& 
 {
 	using namespace VersePersonModelsPrivate;
 
-	TSharedPtr<FJsonObject> Root;
-	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(JsonText), Root) || !Root.IsValid())
+	const TSharedPtr<FVerseJson> Root = FVerseJson::Parse(JsonText, OutError);
+	if (!Root.IsValid() || !Root->IsObject())
 	{
-		OutError = TEXT("person_models.json is not a JSON object");
+		OutError = TEXT("person_models.json is not a JSON object: ") + OutError;
 		return false;
 	}
-	if (Root->GetStringField(TEXT("schema")) != TEXT("verse.person_models/1"))
+	if (Root->StringOr(TEXT("schema")) != TEXT("verse.person_models/1"))
 	{
 		OutError = TEXT("schema is not verse.person_models/1");
 		return false;
 	}
 	Out = FVersePersonModelSet();
-	const TSharedPtr<FJsonObject>* Models = nullptr;
-	const TSharedPtr<FJsonObject>* Tricks = nullptr;
-	if (!Root->TryGetObjectField(TEXT("models"), Models) || !Root->TryGetObjectField(TEXT("tricks"), Tricks))
+	const FVerseJson* Models = Root->ObjectField(TEXT("models"));
+	const FVerseJson* Tricks = Root->ObjectField(TEXT("tricks"));
+	if (!Models || !Tricks)
 	{
 		OutError = TEXT("models and tricks are required");
 		return false;
 	}
-	for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Models)->Values)
+	for (const TPair<FString, TSharedPtr<FVerseJson>>& Pair : Models->Object)
 	{
-		const TSharedPtr<FJsonObject> M = Pair.Value->AsObject();
+		const FVerseJson* M = Pair.Value.Get();
 		FVersePersonModel Model;
 		Model.Name = FName(*Pair.Key);
 		Model.ReactionMeanMs = Num(M, TEXT("reactionMeanMs"), Model.ReactionMeanMs);
@@ -127,10 +125,10 @@ bool FVersePersonModelSet::Parse(const FString& JsonText, FVersePersonModelSet& 
 		Model.AimWanderSdDeg = Num(M, TEXT("aimWanderSdDeg"), Model.AimWanderSdDeg);
 		Model.AimWanderTheta = Num(M, TEXT("aimWanderTheta"), Model.AimWanderTheta);
 		Model.LearnWeight = Num(M, TEXT("learnWeight"), Model.LearnWeight);
-		Model.bLearning = !M.IsValid() || !M->HasField(TEXT("learning")) || Flag(M, TEXT("learning"));
+		Model.bLearning = !M || !M->Find(TEXT("learning")) || Flag(M, TEXT("learning"));
 		Out.Models.Add(Model.Name, Model);
 	}
-	for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Tricks)->Values)
+	for (const TPair<FString, TSharedPtr<FVerseJson>>& Pair : Tricks->Object)
 	{
 		FVerseTrickConfig Config;
 		if (!VerseTrickFromName(FName(*Pair.Key), Config.Trick) || Config.Trick == EVerseTrick::None)
@@ -138,11 +136,9 @@ bool FVersePersonModelSet::Parse(const FString& JsonText, FVersePersonModelSet& 
 			OutError = FString::Printf(TEXT("unknown trick id '%s'"), *Pair.Key);
 			return false;
 		}
-		const TSharedPtr<FJsonObject> T = Pair.Value->AsObject();
-		const TSharedPtr<FJsonObject>* InputPtr = nullptr;
-		const TSharedPtr<FJsonObject>* IntentPtr = nullptr;
-		const TSharedPtr<FJsonObject> Input = T.IsValid() && T->TryGetObjectField(TEXT("input"), InputPtr) ? *InputPtr : nullptr;
-		const TSharedPtr<FJsonObject> Intent = T.IsValid() && T->TryGetObjectField(TEXT("intent"), IntentPtr) ? *IntentPtr : nullptr;
+		const FVerseJson* T = Pair.Value.Get();
+		const FVerseJson* Input = T ? T->ObjectField(TEXT("input")) : nullptr;
+		const FVerseJson* Intent = T ? T->ObjectField(TEXT("intent")) : nullptr;
 		Config.LeanFlipMinMs = Num(Input, TEXT("leanFlipMinMs"), Config.LeanFlipMinMs);
 		Config.LeanFlipMaxMs = Num(Input, TEXT("leanFlipMaxMs"), Config.LeanFlipMaxMs);
 		Config.ProneBeyondM = Num(Input, TEXT("proneBeyondM"), Config.ProneBeyondM);

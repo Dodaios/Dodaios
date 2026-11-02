@@ -2,7 +2,6 @@
 
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
-#include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -10,39 +9,38 @@
 #include "HAL/PlatformMisc.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
 #include "ShaderCompiler.h"
 #include "UnrealClient.h"
 #include "UObject/UObjectGlobals.h"
+#include "VerseHarnessJson.h"
 #include "VerseLog.h"
 
 namespace VerseCapturePrivate
 {
-	bool ReadVector(const TSharedPtr<FJsonObject>& Obj, const TCHAR* Field, FVector& Out)
+	bool ReadVector(const FVerseJson* Obj, const TCHAR* Field, FVector& Out)
 	{
-		const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
-		if (!Obj->TryGetArrayField(Field, Values) || Values->Num() != 3)
+		const TArray<TSharedPtr<FVerseJson>>* Values = Obj->ArrayField(Field);
+		if (!Values || Values->Num() != 3)
 		{
 			return false;
 		}
-		Out = FVector((*Values)[0]->AsNumber(), (*Values)[1]->AsNumber(), (*Values)[2]->AsNumber());
+		Out = FVector((*Values)[0]->Number, (*Values)[1]->Number, (*Values)[2]->Number);
 		return true;
 	}
 
-	bool ReadView(const TSharedPtr<FJsonObject>& Obj, FVerseCaptureView& Out, bool bNeedPose)
+	bool ReadView(const FVerseJson* Obj, FVerseCaptureView& Out, bool bNeedPose)
 	{
-		if (!Obj.IsValid())
+		if (!Obj || !Obj->IsObject())
 		{
 			return false;
 		}
-		Obj->TryGetStringField(TEXT("id"), Out.Id);
+		Obj->TryString(TEXT("id"), Out.Id);
 		double Number = 0.0;
-		if (Obj->TryGetNumberField(TEXT("t"), Number) || Obj->TryGetNumberField(TEXT("atS"), Number))
+		if (Obj->TryNumber(TEXT("t"), Number) || Obj->TryNumber(TEXT("atS"), Number))
 		{
 			Out.T = Number;
 		}
-		if (Obj->TryGetNumberField(TEXT("fovDeg"), Number))
+		if (Obj->TryNumber(TEXT("fovDeg"), Number))
 		{
 			Out.FovDeg = float(Number);
 		}
@@ -62,28 +60,28 @@ bool FVerseCaptureScript::Parse(const FString& JsonText, FVerseCaptureScript& Ou
 {
 	using namespace VerseCapturePrivate;
 
-	TSharedPtr<FJsonObject> Root;
-	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(JsonText), Root) || !Root.IsValid())
+	const TSharedPtr<FVerseJson> Root = FVerseJson::Parse(JsonText, OutError);
+	if (!Root.IsValid() || !Root->IsObject())
 	{
-		OutError = TEXT("not a JSON object");
+		OutError = TEXT("not a JSON object: ") + OutError;
 		return false;
 	}
-	if (Root->GetStringField(TEXT("schema")) != TEXT("verse.capture/1"))
+	if (Root->StringOr(TEXT("schema")) != TEXT("verse.capture/1"))
 	{
 		OutError = TEXT("schema is not verse.capture/1");
 		return false;
 	}
 	Out = FVerseCaptureScript();
-	Root->TryGetStringField(TEXT("id"), Out.Id);
-	Root->TryGetNumberField(TEXT("settleFrames"), Out.SettleFrames);
-	Root->TryGetNumberField(TEXT("warmupS"), Out.WarmupS);
-	const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
-	if (Root->TryGetArrayField(TEXT("views"), Values))
+	Root->TryString(TEXT("id"), Out.Id);
+	Root->TryInt(TEXT("settleFrames"), Out.SettleFrames);
+	Root->TryNumber(TEXT("warmupS"), Out.WarmupS);
+	const TArray<TSharedPtr<FVerseJson>>* Values = Root->ArrayField(TEXT("views"));
+	if (Values)
 	{
-		for (const TSharedPtr<FJsonValue>& Value : *Values)
+		for (const TSharedPtr<FVerseJson>& Value : *Values)
 		{
 			FVerseCaptureView View;
-			if (!ReadView(Value->AsObject(), View, true) || View.Id.IsEmpty())
+			if (!ReadView(Value.Get(), View, true) || View.Id.IsEmpty())
 			{
 				OutError = TEXT("a view needs id, location and rotation");
 				return false;
@@ -91,16 +89,15 @@ bool FVerseCaptureScript::Parse(const FString& JsonText, FVerseCaptureScript& Ou
 			Out.Views.Add(View);
 		}
 	}
-	const TSharedPtr<FJsonObject>* Fly = nullptr;
-	if (Root->TryGetObjectField(TEXT("flythrough"), Fly))
+	if (const FVerseJson* Fly = Root->ObjectField(TEXT("flythrough")))
 	{
-		(*Fly)->TryGetNumberField(TEXT("durationS"), Out.FlythroughS);
-		if ((*Fly)->TryGetArrayField(TEXT("keys"), Values))
+		Fly->TryNumber(TEXT("durationS"), Out.FlythroughS);
+		if ((Values = Fly->ArrayField(TEXT("keys"))) != nullptr)
 		{
-			for (const TSharedPtr<FJsonValue>& Value : *Values)
+			for (const TSharedPtr<FVerseJson>& Value : *Values)
 			{
 				FVerseCaptureView Key;
-				if (!ReadView(Value->AsObject(), Key, true))
+				if (!ReadView(Value.Get(), Key, true))
 				{
 					OutError = TEXT("a flythrough key needs t, location and rotation");
 					return false;
@@ -110,12 +107,12 @@ bool FVerseCaptureScript::Parse(const FString& JsonText, FVerseCaptureScript& Ou
 		}
 		Out.Keys.Sort([](const FVerseCaptureView& L, const FVerseCaptureView& R) { return L.T < R.T; });
 	}
-	if (Root->TryGetArrayField(TEXT("shots"), Values))
+	if ((Values = Root->ArrayField(TEXT("shots"))) != nullptr)
 	{
-		for (const TSharedPtr<FJsonValue>& Value : *Values)
+		for (const TSharedPtr<FVerseJson>& Value : *Values)
 		{
 			FVerseCaptureView Shot;
-			ReadView(Value->AsObject(), Shot, false);
+			ReadView(Value.Get(), Shot, false);
 			Out.Shots.Add(Shot);
 		}
 		Out.Shots.Sort([](const FVerseCaptureView& L, const FVerseCaptureView& R) { return L.T < R.T; });
