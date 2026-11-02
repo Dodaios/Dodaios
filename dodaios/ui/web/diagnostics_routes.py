@@ -77,7 +77,7 @@ def _task_snapshot(task: asyncio.Task[Any]) -> dict[str, Any]:
 
 
 @router.get("/data-dir")
-async def data_dir() -> dict[str, str]:
+def data_dir() -> dict[str, str]:
     """The data directory this process reads and writes, and its source.
 
     ``source`` is ``JARVIS_DATA_DIR`` when the environment variable chose it,
