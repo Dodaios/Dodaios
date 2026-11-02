@@ -3,6 +3,11 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 import { translate, useLocaleChunk } from "@/i18n";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { VerseLoadingScreen } from "@/components/society/verse/VerseLoadingScreen";
+import { useUnrealPreviewFlag } from "./verseStream/useUnrealPreviewFlag";
+
+// The Unreal Verse's live view (Pixel Streaming), behind `verse.unreal_preview` until the
+// three.js Verse is deleted. Its own chunk, so the flag-off tab never loads it.
+const VerseStreamPanel = lazy(() => import("./verseStream/VerseStreamPanel").then((m) => ({ default: m.VerseStreamPanel })));
 
 // The ship is a WebGL scene with its own chunk: nothing of it loads until
 // someone opens this tab.
@@ -45,14 +50,22 @@ class OfficeTabBoundary extends Component<{ children: ReactNode }, { failed: boo
  * Every running coding-agent pane is a technician at a terminal here; its
  * record opens that pane in the grid next to it. The ship's "open the crew
  * list" action has no list in the IDE, so it brings the Agents tab forward.
+ *
+ * With `verse.unreal_preview` on, the tab shows a live Pixel Streaming view of the Unreal Verse
+ * instead, streaming only while the tab is on screen.
  */
 export function OfficeTab() {
   const ready = useLocaleChunk("society");
   const openTab = useIdeSidePanelStore((state) => state.openTab);
+  const unrealPreview = useUnrealPreviewFlag();
   return (
     <div data-testid="ide-office-tab" className="h-full min-h-0 w-full">
       <OfficeTabBoundary>
-        {ready && (
+        {unrealPreview ? (
+          <Suspense fallback={<div className="h-full w-full bg-black" />}>
+            <VerseStreamPanel />
+          </Suspense>
+        ) : ready && (
           <Suspense fallback={<div className="relative h-full w-full"><VerseLoadingScreen /></div>}>
             <VerseStage initialDeck="engineering" compact onOpenLedger={() => openTab("agents")} />
           </Suspense>
