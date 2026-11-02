@@ -134,7 +134,9 @@ class BrainMessage:
 #: The reasoning-effort ladder a request may ask for, ascending. Providers
 #: without a knob ignore it; one that lacks a level snaps to the nearest it
 #: has (see ``dodaios.agent_chat.effort``).
-ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+ReasoningEffort = Literal[
+    "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra", "ultracode"
+]
 
 
 @dataclass(frozen=True, slots=True)

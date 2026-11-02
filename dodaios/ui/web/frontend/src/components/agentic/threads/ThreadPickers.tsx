@@ -44,7 +44,7 @@ function ProviderMark({ provider }: { provider: ProviderOption }) {
     : <ProviderLogo providerId={provider.id} label={provider.label} size="sm" />;
 }
 
-const EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
+const EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra", "ultracode"]);
 
 /** An effort level in the chat's own words ("" is the agent's default). */
 function effortLabel(level: string, t: (key: string) => string): string {

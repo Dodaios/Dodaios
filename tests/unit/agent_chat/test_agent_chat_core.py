@@ -92,7 +92,7 @@ def test_catalog_rows_carry_ladders_and_curated_models_for_cli_runners():
     claude = provider_row("claude-api")
     assert claude is not None and claude.runner == "claude-cli"
     d = claude.to_dict()
-    assert d["effort_levels"] == ["low", "medium", "high", "xhigh", "max"]
+    assert d["effort_levels"] == ["low", "medium", "high", "xhigh", "max", "ultracode"]
     assert d["curated_models"], "CLI-backed rows need a curated list"
     assert provider_row("openai").models_source == "live"  # type: ignore[union-attr]
 

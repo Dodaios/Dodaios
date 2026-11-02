@@ -992,6 +992,14 @@ def _plan_claude_code(
         "--permission-mode",
         mode,
     ]
+    if effort == "ultracode":
+        # Claude Code's Ultracode is no ``--effort`` value of its own: it is
+        # the session-scoped ``ultracode`` setting (standing multi-agent
+        # workflow orchestration) on top of ``xhigh`` — the level the CLI's
+        # own ``/effort ultracode`` keeps. The CLI ignores the key on a model
+        # or account that cannot run workflows.
+        argv += ["--settings", json.dumps({"ultracode": True})]
+        effort = "xhigh"
     if model:
         argv += ["--model", model]
     if effort:
