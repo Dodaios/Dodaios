@@ -22,7 +22,15 @@ function size(bytes: number): string {
 
 /** Frontmatter and the id comments are for re-import, not for reading. */
 function readable(content: string): string {
-  return content.replace(/^---[\s\S]*?\n---\n/, "").replace(/\s*<!--[\s\S]*?-->/g, "");
+  const body = content.replace(/^---[\s\S]*?\n---\n/, "");
+  // Cut each line at its id comment; the preview renders no HTML at all either.
+  return body
+    .split("\n")
+    .map((line) => {
+      const at = line.indexOf("<!--");
+      return at >= 0 ? line.slice(0, at).trimEnd() : line;
+    })
+    .join("\n");
 }
 
 export function MemoryFiles() {
@@ -157,7 +165,7 @@ export function MemoryFiles() {
               </button>
             </div>
             <article className="vault-markdown min-h-0 overflow-y-auto px-8 py-6 text-[14px] leading-relaxed text-foreground [&_a]:text-accent [&_em]:text-muted-foreground [&_h1]:mb-4 [&_h1]:text-[22px] [&_h1]:font-semibold [&_h1]:text-foreground-strong [&_li]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{readable(current.content)}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{readable(current.content)}</ReactMarkdown>
             </article>
           </div>
         </div>
