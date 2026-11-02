@@ -123,7 +123,7 @@ export function ApiKeysView() {
         className="min-h-0 flex-1 overflow-y-auto scrollbar-jarvis px-8 pb-10 pt-6"
       >
         <div key={tab} role="tabpanel" id="apikeys-panel" aria-labelledby={`apikeys-tab-${tab}`} className="profile-rise w-full">
-          {tab === "voice" && <VoiceTab data={families} onSaved={refetch} onOpenAgents={() => choose("agents")} />}
+          {tab === "voice" && <VoiceTab data={families} onSaved={refetch} />}
           {tab === "agents" &&
             (families.error === "restart_required" ? (
               <RestartNeeded />
@@ -184,11 +184,9 @@ function TabSwitch({ value, onChange }: { value: Tab; onChange: (tab: Tab) => vo
 function VoiceTab({
   data,
   onSaved,
-  onOpenAgents,
 }: {
   data: ReturnType<typeof useProviderFamilies>;
   onSaved: () => void;
-  onOpenAgents: () => void;
 }) {
   const openai = data.families?.find((family) => family.id === "openai");
   const engine = useVoiceEngineView();
@@ -196,7 +194,7 @@ function VoiceTab({
     <div data-testid="apikeys-voice" className="mx-auto w-full max-w-3xl">
       <VoiceEngineSwitch engine={engine} />
       {engine.view === "pipeline" ? (
-        <PipelinePane onOpenAgents={onOpenAgents} />
+        <PipelinePane />
       ) : (
         <SettingsGroup divided={false} className="p-4">
           <LiveProfile

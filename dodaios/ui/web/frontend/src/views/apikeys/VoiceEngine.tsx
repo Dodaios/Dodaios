@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Brain } from "lucide-react";
+import { AlertTriangle, Brain } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   makeProviderCategories,
   ProviderCategory,
@@ -100,16 +99,20 @@ export function VoiceEngineSwitch({ engine }: { engine: ReturnType<typeof useVoi
 }
 
 /**
- * The pipeline's three steps: voice input, the brain, voice output. Input and
- * output are the same provider lists the rest of the app uses; the brain is
- * the default agent provider, chosen on the Agents tab.
+ * The pipeline's three steps: voice input, the brain, voice output. All three
+ * are the same provider lists the rest of the app uses. The brain is the
+ * voice brain (`[brain].primary`), picked right here: the Agents tab's
+ * default only decides which provider runs agent tasks, so sending people
+ * there to change the voice brain left them no way to change it (#1028).
+ * Switching it stays a user action; nothing here picks one automatically.
  */
-export function PipelinePane({ onOpenAgents }: { onOpenAgents: () => void }) {
+export function PipelinePane() {
   const t = useT();
   const { providers, loading, error, refetch, setActiveOptimistic } = useProviders();
   const health = useTierHealth(providers);
   const categories = makeProviderCategories(t);
   const brain = providers.find((provider) => provider.tier === "brain" && provider.active);
+  const brainMissing = Boolean(brain && !brain.configured);
 
   return (
     <div data-testid="voice-pipeline" className="flex flex-col gap-group">
@@ -124,26 +127,48 @@ export function PipelinePane({ onOpenAgents }: { onOpenAgents: () => void }) {
         health={health.stt}
       />
 
-      <SettingsGroup data-testid="voice-pipeline-brain">
-        <SettingsRow
-          title={
-            <>
-              <Brain aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-              {t("providers_page.pipeline_brain_title")}
-            </>
-          }
-          description={
-            brain
-              ? t("providers_page.pipeline_brain_desc").replace("{0}", brain.label)
-              : t("providers_page.pipeline_brain_none")
-          }
-          control={
-            <Button size="sm" variant="outline" onClick={onOpenAgents}>
-              {t("providers_page.pipeline_brain_change")}
-            </Button>
-          }
-        />
-      </SettingsGroup>
+      <div className="flex flex-col gap-3">
+        <SettingsGroup data-testid="voice-pipeline-brain">
+          <SettingsRow
+            title={
+              <>
+                <Brain aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                {t("providers_page.pipeline_brain_title")}
+              </>
+            }
+            description={
+              brain
+                ? t("providers_page.pipeline_brain_desc").replace("{0}", brain.label)
+                : t("providers_page.pipeline_brain_none")
+            }
+            status={
+              brain && brainMissing ? (
+                <span
+                  role="alert"
+                  data-testid="voice-pipeline-brain-missing"
+                  className="flex items-start gap-1.5 text-warning"
+                >
+                  <AlertTriangle aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {t("providers_page.pipeline_brain_missing").replace("{0}", brain.label)}
+                </span>
+              ) : undefined
+            }
+          />
+        </SettingsGroup>
+
+        <div data-testid="voice-pipeline-brain-picker">
+          <ProviderCategory
+            meta={categories.brain}
+            tier="brain"
+            providers={providers}
+            loading={loading}
+            error={error}
+            onChanged={refetch}
+            onActivateOptimistic={setActiveOptimistic}
+            health={health.brain}
+          />
+        </div>
+      </div>
 
       <ProviderCategory
         meta={categories.tts}

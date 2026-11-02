@@ -118,6 +118,7 @@ beforeEach(() => {
     "/api/providers": () => routeOverrides.providers ?? { providers: PROVIDERS },
     "/api/jarvis-agent/status": () => routeOverrides.agents ?? AGENTS,
     "/api/jarvis-agent/switch": { ok: true },
+    "/api/brain/switch": { ok: true },
     "/api/claude/status": CLAUDE_STATUS,
     "/api/codex/status": null,
     "/api/secrets/": { ok: true, key: "x", written: ["anthropic_api_key"] },
@@ -198,9 +199,18 @@ describe("ApiKeysView — Live calls", () => {
     expect(screen.queryByTestId("live-profile")).toBeNull();
     expect(within(pipeline).getByText("Voice Input (STT)")).toBeTruthy();
     expect(within(pipeline).getByText("Voice Output (TTS)")).toBeTruthy();
+    // The brain is picked right here (#1028): the Agents tab's default only
+    // decides agent tasks, so the old "Change in Agents" link led nowhere.
     const brain = within(pipeline).getByTestId("voice-pipeline-brain");
-    fireEvent.click(within(brain).getByRole("button", { name: "Change in Agents" }));
-    expect(await screen.findByTestId("apikeys-agents")).toBeTruthy();
+    expect(within(brain).queryByRole("button", { name: "Change in Agents" })).toBeNull();
+    const picker = within(pipeline).getByTestId("voice-pipeline-brain-picker");
+    fireEvent.click(await within(picker).findByTestId("provider-row-gemini"));
+    await waitFor(() => {
+      const sw = calls.find((call) => call.method === "POST" && call.url === "/api/brain/switch");
+      expect(sw?.body).toEqual({ provider: "gemini", persist: true });
+    });
+    // The Agents default is a different setting and is never written from here.
+    expect(calls.some((call) => call.url.startsWith("/api/jarvis-agent/switch"))).toBe(false);
   });
 
   it("shows GPT-Live's settings without switching while no live provider is ready", async () => {
