@@ -153,7 +153,7 @@ def load_installer(data_dir: Path) -> VerseInstaller:
         return SimulatedInstaller()
     try:
         module = importlib.import_module(INSTALL_MODULE)
-    except ImportError:
+    except ImportError:  # WP22 install package not landed; the card says not published
         return UnavailableInstaller()
     factory = getattr(module, "get_installer", None)
     if factory is None:
@@ -280,7 +280,7 @@ class InstallJob:
             p.state = "cancelled"
             p.bytes_per_s = None
             raise
-        except InstallError as exc:
+        except InstallError as exc:  # shown on the card as the failure reason
             p.state, p.error = "failed", exc.message
         except Exception as exc:  # noqa: BLE001 - a network or disk error ends this run only
             log.warning("verse install failed: %s", exc)

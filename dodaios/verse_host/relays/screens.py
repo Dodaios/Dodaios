@@ -141,7 +141,7 @@ class ScreensRelay(RelayBase):
         w.mirror = StyledScreen(80, 24)
         try:
             size = await self.backend.attach_screen(pane_id, on_output, on_exit)
-        except NotFound:
+        except NotFound:  # pane has no live screen; the plain mirror is used
             size = None
             w.mirror = None
             if self.backend.plain_screen(pane_id) is None:

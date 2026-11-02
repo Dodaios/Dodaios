@@ -249,6 +249,7 @@ class AppBackend:
             try:
                 pet_id = str(service.current_pet() or "")
             except Exception:  # noqa: BLE001
+                log.debug("verse: current pet unavailable", exc_info=True)
                 pet_id = ""
         style = str(getattr(ui, "overlay_style", "") or "default")
         look = str(getattr(pet, "look", "") or pet_id or "")
@@ -301,5 +302,6 @@ class AppBackend:
             refs = screen_feed.parse_pane_refs([pane_id])
             shots = screen_feed.collect_screens(self._registry(), refs)
         except Exception:  # noqa: BLE001
+            log.debug("verse: screen capture failed", exc_info=True)
             return None
         return shots[0] if shots else None

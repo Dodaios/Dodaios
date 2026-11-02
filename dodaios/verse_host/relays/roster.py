@@ -205,6 +205,7 @@ class RosterRelay(RelayBase):
         try:
             groups = await self.backend.chat_groups()
         except Exception:  # noqa: BLE001
+            log.debug("verse: chat groups unavailable", exc_info=True)
             return
         teams: dict[str, list[str]] = {}
         for g in groups:

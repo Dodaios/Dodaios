@@ -126,7 +126,7 @@ class SettingsStore:
             try:
                 raw = json.loads(self.path.read_text(encoding="utf-8"))
                 self._data = raw if isinstance(raw, dict) else {}
-            except FileNotFoundError:
+            except FileNotFoundError:  # first run: no settings file yet
                 self._data = {}
             except (OSError, ValueError):
                 log.warning("verse: settings file unreadable, starting from defaults")
