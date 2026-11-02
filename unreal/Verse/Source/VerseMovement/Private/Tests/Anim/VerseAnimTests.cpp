@@ -607,8 +607,33 @@ bool FVerseAnimFirstPersonTest::RunTest(const FString& Parameters)
 	UVerseFirstPersonLibrary::ConfigureOwnerView(Owner, World, Camera);
 	TestTrue(TEXT("owner body renders first person"), Owner->FirstPersonPrimitiveType == EFirstPersonPrimitiveType::FirstPerson);
 	TestTrue(TEXT("world body is the world-space representation"), World->FirstPersonPrimitiveType == EFirstPersonPrimitiveType::WorldSpaceRepresentation);
-	TestTrue(TEXT("owner body hides the head"), Owner->IsBoneHiddenByName(UVerseFirstPersonLibrary::HiddenBone));
-	TestFalse(TEXT("world body keeps the head"), World->IsBoneHiddenByName(UVerseFirstPersonLibrary::HiddenBone));
+	TestTrue(TEXT("owner body carries the owner-view tag"), Owner->ComponentHasTag(UVerseFirstPersonLibrary::OwnerViewTag));
+	TestFalse(TEXT("world body does not"), World->ComponentHasTag(UVerseFirstPersonLibrary::OwnerViewTag));
+	// A leader-pose follower takes the leader's bone visibility, so the owner body runs its own instance.
+	TestTrue(TEXT("owner body is not a leader-pose follower"), !Owner->LeaderPoseComponent.IsValid());
+	TestTrue(TEXT("owner body runs UVerseAnimInstance"),
+		Owner->AnimClass && Owner->AnimClass->IsChildOf(UVerseAnimInstance::StaticClass()));
+	{
+		// The flag the tag sets: Head scaled to zero, the neck untouched.
+		FVerseAnimClipSet Clips;
+		USkeletalMesh* RigMesh = nullptr;
+		if (RequireAssets(*this, RigMesh, Clips))
+		{
+			FRig Rig(*RigMesh);
+			FVerseAnimStateMachine Machine;
+			FVerseAnimInputs In;
+			FVerseAnimFrame Frame = Settle(Clips, In, 0.2f, Machine);
+			Frame.bFootIK = false;
+			TArray<FTransform> Shown;
+			TArray<FTransform> Hidden;
+			Rig.Evaluate(Frame, Machine.GetIdleTime(), Shown);
+			Frame.bHideHead = true;
+			Rig.Evaluate(Frame, Machine.GetIdleTime(), Hidden);
+			TestTrue(TEXT("owner pose: head scaled to zero"), Hidden[Rig.Bones.Head].GetScale3D().GetMax() < 1e-4);
+			TestTrue(TEXT("world pose: head at full scale"), Shown[Rig.Bones.Head].GetScale3D().GetMin() > 0.99);
+			TestTrue(TEXT("owner pose keeps the upper spine"), Hidden[Rig.Bones.Spine[2]].GetScale3D().GetMin() > 0.99);
+		}
+	}
 	TestTrue(TEXT("camera scales first-person primitives"), Camera->bEnableFirstPersonScale && Camera->FirstPersonScale < 1.f);
 	TestTrue(TEXT("camera has a first-person field of view"), Camera->bEnableFirstPersonFieldOfView);
 	TestFalse(TEXT("the owner body casts no shadow (the world body does)"), Owner->CastShadow);

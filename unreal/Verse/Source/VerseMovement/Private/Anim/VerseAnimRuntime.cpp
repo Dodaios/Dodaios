@@ -630,6 +630,11 @@ void EvaluateFrame(const FVerseAnimFrame& F, float IdleTime, const FVerseAnimBon
 		}
 		Out.PelvisDrop = SolveFeet(B.Parents, LocalT, CS, B.Hips, MakeArrayView(Feet));
 	}
+	if (F.bHideHead && B.Head != INDEX_NONE)
+	{
+		// Last, after every solver: nothing inverts this transform afterwards.
+		LocalT[B.Head].SetScale3D(FVector::ZeroVector);
+	}
 	for (int32 i = 0; i < Num; ++i)
 	{
 		Acc.Pose[FCompactPoseBoneIndex(i)] = LocalT[i];

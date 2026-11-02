@@ -1,4 +1,5 @@
 #include "Anim/VerseAnimInstance.h"
+#include "Anim/VerseFirstPerson.h"
 
 #include "Anim/VerseHumanSkeleton.h"
 #include "Animation/AnimSequence.h"
@@ -234,6 +235,8 @@ void UVerseAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 	Machine.Step(Inputs, DeltaSeconds, Clips, Frame);
 	Frame.SupportInWeapon = GetSupportInWeapon();
+	const USkeletalMeshComponent* Body = GetSkelMeshComponent();
+	Frame.bHideHead = Body && Body->ComponentHasTag(UVerseFirstPersonLibrary::OwnerViewTag);
 	if (!Inputs.OverrideClip.IsNone())
 	{
 		const FString Path = VerseHuman::ClipPath(Inputs.OverrideClip.ToString());
