@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Prove that a test run left the checkout as it found it.
 
-A test run must never rewrite a tracked file (``scripts/config-soll.json`` was  # i18n-allow: filename
-flipped to another brain provider by a config-writer test) or leave a new file
-behind (the parallel runner wrote ``report.xml`` into the working directory).
+A test run must never rewrite a tracked file (the drift baseline under
+``scripts/`` was flipped to another brain provider by a config-writer test) or
+leave a new file behind (the parallel runner wrote ``report.xml`` into the
+working directory).
 
 The guard compares two snapshots of ``git status``. A snapshot maps every path
 that is modified or untracked to its status, size and modification time, so a

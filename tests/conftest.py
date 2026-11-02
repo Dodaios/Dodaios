@@ -46,10 +46,10 @@ from dodaios.core.config import MemoryConfig  # noqa: E402
 MemoryConfig.model_fields["data_dir"].default = str(_TEST_DATA_DIR)
 MemoryConfig.model_rebuild(force=True)
 
-# The provider switches persist into the drift baseline
-# ``scripts/config-soll.json``, a tracked file; a test that switched the brain  # i18n-allow: filename
-# without its own redirect rewrote it (brain.primary -> "openrouter"). Every
-# session writes to a temp copy instead, so readers still see real content.
+# The provider switches persist into the drift baseline under scripts/, a
+# tracked file; a test that switched the brain without its own redirect
+# rewrote it (brain.primary -> "openrouter"). Every session writes to a temp
+# copy instead, so readers still see real content.
 _TEST_DRIFT_BASELINE = _TEST_DATA_DIR / "config-soll.json"  # i18n-allow: filename
 _REPO_DRIFT_BASELINE = _REPO_ROOT / "scripts" / "config-soll.json"  # i18n-allow: filename
 if _REPO_DRIFT_BASELINE.is_file():
@@ -110,7 +110,7 @@ def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ANN001, ARG001
 
     Two leaks are judged: entries under ``<repo>/data`` (#458; every store must
     follow the session temp dir above) and tracked files the session rewrote
-    (``scripts/config-soll.json`` and friends; write to a temp path instead).  # i18n-allow: filename
+    (the drift baseline and friends; write to a temp path instead).
     Checked once, by the controlling process (an xdist worker would see its
     siblings' writes).
     """

@@ -2,7 +2,7 @@
 
 Covers the snapshot guard (``scripts/ci/checkout_guard.py``), the session-end
 check in ``tests/conftest.py``, the parallel runner's defaults and check, and
-the redirect that keeps provider switches out of ``scripts/config-soll.json``.  # i18n-allow: filename
+the redirect that keeps provider switches out of the tracked drift baseline.
 """
 
 from __future__ import annotations
