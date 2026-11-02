@@ -51,6 +51,14 @@ def influence_stats(mesh_ob) -> tuple[int, float]:
     return worst, err
 
 
+def check_bones(path: Path) -> None:
+    """Fail when a bone of `SKEL_Verse_Human` did not reach the FBX (A13.1)."""
+    data = path.read_bytes()
+    missing = [b for b in S.NAMES if (b + "\x00\x01Model").encode() not in data]
+    if missing:
+        raise UE.ExportError(f"{path.name} lacks bones {missing}")
+
+
 def export_mesh(name: str, arm_ob, mesh_ob, out_dir: Path, slots: list[dict]) -> dict:
     """Export one skinned character mesh with its armature; returns the result entry."""
     col = UE._export_scene()
@@ -69,6 +77,7 @@ def export_mesh(name: str, arm_ob, mesh_ob, out_dir: Path, slots: list[dict]) ->
     tris = UE.triangle_count(me)
     path = out_dir / f"{name}.fbx"
     digest = UE._write_fbx(col, [arm, body], path)
+    check_bones(path)
     return {
         "name": name,
         "file": path.relative_to(UE.REPO_ROOT).as_posix(),
@@ -112,6 +121,7 @@ def _write_anim_fbx(col, arm, path: Path, frames: int, fps: int) -> str:
     if "FINISHED" not in result:
         raise UE.ExportError(f"FBX export failed for {path.name}: {result}")
     UE.check_fbx_names(path, {arm.name})
+    check_bones(path)
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 

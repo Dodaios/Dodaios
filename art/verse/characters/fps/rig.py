@@ -172,7 +172,9 @@ def build_armature(ctx, name: str):
         b = eb.new(bone)
         b.head, b.tail = head, tail
         b.align_roll(roll)
-        b.use_deform = bone in S.DEFORM
+        # Every bone is flagged deform: `fbx-ue/1` exports deform bones only, and the
+        # helpers (Camera, Weapon_*, IK_*) must reach Unreal. They carry no weights.
+        b.use_deform = True
         if parent:
             b.parent = eb[parent]
     bpy.ops.object.mode_set(mode="OBJECT")

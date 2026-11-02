@@ -14,7 +14,11 @@ class USkeletalMeshComponent;
  * body is the owner's first-person body with the head hidden, rendered with
  * the engine's first-person rendering so arms and weapon never clip walls;
  * a second component on the same mesh is the world-space body others and the
- * shadows see. The first-person body follows the world body's pose.
+ * shadows see. The first-person body runs its own `UVerseAnimInstance` (a
+ * leader-pose follower cannot hide bones of its own: the engine takes the
+ * leader's visibility), which scales `Head` to zero while the component carries
+ * `OwnerViewTag`. The camera follows the world body's `Camera` bone; the first-
+ * person body's `Camera` collapses with the hidden head.
  */
 UCLASS()
 class VERSEMOVEMENT_API UVerseFirstPersonLibrary : public UBlueprintFunctionLibrary
@@ -24,6 +28,9 @@ class VERSEMOVEMENT_API UVerseFirstPersonLibrary : public UBlueprintFunctionLibr
 public:
 	/** Bone hidden on the owner's first-person body. */
 	static const FName HiddenBone;
+
+	/** Component tag of the owner's first-person body; `UVerseAnimInstance` hides the head while it is set. */
+	static const FName OwnerViewTag;
 
 	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
 	static void ConfigureOwnerView(USkeletalMeshComponent* FirstPersonBody, USkeletalMeshComponent* WorldBody,

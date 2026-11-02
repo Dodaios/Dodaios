@@ -191,6 +191,8 @@ struct VERSEMOVEMENT_API FVerseAnimFrame
 	bool bFootIK = false;
 	float FloorOffset[2] = {0.f, 0.f}; // cm, floor height under each foot (L, R) in component space
 	FVector FloorNormal[2] = {FVector::UpVector, FVector::UpVector};
+	// The owner's first-person body: the Head bone (and Camera under it) is scaled to zero (13.5).
+	bool bHideHead = false;
 
 	// Full-body override (crew, death, finisher, kill cam).
 	const UAnimSequence* Override = nullptr;

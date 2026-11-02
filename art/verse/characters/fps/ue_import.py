@@ -251,9 +251,10 @@ def build_physics() -> None:
         mesh = ASSETS.load_asset(object_path(spec.asset_path))
         if mesh is None:
             continue
-        if mesh.get_editor_property("physics_asset") != physics:
-            mesh.set_editor_property("physics_asset", physics)
-            ASSETS.save_loaded_asset(mesh, only_if_is_dirty=False)
+        # Always saved: the source mesh already points at the renamed asset in
+        # memory, but its package on disk still names the pre-rename object.
+        mesh.set_editor_property("physics_asset", physics)
+        ASSETS.save_loaded_asset(mesh, only_if_is_dirty=False)
     note(f"{S.PHYSICS}: {len(S.HIT_BODIES)} hit bodies")
 
 
