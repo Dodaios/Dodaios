@@ -8,6 +8,7 @@ import {
   SIDEBAR_RAIL_AT_WIDTH,
   SIDEBAR_RAIL_WIDTH,
 } from "@/components/layout/Sidebar";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { NAV_GROUPS, NAV_FOOTER_ITEMS, SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
 import { isSectionId, useEventStore } from "@/store/events";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
@@ -669,12 +670,15 @@ describe("compact sidebar navigation", () => {
 
   test("keeps core destinations above visible recent chats", () => {
     renderSidebar();
-    for (const id of ["agents", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"]) {
+    for (const id of ["agents", "verse", "visualization", "agentic-ide", "plugins", "marketplace"]) {
       expect(screen.getByTestId(`nav-row-${id}`)).toBeTruthy();
     }
     expect(screen.getByTestId("recent-chats")).toBeTruthy();
     expect(screen.queryByTestId("nav-row-wallpaper")).toBeNull();
     expect(screen.queryByTestId("nav-row-memory")).toBeNull();
+    // Built for you and the voice section live behind "More" now.
+    expect(screen.queryByTestId("nav-row-self-build")).toBeNull();
+    expect(screen.queryByTestId("nav-row-dictation")).toBeNull();
   });
 
   test("opens Jarvis Voice directly with artifacts in the main list", () => {
@@ -683,10 +687,10 @@ describe("compact sidebar navigation", () => {
     // Artifacts sits directly in the main list (where the retired "Jarvis
     // Tools" folder used to be) — no "Show more" needed to reach it.
     expect(screen.getByTestId("nav-row-visualization")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
     fireEvent.click(screen.getByTestId("nav-row-dictation"));
     expect(useHomeStore.getState().surface).toBe("chat");
     expect(useEventStore.getState().activeSection).toBe("dictation");
-    expect(screen.getAllByTestId("nav-row-dictation")).toHaveLength(1);
     fireEvent.click(screen.getByTestId("nav-row-visualization"));
     expect(useEventStore.getState().activeSection).toBe("visualization");
   });
@@ -714,9 +718,19 @@ describe("compact sidebar navigation", () => {
     expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
   });
 
-  test("shows the agents, the IDE, built for you and the voice in that order", () => {
+  test("the Verse row opens the IDE with the Verse over it", () => {
+    useIdeSidePanelStore.setState({ open: false, maximized: false });
     renderSidebar();
-    const order = ["agents", "agentic-ide", "self-build", "dictation", "plugins"].map(
+    fireEvent.click(screen.getByTestId("nav-row-verse"));
+    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
+    const panel = useIdeSidePanelStore.getState();
+    expect(panel.open && panel.maximized && panel.active === "office").toBe(true);
+    act(() => useIdeSidePanelStore.getState().setOpen(false));
+  });
+
+  test("shows the agents, the IDE, the Verse, the extensions and the artifacts in that order", () => {
+    renderSidebar();
+    const order = ["agents", "agentic-ide", "verse", "plugins", "visualization"].map(
       (id) => screen.getByTestId(`nav-row-${id}`),
     );
     for (let i = 1; i < order.length; i++) {
