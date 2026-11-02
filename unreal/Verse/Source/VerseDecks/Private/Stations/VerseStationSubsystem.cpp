@@ -95,11 +95,15 @@ int32 UVerseStationSubsystem::PickTarget(const FVector& At, const FVector* Facin
 		{
 			continue;
 		}
-		if (CrosshairActor && T.Owner.Get() == CrosshairActor)
+		const FVector Location = T.Location ? T.Location() : FVector::ZeroVector;
+		// The crosshair wins only within the same reach as everything else (parity, control.ts):
+		// the view trace is longer than the reach, so it alone would make far stations usable.
+		if (CrosshairActor && T.Owner.Get() == CrosshairActor
+			&& FVector::DistSquared2D(Location, At) <= FMath::Square(double(VerseStations::ReachCm)))
 		{
 			return Pair.Key;
 		}
-		Locations.Add(T.Location ? T.Location() : FVector::ZeroVector);
+		Locations.Add(Location);
 		Handles.Add(Pair.Key);
 	}
 	const int32 Index = PickWithin(Locations, At, VerseStations::ReachCm, Facing);

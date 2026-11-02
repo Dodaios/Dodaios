@@ -101,9 +101,15 @@ bool FVerseDecksStationUse::RunTest(const FString&)
 		TestFalse(TEXT("nothing in reach: the use key does nothing"), Stations->UseFocused(7));
 		TestEqual(TEXT("no event from a disabled station"), Seen.Num(), 1);
 
+		// The view trace runs 4 m, the reach is 2.2 m (parity, control.ts): a crosshair hit beyond reach offers nothing.
 		Stations->SetViewerOverride(FVector(500, 0, 0), FVector(1, 0, 0), Ledger);
 		Stations->RefreshPrompt();
-		TestEqual(TEXT("the crosshair station wins out of reach"), Stations->Prompt().Label, FString(TEXT("Command station")));
+		TestFalse(TEXT("a crosshair station out of reach offers nothing"), Stations->Prompt().IsValid());
+		TestFalse(TEXT("and the use key does nothing"), Stations->UseFocused(3));
+		TestEqual(TEXT("no event from out of reach"), Seen.Num(), 1);
+		Stations->SetViewerOverride(FVector(1000.0 - VerseStations::ReachCm + 20.0, 0, 0), FVector(1, 0, 0), Ledger);
+		Stations->RefreshPrompt();
+		TestEqual(TEXT("the crosshair station within reach"), Stations->Prompt().Label, FString(TEXT("Command station")));
 		Stations->UseFocused(3);
 		TestTrue(TEXT("ledger event"), Seen.Num() == 2 && Seen[1].Kind == FName(TEXT("agents_list")));
 	}

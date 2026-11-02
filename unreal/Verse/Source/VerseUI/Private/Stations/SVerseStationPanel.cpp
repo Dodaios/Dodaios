@@ -98,7 +98,8 @@ void SVerseStationPanel::Construct(const FArguments& InArgs)
 	for (const FVerseProgramme& P : FVerseStationController::Programmes())
 	{
 		const FString Id = P.Id;
-		Programmes->AddSlot().AutoHeight().Padding(2.f)[Button(FText::FromString(P.Title), [Ctl, Id]() { if (FVerseStationController* C = Ctl()) { C->OpenProgramme(Id); } })];
+		const FString Key = P.TitleKey();
+		Programmes->AddSlot().AutoHeight().Padding(2.f)[Button(Label(*Key, *P.Title), [Ctl, Id]() { if (FVerseStationController* C = Ctl()) { C->OpenProgramme(Id); } })];
 	}
 
 	ChildSlot

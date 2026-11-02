@@ -58,6 +58,122 @@ namespace VerseTerminalPainter
 			T.Text = Text;
 		}
 
+		// Box drawing and blocks as geometry, a port of terminalCanvas.ts drawGlyph: frames join
+		// without gaps and blocks are solid at any font, the way the IDE's web painter draws them.
+
+		/** Arms of a box-drawing glyph: left, right, up, down; 1 light, 2 heavy, 3 double. */
+		struct FBoxGlyph
+		{
+			TCHAR Ch;
+			uint8 L, R, U, D;
+		};
+		constexpr FBoxGlyph BoxGlyphs[] = {
+			{0x2500, 1, 1, 0, 0}, {0x2501, 2, 2, 0, 0}, {0x2502, 0, 0, 1, 1}, {0x2503, 0, 0, 2, 2},
+			{0x250C, 0, 1, 0, 1}, {0x2510, 1, 0, 0, 1}, {0x2514, 0, 1, 1, 0}, {0x2518, 1, 0, 1, 0},
+			// Rounded corners: the web strokes an arc; here the two arms meet square.
+			{0x256D, 0, 1, 0, 1}, {0x256E, 1, 0, 0, 1}, {0x2570, 0, 1, 1, 0}, {0x256F, 1, 0, 1, 0},
+			{0x250F, 0, 2, 0, 2}, {0x2513, 2, 0, 0, 2}, {0x2517, 0, 2, 2, 0}, {0x251B, 2, 0, 2, 0},
+			{0x251C, 0, 1, 1, 1}, {0x2524, 1, 0, 1, 1}, {0x252C, 1, 1, 0, 1}, {0x2534, 1, 1, 1, 0}, {0x253C, 1, 1, 1, 1},
+			{0x2550, 3, 3, 0, 0}, {0x2551, 0, 0, 3, 3}, {0x2554, 0, 3, 0, 3}, {0x2557, 3, 0, 0, 3}, {0x255A, 0, 3, 3, 0},
+			{0x255D, 3, 0, 3, 0},
+			{0x2574, 1, 0, 0, 0}, {0x2576, 0, 1, 0, 0}, {0x2575, 0, 0, 1, 0}, {0x2577, 0, 0, 0, 1},
+		};
+
+		/** Quadrants lit: top-left, top-right, bottom-left, bottom-right. */
+		struct FQuadGlyph
+		{
+			TCHAR Ch;
+			uint8 TL, TR, BL, BR;
+		};
+		constexpr FQuadGlyph QuadGlyphs[] = {
+			{0x2598, 1, 0, 0, 0}, {0x259D, 0, 1, 0, 0}, {0x2596, 0, 0, 1, 0}, {0x2597, 0, 0, 0, 1},
+			{0x2580, 1, 1, 0, 0}, {0x2584, 0, 0, 1, 1}, {0x258C, 1, 0, 1, 0}, {0x2590, 0, 1, 0, 1},
+			{0x259A, 1, 0, 0, 1}, {0x259E, 0, 1, 1, 0}, {0x2599, 1, 0, 1, 1}, {0x259B, 1, 1, 1, 0},
+			{0x259C, 1, 1, 0, 1}, {0x259F, 0, 1, 1, 1}, {0x2588, 1, 1, 1, 1},
+		};
+
+		float ShadeOf(TCHAR C)
+		{
+			return C == 0x2591 ? 0.25f : C == 0x2592 ? 0.5f : C == 0x2593 ? 0.75f : 0.f;
+		}
+
+		bool IsGeometryGlyph(TCHAR C)
+		{
+			if (C < 0x2500 || C > 0x259F)
+			{
+				return false;
+			}
+			for (const FBoxGlyph& B : BoxGlyphs) { if (B.Ch == C) { return true; } }
+			for (const FQuadGlyph& Q : QuadGlyphs) { if (Q.Ch == C) { return true; } }
+			return ShadeOf(C) > 0.f;
+		}
+
+		bool HasGeometryGlyph(const FString& Text)
+		{
+			for (const TCHAR C : Text)
+			{
+				if (IsGeometryGlyph(C))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/** Draws C as rects in a W x H cell at X, Y; false when C is not a box or block glyph. */
+		bool AddGlyphRects(FVerseTerminalDrawList& Out, TCHAR C, float X, float Y, float W, float H, FColor Fg, FColor Under)
+		{
+			auto Rect = [&Out](float RX, float RY, float RW, float RH, FColor Colour)
+			{
+				Out.Rects.Add({FVector2f(RX, RY), FVector2f(RW, RH), Colour});
+			};
+			for (const FQuadGlyph& Q : QuadGlyphs)
+			{
+				if (Q.Ch == C)
+				{
+					const float HW = W * 0.5f, HH = H * 0.5f;
+					if (Q.TL && Q.TR && Q.BL && Q.BR) { Rect(X, Y, W, H, Fg); return true; }
+					if (Q.TL) { Rect(X, Y, HW, HH, Fg); }
+					if (Q.TR) { Rect(X + HW, Y, W - HW, HH, Fg); }
+					if (Q.BL) { Rect(X, Y + HH, HW, H - HH, Fg); }
+					if (Q.BR) { Rect(X + HW, Y + HH, W - HW, H - HH, Fg); }
+					return true;
+				}
+			}
+			if (const float Shade = ShadeOf(C); Shade > 0.f)
+			{
+				// The web fills at alpha Shade over the cell; the rect here is opaque, so mix it.
+				auto Mix = [Shade](uint8 A, uint8 B) { return uint8(FMath::RoundToInt(float(A) * (1.f - Shade) + float(B) * Shade)); };
+				Rect(X, Y, W, H, FColor(Mix(Under.R, Fg.R), Mix(Under.G, Fg.G), Mix(Under.B, Fg.B)));
+				return true;
+			}
+			const FBoxGlyph* Box = nullptr;
+			for (const FBoxGlyph& B : BoxGlyphs) { if (B.Ch == C) { Box = &B; break; } }
+			if (!Box)
+			{
+				return false;
+			}
+			const float Light = FMath::Max(1.f, float(FMath::RoundToInt(W / 8.f)));
+			const float CX = X + W * 0.5f, CY = Y + H * 0.5f;
+			auto Thick = [Light](uint8 K) { return K == 2 ? Light * 2.f : Light; };
+			auto HLine = [&](float X0, float X1, uint8 K)
+			{
+				if (K == 3) { Rect(X0, CY - Light * 1.5f, X1 - X0, Light, Fg); Rect(X0, CY + Light * 0.5f, X1 - X0, Light, Fg); }
+				else { Rect(X0, CY - Thick(K) * 0.5f, X1 - X0, Thick(K), Fg); }
+			};
+			auto VLine = [&](float Y0, float Y1, uint8 K)
+			{
+				if (K == 3) { Rect(CX - Light * 1.5f, Y0, Light, Y1 - Y0, Fg); Rect(CX + Light * 0.5f, Y0, Light, Y1 - Y0, Fg); }
+				else { Rect(CX - Thick(K) * 0.5f, Y0, Thick(K), Y1 - Y0, Fg); }
+			};
+			const float Ov = Light; // overlap at the centre so the arms meet
+			if (Box->L) { HLine(X, CX + (Box->R ? 0.f : Ov), Box->L); }
+			if (Box->R) { HLine(CX - (Box->L ? 0.f : Ov), X + W, Box->R); }
+			if (Box->U) { VLine(Y, CY + (Box->D ? 0.f : Ov), Box->U); }
+			if (Box->D) { VLine(CY - (Box->U ? 0.f : Ov), Y + H, Box->D); }
+			return true;
+		}
+
 		struct FFontMetrics
 		{
 			float Advance = 0.f;
@@ -115,7 +231,8 @@ namespace VerseTerminalPainter
 					continue;
 				}
 				const bool bWide = (Run.Attrs & VerseCells::Wide) != 0;
-				const bool bSimple = !bWide && Run.Text.Len() == int32(Run.Cells);
+				const bool bGeometry = HasGeometryGlyph(Run.Text);
+				const bool bSimple = !bWide && !bGeometry && Run.Text.Len() == int32(Run.Cells);
 				if (bSimple)
 				{
 					AddText(Out, L, Y, Row, Run.Col, Run.Cells, FStringView(Run.Text), Fg, Run.Attrs);
@@ -123,9 +240,17 @@ namespace VerseTerminalPainter
 				else
 				{
 					const int32 Width = bWide ? 2 : 1;
+					const FColor Under = bHasBg ? Bg : Palette.Ground;
 					for (int32 I = 0; I < Run.ClusterEnds.Num(); ++I)
 					{
-						AddText(Out, L, Y, Row, Run.Col + I * Width, Width, Run.Cluster(I), Fg, Run.Attrs);
+						const FStringView Cluster = Run.Cluster(I);
+						const int32 Col = Run.Col + I * Width;
+						if (bGeometry && Cluster.Len() == 1
+							&& AddGlyphRects(Out, Cluster[0], float(Col) * L.CellW, Y, float(Width) * L.CellW, L.CellH, Fg, Under))
+						{
+							continue;
+						}
+						AddText(Out, L, Y, Row, Col, Width, Cluster, Fg, Run.Attrs);
 					}
 				}
 				if (Run.Attrs & VerseCells::Underline)

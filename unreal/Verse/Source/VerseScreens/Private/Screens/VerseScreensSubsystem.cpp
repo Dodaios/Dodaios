@@ -368,6 +368,12 @@ void UVerseScreensSubsystem::HandleWatchReply(const TArray<FVerseWatchEntry>& Se
 			{
 				M->ShowVacant();
 			}
+			else if (Entry && !BoundPanes.Contains(Pane))
+			{
+				// Asked for but dropped (over the server's limit) or not bound: no frames will come, so
+				// the last picture would look live. Standby until a later watch binds it again.
+				M->ShowStandby();
+			}
 		}
 	}
 	else

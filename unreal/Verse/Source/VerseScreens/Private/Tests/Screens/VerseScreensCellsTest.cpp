@@ -8,6 +8,7 @@
 #include "Render/VerseTerminalPainter.h"
 #include "Render/VerseTerminalTheme.h"
 #include "Tests/Screens/Fakes/FakeVerseCommandLink.h"
+#include "Tests/Screens/VerseColourDifference.h"
 
 #define VERSE_SCREENS_TEST_FLAGS (EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::EngineFilter)
 
@@ -66,62 +67,10 @@ namespace VerseScreensCellsTest
 		return FColor::FromHex(S);
 	}
 
-	/** sRGB 8-bit to CIELAB (D65). */
-	FVector3d ToLab(const FColor& C)
-	{
-		auto Lin = [](double V)
-		{
-			V /= 255.0;
-			return V <= 0.04045 ? V / 12.92 : FMath::Pow((V + 0.055) / 1.055, 2.4);
-		};
-		const double R = Lin(C.R), G = Lin(C.G), B = Lin(C.B);
-		const double X = (0.4124564 * R + 0.3575761 * G + 0.1804375 * B) / 0.95047;
-		const double Y = (0.2126729 * R + 0.7151522 * G + 0.0721750 * B) / 1.0;
-		const double Z = (0.0193339 * R + 0.1191920 * G + 0.9503041 * B) / 1.08883;
-		auto F = [](double T) { return T > 216.0 / 24389.0 ? FMath::Pow(T, 1.0 / 3.0) : (24389.0 / 27.0 * T + 16.0) / 116.0; };
-		const double Fx = F(X), Fy = F(Y), Fz = F(Z);
-		return FVector3d(116.0 * Fy - 16.0, 500.0 * (Fx - Fy), 200.0 * (Fy - Fz));
-	}
-
-	/** CIEDE2000 colour difference (Sharma, Wu, Dalal 2005). */
-	double DeltaE2000(const FColor& A, const FColor& B)
-	{
-		const FVector3d L1 = ToLab(A), L2 = ToLab(B);
-		const double C1 = FMath::Sqrt(L1.Y * L1.Y + L1.Z * L1.Z), C2 = FMath::Sqrt(L2.Y * L2.Y + L2.Z * L2.Z);
-		const double Cm = 0.5 * (C1 + C2);
-		const double G = 0.5 * (1.0 - FMath::Sqrt(FMath::Pow(Cm, 7.0) / (FMath::Pow(Cm, 7.0) + FMath::Pow(25.0, 7.0))));
-		const double A1 = (1.0 + G) * L1.Y, A2 = (1.0 + G) * L2.Y;
-		const double Cp1 = FMath::Sqrt(A1 * A1 + L1.Z * L1.Z), Cp2 = FMath::Sqrt(A2 * A2 + L2.Z * L2.Z);
-		auto Hue = [](double Bv, double Av) { if (Av == 0.0 && Bv == 0.0) { return 0.0; } double H = FMath::RadiansToDegrees(FMath::Atan2(Bv, Av)); return H < 0.0 ? H + 360.0 : H; };
-		const double H1 = Hue(L1.Z, A1), H2 = Hue(L2.Z, A2);
-		const double DL = L2.X - L1.X, DC = Cp2 - Cp1;
-		double Dh = 0.0;
-		if (Cp1 * Cp2 != 0.0)
-		{
-			Dh = H2 - H1;
-			if (Dh > 180.0) { Dh -= 360.0; }
-			else if (Dh < -180.0) { Dh += 360.0; }
-		}
-		const double DH = 2.0 * FMath::Sqrt(Cp1 * Cp2) * FMath::Sin(FMath::DegreesToRadians(Dh / 2.0));
-		const double Lm = 0.5 * (L1.X + L2.X), Cpm = 0.5 * (Cp1 + Cp2);
-		double Hm = H1 + H2;
-		if (Cp1 * Cp2 != 0.0)
-		{
-			if (FMath::Abs(H1 - H2) <= 180.0) { Hm = 0.5 * (H1 + H2); }
-			else { Hm = (H1 + H2 < 360.0) ? 0.5 * (H1 + H2 + 360.0) : 0.5 * (H1 + H2 - 360.0); }
-		}
-		const double T = 1.0 - 0.17 * FMath::Cos(FMath::DegreesToRadians(Hm - 30.0)) + 0.24 * FMath::Cos(FMath::DegreesToRadians(2.0 * Hm))
-			+ 0.32 * FMath::Cos(FMath::DegreesToRadians(3.0 * Hm + 6.0)) - 0.20 * FMath::Cos(FMath::DegreesToRadians(4.0 * Hm - 63.0));
-		const double DTheta = 30.0 * FMath::Exp(-FMath::Square((Hm - 275.0) / 25.0));
-		const double Rc = 2.0 * FMath::Sqrt(FMath::Pow(Cpm, 7.0) / (FMath::Pow(Cpm, 7.0) + FMath::Pow(25.0, 7.0)));
-		const double Sl = 1.0 + (0.015 * FMath::Square(Lm - 50.0)) / FMath::Sqrt(20.0 + FMath::Square(Lm - 50.0));
-		const double Sc = 1.0 + 0.045 * Cpm, Sh = 1.0 + 0.015 * Cpm * T;
-		const double Rt = -FMath::Sin(FMath::DegreesToRadians(2.0 * DTheta)) * Rc;
-		return FMath::Sqrt(FMath::Square(DL / Sl) + FMath::Square(DC / Sc) + FMath::Square(DH / Sh) + Rt * (DC / Sc) * (DH / Sh));
-	}
 }
 
 using namespace VerseScreensCellsTest;
+using namespace VerseColourDifference;
 
 // A16.1: every golden cells.bin/1 vector decodes to its cells.json/1 frame, and encodes back byte-exact.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseScreensCellsGolden, "Verse.Screens.Cells.GoldenVectors", VERSE_SCREENS_TEST_FLAGS)
@@ -335,9 +284,11 @@ bool FVerseScreensPaintCells::RunTest(const FString&)
 	return true;
 }
 
-// A16.3: the 256-colour and RGB test screen against the web painter's reference: mean CIEDE2000 <= 2.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseScreensColourReference, "Verse.Screens.Colour.ReferenceScreen", VERSE_SCREENS_TEST_FLAGS)
-bool FVerseScreensColourReference::RunTest(const FString&)
+// WP16.2 colour rules: Unreal's palette resolves every cell of the A16.3 test screen to the run colours
+// the web painter itself resolved (snapshotXterm over a real xterm buffer, captured by
+// Content/Verse/Test/WP16/make_web_reference.py). The rendered comparison is Verse.Visual.Screens.Colour.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseScreensColourResolve, "Verse.Screens.Colour.ResolveMatchesWeb", VERSE_SCREENS_TEST_FLAGS)
+bool FVerseScreensColourResolve::RunTest(const FString&)
 {
 	FString Text;
 	const FString Path = FPaths::Combine(FPaths::ProjectContentDir(), TEXT("Verse/Test/WP16/colour_reference.json"));
@@ -347,12 +298,14 @@ bool FVerseScreensColourReference::RunTest(const FString&)
 	{
 		return false;
 	}
+	TestEqual(TEXT("reference format"), Root->GetStringField(TEXT("format")), FString(TEXT("wp16-web-colour-reference/1")));
 	FVerseTerminalPalette Palette;
 	Palette.Build(UVerseTerminalTheme::Default());
 	double Sum = 0.0;
 	double Worst = 0.0;
 	int32 N = 0;
-	for (const TSharedPtr<FJsonValue>& V : Root->GetArrayField(TEXT("cells")))
+	const TArray<TSharedPtr<FJsonValue>> Samples = Root->GetArrayField(TEXT("samples"));
+	for (const TSharedPtr<FJsonValue>& V : Samples)
 	{
 		const FJsonObject& Cell = *V->AsObject();
 		uint32 Fg = 0, Bg = 0;
@@ -369,18 +322,36 @@ bool FVerseScreensColourReference::RunTest(const FString&)
 		FColor DrawnFg, DrawnBg;
 		bool bHasBg = false;
 		Palette.Resolve(Fg, Bg, Attrs, DrawnFg, DrawnBg, bHasBg);
-		const double DFg = DeltaE2000(DrawnFg, ParseHex(Cell.GetStringField(TEXT("drawn_fg"))));
-		const double DBg = DeltaE2000(bHasBg ? DrawnBg : Palette.Ground, ParseHex(Cell.GetStringField(TEXT("drawn_bg"))));
+		const TSharedPtr<FJsonObject> Web = Cell.GetObjectField(TEXT("web_run"));
+		FString WebBg;
+		const bool bWebHasBg = Web->TryGetStringField(TEXT("bg"), WebBg);
+		TestEqual(FString::Printf(TEXT("cell %d,%d: background shown"), int32(Cell.GetNumberField(TEXT("row"))), int32(Cell.GetNumberField(TEXT("col")))), bHasBg, bWebHasBg);
+		const double DFg = DeltaE2000(DrawnFg, ParseHex(Web->GetStringField(TEXT("fg"))));
+		const double DBg = DeltaE2000(bHasBg ? DrawnBg : Palette.Ground, bWebHasBg ? ParseHex(WebBg) : ParseHex(Root->GetStringField(TEXT("ground"))));
 		Sum += DFg + DBg;
 		Worst = FMath::Max(Worst, FMath::Max(DFg, DBg));
 		N += 2;
 	}
 	const double Mean = N > 0 ? Sum / N : 999.0;
-	AddInfo(FString::Printf(TEXT("colour reference: %d samples, mean dE2000 %.4f, worst %.4f"), N, Mean, Worst));
-	TestTrue(TEXT("samples"), N >= 1000);
-	TestTrue(TEXT("mean CIEDE2000 at most 2"), Mean <= 2.0);
+	AddInfo(FString::Printf(TEXT("resolve vs web runs: %d samples, mean dE2000 %.4f, worst %.4f"), N, Mean, Worst));
+	TestTrue(TEXT("every cell of the test screen"), Samples.Num() >= 500);
+	TestTrue(TEXT("resolved colours equal the web runs (worst dE2000 under 0.5)"), Worst < 0.5);
 	TestTrue(TEXT("CIEDE2000 of identical colours is 0"), DeltaE2000(FColor(10, 200, 30), FColor(10, 200, 30)) < 1e-9);
 	TestTrue(TEXT("CIEDE2000 separates black from white"), DeltaE2000(FColor::Black, FColor::White) > 99.0);
+	return true;
+}
+
+// cells.json/1 colours: "#rrggbb" in either case (the contract does not ask for lower case).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseScreensCellsHexCase, "Verse.Screens.Cells.HexColourCase", VERSE_SCREENS_TEST_FLAGS)
+bool FVerseScreensCellsHexCase::RunTest(const FString&)
+{
+	uint32 Upper = 0, Lower = 0, Bad = 0;
+	TestTrue(TEXT("upper case reads"), VerseCells::ColourFromJson(MakeShared<FJsonValueString>(TEXT("#E3242B")), Upper));
+	TestTrue(TEXT("lower case reads"), VerseCells::ColourFromJson(MakeShared<FJsonValueString>(TEXT("#e3242b")), Lower));
+	TestEqual(TEXT("same colour"), Upper, Lower);
+	TestEqual(TEXT("rgb mode and value"), Upper, (uint32(VerseCells::ModeRgb) << 24) | 0xe3242bu);
+	TestFalse(TEXT("not a hex digit"), VerseCells::ColourFromJson(MakeShared<FJsonValueString>(TEXT("#E3242G")), Bad));
+	TestFalse(TEXT("short"), VerseCells::ColourFromJson(MakeShared<FJsonValueString>(TEXT("#E3242")), Bad));
 	return true;
 }
 

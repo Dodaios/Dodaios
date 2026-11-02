@@ -30,7 +30,11 @@ namespace VerseStationCommands
 struct FVerseProgramme
 {
 	FString Id;
+	/** English fallback; the shown title is TitleKey() from the ship locale chunk. */
 	FString Title;
+
+	/** `verse.games.programme.<id>` with dashes as underscores. */
+	FString TitleKey() const { return TEXT("verse.games.programme.") + Id.Replace(TEXT("-"), TEXT("_")); }
 };
 
 /** One choice of the launcher (workspace or CLI agent). */
