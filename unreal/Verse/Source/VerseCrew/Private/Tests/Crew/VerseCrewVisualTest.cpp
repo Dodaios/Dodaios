@@ -36,6 +36,7 @@ namespace VerseCrewVisual
 		FString Dir;
 		TSharedPtr<FFakeVerseCrewBridge> Bridge;
 		TMap<FName, int32> CrewInShot;
+		double ArrivalClock = 0.0;
 	};
 
 	UWorld* GameWorld()
@@ -153,7 +154,7 @@ bool FVerseCrewVisualTest::RunTest(const FString&)
 		FRotator Rotation;
 		const TCHAR* File;
 		// Two newcomers join right before this shot, so they are caught walking from the
-		// shuttle to the lift (the walk is about 15 s; the shots before it take longer).
+		// shuttle to the lift. The camera is aimed at that walk from the deck's own sockets.
 		bool bArrivals = false;
 	};
 	const TArray<FShot> Shots = {
@@ -168,26 +169,51 @@ bool FVerseCrewVisualTest::RunTest(const FString&)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S, Shot]() {
 			UVerseCrewSubsystem* C = S->Crew.Get();
-			if (Shot.bArrivals && C && S->Bridge)
+			FVector Location = S->Origins[Shot.Deck] + Shot.Offset;
+			FRotator Rotation = Shot.Rotation;
+			const FVerseCrewDeck* Deck = C ? C->FindDeck(Shot.Deck) : nullptr;
+			if (Shot.bArrivals && Deck && Deck->ArrivalSpawn() && Deck->Lift())
 			{
-				S->Bridge->Send(C, TEXT("roster.delta"), FVerseCrewTestWorld::Delta({ FVerseCrewTestWorld::Agent(TEXT("ag_new1"), TEXT("Nova"), TEXT("idle")), FVerseCrewTestWorld::Agent(TEXT("ag_new2"), TEXT("Rook"), TEXT("idle")) }));
-				C->ReplanNow();
+				const FVector Walk = (Deck->ArrivalSpawn()->Location + Deck->Lift()->Location) * 0.5f;
+				Location = Walk + FVector(0.f, -2400.f, 2000.f);
+				Rotation = (Walk - Location).Rotation();
 			}
 			if (ACameraActor* Camera = S->Camera.Get())
 			{
-				Camera->SetActorLocationAndRotation(S->Origins[Shot.Deck] + Shot.Offset, Shot.Rotation);
+				Camera->SetActorLocationAndRotation(Location, Rotation);
 				Camera->GetCameraComponent()->SetFieldOfView(75.f);
 			}
 			return true;
 		}));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.5f));
+		if (Shot.bArrivals)
+		{
+			ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S]() {
+				if (UVerseCrewSubsystem* C = S->Crew.Get())
+				{
+					S->Bridge->Send(C, TEXT("roster.delta"), FVerseCrewTestWorld::Delta({ FVerseCrewTestWorld::Agent(TEXT("ag_new1"), TEXT("Nova"), TEXT("idle")), FVerseCrewTestWorld::Agent(TEXT("ag_new2"), TEXT("Rook"), TEXT("idle")) }));
+					C->ReplanNow();
+					S->ArrivalClock = C->GetClockSeconds();
+				}
+				return true;
+			}));
+			// The rendered run steps a fixed 1/30 s per frame (-benchmark), far faster than real
+			// time, so the walk is timed on the crew clock: 3 s after joining they are mid-walk.
+			ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S]() {
+				const UVerseCrewSubsystem* C = S->Crew.Get();
+				return !C || C->GetClockSeconds() - S->ArrivalClock >= 3.0;
+			}));
+		}
 		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S, Shot]() {
 			FScreenshotRequest::RequestScreenshot(S->Dir / Shot.File, false, false);
 			++S->Shots;
 			int32& OnDeck = S->CrewInShot.FindOrAdd(Shot.Deck);
 			if (UVerseCrewSubsystem* C = S->Crew.Get())
 			{
-				for (const TSharedPtr<FJsonValue>& Row : C->DumpJson()->GetArrayField(TEXT("crew")))
+				// Keep the sheet alive for the loop: the range of a range-for does not extend the
+				// lifetime of the object that owns the array.
+				const TSharedRef<FJsonObject> Sheet = C->DumpJson();
+				for (const TSharedPtr<FJsonValue>& Row : Sheet->GetArrayField(TEXT("crew")))
 				{
 					OnDeck += Row->AsObject()->GetStringField(TEXT("deck")) == Shot.Deck.ToString() ? 1 : 0;
 				}

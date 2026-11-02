@@ -663,15 +663,21 @@ void UVerseCrewSubsystem::ReconcileArrivals(const TArray<FVerseCrewMember>& Memb
 			It.RemoveCurrent();
 		}
 	}
+	if (ArrivingUntil.Num() == 0)
+	{
+		return;
+	}
 	const FVerseCrewDeck* Hangar = Decks.Find(CrewDeckHangar);
 	if (!Hangar || !LoadedDecks.Contains(CrewDeckHangar))
 	{
+		UE_LOG(LogVerseCrew, Verbose, TEXT("%d newcomer(s) skip the shuttle: the hangar is not loaded."), ArrivingUntil.Num());
 		return;
 	}
 	const FVerseCrewSocket* Spawn = Hangar->ArrivalSpawn();
 	const FVerseCrewSocket* Lift = Hangar->Lift();
 	if (!Spawn || !Lift)
 	{
+		UE_LOG(LogVerseCrew, Warning, TEXT("The hangar has no %s socket; newcomers skip the shuttle."), Spawn ? TEXT("lift") : TEXT("spawn"));
 		return;
 	}
 	const FVector SpawnAt = Spawn->Location + FVector(0.f, 0.f, CrewCapsuleHalfHeightCm);
@@ -695,8 +701,10 @@ void UVerseCrewSubsystem::ReconcileArrivals(const TArray<FVerseCrewMember>& Memb
 		AVerseCrewPawn* Pawn = SpawnPawn(M, SpawnAt, Spawn->HeadingDeg);
 		if (!Pawn)
 		{
+			UE_LOG(LogVerseCrew, Warning, TEXT("Newcomer %s could not be spawned at the hangar shuttle."), *M.Id);
 			continue;
 		}
+		UE_LOG(LogVerseCrew, Log, TEXT("Newcomer %s comes off the shuttle and walks to the lift."), *M.Id);
 		FBody& Body = Bodies.Add(Key);
 		Body.Pawn = Pawn;
 		Body.MemberId = M.Id;
