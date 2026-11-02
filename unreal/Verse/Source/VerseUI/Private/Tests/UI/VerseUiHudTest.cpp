@@ -4,6 +4,7 @@
 #include "Hud/VerseCrosshair.h"
 #include "Hud/VerseHudModel.h"
 #include "Hud/VerseHudPainter.h"
+#include "Engine/Font.h"
 #include "Misc/AutomationTest.h"
 #include "Tests/UI/Fakes/VerseUiFakes.h"
 
@@ -291,6 +292,20 @@ static void FillFightFrame(FFakeVerseHudSource& Source, FVerseHudModel& Model)
 	D.Cause = EVerseDamageSource::Finisher;
 	D.RespawnAt = 103.0;
 	Model.OnDeath(D, 0.0);
+}
+
+// Regression: canvas text items need a runtime-cache UFont or the engine skips them, which left
+// every HUD label blank in the first captures.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseUiHudLabelFontTest, "Verse.UI.Hud.LabelFont", Flags)
+bool FVerseUiHudLabelFontTest::RunTest(const FString&)
+{
+	const UFont* Font = FVerseHudCanvasRenderer::LabelFont();
+	TestNotNull(TEXT("label font"), Font);
+	if (Font)
+	{
+		TestTrue(TEXT("runtime font cache"), Font->FontCacheType == EFontCacheType::Runtime);
+	}
+	return true;
 }
 
 // A18.3 (game-thread part): building the HUD draw list stays far under 0.3 ms.

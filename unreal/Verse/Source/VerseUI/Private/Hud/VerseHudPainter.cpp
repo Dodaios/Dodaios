@@ -5,6 +5,8 @@
 #include "Core/VerseUiStrings.h"
 #include "Core/VerseUiTheme.h"
 #include "Engine/Canvas.h"
+#include "Engine/Engine.h"
+#include "Engine/Font.h"
 #include "Fonts/FontMeasure.h"
 #include "GlobalRenderResources.h"
 #include "Framework/Application/SlateApplication.h"
@@ -667,6 +669,22 @@ void FVerseHudPainter::PaintCentre(const FVerseHudFrame& Frame, FVerseHudDrawLis
 // ---------------------------------------------------------------------------------------------
 // Canvas renderer
 
+const UFont* FVerseHudCanvasRenderer::LabelFont()
+{
+	static TWeakObjectPtr<const UFont> Cached;
+	if (const UFont* Font = Cached.Get())
+	{
+		return Font;
+	}
+	const UFont* Font = GEngine ? GEngine->GetMediumFont() : nullptr;
+	if (!Font || Font->FontCacheType != EFontCacheType::Runtime)
+	{
+		Font = LoadObject<UFont>(nullptr, TEXT("/Engine/EngineFonts/Roboto.Roboto"));
+	}
+	Cached = Font;
+	return Font;
+}
+
 void FVerseHudCanvasRenderer::Render(UCanvas* Canvas, const FVerseHudDrawList& List)
 {
 	if (!Canvas || !Canvas->Canvas)
@@ -695,9 +713,15 @@ void FVerseHudCanvasRenderer::Render(UCanvas* Canvas, const FVerseHudDrawList& L
 		Line.BlendMode = SE_BLEND_Translucent;
 		C->DrawItem(Line);
 	}
+	const UFont* Font = LabelFont();
+	if (!Font)
+	{
+		return;
+	}
 	for (const FVerseHudDrawList::FLabel& T : List.Labels)
 	{
 		FCanvasTextItem Text(T.Position, T.Text, FCoreStyle::GetDefaultFontStyle(T.bBold ? "Bold" : "Regular", T.FontSize), T.Colour);
+		Text.Font = Font;
 		Text.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.8f * T.Colour.A), FVector2D(1.0, 1.0));
 		Text.BlendMode = SE_BLEND_Translucent;
 		C->DrawItem(Text);

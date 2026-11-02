@@ -7,6 +7,7 @@
 
 class FVerseUiStrings;
 class UCanvas;
+class UFont;
 
 enum class EVerseTextAlign : uint8
 {
@@ -127,4 +128,11 @@ class VERSEUI_API FVerseHudCanvasRenderer
 {
 public:
 	static void Render(UCanvas* Canvas, const FVerseHudDrawList& List);
+
+	/**
+	 * The runtime-cache engine font every label item carries. A canvas text item built from a
+	 * Slate font alone has no UFont and draws nothing (the engine's HasValidText checks the
+	 * UFont); with this one set, the Slate font info still picks the face and size.
+	 */
+	static const UFont* LabelFont();
 };
