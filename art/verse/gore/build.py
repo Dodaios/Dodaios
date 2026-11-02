@@ -6,7 +6,7 @@
 
 1. Bakes the procedural masks (``textures.py``) to ``art/verse/.cache/gore/``
    (ignored; sources are never committed, art-pipeline 6.4).
-2. Runs ``unreal_assets.py`` in a headless editor under the machine-wide
+2. Runs ``unreal_assets.py`` in a headless editor (``-ExecutePythonScript``) under the machine-wide
    gpu-heavy lock (``scripts/unreal/with_lock.py``), which imports the masks
    and writes the materials into ``unreal/Verse/Content/Verse/Gore/`` and the
    test body material into ``Content/Verse/Test/WP05/``.
@@ -40,8 +40,9 @@ def editor_command(script: Path, log: Path) -> list[str]:
     return [
         str(common.editor_cmd(engine)),
         str(common.project_file(REPO)),
-        "-run=pythonscript",
-        f"-script={script}",
+        # The full editor (headless): texture import needs a Slate application, which the
+        # pythonscript commandlet does not create.
+        f"-ExecutePythonScript={script}",
         "-unattended",
         "-nosplash",
         "-nullrhi",
@@ -69,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     env = dict(os.environ)
     env["VERSE_GORE_TEXTURES"] = str(CACHE)
     env["VERSE_GORE_RESULT"] = str(result)
+    env["VERSE_GORE_QUIT"] = "1"
     code = with_lock.run_locked(
         editor_command(HERE / "unreal_assets.py", out_dir / "unreal_assets.log"),
         label="gore assets (wp05)",

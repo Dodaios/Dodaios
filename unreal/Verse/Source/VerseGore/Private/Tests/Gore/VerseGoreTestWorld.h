@@ -46,6 +46,12 @@ namespace VerseGoreTest
 		explicit FWorld(bool bForceGore = true, const TCHAR* Name = TEXT("VerseGoreTestWorld"))
 		{
 			World = UWorld::CreateWorld(EWorldType::Game, false, MakeUniqueObjectName(nullptr, UWorld::StaticClass(), Name));
+			if (World)
+			{
+				// A context, so the world can tick (UWorld::Tick looks its context up).
+				FWorldContext& Context = GEngine->CreateNewWorldContext(EWorldType::Game);
+				Context.SetCurrentWorld(World);
+			}
 			Gore = World ? World->GetSubsystem<UVerseGoreSubsystem>() : nullptr;
 			Hub = World ? World->GetSubsystem<UVerseEventHub>() : nullptr;
 			if (Gore)
@@ -68,6 +74,7 @@ namespace VerseGoreTest
 			}
 			if (World)
 			{
+				GEngine->DestroyWorldContext(World);
 				World->DestroyWorld(false);
 			}
 		}
