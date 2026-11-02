@@ -218,6 +218,45 @@ def _render(result: Any) -> str:
         return str(output)
 
 
+# Per-image byte budget for images handed back over MCP. Matches the
+# screenshot tool's own cap, so a normal capture passes through untouched.
+_MCP_IMAGE_MAX_BYTES: Final[int] = 500_000
+# A runaway tool must not flood the model's context with pictures.
+_MCP_MAX_IMAGES: Final[int] = 4
+
+
+def _image_contents(result: Any) -> list[tuple[str, str]]:
+    """The image artifacts of a ToolResult as ``(mime, base64)`` pairs.
+
+    Tools such as the screenshot tool return the picture as an artifact
+    (``{"type": "image", "mime": ..., "data": <base64>}``) next to a short
+    text output. Without this the MCP client only saw "Screenshot captured"
+    and never the image (#1072). Anything that is not a well-formed image
+    artifact is ignored, and every image is capped to a vision budget.
+    """
+    if result is None or not getattr(result, "success", False):
+        return []
+    artifacts = getattr(result, "artifacts", None)
+    if not isinstance(artifacts, (list, tuple)):
+        return []
+    from dodaios.vision.image_budget import cap_image_b64
+
+    images: list[tuple[str, str]] = []
+    for artifact in artifacts:
+        if len(images) >= _MCP_MAX_IMAGES:
+            break
+        if not isinstance(artifact, dict) or artifact.get("type") != "image":
+            continue
+        data = artifact.get("data")
+        mime = artifact.get("mime") or artifact.get("mimeType") or "image/png"
+        if not isinstance(data, str) or not data or not isinstance(mime, str):
+            continue
+        if not mime.startswith("image/"):
+            continue
+        images.append(cap_image_b64(mime, data, _MCP_IMAGE_MAX_BYTES))
+    return images
+
+
 def build_server() -> Any:
     """A low-level MCP server bound to the live tool gateway.
 
@@ -328,8 +367,13 @@ def build_server() -> Any:
             return types.CallToolResult(
                 content=[types.TextContent(type="text", text=text)], isError=not success
             )
+        content: list[Any] = [types.TextContent(type="text", text=_render(result))]
+        content.extend(
+            types.ImageContent(type="image", data=data, mimeType=mime)
+            for mime, data in _image_contents(result)
+        )
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text=_render(result))],
+            content=content,
             isError=not bool(getattr(result, "success", False)),
         )
 

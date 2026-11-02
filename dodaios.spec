@@ -286,6 +286,10 @@ _optional_hidden = [
     "webview",
     "pystray",
     "PIL",
+    # Wake keyword spotting imports vosk through a guarded helper
+    # (dodaios/plugins/wake/vosk_native.py), invisible to import analysis; its
+    # DLLs come from packaging/pyinstaller_hooks/hook-vosk.py.
+    "vosk",
 ]
 if sys.platform == "win32":
     _optional_hidden += [

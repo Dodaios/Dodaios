@@ -421,13 +421,21 @@ desktop-macos = [
     # app process while source/dependencies remain in the managed checkout —
     # py2app is no longer a dependency, and the stub also links against
     # non-framework (uv standalone) interpreters that py2app never supported.
-    "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
-    "pyobjc-framework-ApplicationServices>=10; sys_platform == 'darwin'",
-    "pyobjc-framework-Accessibility>=10; sys_platform == 'darwin'",
-    "pyobjc-framework-AVFoundation>=10; sys_platform == 'darwin'",
+    # PyObjC 13.0 is held back: its CoreMedia extension fails to load on
+    # Intel macOS 15 ("Library not loaded: @rpath/libswiftCoreMedia.dylib",
+    # no LC_RPATH; nightly CI from 2026-10-30, issue #1026). The wheels are
+    # universal2, so the cap is global rather than x86_64-only, and it caps
+    # pyobjc-core too: every 13.x framework requires pyobjc-core>=13, which
+    # keeps transitive frameworks such as CoreMedia (pulled in by
+    # AVFoundation) on 12.x as well. Lift it once a fixed 13.x ships.
+    "pyobjc-core>=10,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=10,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=10,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-Accessibility>=10,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-AVFoundation>=10,<13; sys_platform == 'darwin'",
     # Native per-window Computer-Use capture (SCScreenshotManager by
     # CGWindowID); runtime-probed — an absent framework degrades to rect grabs.
-    "pyobjc-framework-ScreenCaptureKit>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-ScreenCaptureKit>=10,<13; sys_platform == 'darwin'",
 ]
 # Local (offline) voice engines. Optional per the cloud-first doctrine
 # (CLAUDE.md §3): this extra ships with the advertised [full] profile (design

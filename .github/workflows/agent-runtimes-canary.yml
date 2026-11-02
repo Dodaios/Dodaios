@@ -68,11 +68,14 @@ jobs:
   # create or approve pull requests", run 40503244162), so the merge bot app
   # pushes the branch and opens it, like contributors.yml and
   # frontend-bundle.yml; its token also starts the pull request's CI, which
-  # is the pin's admission. A maintainer merges it.
+  # is the pin's admission. A maintainer merges it. The app's private key is
+  # an environment secret of `merge-train` (see merge-train.yml), so the job
+  # runs in that environment; outside it the key reads empty (run 41453098427).
   raise-pin:
     needs: canary
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    environment: merge-train
     timeout-minutes: 10
     permissions:
       contents: read
@@ -127,11 +130,20 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Open an issue for the broken runtime integration
+      # One open issue collects every failed week: a later failure comments on
+      # it instead of opening a duplicate.
+      - name: Report the broken runtime integration
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: Agent runtimes canary failed
         run: |
-          gh issue create --repo "$GITHUB_REPOSITORY" \
-            --title "Agent runtimes canary failed" \
-            --body "The weekly canary could not drive the latest Hermes or OpenClaw release through Dodaios' model gateway. The pinned versions stay in place. Run: $RUN_URL (see docs/agent-runtimes.md)."
+          set -euo pipefail
+          body="The weekly canary could not drive the latest Hermes or OpenClaw release through Dodaios' model gateway. The pinned versions stay in place. Run: $RUN_URL (see docs/agent-runtimes.md)."
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title $TITLE" \
+            --json number,title --jq '[.[] | select(.title == env.TITLE)][0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$body"
+          fi
