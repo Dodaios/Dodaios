@@ -320,6 +320,11 @@ export interface TurnItem {
    * its seat to the next message and the result arrives in a turn of its own.
    */
   background?: string[];
+  /**
+   * The background tasks a running turn waits on (`background_wait`): the
+   * agent ended its message, the CLI wakes it again once they finish.
+   */
+  waitingOn?: string[];
 }
 
 export interface ErrorItem {
@@ -1172,6 +1177,11 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
           };
         }),
       );
+    }
+
+    case "background_wait": {
+      const tasks = Array.isArray(p.tasks) ? p.tasks.map((task) => str(task)).filter(Boolean) : [];
+      return updateTurn(base, turnId, (turn) => ({ ...turn, waitingOn: tasks }));
     }
 
     case "usage_delta": {
