@@ -16,11 +16,58 @@ wrapped.
 
 from __future__ import annotations
 
+import importlib
+import os
 import queue
+import sys
 import threading
+import time
+from types import ModuleType
 from typing import Any
 
 _LOCK = threading.Lock()
+
+# ``vosk/__init__.py`` prepends its DLL folder to ``os.environ["PATH"]`` before
+# it loads ``libvosk.dll``. When that load fails the module is not cached, so
+# every retry prepended the folder again: the wake loop retries per candidate
+# reset, PATH grew to the 32,767-character limit and every later spawn of the
+# process failed with WinError 8 (#1045). A failed import now leaves PATH as it
+# was and is not retried until the cooldown has passed.
+_IMPORT_LOCK = threading.Lock()
+_IMPORT_RETRY_S = 300.0
+_import_failure: tuple[float, BaseException] | None = None
+
+
+def import_vosk() -> ModuleType:
+    """Import ``vosk`` without letting a failed import grow ``PATH``.
+
+    Raises ``ImportError`` while a recent failure is remembered.
+    """
+    global _import_failure
+
+    cached = sys.modules.get("vosk")
+    if cached is not None:
+        return cached
+    with _IMPORT_LOCK:
+        cached = sys.modules.get("vosk")
+        if cached is not None:
+            return cached
+        if _import_failure is not None:
+            failed_at, error = _import_failure
+            if time.monotonic() - failed_at < _IMPORT_RETRY_S:
+                raise ImportError(f"vosk unavailable: {error}") from error
+        saved_path = os.environ.get("PATH")
+        try:
+            module = importlib.import_module("vosk")
+        except BaseException as exc:
+            if saved_path is not None and os.environ.get("PATH") != saved_path:
+                os.environ["PATH"] = saved_path
+            if isinstance(exc, Exception):
+                _import_failure = (time.monotonic(), exc)
+                raise ImportError(f"vosk unavailable: {exc}") from exc
+            raise
+        _import_failure = None
+        return module
 
 # One worker that does nothing but let recognizers die. ``vosk_recognizer_free``
 # (KaldiRecognizer.__del__) is a native call measured at 15 s on a cold, paging
@@ -194,7 +241,7 @@ def wrap_recognizer(rec: Any) -> Any:
 
 def build_recognizer(model: Any, sample_rate: int, grammar: str | None = None) -> Any:
     """Construct a ``KaldiRecognizer``, ``SetWords(True)``, wrap if native."""
-    from vosk import KaldiRecognizer
+    KaldiRecognizer = import_vosk().KaldiRecognizer  # noqa: N806 — vosk API name
 
     with _LOCK:
         rec = (

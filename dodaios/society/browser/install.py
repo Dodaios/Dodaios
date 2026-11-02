@@ -220,8 +220,14 @@ def snapshot(data_dir: Path | None = None) -> dict[str, Any]:
 
 
 def _run(cmd: list[str], *, env: dict[str, str], timeout: float = 900) -> str:
+    from dodaios.core.path_augment import ensure_cli_paths, fit_spawn_path
     from dodaios.core.process_tree import make_process_tree
 
+    # Windows refuses every spawn while this process's PATH is over its limit,
+    # and a child handed such a PATH dies on start-up (#1045). Repair both.
+    ensure_cli_paths()
+    if env.get("PATH"):
+        env = {**env, "PATH": fit_spawn_path(env["PATH"])}
     tree = make_process_tree("browser-install")
     process_options: dict[str, Any] = {"start_new_session": True} if os.name != "nt" else {}
     proc = subprocess.Popen(

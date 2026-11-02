@@ -109,7 +109,7 @@ from typing import Any
 import numpy as np
 
 from dodaios.core.protocols import AudioChunk
-from dodaios.plugins.wake.vosk_native import build_recognizer, native_call
+from dodaios.plugins.wake.vosk_native import build_recognizer, import_vosk, native_call
 from dodaios.speech.wake_constants import (
     WAKE_PREFIXES,
     normalize_phrase_for_match,
@@ -917,6 +917,7 @@ class VoskKwsProvider:
         # keeps that diagnosable without turning a candidate storm into a log
         # flood (same shape as the existing backpressure warning).
         self._suppress_log_count = 0
+        self._reported_unusable: set[tuple[str, str]] = set()
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -931,11 +932,11 @@ class VoskKwsProvider:
             model = self._models.get(key)
             if model is not None:
                 return model
-            from vosk import Model, SetLogLevel  # lazy: keep base import light
+            vosk = import_vosk()  # lazy: keep base import light
 
-            SetLogLevel(-1)
+            vosk.SetLogLevel(-1)
             t0 = time.perf_counter()
-            model = Model(key)
+            model = vosk.Model(key)
             self._models[key] = model
             log.info(
                 "vosk-kws: model loaded in %.1f s (%s)",
@@ -1055,7 +1056,12 @@ class VoskKwsProvider:
             try:
                 recs[path] = self._take_verify_rec(path, "grammar")
             except Exception as exc:  # noqa: BLE001 — isolate a broken model
-                log.warning("vosk-kws: model %s unusable (%s) — skipped.", path, exc)
+                # Called after every candidate reset: report each distinct
+                # failure once instead of flooding the log (#1045).
+                failure = (path, str(exc))
+                if failure not in self._reported_unusable:
+                    self._reported_unusable.add(failure)
+                    log.warning("vosk-kws: model %s unusable (%s) — skipped.", path, exc)
         self._kick_replenish()
         return recs
 
@@ -2326,9 +2332,14 @@ def vosk_model_supports_phrase(model_path: str, phrase: str) -> bool:
     import tempfile
 
     try:
-        from vosk import KaldiRecognizer, Model, SetLogLevel
+        vosk = import_vosk()
     except Exception:  # noqa: BLE001 — no vosk → cannot disprove support
         return True
+    KaldiRecognizer, Model, SetLogLevel = (  # noqa: N806 — vosk API names
+        vosk.KaldiRecognizer,
+        vosk.Model,
+        vosk.SetLogLevel,
+    )
     tmp = None
     old = None
     try:

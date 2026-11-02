@@ -164,6 +164,19 @@ foreach ($required in @("DodaiosApp.exe", "PersonalJarvis.exe", "dodaios.exe", "
     }
 }
 
+# vosk loads libvosk.dll from its own folder at runtime. A bundle without it
+# fails every wake-word load and each failed import grew PATH until the app could
+# not start programs (#1045 / #1071). Only checked when the build environment
+# has vosk (it is not installed on Windows ARM64).
+& $Python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('vosk') else 1)"
+if ($LASTEXITCODE -eq 0) {
+    $voskDll = Join-Path $BundleDir "_internal\vosk\libvosk.dll"
+    if (-not (Test-Path $voskDll)) {
+        Stop-WithError "the frozen bundle is missing libvosk.dll (expected at $voskDll)"
+    }
+}
+$global:LASTEXITCODE = 0
+
 # Running the app straight out of dist/Jarvis (the obvious way to smoke-test a
 # build) leaves runtime state behind in _internal: a jarvis.db, flight-recorder
 # JSONL, logs. Shipping that would put the builder's own data inside every
