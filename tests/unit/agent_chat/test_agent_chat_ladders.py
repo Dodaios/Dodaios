@@ -280,7 +280,8 @@ def test_agy_planner_speaks_agy(monkeypatch, tmp_path: Path):
     # therefore also skips confirmations so the turn can finish.
     assert "--dangerously-skip-permissions" in argv
     assert argv[argv.index("--add-dir") + 1] == str(tmp_path)
-    assert "--print-timeout" in argv
+    # agy's own 5-minute print limit is lifted: a turn may run for days.
+    assert argv[argv.index("--print-timeout") + 1] == f"{365 * 24 * 3600}s"
     # Pro knows only low/high: medium snaps to low, and the pair is sent.
     assert argv[argv.index("--model") + 1] == "gemini-3.1-pro"
     assert argv[argv.index("--effort") + 1] == "low"
