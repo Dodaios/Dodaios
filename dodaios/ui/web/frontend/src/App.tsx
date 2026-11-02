@@ -351,8 +351,10 @@ export default function App() {
       */}
       <main className="relative flex min-w-0 flex-1 flex-col">
         {/* Gray, like the sidebar. The content panel below rounds its
-            top-left corner so this gray shows in the curve. */}
-        <div className="h-8 shrink-0" data-testid="caption-rule" />
+            top-left corner so this gray shows in the curve. The Agents page
+            draws its own columns up to the window's top edge, so the chat
+            stays dark right under the caption. */}
+        {!(sectionFullscreen && activeSection === "agents") && <div className="h-8 shrink-0" data-testid="caption-rule" />}
         <div className={sectionFullscreen ? "flex min-h-0 min-w-0 flex-1 flex-col" : "jarvis-sheet flex min-h-0 min-w-0 flex-1 flex-col"}>
         {/* Outside input software (dictation, text expanders, auto-type) cannot
             reach an elevated window: an OS-level gate the user must be told

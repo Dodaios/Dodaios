@@ -1,15 +1,11 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Orbit, Users } from "lucide-react";
 
 import { setMapFullscreen } from "@/lib/mapFullscreen";
 import { inDesktopShell } from "@/lib/nativeDrop";
 import { useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { CAPTION_ICON_STROKE, CAPTION_SEGMENT_OFF, CAPTION_SEGMENT_ON, CAPTION_TRACK } from "@/components/layout/captionSwitch";
 import { AgentCardOverlay } from "@/components/society/card/AgentCardOverlay";
-import { BrowserProfilesButton } from "@/components/society/browser/BrowserProfilesButton";
 import { BUILDING_CARDS, isBuildingPlace, type BuildingPlace } from "@/components/society/card/buildingCards";
 import { DeferredSocietyDialog } from "@/components/society/card/DeferredSocietyDialog";
 import type { PlaceId } from "@/components/society/world/islandLayout";
@@ -22,31 +18,15 @@ import { ChatGroupPanel } from "@/components/society/chat/ChatGroupPanel";
 import { useSocietyChatStore } from "@/components/society/chat/AgentChatPanel";
 import { chatGroupsKnown, createSocietyChatGroup, updateSocietyChatGroup, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { CanvasActivity } from "@/hooks/useCanvasAwake";
-import { AttentionBell } from "@/components/society/attention/AttentionBell";
 import { useAgentChatStore } from "@/store/agentChat";
 import { forgetLastAgentId, rememberLastAgentId, storedLastAgentId } from "./lastAgent";
 import { revealCard, setAgentOnScreen, takeAgentRequest, useAgentNavigation } from "./agentNavigation";
 
-/** The page's two faces, in caption order: the agents, then the Verse. */
-const MODES = [
-  { value: "agents", labelKey: "society.roster.title", titleKey: "society.roster.title", Icon: Users },
-  { value: "world", labelKey: "society.shell.mode_verse", titleKey: "society.world.mode_map", Icon: Orbit },
-] as const;
-
 // Small and three.js-free: the fallback in front of the lazy Verse chunk.
-import { VerseLoadingScreen, preloadLoadingArt } from "@/components/society/verse/VerseLoadingScreen";
-
-/** A labelled segment on the caption track: icon plus word, the "on" one lifted. */
-const MODE_SEGMENT =
-  "relative z-[1] flex h-full items-center gap-1.5 rounded-full border px-3 text-xs font-medium " +
-  "transition-[background-color,color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const MODE_SEGMENT_ON =
-  "border-border-strong/60 bg-background shadow-[0_1px_2px_rgb(var(--scrim-rgb)/0.25)] dark:border-border-strong dark:bg-surface-raised";
+import { VerseLoadingScreen } from "@/components/society/verse/VerseLoadingScreen";
 
 const loadWorld = () => import("@/views/DodaiosAgentsView").then((m) => ({ default: m.DodaiosAgentsView }));
 const JarvisAgentsBoard = lazy(loadWorld);
-const preloadWorld = () => { preloadLoadingArt(); void loadWorld().catch((error) => console.debug("World preload unavailable", error)); };
 
 // Do not evaluate either dialog's 3D dependencies until someone opens it.
 const loadBuildingDialog = () => import("@/components/society/card/BuildingCardOverlay")
@@ -225,38 +205,9 @@ export function SocietyView() {
     if (isBuildingPlace(place)) setOpenPlace(place);
   }, []);
 
-  // Labelled, in the caption look the Agentic IDE's switch uses: a word
-  // names each face, so the switch reads without hovering.
-  const modeSwitch = (
-    <div role="tablist" aria-label={t("society.world.mode_label")} className={CAPTION_TRACK}>
-      {MODES.map(({ value, labelKey, titleKey, Icon }) => {
-        const on = mode === value;
-        return <button key={value} type="button" role="tab" aria-selected={on}
-          title={t(titleKey)} data-testid={`society-mode-${value}`}
-          onClick={() => switchMode(value)}
-          onPointerEnter={value === "world" ? preloadWorld : undefined}
-          onFocus={value === "world" ? preloadWorld : undefined}
-          className={cn(MODE_SEGMENT, on ? cn(CAPTION_SEGMENT_ON, MODE_SEGMENT_ON) : cn(CAPTION_SEGMENT_OFF, "border-transparent"))}>
-          <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={CAPTION_ICON_STROKE} />
-          <span>{t(labelKey)}</span>
-        </button>;
-      })}
-    </div>
-  );
-
   return (
     <div className={mode === "world" ? "fixed inset-x-0 bottom-0 top-8 z-30 flex flex-col bg-background" : "relative flex h-full min-h-0 w-full flex-col"} data-testid="society-view" data-tour="agents-page">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Map mode takes the native window fullscreen, so the switch cannot
-            live inside the map HUD: it would shrink into the corner and strand
-            the user on the island. It rides in the window caption in BOTH
-            modes — one switch, always centered, always a way back. */}
-        {createPortal(
-          <div className="pointer-events-none fixed inset-x-0 top-0 z-[140] flex h-8 items-center justify-center" data-testid="mode-switch">
-            <div className="pointer-events-auto flex items-center gap-2">{modeSwitch}<BrowserProfilesButton iconOnly /><AttentionBell /></div>
-          </div>,
-          document.body,
-        )}
         {fullscreenError && <p role="alert" className="bg-card px-4 py-2 text-sm text-destructive">{t("society.world.fullscreen_failed")}</p>}
         {groupError && <p role="alert" className="bg-card px-4 py-2 text-sm text-destructive">{groupError}</p>}
         {createError && <p role="alert" className="bg-card px-4 py-2 text-sm text-destructive">{createError}</p>}
@@ -274,7 +225,7 @@ export function SocietyView() {
 
         </div>
         ) : null}
-        <div className={mode === "agents" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+        <div className={mode === "agents" ? cn("flex min-h-0 flex-1 flex-col [--as-caption-gap:2rem]", !openAgent || openGroup ? "pt-8" : null) : "hidden"}>
         {openGroup ? (
           <ChatGroupPanel group={openGroup} groups={groups} roster={agents} onOpenAgent={selectAgent} onOpenGroup={selectGroup}
             onCreateAgent={createAgent} onDeleted={() => setOpenGroupId(null)}

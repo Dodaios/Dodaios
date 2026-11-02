@@ -1,6 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { setMapFullscreen } from "@/lib/mapFullscreen";
 import { LAST_AGENT_STORAGE_KEY } from "./lastAgent";
 import { SocietyView } from "./SocietyView";
 
@@ -63,27 +62,6 @@ it("opens a group from the agent rail and returns to an individual member chat",
   expect(screen.getByTestId("workspace").textContent).toContain("Specialist");
 });
 
-it("switches to Map and back without losing the selected agent or draft", async () => {
-  render(<SocietyView />);
-  fireEvent.click(screen.getByText("Select specialist"));
-  const draft = screen.getByLabelText("Draft") as HTMLInputElement;
-  fireEvent.change(draft, { target: { value: "Unsent message" } });
-  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
-  const map = await screen.findByTestId("map");
-  expect(map.dataset.active).toBe("true");
-  fireEvent.click(screen.getByRole("tab", { name: "society.roster.title" }));
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
-  expect(screen.getByText("Specialist")).toBeTruthy();
-  expect(screen.getByLabelText("Draft")).toBe(draft);
-  expect(draft.value).toBe("Unsent message");
-  expect(screen.getByTestId("map")).toBe(map);
-  expect(map.dataset.active).toBe("false");
-  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
-  expect(screen.getByTestId("map")).toBe(map);
-  expect(map.dataset.active).toBe("true");
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("false");
-});
-
 it("restores the most recently selected agent after the view is remounted", () => {
   const firstVisit = render(<SocietyView />);
   fireEvent.click(screen.getByText("Select specialist"));
@@ -93,16 +71,6 @@ it("restores the most recently selected agent after the view is remounted", () =
   render(<SocietyView />);
 
   expect(screen.getByText("Specialist")).toBeTruthy();
-});
-
-it("opens map selections in Agents and keeps creation available", async () => {
-  render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
-  fireEvent.click(await screen.findByText("Map specialist"));
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
-  expect(screen.getByText("Specialist")).toBeTruthy();
-  fireEvent.click(screen.getByText("Create agent"));
-  await waitFor(() => expect(quick.create).toHaveBeenCalledTimes(1));
 });
 
 it("one click creates an agent and opens its chat", async () => {
@@ -122,40 +90,14 @@ it("shows a failed one-click creation instead of inventing a row", async () => {
 });
 
 
-it("keeps the Map/Agents switch in the caption in both modes", async () => {
-  render(<SocietyView />);
-  // Agents mode: no second bar, no "Back to app" — the workspace expands
-  // straight under the caption, the switch rides centered in it.
-  expect(screen.queryByRole("button", { name: "settings_hub.back_to_app" })).toBeNull();
-  const captionSwitch = screen.getByTestId("mode-switch");
-  expect(within(captionSwitch).getByRole("tab", { name: "society.shell.mode_verse" })).toBeTruthy();
-  fireEvent.click(within(captionSwitch).getByRole("tab", { name: "society.shell.mode_verse" }));
-  await screen.findByTestId("map");
-  // Map mode takes the native window fullscreen: the switch stays in the
-  // caption instead of shrinking into the map HUD, so Agents stays reachable.
-  expect(screen.getByTestId("mode-switch")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "settings_hub.back_to_app" })).toBeNull();
-  fireEvent.click(screen.getByRole("tab", { name: "society.roster.title" }));
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
-  expect(screen.getByTestId("mode-switch")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "settings_hub.back_to_app" })).toBeNull();
-});
-
 it("navigates back through the window caption instead of a sections toggle", () => {
   render(<SocietyView />);
   expect(screen.queryByRole("button", { name: "society.world.toggle_sections" })).toBeNull();
   expect(screen.queryByRole("button", { name: "settings_hub.back_to_app" })).toBeNull();
-  // The caption back button leaves this fullscreen section. The sidebar toggle is gone.
-  expect(screen.getByTestId("mode-switch")).toBeTruthy();
-});
-
-it("leaves Map on Escape without requesting native fullscreen in a browser", async () => {
-  render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
-  await screen.findByTestId("map");
-  expect(setMapFullscreen).not.toHaveBeenCalledWith(true);
-  fireEvent.keyDown(document, { key: "Escape" });
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
+  // The caption back button leaves this fullscreen section. The sidebar toggle is gone,
+  // and nothing of this page rides in the caption.
+  expect(screen.queryByTestId("mode-switch")).toBeNull();
+  expect(screen.queryByRole("tab", { name: "society.shell.mode_verse" })).toBeNull();
 });
 
 it("shows no station shortcut in Agents mode", () => {
@@ -163,41 +105,3 @@ it("shows no station shortcut in Agents mode", () => {
   render(<SocietyView />);
   expect(screen.queryByRole("button", { name: "society.mars.station_title" })).toBeNull();
 });
-
-it("does not discard a Mars form when Escape belongs to its input", async () => {
-  render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
-  const field = await screen.findByLabelText("Mars draft");
-  fireEvent.change(field, { target: { value: "Unsent station draft" } });
-  fireEvent.keyDown(field, { key: "Escape" });
-  expect(screen.getByTestId("map")).toBeTruthy();
-  expect((field as HTMLInputElement).value).toBe("Unsent station draft");
-  fireEvent.keyDown(document, { key: "Escape" });
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
-});
-
-it.each(["Mars draft", "Player viewport", "Follow viewport"])("preserves focused %s when the browser exits fullscreen without a keydown", async (target) => {
-  render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
-  const field = await screen.findByLabelText("Mars draft");
-  fireEvent.change(field, { target: { value: "Unsent station draft" } });
-  const focused = target === "Mars draft" ? field : screen.getByText(target);
-  focused.focus();
-  expect(document.fullscreenElement).toBeFalsy();
-  fireEvent(document, new Event("fullscreenchange"));
-  expect(screen.getByTestId("map")).toBeTruthy();
-  expect(screen.getByLabelText("Mars draft")).toBe(field);
-  expect((field as HTMLInputElement).value).toBe("Unsent station draft");
-  fireEvent.click(screen.getByRole("tab", { name: "society.roster.title" }));
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
-});
-
-it("still leaves the ordinary map when browser fullscreen exits", async () => {
-  render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
-  await screen.findByTestId("map");
-  fireEvent(document, new Event("fullscreenchange"));
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
-});
-
-
