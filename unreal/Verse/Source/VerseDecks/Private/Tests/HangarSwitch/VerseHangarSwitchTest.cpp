@@ -159,6 +159,8 @@ bool FVerseHangarSwitchStreamingTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("then day"), W.Switch->GetMode() == EVerseHangarMode::Day && W.Events.Num() == 4 && !W.Events[3].bArenaOn);
 
 	// Stuck layers finish after the timeout instead of hanging the duel.
+	AddExpectedMessage(TEXT("layers not done after"), EAutomationExpectedMessageFlags::Contains, 1);
+	AddExpectedMessage(TEXT("Hangar switch took"), EAutomationExpectedMessageFlags::Contains, 1);
 	FSwitchWorld Stuck(1e9);
 	Stuck.Switch->RequestArena(true);
 	Stuck.Run(UVerseHangarSwitchSubsystem::SwitchTimeoutS + 0.5);
