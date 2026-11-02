@@ -107,6 +107,52 @@ bool FVerseBotReflexMeleeTest::RunTest(const FString& Parameters)
 	}
 	AddInfo(FString::Printf(TEXT("knife share %.3f (want 0.35)"), Knives / 2000.0));
 	TestTrue(TEXT("KnifeChoice share"), FMath::Abs(Knives / 2000.0 - 0.35) <= 0.035);
+
+	// The finisher pre-empts a pending DuckOnHit and keeps its reaction clock (no second reaction).
+	{
+		FVerseBotReflexes Rd;
+		Rd.Reset(Params(1.0), 13);
+		FVerseBotReflexContext Far = Close(FVector(1500, 0, 0), 180.f);
+		Far.bHitThisTick = true;
+		Far.bBehindLowCover = true;
+		Far.NowS = 0.0;
+		const FVerseBotReflexOutput First = Rd.Tick(Far);
+		TestTrue(TEXT("hit behind cover schedules a reflex, not yet fired"), First.Fired == EVerseBotReflex::None);
+		// One tick later the opponent is right behind the bot's target (rear arc, 1.2 m).
+		FVerseBotReflexContext Behind = Close(FVector(120, 0, 0), 0.f);
+		double FinisherAt = -1.0;
+		bool bDucked = false;
+		for (double T = Dt; T <= 2.0; T += Dt)
+		{
+			Behind.NowS = T;
+			const FVerseBotReflexOutput Out = Rd.Tick(Behind);
+			bDucked |= Out.Fired == EVerseBotReflex::DuckOnHit;
+			if (Out.Fired == EVerseBotReflex::Finisher)
+			{
+				FinisherAt = T;
+				break;
+			}
+		}
+		TestTrue(TEXT("finisher fires over a pending duck"), FinisherAt >= 0.0 && !bDucked);
+		// Reference run with the same seed: when the duck itself would have fired. The finisher
+		// keeps that clock, so it fires on the same tick instead of after a second reaction.
+		FVerseBotReflexes Ref;
+		Ref.Reset(Params(1.0), 13);
+		Ref.Tick(Far);
+		FVerseBotReflexContext Quiet = Far;
+		Quiet.bHitThisTick = false;
+		double DuckAt = -1.0;
+		for (double T = Dt; T <= 2.0 && DuckAt < 0.0; T += Dt)
+		{
+			Quiet.NowS = T;
+			if (Ref.Tick(Quiet).Fired == EVerseBotReflex::DuckOnHit)
+			{
+				DuckAt = T;
+			}
+		}
+		AddInfo(FString::Printf(TEXT("duck would fire at %.4f s, finisher fired at %.4f s"), DuckAt, FinisherAt));
+		TestTrue(TEXT("finisher keeps the duck's reaction clock"), DuckAt >= 0.0 && FMath::Abs(FinisherAt - DuckAt) < 1.0e-6);
+	}
 	return true;
 }
 
@@ -138,6 +184,27 @@ bool FVerseBotReflexEmptyTest::RunTest(const FString& Parameters)
 	}
 	AddInfo(FString::Printf(TEXT("pistol switch share %.3f (want 0.6)"), Switches / 2000.0));
 	TestTrue(TEXT("PistolSwitchChance share"), FMath::Abs(Switches / 2000.0 - 0.6) <= 0.035);
+
+	// Dead-zone case: empty magazine, opponent 1 m away in the rear arc, finisher unavailable.
+	// Neither knife (front arc only) nor finisher can answer, so switch or retreat must.
+	{
+		FVerseBotReflexContext Rear = Close(FVector(100, 0, 0), 0.f);
+		Rear.Magazine = 0;
+		Rear.bChambered = false;
+		Rear.bFinisherAvailable = false;
+		FVerseBotReflexes Rs;
+		Rs.Reset(Params(1.0), 11);
+		TestTrue(TEXT("empty, rear arc, no finisher: pistol switch"), RunUntil(Rs, Rear, EVerseBotReflex::PistolSwitch, 1.0) >= 0.0);
+		bool bRetreat = false;
+		FVerseBotReflexes Rr;
+		Rr.Reset(Params(0.0), 12);
+		for (double T = 0.0; T < 1.0 && !bRetreat; T += Dt)
+		{
+			Rear.NowS = T;
+			bRetreat = Rr.Tick(Rear).bWantRetreat;
+		}
+		TestTrue(TEXT("empty, rear arc, no finisher, no switch roll: retreat"), bRetreat);
+	}
 
 	FVerseBotReflexes R;
 	R.Reset(Params(1.0), 9);

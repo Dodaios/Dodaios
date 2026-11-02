@@ -28,7 +28,8 @@ struct VERSEBOT_API FVerseBotAdaptiveTraceEntry
  *
  * (UVerseBotAdaptiveConfig::NextSkill). The new value is pending until the bot respawns
  * (ApplyAt = bot_respawn), never during an engagement. Several kills before a respawn chain their
- * steps, but the applied value never moves by more than MaxStepPerKill per kill.
+ * pending steps, but each respawn moves the applied value by at most MaxStepPerKill toward the
+ * pending one; any remainder applies at later respawns.
  *
  * Kills come from the kill feed (HUD), so the controller reads nothing a person could not see.
  * Lives for one match (B8); Reset at match end.
@@ -41,7 +42,7 @@ public:
 	/** A kill in the match: bPersonKill when the person killed the bot, false when the bot killed. */
 	void OnKill(bool bPersonKill);
 
-	/** The bot respawned: the pending skill becomes the applied one. Returns true when it changed. */
+	/** The bot respawned: the applied skill steps toward the pending one (at most MaxStepPerKill). Returns true when it changed. */
 	bool OnBotRespawn();
 
 	/** The skill the bot plays with (AVersePlayerState::BotEffectiveSkill). */

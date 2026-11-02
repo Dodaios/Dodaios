@@ -12,7 +12,7 @@
 
 // A9.5: steps never above 0.05, s in [0, 1], no change inside the deadband or before 4 kills,
 // applied only at respawn.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBotAdaptiveTest, "Verse.Bot.Adaptive", VERSE_BOT_TEST_FLAGS)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBotAdaptiveTest, "Verse.Bot.Adaptive.Steps", VERSE_BOT_TEST_FLAGS)
 bool FVerseBotAdaptiveTest::RunTest(const FString& Parameters)
 {
 	VerseBotTierTest::FTierSet Set = VerseBotTierTest::LoadTierSet();
@@ -28,6 +28,9 @@ bool FVerseBotAdaptiveTest::RunTest(const FString& Parameters)
 	int32 WarmupMoves = 0;
 	int32 MidLifeApplies = 0;
 	int32 Moves = 0;
+	int32 BigAppliedSteps = 0;
+	int32 ChainedGaps = 0;
+	int32 WrongApplies = 0;
 	for (int32 Match = 0; Match < 1000; ++Match)
 	{
 		FVerseRng Rng(Match, 0, EVerseRngSalt::Harness);
@@ -52,8 +55,16 @@ bool FVerseBotAdaptiveTest::RunTest(const FString& Parameters)
 			// The bot respawns after a person kill (the bot died).
 			if (bPerson)
 			{
+				const float AppliedPrev = A.GetAppliedSkill();
+				const float Gap = A.GetPendingSkill() - AppliedPrev;
 				A.OnBotRespawn();
-				TestEqual(TEXT("respawn applies the pending skill"), A.GetAppliedSkill(), A.GetPendingSkill());
+				const float AppliedStep = A.GetAppliedSkill() - AppliedPrev;
+				BigAppliedSteps += FMath::Abs(AppliedStep) > Config.MaxStepPerKill + 1.0e-6f ? 1 : 0;
+				ChainedGaps += FMath::Abs(Gap) > Config.MaxStepPerKill + 1.0e-6f ? 1 : 0;
+				// Toward the pending value, never past it.
+				WrongApplies += (FMath::Abs(Gap) <= Config.MaxStepPerKill + 1.0e-6f)
+					? (FMath::Abs(A.GetAppliedSkill() - A.GetPendingSkill()) > 1.0e-6f ? 1 : 0)
+					: (FMath::Sign(AppliedStep) != FMath::Sign(Gap) ? 1 : 0);
 			}
 		}
 	}
@@ -63,6 +74,23 @@ bool FVerseBotAdaptiveTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("changes inside the deadband"), DeadbandMoves, 0);
 	TestEqual(TEXT("changes before WarmupKills"), WarmupMoves, 0);
 	TestEqual(TEXT("changes applied outside a respawn"), MidLifeApplies, 0);
+	AddInfo(FString::Printf(TEXT("respawns with a chained pending gap above MaxStepPerKill: %d"), ChainedGaps));
+	TestEqual(TEXT("applied steps at a respawn above MaxStepPerKill (0.05)"), BigAppliedSteps, 0);
+	TestEqual(TEXT("respawns not moving the applied skill toward the pending one"), WrongApplies, 0);
+	{
+		// Chained case: six bot kills in a row, then the person kills (bot respawns once).
+		FVerseBotAdaptiveController C;
+		C.Reset(Config);
+		for (int32 I = 0; I < Config.WarmupKills + 2; ++I) C.OnKill(true);
+		C.OnBotRespawn();
+		for (int32 I = 0; I < 6; ++I) C.OnKill(false);
+		C.OnKill(true);
+		const float Prev = C.GetAppliedSkill();
+		C.OnBotRespawn();
+		AddInfo(FString::Printf(TEXT("chained: pending %.3f, applied %.3f -> %.3f"), C.GetPendingSkill(), Prev, C.GetAppliedSkill()));
+		TestTrue(TEXT("chained bot kills: one respawn moves the applied skill by <= 0.05"),
+			FMath::Abs(C.GetAppliedSkill() - Prev) <= Config.MaxStepPerKill + 1.0e-6f);
+	}
 	TestTrue(TEXT("the controller moves at all"), Moves > 1000);
 	TestTrue(TEXT("the config caps the step at 0.05"), Config.MaxStepPerKill <= 0.05f);
 

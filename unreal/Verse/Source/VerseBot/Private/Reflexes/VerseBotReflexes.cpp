@@ -88,12 +88,17 @@ FVerseBotReflexOutput FVerseBotReflexes::Tick(const FVerseBotReflexContext& Ctx)
 
 	if (bClose && RangeCm <= FinisherRangeCm && Theta > FrontArcDeg && Ctx.bFinisherAvailable)
 	{
-		// Rear or flank arc: the finisher beats every other reflex (bot.md 5.2).
-		if (Pending.Reflex == EVerseBotReflex::Knife)
+		// Rear or flank arc: the finisher beats every other reflex (bot.md 5.2). It pre-empts
+		// whatever is pending and keeps that reflex's reaction clock, because the bot is
+		// already reacting to this opponent; with nothing pending it samples a fresh one.
+		if (Pending.Reflex == EVerseBotReflex::None)
 		{
-			Pending = FPending();
+			Schedule(EVerseBotReflex::Finisher, Ctx.NowS, EVerseBotStimulus::Sight);
 		}
-		Schedule(EVerseBotReflex::Finisher, Ctx.NowS, EVerseBotStimulus::Sight);
+		else
+		{
+			Pending.Reflex = EVerseBotReflex::Finisher;
+		}
 	}
 	else if (bClose && Theta <= FrontArcDeg)
 	{
@@ -110,7 +115,10 @@ FVerseBotReflexOutput FVerseBotReflexes::Tick(const FVerseBotReflexContext& Ctx)
 
 	if (bEmpty && Ctx.bTargetVisible && Ctx.ActiveSlot == EVerseLoadoutSlot::Primary)
 	{
-		if (!bEmptyHandled && !bClose)
+		// Skip the switch-or-retreat answer only when a melee reflex actually answers this
+		// contact; a close opponent the bot cannot knife or finish still gets one (bot.md 5.2).
+		const bool bMeleeScheduled = Pending.Reflex == EVerseBotReflex::Knife || Pending.Reflex == EVerseBotReflex::Finisher;
+		if (!bEmptyHandled && !bMeleeScheduled)
 		{
 			bEmptyHandled = true;
 			if (Rng.Chance(Params.PistolSwitchChance))
