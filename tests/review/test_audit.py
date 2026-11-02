@@ -52,9 +52,12 @@ def test_constructor_path_override(tmp_path: Path) -> None:
     assert audit.path == custom
 
 
-def test_default_path_is_data_review_log() -> None:
-    audit = ReviewAudit()
-    assert audit.path == Path("data") / "review.log"
+def test_default_path_is_review_log_in_the_data_dir(monkeypatch, tmp_path: Path) -> None:
+    """The default follows the runtime data dir, not the cwd (#458)."""
+    from dodaios.core import config
+
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    assert ReviewAudit().path == tmp_path / "review.log"
 
 
 def test_constructor_accepts_string_path(tmp_path: Path) -> None:

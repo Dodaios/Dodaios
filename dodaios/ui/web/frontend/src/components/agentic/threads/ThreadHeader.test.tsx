@@ -10,7 +10,18 @@ vi.mock("../PaneChangesDialog", () => ({
     open ? <div data-testid="thread-changes" data-folder={folder}>{title}</div> : null,
 }));
 
+const badges = vi.hoisted(() => ({ github: { status: null as unknown, pending: false }, gate: null as unknown }));
+vi.mock("../useSessionGitHub", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../useSessionGitHub")>()),
+  useThreadGitHub: () => badges.github,
+}));
+vi.mock("../usePaneDoneGate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../usePaneDoneGate")>()),
+  usePaneDoneGate: () => badges.gate,
+}));
+
 import { ThreadHeader } from "./ThreadHeader";
+import { useThreadChatStore } from "./threadModel";
 
 const SESSION = {
   session_id: "s1",
@@ -25,6 +36,9 @@ const SESSION = {
 describe("ThreadHeader", () => {
   beforeEach(() => {
     useNavSidebarStore.setState({ collapsed: false });
+    useThreadChatStore.setState({ sessions: [] });
+    badges.github = { status: null, pending: false };
+    badges.gate = null;
   });
   afterEach(cleanup);
 
@@ -66,5 +80,26 @@ describe("ThreadHeader", () => {
   it("does not close a thread that is still working", () => {
     render(<ThreadHeader session={{ ...SESSION, running: true } as AgentChatSession} projectId="p1" folder="/repo" workspaceId="w1" />);
     expect((screen.getByTestId("thread-header-close") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("names the thread the way the sidebar does: the coding CLI's own title", () => {
+    useThreadChatStore.setState({ sessions: [{ ...SESSION, cli_title: "Thread header polish" } as AgentChatSession] });
+    render(<ThreadHeader session={{ ...SESSION, title: "Hello, I would like you to ..." } as AgentChatSession} projectId="p1" folder="/repo" workspaceId="w1" />);
+    expect(screen.getByTestId("thread-header-title").textContent).toBe("Thread header polish");
+  });
+
+  it("shows the branch's GitHub state and the done gate's verdict like a pane", () => {
+    badges.github = {
+      status: {
+        repo: "acme/app", branch: "feat/x", url: "https://github.com/acme/app/pull/7", published: true, owned: true,
+        available: true, reason: "", fetched_at: Date.now() / 1000, state: "open", number: 7,
+        ci: { state: "success" }, ci_stale: false,
+      },
+      pending: false,
+    };
+    badges.gate = { verdict: "WAIT", reason: "CI is running", next: "", pr: 7, branch: "feat/x", at: "", matched: "session" };
+    render(<ThreadHeader session={SESSION} projectId="p1" folder="/repo" workspaceId="w1" />);
+    expect(screen.getByTestId("session-github-status").getAttribute("href")).toBe("https://github.com/acme/app/pull/7");
+    expect(screen.getByTestId("pane-done-gate-Fix the login").getAttribute("data-verdict")).toBe("WAIT");
   });
 });
