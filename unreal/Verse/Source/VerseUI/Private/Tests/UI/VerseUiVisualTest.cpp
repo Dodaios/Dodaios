@@ -75,7 +75,7 @@ namespace VerseUiVisual
 			FCanvasTileItem Tile(FVector2D(0, Size.Y * T), FVector2D(Size.X, Size.Y / Bands + 1), Colour);
 			C->DrawItem(Tile);
 		}
-		FRandomStream Rng(int32(Seed));
+		FRandomStream Rng{int32(Seed)};
 		for (int32 I = 0; I < 9; ++I)
 		{
 			const FVector2D P(Size.X * Rng.FRandRange(-0.05f, 0.95f), Size.Y * Rng.FRandRange(0.15f, 0.55f));

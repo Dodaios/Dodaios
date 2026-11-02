@@ -82,7 +82,8 @@ struct VERSEUI_API FVerseEndScreen
 	float Skill = -1.f;
 	TArray<FVerseEndScreenRow> Rows;
 
-	static FVerseEndScreen Build(const FVerseSetSummary& Summary, float BotEffectiveSkill);
+	/** Numbers are formatted in Lang (the Verse UI language), never the machine's culture. */
+	static FVerseEndScreen Build(const FVerseSetSummary& Summary, float BotEffectiveSkill, const FString& Lang = TEXT("en"));
 };
 
 /** The screens the UI layer can show over the game. */

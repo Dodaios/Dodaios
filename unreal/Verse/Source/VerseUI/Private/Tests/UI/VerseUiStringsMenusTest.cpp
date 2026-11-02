@@ -419,6 +419,8 @@ bool FVerseUiEndScreenTest::RunTest(const FString&)
 	TestTrue(TEXT("adaptive s shown"), Screen.bShowSkill && FMath::IsNearlyEqual(Screen.Skill, 0.62f));
 	TestEqual(TEXT("nine rows"), Screen.Rows.Num(), 9);
 	TestEqual(TEXT("K/D"), Screen.Rows[2].Person.ToString(), FString(TEXT("1.43")));
+	// The Verse language picks the number format, whatever the machine's culture is.
+	TestEqual(TEXT("K/D in German"), FVerseEndScreen::Build(Summary, 0.62f, TEXT("de")).Rows[2].Person.ToString(), FString(TEXT("1,43")));
 	FVerseSetSummary Hard = Summary;
 	Hard.BotTier = TEXT("hard");
 	TestFalse(TEXT("no s for a fixed tier"), FVerseEndScreen::Build(Hard, -1.f).bShowSkill);

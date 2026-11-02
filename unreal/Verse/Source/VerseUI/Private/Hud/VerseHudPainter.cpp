@@ -47,7 +47,7 @@ namespace
 		Out.Lines.Add({A, B, Thickness, Colour, Tag});
 	}
 
-	void Rect(FVerseHudDrawList& Out, const FVector2D& Min, const FVector2D& Size, const FLinearColor& Colour, FName Tag)
+	void FillRect(FVerseHudDrawList& Out, const FVector2D& Min, const FVector2D& Size, const FLinearColor& Colour, FName Tag)
 	{
 		Out.Rects.Add({Min, Min + Size, Colour, Tag});
 	}
@@ -292,7 +292,7 @@ void FVerseHudPainter::PaintCrosshair(const FVerseHudFrame& Frame, FVerseHudDraw
 		Line(Out, Centre + D * Gap, Centre + D * (Gap + Length), Thick, VerseUiTheme::Text, TagCrosshair);
 	}
 	const float Dot = FMath::Max(2.f, L.Px(2.f));
-	Rect(Out, Centre - FVector2D(Dot, Dot) * 0.5, FVector2D(Dot, Dot), VerseUiTheme::Amber, TagCrosshair);
+	FillRect(Out, Centre - FVector2D(Dot, Dot) * 0.5, FVector2D(Dot, Dot), VerseUiTheme::Amber, TagCrosshair);
 
 	if (Spread > Gap * 0.5f && Spread > L.Px(6.f))
 	{
@@ -369,7 +369,7 @@ void FVerseHudPainter::PaintMarkers(const FVerseHudFrame& Frame, FVerseHudDrawLi
 			// Shape: a square plate with a bar: the shot hit a protected player.
 			const float S = L.Px(18.f);
 			Outline(Out, C - FVector2D(S, S) * 0.5, FVector2D(S, S), FMath::Max(1.f, L.Px(2.f)), WithAlpha(VerseUiTheme::Blocked, Alpha), Tag);
-			Rect(Out, C - FVector2D(S * 0.35, L.Px(1.5f)), FVector2D(S * 0.7, L.Px(3.f)), WithAlpha(VerseUiTheme::Blocked, Alpha), Tag);
+			FillRect(Out, C - FVector2D(S * 0.35, L.Px(1.5f)), FVector2D(S * 0.7, L.Px(3.f)), WithAlpha(VerseUiTheme::Blocked, Alpha), Tag);
 			break;
 		}
 		}
@@ -408,8 +408,8 @@ void FVerseHudPainter::PaintVitals(const FVerseHudFrame& Frame, FVerseHudDrawLis
 	const FVerseUiStrings& S = *Frame.Strings;
 	const FVector2D BlockSize(L.Px(340.f), L.Px(104.f));
 	const FVector2D P = L.Place(EVerseUiAnchor::BottomLeft, BlockSize, FVector2D(8.f, 8.f));
-	Rect(Out, P, BlockSize, VerseUiTheme::Steel, TagVitals);
-	Rect(Out, P, FVector2D(L.Px(3.f), BlockSize.Y), VerseUiTheme::Amber, TagVitals);
+	FillRect(Out, P, BlockSize, VerseUiTheme::Steel, TagVitals);
+	FillRect(Out, P, FVector2D(L.Px(3.f), BlockSize.Y), VerseUiTheme::Amber, TagVitals);
 
 	const float Pad = L.Px(14.f);
 	const float MaxLabel = BlockSize.X - 2 * Pad;
@@ -423,8 +423,8 @@ void FVerseHudPainter::PaintVitals(const FVerseHudFrame& Frame, FVerseHudDrawLis
 
 	const FVector2D BarPos = P + FVector2D(Pad, L.Px(72.f));
 	const FVector2D BarSize(BlockSize.X - 2 * Pad, L.Px(8.f));
-	Rect(Out, BarPos, BarSize, VerseUiTheme::SteelLight, TagVitals);
-	Rect(Out, BarPos, FVector2D(BarSize.X * Fraction, BarSize.Y), bLow ? VerseUiTheme::Red : VerseUiTheme::Amber, TagVitals);
+	FillRect(Out, BarPos, BarSize, VerseUiTheme::SteelLight, TagVitals);
+	FillRect(Out, BarPos, FVector2D(BarSize.X * Fraction, BarSize.Y), bLow ? VerseUiTheme::Red : VerseUiTheme::Amber, TagVitals);
 	// Low health also shows as notches (not colour alone).
 	if (bLow)
 	{
@@ -466,8 +466,8 @@ void FVerseHudPainter::PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawLis
 
 	if (Pawn.bHasWeapon)
 	{
-		Rect(Out, P, BlockSize, VerseUiTheme::Steel, TagWeapon);
-		Rect(Out, FVector2D(P.X + BlockSize.X - L.Px(3.f), P.Y), FVector2D(L.Px(3.f), BlockSize.Y), VerseUiTheme::Amber, TagWeapon);
+		FillRect(Out, P, BlockSize, VerseUiTheme::Steel, TagWeapon);
+		FillRect(Out, FVector2D(P.X + BlockSize.X - L.Px(3.f), P.Y), FVector2D(L.Px(3.f), BlockSize.Y), VerseUiTheme::Amber, TagWeapon);
 		Text(Out, Measure, RightTop + FVector2D(0, L.Px(8.f)), ItemName(S, Pawn.WeaponId), L.FontSize(11.f), true, VerseUiTheme::Text,
 			EVerseTextAlign::Right, BlockSize.X * 0.6f, TEXT("weapon.name"));
 
@@ -493,8 +493,8 @@ void FVerseHudPainter::PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawLis
 				BlockSize.X * 0.4f - Pad, TEXT("weapon.reload"));
 			const FVector2D BarPos(P.X + Pad, P.Y + BlockSize.Y - L.Px(14.f));
 			const FVector2D BarSize(BlockSize.X - 2 * Pad, L.Px(4.f));
-			Rect(Out, BarPos, BarSize, VerseUiTheme::SteelLight, TagWeapon);
-			Rect(Out, BarPos, FVector2D(BarSize.X * FMath::Clamp(Pawn.ReloadProgress, 0.f, 1.f), BarSize.Y), VerseUiTheme::Amber, TagWeapon);
+			FillRect(Out, BarPos, BarSize, VerseUiTheme::SteelLight, TagWeapon);
+			FillRect(Out, BarPos, FVector2D(BarSize.X * FMath::Clamp(Pawn.ReloadProgress, 0.f, 1.f), BarSize.Y), VerseUiTheme::Amber, TagWeapon);
 		}
 	}
 
@@ -508,7 +508,7 @@ void FVerseHudPainter::PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawLis
 		GX -= GW;
 		const FVector2D GP(GX, P.Y - GH - L.Px(8.f));
 		GX -= L.Px(8.f);
-		Rect(Out, GP, FVector2D(GW, GH), VerseUiTheme::Steel, TagGadget);
+		FillRect(Out, GP, FVector2D(GW, GH), VerseUiTheme::Steel, TagGadget);
 		const bool bReady = G.Charges > 0 && G.CooldownRemaining <= 0.f;
 		Text(Out, Measure, GP + FVector2D(L.Px(8.f), L.Px(4.f)), S.Get(FString::Printf(TEXT("verse.item.%s.short"), *G.GadgetId.ToString().ToLower())),
 			L.FontSize(10.f), true, bReady ? VerseUiTheme::Text : VerseUiTheme::TextDim, EVerseTextAlign::Left, GW - L.Px(16.f), TEXT("gadget.name"));
@@ -518,7 +518,7 @@ void FVerseHudPainter::PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawLis
 			const FVector2D PipPos = GP + FVector2D(L.Px(8.f) + C * (Pip + L.Px(5.f)), GH - Pip - L.Px(6.f));
 			if (C < G.Charges)
 			{
-				Rect(Out, PipPos, FVector2D(Pip, Pip), VerseUiTheme::Amber, TagGadget);
+				FillRect(Out, PipPos, FVector2D(Pip, Pip), VerseUiTheme::Amber, TagGadget);
 			}
 			else
 			{
@@ -541,7 +541,7 @@ void FVerseHudPainter::PaintScore(const FVerseHudFrame& Frame, FVerseHudDrawList
 	const FVerseUiStrings& S = *Frame.Strings;
 	const FVector2D BlockSize(L.Px(300.f), L.Px(66.f));
 	const FVector2D P = L.Place(EVerseUiAnchor::Top, BlockSize, FVector2D(0.f, 4.f));
-	Rect(Out, P, BlockSize, VerseUiTheme::Steel, TagScore);
+	FillRect(Out, P, BlockSize, VerseUiTheme::Steel, TagScore);
 	const float Mid = P.X + BlockSize.X * 0.5f;
 	const float Half = BlockSize.X * 0.5f - L.Px(42.f);
 
@@ -625,7 +625,7 @@ void FVerseHudPainter::PaintFeed(const FVerseHudFrame& Frame, FVerseHudDrawList&
 		const FVector2D Row(Origin.X, Origin.Y + I * (LineH + L.Px(4.f)));
 		const FVector2D Size = Measure(Line, L.FontSize(11.f), true);
 		const float Plate = FMath::Min<float>(Size.X, Width) + L.Px(20.f);
-		Rect(Out, FVector2D(Row.X + Width - Plate, Row.Y), FVector2D(Plate, LineH), WithAlpha(VerseUiTheme::Steel, Alpha), TagFeed);
+		FillRect(Out, FVector2D(Row.X + Width - Plate, Row.Y), FVector2D(Plate, LineH), WithAlpha(VerseUiTheme::Steel, Alpha), TagFeed);
 		Text(Out, Measure, FVector2D(Row.X + Width - L.Px(10.f), Row.Y + (LineH - Size.Y) * 0.5f), Line, L.FontSize(11.f), true,
 			WithAlpha(Colour, Alpha), EVerseTextAlign::Right, Width - L.Px(20.f), TagFeed);
 	}
@@ -644,8 +644,8 @@ void FVerseHudPainter::PaintCentre(const FVerseHudFrame& Frame, FVerseHudDrawLis
 		Args.Add(TEXT("name"), PlayerName(Frame, Frame.KillCamKillerId));
 		const float Y = L.SafeMin.Y + L.Px(96.f);
 		const FVector2D Size = Measure(S.Format(TEXT("verse.hud.killcam"), Args), L.FontSize(16.f), true);
-		Rect(Out, FVector2D(Mid - Size.X * 0.5f - L.Px(16.f), Y - L.Px(6.f)), FVector2D(Size.X + L.Px(32.f), Size.Y + L.Px(12.f)), VerseUiTheme::Steel, TagCentre);
-		Rect(Out, FVector2D(Mid - Size.X * 0.5f - L.Px(16.f), Y - L.Px(6.f)), FVector2D(L.Px(4.f), Size.Y + L.Px(12.f)), VerseUiTheme::Red, TagCentre);
+		FillRect(Out, FVector2D(Mid - Size.X * 0.5f - L.Px(16.f), Y - L.Px(6.f)), FVector2D(Size.X + L.Px(32.f), Size.Y + L.Px(12.f)), VerseUiTheme::Steel, TagCentre);
+		FillRect(Out, FVector2D(Mid - Size.X * 0.5f - L.Px(16.f), Y - L.Px(6.f)), FVector2D(L.Px(4.f), Size.Y + L.Px(12.f)), VerseUiTheme::Red, TagCentre);
 		Text(Out, Measure, FVector2D(Mid, Y), S.Format(TEXT("verse.hud.killcam"), Args), L.FontSize(16.f), true, VerseUiTheme::Text,
 			EVerseTextAlign::Centre, Width, TEXT("centre.killcam"));
 		FFormatNamedArguments Skip;

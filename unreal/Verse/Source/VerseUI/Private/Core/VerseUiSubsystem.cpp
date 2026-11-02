@@ -294,7 +294,7 @@ void UVerseUiSubsystem::HandleSetEnded(const FVerseSetSummary& Summary)
 	{
 		return;
 	}
-	EndScreen = FVerseEndScreen::Build(Summary, HudSource->GetBotEffectiveSkill(Summary.Opponent.PlayerId));
+	EndScreen = FVerseEndScreen::Build(Summary, HudSource->GetBotEffectiveSkill(Summary.Opponent.PlayerId), Strings.GetLanguage());
 	ShowScreen(EVerseUiScreen::EndOfSet);
 }
 

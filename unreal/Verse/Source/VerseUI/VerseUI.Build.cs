@@ -9,7 +9,9 @@ public class VerseUI : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge", "VerseCombat", "VerseCrew", "VerseDecks" });
-		// Json: station command data; Slate: the plain station overlay until WP18's UI root (WP16, request to the integration owner).
-		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "Slate", "SlateCore" });
+		// Engine modules only: Json and Slate for WP16's station overlay and command data; WP18's HUD,
+		// menus, key bindings, JSON data and render-target captures. Engine re-exports their
+		// headers but not their import libraries.
+		PrivateDependencyModuleNames.AddRange(new string[] { "InputCore", "Json", "Slate", "SlateCore", "RenderCore", "RHI", "ImageCore" });
 	}
 }

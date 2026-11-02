@@ -231,7 +231,11 @@ bool FVerseUiKillFeedTest::RunTest(const FString&)
 		Model.OnDeath(Death, 5.0);
 	}
 	TestEqual(TEXT("feed keeps at most 5 lines"), Model.GetKillFeed().Num(), 5);
+	// The tick at 20 s expires the kill lines and posts the opponent's respawn (RespawnAt 13);
+	// that line expires 6 s later like any other.
 	Model.Tick(20.0, 50.0);
+	TestEqual(TEXT("kill lines expired, respawn line posted"), Model.GetKillFeed().Num(), 1);
+	Model.Tick(26.0, 50.0);
 	TestEqual(TEXT("feed lines expire after 6 s"), Model.GetKillFeed().Num(), 0);
 	return true;
 }

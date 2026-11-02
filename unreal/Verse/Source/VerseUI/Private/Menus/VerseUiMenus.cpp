@@ -1,5 +1,7 @@
 #include "Menus/VerseUiMenus.h"
 
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
@@ -144,7 +146,7 @@ TArray<FVerseBarEntry> FVerseBarModel::Build(const TArray<FName>& Decks, FName C
 // ---------------------------------------------------------------------------------------------
 // End of set
 
-FVerseEndScreen FVerseEndScreen::Build(const FVerseSetSummary& Summary, float BotEffectiveSkill)
+FVerseEndScreen FVerseEndScreen::Build(const FVerseSetSummary& Summary, float BotEffectiveSkill, const FString& Lang)
 {
 	FVerseEndScreen Screen;
 	Screen.Outcome = Summary.Outcome;
@@ -158,20 +160,25 @@ FVerseEndScreen FVerseEndScreen::Build(const FVerseSetSummary& Summary, float Bo
 	Screen.bShowSkill = Summary.BotTier == FName(TEXT("adaptive")) && BotEffectiveSkill >= 0.f;
 	Screen.Skill = Screen.bShowSkill ? FMath::Clamp(BotEffectiveSkill, 0.f, 1.f) : -1.f;
 
-	auto Int = [](int32 V) { return FText::AsNumber(V, &FNumberFormattingOptions::DefaultNoGrouping()); };
-	auto Percent = [](const FVerseSetLine& Line)
+	FCulturePtr Culture = FInternationalization::Get().GetCulture(Lang);
+	if (!Culture.IsValid())
+	{
+		Culture = FInternationalization::Get().GetCulture(TEXT("en"));
+	}
+	auto Int = [Culture](int32 V) { return FText::AsNumber(V, &FNumberFormattingOptions::DefaultNoGrouping(), Culture); };
+	auto Percent = [Culture](const FVerseSetLine& Line)
 	{
 		FNumberFormattingOptions Options;
 		Options.MaximumFractionalDigits = 0;
 		const double Ratio = Line.ShotsFired > 0 ? double(Line.ShotsHit) / Line.ShotsFired : 0.0;
-		return FText::AsPercent(Ratio, &Options);
+		return FText::AsPercent(Ratio, &Options, Culture);
 	};
-	auto Ratio = [](const FVerseSetLine& Line)
+	auto Ratio = [Culture](const FVerseSetLine& Line)
 	{
 		FNumberFormattingOptions Options;
 		Options.MinimumFractionalDigits = 2;
 		Options.MaximumFractionalDigits = 2;
-		return FText::AsNumber(Line.Deaths > 0 ? double(Line.Kills) / Line.Deaths : double(Line.Kills), &Options);
+		return FText::AsNumber(Line.Deaths > 0 ? double(Line.Kills) / Line.Deaths : double(Line.Kills), &Options, Culture);
 	};
 	const FVerseSetLine& P = Summary.Person;
 	const FVerseSetLine& O = Summary.Opponent;
