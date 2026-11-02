@@ -140,6 +140,18 @@ bool FVerseCrewSoakTest::RunTest(const FString&)
 		Sum += Ms;
 	}
 	const double Mean = Sum / TickMs.Num();
+	// Outliers, reported next to the percentiles: ticks over 1 ms (replans that spawn or
+	// despawn pawns) and the worst tick once the first snapshot's spawn second is over.
+	int32 Over1Ms = 0;
+	double MaxAfterFirstSecond = 0.0;
+	for (int32 I = 0; I < TickMs.Num(); ++I)
+	{
+		Over1Ms += TickMs[I] > 1.0 ? 1 : 0;
+		if (I >= 30)
+		{
+			MaxAfterFirstSecond = FMath::Max(MaxAfterFirstSecond, TickMs[I]);
+		}
+	}
 	const double P99 = Sorted[FMath::Min(Sorted.Num() - 1, static_cast<int32>(Sorted.Num() * 0.99))];
 	const double P999 = Sorted[FMath::Min(Sorted.Num() - 1, static_cast<int32>(Sorted.Num() * 0.999))];
 	const FVerseCrewStats& CrewStats = W.Crew->GetStats();
@@ -163,6 +175,8 @@ bool FVerseCrewSoakTest::RunTest(const FString&)
 	Report->SetNumberField(TEXT("tick_ms_p99"), P99);
 	Report->SetNumberField(TEXT("tick_ms_p999"), P999);
 	Report->SetNumberField(TEXT("tick_ms_max"), Sorted.Last());
+	Report->SetNumberField(TEXT("tick_ms_max_after_first_s"), MaxAfterFirstSecond);
+	Report->SetNumberField(TEXT("ticks_over_1ms"), Over1Ms);
 	Report->SetNumberField(TEXT("stuck"), CrewStats.StuckEvents);
 	Report->SetNumberField(TEXT("walker_overlaps"), Overlaps);
 	Report->SetNumberField(TEXT("replans"), CrewStats.Replans);

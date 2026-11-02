@@ -259,6 +259,51 @@ bool FVerseCrewArrivalTest::RunTest(const FString&)
 	return true;
 }
 
+// 15.4 with every deck on screen, as in the running Verse: the newcomer walks the hangar from
+// the shuttle to the lift even though its plan already puts it on another deck.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseCrewArrivalAllDecksTest, "Verse.Crew.Life.ArrivalAllDecks", VERSE_CREW_TEST_FLAGS)
+bool FVerseCrewArrivalAllDecksTest::RunTest(const FString&)
+{
+	using A = FVerseCrewTestWorld;
+	FVerseCrewTestWorld W;
+	FString Error;
+	if (!TestTrue(FString::Printf(TEXT("decks: %s"), *Error), W.LoadDecks({ DeckBridge, DeckOps, DeckEngineering, DeckHangar }, Error)))
+	{
+		return false;
+	}
+	W.Crew->SetCommanderDeck(DeckHangar);
+	const TCHAR* Duties[] = { TEXT("working"), TEXT("waiting"), TEXT("error"), TEXT("working"), TEXT("idle"), TEXT("paused") };
+	TArray<TSharedRef<FJsonObject>> Agents;
+	for (int32 I = 0; I < 24; ++I)
+	{
+		Agents.Add(A::Agent(FString::Printf(TEXT("ag_%02d"), I), FString::Printf(TEXT("Officer %02d"), I), Duties[I % 6]));
+	}
+	W.Bridge.Send(W.Crew, TEXT("roster.snapshot"), A::Snapshot(Agents, { A::Pane(TEXT("ws_1:T1"), TEXT("working")) }));
+	W.Run(5.f);
+	W.Bridge.Send(W.Crew, TEXT("roster.delta"), A::Delta({ A::Agent(TEXT("ag_new1"), TEXT("Nova"), TEXT("idle")), A::Agent(TEXT("ag_new2"), TEXT("Rook"), TEXT("idle")) }));
+	W.Crew->ReplanNow();
+	auto OnHangar = [&W](const FString& Id) {
+		const TSharedRef<FJsonObject> Sheet = W.Crew->DumpJson();
+		for (const TSharedPtr<FJsonValue>& Row : Sheet->GetArrayField(TEXT("crew")))
+		{
+			const TSharedPtr<FJsonObject> O = Row->AsObject();
+			if (O->GetStringField(TEXT("id")) == Id && O->GetStringField(TEXT("deck")) == TEXT("hangar"))
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	W.Run(1.5f);
+	TestTrue(TEXT("ag_new1 walks the hangar 1.5 s after joining"), OnHangar(TEXT("ag_new1")));
+	TestTrue(TEXT("ag_new2 walks the hangar 1.5 s after joining"), OnHangar(TEXT("ag_new2")));
+	TestTrue(TEXT("both count as arriving"), W.Crew->IsArriving(TEXT("ag_new1")) && W.Crew->IsArriving(TEXT("ag_new2")));
+	W.Run(40.f);
+	TestFalse(TEXT("ag_new1 took the lift within 40 s"), OnHangar(TEXT("ag_new1")));
+	TestEqual(TEXT("no stuck pawns"), W.Crew->GetStats().StuckEvents, 0);
+	return true;
+}
+
 // 15.5 / parity C-11: a team round gathers its members at the briefing table; team_briefing
 // is reported once per round while the commander is on the bridge.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseCrewMeetingsTest, "Verse.Crew.Life.Meetings", VERSE_CREW_TEST_FLAGS)
@@ -452,7 +497,8 @@ bool FVerseCrewArenaTest::RunTest(const FString&)
 	On.Deck = DeckHangar;
 	Hub->OnArenaSwitch.Broadcast(On);
 	W.Run(2.f);
-	TestEqual(TEXT("0 crew pawns inside the arena 2 s after the switch"), PawnsInsideBox(W.Crew, Arena), 0);
+	const int32 InsideAfter = PawnsInsideBox(W.Crew, Arena);
+	TestEqual(TEXT("0 crew pawns inside the arena 2 s after the switch"), InsideAfter, 0);
 	// Newcomers during the duel never enter the arena.
 	W.Bridge.Send(W.Crew, TEXT("roster.delta"), A::Delta({ A::Agent(TEXT("ag_late"), TEXT("Late"), TEXT("idle")) }));
 	int32 MaxInside = 0;
@@ -471,7 +517,8 @@ bool FVerseCrewArenaTest::RunTest(const FString&)
 	TestFalse(TEXT("arena off"), W.Crew->IsArenaOn());
 	const TSharedRef<FJsonObject> Report = MakeShared<FJsonObject>();
 	Report->SetNumberField(TEXT("inside_before"), Before);
-	Report->SetNumberField(TEXT("inside_2s_after"), PawnsInsideBox(W.Crew, Arena));
+	Report->SetNumberField(TEXT("inside_2s_after"), InsideAfter);
+	Report->SetNumberField(TEXT("inside_after_arena_off"), PawnsInsideBox(W.Crew, Arena));
 	Report->SetNumberField(TEXT("max_inside_during_duel"), MaxInside);
 	A::WriteProof(TEXT("WP15.7"), TEXT("arena.json"), Report);
 	return true;
