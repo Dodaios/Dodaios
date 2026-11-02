@@ -103,7 +103,7 @@ class LauncherBody(BaseModel):
 
 
 @router.get("/status", summary="Whether the Unreal Verse can run and what it is doing")
-async def verse_status(request: Request, refresh: bool = False) -> dict[str, Any]:
+def verse_status(request: Request, refresh: bool = False) -> dict[str, Any]:
     host = _host(request)
     if refresh:
         host.check(refresh=True)
@@ -160,12 +160,12 @@ async def verse_settings_import(body: ImportBody, request: Request) -> dict[str,
 
 
 @router.get("/settings", summary="The verse.* settings")
-async def verse_settings(request: Request) -> dict[str, Any]:
+def verse_settings(request: Request) -> dict[str, Any]:
     return {"settings": _host(request).store.settings()}
 
 
 @router.get("/flags", summary="Feature flags of the Unreal Verse")
-async def verse_flags(request: Request) -> dict[str, Any]:
+def verse_flags(request: Request) -> dict[str, Any]:
     store = _host(request).store
     return {
         "unreal_preview": store.flag("unreal_preview", "DODAIOS_VERSE_UNREAL_PREVIEW"),
@@ -174,7 +174,7 @@ async def verse_flags(request: Request) -> dict[str, Any]:
 
 
 @router.post("/flags", summary="Switch feature flags of the Unreal Verse")
-async def verse_set_flags(body: FlagsBody, request: Request) -> dict[str, Any]:
+def verse_set_flags(body: FlagsBody, request: Request) -> dict[str, Any]:
     host = _host(request)
     if body.unreal_preview is not None:
         host.store.set_flag("unreal_preview", body.unreal_preview)
@@ -184,7 +184,7 @@ async def verse_set_flags(body: FlagsBody, request: Request) -> dict[str, Any]:
             host.write_dev_discovery()
         else:
             host.remove_dev_discovery()
-    return await verse_flags(request)
+    return verse_flags(request)
 
 
 class QaBody(BaseModel):
@@ -216,7 +216,11 @@ async def verse_install(request: Request) -> dict[str, Any]:
     return await host.install.start()
 
 
-@router.delete("/install", summary="Cancel the running download, or remove the installed Verse")
+@router.delete(
+    "/install",
+    summary="Cancel the running download, or remove the installed Verse",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
 async def verse_uninstall(request: Request) -> dict[str, Any]:
     from dodaios.verse_host.install_port import InstallError
 
@@ -245,8 +249,12 @@ async def verse_launcher_start(body: LauncherBody, request: Request) -> dict[str
     return {"panes": [{"pane_id": p.pane_id, "submitted": p.submitted} for p in panes]}
 
 
-@router.post("/launcher/cancel", summary="Stop the running launch batch")
-async def verse_launcher_cancel(request: Request) -> dict[str, Any]:
+@router.post(
+    "/launcher/cancel",
+    summary="Stop the running launch batch",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+def verse_launcher_cancel(request: Request) -> dict[str, Any]:
     return {"stopped": _host(request).launcher.cancel()}
 
 
@@ -293,7 +301,7 @@ class StarletteTransport:
         self.closed = True
         try:
             await self.ws.close(code=code, reason=reason[:120])
-        except (WebSocketDisconnect, RuntimeError):
+        except (WebSocketDisconnect, RuntimeError):  # socket already gone; nothing left to close
             pass
 
 
@@ -319,7 +327,7 @@ async def verse_signal(ws: WebSocket) -> None:
         return
     try:
         signal = importlib.import_module("dodaios.verse_host.signal")
-    except ImportError:
+    except ImportError:  # WP20 signalling not installed yet; closes 1013
         await ws.close(code=P.CLOSE_TRY_LATER, reason="signalling not available")
         return
     serve = getattr(signal, "serve", None)

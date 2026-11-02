@@ -68,7 +68,7 @@ def is_loopback(host: str | None) -> bool:
         return True
     try:
         addr = ipaddress.ip_address(host.split("%", 1)[0])
-    except ValueError:
+    except ValueError:  # not an IP literal (a host name), so not loopback
         return False
     if addr.is_loopback:
         return True
@@ -350,7 +350,11 @@ class BridgeSession:
             while not self.closed.is_set():
                 item = await self.outbox.get()
                 await self._write(item)
-        except (TransportClosed, TimeoutError, ConnectionError):
+        except (
+            TransportClosed,
+            TimeoutError,
+            ConnectionError,
+        ):  # link gone; close() reports
             await self.close(1011, "send failed")
         except asyncio.CancelledError:
             raise
@@ -445,7 +449,7 @@ class BridgeSession:
         while not self.closed.is_set():
             try:
                 raw = await self.transport.receive()
-            except TransportClosed:
+            except TransportClosed:  # peer closed; the loop below reports the close
                 break
             self.last_frame_at = self.hub.clock()
             self.hung_reported = False
@@ -664,14 +668,14 @@ class BridgeHub:
     async def _handshake(self, transport: Transport) -> P.Inbound | int:
         try:
             raw = await asyncio.wait_for(transport.receive(), P.HELLO_TIMEOUT_S)
-        except TimeoutError:
+        except TimeoutError:  # answered with close code 4400
             await transport.close(P.CLOSE_BAD_HELLO, "hello timeout")
             return P.CLOSE_BAD_HELLO
-        except TransportClosed:
+        except TransportClosed:  # peer left before hello; nothing to report
             return 1000
         try:
             hello = P.parse(raw)
-        except P.MalformedFrame:
+        except P.MalformedFrame:  # answered with close code 4400
             await transport.close(P.CLOSE_BAD_HELLO, "malformed hello")
             return P.CLOSE_BAD_HELLO
         if hello.type != "hello":

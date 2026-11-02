@@ -58,7 +58,7 @@ def panel_available() -> bool:
 
     try:
         return importlib.util.find_spec("dodaios.verse_host.signal") is not None
-    except (ImportError, ValueError):
+    except (ImportError, ValueError):  # WP20 signalling not installed yet
         return False
 
 
@@ -104,7 +104,7 @@ class VerseHost:
         if app_version is None:
             try:
                 from dodaios import __version__ as app_version
-            except Exception:  # noqa: BLE001
+            except Exception:  # source checkout without a version; the welcome says 0.0.0
                 app_version = "0.0.0"
         self.app_version = str(app_version)
         from dodaios.agentic_ide.launch_sequence import LaunchSequence
@@ -489,7 +489,7 @@ class VerseHost:
                     from .settings_store import validate
 
                     clean.update(validate({"view": {key: value}})["view"])
-                except ValueError:
+                except ValueError:  # invalid browser value is skipped on import
                     continue
             if clean:
                 patch["view"] = clean

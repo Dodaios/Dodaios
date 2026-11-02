@@ -99,5 +99,5 @@ class ChatTailsRelay(RelayBase):
             self._wake.clear()
             try:
                 await asyncio.wait_for(self._wake.wait(), POLL_S + random.random() * JITTER_S)  # noqa: S311
-            except TimeoutError:
+            except TimeoutError:  # poll interval elapsed; next round
                 pass
