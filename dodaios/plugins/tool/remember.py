@@ -73,9 +73,9 @@ class RememberTool:
 
         try:
             result = await asyncio.to_thread(vault_runtime.remember_explicitly, fact, evidence=said)
-        except LookupError:
+        except LookupError:  # no vault running: the caller falls back to the notebook
             return None
-        except ValueError as exc:
+        except ValueError as exc:  # reported to the model as a failed save
             return ToolResult(success=False, output=None, error=f"not saved: {exc}")
         if result.action == "refused":
             return ToolResult(success=False, output=None, error="not saved: looks like a secret")

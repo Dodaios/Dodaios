@@ -194,7 +194,7 @@ def _dormant_since(meta: dict[str, Any], now: str) -> str | None:
     last = str(meta.get("last_activity") or meta.get("started") or "")[:10]
     try:
         idle = date.fromisoformat(now[:10]) - date.fromisoformat(last)
-    except ValueError:
+    except ValueError:  # no usable date: keep the project current
         return None
     return f"{last}T00:00:00+00:00" if idle.days > DORMANT_DAYS else None
 
@@ -223,7 +223,7 @@ def _import_core_memory(writer: _Writer, data_dir: Path) -> None:
     path = data_dir / "core_memory.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # no or unreadable core memory: nothing to import
         return
     for key, kind in (("user_facts", "profile"), ("current_projects", "project")):
         block = data.get(key)
@@ -250,7 +250,7 @@ def _import_user_profile(writer: _Writer, data_dir: Path) -> None:
     path = data_dir / "workspace" / "USER.md"
     try:
         meta, _body = parse_frontmatter(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError):  # no profile file: nothing to import
         return
     identity = meta.get("identity") if isinstance(meta.get("identity"), dict) else {}
     lines = []
@@ -279,8 +279,8 @@ def user_names(data_dir: Path) -> set[str]:
         name = (meta.get("identity") or {}).get("name")
         if name:
             names.add(str(name).casefold())
-    except (OSError, UnicodeDecodeError, AttributeError):
-        pass  # no profile file: only the generic names identify the user page
+    except (OSError, UnicodeDecodeError, AttributeError):  # no profile: generic names only
+        pass
     return names
 
 
