@@ -74,7 +74,6 @@ void AVerseBulwark::InitBulwark(const UVerseGadgetDefinition& Def, AActor* InOwn
 	Field->SetBoxExtent(Half);
 	Look->SetRelativeScale3D(FVector(Def.Size.Z, Def.Size.X, Def.Size.Y));
 	Look->SetRelativeLocation(FVector::ZeroVector);
-	Field->SetRelativeLocation(FVector::ZeroVector);
 	AddActorWorldOffset(FVector(0.0, 0.0, Half.Z));
 
 	if (FApp::CanEverRender() && Look->GetMaterial(0))

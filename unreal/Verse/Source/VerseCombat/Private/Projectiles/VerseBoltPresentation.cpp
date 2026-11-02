@@ -183,12 +183,8 @@ void UVerseBoltPresentation::EnsureRender()
 	}
 	UStaticMesh* Cylinder = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-	// Placeholder glow: the engine's emissive mesh material (colour parameter), else the basic shape material.
-	UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/EngineMaterials/EmissiveMeshMaterial.EmissiveMeshMaterial"));
-	if (!Base)
-	{
-		Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
-	}
+	// Placeholder look (engine basic shape material, colour parameter); the glowing bolt material is WP14.9.
+	UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
 	if (!Cylinder || !Sphere || !Base)
 	{
 		return;

@@ -28,9 +28,12 @@ void UVerseGadgetComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	ResetForLife();
-	if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+	if (!HitHandle.IsValid())
 	{
-		HitHandle = Hub->OnHit.AddUObject(this, &UVerseGadgetComponent::OnHubHit);
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+		{
+			HitHandle = Hub->OnHit.AddUObject(this, &UVerseGadgetComponent::OnHubHit);
+		}
 	}
 }
 
@@ -88,6 +91,13 @@ bool UVerseGadgetComponent::ServerBeginUse(EVerseLoadoutSlot Slot, float Now)
 		if (State->Phase != EVerseCombatPhase::Alive)
 		{
 			return false;
+		}
+	}
+	if (!HitHandle.IsValid())
+	{
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+		{
+			HitHandle = Hub->OnHit.AddUObject(this, &UVerseGadgetComponent::OnHubHit);
 		}
 	}
 	bUsing = true;

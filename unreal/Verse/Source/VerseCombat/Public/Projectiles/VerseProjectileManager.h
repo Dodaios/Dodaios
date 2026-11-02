@@ -28,6 +28,8 @@ struct FVerseBolt
 	float Power = 0.f;
 	float Factor = 1.f;
 	int32 Passes = 0;
+	/** Pieces already passed; a straight bolt never enters one twice (segment starts on an exit face). */
+	TArray<uint16, TInlineAllocator<4>> PassedPieces;
 	bool bAlive = true;
 };
 

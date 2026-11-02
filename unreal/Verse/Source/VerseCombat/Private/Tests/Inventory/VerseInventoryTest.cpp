@@ -111,8 +111,18 @@ bool FVerseInventorySlots::RunTest(const FString&)
 	}
 
 	// Replication conditions of combat-state.md 2.1: slots owner only, active slot and reloading to all.
+	UVerseInventoryComponent::StaticClass()->SetUpRuntimeReplicationData(); // assigns RepIndex
 	TArray<FLifetimeProperty> Props;
 	GetDefault<UVerseInventoryComponent>()->GetLifetimeReplicatedProps(Props);
+	for (const FLifetimeProperty& L : Props)
+	{
+		AddInfo(FString::Printf(TEXT("lifetime rep index %d condition %d"), int32(L.RepIndex), int32(L.Condition)));
+	}
+	for (const TCHAR* Name : {TEXT("Slots"), TEXT("ActiveSlot"), TEXT("bReloading")})
+	{
+		const FProperty* P = UVerseInventoryComponent::StaticClass()->FindPropertyByName(Name);
+		AddInfo(FString::Printf(TEXT("%s rep index %d"), Name, P ? int32(P->RepIndex) : -1));
+	}
 	auto ConditionOf = [&Props](const TCHAR* Name) -> int32
 	{
 		const FProperty* P = UVerseInventoryComponent::StaticClass()->FindPropertyByName(Name);

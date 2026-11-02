@@ -148,8 +148,8 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 		VerseProjectileTest::FRig Rig;
 		UFakeVersePenetrationQuery* Query = NewObject<UFakeVersePenetrationQuery>();
 		FFakeVersePieceDamage PieceDamage;
-		Query->Pieces = {Wall(1, EVersePenetrationMaterial::ContainerWall, 500, Container),
-			Wall(2, EVersePenetrationMaterial::ContainerWall, 900, Container)};
+		Query->Pieces = {Wall(1, EVersePenetrationMaterial::ContainerWall, 520, Container),
+			Wall(2, EVersePenetrationMaterial::ContainerWall, 910, Container)};
 		Rig.Manager->SetPenetrationQuery(Query);
 		Rig.Manager->SetPieceDamage(&PieceDamage);
 		APawn* Target = VerseWp02Test::SpawnTarget(Rig.World.World, FVector(1500, 0, 5000 - 135), 1000.f);
@@ -191,8 +191,10 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 		VerseProjectileTest::FRig Rig;
 		UFakeVersePenetrationQuery* Query = NewObject<UFakeVersePenetrationQuery>();
 		FFakeVersePieceDamage PieceDamage;
-		Query->Pieces = {Wall(1, EVersePenetrationMaterial::ContainerWall, 300, Container), Wall(2, EVersePenetrationMaterial::ContainerWall, 400, Container),
-			Wall(3, EVersePenetrationMaterial::ContainerWall, 500, Container)};
+		// Slightly under the reference thickness, so 25 + 25 fits the 50 exactly without float edge.
+		const double Thin = Container * 0.95;
+		Query->Pieces = {Wall(1, EVersePenetrationMaterial::ContainerWall, 310, Thin), Wall(2, EVersePenetrationMaterial::ContainerWall, 410, Thin),
+			Wall(3, EVersePenetrationMaterial::ContainerWall, 460, Thin)};
 		Rig.Manager->SetPenetrationQuery(Query);
 		Rig.Manager->SetPieceDamage(&PieceDamage);
 		Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(Origin, Dir), *T, 0.f, nullptr);

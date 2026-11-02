@@ -264,6 +264,10 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 
 	for (const FVersePenetrationHit& Piece : Pieces)
 	{
+		if (Bolt.PassedPieces.Contains(Piece.PieceIndex))
+		{
+			continue;
+		}
 		const double PieceDist = FVector::Dist(P0, Piece.Entry);
 		if (bBody && Body.Distance < PieceDist)
 		{
@@ -305,6 +309,7 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 		Bolt.Power -= Cost;
 		Bolt.Factor *= Row->DamageMultiplier;
 		Bolt.Passes += 1;
+		Bolt.PassedPieces.Add(Piece.PieceIndex);
 		Pen.PowerAfter = Bolt.Power;
 		Pen.DamageFactorAfter = Bolt.Factor;
 		Pen.bPassed = true;

@@ -71,12 +71,19 @@ namespace VerseBoltVisual
 		if (ADirectionalLight* Light = World->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-35, 30, 0), P))
 		{
 			Light->SetMobility(EComponentMobility::Movable);
-			Light->GetComponent()->SetIntensity(4.f);
+			Light->GetComponent()->SetIntensity(6.f);
 			S->Spawned.Add(Light);
 		}
-		if (ACameraActor* Camera = World->SpawnActor<ACameraActor>(FVector(0, 0, 160), FRotator(-2, 0, 0), P))
+		if (ACameraActor* Camera = World->SpawnActor<ACameraActor>(FVector(0, 0, 160), FRotator(-4, 0, 0), P))
 		{
-			Camera->GetCameraComponent()->SetFieldOfView(90.f);
+			UCameraComponent* Cam = Camera->GetCameraComponent();
+			Cam->SetFieldOfView(90.f);
+			// Fixed exposure, so the frame does not depend on eye adaptation timing.
+			Cam->PostProcessSettings.bOverride_AutoExposureMinBrightness = true;
+			Cam->PostProcessSettings.bOverride_AutoExposureMaxBrightness = true;
+			Cam->PostProcessSettings.AutoExposureMinBrightness = 1.f;
+			Cam->PostProcessSettings.AutoExposureMaxBrightness = 1.f;
+			Cam->PostProcessBlendWeight = 1.f;
 			if (APlayerController* Pc = World->GetFirstPlayerController())
 			{
 				Pc->SetViewTarget(Camera);
@@ -101,8 +108,8 @@ namespace VerseBoltVisual
 			E.WeaponId = TEXT("graveline");
 			E.ShotCounter = uint16(I + 1);
 			E.Origin = FVector(30, 18, 148);
-			E.Direction = FRotator(0.3f * I, -1.5f + 0.5f * I, 0).Vector();
-			Clock = 100.0 - 0.012 * I;
+			E.Direction = FRotator(1.f + 0.8f * I, -12.f + 4.5f * I, 0).Vector();
+			Clock = 100.0 - 0.008 * I;
 			Hub->OnFire.Broadcast(E);
 		}
 		// The opponent's bolts coming in from the far side.
@@ -112,14 +119,15 @@ namespace VerseBoltVisual
 			E.ShooterId = 2;
 			E.WeaponId = TEXT("graveline");
 			E.ShotCounter = uint16(I + 1);
-			E.Origin = FVector(4500, -900 + 120 * I, 170);
-			E.Direction = (FVector(0, 200 - 60 * I, 150) - FVector(E.Origin)).GetSafeNormal();
+			// Crossing the view from the left at 12-18 m, aimed past the viewer.
+			E.Origin = FVector(1500 + 150 * I, -2200, 140 + 25 * I);
+			E.Direction = (FVector(900 + 100 * I, 1200, 170) - FVector(E.Origin)).GetSafeNormal();
 			Clock = 100.0 - 0.02 * I;
 			Hub->OnFire.Broadcast(E);
 		}
 		// Freeze the flight mid-way so the shot holds still while shaders and streaming settle.
-		Present->ClockOverride = []() { return 100.0 + 0.06; };
-		Present->Advance(100.06);
+		Present->ClockOverride = []() { return 100.03; };
+		Present->Advance(100.03);
 	}
 }
 

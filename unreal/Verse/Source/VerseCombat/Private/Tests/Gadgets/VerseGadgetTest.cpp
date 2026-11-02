@@ -96,7 +96,7 @@ bool FVerseGadgetBulwark::RunTest(const FString&)
 	{
 		VerseGadgetTest::FScene Scene;
 		UVerseGadgetDefinition* Tough = VerseGadgetTest::Copy(Def);
-		Tough->MaxHealth = 1e9f; // intact for the whole volley
+		Tough->MaxHealth = 1e6f; // intact for the whole volley
 		AVerseBulwark* B = VerseGadgetTest::SpawnBulwark(Scene.World.World, *Tough, FVector(1000, 0, 0), nullptr);
 		APawn* Behind = Scene.TargetBehind(FVector(1400, 0, 0));
 		Scene.World.TickFrames(2);
@@ -312,6 +312,7 @@ bool FVerseGadgetComponent::RunTest(const FString&)
 	FFakeVersePieceDamage Pieces;
 	Gadgets->SetPieceDamage(&Pieces);
 	Gadgets->RegisterComponent();
+	Gadgets->ResetForLife(); // as on spawn; BeginPlay does the same when the pawn begins play
 	TestEqual(TEXT("charges per life"), Gadgets->GetChargesLeft(EVerseLoadoutSlot::GadgetA), 2);
 	TestEqual(TEXT("breach charges per life"), Gadgets->GetChargesLeft(EVerseLoadoutSlot::GadgetB), 2);
 
@@ -349,6 +350,10 @@ bool FVerseGadgetComponent::RunTest(const FString&)
 
 	// The Bulwark's charge returns Cooldown after the field is gone.
 	AVerseBulwark* Second = Gadgets->GetActiveBulwark();
+	if (!TestNotNull(TEXT("second Bulwark still up"), Second))
+	{
+		return false;
+	}
 	Second->RemoveBulwark(EVerseGadgetEventKind::Destroyed);
 	const float CooldownEnd = Gadgets->GetCooldownEndsAt();
 	TestTrue(TEXT("cooldown counts from the field being gone"), CooldownEnd >= TwoBulwarks->Cooldown - 1e-3f);
