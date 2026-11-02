@@ -1014,7 +1014,8 @@ def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None
     The ``jarvis`` surface — the front page's own history — and the ``agent``
     surface — the IDE's threads — are retitled. A thread whose coding CLI named
     the conversation itself keeps that name (``cli_title``); Claude Code in
-    print mode never writes one, so most threads are named here. A title the
+    print mode never writes one, so most threads are named here — right after
+    their first message, the way the CLI names a terminal pane. A title the
     user typed is recognised by the titler and kept.
     """
     from dodaios.agent_chat.store import _title_from
@@ -1052,6 +1053,9 @@ def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None
             seed=str(row.get("title") or ""),
             loader=load,
             auto_title=_title_from,
+            # A thread is named a moment after its first message, as its CLI
+            # names a terminal pane — not only once the agent has gone quiet.
+            name_early=surface == "agent",
         ))
     if not requests:
         return

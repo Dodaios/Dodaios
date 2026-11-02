@@ -122,7 +122,7 @@ _LEAD_IN_RE = re.compile(
     r"(?:kannst|könntest|kannste|würdest|kann(?:st)?)\s+du"
     r"(?:\s+(?:mir|für\s+mich|bitte|mal|eben|kurz|schnell|einfach|nochmal|auch|ganz))*|"
     r"ich\s+(?:möchte|will|würde\s+gerne?|hätte\s+gerne?)(?:\s+(?:bitte|gerne?|jetzt))*"
-    r",?\s+dass\s+du(?:\s+(?:mir|für\s+mich|bitte|mal|kurz|einfach))*|"
+    r",?\s+dass(?:\s+du)?(?:\s+(?:mir|für\s+mich|bitte|mal|kurz|einfach))*|"
     r"(?:can|could|would|will)\s+you(?:\s+(?:please|just|quickly|maybe))*|"
     r"(?:puedes|podrías)(?:\s+por\s+favor)?|"
     r"(?:podes|poderias|consegues)(?:\s+por\s+favor)?|ajuda-me|por\s+favor|"
@@ -415,6 +415,10 @@ class TitleRequest:
     #: For typed chats: the title the store derives from a first message, so a
     #: title the user typed themselves is recognised and kept.
     auto_title: Callable[[str], str] | None = field(default=None, compare=False)
+    #: Named by the model from its opening message, before it settles — the
+    #: way a coding CLI names a terminal session a moment after the first
+    #: prompt. Only the first name: a renewal still waits until it is quiet.
+    name_early: bool = False
 
 
 def _first_guess(req: TitleRequest) -> str:
@@ -502,9 +506,12 @@ class ChatTitler:
         return out
 
     def _wants_model(self, req: TitleRequest, entry: TitleEntry | None) -> bool:
-        if not req.settled or time.monotonic() < self._quiet_until:
+        if time.monotonic() < self._quiet_until:
             return False
-        if entry is None or entry.writer == WRITER_RULES:
+        unnamed = entry is None or entry.writer == WRITER_RULES
+        if not req.settled and not (req.name_early and unnamed):
+            return False
+        if unnamed:
             return entry is None or entry.attempts < MODEL_ATTEMPTS_PER_ITEM
         if entry.writer == WRITER_USER or entry.seed != req.seed:
             return False
