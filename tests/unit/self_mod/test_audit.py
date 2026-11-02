@@ -109,9 +109,12 @@ class TestRecord:
         parsed = json.loads(audit.path.read_text(encoding="utf-8").strip())
         assert UUID(parsed["audit_id"]).version == 4
 
-    def test_default_path_is_data_self_mod_log(self) -> None:
-        """Plan-§AD-6: `data/self_mod.log`."""
-        assert SelfModAudit.DEFAULT_PATH == Path("data") / "self_mod.log"
+    def test_default_path_is_self_mod_log_in_the_data_dir(self, monkeypatch, tmp_path) -> None:
+        """Plan-§AD-6: `self_mod.log` in the runtime data dir, not the cwd (#458)."""
+        from dodaios.core import config
+
+        monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+        assert SelfModAudit().path == tmp_path / "self_mod.log"
 
 
 # --- Concurrent writes (Plan-AC §7.1) ---

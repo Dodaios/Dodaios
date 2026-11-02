@@ -29,11 +29,11 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
 
+from dodaios.core.paths import flight_recorder_dir
 from dodaios.screen_context.last_frame import get_last_frame_mirror
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ router = APIRouter(prefix="/api/deck", tags=["deck"])
 #: The Computer-Use harness writes here (``dodaios/cu/engine.py``) — the same
 #: constant, not a lookup, so a moved recorder shows up as a test failure
 #: rather than a route that silently serves nothing.
-CU_BLOB_DIR = Path("data") / "flight_recorder" / "blobs"
+CU_BLOB_DIR = flight_recorder_dir() / "blobs"
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _NO_STORE = {"Cache-Control": "no-store"}
