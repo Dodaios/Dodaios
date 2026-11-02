@@ -81,7 +81,8 @@ bool FVerseFinisherSession::Advance(double Now, double AttackerDeathTime, TArray
 	const EVerseFinisherPhase Order[] = {EVerseFinisherPhase::Takedown, EVerseFinisherPhase::Struggle,
 		EVerseFinisherPhase::Kill, EVerseFinisherPhase::Recover};
 	// D5: the attacker's death before the kill time aborts; at or after it the kill stands.
-	const bool bDiesBeforeKill = AttackerDeathTime < StartTime + VerseFinisher::RecoverAt - VerseFinisher::TimeTolerance;
+	// Strict: the death time is an event stamp, not a tick, so no tick tolerance applies here.
+	const bool bDiesBeforeKill = AttackerDeathTime < StartTime + VerseFinisher::RecoverAt;
 	for (const EVerseFinisherPhase Next : Order)
 	{
 		if (uint8(Next) <= uint8(Phase))
