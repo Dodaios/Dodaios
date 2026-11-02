@@ -587,15 +587,10 @@ bool FVerseFinisherLockTest::RunTest(const FString& Parameters)
 	}
 	W.Step(3);
 
-	// Sanity: the input does move a pawn before the finisher.
-	const FVector Before = Victim->GetActorLocation();
-	for (int32 I = 0; I < 6; ++I)
-	{
-		Victim->AddMovementInput(FVector(0.0, 1.0, 0.0), 1.f);
-		W.Step();
-	}
-	TestTrue(TEXT("movement input moves a free pawn"), FVector::Dist2D(Before, Victim->GetActorLocation()) > 1.0);
-	Victim->GetCharacterMovement()->StopMovementImmediately();
+	// Sanity: a free pawn accepts movement input before the finisher.
+	Victim->AddMovementInput(FVector(0.0, 1.0, 0.0), 1.f);
+	TestTrue(TEXT("a free pawn takes movement input"), !Victim->GetPendingMovementInputVector().IsNearlyZero());
+	Victim->ConsumeMovementInputVector();
 	W.Step();
 
 	UVerseMeleeComponent* Melee = FVerseMeleeTestWorld::Melee(Attacker);
@@ -619,11 +614,13 @@ bool FVerseFinisherLockTest::RunTest(const FString& Parameters)
 	double WorstYaw = 0.0;
 	FVector AttackerHeld = FVector::ZeroVector;
 	bool bHeld = false;
+	bool bInputLeaked = false;
 	while (W.Now() - Start < VerseFinisher::EndAt - 0.03)
 	{
 		for (ACharacter* C : {Attacker, Victim})
 		{
 			C->AddMovementInput(FVector(1.0, 1.0, 0.0), 1.f);
+			bInputLeaked |= !C->GetPendingMovementInputVector().IsNearlyZero();
 			C->AddControllerYawInput(15.f);
 			// What PlayerController::UpdateRotation does every frame for bUseControllerRotationYaw.
 			if (AController* Controller = C->GetController())
@@ -649,6 +646,7 @@ bool FVerseFinisherLockTest::RunTest(const FString& Parameters)
 			WorstAttackerDrift = FMath::Max(WorstAttackerDrift, FVector::Dist(AttackerHeld, Attacker->GetActorLocation()));
 		}
 	}
+	TestFalse(TEXT("no movement input reached either pawn during the finisher"), bInputLeaked);
 	TestTrue(FString::Printf(TEXT("victim held in the paired pose (drift %.3f cm)"), WorstVictimDrift), WorstVictimDrift < 0.5);
 	TestTrue(FString::Printf(TEXT("victim kept the paired yaw (%.3f deg)"), WorstYaw), WorstYaw < 0.1);
 	TestTrue(FString::Printf(TEXT("attacker held at the warp target (drift %.3f cm)"), WorstAttackerDrift), bHeld && WorstAttackerDrift < 0.5);
@@ -660,13 +658,9 @@ bool FVerseFinisherLockTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("attacker look input back"), AttackerPC->IsLookInputIgnored());
 	TestFalse(TEXT("victim controller input counters balanced"), VictimPC->IsMoveInputIgnored());
 	TestEqual(TEXT("attacker movement restored"), Attacker->GetCharacterMovement()->MovementMode.GetValue(), MOVE_Flying);
-	const FVector Free = Attacker->GetActorLocation();
-	for (int32 I = 0; I < 6; ++I)
-	{
-		Attacker->AddMovementInput(FVector(0.0, 1.0, 0.0), 1.f);
-		W.Step();
-	}
-	TestTrue(TEXT("attacker moves again after release"), FVector::Dist2D(Free, Attacker->GetActorLocation()) > 1.0);
+	Attacker->AddMovementInput(FVector(0.0, 1.0, 0.0), 1.f);
+	TestTrue(TEXT("attacker takes movement input again after release"), !Attacker->GetPendingMovementInputVector().IsNearlyZero());
+	Attacker->ConsumeMovementInputVector();
 
 	// Abort: the attacker dies at 1.0 s; the living victim gets input and movement back.
 	ACharacter* A2 = W.Spawn(FVector(0.0, 800.0, 0.0), 90.0);
