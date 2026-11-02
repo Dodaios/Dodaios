@@ -44,6 +44,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from dodaios.core.paths import flight_recorder_dir
 from dodaios.core.protocols import CancelToken, HarnessResult, HarnessTask, ImageBlock
 from dodaios.cu import conventions as conv_mod
 from dodaios.cu.brain_call import (
@@ -1028,7 +1029,7 @@ async def run_cu_loop(
         # tests, isolated rigs, headless embeddings). Synchronously writing a
         # never-referenced JPEG there only adds disk/antivirus latency. Live
         # app contexts keep the exact existing recorder path and semantics.
-        blob_dir=(Path("data") / "flight_recorder" / "blobs" if bus is not None else None),
+        blob_dir=(flight_recorder_dir() / "blobs" if bus is not None else None),
     )
 
     consecutive_failures = 0

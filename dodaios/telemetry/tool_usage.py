@@ -23,12 +23,14 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from dodaios.core.paths import flight_recorder_dir
+
 log = logging.getLogger(__name__)
 
 __all__ = ["DEFAULT_DATA_DIR", "tool_usage"]
 
 #: Where the desktop app's flight recorder writes (``server._init_flight_recorder``).
-DEFAULT_DATA_DIR = Path("data") / "flight_recorder"
+DEFAULT_DATA_DIR = flight_recorder_dir()
 
 _EVENT = "ActionExecuted"
 #: Shares of all calls for which ``coverage`` says how many tools carry them.

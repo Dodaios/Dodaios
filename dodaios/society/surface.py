@@ -673,8 +673,9 @@ def _contained_folder_tools(workspace: Path, permission_mode: str) -> dict[str, 
 
 
 def _workspace_fallback(cfg: Any, agent_id: str) -> Path:
-    data_dir = Path(getattr(getattr(cfg, "memory", None), "data_dir", None) or "data")
-    return data_dir / "society" / agent_id / "workspace"
+    from dodaios.core.config import memory_data_dir
+
+    return memory_data_dir(cfg) / "society" / agent_id / "workspace"
 
 
 def _permission_override(runtime: Any, session: Any) -> str:

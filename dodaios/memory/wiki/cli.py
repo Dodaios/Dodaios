@@ -30,6 +30,8 @@ import logging
 import sys
 from pathlib import Path
 
+from dodaios.core.paths import runtime_data_dir
+
 from .vault_root import resolve_vault_root
 
 # Windows console encoding (cp1252 by default) breaks on em-dashes and
@@ -47,8 +49,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # The legacy "data/workspace" tree is the soft-disabled B4 Curator snapshot
 # and is NOT the search vault.
 DEFAULT_VAULT = resolve_vault_root(None).path
-DEFAULT_BACKUP_DIR = REPO_ROOT / "data" / "backups"
-DEFAULT_DB = REPO_ROOT / "data" / "jarvis.db"
+# The runtime data dir (``JARVIS_DATA_DIR`` or ``<checkout>/data``), the same
+# rule as ``dodaios.core.config.DATA_DIR``, not a hard-coded ``data/`` (#458).
+_DATA_DIR = runtime_data_dir()
+DEFAULT_BACKUP_DIR = _DATA_DIR / "backups"
+DEFAULT_DB = _DATA_DIR / "jarvis.db"
 
 
 def _build_curator(vault_root: Path):
