@@ -21,7 +21,10 @@ export const PET_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
  * The built-in pets an agent wears when nobody picked one (`DEFAULT_PETS` in
  * `dodaios/society/companion.py`). Gigi stays the lead's own face.
  */
-export const DEFAULT_PETS = ["ember", "miso", "bolt", "brew", "mochi", "shelly", "cocoa", "dodaios"] as const;
+export const DEFAULT_PETS = [
+  "ember", "miso", "bolt", "brew", "mochi", "shelly", "cocoa", "dodaios",
+  "pip", "hazel", "otto", "nox", "kiko", "inky", "toasty", "cassie", "sprout", "flick", "aurelia",
+] as const;
 export const companionSchema = z.object({
   shape: z.enum(COMPANION_SHAPES), color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   eyes: z.enum(["dots", "lines"]).default("lines"), enabled: z.boolean().default(true),

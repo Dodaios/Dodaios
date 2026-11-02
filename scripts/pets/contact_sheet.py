@@ -89,14 +89,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--scale", type=int, default=4, help="integer zoom (default 4)")
     parser.add_argument("--pets", default="", help="comma-separated ids (default: all)")
     parser.add_argument("--split", action="store_true", help="also write one image per pet")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help="a builtin/ folder written by `build_pets.py --out` (preview; needs --pets)",
+    )
     args = parser.parse_args(argv)
 
     wanted = {p for p in args.pets.split(",") if p}
-    packs = [
-        load_pet(builtin_root() / m.id, builtin=True)
-        for m in list_pets()
-        if m.builtin and (not wanted or m.id in wanted)
-    ]
+    if args.root is not None:
+        packs = [load_pet(args.root / pet_id, builtin=True) for pet_id in sorted(wanted)]
+    else:
+        packs = [
+            load_pet(builtin_root() / m.id, builtin=True)
+            for m in list_pets()
+            if m.builtin and (not wanted or m.id in wanted)
+        ]
     if not packs:
         print("no matching built-in pets", file=sys.stderr)
         return 1

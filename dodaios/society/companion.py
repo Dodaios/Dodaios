@@ -102,6 +102,7 @@ class CompanionAppearance(BaseModel):
 #: ``frontend/src/components/society/companion/appearance.ts``.
 DEFAULT_PETS: tuple[str, ...] = (
     "ember", "miso", "bolt", "brew", "mochi", "shelly", "cocoa", "dodaios",
+    "pip", "hazel", "otto", "nox", "kiko", "inky", "toasty", "cassie", "sprout", "flick", "aurelia",
 )
 
 
