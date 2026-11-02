@@ -135,7 +135,7 @@ namespace VerseBalancePrivate
 			return true;
 		}
 		FStructProperty* S = CastField<FStructProperty>(Prop);
-		if (S && S->Struct == TBaseStructure<FVector2f>::Get() && Value.Type == FVerseJson::EType::Array && Value.Array.Num() == 2 && Value.Array[0] && Value.Array[1])
+		if (S && S->Struct == TVariantStructure<FVector2f>::Get() && Value.Type == FVerseJson::EType::Array && Value.Array.Num() == 2 && Value.Array[0] && Value.Array[1])
 		{
 			*static_cast<FVector2f*>(Ptr) = FVector2f(float(Value.Array[0]->Number), float(Value.Array[1]->Number));
 			return true;
