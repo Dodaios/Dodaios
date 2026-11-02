@@ -15,6 +15,10 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+# Taken before the first dodaios import, which could already write there.
+_REPO_DATA_DIR = _REPO_ROOT / "data"
+_REPO_DATA_DIR_EXISTED = _REPO_DATA_DIR.exists()
+
 # Hermetic data dir (#458). ``dodaios.core.config.DATA_DIR`` is resolved once,
 # at import, from ``JARVIS_DATA_DIR`` or ``<repo>/data``. In an installer-managed
 # checkout ``<repo>/data`` is the user's live data, so any store without its own
@@ -47,6 +51,50 @@ def pytest_configure(config) -> None:  # noqa: ANN001
         "markers",
         "no_auto_web_auth: use explicit credentials against the production web boundary",
     )
+
+
+def _repo_data_dir_leftovers() -> list[str]:
+    """What a session left in ``<repo>/data`` when it started without one.
+
+    Only a checkout that had no ``data/`` at session start is judged: there any
+    entry is the suite's own. A checkout that runs the app owns a live
+    ``data/`` that the app writes to while the tests run, so it is skipped.
+    """
+    if _REPO_DATA_DIR_EXISTED or not _REPO_DATA_DIR.exists():
+        return []
+    entries = sorted(
+        p.relative_to(_REPO_ROOT).as_posix() for p in _REPO_DATA_DIR.rglob("*")
+    )
+    return entries or [_REPO_DATA_DIR.relative_to(_REPO_ROOT).as_posix() + "/"]
+
+
+def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ANN001, ARG001
+    """Fail the session when the suite wrote into ``<repo>/data`` (#458).
+
+    Every store must follow the session temp dir above. Checked once, by the
+    controlling process (an xdist worker would see its siblings' writes).
+    """
+    if hasattr(session.config, "workerinput"):
+        return
+    leftovers = _repo_data_dir_leftovers()
+    if not leftovers:
+        return
+    lines = [f"  {entry}" for entry in leftovers[:20]]
+    if len(leftovers) > 20:
+        lines.append(f"  ... and {len(leftovers) - 20} more")
+    message = "\n".join([
+        "The test session wrote into the checkout's data dir, which every store "
+        "must leave alone (#458). Derive the path from the configured data dir:",
+        *lines,
+    ])
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is not None:
+        reporter.ensure_newline()
+        reporter.write_sep("=", "stray writes into <repo>/data", red=True)
+        reporter.write_line(message)
+    else:
+        sys.stderr.write(message + "\n")
+    session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
 @pytest.fixture(autouse=True)

@@ -87,18 +87,26 @@ class AuditRecord(BaseModel):
 class ReviewAudit:
     """Append-only JSON-Lines logger for review iterations.
 
-    Default path: `data/review.log` relative to the current working
-    directory. Overridable via the `path` constructor argument — e.g.
-    for tests via `tmp_path`.
+    Default path: `review.log` in the runtime data directory
+    (`dodaios.core.config.DATA_DIR`), so `JARVIS_DATA_DIR` moves it with
+    every other store (#458). Overridable via the `path` constructor
+    argument — e.g. for tests via `tmp_path`.
     """
 
-    DEFAULT_PATH: ClassVar[Path] = Path("data") / "review.log"
+    DEFAULT_FILENAME: ClassVar[str] = "review.log"
 
     def __init__(self, path: Path | str | None = None) -> None:
         self._path: Path = (
-            Path(path) if path is not None else self.DEFAULT_PATH
+            Path(path) if path is not None else self.default_path()
         )
         self._lock = threading.Lock()
+
+    @classmethod
+    def default_path(cls) -> Path:
+        """`<data dir>/review.log`, read when the logger is built."""
+        from dodaios.core import config  # lazy: config imports half the app
+
+        return Path(config.DATA_DIR) / cls.DEFAULT_FILENAME
 
     @property
     def path(self) -> Path:
