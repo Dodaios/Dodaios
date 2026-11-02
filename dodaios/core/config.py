@@ -4479,7 +4479,6 @@ class Phase6SafetyConfig(BaseModel):
             "wiki-recall",
             "wiki-page-read",
             "wiki-ingest",
-            "memory-search",
             "session-latest-turn",
         ]
     )

@@ -1493,3 +1493,16 @@ recorded among the tools that ran, gets no spoken acknowledgement and no
   revealing found tools, the manager's three reasons)
 - `tests/unit/brain/test_context_window_fit.py` (window and count limits)
 - `tests/unit/brain/test_routing.py` (exact router set, unchanged)
+
+## Amendment 2026-11-02: memory vault tools
+
+`memory-search` and `memory-forget` join `ROUTER_TOOLS` (ADR-0044). Both act
+only on the local personal memory vault: search reads it, forget erases the
+memory the user named and every version of it. Neither spawns, neither is in
+a worker set, and neither is auto-approved for unattended missions, because
+the vault holds the user's personal facts.
+
+### Regression guards
+
+- `tests/unit/brain/test_routing.py` (exact router set)
+- `tests/unit/memory/vault/test_learning_into_vault.py` (both tools)
