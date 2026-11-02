@@ -376,6 +376,73 @@ def test_cancel_keeps_the_partial_download_for_the_next_start(
     assert hub.downloaded(full.name) == ["bytes=1000-"]
 
 
+def test_cancel_while_unpacking_waits_for_the_install_to_finish(
+    hub: FakeGitHub, signer: Signer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dodaios.verse_host.install import payload
+
+    release, _ = _publish(tmp_path, signer, "4.2.0", hangar=b"h1" * 5000)
+    hub.releases = [release]
+    root = tmp_path / "verse"
+    installer = _installer(hub, signer, root)
+    entered = threading.Event()
+    release_worker = threading.Event()
+    real_install = payload.install_full
+    calls: list[int] = []
+
+    def slow_install(*args, **kwargs):
+        calls.append(1)
+        entered.set()
+        assert release_worker.wait(30)
+        return real_install(*args, **kwargs)
+
+    monkeypatch.setattr(payload, "install_full", slow_install)
+
+    async def go() -> dict | None:
+        installer.start_install()
+        assert await asyncio.to_thread(entered.wait, 30)
+        assert installer.progress()["phase"] == "installing"
+        # The card's cancel is refused while unpacking.
+        assert installer.cancel()["phase"] == "installing"
+        await asyncio.sleep(0.05)
+        assert installer.busy()
+        # Even a hard cancel of the task (app shutdown) waits for the worker.
+        installer._task.cancel()
+        await asyncio.sleep(0.05)
+        assert installer.busy()
+        with pytest.raises(VerseInstallError, match="cancel it first"):
+            installer.uninstall()
+        installer.start_install()  # joins the running job, never a second unpack
+        release_worker.set()
+        return await installer.wait()
+
+    _run(go())
+    assert calls == [1]
+    assert not installer.busy()
+    state = installer.install_state()
+    assert state["status"] == "installed" and state["version"] == "4.2.0"
+    assert not list((root / "downloads").iterdir())
+    assert installer.uninstall()["status"] == "not_installed"
+    assert installer.install_state() == {"status": "not_installed", "version": None}
+
+
+def test_a_superseded_partial_download_is_removed(
+    hub: FakeGitHub, signer: Signer, tmp_path: Path
+) -> None:
+    old, old_full = _publish(tmp_path, signer, "4.2.0", hangar=b"h1" * 5000)
+    new, _ = _publish(tmp_path, signer, "4.2.1", hangar=b"h2" * 5000)
+    root = tmp_path / "verse"
+    downloads = root / "downloads"
+    downloads.mkdir(parents=True)
+    # 4.2.0 was interrupted half way (and an old finished package lies around).
+    (downloads / f"{old_full.name}.part").write_bytes(old_full.read_bytes()[:500])
+    (downloads / old_full.name).write_bytes(b"stale")
+    hub.releases = [new, old]
+    installer = _installer(hub, signer, root)
+    assert _run(installer.install())["version"] == "4.2.1"
+    assert not list(downloads.iterdir())
+
+
 def test_a_tampered_package_is_rejected_and_nothing_is_installed(
     hub: FakeGitHub, signer: Signer, tmp_path: Path
 ) -> None:

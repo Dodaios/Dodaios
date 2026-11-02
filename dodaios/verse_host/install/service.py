@@ -67,6 +67,10 @@ _MAX_SIGNATURE_BYTES = 1_000
 _UNSET: Any = object()
 
 
+def _remove(path: Path) -> None:
+    path.unlink(missing_ok=True)
+
+
 def releases_url(slug: str | None = None) -> str:
     if slug is None:
         from dodaios.core.branding import OFFICIAL_REPO_SLUG
@@ -317,9 +321,17 @@ class VerseInstaller:
             return None
 
     def cancel(self) -> dict[str, Any]:
-        """Stop a running download; its ``.part`` stays, so the next start resumes."""
+        """Stop a running download; its ``.part`` stays, so the next start resumes.
+
+        Only the download can be stopped. Once the verified package is being
+        unpacked (phase ``installing``) the worker thread cannot be interrupted
+        safely, so the cancel is refused and the install finishes.
+        """
         if self.busy() and self._task is not None:
-            self._task.cancel()
+            if self._progress.phase == "installing":
+                log.info("[verse] cancel refused: the verified package is being unpacked")
+            else:
+                self._task.cancel()
         return self.progress()
 
     async def _run(self, job: Callable[[], Any]) -> dict[str, Any]:
@@ -346,8 +358,24 @@ class VerseInstaller:
         self._progress.done_bytes = done
         self._progress.total_bytes = total
 
+    def _prune_downloads(self, ref: PackageRef) -> None:
+        """Drop packages and ``.part`` files of every other (superseded) release."""
+        downloads = self.root / "downloads"
+        if not downloads.is_dir():
+            return
+        keep = {ref.name, f"{ref.name}.part"}
+        for entry in downloads.iterdir():
+            if entry.name in keep or not entry.is_file():
+                continue
+            try:
+                entry.unlink()
+                log.info("[verse] removed stale download %s", entry.name)
+            except OSError:
+                log.warning("[verse] could not remove stale download %s", entry)
+
     def _check_disk(self, ref: PackageRef, install_bytes: int) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
+        self._prune_downloads(ref)
         part = self.root / "downloads" / f"{ref.name}.part"
         have = part.stat().st_size if part.is_file() else 0
         need = (ref.size - have) + install_bytes + DISK_MARGIN_BYTES
@@ -371,18 +399,44 @@ class VerseInstaller:
             on_progress=self._on_bytes,
         )
 
+    async def _apply(
+        self, step: Callable[..., dict[str, Any]], path: Path, manifest: ReleaseManifest
+    ) -> dict[str, Any]:
+        """Run an unpack step in a worker thread and always wait for that thread.
+
+        Cancelling the awaiting task does not stop a thread, so the task keeps
+        waiting until the worker returns: ``busy()`` stays True, uninstall and a
+        second install stay refused, and the package is removed only after the
+        worker has closed it. A cancel that arrived meanwhile is re-raised then.
+        """
+        self._progress.phase = "installing"
+        worker = asyncio.ensure_future(
+            asyncio.to_thread(step, self.root, path, expected=manifest.expected())
+        )
+        cancelled = False
+        try:
+            while True:
+                try:
+                    result = await asyncio.shield(worker)
+                    break
+                except asyncio.CancelledError:
+                    if worker.done():
+                        raise
+                    cancelled = True
+                    log.info("[verse] unpack still running; waiting for it before stopping")
+        finally:
+            if worker.done():
+                _remove(path)
+        if cancelled:
+            raise asyncio.CancelledError
+        return result
+
     async def install(self) -> dict[str, Any]:
         """Download the full package, verify it, unpack it into the user data folder."""
         release = await self.release()
         manifest = release.manifest
         path = await self._fetch(release, manifest.full, "full")
-        self._progress.phase = "installing"
-        try:
-            result = await asyncio.to_thread(
-                payload.install_full, self.root, path, expected=manifest.expected()
-            )
-        finally:
-            path.unlink(missing_ok=True)
+        result = await self._apply(payload.install_full, path, manifest)
         return {"status": "installed", **result}
 
     async def update(self) -> dict[str, Any]:
@@ -408,24 +462,12 @@ class VerseInstaller:
             if payload.tree_digest(base) == delta.from_tree_sha256:
                 try:
                     path = await self._fetch(release, delta, "delta")
-                    self._progress.phase = "installing"
-                    try:
-                        result = await asyncio.to_thread(
-                            payload.apply_delta, self.root, path, expected=manifest.expected()
-                        )
-                    finally:
-                        path.unlink(missing_ok=True)
+                    result = await self._apply(payload.apply_delta, path, manifest)
                     return {"status": "updated", **result}
                 except VerseInstallError as exc:
                     log.warning("[verse] delta update failed (%s); using the full package", exc)
         path = await self._fetch(release, manifest.full, "full")
-        self._progress.phase = "installing"
-        try:
-            result = await asyncio.to_thread(
-                payload.install_full, self.root, path, expected=manifest.expected()
-            )
-        finally:
-            path.unlink(missing_ok=True)
+        result = await self._apply(payload.install_full, path, manifest)
         return {"status": "repaired" if broken else "updated", **result}
 
     # ---------------------------------------------------------- uninstall
