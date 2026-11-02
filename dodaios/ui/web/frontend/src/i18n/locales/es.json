@@ -1549,6 +1549,7 @@
     "err_pending_publisher": "Esta conexión está pendiente de configuración por parte del editor. Vuelve a intentarlo cuando el inicio de sesión en el navegador esté disponible.",
     "connection_unavailable": "Conexión no disponible",
     "unsupported_device": "No compatible con este dispositivo",
+    "cli_precedence": "{cli} está conectado y se usa primero; menciona el plugin de {plugin} para usarlo.",
     "installed_count": "{count} instalados",
     "attention_one": "Hay que reconectar {plugin}",
     "attention_many": "Hay que reconectar {count} conexiones",
