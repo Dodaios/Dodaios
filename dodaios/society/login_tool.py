@@ -123,7 +123,7 @@ class RequestLoginTool:
             )
             if not spec.description:
                 raise ValueError("description is required: say why you need to sign in")
-        except ValueError as exc:
+        except ValueError as exc:  # A malformed request goes back to the agent to fix.
             return ToolResult(success=False, output=None, error=f"invalid request: {exc}")
         vault = credentials.current_vault()
         if vault is None:
@@ -155,7 +155,7 @@ class RequestLoginTool:
             request_id = await service.open_credential_request(
                 self._session_id, spec, save, asker=self._asker()
             )
-        except TooManyCredentialRequests as exc:
+        except TooManyCredentialRequests as exc:  # The limit is the visible tool error.
             return ToolResult(
                 success=False,
                 output={"status": "limit", "site": site},
@@ -164,7 +164,7 @@ class RequestLoginTool:
                     "can be opened per turn. Reuse existing pending fields."
                 ),
             )
-        except RuntimeError as exc:
+        except RuntimeError as exc:  # No running turn: reported as unattended.
             log.info("society login: %s cannot ask here (%s)", agent_id, exc)
             return _nobody(site)
         return await self._status(service, request_id, key, site)
@@ -174,7 +174,7 @@ class RequestLoginTool:
         try:
             await service.restore_credential_requests(self._session_id)
             spec = service.credential_request_spec(self._session_id, request_id)
-        except (AttributeError, KeyError):
+        except (AttributeError, KeyError):  # An unknown id is the visible tool error.
             return ToolResult(
                 success=False,
                 output=None,

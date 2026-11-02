@@ -122,6 +122,12 @@ WITHHELD: Final[dict[str, str]] = {
     "DELETE /api/society/agents/{agent_id}/credentials/{env}": (
         "deleting a stored credential breaks the agent's work and stays with the owner"
     ),
+    "GET /api/society/agents/{agent_id}/logins": (
+        "an agent's stored website logins are the owner's business, managed in the app only"
+    ),
+    "DELETE /api/society/agents/{agent_id}/logins/{key}": (
+        "deleting a stored login breaks the agent's sign-in and stays with the owner"
+    ),
     "POST /api/society/agents/{agent_id}/kill": (
         "kill_switch stops the whole house; killing ONE agent's runs needs the "
         "context of watching them, which a remote client does not have"

@@ -205,13 +205,13 @@ class RequestConnectTool:
             request_id = await service.open_credential_request(
                 self._session_id, spec, connect_save(kind, target.id), asker=self._asker()
             )
-        except TooManyCredentialRequests as exc:
+        except TooManyCredentialRequests as exc:  # The limit is the visible tool error.
             return ToolResult(
                 success=False,
                 output={"status": "limit", "id": target.id},
                 error=f"Card limit reached: {exc}. At most {MAX_REQUESTS_PER_TURN} per turn.",
             )
-        except RuntimeError as exc:
+        except RuntimeError as exc:  # No running turn: reported as unattended.
             log.info("society connect: %s cannot ask here (%s)", self._agent_id, exc)
             return _nobody(target.label)
         return await self._status(service, request_id, spec)
@@ -221,7 +221,7 @@ class RequestConnectTool:
         try:
             await service.restore_credential_requests(self._session_id)
             spec = service.credential_request_spec(self._session_id, request_id)
-        except (AttributeError, KeyError):
+        except (AttributeError, KeyError):  # An unknown id is the visible tool error.
             return _invalid("no connect card with that id in this chat")
         return await self._status(service, request_id, spec)
 
