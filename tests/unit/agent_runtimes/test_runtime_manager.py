@@ -537,3 +537,24 @@ def test_the_windows_openclaw_install_runs_npm_scripts_on_the_private_node(monke
     node_dir = str(openclaw.cli_prefix() / "node")
     path_set = text.index("$env:Path = '" + node_dir + ";'")
     assert path_set < text.index("npm-cli.js")
+
+
+async def test_a_command_that_exits_before_containment_still_reports_its_exit_code(
+    fakes, monkeypatch
+):
+    """Windows refuses to put an already-exited process in a job object
+    (ACCESS_DENIED). The command did run: its exit code is the outcome."""
+    from dodaios.core import process_tree
+
+    class _ExitedTree:
+        def assign(self, pid: int) -> None:
+            raise PermissionError(13, "Access is denied")
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(process_tree, "make_process_tree", lambda name: _ExitedTree())
+    await manager.start("openclaw", "update")
+    done = await _finish("openclaw")
+    assert done.state == "failed" and done.exit_code == 3
+    assert "Could not start" not in done.message
