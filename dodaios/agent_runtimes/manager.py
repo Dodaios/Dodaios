@@ -397,7 +397,14 @@ async def _run_process(
                 creationflags=NO_WINDOW_CREATIONFLAGS,
                 start_new_session=True,
             )
-            tree.assign(proc.pid)
+            try:
+                tree.assign(proc.pid)
+            except OSError as exc:
+                # Windows refuses a process that already exited (a fast
+                # command can finish before this line). The command did
+                # start, so its exit code below is the outcome, not this.
+                log.debug("agent runtimes: %s %s not contained: %s",
+                          current.runtime, current.kind, exc)
             try:
                 code = await asyncio.wait_for(proc.wait(), timeout=_JOB_TIMEOUT_S)
             except TimeoutError:  # reported through the job's state and message below

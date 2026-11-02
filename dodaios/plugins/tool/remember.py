@@ -10,6 +10,7 @@ goes to the legacy core-memory file instead, so the request is never lost.
 
 Risk tier: safe — only writes local files.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,6 +53,9 @@ class RememberTool:
         if not fact:
             return ToolResult(success=False, output=None, error="fact is missing")
         said = str(getattr(ctx, "user_utterance", "") or "")
+        vaulted = await self._into_vault(fact, said)
+        if vaulted is not None:
+            return vaulted
         try:
             change = await asyncio.to_thread(remember_explicitly, fact, evidence=said)
         except LookupError:  # no MEMORY.md notebook: use the legacy store
@@ -61,6 +65,23 @@ class RememberTool:
         if change is None:
             return ToolResult(success=True, output=f"Already in MEMORY.md: {fact}")
         return ToolResult(success=True, output=f"Saved to MEMORY.md: {fact}")
+
+    @staticmethod
+    async def _into_vault(fact: str, said: str) -> ToolResult | None:
+        """Save into the memory vault (ADR-0044); ``None`` while it is not running."""
+        from dodaios.memory.vault import runtime as vault_runtime
+
+        try:
+            result = await asyncio.to_thread(vault_runtime.remember_explicitly, fact, evidence=said)
+        except LookupError:  # no vault running: the caller falls back to the notebook
+            return None
+        except ValueError as exc:  # reported to the model as a failed save
+            return ToolResult(success=False, output=None, error=f"not saved: {exc}")
+        if result.action == "refused":
+            return ToolResult(success=False, output=None, error="not saved: looks like a secret")
+        if result.action == "existing":
+            return ToolResult(success=True, output=f"Already in memory: {fact}")
+        return ToolResult(success=True, output=f"Saved to memory: {fact}")
 
     @staticmethod
     async def _legacy(fact: str, category: str) -> ToolResult:

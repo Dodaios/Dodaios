@@ -1,6 +1,6 @@
 /**
  * Tools & access: everything that decides what this agent may touch, in one
- * draft with one Save. Reach and tools, approvals and rules, limits and its
+ * draft with one Save. Reach and tools, approvals and rules, jobs at once and its
  * browser are edited together; a change that lets the agent do MORE asks once
  * before it is saved. Placement (sandbox, computer) saves on its own, as it
  * always did, because it moves the agent rather than tuning it.
@@ -14,7 +14,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
-import { Switch } from "@/components/ui/switch";
 import { useLocaleChunk, useT } from "@/i18n";
 import { AGENT_APPROVAL_MODES, PERMISSION_CEILINGS, fetchSocietyProviders, type AgentApprovalMode, type BrowserMode } from "@/lib/societyApi";
 import { societyDisplayName } from "@/lib/societyDisplayName";
@@ -122,11 +121,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="agent-pane-tools">
       <div className="ap-body">
-        {lead ? (
-          <PaneSection title={t("society.agent_pane.reach")}>
-            <PaneHint>{t("society.agent_pane.lead_tools_hint")}</PaneHint>
-          </PaneSection>
-        ) : (
+        {lead ? null : (
           <>
             <PaneSection title={t("society.agent_pane.reach")}>
               <Segmented<GrantMode>
@@ -141,9 +136,6 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
                 ]}
                 onChange={(mode) => setDraft((d) => setGrantMode(d, mode))}
               />
-              <PaneHint>
-                {t(draft.grantMode === "all" ? "society.agent_pane.reach_all_hint" : "society.agent_pane.reach_allowlist_hint")}
-              </PaneHint>
             </PaneSection>
             <ToolList
               draft={draft}
@@ -176,24 +168,18 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
                 })}
                 onChange={(mode) => setDraft((d) => ({ ...d, approvalMode: mode }))}
               />
-              <PaneHint>
-                {draft.approvalMode ? t(`society.approval_mode.${draft.approvalMode}_hint`) : t("society.approval_mode.legacy_hint")}
-              </PaneHint>
             </>
           ) : null}
           {lead || !agent.approvalMode ? (
-            <div className="flex flex-col gap-2">
-              <span className="ap-sublabel">{t("society.approval_mode.legacy_ceiling")}</span>
-              <Segmented<PermissionCeiling>
-                fill
-                label={t("society.approval_mode.legacy_ceiling")}
-                value={draft.permissionCeiling}
-                disabled={disabled}
-                testId="agent-pane-ceiling"
-                options={ceilingOptions}
-                onChange={(step) => setDraft((d) => ({ ...d, permissionCeiling: step }))}
-              />
-            </div>
+            <Segmented<PermissionCeiling>
+              fill
+              label={t("society.approval_mode.legacy_ceiling")}
+              value={draft.permissionCeiling}
+              disabled={disabled}
+              testId="agent-pane-ceiling"
+              options={ceilingOptions}
+              onChange={(step) => setDraft((d) => ({ ...d, permissionCeiling: step }))}
+            />
           ) : null}
         </PaneSection>
 
@@ -225,43 +211,11 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
               testId="agent-pane-allow"
             />
             </div>
-            <PaneHint>{t("society.agent_pane.rules_hint")}</PaneHint>
           </PaneSection>
         ) : null}
 
         <PaneSection title={t("society.card.limits")} testId="agent-pane-limits">
           <div className="ap-card">
-            <div className="ap-line">
-              <span className="ap-line-label">{t("society.card.budget_cap")}</span>
-              <span className="ml-auto flex items-center gap-2">
-                {draft.budgetOn ? (
-                  <span className="flex items-center gap-1 text-[14px]">
-                    <span className="text-muted-foreground">$</span>
-                    <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    inputMode="decimal"
-                    disabled={disabled}
-                    value={draft.budget}
-                    onChange={(e) => setDraft((d) => ({ ...d, budget: e.target.value }))}
-                    data-testid="agent-budget-input"
-                    aria-label={t("society.card.budget_cap")}
-                    className="ap-input"
-                  />
-                  </span>
-                ) : (
-                  <span className="ap-line-value">{t("society.card.no_cap")}</span>
-                )}
-                <Switch
-                  checked={draft.budgetOn}
-                  onCheckedChange={(on) => setDraft((d) => ({ ...d, budgetOn: on }))}
-                  disabled={disabled}
-                  aria-label={t("society.card.budget_cap")}
-                  data-testid="agent-budget-switch"
-                />
-              </span>
-            </div>
             <label className="ap-line">
               <span className="ap-line-label">{t("society.card.jobs_at_once")}</span>
               <input
@@ -278,7 +232,6 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
               />
             </label>
           </div>
-          <PaneHint>{t(draft.budgetOn ? "society.card.budget_hint" : "society.card.budget_off_hint")}</PaneHint>
         </PaneSection>
 
         <PaneSection title={t("society.agent_pane.browser")} testId="agent-pane-browser-access">
@@ -294,7 +247,6 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
             ]}
             onChange={(mode) => setDraft((d) => ({ ...d, browserMode: mode }))}
           />
-          <PaneHint>{t(draft.browserMode === "own" ? "society.agent_pane.browser_own_hint" : "society.agent_pane.browser_attach_hint")}</PaneHint>
           <div className="ap-card ap-card-pad">
           <span className="ap-sublabel">{t("society.agent_pane.sites")}</span>
           <ChipList
@@ -317,7 +269,6 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
               <AgentSandboxSection agent={agent} show="choice" layout="row" />
               {agent.executionEnvironment !== "sandbox" ? <RunsOn agent={agent} /> : null}
             </div>
-            <PaneHint>{t("society.agent_pane.placement_hint")}</PaneHint>
           </PaneSection>
         ) : null}
       </div>

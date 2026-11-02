@@ -67,9 +67,8 @@ describe("access draft", () => {
   });
 
   test("the patch maps onto the route's field names", () => {
-    const draft = { ...draftFromAgent(BASE), budgetOn: false, jobs: "3", domains: ["example.com"] };
+    const draft = { ...draftFromAgent(BASE), jobs: "3", domains: ["example.com"] };
     expect(agentConfigBody(patchFromDraft(BASE, draft))).toEqual({
-      daily_budget_usd: 0,
       max_concurrent_runs: 3,
       browser_allowed_domains: ["example.com"],
     });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
@@ -10,7 +10,9 @@ import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { MAX_THREAD_COLUMNS, TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
 import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
+import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
+import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, arrangeThreads, moveThreadId, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
@@ -91,6 +93,11 @@ export function ThreadTree() {
   const [dropTarget, setDropTarget] = useState<{ sessionId: string; before: boolean } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Threads whose sub-agent rows the person folded away; open by default.
+  const [subagentsFolded, setSubagentsFolded] = useState<Record<string, boolean>>({});
+  const subagentsOwner = useThreadSubagentsStore((state) => state.sessionId);
+  const subagentRows = useThreadSubagentsStore((state) => state.rows);
+  const openSubagent = useThreadSubagentsStore((state) => openSubagentOf(state.open, selection.sessionId));
   const menuAnchor = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -250,7 +257,11 @@ export function ThreadTree() {
             </form>;
           }
           const dropHere = dropTarget?.sessionId === session.session_id ? dropTarget : null;
-          return <div key={session.session_id} data-testid={`thread-row-${session.session_id}`}
+          // The open thread lists the sub-agents its coding agent spawned under it.
+          const subRows = selected && subagentsOwner === session.session_id ? subagentRows : [];
+          const subOpen = subRows.length > 0 && !subagentsFolded[session.session_id];
+          const onSubagent = selected && openSubagent !== null && subRows.some((row) => row.id === openSubagent);
+          return <Fragment key={session.session_id}><div data-testid={`thread-row-${session.session_id}`}
             draggable
             onDragStart={(event) => {
               // Within the list it reorders; dropped on the thread view it opens side by side.
@@ -287,7 +298,7 @@ export function ThreadTree() {
             }}
             className={cn(
               "group/thread relative flex min-h-8 items-center rounded-md transition-colors hover:bg-muted",
-              (selected || menuOpen) && "bg-muted",
+              ((selected && !onSubagent) || menuOpen) && "bg-muted",
               dragged?.sessionId === session.session_id && "opacity-40",
               dropHere?.before && "before:absolute before:-top-0.5 before:left-2 before:right-2 before:h-0.5 before:rounded-full before:bg-primary",
               dropHere && !dropHere.before && "after:absolute after:-bottom-0.5 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-primary",
@@ -299,8 +310,14 @@ export function ThreadTree() {
               menuAnchor.current = event.currentTarget;
               setMenu({ sessionId: session.session_id, projectId: project.id });
             }}>
-            <button type="button" aria-current={selected ? "page" : undefined}
-              onClick={() => openThread(session.session_id, project.id)}
+            {subRows.length > 0 && <SubagentFoldToggle open={subOpen} count={subRows.length} title={threadTitle(session)}
+              onToggle={() => setSubagentsFolded((current) => ({ ...current, [session.session_id]: subOpen }))} />}
+            <button type="button" aria-current={selected ? (onSubagent ? "true" : "page") : undefined}
+              onClick={() => {
+                // The thread's own row leads back from a sub-agent to the main conversation.
+                useThreadSubagentsStore.getState().openAgent(session.session_id, null);
+                openThread(session.session_id, project.id);
+              }}
               onDoubleClick={() => setRenaming({ sessionId: session.session_id, title: threadTitle(session) })}
               onKeyDown={(event) => {
                 if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
@@ -338,7 +355,10 @@ export function ThreadTree() {
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </button>
             </div>
-          </div>;
+          </div>
+          {subOpen && <ThreadTreeSubagents rows={subRows} openId={onSubagent ? openSubagent : null} threadTitle={threadTitle(session)}
+            onOpen={(id) => useThreadSubagentsStore.getState().openAgent(session.session_id, id)} />}
+          </Fragment>;
         })}
         {threads.length > FOLDED_COUNT && <button type="button"
           onClick={() => setShowAll((current) => ({ ...current, [project.id]: !current[project.id] }))}

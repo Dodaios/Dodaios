@@ -5,6 +5,7 @@ import type { AgentChatCatalog, AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore } from "@/store/ideThreads";
+import { useThreadSubagentsStore } from "@/store/threadSubagents";
 
 const api = vi.hoisted(() => ({
   fetchAgentChatCatalog: vi.fn(),
@@ -80,6 +81,7 @@ beforeEach(() => {
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
   useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, order: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
+  useThreadSubagentsStore.setState({ sessionId: null, rows: [], open: null });
 });
 
 afterEach(() => {
@@ -227,6 +229,48 @@ describe("ThreadTree", () => {
     } finally {
       teams.rows = [];
     }
+  });
+
+  it("lists the open thread's sub-agents under it as threads that open, nest and fold", async () => {
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow({ cli_title: "Fix login test" })]);
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    useThreadSubagentsStore.setState({ open: null });
+    useThreadSubagentsStore.getState().publish("s1", [
+      { id: "a1", parentId: null, depth: 0, title: "Explore the auth code", agentType: "Explore", status: "running", waiting: false },
+      { id: "a2", parentId: "a1", depth: 1, title: "Read the tests", agentType: "", status: "done", waiting: false },
+    ]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
+    const rows = screen.getAllByTestId("thread-tree-subagent");
+    expect(rows.map((row) => row.textContent)).toEqual(["Explore the auth code", "Read the tests"]);
+    expect(rows.map((row) => row.getAttribute("data-status"))).toEqual(["running", "done"]);
+    expect(rows[1].style.paddingLeft).toBe("46px");
+
+    fireEvent.click(rows[1]);
+    expect(useThreadSubagentsStore.getState().open).toEqual({ sessionId: "s1", id: "a2" });
+    expect(screen.getAllByTestId("thread-tree-subagent")[1].getAttribute("aria-current")).toBe("page");
+    expect(screen.getByText("Fix login test").closest("button")?.getAttribute("aria-current")).toBe("true");
+
+    // The thread's own row leads back to the main conversation.
+    fireEvent.click(screen.getByText("Fix login test"));
+    expect(useThreadSubagentsStore.getState().open).toBeNull();
+
+    fireEvent.click(screen.getByTestId("thread-subagents-fold"));
+    expect(screen.queryAllByTestId("thread-tree-subagent")).toHaveLength(0);
+    fireEvent.click(screen.getByTestId("thread-subagents-fold"));
+    expect(screen.getAllByTestId("thread-tree-subagent")).toHaveLength(2);
+  });
+
+  it("shows no sub-agent rows for a thread that is not the one on screen", async () => {
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow({ cli_title: "Fix login test" })]);
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: null } });
+    useThreadSubagentsStore.getState().publish("s1", [
+      { id: "a1", parentId: null, depth: 0, title: "Explore", agentType: "", status: "running", waiting: false },
+    ]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
+    expect(screen.queryByTestId("thread-tree-subagents")).toBeNull();
+    expect(screen.queryByTestId("thread-subagents-fold")).toBeNull();
   });
 
   it("moves a thread with Alt and the arrow keys and keeps that order", async () => {

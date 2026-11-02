@@ -1868,6 +1868,10 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # as state=draft (AP-15). Direct gated action (monitor), never a
             # spawn (AP-5/AP-14). ADR-0011 amendment "create-skill router tool".
             "create-skill",
+            # Personal memory vault (ADR-0044; ADR-0011 amendment "memory vault
+            # tools"): search and forget, router-tier only.
+            "memory-search",
+            "memory-forget",
             # Phase B5 (recall-tool): read-only keyword search over the wiki vault.
             "wiki-recall",
             # Phase B5 follow-up (commit 825b1f94a): full-page reader (read-only)

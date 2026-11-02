@@ -113,6 +113,7 @@ def test_resolve_writable_data_dir_honors_env_override(monkeypatch, tmp_path):
 
 def test_resolve_writable_data_dir_default_unchanged_when_writable(monkeypatch, tmp_path):
     writable_dir = tmp_path / "data"
+    monkeypatch.delenv("JARVIS_DATA_DIR", raising=False)  # the default path, no override
     monkeypatch.setattr(cfg, "DATA_DIR", writable_dir)
     monkeypatch.setattr(cfg, "_data_dir_cache", None, raising=False)
 
@@ -123,6 +124,7 @@ def test_resolve_writable_data_dir_default_unchanged_when_writable(monkeypatch, 
 def test_resolve_writable_data_dir_falls_back_when_project_dir_unwritable(monkeypatch, tmp_path):
     unwritable_dir = tmp_path / "readonly_data"
     fallback_dir = tmp_path / "user_data_dir"
+    monkeypatch.delenv("JARVIS_DATA_DIR", raising=False)  # the default path, no override
     monkeypatch.setattr(cfg, "DATA_DIR", unwritable_dir)
     monkeypatch.setattr(cfg, "_data_dir_cache", None, raising=False)
     monkeypatch.setattr("dodaios.core.paths.user_data_dir", lambda: fallback_dir)

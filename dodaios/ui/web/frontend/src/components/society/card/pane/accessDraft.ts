@@ -18,9 +18,7 @@ export interface AccessDraft {
   permissionCeiling: PermissionCeiling;
   requireApproval: string[];
   alwaysAllow: string[];
-  budgetOn: boolean;
   /** Kept as typed text so a half-typed number is not reformatted under the cursor. */
-  budget: string;
   jobs: string;
   browserMode: BrowserMode;
   domains: string[];
@@ -39,8 +37,6 @@ export function draftFromAgent(agent: SocietyAgent): AccessDraft {
     permissionCeiling: agent.permissionCeiling,
     requireApproval: [...agent.approvalRules.requireApproval],
     alwaysAllow: [...agent.approvalRules.alwaysAllow],
-    budgetOn: agent.dailyBudgetUsd > 0,
-    budget: String(agent.dailyBudgetUsd > 0 ? agent.dailyBudgetUsd : 2),
     jobs: String(agent.maxConcurrentRuns),
     browserMode: agent.browserMode ?? "own",
     domains: [...(agent.browserAllowedDomains ?? [])],
@@ -97,15 +93,11 @@ export function setGrantMode(draft: AccessDraft, mode: GrantMode): AccessDraft {
 const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
-export function budgetValue(draft: AccessDraft): number {
-  return draft.budgetOn ? Math.max(0, Number.parseFloat(draft.budget) || 0) : 0;
-}
-
 export function jobsValue(draft: AccessDraft): number {
   return Math.min(10, Math.max(1, Number.parseInt(draft.jobs, 10) || 1));
 }
 
-/** Only the fields that differ from the agent: a budget edit never carries prose or tools along. */
+/** Only the fields that differ from the agent: a limits edit never carries prose or tools along. */
 export function patchFromDraft(agent: SocietyAgent, draft: AccessDraft): AgentConfigPatch {
   const patch: AgentConfigPatch = {};
   if (draft.grantMode !== agent.grantMode) patch.grantMode = draft.grantMode;
@@ -120,7 +112,6 @@ export function patchFromDraft(agent: SocietyAgent, draft: AccessDraft): AgentCo
   ) {
     patch.approvalRules = { requireApproval: draft.requireApproval, alwaysAllow: draft.alwaysAllow };
   }
-  if (budgetValue(draft) !== agent.dailyBudgetUsd) patch.dailyBudgetUsd = budgetValue(draft);
   if (jobsValue(draft) !== agent.maxConcurrentRuns) patch.maxConcurrentRuns = jobsValue(draft);
   if (draft.browserMode !== (agent.browserMode ?? "own")) patch.browserMode = draft.browserMode;
   if (!sameSet(draft.domains, agent.browserAllowedDomains ?? [])) patch.browserAllowedDomains = draft.domains;

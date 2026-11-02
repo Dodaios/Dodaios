@@ -831,6 +831,9 @@ society-status = "dodaios.plugins.tool.delegate_to_agent:SocietyStatusTool"
 message-agent = "dodaios.plugins.tool.message_agent:LeadMessageAgentTool"
 # Skills-Brain-Integration — Brain-callable executor for installed user skills.
 run-skill = "dodaios.plugins.tool.run_skill:RunSkillTool"
+# Personal memory vault (ADR-0044) — search and forget (router-tier).
+memory-search = "dodaios.plugins.tool.memory_vault:MemorySearchTool"
+memory-forget = "dodaios.plugins.tool.memory_vault:MemoryForgetTool"
 # Phase B5 — long-term wiki recall (router-tier, read-only).
 wiki-recall = "dodaios.plugins.tool.wiki_recall:WikiRecallTool"
 # Phase B5 follow-up — full-page reader (router-tier, read-only).

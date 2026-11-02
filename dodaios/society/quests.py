@@ -83,7 +83,6 @@ GENERALIST: Final[dict[str, Any]] = {
         "what remains open."
     ),
     "permission_ceiling": "monitor",
-    "daily_budget_usd": 2.0,
 }
 
 _WORD_RE: Final[re.Pattern[str]] = re.compile(r"[a-z0-9][a-z0-9\-]{2,}")
