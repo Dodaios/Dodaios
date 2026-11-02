@@ -9,5 +9,7 @@ public class VerseUI : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge", "VerseCombat", "VerseCrew", "VerseDecks" });
+		// Json, Slate: the service record reads progression frames and draws Slate widgets (WP21.7).
+		PublicDependencyModuleNames.AddRange(new string[] { "Json", "Slate", "SlateCore" });
 	}
 }
