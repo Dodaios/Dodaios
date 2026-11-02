@@ -1,12 +1,12 @@
 {
   "bounds_cm": {
     "max": [
-      6900.0,
+      7620.0,
       2940.0,
       900.0
     ],
     "min": [
-      300.0,
+      -180.0,
       660.0,
       -440.0
     ]
@@ -18,7 +18,1487 @@
     "version": "1"
   },
   "level": "/Game/Verse/Decks/Bridge/LV_Bridge",
-  "placements": [],
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_00_08",
+      "location": [
+        -120.0,
+        2760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_00_09",
+      "location": [
+        -120.0,
+        2520.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_00_10",
+      "location": [
+        -120.0,
+        2280.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_00_11",
+      "location": [
+        -120.0,
+        2040.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_00_12",
+      "location": [
+        -120.0,
+        1800.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_00_13",
+      "location": [
+        -120.0,
+        1560.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_01_08",
+      "location": [
+        120.0,
+        2760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_01_09",
+      "location": [
+        120.0,
+        2520.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_01_10",
+      "location": [
+        120.0,
+        2280.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_01_11",
+      "location": [
+        120.0,
+        2040.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_01_12",
+      "location": [
+        120.0,
+        1800.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_p_01_13",
+      "location": [
+        120.0,
+        1560.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_00_08",
+      "location": [
+        7080.0,
+        2760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_00_09",
+      "location": [
+        7080.0,
+        2520.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_00_10",
+      "location": [
+        7080.0,
+        2280.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_00_11",
+      "location": [
+        7080.0,
+        2040.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_00_12",
+      "location": [
+        7080.0,
+        1800.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_00_13",
+      "location": [
+        7080.0,
+        1560.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_01_08",
+      "location": [
+        7320.0,
+        2760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_01_09",
+      "location": [
+        7320.0,
+        2520.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_01_10",
+      "location": [
+        7320.0,
+        2280.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_01_11",
+      "location": [
+        7320.0,
+        2040.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_01_12",
+      "location": [
+        7320.0,
+        1800.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_01_13",
+      "location": [
+        7320.0,
+        1560.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_02_08",
+      "location": [
+        7560.0,
+        2760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_02_09",
+      "location": [
+        7560.0,
+        2520.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_02_10",
+      "location": [
+        7560.0,
+        2280.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_02_11",
+      "location": [
+        7560.0,
+        2040.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_02_12",
+      "location": [
+        7560.0,
+        1800.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_s_02_13",
+      "location": [
+        7560.0,
+        1560.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_1",
+      "location": [
+        2550.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_2",
+      "location": [
+        2070.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_3",
+      "location": [
+        1590.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_4",
+      "location": [
+        1110.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_5",
+      "location": [
+        2550.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_6",
+      "location": [
+        2070.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_7",
+      "location": [
+        1590.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_p_8",
+      "location": [
+        1110.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_1",
+      "location": [
+        4650.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_2",
+      "location": [
+        5130.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_3",
+      "location": [
+        5610.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_4",
+      "location": [
+        6090.0,
+        1640.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_5",
+      "location": [
+        4650.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_6",
+      "location": [
+        5130.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPit.SM_Console_CrewPit",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_7",
+      "location": [
+        5610.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPit",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_CrewPitB.SM_Console_CrewPitB",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pit_s_8",
+      "location": [
+        6090.0,
+        2120.998,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_CrewPitB",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Bridge/Pits/SM_Bridge_Pits_Shell.SM_Bridge_Pits_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "pits_shell",
+      "location": [
+        3600.0,
+        1800.0,
+        -140.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Bridge_Pits_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Stairs_240_H140.SM_Stairs_240_H140",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "step_p_1",
+      "location": [
+        3180.0,
+        1910.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Stairs_240_H140",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Stairs_240_H140.SM_Stairs_240_H140",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "step_p_2",
+      "location": [
+        3180.0,
+        2390.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Stairs_240_H140",
+      "room": "pit_p",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Stairs_240_H140.SM_Stairs_240_H140",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "step_s_1",
+      "location": [
+        4020.0,
+        1910.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Stairs_240_H140",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Stairs_240_H140.SM_Stairs_240_H140",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "step_s_2",
+      "location": [
+        4020.0,
+        2390.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Stairs_240_H140",
+      "room": "pit_s",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
   "rooms": [
     {
       "id": "pit_p",
@@ -1606,7 +3086,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/bridge/zones.py",
-    "sha256": "38c2b6f765a275558a982a20ee001087f3babaf1d62911c353396f0f2cf9979d"
+    "sha256": "7aa2a7f893f9593f6647465d24e2dad72e1e67efbfa9c12d7e1d7e805acd37b9"
   },
   "zone": "pits"
 }

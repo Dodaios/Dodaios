@@ -92,7 +92,7 @@ class _ZoneDoc:
     zone: Zone
     rooms: list[dict] = field(default_factory=list)
     sockets: list[dict] = field(default_factory=list)
-    points: list[list[float]] = field(default_factory=list)
+    placements: list[dict] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------
@@ -328,8 +328,12 @@ def assign_zones(manifest: Mapping[str, Any], zones: Sequence[Zone]) -> dict[str
     return owner
 
 
-def build_zone_docs(deck: str, manifest: Mapping[str, Any] | None = None) -> list[dict]:
-    """Every WP12 zone document of `deck`, canonical and validated."""
+def build_zone_docs(
+    deck: str,
+    manifest: Mapping[str, Any] | None = None,
+    geometry: Mapping[str, list[dict]] | None = None,
+) -> list[dict]:
+    """Every WP12 zone document of `deck`, canonical. `geometry` replaces the placements."""
     manifest = manifest if manifest is not None else load_manifest(deck)
     zones = zones_of(deck)
     room_zone = assign_zones(manifest, zones)
@@ -362,8 +366,20 @@ def build_zone_docs(deck: str, manifest: Mapping[str, Any] | None = None) -> lis
     shared = [Path(__file__), ART_ROOT / "lib" / "ue_space.py", ART_ROOT / "lib" / "placement.py"]
     out = []
     for doc in docs.values():
+        if geometry is not None:
+            doc.placements = list(geometry.get(doc.zone.id, []))
+        else:
+            doc.placements = committed_placements(deck, doc.zone.id)
         out.append(_finish(deck, doc, shared, manifest_path))
     return out
+
+
+def committed_placements(deck: str, zone: str) -> list[dict]:
+    """The `placements[]` the last geometry export wrote (rooms and sockets are rebuilt)."""
+    path = zone_path(deck, zone)
+    if not path.is_file():
+        return []
+    return json.loads(path.read_text(encoding="utf-8")).get("placements", [])
 
 
 def _finish(deck: str, doc: _ZoneDoc, shared: list[Path], manifest_path: Path) -> dict:
@@ -375,8 +391,8 @@ def _finish(deck: str, doc: _ZoneDoc, shared: list[Path], manifest_path: Path) -
             xs.append(x)
             ys.append(y)
         zs.append(room["z_cm"])
-    for socket in doc.sockets:
-        x, y, z = socket["location"]
+    for item in (*doc.sockets, *doc.placements):
+        x, y, z = item["location"]
         xs.append(x)
         ys.append(y)
         zs.append(z)
@@ -399,7 +415,7 @@ def _finish(deck: str, doc: _ZoneDoc, shared: list[Path], manifest_path: Path) -
             "sha256": _sha256([builder, *shared, manifest_path]),
         },
         "generator": dict(GENERATOR),
-        "placements": [],
+        "placements": doc.placements,
         "sockets": doc.sockets,
         "rooms": doc.rooms,
     }
@@ -428,12 +444,192 @@ def write_all(
     return stale
 
 
+# --------------------------------------------------------------------------
+# Deck geometry (Blender): kit placements and zone shells
+# --------------------------------------------------------------------------
+
+BLENDER_ENTRY = Path(__file__).with_name("deck_export_blender.py")
+GEOMETRY_CACHE = ART_ROOT / ".cache" / "unreal" / "decks"
+IMPORT_ROOT = REPO_ROOT / "unreal" / "Verse" / "Art" / "Import"
+KIT_RECORDS = IMPORT_ROOT / "Kit"
+SHELL_TRIANGLE_CAP = 500_000
+#: Hangar zones that stay in the day layer only (hidden while the arena runs).
+DAY_ONLY_ZONES = {("hangar", "day_stations")}
+
+
+def _title(text: str) -> str:
+    return "".join(part.capitalize() for part in text.split("_"))
+
+
+def zone_spec(deck: str) -> dict:
+    """Zones for the Blender export: room polygons, floor boxes and the shell origin, in metres."""
+    zones = {}
+    for doc in build_zone_docs(deck):
+        rooms, floors, zs = [], [], []
+        for room in doc["rooms"]:
+            polygon = [ue_space.location_from_ue([x, y, 0.0])[:2] for x, y in room["polygon_cm"]]
+            z = room["z_cm"] / ue_space.CM_PER_M
+            rooms.append(polygon)
+            xs = [p[0] for p in polygon]
+            ys = [p[1] for p in polygon]
+            floors.append([min(xs), min(ys), max(xs), max(ys), z])
+            zs.append(z)
+        lo, hi = doc["bounds_cm"]["min"], doc["bounds_cm"]["max"]
+        centre = ue_space.location_from_ue([(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, 0.0])
+        centre[2] = min(zs) if zs else 0.0
+        zones[doc["zone"]] = {"rooms": rooms, "floors": floors, "centre": centre}
+    return {"zones": zones, "strict": deck == "hangar"}
+
+
+def _kit_record(piece: str) -> dict | None:
+    for group in ("Architecture", "Props"):
+        path = KIT_RECORDS / group / f"{piece}.import.json"
+        if path.is_file():
+            return json.loads(path.read_text(encoding="utf-8"))
+    return None
+
+
+def _data_layer(deck: str, zone: str) -> str:
+    if (deck, zone) in DAY_ONLY_ZONES:
+        return "DL_Hangar_Day"
+    return placement.base_layer(deck)
+
+
+def geometry_placements(deck: str, result: Mapping[str, Any]) -> tuple[dict, list[str]]:
+    """Zone id -> placements from a Blender result; plus the pieces left out (no record)."""
+    per_zone: dict[str, list[dict]] = {}
+    missing: set[str] = set()
+    for item in result["placements"]:
+        record = _kit_record(item["piece"])
+        if record is None:
+            missing.add(item["piece"])
+            continue
+        station = item.get("station")
+        per_zone.setdefault(item["zone"], []).append({
+            "id": placement.sanitize_id(item["blender_name"]),
+            "piece": item["piece"],
+            "asset": record["asset_path"],
+            "location": ue_space.location_to_ue(item["location_m"]),
+            "rotation": ue_space.quat_to_ue(item["quat_wxyz"]),
+            "scale": ue_space.scale_to_ue(item["scale"]),
+            "room": item.get("room"),
+            "nav": item.get("nav") or "block",
+            "mobility": "static",
+            "data_layer": _data_layer(deck, item["zone"]),
+            "collision": record["collision"]["profile"],
+            "destructible": None,
+            "station": {"id": station, "kind": item.get("station_kind") or "unknown"}
+            if station
+            else None,
+            "owner": OWNER,
+        })
+    for shell in result["shells"]:
+        zone = shell["zone"]
+        name = shell["name"]
+        per_zone.setdefault(zone, []).append({
+            "id": f"{zone}_shell",
+            "piece": name,
+            "asset": f"/Game/Verse/Decks/{_title(deck)}/{_title(zone)}/{name}.{name}",
+            "location": ue_space.location_to_ue(shell["origin_m"]),
+            "rotation": [0.0, 0.0, 0.0, 1.0],
+            "scale": [1.0, 1.0, 1.0],
+            "room": None,
+            "nav": "walk",
+            "mobility": "static",
+            "data_layer": _data_layer(deck, zone),
+            "collision": "Verse_Architecture",
+            "destructible": None,
+            "station": None,
+            "owner": OWNER,
+        })
+    for entries in per_zone.values():
+        ids = placement.unique_ids(e["id"] for e in entries)
+        for entry, pid in zip(entries, ids, strict=True):
+            entry["id"] = pid
+    return per_zone, sorted(missing)
+
+
+def shell_record(deck: str, shell: Mapping[str, Any]) -> dict:
+    name = shell["name"]
+    zone = shell["zone"]
+    return {
+        "schema": "verse.import/1",
+        "name": name,
+        "asset_path": f"/Game/Verse/Decks/{_title(deck)}/{_title(zone)}/{name}.{name}",
+        "kind": "static_mesh",
+        "source": {
+            "builder": f"art/verse/decks/{deck}/build.py",
+            "function": "build",
+            "args": {"zone": zone},
+        },
+        "export": {
+            "format": "fbx",
+            "settings_id": shell["settings_id"],
+            "file": shell["file"],
+            "sha256": shell["sha256"],
+            "blender": shell["blender"],
+        },
+        "mesh": {
+            "triangles": shell["triangles"],
+            "vertices": shell["vertices"],
+            "bounds_cm": shell["bounds_cm"],
+            "uv_sets": shell["uv_sets"],
+            "material_slots": shell["material_slots"],
+        },
+        "nanite": {"enabled": True},
+        "collision": {
+            "profile": "Verse_Architecture",
+            "source": "authored" if shell["collision_primitives"] else "none",
+            "primitives": shell["collision_primitives"],
+        },
+        "lod": {"mode": "nanite"},
+        "lightmap": "none",
+        "license": {"kind": "own"},
+        "owner": OWNER,
+    }
+
+
+def export_geometry(deck: str) -> int:
+    """Build `deck` in headless Blender, then write its placements and shell records."""
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "verse"))
+    import blender  # noqa: PLC0415 - scripts/verse is not a package
+
+    work = GEOMETRY_CACHE / deck
+    work.mkdir(parents=True, exist_ok=True)
+    spec_path = work / "zones.json"
+    result_path = work / "result.json"
+    spec_path.write_text(json.dumps(zone_spec(deck), indent=1), encoding="utf-8")
+    result_path.unlink(missing_ok=True)
+    args = [deck, "--zones", str(spec_path), "--out", str(work), "--result", str(result_path)]
+    blender.run(BLENDER_ENTRY, args, lock=False, device="cpu", timeout=3600)
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    per_zone, missing = geometry_placements(deck, result)
+    for shell in result["shells"]:
+        record = shell_record(deck, shell)
+        triangles = record["mesh"]["triangles"]
+        if triangles > SHELL_TRIANGLE_CAP:
+            print(f"[verse] warning: {record['name']} has {triangles} triangles")
+        path = IMPORT_ROOT / "Decks" / _title(deck) / f"{record['name']}.import.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = json.dumps(record, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
+        path.write_bytes(text.encode("utf-8"))
+    for doc in build_zone_docs(deck, geometry=per_zone):
+        placement.write(zone_path(deck, doc["zone"]), doc)
+        print(f"[verse] {deck}/{doc['zone']}: {len(doc['placements'])} placements")
+    for piece in missing:
+        print(f"[verse] {deck}: {piece} left out, it has no import record (export failed)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--check", action="store_true", help="fail when a zone file is stale")
+    parser.add_argument("--geometry", metavar="DECK", help="export a deck's geometry (Blender)")
     options = parser.parse_args(argv)
+    if options.geometry:
+        return export_geometry(options.geometry)
     stale = write_all(check=options.check)
     for path in stale:
         print(f"[verse] {'stale' if options.check else 'wrote'} {path}")

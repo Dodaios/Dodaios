@@ -1,0 +1,79 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Container_M_Charcoal.SM_Hangar_Container_M_Charcoal",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Container_M_Charcoal.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "db982e5d752eb44cb33114311216c08818ef1b99e44bfd1d1cae60b660d86052"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        188.0,
+        120.0,
+        240.2
+      ],
+      "min": [
+        -180.0,
+        -120.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Crate_Paint.MI_Crate_Paint",
+        "slot": "M_Crate_Paint"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
+        "slot": "M_TMP_PropsInd_StencilRed"
+      }
+    ],
+    "triangles": 12654,
+    "uv_sets": 1,
+    "vertices": 9091
+  },
+  "name": "SM_Hangar_Container_M_Charcoal",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "code": "FLT 3307 1",
+      "depth": 2.4,
+      "height": 2.4,
+      "length": 3.6,
+      "paint": "container_charcoal"
+    },
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_container"
+  }
+}

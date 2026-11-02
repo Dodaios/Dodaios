@@ -1,0 +1,89 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_TowTug.SM_Hangar_TowTug",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_TowTug.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "770b49456c8b99c9942957b9cde313f233d8f1dab1a227c3d0a50e2e6af1f473"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        151.0,
+        99.0,
+        168.0
+      ],
+      "min": [
+        -218.0,
+        -99.0,
+        2.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerGrey.MI_TMP_PropsInd_ContainerGrey",
+        "slot": "M_TMP_PropsInd_ContainerGrey"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_GlassDark.MI_TMP_PropsInd_GlassDark",
+        "slot": "M_TMP_PropsInd_GlassDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
+        "slot": "M_Indicator_Amber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilDark.MI_TMP_PropsInd_StencilDark",
+        "slot": "M_TMP_PropsInd_StencilDark"
+      }
+    ],
+    "triangles": 4137,
+    "uv_sets": 1,
+    "vertices": 2716
+  },
+  "name": "SM_Hangar_TowTug",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_tow_tug"
+  }
+}

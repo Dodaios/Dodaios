@@ -1,0 +1,57 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Terminal_EngineeringEnd.SM_Terminal_EngineeringEnd",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Terminal_EngineeringEnd.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b4f5f26328cdcfa1eeb61d4b329ba703f49297d0306ce44cca8a4cc7092c0d0d"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        6.0,
+        46.0,
+        156.0
+      ],
+      "min": [
+        -6.0,
+        -66.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      }
+    ],
+    "triangles": 108,
+    "uv_sets": 1,
+    "vertices": 56
+  },
+  "name": "SM_Terminal_EngineeringEnd",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/engineering.py",
+    "function": "engineering_end"
+  }
+}

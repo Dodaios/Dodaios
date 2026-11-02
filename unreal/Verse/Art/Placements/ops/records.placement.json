@@ -18,7 +18,272 @@
     "version": "1"
   },
   "level": "/Game/Verse/Decks/Ops/LV_Ops",
-  "placements": [],
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Case_Display.SM_Case_Display",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_case_1",
+      "location": [
+        3810.0,
+        1140.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Case_Display",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Case_Display.SM_Case_Display",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_case_2",
+      "location": [
+        4590.0,
+        1140.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Case_Display",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Case_Display.SM_Case_Display",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_case_3",
+      "location": [
+        3810.0,
+        1620.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Case_Display",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Case_Display.SM_Case_Display",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_case_4",
+      "location": [
+        4590.0,
+        1620.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Case_Display",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Case_Display.SM_Case_Display",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_case_5",
+      "location": [
+        3810.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Case_Display",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Case_Display.SM_Case_Display",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_case_6",
+      "location": [
+        4590.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Case_Display",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lectern.SM_Lectern",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_lectern",
+      "location": [
+        4200.0,
+        760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lectern",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Records/SM_Ops_Records_Shell.SM_Ops_Records_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "records_shell",
+      "location": [
+        4200.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Ops_Records_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Board_Rank.SM_Board_Rank",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "service_record",
+      "location": [
+        4200.0,
+        200.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Board_Rank",
+      "room": "records",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": {
+        "id": "service_record",
+        "kind": "service_record"
+      }
+    }
+  ],
   "rooms": [
     {
       "id": "records",
@@ -331,7 +596,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/ops/zones.py",
-    "sha256": "76f0a5b9a7b20f69766dbd5871881b2b53fda1bd03ef3041e1f36dfa375baaf3"
+    "sha256": "f65a857c65a5e6e00a0cd1b2d76f99b88922643c3fa7c2c19395b0f34c1d2955"
   },
   "zone": "records"
 }

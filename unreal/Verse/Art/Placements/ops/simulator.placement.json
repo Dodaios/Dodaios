@@ -18,7 +18,197 @@
     "version": "1"
   },
   "level": "/Game/Verse/Decks/Ops/LV_Ops",
-  "placements": [],
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Pod_Simulator.SM_Pod_Simulator",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "sim_1",
+      "location": [
+        5700.0,
+        1020.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Pod_Simulator",
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "unknown"
+      }
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Pod_Simulator.SM_Pod_Simulator",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "sim_2",
+      "location": [
+        6100.0,
+        1020.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Pod_Simulator",
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "unknown"
+      }
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Pod_Simulator.SM_Pod_Simulator",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "sim_3",
+      "location": [
+        6500.0,
+        1020.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Pod_Simulator",
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "unknown"
+      }
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Pod_Simulator.SM_Pod_Simulator",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "sim_4",
+      "location": [
+        6900.0,
+        1020.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Pod_Simulator",
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "unknown"
+      }
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Console_Instructor.SM_Console_Instructor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "sim_instructor",
+      "location": [
+        6300.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Console_Instructor",
+      "room": "simulator",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": {
+        "id": "games",
+        "kind": "unknown"
+      }
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Shell.SM_Ops_Simulator_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "simulator_shell",
+      "location": [
+        6300.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Ops_Simulator_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
   "rooms": [
     {
       "id": "simulator",
@@ -561,7 +751,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/ops/zones.py",
-    "sha256": "76f0a5b9a7b20f69766dbd5871881b2b53fda1bd03ef3041e1f36dfa375baaf3"
+    "sha256": "f65a857c65a5e6e00a0cd1b2d76f99b88922643c3fa7c2c19395b0f34c1d2955"
   },
   "zone": "simulator"
 }

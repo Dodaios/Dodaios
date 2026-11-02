@@ -1,0 +1,73 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Eng_ValveCluster.SM_Eng_ValveCluster",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Eng_ValveCluster.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0c73085d1378cb63fe750dde1eb84e240d0032d67e5f73ff867087aa0d38cd6f"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        65.0,
+        41.0,
+        155.0
+      ],
+      "min": [
+        -60.0,
+        -40.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilAmber.MI_TMP_PropsInd_StencilAmber",
+        "slot": "M_TMP_PropsInd_StencilAmber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
+        "slot": "M_TMP_PropsInd_StencilRed"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      }
+    ],
+    "triangles": 3916,
+    "uv_sets": 1,
+    "vertices": 2036
+  },
+  "name": "SM_Eng_ValveCluster",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/engineering.py",
+    "function": "build_valve_cluster"
+  }
+}

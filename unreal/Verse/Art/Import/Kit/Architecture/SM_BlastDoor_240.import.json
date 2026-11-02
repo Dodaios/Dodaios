@@ -1,0 +1,80 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_BlastDoor_240.SM_BlastDoor_240",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_BlastDoor_240.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "cf1da611aa93288d6aaf02afd1fa7d25d2eac65ef0751aeb0192a35af79cbfe7"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        245.8,
+        15.4,
+        450.0
+      ],
+      "min": [
+        -245.8,
+        -45.0,
+        -0.4
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      }
+    ],
+    "triangles": 1102,
+    "uv_sets": 1,
+    "vertices": 720
+  },
+  "name": "SM_BlastDoor_240",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "closed": false,
+      "cut": false
+    },
+    "builder": "art/verse/kit/architecture/doors.py",
+    "function": "build_blast_door"
+  }
+}

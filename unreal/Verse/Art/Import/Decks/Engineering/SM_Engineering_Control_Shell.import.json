@@ -1,0 +1,163 @@
+{
+  "asset_path": "/Game/Verse/Decks/Engineering/Control/SM_Engineering_Control_Shell.SM_Engineering_Control_Shell",
+  "collision": {
+    "primitives": 1,
+    "profile": "Verse_Architecture",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Control_Shell.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "73763cd63870299cde117ba9e8c6e2701edb1410a40d70cf8a5fd96dc551fc0a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        1770.0,
+        3145.0,
+        458.0
+      ],
+      "min": [
+        -1330.0,
+        -1861.0,
+        -40.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_GlossBlack.MI_Floor_GlossBlack",
+        "slot": "M_Floor_GlossBlack"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Glass/MI_Glass_Viewport.MI_Glass_Viewport",
+        "slot": "M_Glass_Viewport"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Crate_Paint.MI_Crate_Paint",
+        "slot": "M_Crate_Paint"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_TrimRed.MI_Paint_TrimRed",
+        "slot": "M_Paint_TrimRed"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
+        "slot": "M_Hull_PipeInsulated"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
+        "slot": "M_Hull_Pipe"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
+        "slot": "M_Indicator_Amber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_Grating.MI_Floor_Grating",
+        "slot": "M_Floor_Grating"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_Hazard.MI_Paint_Hazard",
+        "slot": "M_Paint_Hazard"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
+        "slot": "M_Ceiling_Panel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_CeilingPanel.MI_Light_CeilingPanel",
+        "slot": "M_Light_CeilingPanel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
+        "slot": "M_Wall_Charcoal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Backlit.MI_Light_Backlit",
+        "slot": "M_Light_Backlit"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_RedTrim.MI_Light_RedTrim",
+        "slot": "M_Light_RedTrim"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Amber.MI_Light_Maint_Amber",
+        "slot": "M_Light_Maint_Amber"
+      }
+    ],
+    "triangles": 80727,
+    "uv_sets": 1,
+    "vertices": 46572
+  },
+  "name": "SM_Engineering_Control_Shell",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "control"
+    },
+    "builder": "art/verse/decks/engineering/build.py",
+    "function": "build"
+  }
+}

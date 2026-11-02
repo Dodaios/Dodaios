@@ -1,8 +1,8 @@
 {
   "bounds_cm": {
     "max": [
-      8260.0,
-      5260.0,
+      8750.0,
+      5650.0,
       900.0
     ],
     "min": [
@@ -18,7 +18,3082 @@
     "version": "1"
   },
   "level": "/Game/Verse/Decks/Engineering/LV_Engineering",
-  "placements": [],
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_ValveCluster.SM_Eng_ValveCluster",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engfit_gal_w_1",
+      "location": [
+        3442.0,
+        4920.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_ValveCluster",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071067,
+        0.7071069
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_ValveCluster.SM_Eng_ValveCluster",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engfit_galnear_0",
+      "location": [
+        3900.0,
+        4988.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_ValveCluster",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_ValveCluster.SM_Eng_ValveCluster",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engfit_galnear_3",
+      "location": [
+        5340.0,
+        4988.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_ValveCluster",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_ValveCluster.SM_Eng_ValveCluster",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engfit_galnear_6",
+      "location": [
+        6780.0,
+        4988.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_ValveCluster",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_JunctionCabinet.SM_Eng_JunctionCabinet",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalcab_00",
+      "location": [
+        3480.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_JunctionCabinet",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_JunctionCabinet.SM_Eng_JunctionCabinet",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalcab_03",
+      "location": [
+        5160.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_JunctionCabinet",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_JunctionCabinet.SM_Eng_JunctionCabinet",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalcab_08",
+      "location": [
+        7920.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_JunctionCabinet",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Gallery.SM_Eng_PowerConduit_Gallery",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_0",
+      "location": [
+        3660.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_Gallery",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_GalleryTriple.SM_Eng_PowerConduit_GalleryTriple",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_1",
+      "location": [
+        4140.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_GalleryTriple",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Gallery.SM_Eng_PowerConduit_Gallery",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_2",
+      "location": [
+        4620.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_Gallery",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Gallery.SM_Eng_PowerConduit_Gallery",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_3",
+      "location": [
+        5100.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_Gallery",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_GalleryTriple.SM_Eng_PowerConduit_GalleryTriple",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_4",
+      "location": [
+        5580.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_GalleryTriple",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Gallery.SM_Eng_PowerConduit_Gallery",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_5",
+      "location": [
+        6060.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_Gallery",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Gallery.SM_Eng_PowerConduit_Gallery",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_6",
+      "location": [
+        6540.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_Gallery",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_GalleryTriple.SM_Eng_PowerConduit_GalleryTriple",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_7",
+      "location": [
+        7020.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_GalleryTriple",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Gallery.SM_Eng_PowerConduit_Gallery",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_8",
+      "location": [
+        7500.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_Gallery",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Gallery.SM_Eng_PowerConduit_Gallery",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalconduit_9",
+      "location": [
+        7980.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_PowerConduit_Gallery",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CoolantPipes.SM_Eng_CoolantPipes",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalpipes_01",
+      "location": [
+        4380.0,
+        3915.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CoolantPipes",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CoolantPipes.SM_Eng_CoolantPipes",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalpipes_02",
+      "location": [
+        4860.0,
+        3915.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CoolantPipes",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CoolantPipes.SM_Eng_CoolantPipes",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalpipes_04",
+      "location": [
+        5820.0,
+        3915.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CoolantPipes",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CoolantPipes.SM_Eng_CoolantPipes",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalpipes_05",
+      "location": [
+        6300.0,
+        3915.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CoolantPipes",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CoolantPipes.SM_Eng_CoolantPipes",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalpipes_06",
+      "location": [
+        6780.0,
+        3915.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CoolantPipes",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CoolantPipes.SM_Eng_CoolantPipes",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggalpipes_07",
+      "location": [
+        7620.0,
+        3915.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CoolantPipes",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_00",
+      "location": [
+        3900.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_01",
+      "location": [
+        4380.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_02",
+      "location": [
+        4860.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_03",
+      "location": [
+        5340.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_04",
+      "location": [
+        5820.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_05",
+      "location": [
+        6300.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_06",
+      "location": [
+        6780.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_07",
+      "location": [
+        7260.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enggaltray_08",
+      "location": [
+        7740.0,
+        5070.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Eng_CableTray_Floor",
+      "room": "gallery",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_00_15",
+      "location": [
+        8350.0,
+        3890.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_00_16",
+      "location": [
+        8350.0,
+        4130.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_00_17",
+      "location": [
+        8350.0,
+        4370.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_00_18",
+      "location": [
+        8350.0,
+        4610.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_00_19",
+      "location": [
+        8350.0,
+        4850.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_00_20",
+      "location": [
+        8350.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_00_21",
+      "location": [
+        8350.0,
+        5330.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_01_15",
+      "location": [
+        8590.0,
+        3890.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_01_16",
+      "location": [
+        8590.0,
+        4130.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_01_17",
+      "location": [
+        8590.0,
+        4370.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_01_18",
+      "location": [
+        8590.0,
+        4610.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_01_19",
+      "location": [
+        8590.0,
+        4850.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_01_20",
+      "location": [
+        8590.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulle_01_21",
+      "location": [
+        8590.0,
+        5330.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_15_00",
+      "location": [
+        3410.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_15_01",
+      "location": [
+        3410.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_16_00",
+      "location": [
+        3650.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_16_01",
+      "location": [
+        3650.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_17_00",
+      "location": [
+        3890.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_17_01",
+      "location": [
+        3890.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_18_00",
+      "location": [
+        4130.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_18_01",
+      "location": [
+        4130.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_19_00",
+      "location": [
+        4370.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_19_01",
+      "location": [
+        4370.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_20_00",
+      "location": [
+        4610.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_20_01",
+      "location": [
+        4610.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_21_00",
+      "location": [
+        4850.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_21_01",
+      "location": [
+        4850.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_22_00",
+      "location": [
+        5090.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_22_01",
+      "location": [
+        5090.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_23_00",
+      "location": [
+        5330.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_23_01",
+      "location": [
+        5330.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_24_00",
+      "location": [
+        5570.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_24_01",
+      "location": [
+        5570.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_25_00",
+      "location": [
+        5810.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_25_01",
+      "location": [
+        5810.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_26_00",
+      "location": [
+        6050.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_26_01",
+      "location": [
+        6050.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_27_00",
+      "location": [
+        6290.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_27_01",
+      "location": [
+        6290.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_28_00",
+      "location": [
+        6530.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_28_01",
+      "location": [
+        6530.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_29_00",
+      "location": [
+        6770.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_29_01",
+      "location": [
+        6770.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_30_00",
+      "location": [
+        7010.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_30_01",
+      "location": [
+        7010.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_31_00",
+      "location": [
+        7250.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_31_01",
+      "location": [
+        7250.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_32_00",
+      "location": [
+        7490.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_32_01",
+      "location": [
+        7490.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_33_00",
+      "location": [
+        7730.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_33_01",
+      "location": [
+        7730.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_34_00",
+      "location": [
+        7970.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_34_01",
+      "location": [
+        7970.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_35_00",
+      "location": [
+        8210.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_35_01",
+      "location": [
+        8210.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_36_00",
+      "location": [
+        8450.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_36_01",
+      "location": [
+        8450.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_37_00",
+      "location": [
+        8690.0,
+        5350.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "enghulls_37_01",
+      "location": [
+        8690.0,
+        5590.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_480_Cut.SM_Wall_480_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_00",
+      "location": [
+        3540.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_480_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_480_Cut.SM_Wall_480_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_02",
+      "location": [
+        4380.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_480_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_480_Cut.SM_Wall_480_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_03",
+      "location": [
+        4860.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_480_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_120_Cut.SM_Wall_120_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_04",
+      "location": [
+        5160.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_120_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_480_Cut.SM_Wall_480_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_06",
+      "location": [
+        5820.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_480_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_480_Cut.SM_Wall_480_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_07",
+      "location": [
+        6300.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_480_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_480_Cut.SM_Wall_480_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_08",
+      "location": [
+        6780.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_480_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_480_Cut.SM_Wall_480_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_10",
+      "location": [
+        7620.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_480_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_240_Cut.SM_Wall_240_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_11",
+      "location": [
+        7980.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_240_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Wall_120_Cut.SM_Wall_120_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "engwallgaln_12",
+      "location": [
+        8160.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Wall_120_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_BlastDoor_240_Cut.SM_BlastDoor_240_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "gallery_1",
+      "location": [
+        3960.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_BlastDoor_240_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_BlastDoor_240_Cut.SM_BlastDoor_240_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "gallery_2",
+      "location": [
+        5400.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_BlastDoor_240_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_BlastDoor_240_Cut.SM_BlastDoor_240_Cut",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "gallery_3",
+      "location": [
+        7200.0,
+        3840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_BlastDoor_240_Cut",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Gallery/SM_Engineering_Gallery_Shell.SM_Engineering_Gallery_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "gallery_shell",
+      "location": [
+        5995.0,
+        4715.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Gallery_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
   "rooms": [
     {
       "id": "gallery",
@@ -282,7 +3357,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/engineering/zones.py",
-    "sha256": "c17b309e2d639181442a01e49c048bc9a9ea3bf1579cf2c0eb0601c1fb373981"
+    "sha256": "b22d2151dca1e9efc5171640ada7b1164a718b36d9856c2296639bb4718d3985"
   },
   "zone": "gallery"
 }

@@ -18,7 +18,69 @@
     "version": "1"
   },
   "level": "/Game/Verse/Decks/Hangar/LV_Hangar",
-  "placements": [],
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Counter_Arrivals.SM_Counter_Arrivals",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Hangar_Day",
+      "destructible": null,
+      "id": "arrivals",
+      "location": [
+        5000.0,
+        5090.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Counter_Arrivals",
+      "room": "arrivals",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": {
+        "id": "arrivals",
+        "kind": "create_agent"
+      }
+    },
+    {
+      "asset": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Shell.SM_Hangar_DayStations_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Hangar_Day",
+      "destructible": null,
+      "id": "day_stations_shell",
+      "location": [
+        5100.0,
+        5380.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Hangar_DayStations_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
   "rooms": [
     {
       "id": "arrivals",
@@ -141,7 +203,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/hangar/zones/day_stations.py",
-    "sha256": "ab837df3948022be3ef6aa1a8d1c64e97e48b7390dcc9ed9b19cc9b357592dd1"
+    "sha256": "1644e19cadd477ec58b74f9e383b2f847ffe6f3e75fe787ecfbe47e9b63fbff5"
   },
   "zone": "day_stations"
 }

@@ -1,0 +1,91 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Eng_WallMachinery_B.SM_Eng_WallMachinery_B",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Eng_WallMachinery_B.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "4c87b0a1f58a55365c35577dee739f2030a305a26377413373af3cc8f3676475"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        260.0,
+        165.0,
+        720.0
+      ],
+      "min": [
+        -260.0,
+        0.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerGrey.MI_TMP_PropsInd_ContainerGrey",
+        "slot": "M_TMP_PropsInd_ContainerGrey"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
+        "slot": "M_TMP_PropsInd_StencilRed"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
+        "slot": "M_Indicator_Amber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_LampDim.MI_TMP_PropsInd_LampDim",
+        "slot": "M_TMP_PropsInd_LampDim"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilDark.MI_TMP_PropsInd_StencilDark",
+        "slot": "M_TMP_PropsInd_StencilDark"
+      }
+    ],
+    "triangles": 14781,
+    "uv_sets": 1,
+    "vertices": 7759
+  },
+  "name": "SM_Eng_WallMachinery_B",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "variant": "B"
+    },
+    "builder": "art/verse/kit/props/industrial/engineering.py",
+    "function": "build_wall_machinery"
+  }
+}

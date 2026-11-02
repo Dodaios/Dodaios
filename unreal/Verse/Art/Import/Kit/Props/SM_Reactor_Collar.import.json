@@ -1,0 +1,81 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Reactor_Collar.SM_Reactor_Collar",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Reactor_Collar.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "8381bf93faf292fa7ff0688f8ef2dcd721b9b7eb4c0fe54e4112e8ab10f31d76"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        1580.0,
+        1580.0,
+        12.1
+      ],
+      "min": [
+        -1580.0,
+        -1580.0,
+        -120.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_SatinDark.MI_Floor_SatinDark",
+        "slot": "M_Floor_SatinDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_Tread.MI_TMP_PropsInd_Tread",
+        "slot": "M_TMP_PropsInd_Tread"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_LampDim.MI_TMP_PropsInd_LampDim",
+        "slot": "M_TMP_PropsInd_LampDim"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Hazard.MI_Deck_Hazard",
+        "slot": "M_Deck_Hazard"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      }
+    ],
+    "triangles": 23032,
+    "uv_sets": 1,
+    "vertices": 13056
+  },
+  "name": "SM_Reactor_Collar",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/reactor.py",
+    "function": "build_collar"
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Bunk_Double.SM_Bunk_Double",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Bunk_Double.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "d5149e223e2f90282e620f528ef0fa1f70f331b81969e0806f71ba879cb34408"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        136.5,
+        50.2,
+        204.0
+      ],
+      "min": [
+        -136.5,
+        -50.2,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Deck.MI_Console_Deck",
+        "slot": "M_Console_Deck"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Fabric_BunkGrey.MI_Fabric_BunkGrey",
+        "slot": "M_Fabric_BunkGrey"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Default.MI_Default",
+        "slot": "TMP_M_Fabric_BlanketSlate"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Default.MI_Default",
+        "slot": "TMP_M_Fabric_Linen"
+      }
+    ],
+    "triangles": 7220,
+    "uv_sets": 1,
+    "vertices": 3778
+  },
+  "name": "SM_Bunk_Double",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/crew.py",
+    "function": "bunk_double"
+  }
+}

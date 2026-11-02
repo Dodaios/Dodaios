@@ -1,0 +1,89 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Bunk_Single.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "28c491b535ce41122914a35086da6f913f0822c2e8d8503a225d87023c9bfefd"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        64.5,
+        128.5,
+        160.0
+      ],
+      "min": [
+        -64.5,
+        -128.5,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Fabric_BunkGrey.MI_Fabric_BunkGrey",
+        "slot": "M_Fabric_BunkGrey"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Default.MI_Default",
+        "slot": "TMP_M_Fabric_BlanketSlate"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Default.MI_Default",
+        "slot": "TMP_M_Fabric_Linen"
+      }
+    ],
+    "triangles": 3832,
+    "uv_sets": 1,
+    "vertices": 1952
+  },
+  "name": "SM_Bunk_Single",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/crew.py",
+    "function": "bunk_single"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Container_S_Grey.SM_Hangar_Container_S_Grey",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Container_S_Grey.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "3055aba387945a42b954cf1da275658455e96a7e0bcab0eb874d827ff6e03f9f"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        128.0,
+        80.0,
+        160.2
+      ],
+      "min": [
+        -120.0,
+        -80.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerGrey.MI_TMP_PropsInd_ContainerGrey",
+        "slot": "M_TMP_PropsInd_ContainerGrey"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
+        "slot": "M_TMP_PropsInd_StencilRed"
+      }
+    ],
+    "triangles": 9623,
+    "uv_sets": 1,
+    "vertices": 6291
+  },
+  "name": "SM_Hangar_Container_S_Grey",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "code": "SPR 48",
+      "depth": 1.6,
+      "height": 1.6,
+      "length": 2.4,
+      "paint": "container_grey"
+    },
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_container"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Marking_LaneDashed.SM_Hangar_Marking_LaneDashed",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Marking_LaneDashed.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b5387a9655c76c90bb88be9e1f8fb00e0db6f66d7b95e72bae86dc13f64a1d64"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        480.0,
+        7.5,
+        0.15
+      ],
+      "min": [
+        -600.0,
+        -7.5,
+        0.15
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      }
+    ],
+    "triangles": 10,
+    "uv_sets": 1,
+    "vertices": 20
+  },
+  "name": "SM_Hangar_Marking_LaneDashed",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_marking_lane"
+  }
+}

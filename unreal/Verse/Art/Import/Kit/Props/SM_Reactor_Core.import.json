@@ -1,0 +1,73 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Reactor_Core.SM_Reactor_Core",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Reactor_Core.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "5b9ba16a4262acc1a21ee164d06f4d30bd8b7c6b3c6d6056d1fb54def693a176"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        375.0,
+        375.0,
+        320.0
+      ],
+      "min": [
+        -375.0,
+        -375.0,
+        -6400.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_CoreHot.MI_TMP_PropsInd_CoreHot",
+        "slot": "M_TMP_PropsInd_CoreHot"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
+        "slot": "M_Indicator_Amber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      }
+    ],
+    "triangles": 122640,
+    "uv_sets": 1,
+    "vertices": 62105
+  },
+  "name": "SM_Reactor_Core",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/reactor.py",
+    "function": "build_core"
+  }
+}

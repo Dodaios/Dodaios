@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_LandingPad.SM_Hangar_LandingPad",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_LandingPad.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "9a62d4ea7dcbc45820ee5ef9db30a43d49f62fefeeaa785bda33b3eff9de3937"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        700.0,
+        700.0,
+        4.0
+      ],
+      "min": [
+        -700.0,
+        -700.0,
+        -5.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_GlossBlack.MI_Floor_GlossBlack",
+        "slot": "M_Floor_GlossBlack"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_Tread.MI_TMP_PropsInd_Tread",
+        "slot": "M_TMP_PropsInd_Tread"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_WallStrip.MI_Light_WallStrip",
+        "slot": "M_Light_WallStrip"
+      }
+    ],
+    "triangles": 9744,
+    "uv_sets": 1,
+    "vertices": 4898
+  },
+  "name": "SM_Hangar_LandingPad",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar_service.py",
+    "function": "build_landing_pad"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Reactor_Haze.SM_Reactor_Haze",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Reactor_Haze.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "93a2955a46094b0041a810faa3d76f7c0f03fa05496095ddca7a856c5994c1a9"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        1380.0,
+        1380.0,
+        -60.0
+      ],
+      "min": [
+        -1380.0,
+        -1380.0,
+        -6400.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_Haze.MI_TMP_PropsInd_Haze",
+        "slot": "M_TMP_PropsInd_Haze"
+      }
+    ],
+    "triangles": 188,
+    "uv_sets": 1,
+    "vertices": 96
+  },
+  "name": "SM_Reactor_Haze",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/reactor.py",
+    "function": "build_haze"
+  }
+}

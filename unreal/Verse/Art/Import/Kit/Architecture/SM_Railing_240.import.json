@@ -1,0 +1,63 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_Railing_240.SM_Railing_240",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Railing_240.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "e93ab26d689881366833bd0e28b5a9f668ae0b71085f857494e959d9b44d6434"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        120.0,
+        6.0,
+        102.4
+      ],
+      "min": [
+        -120.0,
+        -6.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      }
+    ],
+    "triangles": 536,
+    "uv_sets": 1,
+    "vertices": 280
+  },
+  "name": "SM_Railing_240",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "length": 2.4
+    },
+    "builder": "art/verse/kit/architecture/structure.py",
+    "function": "build_railing"
+  }
+}

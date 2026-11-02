@@ -1,0 +1,57 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Marking_Hatch.SM_Hangar_Marking_Hatch",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Marking_Hatch.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "15ffeb23a2538720c481880fa8c21980201d71124dbdd18e20b27ac2dc7f4685"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        247.5,
+        127.5,
+        0.15
+      ],
+      "min": [
+        -247.5,
+        -127.5,
+        0.15
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
+        "slot": "M_TMP_PropsInd_StencilRed"
+      }
+    ],
+    "triangles": 30,
+    "uv_sets": 1,
+    "vertices": 60
+  },
+  "name": "SM_Hangar_Marking_Hatch",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_marking_hatch"
+  }
+}

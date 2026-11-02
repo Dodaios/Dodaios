@@ -1,0 +1,81 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_PortalGantry.SM_Hangar_PortalGantry",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_PortalGantry.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "dc2f092e7297fb49a068f837620bfc5530c7d84ef64e8e7e6f43fadc72978e1a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        860.0,
+        181.0,
+        1100.0
+      ],
+      "min": [
+        -860.0,
+        -181.0,
+        4.395
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerGrey.MI_TMP_PropsInd_ContainerGrey",
+        "slot": "M_TMP_PropsInd_ContainerGrey"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Hazard.MI_Deck_Hazard",
+        "slot": "M_Deck_Hazard"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_GlassDark.MI_TMP_PropsInd_GlassDark",
+        "slot": "M_TMP_PropsInd_GlassDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
+        "slot": "M_Indicator_Amber"
+      }
+    ],
+    "triangles": 5456,
+    "uv_sets": 1,
+    "vertices": 3156
+  },
+  "name": "SM_Hangar_PortalGantry",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar_service.py",
+    "function": "build_portal_gantry"
+  }
+}

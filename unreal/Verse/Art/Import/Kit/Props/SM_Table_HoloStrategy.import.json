@@ -1,0 +1,97 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Table_HoloStrategy.SM_Table_HoloStrategy",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Table_HoloStrategy.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b933cba7ce78366aed993ed5e8b2969f07a68aabd25252ba3ec1c3b64158565b"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        180.0,
+        180.0,
+        97.5
+      ],
+      "min": [
+        -180.0,
+        -180.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Lacquer_BlackGloss.MI_Lacquer_BlackGloss",
+        "slot": "M_Lacquer_BlackGloss"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_LampOff.MI_Plastic_LampOff",
+        "slot": "M_Plastic_LampOff"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Default.MI_Default",
+        "slot": "TMP_M_Glass_HoloLens"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Blue.MI_Indicator_Blue",
+        "slot": "M_Indicator_Blue"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      }
+    ],
+    "triangles": 26320,
+    "uv_sets": 1,
+    "vertices": 13660
+  },
+  "name": "SM_Table_HoloStrategy",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/tables.py",
+    "function": "holo_strategy_table"
+  }
+}
