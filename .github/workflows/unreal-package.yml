@@ -11,14 +11,21 @@
 #                  existing SignPath signing path (docs/code-signing-policy.md)
 #                  and verifies the Authenticode signature before the signed
 #                  files replace the unsigned ones.
-#   assemble       GitHub-hosted: full payload tar per platform plus the
-#                  delta from the previous release (package.py full / delta).
-#   sign-manifest  GitHub-hosted, release-signing environment: digests of
-#                  every Verse asset (verse-SHA256SUMS.txt) and the release
-#                  key's signature over them (verse-update-manifest.json.sig),
-#                  the same Ed25519 key and format the in-app updater pins.
+#   assemble       GitHub-hosted: full package tar per platform, the delta
+#                  from the previous release and the per-platform release
+#                  manifest (package.py full / delta / manifest).
+#   sign-manifest  GitHub-hosted, release-signing environment: the release
+#                  key's Ed25519 signature over each verse-<Platform>-manifest.json
+#                  (version, sizes, SHA-256 of every package), the same key
+#                  the in-app updater pins, plus verse-SHA256SUMS.txt for
+#                  checking by hand.
 #   release        attaches the Verse assets to the tag's release, never
 #                  replacing an existing asset.
+#
+# The Verse is an optional download (docs/verse/unreal/README.md, Delivery):
+# these assets sit on the release beside the installers but no installer,
+# app update or source archive carries them. The app fetches them only when
+# the user presses "Download the Verse" (dodaios/verse_host/install).
 #   linux-smoke    nightly, self-hosted: Linux Development package and the
 #                  60 s container smoke (package.py linux-smoke).
 #
@@ -269,6 +276,19 @@ jobs:
             --version "${{ steps.full.outputs.version }}" \
             --out "verse/Verse-${{ matrix.platform }}-${old_version}-to-${{ steps.full.outputs.version }}.delta.tar"
 
+      - name: Release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.full.outputs.version }}"
+          args=()
+          for delta in verse/Verse-${{ matrix.platform }}-*-to-"${version}".delta.tar; do
+            if [ -f "${delta}" ]; then args+=(--delta "${delta}"); fi
+          done
+          python scripts/unreal/package.py manifest \
+            --full "verse/Verse-${{ matrix.platform }}-${version}.tar" "${args[@]}" \
+            --tag "v${version}" --out "verse/verse-${{ matrix.platform }}-manifest.json"
+
       - name: Upload the Verse assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -305,18 +325,22 @@ jobs:
           path: verse
           merge-multiple: true
 
-      - name: Write verse-SHA256SUMS.txt and verse-update-manifest.json
+      - name: Check every manifest names this tag, write verse-SHA256SUMS.txt
         shell: bash
         run: |
           set -euo pipefail
+          for manifest in verse/verse-*-manifest.json; do
+            tag="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag"])' "${manifest}")"
+            if [ "${tag}" != "${GITHUB_REF_NAME}" ]; then
+              echo "::error::${manifest} names ${tag}, not ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+          done
           cd verse
-          sha256sum Verse-*.tar > verse-SHA256SUMS.txt
+          sha256sum Verse-*.tar verse-*-manifest.json > verse-SHA256SUMS.txt
           cat verse-SHA256SUMS.txt
-          cd ..
-          python scripts/ci/update_manifest.py build --tag "$GITHUB_REF_NAME" \
-            --checksums verse/verse-SHA256SUMS.txt --out verse/verse-update-manifest.json
 
-      - name: Sign the manifest with the release key
+      - name: Sign every manifest with the release key
         env:
           WAVE2_OFFLINE_KEY_B64: ${{ secrets.WAVE2_OFFLINE_KEY_B64 }}
         shell: bash
@@ -334,20 +358,26 @@ jobs:
             echo "::error::WAVE2_OFFLINE_KEY_B64 does not decode to a PEM private key"
             exit 1
           fi
-          openssl pkeyutl -sign -inkey "$key" -rawin -in verse/verse-update-manifest.json \
-            -out "${RUNNER_TEMP}/verse-manifest.sig.raw"
-          base64 -w0 "${RUNNER_TEMP}/verse-manifest.sig.raw" > verse/verse-update-manifest.json.sig
-          echo "Signed verse-update-manifest.json (key contents not logged)."
+          for manifest in verse/verse-*-manifest.json; do
+            openssl pkeyutl -sign -inkey "$key" -rawin -in "${manifest}" \
+              -out "${RUNNER_TEMP}/verse-manifest.sig.raw"
+            base64 -w0 "${RUNNER_TEMP}/verse-manifest.sig.raw" > "${manifest}.sig"
+            echo "Signed ${manifest} (key contents not logged)."
+          done
 
-      - name: Verify the signature against the pinned public key
+      - name: Verify every signature against the pinned public key
         shell: bash
         run: |
           set -euo pipefail
-          base64 -d verse/verse-update-manifest.json.sig > "${RUNNER_TEMP}/check.sig.raw"
-          openssl pkeyutl -verify -pubin -inkey install/keys/offline-ceremony.pub -rawin \
-            -in verse/verse-update-manifest.json -sigfile "${RUNNER_TEMP}/check.sig.raw"
-          python scripts/ci/update_manifest.py check --tag "$GITHUB_REF_NAME" \
-            --checksums verse/verse-SHA256SUMS.txt --manifest verse/verse-update-manifest.json
+          python -m pip install --quiet cryptography
+          for manifest in verse/verse-*-manifest.json; do
+            base64 -d "${manifest}.sig" > "${RUNNER_TEMP}/check.sig.raw"
+            openssl pkeyutl -verify -pubin -inkey install/keys/offline-ceremony.pub -rawin \
+              -in "${manifest}" -sigfile "${RUNNER_TEMP}/check.sig.raw"
+            platform="$(basename "${manifest}" | sed -E 's/^verse-(.*)-manifest\.json$/\1/')"
+            python -c 'import pathlib,sys; from dodaios.verse_host.install.manifest import verify_release_manifest as v; m=pathlib.Path(sys.argv[1]); v(m.read_bytes(), pathlib.Path(sys.argv[1]+".sig").read_text(), platform=sys.argv[2], tag=sys.argv[3]); print("verified", m.name)' \
+              "${manifest}" "${platform}" "${GITHUB_REF_NAME}"
+          done
 
       - name: Upload the signed manifest
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -355,8 +385,7 @@ jobs:
           name: verse-manifest
           path: |
             verse/verse-SHA256SUMS.txt
-            verse/verse-update-manifest.json
-            verse/verse-update-manifest.json.sig
+            verse/verse-*-manifest.json.sig
           if-no-files-found: error
           retention-days: 14
 
@@ -392,14 +421,14 @@ jobs:
           cd verse
           sha256sum -c verse-SHA256SUMS.txt
           existing="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
-          for file in Verse-*.tar verse-SHA256SUMS.txt verse-update-manifest.json verse-update-manifest.json.sig; do
+          for file in Verse-*.tar verse-*-manifest.json verse-*-manifest.json.sig verse-SHA256SUMS.txt; do
             if printf '%s\n' "${existing}" | grep -qx "${file}"; then
               echo "::error::${file} is already on the release; refusing to replace it"
               exit 1
             fi
           done
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-            Verse-*.tar verse-SHA256SUMS.txt verse-update-manifest.json verse-update-manifest.json.sig
+            Verse-*.tar verse-*-manifest.json verse-*-manifest.json.sig verse-SHA256SUMS.txt
 
   linux-smoke:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.smoke_only)

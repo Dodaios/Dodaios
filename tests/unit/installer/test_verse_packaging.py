@@ -373,7 +373,7 @@ def test_linux_smoke_scripts_parse_under_bash() -> None:
     bash = shutil.which("bash")
     if bash is None:
         pytest.skip("no bash")
-    for script in ("linux_smoke.sh", "stage_verse.sh"):
+    for script in ("linux_smoke.sh",):
         path = REPO / "packaging/linux/verse" / script
         assert subprocess.run([bash, "-n", str(path)], check=False).returncode == 0
 
@@ -537,43 +537,52 @@ def test_workflow_policy_check_stays_green() -> None:
     assert findings == []
 
 
-# --------------------------------------------------- 22.6 installer staging
-def test_stage_scripts_reject_a_wrong_payload_name(tmp_path: Path) -> None:
-    bash = shutil.which("bash")
-    if bash is None:
-        pytest.skip("no bash")
-    script = REPO / "packaging/linux/verse/stage_verse.sh"
-    bad = subprocess.run(
-        [bash, str(script), str(tmp_path / "Verse-Win64-1.0.0.tar"), str(tmp_path)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert bad.returncode == 2 and "not a Linux Verse payload" in bad.stderr
+# ------------------------------------------- 22.5 the signed release manifest
+def test_manifest_command_names_sizes_hashes_and_deltas(tmp_path: Path) -> None:
+    from dodaios.verse_host.install import manifest as vm
+    from dodaios.verse_host.install import payload as vp
+
+    old = tmp_path / "old"
+    old.mkdir()
+    (old / "Verse.sh").write_bytes(b"#!/bin/sh\n")
+    (old / "deck.ucas").write_bytes(b"a" * 500)
+    old_full = tmp_path / "Verse-Linux-4.2.0.tar"
+    package.make_full(old, version="4.2.0", platform="Linux", out=old_full)
+    new = tmp_path / "new"
+    new.mkdir()
+    (new / "Verse.sh").write_bytes(b"#!/bin/sh\n")
+    (new / "deck.ucas").write_bytes(b"b" * 600)
+    full = tmp_path / "Verse-Linux-4.2.1.tar"
+    package.make_full(new, version="4.2.1", platform="Linux", out=full)
+    delta = tmp_path / "Verse-Linux-4.2.0-to-4.2.1.delta.tar"
+    package.make_delta(package.read_payload_tree(old_full), new, version="4.2.1", out=delta)
+
+    out = tmp_path / "verse-Linux-manifest.json"
+    code = package.main(["manifest", "--full", str(full), "--delta", str(delta), "--tag", "v4.2.1"])
+    assert code == 0
+    parsed = vm.parse_release_manifest(out.read_bytes())
+    assert parsed.version == "4.2.1" and parsed.platform == "Linux"
+    assert parsed.entry == "Verse.sh"
+    assert parsed.full.size == full.stat().st_size
+    assert parsed.full.sha256 == vp.sha256_file(full)
+    assert parsed.install_bytes == 600 + len(b"#!/bin/sh\n")
+    assert parsed.tree_sha256 == vp.tree_digest(vp.read_package_tree(full))
+    (ref,) = parsed.deltas
+    assert ref.from_version == "4.2.0" and ref.sha256 == vp.sha256_file(delta)
+    assert ref.from_tree_sha256 == vp.tree_digest(package.read_payload_tree(old_full))
+    # Canonical bytes: what the release key signs is stable.
+    assert out.read_bytes() == package.make_release_manifest(full, [delta], tag="v4.2.1")
 
 
-def test_stage_script_copies_a_linux_payload(tmp_path: Path) -> None:
-    bash = shutil.which("bash")
-    if bash is None or shutil.which("tar") is None:
-        pytest.skip("no bash or tar")
+def test_manifest_command_refuses_a_misnamed_package_or_tag(tmp_path: Path) -> None:
     stage = tmp_path / "stage"
     stage.mkdir()
-    (stage / "Verse.sh").write_bytes(b"#!/bin/sh\n")
-    payload = tmp_path / "Verse-Linux-4.2.0.tar"
-    package.make_full(stage, version="4.2.0", platform="Linux", out=payload)
-    freeze = tmp_path / "Jarvis"
-    freeze.mkdir()
-    done = subprocess.run(
-        [
-            bash,
-            str(REPO / "packaging/linux/verse/stage_verse.sh"),
-            payload.name,  # relative: GNU tar reads "C:/..." as a remote host
-            freeze.name,
-        ],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert done.returncode == 0, done.stderr
-    assert (freeze / "verse" / payload.name).read_bytes() == payload.read_bytes()
+    (stage / "Verse.exe").write_bytes(b"x")
+    wrong = tmp_path / "verse.tar"
+    package.make_full(stage, version="4.2.0", platform="Win64", out=wrong)
+    with pytest.raises(common.UnrealScriptError, match="should be named"):
+        package.make_release_manifest(wrong, [], tag="v4.2.0")
+    right = tmp_path / "Verse-Win64-4.2.0.tar"
+    package.make_full(stage, version="4.2.0", platform="Win64", out=right)
+    with pytest.raises(Exception, match="does not match version"):
+        package.make_release_manifest(right, [], tag="v4.3.0")

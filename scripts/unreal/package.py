@@ -12,6 +12,7 @@ outside it.
     python scripts/unreal/package.py pso --platform win64 --collected DIR
     python scripts/unreal/package.py full --stage DIR --version 4.2.0 --platform Win64 --out F
     python scripts/unreal/package.py delta --old OLD.tar --stage DIR --version 4.2.1 --out F
+    python scripts/unreal/package.py manifest --full F [--delta D ...] --tag v4.2.1 [--out F]
     python scripts/unreal/package.py apply --root DIR (--full F | --delta F) [--log F]
     python scripts/unreal/package.py cold-start --platform win64
     python scripts/unreal/package.py linux-smoke [--seconds 60]
@@ -41,7 +42,9 @@ from typing import Any
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from dodaios.core import installer_update as verse_update
+from dodaios.verse_host.install import layout as verse_layout
+from dodaios.verse_host.install import manifest as verse_manifest
+from dodaios.verse_host.install import payload as verse_payload
 from scripts.unreal import _common as common
 from scripts.unreal import with_lock
 
@@ -552,12 +555,18 @@ def _json_bytes(data: Any) -> bytes:
     return (json.dumps(data, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
-def make_full(stage: Path, *, version: str, platform: str, out: Path) -> dict[str, Any]:
-    """A full payload tar of a staged build (uncompressed: IoStore is compressed already)."""
-    tree = verse_update.build_verse_tree(stage, version=version, platform=platform)
+def make_full(
+    stage: Path, *, version: str, platform: str, out: Path, entry: str | None = None
+) -> dict[str, Any]:
+    """A full package tar of a staged build (uncompressed: IoStore is compressed already).
+
+    ``entry`` is the file the app launches; by default the platform's Unreal
+    launcher (``Verse.exe`` / ``Verse.sh``).
+    """
+    tree = verse_payload.build_tree(stage, version=version, platform=platform, entry=entry)
     out.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(out, "w", format=tarfile.PAX_FORMAT) as archive:
-        _add_bytes(archive, verse_update.VERSE_TREE_FILE, _json_bytes(tree))
+        _add_bytes(archive, verse_payload.VERSE_TREE_FILE, _json_bytes(tree))
         for rel in tree["files"]:
             _add_file(archive, f"files/{rel}", stage / rel)
     return {
@@ -571,15 +580,8 @@ def make_full(stage: Path, *, version: str, platform: str, out: Path) -> dict[st
 
 
 def read_payload_tree(source: Path) -> dict[str, Any]:
-    """The tree of a previous version: a full payload tar or an installed version folder."""
-    if source.is_dir():
-        return json.loads((source / verse_update.VERSE_TREE_FILE).read_text(encoding="utf-8"))
-    with tarfile.open(source, "r:") as archive:
-        member = archive.getmember(verse_update.VERSE_TREE_FILE)
-        handle = archive.extractfile(member)
-        if handle is None:
-            raise common.UnrealScriptError(f"{source} has no {verse_update.VERSE_TREE_FILE}")
-        return json.loads(handle.read().decode("utf-8"))
+    """The tree of a previous version: a full package tar or an installed version folder."""
+    return verse_payload.read_package_tree(source)
 
 
 def make_delta(
@@ -589,10 +591,11 @@ def make_delta(
     version: str,
     out: Path,
     typical_max_bytes: int = 300 * MB,
+    entry: str | None = None,
 ) -> dict[str, Any]:
     """A delta tar from ``old_tree`` to the staged build: only changed or new files."""
     platform = str(old_tree["platform"])
-    tree = verse_update.build_verse_tree(stage, version=version, platform=platform)
+    tree = verse_payload.build_tree(stage, version=version, platform=platform, entry=entry)
     old_files = old_tree["files"]
     changed = [
         rel
@@ -602,19 +605,19 @@ def make_delta(
     reuse = [rel for rel in tree["files"] if rel not in set(changed)]
     removed = sorted(set(old_files) - set(tree["files"]))
     header = {
-        "schema": verse_update.VERSE_DELTA_SCHEMA,
+        "schema": verse_payload.VERSE_DELTA_SCHEMA,
         "platform": platform,
         "from": old_tree["version"],
         "to": tree["version"],
-        "from_tree_sha256": verse_update.verse_tree_digest(dict(old_tree)),
+        "from_tree_sha256": verse_payload.tree_digest(dict(old_tree)),
         "files": changed,
         "reuse": reuse,
         "removed": removed,
     }
     out.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(out, "w", format=tarfile.PAX_FORMAT) as archive:
-        _add_bytes(archive, verse_update.VERSE_DELTA_FILE, _json_bytes(header))
-        _add_bytes(archive, verse_update.VERSE_TREE_FILE, _json_bytes(tree))
+        _add_bytes(archive, verse_payload.VERSE_DELTA_FILE, _json_bytes(header))
+        _add_bytes(archive, verse_payload.VERSE_TREE_FILE, _json_bytes(tree))
         for rel in changed:
             _add_file(archive, f"files/{rel}", stage / rel)
     size = out.stat().st_size
@@ -663,20 +666,20 @@ def cmd_delta(options: argparse.Namespace) -> int:
 def cmd_apply(options: argparse.Namespace) -> int:
     root = options.root
     started = time.monotonic()
-    entry: dict[str, Any] = {"root": str(root), "before": verse_update.verse_current(root)}
+    entry: dict[str, Any] = {"root": str(root), "before": verse_layout.read_current(root)}
     try:
         if options.full:
-            entry["result"] = verse_update.install_verse_full(root, options.full)
+            entry["result"] = verse_payload.install_full(root, options.full)
         else:
-            entry["result"] = verse_update.apply_verse_delta(root, options.delta)
+            entry["result"] = verse_payload.apply_delta(root, options.delta)
         entry["status"] = "applied"
-    except verse_update.VerseUpdateError as exc:
+    except verse_layout.VerseInstallError as exc:
         entry["status"] = "rolled_back"
         entry["error"] = str(exc)
-    entry["after"] = verse_update.verse_current(root)
+    entry["after"] = verse_layout.read_current(root)
     after = entry["after"]
     entry["verify_problems"] = (
-        verse_update.verify_verse_tree(verse_update.verse_version_dir(root, after["version"]))
+        verse_payload.verify_tree(verse_layout.version_dir(root, after["version"]))
         if after
         else ["nothing installed"]
     )
@@ -686,6 +689,66 @@ def cmd_apply(options: argparse.Namespace) -> int:
             handle.write(json.dumps(entry, sort_keys=True) + "\n")
     print(json.dumps(entry, indent=2, sort_keys=True))
     return 0 if entry["status"] == "applied" and not entry["verify_problems"] else 1
+
+
+def _delta_header(delta: Path) -> dict[str, Any]:
+    with tarfile.open(delta, "r:") as archive:
+        handle = archive.extractfile(archive.getmember(verse_payload.VERSE_DELTA_FILE))
+        if handle is None:
+            raise common.UnrealScriptError(f"{delta} has no {verse_payload.VERSE_DELTA_FILE}")
+        return json.loads(handle.read().decode("utf-8"))
+
+
+def make_release_manifest(full: Path, deltas: Sequence[Path], *, tag: str) -> bytes:
+    """The per-platform release manifest (22.5) the release key signs (22.8).
+
+    Names the version, the full package's size and SHA-256, the unpacked size,
+    the digest of the package's file list and every delta with the build it
+    starts from, so the app can show the size and check everything it fetches.
+    """
+    tree = verse_payload.read_package_tree(full)
+    platform = str(tree["platform"])
+    version = str(tree["version"])
+    expected_full = verse_manifest.full_asset_name(platform, version)
+    if full.name != expected_full:
+        raise common.UnrealScriptError(f"{full.name} should be named {expected_full}")
+    delta_refs = []
+    for delta in deltas:
+        header = _delta_header(delta)
+        if header.get("to") != version or header.get("platform") != platform:
+            raise common.UnrealScriptError(f"{delta.name} does not lead to {platform} {version}")
+        delta_refs.append(
+            {
+                "name": delta.name,
+                "from": header["from"],
+                "from_tree_sha256": header["from_tree_sha256"],
+                "size": delta.stat().st_size,
+                "sha256": verse_payload.sha256_file(delta),
+            }
+        )
+    return verse_manifest.build_release_manifest(
+        version=version,
+        tag=tag,
+        platform=platform,
+        entry=tree.get("entry"),
+        install_bytes=sum(int(f["size"]) for f in tree["files"].values()),
+        tree_sha256=verse_payload.tree_digest(tree),
+        full={
+            "name": full.name,
+            "size": full.stat().st_size,
+            "sha256": verse_payload.sha256_file(full),
+        },
+        deltas=delta_refs,
+    )
+
+
+def cmd_manifest(options: argparse.Namespace) -> int:
+    data = make_release_manifest(options.full, options.delta or [], tag=options.tag)
+    platform = verse_manifest.parse_release_manifest(data).platform
+    out = options.out or options.full.with_name(verse_manifest.manifest_asset_name(platform))
+    out.write_bytes(data)
+    print(json.dumps({"manifest": str(out), **json.loads(data)}, indent=2))
+    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -1257,6 +1320,13 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--out", type=Path, required=True)
     p.set_defaults(func=cmd_delta)
 
+    p = sub.add_parser("manifest", help="per-platform release manifest the release key signs")
+    p.add_argument("--full", type=Path, required=True)
+    p.add_argument("--delta", type=Path, action="append")
+    p.add_argument("--tag", required=True)
+    p.add_argument("--out", type=Path)
+    p.set_defaults(func=cmd_manifest)
+
     p = sub.add_parser("apply", help="install a full payload or apply a delta")
     p.add_argument("--root", type=Path, required=True)
     group = p.add_mutually_exclusive_group(required=True)
@@ -1282,7 +1352,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     options = parser().parse_args(argv)
     try:
         return int(options.func(options))
-    except (common.UnrealScriptError, verse_update.VerseUpdateError) as error:
+    except (common.UnrealScriptError, verse_layout.VerseInstallError) as error:
         return common.exit_with(error)
 
 
