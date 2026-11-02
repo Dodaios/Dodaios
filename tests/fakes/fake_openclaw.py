@@ -25,6 +25,7 @@ Every run but ``--version`` appends its argv to ``calls.log`` in the working fol
 from __future__ import annotations
 
 import os
+import socketserver
 import sys
 import threading
 import time
@@ -41,6 +42,22 @@ class _Health(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         return
+
+
+class _Server(HTTPServer):
+    """``HTTPServer`` without the reverse DNS lookup in ``server_bind``.
+
+    ``HTTPServer.server_bind`` resolves ``socket.getfqdn("127.0.0.1")``, which
+    stalls about 35 s on macOS runners: every Gateway start cost that much and
+    pushed test_runtime_upgrade_safety.py past the 300 s batch limit (#450).
+    The name is never used, so the plain TCP bind is all the fake needs.
+    """
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = int(port)
 
 
 _DB = r"state\agents\main\agent\openclaw-agent.sqlite"
@@ -79,7 +96,7 @@ def main(argv: list[str]) -> int:
             return 78
         port = int(argv[argv.index("--port") + 1])
         try:
-            server = HTTPServer(("127.0.0.1", port), _Health)
+            server = _Server(("127.0.0.1", port), _Health)
         except OSError:
             return 1  # EADDRINUSE: the port was taken
         if mode in {"schema-stale", "schema-broken", "admission-slow"}:
