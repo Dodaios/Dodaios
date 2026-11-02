@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { useTeamThreads } from "@/lib/teamThreadsApi";
@@ -138,16 +138,27 @@ function ColumnHeader({ column }: { column: ThreadColumn }) {
 function SideColumn({ thread, onScreen }: { thread: SplitThread; onScreen: boolean }) {
   const [store] = useState(() => {
     const created = createAgentChatStore("agent", "threads-side");
-    // The thread list paints the title and agent at once, before the socket's first frame.
-    created.setState({ sessions: useThreadChatStore.getState().sessions, catalog: useThreadChatStore.getState().catalog });
+    const main = useThreadChatStore.getState();
+    const row = main.sessions.find((session) => session.session_id === thread.sessionId);
+    // The thread list paints the title and agent at once, before the socket's
+    // first frame; the draft already mirrors the thread, so the composer never
+    // "corrects" a model or effort it has not seen yet.
+    created.setState((state) => ({
+      sessions: main.sessions,
+      catalog: main.catalog,
+      draft: row
+        ? { ...state.draft, provider: row.provider, model: row.model, effort: row.effort, permissionMode: row.permission_mode, cwd: row.cwd }
+        : state.draft,
+    }));
     return created;
   });
-  useEffect(() => {
-    // Back after a remount (StrictMode runs effects twice): the socket closed below opens again.
+  // A layout effect: the thread is open before the composer's effects run, so
+  // none of them ever treats this column as a new thread's draft.
+  useLayoutEffect(() => {
     const state = store.getState();
-    if (state.activeSessionId && state.socketState === "idle") state.openSession(state.activeSessionId);
+    if (state.activeSessionId !== thread.sessionId || state.socketState === "idle") state.openSession(thread.sessionId);
     return () => store.getState().disconnect();
-  }, [store]);
+  }, [store, thread.sessionId]);
   return <ThreadChatContext.Provider value={store}>
     <ThreadView onScreen={onScreen} column={thread} />
   </ThreadChatContext.Provider>;

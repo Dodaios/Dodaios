@@ -566,7 +566,8 @@ export function ThreadComposer({
         onPaste={files.onPaste}
         className="block max-h-[40vh] min-h-[84px] w-full resize-none bg-transparent px-4 pb-2 pt-4 text-base leading-6 text-foreground outline-none placeholder:text-faint-foreground sm:px-5" />
       <div className="flex min-w-0 items-center justify-between gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
-        <div className="-ms-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
+        {/* The pickers keep their width: a narrow column (side by side) scrolls the row instead of stacking them. */}
+        <div className="-ms-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0">
         <AgentModelPicker providers={providers} liveModels={liveModels} draft={draft}
           lockedProvider={started && activeSessionId ? draft.provider : null}
           onPick={(nextProvider, model) => void pick(nextProvider !== draft.provider ? { provider: nextProvider, model } : { model })} />
