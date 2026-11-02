@@ -2900,20 +2900,40 @@ class AgentChatService:
     @staticmethod
     def _restore_credential_save(session_id: str, spec: CredentialSpec) -> Callable | None:
         """Rebuild only a Society field's save callback, never a stored secret."""
-        from dodaios.society.credentials import save_requested_credential, validate_env_name
+        from dodaios.agent_chat.credential_requests import CLI, LOGIN, PLUGIN
+        from dodaios.society.credentials import (
+            login_key,
+            login_site,
+            save_requested_credential,
+            save_requested_login,
+            validate_env_name,
+        )
         from dodaios.society.surface import agent_id_of
 
         agent_id = agent_id_of(session_id)
         if agent_id is None:
             return None
+        if spec.kind in (PLUGIN, CLI):
+            from dodaios.society.connect_tool import connect_save
+
+            return connect_save(spec.kind, spec.env)
         try:
-            validate_env_name(spec.env)
+            if spec.kind == LOGIN:
+                login_key(spec.env)
+                login_site(spec.url)
+            else:
+                validate_env_name(spec.env)
         except ValueError:
             log.warning("agent chat: ignored invalid stored credential field metadata")
             return None
 
         async def save(value: str) -> None:
-            await save_requested_credential(agent_id, spec.env, value, label=spec.label)
+            if spec.kind == LOGIN:
+                await save_requested_login(
+                    agent_id, spec.env, value, url=spec.url, label=spec.label
+                )
+            else:
+                await save_requested_credential(agent_id, spec.env, value, label=spec.label)
 
         return save
 

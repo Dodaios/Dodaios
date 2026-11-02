@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,8 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 def brain_messages(rows: list[dict[str, Any]]) -> tuple[BrainMessage, ...]:
@@ -79,6 +82,20 @@ async def wait_for_browser_approval(runtime: Any, approval_id: str, session: Any
         row = await runtime.approvals.get(approval_id)
         if row and str(row.state) == "pending":
             await runtime.approvals.resolve(approval_id, approve=False, note="Browser task ended")
+
+
+async def stored_logins(agent_id: str) -> dict[str, dict[str, str]]:
+    """The agent's website logins, each bound to its own site (credentials.py)."""
+    from ..credentials import current_vault
+
+    vault = current_vault()
+    if vault is None:
+        return {}
+    try:
+        return await asyncio.to_thread(vault.browser_secrets, agent_id)
+    except Exception:  # noqa: BLE001 — a broken store costs the logins, not the task
+        log.warning("society browser: stored logins unavailable for %s", agent_id)
+        return {}
 
 
 async def execute_live(
@@ -299,6 +316,7 @@ async def execute_live(
         files.append(str(path))
     if args.get("url"):
         task = f"Start at {args['url']}. " + task
+    logins = await stored_logins(caller.agent_id)
     try:
         result = await live.run(
             caller,
@@ -310,6 +328,7 @@ async def execute_live(
             files=files,
             trace_id=turn_trace,
             chat_session_id=chat_session_id,
+            sensitive_data=logins,
         )
     except Exception as exc:
         # The tool result reports the failure to both the chat and the planner.
@@ -318,6 +337,14 @@ async def execute_live(
             None,
             stopped_message if (caller.agent_id, turn_trace) in live.stopped_turns else str(exc),
         )
+    if logins:
+        from ..credentials import current_vault
+
+        vault = current_vault()
+        if vault is not None:
+            # The runner already swaps typed values for placeholders; this also
+            # catches a value a page echoed in a form the runner did not know.
+            result = await asyncio.to_thread(vault.redact_payload, caller.agent_id, result)
     result["usage"] = usage_total
     result["provider"] = provider
     result["model"] = caller.model

@@ -36,7 +36,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Protocol
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,10 @@ __all__ = [
     "CredentialError",
     "CredentialInfo",
     "CredentialVault",
+    "LoginInfo",
     "MAX_VALUE_CHARS",
+    "login_key",
+    "login_site",
     "validate_env_name",
 ]
 
@@ -190,6 +193,27 @@ async def save_requested_credential(
     await asyncio.to_thread(vault.store, agent_id, env, value, label=label)
 
 
+async def save_requested_login(
+    agent_id: str, key: str, raw: str, *, url: str, label: str = "",
+) -> None:
+    """Store the two values the login form sent as one JSON object."""
+    try:
+        body = json.loads(raw)
+    except (TypeError, ValueError):
+        raise CredentialError("Enter the username or email and the password.") from None
+    if not isinstance(body, dict):
+        raise CredentialError("Enter the username or email and the password.")
+    vault = current_vault()
+    if vault is None:
+        raise CredentialError(
+            "The credential store is unavailable. Please try again shortly.", code="storage_failed",
+        )
+    await asyncio.to_thread(
+        vault.store_login, agent_id, key, body.get("username"), body.get("password"),
+        url=url, label=label,
+    )
+
+
 def validate_env_name(raw: Any) -> str:
     """The environment variable name ``raw`` asks for, or ``CredentialError``."""
     name = str(raw or "").strip()
@@ -212,6 +236,99 @@ def _encodings(value: str) -> list[str]:
         forms.add(base64.b64encode(data).decode("ascii").rstrip("="))
         forms.add(base64.urlsafe_b64encode(data).decode("ascii").rstrip("="))
     return [form for form in forms if len(form) >= _MIN_REDACT_CHARS]
+
+
+#: A login's key names its browser placeholders: ``<secret>reddit_password</secret>``.
+_LOGIN_KEY: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+_LOGIN_SLOT_PREFIX: Final[str] = "society_login"
+#: Second-level labels under which a country code is the public suffix (co.uk, com.au).
+_SHARED_SECOND_LEVEL: Final[frozenset[str]] = frozenset(
+    {"ac", "co", "com", "edu", "gov", "ltd", "net", "ne", "or", "org", "plc"}
+)
+MAX_LOGIN_FIELD_CHARS: Final[int] = 1024
+
+
+def login_key(raw: Any) -> str:
+    """``raw`` (a label such as "Hacker News") as a placeholder key (``hacker_news``)."""
+    key = re.sub(r"[^a-z0-9]+", "_", str(raw or "").casefold()).strip("_")
+    if key and not key[0].isalpha():
+        key = f"site_{key}"
+    key = key[:40].rstrip("_")
+    if not _LOGIN_KEY.fullmatch(key):
+        raise CredentialError("site must name the website, e.g. 'Reddit' or 'Hacker News'")
+    return key
+
+
+def login_site(raw: Any) -> tuple[str, str]:
+    """The sign-in page ``raw`` as ``(https URL, registrable domain)``.
+
+    The domain decides where the browser may type the login: the site itself
+    and its subdomains, over HTTPS only. Anything that is not a public web
+    address (an IP, localhost, another scheme) is refused.
+    """
+    text = str(raw or "").strip()
+    if text and "://" not in text:
+        text = f"https://{text}"
+    parts = urlsplit(text)
+    host = (parts.hostname or "").casefold().rstrip(".")
+    if parts.scheme not in {"https", "http"} or not host or "." not in host:
+        raise CredentialError("url must be the website's address, e.g. https://www.reddit.com")
+    labels = host.split(".")
+    if all(label.isdigit() for label in labels) or not all(
+        re.fullmatch(r"[a-z0-9-]{1,63}", label) for label in labels
+    ):
+        raise CredentialError("url must be a website's domain name, not an IP address")
+    shared = labels[-2] in _SHARED_SECOND_LEVEL and len(labels[-1]) == 2
+    if shared and len(labels) < 3:
+        raise CredentialError("url must name one website, not a whole country domain")
+    keep = 3 if shared else 2
+    domain = ".".join(labels[-keep:])
+    path = parts.path or "/"
+    return f"https://{host}{path}"[:300], domain
+
+
+def _login_field(value: Any, what: str, *, strip: bool) -> str:
+    text = str(value if isinstance(value, str) else "")
+    if strip:
+        text = text.strip()
+    if not text.strip():
+        raise CredentialError(f"Enter the {what} before saving.")
+    if len(text) > MAX_LOGIN_FIELD_CHARS:
+        raise CredentialError(f"The {what} is too long.")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        raise CredentialError(f"The {what} must be a single line without control characters.")
+    return text
+
+
+@dataclass(frozen=True, slots=True)
+class LoginInfo:
+    """A website login the agent may use in its browser: never the values."""
+
+    key: str
+    label: str
+    url: str
+    domain: str
+    created_ms: int
+    updated_ms: int
+
+    @property
+    def placeholders(self) -> tuple[str, str]:
+        return (f"{self.key}_username", f"{self.key}_password")
+
+    @property
+    def domain_pattern(self) -> str:
+        """browser-use's pattern: the domain and its subdomains, HTTPS only."""
+        return f"*.{self.domain}"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "label": self.label,
+            "url": self.url,
+            "domain": self.domain,
+            "created_ms": self.created_ms,
+            "updated_ms": self.updated_ms,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +358,8 @@ class CredentialVault:
         self._lock = threading.Lock()
         #: Values by agent, loaded once per process for scrubbing and env building.
         self._values: dict[str, dict[str, str]] = {}
+        #: Website logins by agent and key: (username, password).
+        self._logins: dict[str, dict[str, tuple[str, str]]] = {}
         #: (needle, env) per agent, longest first, so a longer secret that
         #: contains a shorter one is masked whole.
         self._masks: dict[str, list[tuple[str, str]]] = {}
@@ -258,7 +377,7 @@ class CredentialVault:
             raise ValueError("Agent credential index escapes the vault")
         return Path(path)
 
-    def _read_index(self, agent_id: str) -> dict[str, CredentialInfo]:
+    def _read_raw(self, agent_id: str) -> dict[str, Any]:
         path = self._index_path(agent_id)
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
@@ -267,8 +386,31 @@ class CredentialVault:
         except (OSError, ValueError):
             log.warning("society credentials: unreadable index %s", path, exc_info=True)
             return {}
+        return raw if isinstance(raw, dict) else {}
+
+    def _read_logins(self, agent_id: str) -> dict[str, LoginInfo]:
+        rows: dict[str, LoginInfo] = {}
+        for entry in self._read_raw(agent_id).get("logins", []):
+            if not isinstance(entry, dict):
+                continue
+            key = str(entry.get("key") or "")
+            domain = str(entry.get("domain") or "")
+            if not _LOGIN_KEY.fullmatch(key) or not domain:
+                continue
+            rows[key] = LoginInfo(
+                key=key,
+                label=str(entry.get("label") or "")[:120],
+                url=str(entry.get("url") or "")[:300],
+                domain=domain[:253],
+                created_ms=int(entry.get("created_ms") or 0),
+                updated_ms=int(entry.get("updated_ms") or 0),
+            )
+        return rows
+
+    def _read_index(self, agent_id: str) -> dict[str, CredentialInfo]:
+        raw = self._read_raw(agent_id)
         rows: dict[str, CredentialInfo] = {}
-        for entry in raw.get("credentials", []) if isinstance(raw, dict) else []:
+        for entry in raw.get("credentials", []):
             if not isinstance(entry, dict):
                 continue
             env = str(entry.get("env") or "")
@@ -282,10 +424,20 @@ class CredentialVault:
             )
         return rows
 
-    def _write_index(self, agent_id: str, rows: Mapping[str, CredentialInfo]) -> None:
+    def _write_index(
+        self,
+        agent_id: str,
+        rows: Mapping[str, CredentialInfo] | None = None,
+        logins: Mapping[str, LoginInfo] | None = None,
+    ) -> None:
+        """Write the index; the half not passed is kept as it is on disk."""
+        rows = self._read_index(agent_id) if rows is None else rows
+        logins = self._read_logins(agent_id) if logins is None else logins
         path = self._index_path(agent_id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        body = {"credentials": [rows[name].to_dict() for name in sorted(rows)]}
+        body: dict[str, Any] = {"credentials": [rows[name].to_dict() for name in sorted(rows)]}
+        if logins:
+            body["logins"] = [logins[key].to_dict() for key in sorted(logins)]
         tmp = path.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(body, indent=2, ensure_ascii=False), encoding="utf-8")
         tmp.replace(path)
@@ -372,6 +524,7 @@ class CredentialVault:
         """Drop the cached values (caller holds the lock); the next read reloads."""
         self._generation += 1
         self._values.pop(agent_id, None)
+        self._logins.pop(agent_id, None)
         self._masks.pop(agent_id, None)
 
     def values(self, agent_id: str) -> dict[str, str]:
@@ -382,14 +535,21 @@ class CredentialVault:
                 if cached is not None:
                     return dict(cached)
                 rows = self._read_index(agent_id)
+                login_rows = self._read_logins(agent_id)
                 generation = self._generation
             loaded = self._load(agent_id, rows)
+            logins = self._load_logins(agent_id, login_rows)
             with self._lock:
                 if generation != self._generation:
                     continue  # a store or delete ran meanwhile: load again
                 self._values[agent_id] = loaded
+                self._logins[agent_id] = logins
+                needles = [(value, env) for env, value in loaded.items()]
+                for key, (username, password) in logins.items():
+                    needles.append((username, f"{key} username"))
+                    needles.append((password, f"{key} password"))
                 self._masks[agent_id] = sorted(
-                    ((form, env) for env, value in loaded.items() for form in _encodings(value)),
+                    ((form, name) for value, name in needles for form in _encodings(value)),
                     key=lambda pair: len(pair[0]),
                     reverse=True,
                 )
@@ -407,8 +567,139 @@ class CredentialVault:
                 )
         return loaded
 
+    def _load_logins(
+        self, agent_id: str, rows: Mapping[str, LoginInfo]
+    ) -> dict[str, tuple[str, str]]:
+        loaded: dict[str, tuple[str, str]] = {}
+        for key in rows:
+            username = self._secrets.get(self._login_slot(agent_id, key, "username"))
+            password = self._secrets.get(self._login_slot(agent_id, key, "password"))
+            if username and password:
+                loaded[key] = (username, password)
+            else:
+                log.warning("society credentials: login %s for %s is incomplete", key, agent_id)
+        return loaded
+
+    @staticmethod
+    def _login_slot(agent_id: str, key: str, field: str) -> str:
+        return f"{_LOGIN_SLOT_PREFIX}.{_SAFE_ID.sub('_', agent_id)}.{key}.{field}"
+
+    # ------------------------------------------------------------- logins
+
+    def list_logins(self, agent_id: str) -> list[LoginInfo]:
+        with self._lock:
+            rows = self._read_logins(agent_id)
+        return [rows[key] for key in sorted(rows)]
+
+    def has_login(self, agent_id: str, key: str) -> bool:
+        """Both values are really there, not only the index row."""
+        self.values(agent_id)
+        with self._lock:
+            return key in self._logins.get(agent_id, {})
+
+    def store_login(
+        self,
+        agent_id: str,
+        key: str,
+        username: Any,
+        password: Any,
+        *,
+        url: str,
+        label: str = "",
+    ) -> LoginInfo:
+        """Save a website login: both values go to the store, the index keeps the site."""
+        key = login_key(key)
+        site_url, domain = login_site(url)
+        user_value = _login_field(username, "username or email", strip=True)
+        pass_value = _login_field(password, "password", strip=False)
+        now = int(time.time() * 1000)
+        with self._lock:
+            logins = self._read_logins(agent_id)
+            previous = logins.get(key)
+            info = LoginInfo(
+                key=key,
+                label=(label.strip() or (previous.label if previous else key))[:120],
+                url=site_url,
+                domain=domain,
+                created_ms=previous.created_ms if previous else now,
+                updated_ms=now,
+            )
+            slots = {
+                self._login_slot(agent_id, key, "username"): user_value,
+                self._login_slot(agent_id, key, "password"): pass_value,
+            }
+            before: dict[str, str | None] = {}
+            try:
+                for slot, value in slots.items():
+                    before[slot] = self._secrets.get(slot)
+                    if not self._secrets.set(slot, value) or self._secrets.get(slot) != value:
+                        raise CredentialError("unverified", code="storage_failed")
+                logins[key] = info
+                self._write_index(agent_id, logins=logins)
+            except Exception:
+                # Never log the exception: a store backend may echo the value.
+                for slot, old in before.items():
+                    try:
+                        if old is not None:
+                            self._secrets.set(slot, old)
+                        else:
+                            self._secrets.delete(slot)
+                    except Exception:
+                        log.error("society credentials: login rollback failed for %s", key)
+                raise CredentialError(
+                    "The login could not be stored. Please try saving again.",
+                    code="storage_failed",
+                ) from None
+            finally:
+                self._forget(agent_id)
+        log.info("society credentials: stored login %s for %s", key, agent_id)
+        return info
+
+    def delete_login(self, agent_id: str, key: str) -> bool:
+        """Forget a website login; False when it was never stored."""
+        with self._lock:
+            logins = self._read_logins(agent_id)
+            if key not in logins:
+                return False
+            for field in ("username", "password"):
+                slot = self._login_slot(agent_id, key, field)
+                if self._secrets.get(slot) is not None and not self._secrets.delete(slot):
+                    raise CredentialError("the credential store could not delete the login")
+            logins.pop(key)
+            self._write_index(agent_id, logins=logins)
+            self._forget(agent_id)
+        log.info("society credentials: deleted login %s for %s", key, agent_id)
+        return True
+
+    def browser_secrets(self, agent_id: str) -> dict[str, dict[str, str]]:
+        """browser-use ``sensitive_data``: each login bound to its own site.
+
+        The browser types a value only on a page of that site; the model sees
+        and writes the placeholder names, never the values.
+        """
+        self.values(agent_id)
+        with self._lock:
+            values = dict(self._logins.get(agent_id, {}))
+            rows = self._read_logins(agent_id)
+        out: dict[str, dict[str, str]] = {}
+        for key, (username, password) in values.items():
+            info = rows.get(key)
+            if info is None:
+                continue
+            user_name, pass_name = info.placeholders
+            out.setdefault(info.domain_pattern, {}).update(
+                {user_name: username, pass_name: password}
+            )
+        return out
+
     def is_loaded(self, agent_id: str) -> bool:
         return agent_id in self._values
+
+    def _any_secret(self, agent_id: str) -> bool:
+        if self.values(agent_id):
+            return True
+        with self._lock:
+            return bool(self._logins.get(agent_id))
 
     def shell_env(self, agent_id: str) -> dict[str, str]:
         """The variables an agent's own ``society_shell`` commands run with."""
@@ -416,7 +707,7 @@ class CredentialVault:
 
     def redact(self, agent_id: str, text: str) -> str:
         """``text`` with every credential value of ``agent_id`` masked (may read the store)."""
-        if not text or not self.values(agent_id):
+        if not text or not self._any_secret(agent_id):
             return text
         for needle, env in self._masks.get(agent_id, ()):
             if needle in text:
@@ -425,7 +716,7 @@ class CredentialVault:
 
     def redact_payload(self, agent_id: str, payload: Any) -> Any:
         """``payload`` with every string in it redacted; unchanged objects are reused."""
-        if not self.values(agent_id):
+        if not self._any_secret(agent_id):
             return payload
         if isinstance(payload, str):
             return self.redact(agent_id, payload)

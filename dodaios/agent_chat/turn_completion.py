@@ -165,7 +165,7 @@ class TurnCompletion:
         elif kind == "tool_call":
             name = str(payload.get("name") or "").rsplit("__", 1)[-1].lower()
             self.calls[str(payload.get("call_id") or "")] = (name, payload.get("input") or {})
-            if name == CREDENTIAL_TOOL:
+            if name in (CREDENTIAL_TOOL, LOGIN_TOOL):
                 self.credential_asked = True
         elif kind == "tool_result":
             name, _ = self.calls.pop(str(payload.get("call_id") or ""), ("", {}))
@@ -304,7 +304,9 @@ class TurnCompletion:
             f"stored, but you did not call {CREDENTIAL_TOOL}. Secrets reach you only through "
             f"that tool. Call {CREDENTIAL_TOOL} now for each credential the task needs (env, "
             "label, and a description of what it is for and where the user creates it), wait "
-            "for its result, then continue the original task. Do not ask for the value in the "
+            f"for its result, then continue the original task. For a website login (username "
+            f"and password to sign in with your browser) call {LOGIN_TOOL} instead. "
+            "Do not ask for the value in the "
             "chat and do not repeat the request in plain text. Stored credentials right now: "
             + (", ".join(stored) if stored else "none")
             + ". If the task needs no credential from the user, finish without mentioning one."
@@ -325,6 +327,8 @@ class TurnCompletion:
 
 #: The secure credential field's tool (dodaios/society/credential_tool.py).
 CREDENTIAL_TOOL = "society_request_credential"
+#: The website login card's tool (dodaios/society/login_tool.py).
+LOGIN_TOOL = "society_request_login"
 
 
 async def _stored_credentials(session_id: str) -> list[str] | None:
