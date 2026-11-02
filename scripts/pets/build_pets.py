@@ -9050,7 +9050,12 @@ def load_design(pet_id: str) -> PetDesign:
     if spec is None or spec.loader is None:
         raise FileNotFoundError(path)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Registered while it runs, so dataclasses in a design module resolve their module.
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
     pet = module.design(sys.modules[__name__])
     if pet.id != pet_id:
         raise ValueError(f"{path.name} builds {pet.id!r}, expected {pet_id!r}")
