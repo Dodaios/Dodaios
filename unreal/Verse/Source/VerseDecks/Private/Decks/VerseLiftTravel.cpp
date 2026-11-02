@@ -29,7 +29,7 @@ bool FVerseLiftTravel::Request(FName From, FName To, double NowS, bool bReducedM
 bool FVerseLiftTravel::Tick(double NowS)
 {
 	bool bStartLoad = false;
-	if (CurrentPhase == EVerseLiftPhase::DoorsClosing && NowS - RequestedAt >= DoorsS)
+	if (CurrentPhase == EVerseLiftPhase::DoorsClosing && NowS - RequestedAt + EpsilonS >= DoorsS)
 	{
 		CurrentPhase = EVerseLiftPhase::Riding;
 		Cues.Add(EVerseLiftCue::Ride);
@@ -40,14 +40,14 @@ bool FVerseLiftTravel::Tick(double NowS)
 		LoadStartedAt = NowS;
 		bStartLoad = true;
 	}
-	if (CurrentPhase == EVerseLiftPhase::Riding && ArrivedAt < 0.0 && NowS - RequestedAt >= GiveUpS)
+	if (CurrentPhase == EVerseLiftPhase::Riding && ArrivedAt < 0.0 && NowS - RequestedAt + EpsilonS >= GiveUpS)
 	{
 		bDeckMissing = true;
 		Cues.Add(EVerseLiftCue::GaveUp);
 		CurrentPhase = EVerseLiftPhase::DoorsOpening;
 		ArrivedAt = NowS - OpenAfterArrivalS;
 	}
-	if (CurrentPhase == EVerseLiftPhase::DoorsOpening && (bReduced || NowS - ArrivedAt >= OpenAfterArrivalS))
+	if (CurrentPhase == EVerseLiftPhase::DoorsOpening && (bReduced || NowS - ArrivedAt + EpsilonS >= OpenAfterArrivalS))
 	{
 		Finish(NowS);
 	}

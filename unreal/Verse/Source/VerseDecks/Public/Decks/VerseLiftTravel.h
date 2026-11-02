@@ -41,6 +41,8 @@ public:
 	static constexpr double OpenAfterArrivalS = 0.15;
 	/** Doors open on their own this long after they started to shut (`DOORS_GIVE_UP_MS`). */
 	static constexpr double GiveUpS = 5.0;
+	/** Phase times are compared with this slack, so a clock that lands on a boundary counts as there. */
+	static constexpr double EpsilonS = 1e-6;
 
 	/** Starts a ride from `From` to `To`. False (nothing rides) for the same deck or while a ride runs. */
 	bool Request(FName From, FName To, double NowS, bool bReducedMotion);
