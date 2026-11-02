@@ -353,6 +353,17 @@ def resolve_data_dir(project_root: Path) -> Path:
     return instance_data_dir(project_root)
 
 
+def data_dir_source() -> str:
+    """Where :func:`resolve_data_dir` takes the directory from right now.
+
+    ``"JARVIS_DATA_DIR"`` when the environment variable set it, else
+    ``"default"``. Shown at boot and on the diagnostics API so a switched data
+    directory (an apparently empty agent roster, issue #1058) is visible.
+    """
+    env_dir = os.environ.get(DATA_DIR_ENV_VAR)
+    return DATA_DIR_ENV_VAR if env_dir and env_dir.strip() else "default"
+
+
 __all__ = [
     "DATA_DIR_ENV_VAR",
     "DEFAULT_ICON_FILE_NAME",
@@ -366,6 +377,7 @@ __all__ = [
     "InstanceIdentity",
     "InstanceNameError",
     "current_instance",
+    "data_dir_source",
     "instance_data_dir",
     "normalize_instance_name",
     "resolve_data_dir",

@@ -76,6 +76,20 @@ def _task_snapshot(task: asyncio.Task[Any]) -> dict[str, Any]:
     }
 
 
+@router.get("/data-dir")
+async def data_dir() -> dict[str, str]:
+    """The data directory this process reads and writes, and its source.
+
+    ``source`` is ``JARVIS_DATA_DIR`` when the environment variable chose it,
+    else ``default``. Agents, chats and settings all live under ``path``, so a
+    launcher that switched it explains an apparently empty roster (#1058).
+    Authenticated like every ``/api`` route; ``/api/health`` stays path-free.
+    """
+    from dodaios.core.config import data_dir_info
+
+    return data_dir_info()
+
+
 @router.get("/event-loop-tasks")
 async def event_loop_tasks() -> dict[str, Any]:
     """Snapshot all tasks on the serving loop, suspects first.
