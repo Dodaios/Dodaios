@@ -27,6 +27,10 @@ def engine(tmp_path, monkeypatch):
     return root
 
 
+def _env(engine: Path) -> dict[str, str]:
+    return {common.ENGINE_ENV: str(engine)}
+
+
 @pytest.fixture
 def worktree(tmp_path):
     tree = tmp_path / "wt"
@@ -83,24 +87,25 @@ def test_builds_run_under_the_lock_one_per_target_and_stop_at_the_first_failure(
         calls.append((command[1], label))
         return 1 if command[1] == "VerseEditor" else 0
 
-    code = build.build(["editor", "game"], worktree=worktree, env={}, runner=runner)
+    code = build.build(["editor", "game"], worktree=worktree, env=_env(engine), runner=runner)
     assert code == 1
     assert [c[0] for c in calls] == ["VerseEditor"], "the game build never started"
     assert calls[0][1].startswith("build editor")
-    assert build.build(["game"], worktree=worktree, env={}, runner=runner) == 0
+    assert build.build(["game"], worktree=worktree, env=_env(engine), runner=runner) == 0
 
 
 def test_the_linux_build_needs_the_cross_toolchain(engine, worktree, monkeypatch):
     monkeypatch.setattr(common, "free_gb", lambda _p: 500.0)
     with pytest.raises(common.UnrealScriptError, match="LINUX_MULTIARCH_ROOT"):
-        build.build(["linux"], worktree=worktree, env={}, runner=lambda *a, **k: 0)
+        build.build(["linux"], worktree=worktree, env=_env(engine), runner=lambda *a, **k: 0)
 
 
 def test_a_build_refuses_to_start_below_forty_gigabytes_free(engine, worktree, monkeypatch):
     monkeypatch.setattr(common, "free_gb", lambda _p: 39.0)
     ran = []
     with pytest.raises(common.UnrealScriptError, match="40 GB"):
-        build.build(["editor"], worktree=worktree, env={}, runner=lambda *a, **k: ran.append(1))
+        build.build(["editor"], worktree=worktree, env=_env(engine),
+                    runner=lambda *a, **k: ran.append(1))
     assert not ran
 
 
