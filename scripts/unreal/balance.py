@@ -1315,10 +1315,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--out", type=Path, help="Run folder (default Saved/Harness/balance/<run>)."
     )
+    parser.add_argument("--map", help="Map override (default: sets.json, the hangar).")
     parser.add_argument("--worktree", type=Path, default=common.REPO_ROOT)
     args = parser.parse_args(argv)
 
     cfg = load_config()
+    if args.map:
+        cfg["map"] = args.map
     tricks = [t for t in (args.tricks or "").split(",") if t] or None
     only = [g for g in (args.gates or "").split(",") if g] or None
     if only and set(only) - set(GATE_IDS):

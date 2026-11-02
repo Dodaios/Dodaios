@@ -310,3 +310,40 @@ def test_f6_symmetry(tmp_path):
 def test_the_repo_itself_is_clean():
     assert check_bot_isolation.check_isolation() == []
     assert check_bot_isolation.check_symmetry() == []
+
+
+# --- A10.6: two concurrent lock holders serialise ---------------------------------------
+
+
+_HOLDER = """
+import json, sys, time
+sys.path.insert(0, sys.argv[3])
+from scripts.unreal import with_lock
+with with_lock.MachineLock("build editor (" + sys.argv[2] + ")", "build.py", poll=0.05):
+    start = time.time()
+    time.sleep(0.6)
+    print(json.dumps({"start": start, "end": time.time()}))
+"""
+
+
+def test_two_concurrent_lock_holders_serialise_and_both_succeed(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    repo = str(Path(__file__).resolve().parents[3])
+    env = dict(os.environ, DODAIOS_LOCK_DIR=str(tmp_path))
+    env.pop("DODAIOS_GPU_LOCK_HELD", None)
+    procs = [
+        subprocess.Popen(
+            [sys.executable, "-c", _HOLDER, "x", name, repo],
+            env=env,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        for name in ("a", "b")
+    ]
+    outs = [p.communicate(timeout=60)[0] for p in procs]
+    assert [p.returncode for p in procs] == [0, 0]
+    spans = sorted((json.loads(o.strip().splitlines()[-1]) for o in outs), key=lambda s: s["start"])
+    assert spans[0]["end"] <= spans[1]["start"] + 0.05

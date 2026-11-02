@@ -318,7 +318,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseHarnessJsonTest, "Verse.Harness.Json.Roun
 bool FVerseHarnessJsonTest::RunTest(const FString& Parameters)
 {
 	FString Error;
-	const TSharedPtr<FVerseJson> Doc = FVerseJson::Parse(TEXT("{\"a\": [1, 2.5, -3e2], \"s\": \"x\\\"y\n\", \"b\": true, \"n\": null, \"o\": {}}"), Error);
+	const TSharedPtr<FVerseJson> Doc = FVerseJson::Parse(TEXT("{\"a\": [1, 2.5, -3e2], \"s\": \"x\\\"y\\n\", \"b\": true, \"n\": null, \"o\": {}}"), Error);
 	if (!TestTrue(TEXT("parses: ") + Error, Doc.IsValid()))
 	{
 		return false;
@@ -328,7 +328,7 @@ bool FVerseHarnessJsonTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("escapes"), Doc->StringOr(TEXT("s")), FString(TEXT("x\"y\n")));
 	bool B = false;
 	TestTrue(TEXT("bool"), Doc->TryBool(TEXT("b"), B) && B);
-	TestEqual(TEXT("compact round trip"), Doc->ToString(), FString(TEXT("{\"a\":[1,2.5,-300],\"s\":\"x\\\"y\n\",\"b\":true,\"n\":null,\"o\":{}}")));
+	TestEqual(TEXT("compact round trip"), Doc->ToString(), FString(TEXT("{\"a\":[1,2.5,-300],\"s\":\"x\\\"y\\n\",\"b\":true,\"n\":null,\"o\":{}}")));
 	TestFalse(TEXT("trailing garbage fails"), FVerseJson::Parse(TEXT("{} x"), Error).IsValid());
 	TestFalse(TEXT("unterminated fails"), FVerseJson::Parse(TEXT("{\"a\": [1, 2"), Error).IsValid());
 	FVerseJsonWriter W;

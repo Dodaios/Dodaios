@@ -228,9 +228,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--duration", type=int, help="Seconds of play (default from netcode.json).")
     parser.add_argument("--iris", choices=("on", "off", "both"), default="on")
     parser.add_argument("--parse", type=Path, help="Evaluate a finished run folder; no run.")
+    parser.add_argument("--map", help="Map override (default: netcode.json, the hangar).")
     parser.add_argument("--worktree", type=Path, default=common.REPO_ROOT)
     args = parser.parse_args(argv)
     cfg = load_config()
+    if args.map:
+        cfg["map"] = args.map
     duration = args.duration or int(cfg["durationS"])
     if args.parse:
         run_dir = args.parse.resolve()
