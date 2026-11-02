@@ -1440,24 +1440,44 @@ if [ -x "$VENV_PYTHON" ]; then
         rm -rf "$VENV_PATH"
     fi
 fi
-# Linux venvs include system site-packages (deep-dive 2026-07-15, H-01): the
-# GTK webview backend (python3-gi) and the optional accessibility tree
-# (pyatspi) are GObject-Introspection DISTRO packages that pip cannot install
-# and an isolated venv cannot import. The venv's own installs still shadow
-# system packages on sys.path. Existing isolated Linux venvs are rebuilt once —
-# packages are reinstalled by the installer right after, so nothing is lost.
-if [ -x "$VENV_PYTHON" ] && [ "$(uname -s 2>/dev/null)" = "Linux" ] &&
-   grep -qi 'include-system-site-packages *= *false' "$VENV_PATH/pyvenv.cfg" 2>/dev/null; then
-    note 'rebuilding the Python environment (linking distro webview/accessibility packages)'
-    rm -rf "$VENV_PATH"
+# Linux DESKTOP venvs include system site-packages (deep-dive 2026-07-15,
+# H-01): the GTK webview backend (python3-gi) and the optional accessibility
+# tree (pyatspi) are GObject-Introspection DISTRO packages that pip cannot
+# install and an isolated venv cannot import. A --headless install uses
+# neither, and linking the host's site-packages made pip treat whatever the
+# host had installed (fastapi, uvicorn, opentelemetry, ...) as "already
+# satisfied", so the server ran on host versions instead of the lockfile
+# (#456) and `pip check` failed on host-only conflicts (#1018). Headless venvs
+# therefore stay isolated. An existing venv whose setting does not match the
+# profile is rebuilt once; packages are reinstalled by the installer right
+# after, so nothing is lost.
+_venv_isolated=0
+if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+    _want_headless=0
+    for _arg in "$@"; do
+        case "$_arg" in
+            --headless) _want_headless=1 ;;
+            --with-desktop) _want_headless=0; break ;;
+        esac
+    done
+    _venv_isolated=$_want_headless
+    if [ -x "$VENV_PYTHON" ]; then
+        if [ "$_venv_isolated" -eq 1 ] &&
+           grep -qi 'include-system-site-packages *= *true' "$VENV_PATH/pyvenv.cfg" 2>/dev/null; then
+            note 'rebuilding the Python environment (headless: isolated from host packages)'
+            rm -rf "$VENV_PATH"
+        elif [ "$_venv_isolated" -eq 0 ] &&
+             grep -qi 'include-system-site-packages *= *false' "$VENV_PATH/pyvenv.cfg" 2>/dev/null; then
+            note 'rebuilding the Python environment (linking distro webview/accessibility packages)'
+            rm -rf "$VENV_PATH"
+        fi
+    fi
 fi
 if [ ! -x "$VENV_PYTHON" ]; then
-    if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
-        run_spin 'creating the virtual environment' \
-            "$PYTHON_EXE" -m venv --system-site-packages "$VENV_PATH"
+    if [ "$(uname -s 2>/dev/null)" = "Linux" ] && [ "$_venv_isolated" -eq 0 ]; then
+        run_spin 'creating the virtual environment'             "$PYTHON_EXE" -m venv --system-site-packages "$VENV_PATH"
     else
-        run_spin 'creating the virtual environment' \
-            "$PYTHON_EXE" -m venv "$VENV_PATH"
+        run_spin 'creating the virtual environment'             "$PYTHON_EXE" -m venv "$VENV_PATH"
     fi
 fi
 ok 'virtual environment ready'
