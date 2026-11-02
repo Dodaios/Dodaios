@@ -131,6 +131,9 @@ async def test_golden_command_gets_one_valid_reply(
         monkeypatch.delenv("DODAIOS_VERSE_QA", raising=False)
     if command in ("meeting.start", "meeting.stop") and golden_code == "conflict":
         backend.confirm = False
+    if command == "subscribe" and request_frame["data"].get("topics") == ["panel"]:
+        # The golden reply is the host without Pixel Streaming signalling.
+        monkeypatch.setattr("dodaios.verse_host.host.panel_available", lambda: False)
     host, _ = make_host(tmp_path, backend)
     t, task = await connect(host)
     if golden_code == "busy":
