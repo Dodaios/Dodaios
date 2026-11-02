@@ -148,15 +148,19 @@ void UVerseGoreSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UVerseGoreSubsystem::Deinitialize()
 {
+	// The world is tearing down and takes the gore actor and its components with it; only
+	// drop our references here.
 	UnbindHub();
-	Purge();
-	if (AVerseGoreActor* Actor = GoreActor.Get())
-	{
-		Actor->Destroy();
-	}
+	SpatterRing.Reset();
+	Pools.Reset();
+	DropletsSim.Reset();
+	FlashesSim.Reset();
+	WoundSets.Reset();
+	PendingWoundClears.Reset();
 	GoreActor.Reset();
 	SyntheticEvents.Reset();
 	SyntheticCursor = 0;
+	CutToBlack.bActive = false;
 	bActive = false;
 	Super::Deinitialize();
 }
