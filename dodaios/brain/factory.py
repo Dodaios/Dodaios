@@ -134,6 +134,10 @@ ROUTER_TOOLS = frozenset({
     # neuen Skill …" had no authoring tool at all and died on `jarvisctl
     # --help` rounds. See ADR-0011 amendment "create-skill router tool".
     "create-skill",
+    # Personal memory vault (ADR-0044): search beyond the always-on memory
+    # block, and erase a memory when the user asks. Router-tier only.
+    "memory-search",
+    "memory-forget",
     # Phase B5 (recall-tool): read-only keyword search over the long-term
     # Obsidian wiki vault. Router-tier only — never in SUB_TOOLS (AP-D9).
     # The brain calls this when the user asks "what do we know about X" or

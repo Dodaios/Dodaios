@@ -674,11 +674,17 @@ def active() -> JarvisNotebook | None:
 
 
 def snapshot_block(*, compact: bool = False) -> str:
-    """What every prompt builder appends; ``""`` when the loop is not running."""
+    """What every prompt builder appends; ``""`` when nothing runs.
+
+    The memory vault's block (ADR-0044) comes first, then the notebooks.
+    """
+    from dodaios.memory.vault.runtime import prompt_block
+
+    parts = [prompt_block(compact=compact)]
     notebook = _active
-    if notebook is None:
-        return ""
-    return notebook.snapshot(compact=compact)
+    if notebook is not None:
+        parts.append(notebook.snapshot(compact=compact))
+    return "\n\n".join(p for p in parts if p)
 
 
 def dated_notes() -> list[tuple[date, str]]:
@@ -691,7 +697,9 @@ def dated_notes() -> list[tuple[date, str]]:
 
 def memory_block(*, compact: bool = False) -> str:
     """:data:`REMEMBER_DIRECTIVE` plus the snapshot, for a surface with the remember tool."""
-    if _active is None:
+    from dodaios.memory.vault.runtime import active as vault_active
+
+    if _active is None and vault_active() is None:
         return ""
     learned = snapshot_block(compact=compact)
     return REMEMBER_DIRECTIVE + ("\n\n" + learned if learned else "")

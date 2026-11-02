@@ -97,9 +97,12 @@ class JarvisLearningLoop:
         review_every_turns: int = 30,
         idle_review_seconds: float = 300.0,
         compactor: Reviewer | None = None,
+        vault_reviewer: Reviewer | None = None,
     ) -> None:
         self.notebook = notebook
         self._reviewer = reviewer
+        #: Reviews write into the memory vault (ADR-0044) while one runs.
+        self._vault_reviewer = vault_reviewer
         self._compactor = compactor
         self._every = max(1, int(review_every_turns))
         self._idle_s = max(0.0, float(idle_review_seconds))
@@ -398,6 +401,11 @@ class JarvisLearningLoop:
 
     async def _review_said(self, said: list[dict[str, str]], reason: str) -> tuple[int, bool]:
         """``(changes written, a reviewer answered)``; raises only on I/O faults."""
+        from dodaios.memory.vault import runtime as vault_runtime
+
+        vault = vault_runtime.active()
+        if vault is not None and self._vault_reviewer is not None:
+            return await self._review_into_vault(vault, said, reason)
         entries = await asyncio.to_thread(self.notebook.entries)
         prompt = build_prompt(said, entries=entries, usage=self.notebook.usage(entries))
         log.info("learning: reviewing %d picked turn(s) (%s)", len(said), reason)
@@ -421,6 +429,40 @@ class JarvisLearningLoop:
         written = 0
         for proposal in accepted:
             written += await asyncio.to_thread(self._apply_proposal, proposal, reason, seat)
+        return written, True
+
+    async def _review_into_vault(
+        self, vault: Any, said: list[dict[str, str]], reason: str
+    ) -> tuple[int, bool]:
+        """One reconcile call: what was said against the nearest stored memories."""
+        from dodaios.memory.vault import reconcile
+        from dodaios.memory.vault import runtime as vault_runtime
+
+        reviewer = self._vault_reviewer
+        if reviewer is None:
+            return 0, False
+        shown = await asyncio.to_thread(reconcile.nearest, vault, said)
+        prompt = reconcile.build_prompt(said, shown)
+        log.info("learning: reconciling %d picked turn(s) with the vault (%s)", len(said), reason)
+        self.review_calls += 1
+        try:
+            raw = await reviewer(prompt)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — a provider fault is a failed review, retried later
+            log.warning("learning: vault reviewer failed", exc_info=True)
+            raw = None
+        if raw is None:
+            return 0, False
+        ops, rejected = reconcile.validate(
+            raw, user_texts=[row["user"] for row in said], shown=shown
+        )
+        for why in rejected:
+            log.info("learning: rejected a vault op — %s", why)
+        source = {"via": "review", "reason": reason, **_seat_of(reviewer)}
+        written = await asyncio.to_thread(reconcile.apply, vault, ops, source=source)
+        if written:
+            vault_runtime.changed()
         return written, True
 
     def _apply_proposal(self, proposal: Proposal, reason: str, seat: dict[str, str]) -> int:
@@ -450,7 +492,19 @@ class JarvisLearningLoop:
 
         A full notebook never refuses it (it merges later); a request the
         remember tool already saved in this conversation is not filed twice.
+        While the memory vault runs, the request goes there instead.
         """
+        from dodaios.memory.vault import runtime as vault_runtime
+
+        if vault_runtime.active() is not None:
+            try:
+                result = vault_runtime.remember_explicitly(
+                    content, evidence=said, source="explicit request"
+                )
+            except (LookupError, ValueError) as exc:
+                log.info("learning: explicit remember request not saved — %s", exc)
+                return 0
+            return 1 if result.action == "added" else 0
         try:
             change = self.notebook.keep_explicit(content, evidence=said)
         except (ValueError, OSError) as exc:  # filelock.Timeout is an OSError subclass too
@@ -597,8 +651,10 @@ def start_learning(config: Any, bus: Any) -> JarvisLearningLoop | None:
     from dodaios.memory.learning import compact
     from dodaios.memory.learning import notebook as notebook_module
     from dodaios.memory.learning.review import ModelReviewer
+    from dodaios.memory.vault import reconcile
 
     _connect_write_feedback(bus)
+    _open_vault(config)
     cfg = config.memory.learning
     if not cfg.enabled:
         notebook_module.set_active(None)
@@ -618,10 +674,30 @@ def start_learning(config: Any, bus: Any) -> JarvisLearningLoop | None:
             max_tokens=compact.COMPACT_MAX_TOKENS,
             caller="learning-compaction",
         ),
+        vault_reviewer=ModelReviewer(
+            config,
+            system=reconcile.system_prompt,
+            parser=reconcile.parse,
+            max_tokens=reconcile.REVIEW_MAX_TOKENS,
+            caller="memory-vault",
+        ),
     )
     _loop.start(bus)
     notebook_module.set_active(book)
     return _loop
+
+
+def _open_vault(config: Any) -> None:
+    """Open the memory vault (ADR-0044); a fault leaves the notebooks in charge."""
+    from dodaios.memory.vault import runtime as vault_runtime
+
+    try:
+        vault = vault_runtime.open_from_config(config)
+    except Exception:  # noqa: BLE001 — memory must never block the boot
+        log.warning("memory vault: could not open it; using the notebooks", exc_info=True)
+        return
+    if vault is not None:
+        log.info("memory vault: %s (%d current memories)", vault.path, vault.stats()["current"])
 
 
 def _connect_write_feedback(bus: Any) -> None:
@@ -643,9 +719,11 @@ async def stop_learning() -> None:
     global _loop
     from dodaios.memory import write_feedback
     from dodaios.memory.learning import notebook as notebook_module
+    from dodaios.memory.vault import runtime as vault_runtime
 
     loop, _loop = _loop, None
     notebook_module.set_active(None)
+    vault_runtime.set_active(None)
     write_feedback.disconnect()
     if loop is not None:
         await loop.stop()

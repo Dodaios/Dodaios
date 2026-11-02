@@ -1952,6 +1952,21 @@ class JarvisLearningConfig(BaseModel):
     timeout_s: float = Field(default=90.0, ge=5.0, le=600.0)
 
 
+class MemoryVaultConfig(BaseModel):
+    """``[memory.vault]`` — the personal memory vault (ADR-0044).
+
+    One SQLite file holds the main assistant's long-term memory; every key
+    is read by ``dodaios.memory.vault.runtime`` (AP-31).
+    """
+
+    #: Off keeps the vault closed; the learned notebooks stay in charge.
+    enabled: bool = True
+    #: Vault file; empty = ``<data dir>/memory/vault.db``.
+    path: str = ""
+    #: Budget of the always-on memory block in every prompt (voice gets half).
+    profile_max_chars: int = Field(default=2_400, ge=400, le=20_000)
+
+
 class MemoryConfig(BaseModel):
     recall_store: str = "sqlite"
     # chromadb was removed (2026-06-28); there is no chroma backend in
@@ -1963,6 +1978,7 @@ class MemoryConfig(BaseModel):
     wiki: WikiMemoryConfig = Field(default_factory=WikiMemoryConfig)
     legacy_curator: LegacyCuratorConfig = Field(default_factory=LegacyCuratorConfig)
     learning: JarvisLearningConfig = Field(default_factory=JarvisLearningConfig)
+    vault: MemoryVaultConfig = Field(default_factory=MemoryVaultConfig)
 
 
 class SafetyWhitelistConfig(BaseModel):
@@ -4463,6 +4479,7 @@ class Phase6SafetyConfig(BaseModel):
             "wiki-recall",
             "wiki-page-read",
             "wiki-ingest",
+            "memory-search",
             "session-latest-turn",
         ]
     )
