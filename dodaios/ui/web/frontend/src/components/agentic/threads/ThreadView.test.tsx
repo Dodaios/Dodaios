@@ -273,6 +273,20 @@ describe("ThreadTree", () => {
     expect(screen.queryByTestId("thread-subagents-fold")).toBeNull();
   });
 
+  it("starts a thread or a team from the rows on top, in the project in view, and leads every thread with its agent's logo", async () => {
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow({ cli_title: "Fix login test" })]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
+    const row = screen.getByTestId("thread-row-s1");
+    const mark = await waitFor(() => within(row).getByTestId("agent-mark-claude"));
+    const title = within(row).getByText("Fix login test");
+    expect(mark.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByTestId("thread-tree-new-thread"));
+    expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null });
+    fireEvent.click(screen.getByTestId("thread-tree-new-team"));
+    expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null, team: "new" });
+  });
+
   it("moves a thread with Alt and the arrow keys and keeps that order", async () => {
     api.fetchAgentChatSessions.mockResolvedValue([
       sessionRow({ session_id: "s1", cli_title: "Older", updated_ms: 1 }),

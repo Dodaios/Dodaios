@@ -87,6 +87,11 @@ def changed() -> None:
     _cache.clear()
 
 
+def budget_chars(*, compact: bool = False) -> int:
+    """Characters the always-on block may use (voice gets the compact budget)."""
+    return _budgets["compact" if compact else "full"]
+
+
 def prompt_block(*, compact: bool = False) -> str:
     """The always-on memory block, ``""`` while no vault runs or it is empty."""
     vault = _active

@@ -6,9 +6,9 @@ import { loadLocaleChunk, setUiLanguage } from "@/i18n";
 import { MemoryView } from "@/views/MemoryView";
 
 /**
- * The Memory section shows the personal memory vault: one row per memory,
- * grouped by kind, the exact block the assistant carries into every
- * conversation, and the export links. Writes go to /api/memory/vault.
+ * The Memory section: a library sidebar, the memories list with an
+ * inspector, the memory as files with a preview, and a drawing of what
+ * reaches the model. Writes go to /api/memory/vault.
  */
 
 const NOW = "2026-11-02T10:00:00+00:00";
@@ -39,15 +39,30 @@ function memory(id: string, kind: string, text: string, extra: Record<string, un
 
 const ITEMS = [
   memory("m1", "profile", "I live in Berlin.", { supersedes_id: "m0" }),
-  memory("m2", "relationship", "Lea is my sister.", { pinned: true, origin: "inferred" }),
+  memory("m2", "relationship", "Lea is my sister.", {
+    pinned: true,
+    origin: "inferred",
+    source: { evidence: "my sister Lea is visiting" },
+  }),
+  memory("m3", "episode", "We hiked on Sunday."),
 ];
 
 const OVERVIEW = {
   path: "vault.db",
-  stats: { current: 2, by_kind: { profile: 1, relationship: 1 }, all_versions: 3, forgotten: 0, entities: 0 },
-  kinds: ["profile", "relationship"],
+  stats: { current: 3, by_kind: { profile: 1, relationship: 1, episode: 1 }, all_versions: 4, forgotten: 0, entities: 0 },
+  kinds: ["profile", "relationship", "episode"],
   prompt_block: "## What you know\nUse it.\nPinned:\n- Lea is my sister.",
+  in_mind_ids: ["m1", "m2"],
+  budget_chars: 2400,
+  used_chars: 600,
   imported: true,
+};
+
+const FILES = {
+  files: [
+    { name: "MEMORY.md", kind: "index", bytes: 120, lines: 6, content: "# My memory\n" },
+    { name: "profile.md", kind: "profile", bytes: 90, lines: 8, content: "---\nkind: profile\n---\n\n# About me\n\n- I live in Berlin. <!-- m1 -->\n" },
+  ],
 };
 
 let calls: Array<{ url: string; init?: RequestInit }> = [];
@@ -58,12 +73,12 @@ function stubFetch() {
     calls.push({ url, init });
     const body = url.endsWith("/api/memory/vault")
       ? OVERVIEW
-      : url.includes("/activity")
-        ? { entries: [{ seq: 1, at: NOW, action: "add", memory_id: "m1", text: "I live in Berlin." }] }
+      : url.includes("/files")
+        ? FILES
         : url.includes("/history")
           ? {
               versions: [
-                memory("m0", "profile", "I live in Hamburg.", { current: false }),
+                memory("m0", "profile", "I live in Hamburg.", { current: false, valid_to: NOW }),
                 memory("m1", "profile", "I live in Berlin."),
               ],
             }
@@ -92,45 +107,66 @@ beforeAll(async () => {
 afterEach(cleanup);
 
 describe("MemoryView", () => {
-  it("groups memories by kind and shows what is always in mind", async () => {
+  it("lists memories and inspects the first one with its timeline", async () => {
     stubFetch();
     renderView();
-    const profile = await screen.findByTestId("vault-group-profile");
-    expect(within(profile).getByText("I live in Berlin.")).toBeTruthy();
-    expect(within(screen.getByTestId("vault-group-relationship")).getByText("Lea is my sister.")).toBeTruthy();
-    expect(screen.getByTestId("vault-prompt-block").textContent).toContain("Lea is my sister.");
-    expect(screen.getByTestId("vault-export-bundle").getAttribute("href")).toBe(
-      "/api/memory/vault/export?format=bundle",
-    );
+    expect(await screen.findByText("Lea is my sister.")).toBeTruthy();
+    expect(screen.getAllByTestId("vault-row")).toHaveLength(3);
+    const inspector = await screen.findByTestId("vault-inspector");
+    expect(within(inspector).getByText("Always in mind")).toBeTruthy();
+    const versions = await within(inspector).findByTestId("vault-versions");
+    expect(within(versions).getByText("I live in Hamburg.")).toBeTruthy();
   });
 
-  it("saves a new memory from the composer", async () => {
+  it("filters to what is always in mind and shows the user's own words", async () => {
     stubFetch();
     renderView();
-    const composer = await screen.findByTestId("vault-composer");
-    fireEvent.change(within(composer).getByRole("textbox"), { target: { value: "I like jazz." } });
-    fireEvent.submit(composer);
+    await screen.findByText("We hiked on Sunday.");
+    fireEvent.click(screen.getAllByRole("button", { name: /Always in mind/ })[0]);
+    await waitFor(() => expect(screen.getAllByTestId("vault-row")).toHaveLength(2));
+    fireEvent.click(screen.getAllByTestId("vault-row")[1]);
+    expect((await screen.findAllByText("my sister Lea is visiting")).length).toBeGreaterThan(0);
+  });
+
+  it("adds a memory from the new-memory sheet", async () => {
+    stubFetch();
+    renderView();
+    await screen.findByText("Lea is my sister.");
+    fireEvent.click(screen.getByTestId("vault-add"));
+    const sheet = await screen.findByTestId("vault-new-sheet");
+    fireEvent.change(within(sheet).getByRole("textbox"), { target: { value: "I like jazz." } });
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Preferences" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Remember" }));
     await waitFor(() => expect(calls.some((c) => c.init?.method === "POST" && c.url.endsWith("/items"))).toBe(true));
     const post = calls.find((c) => c.init?.method === "POST" && c.url.endsWith("/items"));
-    expect(JSON.parse(String(post?.init?.body))).toMatchObject({ text: "I like jazz.", kind: "" });
+    expect(JSON.parse(String(post?.init?.body))).toMatchObject({ text: "I like jazz.", kind: "preference" });
   });
 
-  it("shows earlier versions of a changed memory", async () => {
+  it("shows the memory as files with a readable preview", async () => {
     stubFetch();
     renderView();
-    await screen.findByText("I live in Berlin.");
-    fireEvent.click(screen.getByRole("button", { name: "Earlier versions" }));
-    const versions = await screen.findByTestId("vault-versions");
-    expect(await within(versions).findByText("I live in Hamburg.")).toBeTruthy();
+    fireEvent.click(await screen.findByTestId("vault-mode-files"));
+    const files = await screen.findAllByTestId("vault-file");
+    fireEvent.click(files[1]);
+    const preview = await screen.findByTestId("vault-quicklook");
+    expect(within(preview).getByText("I live in Berlin.")).toBeTruthy();
+    expect(preview.textContent).not.toContain("kind: profile");
+  });
+
+  it("draws how much of the always-on space is used", async () => {
+    stubFetch();
+    renderView();
+    fireEvent.click(await screen.findByTestId("vault-mode-how"));
+    const meter = await screen.findByRole("meter");
+    expect(meter.getAttribute("aria-valuenow")).toBe("600");
   });
 
   it("asks before forgetting and then deletes", async () => {
     stubFetch();
     renderView();
-    await screen.findByText("I live in Berlin.");
-    fireEvent.click(screen.getAllByRole("button", { name: "Forget" })[0]);
-    expect(await screen.findByText("Forget this for good?")).toBeTruthy();
-    const dialog = screen.getByRole("dialog");
+    const inspector = await screen.findByTestId("vault-inspector");
+    fireEvent.click(within(inspector).getByRole("button", { name: "Forget" }));
+    const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Forget" }));
     await waitFor(() => expect(calls.some((c) => c.init?.method === "DELETE")).toBe(true));
   });
