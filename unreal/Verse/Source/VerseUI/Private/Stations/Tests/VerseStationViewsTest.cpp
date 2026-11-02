@@ -149,6 +149,12 @@ bool FVerseUIStationController::RunTest(const FString&)
 	R.Ctl.HandleStationUsed(TEXT("games"), TEXT("sim"), FString());
 	TestEqual(TEXT("simulator panel"), R.Ctl.Panel(), EVerseStationPanel::Simulator);
 	TestFalse(TEXT("an unknown programme is not sent"), R.Ctl.OpenProgramme(TEXT("reactor-defense")));
+	for (const FVerseProgramme& P : FVerseStationController::Programmes())
+	{
+		TestTrue(TEXT("programme title has a locale key"), P.TitleKey().StartsWith(TEXT("verse.games.programme.")) && !P.TitleKey().Contains(TEXT("-")));
+		TestFalse(TEXT("programme title has an English fallback"), P.Title.IsEmpty());
+	}
+	TestEqual(TEXT("programme key"), FVerseStationController::Programmes()[0].TitleKey(), FString(TEXT("verse.games.programme.asteroid_run")));
 	TestTrue(TEXT("asteroid run"), R.Ctl.OpenProgramme(TEXT("asteroid-run")));
 	R.Link->AnswerLast(*FFakeVerseStationLink::Ok());
 	TestEqual(TEXT("panel closes when the app opens it"), R.Ctl.Panel(), EVerseStationPanel::None);

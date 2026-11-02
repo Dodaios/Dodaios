@@ -11,6 +11,7 @@
 #include "Misc/App.h"
 #include "Policies/PrettyJsonPrintPolicy.h"
 #include "Screens/VerseChatTailScreenComponent.h"
+#include "Screens/VerseScreenSurface.h"
 #include "Screens/VerseScreensSubsystem.h"
 #include "Screens/VerseTerminalMonitorComponent.h"
 #include "Serialization/JsonWriter.h"
@@ -277,6 +278,24 @@ bool FVerseScreensFeedRouting::RunTest(const FString&)
 	TestEqual(TEXT("reset voids refs"), Rig.Screens->PaneForRef(1), FString());
 	Rig.Screens->UpdateWatch();
 	TestEqual(TEXT("reset re-sends the watch"), Rig.Link->Count(TEXT("screens.watch")), 2);
+
+	// A pane the server dropped (over its limit) shows standby, not its last picture as if live.
+	const FFakeVerseCommandLink::FSent* Rewatch = Rig.Link->Last(TEXT("screens.watch"));
+	if (TestNotNull(TEXT("second watch"), Rewatch))
+	{
+		TSharedRef<FJsonObject> BoundFar = MakeShared<FJsonObject>();
+		BoundFar->SetStringField(TEXT("pane_id"), TEXT("ws_91:T2"));
+		BoundFar->SetNumberField(TEXT("ref"), 3);
+		TSharedPtr<FJsonObject> Partial = MakeShared<FJsonObject>();
+		Partial->SetArrayField(TEXT("bound"), {MakeShared<FJsonValueObject>(BoundFar)});
+		Partial->SetArrayField(TEXT("dropped"), {MakeShared<FJsonValueString>(TEXT("ws_91:T1"))});
+		Partial->SetArrayField(TEXT("missing"), TArray<TSharedPtr<FJsonValue>>());
+		TestEqual(TEXT("before: the near monitor shows its last picture"), Near->Page(), EVerseMonitorPage::Live);
+		Rig.Link->Answer(Rewatch->Id, *FFakeVerseCommandLink::Ok(Partial));
+		TestEqual(TEXT("dropped pane: monitor on standby"), Near->Page(), EVerseMonitorPage::Standby);
+		TestEqual(TEXT("dropped pane: not watched"), Near->WatchHz, 0);
+		TestEqual(TEXT("bound pane keeps its rate"), Far->WatchHz, 2);
+	}
 	return true;
 }
 
@@ -413,109 +432,191 @@ bool FVerseScreensTakeover::RunTest(const FString&)
 	return true;
 }
 
-// A16.2: 8 panes at 60 x 240 at 10 Hz: game-thread work per frame <= 0.3 ms, bytes <= 200 KB/s.
+namespace VerseScreensFeedTest
+{
+	struct FLoadResult
+	{
+		double MsPerFrame = 0.0;
+		double KBps = 0.0;
+		FVerseScreensStats Stats;
+		int32 Painted = 0;
+	};
+
+	/**
+	 * A16.2 body: 8 panes at 240 x 60, a delta per pane at 10 Hz for 3 s at 60 fps, DirtyRows
+	 * changed rows per delta. Rendered, every monitor has a render target and RedrawDirty runs the
+	 * whole paint path (draw list, canvas text and tiles, render target update) on the game thread.
+	 */
+	bool RunEightPanes(FAutomationTestBase& Test, bool bRendered, int32 DirtyRows, FLoadResult& Out)
+	{
+		FWorldRig Rig;
+		if (!Test.TestTrue(TEXT("world with subsystems"), Rig.Ok()))
+		{
+			return false;
+		}
+		TArray<UVerseTerminalMonitorComponent*> Desks;
+		for (int32 I = 0; I < 8; ++I)
+		{
+			// Two near desks, six far ones: the busy_panes scenario of G0.11.
+			UVerseTerminalMonitorComponent* M = Rig.AddMonitor(FString::Printf(TEXT("ws_91:T%d"), I + 1),
+				FVector(I < 2 ? 300.0 + 100.0 * I : 1200.0 + 150.0 * I, 0, 0));
+			if (bRendered)
+			{
+				// BeginPlay makes the monitor's render target.
+				M->GetOwner()->DispatchBeginPlay();
+				if (!Test.TestTrue(TEXT("monitor has a render target"), M->Surface() && M->Surface()->CanPaint()))
+				{
+					return false;
+				}
+			}
+			Desks.Add(M);
+		}
+		Rig.Screens->SetViewOverride(FVector::ZeroVector, FVector::ForwardVector);
+		Rig.Screens->UpdateWatch();
+		Rig.BindAll();
+		TArray<uint32> Seq;
+		Seq.Init(0, 8);
+		uint32 Counter = 1000;
+		for (int32 P = 0; P < 8; ++P)
+		{
+			FVerseCellFrame Snap;
+			Snap.Kind = EVerseCellsKind::Snapshot;
+			Snap.Ref = uint16(P + 1);
+			Snap.Seq = ++Counter;
+			Snap.Cols = 240;
+			Snap.Rows = 60;
+			Snap.CursorRow = 59;
+			Snap.CursorCol = 0;
+			for (int32 R = 0; R < 60; ++R)
+			{
+				Snap.RowsChanged.Add(BusyRow(R, 0));
+			}
+			Rig.Screens->HandleBridgeBinary(Encode(Snap));
+			Seq[P] = Snap.Seq;
+		}
+		// Pre-encode the deltas so only the receiving side is measured.
+		constexpr int32 Seconds = 3;
+		constexpr int32 Fps = 60;
+		TArray<TArray<uint8>> Deltas;
+		TArray<int32> DueFrame;
+		for (int32 Tick = 0; Tick < Seconds * 10; ++Tick)
+		{
+			for (int32 P = 0; P < 8; ++P)
+			{
+				FVerseCellFrame D;
+				D.Kind = EVerseCellsKind::Delta;
+				D.Ref = uint16(P + 1);
+				D.Base = Seq[P];
+				D.Seq = ++Counter;
+				Seq[P] = D.Seq;
+				D.Cols = 240;
+				D.Rows = 60;
+				D.CursorRow = 59;
+				D.CursorCol = int16(Tick % 200);
+				for (int32 R = 0; R < DirtyRows; ++R)
+				{
+					D.RowsChanged.Add(BusyRow(60 - DirtyRows + R, Tick + 1));
+				}
+				Deltas.Add(Encode(D));
+				DueFrame.Add(Tick * Fps / 10 + P % 6);
+			}
+		}
+		Rig.Screens->RedrawDirty(0.0);
+		Rig.Screens->ResetStats();
+		TArray<int32> PaintsBefore;
+		for (UVerseTerminalMonitorComponent* M : Desks)
+		{
+			PaintsBefore.Add(M->Surface() ? M->Surface()->PaintCount() : 0);
+		}
+		int32 Next = 0;
+		for (int32 Frame = 0; Frame < Seconds * Fps; ++Frame)
+		{
+			while (Next < Deltas.Num() && DueFrame[Next] <= Frame)
+			{
+				Rig.Screens->HandleBridgeBinary(Deltas[Next++]);
+			}
+			Rig.Screens->RedrawDirty(double(Frame) / Fps);
+		}
+		Out.Stats = Rig.Screens->Stats();
+		Out.MsPerFrame = Out.Stats.WorkSeconds * 1000.0 / double(Seconds * Fps);
+		Out.KBps = double(Out.Stats.BytesIn) / 1024.0 / double(Seconds);
+		for (int32 I = 0; I < Desks.Num(); ++I)
+		{
+			Out.Painted += (Desks[I]->Surface() ? Desks[I]->Surface()->PaintCount() : 0) - PaintsBefore[I];
+		}
+		Test.TestEqual(TEXT("every delta applied in order"), Out.Stats.FramesApplied, Deltas.Num());
+		Test.TestEqual(TEXT("no resync"), Out.Stats.Resyncs, 0);
+		Test.TestTrue(TEXT("far monitors repaint at most at 2 Hz"), Desks[7]->WatchHz == 2);
+		if (bRendered)
+		{
+			Test.TestEqual(TEXT("every redraw painted its render target"), Out.Painted, Out.Stats.Redraws);
+		}
+		return true;
+	}
+
+	TSharedRef<FJsonObject> LoadProof(const TCHAR* TestName, bool bRendered, int32 DirtyRows, const FLoadResult& R)
+	{
+		TSharedRef<FJsonObject> Proof = MakeShared<FJsonObject>();
+		Proof->SetStringField(TEXT("test"), TestName);
+		Proof->SetStringField(TEXT("rhi"), bRendered ? FString(TEXT("rendered: draw list, canvas submit and render target update"))
+													  : FString(TEXT("nullrhi: decode, apply and draw-list build only (no paint)")));
+		Proof->SetNumberField(TEXT("panes"), 8);
+		Proof->SetNumberField(TEXT("cols"), 240);
+		Proof->SetNumberField(TEXT("rows"), 60);
+		Proof->SetNumberField(TEXT("hz"), 10);
+		Proof->SetNumberField(TEXT("dirty_rows_per_delta"), DirtyRows);
+		Proof->SetNumberField(TEXT("game_thread_ms_per_frame"), R.MsPerFrame);
+		Proof->SetNumberField(TEXT("budget_ms"), 0.3);
+		Proof->SetNumberField(TEXT("kb_per_s"), R.KBps);
+		Proof->SetNumberField(TEXT("budget_kb_per_s"), 200);
+		Proof->SetNumberField(TEXT("frames"), R.Stats.FramesIn);
+		Proof->SetNumberField(TEXT("redraws"), R.Stats.Redraws);
+		Proof->SetNumberField(TEXT("rows_drawn"), R.Stats.RowsDrawn);
+		Proof->SetNumberField(TEXT("render_target_paints"), R.Painted);
+		return Proof;
+	}
+}
+
+// Decode, apply and draw-list path of A16.2 without a GPU (CI lane). Not the A16.2 evidence: that is
+// Verse.Visual.Screens.Load, which includes painting.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseScreensLoad, "Verse.Screens.Load.EightPanes", VERSE_SCREENS_TEST_FLAGS)
 bool FVerseScreensLoad::RunTest(const FString&)
 {
-	FWorldRig Rig;
-	if (!TestTrue(TEXT("world with subsystems"), Rig.Ok()))
+	FLoadResult R;
+	if (!RunEightPanes(*this, false, 6, R))
 	{
 		return false;
 	}
-	TArray<UVerseTerminalMonitorComponent*> Desks;
-	for (int32 I = 0; I < 8; ++I)
-	{
-		// Two near desks, six far ones: the busy_panes scenario of G0.11.
-		Desks.Add(Rig.AddMonitor(FString::Printf(TEXT("ws_91:T%d"), I + 1), FVector(I < 2 ? 300.0 + 100.0 * I : 1200.0 + 150.0 * I, 0, 0)));
-	}
-	Rig.Screens->SetViewOverride(FVector::ZeroVector, FVector::ForwardVector);
-	Rig.Screens->UpdateWatch();
-	Rig.BindAll();
-	TArray<uint32> Seq;
-	Seq.Init(0, 8);
-	uint32 Counter = 1000;
-	for (int32 P = 0; P < 8; ++P)
-	{
-		FVerseCellFrame Snap;
-		Snap.Kind = EVerseCellsKind::Snapshot;
-		Snap.Ref = uint16(P + 1);
-		Snap.Seq = ++Counter;
-		Snap.Cols = 240;
-		Snap.Rows = 60;
-		Snap.CursorRow = 59;
-		Snap.CursorCol = 0;
-		for (int32 R = 0; R < 60; ++R)
-		{
-			Snap.RowsChanged.Add(BusyRow(R, 0));
-		}
-		Rig.Screens->HandleBridgeBinary(Encode(Snap));
-		Seq[P] = Snap.Seq;
-	}
-	// Pre-encode the deltas so only the receiving side is measured.
-	constexpr int32 Seconds = 3;
-	constexpr int32 Fps = 60;
-	constexpr int32 DirtyRows = 6;
-	TArray<TArray<uint8>> Deltas;
-	TArray<int32> DueFrame;
-	for (int32 Tick = 0; Tick < Seconds * 10; ++Tick)
-	{
-		for (int32 P = 0; P < 8; ++P)
-		{
-			FVerseCellFrame D;
-			D.Kind = EVerseCellsKind::Delta;
-			D.Ref = uint16(P + 1);
-			D.Base = Seq[P];
-			D.Seq = ++Counter;
-			Seq[P] = D.Seq;
-			D.Cols = 240;
-			D.Rows = 60;
-			D.CursorRow = 59;
-			D.CursorCol = int16(Tick % 200);
-			for (int32 R = 0; R < DirtyRows; ++R)
-			{
-				D.RowsChanged.Add(BusyRow(54 + R, Tick + 1));
-			}
-			Deltas.Add(Encode(D));
-			DueFrame.Add(Tick * Fps / 10 + P % 6);
-		}
-	}
-	Rig.Screens->RedrawDirty(0.0);
-	Rig.Screens->ResetStats();
-	int32 Next = 0;
-	for (int32 Frame = 0; Frame < Seconds * Fps; ++Frame)
-	{
-		while (Next < Deltas.Num() && DueFrame[Next] <= Frame)
-		{
-			Rig.Screens->HandleBridgeBinary(Deltas[Next++]);
-		}
-		Rig.Screens->RedrawDirty(double(Frame) / Fps);
-	}
-	const FVerseScreensStats& S = Rig.Screens->Stats();
-	const double MsPerFrame = S.WorkSeconds * 1000.0 / double(Seconds * Fps);
-	const double KBps = double(S.BytesIn) / 1024.0 / double(Seconds);
-	AddInfo(FString::Printf(TEXT("8 panes 240x60 @10 Hz: %.4f ms/frame, %.1f KB/s, %d frames, %d redraws, %d rows drawn, %d resyncs"),
-		MsPerFrame, KBps, S.FramesIn, S.Redraws, S.RowsDrawn, S.Resyncs));
-	TestEqual(TEXT("every delta applied in order"), S.FramesApplied, Deltas.Num());
-	TestEqual(TEXT("no resync"), S.Resyncs, 0);
-	TestTrue(TEXT("game thread at most 0.3 ms per frame"), MsPerFrame <= 0.3);
-	TestTrue(TEXT("at most 200 KB/s"), KBps <= 200.0);
-	TestTrue(TEXT("far monitors repaint at most at 2 Hz"), Desks[7]->WatchHz == 2);
+	AddInfo(FString::Printf(TEXT("headless, 6 dirty rows: %.4f ms/frame (no paint), %.1f KB/s, %d redraws"), R.MsPerFrame, R.KBps, R.Stats.Redraws));
+	TestTrue(TEXT("decode and draw lists well inside the frame budget"), R.MsPerFrame <= 0.3);
+	TestTrue(TEXT("at most 200 KB/s"), R.KBps <= 200.0);
+	WriteProof(TEXT("16.2"), TEXT("load_headless.json"), LoadProof(TEXT("Verse.Screens.Load.EightPanes"), false, 6, R));
+	return true;
+}
 
-	TSharedRef<FJsonObject> Proof = MakeShared<FJsonObject>();
-	Proof->SetStringField(TEXT("test"), TEXT("Verse.Screens.Load.EightPanes"));
-	Proof->SetStringField(TEXT("rhi"), FApp::CanEverRender() ? TEXT("rendered") : TEXT("nullrhi (decode, apply and draw-list build; no GPU submit)"));
-	Proof->SetNumberField(TEXT("panes"), 8);
-	Proof->SetNumberField(TEXT("cols"), 240);
-	Proof->SetNumberField(TEXT("rows"), 60);
-	Proof->SetNumberField(TEXT("hz"), 10);
-	Proof->SetNumberField(TEXT("dirty_rows_per_frame"), DirtyRows);
-	Proof->SetNumberField(TEXT("game_thread_ms_per_frame"), MsPerFrame);
-	Proof->SetNumberField(TEXT("budget_ms"), 0.3);
-	Proof->SetNumberField(TEXT("kb_per_s"), KBps);
-	Proof->SetNumberField(TEXT("budget_kb_per_s"), 200);
-	Proof->SetNumberField(TEXT("frames"), S.FramesIn);
-	Proof->SetNumberField(TEXT("redraws"), S.Redraws);
-	Proof->SetNumberField(TEXT("rows_drawn"), S.RowsDrawn);
+// A16.2 (rendered): 8 panes at 60 x 240 at 10 Hz, painted into their render targets on the GPU:
+// game thread at most 0.3 ms per frame and at most 200 KB/s. Also measured and reported beside it:
+// every row of every pane changing on every delta (a full scroll).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseVisualScreensLoad, "Verse.Visual.Screens.Load", VERSE_SCREENS_TEST_FLAGS)
+bool FVerseVisualScreensLoad::RunTest(const FString&)
+{
+	if (!FApp::CanEverRender())
+	{
+		AddInfo(TEXT("no renderer (-nullrhi): the rendered load check runs in the visual lane"));
+		return true;
+	}
+	FLoadResult Busy;
+	FLoadResult Scroll;
+	if (!RunEightPanes(*this, true, 6, Busy) || !RunEightPanes(*this, true, 60, Scroll))
+	{
+		return false;
+	}
+	AddInfo(FString::Printf(TEXT("rendered, 6 dirty rows: %.4f ms/frame, %.1f KB/s, %d paints"), Busy.MsPerFrame, Busy.KBps, Busy.Painted));
+	AddInfo(FString::Printf(TEXT("rendered, full scroll (60 rows): %.4f ms/frame, %.1f KB/s, %d paints"), Scroll.MsPerFrame, Scroll.KBps, Scroll.Painted));
+	TestTrue(TEXT("busy panes: game thread at most 0.3 ms per frame, painting included"), Busy.MsPerFrame <= 0.3);
+	TestTrue(TEXT("busy panes: at most 200 KB/s"), Busy.KBps <= 200.0);
+	TSharedRef<FJsonObject> Proof = LoadProof(TEXT("Verse.Visual.Screens.Load"), true, 6, Busy);
+	Proof->SetObjectField(TEXT("full_scroll"), LoadProof(TEXT("Verse.Visual.Screens.Load"), true, 60, Scroll));
 	WriteProof(TEXT("16.2"), TEXT("load.json"), Proof);
 	return true;
 }

@@ -103,6 +103,8 @@ namespace VerseCells
 				uint32 D;
 				if (C >= TEXT('0') && C <= TEXT('9')) { D = C - TEXT('0'); }
 				else if (C >= TEXT('a') && C <= TEXT('f')) { D = 10 + C - TEXT('a'); }
+				// The contract does not ask for lower case: one "#E3242B" must not cost a resync.
+				else if (C >= TEXT('A') && C <= TEXT('F')) { D = 10 + C - TEXT('A'); }
 				else { return false; }
 				V = (V << 4) | D;
 			}
