@@ -13,7 +13,6 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Render/VerseTerminalTheme.h"
-#include "RenderingThread.h"
 #include "Screens/VerseScreenSurface.h"
 #include "Screens/VerseTerminalMonitorComponent.h"
 #include "TextureResource.h"
@@ -118,7 +117,6 @@ bool FVerseVisualScreensMonitor::RunTest(const FString&)
 	Monitor->ApplyFrame(GoldenPane());
 	FVerseTerminalDrawList Scratch;
 	TestEqual(TEXT("all 24 rows painted"), Monitor->Redraw(0.0, Scratch), 24);
-	FlushRenderingCommands();
 
 	UTextureRenderTarget2D* Target = Cast<UTextureRenderTarget2D>(Surface->GetTexture());
 	FTextureRenderTargetResource* Resource = Target ? Target->GameThread_GetRenderTargetResource() : nullptr;
