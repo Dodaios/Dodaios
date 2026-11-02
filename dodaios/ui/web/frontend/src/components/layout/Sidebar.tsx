@@ -15,7 +15,7 @@ import {
 } from "@/components/layout/navGroups";
 import { useEventStore } from "@/store/events";
 import { useTilingStore } from "@/store/tiling";
-import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { useVerseModeStore } from "@/store/verseMode";
 import { useSelfBuildWaiting } from "@/hooks/useSelfBuild";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
 import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
@@ -340,29 +340,28 @@ export function Sidebar({
   // Rows read quietly: regular weight, light ink at
   // rest (muted grey made every entry look disabled), the icon in the same
   // ink, a lift on hover. Section labels and tail rows stay muted.
-  // The Verse is not a section of its own: it is the IDE's office tab
-  // maximized over the whole view (see IdeLayoutSwitch). Its row opens the
-  // IDE and switches that face on, so it is one click from anywhere.
-  const verseOn = useIdeSidePanelStore((s) => s.open && s.maximized && s.active === "office");
+  // The Verse is not a section of its own: it is the Agents section's
+  // full-window "Verse" face (the playable ship). Its row opens Agents and
+  // switches that face on; Escape or the caption switch leads back.
+  const verseOn = useVerseModeStore((s) => s.open);
   const verseItem: NavItem = {
-    ...findItem("agentic-ide"),
+    ...findItem("agents"),
     labelKey: "nav.verse",
     fallbackLabel: "Verse",
     icon: Building2,
     matchIds: undefined,
   };
   const openVerse = () => {
-    setActive("agentic-ide");
-    useIdeSidePanelStore.getState().openTab("office");
-    useIdeSidePanelStore.getState().setMaximized(true);
+    useVerseModeStore.getState().request();
+    setActive("agents");
   };
   const rowClass = "flex min-h-8 w-full items-center gap-3 rounded-lg px-3 text-base text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const renderRow = (raw: NavItem, compact = railed) => {
     const item = presentNavItem(raw, surface);
     const isActive = item.matchIds ? item.matchIds.includes(active) : item.id === active;
     return <NavRow key={item.id} item={item} label={resolveNavLabel(t, item)} compact={compact}
-      // While the Verse covers the IDE, its own row is the lit one.
-      active={isActive && !(item.id === "agentic-ide" && verseOn)}
+      // While the Verse covers the Agents section, its own row is the lit one.
+      active={isActive && !(item.id === "agents" && verseOn)}
       badge={item.id === "agents" ? agentsCount : item.id === "self-build" ? selfBuildWaiting : undefined}
       betaLabel={item.beta ? t("nav.agentic_ide_beta") : undefined}
       alert={item.id === "apikeys" && apikeysHasError} alertTitle={t("sidebar.apikeys_alert")}
@@ -565,7 +564,7 @@ export function Sidebar({
             {renderRow(findItem("agents"))}
             {renderRow(findItem("agentic-ide"))}
             <NavRow key="verse" rowId="verse" item={verseItem} label={resolveNavLabel(t, verseItem)}
-              compact={railed} active={active === "agentic-ide" && verseOn} onClick={openVerse} />
+              compact={railed} active={active === "agents" && verseOn} onClick={openVerse} />
             {renderRow(findItem("dictation"))}
           </ul>
           <ul className="space-y-px">
