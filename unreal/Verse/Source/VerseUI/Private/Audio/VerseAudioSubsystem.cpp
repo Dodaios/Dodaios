@@ -432,7 +432,7 @@ int32 UVerseAudioSubsystem::PlayCue(FName CueId, const FPlayParams& Params, floa
 
 	const int32 Handle = NextHandle++;
 	const float Duration = Sound ? Sound->GetDuration() : 1.f;
-	const bool bLoop = Cue->bLoop || Duration >= INDEFINITELY_LOOPING_DURATION;
+	const bool bLoop = Cue->bLoop || (Sound && Sound->IsLooping());
 	FVerseVoice Voice;
 	Voice.Handle = Handle;
 	Voice.CueId = CueId;

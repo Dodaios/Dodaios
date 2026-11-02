@@ -124,7 +124,7 @@ public:
 	explicit FVerseVariantPicker(int32 Seed = 1907) : Stream(Seed) {}
 
 	int32 Pick(FName CueId, int32 Count);
-	float Range(const FVector2D& MinMax) { return MinMax.X + (MinMax.Y - MinMax.X) * Stream.GetFraction(); }
+	float Range(const FVector2D& MinMax) { return float(MinMax.X + (MinMax.Y - MinMax.X) * Stream.GetFraction()); }
 	void Reset(int32 Seed) { Stream.Initialize(Seed); Last.Reset(); }
 
 private:
