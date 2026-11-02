@@ -40,8 +40,9 @@ flowchart LR
 | Step | Command (planned) | Runs where | Lock |
 |---|---|---|---|
 | Export | `python scripts/verse/export_unreal.py {piece <SM_Name> \| deck <deck> [--zone <zone>] \| characters \| weapons \| textures}` | Blender via `scripts/verse/blender.py` | `scripts/unreal/with_lock.py` (the machine-wide `gpu-heavy.lock`, architecture 8.2) |
-| Import | `python scripts/unreal/import_art.py {assets \| placements} [--deck D --zone Z] [--only NAME,...]` | `UnrealEditor-Cmd.exe unreal/Verse/Verse.uproject -run=pythonscript -script=verse_pipeline.cli -unattended -nosplash -nullrhi` | same lock |
-| Validate | `python scripts/unreal/import_art.py validate` | same commandlet; also in `unreal-build` | same lock |
+| Import | `python scripts/unreal/import_art.py {assets \| placements} [--deck D --zone Z] [--only NAME,...]` | `UnrealEditor-Cmd.exe unreal/Verse/Verse.uproject -ExecutePythonScript=<Content/Python/verse_pipeline/cli.py> -unattended -nosplash -nullrhi` (a headless editor, not the `pythonscript` commandlet: asset import tasks need the Slate application, which a commandlet does not create) | same lock |
+| Validate | `python scripts/unreal/import_art.py validate` | same headless editor; also in `unreal-build` | same lock |
+| Calibrate | `python scripts/unreal/import_art.py calib [--export]` | export, then the same headless editor (6.1) | same lock |
 | Static check (no engine) | `python scripts/unreal/check_art_text.py` | `unreal-static` lane, GitHub-hosted, LFS not fetched | none |
 
 Parallel agents call only these scripts, never Blender or UnrealEditor
@@ -226,7 +227,8 @@ exercised on FBX; one format means one calibration.
 |---|---|
 | Scope | One FBX per asset (one kit master, prop, character, weapon or clip set); piece space as authored (origin on the floor, centred, `kit/README.md`) |
 | Export settings | One frozen settings set, id `fbx-ue/1`, in `art/verse/lib/unreal_export.py` (unit scale, axes, smoothing by face, tangent space, no leaf bones, no embedded textures, deform bones only). It is frozen when the calibration test passes |
-| Calibration | `SM_Calib_Axes` (an asymmetric arrow: long +X, short +Y, tall +Z, one chamfer) and `SK_Calib_Rig`; a UE automation test checks bounds, facing and the first bone's rest transform against `space_vectors.json`. Any change to `fbx-ue/1` reruns it |
+| Calibration | `SM_Calib_Axes` (an asymmetric arrow: long +X, short +Y, tall +Z, one chamfer) and `SK_Calib_Rig` (`art/verse/kit/calib.py`); `verse_pipeline.calib` imports both headless and checks bounds, the chamfer, tip normals, triangle winding against the engine cube, bone positions and the first bone's rest rotation and scale against `space_vectors.json`. Any change to `fbx-ue/1` reruns it |
+| Calibrated facts (G0.7) | Data is exported in centimetres with a scene unit scale of 0.01 (in metres the armature node carries a scale of 100 into the first bone); the importer is the engine default (Interchange) with `convert_scene=True`, `force_front_x_axis=False`, `convert_scene_unit=False`; a rig's `Root` bone points along Blender +Y with roll 0, so its rest rotation is identity in Unreal. The export pins the FBX header time and object ids, so the same scene gives the same bytes and `export.sha256` changes only with the art |
 | Mesh hygiene | Manifold where the piece is destructible, no zero-area faces, no doubled faces, normals out, bevels as real geometry (style bible §3 "bevel everything"), no single-sided planes in architecture |
 | UV0 | Box-projected in real metres by the builder (1 UV unit = 1 m) when the piece has no authored UVs; authored UVs for characters, weapons, hero props |
 | UV1 | Not exported (no lightmaps) |

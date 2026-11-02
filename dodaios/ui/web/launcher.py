@@ -628,6 +628,15 @@ async def _run_headless(args) -> int:
 
     _lx_mark("imports")
 
+    # Before anything can build the agent-chat service: the init chain in
+    # ``server.start`` may build it, and a service built with the host switch
+    # still off finds no turn host and closes every thread turn the host kept
+    # running as "The app restarted" (the background hand-off, 2026-11-02).
+    # The desktop shell turns the same switch on before its API answers.
+    from dodaios.agentic_ide import host_mode
+
+    host_mode.enable()
+
     server = WebServer(cfg)
     _lx_mark("webserver_ctor")
 

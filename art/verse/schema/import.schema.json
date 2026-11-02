@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dodaios.dev/schema/verse.import-1.json",
+  "title": "verse.import/1",
+  "description": "Import record of one Unreal asset (docs/verse/unreal/contracts/art-pipeline.md 10.3). Written by scripts/verse/export_unreal.py, read by verse_pipeline and scripts/unreal/check_art_text.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "asset_path", "kind", "source", "export", "lightmap", "license", "owner"],
+  "properties": {
+    "schema": { "const": "verse.import/1" },
+    "name": { "type": "string", "pattern": "^[A-Z][A-Za-z]*_[A-Za-z0-9][A-Za-z0-9_]{0,60}$" },
+    "asset_path": { "type": "string", "pattern": "^/Game/Verse/[A-Za-z0-9_/]+/([A-Za-z0-9_]+)\\.([A-Za-z0-9_]+)$", "maxLength": 180 },
+    "kind": {
+      "enum": [
+        "static_mesh",
+        "skeletal_mesh",
+        "skeleton",
+        "physics_asset",
+        "animation",
+        "texture",
+        "geometry_collection",
+        "proxy_mesh"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["builder", "function", "args"],
+      "properties": {
+        "builder": { "type": "string", "pattern": "^art/verse/[A-Za-z0-9_/.-]+\\.py$" },
+        "function": { "type": "string", "minLength": 1 },
+        "args": { "type": "object" }
+      }
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "settings_id", "file", "sha256", "blender"],
+      "properties": {
+        "format": { "enum": ["fbx", "png"] },
+        "settings_id": { "type": "string", "pattern": "^[a-z]+-ue/[0-9]+$" },
+        "file": { "type": "string", "pattern": "^art/verse/\\.cache/unreal/[A-Za-z0-9_/.-]+\\.(fbx|png)$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "blender": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+      }
+    },
+    "mesh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["triangles", "vertices", "bounds_cm", "uv_sets", "material_slots"],
+      "properties": {
+        "triangles": { "type": "integer", "minimum": 1 },
+        "vertices": { "type": "integer", "minimum": 3 },
+        "bounds_cm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" }
+          }
+        },
+        "uv_sets": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "material_slots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["slot", "mi"],
+            "properties": {
+              "slot": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+              "mi": { "type": "string", "pattern": "^/Game/Verse/Materials/[A-Za-z0-9_/]+/(MI_[A-Za-z0-9_]+)\\.(MI_[A-Za-z0-9_]+)$" }
+            }
+          }
+        },
+        "bones": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" } },
+        "sockets": { "type": "array", "items": { "type": "string", "pattern": "^SOCKET_[A-Za-z0-9_]+$" } }
+      }
+    },
+    "nanite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "fallback_relative_error": { "type": "number", "minimum": 0 }
+      }
+    },
+    "collision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "source", "primitives"],
+      "properties": {
+        "profile": {
+          "enum": [
+            "Verse_Architecture",
+            "Verse_Destructible",
+            "Verse_Glass",
+            "Verse_Prop",
+            "Verse_PropSmall",
+            "Verse_Debris",
+            "Verse_ProxyOnly",
+            "Verse_NoCollision"
+          ]
+        },
+        "source": { "enum": ["authored", "auto_box", "proxy_states", "none"] },
+        "primitives": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "lod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["nanite", "auto", "single"] },
+        "screen_sizes": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 } }
+      }
+    },
+    "lightmap": { "const": "none" },
+    "texture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group", "max_size", "srgb", "compression", "flip_green"],
+      "properties": {
+        "group": { "enum": ["World", "WorldNormalMap", "Character", "CharacterNormalMap", "Weapon", "UI"] },
+        "max_size": { "enum": [32, 64, 128, 256, 512, 1024, 2048, 4096] },
+        "srgb": { "type": "boolean" },
+        "compression": { "enum": ["Default", "Normalmap", "Masks", "BC7", "Grayscale", "HDR"] },
+        "flip_green": { "type": "boolean" },
+        "channels": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["own", "ledger"] },
+        "ledger_sha256": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+      }
+    },
+    "owner": { "type": "string", "pattern": "^WP[0-9]{2}$" },
+    "budget_override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "value", "reason", "approved_by"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "value": { "type": ["number", "string"] },
+        "reason": { "type": "string", "minLength": 10 },
+        "approved_by": { "const": "integration" }
+      }
+    }
+  },
+  "$defs": {
+    "vec3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } }
+  }
+}
