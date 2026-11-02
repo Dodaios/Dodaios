@@ -3,14 +3,14 @@
   "collision": {
     "primitives": 1,
     "profile": "Verse_Prop",
-    "source": "authored"
+    "source": "auto_box"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/weapons/SM_Weapon_BreachCharge.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "8612114e940d02575c1e6bc48fc5249ad168dbf64eb7a971f1622fc08e5d0a6b"
+    "sha256": "b5f7ee6259c681daa027f6d700f6b69f39bfa60ff47a5fa4a830e73939186b5a"
   },
   "kind": "static_mesh",
   "license": {

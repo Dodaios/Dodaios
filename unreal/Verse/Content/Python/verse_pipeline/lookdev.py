@@ -406,15 +406,14 @@ class Runner:
         self.handle = None
         self.shots: list = []
         self.last_probe = b""
+        self.done = False
 
     def start(self):
         self.handle = self.u.register_slate_post_tick_callback(self.tick)
 
     def finish(self):
         u = self.u
-        if self.handle is not None:
-            u.unregister_slate_post_tick_callback(self.handle)
-            self.handle = None
+        self.done = True
         self.report["ok"] = not self.report["errors"] and bool(self.report["frames"])
         self.report["seconds"] = round(time.monotonic() - self.started, 1)
         OUT.mkdir(parents=True, exist_ok=True)
@@ -429,6 +428,8 @@ class Runner:
             u.SystemLibrary.quit_editor()
 
     def tick(self, _dt):
+        if self.done:
+            return
         try:
             self._tick()
         except Exception as error:  # report, never hang the editor
@@ -470,8 +471,8 @@ class Runner:
     def _setup(self):
         u = self.u
         specs, agx = _specs()
-        level = u.get_editor_subsystem(u.LevelEditorSubsystem)
-        if not level.new_level("/Temp/WP14_Lookdev"):
+        world = u.EditorLoadingAndSavingUtils.new_blank_map(False)
+        if world is None:
             raise RuntimeError("could not create the transient lookdev level")
         scene = Scene(u)
         self.scene = scene

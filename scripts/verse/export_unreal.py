@@ -212,7 +212,8 @@ def weapon_records(asset: dict) -> list[dict]:
         collision = {"profile": "Verse_NoCollision", "source": "none", "primitives": 0}
     else:
         primitives = asset["collision_primitives"]
-        collision = {"profile": "Verse_Prop", "source": "authored", "primitives": primitives}
+        how = "authored" if primitives else "auto_box"
+        collision = {"profile": "Verse_Prop", "source": how, "primitives": max(primitives, 1)}
     record = {
         "schema": "verse.import/1",
         "name": name,

@@ -3,14 +3,14 @@
   "collision": {
     "primitives": 1,
     "profile": "Verse_Prop",
-    "source": "authored"
+    "source": "auto_box"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/weapons/SM_Weapon_Bulwark.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "a03a9e7fd04f64536cfcb13c32807c0b4c02624552c3066d170abd05d38bd965"
+    "sha256": "d8a6ed43326cb1fc412d9bbf8e71aa2d60c051b40b460cf5945345960f29ca75"
   },
   "kind": "static_mesh",
   "license": {

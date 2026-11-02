@@ -5,10 +5,10 @@ After the FBX import, `finish_import`
 * assigns each material slot the MI its record names (imports never create
   materials, art-pipeline 6),
 * for skeletal weapons renames the importer's `<Mesh>_Skeleton` to
-  `SKEL_Weapon_<Name>` (the skeleton record beside the mesh record) and adds
-  the mesh sockets of `art/verse/weapons/specs.py` on their bones. The FBX
-  carries no socket objects for skeletal weapons, because the importer would
-  turn empties into bones.
+  `SKEL_Weapon_<Name>` (the skeleton record beside the mesh record) and
+  renames the sockets Interchange made from the FBX `SOCKET_<Name>` empties
+  (it strips the prefix) back to the contract names `SOCKET_<Name>`,
+* gives a gadget whose record says `auto_box` one box of simple collision.
 
 `facts` and `check` are A14.1 on the imported asset.
 """
@@ -89,25 +89,26 @@ def _socket_names(mesh) -> set[str]:
     }
 
 
-def _add_sockets(unreal, mesh, spec) -> list[str]:
-    poses = unreal.AnimPoseExtensions
-    pose = poses.get_reference_pose(mesh.get_editor_property("skeleton"))
+def _name_sockets(unreal, mesh, spec) -> list[str]:
+    subsystem = unreal.SkeletalMeshEditorSubsystem
     existing = _socket_names(mesh)
     for socket in spec.sockets:
-        if socket.name in existing:
-            continue
-        bone = poses.get_ref_bone_pose(pose, socket.bone, unreal.AnimPoseSpaces.WORLD)
-        location = unreal.Vector(*_specs().socket_to_ue_cm(socket.location))
-        world = unreal.Transform(location, unreal.Rotator(0.0, 0.0, 0.0), unreal.Vector(1, 1, 1))
-        relative = world.make_relative(bone)
-        item = unreal.SkeletalMeshSocket(outer=mesh)
-        item.set_editor_property("socket_name", socket.name)
-        item.set_editor_property("bone_name", socket.bone)
-        item.set_editor_property("relative_location", relative.translation)
-        item.set_editor_property("relative_rotation", relative.rotation.rotator())
-        mesh.add_socket(item, False)
+        short = socket.name.removeprefix("SOCKET_")
+        if socket.name not in existing and short in existing:
+            subsystem.rename_socket(mesh, short, socket.name)
     missing = [s.name for s in spec.sockets if s.name not in _socket_names(mesh)]
-    return [f"{spec.asset}: sockets not added: {missing}"] if missing else []
+    return [f"{spec.asset}: sockets missing after import: {missing}"] if missing else []
+
+
+def _auto_box(unreal, record: dict, asset) -> list[str]:
+    if record.get("collision", {}).get("source") != "auto_box":
+        return []
+    subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    if subsystem.get_simple_collision_count(asset) == 0:
+        subsystem.add_simple_collisions(asset, unreal.ScriptCollisionShapeType.BOX)
+    if subsystem.get_simple_collision_count(asset) == 0:
+        return [f"{record['name']}: no simple collision after the auto box"]
+    return []
 
 
 def finish_import(record: dict, asset) -> list[str]:
@@ -117,7 +118,9 @@ def finish_import(record: dict, asset) -> list[str]:
     if record["kind"] == "skeletal_mesh" and is_weapon(record):
         spec = _specs().by_asset(record["name"])
         errors += _rename_skeleton(unreal, asset, spec)
-        errors += _add_sockets(unreal, asset, spec)
+        errors += _name_sockets(unreal, asset, spec)
+    elif record["kind"] == "static_mesh":
+        errors += _auto_box(unreal, record, asset)
     return errors
 
 

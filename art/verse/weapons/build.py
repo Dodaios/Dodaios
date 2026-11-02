@@ -464,11 +464,12 @@ BUILDERS: dict[str, Callable[[Builder], None]] = {
     "SM_Weapon_BreachCharge": build_breach_charge,
 }
 
-#: Simple collision of the static gadgets: (size, center) boxes, metres.
+#: Authored collision boxes of the static gadgets: (size, center), metres.
+#: Empty: the gadgets use one auto box (record `auto_box`), added on import.
 GADGET_COLLISION: dict[str, tuple[tuple[Vec3, Vec3], ...]] = {
-    "SM_Weapon_Bulwark": (((0.18, 0.90, 0.15), (0.0, 0.0, 0.075)),),
-    "SM_Weapon_BulwarkField": (((0.04, 0.90, 1.10), (0.0, 0.0, 0.70)),),
-    "SM_Weapon_BreachCharge": (((0.07, 0.32, 0.22), (0.035, 0.0, 0.0)),),
+    "SM_Weapon_Bulwark": (),
+    "SM_Weapon_BulwarkField": (),
+    "SM_Weapon_BreachCharge": (),
 }
 
 
