@@ -5,7 +5,8 @@ a short arm toward +Y, a tall arm toward +Z, and one 45 degree chamfer on the
 top edge of the +X tip. No rotation can map it onto itself or its mirror, so
 its bounds alone tell whether units, axes and handedness came through right.
 
-`SK_Calib_Rig` is a small armature (`Root` up, `Calib_Arm` toward +X,
+`SK_Calib_Rig` is a small armature (`Root` along +Y with roll 0, so its rest
+rotation is identity in Unreal; `Calib_Arm` toward +X,
 `Calib_Side` toward +Y, each with an end bone at its tip) skinned to a small
 box per bone. The import check compares every bone's rest position with
 `unreal/Verse/Art/space_vectors.json`.
@@ -30,7 +31,7 @@ CHAMFER = 0.05  # 45 degree cut on the top edge of the +X tip
 
 #: Rig bones: (name, parent, head, tail) in Blender metres.
 RIG_BONES = (
-    ("Root", None, (0.0, 0.0, 0.0), (0.0, 0.0, 0.5)),
+    ("Root", None, (0.0, 0.0, 0.0), (0.0, 0.2, 0.0)),
     ("Calib_Arm", "Root", (0.0, 0.0, 0.5), (0.4, 0.0, 0.5)),
     ("Calib_Side", "Root", (0.0, 0.0, 0.5), (0.0, 0.25, 0.5)),
     ("Calib_ArmEnd", "Calib_Arm", (0.4, 0.0, 0.5), (0.5, 0.0, 0.5)),

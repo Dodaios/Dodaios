@@ -25,10 +25,12 @@ export.
 
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 import re
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -301,17 +303,81 @@ def _export_scene() -> bpy.types.Collection:
     return col
 
 
+#: Export data in centimetres with a scene unit scale of 0.01. With metres the
+#: FBX armature node carries a scale of 100 that the importer bakes into the
+#: first bone (found by the SK_Calib_Rig calibration); in centimetres every
+#: node keeps scale 1. Part of `fbx-ue/1`.
+CM = 100.0
+
+
+def _to_centimetres(objects: list[bpy.types.Object]) -> None:
+    """Scale the export copies' data (never object scale) from metres to centimetres."""
+    scale = Matrix.Scale(CM, 4)
+    for obj in objects:
+        if obj.type == "ARMATURE":
+            with bpy.context.temp_override(active_object=obj, object=obj):
+                bpy.ops.object.mode_set(mode="EDIT")
+                for bone in obj.data.edit_bones:
+                    bone.head = bone.head * CM
+                    bone.tail = bone.tail * CM
+                bpy.ops.object.mode_set(mode="OBJECT")
+        elif obj.type == "MESH":
+            obj.data.transform(scale)
+        if obj.parent is None or obj.parent not in objects:
+            obj.matrix_world.translation = obj.matrix_world.translation * CM
+        elif obj.type == "EMPTY":
+            obj.matrix_parent_inverse = Matrix.Identity(4)
+            obj.matrix_basis.translation = obj.matrix_basis.translation * CM
+
+
+class _FixedClock(datetime.datetime):
+    """`datetime.now()` pinned, so the FBX header time and the file hash are stable."""
+
+    @classmethod
+    def now(cls, tz=None):  # noqa: ARG003 - same signature as datetime.now
+        return cls(2000, 1, 1, 0, 0, 0)
+
+
+def _stable_hash(key) -> int:
+    """Process-independent stand-in for `hash()` (string hashing is salted per run)."""
+    return int.from_bytes(hashlib.sha256(repr(key).encode("utf-8")).digest()[:8], "little")
+
+
+@contextmanager
+def _reproducible_fbx():
+    """Pin the two run-dependent inputs of Blender's FBX writer: the header time
+    and the object ids (derived from `hash()` of names). Same scene, same bytes,
+    so `export.sha256` only changes when the art does (art-pipeline 10.2)."""
+    from io_scene_fbx import export_fbx_bin, fbx_utils
+
+    original = export_fbx_bin.datetime
+    export_fbx_bin.datetime = type("datetime_module", (), {"datetime": _FixedClock})
+    fbx_utils.hash = _stable_hash
+    try:
+        yield
+    finally:
+        export_fbx_bin.datetime = original
+        del fbx_utils.hash
+
+
 def _write_fbx(col: bpy.types.Collection, objects: list[bpy.types.Object], path: Path) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     view_layer = bpy.context.view_layer
     view_layer.update()
+    _to_centimetres(objects)
+    units = bpy.context.scene.unit_settings
+    units.scale_length = 1.0 / CM
     for obj in view_layer.objects:
         obj.select_set(False)
     for obj in objects:
         obj.select_set(True)
     view_layer.objects.active = objects[0]
-    with bpy.context.temp_override(active_object=objects[0], object=objects[0]):
-        result = bpy.ops.export_scene.fbx(filepath=str(path), **FBX_UE_1)
+    try:
+        override = bpy.context.temp_override(active_object=objects[0], object=objects[0])
+        with override, _reproducible_fbx():
+            result = bpy.ops.export_scene.fbx(filepath=str(path), **FBX_UE_1)
+    finally:
+        units.scale_length = 1.0
     if "FINISHED" not in result:
         raise ExportError(f"FBX export failed for {path.name}: {result}")
     check_fbx_names(path, {obj.name for obj in objects})
@@ -361,6 +427,7 @@ def export_static_mesh(
         objects.append(empty)
         socket_names.append(f"SOCKET_{socket_name}")
     path = out_dir / f"{name}.fbx"
+    box = bounds_cm(mesh)  # metres -> cm before the export scales the copies
     digest = _write_fbx(scene, objects, path)
     slots = [
         {"slot": strip_suffix(m.name) if m else "M_Default", "mi": _mi_path(m)}
@@ -372,7 +439,7 @@ def export_static_mesh(
         sha256=digest,
         triangles=triangle_count(mesh),
         vertices=len(mesh.vertices),
-        bounds_cm=bounds_cm(mesh),
+        bounds_cm=box,
         uv_sets=len(mesh.uv_layers),
         material_slots=slots,
         collision_primitives=len(parts.collision),
@@ -444,6 +511,7 @@ def build_rig(name: str, bones: tuple, out_dir: Path) -> ExportResult:
     modifier = body.modifiers.new("Armature", "ARMATURE")
     modifier.object = arm_obj
     path = out_dir / f"{name}.fbx"
+    box = bounds_cm(mesh)  # metres -> cm before the export scales the copies
     digest = _write_fbx(scene, [arm_obj, body], path)
     return ExportResult(
         name=name,
@@ -451,7 +519,7 @@ def build_rig(name: str, bones: tuple, out_dir: Path) -> ExportResult:
         sha256=digest,
         triangles=triangle_count(mesh),
         vertices=len(mesh.vertices),
-        bounds_cm=bounds_cm(mesh),
+        bounds_cm=box,
         uv_sets=len(mesh.uv_layers),
         material_slots=[],
         collision_primitives=0,

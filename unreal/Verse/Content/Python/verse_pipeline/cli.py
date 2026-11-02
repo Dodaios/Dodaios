@@ -1,12 +1,12 @@
-"""Commandlet entry of verse_pipeline, run by `scripts/unreal/import_art.py`.
+"""Editor entry of verse_pipeline, run by `scripts/unreal/import_art.py`.
 
-    UnrealEditor-Cmd Verse.uproject -run=pythonscript -script=<this file>
+    UnrealEditor-Cmd Verse.uproject -ExecutePythonScript=<this file>
         -unattended -nosplash -nullrhi
 
 Arguments come in `VERSE_PIPELINE_ARGS` (a JSON list, so nothing is lost to
 command-line quoting); the JSON report goes to `VERSE_PIPELINE_RESULT`. The
-host reads the report, so a failure is never hidden by the commandlet's own
-exit code.
+host reads the report, so a failure is never hidden by the editor's own exit
+code. With `VERSE_PIPELINE_QUIT=1` the editor quits when the command is done.
 
 Commands: `assets [--only A,B] [--no-save]`, `placements --deck D [--zone Z]
 [--dry-run]`, `validate [--only A,B]`, `calib [--importer interchange|legacy]`.
@@ -82,7 +82,11 @@ def main() -> None:
         path = Path(result_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    if not report.get("ok"):
+    if os.environ.get("VERSE_PIPELINE_QUIT") == "1":
+        import unreal
+
+        unreal.SystemLibrary.quit_editor()
+    elif not report.get("ok"):
         raise RuntimeError(report.get("error") or "verse_pipeline reported failures")
 
 

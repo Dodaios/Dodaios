@@ -9,8 +9,9 @@
 * the chamfer at the +X tip (top and bottom not swapped),
 * outward normals at the three tips,
 * triangle winding against the engine's own cube (faces not inside out),
-* skeleton bone names, first bone, component-space bone positions and the
-  root scale (the armature node did not become a scaled extra bone).
+* skeleton bone names, first bone, component-space bone positions, and the
+  root's rest rotation and scale (identity and 1: the armature node did not
+  leave its axis conversion or unit scale in the first bone).
 
 The pure comparison functions take plain lists so pytest covers them.
 """
@@ -109,6 +110,12 @@ def check_bones(pose: dict, first_bone: str, spec: dict, tol: float) -> list[str
             continue
         if any(abs(g - w) > tol for g, w in zip(got, bone["component_location_cm"], strict=True)):
             errors.append(f"{bone['name']} at {got}, expected {bone['component_location_cm']}")
+    rotation = pose.get("root_rotation")
+    want_rotation = spec.get("root_rotation_xyzw")
+    if rotation is not None and want_rotation is not None:
+        same = abs(sum(a * b for a, b in zip(rotation, want_rotation, strict=True)))
+        if same < 1.0 - 1e-6:  # q and -q are one rotation
+            errors.append(f"root rotation {rotation} != {want_rotation}")
     scale = pose.get("root_scale")
     want_scale = spec["root_scale"]
     if scale is not None and any(abs(s - w) > 1e-3 for s, w in zip(scale, want_scale, strict=True)):
@@ -162,6 +169,7 @@ def _skeletal_pose(mesh) -> dict:
     names = [str(n) for n in ext.get_bone_names(pose)]
     locations = {}
     root_scale = None
+    root_rotation = None
     for name in names:
         transform = ext.get_bone_pose(pose, name, unreal.AnimPoseSpaces.WORLD)
         t = transform.translation
@@ -169,7 +177,14 @@ def _skeletal_pose(mesh) -> dict:
         if root_scale is None:
             s = transform.scale3d
             root_scale = [float(s.x), float(s.y), float(s.z)]
-    return {"names": names, "locations": locations, "root_scale": root_scale}
+            q = transform.rotation
+            root_rotation = [float(q.x), float(q.y), float(q.z), float(q.w)]
+    return {
+        "names": names,
+        "locations": locations,
+        "root_scale": root_scale,
+        "root_rotation": root_rotation,
+    }
 
 
 def run(*, importer: str | None = None) -> dict:

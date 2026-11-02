@@ -1,11 +1,15 @@
 """Import Verse art into the Unreal project and check it (art-pipeline 2).
 
-The only import entry for agents. It runs the editor's Python commandlet
-headless under the machine-wide `gpu-heavy.lock`:
+The only import entry for agents. It runs the editor headless (no window,
+`-nullrhi`) with a Python script under the machine-wide `gpu-heavy.lock`:
 
-    UnrealEditor-Cmd.exe <Verse.uproject> -run=pythonscript
-        -script=<Content/Python/verse_pipeline/cli.py>
+    UnrealEditor-Cmd.exe <Verse.uproject>
+        -ExecutePythonScript=<Content/Python/verse_pipeline/cli.py>
         -unattended -nosplash -nullrhi -nosound -stdout
+
+The `pythonscript` commandlet cannot be used: asset import tasks need the
+Slate application, which a commandlet does not create (assertion
+`CurrentApplication.IsValid()`).
 
     python scripts/unreal/import_art.py assets [--only SM_A,SM_B] [--no-save]
     python scripts/unreal/import_art.py placements --deck hangar [--zone arena_canyon] [--dry-run]
@@ -39,7 +43,7 @@ ENGINE_ENV = "DODAIOS_UE_ROOT"
 DEFAULT_ENGINE = Path("C:/Program Files/Epic Games/UE_5.7")
 CLI = art_common.PROJECT_DIR / "Content" / "Python" / "verse_pipeline" / "cli.py"
 REPORT_DIR = art_common.PROJECT_DIR / "Saved" / "ArtPipeline"
-TIMEOUT_S = 3600
+TIMEOUT_S = 1800
 
 
 def engine_root() -> Path:
@@ -57,8 +61,7 @@ def command_line(log: Path) -> list[str]:
     return [
         str(editor_cmd()),
         str(art_common.UPROJECT),
-        "-run=pythonscript",
-        f"-script={CLI}",
+        f"-ExecutePythonScript={CLI}",
         "-unattended",
         "-nosplash",
         "-nullrhi",
@@ -81,6 +84,7 @@ def run_pipeline(argv: list[str]) -> tuple[int, dict, Path]:
         os.environ,
         VERSE_PIPELINE_ARGS=json.dumps(argv),
         VERSE_PIPELINE_RESULT=str(report_path),
+        VERSE_PIPELINE_QUIT="1",
     )
     command = command_line(log)
     if not editor_cmd().is_file():

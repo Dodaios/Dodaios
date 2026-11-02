@@ -591,10 +591,13 @@ def test_calibration_bone_check():
         "root_scale": [1.0, 1.0, 1.0],
     }
     assert calib.check_bones(pose, "Root", spec, 0.05) == []
+    pose["root_rotation"] = [0.0, 0.0, 0.0, -1.0]  # -q is the same rotation
+    assert calib.check_bones(pose, "Root", spec, 0.05) == []
+    pose["root_rotation"] = [0.7071068, 0.0, 0.0, -0.7071068]  # Y-up bone axis leaked in
     pose["locations"]["Calib_SideEnd"] = [0.0, 25.0, 50.0]  # not mirrored
     pose["root_scale"] = [100.0, 100.0, 100.0]
     pose["names"] = ["Armature", *pose["names"]]
-    assert len(calib.check_bones(pose, "Root", spec, 0.05)) == 4
+    assert len(calib.check_bones(pose, "Root", spec, 0.05)) == 5
 
 
 # --- Export entry (host side) -------------------------------------------------
