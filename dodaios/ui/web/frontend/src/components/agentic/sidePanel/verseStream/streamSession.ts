@@ -15,6 +15,8 @@ import { isAllowedMessage } from "./panelInput";
 
 export const SIGNAL_PROTOCOL = "verse.signal/1";
 export const TICKET_PATH = "/api/verse/signal/ticket";
+/** WP17's host status (architecture.md, "Host status"). */
+export const STATUS_PATH = "/api/verse/status";
 /** Time a visible panel waits for the first video frame before it shows the fallback card. */
 export const START_TIMEOUT_MS = 15_000;
 
@@ -42,7 +44,23 @@ export interface SocketLike {
   close(code?: number, reason?: string): void;
 }
 
+/** `status` of `GET /api/verse/status`; null when the backend does not answer it (yet). */
+export type VerseHostStatus = "not_installed" | "unsupported" | "stopped" | "running" | "crashed";
+
+const HOST_STATUSES: readonly string[] = ["not_installed", "unsupported", "stopped", "running", "crashed"];
+
+export function readHostStatus(body: unknown): VerseHostStatus | null {
+  if (!body || typeof body !== "object") return null;
+  const status = (body as { status?: unknown }).status;
+  return typeof status === "string" && HOST_STATUSES.includes(status) ? (status as VerseHostStatus) : null;
+}
+
 export interface StreamDeps {
+  /**
+   * The Verse host's status. The Verse is an optional download: `not_installed` means the panel
+   * shows the download card instead of starting a stream. Null (no answer) lets the stream try.
+   */
+  fetchStatus?(): Promise<VerseHostStatus | null>;
   /** A ticket, or null when the backend has no Verse host (feature off, not installed). */
   fetchTicket(): Promise<SignalTicket | null>;
   openSocket(url: string): SocketLike;
@@ -62,6 +80,14 @@ const WS_OPEN = 1;
 
 export function browserDeps(): StreamDeps {
   return {
+    async fetchStatus() {
+      try {
+        const res = await fetch(STATUS_PATH, { cache: "no-store", credentials: "same-origin" });
+        return res.ok ? readHostStatus(await res.json()) : null;
+      } catch {
+        return null; // no host route yet: let the stream try
+      }
+    },
     async fetchTicket() {
       const res = await fetch(TICKET_PATH, { method: "POST", cache: "no-store", credentials: "same-origin" });
       if (res.status === 404 || res.status === 503) return null;
