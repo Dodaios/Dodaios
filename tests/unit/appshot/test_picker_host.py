@@ -34,6 +34,7 @@ class Process:
         self.stdout = Output()
         self.stdin = self
         self.returncode = None
+        self.pid = 1
         self.commands: list[dict] = []
         self.finish = finish
         self.closed = False
@@ -90,7 +91,7 @@ def host(monkeypatch):
     monkeypatch.setattr(region, "_spawn", spawn)
     monkeypatch.setattr(region, "_escape_cancels", escape)
     monkeypatch.setattr(region, "picker_capability", lambda: (True, ""))
-    monkeypatch.setattr(region, "snap_layout", lambda: {"monitors": [], "windows": []})
+    monkeypatch.setattr(region, "snap_layout", lambda **_kw: {"monitors": [], "windows": []})
     return picker_host.PickerHost(), children
 
 
@@ -218,3 +219,93 @@ async def test_no_display_never_spawns(host, monkeypatch):
     monkeypatch.setattr(region, "picker_capability", lambda: (False, "no display"))
     await owner.prewarm()
     assert children == []
+
+
+# -- a shortcut press opens the warm picker before the take reaches it --------
+
+
+@pytest.fixture
+def fast(monkeypatch):
+    monkeypatch.setattr(picker_host, "FAST_OPEN", True)
+
+
+async def test_press_opens_shielded_and_the_take_adopts_it(host, monkeypatch, fast):
+    owner, children = host
+    seen: list[object] = []
+
+    def layout(**kwargs):
+        seen.append(kwargs.get("skip_pid"))
+        return {"windows": [[0, 0, 5, 5]]}
+
+    monkeypatch.setattr(region, "snap_layout", layout)
+    try:
+        await owner.prewarm()
+        owner.configure("de", True)
+        proc = children[0]
+        proc.pid = 4242
+        assert owner.open_now() is True
+        assert owner.open_now() is False  # one open picker at a time
+        assert proc.commands == [
+            {"cmd": wire.CMD_START, "language": "de", "keep_area": True, "shield": True}
+        ]
+        payload, _code, _timed_out = await owner.pick(1, "de", keep_area=True)
+        assert payload["cancelled"]
+        # No second start: the shield lifts, then the snap targets follow,
+        # read without the picker's own windows.
+        assert [c["cmd"] for c in proc.commands] == [
+            wire.CMD_START,
+            wire.CMD_UNSHIELD,
+            wire.CMD_LAYOUT,
+        ]
+        assert proc.commands[-1]["windows"] == [[0, 0, 5, 5]]
+        assert seen == [4242]
+        # The next pick without a press opens the usual way.
+        await owner.pick(1, "de")
+        assert proc.commands[-1]["cmd"] == wire.CMD_START
+        assert "shield" not in proc.commands[-1]
+        assert len(children) == 1
+    finally:
+        await owner.close()
+
+
+async def test_press_without_warm_picker_or_during_a_pick_does_nothing(host, fast):
+    owner, children = host
+    assert owner.open_now() is False  # nothing warm yet
+    try:
+        await owner.prewarm()
+        children[0].finish = False
+        task = asyncio.create_task(owner.pick(30, "en"))
+        assert await asyncio.to_thread(children[0].started.wait, 1)
+        assert owner.open_now() is False
+        assert [c["cmd"] for c in children[0].commands] == [wire.CMD_START]
+        children[0].stdout.emit({"event": wire.EVENT_SELECTION, "cancelled": True})
+        await task
+    finally:
+        await owner.close()
+
+
+async def test_refused_take_closes_the_opened_picker_and_rewarms(host, fast):
+    owner, children = host
+    try:
+        await owner.prewarm()
+        assert owner.open_now() is True
+        await owner.discard_opened()
+        # Its ready and cancel answers die with it; a fresh one stands by.
+        assert children[0].returncode == 0 and children[0].stdout.closed
+        assert len(children) == 2 and children[1].commands == []
+        await owner.discard_opened()  # nothing open: no-op
+        assert len(children) == 2
+        assert owner.open_now() is True
+    finally:
+        await owner.close()
+
+
+async def test_no_fast_open_off_windows(host, monkeypatch):
+    owner, children = host
+    monkeypatch.setattr(picker_host, "FAST_OPEN", False)
+    try:
+        await owner.prewarm()
+        assert owner.open_now() is False
+        assert children[0].commands == []
+    finally:
+        await owner.close()

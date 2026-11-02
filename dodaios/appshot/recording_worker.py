@@ -158,8 +158,8 @@ def run(
         def make_window(self, screen, frozen):
             return RecordingSelectWindow(screen, frozen, self)
 
-        def start(self) -> None:
-            super().start()
+        def start(self, *, shield: bool = False) -> None:
+            super().start(shield=shield)
             for window in self._windows:
                 screen = window.screen_ref
                 dpr = screen.devicePixelRatio()

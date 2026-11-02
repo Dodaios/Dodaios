@@ -33,7 +33,10 @@ stdin::
 
     {"cmd": "start", "language": "en", "monitors": [],   # resident: fresh capture
      "windows": [], "handles": [],                      # (handles: hwnds beside the
-     "keep_area": false}                                # window rects; keep the area)
+     "keep_area": false, "shield": false}               # window rects; keep the area;
+                                                        # shield: hidden from screen
+                                                        # captures until "unshield")
+    {"cmd": "unshield"}                                 # the parent froze the screens
     {"cmd": "quit"}                                     # release the runtime
     {"cmd": "layout", "monitors": [...],                # mss monitors and the
      "windows": [[l, t, w, h], ...], "handles": [...]}  # snap targets, top first
@@ -65,6 +68,7 @@ CMD_CANCEL = "cancel"
 CMD_LAYOUT = "layout"
 CMD_START = "start"
 CMD_QUIT = "quit"
+CMD_UNSHIELD = "unshield"
 
 
 def encode(payload: dict[str, Any]) -> str:
@@ -90,6 +94,7 @@ __all__ = [
     "CMD_LAYOUT",
     "CMD_START",
     "CMD_QUIT",
+    "CMD_UNSHIELD",
     "EVENT_MARKING",
     "EVENT_OPTION",
     "EVENT_READY",

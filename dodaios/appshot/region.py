@@ -295,10 +295,11 @@ def _is_cloaked(handle: int | None) -> bool:
         return False
 
 
-def snap_layout() -> dict[str, Any]:
+def snap_layout(*, skip_pid: int | None = None) -> dict[str, Any]:
     """Monitors and window rectangles for the picker's window snapping.
 
-    Read BEFORE the picker exists, so its own overlay never becomes a target.
+    Read BEFORE the picker exists, so its own overlay never becomes a target,
+    or with ``skip_pid`` (the picker's process) once it is already up.
     Rects are in capture coordinates, top-most window first; an empty window
     list (Wayland, an unreadable desktop) only switches snapping off.
     ``handles`` runs alongside ``windows`` (``0`` = unknown): the picker reads
@@ -317,6 +318,8 @@ def snap_layout() -> dict[str, Any]:
         with _input_space():
             for win in ws.list_windows():
                 if getattr(win, "minimized", False) or _is_cloaked(getattr(win, "handle", None)):
+                    continue
+                if skip_pid and getattr(win, "pid", None) == skip_pid:
                     continue
                 rect = ws.window_frame_rect(win) or ws.window_rect(win)
                 if rect and rect[2] > 0 and rect[3] > 0:
@@ -347,7 +350,7 @@ def _spawn(language: str = "en", *, resident: bool = False) -> subprocess.Popen[
 
 def _read_result(
     proc: subprocess.Popen[str], on_marking: Callable[[], None] | None = None,
-    on_ready: Callable[[], None] | None = None,
+    on_ready: Callable[[dict[str, Any]], None] | None = None,
     on_option: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any] | None:
     """Block until the picker reports its selection; ``None`` on EOF.
@@ -367,7 +370,7 @@ def _read_result(
         if event == wire.EVENT_SELECTION:
             return payload
         if event == wire.EVENT_READY and on_ready is not None:
-            on_ready()
+            on_ready(payload)
         if event == wire.EVENT_MARKING and on_marking is not None:
             with contextlib.suppress(Exception):  # a lost hint only keeps the global Esc
                 on_marking()

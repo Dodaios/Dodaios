@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
@@ -58,6 +59,7 @@ if TYPE_CHECKING:
 from dodaios.appshot.region import (
     grab_preview,
     match_monitor,
+    preview_capture_allowed,
     selection_fractions,
     snap_targets_on_screen,
 )
@@ -127,6 +129,27 @@ def _claim_keyboard(window: QWidget) -> None:
         _force_foreground_windows(hwnd)
     except Exception as exc:  # noqa: BLE001 - a click still hands the keyboard over
         sys.stderr.write(f"appshot-picker: could not take the keyboard ({exc!r}).\n")
+
+
+def _shield(window: QWidget, hidden: bool) -> None:
+    """Windows: keep ``window`` out of screen captures, or let them see it again.
+
+    A shortcut press opens the picker at once, while the main process is
+    still freezing the screens for the appshot itself: until that frame is
+    taken, the overlay must not be in it.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        from dodaios.platform import capture_exclusion  # noqa: PLC0415
+
+        hwnd = int(window.winId())
+        if hidden:
+            capture_exclusion.exclude_hwnd_from_capture(hwnd)
+        else:
+            capture_exclusion.include_hwnd_in_capture(hwnd)
+    except Exception as exc:  # noqa: BLE001 - only a screen recorder notices
+        sys.stderr.write(f"appshot-picker: capture shield failed ({exc!r}).\n")
 
 
 def number_font() -> QFont:
@@ -487,8 +510,10 @@ class Picker(QObject):
         #: the first pick, then kept warm with the rest of the runtime.
         self._parts: ElementScanner | None = None
         self._parts_asked: set[int] = set()
+        #: The overlay is hidden from screen captures until ``unshield``.
+        self._shielded = False
 
-    def start(self) -> None:
+    def start(self, *, shield: bool = False) -> None:
         if self._started:
             return
         self._started = True
@@ -501,6 +526,10 @@ class Picker(QObject):
         # Freeze every screen BEFORE any overlay window exists.
         frozen = {id(s): self._grab(s) for s in screens}
         self._windows = [self.make_window(s, frozen[id(s)]) for s in screens]
+        self._shielded = shield
+        if shield:
+            for win in self._windows:
+                _shield(win, True)  # before show: not one frame may reach a capture
         cursor_screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
         self._focused = next(
             (w for w in self._windows if w.screen_ref is cursor_screen),
@@ -515,7 +544,43 @@ class Picker(QObject):
             self._focused.setFocus()
             _claim_keyboard(self._focused)
         self._app.processEvents()
-        _emit({"event": wire.EVENT_READY})
+        # ``at`` (wall clock) lets the parent log press-to-visible across processes.
+        _emit({"event": wire.EVENT_READY, "at": time.time()})
+
+    def unshield(self) -> None:
+        if not self._shielded:
+            return
+        self._shielded = False
+        for win in self._windows:
+            _shield(win, False)
+
+    def warm_up(self) -> None:
+        """Build and paint one overlay off the glass, without any pixels.
+
+        Qt's first window, toolbar icons, fonts and paint path cost several
+        hundred milliseconds once; paid here in standby, the first shortcut
+        press opens as fast as every later one.
+        """
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        with suppress(Exception):
+            # Reads the grant only (its first import is ~200 ms); takes no pixels.
+            preview_capture_allowed()
+        try:
+            win = self.make_window(screen, None)
+            win.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen)
+            win.arm()
+            win.show()
+            self._app.processEvents()
+            win.repaint()
+            win.hide()
+            win.release_capture()
+            win.close()
+            win.deleteLater()
+            self._app.processEvents()
+        except Exception as exc:  # noqa: BLE001 - the first press only pays the cost
+            sys.stderr.write(f"appshot-picker: warm-up failed ({exc!r}).\n")
 
     def make_window(self, screen, frozen: QPixmap | None) -> _SelectWindow:
         """The appshot's window; capture modes provide their own."""
@@ -651,10 +716,12 @@ class Picker(QObject):
         if cmd == wire.CMD_START and self._resident and not self._started:
             self.language = str(payload.get("language") or "en")
             self.keep_area = payload.get("keep_area") is True
-            self.start()
+            self.start(shield=payload.get("shield") is True)
             self.set_layout(
                 payload.get("monitors", []), payload.get("windows", []), payload.get("handles")
             )
+        elif cmd == wire.CMD_UNSHIELD:
+            self.unshield()
         elif cmd == wire.CMD_QUIT:
             self.on_eof()
         elif cmd == wire.CMD_CANCEL and self._started:
@@ -716,6 +783,7 @@ def run(language: str = "en", *, resident: bool = False) -> int:
     if resident:
         # Import/initialize Qt without taking pixels, creating windows or
         # stealing focus. The next start command samples the current desktop.
+        picker.warm_up()
         _emit({"event": wire.EVENT_STANDBY})
     else:
         picker.start()

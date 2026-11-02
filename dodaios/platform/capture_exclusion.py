@@ -20,6 +20,7 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
+_WDA_NONE = 0x00000000
 _WDA_EXCLUDEFROMCAPTURE = 0x00000011
 # AppKit.NSWindowSharingNone — keep the numeric literal so a host without
 # pyobjc still documents the contract.
@@ -50,15 +51,24 @@ def _user32() -> Any:
 
 def exclude_hwnd_from_capture(hwnd: int) -> bool:
     """Hide one native window from screen capture. No-op off Windows."""
+    return _set_affinity(hwnd, _WDA_EXCLUDEFROMCAPTURE)
+
+
+def include_hwnd_in_capture(hwnd: int) -> bool:
+    """Undo :func:`exclude_hwnd_from_capture`: captures see the window again."""
+    return _set_affinity(hwnd, _WDA_NONE)
+
+
+def _set_affinity(hwnd: int, affinity: int) -> bool:
     if sys.platform != "win32" or not hwnd:
         return False
     user32 = _user32()
     if user32 is None:
         return False
     try:
-        return bool(user32.SetWindowDisplayAffinity(int(hwnd), _WDA_EXCLUDEFROMCAPTURE))
+        return bool(user32.SetWindowDisplayAffinity(int(hwnd), affinity))
     except Exception:  # noqa: BLE001 — overlay must degrade, never crash
-        log.debug("exclude_hwnd_from_capture failed for hwnd=%s", hwnd, exc_info=True)
+        log.debug("SetWindowDisplayAffinity(%s) failed for hwnd=%s", affinity, hwnd, exc_info=True)
         return False
 
 
@@ -161,4 +171,5 @@ __all__ = [
     "exclude_hwnd_from_capture",
     "exclude_macos_app_windows",
     "exclude_tk_window_from_capture",
+    "include_hwnd_in_capture",
 ]

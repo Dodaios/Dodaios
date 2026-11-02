@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from typing import Any
 
 log = logging.getLogger(__name__)
+#: Pickers of replaced presses still being closed.
+_DISCARDS: set[asyncio.Task] = set()
 
 BOTH_ALT = "alt+alt"
 BOTH_SHIFT = "shift+shift"
@@ -249,6 +251,13 @@ class AppshotShortcut:
                     self._run_combos(combos), name="appshot-hotkey"
                 )
             if owns and bool(getattr(getattr(config, "screen_context", None), "enabled", False)):
+                from dodaios.appshot.picker_host import get_picker_host  # noqa: PLC0415
+
+                language = str(getattr(getattr(config, "ui", None), "language", "") or "en")
+                get_picker_host().configure(
+                    language.lower()[:2],
+                    bool(getattr(config.appshot, "region_keep_area", False)),
+                )
                 self._warm_task = asyncio.create_task(
                     self._warm_surfaces(bool(getattr(config.appshot, "effect", True))),
                     name="appshot-surfaces-warm",
@@ -338,7 +347,7 @@ class AppshotShortcut:
         if probe is None:
             return ShortcutStatus(hotkey=hotkey, armed=False, detail=reason)
         watcher = BothKeysWatcher(
-            lambda: self._fire_threadsafe(scope),
+            lambda: self._press(scope),
             probe=probe,
             together_s=together_window(family),
         )
@@ -406,7 +415,7 @@ class AppshotShortcut:
 
         listener = AppshotKeyEvents()
         rows = [
-            [_normalize_combo(combo), None, lambda scope=scope: self._fire_threadsafe(scope)]
+            [_normalize_combo(combo), None, lambda scope=scope: self._press(scope)]
             for scope, combo in combos.items()
         ]
         try:
@@ -445,6 +454,23 @@ class AppshotShortcut:
                         combo, False, "The keyboard event listener stopped."
                     )
 
+    def _press(self, scope: str) -> None:
+        """A shortcut went down (listener thread): open the area picker now.
+
+        The event loop may be busy for a while (a full RAM, a long turn); the
+        picker is already warm in its own process, so the overlay must not
+        wait for the loop, the config or the screen freeze. The take that
+        follows picks up this open picker instead of starting another.
+        """
+        if scope == "region":
+            host = getattr(sys.modules.get("dodaios.appshot.picker_host"), "_host", None)
+            if host is not None:
+                try:
+                    host.open_now()
+                except Exception:  # noqa: BLE001 - the take still opens it the usual way
+                    log.debug("appshot: opening the picker on the press failed", exc_info=True)
+        self._fire_threadsafe(scope)
+
     def _fire_threadsafe(self, scope: str) -> None:
         loop = self._loop
         if loop is None or loop.is_closed():
@@ -455,7 +481,13 @@ class AppshotShortcut:
     def _fire(self, scope: str = "window") -> None:
         busy_field = "_recording_busy" if scope == "recording" else "_busy"
         if getattr(self, busy_field):
+            replaced = self._pending.get(busy_field)
             self._pending[busy_field] = scope
+            if replaced == "region" and scope != "region":
+                # The replaced press may have opened the picker already.
+                task = asyncio.get_running_loop().create_task(self._discard_opened())
+                _DISCARDS.add(task)
+                task.add_done_callback(_DISCARDS.discard)
             return
         self._begin_take(scope, busy_field)
 
@@ -482,16 +514,32 @@ class AppshotShortcut:
             return
         from dodaios.appshot.service import take_appshot  # noqa: PLC0415
 
-        result = await take_appshot(
-            trigger="hotkey",
-            bus=self._bus,
-            scope="region" if scope == "region" else "window",
-        )
+        try:
+            result = await take_appshot(
+                trigger="hotkey",
+                bus=self._bus,
+                scope="region" if scope == "region" else "window",
+            )
+        finally:
+            if scope == "region":
+                # A refusal before the picker (switched off, say) leaves the
+                # picker this press opened on the glass.
+                await self._discard_opened()
         if result.ok:
             return
         log.info("appshot: shortcut press refused — %s", result.message)
         if result.reason_code != "cancelled":  # Esc on the picker needs no toast
             await self._publish_refusal(result.message)
+
+    @staticmethod
+    async def _discard_opened() -> None:
+        host = getattr(sys.modules.get("dodaios.appshot.picker_host"), "_host", None)
+        if host is None:
+            return
+        try:
+            await host.discard_opened()
+        except Exception:  # noqa: BLE001 - the next press re-warms it
+            log.debug("appshot: could not close the picker the press opened", exc_info=True)
 
     async def _publish_refusal(self, message: str) -> None:
         try:
