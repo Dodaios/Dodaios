@@ -606,7 +606,8 @@ class ChromeEmbed:
             return None
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError) as exc:
+            logger.info("Browser panel window record unreadable, nothing parked: %s", exc)
             return None
         return record if isinstance(record, dict) else None
 
