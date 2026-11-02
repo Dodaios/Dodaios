@@ -1,0 +1,45 @@
+[
+  {
+    "request": {
+      "type": "ide.focus_terminal",
+      "id": "c-65",
+      "ts": 1793612593.0,
+      "data": {
+        "pane_id": "ws_91:T1"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 323,
+      "ts": 1793612593.05,
+      "re": "c-65",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "ide.focus_terminal",
+      "id": "c-69",
+      "ts": 1793612593.0,
+      "data": {
+        "pane_id": "ws_91:T1"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 324,
+      "ts": 1793612593.05,
+      "re": "c-69",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "rate_limited",
+          "message": "Open commands are limited to 4/s."
+        }
+      }
+    }
+  }
+]

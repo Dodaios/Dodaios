@@ -1,0 +1,24 @@
+[
+  {
+    "request": {
+      "type": "progression.told",
+      "id": "c-54",
+      "ts": 1793612396.5,
+      "data": {
+        "seq": 903
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 316,
+      "ts": 1793612396.55,
+      "re": "c-54",
+      "data": {
+        "ok": true,
+        "result": {
+          "told_seq": 903
+        }
+      }
+    }
+  }
+]
