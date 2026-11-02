@@ -13,12 +13,6 @@
 #include "VerseCollision.h"
 #include "VerseLog.h"
 
-namespace
-{
-	/** A bolt or sight ray leaves a surface this far past its exit, so it never re-hits that face. */
-	constexpr double ResumeEpsilonCm = 0.01;
-}
-
 void UVersePenetrationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
@@ -155,37 +149,55 @@ TArray<FVersePenetrationHit> UVersePenetrationSubsystem::TraceBolt(const FVector
 	const FVector End = Origin + Direction * MaxDist;
 	const int32 Limit = VersePenetration::EffectiveMaxPieces(MaxPieces);
 
+	// One query for the whole segment: every blocking response is read as an overlap, so the
+	// multi trace lists each surface the bolt channel would hit, in order. Whatever ignores
+	// VerseBolt (pawn capsules, debris) still ignores it. Each surface then costs one narrow
+	// component trace for its exit.
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseTraceBolt), false);
 	Params.bReturnPhysicalMaterial = true;
-	FVector Start = Origin;
+	FCollisionResponseParams Responses;
+	Responses.CollisionResponse.SetAllChannels(ECR_Overlap);
+	TArray<FHitResult> Surfaces;
+	World->LineTraceMultiByChannel(Surfaces, Origin, End, VerseCollision::Bolt, Params, Responses);
+
 	float PowerLeft = Power;
 	float DamageLeft = Damage;
 	int32 Passes = 0;
-	for (int32 Surface = 0; Surface < MaxSurfacesPerQuery; ++Surface)
+	int32 Visited = 0;
+	for (const FHitResult& Hit : Surfaces)
 	{
-		FHitResult Hit;
-		if (!World->LineTraceSingleByChannel(Hit, Start, End, VerseCollision::Bolt, Params))
-		{
-			break;
-		}
 		const UPrimitiveComponent* Component = Hit.GetComponent();
 		if (!Component)
 		{
+			continue;
+		}
+		if (++Visited > MaxSurfacesPerQuery)
+		{
 			break;
 		}
-		const FVector Entry = Hit.bStartPenetrating ? Start : FVector(Hit.ImpactPoint);
+		const FVector Entry = Hit.bStartPenetrating ? Origin : FVector(Hit.ImpactPoint);
 		FVector Exit;
 		FindExit(*Component, Entry, Direction, Exit);
-		Params.AddIgnoredComponent(Component);
 
 		const FVersePieceProxyInfo* Info = FindPieceProxy(Component);
 		if (Info && PassesHoles(*Info, Entry, Exit))
 		{
 			// Flown through an existing hole: no cost, no damage, not a piece of this bolt.
-			Start = Exit + Direction * ResumeEpsilonCm;
 			continue;
 		}
-		const EVersePenetrationMaterial Material = Info ? Info->Material : VersePenetration::ResolveWorldMaterial(Hit.PhysMaterial.Get());
+		// World geometry: gameplay collision is simple collision (art-pipeline.md 5), so the body's
+		// simple physical material is the one that applies; the hit's own material is the fallback.
+		const UPhysicalMaterial* PhysMat = nullptr;
+		if (!Info)
+		{
+			const FBodyInstance* Body = Component->GetBodyInstance(Hit.BoneName);
+			PhysMat = Body ? Body->GetSimplePhysicalMaterial() : nullptr;
+			if (!PhysMat || VersePenetration::ResolveWorldMaterial(PhysMat) == EVersePenetrationMaterial::Concrete)
+			{
+				PhysMat = Hit.PhysMaterial.IsValid() ? Hit.PhysMaterial.Get() : PhysMat;
+			}
+		}
+		const EVersePenetrationMaterial Material = Info ? Info->Material : VersePenetration::ResolveWorldMaterial(PhysMat);
 		const FVersePenetrationRow* Row = Table->FindRow(uint8(Material));
 		if (!Row)
 		{
@@ -213,11 +225,6 @@ TArray<FVersePenetrationHit> UVersePenetrationSubsystem::TraceBolt(const FVector
 		PowerLeft = Step.PowerLeft;
 		DamageLeft = Step.DamageLeft;
 		++Passes;
-		Start = Exit + Direction * ResumeEpsilonCm;
-		if (FVector::DotProduct(End - Start, Direction) <= 0.0)
-		{
-			break;
-		}
 	}
 	return Result;
 }
