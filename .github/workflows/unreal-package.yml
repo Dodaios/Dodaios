@@ -24,6 +24,11 @@
 #
 # Self-hosted jobs never run for pull requests: this workflow has no
 # pull_request trigger at all (architecture.md 8.2).
+#
+# Each platform ships on its own: a failed Linux leg (or a failed Windows
+# signature) does not stop the other platform's payload. The jobs after
+# package run unless the run was cancelled, and a leg whose artifact is
+# missing fails on its own download step.
 
 name: unreal-package
 
@@ -109,6 +114,7 @@ jobs:
 
   sign-windows:
     needs: package
+    if: ${{ !cancelled() && github.event_name != 'schedule' && !inputs.smoke_only }}
     name: Sign the Verse binaries (Windows)
     runs-on: windows-latest
     timeout-minutes: 90
@@ -197,6 +203,7 @@ jobs:
 
   assemble:
     needs: [package, sign-windows]
+    if: ${{ !cancelled() && github.event_name != 'schedule' && !inputs.smoke_only }}
     name: Payload and delta ${{ matrix.platform }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -272,7 +279,8 @@ jobs:
 
   sign-manifest:
     needs: assemble
-    if: github.ref_type == 'tag'
+    # Signs whatever platforms assembled; none at all fails the digest step.
+    if: ${{ !cancelled() && github.ref_type == 'tag' }}
     name: Sign the Verse checksum manifest
     environment: release-signing
     runs-on: ubuntu-latest
@@ -354,7 +362,7 @@ jobs:
 
   release:
     needs: sign-manifest
-    if: github.ref_type == 'tag'
+    if: ${{ !cancelled() && github.ref_type == 'tag' && needs.sign-manifest.result == 'success' }}
     name: Attach the Verse to the release
     runs-on: ubuntu-latest
     timeout-minutes: 60

@@ -68,6 +68,34 @@ def test_install_scripts_set_git_lfs_skip_smudge_before_any_clone() -> None:
     assert sh.index("export GIT_LFS_SKIP_SMUDGE") < sh.index("pretty_git git $GIT_NET_OPTS")
 
 
+def test_install_scripts_drop_git_lfs_skip_smudge_before_the_hand_off() -> None:
+    ps1 = (REPO / "install/install.ps1").read_text(encoding="utf-8")
+    sh = (REPO / "install/install.sh").read_text(encoding="utf-8")
+    ps1_drop = ps1.index("Remove-Item Env:GIT_LFS_SKIP_SMUDGE")
+    sh_drop = sh.index("unset GIT_LFS_SKIP_SMUDGE")
+    # After the last git call of the shell stage, before installer.py runs.
+    assert ps1.rindex("& git ") < ps1_drop < ps1.index("& $VenvPython $InstallerPy")
+    assert (
+        sh.rindex('git -C "$INSTALL_DIR"')
+        < sh_drop
+        < sh.index('exec "$VENV_PYTHON" "$INSTALLER_PY"')
+    )
+
+
+def test_app_launch_env_has_no_git_lfs_skip_smudge() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_installer_under_test", REPO / "install/installer.py"
+    )
+    assert spec and spec.loader
+    installer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(installer)
+    env = installer.app_launch_env({"GIT_LFS_SKIP_SMUDGE": "1", "PATH": "x"})
+    assert "GIT_LFS_SKIP_SMUDGE" not in env
+    assert env["PATH"] == "x"
+
+
 def test_follow_main_git_calls_skip_lfs_smudge(monkeypatch, tmp_path: Path) -> None:
     from dodaios.core import main_follow
 

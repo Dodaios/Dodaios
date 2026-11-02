@@ -9,6 +9,10 @@
 # 2. Vulkan first frame, only when a Vulkan device exists in the container.
 # 3. Window activation: X11 (_NET_ACTIVE_WINDOW under a window manager) and
 #    Wayland (the xdg_activation_v1 global of a headless wlroots compositor).
+# Runs 1 and 2 talk to scripts/unreal/fake_bridge.py (mounted at /repo) over
+# loopback: URL in DODAIOS_VERSE_BRIDGE, token in DODAIOS_VERSE_TOKEN. The
+# scenarios /out/bridge-{server,vulkan}.json come from package.py; the
+# reports land in /out/bridge-{server,vulkan}-report.json.
 # Writes /out/result.json; scripts/unreal/package.py reads it.
 set -u
 
@@ -20,6 +24,44 @@ export XDG_RUNTIME_DIR=/tmp/xdg-verse
 mkdir -p "${XDG_RUNTIME_DIR}"
 chmod 700 "${XDG_RUNTIME_DIR}"
 
+# Start the fake bridge for run <name>; sets bridge_pid and exports the
+# bridge URL and token for the game.
+start_bridge() {
+  name="$1"
+  DODAIOS_VERSE_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+  export DODAIOS_VERSE_TOKEN
+  rm -f "/tmp/bridge-${name}.json"
+  python3 /repo/scripts/unreal/fake_bridge.py --scenario "${out}/bridge-${name}.json" --once \
+    --report "${out}/bridge-${name}-report.json" --discovery "/tmp/bridge-${name}.json" \
+    >"${out}/bridge-${name}.log" 2>&1 &
+  bridge_pid=$!
+  DODAIOS_VERSE_BRIDGE=''
+  for _ in $(seq 1 150); do
+    if [ -s "/tmp/bridge-${name}.json" ]; then
+      DODAIOS_VERSE_BRIDGE="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["url"])' "/tmp/bridge-${name}.json" 2>/dev/null)"
+      [ -n "${DODAIOS_VERSE_BRIDGE}" ] && break
+    fi
+    sleep 0.1
+  done
+  export DODAIOS_VERSE_BRIDGE
+}
+
+# Stop the fake bridge: it exits by itself once the game disconnected (--once);
+# SIGINT makes it write its report on the way out.
+stop_bridge() {
+  for _ in $(seq 1 50); do
+    kill -0 "${bridge_pid}" 2>/dev/null || break
+    sleep 0.2
+  done
+  if kill -0 "${bridge_pid}" 2>/dev/null; then
+    kill -INT "${bridge_pid}" 2>/dev/null
+    sleep 3
+    kill -KILL "${bridge_pid}" 2>/dev/null
+  fi
+  wait "${bridge_pid}" 2>/dev/null
+  unset DODAIOS_VERSE_BRIDGE DODAIOS_VERSE_TOKEN
+}
+
 stages_ok() {
   log="$1"
   for stage in boot hangar arena30s; do
@@ -29,11 +71,13 @@ stages_ok() {
 }
 
 # --- 1. server run ----------------------------------------------------------
+start_bridge server
 start=$(date +%s)
 timeout --signal=TERM "$((seconds + 60))" /verse/Verse.sh -nullrhi -nosound -unattended \
   -VerseSmoke="${stages}" -log -abslog="${out}/nullrhi.log" >"${out}/nullrhi.stdout" 2>&1
 server_rc=$?
 server_seconds=$(( $(date +%s) - start ))
+stop_bridge
 server_ok=false
 if [ "${server_rc}" -eq 0 ] && stages_ok "${out}/nullrhi.log"; then server_ok=true; fi
 
@@ -43,9 +87,11 @@ if [ "${mode}" = 'gpu' ] && vulkaninfo --summary >"${out}/vulkaninfo.txt" 2>&1; 
   Xvfb :99 -screen 0 1280x720x24 >/dev/null 2>&1 &
   xvfb_pid=$!
   sleep 2
+  start_bridge vulkan
   DISPLAY=:99 timeout --signal=TERM 120 /verse/Verse.sh -vulkan -windowed -ResX=1280 -ResY=720 \
     -nosound -unattended -VerseSmoke=boot -log -abslog="${out}/vulkan.log" >"${out}/vulkan.stdout" 2>&1
-  if grep -Eq 'VerseSmoke: (first frame|stage boot OK)' "${out}/vulkan.log" 2>/dev/null; then
+  stop_bridge
+  if grep -q 'VerseSmoke: first frame' "${out}/vulkan.log" 2>/dev/null; then
     vulkan='ok'
   else
     vulkan='fail'

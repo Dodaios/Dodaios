@@ -249,6 +249,41 @@ def test_seed_from_the_installer_bundle(tmp_path: Path) -> None:
     assert iu.seed_verse_from_bundle(gpu_supported=True, **linux) == {"status": "no_seed"}
 
 
+def test_a_broken_install_takes_the_seed_even_when_it_is_not_newer(tmp_path: Path) -> None:
+    stage = _stage(tmp_path / "stage", BASE)
+    bundle = tmp_path / "bundle"
+    (bundle / "verse").mkdir(parents=True)
+    seed = bundle / "verse" / "Verse-Win64-4.3.0.tar"
+    package.make_full(stage, version="4.3.0", platform="Win64", out=seed)
+    root = tmp_path / "root"
+    iu.install_verse_full(root, seed)
+    (iu.verse_version_dir(root, "4.3.0") / "Verse.exe").write_bytes(b"x")
+    kwargs = {"root": root, "bundle": bundle, "platform_name": "win32", "machine": "AMD64"}
+
+    result = iu.seed_verse_from_bundle(gpu_supported=True, **kwargs)
+    assert result["status"] == "repaired" and result["version"] == "4.3.0"
+    assert iu.ensure_verse_healthy(root, hashes=True) == {"status": "ok", "version": "4.3.0"}
+
+
+def test_reinstalling_the_running_version_keeps_it_when_the_swap_fails(
+    released: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = released["root"]
+    real_replace = iu.os.replace
+
+    def failing_replace(src, dst):
+        if Path(src).name.startswith(".staging-"):
+            raise PermissionError("in use")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(iu.os, "replace", failing_replace)
+    with pytest.raises(iu.VerseUpdateError, match="could not be switched in"):
+        iu.install_verse_full(root, released["full"])
+    monkeypatch.setattr(iu.os, "replace", real_replace)
+    assert iu.ensure_verse_healthy(root, hashes=True) == {"status": "ok", "version": "4.2.0"}
+    assert not [p for p in (root / "versions").iterdir() if p.name.startswith(".")]
+
+
 def test_apply_command_writes_the_delta_apply_log(released: dict[str, Path]) -> None:
     delta = released["tmp"] / "d.delta.tar"
     package.make_delta(

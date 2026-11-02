@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import time
@@ -234,6 +235,9 @@ def test_pso_expand_writes_into_the_engine_required_build_folder(tmp_path: Path)
 def test_cold_start_marker_wait(tmp_path: Path) -> None:
     log = tmp_path / "game.log"
     log.write_text("LogInit: start\nVerseSmoke: stage boot OK\n", encoding="utf-8")
+    # The boot stage is not the first frame.
+    assert not package.FIRST_FRAME.search(log.read_text(encoding="utf-8"))
+    log.write_text("LogInit: start\nVerseSmoke: first frame\n", encoding="utf-8")
     ticks = iter([0.0, 0.0, 0.4])
     seconds = package.wait_for_marker(
         log,
@@ -253,6 +257,76 @@ def test_cold_start_marker_wait(tmp_path: Path) -> None:
     )
 
 
+def _bridge_report(**overrides) -> dict:
+    report = {
+        "received": {"hello": 1, "lifecycle.ready": 1},
+        "sent": {"welcome": 1},
+        "expectations": [{"type": "lifecycle.ready", "ok": True, "optional": False}],
+        "invalid_from_verse": [],
+    }
+    report.update(overrides)
+    return report
+
+
+def test_bridge_problems_need_the_handshake_and_lifecycle_ready() -> None:
+    assert package.bridge_problems(_bridge_report(), require_ready=True) == []
+    assert package.bridge_problems(None, require_ready=False)
+    no_hello = package.bridge_problems(_bridge_report(sent={}), require_ready=False)
+    assert no_hello == ["no hello/welcome handshake (the bridge sent no welcome)"]
+    not_ready = _bridge_report(
+        expectations=[{"type": "lifecycle.ready", "ok": False, "optional": True}]
+    )
+    assert package.bridge_problems(not_ready, require_ready=False) == []
+    assert package.bridge_problems(not_ready, require_ready=True) == [
+        "no lifecycle.ready after the first frame"
+    ]
+    scenario = package.bridge_scenario(ready_timeout_s=12)
+    assert scenario["steps"] == [
+        {"at_ms": 0, "expect": {"type": "lifecycle.ready"}, "timeout_ms": 12000, "optional": False}
+    ]
+
+
+TEST_TOKEN = secrets.token_hex(8)
+FAKE_BRIDGE_STANDIN = """
+import argparse, json, os, sys, time
+p = argparse.ArgumentParser()
+for name in ("--scenario", "--report", "--discovery"):
+    p.add_argument(name)
+p.add_argument("--once", action="store_true")
+a = p.parse_args()
+scenario = json.load(open(a.scenario, encoding="utf-8"))
+json.dump({"url": "ws://127.0.0.1:1/api/verse/bridge", "token": os.environ["DODAIOS_VERSE_TOKEN"]},
+          open(a.discovery, "w", encoding="utf-8"))
+time.sleep(0.3)
+json.dump({"received": {"hello": 1}, "sent": {"welcome": 1}, "invalid_from_verse": [],
+           "expectations": [{"type": scenario["steps"][0]["expect"]["type"], "ok": True}]},
+          open(a.report, "w", encoding="utf-8"))
+"""
+
+
+def test_fake_bridge_run_hands_url_and_token_to_the_game(tmp_path: Path) -> None:
+    script = tmp_path / "fake_bridge.py"
+    script.write_text(FAKE_BRIDGE_STANDIN, encoding="utf-8")
+    run = package.FakeBridgeRun(
+        tmp_path / "out", token=TEST_TOKEN, ready_timeout_s=5, fake_bridge=script
+    )
+    with run:
+        env = run.env({})
+    assert env == {
+        package.BRIDGE_ENV: "ws://127.0.0.1:1/api/verse/bridge",
+        package.TOKEN_ENV: TEST_TOKEN,
+    }
+    assert package.bridge_problems(run.report, require_ready=True) == []
+    with pytest.raises(common.UnrealScriptError, match="fake bridge"):
+        with package.FakeBridgeRun(
+            tmp_path / "o2",
+            token=TEST_TOKEN,
+            ready_timeout_s=1,
+            fake_bridge=tmp_path / "missing.py",
+        ):
+            pass
+
+
 # ------------------------------------------------------------ 22.7 Linux
 def test_docker_smoke_command_is_offline_and_read_only(tmp_path: Path) -> None:
     command = package.docker_smoke_command(
@@ -263,6 +337,9 @@ def test_docker_smoke_command_is_offline_and_read_only(tmp_path: Path) -> None:
     assert f"{tmp_path / 'Linux'}:/verse:ro" in command
     assert command[-3:] == ["/smoke/linux_smoke.sh", "60", "nogpu"]
     assert "--gpus" not in command
+    # The fake bridge and its golden data reach the container read-only.
+    assert f"{REPO / 'scripts'}:/repo/scripts:ro" in command
+    assert f"{package.BRIDGE_DATA_DIR}:/repo/unreal/Verse/Tests/Data/bridge:ro" in command
     gpu = package.docker_smoke_command(tmp_path, tmp_path, seconds=60, gpu=True)
     assert gpu[gpu.index("--gpus") + 1] == "all" and gpu[-1] == "gpu"
 
@@ -281,6 +358,11 @@ def test_linux_smoke_evaluation(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "nullrhi.log").write_text("VerseSmoke: stage boot OK\n", encoding="utf-8")
+    # No bridge report: the handshake never happened.
+    assert package.evaluate_linux_smoke(tmp_path)["pass"] is False
+    (tmp_path / "bridge-server-report.json").write_text(
+        json.dumps(_bridge_report()), encoding="utf-8"
+    )
     assert package.evaluate_linux_smoke(tmp_path)["pass"] is True
     (tmp_path / "nullrhi.log").write_text("LogWindows: Error: Fatal error!\n", encoding="utf-8")
     result = package.evaluate_linux_smoke(tmp_path)
@@ -354,6 +436,56 @@ def test_hygiene_plans_intermediate_pruning_and_alerts(tmp_path: Path) -> None:
     assert healthy.alert is False
 
 
+def test_a_locked_intermediate_folder_does_not_stop_the_prune(tmp_path: Path) -> None:
+    plan = package.HygienePlan(intermediate_prune=[tmp_path / "a", tmp_path / "b"])
+    removed: list[Path] = []
+
+    def remove_tree(folder: Path) -> None:
+        if folder.name == "a":
+            raise PermissionError("in use")
+        removed.append(folder)
+
+    assert package.apply_hygiene(plan, remove_tree=remove_tree) == 1
+    assert removed == [tmp_path / "b"]
+
+
+def test_hygiene_plans_again_inside_the_lock_and_fails_over_a_zen_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import argparse
+
+    now = time.time()
+    stale = tmp_path / "wt/unreal/Verse/Intermediate"
+    _file(stale / "x.obj", 10, 10 * 86400, now)
+    zen = tmp_path / "zen"
+    _file(zen / "cas.ucas", 50, 10, now)
+    ddc = dict(
+        package.load_ddc(),
+        local_path=str(tmp_path / "ddc"),
+        zen_data_path=str(zen),
+        cap_gb=0,
+        alert_free_gb=0,
+    )
+    monkeypatch.setattr(package, "load_ddc", lambda: ddc)
+
+    class Lock:
+        def __init__(self, *args) -> None:
+            pass
+
+        def __enter__(self):
+            # The worktree became active while the job waited in the queue.
+            _file(stale / "fresh.obj", 10, 0, time.time())
+            return self
+
+        def __exit__(self, *exc) -> None:
+            return None
+
+    monkeypatch.setattr(package.with_lock, "MachineLock", Lock)
+    options = argparse.Namespace(worktrees=tmp_path, apply=True)
+    assert package.cmd_hygiene(options) == 4  # the Zen store is over its cap
+    assert stale.is_dir()
+
+
 # ---------------------------------------------------- 22.8 workflow policy
 def _workflow() -> dict:
     return yaml.safe_load((REPO / ".github/workflows/unreal-package.yml").read_text("utf-8"))
@@ -387,6 +519,9 @@ def test_signing_and_release_jobs_follow_the_existing_paths() -> None:
     assert jobs["sign-manifest"]["environment"] == "release-signing"
     assert "offline-ceremony.pub" in yaml.safe_dump(jobs["sign-manifest"])
     writers = [n for n, j in jobs.items() if j.get("permissions", {}).get("contents") == "write"]
+    # A failed Linux leg must not hold back the Windows payload.
+    for name in ("sign-windows", "assemble", "sign-manifest", "release"):
+        assert "!cancelled()" in jobs[name]["if"], name
     assert writers == ["release"]
     assert "--clobber" not in yaml.safe_dump(jobs["release"])
 

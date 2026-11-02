@@ -1246,6 +1246,11 @@ if (-not (Test-Path $InstallerPy)) {
 
 Write-Note 'handing over to the Python installer (phases 4-6)'
 
+# The LFS skip is for this script's own git calls only. Drop it before the
+# hand-off so the app installer.py launches (and every git it runs in the
+# user's own repos) never inherits it.
+Remove-Item Env:GIT_LFS_SKIP_SMUDGE -ErrorAction SilentlyContinue
+
 Push-Location $InstallDir
 try {
     & $VenvPython $InstallerPy @ExtraArgs

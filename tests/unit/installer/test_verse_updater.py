@@ -380,3 +380,71 @@ async def test_httpx_fetcher_enforces_the_cap_across_the_resume(tmp_path: Path) 
         await fetcher.download_resume(
             "https://example.invalid/x", dest, offset=4000, max_bytes=4500
         )
+
+
+async def _update(release: Release, root: Path, fetcher=None) -> dict:
+    return await iu.update_verse(
+        release.assets(),
+        version=TAG,
+        gpu_supported=True,
+        root=root,
+        fetcher=fetcher or FakeFetcher(release),
+        platform_name="win32",
+        machine="AMD64",
+    )
+
+
+async def test_a_broken_install_of_the_current_version_is_repaired(
+    monkeypatch, tmp_path: Path, installed: Path
+) -> None:
+    """Damage to a hard-linked file both versions share: the full payload comes back."""
+    release = _release(monkeypatch, tmp_path)
+    assert (await _update(release, installed))["kind"] == "delta"
+    (iu.verse_version_dir(installed, "4.2.1") / "Verse.exe").write_bytes(b"truncated")
+    assert iu.ensure_verse_healthy(installed)["status"] == "broken"
+
+    result = await _update(release, installed)
+    assert result["status"] == "repaired" and result["kind"] == "full"
+    assert result["version"] == "4.2.1"
+    assert iu.ensure_verse_healthy(installed, hashes=True) == {"status": "ok", "version": "4.2.1"}
+    assert iu.verse_current(installed)["version"] == "4.2.1"
+    leftovers = [p.name for p in (installed / "versions").iterdir() if p.name.startswith(".")]
+    assert leftovers == []
+    assert (await _update(release, installed))["status"] == "current"
+
+
+async def test_a_delta_over_the_download_cap_falls_back_to_the_full_payload(
+    monkeypatch, tmp_path: Path, installed: Path
+) -> None:
+    release = _release(monkeypatch, tmp_path)
+
+    class CappedFetcher(FakeFetcher):
+        async def download_resume(self, url, dest, *, offset, max_bytes, on_progress=None):
+            if url.endswith(".delta.tar"):
+                raise iu.InstallerUpdateError("download exceeded the byte cap")
+            return await super().download_resume(
+                url, dest, offset=offset, max_bytes=max_bytes, on_progress=on_progress
+            )
+
+    result = await _update(release, installed, CappedFetcher(release))
+    assert result["kind"] == "full" and result["version"] == "4.2.1"
+
+
+async def test_a_failed_switch_falls_back_and_leaves_no_staging(
+    monkeypatch, tmp_path: Path, installed: Path
+) -> None:
+    release = _release(monkeypatch, tmp_path)
+    real_switch = iu._switch
+    calls: list[str] = []
+
+    def flaky_switch(root, staging, tree):
+        calls.append(staging.name)
+        if len(calls) == 1:
+            raise PermissionError("the folder is in use")
+        return real_switch(root, staging, tree)
+
+    monkeypatch.setattr(iu, "_switch", flaky_switch)
+    result = await _update(release, installed)
+    assert result["kind"] == "full" and result["version"] == "4.2.1"
+    assert len(calls) == 2
+    assert not [p for p in (installed / "versions").iterdir() if p.name.startswith(".")]

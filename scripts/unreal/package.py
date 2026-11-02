@@ -50,6 +50,11 @@ CHUNKS_FILE = TOOLCHAIN_DIR / "chunks.json"
 DDC_FILE = TOOLCHAIN_DIR / "ddc.json"
 LINUX_SMOKE_DIR = common.REPO_ROOT / "packaging" / "linux" / "verse"
 SMOKE_IMAGE = "dodaios-verse-smoke:1"
+#: The scripted backend side of verse.bridge/1 (G0.11) and its golden data.
+FAKE_BRIDGE = common.REPO_ROOT / "scripts" / "unreal" / "fake_bridge.py"
+BRIDGE_DATA_DIR = common.UNREAL_ROOT / "Verse" / "Tests" / "Data" / "bridge"
+BRIDGE_ENV = "DODAIOS_VERSE_BRIDGE"
+TOKEN_ENV = "DODAIOS_VERSE_TOKEN"  # noqa: S105 - the variable name, not a secret
 
 GB = 1_000_000_000
 MB = 1_000_000
@@ -686,7 +691,153 @@ def cmd_apply(options: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- #
 # A22.2 Cold start
 # --------------------------------------------------------------------------- #
-FIRST_FRAME = re.compile(r"VerseSmoke: (?:first frame|stage boot OK)")
+#: The harness line the game logs on its first rendered frame. ``stage boot
+#: OK`` is not it: that stage ends after the handshake and the deck load.
+FIRST_FRAME = re.compile(r"VerseSmoke: first frame")
+#: How long the game keeps running after its first frame, so that
+#: ``lifecycle.ready`` reaches the bridge before the game is stopped.
+READY_GRACE_S = 5.0
+COLD_START_BUDGET_S = 8.0
+
+
+def bridge_scenario(*, ready_timeout_s: float, ready_optional: bool = False) -> dict[str, Any]:
+    """A fake-bridge scenario that waits for ``lifecycle.ready`` after the handshake."""
+    return {
+        "name": "verse-package-smoke",
+        "description": "Handshake, then lifecycle.ready {first_frame_ms} after the first frame.",
+        "topics": [],
+        "watch_screens": [],
+        "watch_chat_tails": [],
+        "state": {},
+        "replies": {},
+        "steps": [
+            {
+                "at_ms": 0,
+                "expect": {"type": "lifecycle.ready"},
+                "timeout_ms": int(ready_timeout_s * 1000),
+                "optional": ready_optional,
+            }
+        ],
+    }
+
+
+def bridge_problems(report: Mapping[str, Any] | None, *, require_ready: bool) -> list[str]:
+    """What a fake-bridge run report says is wrong with the Verse's side of the bridge."""
+    if not report:
+        return ["the Verse never finished the bridge handshake (the fake bridge wrote no report)"]
+    problems = []
+    # The bridge answers only a valid hello (protocol, token) with welcome, and
+    # counts the hello itself outside the session, so welcome is the proof.
+    if not report.get("sent", {}).get("welcome"):
+        problems.append("no hello/welcome handshake (the bridge sent no welcome)")
+    if require_ready:
+        ready = [e for e in report.get("expectations", []) if e.get("type") == "lifecycle.ready"]
+        if not (ready and ready[0].get("ok")):
+            problems.append("no lifecycle.ready after the first frame")
+    invalid = report.get("invalid_from_verse") or []
+    if invalid:
+        problems.append(f"{len(invalid)} invalid frames from the Verse: {invalid[0]}")
+    return problems
+
+
+class FakeBridgeRun:
+    """``fake_bridge.py`` around one game run: URL and token for the game's environment.
+
+    The bridge plays :func:`bridge_scenario` once and writes its report when
+    the game disconnects; :attr:`report` holds it after the ``with`` block
+    (``None`` when the game never connected).
+    """
+
+    def __init__(
+        self,
+        out: Path,
+        *,
+        token: str,
+        ready_timeout_s: float,
+        fake_bridge: Path = FAKE_BRIDGE,
+        start_timeout_s: float = 15.0,
+        stop_timeout_s: float = 15.0,
+    ) -> None:
+        self.out = out
+        self.token = token
+        self.ready_timeout_s = ready_timeout_s
+        self.fake_bridge = fake_bridge
+        self.start_timeout_s = start_timeout_s
+        self.stop_timeout_s = stop_timeout_s
+        self.url = ""
+        self.report: dict[str, Any] | None = None
+        self.process: subprocess.Popen | None = None
+        self.report_path = out / "bridge-report.json"
+
+    def env(self, base: Mapping[str, str] | None = None) -> dict[str, str]:
+        return {
+            **(os.environ if base is None else base),
+            BRIDGE_ENV: self.url,
+            TOKEN_ENV: self.token,
+        }
+
+    def __enter__(self) -> FakeBridgeRun:
+        if not self.fake_bridge.is_file():
+            raise common.UnrealScriptError(
+                f"{self.fake_bridge} is missing; the fake bridge lands with G0.11"
+            )
+        self.out.mkdir(parents=True, exist_ok=True)
+        scenario = write_json(
+            self.out / "bridge-scenario.json", bridge_scenario(ready_timeout_s=self.ready_timeout_s)
+        )
+        discovery = self.out / "bridge-discovery.json"
+        for stale in (discovery, self.report_path):
+            stale.unlink(missing_ok=True)
+        command = [
+            sys.executable,
+            str(self.fake_bridge),
+            "--scenario",
+            str(scenario),
+            "--once",
+            "--report",
+            str(self.report_path),
+            "--discovery",
+            str(discovery),
+        ]
+        with (self.out / "bridge.log").open("w", encoding="utf-8") as log_handle:
+            self.process = subprocess.Popen(  # noqa: S603 - fixed argv
+                command,
+                cwd=str(common.REPO_ROOT),
+                env={**os.environ, TOKEN_ENV: self.token},
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+            )
+        deadline = time.monotonic() + self.start_timeout_s
+        while time.monotonic() < deadline and self.process.poll() is None:
+            try:
+                self.url = str(json.loads(discovery.read_text(encoding="utf-8"))["url"])
+                return self
+            except (OSError, ValueError, KeyError):
+                time.sleep(0.05)
+        self._stop()
+        raise common.UnrealScriptError(f"the fake bridge did not start ({self.out / 'bridge.log'})")
+
+    def _stop(self) -> None:
+        process = self.process
+        if process is None:
+            return
+        try:
+            # With --once the bridge exits by itself once the game disconnected.
+            process.wait(timeout=self.stop_timeout_s)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop()
+        try:
+            self.report = json.loads(self.report_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):  # no report: the game never connected
+            self.report = None
 
 
 def wait_for_marker(
@@ -735,38 +886,53 @@ def cmd_cold_start(options: argparse.Namespace) -> int:
         f"-abslog={log_path}",
     ]
     token = secrets.token_hex(16)
-    with with_lock.MachineLock(f"cold start ({worktree.name})", command):
-        process = subprocess.Popen(
-            command, cwd=str(staged), env=dict(os.environ, DODAIOS_VERSE_TOKEN=token)
-        )
-        try:
-            seconds = wait_for_marker(
-                log_path,
-                FIRST_FRAME,
-                timeout_s=options.timeout,
-                alive=lambda: process.poll() is None,
-            )
-        finally:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=15)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+    bridge = FakeBridgeRun(
+        out / "bridge", token=token, ready_timeout_s=options.timeout + READY_GRACE_S
+    )
+    try:
+        with with_lock.MachineLock(f"cold start ({worktree.name})", command), bridge:
+            process = subprocess.Popen(command, cwd=str(staged), env=bridge.env())
+            try:
+                seconds = wait_for_marker(
+                    log_path,
+                    FIRST_FRAME,
+                    timeout_s=options.timeout,
+                    alive=lambda: process.poll() is None,
+                )
+                if seconds is not None and process.poll() is None:
+                    time.sleep(READY_GRACE_S)  # let lifecycle.ready reach the bridge
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=15)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+    except common.UnrealScriptError as error:
+        return common.exit_with(error)
     report = size_report(staged, load_chunks(), platform=spec.ue)
+    problems = bridge_problems(bridge.report, require_ready=True)
+    if seconds is None:
+        problems.append("no first-frame marker in the game log")
+    elif seconds > COLD_START_BUDGET_S:
+        problems.append(f"first frame after {seconds:.1f} s (budget {COLD_START_BUDGET_S} s)")
+    if not report["pso_cache_shipped"]:
+        problems.append("no shipped PSO cache in the build (A22.2 measures with it)")
     result = {
         "schema": "verse.cold-start/1",
         "platform": spec.ue,
         "config": options.config,
         "seconds_to_first_frame": None if seconds is None else round(seconds, 3),
-        "budget_s": 8.0,
-        "pass": seconds is not None and seconds <= 8.0,
+        "budget_s": COLD_START_BUDGET_S,
+        "pass": not problems,
+        "problems": problems,
         "pso_cache_shipped": report["pso_cache_shipped"],
+        "bridge": bridge.report,
         "log": str(log_path),
     }
     path = write_json(out / f"cold-start-{spec.key}.json", result)
-    common.log(f"cold start: {result['seconds_to_first_frame']} s ({path})")
+    common.log(f"cold start: {result['seconds_to_first_frame']} s ({path}) {problems}")
     return 0 if result["pass"] else 1
 
 
@@ -794,6 +960,11 @@ def docker_smoke_command(
         f"{staged}:/verse:ro",
         "-v",
         f"{LINUX_SMOKE_DIR}:/smoke:ro",
+        # The fake bridge runs inside the container (loopback only).
+        "-v",
+        f"{common.REPO_ROOT / 'scripts'}:/repo/scripts:ro",
+        "-v",
+        f"{BRIDGE_DATA_DIR}:/repo/unreal/Verse/Tests/Data/bridge:ro",
         "-v",
         f"{out}:/out",
     ]
@@ -819,6 +990,15 @@ def evaluate_linux_smoke(out: Path) -> dict[str, Any]:
     problems = list(result.get("problems") or [])
     for log_name in ("nullrhi.log", "vulkan.log"):
         problems += [f"{log_name}: {line}" for line in automation.scan_log(out / log_name)]
+    runs = [("server", False)] + ([("vulkan", True)] if result.get("vulkan") == "ok" else [])
+    for run, require_ready in runs:
+        try:
+            report = json.loads((out / f"bridge-{run}-report.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):  # no report: the game never connected
+            report = None
+        problems += [
+            f"{run} run: {p}" for p in bridge_problems(report, require_ready=require_ready)
+        ]
     result["problems"] = problems
     result["pass"] = bool(result.get("server_ok")) and not problems
     return result
@@ -831,6 +1011,17 @@ def cmd_linux_smoke(options: argparse.Namespace) -> int:
         return common.exit_with(common.UnrealScriptError(f"no packaged Linux game at {staged}"))
     out = proof_dir(worktree, "22.7") / common.run_stamp()
     out.mkdir(parents=True, exist_ok=True)
+    if not FAKE_BRIDGE.is_file():
+        return common.exit_with(
+            common.UnrealScriptError(f"{FAKE_BRIDGE} is missing; the fake bridge lands with G0.11")
+        )
+    # The server run only has to finish the handshake; the Vulkan run must
+    # also report lifecycle.ready.
+    write_json(
+        out / "bridge-server.json",
+        bridge_scenario(ready_timeout_s=30, ready_optional=True),
+    )
+    write_json(out / "bridge-vulkan.json", bridge_scenario(ready_timeout_s=120))
     build = [
         "docker",
         "build",
@@ -973,22 +1164,39 @@ def apply_hygiene(
         except OSError:
             continue
     for folder in plan.intermediate_prune:
-        remove_tree(folder)
-        removed += 1
+        try:
+            remove_tree(folder)
+            removed += 1
+        except OSError as error:  # a locked file: the rest still gets pruned
+            common.log(f"could not prune {folder}: {error}")
     return removed
+
+
+def zen_over_cap(plan: HygienePlan) -> bool:
+    """The cache is over its cap and no file-system prune can fix it (the Zen store)."""
+    return plan.ddc_bytes > plan.ddc_cap_bytes and not plan.ddc_prune
 
 
 def cmd_hygiene(options: argparse.Namespace) -> int:
     ddc = load_ddc()
     plan = plan_hygiene(ddc, worktrees_root=options.worktrees)
-    summary = plan.as_dict()
     if options.apply:
-        # The lock guarantees no build, cook or editor is writing while we prune.
+        # The lock guarantees no build, cook or editor is writing while we
+        # prune. The queue can take hours, so plan again once it is granted:
+        # a worktree that became active in the meantime keeps its folder.
         with with_lock.MachineLock("disk hygiene", "package.py hygiene --apply"):
+            plan = plan_hygiene(ddc, worktrees_root=options.worktrees)
+            summary = plan.as_dict()
             summary["removed"] = apply_hygiene(plan)
+    else:
+        summary = plan.as_dict()
     print(json.dumps(summary, indent=2))
-    if plan.ddc_bytes > plan.ddc_cap_bytes and not plan.ddc_prune:
-        common.log("DDC over its cap in the Zen store: run the Zen server's gc")
+    if zen_over_cap(plan):
+        common.log(
+            f"FAIL the DDC holds {plan.ddc_bytes / GB:.1f} GB, over its {ddc['cap_gb']} GB cap, "
+            "in the Zen store, which this command cannot prune: run the Zen server's gc"
+        )
+        return 4
     if plan.alert:
         common.log(
             f"ALERT only {plan.free_gb:.0f} GB free (want {ddc['alert_free_gb']}); "

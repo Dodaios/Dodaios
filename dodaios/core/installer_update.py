@@ -1701,9 +1701,23 @@ def _switch(root: Path, staging: Path, tree: dict[str, Any]) -> dict[str, Any]:
     if previous == version:
         previous = current.get("previous") if current else None
     target = verse_version_dir(root, version)
+    aside: Path | None = None
     if target.exists():
-        shutil.rmtree(target)
-    os.replace(staging, target)
+        # Reinstalling the running version (a repair): move the old folder
+        # aside first, so current.json never points at a missing folder and a
+        # failed swap puts it back.
+        aside = target.with_name(f".replaced-{version}-{os.getpid()}")
+        shutil.rmtree(aside, ignore_errors=True)
+        os.replace(target, aside)
+    try:
+        os.replace(staging, target)
+    except OSError:
+        if aside is not None:
+            os.replace(aside, target)
+        raise
+    if aside is not None:
+        # Files a running game still holds stay until the next prune.
+        shutil.rmtree(aside, ignore_errors=True)
     _write_current(root, version, previous, tree["platform"])
     _prune_versions(root, {version, *([previous] if previous else [])})
     return {"version": version, "previous": previous}
@@ -1752,7 +1766,8 @@ def _link_or_copy(source: Path, target: Path) -> None:
     Nothing ever writes into a payload file after it is verified, so a file
     shared by two versions through a hard link stays correct for both. Damage
     from outside to a shared file damages both versions; the health check then
-    answers ``broken`` and the full payload repairs it.
+    answers ``broken`` and :func:`update_verse` (or the installer seed)
+    reinstalls the full payload of the same version.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -1785,7 +1800,12 @@ def _verified_switch(
             f"{what} failed verification ({len(problems)} files: {', '.join(problems[:3])})",
             previous=previous,
         )
-    return _switch(root, staging, tree)
+    try:
+        return _switch(root, staging, tree)
+    except OSError as exc:
+        raise _fail_and_discard(
+            staging, f"{what} could not be switched in: {exc}", previous=previous
+        ) from exc
 
 
 # ---------------------------------------------------------- install, delta
@@ -1958,12 +1978,14 @@ def select_verse_update(
     gpu_supported: bool,
     platform_name: str | None = None,
     machine: str | None = None,
+    repair: bool = False,
 ) -> VerseUpdatePlan | None:
     """The Verse download this machine needs from one release, or ``None``.
 
     ``None`` when the machine cannot run the Verse (no GPU: nothing is
     downloaded), when no Verse ships for this OS, when the installed version
-    is already the release's, or when the release carries no Verse payload.
+    is already the release's (unless ``repair``: a broken install gets the
+    full payload again), or when the release carries no Verse payload.
     A release that carries a payload without its signed digest files raises:
     an unverifiable payload is never offered.
     """
@@ -1973,7 +1995,7 @@ def select_verse_update(
     if platform is None:
         return None
     target = _verse_version(version)
-    base = _verse_version(installed) if installed else None
+    base = _verse_version(installed) if installed and not repair else None
     if base == target:
         return None
     listed = list(assets)
@@ -2112,17 +2134,27 @@ async def update_verse(
     platform_name: str | None = None,
     machine: str | None = None,
     on_progress: DownloadProgress | None = None,
+    verify_hashes: bool = False,
 ) -> dict[str, Any]:
     """Bring the installed Verse to ``version`` from one release's assets.
 
-    A delta that fails (download or apply) leaves the running version in
-    place and falls back to the full payload when the release carries one.
+    The running version is health-checked first: a damaged one rolls back to
+    the previous version, and one with no healthy version to fall back to
+    (a hard-linked file both share was damaged) gets the full payload again,
+    even when its version number is already the release's. A delta that
+    fails (download, cap or apply) leaves the running version in place and
+    falls back to the full payload when the release carries one.
     """
     active_root = verse_root() if root is None else root
+    if not gpu_supported:
+        current = verse_current(active_root)
+        return {"status": "unsupported", "version": current["version"] if current else None}
+    health = await asyncio.to_thread(ensure_verse_healthy, active_root, hashes=verify_hashes)
+    broken = health["status"] == "broken"
+    if broken:
+        log.warning("[verse] the installed Verse is broken (%s); reinstalling", health)
     current = verse_current(active_root)
     installed = current["version"] if current else None
-    if not gpu_supported:
-        return {"status": "unsupported", "version": installed}
     plan = select_verse_update(
         assets,
         version=version,
@@ -2130,9 +2162,10 @@ async def update_verse(
         gpu_supported=gpu_supported,
         platform_name=platform_name,
         machine=machine,
+        repair=broken,
     )
     if plan is None:
-        return {"status": "current", "version": installed}
+        return {"status": "broken" if broken else "current", "version": installed}
     downloads = active_root / "downloads"
     if plan.kind == "delta":
         try:
@@ -2142,7 +2175,9 @@ async def update_verse(
             result = await asyncio.to_thread(apply_verse_delta, active_root, path)
             _discard(path)
             return {"status": "updated", **plan.as_dict(), **result}
-        except VerseUpdateError as exc:
+        except (InstallerUpdateError, OSError) as exc:
+            # A refused signature fails the full payload the same way (same
+            # manifest), before any of it is downloaded.
             if plan.fallback is None:
                 raise
             log.warning("[verse] delta update failed (%s); using the full payload", exc)
@@ -2153,7 +2188,7 @@ async def update_verse(
     result = await asyncio.to_thread(install_verse_full, active_root, path)
     _discard(path)
     return {
-        "status": "updated",
+        "status": "repaired" if broken else "updated",
         **plan.as_dict(),
         "kind": "full",
         "payload": payload.as_dict(),
@@ -2201,8 +2236,11 @@ def seed_verse_from_bundle(
         return {"status": "no_seed"}
     key, seed = max(seeds)
     active_root = verse_root() if root is None else root
+    # A damaged install rolls back first; one with nothing healthy left gets
+    # the seed even when the seed is not newer.
+    broken = ensure_verse_healthy(active_root)["status"] == "broken"
     current = verse_current(active_root)
-    if current is not None and _version_key(current["version"]) >= key:
+    if not broken and current is not None and _version_key(current["version"]) >= key:
         return {"status": "current", "version": current["version"]}
     result = install_verse_full(active_root, seed)
     try:
@@ -2210,4 +2248,4 @@ def seed_verse_from_bundle(
     except OSError:
         # A read-only bundle (a mounted AppImage) keeps its seed; nothing breaks.
         log.debug("[verse] the seed %s stays in the read-only bundle", seed)
-    return {"status": "installed", **result}
+    return {"status": "repaired" if broken else "installed", **result}
