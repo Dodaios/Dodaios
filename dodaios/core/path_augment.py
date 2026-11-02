@@ -222,6 +222,14 @@ def fit_path_entries(entries: list[str], budget: int) -> list[str]:
     return existing
 
 
+def fit_spawn_path(value: str) -> str:
+    """``value`` shortened to a PATH a child process can start with."""
+    budget = _path_budget()
+    if budget is None or len(value) <= budget:
+        return value
+    return os.pathsep.join(fit_path_entries(value.split(os.pathsep), budget))
+
+
 def _store_path(current: str, added: list[str]) -> list[str]:
     """Write ``current`` plus ``added`` to ``PATH``; return what of ``added`` got in.
 
