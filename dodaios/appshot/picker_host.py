@@ -78,6 +78,7 @@ class PickerHost:
                     },
                 )
             except (OSError, ValueError, region.RegionUnavailable):
+                log.debug("appshot: fast open skipped; the take opens the picker", exc_info=True)
                 return False
             self._opened_at = time.time()
             self._shielded = True
