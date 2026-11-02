@@ -173,7 +173,8 @@ namespace VerseTerminalPainter
 		}
 		for (const FVerseTerminalRect& R : List.Rects)
 		{
-			FCanvasTileItem Tile(FVector2D(R.Pos), GWhiteTexture, FVector2D(R.Size), FLinearColor(R.Colour));
+			// The size-and-colour form draws the engine white texture (no RenderCore link needed).
+			FCanvasTileItem Tile(FVector2D(R.Pos), FVector2D(R.Size), FLinearColor(R.Colour));
 			Tile.BlendMode = SE_BLEND_Opaque;
 			Canvas->DrawItem(Tile);
 		}
