@@ -277,7 +277,7 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 				FStage& S = Shared();
 				USkeletalMeshComponent* Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, *ClipName, Time);
 				const FTransform Eye = Body->GetSocketTransform(TEXT("Camera"));
-				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 90.f);
+				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 100.f);
 				UVerseFirstPersonLibrary::ConfigureOwnerView(Body, nullptr, S.Camera->GetCameraComponent());
 				Body->SetOnlyOwnerSee(false);
 				S.StandInWeapon(Body, ClipName);
@@ -296,7 +296,7 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 				USkeletalMeshComponent* Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, TEXT("A_Rifle_Idle"), 0.f);
 				const FTransform Eye = Body->GetSocketTransform(TEXT("Camera"));
 				const FVector Hand = Body->GetSocketLocation(TEXT("Hand_L"));
-				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 90.f);
+				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 100.f);
 				UVerseFirstPersonLibrary::ConfigureOwnerView(Body, nullptr, S.Camera->GetCameraComponent());
 				Body->SetOnlyOwnerSee(false);
 				if (bBody)

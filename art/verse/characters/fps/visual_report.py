@@ -31,13 +31,35 @@ def load(path: Path) -> np.ndarray:
     return np.asarray(Image.open(path).convert("RGB"), dtype=np.int16)
 
 
+#: Shots are compared as means of BLOCK x BLOCK pixels: the floor's grain and
+#: sub-pixel edges change between frames, a body or a weapon does not.
+BLOCK = 8
+
+
+def blocks(img: np.ndarray) -> np.ndarray:
+    h, w = (img.shape[0] // BLOCK) * BLOCK, (img.shape[1] // BLOCK) * BLOCK
+    return img[:h, :w].reshape(h // BLOCK, BLOCK, w // BLOCK, BLOCK, 3).mean(axis=(1, 3))
+
+
+def erode(mask: np.ndarray) -> np.ndarray:
+    """Keep blocks whose 3 x 3 neighbourhood is set: drops one-block lines (the
+    anti-aliased horizon), keeps a body or a weapon."""
+    m = np.pad(mask, 1)
+    out = np.ones_like(mask)
+    for dy in (0, 1, 2):
+        for dx in (0, 1, 2):
+            out &= m[dy : dy + mask.shape[0], dx : dx + mask.shape[1]]
+    return out
+
+
 def clipping(folder: Path) -> dict:
-    off, on, nobody = (load(folder / f"fp_wall_{n}.png") for n in ("off", "on", "nobody"))
-    body = np.abs(off - nobody).max(axis=2) > THRESHOLD
+    off, on, nobody = (blocks(load(folder / f"fp_wall_{n}.png")) for n in ("off", "on", "nobody"))
+    body = erode(np.abs(off - nobody).max(axis=2) > THRESHOLD)
     hidden = body & (np.abs(on - off).max(axis=2) > THRESHOLD)
     return {
-        "body_pixels": int(body.sum()),
-        "hidden_body_pixels": int(hidden.sum()),
+        "body_pixels": int(body.sum()) * BLOCK * BLOCK,
+        "hidden_body_pixels": int(hidden.sum()) * BLOCK * BLOCK,
+        "block": BLOCK,
         "threshold": THRESHOLD,
         "pass": bool(body.sum() > 0 and hidden.sum() == 0),
     }
