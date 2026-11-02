@@ -10,6 +10,7 @@
 #include "UObject/StrongObjectPtr.h"
 
 class AActor;
+class UPhysicalMaterial;
 class UBoxComponent;
 class UVerseBoltHoleComponent;
 class UVersePenetrationSubsystem;
@@ -65,13 +66,22 @@ public:
 
 private:
 	AActor* SpawnBox(const FVector& Center, const FRotator& Rotation, const FVector& HalfExtent, FName Profile, UPhysicalMaterial* PhysMat);
-	TArray<TStrongObjectPtr<UPhysicalMaterial>> PhysMats;
+	TArray<TStrongObjectPtr<UObject>> PhysMats;
 };
 
 namespace VerseWP03Test
 {
+	/** |A - B| <= Tolerance in double precision (mixed float and double arguments). */
+	inline bool Near(double A, double B, double Tolerance)
+	{
+		return FMath::Abs(A - B) <= Tolerance;
+	}
+
 	/** Path of the WP03.1 golden fixture. */
 	FString GoldenFixturePath();
+
+	/** A transient physical material with that base name (a unique suffix is added). */
+	UPhysicalMaterial* MakePhysicalMaterial(const FString& BaseName);
 }
 
 #endif // WITH_DEV_AUTOMATION_TESTS

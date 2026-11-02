@@ -173,7 +173,7 @@ bool FVerseSightRulesTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("grating is see-through"), W.Penetration->TestSight(Eye, Target));
 	const TArray<FVersePenetrationHit> GratingHits = W.Penetration->TraceBolt(Eye, FVector::ForwardVector, 400.f, 100.f, 1.f, 15, 3);
 	TestTrue(TEXT("a bolt is charged by the grating"), GratingHits.Num() == 1 && GratingHits[0].bPassed
-		&& FMath::IsNearlyEqual(GratingHits[0].PowerLeft, 90.f, 1e-3f));
+		&& VerseWP03Test::Near(GratingHits[0].PowerLeft, 90.f, 1e-3f));
 
 	AActor* Wall = W.SpawnPiece(3, EVersePenetrationMaterial::ContainerWall, FVector(50.f, 0, 0), 0.4f);
 	W.Settle();

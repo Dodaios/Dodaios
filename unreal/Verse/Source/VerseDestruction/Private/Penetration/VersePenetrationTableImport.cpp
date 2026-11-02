@@ -1,11 +1,9 @@
 #include "Penetration/VersePenetrationTableImport.h"
 
-#include "Dom/JsonObject.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Penetration/VersePenetrationJson.h"
 #include "Penetration/VersePenetrationMath.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
 #include "VerseGameplayTags.h"
 
 namespace VersePenetrationImport
@@ -46,30 +44,31 @@ namespace VersePenetrationImport
 	{
 		OutRows.Reset();
 		const int32 ErrorsBefore = OutErrors.Num();
-		TSharedPtr<FJsonObject> Root;
-		const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonText);
-		if (!FJsonSerializer::Deserialize(Reader, Root) || !Root.IsValid())
+		FVerseJson Doc;
+		FString ParseError;
+		if (!FVerseJson::Parse(JsonText, Doc, ParseError) || !Doc.IsObject())
 		{
-			OutErrors.Add(TEXT("not a JSON object"));
+			OutErrors.Add(ParseError.IsEmpty() ? FString(TEXT("not a JSON object")) : ParseError);
 			return false;
 		}
+		const FVerseJson* Root = &Doc;
 		FString SchemaText;
-		if (!Root->TryGetStringField(TEXT("schema"), SchemaText) || SchemaText != Schema)
+		if (!Root->TryString(TEXT("schema"), SchemaText) || SchemaText != Schema)
 		{
 			OutErrors.Add(FString::Printf(TEXT("schema must be %s"), Schema));
 		}
 		double Anchor = 0.0;
-		if (!Root->TryGetNumberField(TEXT("power_anchor"), Anchor) || Anchor != 100.0)
+		if (!Root->TryNumber(TEXT("power_anchor"), Anchor) || Anchor != 100.0)
 		{
 			OutErrors.Add(TEXT("power_anchor must be 100 (the assault rifle, destruction.md 2)"));
 		}
 		double MaxPieces = 0.0;
-		if (!Root->TryGetNumberField(TEXT("max_pieces"), MaxPieces) || int32(MaxPieces) != Verse::Destruction::MaxPenetrations)
+		if (!Root->TryNumber(TEXT("max_pieces"), MaxPieces) || int32(MaxPieces) != Verse::Destruction::MaxPenetrations)
 		{
 			OutErrors.Add(TEXT("max_pieces must be 3 (destruction.md 2)"));
 		}
-		const TArray<TSharedPtr<FJsonValue>>* Materials = nullptr;
-		if (!Root->TryGetArrayField(TEXT("materials"), Materials))
+		const TArray<FVerseJson>* Materials = Root->FindArray(TEXT("materials"));
+		if (!Materials)
 		{
 			OutErrors.Add(TEXT("materials array missing"));
 			return false;
@@ -80,13 +79,12 @@ namespace VersePenetrationImport
 		const UEnum* DebrisEnum = StaticEnum<EVerseDebrisType>();
 		for (int32 Index = 0; Index < Materials->Num(); ++Index)
 		{
-			const TSharedPtr<FJsonObject>* Object = nullptr;
-			if (!(*Materials)[Index]->TryGetObject(Object))
+			const FVerseJson& M = (*Materials)[Index];
+			if (!M.IsObject())
 			{
 				OutErrors.Add(FString::Printf(TEXT("materials[%d] is not an object"), Index));
 				continue;
 			}
-			const FJsonObject& M = **Object;
 			FString Id;
 			FString Debris;
 			double Wire = -1.0;
@@ -95,10 +93,10 @@ namespace VersePenetrationImport
 			double Mult = 0.0;
 			bool bBullets = false;
 			bool bBreach = false;
-			const bool bComplete = M.TryGetNumberField(TEXT("wire"), Wire) && M.TryGetStringField(TEXT("id"), Id)
-				&& M.TryGetNumberField(TEXT("ref_thickness_cm"), Ref) && M.TryGetNumberField(TEXT("cost"), Cost)
-				&& M.TryGetNumberField(TEXT("damage_multiplier"), Mult) && M.TryGetBoolField(TEXT("breakable_by_bullets"), bBullets)
-				&& M.TryGetBoolField(TEXT("breakable_by_breach"), bBreach) && M.TryGetStringField(TEXT("debris"), Debris);
+			const bool bComplete = M.TryNumber(TEXT("wire"), Wire) && M.TryString(TEXT("id"), Id)
+				&& M.TryNumber(TEXT("ref_thickness_cm"), Ref) && M.TryNumber(TEXT("cost"), Cost)
+				&& M.TryNumber(TEXT("damage_multiplier"), Mult) && M.TryBool(TEXT("breakable_by_bullets"), bBullets)
+				&& M.TryBool(TEXT("breakable_by_breach"), bBreach) && M.TryString(TEXT("debris"), Debris);
 			if (!bComplete)
 			{
 				OutErrors.Add(FString::Printf(TEXT("materials[%d] misses a column"), Index));

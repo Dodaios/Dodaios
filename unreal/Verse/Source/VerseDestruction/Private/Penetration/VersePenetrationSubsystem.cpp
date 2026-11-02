@@ -9,6 +9,7 @@
 #include "Penetration/VersePenetrationMath.h"
 #include "Penetration/VersePenetrationPhysicalMaterial.h"
 #include "Penetration/VersePenetrationTableImport.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 #include "VerseCollision.h"
 #include "VerseLog.h"
 

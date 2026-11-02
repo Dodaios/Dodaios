@@ -2,16 +2,14 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-#include "Dom/JsonObject.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
+#include "Penetration/VersePenetrationJson.h"
 #include "Penetration/VersePenetrationMath.h"
 #include "Penetration/VersePenetrationPhysicalMaterial.h"
 #include "Penetration/VersePenetrationSubsystem.h"
 #include "Penetration/VersePenetrationTableImport.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
 #include "Tests/Penetration/Fakes/VerseWP03Fakes.h"
 #include "VerseLog.h"
 
@@ -32,15 +30,11 @@ namespace
 		return EVersePenetrationMaterial::Concrete;
 	}
 
-	TSharedPtr<FJsonObject> LoadJson(const FString& Path)
+	bool LoadJson(const FString& Path, FVerseJson& Out)
 	{
 		FString Text;
-		TSharedPtr<FJsonObject> Root;
-		if (FFileHelper::LoadFileToString(Text, *Path))
-		{
-			FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), Root);
-		}
-		return Root;
+		FString Error;
+		return FFileHelper::LoadFileToString(Text, *Path) && FVerseJson::Parse(Text, Out, Error) && Out.IsObject();
 	}
 
 	/** Imported rows of Data/destruction/penetration.json (what the runtime uses). */
@@ -134,14 +128,16 @@ bool FVersePenetrationTableTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	const TSharedPtr<FJsonObject> Golden = LoadJson(VerseWP03Test::GoldenFixturePath());
-	if (!TestTrue(TEXT("golden fixture loads"), Golden.IsValid()))
+	FVerseJson GoldenDoc;
+	if (!TestTrue(TEXT("golden fixture loads"), LoadJson(VerseWP03Test::GoldenFixturePath(), GoldenDoc)))
 	{
 		return false;
 	}
-	const double Tol = Golden->GetNumberField(TEXT("tolerance"));
-	TestTrue(TEXT("tolerance is 1e-4"), FMath::IsNearlyEqual(Tol, 1e-4, 1e-12));
-	const TArray<TSharedPtr<FJsonValue>>& Cases = Golden->GetArrayField(TEXT("cases"));
+	const FVerseJson* Golden = &GoldenDoc;
+	const double Tol = Golden->NumberOr(TEXT("tolerance"), 0.0);
+	TestTrue(TEXT("tolerance is 1e-4"), VerseWP03Test::Near(Tol, 1e-4, 1e-12));
+	static const TArray<FVerseJson> Empty;
+	const TArray<FVerseJson>& Cases = Golden->FindArray(TEXT("cases")) ? *Golden->FindArray(TEXT("cases")) : Empty;
 	TestEqual(TEXT("8 x 3 x 3 cases"), Cases.Num(), 72);
 
 	FVerseWP03World W;
@@ -152,21 +148,21 @@ bool FVersePenetrationTableTest::RunTest(const FString& Parameters)
 
 	int32 Checked = 0;
 	uint16 PieceIndex = 0;
-	for (const TSharedPtr<FJsonValue>& Value : Cases)
+	for (const FVerseJson& Value : Cases)
 	{
-		const TSharedPtr<FJsonObject> Case = Value->AsObject();
-		const FString Id = Case->GetStringField(TEXT("material"));
+		const FVerseJson* Case = &Value;
+		const FString Id = Case->StringOr(TEXT("material"));
 		const EVersePenetrationMaterial Material = MaterialById(Id);
 		const FVersePenetrationRow& Row = Rows[uint8(Material)];
-		const float Thickness = float(Case->GetNumberField(TEXT("thickness_cm")));
-		const float Power = float(Case->GetNumberField(TEXT("power")));
+		const float Thickness = float(Case->NumberOr(TEXT("thickness_cm"), 0.0));
+		const float Power = float(Case->NumberOr(TEXT("power"), 0.0));
 		const FString Label = FString::Printf(TEXT("%s %.2f cm power %.0f"), *Id, Thickness, Power);
 
 		const FVersePenetrationStep Step = VersePenetration::EvaluatePiece(Row, Thickness, Power, 1.f, false);
-		TestTrue(Label + TEXT(" cost"), FMath::IsNearlyEqual(Step.Cost, Case->GetNumberField(TEXT("cost")), Tol));
-		TestEqual(Label + TEXT(" passed"), Step.bPassed, Case->GetBoolField(TEXT("passed")));
-		TestTrue(Label + TEXT(" power left"), FMath::IsNearlyEqual(Step.PowerLeft, Case->GetNumberField(TEXT("power_left")), Tol));
-		TestTrue(Label + TEXT(" damage left"), FMath::IsNearlyEqual(Step.DamageLeft, Case->GetNumberField(TEXT("damage_left")), Tol));
+		TestTrue(Label + TEXT(" cost"), VerseWP03Test::Near(Step.Cost, Case->NumberOr(TEXT("cost"), 0.0), Tol));
+		TestEqual(Label + TEXT(" passed"), Step.bPassed, Case->BoolOr(TEXT("passed"), false));
+		TestTrue(Label + TEXT(" power left"), VerseWP03Test::Near(Step.PowerLeft, Case->NumberOr(TEXT("power_left"), 0.0), Tol));
+		TestTrue(Label + TEXT(" damage left"), VerseWP03Test::Near(Step.DamageLeft, Case->NumberOr(TEXT("damage_left"), 0.0), Tol));
 
 		// The same case through a real solid of that thickness, traced on VerseBolt.
 		const FVector Center(500.f + 20.f * PieceIndex, 0.f, 0.f);
@@ -180,10 +176,10 @@ bool FVersePenetrationTableTest::RunTest(const FString& Parameters)
 			TestEqual(Label + TEXT(" traced piece index"), Hit.PieceIndex, PieceIndex);
 			TestEqual(Label + TEXT(" traced wire id"), Hit.MaterialWireId, uint8(Material));
 			TestTrue(Label + FString::Printf(TEXT(" traced thickness %.6f"), Hit.TracedThicknessCm),
-				FMath::IsNearlyEqual(Hit.TracedThicknessCm, Thickness, Tol));
-			TestEqual(Label + TEXT(" traced passed"), Hit.bPassed, Case->GetBoolField(TEXT("passed")));
-			TestTrue(Label + TEXT(" traced power left"), FMath::IsNearlyEqual(Hit.PowerLeft, Case->GetNumberField(TEXT("power_left")), Tol * 10.0));
-			TestTrue(Label + TEXT(" traced damage left"), FMath::IsNearlyEqual(Hit.DamageLeft, Case->GetNumberField(TEXT("damage_left")), Tol));
+				VerseWP03Test::Near(Hit.TracedThicknessCm, Thickness, Tol));
+			TestEqual(Label + TEXT(" traced passed"), Hit.bPassed, Case->BoolOr(TEXT("passed"), false));
+			TestTrue(Label + TEXT(" traced power left"), VerseWP03Test::Near(Hit.PowerLeft, Case->NumberOr(TEXT("power_left"), 0.0), Tol * 10.0));
+			TestTrue(Label + TEXT(" traced damage left"), VerseWP03Test::Near(Hit.DamageLeft, Case->NumberOr(TEXT("damage_left"), 0.0), Tol));
 		}
 		W.DestroyActor(Piece);
 		++PieceIndex;
@@ -192,16 +188,22 @@ bool FVersePenetrationTableTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("every case checked"), Checked, 72);
 
 	// Chains: several pieces, the 3-piece limit and the rifle through two container walls.
-	for (const TSharedPtr<FJsonValue>& Value : Golden->GetArrayField(TEXT("chains")))
+	const TArray<FVerseJson>& Chains = Golden->FindArray(TEXT("chains")) ? *Golden->FindArray(TEXT("chains")) : Empty;
+	TestEqual(TEXT("six chains"), Chains.Num(), 6);
+	for (const FVerseJson& Value : Chains)
 	{
-		const TSharedPtr<FJsonObject> Chain = Value->AsObject();
-		const FString Name = Chain->GetStringField(TEXT("name"));
-		const TArray<TSharedPtr<FJsonValue>>& Pieces = Chain->GetArrayField(TEXT("pieces"));
-		const TArray<TSharedPtr<FJsonValue>>& Passed = Chain->GetArrayField(TEXT("passed"));
-		const TArray<TSharedPtr<FJsonValue>>& PowerLeft = Chain->GetArrayField(TEXT("power_left"));
-		const TArray<TSharedPtr<FJsonValue>>& DamageLeft = Chain->GetArrayField(TEXT("damage_left"));
-		const int32 MaxPieces = int32(Chain->GetNumberField(TEXT("max_pieces")));
-		const float Power = float(Chain->GetNumberField(TEXT("power")));
+		const FVerseJson* Chain = &Value;
+		const FString Name = Chain->StringOr(TEXT("name"));
+		const TArray<FVerseJson>& Pieces = Chain->FindArray(TEXT("pieces")) ? *Chain->FindArray(TEXT("pieces")) : Empty;
+		const TArray<FVerseJson>& Passed = Chain->FindArray(TEXT("passed")) ? *Chain->FindArray(TEXT("passed")) : Empty;
+		const TArray<FVerseJson>& PowerLeft = Chain->FindArray(TEXT("power_left")) ? *Chain->FindArray(TEXT("power_left")) : Empty;
+		const TArray<FVerseJson>& DamageLeft = Chain->FindArray(TEXT("damage_left")) ? *Chain->FindArray(TEXT("damage_left")) : Empty;
+		if (!TestTrue(Chain->StringOr(TEXT("name")) + TEXT(": arrays line up"), Passed.Num() == Pieces.Num() && PowerLeft.Num() == Pieces.Num() && DamageLeft.Num() == Pieces.Num()))
+		{
+			continue;
+		}
+		const int32 MaxPieces = int32(Chain->NumberOr(TEXT("max_pieces"), 0.0));
+		const float Power = float(Chain->NumberOr(TEXT("power"), 0.0));
 
 		// Arithmetic.
 		float P = Power;
@@ -209,13 +211,13 @@ bool FVersePenetrationTableTest::RunTest(const FString& Parameters)
 		int32 Passes = 0;
 		for (int32 I = 0; I < Pieces.Num(); ++I)
 		{
-			const TSharedPtr<FJsonObject> PieceSpec = Pieces[I]->AsObject();
-			const FVersePenetrationRow& Row = Rows[uint8(MaterialById(PieceSpec->GetStringField(TEXT("material"))))];
-			const FVersePenetrationStep Step = VersePenetration::EvaluatePiece(Row, float(PieceSpec->GetNumberField(TEXT("thickness_cm"))), P, D,
+			const FVerseJson* PieceSpec = &Pieces[I];
+			const FVersePenetrationRow& Row = Rows[uint8(MaterialById(PieceSpec->StringOr(TEXT("material"))))];
+			const FVersePenetrationStep Step = VersePenetration::EvaluatePiece(Row, float(PieceSpec->NumberOr(TEXT("thickness_cm"), 0.0)), P, D,
 				Passes >= VersePenetration::EffectiveMaxPieces(MaxPieces));
-			TestEqual(FString::Printf(TEXT("%s: piece %d passed"), *Name, I), Step.bPassed, Passed[I]->AsBool());
-			TestTrue(FString::Printf(TEXT("%s: piece %d power"), *Name, I), FMath::IsNearlyEqual(Step.PowerLeft, PowerLeft[I]->AsNumber(), Tol));
-			TestTrue(FString::Printf(TEXT("%s: piece %d damage"), *Name, I), FMath::IsNearlyEqual(Step.DamageLeft, DamageLeft[I]->AsNumber(), Tol));
+			TestEqual(FString::Printf(TEXT("%s: piece %d passed"), *Name, I), Step.bPassed, Passed[I].Bool);
+			TestTrue(FString::Printf(TEXT("%s: piece %d power"), *Name, I), VerseWP03Test::Near(Step.PowerLeft, PowerLeft[I].Number, Tol));
+			TestTrue(FString::Printf(TEXT("%s: piece %d damage"), *Name, I), VerseWP03Test::Near(Step.DamageLeft, DamageLeft[I].Number, Tol));
 			if (!Step.bPassed)
 			{
 				break;
@@ -229,9 +231,9 @@ bool FVersePenetrationTableTest::RunTest(const FString& Parameters)
 		TArray<AActor*> Spawned;
 		for (int32 I = 0; I < Pieces.Num(); ++I)
 		{
-			const TSharedPtr<FJsonObject> PieceSpec = Pieces[I]->AsObject();
-			Spawned.Add(W.SpawnPiece(uint16(1000 + I), MaterialById(PieceSpec->GetStringField(TEXT("material"))), FVector(3000.f + 50.f * I, 0, 0),
-				float(PieceSpec->GetNumberField(TEXT("thickness_cm")))));
+			const FVerseJson* PieceSpec = &Pieces[I];
+			Spawned.Add(W.SpawnPiece(uint16(1000 + I), MaterialById(PieceSpec->StringOr(TEXT("material"))), FVector(3000.f + 50.f * I, 0, 0),
+				float(PieceSpec->NumberOr(TEXT("thickness_cm"), 0.0))));
 		}
 		W.Settle();
 		const TArray<FVersePenetrationHit> Hits = W.Penetration->TraceBolt(FVector(2950.f, 0, 0), FVector::ForwardVector, 1000.f, Power, 1.f, 15, MaxPieces);
@@ -239,9 +241,9 @@ bool FVersePenetrationTableTest::RunTest(const FString& Parameters)
 		{
 			for (int32 I = 0; I < Hits.Num(); ++I)
 			{
-				TestEqual(FString::Printf(TEXT("%s: traced %d passed"), *Name, I), Hits[I].bPassed, Passed[I]->AsBool());
+				TestEqual(FString::Printf(TEXT("%s: traced %d passed"), *Name, I), Hits[I].bPassed, Passed[I].Bool);
 				TestTrue(FString::Printf(TEXT("%s: traced %d damage %.6f"), *Name, I, Hits[I].DamageLeft),
-					FMath::IsNearlyEqual(Hits[I].DamageLeft, DamageLeft[I]->AsNumber(), Tol));
+					VerseWP03Test::Near(Hits[I].DamageLeft, DamageLeft[I].Number, Tol));
 			}
 		}
 		for (AActor* Actor : Spawned)
@@ -347,16 +349,45 @@ bool FVersePenetrationWorldMaterialsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("structural beam is armor steel"), VersePenetration::WorldSurfaceMaterial(EVerseWorldSurface::StructuralBeam),
 		EVersePenetrationMaterial::ArmorSteel);
 	TestEqual(TEXT("no physical material is concrete"), VersePenetration::ResolveWorldMaterial(nullptr), EVersePenetrationMaterial::Concrete);
-	UPhysicalMaterial* Plain = NewObject<UPhysicalMaterial>();
-	TestEqual(TEXT("a foreign physical material is concrete"), VersePenetration::ResolveWorldMaterial(Plain), EVersePenetrationMaterial::Concrete);
+	TestEqual(TEXT("a foreign physical material is concrete"),
+		VersePenetration::ResolveWorldMaterial(VerseWP03Test::MakePhysicalMaterial(TEXT("PM_Rubber"))), EVersePenetrationMaterial::Concrete);
+	TestEqual(TEXT("a near-miss name is concrete"),
+		VersePenetration::ResolveWorldMaterial(VerseWP03Test::MakePhysicalMaterial(TEXT("PM_Verse_StructuralBeamish"))), EVersePenetrationMaterial::Concrete);
 	const UEnum* Surfaces = StaticEnum<EVerseWorldSurface>();
 	for (int32 I = 0; I < Surfaces->NumEnums() - 1; ++I)
 	{
-		UVersePenetrationPhysicalMaterial* Mat = NewObject<UVersePenetrationPhysicalMaterial>();
-		Mat->Surface = EVerseWorldSurface(Surfaces->GetValueByIndex(I));
-		const EVersePenetrationMaterial Row = VersePenetration::ResolveWorldMaterial(Mat);
-		TestTrue(FString::Printf(TEXT("%s maps to an impassable row"), *Surfaces->GetNameStringByIndex(I)),
-			Row == EVersePenetrationMaterial::Concrete || Row == EVersePenetrationMaterial::ArmorSteel);
+		const EVerseWorldSurface Surface = EVerseWorldSurface(Surfaces->GetValueByIndex(I));
+		const FString Name = VersePenetration::PhysicalMaterialName(Surface);
+		UPhysicalMaterial* Mat = VerseWP03Test::MakePhysicalMaterial(Name);
+		if (!TestNotNull(TEXT("physical material class"), Mat))
+		{
+			return false;
+		}
+		TestEqual(Name + TEXT(" maps to its row"), VersePenetration::ResolveWorldMaterial(Mat), VersePenetration::WorldSurfaceMaterial(Surface));
+		UPhysicalMaterial* Variant = VerseWP03Test::MakePhysicalMaterial(Name + TEXT("_Painted"));
+		TestEqual(Name + TEXT("_Painted maps to the same row"), VersePenetration::ResolveWorldMaterial(Variant), VersePenetration::WorldSurfaceMaterial(Surface));
+		EVerseWorldSurface Back;
+		TestTrue(Name + TEXT(" round trip"), VersePenetration::SurfaceFromPhysicalMaterialName(Name, Back) && Back == Surface);
+	}
+
+	// Through a real trace: the hit's physical material picks the row.
+	FVerseWP03World W;
+	if (!TestTrue(TEXT("test world"), W.Create()))
+	{
+		return false;
+	}
+	for (int32 I = 0; I < Surfaces->NumEnums() - 1; ++I)
+	{
+		const EVerseWorldSurface Surface = EVerseWorldSurface(Surfaces->GetValueByIndex(I));
+		AActor* Box = W.SpawnWorldBox(&Surface, FVector(300.f, 0, 0), 20.f);
+		W.Settle();
+		const TArray<FVersePenetrationHit> Hits = W.Penetration->TraceBolt(FVector::ZeroVector, FVector::ForwardVector, 600.f, 150.f, 1.f, 15, 3);
+		if (TestEqual(TEXT("one surface"), Hits.Num(), 1))
+		{
+			TestEqual(VersePenetration::PhysicalMaterialName(Surface) + TEXT(" traced row"), Hits[0].MaterialWireId,
+				uint8(VersePenetration::WorldSurfaceMaterial(Surface)));
+		}
+		W.DestroyActor(Box);
 	}
 	return true;
 }

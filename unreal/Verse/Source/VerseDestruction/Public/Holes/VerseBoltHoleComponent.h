@@ -3,53 +3,11 @@
 #include "Components/ActorComponent.h"
 #include "CoreMinimal.h"
 #include "Destruction/VerseDestructionTypes.h"
-#include "Net/Serialization/FastArraySerializer.h"
 
 #include "VerseBoltHoleComponent.generated.h"
 
 class UVerseBoltHoleComponent;
 class UVerseDestructionTuning;
-
-/** One replicated bolt hole (destruction.md 5). The record itself is the frozen FVerseBoltHole. */
-USTRUCT()
-struct VERSEDESTRUCTION_API FVerseBoltHoleItem : public FFastArraySerializerItem
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	FVerseBoltHole Hole;
-
-	void PostReplicatedAdd(const struct FVerseBoltHoleArray& InArray);
-	void PostReplicatedChange(const struct FVerseBoltHoleArray& InArray);
-	void PreReplicatedRemove(const struct FVerseBoltHoleArray& InArray);
-};
-
-/** The second fast array of destruction.md 3.3: every bolt hole of the arena, oldest first. */
-USTRUCT()
-struct VERSEDESTRUCTION_API FVerseBoltHoleArray : public FFastArraySerializer
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	TArray<FVerseBoltHoleItem> Items;
-
-	/** Not replicated: the component that owns the array, told about client-side changes. */
-	UVerseBoltHoleComponent* Owner = nullptr;
-
-	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
-	{
-		return FFastArraySerializer::FastArrayDeltaSerialize<FVerseBoltHoleItem, FVerseBoltHoleArray>(Items, DeltaParms, *this);
-	}
-};
-
-template <>
-struct TStructOpsTypeTraits<FVerseBoltHoleArray> : public TStructOpsTypeTraitsBase2<FVerseBoltHoleArray>
-{
-	enum
-	{
-		WithNetDeltaSerializer = true,
-	};
-};
 
 /** What AddHole did. */
 UENUM()
@@ -72,7 +30,9 @@ DECLARE_MULTICAST_DELEGATE(FOnVerseHolesChanged);
 
 /**
  * Bolt hole records of one arena (destruction.md 5, WP03.5). Lives on AVerseDestructionManager
- * (always relevant). Caps: 24 per piece, 512 per arena. Hole 25 on a wall piece clears its holes
+ * (always relevant). The records replicate as one array, oldest first; it moves to an
+ * FFastArraySerializer once VerseDestruction links NetCore (CCR: the module edges of
+ * architecture.md 2 give it Core, CoreUObject, Engine and VerseCore only). Caps: 24 per piece, 512 per arena. Hole 25 on a wall piece clears its holes
  * and asks the owner to turn it Holed; on glass and ceiling panels the piece's oldest hole goes.
  * At the arena cap the oldest hole of the piece with the most holes is dropped. A reset bumps
  * the epoch and clears everything.
@@ -115,16 +75,17 @@ public:
 	FOnVersePieceHoleCap OnPieceHoleCap;
 	FOnVerseHolesChanged OnHolesChanged;
 
-	/** Called by the fast array on clients. */
-	void HandleReplicatedChange();
-
 protected:
+	UFUNCTION()
+	void OnRep_Holes();
+
 	UFUNCTION()
 	void OnRep_Epoch();
 
 private:
-	UPROPERTY(Replicated)
-	FVerseBoltHoleArray Holes;
+	/** Every hole of the arena, oldest first (insertion order). */
+	UPROPERTY(ReplicatedUsing = OnRep_Holes)
+	TArray<FVerseBoltHole> Holes;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Epoch)
 	uint16 Epoch = 0;
@@ -141,6 +102,7 @@ private:
 	bool HasServerAuthority() const;
 	void RebuildCache() const;
 	void MarkChanged();
+	void HandleReplicatedChange();
 	void EvictForArenaCap();
 	void RemoveOldestOnPiece(uint16 PieceIndex);
 };

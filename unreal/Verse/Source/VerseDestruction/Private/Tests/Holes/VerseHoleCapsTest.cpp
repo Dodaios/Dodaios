@@ -156,13 +156,13 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseHoleGlowTest, "Verse.Destruction.Holes.Gl
 bool FVerseHoleGlowTest::RunTest(const FString& Parameters)
 {
 	const FVerseHoleGlowSample Fresh = VerseHoleGlow::Sample(0.f);
-	TestTrue(TEXT("fresh hole glows at full"), Fresh.bGlowing && FMath::IsNearlyEqual(Fresh.Intensity, 1.f, 1e-6f));
+	TestTrue(TEXT("fresh hole glows at full"), Fresh.bGlowing && VerseWP03Test::Near(Fresh.Intensity, 1.f, 1e-6f));
 	const float FreshHue = HueOf(Fresh.Color);
 	TestTrue(FString::Printf(TEXT("fresh hue %.1f is white-amber (25..45 deg)"), FreshHue), FreshHue >= 25.f && FreshHue <= 45.f);
 	TestTrue(TEXT("fresh colour is near white (low saturation)"), Fresh.Color.LinearRGBToHSV().G < 0.6f);
-	TestTrue(TEXT("tau 1.2 s"), FMath::IsNearlyEqual(VerseHoleGlow::Sample(1.2f).Intensity, FMath::Exp(-1.f), 1e-4f));
+	TestTrue(TEXT("tau 1.2 s"), VerseWP03Test::Near(VerseHoleGlow::Sample(1.2f).Intensity, FMath::Exp(-1.f), 1e-4f));
 	const FVerseHoleGlowSample Red = VerseHoleGlow::Sample(2.5f);
-	TestTrue(TEXT("2.5 s intensity is exp(-2.5 / 1.2)"), FMath::IsNearlyEqual(Red.Intensity, FMath::Exp(-2.5f / 1.2f), 1e-4f));
+	TestTrue(TEXT("2.5 s intensity is exp(-2.5 / 1.2)"), VerseWP03Test::Near(Red.Intensity, FMath::Exp(-2.5f / 1.2f), 1e-4f));
 	const float RedHue = HueOf(Red.Color);
 	TestTrue(FString::Printf(TEXT("2.5 s hue %.1f is dull red (<= 12 deg)"), RedHue), RedHue <= 12.f || RedHue >= 355.f);
 	const FVerseHoleGlowSample Off = VerseHoleGlow::Sample(4.f);
@@ -239,7 +239,7 @@ bool FVerseHoleRenderTest::RunTest(const FString& Parameters)
 
 	TestTrue(TEXT("hole UV of the centre"), UVerseHoleRenderComponent::HoleUV(Bounds, FVector::ZeroVector).Equals(FVector2D(0.5, 0.5), 1e-6));
 	TestTrue(TEXT("hole UV of a corner"), UVerseHoleRenderComponent::HoleUV(Bounds, FVector(0, -100, 50)).Equals(FVector2D(0, 0), 1e-6));
-	TestTrue(TEXT("15 mm on a 2 m face is about 1.9 px"), FMath::IsNearlyEqual(UVerseHoleRenderComponent::HoleRadiusPx(Bounds, 1.5f, 256), 1.92f, 1e-3f));
+	TestTrue(TEXT("15 mm on a 2 m face is about 1.9 px"), VerseWP03Test::Near(UVerseHoleRenderComponent::HoleRadiusPx(Bounds, 1.5f, 256), 1.92f, 1e-3f));
 
 	Now = 100000;
 	for (int32 I = 0; I < 200; ++I)

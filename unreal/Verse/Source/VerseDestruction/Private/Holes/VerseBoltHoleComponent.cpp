@@ -2,48 +2,20 @@
 
 #include "Destruction/VerseDestructionTuning.h"
 #include "GameFramework/Actor.h"
-#include "Net/Core/PushModel/PushModel.h"
 #include "Net/UnrealNetwork.h"
 #include "Penetration/VersePenetrationMath.h"
-
-void FVerseBoltHoleItem::PostReplicatedAdd(const FVerseBoltHoleArray& InArray)
-{
-	if (InArray.Owner)
-	{
-		InArray.Owner->HandleReplicatedChange();
-	}
-}
-
-void FVerseBoltHoleItem::PostReplicatedChange(const FVerseBoltHoleArray& InArray)
-{
-	if (InArray.Owner)
-	{
-		InArray.Owner->HandleReplicatedChange();
-	}
-}
-
-void FVerseBoltHoleItem::PreReplicatedRemove(const FVerseBoltHoleArray& InArray)
-{
-	if (InArray.Owner)
-	{
-		InArray.Owner->HandleReplicatedChange();
-	}
-}
 
 UVerseBoltHoleComponent::UVerseBoltHoleComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
-	Holes.Owner = this;
 }
 
 void UVerseBoltHoleComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	FDoRepLifetimeParams Params;
-	Params.bIsPushBased = true;
-	DOREPLIFETIME_WITH_PARAMS_FAST(UVerseBoltHoleComponent, Holes, Params);
-	DOREPLIFETIME_WITH_PARAMS_FAST(UVerseBoltHoleComponent, Epoch, Params);
+	DOREPLIFETIME(UVerseBoltHoleComponent, Holes);
+	DOREPLIFETIME(UVerseBoltHoleComponent, Epoch);
 }
 
 void UVerseBoltHoleComponent::ApplyTuning(const UVerseDestructionTuning& Tuning)
@@ -89,14 +61,12 @@ EVerseHoleAddResult UVerseBoltHoleComponent::AddHole(uint16 PieceIndex, EVersePe
 		}
 		RemoveOldestOnPiece(PieceIndex);
 	}
-	while (Holes.Items.Num() >= HolesPerArena)
+	while (Holes.Num() >= HolesPerArena)
 	{
 		EvictForArenaCap();
 	}
 
-	FVerseBoltHoleItem& Item = Holes.Items.AddDefaulted_GetRef();
-	Item.Hole = NewHole;
-	Holes.MarkItemDirty(Item);
+	Holes.Add(NewHole);
 	MarkChanged();
 	return EVerseHoleAddResult::Added;
 }
@@ -104,11 +74,10 @@ EVerseHoleAddResult UVerseBoltHoleComponent::AddHole(uint16 PieceIndex, EVersePe
 void UVerseBoltHoleComponent::RemoveOldestOnPiece(uint16 PieceIndex)
 {
 	// Items stay in insertion order, so the first item of a piece is its oldest hole.
-	const int32 Index = Holes.Items.IndexOfByPredicate([PieceIndex](const FVerseBoltHoleItem& Item) { return Item.Hole.PieceIndex == PieceIndex; });
+	const int32 Index = Holes.IndexOfByPredicate([PieceIndex](const FVerseBoltHole& Hole) { return Hole.PieceIndex == PieceIndex; });
 	if (Index != INDEX_NONE)
 	{
-		Holes.Items.RemoveAt(Index);
-		Holes.MarkArrayDirty();
+		Holes.RemoveAt(Index);
 		MarkChanged();
 	}
 }
@@ -118,9 +87,9 @@ void UVerseBoltHoleComponent::EvictForArenaCap()
 	// The piece with the most holes; ties go to the piece whose oldest hole is older.
 	TMap<uint16, int32> Counts;
 	TMap<uint16, int32> FirstIndex;
-	for (int32 Index = 0; Index < Holes.Items.Num(); ++Index)
+	for (int32 Index = 0; Index < Holes.Num(); ++Index)
 	{
-		const uint16 Piece = Holes.Items[Index].Hole.PieceIndex;
+		const uint16 Piece = Holes[Index].PieceIndex;
 		Counts.FindOrAdd(Piece) += 1;
 		FirstIndex.FindOrAdd(Piece, Index);
 	}
@@ -141,8 +110,7 @@ void UVerseBoltHoleComponent::EvictForArenaCap()
 	{
 		return;
 	}
-	Holes.Items.RemoveAt(BestFirst);
-	Holes.MarkArrayDirty();
+	Holes.RemoveAt(BestFirst);
 	MarkChanged();
 }
 
@@ -152,10 +120,9 @@ void UVerseBoltHoleComponent::ClearPiece(uint16 PieceIndex)
 	{
 		return;
 	}
-	const int32 Removed = Holes.Items.RemoveAll([PieceIndex](const FVerseBoltHoleItem& Item) { return Item.Hole.PieceIndex == PieceIndex; });
+	const int32 Removed = Holes.RemoveAll([PieceIndex](const FVerseBoltHole& Hole) { return Hole.PieceIndex == PieceIndex; });
 	if (Removed > 0)
 	{
-		Holes.MarkArrayDirty();
 		MarkChanged();
 	}
 }
@@ -166,16 +133,13 @@ void UVerseBoltHoleComponent::ResetAll(uint16 NewEpoch)
 	{
 		return;
 	}
-	Holes.Items.Reset();
-	Holes.MarkArrayDirty();
+	Holes.Reset();
 	Epoch = NewEpoch;
-	MARK_PROPERTY_DIRTY_FROM_NAME(UVerseBoltHoleComponent, Epoch, this);
 	MarkChanged();
 }
 
 void UVerseBoltHoleComponent::MarkChanged()
 {
-	MARK_PROPERTY_DIRTY_FROM_NAME(UVerseBoltHoleComponent, Holes, this);
 	bCacheDirty = true;
 	OnHolesChanged.Broadcast();
 }
@@ -184,6 +148,11 @@ void UVerseBoltHoleComponent::HandleReplicatedChange()
 {
 	bCacheDirty = true;
 	OnHolesChanged.Broadcast();
+}
+
+void UVerseBoltHoleComponent::OnRep_Holes()
+{
+	HandleReplicatedChange();
 }
 
 void UVerseBoltHoleComponent::OnRep_Epoch()
@@ -198,12 +167,12 @@ void UVerseBoltHoleComponent::RebuildCache() const
 		return;
 	}
 	ByPiece.Reset();
-	for (const FVerseBoltHoleItem& Item : Holes.Items)
+	for (const FVerseBoltHole& Hole : Holes)
 	{
 		// A client can briefly hold records of the previous epoch; they never count.
-		if (Item.Hole.Epoch == Epoch)
+		if (Hole.Epoch == Epoch)
 		{
-			ByPiece.FindOrAdd(Item.Hole.PieceIndex).Add(Item.Hole);
+			ByPiece.FindOrAdd(Hole.PieceIndex).Add(Hole);
 		}
 	}
 	bCacheDirty = false;
@@ -218,12 +187,12 @@ TConstArrayView<FVerseBoltHole> UVerseBoltHoleComponent::GetPieceHoles(uint16 Pi
 
 void UVerseBoltHoleComponent::GetAllHoles(TArray<FVerseBoltHole>& OutHoles) const
 {
-	OutHoles.Reset(Holes.Items.Num());
-	for (const FVerseBoltHoleItem& Item : Holes.Items)
+	OutHoles.Reset(Holes.Num());
+	for (const FVerseBoltHole& Hole : Holes)
 	{
-		if (Item.Hole.Epoch == Epoch)
+		if (Hole.Epoch == Epoch)
 		{
-			OutHoles.Add(Item.Hole);
+			OutHoles.Add(Hole);
 		}
 	}
 }

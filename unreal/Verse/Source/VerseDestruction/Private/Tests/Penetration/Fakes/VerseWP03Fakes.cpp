@@ -8,6 +8,7 @@
 #include "Holes/VerseBoltHoleComponent.h"
 #include "Misc/Paths.h"
 #include "Penetration/VersePenetrationSubsystem.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 #include "VerseCollision.h"
 
 EVersePieceState FFakePieceQuery::GetPieceState(uint16 PieceIndex) const
@@ -113,10 +114,8 @@ AActor* FVerseWP03World::SpawnWorldBox(const EVerseWorldSurface* Surface, const 
 	UPhysicalMaterial* PhysMat = nullptr;
 	if (Surface)
 	{
-		UVersePenetrationPhysicalMaterial* Verse = NewObject<UVersePenetrationPhysicalMaterial>(GetTransientPackage());
-		Verse->Surface = *Surface;
-		PhysMats.Emplace(Verse);
-		PhysMat = Verse;
+		PhysMat = VerseWP03Test::MakePhysicalMaterial(VersePenetration::PhysicalMaterialName(*Surface));
+		PhysMats.Emplace(static_cast<UObject*>(PhysMat));
 	}
 	return SpawnBox(Center, FRotator::ZeroRotator, FVector(ThicknessCm, WidthCm, HeightCm) * 0.5, VerseCollision::Profile::Architecture, PhysMat);
 }
@@ -140,6 +139,19 @@ void FVerseWP03World::DestroyActor(AActor* Actor)
 
 namespace VerseWP03Test
 {
+	UPhysicalMaterial* MakePhysicalMaterial(const FString& BaseName)
+	{
+		// By class path: VerseDestruction does not link PhysicsCore (architecture.md 2).
+		UClass* Class = FindObject<UClass>(nullptr, TEXT("/Script/PhysicsCore.PhysicalMaterial"));
+		if (!Class)
+		{
+			return nullptr;
+		}
+		const FName Name = MakeUniqueObjectName(GetTransientPackage(), Class, FName(*BaseName));
+		UObject* Object = NewObject<UObject>(GetTransientPackage(), Class, Name, RF_Transient);
+		return static_cast<UPhysicalMaterial*>(Object);
+	}
+
 	FString GoldenFixturePath()
 	{
 		return FPaths::Combine(FPaths::ProjectContentDir(), TEXT("Verse"), TEXT("Test"), TEXT("WP03"), TEXT("penetration_golden.json"));

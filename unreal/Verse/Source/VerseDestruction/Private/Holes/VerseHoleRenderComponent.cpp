@@ -12,11 +12,19 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/App.h"
-#include "RHIGlobals.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "VerseLog.h"
 
 namespace
 {
+	/** -nullrhi runs draw nothing. Read from the command line: VerseDestruction does not link RHI. */
+	bool UsesNullRhi()
+	{
+		static const bool bNullRhi = FParse::Param(FCommandLine::Get(), TEXT("nullrhi"));
+		return bNullRhi;
+	}
+
 	/** Rim decal footprint per hole radius (the charred rim is wider than the opening). */
 	constexpr float RimFootprint = 1.8f;
 	const TCHAR* const DefaultRimDecalPath = TEXT("/Game/Verse/Destruction/_Holes/M_HoleRim_Decal.M_HoleRim_Decal");
@@ -42,7 +50,7 @@ UVerseHoleRenderComponent::UVerseHoleRenderComponent()
 
 bool UVerseHoleRenderComponent::CanRender(const UWorld* World)
 {
-	return World && World->GetNetMode() != NM_DedicatedServer && FApp::CanEverRender() && !GUsingNullRHI;
+	return World && World->GetNetMode() != NM_DedicatedServer && FApp::CanEverRender() && !UsesNullRhi();
 }
 
 void UVerseHoleRenderComponent::SetHoleSource(UVerseBoltHoleComponent* InHoles)
