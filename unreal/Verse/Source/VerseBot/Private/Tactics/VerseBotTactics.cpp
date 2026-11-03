@@ -1,6 +1,7 @@
 #include "Tactics/VerseBotTactics.h"
 
 #include "Bot/VerseBotTier.h"
+#include "Learning/VerseBotMatchMemory.h"
 
 namespace
 {
@@ -55,6 +56,13 @@ namespace VerseBotTactics
 			return 1.f;
 		}
 		return 1.f + 2.f * FMath::Clamp(Peek.WatchWeight, 0.f, float(UVerseBotTier::LearnWeightMaxCap)) * FMath::Clamp(Peek.WatchRepeekShare, 0.f, 1.f);
+	}
+
+	float PreferredBandCm(const UVerseBotTier& Tier, const FVerseBotMatchMemory* Memory)
+	{
+		const float Base = Tier.PreferredRangeM * VerseBot::CmPerM;
+		const int32 Shift = Memory ? Memory->RangeBinShift(Base) : 0;
+		return Shift == 0 ? Base : FVerseBotMatchMemory::RangeBinCentreCm(FVerseBotMatchMemory::RangeBin(Base) + Shift);
 	}
 
 	void Utilities(const FVerseBotTacticsContext& Ctx, float (&Out)[VerseBot::NumStates])

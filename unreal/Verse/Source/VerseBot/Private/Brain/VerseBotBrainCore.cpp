@@ -256,10 +256,7 @@ void FVerseBotBrainCore::BuildContext(const FVersePerceptFrame& Frame, IVerseBot
 	Q.NowS = NowS;
 	Q.Weapon = World.GetOwnWeapon();
 	Q.RecentPeekEdges = TacticsMem.RecentPeekEdges;
-	const float BaseRange = T.PreferredRangeM * VerseBot::CmPerM;
-	const int32 Shift = Q.Memory ? Q.Memory->RangeBinShift(BaseRange) : 0;
-	Q.PreferredRangeCm = Shift == 0 ? BaseRange
-		: FVerseBotMatchMemory::RangeBinCentreCm(FVerseBotMatchMemory::RangeBin(BaseRange) + Shift);
+	Q.PreferredRangeCm = VerseBotTactics::PreferredBandCm(T, Q.Memory);
 
 	Ctx.Frame = &Frame;
 	Ctx.Cache = &Cache;

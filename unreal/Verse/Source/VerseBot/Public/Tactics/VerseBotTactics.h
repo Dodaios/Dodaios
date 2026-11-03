@@ -137,4 +137,7 @@ namespace VerseBotTactics
 	 * bot holds the pre-aimed angle longer. 1 without a watched edge; at most 1 + 2 x 0.35.
 	 */
 	VERSEBOT_API float PeekHoldScale(const FVerseBotPeekResult& Peek);
+
+	/** The tier's preferred engagement distance after the learned bin shift (7.2), cm. Memory may be null. */
+	VERSEBOT_API float PreferredBandCm(const UVerseBotTier& Tier, const FVerseBotMatchMemory* Memory);
 }

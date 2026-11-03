@@ -123,7 +123,7 @@ struct VERSEBOT_API FVerseBotIntent
 	int8 Strafe = 0;
 };
 
-class FVerseRng;
+struct FVerseRng;
 
 namespace VerseBot
 {
