@@ -97,7 +97,8 @@ public:
 	/** True when this manager is a client of a networked game and has no manifest (refuses to register). */
 	bool IsMissingClientManifest() const;
 
-	int32 NumPieces() const { return Pieces.Items.Num(); }
+	/** Manifest slots (on a client too, before any item replicated). */
+	int32 NumPieces() const { return Sim.Num(); }
 	AVerseDestructible* GetPieceActor(uint16 PieceIndex) const;
 	const FVersePieceItem* FindItem(uint16 PieceIndex) const;
 	uint16 GetEpoch() const { return Epoch; }

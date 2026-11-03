@@ -49,8 +49,12 @@ namespace
 			World.Advance(0.05f);
 			if (Rng.Chance(0.02))
 			{
-				World.Advance(30.f); // some repairs run in between
-				Server.Tick(0.05f);
+				// A lull longer than the 60 s repair delay: drones fly out and repair in between.
+				for (int32 Step = 0; Step < 8; ++Step)
+				{
+					World.Advance(12.f);
+					Server.Tick(0.05f);
+				}
 			}
 		}
 	}

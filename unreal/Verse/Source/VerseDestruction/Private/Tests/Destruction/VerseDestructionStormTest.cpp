@@ -191,7 +191,7 @@ namespace
 			{TEXT("duration_s"), double(R.DurationS)},
 			{TEXT("fracture_events"), double(R.Fractures)},
 			{TEXT("peak_multicast_events_per_s"), double(R.PeakEventsPerSecond)},
-			{TEXT("events_over_rate_dropped_multicast"), double(R.EventsOverRate)},
+			{TEXT("events_over_rate_deferred"), double(R.EventsOverRate)},
 			{TEXT("peak_debris_bodies_high"), double(R.PeakBodiesHigh)},
 			{TEXT("peak_debris_bodies_low"), double(R.PeakBodiesLow)},
 			{TEXT("peak_bodies_per_fracture"), double(R.PeakPerFracture)},

@@ -158,9 +158,15 @@ namespace VerseDestructionTest
 			World->DestroyWorld(false);
 		}
 
+		/** Advances world time; in steps, since the world clamps one frame to its max delta (0.4 s). */
 		void Advance(float Seconds)
 		{
-			World->Tick(LEVELTICK_TimeOnly, Seconds);
+			while (Seconds > 0.f)
+			{
+				const float Step = FMath::Min(Seconds, 0.25f);
+				World->Tick(LEVELTICK_TimeOnly, Step);
+				Seconds -= Step;
+			}
 		}
 
 		AVerseDestructible* SpawnPiece(const FVersePieceDef& Def)
