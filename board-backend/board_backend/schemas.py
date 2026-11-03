@@ -9,15 +9,60 @@ of ``BoardAggregator.export_all_for_federation()`` (Plan §A-Smoke
 """
 from __future__ import annotations
 
+import ipaddress
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
-from typing_extensions import Annotated
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
 PubkeyHex = Annotated[
     str,
     StringConstraints(pattern=r"^[0-9a-f]{64}$"),
+]
+
+
+def _check_backend_origin(value: str) -> str:
+    """Accept only a plain ``http(s)://host[:port]`` origin for a friend backend.
+
+    The backend later GETs and POSTs to this address on its own, so a value
+    with credentials, a path, another scheme, or a link-local / unspecified
+    address (the cloud metadata endpoint lives at 169.254.169.254) would let
+    whoever holds a pair link aim it somewhere it should never call. Private
+    and loopback addresses stay allowed: friends on one Docker network or LAN
+    reach each other that way.
+    """
+    try:
+        url = urlsplit(value.strip())
+        port = url.port
+    except ValueError as exc:
+        raise ValueError("friend_url must be an http(s) origin") from exc
+    if (
+        url.scheme not in {"http", "https"}
+        or not url.hostname
+        or url.username is not None
+        or url.password is not None
+        or url.path not in {"", "/"}
+        or url.query
+        or url.fragment
+        or (port is not None and not 0 < port <= 65535)
+    ):
+        raise ValueError("friend_url must be an http(s) origin such as https://board.example.com")
+    try:
+        address = ipaddress.ip_address(url.hostname)
+    except ValueError:
+        return value.strip()
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    if address.is_link_local or address.is_unspecified or address.is_multicast:
+        raise ValueError("friend_url must not point at a link-local or unspecified address")
+    return value.strip()
+
+
+BackendOrigin = Annotated[
+    str,
+    StringConstraints(min_length=4, max_length=500),
+    AfterValidator(_check_backend_origin),
 ]
 SignatureHex = Annotated[
     str,
@@ -144,7 +189,7 @@ class PairAcceptRequest(BaseModel):
 
     token: Annotated[str, StringConstraints(min_length=16, max_length=64)]
     friend_pubkey: PubkeyHex
-    friend_url: Annotated[str, StringConstraints(min_length=4, max_length=500)]
+    friend_url: BackendOrigin
     friend_display_name: Annotated[str, StringConstraints(min_length=1, max_length=120)]
 
 

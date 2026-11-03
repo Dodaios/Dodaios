@@ -3322,6 +3322,10 @@ def _replace_with_retry(
 # ----------------------------------------------------------------------
 
 
+#: Overrides the drift baseline path (tests point it at a temp copy).
+DRIFT_BASELINE_FILE_ENV = "JARVIS_DRIFT_BASELINE_FILE"
+
+
 def _config_soll_path() -> Path:  # i18n-allow
     """Locate ``scripts/config-soll.json`` relative to the repo root.  # i18n-allow
 
@@ -3329,7 +3333,14 @@ def _config_soll_path() -> Path:  # i18n-allow
     ``DEFAULT_CONFIG_FILE`` so the two paths stay consistent. On a headless
     Linux VPS this file usually does not exist — callers must treat a missing
     file as a graceful no-op.
+
+    ``JARVIS_DRIFT_BASELINE_FILE`` points it elsewhere: the test suite sets it to
+    a temp copy so a provider switch under test never rewrites the tracked
+    file. Unset (every real run), the path is the checkout's file.
     """
+    override = os.environ.get(DRIFT_BASELINE_FILE_ENV, "").strip()
+    if override:
+        return Path(override)
     return PROJECT_ROOT / "scripts" / "config-soll.json"  # i18n-allow
 
 

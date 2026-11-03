@@ -44,6 +44,7 @@ export const REWARD_LEVELS: Readonly<Record<RewardId, RewardLevels>> = {
 export const XP_SOURCES = [
   "chat_turn", "voice_turn", "quest_posted", "quest_completed", "agent_hired", "mission_completed",
   "daily_visit", "deck_discovered", "simulator_round", "simulator_record", "team_briefing", "inspection",
+  "duel_won", "duel_lost", "duel_finisher",
   "task_done", "task_blocked", "quest_done", "answered_teammate",
   "jarvis_answered", "delegated", "walk_together",
 ] as const;
