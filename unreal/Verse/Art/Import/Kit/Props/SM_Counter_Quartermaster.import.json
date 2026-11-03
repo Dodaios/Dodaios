@@ -1,0 +1,93 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Counter_Quartermaster.SM_Counter_Quartermaster",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Counter_Quartermaster.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "d362e9aa81ca9e765b06b8eac1544037db9ed2e68b3803f93eef04fcca199cbe"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        152.0,
+        49.5,
+        124.382
+      ],
+      "min": [
+        -152.0,
+        -49.5,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Deck.MI_Console_Deck",
+        "slot": "M_Console_Deck"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_LampOff.MI_Plastic_LampOff",
+        "slot": "M_Plastic_LampOff"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Fabric_UniformOlive.MI_Fabric_UniformOlive",
+        "slot": "M_Fabric_UniformOlive"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Fabric_BunkGrey.MI_Fabric_BunkGrey",
+        "slot": "M_Fabric_BunkGrey"
+      }
+    ],
+    "triangles": 9354,
+    "uv_sets": 1,
+    "vertices": 4912
+  },
+  "name": "SM_Counter_Quartermaster",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/fittings.py",
+    "function": "quartermaster_counter"
+  }
+}

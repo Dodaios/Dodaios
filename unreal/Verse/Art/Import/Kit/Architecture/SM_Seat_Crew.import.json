@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_Seat_Crew.SM_Seat_Crew",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Seat_Crew.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "349b3dc07fcefdae18002264e5b81d99e2ccf49c193bb8bbac715bbc3765949d"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        27.5,
+        24.0,
+        104.232
+      ],
+      "min": [
+        -27.5,
+        -37.801,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Seat_Upholstery.MI_Seat_Upholstery",
+        "slot": "M_Seat_Upholstery"
+      }
+    ],
+    "triangles": 1496,
+    "uv_sets": 1,
+    "vertices": 832
+  },
+  "name": "SM_Seat_Crew",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/architecture/pit.py",
+    "function": "build_seat"
+  }
+}

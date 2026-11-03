@@ -1,0 +1,26 @@
+{
+  "name": "MI_Paint_TrimRed",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Paint_TrimRed",
+  "scalars": {
+    "EdgeWear": 0.4,
+    "GrimeAmount": 0.3,
+    "Metallic": 0.0,
+    "RoughnessMax": 0.7,
+    "RoughnessMin": 0.4
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.3,
+      0.02,
+      0.02,
+      1.0
+    ]
+  }
+}

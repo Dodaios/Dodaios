@@ -1,0 +1,105 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Console_CrewPitDouble.SM_Console_CrewPitDouble",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Console_CrewPitDouble.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "ccf0443c27a3f0dc1716832c6d1c061701426dc6b02e14537274aed66916fc1c"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        92.0,
+        80.998,
+        121.2
+      ],
+      "min": [
+        -92.0,
+        -80.998,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Seat_Upholstery.MI_Seat_Upholstery",
+        "slot": "M_Seat_Upholstery"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Deck.MI_Console_Deck",
+        "slot": "M_Console_Deck"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_TrimRed.MI_Paint_TrimRed",
+        "slot": "M_Paint_TrimRed"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_LampOff.MI_Plastic_LampOff",
+        "slot": "M_Plastic_LampOff"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Emit_BacklitPanel.MI_Emit_BacklitPanel",
+        "slot": "M_Emit_BacklitPanel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      }
+    ],
+    "triangles": 28532,
+    "uv_sets": 1,
+    "vertices": 15928
+  },
+  "name": "SM_Console_CrewPitDouble",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/consoles.py",
+    "function": "crew_pit_console_double"
+  }
+}

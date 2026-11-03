@@ -1,0 +1,8067 @@
+{
+  "bounds_cm": {
+    "max": [
+      3160.0,
+      2820.0,
+      1074.0
+    ],
+    "min": [
+      -180.0,
+      60.0,
+      -300.0
+    ]
+  },
+  "deck": "ops",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Ops/LV_Ops",
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_14",
+      "location": [
+        -120.0,
+        2760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_15",
+      "location": [
+        -120.0,
+        2520.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_16",
+      "location": [
+        -120.0,
+        2280.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_17",
+      "location": [
+        -120.0,
+        2040.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_18",
+      "location": [
+        -120.0,
+        1800.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_19",
+      "location": [
+        -120.0,
+        1560.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_20",
+      "location": [
+        -120.0,
+        1320.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_21",
+      "location": [
+        -120.0,
+        1080.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_22",
+      "location": [
+        -120.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_23",
+      "location": [
+        -120.0,
+        600.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_24",
+      "location": [
+        -120.0,
+        360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_25",
+      "location": [
+        -120.0,
+        120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_14",
+      "location": [
+        120.0,
+        2760.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_15",
+      "location": [
+        120.0,
+        2520.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_16",
+      "location": [
+        120.0,
+        2280.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_17",
+      "location": [
+        120.0,
+        2040.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_18",
+      "location": [
+        120.0,
+        1800.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_19",
+      "location": [
+        120.0,
+        1560.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_20",
+      "location": [
+        120.0,
+        1320.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_21",
+      "location": [
+        120.0,
+        1080.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_22",
+      "location": [
+        120.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_23",
+      "location": [
+        120.0,
+        600.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_24",
+      "location": [
+        120.0,
+        360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_25",
+      "location": [
+        120.0,
+        120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Mess/SM_Ops_Mess_Bounds.SM_Ops_Mess_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_bounds_1",
+      "location": [
+        1490.0,
+        1440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Mess_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Mess/SM_Ops_Mess_Bounds2.SM_Ops_Mess_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_bounds_2",
+      "location": [
+        1490.0,
+        1440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Mess_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Mess/SM_Ops_Mess_Bounds3.SM_Ops_Mess_Bounds3",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_bounds_3",
+      "location": [
+        1490.0,
+        1440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Mess_Bounds3",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Mess/SM_Ops_Mess_Ceiling.SM_Ops_Mess_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_ceiling",
+      "location": [
+        1490.0,
+        1440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Ops_Mess_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Counter_Serving.SM_Counter_Serving",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_counter_1",
+      "location": [
+        990.333,
+        393.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Counter_Serving",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Counter_Serving.SM_Counter_Serving",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_counter_2",
+      "location": [
+        1476.333,
+        393.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Counter_Serving",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Dispenser.SM_Dispenser",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_dispenser_1",
+      "location": [
+        368.0,
+        200.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Dispenser",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Dispenser.SM_Dispenser",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_dispenser_2",
+      "location": [
+        472.0,
+        200.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Dispenser",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Mess/SM_Ops_Mess_Shell.SM_Ops_Mess_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_shell",
+      "location": [
+        1490.0,
+        1440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Ops_Mess_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_000",
+      "location": [
+        565.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_001",
+      "location": [
+        775.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_002",
+      "location": [
+        985.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_003",
+      "location": [
+        1195.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_004",
+      "location": [
+        1405.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_010",
+      "location": [
+        1995.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_011",
+      "location": [
+        2205.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_012",
+      "location": [
+        2415.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_013",
+      "location": [
+        2625.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_014",
+      "location": [
+        2835.0,
+        840.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_100",
+      "location": [
+        565.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_101",
+      "location": [
+        775.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_102",
+      "location": [
+        985.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_103",
+      "location": [
+        1195.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_104",
+      "location": [
+        1405.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_110",
+      "location": [
+        1995.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_111",
+      "location": [
+        2205.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_112",
+      "location": [
+        2415.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_113",
+      "location": [
+        2625.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_114",
+      "location": [
+        2835.0,
+        1260.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_200",
+      "location": [
+        565.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_201",
+      "location": [
+        775.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_202",
+      "location": [
+        985.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_203",
+      "location": [
+        1195.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_204",
+      "location": [
+        1405.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_210",
+      "location": [
+        1995.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_211",
+      "location": [
+        2205.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_212",
+      "location": [
+        2415.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_213",
+      "location": [
+        2625.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_214",
+      "location": [
+        2835.0,
+        1680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_300",
+      "location": [
+        565.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_301",
+      "location": [
+        775.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_302",
+      "location": [
+        985.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_303",
+      "location": [
+        1195.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_304",
+      "location": [
+        1405.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_310",
+      "location": [
+        1995.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_311",
+      "location": [
+        2205.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_312",
+      "location": [
+        2415.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_313",
+      "location": [
+        2625.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_table_314",
+      "location": [
+        2835.0,
+        2100.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Terminal_Wall.SM_Terminal_Wall",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "mess_terminal",
+      "location": [
+        2984.0,
+        202.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Terminal_Wall",
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
+  "rooms": [
+    {
+      "id": "mess",
+      "main": false,
+      "name": "Mess Hall",
+      "polygon_cm": [
+        [
+          300.0,
+          200.0
+        ],
+        [
+          300.0,
+          2640.0
+        ],
+        [
+          3100.0,
+          2640.0
+        ],
+        [
+          3100.0,
+          200.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "screen-dispenser_1",
+      "kind": "screen",
+      "location": [
+        361.0,
+        249.4,
+        174.0
+      ],
+      "props": {
+        "corners_cm": "[[337.0,249.4,188.0],[385.0,249.4,188.0],[385.0,249.4,160.0],[337.0,249.4,160.0]]",
+        "manifest_id": "dispenser_1",
+        "normal": "[0.0,1.0,0.0]",
+        "owner": "mess_dispenser_1",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        48.0,
+        28.000000000000004
+      ],
+      "station": null
+    },
+    {
+      "id": "screen-dispenser_2",
+      "kind": "screen",
+      "location": [
+        465.0,
+        249.4,
+        174.0
+      ],
+      "props": {
+        "corners_cm": "[[441.0,249.4,188.0],[489.0,249.4,188.0],[489.0,249.4,160.0],[441.0,249.4,160.0]]",
+        "manifest_id": "dispenser_2",
+        "normal": "[0.0,1.0,0.0]",
+        "owner": "mess_dispenser_2",
+        "socket_kind": "screen",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "size_cm": [
+        48.0,
+        28.000000000000004
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_1",
+      "kind": "seat",
+      "location": [
+        497.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_1",
+        "owner": "mess_table_000",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_10",
+      "kind": "seat",
+      "location": [
+        843.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_10",
+        "owner": "mess_table_001",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_100",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_100",
+        "owner": "mess_table_111",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_101",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_101",
+        "owner": "mess_table_111",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_102",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_102",
+        "owner": "mess_table_111",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_103",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_103",
+        "owner": "mess_table_112",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_104",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_104",
+        "owner": "mess_table_112",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_105",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_105",
+        "owner": "mess_table_112",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_106",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_106",
+        "owner": "mess_table_112",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_107",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_107",
+        "owner": "mess_table_112",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_108",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_108",
+        "owner": "mess_table_112",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_109",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_109",
+        "owner": "mess_table_113",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_11",
+      "kind": "seat",
+      "location": [
+        775.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_11",
+        "owner": "mess_table_001",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_110",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_110",
+        "owner": "mess_table_113",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_111",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_111",
+        "owner": "mess_table_113",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_112",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_112",
+        "owner": "mess_table_113",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_113",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_113",
+        "owner": "mess_table_113",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_114",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_114",
+        "owner": "mess_table_113",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_115",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_115",
+        "owner": "mess_table_114",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_116",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_116",
+        "owner": "mess_table_114",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_117",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_117",
+        "owner": "mess_table_114",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_118",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_118",
+        "owner": "mess_table_114",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_119",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_119",
+        "owner": "mess_table_114",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_12",
+      "kind": "seat",
+      "location": [
+        707.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_12",
+        "owner": "mess_table_001",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_120",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_120",
+        "owner": "mess_table_114",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_121",
+      "kind": "seat",
+      "location": [
+        497.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_121",
+        "owner": "mess_table_200",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_122",
+      "kind": "seat",
+      "location": [
+        565.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_122",
+        "owner": "mess_table_200",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_123",
+      "kind": "seat",
+      "location": [
+        633.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_123",
+        "owner": "mess_table_200",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_124",
+      "kind": "seat",
+      "location": [
+        633.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_124",
+        "owner": "mess_table_200",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_125",
+      "kind": "seat",
+      "location": [
+        565.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_125",
+        "owner": "mess_table_200",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_126",
+      "kind": "seat",
+      "location": [
+        497.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_126",
+        "owner": "mess_table_200",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_127",
+      "kind": "seat",
+      "location": [
+        707.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_127",
+        "owner": "mess_table_201",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_128",
+      "kind": "seat",
+      "location": [
+        775.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_128",
+        "owner": "mess_table_201",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_129",
+      "kind": "seat",
+      "location": [
+        843.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_129",
+        "owner": "mess_table_201",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_13",
+      "kind": "seat",
+      "location": [
+        917.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_13",
+        "owner": "mess_table_002",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_130",
+      "kind": "seat",
+      "location": [
+        843.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_130",
+        "owner": "mess_table_201",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_131",
+      "kind": "seat",
+      "location": [
+        775.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_131",
+        "owner": "mess_table_201",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_132",
+      "kind": "seat",
+      "location": [
+        707.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_132",
+        "owner": "mess_table_201",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_133",
+      "kind": "seat",
+      "location": [
+        917.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_133",
+        "owner": "mess_table_202",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_134",
+      "kind": "seat",
+      "location": [
+        985.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_134",
+        "owner": "mess_table_202",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_135",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_135",
+        "owner": "mess_table_202",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_136",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_136",
+        "owner": "mess_table_202",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_137",
+      "kind": "seat",
+      "location": [
+        985.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_137",
+        "owner": "mess_table_202",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_138",
+      "kind": "seat",
+      "location": [
+        917.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_138",
+        "owner": "mess_table_202",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_139",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_139",
+        "owner": "mess_table_203",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_14",
+      "kind": "seat",
+      "location": [
+        985.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_14",
+        "owner": "mess_table_002",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_140",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_140",
+        "owner": "mess_table_203",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_141",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_141",
+        "owner": "mess_table_203",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_142",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_142",
+        "owner": "mess_table_203",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_143",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_143",
+        "owner": "mess_table_203",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_144",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_144",
+        "owner": "mess_table_203",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_145",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_145",
+        "owner": "mess_table_204",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_146",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_146",
+        "owner": "mess_table_204",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_147",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_147",
+        "owner": "mess_table_204",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_148",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_148",
+        "owner": "mess_table_204",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_149",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_149",
+        "owner": "mess_table_204",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_15",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_15",
+        "owner": "mess_table_002",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_150",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_150",
+        "owner": "mess_table_204",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_151",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_151",
+        "owner": "mess_table_210",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_152",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_152",
+        "owner": "mess_table_210",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_153",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_153",
+        "owner": "mess_table_210",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_154",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_154",
+        "owner": "mess_table_210",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_155",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_155",
+        "owner": "mess_table_210",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_156",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_156",
+        "owner": "mess_table_210",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_157",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_157",
+        "owner": "mess_table_211",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_158",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_158",
+        "owner": "mess_table_211",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_159",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_159",
+        "owner": "mess_table_211",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_16",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_16",
+        "owner": "mess_table_002",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_160",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_160",
+        "owner": "mess_table_211",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_161",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_161",
+        "owner": "mess_table_211",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_162",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_162",
+        "owner": "mess_table_211",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_163",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_163",
+        "owner": "mess_table_212",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_164",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_164",
+        "owner": "mess_table_212",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_165",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_165",
+        "owner": "mess_table_212",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_166",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_166",
+        "owner": "mess_table_212",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_167",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_167",
+        "owner": "mess_table_212",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_168",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_168",
+        "owner": "mess_table_212",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_169",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_169",
+        "owner": "mess_table_213",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_17",
+      "kind": "seat",
+      "location": [
+        985.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_17",
+        "owner": "mess_table_002",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_170",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_170",
+        "owner": "mess_table_213",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_171",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_171",
+        "owner": "mess_table_213",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_172",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_172",
+        "owner": "mess_table_213",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_173",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_173",
+        "owner": "mess_table_213",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_174",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_174",
+        "owner": "mess_table_213",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_175",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_175",
+        "owner": "mess_table_214",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_176",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_176",
+        "owner": "mess_table_214",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_177",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        1742.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_177",
+        "owner": "mess_table_214",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_178",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_178",
+        "owner": "mess_table_214",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_179",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_179",
+        "owner": "mess_table_214",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_18",
+      "kind": "seat",
+      "location": [
+        917.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_18",
+        "owner": "mess_table_002",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_180",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        1618.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_180",
+        "owner": "mess_table_214",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_181",
+      "kind": "seat",
+      "location": [
+        497.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_181",
+        "owner": "mess_table_300",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_182",
+      "kind": "seat",
+      "location": [
+        565.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_182",
+        "owner": "mess_table_300",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_183",
+      "kind": "seat",
+      "location": [
+        633.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_183",
+        "owner": "mess_table_300",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_184",
+      "kind": "seat",
+      "location": [
+        633.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_184",
+        "owner": "mess_table_300",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_185",
+      "kind": "seat",
+      "location": [
+        565.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_185",
+        "owner": "mess_table_300",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_186",
+      "kind": "seat",
+      "location": [
+        497.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_186",
+        "owner": "mess_table_300",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_187",
+      "kind": "seat",
+      "location": [
+        707.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_187",
+        "owner": "mess_table_301",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_188",
+      "kind": "seat",
+      "location": [
+        775.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_188",
+        "owner": "mess_table_301",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_189",
+      "kind": "seat",
+      "location": [
+        843.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_189",
+        "owner": "mess_table_301",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_19",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_19",
+        "owner": "mess_table_003",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_190",
+      "kind": "seat",
+      "location": [
+        843.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_190",
+        "owner": "mess_table_301",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_191",
+      "kind": "seat",
+      "location": [
+        775.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_191",
+        "owner": "mess_table_301",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_192",
+      "kind": "seat",
+      "location": [
+        707.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_192",
+        "owner": "mess_table_301",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_193",
+      "kind": "seat",
+      "location": [
+        917.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_193",
+        "owner": "mess_table_302",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_194",
+      "kind": "seat",
+      "location": [
+        985.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_194",
+        "owner": "mess_table_302",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_195",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_195",
+        "owner": "mess_table_302",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_196",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_196",
+        "owner": "mess_table_302",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_197",
+      "kind": "seat",
+      "location": [
+        985.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_197",
+        "owner": "mess_table_302",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_198",
+      "kind": "seat",
+      "location": [
+        917.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_198",
+        "owner": "mess_table_302",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_199",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_199",
+        "owner": "mess_table_303",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_2",
+      "kind": "seat",
+      "location": [
+        565.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_2",
+        "owner": "mess_table_000",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_20",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_20",
+        "owner": "mess_table_003",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_200",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_200",
+        "owner": "mess_table_303",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_201",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_201",
+        "owner": "mess_table_303",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_202",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_202",
+        "owner": "mess_table_303",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_203",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_203",
+        "owner": "mess_table_303",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_204",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_204",
+        "owner": "mess_table_303",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_205",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_205",
+        "owner": "mess_table_304",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_206",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_206",
+        "owner": "mess_table_304",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_207",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_207",
+        "owner": "mess_table_304",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_208",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_208",
+        "owner": "mess_table_304",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_209",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_209",
+        "owner": "mess_table_304",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_21",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_21",
+        "owner": "mess_table_003",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_210",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_210",
+        "owner": "mess_table_304",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_211",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_211",
+        "owner": "mess_table_310",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_212",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_212",
+        "owner": "mess_table_310",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_213",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_213",
+        "owner": "mess_table_310",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_214",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_214",
+        "owner": "mess_table_310",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_215",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_215",
+        "owner": "mess_table_310",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_216",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_216",
+        "owner": "mess_table_310",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_217",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_217",
+        "owner": "mess_table_311",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_218",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_218",
+        "owner": "mess_table_311",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_219",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_219",
+        "owner": "mess_table_311",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_22",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_22",
+        "owner": "mess_table_003",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_220",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_220",
+        "owner": "mess_table_311",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_221",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_221",
+        "owner": "mess_table_311",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_222",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_222",
+        "owner": "mess_table_311",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_223",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_223",
+        "owner": "mess_table_312",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_224",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_224",
+        "owner": "mess_table_312",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_225",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_225",
+        "owner": "mess_table_312",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_226",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_226",
+        "owner": "mess_table_312",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_227",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_227",
+        "owner": "mess_table_312",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_228",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_228",
+        "owner": "mess_table_312",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_229",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_229",
+        "owner": "mess_table_313",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_23",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_23",
+        "owner": "mess_table_003",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_230",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_230",
+        "owner": "mess_table_313",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_231",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_231",
+        "owner": "mess_table_313",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_232",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_232",
+        "owner": "mess_table_313",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_233",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_233",
+        "owner": "mess_table_313",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_234",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_234",
+        "owner": "mess_table_313",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_235",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_235",
+        "owner": "mess_table_314",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_236",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_236",
+        "owner": "mess_table_314",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_237",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        2162.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_237",
+        "owner": "mess_table_314",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_238",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_238",
+        "owner": "mess_table_314",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_239",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_239",
+        "owner": "mess_table_314",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_24",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_24",
+        "owner": "mess_table_003",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_240",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        2038.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_240",
+        "owner": "mess_table_314",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_25",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_25",
+        "owner": "mess_table_004",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_26",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_26",
+        "owner": "mess_table_004",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_27",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_27",
+        "owner": "mess_table_004",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_28",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_28",
+        "owner": "mess_table_004",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_29",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_29",
+        "owner": "mess_table_004",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_3",
+      "kind": "seat",
+      "location": [
+        633.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_3",
+        "owner": "mess_table_000",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_30",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_30",
+        "owner": "mess_table_004",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_31",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_31",
+        "owner": "mess_table_010",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_32",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_32",
+        "owner": "mess_table_010",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_33",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_33",
+        "owner": "mess_table_010",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_34",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_34",
+        "owner": "mess_table_010",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_35",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_35",
+        "owner": "mess_table_010",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_36",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_36",
+        "owner": "mess_table_010",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_37",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_37",
+        "owner": "mess_table_011",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_38",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_38",
+        "owner": "mess_table_011",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_39",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_39",
+        "owner": "mess_table_011",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_4",
+      "kind": "seat",
+      "location": [
+        633.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_4",
+        "owner": "mess_table_000",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_40",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_40",
+        "owner": "mess_table_011",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_41",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_41",
+        "owner": "mess_table_011",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_42",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_42",
+        "owner": "mess_table_011",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_43",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_43",
+        "owner": "mess_table_012",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_44",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_44",
+        "owner": "mess_table_012",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_45",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_45",
+        "owner": "mess_table_012",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_46",
+      "kind": "seat",
+      "location": [
+        2483.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_46",
+        "owner": "mess_table_012",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_47",
+      "kind": "seat",
+      "location": [
+        2415.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_47",
+        "owner": "mess_table_012",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_48",
+      "kind": "seat",
+      "location": [
+        2347.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_48",
+        "owner": "mess_table_012",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_49",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_49",
+        "owner": "mess_table_013",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_5",
+      "kind": "seat",
+      "location": [
+        565.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_5",
+        "owner": "mess_table_000",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_50",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_50",
+        "owner": "mess_table_013",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_51",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_51",
+        "owner": "mess_table_013",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_52",
+      "kind": "seat",
+      "location": [
+        2693.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_52",
+        "owner": "mess_table_013",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_53",
+      "kind": "seat",
+      "location": [
+        2625.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_53",
+        "owner": "mess_table_013",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_54",
+      "kind": "seat",
+      "location": [
+        2557.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_54",
+        "owner": "mess_table_013",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_55",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_55",
+        "owner": "mess_table_014",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_56",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_56",
+        "owner": "mess_table_014",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_57",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_57",
+        "owner": "mess_table_014",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_58",
+      "kind": "seat",
+      "location": [
+        2903.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_58",
+        "owner": "mess_table_014",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_59",
+      "kind": "seat",
+      "location": [
+        2835.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_59",
+        "owner": "mess_table_014",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_6",
+      "kind": "seat",
+      "location": [
+        497.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_6",
+        "owner": "mess_table_000",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_60",
+      "kind": "seat",
+      "location": [
+        2767.0,
+        778.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_60",
+        "owner": "mess_table_014",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_61",
+      "kind": "seat",
+      "location": [
+        497.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_61",
+        "owner": "mess_table_100",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_62",
+      "kind": "seat",
+      "location": [
+        565.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_62",
+        "owner": "mess_table_100",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_63",
+      "kind": "seat",
+      "location": [
+        633.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_63",
+        "owner": "mess_table_100",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_64",
+      "kind": "seat",
+      "location": [
+        633.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_64",
+        "owner": "mess_table_100",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_65",
+      "kind": "seat",
+      "location": [
+        565.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_65",
+        "owner": "mess_table_100",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_66",
+      "kind": "seat",
+      "location": [
+        497.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_66",
+        "owner": "mess_table_100",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_67",
+      "kind": "seat",
+      "location": [
+        707.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_67",
+        "owner": "mess_table_101",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_68",
+      "kind": "seat",
+      "location": [
+        775.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_68",
+        "owner": "mess_table_101",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_69",
+      "kind": "seat",
+      "location": [
+        843.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_69",
+        "owner": "mess_table_101",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_7",
+      "kind": "seat",
+      "location": [
+        707.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_7",
+        "owner": "mess_table_001",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_70",
+      "kind": "seat",
+      "location": [
+        843.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_70",
+        "owner": "mess_table_101",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_71",
+      "kind": "seat",
+      "location": [
+        775.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_71",
+        "owner": "mess_table_101",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_72",
+      "kind": "seat",
+      "location": [
+        707.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_72",
+        "owner": "mess_table_101",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_73",
+      "kind": "seat",
+      "location": [
+        917.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_73",
+        "owner": "mess_table_102",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_74",
+      "kind": "seat",
+      "location": [
+        985.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_74",
+        "owner": "mess_table_102",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_75",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_75",
+        "owner": "mess_table_102",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_76",
+      "kind": "seat",
+      "location": [
+        1053.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_76",
+        "owner": "mess_table_102",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_77",
+      "kind": "seat",
+      "location": [
+        985.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_77",
+        "owner": "mess_table_102",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_78",
+      "kind": "seat",
+      "location": [
+        917.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_78",
+        "owner": "mess_table_102",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_79",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_79",
+        "owner": "mess_table_103",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_8",
+      "kind": "seat",
+      "location": [
+        775.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_8",
+        "owner": "mess_table_001",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_80",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_80",
+        "owner": "mess_table_103",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_81",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_81",
+        "owner": "mess_table_103",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_82",
+      "kind": "seat",
+      "location": [
+        1263.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_82",
+        "owner": "mess_table_103",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_83",
+      "kind": "seat",
+      "location": [
+        1195.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_83",
+        "owner": "mess_table_103",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_84",
+      "kind": "seat",
+      "location": [
+        1127.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_84",
+        "owner": "mess_table_103",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_85",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_85",
+        "owner": "mess_table_104",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_86",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_86",
+        "owner": "mess_table_104",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_87",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_87",
+        "owner": "mess_table_104",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_88",
+      "kind": "seat",
+      "location": [
+        1473.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_88",
+        "owner": "mess_table_104",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_89",
+      "kind": "seat",
+      "location": [
+        1405.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_89",
+        "owner": "mess_table_104",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_9",
+      "kind": "seat",
+      "location": [
+        843.0,
+        902.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_9",
+        "owner": "mess_table_001",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_90",
+      "kind": "seat",
+      "location": [
+        1337.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_90",
+        "owner": "mess_table_104",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_91",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_91",
+        "owner": "mess_table_110",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_92",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_92",
+        "owner": "mess_table_110",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_93",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_93",
+        "owner": "mess_table_110",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_94",
+      "kind": "seat",
+      "location": [
+        2063.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_94",
+        "owner": "mess_table_110",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_95",
+      "kind": "seat",
+      "location": [
+        1995.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_95",
+        "owner": "mess_table_110",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_96",
+      "kind": "seat",
+      "location": [
+        1927.0,
+        1198.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_96",
+        "owner": "mess_table_110",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_97",
+      "kind": "seat",
+      "location": [
+        2137.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_97",
+        "owner": "mess_table_111",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_98",
+      "kind": "seat",
+      "location": [
+        2205.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_98",
+        "owner": "mess_table_111",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-mess_99",
+      "kind": "seat",
+      "location": [
+        2273.0,
+        1322.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "mess_99",
+        "owner": "mess_table_111",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-dispenser_1",
+      "kind": "stand",
+      "location": [
+        368.0,
+        296.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "dispenser_1",
+        "owner": "mess_dispenser_1",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-dispenser_2",
+      "kind": "stand",
+      "location": [
+        472.0,
+        296.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "dispenser_2",
+        "owner": "mess_dispenser_2",
+        "socket_kind": "stand",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-mess_1",
+      "kind": "stand",
+      "location": [
+        873.33,
+        520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_1",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-mess_2",
+      "kind": "stand",
+      "location": [
+        1113.33,
+        520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_2",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-mess_3",
+      "kind": "stand",
+      "location": [
+        1353.33,
+        520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_3",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-mess_4",
+      "kind": "stand",
+      "location": [
+        1593.33,
+        520.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_4",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-mess_server_1",
+      "kind": "stand",
+      "location": [
+        990.33,
+        297.7,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_server_1",
+        "owner": "mess_counter_1",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-mess_server_2",
+      "kind": "stand",
+      "location": [
+        1476.33,
+        297.7,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_server_2",
+        "owner": "mess_counter_2",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-viewport_1",
+      "kind": "stand",
+      "location": [
+        2065.0,
+        325.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "viewport_1",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-viewport_2",
+      "kind": "stand",
+      "location": [
+        2288.33,
+        325.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "viewport_2",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-viewport_3",
+      "kind": "stand",
+      "location": [
+        2511.67,
+        325.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "viewport_3",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-viewport_4",
+      "kind": "stand",
+      "location": [
+        2735.0,
+        325.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "viewport_4",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "station-mess_call",
+      "kind": "station",
+      "location": [
+        1233.33,
+        500.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "mess_call",
+        "station_kind": "mess_call",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "mess",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "mess_call",
+        "kind": "mess_call"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/ops/zones.py",
+    "sha256": "329c8c808950e8e72fcd63a0dfbb06f865436b131b4a00915c294e4d47919afa"
+  },
+  "zone": "mess"
+}

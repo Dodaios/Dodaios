@@ -1,0 +1,81 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Eng_ToolRack.SM_Eng_ToolRack",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Eng_ToolRack.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "d0de1901dc078ebc8a5fbcb5e62ac75627d173fc257a8e056d19ac0614d4623f"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        124.0,
+        45.0,
+        230.0
+      ],
+      "min": [
+        -124.0,
+        0.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilRed.MI_PropsInd_StencilRed",
+        "slot": "M_PropsInd_StencilRed"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerOlive.MI_PropsInd_ContainerOlive",
+        "slot": "M_PropsInd_ContainerOlive"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerGrey.MI_PropsInd_ContainerGrey",
+        "slot": "M_PropsInd_ContainerGrey"
+      }
+    ],
+    "triangles": 6116,
+    "uv_sets": 1,
+    "vertices": 3298
+  },
+  "name": "SM_Eng_ToolRack",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/engineering.py",
+    "function": "build_tool_rack"
+  }
+}

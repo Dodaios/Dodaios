@@ -1,0 +1,26 @@
+{
+  "name": "MI_Fabric_BlanketSlate",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Fabric_BlanketSlate",
+  "scalars": {
+    "EdgeWear": 0.4,
+    "GrimeAmount": 0.3,
+    "Metallic": 0.0,
+    "RoughnessMax": 0.95,
+    "RoughnessMin": 0.8
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.02686,
+      0.03196,
+      0.04386,
+      1.0
+    ]
+  }
+}

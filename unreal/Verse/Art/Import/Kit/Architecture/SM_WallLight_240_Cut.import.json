@@ -1,0 +1,80 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_WallLight_240_Cut.SM_WallLight_240_Cut",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_WallLight_240_Cut.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "00dfad4f5e4ddcce4eef772ce7b6d54b6e4d809c2a5cd6648b9f03cd19d4c8a7"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        120.0,
+        1.2,
+        110.0
+      ],
+      "min": [
+        -120.0,
+        -30.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
+        "slot": "M_Wall_PaintedLight"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 1728,
+    "uv_sets": 1,
+    "vertices": 896
+  },
+  "name": "SM_WallLight_240_Cut",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "cut": true,
+      "width": 2.4
+    },
+    "builder": "art/verse/kit/architecture/walls.py",
+    "function": "build_wall_light"
+  }
+}

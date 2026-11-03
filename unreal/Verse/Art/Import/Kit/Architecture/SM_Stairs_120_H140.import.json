@@ -1,0 +1,72 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_Stairs_120_H140.SM_Stairs_120_H140",
+  "collision": {
+    "primitives": 7,
+    "profile": "Verse_Architecture",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Stairs_120_H140.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "e9af1982b3efe51e44453823241fa21bd571612104b9c9f5ce4e6b789f1397d1"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        180.0,
+        60.0,
+        0.1
+      ],
+      "min": [
+        -7.0,
+        -60.0,
+        -140.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_GlossBlack.MI_Floor_GlossBlack",
+        "slot": "M_Floor_GlossBlack"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Hazard.MI_Deck_Hazard",
+        "slot": "M_Deck_Hazard"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      }
+    ],
+    "triangles": 814,
+    "uv_sets": 1,
+    "vertices": 516
+  },
+  "name": "SM_Stairs_120_H140",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "rise": 1.4,
+      "width": 1.2
+    },
+    "builder": "art/verse/kit/architecture/structure.py",
+    "function": "build_stairs"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Eng_CableTray_Floor.SM_Eng_CableTray_Floor",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Eng_CableTray_Floor.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "404a0c1eaadb1d11f3bdad71d6f9fc99f2f13f4cea3c0103bd7b86a3b79cb46a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        120.028,
+        34.0,
+        24.0
+      ],
+      "min": [
+        -120.028,
+        -34.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      }
+    ],
+    "triangles": 3160,
+    "uv_sets": 1,
+    "vertices": 1624
+  },
+  "name": "SM_Eng_CableTray_Floor",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/engineering.py",
+    "function": "build_cable_tray"
+  }
+}

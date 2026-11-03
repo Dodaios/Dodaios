@@ -1,0 +1,103 @@
+{
+  "asset_path": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Ceiling.SM_Engineering_Reactor_Ceiling",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Reactor_Ceiling.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "4e127cb65bddea07b4576a19ff051b2f2163fc9a4cf99636ffe1f376148c4683"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        2955.0,
+        3292.5,
+        1630.0
+      ],
+      "min": [
+        -6545.0,
+        -2737.5,
+        360.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
+        "slot": "M_Hull_PipeInsulated"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
+        "slot": "M_Hull_Pipe"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_Grating.MI_Floor_Grating",
+        "slot": "M_Floor_Grating"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Red.MI_Light_Maint_Red",
+        "slot": "M_Light_Maint_Red"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
+        "slot": "M_Ceiling_Panel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_CeilingPanel.MI_Light_CeilingPanel",
+        "slot": "M_Light_CeilingPanel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
+        "slot": "M_Wall_Charcoal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      }
+    ],
+    "triangles": 33318,
+    "uv_sets": 1,
+    "vertices": 17376
+  },
+  "name": "SM_Engineering_Reactor_Ceiling",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "reactor"
+    },
+    "builder": "art/verse/decks/engineering/build.py",
+    "function": "build"
+  }
+}

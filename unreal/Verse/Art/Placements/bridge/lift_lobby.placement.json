@@ -1,0 +1,695 @@
+{
+  "bounds_cm": {
+    "max": [
+      4260.0,
+      4740.0,
+      1254.0
+    ],
+    "min": [
+      2940.0,
+      3180.0,
+      -300.0
+    ]
+  },
+  "deck": "bridge",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Bridge/LV_Bridge",
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_11_00",
+      "location": [
+        3000.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_11_01",
+      "location": [
+        3000.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_12_00",
+      "location": [
+        3240.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_12_01",
+      "location": [
+        3240.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_13_00",
+      "location": [
+        3480.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_13_01",
+      "location": [
+        3480.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_14_00",
+      "location": [
+        3720.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_14_01",
+      "location": [
+        3720.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_15_00",
+      "location": [
+        3960.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_15_01",
+      "location": [
+        3960.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_16_00",
+      "location": [
+        4200.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "hull_aft_16_01",
+      "location": [
+        4200.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Bridge/LiftLobby/SM_Bridge_LiftLobby_Bounds.SM_Bridge_LiftLobby_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "lift_lobby_bounds_1",
+      "location": [
+        3600.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bridge_LiftLobby_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Bridge/LiftLobby/SM_Bridge_LiftLobby_Ceiling.SM_Bridge_LiftLobby_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "lift_lobby_ceiling",
+      "location": [
+        3600.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Bridge_LiftLobby_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Bridge/LiftLobby/SM_Bridge_LiftLobby_Shell.SM_Bridge_LiftLobby_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "lift_lobby_shell",
+      "location": [
+        3600.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Bridge_LiftLobby_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
+  "rooms": [
+    {
+      "id": "lobby",
+      "main": false,
+      "name": "Turbolift Lobby",
+      "polygon_cm": [
+        [
+          3060.0,
+          4320.0
+        ],
+        [
+          4140.0,
+          4320.0
+        ],
+        [
+          4140.0,
+          3360.0
+        ],
+        [
+          3060.0,
+          3360.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-lift_p",
+      "kind": "door",
+      "location": [
+        3240.0,
+        3360.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift_p",
+        "socket_kind": "door",
+        "width": "1.8",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-lift_s",
+      "kind": "door",
+      "location": [
+        3960.0,
+        3360.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift_s",
+        "socket_kind": "door",
+        "width": "1.8",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "lift-main",
+      "kind": "lift",
+      "location": [
+        3240.0,
+        3240.0,
+        0.0
+      ],
+      "props": {
+        "decks": "all",
+        "manifest_id": "main",
+        "socket_kind": "lift",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    },
+    {
+      "id": "light-lobby_ceiling",
+      "kind": "light",
+      "light": {
+        "attenuation_cm": 1200.0,
+        "intensity_lm": 12000.0,
+        "kelvin": 6200.0,
+        "shadows": true,
+        "source_size_cm": 120.0,
+        "type": "rect"
+      },
+      "location": [
+        3600.0,
+        3840.0,
+        354.0
+      ],
+      "props": {
+        "count": "4",
+        "kelvin": "6200.0",
+        "light_kind": "ceiling_fixtures",
+        "manifest_id": "lobby_ceiling",
+        "socket_kind": "light",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "spawn-commander",
+      "kind": "spawn",
+      "location": [
+        3600.0,
+        3660.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "commander",
+        "socket_kind": "spawn",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "spawn": {
+        "duel": false,
+        "team": "any"
+      },
+      "station": null
+    },
+    {
+      "id": "stand-lobby_sentry_p",
+      "kind": "stand",
+      "location": [
+        3330.0,
+        3430.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lobby_sentry_p",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "stand-lobby_sentry_s",
+      "kind": "stand",
+      "location": [
+        3870.0,
+        3430.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lobby_sentry_s",
+        "socket_kind": "stand",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "station-lift",
+      "kind": "station",
+      "location": [
+        3240.0,
+        3460.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift",
+        "socket_kind": "station",
+        "sockets.lift": "main",
+        "station_kind": "lift",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/bridge/zones.py",
+    "sha256": "c2db2be844a85aea0af5f2219e4e92fb642873bc9d36861e1200213093d8a1ff"
+  },
+  "zone": "lift_lobby"
+}

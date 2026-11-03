@@ -1,0 +1,89 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Eng_JunctionBox.SM_Eng_JunctionBox",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Eng_JunctionBox.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "7a1186a0df4d6c064df3beacbed8ef09c08a2884175db9d8f1faf115e21b3785"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        62.0,
+        42.0,
+        370.0
+      ],
+      "min": [
+        -62.0,
+        0.0,
+        60.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
+        "slot": "M_Wall_PaintedLight"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
+        "slot": "M_Indicator_Amber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Hazard.MI_Deck_Hazard",
+        "slot": "M_Deck_Hazard"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilDark.MI_PropsInd_StencilDark",
+        "slot": "M_PropsInd_StencilDark"
+      }
+    ],
+    "triangles": 2825,
+    "uv_sets": 1,
+    "vertices": 1839
+  },
+  "name": "SM_Eng_JunctionBox",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/engineering.py",
+    "function": "build_junction_box"
+  }
+}

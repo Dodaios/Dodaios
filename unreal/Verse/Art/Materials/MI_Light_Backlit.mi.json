@@ -1,0 +1,20 @@
+{
+  "name": "MI_Light_Backlit",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "replaces": "M_Light_Backlit",
+  "scalars": {
+    "EmissiveNits": 1200.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "EmissiveColor": [
+      0.95,
+      0.97,
+      1.0,
+      1.0
+    ]
+  }
+}

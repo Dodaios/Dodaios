@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Marking_LaneSolid.SM_Hangar_Marking_LaneSolid",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Marking_LaneSolid.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "1adc06c6d7b6f152aeeecde804108813acd1bbc34f64e50efedabb84605c8d33"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        600.0,
+        7.5,
+        0.15
+      ],
+      "min": [
+        -600.0,
+        -7.5,
+        0.15
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      }
+    ],
+    "triangles": 2,
+    "uv_sets": 1,
+    "vertices": 4
+  },
+  "name": "SM_Hangar_Marking_LaneSolid",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "dashed": false
+    },
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_marking_lane"
+  }
+}

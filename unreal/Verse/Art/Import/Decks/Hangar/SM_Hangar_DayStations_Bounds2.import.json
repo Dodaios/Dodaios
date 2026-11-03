@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Bounds2.SM_Hangar_DayStations_Bounds2",
+  "collision": {
+    "primitives": 11,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/hangar/SM_Hangar_DayStations_Bounds2.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "c18fa514905a9cfb46cd7c1e085a53571c5919945f372085a1c4554afa130a7f"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        715.0,
+        -525.0,
+        300.0
+      ],
+      "min": [
+        -915.0,
+        -735.0,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 132,
+    "uv_sets": 1,
+    "vertices": 88
+  },
+  "name": "SM_Hangar_DayStations_Bounds2",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "day_stations"
+    },
+    "builder": "art/verse/decks/hangar/build.py",
+    "function": "build"
+  }
+}

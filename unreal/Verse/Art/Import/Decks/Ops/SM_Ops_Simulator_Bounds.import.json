@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Bounds.SM_Ops_Simulator_Bounds",
+  "collision": {
+    "primitives": 16,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Simulator_Bounds.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "82f76a9840d68c9b77badd47c6c0ed97d407c19c7849adb44cf85af02b735458"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        1000.0,
+        1280.0,
+        0.0
+      ],
+      "min": [
+        -1100.0,
+        -1320.0,
+        -20.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 192,
+    "uv_sets": 1,
+    "vertices": 128
+  },
+  "name": "SM_Ops_Simulator_Bounds",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "simulator"
+    },
+    "builder": "art/verse/decks/ops/build.py",
+    "function": "build"
+  }
+}

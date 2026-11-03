@@ -1,0 +1,79 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_Grating_120_Lit.SM_Grating_120_Lit",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Grating_120_Lit.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "33c2cbfb58e9def9d8b3cc3f369b326e0be74ff0931b313aba32bff7129e7329"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        60.0,
+        60.0,
+        0.0
+      ],
+      "min": [
+        -60.0,
+        -60.0,
+        -60.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_Grating.MI_Floor_Grating",
+        "slot": "M_Floor_Grating"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
+        "slot": "M_Hull_PipeInsulated"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
+        "slot": "M_Hull_Pipe"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Amber.MI_Light_Maint_Amber",
+        "slot": "M_Light_Maint_Amber"
+      }
+    ],
+    "triangles": 2038,
+    "uv_sets": 1,
+    "vertices": 1136
+  },
+  "name": "SM_Grating_120_Lit",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "lit": true
+    },
+    "builder": "art/verse/kit/architecture/floors.py",
+    "function": "build_grating"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Container_S_Charcoal.SM_Hangar_Container_S_Charcoal",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Container_S_Charcoal.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "929a050f460d9425ac6d08a104739520d6b11d4632eedd1e37ca7f133b2d558d"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        128.0,
+        80.0,
+        160.2
+      ],
+      "min": [
+        -120.0,
+        -80.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Crate_Paint.MI_Crate_Paint",
+        "slot": "M_Crate_Paint"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilRed.MI_PropsInd_StencilRed",
+        "slot": "M_PropsInd_StencilRed"
+      }
+    ],
+    "triangles": 9446,
+    "uv_sets": 1,
+    "vertices": 6118
+  },
+  "name": "SM_Hangar_Container_S_Charcoal",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "code": "SPR 12",
+      "depth": 1.6,
+      "height": 1.6,
+      "length": 2.4,
+      "paint": "container_charcoal"
+    },
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_container"
+  }
+}

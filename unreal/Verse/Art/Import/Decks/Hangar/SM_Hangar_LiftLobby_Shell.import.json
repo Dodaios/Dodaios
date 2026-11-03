@@ -1,0 +1,119 @@
+{
+  "asset_path": "/Game/Verse/Decks/Hangar/LiftLobby/SM_Hangar_LiftLobby_Shell.SM_Hangar_LiftLobby_Shell",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/hangar/SM_Hangar_LiftLobby_Shell.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "a57bf6492f44e03db236498805ba0b905117f1b46303ad2fa14e3c89e0fb2c7e"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        750.0,
+        780.0,
+        388.8
+      ],
+      "min": [
+        -750.0,
+        -780.0,
+        -60.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_GlossBlack.MI_Floor_GlossBlack",
+        "slot": "M_Floor_GlossBlack"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
+        "slot": "M_Wall_PaintedLight"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_WallStrip.MI_Light_WallStrip",
+        "slot": "M_Light_WallStrip"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Crate_Paint.MI_Crate_Paint",
+        "slot": "M_Crate_Paint"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
+        "slot": "M_Indicator_Amber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
+      }
+    ],
+    "triangles": 3738,
+    "uv_sets": 1,
+    "vertices": 2104
+  },
+  "name": "SM_Hangar_LiftLobby_Shell",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "lift_lobby"
+    },
+    "builder": "art/verse/decks/hangar/build.py",
+    "function": "build"
+  }
+}

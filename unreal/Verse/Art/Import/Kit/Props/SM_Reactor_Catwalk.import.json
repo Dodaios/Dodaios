@@ -1,0 +1,73 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Reactor_Catwalk.SM_Reactor_Catwalk",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Reactor_Catwalk.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "ba50703b8f61f4149a4758c08ebd76869005206700480e0b3572e4098803a64b"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        61.2,
+        0.0,
+        2.0
+      ],
+      "min": [
+        -61.2,
+        -670.0,
+        -45.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_Tread.MI_PropsInd_Tread",
+        "slot": "M_PropsInd_Tread"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_LampDim.MI_PropsInd_LampDim",
+        "slot": "M_PropsInd_LampDim"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Hazard.MI_Deck_Hazard",
+        "slot": "M_Deck_Hazard"
+      }
+    ],
+    "triangles": 2188,
+    "uv_sets": 1,
+    "vertices": 1148
+  },
+  "name": "SM_Reactor_Catwalk",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/reactor.py",
+    "function": "build_catwalk"
+  }
+}

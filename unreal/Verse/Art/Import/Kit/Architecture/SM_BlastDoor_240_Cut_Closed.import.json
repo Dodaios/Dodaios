@@ -1,0 +1,76 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_BlastDoor_240_Cut_Closed.SM_BlastDoor_240_Cut_Closed",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_BlastDoor_240_Cut_Closed.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "6e6a093a054851eccf43d640bb4119dfec2984b3607edf193cf9a42be28be528"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        180.0,
+        15.4,
+        110.0
+      ],
+      "min": [
+        -180.0,
+        -45.0,
+        -0.4
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      }
+    ],
+    "triangles": 1048,
+    "uv_sets": 1,
+    "vertices": 688
+  },
+  "name": "SM_BlastDoor_240_Cut_Closed",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "closed": true,
+      "cut": true
+    },
+    "builder": "art/verse/kit/architecture/doors.py",
+    "function": "build_blast_door"
+  }
+}

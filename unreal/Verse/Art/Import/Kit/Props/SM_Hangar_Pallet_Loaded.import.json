@@ -1,0 +1,71 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Pallet_Loaded.SM_Hangar_Pallet_Loaded",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Pallet_Loaded.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "2b65edb9ad021444e6772cd704809a651e52d089c520b63ba588dc6467d1c8a9"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        63.0,
+        62.0,
+        107.0
+      ],
+      "min": [
+        -63.0,
+        -62.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerGunmetal.MI_PropsInd_ContainerGunmetal",
+        "slot": "M_PropsInd_ContainerGunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      }
+    ],
+    "triangles": 4680,
+    "uv_sets": 1,
+    "vertices": 3160
+  },
+  "name": "SM_Hangar_Pallet_Loaded",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "loaded": true
+    },
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_pallet"
+  }
+}

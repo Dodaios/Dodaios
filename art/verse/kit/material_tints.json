@@ -1,0 +1,1289 @@
+{
+ "M_Ceiling_Panel": {
+  "alpha": 1.0,
+  "base": [
+   0.12,
+   0.12,
+   0.125
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Console_Body": {
+  "alpha": 1.0,
+  "base": [
+   0.05,
+   0.052,
+   0.055
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Console_Deck": {
+  "alpha": 1.0,
+  "base": [
+   0.16,
+   0.165,
+   0.17
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Console_Keys": {
+  "alpha": 1.0,
+  "base": [
+   0.05,
+   0.05,
+   0.055
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "transmission": 0.0
+ },
+ "M_Crate_Paint": {
+  "alpha": 1.0,
+  "base": [
+   0.1,
+   0.1,
+   0.105
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Deck_Hazard": {
+  "alpha": 1.0,
+  "base": [
+   0.5,
+   0.35,
+   0.02
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Deck_Marking_White": {
+  "alpha": 1.0,
+  "base": [
+   0.6,
+   0.6,
+   0.58
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Emit_BacklitPanel": {
+  "base": [
+   0.9,
+   0.9,
+   0.85
+  ],
+  "source": "viewport"
+ },
+ "M_Fabric_BlanketSlate": {
+  "alpha": 1.0,
+  "base": [
+   0.026,
+   0.032,
+   0.046
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Fabric_BunkGrey": {
+  "alpha": 1.0,
+  "base": [
+   0.12,
+   0.12,
+   0.125
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.9,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Fabric_Linen": {
+  "alpha": 1.0,
+  "base": [
+   0.4,
+   0.41,
+   0.43
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Fabric_UniformOlive": {
+  "alpha": 1.0,
+  "base": [
+   0.045,
+   0.048,
+   0.038
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Floor_GlossBlack": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.022
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Floor_Grating": {
+  "alpha": 1.0,
+  "base": [
+   0.2,
+   0.2,
+   0.21
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 1.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Floor_SatinDark": {
+  "alpha": 1.0,
+  "base": [
+   0.05,
+   0.05,
+   0.055
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Glass_Clear": {
+  "base": [
+   0.7,
+   0.75,
+   0.78
+  ],
+  "source": "viewport"
+ },
+ "M_Glass_HoloLens": {
+  "alpha": 1.0,
+  "base": [
+   0.01,
+   0.015,
+   0.02
+  ],
+  "emission": [
+   0.3,
+   0.62,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.04,
+  "source": "bsdf",
+  "strength": 3.0,
+  "transmission": 0.0
+ },
+ "M_Glass_Viewport": {
+  "base": [
+   0.6,
+   0.65,
+   0.7
+  ],
+  "source": "viewport"
+ },
+ "M_Hangar_HazardPaint": {
+  "alpha": 1.0,
+  "base": [
+   0.32,
+   0.2,
+   0.012
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Hangar_RoomStrip": {
+  "base": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Hangar_SignBacklit": {
+  "base": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Hull_Pipe": {
+  "alpha": 1.0,
+  "base": [
+   0.06,
+   0.062,
+   0.065
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Hull_PipeInsulated": {
+  "alpha": 1.0,
+  "base": [
+   0.18,
+   0.18,
+   0.17
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Hull_Structure": {
+  "alpha": 1.0,
+  "base": [
+   0.03,
+   0.032,
+   0.035
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Indicator_Amber": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.02
+  ],
+  "emission": [
+   1.0,
+   0.38,
+   0.04
+  ],
+  "metallic": 0.0,
+  "roughness": 0.25,
+  "source": "bsdf",
+  "strength": 8.0,
+  "transmission": 0.0
+ },
+ "M_Indicator_Blue": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.02
+  ],
+  "emission": [
+   0.12,
+   0.35,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.25,
+  "source": "bsdf",
+  "strength": 8.0,
+  "transmission": 0.0
+ },
+ "M_Indicator_Green": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.02
+  ],
+  "emission": [
+   0.12,
+   1.0,
+   0.22
+  ],
+  "metallic": 0.0,
+  "roughness": 0.25,
+  "source": "bsdf",
+  "strength": 7.0,
+  "transmission": 0.0
+ },
+ "M_Indicator_Red": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.02
+  ],
+  "emission": [
+   1.0,
+   0.045,
+   0.02
+  ],
+  "metallic": 0.0,
+  "roughness": 0.25,
+  "source": "bsdf",
+  "strength": 9.0,
+  "transmission": 0.0
+ },
+ "M_Indicator_White": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.02
+  ],
+  "emission": [
+   1.0,
+   0.97,
+   0.92
+  ],
+  "metallic": 0.0,
+  "roughness": 0.25,
+  "source": "bsdf",
+  "strength": 6.0,
+  "transmission": 0.0
+ },
+ "M_Lacquer_BlackGloss": {
+  "alpha": 1.0,
+  "base": [
+   0.009,
+   0.009,
+   0.01
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Light_Backlit": {
+  "base": [
+   0.95,
+   0.97,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Light_CeilingPanel": {
+  "base": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Light_FloorInlay": {
+  "base": [
+   0.95,
+   0.95,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Light_Maint_Amber": {
+  "base": [
+   0.9,
+   0.45,
+   0.1
+  ],
+  "emission": [
+   1.0,
+   0.42,
+   0.08
+  ],
+  "source": "viewport"
+ },
+ "M_Light_Maint_Red": {
+  "base": [
+   0.8,
+   0.05,
+   0.03
+  ],
+  "emission": [
+   1.0,
+   0.06,
+   0.025
+  ],
+  "source": "viewport"
+ },
+ "M_Light_RedTrim": {
+  "base": [
+   0.9,
+   0.05,
+   0.04
+  ],
+  "emission": [
+   1.0,
+   0.035,
+   0.03
+  ],
+  "source": "viewport"
+ },
+ "M_Light_WallStrip": {
+  "base": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Metal_RankGold": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.56,
+   0.22
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 1.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Ops_Floor_Satin": {
+  "alpha": 1.0,
+  "base": [
+   0.04,
+   0.04,
+   0.045
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Ops_Floor_SatinGrey": {
+  "alpha": 1.0,
+  "base": [
+   0.16,
+   0.165,
+   0.17
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Ops_Floor_WashTile": {
+  "alpha": 1.0,
+  "base": [
+   0.2,
+   0.205,
+   0.21
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Ops_Glass_Case": {
+  "alpha": 1.0,
+  "base": [
+   0.9,
+   0.93,
+   0.95
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 1.0
+ },
+ "M_Ops_Glass_Slit": {
+  "base": [
+   0.6,
+   0.65,
+   0.7
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_Corridor": {
+  "base": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_Dim": {
+  "base": [
+   0.9,
+   0.9,
+   0.95
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_Hatch": {
+  "base": [
+   1.0,
+   0.85,
+   0.65
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_Maint": {
+  "base": [
+   0.9,
+   0.85,
+   0.75
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_MessCool": {
+  "base": [
+   0.95,
+   0.95,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_Night": {
+  "base": [
+   0.9,
+   0.92,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_Pip": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.02
+  ],
+  "emission": [
+   0.95,
+   0.97,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.25,
+  "source": "bsdf",
+  "strength": 9.0,
+  "transmission": 0.0
+ },
+ "M_Ops_Light_Ring": {
+  "base": [
+   0.95,
+   0.97,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Light_Warm": {
+  "base": [
+   1.0,
+   0.9,
+   0.75
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Starfield": {
+  "base": [
+   0.0,
+   0.0,
+   0.01
+  ],
+  "emission": [
+   0.84,
+   0.9,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Ops_Table_Top": {
+  "alpha": 1.0,
+  "base": [
+   0.012,
+   0.012,
+   0.013
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Paint_Hazard": {
+  "alpha": 1.0,
+  "base": [
+   0.4,
+   0.28,
+   0.03
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Paint_RankBlue": {
+  "alpha": 1.0,
+  "base": [
+   0.015,
+   0.05,
+   0.22
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Paint_RankRed": {
+  "alpha": 1.0,
+  "base": [
+   0.3,
+   0.015,
+   0.012
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Paint_TrimRed": {
+  "alpha": 1.0,
+  "base": [
+   0.3,
+   0.02,
+   0.02
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Plastic_BlackSatin": {
+  "alpha": 1.0,
+  "base": [
+   0.015,
+   0.015,
+   0.016
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Plastic_LampOff": {
+  "alpha": 1.0,
+  "base": [
+   0.055,
+   0.056,
+   0.06
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.25,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Plastic_MedWhite": {
+  "alpha": 1.0,
+  "base": [
+   0.4,
+   0.4,
+   0.4
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_ContainerGrey": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_ContainerGunmetal": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_ContainerOlive": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_CoreHot": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "source": "viewport"
+ },
+ "M_PropsInd_FieldBlue": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   0.16,
+   0.42,
+   1.0
+  ],
+  "source": "viewport"
+ },
+ "M_PropsInd_GlassDark": {
+  "alpha": 1.0,
+  "base": [
+   0.004,
+   0.005,
+   0.006
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.04,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_Haze": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "source": "viewport"
+ },
+ "M_PropsInd_HullPaint": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_LampDim": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "source": "viewport",
+  "strength": 3.0
+ },
+ "M_PropsInd_LampFlood": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "source": "viewport",
+  "strength": 45.0
+ },
+ "M_PropsInd_StencilAmber": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.62,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_StencilDark": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.62,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_StencilRed": {
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.62,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_PropsInd_Tread": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.85,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Recess_Dark": {
+  "alpha": 1.0,
+  "base": [
+   0.012,
+   0.012,
+   0.013
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.7,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Rubber_Black": {
+  "alpha": 1.0,
+  "base": [
+   0.025,
+   0.025,
+   0.025
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Screen": {
+  "alpha": 1.0,
+  "base": [
+   0.004,
+   0.005,
+   0.006
+  ],
+  "metallic": 0.0,
+  "roughness": 0.3,
+  "source": "bsdf",
+  "transmission": 0.0
+ },
+ "M_Seat_Upholstery": {
+  "alpha": 1.0,
+  "base": [
+   0.02,
+   0.02,
+   0.022
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Section_Cap": {
+  "alpha": 1.0,
+  "base": [
+   0.07,
+   0.07,
+   0.075
+  ],
+  "emission": [
+   0.8,
+   0.82,
+   0.85
+  ],
+  "metallic": 0.3,
+  "source": "viewport",
+  "transmission": 0.0
+ },
+ "M_Space_Earth": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.5,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Space_Stars": {
+  "alpha": 1.0,
+  "base": [
+   0.8,
+   0.8,
+   0.8
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 0.0,
+  "roughness": 0.5,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Starfield": {
+  "base": [
+   0.0,
+   0.0,
+   0.01
+  ],
+  "source": "viewport"
+ },
+ "M_Struct_Gunmetal": {
+  "alpha": 1.0,
+  "base": [
+   0.16,
+   0.165,
+   0.17
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 1.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Trim_BrushedSteel": {
+  "alpha": 1.0,
+  "base": [
+   0.6,
+   0.6,
+   0.62
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 1.0,
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Trim_Chrome": {
+  "alpha": 1.0,
+  "base": [
+   0.82,
+   0.83,
+   0.84
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "metallic": 1.0,
+  "source": "bsdf",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Wall_Charcoal": {
+  "alpha": 1.0,
+  "base": [
+   0.035,
+   0.036,
+   0.04
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Wall_PaintedDark": {
+  "alpha": 1.0,
+  "base": [
+   0.06,
+   0.065,
+   0.07
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Wall_PaintedLight": {
+  "alpha": 1.0,
+  "base": [
+   0.45,
+   0.46,
+   0.47
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ },
+ "M_Wall_PaintedMid": {
+  "alpha": 1.0,
+  "base": [
+   0.22,
+   0.23,
+   0.24
+  ],
+  "emission": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "source": "viewport",
+  "strength": 0.0,
+  "transmission": 0.0
+ }
+}

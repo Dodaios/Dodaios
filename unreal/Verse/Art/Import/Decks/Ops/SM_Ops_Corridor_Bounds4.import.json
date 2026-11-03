@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Ops/Corridor/SM_Ops_Corridor_Bounds4.SM_Ops_Corridor_Bounds4",
+  "collision": {
+    "primitives": 16,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Corridor_Bounds4.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "98d023e534264551270bfea4698099a3124fb2d7ac29f580c6b927f4d96934ea"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        4375.0,
+        315.0,
+        300.0
+      ],
+      "min": [
+        -3635.0,
+        145.0,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 192,
+    "uv_sets": 1,
+    "vertices": 128
+  },
+  "name": "SM_Ops_Corridor_Bounds4",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "corridor"
+    },
+    "builder": "art/verse/decks/ops/build.py",
+    "function": "build"
+  }
+}

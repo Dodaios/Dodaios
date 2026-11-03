@@ -1,0 +1,4675 @@
+{
+  "bounds_cm": {
+    "max": [
+      3780.0,
+      6180.0,
+      955.0
+    ],
+    "min": [
+      -180.0,
+      3180.0,
+      -300.0
+    ]
+  },
+  "deck": "ops",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Ops/LV_Ops",
+  "placements": [
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_01",
+      "location": [
+        1450.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_02",
+      "location": [
+        1590.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_03",
+      "location": [
+        1730.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_04",
+      "location": [
+        1870.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_05",
+      "location": [
+        2010.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_06",
+      "location": [
+        2150.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_07",
+      "location": [
+        1450.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_08",
+      "location": [
+        1590.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_09",
+      "location": [
+        1730.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_10",
+      "location": [
+        1870.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_11",
+      "location": [
+        2010.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_12",
+      "location": [
+        2150.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_13",
+      "location": [
+        1450.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_14",
+      "location": [
+        1590.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_15",
+      "location": [
+        1730.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_16",
+      "location": [
+        1870.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_17",
+      "location": [
+        2010.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_18",
+      "location": [
+        2150.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_19",
+      "location": [
+        1450.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_20",
+      "location": [
+        1590.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_21",
+      "location": [
+        1730.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_22",
+      "location": [
+        1870.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_23",
+      "location": [
+        2010.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_24",
+      "location": [
+        2150.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_25",
+      "location": [
+        2630.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_26",
+      "location": [
+        2770.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_27",
+      "location": [
+        2910.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_28",
+      "location": [
+        3050.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_29",
+      "location": [
+        3190.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_30",
+      "location": [
+        3330.0,
+        3888.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_31",
+      "location": [
+        2630.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_32",
+      "location": [
+        2770.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_33",
+      "location": [
+        2910.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_34",
+      "location": [
+        3050.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_35",
+      "location": [
+        3190.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_36",
+      "location": [
+        3330.0,
+        4152.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_37",
+      "location": [
+        2630.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_38",
+      "location": [
+        2770.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_39",
+      "location": [
+        2910.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_40",
+      "location": [
+        3050.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_41",
+      "location": [
+        3190.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_42",
+      "location": [
+        3330.0,
+        4728.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -1.0,
+        1e-07
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_43",
+      "location": [
+        2630.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_44",
+      "location": [
+        2770.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_45",
+      "location": [
+        2910.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_46",
+      "location": [
+        3050.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_47",
+      "location": [
+        3190.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Bunk_Single.SM_Bunk_Single",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "berth_48",
+      "location": [
+        3330.0,
+        4992.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bunk_Single",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_00_00",
+      "location": [
+        360.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_01_00",
+      "location": [
+        600.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_02_00",
+      "location": [
+        840.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_03_00",
+      "location": [
+        1080.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_04_00",
+      "location": [
+        1320.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_05_00",
+      "location": [
+        1560.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_06_00",
+      "location": [
+        1800.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_07_00",
+      "location": [
+        2040.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_08_00",
+      "location": [
+        2280.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampWhite.SM_Hull_Bay_LampWhite",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_09_00",
+      "location": [
+        2520.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampWhite",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_10_00",
+      "location": [
+        2760.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_11_00",
+      "location": [
+        3000.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_12_00",
+      "location": [
+        3240.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_13_00",
+      "location": [
+        3480.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hulln_14_00",
+      "location": [
+        3720.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_C",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_00",
+      "location": [
+        -120.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_01",
+      "location": [
+        -120.0,
+        5880.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_02",
+      "location": [
+        -120.0,
+        5640.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_03",
+      "location": [
+        -120.0,
+        5400.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_04",
+      "location": [
+        -120.0,
+        5160.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_05",
+      "location": [
+        -120.0,
+        4920.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_06",
+      "location": [
+        -120.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_07",
+      "location": [
+        -120.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_08",
+      "location": [
+        -120.0,
+        4200.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_09",
+      "location": [
+        -120.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_10",
+      "location": [
+        -120.0,
+        3720.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_11",
+      "location": [
+        -120.0,
+        3480.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_00_12",
+      "location": [
+        -120.0,
+        3240.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_A.SM_Hull_Bay_A",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_00",
+      "location": [
+        120.0,
+        6120.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_A",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_01",
+      "location": [
+        120.0,
+        5880.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_02",
+      "location": [
+        120.0,
+        5640.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_03",
+      "location": [
+        120.0,
+        5400.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_04",
+      "location": [
+        120.0,
+        5160.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_05",
+      "location": [
+        120.0,
+        4920.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_B.SM_Hull_Bay_B",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_06",
+      "location": [
+        120.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_B",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_07",
+      "location": [
+        120.0,
+        4440.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_LampRed.SM_Hull_Bay_LampRed",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_08",
+      "location": [
+        120.0,
+        4200.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_LampRed",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_09",
+      "location": [
+        120.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_10",
+      "location": [
+        120.0,
+        3720.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_11",
+      "location": [
+        120.0,
+        3480.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_D.SM_Hull_Bay_D",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "hullw_01_12",
+      "location": [
+        120.0,
+        3240.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Hull_Bay_D",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_gap_40",
+      "location": [
+        2390.0,
+        4222.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_gap_49",
+      "location": [
+        2390.0,
+        5062.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_1",
+      "location": [
+        1341.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_10",
+      "location": [
+        3537.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_2",
+      "location": [
+        1585.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_3",
+      "location": [
+        1829.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_4",
+      "location": [
+        2073.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_5",
+      "location": [
+        2317.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_6",
+      "location": [
+        2561.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_7",
+      "location": [
+        2805.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_8",
+      "location": [
+        3049.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Lockers_Uniform.SM_Lockers_Uniform",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "q_lockers_9",
+      "location": [
+        3293.0,
+        3360.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Lockers_Uniform",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Bounds.SM_Ops_Quarters_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_bounds_1",
+      "location": [
+        1800.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Quarters_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Bounds2.SM_Ops_Quarters_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_bounds_2",
+      "location": [
+        1800.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Quarters_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Bounds3.SM_Ops_Quarters_Bounds3",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_bounds_3",
+      "location": [
+        1800.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Quarters_Bounds3",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Bounds4.SM_Ops_Quarters_Bounds4",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_bounds_4",
+      "location": [
+        1800.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Quarters_Bounds4",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Bounds5.SM_Ops_Quarters_Bounds5",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_bounds_5",
+      "location": [
+        1800.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Quarters_Bounds5",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Ceiling.SM_Ops_Quarters_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_ceiling",
+      "location": [
+        1800.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Ops_Quarters_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Shell.SM_Ops_Quarters_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_shell",
+      "location": [
+        1800.0,
+        4680.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Ops_Quarters_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_table_1",
+      "location": [
+        2000.0,
+        5500.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Kit/Props/SM_Table_Mess.SM_Table_Mess",
+      "collision": "Verse_Prop",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "quarters_table_2",
+      "location": [
+        3000.0,
+        5500.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Table_Mess",
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
+  "rooms": [
+    {
+      "id": "quarters",
+      "main": false,
+      "name": "Crew Quarters",
+      "polygon_cm": [
+        [
+          300.0,
+          3360.0
+        ],
+        [
+          300.0,
+          5800.0
+        ],
+        [
+          3700.0,
+          5800.0
+        ],
+        [
+          3700.0,
+          3360.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "bunk-1",
+      "kind": "bunk",
+      "location": [
+        1450.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[14.5,37.38]",
+        "manifest_id": "1",
+        "owner": "berth_01",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-10",
+      "kind": "bunk",
+      "location": [
+        1870.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[18.7,43.02]",
+        "manifest_id": "10",
+        "owner": "berth_10",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-11",
+      "kind": "bunk",
+      "location": [
+        2010.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[20.1,43.02]",
+        "manifest_id": "11",
+        "owner": "berth_11",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-12",
+      "kind": "bunk",
+      "location": [
+        2150.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[21.5,43.02]",
+        "manifest_id": "12",
+        "owner": "berth_12",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-13",
+      "kind": "bunk",
+      "location": [
+        1450.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[14.5,45.78]",
+        "manifest_id": "13",
+        "owner": "berth_13",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-14",
+      "kind": "bunk",
+      "location": [
+        1590.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[15.9,45.78]",
+        "manifest_id": "14",
+        "owner": "berth_14",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-15",
+      "kind": "bunk",
+      "location": [
+        1730.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[17.3,45.78]",
+        "manifest_id": "15",
+        "owner": "berth_15",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-16",
+      "kind": "bunk",
+      "location": [
+        1870.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[18.7,45.78]",
+        "manifest_id": "16",
+        "owner": "berth_16",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-17",
+      "kind": "bunk",
+      "location": [
+        2010.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[20.1,45.78]",
+        "manifest_id": "17",
+        "owner": "berth_17",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-18",
+      "kind": "bunk",
+      "location": [
+        2150.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[21.5,45.78]",
+        "manifest_id": "18",
+        "owner": "berth_18",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-19",
+      "kind": "bunk",
+      "location": [
+        1450.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[14.5,51.42]",
+        "manifest_id": "19",
+        "owner": "berth_19",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-2",
+      "kind": "bunk",
+      "location": [
+        1590.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[15.9,37.38]",
+        "manifest_id": "2",
+        "owner": "berth_02",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-20",
+      "kind": "bunk",
+      "location": [
+        1590.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[15.9,51.42]",
+        "manifest_id": "20",
+        "owner": "berth_20",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-21",
+      "kind": "bunk",
+      "location": [
+        1730.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[17.3,51.42]",
+        "manifest_id": "21",
+        "owner": "berth_21",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-22",
+      "kind": "bunk",
+      "location": [
+        1870.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[18.7,51.42]",
+        "manifest_id": "22",
+        "owner": "berth_22",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-23",
+      "kind": "bunk",
+      "location": [
+        2010.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[20.1,51.42]",
+        "manifest_id": "23",
+        "owner": "berth_23",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-24",
+      "kind": "bunk",
+      "location": [
+        2150.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[21.5,51.42]",
+        "manifest_id": "24",
+        "owner": "berth_24",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-25",
+      "kind": "bunk",
+      "location": [
+        2630.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[26.3,37.38]",
+        "manifest_id": "25",
+        "owner": "berth_25",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-26",
+      "kind": "bunk",
+      "location": [
+        2770.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[27.700000000000003,37.38]",
+        "manifest_id": "26",
+        "owner": "berth_26",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-27",
+      "kind": "bunk",
+      "location": [
+        2910.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[29.1,37.38]",
+        "manifest_id": "27",
+        "owner": "berth_27",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-28",
+      "kind": "bunk",
+      "location": [
+        3050.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[30.5,37.38]",
+        "manifest_id": "28",
+        "owner": "berth_28",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-29",
+      "kind": "bunk",
+      "location": [
+        3190.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[31.900000000000002,37.38]",
+        "manifest_id": "29",
+        "owner": "berth_29",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-3",
+      "kind": "bunk",
+      "location": [
+        1730.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[17.3,37.38]",
+        "manifest_id": "3",
+        "owner": "berth_03",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-30",
+      "kind": "bunk",
+      "location": [
+        3330.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[33.3,37.38]",
+        "manifest_id": "30",
+        "owner": "berth_30",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-31",
+      "kind": "bunk",
+      "location": [
+        2630.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[26.3,43.02]",
+        "manifest_id": "31",
+        "owner": "berth_31",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-32",
+      "kind": "bunk",
+      "location": [
+        2770.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[27.700000000000003,43.02]",
+        "manifest_id": "32",
+        "owner": "berth_32",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-33",
+      "kind": "bunk",
+      "location": [
+        2910.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[29.1,43.02]",
+        "manifest_id": "33",
+        "owner": "berth_33",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-34",
+      "kind": "bunk",
+      "location": [
+        3050.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[30.5,43.02]",
+        "manifest_id": "34",
+        "owner": "berth_34",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-35",
+      "kind": "bunk",
+      "location": [
+        3190.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[31.900000000000002,43.02]",
+        "manifest_id": "35",
+        "owner": "berth_35",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-36",
+      "kind": "bunk",
+      "location": [
+        3330.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[33.3,43.02]",
+        "manifest_id": "36",
+        "owner": "berth_36",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-37",
+      "kind": "bunk",
+      "location": [
+        2630.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[26.3,45.78]",
+        "manifest_id": "37",
+        "owner": "berth_37",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-38",
+      "kind": "bunk",
+      "location": [
+        2770.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[27.700000000000003,45.78]",
+        "manifest_id": "38",
+        "owner": "berth_38",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-39",
+      "kind": "bunk",
+      "location": [
+        2910.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[29.1,45.78]",
+        "manifest_id": "39",
+        "owner": "berth_39",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-4",
+      "kind": "bunk",
+      "location": [
+        1870.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[18.7,37.38]",
+        "manifest_id": "4",
+        "owner": "berth_04",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-40",
+      "kind": "bunk",
+      "location": [
+        3050.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[30.5,45.78]",
+        "manifest_id": "40",
+        "owner": "berth_40",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-41",
+      "kind": "bunk",
+      "location": [
+        3190.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[31.900000000000002,45.78]",
+        "manifest_id": "41",
+        "owner": "berth_41",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-42",
+      "kind": "bunk",
+      "location": [
+        3330.0,
+        4724.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[33.3,45.78]",
+        "manifest_id": "42",
+        "owner": "berth_42",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-43",
+      "kind": "bunk",
+      "location": [
+        2630.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[26.3,51.42]",
+        "manifest_id": "43",
+        "owner": "berth_43",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-44",
+      "kind": "bunk",
+      "location": [
+        2770.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[27.700000000000003,51.42]",
+        "manifest_id": "44",
+        "owner": "berth_44",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-45",
+      "kind": "bunk",
+      "location": [
+        2910.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[29.1,51.42]",
+        "manifest_id": "45",
+        "owner": "berth_45",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-46",
+      "kind": "bunk",
+      "location": [
+        3050.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[30.5,51.42]",
+        "manifest_id": "46",
+        "owner": "berth_46",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-47",
+      "kind": "bunk",
+      "location": [
+        3190.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[31.900000000000002,51.42]",
+        "manifest_id": "47",
+        "owner": "berth_47",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-48",
+      "kind": "bunk",
+      "location": [
+        3330.0,
+        4995.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[33.3,51.42]",
+        "manifest_id": "48",
+        "owner": "berth_48",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-5",
+      "kind": "bunk",
+      "location": [
+        2010.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[20.1,37.38]",
+        "manifest_id": "5",
+        "owner": "berth_05",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-6",
+      "kind": "bunk",
+      "location": [
+        2150.0,
+        3884.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[21.5,37.38]",
+        "manifest_id": "6",
+        "owner": "berth_06",
+        "socket_kind": "bunk",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-7",
+      "kind": "bunk",
+      "location": [
+        1450.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[14.5,43.02]",
+        "manifest_id": "7",
+        "owner": "berth_07",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-8",
+      "kind": "bunk",
+      "location": [
+        1590.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[15.9,43.02]",
+        "manifest_id": "8",
+        "owner": "berth_08",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "bunk-9",
+      "kind": "bunk",
+      "location": [
+        1730.0,
+        4155.5,
+        55.0
+      ],
+      "props": {
+        "approach": "[17.3,43.02]",
+        "manifest_id": "9",
+        "owner": "berth_09",
+        "socket_kind": "bunk",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_1",
+      "kind": "seat",
+      "location": [
+        1932.0,
+        5562.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_1",
+        "owner": "quarters_table_1",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_10",
+      "kind": "seat",
+      "location": [
+        3068.0,
+        5438.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_10",
+        "owner": "quarters_table_2",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_11",
+      "kind": "seat",
+      "location": [
+        3000.0,
+        5438.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_11",
+        "owner": "quarters_table_2",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_12",
+      "kind": "seat",
+      "location": [
+        2932.0,
+        5438.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_12",
+        "owner": "quarters_table_2",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_2",
+      "kind": "seat",
+      "location": [
+        2000.0,
+        5562.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_2",
+        "owner": "quarters_table_1",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_3",
+      "kind": "seat",
+      "location": [
+        2068.0,
+        5562.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_3",
+        "owner": "quarters_table_1",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_4",
+      "kind": "seat",
+      "location": [
+        2068.0,
+        5438.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_4",
+        "owner": "quarters_table_1",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_5",
+      "kind": "seat",
+      "location": [
+        2000.0,
+        5438.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_5",
+        "owner": "quarters_table_1",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_6",
+      "kind": "seat",
+      "location": [
+        1932.0,
+        5438.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_6",
+        "owner": "quarters_table_1",
+        "socket_kind": "seat",
+        "yaw_deg": "0.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_7",
+      "kind": "seat",
+      "location": [
+        2932.0,
+        5562.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_7",
+        "owner": "quarters_table_2",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_8",
+      "kind": "seat",
+      "location": [
+        3000.0,
+        5562.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_8",
+        "owner": "quarters_table_2",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "seat-quarters_9",
+      "kind": "seat",
+      "location": [
+        3068.0,
+        5562.0,
+        46.0
+      ],
+      "props": {
+        "manifest_id": "quarters_9",
+        "owner": "quarters_table_2",
+        "socket_kind": "seat",
+        "yaw_deg": "180.0"
+      },
+      "room": "quarters",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": null
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/ops/zones.py",
+    "sha256": "329c8c808950e8e72fcd63a0dfbb06f865436b131b4a00915c294e4d47919afa"
+  },
+  "zone": "quarters"
+}

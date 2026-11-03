@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Ops/Quartermaster/SM_Ops_Quartermaster_Bounds5.SM_Ops_Quartermaster_Bounds5",
+  "collision": {
+    "primitives": 16,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Quartermaster_Bounds5.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "2c8e7fffdc7b77a316e85896fa29cf0ae6fe44f1c37994c68832a18a5f09c917"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        505.0,
+        2295.0,
+        300.0
+      ],
+      "min": [
+        -1165.0,
+        -1895.0,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 192,
+    "uv_sets": 1,
+    "vertices": 128
+  },
+  "name": "SM_Ops_Quartermaster_Bounds5",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "quartermaster"
+    },
+    "builder": "art/verse/decks/ops/build.py",
+    "function": "build"
+  }
+}

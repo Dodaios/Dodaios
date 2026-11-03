@@ -1,0 +1,26 @@
+{
+  "name": "MI_Recess_Dark",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Recess_Dark",
+  "scalars": {
+    "EdgeWear": 0.4,
+    "GrimeAmount": 0.3,
+    "Metallic": 0.0,
+    "RoughnessMax": 0.75,
+    "RoughnessMin": 0.45
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.015,
+      0.015,
+      0.016,
+      1.0
+    ]
+  }
+}
