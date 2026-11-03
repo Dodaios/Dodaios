@@ -236,6 +236,8 @@ def build_physics() -> None:
             fix_redirectors(source.get_path_name().rsplit("/", 1)[0])
             fix_redirectors(S.RIG_FOLDER)
     physics = ASSETS.load_asset(path)
+    # The zone column ships as the C++ bone table VerseHuman::HitBodies() / HitZoneForBone
+    # (combat-state 5); tests/verse/test_unreal_characters.py keeps it equal to HIT_BODIES.
     ok = unreal.VerseContentTools.rebuild_hit_bodies(
         physics,
         source,

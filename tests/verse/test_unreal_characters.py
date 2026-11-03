@@ -131,6 +131,14 @@ def test_cpp_bone_table_matches_python():
     assert [(b, p or None) for b, p in pairs] == list(S.BONES)
 
 
+def test_cpp_hit_zone_table_matches_hit_bodies():
+    """combat-state 5: the bone -> EVerseHitZone table ships with PHYS_Verse_Human."""
+    text = CPP.read_text(encoding="utf-8")
+    block = text.split("// HITZONES-BEGIN")[1].split("// HITZONES-END")[0]
+    rows = re.findall(r'Z\(TEXT\("([^"]+)"\), EVerseHitZone::(\w+)\)', block)
+    assert rows == [(bone, zone) for bone, _, _, zone in S.HIT_BODIES]
+
+
 def test_cpp_clip_and_mesh_tables_match_python():
     assert _cpp_list("CLIPS-BEGIN", "CLIPS-END") == [c.name for c in K.CLIPS]
     assert _cpp_list("MESHES-BEGIN", "MESHES-END") == [m.asset_path for m in K.MESHES]
