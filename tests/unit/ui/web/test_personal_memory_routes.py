@@ -92,3 +92,15 @@ def test_export_and_reimport(client, tmp_path):
     report = client.post("/api/memory/vault/import", content=bundle.content).json()
     assert report["added"] == 1
     assert client.post("/api/memory/vault/import", content=b"junk").status_code == 422
+
+
+def test_overview_names_what_is_in_mind_and_files_render(client, vault):
+    client.post("/api/memory/vault/items", json={"text": "I live in Berlin.", "kind": "profile"})
+    client.post("/api/memory/vault/items", json={"text": "We hiked on Sunday.", "kind": "episode"})
+    overview = client.get("/api/memory/vault").json()
+    in_mind = {m.text for m in vault.list() if m.id in overview["in_mind_ids"]}
+    assert in_mind == {"I live in Berlin."}
+    assert 0 < overview["used_chars"] <= overview["budget_chars"]
+    files = client.get("/api/memory/vault/files").json()["files"]
+    assert [f["name"] for f in files] == ["MEMORY.md", "profile.md", "episode.md"]
+    assert "I live in Berlin." in files[1]["content"]

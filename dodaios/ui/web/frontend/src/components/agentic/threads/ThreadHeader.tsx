@@ -8,6 +8,11 @@ import { useEventStore } from "@/store/events";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { useIdeThreadsStore } from "@/store/ideThreads";
 import { useNavSidebarStore } from "@/store/navSidebar";
+import { useThemeValue } from "@/hooks/useTheme";
+import { DoneGateLabel } from "../PaneDoneGateBadge";
+import { GitHubStatusBadge } from "../SessionGitHubBadge";
+import { usePaneDoneGate } from "../usePaneDoneGate";
+import { THREAD_ENTRY, useThreadGitHub } from "../useSessionGitHub";
 import { PaneChangesDialog } from "../PaneChangesDialog";
 import { prefetchPaneChanges } from "../paneChangesApi";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
@@ -52,18 +57,24 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
   const t = useT();
   const pushToast = useEventStore((state) => state.pushToast);
   const catalog = useThreadChatStore((state) => state.catalog);
+  // The thread list carries the name the coding CLI gave the conversation
+  // (or the topic title); the open session alone may still hold the first message.
+  const listed = useThreadChatStore((state) => state.sessions.find((row) => row.session_id === session.session_id));
+  const appearance = useThemeValue();
+  const github = useThreadGitHub(session.session_id);
+  const gate = usePaneDoneGate(`thread:${session.session_id}`, THREAD_ENTRY);
   const navCollapsed = useNavSidebarStore((state) => state.collapsed);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [changesOpen, setChangesOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement | null>(null);
-  const title = threadTitle(session);
+  const title = threadTitle(listed ?? session);
   const mark = useMemo(() => {
     const provider = catalog?.providers.find((row) => row.id === session.provider);
     return provider?.agent ? { agent: provider.agent, label: provider.label } : null;
   }, [catalog, session.provider]);
   // Archiving a thread mid-turn or mid-approval would hide work that needs the person.
-  const busy = Boolean(session.running) || Boolean(session.pending_approvals?.length);
+  const busy = Boolean((listed ?? session).running) || Boolean((listed ?? session).pending_approvals?.length);
   const target = { workspaceId: workspaceId ?? "", pane: "", folder };
 
   const rename = async (wanted: string) => {
@@ -103,6 +114,8 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
             className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-0.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           <button type="submit" aria-label={t("ide_threads.save_name")} className="rounded p-1 text-muted-foreground hover:text-foreground"><Check className="h-4 w-4" /></button>
         </form>}
+      <DoneGateLabel gate={gate} appearance={appearance} name={title} />
+      <GitHubStatusBadge status={github.status} pending={github.pending} appearance={appearance} />
       <div className="flex shrink-0 items-center gap-0.5">
         <Action label={t("ide_threads.header.review_changes")} onClick={reviewChanges} disabled={!folder}
           testId="thread-header-review-changes" onPointerEnter={prefetchReview}>

@@ -210,7 +210,8 @@ def markdown_files(vault: MemoryVault) -> dict[str, str]:
             details = []
             if m.entities:
                 details.append(", ".join(m.entities))
-            if m.valid_from:
+            # An imported memory's start date is the import, not when it became true.
+            if m.valid_from and m.origin != "imported":
                 details.append(f"since {m.valid_from[:10]}")
             if m.valid_to:
                 details.append(f"until {m.valid_to[:10]}")

@@ -3254,15 +3254,16 @@ class WebServer:
             )
             return
 
-        # Relative path on purpose — it must match what the writers actually
-        # use, NOT cfg.memory.data_dir. The production writer is the Vision
-        # ScreenshotSource (dodaios/vision/engine.py constructs it with no
-        # blob_dir → falls back to the relative _DEFAULT_BLOB_DIR in
-        # dodaios/vision/screenshot.py = data/flight_recorder/blobs). It ignores
-        # cfg.memory.data_dir, so deriving from that key would make the sweep a
-        # silent no-op whenever data_dir is overridden. Same process → same cwd
-        # → same directory as the writer.
-        flight_recorder_dir = Path("data") / "flight_recorder"
+        # The same directory the writers use, NOT cfg.memory.data_dir. The
+        # production writer is the Vision ScreenshotSource
+        # (dodaios/vision/engine.py constructs it with no blob_dir → falls back
+        # to _DEFAULT_BLOB_DIR in dodaios/vision/screenshot.py =
+        # flight_recorder_dir()/blobs). It ignores cfg.memory.data_dir, so
+        # deriving from that key would make the sweep a silent no-op whenever
+        # data_dir is overridden.
+        from dodaios.core.paths import flight_recorder_dir as _flight_recorder_dir
+
+        flight_recorder_dir = _flight_recorder_dir()
 
         # The one-shot boot sweep is pure cleanup of old blobs — nothing
         # downstream consumes its stats (they are only logged). Awaiting it sat
@@ -3307,12 +3308,13 @@ class WebServer:
         auto-flushes every second, and oversized event blobs land under
         ``blobs/`` which the screenshot-retention task already prunes.
         """
+        from dodaios.core.paths import flight_recorder_dir
         from dodaios.telemetry.recorder import attach_flight_recorder
 
         rec = attach_flight_recorder(
             self.bus,
             enabled=self.cfg.telemetry.flight_recorder,
-            data_dir=Path("data") / "flight_recorder",
+            data_dir=flight_recorder_dir(),
         )
         if rec is None:
             logger.info("Flight recorder disabled (telemetry.flight_recorder=false)")

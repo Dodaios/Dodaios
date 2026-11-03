@@ -138,6 +138,25 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def runtime_data_dir() -> Path:
+    """The runtime data dir: ``JARVIS_DATA_DIR``, else the checkout's instance dir.
+
+    The same rule as ``dodaios.core.config.DATA_DIR`` (both resolve through
+    ``dodaios.core.instance.resolve_data_dir``), for modules that must not
+    import the config. Read on every call. The app runs from the checkout, so
+    without an override this is the ``data/`` a bare relative path meant;
+    unlike one, it does not depend on the process cwd (#458).
+    """
+    from dodaios.core.instance import resolve_data_dir
+
+    return resolve_data_dir(repo_root())
+
+
+def flight_recorder_dir() -> Path:
+    """``<data dir>/flight_recorder``: the event JSONL files and their ``blobs/``."""
+    return runtime_data_dir() / "flight_recorder"
+
+
 def default_doc_roots() -> list[Path]:
     """Default discovery roots for the documentation registry.
 
@@ -276,6 +295,8 @@ __all__ = [
     "skill_prefs_path",
     "docs_index_db_path",
     "repo_root",
+    "runtime_data_dir",
+    "flight_recorder_dir",
     "default_doc_roots",
     "board_db_path",
     "ensure_user_dirs",

@@ -218,6 +218,16 @@ def test_wake_cuda_cache_path_honours_data_dir_env(tmp_path, monkeypatch) -> Non
     assert _wake_cuda_cache_path() == tmp_path / "wake_cuda_probe.json"
 
 
+def test_wake_cuda_cache_path_follows_the_runtime_data_dir_not_the_cwd(
+    tmp_path, monkeypatch
+) -> None:
+    """Without the memory override the probe lands in JARVIS_DATA_DIR (#458)."""
+    monkeypatch.delenv("JARVIS__MEMORY__DATA_DIR", raising=False)
+    monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path / "runtime"))
+    monkeypatch.chdir(tmp_path)
+    assert _wake_cuda_cache_path() == tmp_path / "runtime" / "wake_cuda_probe.json"
+
+
 def test_wake_cuda_available_returns_persisted_value_without_probing(
     tmp_path, monkeypatch
 ) -> None:

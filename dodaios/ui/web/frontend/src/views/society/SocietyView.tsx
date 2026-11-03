@@ -1,7 +1,10 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
 
 import { setMapFullscreen } from "@/lib/mapFullscreen";
+import { useVerseModeStore } from "@/store/verseMode";
 import { inDesktopShell } from "@/lib/nativeDrop";
 import { useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -148,6 +151,18 @@ export function SocietyView() {
     };
   }, []);
 
+  // The sidebar's Verse row: open straight into the full-window Verse,
+  // whether this view was already on screen or mounts because of the click.
+  // After the mount reset above, so that reset cannot undo the fullscreen.
+  const verseRequested = useVerseModeStore((s) => s.requested);
+  useEffect(() => {
+    if (verseRequested && useVerseModeStore.getState().take()) switchMode("world");
+  }, [verseRequested, switchMode]);
+  useEffect(() => {
+    useVerseModeStore.getState().setOpen(mode === "world");
+  }, [mode]);
+  useEffect(() => () => useVerseModeStore.getState().setOpen(false), []);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.defaultPrevented && !isProtectedMarsInteraction(event.target) && mode === "world" && !openPlace) switchMode("agents");
@@ -213,6 +228,18 @@ export function SocietyView() {
         {createError && <p role="alert" className="bg-card px-4 py-2 text-sm text-destructive">{createError}</p>}
         {worldVisited ? (
         <div className={mode === "world" ? "relative flex min-h-0 flex-1" : "hidden"} data-testid="society-world-surface" aria-hidden={mode !== "world"}>
+          {/* The way out of the full-window Verse besides Escape: one button
+              in the window caption, centred where the old switch sat. */}
+          {mode === "world" && createPortal(
+            <div className="pointer-events-none fixed inset-x-0 top-0 z-[140] flex h-8 items-center justify-center">
+              <button type="button" data-testid="verse-back" onClick={() => switchMode("agents")}
+                className="pointer-events-auto inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
+                {t("common.back")}
+              </button>
+            </div>,
+            document.body,
+          )}
           <div className="min-w-0 flex-1">
             <CanvasActivity.Provider value={mode === "world" && !openPlace}>
               <Suspense fallback={<div className="relative h-full"><VerseLoadingScreen /></div>}>
