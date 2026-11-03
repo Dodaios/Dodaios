@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 318,
+  "count": 319,
   "forks": 114,
-  "placed": 66,
-  "stated": 79,
-  "generatedAt": "2026-11-03T01:41:44.241Z",
+  "placed": 67,
+  "stated": 80,
+  "generatedAt": "2026-11-03T03:37:50.686Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -235,6 +235,13 @@
       "lon": 11.573,
       "label": "Munich",
       "country": "Germany",
+      "count": 1
+    },
+    {
+      "lat": 49.146,
+      "lon": -123.934,
+      "label": "Nanaimo",
+      "country": "Canada",
       "count": 1
     },
     {
