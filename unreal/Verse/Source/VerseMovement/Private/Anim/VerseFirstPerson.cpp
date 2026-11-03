@@ -24,6 +24,17 @@ void UVerseFirstPersonLibrary::ConfigureOwnerView(USkeletalMeshComponent* FirstP
 		FirstPersonBody->SetOnlyOwnerSee(true);
 		FirstPersonBody->SetCastShadow(false);
 		FirstPersonBody->ComponentTags.AddUnique(OwnerViewTag);
+		// Hits resolve only against the world body: no second set of hit bodies on one pawn
+		// (and none with a collapsed head). NoCollision also keeps the physics state from being created.
+		FirstPersonBody->bAlwaysCreatePhysicsState = false;
+		FirstPersonBody->SetGenerateOverlapEvents(false);
+		FirstPersonBody->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		FirstPersonBody->SetCollisionResponseToAllChannels(ECR_Ignore);
+		if (FirstPersonBody->IsPhysicsStateCreated())
+		{
+			// Already registered with hit bodies: drop them (no state is created again without collision).
+			FirstPersonBody->RecreatePhysicsState();
+		}
 		// Covers bodies driven without UVerseAnimInstance (single-node clips); a no-op until registered.
 		FirstPersonBody->HideBoneByName(HiddenBone, PBO_None);
 		if (WorldBody && WorldBody != FirstPersonBody)
@@ -37,6 +48,16 @@ void UVerseFirstPersonLibrary::ConfigureOwnerView(USkeletalMeshComponent* FirstP
 			{
 				FirstPersonBody->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 				FirstPersonBody->SetAnimInstanceClass(Wanted);
+			}
+			// One source of weapon state and actions: the first-person body mirrors the world body.
+			// An instance created later (registration) finds the world body itself (OwnerViewTag).
+			if (UVerseAnimInstance* Instance = Cast<UVerseAnimInstance>(FirstPersonBody->GetAnimInstance()))
+			{
+				Instance->SetStateSource(WorldBody);
+			}
+			else
+			{
+				FirstPersonBody->PrimaryComponentTick.AddPrerequisite(WorldBody, WorldBody->PrimaryComponentTick);
 			}
 		}
 	}

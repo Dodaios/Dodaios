@@ -17,8 +17,12 @@ class USkeletalMeshComponent;
  * shadows see. The first-person body runs its own `UVerseAnimInstance` (a
  * leader-pose follower cannot hide bones of its own: the engine takes the
  * leader's visibility), which scales `Head` to zero while the component carries
- * `OwnerViewTag`. The camera follows the world body's `Camera` bone; the first-
- * person body's `Camera` collapses with the hidden head.
+ * `OwnerViewTag`. That instance mirrors the world body's (`SetStateSource`):
+ * weapon state, actions and the weapon component are set on the world body
+ * only, and calls on the first-person instance are forwarded to it. The
+ * first-person body has no collision and no physics state, so hits only ever
+ * resolve against the world body. The camera follows the world body's `Camera`
+ * bone; the first-person body's `Camera` collapses with the hidden head.
  */
 UCLASS()
 class VERSEMOVEMENT_API UVerseFirstPersonLibrary : public UBlueprintFunctionLibrary

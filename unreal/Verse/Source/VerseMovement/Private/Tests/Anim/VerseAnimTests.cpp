@@ -4,19 +4,25 @@
 #include "Anim/VerseFirstPerson.h"
 #include "Anim/VerseHumanSkeleton.h"
 #include "Animation/AnimSequence.h"
+#include "Animation/SkeletalMeshActor.h"
 #include "Animation/AttributesRuntime.h"
 #include "Animation/Skeleton.h"
 #include "BoneContainer.h"
 #include "BonePose.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/World.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/SkeletalBodySetup.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -132,6 +138,75 @@ namespace VerseAnimTest
 		const FString Text = FString(TEXT("{\n")) + FString::Join(Lines, TEXT(",\n")) + TEXT("\n}\n");
 		FFileHelper::SaveStringToFile(Text, *FPaths::Combine(Dir, File));
 	}
+
+	/** A bare game world with a floor, for components ticked by hand; destroyed with the helper. */
+	struct FTestWorld
+	{
+		UWorld* World = nullptr;
+
+		FTestWorld()
+		{
+			// Like a game world: CreateWorld's default turns on the editor's trace collision, which builds
+			// physics state even for components with collision off.
+			const UWorld::InitializationValues Values = UWorld::InitializationValues()
+				.CreatePhysicsScene(true)
+				.ShouldSimulatePhysics(false)
+				.EnableTraceCollision(false)
+				.CreateNavigation(false)
+				.CreateAISystem(false);
+			World = UWorld::CreateWorld(EWorldType::Game, false, TEXT("VerseAnimTestWorld"), nullptr, true, ERHIFeatureLevel::Num, &Values);
+			UStaticMesh* Plane = World ? LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")) : nullptr;
+			if (Plane)
+			{
+				AStaticMeshActor* Floor = Spawn<AStaticMeshActor>(FVector::ZeroVector);
+				Floor->GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);
+				Floor->GetStaticMeshComponent()->SetStaticMesh(Plane);
+				Floor->SetActorScale3D(FVector(40, 40, 1));
+			}
+		}
+
+		~FTestWorld()
+		{
+			if (World)
+			{
+				World->DestroyWorld(false);
+			}
+		}
+
+		template <typename T>
+		T* Spawn(const FVector& At)
+		{
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			return World->SpawnActor<T>(At, FRotator::ZeroRotator, Params);
+		}
+
+		/** A character body running UVerseAnimInstance. */
+		USkeletalMeshComponent* Body(USkeletalMesh* Mesh, const FVector& At)
+		{
+			ASkeletalMeshActor* Actor = Spawn<ASkeletalMeshActor>(At);
+			USkeletalMeshComponent* Comp = Actor->GetSkeletalMeshComponent();
+			Comp->SetMobility(EComponentMobility::Movable);
+			Comp->SetSkeletalMesh(Mesh);
+			Comp->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+			Comp->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			Comp->SetAnimInstanceClass(UVerseAnimInstance::StaticClass());
+			return Comp;
+		}
+
+		/** The owner's first-person body on the actor of `WorldBody`, set up like a pawn does. */
+		USkeletalMeshComponent* OwnerView(USkeletalMeshComponent* WorldBody)
+		{
+			AActor* Actor = WorldBody->GetOwner();
+			USkeletalMeshComponent* View = NewObject<USkeletalMeshComponent>(Actor);
+			View->SetupAttachment(WorldBody);
+			View->SetSkeletalMesh(WorldBody->GetSkeletalMeshAsset());
+			View->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+			View->RegisterComponent();
+			UVerseFirstPersonLibrary::ConfigureOwnerView(View, WorldBody, nullptr);
+			return View;
+		}
+	};
 }
 
 using namespace VerseAnimTest;
@@ -191,6 +266,60 @@ bool FVerseAnimMeshesTest::RunTest(const FString& Parameters)
 				Influences <= static_cast<uint32>(VerseHuman::MaxInfluences));
 		}
 	}
+	return true;
+}
+
+// combat-state 5: every hit body of PHYS_Verse_Human maps to its EVerseHitZone through the bone table.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseAnimHitZonesTest, "Verse.Anim.Skeleton.HitZones", VerseAnimTest::Flags)
+bool FVerseAnimHitZonesTest::RunTest(const FString& Parameters)
+{
+	const UPhysicsAsset* Physics = LoadObject<UPhysicsAsset>(nullptr, VerseHuman::PhysicsPath, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!TestNotNull(TEXT("PHYS_Verse_Human is imported"), Physics))
+	{
+		return false;
+	}
+	TMap<FName, EVerseHitZone> Table;
+	for (const TPair<FName, EVerseHitZone>& Row : VerseHuman::HitBodies())
+	{
+		Table.Add(Row.Key, Row.Value);
+	}
+	TSet<FName> BodyBones;
+	for (const TObjectPtr<USkeletalBodySetup>& Body : Physics->SkeletalBodySetups)
+	{
+		if (!Body)
+		{
+			continue;
+		}
+		BodyBones.Add(Body->BoneName);
+		const EVerseHitZone* Zone = Table.Find(Body->BoneName);
+		if (TestNotNull(FString::Printf(TEXT("body on %s is in the hit-zone table"), *Body->BoneName.ToString()), Zone))
+		{
+			TestEqual(FString::Printf(TEXT("HitZoneForBone(%s)"), *Body->BoneName.ToString()),
+				static_cast<int32>(VerseHuman::HitZoneForBone(Body->BoneName)), static_cast<int32>(*Zone));
+		}
+	}
+	for (const TPair<FName, EVerseHitZone>& Row : Table)
+	{
+		TestTrue(FString::Printf(TEXT("table bone %s carries a body"), *Row.Key.ToString()), BodyBones.Contains(Row.Key));
+	}
+	TSet<EVerseHitZone> Zones;
+	for (const TPair<FName, EVerseHitZone>& Row : Table)
+	{
+		Zones.Add(Row.Value);
+	}
+	TestEqual(TEXT("every zone but None has a body"), Zones.Num(), 6);
+	TestFalse(TEXT("no body maps to None"), Zones.Contains(EVerseHitZone::None));
+	// Bones without a body resolve through their parents; IK and root bones are no zone.
+	TestEqual(TEXT("Hand_L -> Arm"), static_cast<int32>(VerseHuman::HitZoneForBone(TEXT("Hand_L"))), static_cast<int32>(EVerseHitZone::Arm));
+	TestEqual(TEXT("Camera -> Head"), static_cast<int32>(VerseHuman::HitZoneForBone(TEXT("Camera"))), static_cast<int32>(EVerseHitZone::Head));
+	TestEqual(TEXT("Spine_02 -> LowerTorso"), static_cast<int32>(VerseHuman::HitZoneForBone(TEXT("Spine_02"))),
+		static_cast<int32>(EVerseHitZone::LowerTorso));
+	TestEqual(TEXT("Ball_R -> Leg"), static_cast<int32>(VerseHuman::HitZoneForBone(TEXT("Ball_R"))), static_cast<int32>(EVerseHitZone::Leg));
+	TestEqual(TEXT("Root -> None"), static_cast<int32>(VerseHuman::HitZoneForBone(TEXT("Root"))), static_cast<int32>(EVerseHitZone::None));
+	TestEqual(TEXT("IK_Hand_Gun -> None"), static_cast<int32>(VerseHuman::HitZoneForBone(TEXT("IK_Hand_Gun"))),
+		static_cast<int32>(EVerseHitZone::None));
+	TestEqual(TEXT("unknown bone -> None"), static_cast<int32>(VerseHuman::HitZoneForBone(TEXT("NotABone"))),
+		static_cast<int32>(EVerseHitZone::None));
 	return true;
 }
 
@@ -364,26 +493,32 @@ bool FVerseAnimFootIKTest::RunTest(const FString& Parameters)
 		FVector(-Side * FMath::Sin(FMath::DegreesToRadians(30.0)) + FVector::UpVector * FMath::Cos(FMath::DegreesToRadians(30.0)))});
 	Floors.Add({TEXT("stairs 18 cm"), [=](const FVector& P) { return FVector::DotProduct(P, Fwd) > 2.0 ? 18.0 : 0.0; }, FVector::UpVector});
 	Floors.Add({TEXT("stairs down 18 cm"), [=](const FVector& P) { return FVector::DotProduct(P, Fwd) > 2.0 ? -18.0 : 0.0; }, FVector::UpVector});
-	FReport Report;
-	for (const FFloor& Floor : Floors)
+	// One pose on one floor, probed the way UVerseAnimInstance::TraceFeet probes: under the ankle, the heel
+	// and the ball of the pose before foot IK. Returns the deepest sole point under the floor (cm).
+	auto Deepest = [&](FVerseAnimFrame Frame, float IdleTime, const FFloor& Floor, float& OutPelvis, bool& bOutFootIK)
 	{
-		FVerseAnimInputs In;
-		FVerseAnimStateMachine Machine;
-		FVerseAnimFrame Frame = Settle(Clips, In, 0.5f, Machine);
 		Frame.OffHandAlpha = 0.f;
+		bOutFootIK = Frame.bFootIK;
 		TArray<FTransform> Flat;
 		Frame.bFootIK = false;
-		Rig.Evaluate(Frame, Machine.GetIdleTime(), Flat);
-		Frame.bFootIK = true;
+		Rig.Evaluate(Frame, IdleTime, Flat);
+		Frame.bFootIK = bOutFootIK;
+		const FVector Normal = Floor.Normal.GetSafeNormal();
 		for (int32 s = 0; s < 2; ++s)
 		{
 			const FVector Ankle = Flat[Rig.Bones.Foot[s]].GetLocation();
-			Frame.FloorOffset[s] = static_cast<float>(Floor.Height(Ankle));
-			Frame.FloorNormal[s] = Floor.Normal.GetSafeNormal();
+			const FVector HeelP = Flat[Rig.Bones.Foot[s]].TransformPosition(Sole[s][0]);
+			const FVector BallP = Flat[Ball[s]].GetLocation();
+			const float AnkleOffset = static_cast<float>(Floor.Height(Ankle));
+			Frame.FloorOffset[s] = FMath::Max(
+				VerseAnim::FootFloorOffset(AnkleOffset, Normal, static_cast<float>(Floor.Height(HeelP)), HeelP - Ankle),
+				VerseAnim::FootFloorOffset(AnkleOffset, Normal, static_cast<float>(Floor.Height(BallP)), BallP - Ankle));
+			Frame.FloorNormal[s] = Normal;
 		}
 		TArray<FTransform> CS;
 		FVerseAnimEvalInfo Info;
-		Rig.Evaluate(Frame, Machine.GetIdleTime(), CS, &Info);
+		Rig.Evaluate(Frame, IdleTime, CS, &Info);
+		OutPelvis = Info.PelvisDrop;
 		double Worst = 0.0;
 		for (int32 s = 0; s < 2; ++s)
 		{
@@ -393,9 +528,61 @@ bool FVerseAnimFootIKTest::RunTest(const FString& Parameters)
 				Worst = FMath::Max(Worst, Floor.Height(P) - P.Z);
 			}
 		}
+		return Worst;
+	};
+	FReport Report;
+	for (const FFloor& Floor : Floors)
+	{
+		FVerseAnimInputs In;
+		FVerseAnimStateMachine Machine;
+		FVerseAnimFrame Frame = Settle(Clips, In, 0.5f, Machine);
+		float Pelvis = 0.f;
+		bool bIK = false;
+		const double Worst = Deepest(Frame, Machine.GetIdleTime(), Floor, Pelvis, bIK);
 		Report.SetNumberField(Floor.Name, Worst);
-		TestTrue(FString::Printf(TEXT("%s: deepest sole point %.2f cm below the floor (pelvis %.1f cm), at most 1"), Floor.Name, Worst, Info.PelvisDrop),
+		TestTrue(FString::Printf(TEXT("%s: idle foot IK on"), Floor.Name), bIK);
+		TestTrue(FString::Printf(TEXT("%s: deepest sole point %.2f cm below the floor (pelvis %.1f cm), at most 1"), Floor.Name, Worst, Pelvis),
 			Worst <= 1.0);
+	}
+	// Ground locomotion keeps foot IK: the 8-way stand and crouch moves, sampled over a whole stride.
+	const struct
+	{
+		const TCHAR* Name;
+		EVerseStance Stance;
+		int32 StanceIndex;
+	} Moves[] = {{TEXT("walk"), EVerseStance::Stand, 0}, {TEXT("crouch move"), EVerseStance::Crouch, 1}};
+	constexpr int32 SamplesPerStride = 8;
+	for (const auto& Move : Moves)
+	{
+		for (const FFloor& Floor : Floors)
+		{
+			double Worst = 0.0;
+			int32 Off = 0;
+			for (int32 h = 0; h < FVerseAnimClipSet::NumHeadings; ++h)
+			{
+				const double Angle = FMath::DegreesToRadians(45.0 * h);
+				FVerseAnimInputs In;
+				In.Stance = Move.Stance;
+				In.LocalVelocity = FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.0) * Clips.MoveSpeed[Move.StanceIndex];
+				FVerseAnimStateMachine Machine;
+				FVerseAnimFrame Frame = Settle(Clips, In, 1.0f, Machine);
+				const float Cycle = FMath::Max(Frame.StanceClips[Move.StanceIndex].MoveLength[0], 0.1f);
+				const int32 StepFrames = FMath::Max(1, FMath::RoundToInt(Cycle * 60.f / SamplesPerStride));
+				for (int32 k = 0; k < SamplesPerStride; ++k)
+				{
+					float Pelvis = 0.f;
+					bool bIK = false;
+					Worst = FMath::Max(Worst, Deepest(Frame, Machine.GetIdleTime(), Floor, Pelvis, bIK));
+					Off += bIK ? 0 : 1;
+					Frame = Settle(Clips, In, StepFrames / 60.f, Machine);
+				}
+			}
+			const FString Key = FString::Printf(TEXT("%s, %s"), Move.Name, Floor.Name);
+			Report.SetNumberField(Key, Worst);
+			TestEqual(FString::Printf(TEXT("%s: foot IK on in every sample"), *Key), Off, 0);
+			TestTrue(FString::Printf(TEXT("%s: deepest sole point %.2f cm below the floor over 8 headings, at most 1"), *Key, Worst),
+				Worst <= 1.0);
+		}
 	}
 	WriteProof(TEXT("13.10"), TEXT("foot_ik.json"), Report);
 	return true;
@@ -512,7 +699,10 @@ bool FVerseAnimStateMachineTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-// A13.6: animation for 2 FPS characters plus 12 crew at most 0.4 ms of game thread.
+// A13.6: animation for 2 FPS characters plus 12 crew at most 0.4 ms of game thread, measured through
+// the shipped setup: real USkeletalMeshComponents running UVerseAnimInstance in a world with a floor.
+// Each FPS character is a world body plus the owner's first-person body (ConfigureOwnerView); crew
+// play a duty clip through OverrideClip, the way crew drive their bodies.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseAnimCostTest, "Verse.Anim.Cost", VerseAnimTest::Flags)
 bool FVerseAnimCostTest::RunTest(const FString& Parameters)
 {
@@ -522,71 +712,149 @@ bool FVerseAnimCostTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	FRig Rig(*Mesh);
-	const UAnimSequence* Crew = LoadObject<UAnimSequence>(nullptr, *VerseHuman::ClipPath(TEXT("A_Crew_Sit_Type")), nullptr, LOAD_NoWarn | LOAD_Quiet);
-	FVerseAnimStateMachine Fps[2];
-	FVerseAnimInputs FpsIn[2];
-	FpsIn[0].LocalVelocity = FVector(400.0, 150.0, 0.0);
-	FpsIn[0].Lean = 0.6f;
-	FpsIn[0].AimPitch = 12.f;
-	FpsIn[1].Ads = 1.f;
-	FpsIn[1].Action = EVerseAnimAction::ReloadTactical;
-	FpsIn[1].ActionTime = 0.6f;
-	const int32 Frames = 240;
-	TArray<FTransform> CS;
-	// Warm up (clip decompression caches).
-	for (int32 w = 0; w < 10; ++w)
+	FTestWorld TestWorld;
+	if (!TestNotNull(TEXT("test world"), TestWorld.World))
 	{
-		FVerseAnimFrame F;
-		Fps[0].Step(FpsIn[0], 1.f / 60.f, Clips, F);
-		Rig.Evaluate(F, Fps[0].GetIdleTime(), CS);
+		return false;
 	}
+	struct FOwner
+	{
+		USkeletalMeshComponent* World = nullptr;
+		USkeletalMeshComponent* View = nullptr;
+	};
+	FOwner Owners[2];
+	for (int32 c = 0; c < 2; ++c)
+	{
+		Owners[c].World = TestWorld.Body(Mesh, FVector(300.0 * c, 0.0, 0.0));
+		Owners[c].View = TestWorld.OwnerView(Owners[c].World);
+	}
+	TArray<USkeletalMeshComponent*> Crew;
+	for (int32 c = 0; c < 12; ++c)
+	{
+		Crew.Add(TestWorld.Body(LoadMesh(VerseHuman::MeshPaths()[2 + (c % 2)]), FVector(150.0 * (c % 4), 400.0 + 150.0 * (c / 4), 0.0)));
+	}
+	auto Instance = [](USkeletalMeshComponent* Comp) { return Comp ? Cast<UVerseAnimInstance>(Comp->GetAnimInstance()) : nullptr; };
+	for (const FOwner& O : Owners)
+	{
+		if (!TestNotNull(TEXT("world body runs UVerseAnimInstance"), Instance(O.World))
+			|| !TestNotNull(TEXT("owner-view body runs UVerseAnimInstance"), Instance(O.View)))
+		{
+			return false;
+		}
+	}
+	for (USkeletalMeshComponent* Comp : Crew)
+	{
+		if (!TestNotNull(TEXT("crew body runs UVerseAnimInstance"), Instance(Comp)))
+		{
+			return false;
+		}
+	}
+	// Owner 0 runs and leans (external inputs, like a bot); owner 1 stands in ADS and reloads (its own inputs).
+	FVerseAnimInputs Running;
+	Running.LocalVelocity = FVector(400.0, 150.0, 0.0);
+	Running.Lean = 0.6f;
+	Running.AimPitch = 12.f;
+	Instance(Owners[0].World)->SetExternalInputs(Running);
+	Instance(Owners[1].World)->SetWeaponState(EVerseAnimWeapon::Rifle, 1.f);
+	auto CrewInputs = [](int32 c, int32 f)
+	{
+		FVerseAnimInputs In;
+		In.OverrideClip = c % 3 == 0 ? FName(TEXT("A_Crew_Stand")) : FName(TEXT("A_Crew_Sit_Type"));
+		In.OverrideTime = (f + c * 7) / 60.f;
+		In.bOverrideLoop = true;
+		return In;
+	};
+	TArray<USkeletalMeshComponent*> All;
+	for (const FOwner& O : Owners)
+	{
+		All.Add(O.World); // the source ticks before its owner-view mirror (tick prerequisite)
+		All.Add(O.View);
+	}
+	All.Append(Crew);
+	const float Dt = 1.f / 60.f;
+	const int32 Warmup = 20;
+	const int32 Frames = 240;
 	double GameThread = 0.0;
 	double Evaluation = 0.0;
-	int32 Samples = 0;
-	for (int32 f = 0; f < Frames; ++f)
+	double Worker = 0.0;
+	TArray<FTransform> SpaceBases;
+	TArray<FTransform> BoneSpace;
+	FVector RootTranslation = FVector::ZeroVector;
+	FBlendedHeapCurve Curve;
+	UE::Anim::FMeshAttributeContainer Attributes;
+	for (int32 f = -Warmup; f < Frames; ++f)
 	{
-		FVerseAnimFrame Frame[2];
+		if (f % 150 == 0)
+		{
+			Instance(Owners[1].World)->PlayAction(EVerseAnimAction::ReloadTactical);
+		}
 		const double T0 = FPlatformTime::Seconds();
-		for (int32 c = 0; c < 2; ++c)
+		for (int32 c = 0; c < Crew.Num(); ++c)
 		{
-			Fps[c].Step(FpsIn[c], 1.f / 60.f, Clips, Frame[c]);
-			Frame[c].bFootIK = true;
+			Instance(Crew[c])->SetExternalInputs(CrewInputs(c, f));
 		}
-		FVerseAnimFrame CrewFrame;
-		CrewFrame.Override = Crew;
+		for (USkeletalMeshComponent* Comp : All)
+		{
+			Comp->TickAnimation(Dt, false);
+		}
 		const double T1 = FPlatformTime::Seconds();
-		for (int32 c = 0; c < 2; ++c)
+		for (USkeletalMeshComponent* Comp : All)
 		{
-			FVerseAnimEvalInfo Info;
-			Rig.Evaluate(Frame[c], Fps[c].GetIdleTime(), CS, &Info);
-			Samples += Info.Samples;
-		}
-		for (int32 c = 0; c < 12; ++c)
-		{
-			CrewFrame.OverrideTime = (f + c * 7) / 60.f;
-			CrewFrame.bOverrideLoop = true;
-			Rig.Evaluate(CrewFrame, 0.f, CS);
+			Comp->RefreshBoneTransforms();
 		}
 		const double T2 = FPlatformTime::Seconds();
-		GameThread += T1 - T0;
-		Evaluation += T2 - T1;
+		// The share of RefreshBoneTransforms that parallel animation evaluation runs on a worker
+		// thread in game (pose evaluation and component-space fill), timed on its own.
+		for (USkeletalMeshComponent* Comp : All)
+		{
+			SpaceBases.SetNum(Comp->GetNumComponentSpaceTransforms());
+			BoneSpace.SetNum(Comp->GetNumComponentSpaceTransforms());
+			Comp->PerformAnimationProcessing(Comp->GetSkeletalMeshAsset(), Comp->GetAnimInstance(), true, false, SpaceBases, BoneSpace,
+				RootTranslation, Curve, Attributes);
+		}
+		const double T3 = FPlatformTime::Seconds();
+		if (f >= 0)
+		{
+			GameThread += T1 - T0;
+			Evaluation += T2 - T1;
+			Worker += T3 - T2;
+		}
 	}
-	const double GameMs = GameThread * 1000.0 / Frames;
-	const double EvalMs = Evaluation * 1000.0 / Frames;
+	// The measured setup is the shipped one.
+	for (const FOwner& O : Owners)
+	{
+		TestTrue(TEXT("owner-view body mirrors its world body"), Instance(O.View)->GetStateSource() == Instance(O.World));
+		TestTrue(TEXT("world body runs foot IK"), Instance(O.World)->GetFrame().bFootIK);
+		TestTrue(TEXT("owner-view body hides the head"), Instance(O.View)->GetFrame().bHideHead);
+	}
+	for (USkeletalMeshComponent* Comp : Crew)
+	{
+		TestNotNull(TEXT("crew body plays its duty clip"), Instance(Comp)->GetFrame().Override);
+		TestFalse(TEXT("crew on a duty clip trace no feet"), Instance(Comp)->GetFrame().bFootIK);
+	}
+	// Game thread in game: the anim update (NativeUpdateAnimation, traces, state machine) plus the part of
+	// RefreshBoneTransforms that parallel evaluation leaves on it (setup and post-evaluation: bounds, render
+	// data, hit bodies). The pose evaluation itself runs on a worker thread.
+	const double UpdateMs = GameThread * 1000.0 / Frames;
+	const double RefreshMs = Evaluation * 1000.0 / Frames;
+	const double WorkerMs = FMath::Min(Worker * 1000.0 / Frames, RefreshMs);
+	const double GameMs = UpdateMs + (RefreshMs - WorkerMs);
 	FReport Report;
 	Report.SetNumberField(TEXT("fps_characters"), 2);
+	Report.SetNumberField(TEXT("owner_view_bodies"), 2);
 	Report.SetNumberField(TEXT("crew"), 12);
+	Report.SetNumberField(TEXT("components"), All.Num());
 	Report.SetNumberField(TEXT("frames"), Frames);
-	Report.SetNumberField(TEXT("state_update_ms_per_frame"), GameMs);
-	Report.SetNumberField(TEXT("evaluation_ms_per_frame_single_thread"), EvalMs);
-	Report.SetNumberField(TEXT("total_ms_per_frame_single_thread"), GameMs + EvalMs);
-	Report.SetNumberField(TEXT("fps_samples_per_frame"), static_cast<double>(Samples) / Frames);
+	Report.SetNumberField(TEXT("anim_update_ms_per_frame"), UpdateMs);
+	Report.SetNumberField(TEXT("refresh_bone_transforms_ms_per_frame_single_thread"), RefreshMs);
+	Report.SetNumberField(TEXT("pose_evaluation_worker_ms_per_frame"), WorkerMs);
+	Report.SetNumberField(TEXT("game_thread_ms_per_frame"), GameMs);
+	Report.SetNumberField(TEXT("total_ms_per_frame_single_thread"), UpdateMs + RefreshMs);
 	Report.SetNumberField(TEXT("budget_ms"), 0.4);
 	WriteProof(TEXT("13.10"), TEXT("anim_cost.json"), Report);
-	AddInfo(FString::Printf(TEXT("state %.3f ms + evaluation %.3f ms per frame for 2 FPS + 12 crew"), GameMs, EvalMs));
-	// Even with evaluation on the game thread (no worker threads) the whole cost stays in budget.
-	TestTrue(FString::Printf(TEXT("animation %.3f ms per frame, at most 0.4"), GameMs + EvalMs), GameMs + EvalMs <= 0.4);
+	AddInfo(FString::Printf(TEXT("%d components: update %.3f ms + refresh %.3f ms (of it pose evaluation %.3f ms on a worker); game thread %.3f ms"),
+		All.Num(), UpdateMs, RefreshMs, WorkerMs, GameMs));
+	TestTrue(FString::Printf(TEXT("game-thread animation %.3f ms per frame, at most 0.4"), GameMs), GameMs <= 0.4);
 	return true;
 }
 
@@ -637,6 +905,50 @@ bool FVerseAnimFirstPersonTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("camera scales first-person primitives"), Camera->bEnableFirstPersonScale && Camera->FirstPersonScale < 1.f);
 	TestTrue(TEXT("camera has a first-person field of view"), Camera->bEnableFirstPersonFieldOfView);
 	TestFalse(TEXT("the owner body casts no shadow (the world body does)"), Owner->CastShadow);
+	TestEqual(TEXT("the owner body has no collision (hits resolve on the world body)"),
+		static_cast<int32>(Owner->GetCollisionEnabled()), static_cast<int32>(ECollisionEnabled::NoCollision));
+
+	// In a world: one source of weapon state, no second set of hit bodies.
+	FTestWorld TestWorld;
+	if (!TestNotNull(TEXT("test world"), TestWorld.World))
+	{
+		return false;
+	}
+	USkeletalMeshComponent* WorldBody = TestWorld.Body(Mesh, FVector::ZeroVector);
+	USkeletalMeshComponent* ViewBody = TestWorld.OwnerView(WorldBody);
+	UVerseAnimInstance* WorldAnim = Cast<UVerseAnimInstance>(WorldBody->GetAnimInstance());
+	UVerseAnimInstance* ViewAnim = Cast<UVerseAnimInstance>(ViewBody->GetAnimInstance());
+	if (!TestNotNull(TEXT("world body instance"), WorldAnim) || !TestNotNull(TEXT("owner-view body instance"), ViewAnim))
+	{
+		return false;
+	}
+	TestTrue(TEXT("the owner-view instance mirrors the world body"), ViewAnim->GetStateSource() == WorldAnim);
+	TestFalse(TEXT("the owner-view body creates no physics state"), ViewBody->IsPhysicsStateCreated());
+	TestEqual(TEXT("the owner-view body has no hit bodies"), ViewBody->Bodies.Num(), 0);
+	TestTrue(TEXT("the world body keeps its hit bodies"), WorldBody->Bodies.Num() > 0);
+	USceneComponent* Weapon = NewObject<USceneComponent>(WorldBody->GetOwner());
+	Weapon->SetupAttachment(WorldBody, TEXT("Weapon_R"));
+	Weapon->RegisterComponent();
+	// Combat drives the world body; a call on the owner-view instance is forwarded to it.
+	WorldAnim->SetWeaponState(EVerseAnimWeapon::Pistol, 1.f);
+	WorldAnim->SetWeaponComponent(Weapon);
+	ViewAnim->PlayAction(EVerseAnimAction::Fire);
+	for (int32 f = 0; f < 6; ++f)
+	{
+		WorldBody->TickAnimation(1.f / 60.f, false);
+		ViewBody->TickAnimation(1.f / 60.f, false);
+	}
+	const FVerseAnimFrame& W = WorldAnim->GetFrame();
+	const FVerseAnimFrame& V = ViewAnim->GetFrame();
+	TestTrue(TEXT("world body holds the pistol"), WorldAnim->GetInputs().Weapon == EVerseAnimWeapon::Pistol);
+	TestTrue(TEXT("both bodies show the same weapon"), ViewAnim->GetInputs().Weapon == WorldAnim->GetInputs().Weapon && V.Weapon == W.Weapon);
+	TestEqual(TEXT("both bodies show the same ADS"), V.Ads, W.Ads);
+	TestTrue(TEXT("the forwarded fire plays on the world body"), WorldAnim->GetInputs().Action == EVerseAnimAction::Fire && W.Action != nullptr);
+	TestTrue(TEXT("both bodies play the same action"), ViewAnim->GetInputs().Action == WorldAnim->GetInputs().Action && V.Action == W.Action);
+	TestEqual(TEXT("both bodies at the same action time"), V.ActionTime, W.ActionTime);
+	TestTrue(TEXT("both bodies hold the same weapon component"),
+		ViewAnim->GetWeaponComponent() == Weapon && WorldAnim->GetWeaponComponent() == Weapon);
+	TestTrue(TEXT("only the owner-view body hides the head"), V.bHideHead && !W.bHideHead);
 	return true;
 }
 
