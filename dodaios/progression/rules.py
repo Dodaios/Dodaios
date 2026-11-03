@@ -134,6 +134,11 @@ RULES: Final[tuple[XpRule, ...]] = (
     XpRule("simulator_record", "person", 15, "world", cooldown_s=45, daily_cap=60),
     XpRule("team_briefing", "person", 10, "world", cooldown_s=600, daily_cap=40),
     XpRule("inspection", "person", 15, "world", once_per_ref=True, daily_cap=30),
+    # The commander, in the hangar duel. Server rules: only a ``duel.result``
+    # reaches them (``record_duel``), never ``POST /actions``.
+    XpRule("duel_won", "person", 40, "server", daily_cap=200),
+    XpRule("duel_lost", "person", 10, "server", daily_cap=50),
+    XpRule("duel_finisher", "person", 5, "server", daily_cap=25),
     # The crew: finished work is what counts.
     XpRule("task_done", "agent", 40, "server"),
     XpRule("task_blocked", "agent", 8, "server", daily_cap=40),
@@ -169,6 +174,81 @@ RETIRED_SOURCES: Final[frozenset[str]] = frozenset(
         "team_meeting",
     }
 )
+
+
+# ------------------------------------------------------------------ duel rules
+
+#: The duel sources, in rulebook order (``docs/verse/unreal/contracts/bridge-protocol.md`` 10).
+DUEL_SOURCES: Final[tuple[str, ...]] = ("duel_won", "duel_lost", "duel_finisher")
+
+#: ``duel.result`` outcomes, from the person's side: a finished set is won or
+#: lost; a set left mid-way (or cut short by Verse quitting) is unfinished.
+DUEL_OUTCOMES: Final[tuple[str, ...]] = ("won", "lost", "unfinished")
+
+#: Why a set ended. ``crash_recovered`` is a pending result the next launch sent.
+DUEL_END_REASONS: Final[tuple[str, ...]] = (
+    "set_complete",
+    "player_left",
+    "verse_quit",
+    "crash_recovered",
+    "app_quit",
+)
+
+#: Game modes whose sets pay XP in ``verse.bridge/1``. Every mode counts in the statistics.
+DUEL_PAYING_MODES: Final[frozenset[str]] = frozenset({"deathmatch_1v1"})
+
+#: A finished set shorter than this (match time, pauses excluded) pays nothing.
+DUEL_MIN_PAYING_TIME_S: Final[float] = 60.0
+
+#: More kills than one per this many seconds of match time is implausible; the
+#: server clamps the numbers to this rate and logs it.
+DUEL_SECONDS_PER_KILL: Final[float] = 2.0
+
+#: Multiplier on ``duel_won`` by the opponent's tier; an adaptive bot pays as
+#: ``adaptive`` whatever tier it started on. Unknown tiers pay 1.0.
+DUEL_TIER_MULTIPLIERS: Final[dict[str, float]] = {
+    "normal": 1.0,
+    "hard": 1.5,
+    "elite": 2.0,
+    "adaptive": 1.5,
+}
+
+
+def duel_tier_key(opponent_kind: str, tier: str, adaptive: bool) -> str:
+    """The key a set is filed and paid under: ``adaptive``, a bot tier, or ``player``.
+
+    ``opponent.kind`` is ``bot`` or ``player`` (another person, later).
+    """
+    if opponent_kind == "bot":
+        if adaptive:
+            return "adaptive"
+        return tier if tier in DUEL_TIER_MULTIPLIERS else "unknown"
+    return opponent_kind or "unknown"
+
+
+def duel_awards(
+    *, mode: str, outcome: str, match_time_s: float, tier_key: str, finishers: int
+) -> list[tuple[str, int]]:
+    """The ``(source, xp)`` pairs one set pays before the daily caps.
+
+    Only a finished set (``won`` or ``lost``) of a paying mode that lasted at
+    least :data:`DUEL_MIN_PAYING_TIME_S` pays; ``unfinished`` never does. A won
+    set pays ``duel_won`` times the tier multiplier, a lost one ``duel_lost``;
+    either pays ``duel_finisher`` once per finisher.
+    """
+    if mode not in DUEL_PAYING_MODES or outcome not in ("won", "lost"):
+        return []
+    if match_time_s < DUEL_MIN_PAYING_TIME_S:
+        return []
+    awards: list[tuple[str, int]] = []
+    if outcome == "won":
+        base = RULES_BY_SOURCE["duel_won"].xp
+        awards.append(("duel_won", int(round(base * DUEL_TIER_MULTIPLIERS.get(tier_key, 1.0)))))
+    else:
+        awards.append(("duel_lost", RULES_BY_SOURCE["duel_lost"].xp))
+    if finishers > 0:
+        awards.append(("duel_finisher", RULES_BY_SOURCE["duel_finisher"].xp * int(finishers)))
+    return awards
 
 
 # ------------------------------------------------------------------ ranks
