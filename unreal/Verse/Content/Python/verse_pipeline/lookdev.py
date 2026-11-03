@@ -90,6 +90,13 @@ class Scene:
         self.groups.setdefault(group, []).append(actor)
         return actor
 
+    def forget(self, actor) -> None:
+        """Destroy an actor and drop it from its group (a destroyed actor is invalid)."""
+        for members in self.groups.values():
+            if actor in members:
+                members.remove(actor)
+        actor.destroy_actor()
+
     def show(self, group: str, visible: bool) -> None:
         for actor in self.groups.get(group, []):
             actor.set_actor_hidden_in_game(not visible)
@@ -205,10 +212,14 @@ def _post_settings(u, *, bias: float, bloom: float, fog=True):
 
 
 class Capture:
-    def __init__(self, scene: Scene, width: int, height: int, srgb: bool = False):
+    def __init__(
+        self, scene: Scene, width: int, height: int, srgb: bool = False, float16: bool = False
+    ):
         u = scene.u
         fmt = u.TextureRenderTargetFormat
         target_format = fmt.RTF_RGBA8_SRGB if srgb else fmt.RTF_RGBA8
+        if float16:
+            target_format = fmt.RTF_RGBA16F
         self.u = u
         self.scene = scene
         self.rt = u.RenderingLibrary.create_render_target2d(
@@ -398,7 +409,7 @@ def build_bolt_swarm(scene: Scene) -> dict[str, str]:
     return groups
 
 
-def measure_bolt_cost(u, scene: Scene, cap: "Capture", groups: dict[str, str]) -> dict:
+def measure_bolt_cost(u, scene: Scene, cap: Capture, groups: dict[str, str]) -> dict:
     """A14.5: frame cost of bolts in flight at 2560x1440, an upper bound on GPU time.
 
     Each sample is `capture_scene()` followed by a one-pixel readback, which
@@ -468,6 +479,80 @@ def build_chart(scene: Scene, agx) -> list[dict]:
         scene.plane((size, size), (2000, y, z), mid, rot=(90, 0, 0), group="chart")
         patches.append({"index": i, "y": y, "z": z})
     return patches
+
+
+PROBE_FOLDER = "/Game/Verse/Test/WP14/Probe"
+
+#: Debug bodies for the chart probe; each replaces the grade's custom node.
+PROBE_CODE = {
+    "identity": "return Scene.rgb;",
+    "exposure": "return float3(Exposure, Exposure, Exposure);",
+    "coord": (
+        "float3 c = (Scene.rgb + Bloom.rgb * BloomScale) * Exposure;"
+        "return saturate((log2(max(c, 1e-10) / 0.18) - (EV_MIN)) / (EV_RANGE));"
+    ),
+}
+
+
+def probe_materials(u) -> dict:
+    """Transient post materials (never saved) that expose what the grade sees.
+
+    `identity` returns the scene input, `exposure` the eye-adaptation value,
+    `coord` the LUT coordinate; `grade` is the real `M_Verse_PostTonemap` and
+    `none` no blendable (the engine tonemapper).
+    """
+    from . import masters
+
+    _, agx = _specs()
+    out = {"grade": u.load_asset(POST), "none": None}
+    tools = u.AssetToolsHelpers.get_asset_tools()
+    for name, code in PROBE_CODE.items():
+        code = code.replace("EV_MIN", repr(agx.EV_MIN)).replace(
+            "EV_RANGE", repr(agx.EV_MAX - agx.EV_MIN)
+        )
+        asset = f"M_WP14_Probe_{name}"
+        path = f"{PROBE_FOLDER}/{asset}"
+        if u.EditorAssetLibrary.does_asset_exist(path):
+            mat = u.EditorAssetLibrary.load_asset(path)
+            u.MaterialEditingLibrary.delete_all_material_expressions(mat)
+        else:
+            mat = tools.create_asset(asset, PROBE_FOLDER, u.Material, u.MaterialFactoryNew())
+        g = masters.Graph(u, mat)
+        for param in masters.POST_TONEMAP.params:
+            g.param(param)
+        mat.set_editor_property("material_domain", u.MaterialDomain.MD_POST_PROCESS)
+        mat.set_editor_property("blendable_location", u.BlendableLocation.BL_REPLACING_TONEMAPPER)
+        ids = u.SceneTextureId
+        scene_tex = u.MaterialExpressionSceneTexture
+        g.node(scene_tex, "Scene", scene_texture_id=ids.PPI_POST_PROCESS_INPUT0)
+        g.node(scene_tex, "Bloom", scene_texture_id=ids.PPI_POST_PROCESS_INPUT2)
+        g.node(u.MaterialExpressionEyeAdaptation, "Exposure")
+        g.custom(
+            "Probe",
+            code,
+            {
+                "Scene": ("Scene", "Color"),
+                "Bloom": ("Bloom", "Color"),
+                "Exposure": ("Exposure", ""),
+                "BloomScale": ("BloomScale", ""),
+            },
+        )
+        g.out("Probe", "", "MP_EMISSIVE_COLOR")
+        u.MaterialEditingLibrary.recompile_material(mat)
+        out[name] = mat
+    return out
+
+
+def probe_chart(u, cap: Capture, setup, mats: dict) -> dict:
+    """One 8-bit chart frame per probe material (`chart_probe_<name>.png`)."""
+    result = {}
+    for name, mat in mats.items():
+        settings = _post_settings(u, bias=0.0, bloom=0.0)
+        blend = [u.WeightedBlendable(1.0, mat)] if mat is not None else []
+        settings.set_editor_property("weighted_blendables", u.WeightedBlendables(blend))
+        setup(cap, settings)
+        result[name] = cap.shoot(f"chart_probe_{name}")
+    return result
 
 
 def chart_pixels(patches: list[dict], ortho_width: float) -> list[tuple[int, int]]:
@@ -596,6 +681,11 @@ class Runner:
         build_vfx(scene)
         patches = build_chart(scene, agx)
         cost_groups = build_bolt_swarm(scene)
+        try:  # built before the warm-up so their shaders compile in time
+            probe_mats = probe_materials(u)
+        except Exception as error:  # the probe is diagnostics only
+            probe_mats = {}
+            self.report["chart_probe_error"] = f"{type(error).__name__}: {error}"
         cap = Capture(scene, WIDTH, HEIGHT)
         cost_cap = Capture(scene, COST_W, COST_H)
         chart_cap = Capture(scene, CHART_W, CHART_H)
@@ -631,6 +721,17 @@ class Runner:
             )
             self.report["frames"].append(chart_cap_srgb.shoot("chart_agx_srgb_target"))
 
+            def place(capture, settings):
+                capture.setup((1000, 0, 1000), (2000, 0, 1000), 30.0, settings, ortho_width=ortho)
+
+            self.log("chart probe")
+            try:
+                self.report["chart_probe"] = probe_chart(u, chart_cap, place, probe_mats)
+                self.log(f"chart probe done: {sorted(self.report['chart_probe'])}")
+            except Exception as error:  # the probe is diagnostics only
+                self.report["chart_probe_error"] = f"{type(error).__name__}: {error}"
+                self.log(f"chart probe failed: {self.report['chart_probe_error']}")
+
         self.shots.append(chart)
 
         for spec in weapons:
@@ -643,7 +744,7 @@ class Runner:
                 def shot(spec=spec, view=view, yaw=yaw, dist_scale=dist_scale, height=height):
                     only({"turn"})
                     if state["placed"] is not None:
-                        state["placed"].destroy_actor()
+                        scene.forget(state["placed"])
                     actor = scene.mesh(spec.object_path, (0, 0, 115), (0, 0, 0), "turn")
                     state["placed"] = actor
                     size = _extent(actor)
@@ -663,7 +764,7 @@ class Runner:
             def fp(spec=spec):
                 only({"turn"})
                 if state["placed"] is not None:
-                    state["placed"].destroy_actor()
+                    scene.forget(state["placed"])
                 eye = (-120.0, 0.0, 160.0)
                 actor = scene.mesh(
                     spec.object_path,
@@ -686,7 +787,7 @@ class Runner:
             def ref(view=view, loc=loc, target=target):
                 only({"ref"})
                 if state["placed"] is not None:
-                    state["placed"].destroy_actor()
+                    scene.forget(state["placed"])
                     state["placed"] = None
                 cap.setup(loc, target, 70.0, look)
                 self.report["frames"].append(cap.shoot(f"ref_{view}"))
@@ -708,7 +809,7 @@ class Runner:
         def vfx_cost():
             only({"ref"})
             if state["placed"] is not None:
-                state["placed"].destroy_actor()
+                scene.forget(state["placed"])
                 state["placed"] = None
             cost_cap.setup((2200, 0, 700), (3800, 0, 700), 70.0, look)
             self.report["vfx_cost"] = measure_bolt_cost(u, scene, cost_cap, cost_groups)

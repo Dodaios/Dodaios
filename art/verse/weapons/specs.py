@@ -101,7 +101,7 @@ def _b(name, parent, head, tail) -> Bone:
     return Bone(name, parent, tuple(head), tuple(tail))
 
 
-def export_bones(spec: "WeaponSpec") -> tuple[Bone, ...]:
+def export_bones(spec: WeaponSpec) -> tuple[Bone, ...]:
     """The bones written to the FBX: the spec bones plus `SOCKET_BASE` on Root."""
     if spec.kind != "skeletal" or not spec.sockets:
         return spec.bones

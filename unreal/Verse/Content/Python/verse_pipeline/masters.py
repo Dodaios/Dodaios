@@ -378,6 +378,7 @@ class Graph:
         self.y = 0
         self.nodes: dict[str, object] = {}
         self.errors: list[str] = []
+        self.custom_links: dict[str, dict[str, tuple[str, str]]] = {}
 
     def _new(self, cls, x=-900):
         node = self.mel.create_material_expression(self.mat, cls, x, self.y)
@@ -444,9 +445,33 @@ class Graph:
             custom_inputs.append(ci)
         n.set_editor_property("inputs", custom_inputs)
         self.nodes[key] = n
+        self.custom_links[key] = dict(inputs)
         for name, (src, pin) in inputs.items():
             self.link(src, pin, n, name)
         return n
+
+    def unlinked(self) -> dict[str, list[str]]:
+        """Custom-node inputs that have no expression connected, per node key."""
+        mel = self.mel
+        out = {}
+        for key in self.custom_links:
+            node = self.nodes[key]
+            names = [
+                str(ci.get_editor_property("input_name"))
+                for ci in node.get_editor_property("inputs")
+            ]
+            connected = mel.get_inputs_for_material_expression(self.mat, node)
+            missing = [n for n, e in zip(names, connected, strict=False) if e is None]
+            missing += names[len(connected) :]
+            if missing:
+                out[key] = missing
+        return out
+
+    def relink(self, missing: dict[str, list[str]]) -> None:
+        for key, names in missing.items():
+            for name in names:
+                src, pin = self.custom_links[key][name]
+                self.link(src, pin, self.nodes[key], name)
 
     def link(self, src, pin: str, dst, dst_pin: str) -> None:
         source = self.nodes[src] if isinstance(src, str) else src
@@ -856,6 +881,18 @@ def run(only: list[str], *, save: bool = True) -> dict:
             _material_settings(u, spec.name, mat)
             BUILDERS[spec.name](g)
         u.MaterialEditingLibrary.layout_material_expressions(mat)
+        missing = g.unlinked()
+        if missing:
+            report.setdefault("relinked", {})[spec.name] = missing
+            g.relink(missing)
+            for key, names in g.unlinked().items():
+                g.errors.append(f"{spec.name}: {key} inputs still unconnected: {names}")
+        if spec.name == "M_Verse_Decal":
+            mat.set_editor_property("material_domain", u.MaterialDomain.MD_DEFERRED_DECAL)
+            mat.set_editor_property("blend_mode", u.BlendMode.BLEND_TRANSLUCENT)
+            blend = mat.get_editor_property("blend_mode")
+            if blend != u.BlendMode.BLEND_TRANSLUCENT:
+                g.errors.append(f"{spec.name}: blend mode is {blend}, not translucent")
         u.MaterialEditingLibrary.recompile_material(mat)
         report["errors"] += g.errors
         if save:
