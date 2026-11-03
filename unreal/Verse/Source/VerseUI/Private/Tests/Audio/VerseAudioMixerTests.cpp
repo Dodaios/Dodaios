@@ -17,7 +17,6 @@
 #include "HAL/PlatformTime.h"
 #include "ISubmixBufferListener.h"
 #include "Misc/FileHelper.h"
-#include "Misc/OutputDevice.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
 #include "Modules/ModuleManager.h"
@@ -25,9 +24,18 @@
 #include "Sound/SoundWave.h"
 #include "../../Audio/VerseEngineAudioSink.h"
 
+#include <atomic>
+
+#if PLATFORM_WINDOWS
+#include "Windows/WindowsHWrapper.h"
+#endif
+
 // A19.3 with the audio mixer: destruction_storm through the engine sink and the shipped DA_AudioCues,
-// measuring the audio thread per frame and the mixer's render time per buffer. It needs a run with
-// sound (no -nosound); the headless -nosound lane only notes that it was skipped.
+// measuring the audio thread per frame and the audio render thread's CPU time per buffer. It needs a
+// run with sound (no -nosound); the headless -nosound lane only notes that it was skipped. The tap sits
+// on the Verse master submix; the device's main output is held at 0 for the run, so nothing is heard
+// on the machine's speakers, and the app's background volume is bypassed (au.DisableAppVolume) so an
+// unfocused test process still renders its sources.
 //
 //   python scripts/unreal/with_lock.py --label wp19-mixer -- <UnrealEditor-Cmd> <Verse.uproject>
 //     "-ExecCmds=Automation RunTests Verse.UI.Audio.MixerLoad; Quit" "-TestExit=Automation Test Queue Empty"
@@ -59,6 +67,7 @@ namespace VerseAudioMixerTest
 			{
 				Peak = FMath::Max(Peak, FMath::Abs(AudioData[I]));
 			}
+			RenderThreadId = FPlatformTLS::GetCurrentThreadId();
 			FScopeLock Lock(&Guard);
 			Buffers.Add({FPlatformTime::Seconds(), Peak});
 			Frames = NumChannels > 0 ? NumSamples / NumChannels : 0;
@@ -79,47 +88,35 @@ namespace VerseAudioMixerTest
 
 		int32 Frames = 0;
 		int32 Rate = 0;
+		std::atomic<uint32> RenderThreadId{0};
 
 	private:
 		mutable FCriticalSection Guard;
 		TArray<FBuffer> Buffers;
 	};
 
-	/** The mixer's own render timing lines (au.LogRenderTimes 1, every 32 buffers). */
-	class FRenderTimeCapture final : public FOutputDevice
+	/** CPU seconds a thread has used so far (kernel + user); negative when unknown. */
+	double ThreadCpuSeconds(uint32 ThreadId)
 	{
-	public:
-		virtual void Serialize(const TCHAR* V, ELogVerbosity::Type, const FName& Category) override
+#if PLATFORM_WINDOWS
+		if (ThreadId == 0)
 		{
-			const FString Line(V);
-			if (!Line.StartsWith(TEXT("Render Time [id:")))
-			{
-				return;
-			}
-			auto Field = [&Line](const TCHAR* Key) -> double
-			{
-				const int32 At = Line.Find(Key);
-				return At == INDEX_NONE ? -1.0 : FCString::Atod(*Line.Mid(At + FCString::Strlen(Key)));
-			};
-			FScopeLock Lock(&Guard);
-			MaxDeltaMs.Add(Field(TEXT("MaxDelta: ")));
-			AvgDeltaMs.Add(Field(TEXT("Delta Avg: ")));
+			return -1.0;
 		}
-		virtual bool CanBeUsedOnMultipleThreads() const override { return true; }
-		virtual bool CanBeUsedOnAnyThread() const override { return true; }
-
-		void Read(TArray<double>& OutMax, TArray<double>& OutAvg) const
+		HANDLE Thread = ::OpenThread(THREAD_QUERY_LIMITED_INFORMATION, 0, ThreadId);
+		if (!Thread)
 		{
-			FScopeLock Lock(&Guard);
-			OutMax = MaxDeltaMs;
-			OutAvg = AvgDeltaMs;
+			return -1.0;
 		}
-
-	private:
-		mutable FCriticalSection Guard;
-		TArray<double> MaxDeltaMs;
-		TArray<double> AvgDeltaMs;
-	};
+		FILETIME Create, Exit, Kernel, User;
+		const bool bOk = ::GetThreadTimes(Thread, &Create, &Exit, &Kernel, &User) != 0;
+		::CloseHandle(Thread);
+		auto Sec = [](const FILETIME& T) { return double((uint64(T.dwHighDateTime) << 32) | T.dwLowDateTime) * 1e-7; };
+		return bOk ? Sec(Kernel) + Sec(User) : -1.0;
+#else
+		return -1.0;
+#endif
+	}
 
 	double Percentile(TArray<double> Values, double P)
 	{
@@ -213,13 +210,14 @@ bool FVerseAudioMixerLoad::RunTest(const FString&)
 	{
 		Device->RegisterSubmixBufferListener(Tap, *Master);
 	}
-	FRenderTimeCapture Capture;
-	GLog->AddOutputDevice(&Capture);
-	IConsoleVariable* LogRenderTimes = IConsoleManager::Get().FindConsoleVariable(TEXT("au.LogRenderTimes"));
-	const int32 OldLogRenderTimes = LogRenderTimes ? LogRenderTimes->GetInt() : 0;
-	if (LogRenderTimes)
+	// Silent on the speakers: the main output (after the Verse master) is held at 0 for the run.
+	USoundSubmix& MainOut = Device->GetMainSubmixObject();
+	MainOut.SetSubmixOutputVolume(World, 0.f);
+	IConsoleVariable* AppVolume = IConsoleManager::Get().FindConsoleVariable(TEXT("au.DisableAppVolume"));
+	const int32 OldAppVolume = AppVolume ? AppVolume->GetInt() : 0;
+	if (AppVolume)
 	{
-		LogRenderTimes->Set(1, ECVF_SetByCode);
+		AppVolume->Set(1, ECVF_SetByCode);
 	}
 
 	TArray<double> AudioThreadMs;
@@ -296,6 +294,7 @@ bool FVerseAudioMixerLoad::RunTest(const FString&)
 		}
 	};
 	const int32 BuffersBeforeStorm = Tap->Snapshot().Num();
+	const double RenderCpuStart = ThreadCpuSeconds(Tap->RenderThreadId.load());
 	Audio->StartDroneLoop(1, true, FVector(400.0, 100.0, 100.0));
 	Audio->SetAmbience(EVerseAmbience::Hangar);
 	Burst(400);
@@ -314,6 +313,8 @@ bool FVerseAudioMixerLoad::RunTest(const FString&)
 		Frame();
 	}
 	const int32 PeakVoices = Audio->GetPeakVoices();
+	const double RenderCpuEnd = ThreadCpuSeconds(Tap->RenderThreadId.load());
+	const int32 BuffersAfterStorm = Tap->Snapshot().Num();
 	Audio->StopDroneLoop(1);
 	Audio->SetAmbience(EVerseAmbience::None);
 	for (int32 I = 0; I < 40; ++I)
@@ -321,12 +322,11 @@ bool FVerseAudioMixerLoad::RunTest(const FString&)
 		Frame(); // flush the last render-time line
 	}
 
-	if (LogRenderTimes)
+	if (AppVolume)
 	{
-		LogRenderTimes->Set(OldLogRenderTimes, ECVF_SetByCode);
+		AppVolume->Set(OldAppVolume, ECVF_SetByCode);
 	}
-	GLog->FlushThreadedLogs();
-	GLog->RemoveOutputDevice(&Capture);
+	MainOut.SetSubmixOutputVolume(World, 1.f);
 	if (Master)
 	{
 		Device->UnregisterSubmixBufferListener(Tap, *Master);
@@ -338,25 +338,25 @@ bool FVerseAudioMixerLoad::RunTest(const FString&)
 		++StormBuffers;
 		Loud += Buffers[I].Peak > 1e-4f ? 1 : 0;
 	}
-	TArray<double> RenderMaxMs, RenderAvgMs;
-	Capture.Read(RenderMaxMs, RenderAvgMs);
+	const int32 RenderedInStorm = BuffersAfterStorm - BuffersBeforeStorm;
+	const bool bRenderCpu = RenderCpuStart >= 0.0 && RenderCpuEnd >= RenderCpuStart && RenderedInStorm > 0;
+	const double RenderMean = bRenderCpu ? (RenderCpuEnd - RenderCpuStart) * 1000.0 / RenderedInStorm : 0.0;
 	const int32 Tracked = Sink->NumTrackedVoices();
 	Audio->SetPieceQuery(nullptr);
 	World->DestroyWorld(false);
 
 	const double ThreadMean = Mean(AudioThreadMs);
-	const double RenderMean = Mean(RenderAvgMs);
 	const double BufferMs = Tap->Rate > 0 ? 1000.0 * Tap->Frames / Tap->Rate : 0.0;
 	TestTrue(TEXT("the master submix rendered sound during the storm"), Loud > 0);
 	TestTrue(TEXT("A19.3 peak voices at most 64"), PeakVoices <= 64);
 	TestTrue(FString::Printf(TEXT("A19.3 audio thread %.3f ms per frame at most 1.5 ms"), ThreadMean), ThreadMean <= 1.5);
-	if (RenderAvgMs.Num() > 0)
+	if (bRenderCpu)
 	{
-		TestTrue(FString::Printf(TEXT("A19.3 mixer render %.3f ms per buffer at most 1.5 ms"), RenderMean), RenderMean <= 1.5);
+		TestTrue(FString::Printf(TEXT("A19.3 audio render thread %.3f ms CPU per buffer at most 1.5 ms"), RenderMean), RenderMean <= 1.5);
 	}
 	else
 	{
-		AddWarning(TEXT("au.LogRenderTimes gave no render-time lines; render cost not measured"));
+		AddWarning(TEXT("audio render thread CPU time not readable on this platform; render cost not measured"));
 	}
 	TestTrue(TEXT("finished one-shots are pruned from the sink"), Tracked < 64);
 
@@ -371,9 +371,10 @@ bool FVerseAudioMixerLoad::RunTest(const FString&)
 		{TEXT("audio_thread_ms_p95"), Num(Percentile(AudioThreadMs, 0.95))},
 		{TEXT("audio_thread_ms_max"), Num(Percentile(AudioThreadMs, 1.0))},
 		{TEXT("audio_thread_measures"), Str(TEXT("UpdateActiveAudioDevices plus an audio command fence, per 60 Hz frame"))},
-		{TEXT("render_ms_per_buffer_mean"), Num(RenderMean)},
-		{TEXT("render_ms_per_buffer_max"), Num(Percentile(RenderMaxMs, 1.0))},
-		{TEXT("render_time_samples"), Num(RenderAvgMs.Num())},
+		{TEXT("render_thread_cpu_ms_per_buffer_mean"), Num(RenderMean)},
+		{TEXT("render_thread_cpu_measures"), Str(TEXT("CPU time of the audio render thread over the storm / buffers rendered"))},
+		{TEXT("render_buffers_in_storm"), Num(RenderedInStorm)},
+		{TEXT("speaker_output"), Str(TEXT("main output submix held at 0 for the run"))},
 		{TEXT("buffer_frames"), Num(Tap->Frames)},
 		{TEXT("sample_rate"), Num(Tap->Rate)},
 		{TEXT("buffer_ms"), Num(BufferMs)},
