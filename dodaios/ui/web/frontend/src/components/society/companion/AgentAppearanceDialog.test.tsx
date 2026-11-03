@@ -3,14 +3,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import { AgentAppearanceDialog } from "./AgentAppearanceDialog";
 import { SAMPLE_ROSTER } from "../mockRoster";
-import { defaultCompanion } from "./appearance";
+import { DEFAULT_PETS, defaultCompanion } from "./appearance";
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 vi.mock("./CompanionPreview", () => ({ CompanionPreview: () => <div data-testid="preview" /> }));
 vi.mock("../figures/AgentFigureViewer", () => ({ AgentFigureViewer: () => <div data-testid="character-preview" /> }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: ["gigi", "ember", "miso", "bolt", "brew", "mochi", "shelly", "cocoa", "dodaios"].map(id => ({
+const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: ["gigi", ...DEFAULT_PETS].map(id => ({
   id, name: id, description: "", builtin: true, frame_size: 48, animations: { idle: { row: 0, frames: 1, fps: 1, loop: true } }, sheet_url: `/api/pets/${id}/sheet.png`,
 })) };
 

@@ -27,6 +27,17 @@ EXPECTED_PETS = (
     "ember",
     "cocoa",
     "dodaios",
+    "pip",
+    "hazel",
+    "otto",
+    "nox",
+    "kiko",
+    "inky",
+    "toasty",
+    "cassie",
+    "sprout",
+    "flick",
+    "aurelia",
 )
 
 

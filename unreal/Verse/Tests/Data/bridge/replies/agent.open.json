@@ -1,0 +1,45 @@
+[
+  {
+    "request": {
+      "type": "agent.open",
+      "id": "c-64",
+      "ts": 1793612592.0,
+      "data": {
+        "agent_id": "ag_7f1"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 322,
+      "ts": 1793612592.05,
+      "re": "c-64",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "agent.open",
+      "id": "c-84",
+      "ts": 1793612592.0,
+      "data": {
+        "agent_id": "ag_7f1"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 340,
+      "ts": 1793612592.05,
+      "re": "c-84",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "internal",
+          "message": "Agent card handler failed."
+        }
+      }
+    }
+  }
+]

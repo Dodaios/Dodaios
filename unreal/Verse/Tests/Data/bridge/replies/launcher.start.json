@@ -1,0 +1,70 @@
+[
+  {
+    "request": {
+      "type": "launcher.start",
+      "id": "c-71",
+      "ts": 1793612600.0,
+      "data": {
+        "workspace_id": "ws_91",
+        "agents": [
+          {
+            "agent": "claude",
+            "count": 2
+          }
+        ],
+        "brief": "Write the bridge relay tests."
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 328,
+      "ts": 1793612600.05,
+      "re": "c-71",
+      "data": {
+        "ok": true,
+        "result": {
+          "panes": [
+            {
+              "pane_id": "ws_91:T4",
+              "submitted": true
+            },
+            {
+              "pane_id": "ws_91:T5",
+              "submitted": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "launcher.start",
+      "id": "c-81",
+      "ts": 1793612601.0,
+      "data": {
+        "workspace_id": "ws_91",
+        "agents": [
+          {
+            "agent": "claude",
+            "count": 2
+          }
+        ],
+        "brief": "Write the bridge relay tests."
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 329,
+      "ts": 1793612601.05,
+      "re": "c-81",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "busy",
+          "message": "A launcher batch is already running."
+        }
+      }
+    }
+  }
+]

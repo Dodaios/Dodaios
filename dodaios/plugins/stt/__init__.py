@@ -812,16 +812,28 @@ def _build_local_fallback(stt_cfg: Any, language: str | None) -> Any:
     )
 
 
+def _probe_cache_dir() -> Path:
+    """Directory of the persisted wake probe results.
+
+    ``JARVIS__MEMORY__DATA_DIR`` (the memory-data override) wins; otherwise the
+    runtime data dir (``JARVIS_DATA_DIR`` or ``<checkout>/data``), resolved the
+    same way as ``wake_constants._vosk_models_root`` — never the cwd (#458).
+    """
+    base = os.environ.get("JARVIS__MEMORY__DATA_DIR")
+    if base:
+        return Path(base)
+    from dodaios.core.paths import runtime_data_dir
+
+    return runtime_data_dir()
+
+
 def _wake_cuda_cache_path() -> Path:
     """Location of the persisted CUDA-availability probe result.
 
     CUDA presence is a stable hardware fact, so the probe result is cached ACROSS
-    process restarts (not just in-process). Honours the same data-dir env seam the
-    rest of the app uses (``JARVIS__MEMORY__DATA_DIR``); defaults to ``./data``
-    relative to the project-root CWD.
+    process restarts (not just in-process). Lives in :func:`_probe_cache_dir`.
     """
-    base = os.environ.get("JARVIS__MEMORY__DATA_DIR") or "data"
-    return Path(base) / "wake_cuda_probe.json"
+    return _probe_cache_dir() / "wake_cuda_probe.json"
 
 
 @lru_cache(maxsize=1)
@@ -895,8 +907,7 @@ def _wake_gpu_probe_cache_path() -> Path:
     CUDA but every CTranslate2 inference hung under the then-current runtime).
     Delete the file to force a re-probe after a GPU/driver change.
     """
-    base = os.environ.get("JARVIS__MEMORY__DATA_DIR") or "data"
-    return Path(base) / "wake_gpu_probe.json"
+    return _probe_cache_dir() / "wake_gpu_probe.json"
 
 
 # Success marker the probe subprocess prints AFTER its real CUDA inferences.

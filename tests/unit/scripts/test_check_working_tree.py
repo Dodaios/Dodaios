@@ -78,6 +78,13 @@ def _init_repo(repo: Path) -> None:
     assert commit.returncode == 0, f"git commit failed: {commit.stderr}"
 
 
+def _env_without_data_dir() -> dict[str, str]:
+    """The test env minus ``JARVIS_DATA_DIR``, so the log lands in <repo>/data."""
+    env = dict(os.environ)
+    env.pop("JARVIS_DATA_DIR", None)
+    return env
+
+
 def _run_script(repo: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:
     """Invoke check-working-tree.ps1 against ``repo`` and return the result."""
     return subprocess.run(
@@ -94,6 +101,7 @@ def _run_script(repo: Path, *extra_args: str) -> subprocess.CompletedProcess[str
         encoding="utf-8",
         errors="replace",
         check=False,
+        env=_env_without_data_dir(),
     )
 
 
@@ -268,14 +276,17 @@ def test_log_rotation_keeps_last_n_runs(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_no_repo_root_arg_uses_script_parent_directory() -> None:
+def test_no_repo_root_arg_uses_script_parent_directory(tmp_path: Path) -> None:
     """Invocation without -RepoRoot must succeed and operate on the real repo.
 
     This mirrors run.bat's call shape exactly. The script's own parent
     directory is the live repo on disk; the test asserts a clean exit
-    code and a non-empty log block, which is the strongest evidence
-    that the param-default fallback works.
+    code and a log block, which is the strongest evidence that the
+    param-default fallback works. ``JARVIS_DATA_DIR`` sends the log to a
+    temp dir, so the checkout's own data dir is never written (#458).
     """
+    env = _env_without_data_dir()
+    env["JARVIS_DATA_DIR"] = str(tmp_path)
     result = subprocess.run(
         [
             "powershell",
@@ -288,15 +299,14 @@ def test_no_repo_root_arg_uses_script_parent_directory() -> None:
         encoding="utf-8",
         errors="replace",
         check=False,
+        env=env,
     )
     assert result.returncode == 0, (
         f"no-arg invocation must not crash. stdout={result.stdout!r} "
         f"stderr={result.stderr!r}"
     )
-    # The live repo has its own data/working-tree-check.log; the run
-    # block landed there. We do not assert on that path because it is
-    # state outside the test's control, but a clean exit + no stderr
-    # noise is enough to pin the regression.
+    log = (tmp_path / "working-tree-check.log").read_text(encoding="utf-8")
+    assert _count_blocks(log) == 1
     assert "ParameterArgumentValidationError" not in result.stderr, (
         "regression: param-default Split-Path call must not throw"
     )
