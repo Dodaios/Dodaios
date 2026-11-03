@@ -14,6 +14,7 @@ from typing import Any
 import psutil
 import pytest
 
+from dodaios.verse_host import supervisor as supervisor_mod
 from dodaios.verse_host.bridge import TokenBox, mint_token
 from dodaios.verse_host.supervisor import BACKOFF_S, Supervisor, spawn_contained
 
@@ -230,6 +231,33 @@ def test_killing_the_app_ends_verse_within_2s(tmp_path: Path) -> None:
     finally:
         if proc.poll() is None:
             proc.kill()
+
+
+def test_spawn_contained_keeps_linux_preexec_off_macos(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """macOS has no prctl. The Linux preexec_fn raises and aborts the spawn."""
+    seen: dict[str, object] = {}
+
+    class _Popen:
+        def __init__(self, argv: list[str], **kwargs: object) -> None:
+            seen["argv"] = argv
+            seen.update(kwargs)
+            self.pid = 4242
+
+        def poll(self) -> None:
+            return None
+
+    monkeypatch.setattr(supervisor_mod.subprocess, "Popen", _Popen)
+    monkeypatch.setattr(supervisor_mod.sys, "platform", "darwin")
+    proc = supervisor_mod._spawn_contained_sync(["verse"], {}, tmp_path)
+    assert proc.pid == 4242
+    assert "preexec_fn" not in seen
+
+    seen.clear()
+    monkeypatch.setattr(supervisor_mod.sys, "platform", "linux")
+    supervisor_mod._spawn_contained_sync(["verse"], {}, tmp_path)
+    assert seen.get("preexec_fn") is supervisor_mod._linux_preexec
 
 
 async def test_real_spawn_keeps_token_off_the_command_line(tmp_path: Path) -> None:
