@@ -54,8 +54,8 @@ FString FVerseMovementNetStats::ToJson() const
 		Kinds += FString::Printf(TEXT("%s\"%s\": %d"), Index ? TEXT(", ") : TEXT(""),
 			*Enum->GetNameStringByValue(Index).ToLower(), Corrections[Index]);
 	}
-	return FString::Printf(TEXT("{\"corrections_total\": %d, \"corrections\": {%s}, \"server_moves\": %d, \"lean_mismatches\": %d, \"lean_sim_diffs\": %d, \"yaw_clamps\": %d}"),
-		Total(), *Kinds, ServerMoves, LeanMismatches, LeanSimDiffs, YawClamps);
+	return FString::Printf(TEXT("{\"corrections_total\": %d, \"corrections\": {%s}, \"server_moves\": %d, \"lean_mismatches\": %d, \"lean_sim_diffs\": %d, \"yaw_clamps\": %d, \"mantle_syncs\": %d, \"mantles_declined\": %d}"),
+		Total(), *Kinds, ServerMoves, LeanMismatches, LeanSimDiffs, YawClamps, MantleSyncs, MantlesDeclined);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -952,9 +952,46 @@ bool UVerseCharacterMovement::FindMantle(FVerseMantlePlan& OutPlan) const
 bool UVerseCharacterMovement::TryStartMantle()
 {
 	FVerseMantlePlan Plan;
-	if (!FindMantle(Plan))
+	const bool bServerOfRemote = CharacterOwner && CharacterOwner->GetLocalRole() == ROLE_Authority
+		&& CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy;
+	const FCharacterNetworkMoveData* Move = bServerOfRemote ? GetCurrentNetworkMoveData() : nullptr;
+	if (!Move)
 	{
-		return false;
+		if (!FindMantle(Plan))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		// A remote client and the server sit up to ServerCorrectionToleranceCm apart, so the ledge
+		// reach test can pass one move apart. Start the mantle in the move the client started it:
+		// never before (the client may always decline), and from the client's location when the
+		// server's own trace just misses. The server's geometry still validates the plan.
+		const bool bClientMantles = (Move->MovementMode & 0x0F) == MOVE_Flying;
+		if (!bClientMantles)
+		{
+			if (FindMantle(Plan))
+			{
+				++NetStats.MantlesDeclined;
+			}
+			return false;
+		}
+		if (!FindMantle(Plan))
+		{
+			const FVector Own = UpdatedComponent->GetComponentLocation();
+			if (!bHasServerLastClientLocation || FVector::DistSquared(Own, ServerLastClientLocation) > FMath::Square(ServerCorrectionToleranceCm))
+			{
+				return false;
+			}
+			UpdatedComponent->SetWorldLocation(ServerLastClientLocation, false, nullptr, ETeleportType::TeleportPhysics);
+			if (!FindMantle(Plan))
+			{
+				UpdatedComponent->SetWorldLocation(Own, false, nullptr, ETeleportType::TeleportPhysics);
+				return false;
+			}
+			++NetStats.MantleSyncs;
+		}
 	}
 	if (IsSliding())
 	{
@@ -1190,6 +1227,11 @@ void UVerseCharacterMovement::MoveAutonomous(float ClientTimeStamp, float DeltaT
 			UE_LOG(LogVerseMovement, Display, TEXT("lean refused: client %d, server %d, before %d, dt %.3f"), Client, int32(LeanQuantized), int32(LeanBefore), DeltaTime);
 		}
 		PendingClientLean = NoClientLean;
+		if (const FCharacterNetworkMoveData* Move = GetCurrentNetworkMoveData())
+		{
+			bHasServerLastClientLocation = !MovementBaseUtility::UseRelativeLocation(Move->MovementBase);
+			ServerLastClientLocation = Move->Location;
+		}
 		if (AVerseCharacter* Character = GetVerseCharacter())
 		{
 			Character->SetReplicatedMovementState(Stance, LeanQuantized, IsSprinting(), MantleElapsed >= 0.f);

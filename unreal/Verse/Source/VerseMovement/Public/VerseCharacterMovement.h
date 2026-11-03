@@ -70,6 +70,10 @@ struct VERSEMOVEMENT_API FVerseMovementNetStats
 	int32 LeanSimDiffs = 0;
 	/** Server: moves whose yaw the prone turn cap clamped (a client turning faster than allowed). */
 	int32 YawClamps = 0;
+	/** Server: mantles started from the client's location (within the correction tolerance). */
+	int32 MantleSyncs = 0;
+	/** Server: mantles the server found but held back because the client did not start one. */
+	int32 MantlesDeclined = 0;
 
 	int32 Total() const;
 	FString ToJson() const;
@@ -283,6 +287,9 @@ protected:
 	/** Server: move timestamp and server time of the last correction sent. */
 	float LastSentCorrectionStamp = -1.f;
 	double LastSentCorrectionTime = -1.0;
+	/** Server: the remote client's location at the end of its previous move (world, no moving base). */
+	FVector ServerLastClientLocation = FVector::ZeroVector;
+	bool bHasServerLastClientLocation = false;
 
 	// Server: the lean value the client sent with the current move (-128 = none).
 	int16 PendingClientLean = -128;
