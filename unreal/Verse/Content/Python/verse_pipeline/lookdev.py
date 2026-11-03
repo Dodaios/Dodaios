@@ -236,6 +236,9 @@ class Capture:
         c.set_editor_property("capture_source", u.SceneCaptureSource.SCS_FINAL_COLOR_LDR)
         c.set_editor_property("capture_every_frame", False)
         c.set_editor_property("capture_on_movement", False)
+        # Post-process materials (the grade) need a view state, which a capture
+        # only keeps when it persists its rendering state (or captures every frame).
+        c.set_editor_property("always_persist_rendering_state", True)
         c.set_editor_property("post_process_blend_weight", 1.0)
         self.comp = c
 
@@ -486,6 +489,7 @@ PROBE_FOLDER = "/Game/Verse/Test/WP14/Probe"
 #: Debug bodies for the chart probe; each replaces the grade's custom node.
 PROBE_CODE = {
     "identity": "return Scene.rgb;",
+    "red_after": "return float3(1.0, 0.0, 0.0);",
     "exposure": "return float3(Exposure, Exposure, Exposure);",
     "coord": (
         "float3 c = (Scene.rgb + Bloom.rgb * BloomScale) * Exposure;"
@@ -521,7 +525,10 @@ def probe_materials(u) -> dict:
         for param in masters.POST_TONEMAP.params:
             g.param(param)
         mat.set_editor_property("material_domain", u.MaterialDomain.MD_POST_PROCESS)
-        mat.set_editor_property("blendable_location", u.BlendableLocation.BL_REPLACING_TONEMAPPER)
+        location = u.BlendableLocation.BL_REPLACING_TONEMAPPER
+        if name.endswith("_after"):
+            location = u.BlendableLocation.BL_SCENE_COLOR_AFTER_TONEMAPPING
+        mat.set_editor_property("blendable_location", location)
         ids = u.SceneTextureId
         scene_tex = u.MaterialExpressionSceneTexture
         g.node(scene_tex, "Scene", scene_texture_id=ids.PPI_POST_PROCESS_INPUT0)
@@ -543,15 +550,36 @@ def probe_materials(u) -> dict:
     return out
 
 
-def probe_chart(u, cap: Capture, setup, mats: dict) -> dict:
-    """One 8-bit chart frame per probe material (`chart_probe_<name>.png`)."""
-    result = {}
+def _blendables(cap: Capture) -> list[str]:
+    held = cap.comp.get_editor_property("post_process_settings")
+    array = held.get_editor_property("weighted_blendables").get_editor_property("array")
+    return [f"{b.get_editor_property('weight')}:{b.get_editor_property('object')}" for b in array]
+
+
+def probe_chart(u, scene: Scene, cap: Capture, setup, mats: dict) -> dict:
+    """One 8-bit chart frame per probe material (`chart_probe_<name>.png`).
+
+    `volume` shoots the real grade through an unbound PostProcessVolume
+    instead of the capture's own settings.
+    """
+    result = {"blendables": {}}
     for name, mat in mats.items():
         settings = _post_settings(u, bias=0.0, bloom=0.0)
         blend = [u.WeightedBlendable(1.0, mat)] if mat is not None else []
         settings.set_editor_property("weighted_blendables", u.WeightedBlendables(blend))
         setup(cap, settings)
+        result["blendables"][name] = _blendables(cap)
         result[name] = cap.shoot(f"chart_probe_{name}")
+    volume = scene.spawn(u.PostProcessVolume, (1500, 0, 1000), group="chart")
+    volume.set_editor_property("unbound", True)
+    volume.set_editor_property("priority", 100.0)
+    volume.set_editor_property("blend_weight", 1.0)
+    volume.set_editor_property("settings", _post_settings(u, bias=0.0, bloom=0.0))
+    bare = _post_settings(u, bias=0.0, bloom=0.0)
+    bare.set_editor_property("weighted_blendables", u.WeightedBlendables([]))
+    setup(cap, bare)
+    result["volume"] = cap.shoot("chart_probe_volume")
+    scene.forget(volume)
     return result
 
 
@@ -582,6 +610,7 @@ class Runner:
         self.shots: list = []
         self.last_probe = b""
         self.done = False
+        self.busy = False
 
     def log(self, message: str) -> None:
         line = f"[verse_lookdev] {message}"
@@ -624,8 +653,10 @@ class Runner:
             u.SystemLibrary.quit_editor()
 
     def tick(self, _dt):
-        if self.done:
+        # Asset creation inside a stage can pump Slate, which ticks again.
+        if self.done or self.busy:
             return
+        self.busy = True
         try:
             self._tick()
         except Exception as error:  # report, never hang the editor
@@ -635,6 +666,8 @@ class Runner:
             self.report["traceback"] = traceback.format_exc()
             self.log(f"error in stage {self.stage}: {type(error).__name__}: {error}")
             self.finish()
+        finally:
+            self.busy = False
 
     def _tick(self):
         if self.stage == "setup":
@@ -726,7 +759,7 @@ class Runner:
 
             self.log("chart probe")
             try:
-                self.report["chart_probe"] = probe_chart(u, chart_cap, place, probe_mats)
+                self.report["chart_probe"] = probe_chart(u, scene, chart_cap, place, probe_mats)
                 self.log(f"chart probe done: {sorted(self.report['chart_probe'])}")
             except Exception as error:  # the probe is diagnostics only
                 self.report["chart_probe_error"] = f"{type(error).__name__}: {error}"
