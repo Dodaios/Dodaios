@@ -3,8 +3,10 @@
 * Lazy: launched on the first ``show``, never at app start.
 * Containment: a Windows job object with ``KILL_ON_JOB_CLOSE`` (the app's
   handle closes when the app dies, and the job kills Verse); on Linux
-  ``prctl(PR_SET_PDEATHSIG, SIGKILL)`` plus its own process group. Verse is
-  only ever stopped by the PID this supervisor started.
+  ``prctl(PR_SET_PDEATHSIG, SIGKILL)`` plus its own process group. macOS has
+  no ``PR_SET_PDEATHSIG`` and no ``libc.so.6``; the Linux ``preexec_fn``
+  raises there and ``subprocess`` aborts the spawn. Verse is only ever
+  stopped by the PID this supervisor started.
 * Token: 256 bits, minted per launch, passed in ``DODAIOS_VERSE_TOKEN`` with
   the bridge URL in ``DODAIOS_VERSE_BRIDGE``; never on the command line and
   never logged.
@@ -188,7 +190,11 @@ def _spawn_contained_sync(argv: list[str], env: dict[str, str], cwd: Path) -> Pr
         except OSError:
             log.warning("verse supervisor: job object unavailable; Verse may outlive the app")
     else:
-        kwargs["preexec_fn"] = _linux_preexec  # noqa: PLW1509 - prctl must run in the child
+        # Linux only. On macOS this preexec loads libc.so.6 and calls prctl,
+        # both missing. The raised exception becomes SubprocessError and the
+        # spawn dies before Verse starts.
+        if sys.platform == "linux":
+            kwargs["preexec_fn"] = _linux_preexec  # noqa: PLW1509 - prctl must run in the child
         popen = subprocess.Popen(argv, **kwargs)  # noqa: S603
     return PopenProcess(popen)
 
