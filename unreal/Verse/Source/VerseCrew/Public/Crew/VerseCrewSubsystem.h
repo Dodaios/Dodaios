@@ -37,6 +37,25 @@ struct VERSECREW_API FVerseCrewStats
 	double MaxTickMs = 0.0;
 	double TotalTickMs = 0.0;
 	int64 Ticks = 0;
+	/** Walks that follow a Recast path. */
+	int32 NavPaths = 0;
+	/** Walks on a straight line because no nav path was found (the line was clear). */
+	int32 NavFallbacks = 0;
+	/** No nav path and the straight line runs into geometry: the pawn is placed at its goal. */
+	int32 NavBlocked = 0;
+	/** Walks planned while the world had no navmesh at all. */
+	int32 NavMissing = 0;
+	/** Walkers that were jammed for YieldSeconds and squeezed past the crowd. */
+	int32 CrowdYields = 0;
+	/** Pawns taken from the pool instead of spawned. */
+	int32 PoolReuses = 0;
+	/** Costliest single work item of each kind, ms (wall clock). */
+	double MaxPlanDeckMs = 0.0;
+	double MaxSpawnMs = 0.0;
+	double MaxPathMs = 0.0;
+	/** Most queued work items at once, and ticks that ended with work still queued. */
+	int32 PeakQueuedWork = 0;
+	int64 TicksWithBacklog = 0;
 };
 
 /**
@@ -130,8 +149,29 @@ public:
 	void SetEpochMs(int64 EpochMs) { BaseEpochMs = EpochMs; }
 	/** Off: the world tick no longer drives the subsystem (tests call Tick themselves). */
 	void SetAutoTick(bool bInAutoTick) { bAutoTick = bInAutoTick; }
-	/** Re-plans now instead of at the next tick. */
+	/** Re-plans now and does all queued work at once, outside the tick budget (tests, QA). */
 	void ReplanNow();
+	/** Queued work items (deck plans, spawns, path queries, retirements); 0 when idle. */
+	int32 NumQueuedWork() const;
+
+	// --- navigation ------------------------------------------------------------------------
+	/** True when the world has a navmesh to walk on. */
+	bool HasNavigation() const;
+	/**
+	 * Recast path between two points at capsule centre height (cm), both ends projected onto
+	 * the navmesh within Tuning.NavProjectExtentCm. OutPoints starts at From's projection and
+	 * ends at To's. False when there is no navmesh or no path.
+	 */
+	bool FindNavPath(const FVector& FromCm, const FVector& ToCm, TArray<FVector>& OutPoints) const;
+	/** FindNavPath that also says why it failed (start or goal off the navmesh, no path, partial path). */
+	bool FindNavPathWhy(const FVector& FromCm, const FVector& ToCm, TArray<FVector>& OutPoints, const TCHAR*& OutReason) const;
+	/**
+	 * Tests and QA: a pawn outside the roster that walks from Start to Goal (capsule centre
+	 * height) with the crew's avoidance and stays there. Planning never touches it.
+	 */
+	bool SpawnScriptedWalker(const FString& Id, FName Deck, const FVector& StartCm, const FVector& GoalCm);
+	/** Whether a pawn has reached its goal (false when there is no such pawn). */
+	bool HasArrived(const FString& MemberId) const;
 
 private:
 	enum class EGoal : uint8
@@ -141,6 +181,8 @@ private:
 		Leave,
 		/** A new agent walking from the shuttle to the lift (parity C-13). */
 		Arrive,
+		/** A test or QA walker outside the roster (SpawnScriptedWalker). */
+		Scripted,
 	};
 
 	struct FBody
@@ -162,6 +204,24 @@ private:
 		double LastProgressSeconds = 0.0;
 		bool bStuckReported = false;
 		FVector Velocity = FVector::ZeroVector;
+		/** Squeezing past a jam (counted once per jam in Stats.CrowdYields). */
+		bool bYielding = false;
+		/** Waiting in the spawn queue: no pawn yet, appears at SpawnLocation. */
+		bool bSpawnPending = false;
+		FVector SpawnLocation = FVector::ZeroVector;
+		float SpawnHeading = 0.f;
+		/** Waiting in the path queue: the pawn stands until its path is computed. */
+		bool bPathPending = false;
+		/** Bumped on every new goal; a queued path query for an older goal is dropped. */
+		uint32 GoalSerial = 0;
+		/** Scripted walkers carry their own member record. */
+		TOptional<FVerseCrewMember> ScriptedMember;
+	};
+
+	struct FPathJob
+	{
+		FString Key;
+		uint32 Serial = 0;
 	};
 
 	static FString BodyKey(FName Deck, const FString& MemberId);
@@ -174,13 +234,32 @@ private:
 	void RequestResync(const FString& Topic);
 
 	TArray<FVerseCrewMember> EffectiveMembers() const;
-	void Replan();
+	bool EffectiveMember(const FString& Id, FVerseCrewMember& Out) const;
+	/** Starts a plan pass: every loaded deck goes into the plan queue. */
+	void BeginPlanPass();
+	void PlanDeck(FName DeckId);
+	void FinishPlanPass();
+	/** Runs queued work until the budget (ms since TickStart) is used; at least one item. */
+	void RunQueuedWork(double TickStartSeconds, double BudgetMs);
+	/** One queued work item; false when nothing was queued. */
+	bool RunOneWorkItem();
+	/** The kind of the next work item (0 duties, 1 plan, 2 spawn from the pool, 3 path, 4 pool trim, 5 new pooled actor), INDEX_NONE when idle. */
+	int32 NextWorkKind() const;
+	void SpawnBodyNow(const FString& Key);
+	void BuildPathNow(const FString& Key, uint32 Serial);
 	void ReconcileDeck(const FVerseCrewDeck& Deck, const FVerseCrewDeckPlan& Plan, const TArray<FVerseCrewMember>& Members);
 	void ReconcileArrivals(const TArray<FVerseCrewMember>& Members);
 	AVerseCrewPawn* SpawnPawn(const FVerseCrewMember& Member, const FVector& Location, float HeadingDeg);
+	/** A new hidden pawn wearing the body mesh, for the pool. */
+	AVerseCrewPawn* NewPooledPawn();
+	/** Queues a body for its pawn; the body exists at once, its pawn when the queue gets to it. */
+	FBody& AddBody(const FString& Key, const FString& MemberId, FName Deck, const FVector& Location, float HeadingDeg);
+	/** Removes the body; its pawn is hidden and kept for reuse (or destroyed past the pool size). */
 	void DespawnBody(const FString& Key);
 	void SetBodyGoal(FBody& Body, EGoal Goal, const FVector& Location, float HeadingDeg, EVerseCrewActivity Activity, bool bFace, const FString& SocketKey);
 	void BuildPath(FBody& Body, const FVector& From);
+	/** True when a capsule moved from From to To hits no static geometry. */
+	bool StraightLineClear(const FVector& From, const FVector& To) const;
 	void StepBodies(float DeltaSeconds);
 	void StepCompanion(float DeltaSeconds);
 	void StepWorldActions();
@@ -212,6 +291,25 @@ private:
 	TMap<FString, int64> LastSeq;
 	TArray<double> OpenCommandTimes;
 	TSet<FString> Briefed;
+
+	// Queued work (A15.5): plan one deck, spawn one pawn, one path query at a time.
+	TArray<FName> PlanQueue;
+	TArray<FVerseCrewMember> PassMembers;
+	TMap<FString, EVerseCrewRoundPart> PassRounds;
+	int64 PassNowMs = 0;
+	TArray<FString> SpawnQueue;
+	TArray<FPathJob> PathQueue;
+	int32 PathQueueHead = 0;
+	int32 SpawnQueueHead = 0;
+	bool bDutiesDirty = false;
+	/** Recent worst cost per work kind, ms; start values until measured. */
+	double PredictedCostMs[6] = { 0.05, 0.2, 0.15, 0.1, 0.1, 0.5 };
+	int32 DeferredFrames = 0;
+	bool bNavMissingLogged = false;
+	int32 NavWarnings = 0;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<AVerseCrewPawn>> PawnPool;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USkeletalMesh> CachedBodyMesh;

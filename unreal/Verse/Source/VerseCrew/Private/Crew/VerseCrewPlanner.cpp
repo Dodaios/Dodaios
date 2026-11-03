@@ -417,14 +417,21 @@ namespace VerseCrewPlanner
 				Plan.Placements.Add(H.Member->Id, P);
 			}
 		}
+		// The sockets of a venue do not change within one plan: list each venue once.
+		TMap<int32, TArray<int32>> VenueCache;
 		for (const FHere& H : Here)
 		{
 			if (H.Intent.Venue == EVerseCrewVenue::Console || H.Intent.Venue == EVerseCrewVenue::Terminal)
 			{
 				continue;
 			}
+			const int32 VenueKey = static_cast<int32>(H.Intent.Venue);
+			if (!VenueCache.Contains(VenueKey))
+			{
+				VenueCache.Add(VenueKey, VenueSockets(Deck, H.Intent.Venue));
+			}
 			TArray<int32> Free;
-			for (const int32 I : VenueSockets(Deck, H.Intent.Venue))
+			for (const int32 I : VenueCache[VenueKey])
 			{
 				if (!Taken.Contains(Deck.Sockets[I].Key()))
 				{

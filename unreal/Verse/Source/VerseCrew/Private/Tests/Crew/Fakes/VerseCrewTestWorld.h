@@ -2,12 +2,30 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+#include "AI/NavigationSystemBase.h"
+#include "Components/BrushComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Crew/VerseCrewDeck.h"
 #include "Crew/VerseCrewPawn.h"
 #include "Crew/VerseCrewSubsystem.h"
 #include "CoreMinimal.h"
 #include "Dom/JsonObject.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
+#include "GameFramework/Volume.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/CoreMisc.h"
 #include "Misc/FileHelper.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "UObject/EnumProperty.h"
+
+#if PLATFORM_WINDOWS
+#include "Windows/WindowsHWrapper.h"
+#include <realtimeapiset.h>
+#elif PLATFORM_LINUX || PLATFORM_MAC
+#include <time.h>
+#endif
 #include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -158,6 +176,60 @@ public:
 	}
 };
 
+/**
+ * CPU time of the calling thread in seconds. The machine is shared by many agents, so wall
+ * time of a sub-millisecond tick includes the scheduler handing the core to someone else;
+ * the crew's game-thread cost is the time this thread actually ran.
+ */
+struct FVerseCrewThreadClock
+{
+	double CyclesPerSecond = 0.0;
+
+	static uint64 Cycles()
+	{
+#if PLATFORM_WINDOWS
+		ULONG64 Value = 0;
+		::QueryThreadCycleTime(::GetCurrentThread(), &Value);
+		return Value;
+#elif PLATFORM_LINUX || PLATFORM_MAC
+		struct timespec Ts;
+		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &Ts);
+		return static_cast<uint64>(Ts.tv_sec) * 1000000000ull + static_cast<uint64>(Ts.tv_nsec);
+#else
+		return static_cast<uint64>(FPlatformTime::Seconds() * 1.0e9);
+#endif
+	}
+
+	/** Thread cycles run at the invariant TSC rate on Windows: measured against wall time while spinning. */
+	void Calibrate()
+	{
+#if PLATFORM_WINDOWS
+		double Best = 0.0;
+		for (int32 Try = 0; Try < 5; ++Try)
+		{
+			const uint64 C0 = Cycles();
+			const double T0 = FPlatformTime::Seconds();
+			double T1 = T0;
+			while (T1 - T0 < 0.03)
+			{
+				T1 = FPlatformTime::Seconds();
+			}
+			const uint64 C1 = Cycles();
+			// A preempted try counts fewer cycles for the same wall time: keep the fastest.
+			Best = FMath::Max(Best, static_cast<double>(C1 - C0) / (T1 - T0));
+		}
+		CyclesPerSecond = Best;
+#else
+		CyclesPerSecond = 1.0e9;
+#endif
+	}
+
+	double Ms(uint64 From, uint64 To) const
+	{
+		return CyclesPerSecond > 0.0 ? static_cast<double>(To - From) / CyclesPerSecond * 1000.0 : 0.0;
+	}
+};
+
 /** A bare game world with the crew subsystem, ticked by hand. */
 struct FVerseCrewTestWorld
 {
@@ -200,6 +272,130 @@ struct FVerseCrewTestWorld
 			return false;
 		}
 		Crew->SetLoadedDecks(DeckIds);
+		return true;
+	}
+
+	/**
+	 * Recast over the WP15 walk fixtures of the given (registered) decks: floor slabs from
+	 * Content/Verse/Test/WP15/Decks/<deck>.walk.json, one nav bounds volume per deck, a game-mode
+	 * navigation system and a blocking build. The engine's navigation classes are reached by
+	 * name (VerseCrew links Engine only). Returns false with Error when anything is missing.
+	 */
+	/** What BuildNav saw (bounds, slabs, the navmesh's generation mode), for the test log. */
+	FString NavDiag;
+
+	bool BuildNav(const TArray<FName>& DeckIds, FString& Error, double* OutBuildMs = nullptr)
+	{
+		int32 Slabs = 0;
+		const double Start = FPlatformTime::Seconds();
+		UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+		UClass* BoundsClass = FindObject<UClass>(nullptr, TEXT("/Script/NavigationSystem.NavMeshBoundsVolume"));
+		UClass* RecastClass = FindObject<UClass>(nullptr, TEXT("/Script/NavigationSystem.RecastNavMesh"));
+		if (!Cube || !BoundsClass || !RecastClass)
+		{
+			Error = TEXT("engine cube, NavMeshBoundsVolume or RecastNavMesh class missing");
+			return false;
+		}
+		constexpr float SlabCm = 20.f;
+		for (const FName& DeckId : DeckIds)
+		{
+			const FVerseCrewDeck* Deck = Crew->FindDeck(DeckId);
+			const TSharedPtr<FJsonValue> Doc = FFakeVerseCrewBridge::LoadJson(VerseCrew::FixtureDeckDir() / (DeckId.ToString() + TEXT(".walk.json")));
+			const TArray<TSharedPtr<FJsonValue>>* Boxes = nullptr;
+			if (!Deck || !Doc.IsValid() || !Doc->AsObject().IsValid() || !Doc->AsObject()->TryGetArrayField(TEXT("boxes"), Boxes))
+			{
+				Error = FString::Printf(TEXT("no deck or walk fixture for %s"), *DeckId.ToString());
+				return false;
+			}
+			FBox Bounds(ForceInit);
+			for (const TSharedPtr<FJsonValue>& Value : *Boxes)
+			{
+				const TArray<TSharedPtr<FJsonValue>>& B = Value->AsArray();
+				const FVector Min = Deck->OriginCm + FVector(B[0]->AsNumber(), B[1]->AsNumber(), B[4]->AsNumber() - SlabCm);
+				const FVector Max = Deck->OriginCm + FVector(B[2]->AsNumber(), B[3]->AsNumber(), B[4]->AsNumber());
+				Bounds += FBox(Min, Max);
+				const FTransform Xf(FRotator::ZeroRotator, (Min + Max) * 0.5f, (Max - Min) / 100.f);
+				AStaticMeshActor* Slab = World->SpawnActorDeferred<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Xf);
+				if (!Slab)
+				{
+					Error = TEXT("floor slab did not spawn");
+					return false;
+				}
+				Slab->GetStaticMeshComponent()->SetStaticMesh(Cube);
+				Slab->FinishSpawning(Xf);
+				++Slabs;
+			}
+			Bounds = Bounds.ExpandBy(FVector(200.f, 200.f, 300.f));
+			const FTransform VolumeXf(Bounds.GetCenter());
+			AVolume* Volume = World->SpawnActorDeferred<AVolume>(BoundsClass, VolumeXf);
+			if (!Volume || !Volume->GetBrushComponent())
+			{
+				Error = TEXT("nav bounds volume did not spawn");
+				return false;
+			}
+			UBrushComponent* Brush = Volume->GetBrushComponent();
+			UBodySetup* Shape = NewObject<UBodySetup>(Brush);
+			const FVector Size = Bounds.GetSize();
+			Shape->AggGeom.BoxElems.Add(FKBoxElem(Size.X, Size.Y, Size.Z));
+			Brush->BrushBodySetup = Shape;
+			Volume->FinishSpawning(VolumeXf);
+			// Construction can replace the brush's body setup; the bounds the navigation system
+			// gathers come from it, so set it again and refresh the bounds.
+			Brush->BrushBodySetup = Shape;
+			Brush->UpdateBounds();
+			const FBox Got = Volume->GetComponentsBoundingBox(true);
+			if (!Got.IsValid || Got.GetSize().X < 100.f)
+			{
+				Error = FString::Printf(TEXT("nav bounds volume for %s has no size (%s)"), *DeckId.ToString(), *Got.ToString());
+				return false;
+			}
+			NavDiag += FString::Printf(TEXT("%s volume %s (registered %d); "), *DeckId.ToString(), *Volume->GetComponentsBoundingBox(true).ToString(),
+				Volume->HasActorRegisteredAllComponents() ? 1 : 0);
+		}
+		NavDiag += FString::Printf(TEXT("slabs %d; "), Slabs);
+		// The project builds no navmesh at runtime (RuntimeGeneration=Static); the test's navmesh
+		// is generated, so the RecastNavMesh default is dynamic while its instance spawns.
+		UObject* RecastDefaults = RecastClass->GetDefaultObject();
+		FEnumProperty* Generation = CastField<FEnumProperty>(RecastClass->FindPropertyByName(TEXT("RuntimeGeneration")));
+		int64 OldGeneration = 0;
+		if (Generation)
+		{
+			void* Ptr = Generation->ContainerPtrToValuePtr<void>(RecastDefaults);
+			OldGeneration = Generation->GetUnderlyingProperty()->GetSignedIntPropertyValue(Ptr);
+			int64 Dynamic = Generation->GetEnum()->GetValueByNameString(TEXT("Dynamic"));
+			Generation->GetUnderlyingProperty()->SetIntPropertyValue(Ptr, Dynamic == INDEX_NONE ? int64(2) : Dynamic);
+		}
+		FNavigationSystem::AddNavigationSystemToWorld(*World, FNavigationSystemRunMode::GameMode, nullptr, true, true);
+		FSelfRegisteringExec::StaticExec(World, TEXT("RebuildNavigation"), *GLog);
+		if (Generation)
+		{
+			for (TObjectIterator<UObject> It; It; ++It)
+			{
+				if (It->GetWorld() == World && It->IsA(RecastClass) && !It->HasAnyFlags(RF_ClassDefaultObject))
+				{
+					NavDiag += FString::Printf(TEXT("navmesh %s generation %lld; "), *It->GetName(),
+						Generation->GetUnderlyingProperty()->GetSignedIntPropertyValue(Generation->ContainerPtrToValuePtr<void>(*It)));
+				}
+			}
+			Generation->GetUnderlyingProperty()->SetIntPropertyValue(Generation->ContainerPtrToValuePtr<void>(RecastDefaults), OldGeneration);
+		}
+		else
+		{
+			NavDiag += TEXT("RuntimeGeneration property not found; ");
+		}
+		if (const UNavigationSystemBase* Nav = World->GetNavigationSystem())
+		{
+			NavDiag += FString::Printf(TEXT("navigable bounds %s"), *Nav->GetNavigableWorldBounds().ToString());
+		}
+		if (OutBuildMs)
+		{
+			*OutBuildMs = (FPlatformTime::Seconds() - Start) * 1000.0;
+		}
+		if (!Crew->HasNavigation())
+		{
+			Error = Generation ? TEXT("the navigation system has no navmesh after the build") : TEXT("RecastNavMesh.RuntimeGeneration not found");
+			return false;
+		}
 		return true;
 	}
 

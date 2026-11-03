@@ -267,12 +267,25 @@ bool FVerseCrewTuning::LoadFrom(const FString& Path, FString& OutError)
 	Num(TEXT("crew_radius_cm"), CrewRadiusCm);
 	Num(TEXT("separation_gain"), SeparationGain);
 	Num(TEXT("stuck_s"), StuckSeconds);
+	Num(TEXT("yield_s"), YieldSeconds);
 	Num(TEXT("arrive_tolerance_cm"), ArriveToleranceCm);
 	Num(TEXT("open_commands_per_s"), OpenCommandsPerSecond);
 	Num(TEXT("sit_drop_cm"), SitDropCm);
 	Num(TEXT("beacon_height_cm"), BeaconHeightCm);
 	Num(TEXT("nameplate_height_cm"), NameplateHeightCm);
 	Num(TEXT("salute_s"), SaluteSeconds);
+	Num(TEXT("tick_budget_ms"), TickBudgetMs);
+	Num(TEXT("tick_hard_cap_ms"), TickHardCapMs);
+	double Pool = 0.0;
+	if (Root->TryGetNumberField(TEXT("pawn_pool_size"), Pool))
+	{
+		PawnPoolSize = FMath::Max(0, static_cast<int32>(Pool));
+	}
+	const TArray<TSharedPtr<FJsonValue>>* Extent = nullptr;
+	if (Root->TryGetArrayField(TEXT("nav_project_extent_cm"), Extent) && Extent->Num() == 3)
+	{
+		NavProjectExtentCm = FVector((*Extent)[0]->AsNumber(), (*Extent)[1]->AsNumber(), (*Extent)[2]->AsNumber());
+	}
 	const TArray<TSharedPtr<FJsonValue>>* Heel = nullptr;
 	if (Root->TryGetArrayField(TEXT("companion_heel_offset_cm"), Heel) && Heel->Num() == 2)
 	{

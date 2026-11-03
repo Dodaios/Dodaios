@@ -57,16 +57,30 @@ bool FVerseCrewSpawnTest::RunTest(const FString&)
 	{
 		Panes.Add(A::Pane(FString::Printf(TEXT("ws_1:T%d"), I + 1), PaneDuty[I]));
 	}
+	// The game runs at 120 fps (architecture.md 7); 60 Hz ticks are the conservative case. Pawns
+	// appear over several frames: the crew spends at most its tick budget per frame.
+	const float Dt = 1.f / 60.f;
 	const double Start = FPlatformTime::Seconds();
+	const double ClockStart = W.Crew->GetClockSeconds();
 	W.Bridge.Send(W.Crew, TEXT("roster.snapshot"), A::Snapshot(Agents, Panes));
-	W.Crew->Tick(1.f / 60.f);
+	double MaxTickMs = 0.0;
+	int32 Frames = 0;
+	while (W.Crew->GetPawns().Num() < 48 && Frames < 600)
+	{
+		W.Crew->Tick(Dt);
+		MaxTickMs = FMath::Max(MaxTickMs, W.Crew->GetStats().LastTickMs);
+		++Frames;
+	}
 	const double SpawnMs = (FPlatformTime::Seconds() - Start) * 1000.0;
+	const double SpawnClockMs = (W.Crew->GetClockSeconds() - ClockStart) * 1000.0;
 	TestEqual(TEXT("pawns after the snapshot"), W.Crew->GetPawns().Num(), 48);
-	TestTrue(FString::Printf(TEXT("spawned within 1 s (%.1f ms)"), SpawnMs), SpawnMs <= 1000.0);
+	TestTrue(FString::Printf(TEXT("spawned within 1 s of game time (%.0f ms, %d frames)"), SpawnClockMs, Frames), SpawnClockMs <= 1000.0);
+	TestTrue(FString::Printf(TEXT("and within 1 s of wall time (%.1f ms)"), SpawnMs), SpawnMs <= 1000.0);
 	for (int32 I = 0; I < 40; ++I)
 	{
 		TestNotNull(FString::Printf(TEXT("ag_%03d has a pawn"), I), W.Crew->FindPawn(FString::Printf(TEXT("ag_%03d"), I)));
 	}
+	W.Run(2.f, Dt);
 
 	// Delta: five duty changes, one new agent, one pane gone.
 	TArray<TSharedRef<FJsonObject>> Up;
@@ -78,16 +92,41 @@ bool FVerseCrewSpawnTest::RunTest(const FString&)
 		Up.Add(Patch);
 	}
 	const double DeltaStart = FPlatformTime::Seconds();
+	const double DeltaClockStart = W.Crew->GetClockSeconds();
 	W.Bridge.Send(W.Crew, TEXT("roster.delta"), A::Delta(Up, {}, {}, { TEXT("ws_1:T8") }));
-	W.Crew->Tick(1.f / 60.f);
+	auto DeltaShows = [&W]() {
+		for (int32 I = 16; I < 21; ++I)
+		{
+			const AVerseCrewPawn* P = W.Crew->FindPawn(FString::Printf(TEXT("ag_%03d"), I));
+			if (!P || P->Duty != EVerseCrewDuty::Error)
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+	int32 DeltaFrames = 0;
+	do
+	{
+		W.Crew->Tick(Dt);
+		MaxTickMs = FMath::Max(MaxTickMs, W.Crew->GetStats().LastTickMs);
+		++DeltaFrames;
+	} while (!DeltaShows() && DeltaFrames < 120);
 	const double DeltaMs = (FPlatformTime::Seconds() - DeltaStart) * 1000.0;
-	TestTrue(FString::Printf(TEXT("delta applied within 200 ms (%.1f ms)"), DeltaMs), DeltaMs <= 200.0);
+	const double DeltaClockMs = (W.Crew->GetClockSeconds() - DeltaClockStart) * 1000.0;
+	TestTrue(FString::Printf(TEXT("delta applied within 200 ms of game time (%.0f ms, %d frames)"), DeltaClockMs, DeltaFrames), DeltaShows() && DeltaClockMs <= 200.0);
+	TestTrue(FString::Printf(TEXT("and within 200 ms of wall time (%.1f ms)"), DeltaMs), DeltaMs <= 200.0);
 	const AVerseCrewPawn* Changed = W.Crew->FindPawn(TEXT("ag_016"));
 	TestTrue(TEXT("changed duty shows on the pawn"), Changed && Changed->Duty == EVerseCrewDuty::Error);
 	TestEqual(TEXT("no resync needed"), W.Crew->GetStats().Resyncs, 0);
 	const TSharedRef<FJsonObject> Report = MakeShared<FJsonObject>();
+	Report->SetNumberField(TEXT("tick_hz"), 60);
+	Report->SetNumberField(TEXT("snapshot_to_pawns_frames"), Frames);
+	Report->SetNumberField(TEXT("snapshot_to_pawns_game_ms"), SpawnClockMs);
 	Report->SetNumberField(TEXT("snapshot_to_pawns_ms"), SpawnMs);
+	Report->SetNumberField(TEXT("delta_to_pawns_game_ms"), DeltaClockMs);
 	Report->SetNumberField(TEXT("delta_to_pawns_ms"), DeltaMs);
+	Report->SetNumberField(TEXT("max_tick_ms"), MaxTickMs);
 	Report->SetNumberField(TEXT("pawns"), 48);
 	A::WriteProof(TEXT("WP15.1"), TEXT("spawn.json"), Report);
 	return true;
@@ -191,7 +230,11 @@ bool FVerseCrewEntryLeaveTest::RunTest(const FString&)
 	TestEqual(TEXT("working officer types"), static_cast<int32>(Ada->Activity), static_cast<int32>(EVerseCrewActivity::SitType));
 
 	W.Bridge.Send(W.Crew, TEXT("roster.delta"), A::Delta({ A::Agent(TEXT("ag_b"), TEXT("Bo"), TEXT("working")) }));
-	W.Crew->Tick(0.02f);
+	// The spawn comes out of the work queue within a few frames.
+	for (int32 Frame = 0; Frame < 60 && !W.Crew->FindPawn(TEXT("ag_b")); ++Frame)
+	{
+		W.Crew->Tick(0.02f);
+	}
 	const AVerseCrewPawn* Bo = W.Crew->FindPawn(TEXT("ag_b"));
 	if (!TestNotNull(TEXT("Bo spawned"), Bo))
 	{
@@ -537,7 +580,8 @@ bool FVerseCrewInteractionTest::RunTest(const FString&)
 		return false;
 	}
 	W.Bridge.Send(W.Crew, TEXT("roster.snapshot"), A::Snapshot({ A::Agent(TEXT("ag_7f1"), TEXT("Mara"), TEXT("working")) }, { A::Pane(TEXT("ws_91:T1"), TEXT("working")) }));
-	W.Crew->Tick(0.02f);
+	// Pawns appear within the per-frame budget: give the queue a few frames.
+	W.Run(0.25f);
 	AVerseCrewPawn* Mara = W.Crew->FindPawn(TEXT("ag_7f1"));
 	if (!TestNotNull(TEXT("officer pawn"), Mara))
 	{

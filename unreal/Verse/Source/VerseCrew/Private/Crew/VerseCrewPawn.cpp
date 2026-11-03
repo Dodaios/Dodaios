@@ -75,7 +75,8 @@ void AVerseCrewPawn::SetupMember(const FVerseCrewMember& Member, const FVerseCre
 {
 	MemberId = Member.Id;
 	CrewRole = Member.Role;
-	if (Mesh)
+	// A pooled pawn already wears the mesh; setting it again rebuilds its render state.
+	if (Mesh && Body->GetSkeletalMeshAsset() != Mesh)
 	{
 		Body->SetSkeletalMeshAsset(Mesh);
 	}
