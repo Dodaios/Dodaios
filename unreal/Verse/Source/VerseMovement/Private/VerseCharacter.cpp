@@ -1,17 +1,16 @@
 #include "VerseCharacter.h"
 
+#include "AnimationRuntime.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/InputComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
-#include "Engine/LocalPlayer.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
-#include "InputActionValue.h"
-#include "Net/Core/PushModel/PushModel.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/ScopeExit.h"
 #include "Net/UnrealNetwork.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "UObject/ConstructorHelpers.h"
@@ -24,7 +23,13 @@ namespace
 	const TCHAR* TestHumanPhysics = TEXT("/Game/Verse/Test/G0/PHYS_Test_Human.PHYS_Test_Human");
 	/** The mesh faces +Y in its own space (coordinates.md 3.3: mesh yaw = heading - 90). */
 	const FRotator MeshBaseRotation(0.f, -90.f, 0.f);
+	/** Placeholder prone pose: the feet rest this high, the body rises toward the head. */
+	constexpr float ProneFeetLift = 12.f;
+	/** Share of the prone body length from the feet to the hips (the leg hit box). */
+	constexpr float ProneLegShare = 0.53f;
 }
+
+const FName AVerseCharacter::CameraBoneName(TEXT("Camera"));
 
 AVerseCharacter::AVerseCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UVerseCharacterMovement>(ACharacter::CharacterMovementComponentName))
@@ -84,19 +89,40 @@ void AVerseCharacter::BeginPlay()
 			}
 		}
 	}
+	CacheCameraBone();
+	// The leg box covers the lying legs only: from the feet end of the prone body to the hips.
 	const FVerseMovementTuningValues& Tuning = GetVerseMovement()->Tuning();
 	const float Length = Tuning.ProneBodyLength * 100.f;
 	const float HeadForward = Tuning.ProneRadius * 200.f;
-	ProneBody->SetBoxExtent(FVector(Length * 0.5f, Tuning.ProneBodyWidth * 50.f, Tuning.ProneMinClearance * 50.f - 2.f), false);
-	ProneBody->SetRelativeLocation(FVector(HeadForward - Length * 0.5f, 0.f, 0.f));
+	const float Legs = Length * ProneLegShare;
+	ProneBody->SetBoxExtent(FVector(Legs * 0.5f, Tuning.ProneBodyWidth * 50.f, Tuning.ProneMinClearance * 50.f - 2.f), false);
+	ProneBody->SetRelativeLocation(FVector(HeadForward - Length + Legs * 0.5f, 0.f, 0.f));
 	UpdateBodyPose(0.f);
+}
+
+void AVerseCharacter::CacheCameraBone()
+{
+	bHasCameraBone = false;
+	const USkeletalMeshComponent* Body = GetMesh();
+	const USkeletalMesh* Asset = Body ? Body->GetSkeletalMeshAsset() : nullptr;
+	if (!Asset)
+	{
+		return;
+	}
+	const FReferenceSkeleton& Skeleton = Asset->GetRefSkeleton();
+	const int32 Index = Skeleton.FindBoneIndex(CameraBoneName);
+	if (Index == INDEX_NONE)
+	{
+		return;
+	}
+	CameraBoneLocal = FAnimationRuntime::GetComponentSpaceTransformRefPose(Skeleton, Index).GetLocation();
+	bHasCameraBone = CameraBoneLocal.Z > 1.f;
 }
 
 void AVerseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	FDoRepLifetimeParams Params;
-	Params.bIsPushBased = true;
 	Params.Condition = COND_SkipOwner;
 	DOREPLIFETIME_WITH_PARAMS_FAST(AVerseCharacter, ReplicatedStance, Params);
 	DOREPLIFETIME_WITH_PARAMS_FAST(AVerseCharacter, ReplicatedLean, Params);
@@ -106,26 +132,10 @@ void AVerseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 
 void AVerseCharacter::SetReplicatedMovementState(EVerseStance Stance, int8 Lean, bool bSprinting, bool bMantling)
 {
-	if (ReplicatedStance != uint8(Stance))
-	{
-		ReplicatedStance = uint8(Stance);
-		MARK_PROPERTY_DIRTY_FROM_NAME(AVerseCharacter, ReplicatedStance, this);
-	}
-	if (ReplicatedLean != Lean)
-	{
-		ReplicatedLean = Lean;
-		MARK_PROPERTY_DIRTY_FROM_NAME(AVerseCharacter, ReplicatedLean, this);
-	}
-	if (bReplicatedSprinting != bSprinting)
-	{
-		bReplicatedSprinting = bSprinting;
-		MARK_PROPERTY_DIRTY_FROM_NAME(AVerseCharacter, bReplicatedSprinting, this);
-	}
-	if (bReplicatedMantling != bMantling)
-	{
-		bReplicatedMantling = bMantling;
-		MARK_PROPERTY_DIRTY_FROM_NAME(AVerseCharacter, bReplicatedMantling, this);
-	}
+	ReplicatedStance = uint8(Stance);
+	ReplicatedLean = Lean;
+	bReplicatedSprinting = bSprinting;
+	bReplicatedMantling = bMantling;
 }
 
 void AVerseCharacter::OnRep_MovementState()
@@ -204,6 +214,14 @@ void AVerseCharacter::SetInputScript(FVerseInputScript Script)
 
 void AVerseCharacter::Tick(float DeltaSeconds)
 {
+	const uint64 StartCycles = FPlatformTime::Cycles64();
+	ON_SCOPE_EXIT
+	{
+		if (UVerseCharacterMovement* Movement = GetVerseMovement())
+		{
+			Movement->AddMovementCycles(FPlatformTime::Cycles64() - StartCycles);
+		}
+	};
 	Super::Tick(DeltaSeconds);
 	if (!IsLocallyControlled() && !HasAuthority())
 	{
@@ -245,85 +263,22 @@ void AVerseCharacter::Tick(float DeltaSeconds)
 void AVerseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	UEnhancedInputComponent* Input = Cast<UEnhancedInputComponent>(PlayerInputComponent);
-	if (!Input)
+	if (!PlayerInputComponent)
 	{
 		return;
 	}
-	if (!PersonInputConfig)
+	TWeakObjectPtr<AVerseCharacter> Self(this);
+	VersePersonInput::BindDefaults(*PlayerInputComponent, PersonInput, [Self]()
 	{
-		PersonInputConfig = NewObject<UVersePersonInputConfig>(this);
-		PersonInputConfig->Build();
-	}
-	UVersePersonInputConfig* Config = PersonInputConfig;
-	Input->BindAction(Config->Move, ETriggerEvent::Triggered, this, &AVerseCharacter::OnMoveAction);
-	Input->BindAction(Config->Move, ETriggerEvent::Completed, this, &AVerseCharacter::OnMoveActionStopped);
-	Input->BindAction(Config->Look, ETriggerEvent::Triggered, this, &AVerseCharacter::OnLookAction);
-	Input->BindAction(Config->LookRate, ETriggerEvent::Triggered, this, &AVerseCharacter::OnLookRateAction);
-
-	auto BindHold = [this, Input](UInputAction* Action, EVerseInputButton Button)
-	{
-		Input->BindActionValueLambda(Action, ETriggerEvent::Started, [this, Button](const FInputActionValue&) { PersonInput.SetButton(Button, true); });
-		Input->BindActionValueLambda(Action, ETriggerEvent::Completed, [this, Button](const FInputActionValue&) { PersonInput.SetButton(Button, false); });
-	};
-	auto BindToggle = [this, Input](UInputAction* Action, EVerseInputButton Button)
-	{
-		Input->BindActionValueLambda(Action, ETriggerEvent::Started, [this, Button](const FInputActionValue&) { PersonInput.ToggleButton(Button); });
-	};
-	BindHold(Config->Jump, EVerseInputButton::Jump);
-	BindHold(Config->Sprint, EVerseInputButton::Sprint);
-	BindHold(Config->LeanLeft, EVerseInputButton::LeanLeft);
-	BindHold(Config->LeanRight, EVerseInputButton::LeanRight);
-	BindToggle(Config->Crouch, EVerseInputButton::Crouch);
-	BindToggle(Config->Prone, EVerseInputButton::Prone);
-	Input->BindActionValueLambda(Config->Walk, ETriggerEvent::Started, [this](const FInputActionValue&) { PersonInput.SetWalkModifier(true); });
-	Input->BindActionValueLambda(Config->Walk, ETriggerEvent::Completed, [this](const FInputActionValue&) { PersonInput.SetWalkModifier(false); });
+		const UWorld* World = Self.IsValid() ? Self->GetWorld() : nullptr;
+		return World ? World->GetDeltaSeconds() : 0.f;
+	});
 }
 
 void AVerseCharacter::PawnClientRestart()
 {
 	Super::PawnClientRestart();
 	PersonInput.Reset();
-	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
-	const ULocalPlayer* LocalPlayer = PlayerController ? PlayerController->GetLocalPlayer() : nullptr;
-	if (!LocalPlayer)
-	{
-		return;
-	}
-	if (!PersonInputConfig)
-	{
-		PersonInputConfig = NewObject<UVersePersonInputConfig>(this);
-		PersonInputConfig->Build();
-	}
-	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-	{
-		Subsystem->AddMappingContext(PersonInputConfig->Mapping, 0);
-	}
-}
-
-void AVerseCharacter::OnMoveAction(const FInputActionValue& Value)
-{
-	const FVector2D Axis = Value.Get<FVector2D>();
-	PersonInput.SetMove(FVector2f(float(Axis.X), float(Axis.Y)));
-}
-
-void AVerseCharacter::OnMoveActionStopped(const FInputActionValue& Value)
-{
-	PersonInput.SetMove(FVector2f::ZeroVector);
-}
-
-void AVerseCharacter::OnLookAction(const FInputActionValue& Value)
-{
-	const FVector2D Axis = Value.Get<FVector2D>();
-	const float Scale = PersonInputConfig ? PersonInputConfig->MouseDegPerCount : 0.07f;
-	PersonInput.AddLook(FVector2f(float(Axis.Y) * Scale, float(Axis.X) * Scale));
-}
-
-void AVerseCharacter::OnLookRateAction(const FInputActionValue& Value)
-{
-	const FVector2D Axis = Value.Get<FVector2D>();
-	const float Rate = (PersonInputConfig ? PersonInputConfig->StickDegPerSecond : 180.f) * (GetWorld() ? GetWorld()->GetDeltaSeconds() : 0.f);
-	PersonInput.AddLook(FVector2f(float(Axis.Y) * Rate, float(Axis.X) * Rate));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -338,70 +293,109 @@ void AVerseCharacter::UpdateBodyPose(float DeltaSeconds)
 	}
 	const FVerseMovementTuningValues& Tuning = Movement->Tuning();
 	const float HalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
-	const float TargetEye = Movement->GetTargetEyeHeight();
+	const EVerseStance Stance = Movement->GetStance();
+	const bool bProne = Stance == EVerseStance::Prone;
+
+	// Prone alpha: 1 lying, 0 upright; transitions blend over the enter and exit times.
+	float ProneAlpha = bProne ? 1.f : 0.f;
+	const float Transition = Movement->GetProneTransitionAlpha();
+	if (Transition > 0.f)
+	{
+		ProneAlpha = Transition;
+	}
+	else if (Transition < 0.f)
+	{
+		ProneAlpha = 1.f + Transition;
+	}
+	SmoothedProneAlpha = ProneAlpha;
+	// The upright eye height settles over EyeBlendTime; lying blends in through the prone alpha.
+	const float UprightEye = bProne ? Tuning.CrouchEyeHeight * 100.f : Movement->GetTargetEyeHeight();
 	if (SmoothedEyeHeight < 0.f || DeltaSeconds <= 0.f)
 	{
-		SmoothedEyeHeight = TargetEye;
+		SmoothedEyeHeight = UprightEye;
 	}
 	else
 	{
 		const float Blend = FMath::Clamp(DeltaSeconds / FMath::Max(Tuning.EyeBlendTime, KINDA_SMALL_NUMBER), 0.f, 1.f);
-		SmoothedEyeHeight = FMath::Lerp(SmoothedEyeHeight, TargetEye, Blend);
+		SmoothedEyeHeight = FMath::Lerp(SmoothedEyeHeight, UprightEye, Blend);
 	}
 	const float Lean = Movement->GetLean();
-	const float LeanOffset = Lean * Tuning.LeanCameraOffset * 100.f;
-	FirstPersonCamera->SetRelativeLocation(FVector(0.f, LeanOffset, SmoothedEyeHeight - HalfHeight));
-	const FRotator Aim = GetAimRotation();
-	FirstPersonCamera->SetWorldRotation(FRotator(Aim.Pitch, Aim.Yaw, Lean * Tuning.LeanRollDeg));
+	// The eye in the capsule's frame: one formula for the camera, the bone and the bot's eye.
+	const FVector Eye = Movement->GetEyeOffset(SmoothedEyeHeight, Lean, SmoothedProneAlpha) - FVector(0.f, 0.f, HalfHeight);
 
-	const bool bProne = Movement->GetStance() == EVerseStance::Prone;
 	ProneBody->SetCollisionEnabled(bProne ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
-	ProneBody->SetRelativeLocation(FVector(Tuning.ProneRadius * 200.f - Tuning.ProneBodyLength * 50.f, 0.f, 0.f));
 
 	USkeletalMeshComponent* Body = GetMesh();
-	if (!bPlaceholderPose || !Body || Body->GetAnimInstance())
+	const bool bAnimated = Body && Body->GetAnimInstance();
+	if (bPlaceholderPose && Body && !bAnimated)
 	{
-		return;
+		const FQuat Upright = MeshBaseRotation.Quaternion();
+		// Lying face down, head forward: mesh up (+Z) along the facing, mesh front (+Y) down, the
+		// body raised toward the head so the feet rest on the floor and the eye sits at its height.
+		FQuat Lying = FRotationMatrix::MakeFromYZ(FVector(0.f, 0.f, -1.f), FVector(1.f, 0.f, 0.f)).ToQuat();
+		if (bHasCameraBone)
+		{
+			const float Rise = FMath::Clamp((Tuning.ProneEyeHeight * 100.f - ProneFeetLift + CameraBoneLocal.Y) / CameraBoneLocal.Z, -0.5f, 0.5f);
+			Lying = FRotator(FMath::RadiansToDegrees(FMath::Asin(Rise)), 0.f, 0.f).Quaternion() * Lying; // head end up
+		}
+		const FQuat Pose = FQuat::Slerp(Upright, Lying, SmoothedProneAlpha);
+		// Lean rolls the whole placeholder; > 0 moves the head to the right.
+		const float Roll = FMath::DegreesToRadians(Lean * Tuning.LeanRollDeg) * (1.f - SmoothedProneAlpha);
+		const FQuat LeanQuat(FVector::ForwardVector, -Roll);
+		const float SlideTilt = Stance == EVerseStance::Slide ? FMath::DegreesToRadians(-30.f) : 0.f;
+		const FQuat SlideQuat(FVector::RightVector, SlideTilt);
+		const FQuat Rotation = SlideQuat * LeanQuat * Pose;
+		FVector Scale(1.f);
+		FVector Location;
+		if (bHasCameraBone)
+		{
+			// Upright the placeholder shrinks to the eye height; lying keeps its length. The mesh
+			// then goes where its Camera bone lands exactly on the eye.
+			Scale.Z = FMath::Lerp(SmoothedEyeHeight / CameraBoneLocal.Z, 1.f, SmoothedProneAlpha);
+			Location = Eye - Rotation.RotateVector(Scale * CameraBoneLocal);
+		}
+		else
+		{
+			const bool bLow = Stance == EVerseStance::Crouch || Stance == EVerseStance::Slide;
+			Scale.Z = bLow ? Tuning.CrouchHeight / Tuning.StandHeight : 1.f;
+			const FVector UprightLocation(0.f, 0.f, -HalfHeight);
+			const FVector LyingLocation(Tuning.ProneRadius * 200.f - Tuning.ProneBodyLength * 100.f, 0.f, -HalfHeight + 15.f);
+			Location = FMath::Lerp(UprightLocation, LyingLocation, SmoothedProneAlpha);
+		}
+		const FRotator Rotator = Rotation.Rotator();
+		if (!Body->GetRelativeScale3D().Equals(Scale, 0.0001))
+		{
+			Body->SetRelativeScale3D(Scale);
+		}
+		if (!Body->GetRelativeLocation().Equals(Location, 0.001) || !Body->GetRelativeRotation().Equals(Rotator, 0.001))
+		{
+			CacheInitialMeshOffset(Location, Rotator);
+			Body->SetRelativeLocationAndRotation(Location, Rotator, false, nullptr, ETeleportType::TeleportPhysics);
+		}
 	}
-	// Prone alpha: 1 lying, 0 upright; transitions blend over the enter and exit times.
-	float TargetProne = bProne ? 1.f : 0.f;
-	const float Transition = Movement->GetProneTransitionAlpha();
-	if (Transition > 0.f)
+
+	// The camera sits on the Camera bone: an animated mesh (WP13) moves the bone, the placeholder
+	// pose puts it on the eye above.
+	if (bAnimated && bHasCameraBone)
 	{
-		TargetProne = Transition;
+		FirstPersonCamera->SetWorldLocation(Body->GetSocketLocation(CameraBoneName));
 	}
-	else if (Transition < 0.f)
+	else
 	{
-		TargetProne = 1.f + Transition;
+		FirstPersonCamera->SetRelativeLocation(Eye);
 	}
-	SmoothedProneAlpha = TargetProne;
-	const FQuat Upright = MeshBaseRotation.Quaternion();
-	// Lying face down, head forward: mesh up (+Z) along the facing, mesh front (+Y) down.
-	const FQuat Lying = FRotationMatrix::MakeFromYZ(FVector(0.f, 0.f, -1.f), FVector(1.f, 0.f, 0.f)).ToQuat();
-	const FQuat Pose = FQuat::Slerp(Upright, Lying, SmoothedProneAlpha);
-	// Lean rolls the whole placeholder about the feet; > 0 moves the head to the right.
-	const float Roll = FMath::DegreesToRadians(Lean * Tuning.LeanRollDeg) * (1.f - SmoothedProneAlpha);
-	const FQuat LeanQuat(FVector::ForwardVector, -Roll);
-	const FVector UprightLocation(0.f, 0.f, -HalfHeight);
-	const FVector LyingLocation(Tuning.ProneRadius * 200.f - Tuning.ProneBodyLength * 100.f, 0.f, -HalfHeight + 15.f);
-	const FVector Location = FMath::Lerp(UprightLocation, LyingLocation, SmoothedProneAlpha);
-	// Crouch and slide: the placeholder shrinks to the crouch height; a slide also leans back.
-	const EVerseStance Stance = Movement->GetStance();
-	const bool bLow = Stance == EVerseStance::Crouch || Stance == EVerseStance::Slide;
-	const float SlideTilt = Stance == EVerseStance::Slide ? FMath::DegreesToRadians(-30.f) : 0.f;
-	const FQuat SlideQuat(FVector::RightVector, SlideTilt);
-	const FRotator Rotation = (SlideQuat * LeanQuat * Pose).Rotator();
-	const FVector Scale(1.f, 1.f, bLow ? Tuning.CrouchHeight / Tuning.StandHeight : 1.f);
-	if (!Body->GetRelativeScale3D().Equals(Scale, 0.001))
+	const FRotator Aim = GetAimRotation();
+	FirstPersonCamera->SetWorldRotation(FRotator(Aim.Pitch, Aim.Yaw, Lean * Tuning.LeanRollDeg));
+}
+
+FVector AVerseCharacter::GetCameraBoneLocation() const
+{
+	const USkeletalMeshComponent* Body = GetMesh();
+	if (Body && bHasCameraBone && Body->GetBoneIndex(CameraBoneName) != INDEX_NONE)
 	{
-		Body->SetRelativeScale3D(Scale);
+		return Body->GetSocketLocation(CameraBoneName);
 	}
-	if (Body->GetRelativeLocation().Equals(Location, 0.01) && Body->GetRelativeRotation().Equals(Rotation, 0.01))
-	{
-		return;
-	}
-	CacheInitialMeshOffset(Location, Rotation);
-	Body->SetRelativeLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+	return FirstPersonCamera->GetComponentLocation();
 }
 
 FVector AVerseCharacter::GetEyeLocation() const

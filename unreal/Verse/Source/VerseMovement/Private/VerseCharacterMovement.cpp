@@ -19,6 +19,11 @@ namespace
 	constexpr int16 NoClientLean = -128;
 	/** Lean steps (of 127) within which the server adopts the client's lean. */
 	constexpr int32 LeanAdoptTolerance = 8;
+	/** Prone turn cap slack: compressed rotations and timestamps of an honest client stay inside it. */
+	constexpr float ProneTurnSlack = 1.05f;
+	constexpr float ProneTurnSlackDeg = 0.05f;
+	/** The prone body constraint ignores geometry below this height (floor, low steps). */
+	constexpr float ProneBodyFloorGap = 10.f;
 	/** Sphere radius of the mantle top probes. */
 	constexpr float ProbeRadius = 4.f;
 	constexpr float WallProbeRadius = 10.f;
@@ -46,8 +51,8 @@ FString FVerseMovementNetStats::ToJson() const
 		Kinds += FString::Printf(TEXT("%s\"%s\": %d"), Index ? TEXT(", ") : TEXT(""),
 			*Enum->GetNameStringByValue(Index).ToLower(), Corrections[Index]);
 	}
-	return FString::Printf(TEXT("{\"corrections_total\": %d, \"corrections\": {%s}, \"server_moves\": %d, \"lean_mismatches\": %d}"),
-		Total(), *Kinds, ServerMoves, LeanMismatches);
+	return FString::Printf(TEXT("{\"corrections_total\": %d, \"corrections\": {%s}, \"server_moves\": %d, \"lean_mismatches\": %d, \"lean_sim_diffs\": %d, \"yaw_clamps\": %d}"),
+		Total(), *Kinds, ServerMoves, LeanMismatches, LeanSimDiffs, YawClamps);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -69,6 +74,8 @@ UVerseCharacterMovement::UVerseCharacterMovement(const FObjectInitializer& Objec
 	bCanWalkOffLedgesWhenCrouching = true;
 	MoveDataContainer = MakeUnique<FVerseCharacterNetworkMoveDataContainer>();
 	SetNetworkMoveDataContainer(*MoveDataContainer);
+	MoveResponseContainer = MakeUnique<FVerseMoveResponseDataContainer>();
+	SetMoveResponseDataContainer(*MoveResponseContainer);
 	ApplyTuningToMovement();
 }
 
@@ -337,6 +344,100 @@ bool UVerseCharacterMovement::CanEnterProne() const
 	return true;
 }
 
+bool UVerseCharacterMovement::ProneBodyBlocked(const FVector& FeetLocation, float Yaw) const
+{
+	if (!CharacterOwner || !GetWorld() || !UpdatedComponent)
+	{
+		return false;
+	}
+	const FVector Forward = FRotator(0.f, Yaw, 0.f).Vector();
+	const float Length = TuningValues.ProneBodyLength * 100.f;
+	const float HeadForward = TuningValues.ProneRadius * 100.f * 2.f;
+	const float Top = TuningValues.ProneMinClearance * 100.f - 2.f;
+	const FVector Center = FeetLocation + Forward * (HeadForward - Length * 0.5f) + FVector(0.f, 0.f, (ProneBodyFloorGap + Top) * 0.5f);
+	const FVector Extent(Length * 0.5f - 1.f, TuningValues.ProneBodyWidth * 50.f - 1.f, (Top - ProneBodyFloorGap) * 0.5f);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseProneBody), false, CharacterOwner);
+	FCollisionResponseParams Response;
+	InitCollisionParams(Params, Response);
+	return GetWorld()->OverlapBlockingTestByChannel(Center, Forward.ToOrientationQuat(), UpdatedComponent->GetCollisionObjectType(),
+		FCollisionShape::MakeBox(Extent), Params, Response);
+}
+
+void UVerseCharacterMovement::SetActorYaw(float Yaw, bool bAlsoControl)
+{
+	if (!UpdatedComponent)
+	{
+		return;
+	}
+	FRotator Rotation = UpdatedComponent->GetComponentRotation();
+	Rotation.Yaw = Yaw;
+	UpdatedComponent->SetWorldRotation(Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+	AController* Controller = CharacterOwner ? CharacterOwner->GetController() : nullptr;
+	if (bAlsoControl && Controller && CharacterOwner->IsLocallyControlled() && !CharacterOwner->bClientUpdating)
+	{
+		FRotator Control = Controller->GetControlRotation();
+		Control.Yaw = Yaw;
+		Controller->SetControlRotation(Control);
+	}
+}
+
+void UVerseCharacterMovement::ApplyProneTurnCap(float DeltaSeconds)
+{
+	if (!bHasLastMoveYaw || !UpdatedComponent || !(Stance == EVerseStance::Prone || ProneTransitionRemaining > 0.f))
+	{
+		return;
+	}
+	const float Delta = FRotator::NormalizeAxis(UpdatedComponent->GetComponentRotation().Yaw - LastMoveYaw);
+	const float Cap = TuningValues.ProneTurnCapDegPerSec * DeltaSeconds;
+	if (FMath::Abs(Delta) <= Cap * ProneTurnSlack + ProneTurnSlackDeg)
+	{
+		return;
+	}
+	SetActorYaw(FRotator::NormalizeAxis(LastMoveYaw + FMath::Sign(Delta) * Cap), true);
+	if (CharacterOwner->GetLocalRole() == ROLE_Authority && CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy)
+	{
+		// The client turned faster than prone allows: the server keeps its yaw and corrects it.
+		++NetStats.YawClamps;
+		if (FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character())
+		{
+			ServerData->bForceClientUpdate = true;
+		}
+		static_cast<FVerseMoveResponseDataContainer&>(*MoveResponseContainer).bYawClampedPending = true;
+	}
+}
+
+void UVerseCharacterMovement::ConstrainProneBody()
+{
+	if (Stance != EVerseStance::Prone || !bHasLastMoveYaw || !UpdatedComponent)
+	{
+		return;
+	}
+	const FVector Feet = GetFeetLocation();
+	const float Yaw = UpdatedComponent->GetComponentRotation().Yaw;
+	if (!ProneBodyBlocked(Feet, Yaw))
+	{
+		return;
+	}
+	const FVector StartFeet = MoveStartLocation - FVector(0.f, 0.f, CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+	if (ProneBodyBlocked(StartFeet, LastMoveYaw))
+	{
+		return; // blocked before this move (something moved into the body): never pin the pawn
+	}
+	// Undo the turn first, then the move, then both.
+	if (!ProneBodyBlocked(Feet, LastMoveYaw))
+	{
+		SetActorYaw(LastMoveYaw, true);
+		return;
+	}
+	UpdatedComponent->SetWorldLocation(MoveStartLocation, false, nullptr, ETeleportType::TeleportPhysics);
+	Velocity = FVector::ZeroVector;
+	bForceNextFloorCheck = true;
+	if (ProneBodyBlocked(StartFeet, Yaw))
+	{
+		SetActorYaw(LastMoveYaw, true);
+	}
+}
+
 // ---------------------------------------------------------------------------------------------
 // Speeds and jump
 
@@ -409,6 +510,8 @@ void UVerseCharacterMovement::UpdateCharacterStateBeforeMovement(float DeltaSeco
 	{
 		return;
 	}
+	ApplyProneTurnCap(DeltaSeconds);
+	MoveStartLocation = UpdatedComponent->GetComponentLocation();
 	if (!IsSliding() && SlideCooldownRemaining > 0.f)
 	{
 		SlideCooldownRemaining = FMath::Max(0.f, SlideCooldownRemaining - DeltaSeconds);
@@ -456,6 +559,9 @@ void UVerseCharacterMovement::UpdateCharacterStateAfterMovement(float DeltaSecon
 			FinishMantle();
 		}
 	}
+	ConstrainProneBody();
+	LastMoveYaw = UpdatedComponent->GetComponentRotation().Yaw;
+	bHasLastMoveYaw = true;
 	if (CharacterOwner->HasAuthority())
 	{
 		if (AVerseCharacter* Character = GetVerseCharacter())
@@ -535,15 +641,29 @@ void UVerseCharacterMovement::UpdateStance(float DeltaSeconds)
 // ---------------------------------------------------------------------------------------------
 // Lean
 
+FVector UVerseCharacterMovement::GetEyeOffset(float EyeHeight, float Lean, float ProneAlpha) const
+{
+	const float RollMax = FMath::DegreesToRadians(FMath::Max(TuningValues.LeanRollDeg, 0.1f));
+	// Distance from the roll pivot to the eye, so a full lean moves the eye LeanCameraOffset sideways.
+	const float Reach = TuningValues.LeanCameraOffset * 100.f / FMath::Sin(RollMax);
+	const float Roll = RollMax * FMath::Clamp(Lean, -1.f, 1.f);
+	const FVector Upright(0.f, Reach * FMath::Sin(Roll), EyeHeight - Reach * (1.f - FMath::Cos(Roll)));
+	// Lying: the head (and its Camera bone) sits in front of the prone capsule, the body behind it.
+	const FVector Lying(TuningValues.ProneRadius * 200.f - 10.f, 0.f, TuningValues.ProneEyeHeight * 100.f);
+	return FMath::Lerp(Upright, Lying, FMath::Clamp(ProneAlpha, 0.f, 1.f));
+}
+
 FVector UVerseCharacterMovement::GetUnleanedEyeLocation() const
 {
-	return GetFeetLocation() + FVector(0.f, 0.f, GetTargetEyeHeight());
+	return GetLeanedEyeLocation(0.f);
 }
 
 FVector UVerseCharacterMovement::GetLeanedEyeLocation(float Lean) const
 {
-	const FVector Right = UpdatedComponent ? UpdatedComponent->GetRightVector().GetSafeNormal2D() : FVector::RightVector;
-	return GetUnleanedEyeLocation() + Right * (Lean * TuningValues.LeanCameraOffset * 100.f);
+	const bool bProne = GetStance() == EVerseStance::Prone;
+	const FVector Offset = GetEyeOffset(GetTargetEyeHeight(), bProne ? 0.f : Lean, bProne ? 1.f : 0.f);
+	const FRotator Yaw(0.f, UpdatedComponent ? UpdatedComponent->GetComponentRotation().Yaw : 0.f, 0.f);
+	return GetFeetLocation() + Yaw.RotateVector(Offset);
 }
 
 float UVerseCharacterMovement::ComputeLeanAllowance(float Side) const
@@ -552,10 +672,10 @@ float UVerseCharacterMovement::ComputeLeanAllowance(float Side) const
 	{
 		return 1.f;
 	}
-	const float Offset = TuningValues.LeanCameraOffset * 100.f;
 	const float Radius = TuningValues.LeanCameraClearance * 100.f;
 	const FVector From = GetUnleanedEyeLocation();
 	const FVector To = GetLeanedEyeLocation(FMath::Sign(Side));
+	const float Offset = FMath::Max(float(FVector::Dist(From, To)), 1.f);
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseLeanWall), false, CharacterOwner);
 	FHitResult Hit;
 	if (!GetWorld()->SweepSingleByChannel(Hit, From, To, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(Radius), Params))
@@ -569,10 +689,14 @@ float UVerseCharacterMovement::ComputeLeanAllowance(float Side) const
 	return FMath::Clamp((Hit.Distance - 1.f) / Offset, 0.f, 1.f);
 }
 
+bool UVerseCharacterMovement::CanLeanNow() const
+{
+	return (Stance == EVerseStance::Stand || Stance == EVerseStance::Crouch) && !IsSprinting() && MantleElapsed < 0.f && ProneTransitionRemaining <= 0.f;
+}
+
 void UVerseCharacterMovement::UpdateLean(float DeltaSeconds)
 {
-	const bool bAllowed = (Stance == EVerseStance::Stand || Stance == EVerseStance::Crouch) && !IsSprinting()
-		&& MantleElapsed < 0.f && ProneTransitionRemaining <= 0.f;
+	const bool bAllowed = CanLeanNow();
 	const float Target = bAllowed ? IVerseMovementQuery::LeanFromQuantized(LeanTargetQuantized) : 0.f;
 	const float Current = LeanValue;
 	const float Step = DeltaSeconds / FMath::Max(TuningValues.LeanEnterTime, KINDA_SMALL_NUMBER);
@@ -995,12 +1119,19 @@ void UVerseCharacterMovement::TickComponent(float DeltaTime, ELevelTick TickType
 {
 	const uint64 Start = FPlatformTime::Cycles64();
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	TickCycles += FPlatformTime::Cycles64() - Start;
-	++TickCountTotal;
 	if (AVerseCharacter* Character = GetVerseCharacter())
 	{
 		Character->UpdateBodyPose(DeltaTime);
 	}
+	TickCycles += FPlatformTime::Cycles64() - Start;
+	++TickCountTotal;
+}
+
+void UVerseCharacterMovement::ServerMove_PerformMovement(const FCharacterNetworkMoveData& MoveData)
+{
+	const uint64 Start = FPlatformTime::Cycles64();
+	Super::ServerMove_PerformMovement(MoveData);
+	TickCycles += FPlatformTime::Cycles64() - Start;
 }
 
 FNetworkPredictionData_Client* UVerseCharacterMovement::GetPredictionData_Client() const
@@ -1035,10 +1166,14 @@ void UVerseCharacterMovement::MoveAutonomous(float ClientTimeStamp, float DeltaT
 		// packet stretches the server's delta, so the server's own value may lag; the client's wins.
 		const int32 Client = PendingClientLean;
 		const float MaxStep = DeltaTime / FMath::Max(TuningValues.LeanEnterTime, KINDA_SMALL_NUMBER) * 127.f + LeanAdoptTolerance;
-		const bool bAllowedNow = Client == 0 || ((Stance == EVerseStance::Stand || Stance == EVerseStance::Crouch) && MantleElapsed < 0.f
-			&& FMath::Abs(float(Client)) <= ComputeLeanAllowance(float(Client)) * 127.f + LeanAdoptTolerance);
-		if (FMath::Abs(Client - int32(LeanQuantized)) <= LeanAdoptTolerance
-			|| (bAllowedNow && FMath::Abs(Client - int32(LeanBefore)) <= MaxStep))
+		// The same rule as UpdateLean (no lean while sprinting, mantling, prone or in a prone
+		// transition), plus the wall allowance; only then the reach checks.
+		const bool bAllowedNow = Client == 0 || (CanLeanNow() && FMath::Abs(float(Client)) <= ComputeLeanAllowance(float(Client)) * 127.f + LeanAdoptTolerance);
+		if (FMath::Abs(Client - int32(LeanQuantized)) > LeanAdoptTolerance)
+		{
+			++NetStats.LeanSimDiffs;
+		}
+		if (bAllowedNow && (FMath::Abs(Client - int32(LeanQuantized)) <= LeanAdoptTolerance || FMath::Abs(Client - int32(LeanBefore)) <= MaxStep))
 		{
 			LeanQuantized = int8(Client);
 			LeanValue = IVerseMovementQuery::LeanFromQuantized(LeanQuantized);
@@ -1060,12 +1195,90 @@ void UVerseCharacterMovement::OnClientCorrectionReceived(FNetworkPredictionData_
 	FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode,
 	FVector ServerGravityDirection)
 {
-	++NetStats.Corrections[int32(GetMoveKind())];
-	UE_LOG(LogVerseMovement, Display, TEXT("correction during %s at %.3f: error %.1f cm, server mode %d, stance %d"),
-		*StaticEnum<EVerseMoveKind>()->GetNameStringByValue(int64(GetMoveKind())), TimeStamp,
-		UpdatedComponent ? FVector::Dist(UpdatedComponent->GetComponentLocation(), NewLocation) : -1.0, int32(ServerMovementMode), int32(Stance));
+	// AckMove already ran: LastAckedMove is the corrected move. Book the correction against what
+	// that move did, not against what the pawn does one round trip later.
+	EVerseMoveKind Kind = GetMoveKind();
+	double MoveError = -1.0;
+	if (const FVerseSavedMove* Move = static_cast<const FVerseSavedMove*>(ClientData.LastAckedMove.Get()))
+	{
+		Kind = Move->GetCorrectionKind();
+		MoveError = FVector::Dist(Move->SavedLocation, NewLocation);
+	}
+	++NetStats.Corrections[int32(Kind)];
+	bCorrectionAccepted = true;
+	UE_LOG(LogVerseMovement, Display, TEXT("correction of a %s move at %.3f: move error %.1f cm, server mode %d, client stance %d"),
+		*StaticEnum<EVerseMoveKind>()->GetNameStringByValue(int64(Kind)), TimeStamp, MoveError, int32(ServerMovementMode), int32(Stance));
 	Super::OnClientCorrectionReceived(ClientData, TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition,
 		ServerMovementMode, ServerGravityDirection);
+}
+
+void UVerseCharacterMovement::ClientHandleMoveResponse(const FCharacterMoveResponseDataContainer& MoveResponse)
+{
+	bCorrectionAccepted = false;
+	Super::ClientHandleMoveResponse(MoveResponse);
+	if (!MoveResponse.IsCorrection() || !bCorrectionAccepted)
+	{
+		return;
+	}
+	bCorrectionAccepted = false;
+	// The server's simulated state at the corrected move: the replay starts from it.
+	const FVerseMoveState& Server = static_cast<const FVerseMoveResponseDataContainer&>(MoveResponse).State;
+	Server.Restore(*this);
+	if (MantleElapsed < 0.f && !MoveResponse.bRootMotionSourceCorrection)
+	{
+		RemoveRootMotionSource(MantleRiseSource);
+		RemoveRootMotionSource(MantleMoveSource);
+	}
+	if (Server.bYawClamped && Server.bHasLastMoveYaw)
+	{
+		SetActorYaw(Server.LastMoveYaw, true);
+	}
+	if (AVerseCharacter* Character = GetVerseCharacter())
+	{
+		Character->UpdateBodyPose(0.f);
+	}
+}
+
+bool UVerseCharacterMovement::ClientUpdatePositionAfterServerUpdate()
+{
+	// Replayed moves restore their own facing; afterwards the pawn faces where the input has it now.
+	const FQuat Rotation = UpdatedComponent ? UpdatedComponent->GetComponentQuat() : FQuat::Identity;
+	const bool bResult = Super::ClientUpdatePositionAfterServerUpdate();
+	if (UpdatedComponent && !UpdatedComponent->GetComponentQuat().Equals(Rotation, 1e-6))
+	{
+		UpdatedComponent->SetWorldRotation(Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+	}
+	return bResult;
+}
+
+void UVerseCharacterMovement::ServerMoveHandleClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLocation,
+	UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
+{
+	Super::ServerMoveHandleClientError(ClientTimeStamp, DeltaTime, Accel, RelativeClientLocation, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
+	const FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
+	if (ServerData && !ServerData->PendingAdjustment.bAckGoodMove && ServerData->PendingAdjustment.TimeStamp == ClientTimeStamp)
+	{
+		// A correction for this move: send the state as it is now, at the end of the move.
+		FVerseMoveResponseDataContainer& Response = static_cast<FVerseMoveResponseDataContainer&>(*MoveResponseContainer);
+		Response.PendingState.Capture(*this);
+		Response.PendingState.bYawClamped = Response.bYawClampedPending;
+		Response.bYawClampedPending = false;
+	}
+}
+
+bool UVerseCharacterMovement::ServerCheckClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& ClientWorldLocation,
+	const FVector& RelativeClientLocation, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
+{
+	const bool bError = Super::ServerCheckClientError(ClientTimeStamp, DeltaTime, Accel, ClientWorldLocation, RelativeClientLocation, ClientMovementBase,
+		ClientBaseBoneName, ClientMovementMode);
+	if (bError && UpdatedComponent)
+	{
+		const FVector Server = UpdatedComponent->GetComponentLocation();
+		UE_LOG(LogVerseMovement, Display, TEXT("server correction at %.3f: error %.1f cm (%s), server mode %d stance %d kind %s speed %.0f, client mode %d, dt %.4f"),
+			ClientTimeStamp, FVector::Dist(Server, ClientWorldLocation), *(Server - ClientWorldLocation).ToCompactString(), int32(PackNetworkMovementMode()), int32(Stance),
+			*StaticEnum<EVerseMoveKind>()->GetNameStringByValue(int64(GetMoveKind())), Velocity.Size2D(), int32(ClientMovementMode), DeltaTime);
+	}
+	return bError;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1090,6 +1303,8 @@ void FVerseMoveState::Capture(const UVerseCharacterMovement& M)
 	MantleTarget = M.MantleTarget;
 	bMantleVault = M.bMantleVault;
 	StrideRemaining = M.StrideRemaining;
+	LastMoveYaw = M.LastMoveYaw;
+	bHasLastMoveYaw = M.bHasLastMoveYaw;
 }
 
 void FVerseMoveState::Restore(UVerseCharacterMovement& M) const
@@ -1114,6 +1329,68 @@ void FVerseMoveState::Restore(UVerseCharacterMovement& M) const
 	M.MantleTarget = MantleTarget;
 	M.bMantleVault = bMantleVault;
 	M.StrideRemaining = StrideRemaining;
+	M.LastMoveYaw = LastMoveYaw;
+	M.bHasLastMoveYaw = bHasLastMoveYaw;
+}
+
+void FVerseMoveState::Serialize(FArchive& Ar)
+{
+	uint8 StanceByte = uint8(Stance);
+	uint8 ShapeByte = uint8(BodyShape);
+	uint8 Bits = (bProneExiting ? 1 : 0) | (bPrevWantsCrouch ? 2 : 0) | (bMantleLatched ? 4 : 0) | (bMantleVault ? 8 : 0)
+		| (bHasLastMoveYaw ? 16 : 0) | (bYawClamped ? 32 : 0);
+	Ar << StanceByte << ShapeByte << Bits << LeanQuantized << LeanValue << ProneTransitionRemaining << SlideElapsed << SlideCooldownRemaining;
+	Ar << MantleElapsed;
+	if (MantleElapsed >= 0.f)
+	{
+		Ar << MantlePlanDuration << MantleRiseDuration << MantleRise << MantleTarget;
+	}
+	Ar << LastMoveYaw;
+	if (Ar.IsLoading())
+	{
+		Stance = EVerseStance(FMath::Min<uint8>(StanceByte, uint8(EVerseStance::Slide)));
+		BodyShape = EVerseBodyShape(FMath::Min<uint8>(ShapeByte, uint8(EVerseBodyShape::Prone)));
+		bProneExiting = (Bits & 1) != 0;
+		bPrevWantsCrouch = (Bits & 2) != 0;
+		bMantleLatched = (Bits & 4) != 0;
+		bMantleVault = (Bits & 8) != 0;
+		bHasLastMoveYaw = (Bits & 16) != 0;
+		bYawClamped = (Bits & 32) != 0;
+	}
+}
+
+void FVerseMoveResponseDataContainer::ServerFillResponseData(const UCharacterMovementComponent& CharacterMovement, const FClientAdjustment& PendingAdjustment)
+{
+	FCharacterMoveResponseDataContainer::ServerFillResponseData(CharacterMovement, PendingAdjustment);
+	if (IsCorrection())
+	{
+		State = PendingState;
+	}
+}
+
+bool FVerseMoveResponseDataContainer::Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap)
+{
+	if (!FCharacterMoveResponseDataContainer::Serialize(CharacterMovement, Ar, PackageMap))
+	{
+		return false;
+	}
+	if (IsCorrection())
+	{
+		State.Serialize(Ar);
+	}
+	return !Ar.IsError();
+}
+
+EVerseMoveKind FVerseSavedMove::GetCorrectionKind() const
+{
+	for (const EVerseMoveKind Kind : {EVerseMoveKind::Mantle, EVerseMoveKind::Prone, EVerseMoveKind::Slide})
+	{
+		if (StartKind == Kind || EndKind == Kind)
+		{
+			return Kind;
+		}
+	}
+	return EndKind;
 }
 
 void FVerseSavedMove::Clear()
@@ -1125,6 +1402,8 @@ void FVerseSavedMove::Clear()
 	SavedLeanTarget = 0;
 	SavedLeanResult = 0;
 	StartState = FVerseMoveState();
+	StartKind = EVerseMoveKind::Walk;
+	EndKind = EVerseMoveKind::Walk;
 }
 
 uint8 FVerseSavedMove::GetCompressedFlags() const
@@ -1168,16 +1447,35 @@ void FVerseSavedMove::SetInitialPosition(ACharacter* C)
 	if (const UVerseCharacterMovement* M = Cast<UVerseCharacterMovement>(C->GetCharacterMovement()))
 	{
 		StartState.Capture(*M);
+		StartKind = M->GetMoveKind();
 	}
 }
 
 void FVerseSavedMove::PrepMoveFor(ACharacter* C)
 {
 	Super::PrepMoveFor(C);
+	// A replay re-simulates: only the move's inputs and facing come back. The simulated state
+	// carries over from the previous replayed move (the first starts from the server's state).
 	if (UVerseCharacterMovement* M = Cast<UVerseCharacterMovement>(C->GetCharacterMovement()))
 	{
-		StartState.Restore(*M);
+		M->bWantsSprint = bSavedWantsSprint;
+		M->bWantsProne = bSavedWantsProne;
+		M->bWantsMantle = bSavedWantsMantle;
 		M->LeanTargetQuantized = SavedLeanTarget;
+		if (M->UpdatedComponent)
+		{
+			M->UpdatedComponent->SetWorldRotation(StartRotation, false, nullptr, ETeleportType::TeleportPhysics);
+		}
+	}
+}
+
+void FVerseSavedMove::CombineWith(const FSavedMove_Character* OldMove, ACharacter* InCharacter, APlayerController* PC, const FVector& OldStartLocation)
+{
+	Super::CombineWith(OldMove, InCharacter, PC, OldStartLocation);
+	// The combined move re-runs from the pending move's start: its simulated state too.
+	if (UVerseCharacterMovement* M = Cast<UVerseCharacterMovement>(InCharacter->GetCharacterMovement()))
+	{
+		static_cast<const FVerseSavedMove*>(OldMove)->StartState.Restore(*M);
 	}
 }
 
@@ -1187,6 +1485,7 @@ void FVerseSavedMove::PostUpdate(ACharacter* C, EPostUpdateMode PostUpdateMode)
 	if (const UVerseCharacterMovement* M = Cast<UVerseCharacterMovement>(C->GetCharacterMovement()))
 	{
 		SavedLeanResult = M->LeanQuantized;
+		EndKind = M->GetMoveKind();
 	}
 }
 

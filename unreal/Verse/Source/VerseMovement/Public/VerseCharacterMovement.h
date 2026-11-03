@@ -66,6 +66,10 @@ struct VERSEMOVEMENT_API FVerseMovementNetStats
 	/** Server: client moves received / moves whose lean the server could not adopt. */
 	int32 ServerMoves = 0;
 	int32 LeanMismatches = 0;
+	/** Server: moves whose own lean simulation differed from the client's by more than the tolerance. */
+	int32 LeanSimDiffs = 0;
+	/** Server: moves whose yaw the prone turn cap clamped (a client turning faster than allowed). */
+	int32 YawClamps = 0;
 
 	int32 Total() const;
 	FString ToJson() const;
@@ -91,6 +95,7 @@ class VERSEMOVEMENT_API UVerseCharacterMovement : public UCharacterMovementCompo
 	friend class FVerseSavedMove;
 	friend struct FVerseCharacterNetworkMoveData;
 	friend struct FVerseMoveState;
+	friend struct FVerseMoveResponseDataContainer;
 
 public:
 	UVerseCharacterMovement(const FObjectInitializer& ObjectInitializer);
@@ -131,20 +136,33 @@ public:
 	bool FindMantle(FVerseMantlePlan& OutPlan) const;
 	/** True when the prone body fits at the current location and facing. */
 	bool CanEnterProne() const;
+	/** True when the prone body (feet to head, above the lowest step) overlaps geometry at a feet point and yaw. */
+	bool ProneBodyBlocked(const FVector& FeetLocation, float Yaw) const;
 	/** Largest lean (0..1) toward Side (-1 left, +1 right) the wall check allows now. */
 	float ComputeLeanAllowance(float Side) const;
-	/** Eye location without lean (world). */
+	/**
+	 * The eye (the skeleton's Camera bone, bot.md 3.1) relative to the feet in the actor's yaw frame
+	 * (X forward, Y right, Z up) for an eye height, a lean and a prone blend (0 upright, 1 lying).
+	 * Lean rolls the body about a pivot below the eye so the eye moves LeanCameraOffset sideways at
+	 * full lean. The placeholder pose puts the Camera bone exactly here; the camera reads the bone.
+	 */
+	FVector GetEyeOffset(float EyeHeight, float Lean, float ProneAlpha) const;
+	/** Eye location without lean (world), for the settled current stance. */
 	FVector GetUnleanedEyeLocation() const;
-	/** Camera location with the lean applied (world). */
+	/** Eye location with the lean applied (world), for the settled current stance. */
 	FVector GetLeanedEyeLocation(float Lean) const;
 	FVector GetFeetLocation() const;
 
 	FVerseMovementNetStats& GetNetStats() { return NetStats; }
 	const FVerseMovementNetStats& GetNetStats() const { return NetStats; }
 
-	/** Game-thread cycles spent in this component's ticks (WP01 A1.9). */
+	/**
+	 * Game-thread cycles of this pawn's whole movement path (WP01 A1.9): the component tick with
+	 * the body pose, the character's input tick and, on a server, the client move RPC handling.
+	 */
 	uint64 GetTickCycles() const { return TickCycles; }
 	int32 GetTickCount() const { return TickCountTotal; }
+	void AddMovementCycles(uint64 Cycles) { TickCycles += Cycles; }
 
 	/** Footsteps and movement noise on every machine, with the surface (audio, WP19). */
 	FOnVerseFootstep OnFootstep;
@@ -178,12 +196,26 @@ public:
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 	virtual void OnClientCorrectionReceived(FNetworkPredictionData_Client_Character& ClientData, float TimeStamp, FVector NewLocation, FVector NewVelocity,
 		UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode, FVector ServerGravityDirection) override;
+	virtual void ClientHandleMoveResponse(const FCharacterMoveResponseDataContainer& MoveResponse) override;
+	virtual bool ClientUpdatePositionAfterServerUpdate() override;
+	virtual void ServerMove_PerformMovement(const FCharacterNetworkMoveData& MoveData) override;
+	virtual void ServerMoveHandleClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLocation,
+		UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode) override;
+	virtual bool ServerCheckClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& ClientWorldLocation, const FVector& RelativeClientLocation,
+		UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode) override;
 
 protected:
 	AVerseCharacter* GetVerseCharacter() const;
 
 	void UpdateStance(float DeltaSeconds);
 	void UpdateLean(float DeltaSeconds);
+	/** Lean may be held now (stand or crouch, not sprinting, mantling or in a prone transition). */
+	bool CanLeanNow() const;
+	/** Server-authoritative prone turn cap: clamps the yaw change since the last move. */
+	void ApplyProneTurnCap(float DeltaSeconds);
+	/** Keeps the prone body out of walls: undoes the turn, then the move, that pushed it in. */
+	void ConstrainProneBody();
+	void SetActorYaw(float Yaw, bool bAlsoControl);
 	bool TryStartSlide();
 	void EndSlide(bool bToFalling);
 	void PhysSlide(float DeltaTime, int32 Iterations);
@@ -229,6 +261,12 @@ protected:
 	bool bMantleVault = false;
 	uint16 MantleSourceId = 0;
 	float StrideRemaining = 0.f;
+	float LastMoveYaw = 0.f;
+	bool bHasLastMoveYaw = false;
+	/** Location at the start of the running move (prone body constraint). */
+	FVector MoveStartLocation = FVector::ZeroVector;
+	/** Client: the last correction was accepted (its move was still saved). */
+	bool bCorrectionAccepted = false;
 
 	// Server: the lean value the client sent with the current move (-128 = none).
 	int16 PendingClientLean = -128;
@@ -236,6 +274,7 @@ protected:
 	int32 MantleCount = 0;
 	FVerseMovementNetStats NetStats;
 	TUniquePtr<FCharacterNetworkMoveDataContainer> MoveDataContainer;
+	TUniquePtr<FCharacterMoveResponseDataContainer> MoveResponseContainer;
 	uint64 TickCycles = 0;
 	int32 TickCountTotal = 0;
 };

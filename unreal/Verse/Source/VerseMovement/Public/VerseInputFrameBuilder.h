@@ -2,12 +2,24 @@
 
 #include "Combat/VerseCombatTypes.h"
 #include "CoreMinimal.h"
-#include "UObject/Object.h"
+#include "InputCoreTypes.h"
 
-#include "VerseInputFrameBuilder.generated.h"
+class UInputComponent;
 
-class UInputAction;
-class UInputMappingContext;
+/** A key by its engine name ("W", "SpaceBar", "MouseX"): no link to InputCore's EKeys table needed. */
+inline FKey VerseKey(const TCHAR* Name)
+{
+	return FKey(Name);
+}
+
+/** Movement keys of the person's default mapping (W, S, D, A). */
+enum class EVerseMoveKey : uint8
+{
+	Forward,
+	Back,
+	Right,
+	Left
+};
 
 /**
  * Collects the person's input between ticks and emits one FVerseInputFrame per tick, the same
@@ -17,8 +29,12 @@ class UInputMappingContext;
  */
 struct VERSEMOVEMENT_API FVerseInputFrameBuilder
 {
-	/** Move stick, -1..1, X forward, Y right. Kept until changed. */
+	/** Move stick, -1..1, X forward, Y right. Kept until changed; keys and the gamepad stick win over it. */
 	void SetMove(const FVector2f& Move) { Move2D = Move; }
+	/** A movement key went down or up. */
+	void SetMoveKey(EVerseMoveKey Key, bool bHeld);
+	/** Gamepad left stick, per axis (0 forward, 1 right), after the input settings' dead zone. */
+	void SetStickAxis(int32 Axis, float Value);
 	/** Look added this tick, degrees (pitch, yaw). Accumulates until the frame is taken. */
 	void AddLook(const FVector2f& PitchYawDeg) { LookAccum += PitchYawDeg; }
 	void SetButton(EVerseInputButton Button, bool bHeld);
@@ -39,35 +55,33 @@ struct VERSEMOVEMENT_API FVerseInputFrameBuilder
 
 private:
 	FVector2f Move2D = FVector2f::ZeroVector;
+	FVector2f Stick = FVector2f::ZeroVector;
 	FVector2f LookAccum = FVector2f::ZeroVector;
+	uint8 MoveKeys = 0;
 	uint32 Buttons = 0;
 	uint32 PrevButtons = 0;
 	bool bWalk = false;
 };
 
-/** The person's Enhanced Input actions and default key mapping, built in code (no assets). */
-UCLASS(Transient)
-class VERSEMOVEMENT_API UVersePersonInputConfig : public UObject
+/**
+ * The person's default key mapping (keyboard, mouse, gamepad), bound as plain key and axis
+ * bindings on the pawn's input component. They work under the project's Enhanced Input player
+ * input as well; moving them to Enhanced Input actions needs the module dependency (contract
+ * change request for VerseMovement.Build.cs).
+ */
+namespace VersePersonInput
 {
-	GENERATED_BODY()
+	/**
+	 * Mouse degrees per count. The input settings' MouseX/MouseY axis config already scales a
+	 * count by 0.07, so the bound axis value is in degrees.
+	 */
+	inline constexpr float MouseDegPerValue = 1.f;
+	/** Gamepad right stick: degrees per second at full deflection. */
+	inline constexpr float StickDegPerSecond = 180.f;
 
-public:
-	/** Creates the actions and the default mapping (keyboard, mouse, gamepad). */
-	void Build();
-
-	UPROPERTY() TObjectPtr<UInputMappingContext> Mapping;
-	UPROPERTY() TObjectPtr<UInputAction> Move;
-	UPROPERTY() TObjectPtr<UInputAction> Look;
-	UPROPERTY() TObjectPtr<UInputAction> LookRate;
-	UPROPERTY() TObjectPtr<UInputAction> Jump;
-	UPROPERTY() TObjectPtr<UInputAction> Crouch;
-	UPROPERTY() TObjectPtr<UInputAction> Prone;
-	UPROPERTY() TObjectPtr<UInputAction> Sprint;
-	UPROPERTY() TObjectPtr<UInputAction> LeanLeft;
-	UPROPERTY() TObjectPtr<UInputAction> LeanRight;
-	UPROPERTY() TObjectPtr<UInputAction> Walk;
-
-	/** Mouse degrees per count and stick degrees per second at full deflection. */
-	float MouseDegPerCount = 0.07f;
-	float StickDegPerSecond = 180.f;
-};
+	/**
+	 * Binds every movement key into Builder. Builder must outlive Input's bindings (the pawn owns
+	 * both). DeltaSeconds gives the frame time the stick look rate scales with.
+	 */
+	VERSEMOVEMENT_API void BindDefaults(UInputComponent& Input, FVerseInputFrameBuilder& Builder, TFunction<float()> DeltaSeconds);
+}

@@ -292,7 +292,7 @@ bool FVerseMovementCostTest::RunTest(const FString& Parameters)
 	const uint64 Cycles = A->GetVerseMovement()->GetTickCycles() + B->GetVerseMovement()->GetTickCycles() - StartCycles;
 	const int32 Ticks = A->GetVerseMovement()->GetTickCount() - StartTicks;
 	const double MsPerTick = FPlatformTime::ToMilliseconds64(Cycles) / FMath::Max(Ticks, 1);
-	AddInfo(FString::Printf(TEXT("movement of 2 pawns: %.4f ms per tick over %d ticks; mantles %d + %d"), MsPerTick, Ticks,
+	AddInfo(FString::Printf(TEXT("movement of 2 pawns (input tick, movement, body pose): %.4f ms per tick over %d ticks; mantles %d + %d"), MsPerTick, Ticks,
 		A->GetVerseMovement()->GetMantleCount(), B->GetVerseMovement()->GetMantleCount()));
 	TestTrue(TEXT("at most 0.3 ms per tick"), MsPerTick <= 0.3);
 	return true;

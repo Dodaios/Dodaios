@@ -10,6 +10,7 @@
 #include "Fixture/VerseMovementCourse.h"
 #include "Noise/VerseAudibilityTable.h"
 #include "PhysicsEngine/BodyInstance.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/SkeletalBodySetup.h"
 #include "Tests/Movement/VerseMovementTestWorld.h"
@@ -51,6 +52,64 @@ namespace
 			return Events.FilterByPredicate([&Tag](const FVerseNoiseEvent& Event) { return Event.Noise == Tag; }).Num();
 		}
 	};
+
+	/**
+	 * G0.9's PHYS_Test_Human carries bodies scaled 100x by the bone scale of its import, so one
+	 * body covers the whole pawn. The test traces against a copy whose shapes are divided by each
+	 * body's bone scale: the same bodies, bones and zones at their intended size.
+	 */
+	UPhysicsAsset* MakeSaneCopy(USkeletalMeshComponent& Mesh, int32& OutFixed)
+	{
+		OutFixed = 0;
+		UPhysicsAsset* Source = Mesh.GetPhysicsAsset();
+		if (!Source)
+		{
+			return nullptr;
+		}
+		TMap<FName, float> Scales;
+		const float ComponentScale = FMath::Max(float(Mesh.GetComponentScale().GetAbsMax()), KINDA_SMALL_NUMBER);
+		for (const USkeletalBodySetup* Setup : Source->SkeletalBodySetups)
+		{
+			if (const FBodyInstance* Instance = Setup ? Mesh.GetBodyInstance(Setup->BoneName) : nullptr)
+			{
+				Scales.Add(Setup->BoneName, float(Instance->GetUnrealWorldTransform().GetScale3D().GetAbsMax()) / ComponentScale);
+			}
+		}
+		UPhysicsAsset* Copy = DuplicateObject<UPhysicsAsset>(Source, GetTransientPackage());
+		for (USkeletalBodySetup* Setup : Copy->SkeletalBodySetups)
+		{
+			const float Factor = Setup ? Scales.FindRef(Setup->BoneName) : 0.f;
+			if (Factor < 1.5f)
+			{
+				continue;
+			}
+			for (FKSphylElem& Elem : Setup->AggGeom.SphylElems)
+			{
+				Elem.Radius /= Factor;
+				Elem.Length /= Factor;
+				Elem.Center /= Factor;
+			}
+			for (FKSphereElem& Elem : Setup->AggGeom.SphereElems)
+			{
+				Elem.Radius /= Factor;
+				Elem.Center /= Factor;
+			}
+			for (FKBoxElem& Elem : Setup->AggGeom.BoxElems)
+			{
+				Elem.X /= Factor;
+				Elem.Y /= Factor;
+				Elem.Z /= Factor;
+				Elem.Center /= Factor;
+			}
+			Setup->InvalidatePhysicsData();
+			Setup->CreatePhysicsMeshes();
+			++OutFixed;
+		}
+		Copy->UpdateBodySetupIndexMap();
+		Copy->UpdateBoundsBodiesArray();
+		Mesh.SetPhysicsAsset(Copy, true);
+		return Copy;
+	}
 
 	void Run(FVerseMovementTestWorld& W, AVerseCharacter& Pawn, uint32 Buttons, const FVector2f& Move, float Seconds, float TurnDegPerSec = 0.f)
 	{
@@ -245,14 +304,19 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 			Instance ? *(Instance->GetUnrealWorldTransform().GetLocation() - Pawn->GetActorLocation()).ToCompactString() : TEXT("-"),
 			Sphyl ? Sphyl->Radius : -1.f, Sphyl ? Sphyl->Length : -1.f, Instance ? *Instance->GetBodyBounds().GetExtent().ToCompactString() : TEXT("-")));
 	}
+	int32 Fixed = 0;
+	if (!TestNotNull(TEXT("scale-corrected copy of the physics asset"), MakeSaneCopy(*Mesh, Fixed)))
+	{
+		return false;
+	}
+	AddInfo(FString::Printf(TEXT("%d bodies of PHYS_Test_Human scale-corrected for the trace checks (G0.9 import scale)"), Fixed));
+	Run(W, *Pawn, 0u, FVector2f::ZeroVector, 0.2f);
 	const FVector Head = BodyLocation(TEXT("Head"));
-	// G0.9's PHYS_Test_Human currently carries 100x scaled bodies (bone scale from the import), so
-	// one body covers the whole pawn. Trace checks need sane bodies; body motion checks do not.
 	const FBodyInstance* HeadBody = Mesh->GetBodyInstance(TEXT("Head"));
 	const bool bTraceable = HeadBody && HeadBody->GetBodyBounds().GetExtent().Z < 50.f;
-	if (!bTraceable)
+	if (!TestTrue(TEXT("hit bodies have a traceable size (head body under 50 cm)"), bTraceable))
 	{
-		AddWarning(TEXT("PHYS_Test_Human hit bodies are oversized (G0.9 import scale); zone-by-trace checks skipped until the rig is fixed"));
+		return false;
 	}
 	const bool bHasCamera = Mesh->GetBoneIndex(TEXT("Camera")) != INDEX_NONE;
 	const FVector CameraBone = bHasCamera ? Mesh->GetBoneLocation(TEXT("Camera")) : FVector::ZeroVector;
@@ -317,10 +381,30 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 	{
 		TestTrue(TEXT("the prone legs behind the capsule can be hit"), bLeg);
 	}
-	// The prone body box is ours: it lies behind the capsule while prone.
+	// The prone leg box is ours: it lies over the legs behind the capsule while prone, never under the head or torso.
 	const FBox ProneBox = Pawn->GetProneBody()->Bounds.GetBox();
-	TestTrue(TEXT("prone body box is active while prone"), Pawn->GetProneBody()->GetCollisionEnabled() == ECollisionEnabled::QueryOnly);
-	TestTrue(TEXT("prone body box lies behind the capsule, under 0.45 m"), ProneBox.IsInsideXY(Behind) && ProneBox.Max.Z - Feet < 45.f);
+	TestTrue(TEXT("prone leg box is active while prone"), Pawn->GetProneBody()->GetCollisionEnabled() == ECollisionEnabled::QueryOnly);
+	TestTrue(TEXT("prone leg box lies behind the capsule, under 0.45 m"), ProneBox.IsInsideXY(Behind) && ProneBox.Max.Z - Feet < 45.f);
+	const FVector Forward = Pawn->GetActorForwardVector();
+	const float BoxFront = FMath::Max(float((ProneBox.Min - Pawn->GetActorLocation()) | Forward), float((ProneBox.Max - Pawn->GetActorLocation()) | Forward));
+	TestTrue(FString::Printf(TEXT("prone leg box ends behind the hips (front edge %.0f cm)"), BoxFront), BoxFront < -30.f);
+
+	// Head shots on a prone pawn: from above and from the side, the trace through the head scores Head.
+	{
+		const FVector HeadNow = BodyLocation(TEXT("Head"));
+		FHitResult Hit;
+		const FCollisionQueryParams Query(SCENE_QUERY_STAT(VerseProneHead), false);
+		const bool bTop = W.GetWorld()->LineTraceSingleByChannel(Hit, HeadNow + FVector(0.f, 0.f, 200.f), HeadNow - FVector(0.f, 0.f, 50.f), VerseCollision::HitBody, Query);
+		AddInfo(FString::Printf(TEXT("prone head shot from above: %s %s"), *GetNameSafe(Hit.GetComponent()), *Hit.BoneName.ToString()));
+		TestTrue(TEXT("prone: a shot from above at the head scores Head"), bTop && VerseHitZones::ZoneForHit(Hit) == EVerseHitZone::Head);
+		const FVector Side = Pawn->GetActorRightVector() * 300.f;
+		const bool bSide = W.GetWorld()->LineTraceSingleByChannel(Hit, HeadNow + Side, HeadNow - Side, VerseCollision::HitBody, Query);
+		TestTrue(TEXT("prone: a shot from the side at the head scores Head"), bSide && VerseHitZones::ZoneForHit(Hit) == EVerseHitZone::Head);
+		const FVector Chest = BodyLocation(TEXT("Spine_03"));
+		const bool bChest = W.GetWorld()->LineTraceSingleByChannel(Hit, Chest + FVector(0.f, 0.f, 200.f), Chest - FVector(0.f, 0.f, 50.f), VerseCollision::HitBody, Query);
+		const EVerseHitZone ChestZone = bChest ? VerseHitZones::ZoneForHit(Hit) : EVerseHitZone::None;
+		TestTrue(TEXT("prone: a shot from above at the chest scores a torso zone, not Leg"), ChestZone == EVerseHitZone::UpperTorso || ChestZone == EVerseHitZone::LowerTorso || ChestZone == EVerseHitZone::Arm);
+	}
 	// Body motion: every body sits below 60 cm while prone.
 	for (const USkeletalBodySetup* Setup : Mesh->GetPhysicsAsset()->SkeletalBodySetups)
 	{

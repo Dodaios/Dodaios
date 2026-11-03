@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
+#include "HAL/PlatformTime.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/FileHelper.h"
 #include "UObject/ConstructorHelpers.h"
@@ -134,6 +135,7 @@ AActor* AVerseMovementTestGameMode::ChoosePlayerStart_Implementation(AController
 FString AVerseMovementTestGameMode::BuildServerReport() const
 {
 	FString Pawns;
+	double TotalMs = 0.0;
 	for (TActorIterator<AVerseCharacter> It(GetWorld()); It; ++It)
 	{
 		const UVerseCharacterMovement* Movement = It->GetVerseMovement();
@@ -141,10 +143,15 @@ FString AVerseMovementTestGameMode::BuildServerReport() const
 		{
 			continue;
 		}
-		Pawns += FString::Printf(TEXT("%s{\"pawn\": \"%s\", \"mantles\": %d, \"stats\": %s}"), Pawns.IsEmpty() ? TEXT("") : TEXT(", "),
-			*It->GetName(), Movement->GetMantleCount(), *Movement->GetNetStats().ToJson());
+		// A1.9 on the dedicated server: the whole movement path of the pawn (client move RPCs,
+		// input tick, component tick and body pose) per server tick.
+		const double MsPerTick = FPlatformTime::ToMilliseconds64(Movement->GetTickCycles()) / FMath::Max(Movement->GetTickCount(), 1);
+		TotalMs += MsPerTick;
+		Pawns += FString::Printf(TEXT("%s{\"pawn\": \"%s\", \"mantles\": %d, \"movement_ms_per_tick\": %.4f, \"stats\": %s}"), Pawns.IsEmpty() ? TEXT("") : TEXT(", "),
+			*It->GetName(), Movement->GetMantleCount(), MsPerTick, *Movement->GetNetStats().ToJson());
 	}
-	return FString::Printf(TEXT("{\"role\": \"server\", \"time\": %.2f, \"pawns\": [%s]}"), GetWorld()->GetTimeSeconds(), *Pawns);
+	return FString::Printf(TEXT("{\"role\": \"server\", \"time\": %.2f, \"movement_ms_per_tick_all_pawns\": %.4f, \"pawns\": [%s]}"),
+		GetWorld()->GetTimeSeconds(), TotalMs, *Pawns);
 }
 
 void AVerseMovementTestGameMode::Tick(float DeltaSeconds)

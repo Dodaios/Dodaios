@@ -1,12 +1,9 @@
 #include "VerseMovementTuning.h"
 
-#include "Dom/JsonObject.h"
-#include "UObject/StrongObjectPtr.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
 #include "UObject/Package.h"
+#include "UObject/StrongObjectPtr.h"
 #include "UObject/UnrealType.h"
 #include "VerseLog.h"
 
@@ -34,32 +31,131 @@ bool FVerseMovementTuningValues::Validate(FString& OutError) const
 	return true;
 }
 
+namespace
+{
+	/**
+	 * Reader for the flat tuning file: one object of "name": number pairs plus string-valued
+	 * "schema" and "_comment" keys. Own code, so VerseMovement needs no Json module link.
+	 */
+	struct FFlatJsonReader
+	{
+		const FString& Text;
+		int32 Pos = 0;
+
+		explicit FFlatJsonReader(const FString& InText) : Text(InText) {}
+
+		void SkipSpace()
+		{
+			while (Pos < Text.Len() && FChar::IsWhitespace(Text[Pos]))
+			{
+				++Pos;
+			}
+		}
+		bool Consume(TCHAR Char)
+		{
+			SkipSpace();
+			if (Pos < Text.Len() && Text[Pos] == Char)
+			{
+				++Pos;
+				return true;
+			}
+			return false;
+		}
+		bool Peek(TCHAR Char)
+		{
+			SkipSpace();
+			return Pos < Text.Len() && Text[Pos] == Char;
+		}
+		bool ReadString(FString& Out)
+		{
+			Out.Reset();
+			if (!Consume(TEXT('"')))
+			{
+				return false;
+			}
+			while (Pos < Text.Len() && Text[Pos] != TEXT('"'))
+			{
+				if (Text[Pos] == TEXT('\\') && Pos + 1 < Text.Len())
+				{
+					++Pos;
+				}
+				Out.AppendChar(Text[Pos++]);
+			}
+			return Consume(TEXT('"'));
+		}
+		/** A number, or false (and the value skipped) for anything else. */
+		bool ReadNumber(double& Out, bool& bOutOk)
+		{
+			SkipSpace();
+			bOutOk = false;
+			if (Peek(TEXT('"')))
+			{
+				FString Ignored;
+				return ReadString(Ignored);
+			}
+			const int32 Start = Pos;
+			while (Pos < Text.Len() && (FChar::IsDigit(Text[Pos]) || FCString::Strchr(TEXT("+-.eE"), Text[Pos])))
+			{
+				++Pos;
+			}
+			if (Pos == Start)
+			{
+				while (Pos < Text.Len() && FChar::IsAlpha(Text[Pos]))
+				{
+					++Pos; // true, false, null
+				}
+				return Pos > Start;
+			}
+			const FString Number = Text.Mid(Start, Pos - Start);
+			bOutOk = Number.IsNumeric() || FCString::Strchr(*Number, TEXT('e')) || FCString::Strchr(*Number, TEXT('E'));
+			Out = FCString::Atod(*Number);
+			return true;
+		}
+	};
+}
+
 bool UVerseMovementTuning::ParseJson(const FString& Json, FVerseMovementTuningValues& Out, FString& OutError)
 {
-	TSharedPtr<FJsonObject> Object;
-	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Json);
-	if (!FJsonSerializer::Deserialize(Reader, Object) || !Object.IsValid())
+	FFlatJsonReader Reader(Json);
+	if (!Reader.Consume(TEXT('{')))
 	{
 		OutError = TEXT("not a JSON object");
 		return false;
 	}
 	FVerseMovementTuningValues Parsed;
-	for (const TPair<FString, TSharedPtr<FJsonValue>>& Field : Object->Values)
+	while (!Reader.Consume(TEXT('}')))
 	{
-		if (Field.Key == TEXT("schema") || Field.Key.StartsWith(TEXT("_")))
+		FString Key;
+		if (!Reader.ReadString(Key) || !Reader.Consume(TEXT(':')))
 		{
-			continue;
-		}
-		FProperty* Property = FVerseMovementTuningValues::StaticStruct()->FindPropertyByName(FName(*Field.Key));
-		if (!Property || !Property->GetName().Equals(Field.Key, ESearchCase::CaseSensitive))
-		{
-			OutError = FString::Printf(TEXT("unknown field %s"), *Field.Key);
+			OutError = TEXT("not a JSON object");
 			return false;
 		}
 		double Number = 0.0;
-		if (!Field.Value.IsValid() || !Field.Value->TryGetNumber(Number))
+		bool bNumber = false;
+		if (!Reader.ReadNumber(Number, bNumber))
 		{
-			OutError = FString::Printf(TEXT("field %s is not a number"), *Field.Key);
+			OutError = FString::Printf(TEXT("field %s has no value"), *Key);
+			return false;
+		}
+		if (!Reader.Consume(TEXT(',')) && !Reader.Peek(TEXT('}')))
+		{
+			OutError = TEXT("not a JSON object");
+			return false;
+		}
+		if (Key == TEXT("schema") || Key.StartsWith(TEXT("_")))
+		{
+			continue;
+		}
+		FProperty* Property = FVerseMovementTuningValues::StaticStruct()->FindPropertyByName(FName(*Key));
+		if (!Property || !Property->GetName().Equals(Key, ESearchCase::CaseSensitive))
+		{
+			OutError = FString::Printf(TEXT("unknown field %s"), *Key);
+			return false;
+		}
+		if (!bNumber)
+		{
+			OutError = FString::Printf(TEXT("field %s is not a number"), *Key);
 			return false;
 		}
 		CastFieldChecked<FFloatProperty>(Property)->SetPropertyValue_InContainer(&Parsed, float(Number));

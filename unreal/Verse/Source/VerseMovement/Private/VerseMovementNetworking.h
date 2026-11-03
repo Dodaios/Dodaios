@@ -5,10 +5,11 @@
 #include "GameFramework/CharacterMovementReplication.h"
 #include "VerseCharacterMovement.h"
 
-// Saved moves and move data of UVerseCharacterMovement (architecture.md 3.3): sprint, prone and
-// mantle intent ride as compressed flags; lean (target and the client's result) rides in the
-// custom move data. Everything the move simulates is saved at the start of each move and
-// restored before a replay, so a corrected client re-simulates from the same state.
+// Saved moves, move data and move responses of UVerseCharacterMovement (architecture.md 3.3):
+// sprint, prone and mantle intent ride as compressed flags; lean (target and the client's result)
+// rides in the custom move data. A server correction carries the server's simulated state
+// (stance, body shape, slide, prone and mantle timers, yaw), so a corrected client replays its
+// unacknowledged moves from the server's state; a replayed move restores only its inputs and facing.
 
 namespace VerseMoveFlags
 {
@@ -37,9 +38,17 @@ struct FVerseMoveState
 	FVector MantleTarget = FVector::ZeroVector;
 	bool bMantleVault = false;
 	float StrideRemaining = 0.f;
+	/** Actor yaw at the end of the move (prone turn cap and prone body constraint). */
+	float LastMoveYaw = 0.f;
+	bool bHasLastMoveYaw = false;
+	/** Server corrections only: the prone turn cap clamped the client's yaw since the last correction. */
+	bool bYawClamped = false;
 
 	void Capture(const UVerseCharacterMovement& Movement);
+	/** Writes the state back; the capsule keeps its centre (the location already belongs to the shape). */
 	void Restore(UVerseCharacterMovement& Movement) const;
+	/** Network form of the state (server corrections). */
+	void Serialize(FArchive& Ar);
 };
 
 class FVerseSavedMove : public FSavedMove_Character
@@ -54,6 +63,12 @@ public:
 	/** Lean after the move ran; the client sends it so the server can adopt it. */
 	int8 SavedLeanResult = 0;
 	FVerseMoveState StartState;
+	/** Move kind at the start and at the end of the move (correction counters, WP01.10). */
+	EVerseMoveKind StartKind = EVerseMoveKind::Walk;
+	EVerseMoveKind EndKind = EVerseMoveKind::Walk;
+
+	/** The kind a correction of this move is booked as: mantle, then prone, then slide win. */
+	EVerseMoveKind GetCorrectionKind() const;
 
 	virtual void Clear() override;
 	virtual uint8 GetCompressedFlags() const override;
@@ -61,6 +76,7 @@ public:
 	virtual void SetMoveFor(ACharacter* C, float InDeltaTime, FVector const& NewAccel, FNetworkPredictionData_Client_Character& ClientData) override;
 	virtual void SetInitialPosition(ACharacter* C) override;
 	virtual void PrepMoveFor(ACharacter* C) override;
+	virtual void CombineWith(const FSavedMove_Character* OldMove, ACharacter* InCharacter, APlayerController* PC, const FVector& OldStartLocation) override;
 	virtual void PostUpdate(ACharacter* C, EPostUpdateMode PostUpdateMode) override;
 	virtual bool IsImportantMove(const FSavedMovePtr& LastAckedMove) const override;
 };
@@ -95,4 +111,18 @@ struct FVerseCharacterNetworkMoveDataContainer : public FCharacterNetworkMoveDat
 	}
 
 	FVerseCharacterNetworkMoveData Storage[3];
+};
+
+/** Server move responses: a correction also carries the server's FVerseMoveState. */
+struct FVerseMoveResponseDataContainer : public FCharacterMoveResponseDataContainer
+{
+	/** Sent with a correction (filled from PendingState). */
+	FVerseMoveState State;
+	/** Server: the state at the end of the move the pending correction is for. */
+	FVerseMoveState PendingState;
+	/** Server: a yaw clamp happened since the last correction was captured. */
+	bool bYawClampedPending = false;
+
+	virtual void ServerFillResponseData(const UCharacterMovementComponent& CharacterMovement, const FClientAdjustment& PendingAdjustment) override;
+	virtual bool Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap) override;
 };
