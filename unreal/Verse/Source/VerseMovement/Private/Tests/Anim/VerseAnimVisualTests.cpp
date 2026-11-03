@@ -310,11 +310,12 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 	}
 	// A13.5 pair: the rifle at ADS (the weapon in the owner's view) with a wall 20 cm in front of the hands, and without it.
 	// The third shot hides the body: the pixels that differ from "off" are the body's (the A13.5 mask).
-	for (const int32 Variant : {0, 1, 2})
+	// The fourth shows the wall alone: a body pixel is hidden when "on" looks like the bare wall there.
+	for (const int32 Variant : {0, 1, 2, 3})
 	{
-		const bool bWall = Variant == 1;
-		const bool bBody = Variant != 2;
-		const TCHAR* Names[] = {TEXT("fp_wall_off"), TEXT("fp_wall_on"), TEXT("fp_wall_nobody")};
+		const bool bWall = Variant == 1 || Variant == 3;
+		const bool bBody = Variant < 2;
+		const TCHAR* Names[] = {TEXT("fp_wall_off"), TEXT("fp_wall_on"), TEXT("fp_wall_nobody"), TEXT("fp_wall_only")};
 		Shots.Add({Names[Variant], [](UWorld* World)
 			{
 				FStage& S = Shared();

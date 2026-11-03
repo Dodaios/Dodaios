@@ -3,8 +3,10 @@
     python art/verse/characters/fps/visual_report.py [--dir <shots folder>]
 
 * A13.5: the body mask is where `fp_wall_off` differs from `fp_wall_nobody`;
-  a body pixel counts as hidden by the wall when `fp_wall_on` differs from
-  `fp_wall_off` there by more than the threshold. Pass: 0 hidden pixels.
+  a body pixel counts as hidden by the wall when `fp_wall_on` looks like the
+  bare wall (`fp_wall_only`) there, within the threshold. Comparing with
+  `fp_wall_off` instead would count the light the wall bounces onto the arms.
+  Pass: body pixels in view and 0 hidden.
 * Contact sheets: turnarounds, first-person views and the finisher phases,
   written next to the shots (`sheet_*.png`), plus `fp_clipping.json`.
 
@@ -53,9 +55,11 @@ def erode(mask: np.ndarray) -> np.ndarray:
 
 
 def clipping(folder: Path) -> dict:
-    off, on, nobody = (blocks(load(folder / f"fp_wall_{n}.png")) for n in ("off", "on", "nobody"))
+    off, on, nobody, wall = (
+        blocks(load(folder / f"fp_wall_{n}.png")) for n in ("off", "on", "nobody", "only")
+    )
     body = erode(np.abs(off - nobody).max(axis=2) > THRESHOLD)
-    hidden = body & (np.abs(on - off).max(axis=2) > THRESHOLD)
+    hidden = body & (np.abs(on - wall).max(axis=2) <= THRESHOLD)
     return {
         "body_pixels": int(body.sum()) * BLOCK * BLOCK,
         "hidden_body_pixels": int(hidden.sum()) * BLOCK * BLOCK,
