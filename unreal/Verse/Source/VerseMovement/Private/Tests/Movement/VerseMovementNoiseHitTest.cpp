@@ -66,13 +66,33 @@ namespace
 		{
 			return nullptr;
 		}
+		// Body transforms carry no scale (it is baked into the shapes): compare each body's bounds
+		// with the size its shapes should have at the component's scale.
 		TMap<FName, float> Scales;
 		const float ComponentScale = FMath::Max(float(Mesh.GetComponentScale().GetAbsMax()), KINDA_SMALL_NUMBER);
 		for (const USkeletalBodySetup* Setup : Source->SkeletalBodySetups)
 		{
-			if (const FBodyInstance* Instance = Setup ? Mesh.GetBodyInstance(Setup->BoneName) : nullptr)
+			const FBodyInstance* Instance = Setup ? Mesh.GetBodyInstance(Setup->BoneName) : nullptr;
+			if (!Instance)
 			{
-				Scales.Add(Setup->BoneName, float(Instance->GetUnrealWorldTransform().GetScale3D().GetAbsMax()) / ComponentScale);
+				continue;
+			}
+			float Expected = 0.f;
+			for (const FKSphylElem& Elem : Setup->AggGeom.SphylElems)
+			{
+				Expected = FMath::Max(Expected, Elem.Radius); // the bounds' smallest extent is the radius
+			}
+			for (const FKSphereElem& Elem : Setup->AggGeom.SphereElems)
+			{
+				Expected = FMath::Max(Expected, Elem.Radius);
+			}
+			for (const FKBoxElem& Elem : Setup->AggGeom.BoxElems)
+			{
+				Expected = FMath::Max(Expected, FMath::Min3(Elem.X, Elem.Y, Elem.Z) * 0.5f);
+			}
+			if (Expected > 0.f)
+			{
+				Scales.Add(Setup->BoneName, float(Instance->GetBodyBounds().GetExtent().GetMin()) / (Expected * ComponentScale));
 			}
 		}
 		UPhysicsAsset* Copy = DuplicateObject<UPhysicsAsset>(Source, GetTransientPackage());

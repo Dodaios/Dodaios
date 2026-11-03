@@ -79,6 +79,12 @@ UVerseCharacterMovement* AVerseCharacter::GetVerseMovement() const
 void AVerseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	// Input before movement: the frame applied in Tick (look, turn, move, buttons) is the one the
+	// movement simulates in the same frame, and the turn cap and prone body constraint see it.
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->PrimaryComponentTick.AddPrerequisite(this, PrimaryActorTick);
+	}
 	if (USkeletalMeshComponent* Body = GetMesh())
 	{
 		if (Body->GetSkeletalMeshAsset() && !Body->GetPhysicsAsset())

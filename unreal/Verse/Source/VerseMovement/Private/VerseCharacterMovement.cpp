@@ -360,6 +360,9 @@ bool UVerseCharacterMovement::ProneBodyBlocked(const FVector& FeetLocation, floa
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseProneBody), false, CharacterOwner);
 	FCollisionResponseParams Response;
 	InitCollisionParams(Params, Response);
+	// World geometry only: other pawns sit at different places on the client (simulated proxies)
+	// and on the server, so a pawn contact would make the prediction disagree.
+	Response.CollisionResponse.SetResponse(ECC_Pawn, ECR_Ignore);
 	return GetWorld()->OverlapBlockingTestByChannel(Center, Forward.ToOrientationQuat(), UpdatedComponent->GetCollisionObjectType(),
 		FCollisionShape::MakeBox(Extent), Params, Response);
 }
@@ -1270,8 +1273,15 @@ void UVerseCharacterMovement::ServerMoveHandleClientError(float ClientTimeStamp,
 bool UVerseCharacterMovement::ServerCheckClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& ClientWorldLocation,
 	const FVector& RelativeClientLocation, UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
 {
-	const bool bError = Super::ServerCheckClientError(ClientTimeStamp, DeltaTime, Accel, ClientWorldLocation, RelativeClientLocation, ClientMovementBase,
+	bool bError = Super::ServerCheckClientError(ClientTimeStamp, DeltaTime, Accel, ClientWorldLocation, RelativeClientLocation, ClientMovementBase,
 		ClientBaseBoneName, ClientMovementMode);
+	if (bError && UpdatedComponent && ClientMovementMode == PackNetworkMovementMode()
+		&& FVector::DistSquared(UpdatedComponent->GetComponentLocation(), ClientWorldLocation) < FMath::Square(ServerCorrectionToleranceCm))
+	{
+		// Same mode, a few centimetres apart: leave the client alone. The server keeps its own
+		// location (nothing of the client's is adopted), so it stays authoritative.
+		bError = false;
+	}
 	if (bError && UpdatedComponent)
 	{
 		const FVector Server = UpdatedComponent->GetComponentLocation();
