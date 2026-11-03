@@ -23,7 +23,7 @@ import { AgentSwatch } from "../AgentSwatch";
 import { agentTint } from "../agentTint";
 import { rowToAgent, type SocietyAgent } from "../data";
 import { useAttentionStore } from "../attention/attentionStore";
-import { previewText, readableWaiting, rosterStatus, waitingReasonOf } from "../roster/rosterPreview";
+import { rosterStatus, waitingLine, waitingReasonOf } from "../roster/rosterPreview";
 import { StatusMark } from "../roster/RosterRow";
 import type { DetailsControl } from "./AgentChatLayout";
 import { AGENT_APPROVAL_MODES, modeSupported, runnerFor } from "./approvalModes";
@@ -48,8 +48,7 @@ export function AgentHeader({ agent, details }: AgentHeaderProps) {
 
   let phrase: ReactNode = null;
   if (status === "needs-you") {
-    const summary = readableWaiting(previewText(reason?.summary), t);
-    phrase = <span className="as-pill-status text-warning">{summary ? `${t("society.shell.preview_needs_you")} · ${summary}` : t("society.shell.status_waiting")}</span>;
+    phrase = <span className="as-pill-status text-warning">{waitingLine(reason, t) || t("society.shell.status_waiting")}</span>;
   } else if (status === "working") {
     phrase = <span className="as-pill-status as-shimmer">{t("society.shell.preview_working")}</span>;
   } else if (status === "paused") {

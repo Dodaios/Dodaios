@@ -257,7 +257,7 @@ dependencies = [
     # IDE's drop analysis: pypdf is the one non-stdlib parser those need, and
     # it is a pure-Python universal wheel. Lazy-imported, with honest
     # per-file degradation when absent.
-    "pypdf>=6.21.2",  # security floor: parser advisories fixed through 6.21.2
+    "pypdf>=6.21.4",  # security floor: parser advisories fixed through 6.21.4
     # Phase F1 — Telegram channel bot via long-polling (ChannelAdapter).
     "python-telegram-bot>=22,<23",
 ]

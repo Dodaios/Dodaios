@@ -293,6 +293,17 @@ committed PNGs match the script). User-created pets live in
 | `ember` | Ember | A baby dragon: smoke rings while thinking, a fire breath on success, a sooty cough on errors, naps in its eggshell |
 | `cocoa` | Cocoa | A chocolate Labrador puppy: tilts its head to listen, digs while it works, sniffs along a scent trail while searching, does zoomies on success, droops its ears on errors and naps in its dog bed |
 | `dodaios` | Dodaios | The hooded figure of the logo in black and white: the hood's tip perks up to listen and droops asleep, three dots hop beside it while it thinks, the cape trails a hop on success, it types on a laptop at its feet, and hangs by the hood with dangling feet when it is carried |
+| `pip` | Pip | A penguin chick in grey fluff: taps its beak to think, shivers on errors, belly-slides and tucks its beak in to sleep |
+| `hazel` | Hazel | A red squirrel: tufted ears perk to listen, holds an acorn while thinking, flicks one up on success, naps inside her tail |
+| `otto` | Otto | A sea otter: cracks a clam on its belly while thinking, does a backflip on success, sleeps floating on its back |
+| `nox` | Nox | A little owl: turns its head to listen, wears reading glasses to work, spreads its wings on success, ruffles on errors |
+| `kiko` | Kiko | An axolotl: gill fronds fan out to listen and glow while it thinks, droop on errors, floats asleep among bubbles |
+| `inky` | Inky | An inkwell with a quill for a tuft: the quill taps while thinking and scribbles while working, ink blots on errors |
+| `toasty` | Toasty | A retro toaster: the slots glow while thinking, the toast pops on success, burns and smokes on errors |
+| `cassie` | Cassie | An 80s cassette: the reels are its eyes and spin while thinking, music notes while talking, tape spaghetti on errors |
+| `sprout` | Sprout | A plant spirit: a leaf unfurls while thinking, a flower blooms on success, the leaves wilt on errors and fold to sleep |
+| `flick` | Flick | An original house elf: huge ears shoot up to listen and droop on errors, scrubs while working, sleeps under its ears |
+| `aurelia` | Aurelia | An original princess in an emerald gown: tilts her head to listen, writes letters with a quill, twirls on success |
 
 ## Adding a pet
 

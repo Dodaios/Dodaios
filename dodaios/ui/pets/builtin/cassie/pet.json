@@ -1,0 +1,111 @@
+{
+  "format": "jarvis-pet/1",
+  "id": "cassie",
+  "name": "Cassie",
+  "description": "A groovy 80s cassette whose reels spin while it thinks and hum along to music.",
+  "frame_size": 48,
+  "sheet": "sheet.png",
+  "animations": {
+    "idle": {
+      "row": 0,
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "accent_frames": 1,
+      "accent_every": 3
+    },
+    "listening": {
+      "row": 1,
+      "frames": 6,
+      "fps": 8,
+      "loop": true
+    },
+    "thinking": {
+      "row": 2,
+      "frames": 8,
+      "fps": 8,
+      "loop": true
+    },
+    "talking": {
+      "row": 3,
+      "frames": 4,
+      "fps": 10,
+      "loop": true
+    },
+    "success": {
+      "row": 4,
+      "frames": 8,
+      "fps": 10,
+      "loop": false
+    },
+    "error": {
+      "row": 5,
+      "frames": 6,
+      "fps": 9,
+      "loop": false
+    },
+    "sleeping": {
+      "row": 6,
+      "frames": 6,
+      "fps": 3,
+      "loop": true
+    },
+    "working": {
+      "row": 7,
+      "frames": 8,
+      "fps": 8,
+      "loop": true
+    },
+    "searching": {
+      "row": 8,
+      "frames": 8,
+      "fps": 8,
+      "loop": true
+    },
+    "held": {
+      "row": 9,
+      "frames": 6,
+      "fps": 10,
+      "loop": true
+    }
+  },
+  "acts_sheet": "acts.png",
+  "acts": {
+    "rewind": {
+      "row": 0,
+      "frames": 8,
+      "fps": 10,
+      "loop": false
+    },
+    "pencil_wind": {
+      "row": 1,
+      "frames": 8,
+      "fps": 8,
+      "loop": false
+    },
+    "music_notes": {
+      "row": 2,
+      "frames": 8,
+      "fps": 8,
+      "loop": false
+    },
+    "tape_tangle": {
+      "row": 3,
+      "frames": 8,
+      "fps": 8,
+      "loop": false
+    },
+    "flip_side": {
+      "row": 4,
+      "frames": 8,
+      "fps": 10,
+      "loop": false
+    },
+    "dance_bop": {
+      "row": 5,
+      "frames": 8,
+      "fps": 8,
+      "loop": false
+    }
+  }
+}

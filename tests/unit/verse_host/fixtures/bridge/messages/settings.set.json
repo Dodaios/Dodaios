@@ -1,0 +1,23 @@
+[
+  {
+    "type": "settings.set",
+    "id": "c-77",
+    "ts": 1793612606.0,
+    "data": {
+      "gore": "reduced"
+    }
+  },
+  {
+    "type": "settings.set",
+    "id": "c-78",
+    "ts": 1793612607.0,
+    "data": {
+      "uniform": "dress",
+      "view": {
+        "mode": "first",
+        "fov_first": 90,
+        "quality": "high"
+      }
+    }
+  }
+]

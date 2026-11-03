@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { AgentSwatch } from "../AgentSwatch";
 import { agentTint } from "../agentTint";
 import type { SocietyAgent } from "../data";
-import { readableWaiting, type RosterPreview, type RosterStatus } from "./rosterPreview";
+import { readableWaiting, waitingLine, type RosterPreview, type RosterStatus } from "./rosterPreview";
 
 export function StatusMark({ status, className }: { status: RosterStatus; className?: string }) {
   const t = useT();
@@ -51,6 +51,13 @@ export function statusLabel(status: RosterStatus, t: (key: string) => string): s
 
 export function PreviewLine({ preview, className }: { preview: RosterPreview; className?: string }) {
   const t = useT();
+  if (preview.kind === "waiting" && preview.waitingKind === "credential") {
+    return (
+      <span className={cn("as-row-preview", className)} data-kind="waiting" data-testid="roster-preview">
+        {waitingLine({ kind: "credential", summary: preview.text }, t)}
+      </span>
+    );
+  }
   if (preview.kind === "waiting") {
     return (
       <span className={cn("as-row-preview", className)} data-kind="waiting" data-testid="roster-preview">

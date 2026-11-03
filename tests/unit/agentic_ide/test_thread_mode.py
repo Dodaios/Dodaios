@@ -240,6 +240,82 @@ def test_the_folder_routes_read_only_connected_projects(repo: Path, tmp_path: Pa
         assert diff.status_code == 403
 
 
+# ------------------------------------------------------------ title bar badges
+
+
+def test_a_thread_s_github_and_done_gate_status_read_its_cli_session(
+    repo: Path, tmp_path: Path, monkeypatch
+) -> None:
+    from dodaios.agentic_ide import done_gate_status, github_status
+
+    monkeypatch.setattr(thread_folders, "_known_roots", lambda: [repo.resolve()])
+    seen: dict[str, object] = {}
+
+    def board(key, records, *, wait=0):
+        seen["key"], seen["records"] = key, records
+        return {"panes": {"thread": None}, "refreshing": False}
+
+    def gates(records):
+        seen["gates"] = records
+        return {"thread": None}
+
+    monkeypatch.setattr(github_status, "board", board)
+    monkeypatch.setattr(done_gate_status, "board", gates)
+    app, service = _chat_app(tmp_path)
+    app.include_router(git_router)
+    session = service.store.create_session(
+        provider="claude-api",
+        model="",
+        effort="",
+        cwd=str(repo),
+        permission_mode="default",
+        surface="agent",
+    )
+    vendor = "6f1c2d1e-0000-4000-8000-000000000002"
+    service.store.update_session(session.session_id, vendor_session=vendor)
+    with TestClient(app) as client:
+        status = client.get(
+            "/api/agentic-ide/git/thread-status",
+            params={"session_id": session.session_id, "instant": "1"},
+        )
+        assert status.status_code == 200 and status.json()["panes"] == {"thread": None}
+        assert seen["key"] == f"thread:{session.session_id}"
+        (record,) = seen["records"]
+        assert (record.pane, record.agent, record.session_id) == ("thread", "claude", vendor)
+        assert Path(record.folder) == repo.resolve()
+
+        gate = client.get(
+            "/api/agentic-ide/git/thread-done-gate", params={"session_id": session.session_id}
+        )
+        assert gate.json() == {"panes": {"thread": None}}
+        (gate_record,) = seen["gates"]
+        assert gate_record.session_id == vendor
+
+        missing = client.get("/api/agentic-ide/git/thread-status", params={"session_id": "nope"})
+        assert missing.status_code == 404
+
+
+def test_a_thread_outside_a_connected_project_has_no_status(
+    repo: Path, tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(thread_folders, "_known_roots", lambda: [])
+    app, service = _chat_app(tmp_path)
+    app.include_router(git_router)
+    session = service.store.create_session(
+        provider="claude-api",
+        model="",
+        effort="",
+        cwd=str(repo),
+        permission_mode="default",
+        surface="agent",
+    )
+    with TestClient(app) as client:
+        status = client.get(
+            "/api/agentic-ide/git/thread-status", params={"session_id": session.session_id}
+        )
+        assert status.json() == {"panes": {"thread": None}}
+
+
 # ------------------------------------------------------------ terminal drawer
 
 

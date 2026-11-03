@@ -375,12 +375,7 @@ def _normalise_bm25(raw: float) -> float:
 
 
 def _default_db_path() -> Path:
-    """Resolve ``data/jarvis.db`` relative to the project root.
-
-    Walks upward from this file's location to find the directory
-    containing ``dodaios/`` as a package, then appends ``data/jarvis.db``.
-    Falls back to a sibling ``data/`` if the walk fails.
-    """
+    """``jarvis.db`` in the runtime data dir (see ``resolve_wiki_db_path``)."""
     from dodaios.memory.wiki.db_path import resolve_wiki_db_path
 
     return resolve_wiki_db_path()

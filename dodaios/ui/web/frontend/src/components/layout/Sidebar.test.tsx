@@ -8,7 +8,7 @@ import {
   SIDEBAR_RAIL_AT_WIDTH,
   SIDEBAR_RAIL_WIDTH,
 } from "@/components/layout/Sidebar";
-import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { useVerseModeStore } from "@/store/verseMode";
 import { NAV_GROUPS, NAV_FOOTER_ITEMS, SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
 import { isSectionId, useEventStore } from "@/store/events";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
@@ -716,14 +716,17 @@ describe("compact sidebar navigation", () => {
     expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
   });
 
-  test("the Verse row opens the IDE with the Verse over it", () => {
-    useIdeSidePanelStore.setState({ open: false, maximized: false });
+  test("the Verse row opens Agents and asks for the full-window Verse", () => {
+    useVerseModeStore.setState({ requested: false, open: false });
     renderSidebar();
     fireEvent.click(screen.getByTestId("nav-row-verse"));
-    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
-    const panel = useIdeSidePanelStore.getState();
-    expect(panel.open && panel.maximized && panel.active === "office").toBe(true);
-    act(() => useIdeSidePanelStore.getState().setOpen(false));
+    expect(useEventStore.getState().activeSection).toBe("agents");
+    expect(useVerseModeStore.getState().requested).toBe(true);
+    // Lit while the Verse is on screen, and the Agents row steps back.
+    act(() => useVerseModeStore.setState({ requested: false, open: true }));
+    expect(screen.getByTestId("nav-row-verse").className).toContain("jarvis-nav-active");
+    expect(screen.getByTestId("nav-row-agents").className).not.toContain("jarvis-nav-active");
+    act(() => useVerseModeStore.setState({ open: false }));
   });
 
   test("shows the agents, the IDE, the Verse, the voice, the extensions and the artifacts in that order", () => {

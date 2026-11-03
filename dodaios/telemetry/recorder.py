@@ -224,6 +224,10 @@ def attach_flight_recorder(
     """
     if not enabled:
         return None
-    rec = FlightRecorder(data_dir=data_dir or (Path("data") / "flight_recorder"))
+    if data_dir is None:
+        from dodaios.core.paths import flight_recorder_dir
+
+        data_dir = flight_recorder_dir()
+    rec = FlightRecorder(data_dir=data_dir)
     rec.attach(bus)
     return rec
