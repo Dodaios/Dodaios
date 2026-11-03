@@ -53,6 +53,8 @@ namespace VerseVisual
 	{
 		FString Name;
 		TFunction<void(UWorld*)> Setup;
+		/** Runs once the clip pose is evaluated (sockets, cameras, walls that follow the pose). */
+		TFunction<void(UWorld*)> Late;
 	};
 
 	class FStage
@@ -60,6 +62,7 @@ namespace VerseVisual
 	public:
 		TArray<TWeakObjectPtr<AActor>> Actors;
 		ACameraActor* Camera = nullptr;
+		USkeletalMeshComponent* Body = nullptr;
 
 		void Clear()
 		{
@@ -212,7 +215,18 @@ namespace VerseVisual
 				Start = Now;
 				return false;
 			}
-			if (Phase == 1 && Now - Start > 1.5)
+			if (Phase == 1 && Now - Start > 0.75)
+			{
+				// The first evaluation of a clip can still show the reference pose at setup.
+				if (Shots[Index].Late)
+				{
+					Shots[Index].Late(World);
+				}
+				Phase = 3;
+				Start = Now;
+				return false;
+			}
+			if (Phase == 3 && Now - Start > 1.5)
 			{
 				File = FPaths::Combine(ProofDir(), Shots[Index].Name + TEXT(".png"));
 				IFileManager::Get().Delete(*File, false, true, true);
@@ -281,7 +295,12 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 		Shots.Add({FString::Printf(TEXT("fp_%s"), Fp.Clip), [ClipName, Time](UWorld* World)
 			{
 				FStage& S = Shared();
-				USkeletalMeshComponent* Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, *ClipName, Time);
+				S.Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, *ClipName, Time);
+			},
+			[ClipName](UWorld* World)
+			{
+				FStage& S = Shared();
+				USkeletalMeshComponent* Body = S.Body;
 				const FTransform Eye = Body->GetSocketTransform(TEXT("Camera"));
 				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 100.f);
 				UVerseFirstPersonLibrary::ConfigureOwnerView(Body, nullptr, S.Camera->GetCameraComponent());
@@ -296,10 +315,15 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 		const bool bWall = Variant == 1;
 		const bool bBody = Variant != 2;
 		const TCHAR* Names[] = {TEXT("fp_wall_off"), TEXT("fp_wall_on"), TEXT("fp_wall_nobody")};
-		Shots.Add({Names[Variant], [bWall, bBody](UWorld* World)
+		Shots.Add({Names[Variant], [](UWorld* World)
 			{
 				FStage& S = Shared();
-				USkeletalMeshComponent* Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, TEXT("A_Rifle_ADS"), 0.f);
+				S.Body = S.Character(World, VerseHuman::MeshPaths()[0], FVector::ZeroVector, -90.f, TEXT("A_Rifle_ADS"), 0.f);
+			},
+			[bWall, bBody](UWorld* World)
+			{
+				FStage& S = Shared();
+				USkeletalMeshComponent* Body = S.Body;
 				const FTransform Eye = Body->GetSocketTransform(TEXT("Camera"));
 				const FVector Hand = Body->GetSocketLocation(TEXT("Hand_L"));
 				S.Look(World, Eye.GetLocation(), Eye.GetLocation() + FVector(100, 0, 0), 100.f);
