@@ -206,14 +206,22 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 	// One warm-up hit loads every gore material; shaders and streaming settle before the first shot.
 	Do([S]()
 	{
-		S->Gore->HandleHit(HitOn(*S, EVerseHitZone::UpperTorso, 45.f));
+		// Enough hits to use every spatter instance; they stay on screen while textures upload.
+		for (int32 I = 0; I < 12; ++I)
+		{
+			S->Gore->HandleHit(HitOn(*S, I % 2 ? EVerseHitZone::Head : EVerseHitZone::UpperTorso, 45.f));
+		}
 		FVerseDeathEvent Death;
 		Death.VictimId = 2;
 		S->Hub->OnDeath.Broadcast(Death);
+		Look(*S, FVector(-260.0, -170.0, 150.0), FVector(0.0, 0.0, 120.0));
+	});
+	Wait(60);
+	Do([S]()
+	{
 		S->Gore->SetGoreLevel(EVerseGoreLevel::Reduced);
 		S->Gore->HandleHit(HitOn(*S, EVerseHitZone::UpperTorso, 45.f));
 		S->Gore->SetGoreLevel(EVerseGoreLevel::Full);
-		Look(*S, FVector(-260.0, -170.0, 150.0), FVector(0.0, 0.0, 120.0));
 	});
 	Wait(30);
 	Do([]()
