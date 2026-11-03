@@ -3,6 +3,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "Events/VerseEventHub.h"
+#include "GameFramework/Controller.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/RootMotionSource.h"
 #include "HAL/PlatformTime.h"

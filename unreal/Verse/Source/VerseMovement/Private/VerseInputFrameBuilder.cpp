@@ -86,7 +86,9 @@ namespace
 
 	void BindAxis(UInputComponent& Input, const FKey& Key, TFunction<void(float)> Handler)
 	{
-		FInputAxisKeyBinding Binding(Key);
+		// The default constructor: the FKey one asserts through InputCore, which this module does not link.
+		FInputAxisKeyBinding Binding;
+		Binding.AxisKey = Key;
 		Binding.bConsumeInput = false;
 		Binding.AxisDelegate.GetDelegateForManualSet().BindLambda(MoveTemp(Handler));
 		Input.AxisKeyBindings.Emplace(MoveTemp(Binding));
