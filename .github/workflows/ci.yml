@@ -309,7 +309,7 @@ jobs:
         uses: ./.github/actions/install-locked
         with:
           tools-only: "true"
-          with: typer platformdirs click httpx rich pyyaml pydantic loguru python-dotenv packaging
+          with: typer platformdirs click httpx rich pyyaml pydantic loguru python-dotenv packaging jsonschema
       - name: Run every static gate
         env:
           PRIVACY_PRIVATE_EMAILS: ${{ vars.PRIVACY_PRIVATE_EMAILS }}
