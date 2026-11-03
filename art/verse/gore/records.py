@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import records and MI recipes of the gore assets (WP05, art-pipeline 7 and 10.3).
+"""Import records of the gore assets (WP05, art-pipeline 10.3).
 
     python art/verse/gore/records.py           # bake the masks and write the records
     python art/verse/gore/records.py --check   # fail when a committed record is stale
@@ -7,15 +7,13 @@
 Writes, owned by WP05 (work-packages 0.2, "Art records"):
 
     unreal/Verse/Art/Import/Gore/T_Gore_*_M.import.json        mask textures (verse.import/1)
-    unreal/Verse/Art/Import/Gore/M_Gore_*.import.json          masters and MF_Gore_WoundMask
-    unreal/Verse/Art/Import/Test/WP05/M_Gore_TestBody.import.json
-    unreal/Verse/Art/Materials/Gore/MI_Gore_*.mi.json          decal instances (verse.mi/1)
 
-Every asset is own work (``license.kind: "own"``). The masks come from numpy,
-not Blender, so ``export.blender`` is ``0.0.0``. Masters and the material
-function are built in the editor and have no export file; their records use
-the kinds ``material`` and ``material_function`` (the change request for
-these additive schema values is issue #1171).
+Every mask is own work (``license.kind: "own"``) made with numpy, not Blender,
+so ``export.blender`` is ``0.0.0``. The masters, ``MF_Gore_WoundMask`` and the
+test material are built in the editor and are not an imported kind, so they
+need no record. The ``MI_Gore_*`` instances get ``verse.mi/1`` recipes once
+contract change request #1171 (item 3) lets VerseGore's own decal master be a
+parent; until then ``spec.INSTANCES`` is their single description.
 """
 
 from __future__ import annotations
@@ -34,7 +32,6 @@ import spec  # noqa: E402
 
 CACHE = REPO / "art" / "verse" / ".cache" / "unreal" / "gore"
 ART = REPO / "unreal" / "Verse" / "Art"
-BUILDER = "art/verse/gore/unreal_assets.py"
 
 
 def _sha256(path: Path) -> str:
@@ -69,45 +66,11 @@ def texture_record(name: str, png: Path) -> dict:
     }
 
 
-def material_record(name: str) -> dict:
-    folder, kind, function, use = spec.MATERIALS[name]
-    return {
-        "schema": "verse.import/1",
-        "name": name,
-        "asset_path": spec.asset_path(folder, name),
-        "kind": kind,
-        "source": {"builder": BUILDER, "function": function, "args": {"use": use}},
-        "lightmap": "none",
-        "license": {"kind": "own"},
-        "owner": spec.OWNER,
-    }
-
-
-def instance_recipe(name: str) -> dict:
-    texture, scalars = spec.INSTANCES[name]
-    return {
-        "schema": "verse.mi/1",
-        "name": name,
-        "parent": spec.asset_path(spec.GORE, "M_Gore_Decal"),
-        "scalars": dict(sorted(scalars.items())),
-        "vectors": {},
-        "textures": {"Mask": spec.asset_path(spec.GORE, texture)},
-        "switches": {},
-        "owner": spec.OWNER,
-        "replaces": None,
-    }
-
-
 def all_records(cache: Path) -> dict[Path, dict]:
     out: dict[Path, dict] = {}
     for name in spec.TEXTURES:
         record = texture_record(name, cache / f"{name}.png")
         out[ART / "Import" / "Gore" / f"{name}.import.json"] = record
-    for name, (folder, _kind, _function, _use) in spec.MATERIALS.items():
-        sub = Path("Gore") if folder == spec.GORE else Path("Test") / "WP05"
-        out[ART / "Import" / sub / f"{name}.import.json"] = material_record(name)
-    for name in spec.INSTANCES:
-        out[ART / "Materials" / "Gore" / f"{name}.mi.json"] = instance_recipe(name)
     return out
 
 
