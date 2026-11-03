@@ -28,7 +28,8 @@ namespace
 {
 	constexpr EAutomationTestFlags WP03VisualFlags = EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::EngineFilter;
 	constexpr int32 ShotSize = 512;
-	const TCHAR* const BoxPath = TEXT("/Game/Verse/Test/WP03/SM_WP03_Box.SM_WP03_Box");
+	// Engine primitive (100 cm, box collision), not a sample content pack.
+	const TCHAR* const BoxPath = TEXT("/Engine/BasicShapes/Cube.Cube");
 	const TCHAR* const SurfacePath = TEXT("/Game/Verse/Test/WP03/M_WP03_HoleSurface.M_WP03_HoleSurface");
 
 	struct FShot
@@ -111,7 +112,7 @@ bool FVerseHoleVisualTest::RunTest(const FString& Parameters)
 	}
 	UStaticMesh* Box = LoadObject<UStaticMesh>(nullptr, BoxPath);
 	UMaterialInterface* Surface = LoadObject<UMaterialInterface>(nullptr, SurfacePath);
-	if (!TestNotNull(TEXT("SM_WP03_Box"), Box) || !TestNotNull(TEXT("M_WP03_HoleSurface"), Surface))
+	if (!TestNotNull(TEXT("engine cube"), Box) || !TestNotNull(TEXT("M_WP03_HoleSurface"), Surface))
 	{
 		return false;
 	}

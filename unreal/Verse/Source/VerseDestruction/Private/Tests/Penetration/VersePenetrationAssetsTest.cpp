@@ -4,7 +4,6 @@
 
 #include "Destruction/VersePenetrationTable.h"
 #include "Engine/Level.h"
-#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "Materials/Material.h"
@@ -12,7 +11,6 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Penetration/VersePenetrationMath.h"
-#include "Penetration/VersePenetrationPhysicalMaterial.h"
 #include "Penetration/VersePenetrationTableImport.h"
 #include "Tests/Penetration/Fakes/VerseWP03Fakes.h"
 
@@ -35,8 +33,7 @@ namespace
 }
 
 // The committed WP03 content (Content/Verse/Test/WP03/Python/wp03_content.py): the cooked
-// table matches the JSON, the world physical materials resolve to their rows, the hole
-// materials carry their parameters, and the fixture map holds every material at 0.5x, 1x and
+// table matches the JSON, the hole materials carry their parameters, and the fixture map holds every material at 0.5x, 1x and
 // 3x reference thickness plus the hole angle rig and a container row.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVersePenetrationAssetsTest, "Verse.Destruction.Penetration.Assets", WP03Flags)
 
@@ -56,22 +53,8 @@ bool FVersePenetrationAssetsTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("the runtime loads the asset"), VersePenetrationImport::LoadRuntimeTable(GetTransientPackage()) == Asset);
 	}
 
-	// WP03.7: the three world surfaces by their shipped physical materials.
-	const TPair<EVerseWorldSurface, EVersePenetrationMaterial> Surfaces[] = {
-		{EVerseWorldSurface::HallFloor, EVersePenetrationMaterial::Concrete},
-		{EVerseWorldSurface::StructuralWall, EVersePenetrationMaterial::Concrete},
-		{EVerseWorldSurface::StructuralBeam, EVersePenetrationMaterial::ArmorSteel},
-	};
-	for (const TPair<EVerseWorldSurface, EVersePenetrationMaterial>& Surface : Surfaces)
-	{
-		const FString Name = VersePenetration::PhysicalMaterialName(Surface.Key);
-		const FSoftObjectPath Path(FString::Printf(TEXT("/Game/Verse/Destruction/_Holes/PhysicalMaterials/%s.%s"), *Name, *Name));
-		const UObject* PhysMat = Path.TryLoad();
-		if (TestNotNull(*FString::Printf(TEXT("%s exists"), *Name), PhysMat))
-		{
-			TestTrue(*FString::Printf(TEXT("%s resolves to its row"), *Name), VersePenetration::ResolveWorldMaterial(PhysMat) == Surface.Value);
-		}
-	}
+	// WP03.7 physical material assets wait for a physical material prefix in art-pipeline 3
+	// (request #1161); the mapping by name is covered by Verse.Destruction.Penetration.WorldMaterials.
 
 	// WP03.6: the rim decal and the test surface master carry the parameters the renderer sets.
 	const UMaterialInterface* Rim = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Verse/Destruction/_Holes/M_HoleRim_Decal.M_HoleRim_Decal"));
@@ -89,12 +72,6 @@ bool FVersePenetrationAssetsTest::RunTest(const FString& Parameters)
 		UTexture* Mask = nullptr;
 		TestTrue(TEXT("test surface has HoleMask"), Surface->GetTextureParameterValue(FHashedMaterialParameterInfo(TEXT("HoleMask")), Mask));
 	}
-	const UStaticMesh* Box = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Verse/Test/WP03/SM_WP03_Box.SM_WP03_Box"));
-	if (TestNotNull(TEXT("SM_WP03_Box exists"), Box))
-	{
-		TestTrue(TEXT("SM_WP03_Box is a 100 cm cube"), Box->GetBoundingBox().GetSize().Equals(FVector(100.0), 0.01));
-	}
-
 	// WP03.8: the fixture map.
 	const UWorld* Map = LoadObject<UWorld>(nullptr, TEXT("/Game/Verse/Test/WP03/LV_WP03_Penetration.LV_WP03_Penetration"));
 	if (!TestNotNull(TEXT("LV_WP03_Penetration exists"), Map) || !Map->PersistentLevel)

@@ -14,16 +14,16 @@ What it makes (all own work, no engine sample content):
   ``Data/destruction/penetration.json`` through the WP03.2 importer (frozen
   wire order check). Re-run after every retune of the JSON; the game loads
   the asset, so a retune reaches cooked and dedicated-server builds.
-* ``/Game/Verse/Destruction/_Holes/PhysicalMaterials/PM_Verse_*``: the three
-  world surfaces of WP03.7 (hall floor, structural wall, structural beam).
-  Zone owners give non-destructible world geometry one of these, or a
-  physical material whose name starts with ``PM_Verse_<Surface>_``.
+* The three WP03.7 world-surface physical materials (``PM_Verse_HallFloor``,
+  ``PM_Verse_StructuralWall``, ``PM_Verse_StructuralBeam``) are made only with
+  ``VERSE_WP03_PHYSMATS=1``: art-pipeline section 3 has no physical material
+  prefix yet (request #1161), so they cannot be committed until it does.
 * ``/Game/Verse/Destruction/_Holes/M_HoleRim_Decal``: the rim decal of
   WP03.6 (deferred decal, translucent), scalar ``RimGlow``, vector
   ``RimGlowColor``, a charred base.
-* ``/Game/Verse/Test/WP03/SM_WP03_Box``: a 100 cm placeholder cube with box
-  collision; its +X and -X faces map Y and Z to UV the way
-  ``UVerseHoleRenderComponent::HoleUV`` reads them.
+* Placeholder geometry is the engine's built-in ``/Engine/BasicShapes/Cube``
+  (100 cm, box collision; engine primitives, not a sample content pack). An
+  own ``SM_`` mesh would need an art-pipeline import record (art-pipeline 9).
 * ``/Game/Verse/Test/WP03/M_WP03_HoleSurface``: a test surface master with
   the ``HoleMask`` texture parameter (masked, two-sided, emissive ``Tint``),
   standing in for the WP14.1 masters in WP03 tests and the fixture map.
@@ -45,6 +45,7 @@ import unreal
 HOLES = "/Game/Verse/Destruction/_Holes"
 PHYS = HOLES + "/PhysicalMaterials"
 TEST = "/Game/Verse/Test/WP03"
+BOX = "/Engine/BasicShapes/Cube"
 MAP = TEST + "/LV_WP03_Penetration"
 SURFACES = ("HallFloor", "StructuralWall", "StructuralBeam")
 FACTORS = (0.5, 1.0, 3.0)
@@ -205,63 +206,6 @@ def make_surface() -> None:
     save(material)
 
 
-def ensure_box_collision(mesh) -> bool:
-    """One 100 cm box element, used as complex too; True when it had to be added."""
-    body = mesh.get_editor_property("body_setup")
-    if body is None:
-        mesh.create_body_setup()
-        body = mesh.get_editor_property("body_setup")
-    geometry = body.get_editor_property("agg_geom")
-    if len(geometry.get_editor_property("box_elems")) == 1:
-        return False
-    box = unreal.KBoxElem()
-    box.set_editor_property("x", 100.0)
-    box.set_editor_property("y", 100.0)
-    box.set_editor_property("z", 100.0)
-    geometry.set_editor_property("box_elems", [box])
-    body.set_editor_property("agg_geom", geometry)
-    body.set_editor_property(
-        "collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_SIMPLE_AS_COMPLEX
-    )
-    return True
-
-
-def make_box() -> None:
-    path = TEST + "/SM_WP03_Box"
-    mesh = existing(path)
-    if mesh is not None:
-        if ensure_box_collision(mesh):
-            save(mesh)
-        return
-    mesh = ASSETS.create_asset("SM_WP03_Box", TEST, unreal.StaticMesh, None)
-    desc = unreal.StaticMesh.create_static_mesh_description(mesh)
-    group = desc.create_polygon_group()
-    desc.set_polygon_group_material_slot_name(group, "Surface")
-    desc.create_cube(unreal.Vector(0, 0, 0), unreal.Vector(50, 50, 50), group)
-    # +X and -X faces: U along Y, V down Z, the layout HoleUV reads; the edge faces do not matter.
-    for index in range(desc.get_vertex_instance_count()):
-        instance = unreal.VertexInstanceID(index)
-        position = desc.get_vertex_position(desc.get_vertex_instance_vertex(instance))
-        uv = unreal.Vector2D((position.y + 50.0) / 100.0, 1.0 - (position.z + 50.0) / 100.0)
-        desc.set_vertex_instance_uv(instance, uv, 0)
-    mesh.set_editor_property(
-        "static_materials",
-        [
-            unreal.StaticMaterial(
-                material_interface=unreal.load_asset(TEST + "/M_WP03_HoleSurface"),
-                material_slot_name="Surface",
-            )
-        ],
-    )
-    # fast_build=False commits the description as the LOD 0 source model (a full editor build,
-    # so the asset survives a save). The committed build adds no collision; the box is set below.
-    mesh.build_from_static_mesh_descriptions([desc], True, False)
-    if mesh.get_num_lods() < 1:
-        raise RuntimeError("SM_WP03_Box did not build")
-    ensure_box_collision(mesh)
-    save(mesh)
-
-
 def spawn_piece(
     box,
     material_id: str,
@@ -285,8 +229,15 @@ def spawn_piece(
         f"verse.wp03.thickness_cm:{thickness_cm:g}",
         "verse.wp03.role:" + role,
     ]
+    surface = unreal.load_asset(TEST + "/M_WP03_HoleSurface")
     actor = unreal.VersePenetrationTableLibrary.spawn_fixture_piece(
-        world, box, transform, profile, tags, label or f"WP03_{material_id}_{thickness_cm:g}cm"
+        world,
+        box,
+        surface,
+        transform,
+        profile,
+        tags,
+        label or f"WP03_{material_id}_{thickness_cm:g}cm",
     )
     if actor is None:
         raise RuntimeError(f"could not spawn {material_id} {thickness_cm:g} cm")
@@ -299,7 +250,7 @@ def make_map() -> None:
     levels = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
     if not levels.new_level(MAP, False):
         raise RuntimeError(f"could not create {MAP}")
-    box = unreal.load_asset(TEST + "/SM_WP03_Box")
+    box = unreal.load_asset(BOX)
     rows = table_rows()
     # Grid: one row per material (X), one column per thickness factor (Y), 1.5 m apart.
     for row in rows:
@@ -356,13 +307,9 @@ def verify() -> list[str]:
         problems.append("DA_PenetrationTable missing")
     elif unreal.VersePenetrationTableLibrary.diff_penetration_json(table, ""):
         problems.append("DA_PenetrationTable differs from penetration.json")
-    for surface in SURFACES:
-        if existing(f"{PHYS}/PM_Verse_{surface}") is None:
-            problems.append(f"PM_Verse_{surface} missing")
     for path in (
         HOLES + "/M_HoleRim_Decal",
         TEST + "/M_WP03_HoleSurface",
-        TEST + "/SM_WP03_Box",
         MAP,
     ):
         if not EAL.does_asset_exist(path):
@@ -373,10 +320,10 @@ def verify() -> list[str]:
 def main() -> None:
     try:
         make_table()
-        make_physical_materials()
+        if os.environ.get("VERSE_WP03_PHYSMATS") == "1":
+            make_physical_materials()
         make_rim_decal()
         make_surface()
-        make_box()
         make_map()
         problems = verify()
         for problem in problems:

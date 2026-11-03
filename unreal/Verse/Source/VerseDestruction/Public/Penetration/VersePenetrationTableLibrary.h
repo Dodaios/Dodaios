@@ -6,6 +6,7 @@
 #include "VersePenetrationTableLibrary.generated.h"
 
 class AActor;
+class UMaterialInterface;
 class UStaticMesh;
 class UVersePenetrationTable;
 class UWorld;
@@ -30,11 +31,11 @@ public:
 	static FString DiffPenetrationJson(const UVersePenetrationTable* Table, const FString& Path);
 
 	/**
-	 * WP03.8 fixture map step: a static mesh actor in World with Mesh, Transform, the collision
-	 * Profile and Tags. Spawned directly in the world, so it works in the headless commandlet
+	 * WP03.8 fixture map step: a static mesh actor in World with Mesh (Material on every slot when
+	 * given), Transform, the collision Profile and Tags. Spawned directly in the world, so it works in the headless commandlet
 	 * (the editor actor subsystem places through a level viewport).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Verse|Penetration")
-	static AActor* SpawnFixturePiece(UWorld* World, UStaticMesh* Mesh, const FTransform& Transform, FName Profile, const TArray<FName>& Tags,
+	static AActor* SpawnFixturePiece(UWorld* World, UStaticMesh* Mesh, UMaterialInterface* Material, const FTransform& Transform, FName Profile, const TArray<FName>& Tags,
 		const FString& Label);
 };

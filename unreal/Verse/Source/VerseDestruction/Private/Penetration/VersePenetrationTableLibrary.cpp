@@ -47,7 +47,8 @@ FString UVersePenetrationTableLibrary::DiffPenetrationJson(const UVersePenetrati
 	return FString::Join(VersePenetrationImport::DiffRows(Table->Rows, Rows), TEXT("\n"));
 }
 
-AActor* UVersePenetrationTableLibrary::SpawnFixturePiece(UWorld* World, UStaticMesh* Mesh, const FTransform& Transform, FName Profile,
+AActor* UVersePenetrationTableLibrary::SpawnFixturePiece(UWorld* World, UStaticMesh* Mesh, UMaterialInterface* Material, const FTransform& Transform,
+	FName Profile,
 	const TArray<FName>& Tags, const FString& Label)
 {
 	if (!World || !Mesh)
@@ -63,6 +64,10 @@ AActor* UVersePenetrationTableLibrary::SpawnFixturePiece(UWorld* World, UStaticM
 	}
 	UStaticMeshComponent* Component = Actor->GetStaticMeshComponent();
 	Component->SetStaticMesh(Mesh);
+	for (int32 Slot = 0; Material && Slot < Component->GetNumMaterials(); ++Slot)
+	{
+		Component->SetMaterial(Slot, Material);
+	}
 	Component->SetCollisionProfileName(Profile);
 	Actor->SetActorTransform(Transform);
 	Actor->Tags = Tags;
