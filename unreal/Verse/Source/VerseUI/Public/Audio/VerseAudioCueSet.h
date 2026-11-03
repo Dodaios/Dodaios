@@ -37,14 +37,26 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
 	FName DefaultWeaponProfile = TEXT("rifle");
 
-	/** DA_Audibility (Core). Unset: the contract table of bot.md 3.2. */
+	/**
+	 * DA_Audibility (Core). Unset: the project's DA_Audibility asset, found the way the bot finds
+	 * it (FindSharedAudibility); only when the project has none, the contract table of bot.md 3.2.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
 	TObjectPtr<UVerseAudibilityTable> Audibility;
 
 	const FVerseAudioCue* FindCue(FName CueId) const;
 
-	/** The audibility table in use: Audibility, or the class default (the contract rows). */
+	/** The audibility table in use: Audibility, else the shared DA_Audibility, else the contract rows. */
 	const UVerseAudibilityTable& GetAudibility() const;
+
+	/** Where Core keeps DA_Audibility. */
+	static const TCHAR* SharedAudibilityPath;
+
+	/**
+	 * The project's one DA_Audibility: the asset at SharedAudibilityPath, else the first
+	 * UVerseAudibilityTable asset the asset registry knows. nullptr when the project has none.
+	 */
+	static const UVerseAudibilityTable* FindSharedAudibility();
 
 	FName WeaponProfileFor(FName WeaponId) const;
 
@@ -55,4 +67,6 @@ public:
 
 private:
 	mutable TMap<FName, int32> Index;
+	mutable TWeakObjectPtr<const UVerseAudibilityTable> SharedAudibility;
+	mutable bool bSearchedSharedAudibility = false;
 };

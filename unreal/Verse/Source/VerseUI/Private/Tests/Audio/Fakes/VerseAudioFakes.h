@@ -19,7 +19,9 @@ public:
 
 	TArray<FPlay> Plays;
 	TArray<int32> Stops;
-	TMap<int32, float> VoiceVolume;
+	/** The engine model of a voice's level: a multiplier fixed at the start times a fader. */
+	TMap<int32, float> VoiceMultiplier;
+	TMap<int32, float> VoiceFader;
 	TMap<int32, float> VoiceLowpass;
 	TArray<float> MasterHistory;
 	float Master = 1.f;
@@ -29,20 +31,46 @@ public:
 	virtual void Play(int32 Handle, const FVerseAudioPlayRequest& Request) override
 	{
 		Plays.Add({Handle, Request, int64(GFrameCounter)});
+		VoiceMultiplier.Add(Handle, Request.Volume);
+		VoiceFader.Add(Handle, Request.Fader);
+		VoiceLowpass.Add(Handle, Request.LowpassHz);
 	}
-	virtual void Stop(int32 Handle, float) override { Stops.Add(Handle); }
-	virtual void SetVoiceLocation(int32, const FVector&) override {}
-	virtual void SetVoiceVolume(int32 Handle, float Volume, float LowpassHz) override
+	virtual void Stop(int32 Handle, float) override
 	{
-		VoiceVolume.Add(Handle, Volume);
+		Stops.Add(Handle);
+		VoiceMultiplier.Remove(Handle);
+		VoiceFader.Remove(Handle);
+	}
+	virtual void SetVoiceLocation(int32, const FVector&) override {}
+	virtual void SetVoiceOcclusion(int32 Handle, float Gain, float LowpassHz) override
+	{
+		VoiceFader.Add(Handle, Gain);
 		VoiceLowpass.Add(Handle, LowpassHz);
+	}
+	/** What the voice is heard at now (multiplier x fader, as FActiveSound::GetVolume); -1 when not playing. */
+	float EffectiveVolume(int32 Handle) const
+	{
+		const float* Mult = VoiceMultiplier.Find(Handle);
+		const float* Fader = VoiceFader.Find(Handle);
+		return Mult && Fader ? *Mult * *Fader : -1.f;
+	}
+	const FPlay* LastPlayOf(FName CueId) const
+	{
+		for (int32 I = Plays.Num() - 1; I >= 0; --I)
+		{
+			if (Plays[I].Request.CueId == CueId)
+			{
+				return &Plays[I];
+			}
+		}
+		return nullptr;
 	}
 	virtual void SetMasterVolume(float Volume) override
 	{
 		Master = Volume;
 		MasterHistory.Add(Volume);
 	}
-	virtual void Route(USoundBase*) override { ++Routed; }
+	virtual void Route(USoundBase*, EVerseAudioBus) override { ++Routed; }
 	virtual void Shutdown() override {}
 
 	int32 CountOf(FName CueId) const

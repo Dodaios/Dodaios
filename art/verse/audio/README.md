@@ -26,11 +26,35 @@ Runtime side: `unreal/Verse/Source/VerseUI/{Public,Private}/Audio/`
   feedback (cue `range_m`), as the bot gets its own hit confirms.
 - At most 64 voices; a cue over its own limit replaces its oldest voice, over
   the global cap the lowest-priority voice is stolen.
+- The table is `DA_Audibility` (Core): the cue set's own pointer, else the
+  project's one `UVerseAudibilityTable` asset (`/Game/Verse/Core/DA_Audibility`
+  first, else the asset registry), and only without any asset the contract
+  rows. `reference_mix.py` keeps a copy of those rows; a test holds it equal to
+  Core's `MakeContractRows`.
+- Someone else's reload plays at that player's pawn with the `Noise.Reload`
+  range; without a known pawn it does not play. A new reload or a cancel stops
+  the player's previous reload voice.
 - Occlusion is traced through destructible pieces with the destruction query,
   which honours holes and breaches, so opening a wall opens the sound; loops
-  re-trace every 0.25 s.
+  re-trace every 0.25 s. A voice's volume multiplier (cue volume, gain, bus
+  and master gain) is set once at the start; occlusion moves only the voice's
+  fader, so the heard level is always multiplier x occlusion gain.
 - Hidden or dormant: muted at once; shown again: a 150 ms fade in.
-- All Verse sounds feed one master submix with a look-ahead limiter.
+- Every sound routes to the submix of its bus (weapons, impacts, foley,
+  destruction, gadgets, ambience, UI); the bus submixes feed one master submix
+  with a look-ahead limiter. Bus gains stay on the voice multiplier so the
+  event log and the reference mix see them.
+- Sources are sound waves; layering (mechanical, body, tail, distance layers)
+  is done by the subsystem, which starts each layer as its own voice.
+
+Mixer lane (A19.3 audio-thread cost): `Verse.UI.Audio.MixerLoad` runs
+`destruction_storm` through the engine sink and the shipped cues and writes
+`Saved/Harness/proof/WP19/19.6/mixer_load.json`. It needs a run with sound;
+under `-nosound` (the `test.py` lane) it only notes the skip:
+
+```
+python scripts/unreal/with_lock.py --label wp19-mixer -- <UnrealEditor-Cmd.exe> unreal/Verse/Verse.uproject   "-ExecCmds=Automation RunTests Verse.UI.Audio.MixerLoad; Quit" "-TestExit=Automation Test Queue Empty"   -unattended -nullrhi -nosplash -NoP4 -stdout -ReportExportPath=<dir> -abslog=<dir>/run.log
+```
 
 ```
 python art/verse/audio/build_audio.py

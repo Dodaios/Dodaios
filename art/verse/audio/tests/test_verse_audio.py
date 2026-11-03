@@ -74,6 +74,15 @@ def test_noise_ranges_match_the_audibility_contract():
         REPO / "unreal/Verse/Source/VerseCore/Private/Noise/VerseAudibilityTable.cpp"
     ).read_text()
     rows = dict(re.findall(r"MakeRow\(Noise_(\w+), ([\w.]+)f?,", core))
+    def key(tag: str) -> str:
+        return tag.removeprefix("Noise.").replace(".", "_")
+
+    by_key = {key(t): r for t, r in reference_mix.NOISE_RANGE_M.items()}
+    assert set(by_key) == set(rows), "reference_mix and the Core rows list different tags"
+    whole = set(re.findall(r"MakeRow\(Noise_(\w+), [\w.]+, [\d.]+f, true\)", core))
+    scaled = set(re.findall(r"MakeRow\(Noise_(\w+), [^)]*, false, true\)", core))
+    assert {k for k, r in by_key.items() if r is None} == whole
+    assert {key(s) for s in reference_mix.SCALED} == scaled
     for tag, rng in reference_mix.NOISE_RANGE_M.items():
         key = tag.removeprefix("Noise.").replace(".", "_")
         assert key in rows, tag

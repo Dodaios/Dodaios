@@ -55,6 +55,12 @@ public:
 	void SetLocalPlayerId(int32 PlayerId) { LocalPlayerIdOverride = PlayerId; }
 	int32 GetLocalPlayerId() const;
 	void SetListenerOverride(TOptional<FVector> Location) { ListenerOverride = Location; }
+	/**
+	 * Where a player's pawn is (remote reloads); unset resolves it through the game state's player
+	 * array. A resolver that returns no location means the player has no pawn.
+	 */
+	void SetPlayerLocationResolver(TFunction<TOptional<FVector>(int32)> Resolver) { PlayerLocationResolver = MoveTemp(Resolver); }
+	TOptional<FVector> FindPlayerLocation(int32 PlayerId) const;
 	FVector GetListenerLocation() const;
 
 	// --- lifecycle and settings
@@ -161,6 +167,7 @@ private:
 	const IVersePieceQuery* PieceQuery = nullptr;
 	int32 LocalPlayerIdOverride = INDEX_NONE;
 	TOptional<FVector> ListenerOverride;
+	TFunction<TOptional<FVector>(int32)> PlayerLocationResolver;
 
 	FVerseVoiceBudget Budget;
 	FVerseVariantPicker Picker;

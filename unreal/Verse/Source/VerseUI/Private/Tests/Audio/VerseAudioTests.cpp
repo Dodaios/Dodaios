@@ -280,7 +280,9 @@ bool FVerseAudioAudibilitySymmetry::RunTest(const FString&)
 	return true;
 }
 
-// A19.2: shot to sound start within one frame (the play is issued in the frame of the fire event).
+// A19.2: shot to sound start within one frame. This rig has no engine tick, so it proves the game-thread
+// half: the play is issued synchronously inside the fire event's broadcast, in the same frame. The
+// mixer half (the voice reaching the next audio render) is Verse.UI.Audio.MixerLoad's shot_to_render_ms.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseAudioShotLatency, "Verse.UI.Audio.ShotLatency", VERSE_AUDIO_TEST_FLAGS)
 bool FVerseAudioShotLatency::RunTest(const FString&)
 {
@@ -318,6 +320,8 @@ bool FVerseAudioShotLatency::RunTest(const FString&)
 	Report.Str(TEXT("test"), TEXT("A19.2 latency"));
 	Report.Num(TEXT("shots"), 30);
 	Report.Num(TEXT("max_frames_shot_to_play"), double(MaxFrames));
+	Report.Str(TEXT("measures"), TEXT("synchronous issue of the play inside the FVerseFireEvent broadcast (no engine tick in this rig); ")
+		TEXT("the time to the audio render is in 19.6/mixer_load.json"));
 	WriteProof(TEXT("19.2"), TEXT("shot_latency.json"), Report);
 	return true;
 }
@@ -389,7 +393,7 @@ bool FVerseAudioDestructionStorm::RunTest(const FString&)
 	Report.Num(TEXT("peak_voices"), Rig.Audio->GetPeakVoices());
 	Report.Num(TEXT("max_voices"), 64);
 	Report.Num(TEXT("subsystem_game_thread_ms_per_tick"), GameThreadMs);
-	Report.Str(TEXT("audio_thread_ms"), TEXT("needs the rendered lane (WP10 unreal-perf); -nosound has no mixer"));
+	Report.Str(TEXT("audio_thread_ms"), TEXT("measured with the audio mixer by Verse.UI.Audio.MixerLoad (19.6/mixer_load.json)"));
 	WriteProof(TEXT("19.6"), TEXT("destruction_storm.json"), Report);
 	return true;
 }
@@ -477,14 +481,29 @@ bool FVerseAudioOcclusion::RunTest(const FString&)
 		Rig.Audio->StartDroneLoop(1, true, FVector(560.0, 0.0, 150.0));
 		const FVerseAudioLogEntry* Weld = LastOf(*Rig.Audio, TEXT("drn_weld"));
 		TestTrue(TEXT("drone weld behind the wall starts muffled"), Weld && Weld->bAdmitted && Weld->LowpassHz <= 2500.f);
-		Wall.State = EVersePieceState::Breached;
-		Rig.Advance(0.3f);
-		bool bOpened = false;
-		for (const TPair<int32, float>& Pair : Rig.Sink->VoiceLowpass)
+		const FFakeVerseAudioSink::FPlay* WeldPlay = Rig.Sink->LastPlayOf(TEXT("drn_weld"));
+		if (TestNotNull(TEXT("weld voice started"), WeldPlay))
 		{
-			bOpened |= Pair.Value >= 19999.f;
+			const int32 Handle = WeldPlay->Handle;
+			const float Base = WeldPlay->Request.Volume;
+			const float Sheet = Verse::Audio::DbToGain(-9.f);
+			TestTrue(TEXT("the occlusion gain rides on the fader, not the multiplier"),
+				FMath::IsNearlyEqual(WeldPlay->Request.Fader, Sheet, 1e-4f));
+			TestTrue(TEXT("logged level = multiplier x fader"),
+				Weld && FMath::IsNearlyEqual(Weld->Volume, Base * Sheet, 1e-4f));
+			Rig.Advance(0.6f); // two re-traces, wall still intact
+			TestTrue(TEXT("re-trace keeps the heard level (base and occlusion counted once)"),
+				FMath::IsNearlyEqual(Rig.Sink->EffectiveVolume(Handle), Base * Sheet, 1e-4f));
+			Wall.State = EVersePieceState::Breached;
+			Rig.Advance(0.3f);
+			TestTrue(TEXT("after the breach the loop re-traces and opens"), Rig.Sink->VoiceLowpass.FindRef(Handle) >= 19999.f);
+			TestTrue(TEXT("after the breach the loop is back at its full base level"),
+				FMath::IsNearlyEqual(Rig.Sink->EffectiveVolume(Handle), Base, 1e-4f));
+			Wall.State = EVersePieceState::Intact; // repaired: muffled again, at the same level as at the start
+			Rig.Advance(0.3f);
+			TestTrue(TEXT("after a repair the loop is muffled again at base x occlusion"),
+				FMath::IsNearlyEqual(Rig.Sink->EffectiveVolume(Handle), Base * Sheet, 1e-4f));
 		}
-		TestTrue(TEXT("after the breach the loop re-traces and opens"), bOpened);
 		Rig.Audio->StopDroneLoop(1);
 		TestEqual(TEXT("loop stopped"), Rig.Audio->GetLoopCount(), 0);
 	}
@@ -532,6 +551,40 @@ bool FVerseAudioFairness::RunTest(const FString&)
 	Pen.ShooterId = LocalId;
 	Rig.Hub->OnPenetration.Broadcast(Pen);
 	TestEqual(TEXT("own impact 8 m away: heard"), Rig.Sink->Plays.Num(), Mid + 1);
+
+	// The bot's reload (the host gets its server-raised event): at the bot, within Noise.Reload's 7 m only.
+	TOptional<FVector> BotAt;
+	Rig.Audio->SetPlayerLocationResolver([&BotAt](int32 Id) { return Id == BotId ? BotAt : TOptional<FVector>(); });
+	FVerseReloadEvent Reload;
+	Reload.PlayerId = BotId;
+	Reload.WeaponId = TEXT("rifle");
+	Reload.bTactical = true;
+	const FName ReloadCue(TEXT("rld_rifle_tactical"));
+	int32 Count = Rig.Sink->CountOf(ReloadCue);
+	Rig.Hub->OnReload.Broadcast(Reload);
+	TestEqual(TEXT("bot reload without a known pawn: silent, never at the world origin"), Rig.Sink->CountOf(ReloadCue), Count);
+	BotAt = FVector(500.0, 0.0, 0.0);
+	Rig.Hub->OnReload.Broadcast(Reload);
+	const FFakeVerseAudioSink::FPlay* Near = Rig.Sink->LastPlayOf(ReloadCue);
+	TestEqual(TEXT("bot reload at 5 m: heard"), Rig.Sink->CountOf(ReloadCue), Count + 1);
+	TestTrue(TEXT("bot reload plays at the bot, located"),
+		Near && Near->Request.bSpatial && Near->Request.Location.Equals(FVector(500.0, 0.0, 0.0)));
+	const FVerseAudioLogEntry* ReloadLog = LastOf(*Rig.Audio, ReloadCue);
+	TestTrue(TEXT("bot reload uses the 7 m Noise.Reload range"), ReloadLog && FMath::IsNearlyEqual(ReloadLog->RangeM, 7.f));
+	const int32 FirstHandle = Near ? Near->Handle : 0;
+	BotAt = FVector(900.0, 0.0, 0.0);
+	Rig.Hub->OnReload.Broadcast(Reload);
+	TestEqual(TEXT("bot reload at 9 m: not heard (the bot hears the person's at 7 m too)"), Rig.Sink->CountOf(ReloadCue), Count + 1);
+	TestTrue(TEXT("a new reload stops the player's previous reload voice"), Rig.Sink->Stops.Contains(FirstHandle));
+
+	Reload.PlayerId = LocalId;
+	Rig.Hub->OnReload.Broadcast(Reload);
+	const FFakeVerseAudioSink::FPlay* OwnFirst = Rig.Sink->LastPlayOf(ReloadCue);
+	TestTrue(TEXT("own reload plays for the person, not located"), OwnFirst && !OwnFirst->Request.bSpatial);
+	const int32 OwnHandle = OwnFirst ? OwnFirst->Handle : 0;
+	Reload.bTactical = false;
+	Rig.Hub->OnReload.Broadcast(Reload);
+	TestTrue(TEXT("a second own reload stops the first voice"), Rig.Sink->Stops.Contains(OwnHandle));
 	return true;
 }
 

@@ -1,8 +1,12 @@
 #include "Audio/VerseAudioCueSet.h"
 
+#include "AssetRegistry/AssetData.h"
+#include "AssetRegistry/IAssetRegistry.h"
+#include "Misc/PackageName.h"
 #include "Noise/VerseAudibilityTable.h"
 
 const TCHAR* UVerseAudioCueSet::DefaultAssetPath = TEXT("/Game/Verse/Audio/DA_AudioCues.DA_AudioCues");
+const TCHAR* UVerseAudioCueSet::SharedAudibilityPath = TEXT("/Game/Verse/Core/DA_Audibility.DA_Audibility");
 
 FVerseAudioMixSettings::FVerseAudioMixSettings()
 {
@@ -23,9 +27,50 @@ const FVerseAudioCue* UVerseAudioCueSet::FindCue(FName CueId) const
 	return Found && Cues.IsValidIndex(*Found) && Cues[*Found].CueId == CueId ? &Cues[*Found] : nullptr;
 }
 
+const UVerseAudibilityTable* UVerseAudioCueSet::FindSharedAudibility()
+{
+	const FString PackageName = FPackageName::ObjectPathToPackageName(FString(SharedAudibilityPath));
+	if (FPackageName::DoesPackageExist(PackageName))
+	{
+		if (const UVerseAudibilityTable* AtPath =
+				LoadObject<UVerseAudibilityTable>(nullptr, SharedAudibilityPath, nullptr, LOAD_NoWarn | LOAD_Quiet))
+		{
+			return AtPath;
+		}
+	}
+	// The asset may live elsewhere; there is exactly one table in the project (bot.md 3.2, F6).
+	if (IAssetRegistry* Registry = IAssetRegistry::Get())
+	{
+		TArray<FAssetData> Assets;
+		Registry->GetAssetsByClass(UVerseAudibilityTable::StaticClass()->GetClassPathName(), Assets, true);
+		Assets.Sort([](const FAssetData& A, const FAssetData& B) { return A.PackageName.LexicalLess(B.PackageName); });
+		for (const FAssetData& Asset : Assets)
+		{
+			if (const UVerseAudibilityTable* Found = Cast<UVerseAudibilityTable>(Asset.GetAsset()))
+			{
+				return Found;
+			}
+		}
+	}
+	return nullptr;
+}
+
 const UVerseAudibilityTable& UVerseAudioCueSet::GetAudibility() const
 {
-	return Audibility ? *Audibility : *GetDefault<UVerseAudibilityTable>();
+	if (Audibility)
+	{
+		return *Audibility;
+	}
+	if (!bSearchedSharedAudibility)
+	{
+		bSearchedSharedAudibility = true;
+		SharedAudibility = FindSharedAudibility();
+	}
+	if (const UVerseAudibilityTable* Shared = SharedAudibility.Get())
+	{
+		return *Shared;
+	}
+	return *GetDefault<UVerseAudibilityTable>();
 }
 
 FName UVerseAudioCueSet::WeaponProfileFor(FName WeaponId) const

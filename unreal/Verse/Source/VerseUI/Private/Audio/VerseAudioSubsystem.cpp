@@ -5,6 +5,8 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Events/VerseEventHub.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "GameplayTagContainer.h"
@@ -191,7 +193,7 @@ void UVerseAudioSubsystem::RouteCueSet()
 	{
 		for (USoundBase* Sound : Cue.Variants)
 		{
-			Sink->Route(Sound);
+			Sink->Route(Sound, Cue.Bus);
 		}
 	}
 }
@@ -324,7 +326,7 @@ void UVerseAudioSubsystem::Tick(float DeltaTime)
 			}
 			Loop.NextOcclusionAt = Now + CueSet->Mix.OcclusionRefreshS;
 			const FVerseOcclusion Occ = Verse::Audio::TraceOcclusion(PenetrationQuery, Listener, Loop.Params.Location, CueSet->Mix);
-			Sink->SetVoiceVolume(Loop.Handle, Loop.BaseVolume * Occ.Gain(), Occ.LowpassHz);
+			Sink->SetVoiceOcclusion(Loop.Handle, Occ.Gain(), Occ.LowpassHz);
 		}
 	}
 }
@@ -448,7 +450,8 @@ int32 UVerseAudioSubsystem::PlayCue(FName CueId, const FPlayParams& Params, floa
 	Request.bSpatial = bSpatial;
 	Request.Location = Params.Location;
 	Request.Attenuation = bSpatial ? AttenuationFor(RangeM) : nullptr;
-	Request.Volume = Volume;
+	Request.Volume = BaseVolume; // the multiplier; occlusion rides on the fader
+	Request.Fader = Occ.Gain();
 	Request.Pitch = Pitch;
 	Request.LowpassHz = Occ.LowpassHz;
 	Sink->Play(Handle, Request);
@@ -629,19 +632,45 @@ void UVerseAudioSubsystem::PlayImpact(int32 ShooterId, EVersePenetrationMaterial
 	PlayCue(Impact, Params);
 }
 
+TOptional<FVector> UVerseAudioSubsystem::FindPlayerLocation(int32 PlayerId) const
+{
+	if (PlayerLocationResolver)
+	{
+		return PlayerLocationResolver(PlayerId);
+	}
+	if (const UWorld* World = GetWorld())
+	{
+		if (const AGameStateBase* GameState = World->GetGameState())
+		{
+			for (const APlayerState* State : GameState->PlayerArray)
+			{
+				if (State && State->GetPlayerId() == PlayerId)
+				{
+					if (const APawn* Pawn = State->GetPawn())
+					{
+						return Pawn->GetActorLocation();
+					}
+					break;
+				}
+			}
+		}
+	}
+	return {};
+}
+
 void UVerseAudioSubsystem::HandleReload(const FVerseReloadEvent& Event)
 {
-	if (int32* Existing = ReloadVoices.Find(Event.PlayerId))
+	const FName CueId = WeaponCue(Event.WeaponId, TEXT("rld"), Event.bTactical ? TEXT("_tactical") : TEXT("_empty"));
+	int32 Existing = 0;
+	if (ReloadVoices.RemoveAndCopyValue(Event.PlayerId, Existing))
 	{
+		// A new reload or a cancel ends the player's previous reload voice; it is never left running.
+		StopVoice(Existing, 0.08f);
 		if (Event.bCancelled)
 		{
-			StopVoice(*Existing, 0.08f);
 			FPlayParams None;
 			FVerseOcclusion Occ;
-			Log(WeaponCue(Event.WeaponId, TEXT("rld"), Event.bTactical ? TEXT("_tactical") : TEXT("_empty")), INDEX_NONE, None,
-				false, 0.f, 0.f, 1.f, Occ, true, false, true);
-			ReloadVoices.Remove(Event.PlayerId);
-			return;
+			Log(CueId, INDEX_NONE, None, false, 0.f, 0.f, 1.f, Occ, true, false, true);
 		}
 	}
 	if (Event.bCancelled)
@@ -650,9 +679,19 @@ void UVerseAudioSubsystem::HandleReload(const FVerseReloadEvent& Event)
 	}
 	FPlayParams Params;
 	Params.SourceId = Event.PlayerId;
-	// Reload events are owner-only (combat-state.md 5.1); a listen-server copy for others carries no location,
-	// so remote reloads come through the bot's noise path only.
-	const int32 Handle = PlayCue(WeaponCue(Event.WeaponId, TEXT("rld"), Event.bTactical ? TEXT("_tactical") : TEXT("_empty")), Params);
+	if (!IsLocal(Event.PlayerId))
+	{
+		// Someone else's reload (the listen-server host gets the bot's server-raised event): it
+		// plays at the reloading pawn with the Noise.Reload range, the range the bot hears the
+		// person's reloads at (F6). Without a known location nothing plays, never at the origin.
+		const TOptional<FVector> Where = FindPlayerLocation(Event.PlayerId);
+		if (!Where.IsSet())
+		{
+			return;
+		}
+		Params.Location = Where.GetValue();
+	}
+	const int32 Handle = PlayCue(CueId, Params);
 	if (Handle != 0)
 	{
 		ReloadVoices.Add(Event.PlayerId, Handle);

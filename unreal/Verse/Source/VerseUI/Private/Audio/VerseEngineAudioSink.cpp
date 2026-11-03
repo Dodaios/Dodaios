@@ -10,6 +10,7 @@
 #include "Sound/SoundBase.h"
 #include "Sound/SoundEffectSubmix.h"
 #include "Sound/SoundSubmix.h"
+#include "UObject/Package.h"
 #include "VerseLog.h"
 
 namespace
@@ -88,12 +89,32 @@ bool FVerseEngineAudioSink::Initialize(UWorld* InWorld, const FVerseAudioMixSett
 	{
 		return false;
 	}
-	MasterSubmix = NewObject<USoundSubmix>(GetTransientPackage(), TEXT("VerseMasterSubmix"), RF_Transient);
+	UPackage* Transient = GetTransientPackage();
+	MasterSubmix = NewObject<USoundSubmix>(Transient,
+		MakeUniqueObjectName(Transient, USoundSubmix::StaticClass(), TEXT("VerseMasterSubmix")), RF_Transient);
 	if (USoundEffectSubmixPreset* Limiter = MakeLimiterPreset(MasterSubmix, Mix))
 	{
 		MasterSubmix->SubmixEffectChain.Add(Limiter);
 	}
+	// One child submix per bus under the master, in EVerseAudioBus order. The bus gain of mix.json
+	// stays on the voice multiplier, where the subsystem log and the reference mix see it.
+	BusSubmixes.Reset();
+	const UEnum* BusEnum = StaticEnum<EVerseAudioBus>();
+	for (int32 Bus = 0; Bus < VerseAudioBusCount; ++Bus)
+	{
+		const FString Name = FString::Printf(TEXT("VerseBus_%s"),
+			BusEnum ? *BusEnum->GetNameStringByValue(Bus) : *FString::FromInt(Bus));
+		USoundSubmix* Child = NewObject<USoundSubmix>(Transient,
+			MakeUniqueObjectName(Transient, USoundSubmix::StaticClass(), FName(*Name)), RF_Transient);
+		Child->ParentSubmix = MasterSubmix;
+		MasterSubmix->ChildSubmixes.Add(Child);
+		BusSubmixes.Add(Child);
+	}
 	Device->RegisterSoundSubmix(MasterSubmix, true);
+	for (USoundSubmix* Child : BusSubmixes)
+	{
+		Device->RegisterSoundSubmix(Child, true);
+	}
 	return true;
 }
 
@@ -104,6 +125,10 @@ void FVerseEngineAudioSink::Play(int32 Handle, const FVerseAudioPlayRequest& Req
 	{
 		return;
 	}
+	if (++PlaysSincePrune >= 32)
+	{
+		PruneFinished();
+	}
 	UAudioComponent* Component = Request.bSpatial
 		? UGameplayStatics::SpawnSoundAtLocation(W, Request.Sound, Request.Location, FRotator::ZeroRotator,
 			  Request.Volume, Request.Pitch, 0.f, Request.Attenuation, nullptr, true)
@@ -111,6 +136,11 @@ void FVerseEngineAudioSink::Play(int32 Handle, const FVerseAudioPlayRequest& Req
 	if (!Component)
 	{
 		return; // no audio device (-nosound): the subsystem still logged the play
+	}
+	if (!FMath::IsNearlyEqual(Request.Fader, 1.f))
+	{
+		// The occlusion gain lives on the fader only; multiplier x fader is the heard level.
+		Component->AdjustVolume(0.f, FMath::Max(Request.Fader, UE_KINDA_SMALL_NUMBER));
 	}
 	if (Request.LowpassHz < 19999.f)
 	{
@@ -150,13 +180,14 @@ void FVerseEngineAudioSink::SetVoiceLocation(int32 Handle, const FVector& Locati
 	}
 }
 
-void FVerseEngineAudioSink::SetVoiceVolume(int32 Handle, float Volume, float LowpassHz)
+void FVerseEngineAudioSink::SetVoiceOcclusion(int32 Handle, float Gain, float LowpassHz)
 {
 	if (TWeakObjectPtr<UAudioComponent>* Found = Voices.Find(Handle))
 	{
 		if (UAudioComponent* Component = Found->Get())
 		{
-			Component->AdjustVolume(0.1f, Volume);
+			// Fader only: the multiplier set at the start already holds the base volume.
+			Component->AdjustVolume(0.1f, FMath::Max(Gain, UE_KINDA_SMALL_NUMBER));
 			Component->SetLowPassFilterEnabled(LowpassHz < 19999.f);
 			Component->SetLowPassFilterFrequency(LowpassHz);
 		}
@@ -174,11 +205,32 @@ void FVerseEngineAudioSink::SetMasterVolume(float Volume)
 	}
 }
 
-void FVerseEngineAudioSink::Route(USoundBase* Sound)
+USoundSubmix* FVerseEngineAudioSink::GetBusSubmix(EVerseAudioBus Bus) const
 {
-	if (Sound && MasterSubmix)
+	return BusSubmixes.IsValidIndex(int32(Bus)) ? BusSubmixes[int32(Bus)].Get() : MasterSubmix.Get();
+}
+
+void FVerseEngineAudioSink::Route(USoundBase* Sound, EVerseAudioBus Bus)
+{
+	if (Sound)
 	{
-		Sound->SoundSubmixObject = MasterSubmix;
+		if (USoundSubmix* Target = GetBusSubmix(Bus))
+		{
+			Sound->SoundSubmixObject = Target;
+		}
+	}
+}
+
+void FVerseEngineAudioSink::PruneFinished()
+{
+	PlaysSincePrune = 0;
+	for (auto It = Voices.CreateIterator(); It; ++It)
+	{
+		const UAudioComponent* Component = It.Value().Get();
+		if (!Component || !Component->IsPlaying())
+		{
+			It.RemoveCurrent();
+		}
 	}
 }
 
@@ -197,16 +249,25 @@ void FVerseEngineAudioSink::Shutdown()
 		if (FAudioDevice* Device = W->GetAudioDeviceRaw())
 		{
 			Device->SetTransientPrimaryVolume(1.f);
+			for (USoundSubmix* Child : BusSubmixes)
+			{
+				if (Child)
+				{
+					Device->UnregisterSoundSubmix(Child, false);
+				}
+			}
 			if (MasterSubmix)
 			{
 				Device->UnregisterSoundSubmix(MasterSubmix, false);
 			}
 		}
 	}
+	BusSubmixes.Reset();
 	MasterSubmix = nullptr;
 }
 
 void FVerseEngineAudioSink::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(MasterSubmix);
+	Collector.AddReferencedObjects(BusSubmixes);
 }
