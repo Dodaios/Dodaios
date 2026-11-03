@@ -558,7 +558,9 @@ def geometry_placements(deck: str, result: Mapping[str, Any]) -> tuple[dict, lis
         station = item.get("station")
         per_zone.setdefault(item["zone"], []).append(
             {
-                "id": placement.sanitize_id(item["blender_name"]),
+                # `_ceiling` ids are hidden by the overview cutaway (upper hull bays).
+                "id": placement.sanitize_id(item["blender_name"])
+                + ("_ceiling" if item.get("upper") else ""),
                 "piece": item["piece"],
                 "asset": record["asset_path"],
                 "location": ue_space.location_to_ue(item["location_m"]),

@@ -47,9 +47,14 @@ struct VERSEDECKS_API FVerseSpaceLook
 
 /**
  * The space view: a backdrop at infinity that turns with the orbit. It follows the camera, so
- * walking past a window shows no parallax (parity Z-11). The Earth and star meshes are assigned
- * from the CC0 ledger textures by the space-view assets; without them the actor still keeps
- * time and answers `Verse.QA.Space.*`.
+ * walking past a window shows no parallax (parity Z-11). On BeginPlay it loads its own-work
+ * meshes (`SM_Space_Earth`, `SM_Space_StarDome`, kit pieces of `art/verse/kit/props/space`) and
+ * their instances (`MI_Space_Earth`, `MI_Space_Stars`); a missing asset is logged once and that
+ * part keeps the engine default, so the actor still keeps time and answers `Verse.QA.Space.*`.
+ *
+ * Scale: the star dome has a radius of `DomeRadiusCm`; the Earth sphere has `EarthRadiusCm` and
+ * sits `CentreDownDeg` below the bow at the distance that gives today's angular size for
+ * `AltitudeKm` (radius x (Earth + altitude) / Earth).
  */
 UCLASS()
 class VERSEDECKS_API AVerseSpaceView : public AActor
@@ -59,7 +64,23 @@ class VERSEDECKS_API AVerseSpaceView : public AActor
 public:
 	AVerseSpaceView();
 
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
+
+	/** Asset paths of the backdrop (kit pieces and their instances). */
+	static const TCHAR* EarthMeshPath;
+	static const TCHAR* StarDomeMeshPath;
+	static const TCHAR* EarthMaterialPath;
+	static const TCHAR* StarsMaterialPath;
+
+	static constexpr double EarthRadiusCm = 100000.0;
+	static constexpr double DomeRadiusCm = 300000.0;
+
+	/** Loads and assigns the meshes and instances; returns how many of the four were found. */
+	int32 LoadBackdrop();
+
+	/** Where the Earth's centre sits relative to the camera, cm (bow = +X). */
+	FVector EarthOffsetCm() const;
 
 	FVerseSpaceLook Look;
 	double ElapsedS = 0.0;

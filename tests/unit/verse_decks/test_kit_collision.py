@@ -25,7 +25,7 @@ def test_stairs_are_a_ramp_and_one_box_per_tread(width, rise):
     prims = collision.stairs(width, rise)
     steps = round(rise / collision.RISER_M)
     boxes = [p for p in prims if p[0] == "box"]
-    ramps = [p for p in prims if p[0] == "convex"]
+    ramps = [p for p in prims if p[0] == "obox"]
     assert len(boxes) == steps - 1 and len(ramps) == 1
     assert len(prims) <= 16
     # Treads climb toward the walkway (x = 0, z = 0); none reaches the walkway height.
@@ -37,7 +37,8 @@ def test_stairs_are_a_ramp_and_one_box_per_tread(width, rise):
     # The ramp runs from the walkway edge down to the bottom floor through every tread front.
     xs = [p[0] for p in ramps[0][1]]
     zs = [p[2] for p in ramps[0][1]]
-    assert min(xs) == pytest.approx(0.0) and max(zs) == pytest.approx(0.0)
+    assert len(ramps[0][1]) == 8
+    assert min(xs) <= 0.0 and max(zs) == pytest.approx(0.0)
     assert min(zs) < -rise
 
 

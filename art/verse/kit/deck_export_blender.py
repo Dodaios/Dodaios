@@ -136,12 +136,48 @@ def _clean(mesh: bpy.types.Mesh) -> None:
         bmesh.ops.delete(bm, geom=loose, context="VERTS")
     bm.to_mesh(mesh)
     bm.free()
+    _drop_unused_materials(mesh)
+
+
+def _drop_unused_materials(mesh: bpy.types.Mesh) -> None:
+    """Keep only the material slots some face uses (an empty slot never reaches Unreal)."""
+    used = sorted({p.material_index for p in mesh.polygons})
+    if len(used) == len(mesh.materials) or not mesh.materials:
+        return
+    remap = {old: new for new, old in enumerate(used)}
+    keep = [mesh.materials[i] for i in used if i < len(mesh.materials)]
+    indices = [remap[p.material_index] for p in mesh.polygons]
+    mesh.materials.clear()
+    for material in keep:
+        mesh.materials.append(material)
+    mesh.polygons.foreach_set("material_index", indices)
+    mesh.update()
 
 
 #: Bespoke geometry that starts this high above the zone floor belongs to the ceiling mesh.
 UPPER_M = 3.0
 #: Material of the hidden bounds meshes (never seen in game).
 BOUNDS_MATERIAL = "M_Section_Cap"
+
+
+def _split_upper(mesh: bpy.types.Mesh, level: float) -> bpy.types.Mesh | None:
+    """Move the faces lying wholly above `level` (roofs, upper hull) into a new mesh."""
+    co = mesh.vertices
+    upper = [p.index for p in mesh.polygons if min(co[v].co.z for v in p.vertices) >= level]
+    if not upper:
+        return None
+    top = mesh.copy()
+    for target, drop in ((top, set(range(len(mesh.polygons))) - set(upper)), (mesh, set(upper))):
+        bm = bmesh.new()
+        bm.from_mesh(target)
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.delete(bm, geom=[bm.faces[i] for i in sorted(drop)], context="FACES")
+        loose = [v for v in bm.verts if not v.link_faces]
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context="VERTS")
+        bm.to_mesh(target)
+        bm.free()
+    return top
 
 
 def _box_mesh(name: str, box: dict, offset: Vector) -> bpy.types.Mesh:
@@ -166,8 +202,9 @@ def _bounds_collections(zone_title: str, boxes: list[dict], offset: Vector):
         number = index // cap + 1
         collection = bpy.data.collections.new(f"WP12_{zone_title}_bounds_{number}")
         for nn, box in enumerate(group):
-            axis_aligned = abs(math.remainder(box["yaw_deg"], 90.0)) < 1e-6
-            kind = "Box" if axis_aligned else "Convex"
+            # Always a box: Interchange (UE 5.7) keeps the rotation of UBX_ boxes and drops
+            # the UCX_ hulls of these exports (measured on the first WP12 bounds import).
+            kind = "Box"
             render = _box_mesh(f"WP12_bounds_{nn:02d}", box, offset)
             render.materials.append(material)
             collection.objects.link(bpy.data.objects.new(f"WP12_bounds_{nn:02d}", render))
@@ -221,6 +258,8 @@ def main(argv: list[str]) -> None:
                 "nav": obj.get("nav") or registry[piece].nav,
                 "station": obj.get("station"),
                 "station_kind": obj.get("station_kind"),
+                # Kit pieces hung above head height (upper hull bays) join the cutaway.
+                "upper": loc.z >= zones.zones[zone]["centre"][2] + UPPER_M,
             }
         )
 
@@ -265,13 +304,18 @@ def main(argv: list[str]) -> None:
         # Ceilings, their fixtures and ghosts are hidden from today's plate camera; in Unreal they
         # are a separate mesh the deck camera hides in the overview (the cutaway). So is what
         # starts above head height (upper hull, plenums): today's plate cut it away too.
-        lowest = min(v.co.z for v in mesh.vertices)
         ceiling = (
             not original.visible_camera
             or bool(original.get("ceiling_ghost"))
             or "Ceiling" in {unreal_export.strip_suffix(c.name) for c in original.users_collection}
-            or lowest >= zones.zones[zone]["centre"][2] + UPPER_M
         )
+        if not ceiling:
+            upper = _split_upper(mesh, zones.zones[zone]["centre"][2] + UPPER_M)
+            if upper is not None:
+                per_zone.setdefault(zone, []).append((f"{original.name}_upper", upper, True))
+            if not mesh.polygons:
+                bpy.data.meshes.remove(mesh)
+                continue
         per_zone.setdefault(zone, []).append((original.name, mesh, ceiling))
 
     shells = []

@@ -47,6 +47,8 @@ WALL_BELOW_M = 1.5
 #: Line simplification tolerance and the shortest wall segment kept, m.
 SIMPLIFY_M = 0.25
 MIN_SEGMENT_M = 0.4
+#: Wall segments this close to a grid axis are snapped onto it, degrees.
+SNAP_DEG = 4.0
 #: Closed wall loops shorter than this (thin poles with today's clearance) are dropped, m.
 MIN_LOOP_M = 2.4
 #: Walls this many cells around a blocking prop are left to the prop's own collision.
@@ -369,6 +371,13 @@ def wall_boxes(nav: Nav, zone_cells: np.ndarray, skip: np.ndarray) -> list[Box]:
                 continue
             outward = np.array(normals[i0:i1], dtype=float).sum(axis=0)
             direction = (b - a) / length
+            yaw = math.atan2(direction[1], direction[0])
+            # A segment within SNAP_DEG of a grid axis is a grid wall the simplification
+            # bent by a cell: keep it on the axis.
+            snapped = round(yaw / (math.pi / 2)) * (math.pi / 2)
+            if abs(yaw - snapped) <= math.radians(SNAP_DEG):
+                yaw = snapped
+                direction = np.array([math.cos(yaw), math.sin(yaw)])
             normal = np.array([-direction[1], direction[0]])
             if float(normal @ outward) < 0:
                 normal = -normal
@@ -379,7 +388,7 @@ def wall_boxes(nav: Nav, zone_cells: np.ndarray, skip: np.ndarray) -> list[Box]:
                     "wall",
                     (float(centre[0]), (low + high) / 2, float(centre[1])),
                     (length + WALL_THICKNESS_M, high - low, WALL_THICKNESS_M),
-                    math.atan2(direction[1], direction[0]),
+                    yaw,
                 )
             )
     return out

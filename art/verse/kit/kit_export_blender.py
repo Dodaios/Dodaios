@@ -118,9 +118,9 @@ def _add_collision(name: str, master) -> int:
             (x0, y0, z0), (x1, y1, z1) = prim[1], prim[2]
             points = [(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
             kind = "Box"
-        else:
+        else:  # "obox": the eight corners of an oriented box, imported as UBX_
             points = prim[1]
-            kind = "Convex"
+            kind = "Box"
         obj_name = f"UECOL_{kind}_{nn:02d}"
         master.objects.link(bpy.data.objects.new(obj_name, _collision_mesh(obj_name, points)))
     return len(prims)

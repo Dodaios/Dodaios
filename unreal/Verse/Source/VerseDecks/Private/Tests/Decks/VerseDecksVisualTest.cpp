@@ -15,7 +15,9 @@
 #include "Misc/Paths.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "EngineUtils.h"
 #include "ShaderCompiler.h"
+#include "Space/VerseSpaceView.h"
 #include "Tests/AutomationCommon.h"
 #include "UnrealClient.h"
 
@@ -265,6 +267,50 @@ bool FVerseVisualDecksTest::RunTest(const FString&)
 				}));
 			ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.0f));
 		}
+	}
+
+	// The space backdrop on its own (WP12.9): every other actor hidden, the camera at the space
+	// view looking at the Earth and up at the stars. `kit/space_check.py` fails a black frame.
+	for (const FView& View : { FView{ TEXT("space_earth"), FVector::ZeroVector, FRotator(-56.0, 0.0, 0.0) }, FView{ TEXT("space_stars"), FVector::ZeroVector, FRotator(50.0, 180.0, 0.0) } })
+	{
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, State, View]() -> bool
+			{
+				UWorld* World = GameWorld();
+				AVerseSpaceView* Space = nullptr;
+				for (TActorIterator<AVerseSpaceView> It(World); It; ++It)
+				{
+					Space = *It;
+				}
+				if (World == nullptr || Space == nullptr)
+				{
+					AddError(TEXT("no space view on the deck"));
+					return true;
+				}
+				AddInfo(FString::Printf(TEXT("space view: %d of 4 backdrop assets"), Space->LoadBackdrop()));
+				for (TActorIterator<AActor> It(World); It; ++It)
+				{
+					if (*It != Space && *It != State->Camera.Get() && !It->IsA<APlayerController>())
+					{
+						It->SetActorHiddenInGame(true);
+					}
+				}
+				if (ACameraActor* Camera = State->Camera.Get())
+				{
+					Camera->SetActorLocationAndRotation(Space->GetActorLocation(), View.Rotation);
+					if (APlayerController* Controller = World->GetFirstPlayerController())
+					{
+						Controller->SetViewTarget(Camera);
+					}
+				}
+				return true;
+			}));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.5f));
+		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([State, View]() -> bool
+			{
+				FScreenshotRequest::RequestScreenshot(FPaths::Combine(State->OutDir, View.Name + TEXT(".png")), false, false);
+				return true;
+			}));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.0f));
 	}
 
 	// One lift ride, measured by the lift itself (A12.2).

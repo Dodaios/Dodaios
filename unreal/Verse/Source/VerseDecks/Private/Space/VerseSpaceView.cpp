@@ -7,6 +7,10 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
+#include "UObject/UObjectGlobals.h"
+#include "VerseLog.h"
 
 namespace
 {
@@ -84,6 +88,20 @@ FString FVerseSpaceLook::ToJson(double ElapsedS) const
 	return Out;
 }
 
+const TCHAR* AVerseSpaceView::EarthMeshPath = TEXT("/Game/Verse/Kit/Props/SM_Space_Earth.SM_Space_Earth");
+const TCHAR* AVerseSpaceView::StarDomeMeshPath = TEXT("/Game/Verse/Kit/Props/SM_Space_StarDome.SM_Space_StarDome");
+const TCHAR* AVerseSpaceView::EarthMaterialPath = TEXT("/Game/Verse/Materials/Instances/Props/MI_Space_Earth.MI_Space_Earth");
+const TCHAR* AVerseSpaceView::StarsMaterialPath = TEXT("/Game/Verse/Materials/Instances/Props/MI_Space_Stars.MI_Space_Stars");
+
+namespace
+{
+	template <typename T>
+	T* LoadQuiet(const TCHAR* Path)
+	{
+		return LoadObject<T>(nullptr, Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	}
+}
+
 AVerseSpaceView::AVerseSpaceView()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -98,6 +116,58 @@ AVerseSpaceView::AVerseSpaceView()
 	Stars->SetupAttachment(Root);
 	Stars->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Stars->CastShadow = false;
+	for (UStaticMeshComponent* Part : { Earth.Get(), Stars.Get() })
+	{
+		Part->bAffectDistanceFieldLighting = false;
+		Part->bReceivesDecals = false;
+		Part->SetCanEverAffectNavigation(false);
+		Part->bNeverDistanceCull = true;
+	}
+	Stars->SetRelativeScale3D(FVector(DomeRadiusCm / 100.0));
+	Earth->SetRelativeScale3D(FVector(EarthRadiusCm / 100.0));
+}
+
+FVector AVerseSpaceView::EarthOffsetCm() const
+{
+	const double Distance = EarthRadiusCm * (FVerseSpaceLook::EarthKm + Look.AltitudeKm) / FVerseSpaceLook::EarthKm;
+	const double Down = FMath::DegreesToRadians(Look.CentreDownDeg);
+	return FVector(FMath::Cos(Down) * Distance, 0.0, -FMath::Sin(Down) * Distance);
+}
+
+int32 AVerseSpaceView::LoadBackdrop()
+{
+	int32 Found = 0;
+	auto Assign = [&Found](UStaticMeshComponent* Part, const TCHAR* MeshPath, const TCHAR* MaterialPath)
+	{
+		if (UStaticMesh* Mesh = LoadQuiet<UStaticMesh>(MeshPath))
+		{
+			Part->SetStaticMesh(Mesh);
+			++Found;
+		}
+		else
+		{
+			UE_LOG(LogVerseDecks, Warning, TEXT("space view: no mesh %s"), MeshPath);
+		}
+		if (UMaterialInterface* Material = LoadQuiet<UMaterialInterface>(MaterialPath))
+		{
+			Part->SetMaterial(0, Material);
+			++Found;
+		}
+		else
+		{
+			UE_LOG(LogVerseDecks, Log, TEXT("space view: no instance %s yet (WP14 masters), default material"), MaterialPath);
+		}
+	};
+	Assign(Earth, EarthMeshPath, EarthMaterialPath);
+	Assign(Stars, StarDomeMeshPath, StarsMaterialPath);
+	Earth->SetRelativeLocation(EarthOffsetCm());
+	return Found;
+}
+
+void AVerseSpaceView::BeginPlay()
+{
+	Super::BeginPlay();
+	LoadBackdrop();
 }
 
 void AVerseSpaceView::Tick(float DeltaSeconds)
@@ -116,5 +186,6 @@ void AVerseSpaceView::Tick(float DeltaSeconds)
 		}
 	}
 	Earth->SetVisibility(Look.Planet > 0.5);
+	Earth->SetRelativeLocation(EarthOffsetCm());
 	Earth->SetRelativeRotation(FRotator(0.0, FMath::RadiansToDegrees(EarthTurnRad()), Look.RollDeg));
 }

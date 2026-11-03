@@ -67,10 +67,13 @@ def test_ceilings_are_separate_and_never_collide():
     ceilings = []
     for path in placements:
         for entry in json.loads(path.read_text(encoding="utf-8"))["placements"]:
-            if entry["id"].endswith("_ceiling"):
+            if entry["id"].endswith("_ceiling") and entry["asset"].startswith("/Game/Verse/Decks/"):
                 ceilings.append(entry)
                 assert entry["piece"].endswith("_Ceiling"), entry["id"]
                 assert entry["nav"] == "none", entry["id"]
+            elif entry["id"].endswith("_ceiling"):
+                # A kit piece hung above head height (an upper hull bay) joins the cutaway.
+                assert entry["location"][2] >= 300.0, entry["id"]
     decks = {entry["asset"].split("/")[4] for entry in ceilings}
     assert {"Bridge", "Ops", "Engineering"} <= decks
     for path in sorted((ROOT / "unreal/Verse/Art/Import/Decks").glob("*/*_Ceiling.import.json")):

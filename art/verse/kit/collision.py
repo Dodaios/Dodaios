@@ -15,11 +15,12 @@ would be wrong for a walking pawn:
   (`kit/deck_bounds.py`), which follow today's nav grid exactly.
 
 Primitives are in piece space, Blender metres: `("box", lo, hi)` for an axis-aligned
-box, `("convex", points)` for any convex hull (at most 32 points).
+box, `("obox", points)` for the eight corners of an oriented box.
 """
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Sequence
 
@@ -60,12 +61,16 @@ def stairs(width_m: float, rise_m: float) -> list[Primitive]:
         top = -(i + 1) * RISER_M
         out.append(("box", (i * TREAD_M, -hw, -rise_m), ((i + 1) * TREAD_M, hw, top)))
     # The ramp's top runs through the front edge of every tread, from the walkway edge
-    # (0, 0) down to the bottom floor at x = rise * tread / riser.
+    # (0, 0) down to the bottom floor at x = rise * tread / riser: one box turned about Y
+    # (Interchange keeps the rotation of UBX_ boxes and drops UCX_ hulls).
     end = rise_m * TREAD_M / RISER_M
+    length = math.hypot(end, rise_m)
+    nx, nz = rise_m / length, end / length  # up, out of the slope
     drop = RAMP_THICKNESS_M
-    profile = [(0.0, 0.0), (end, -rise_m), (end, -rise_m - drop), (0.0, -drop)]
+    top = [(0.0, 0.0), (end, -rise_m)]
+    profile = top + [(x - nx * drop, z - nz * drop) for x, z in top]
     points = [(x, y, z) for x, z in profile for y in (-hw, hw)]
-    out.append(("convex", points))
+    out.append(("obox", points))
     return out
 
 
