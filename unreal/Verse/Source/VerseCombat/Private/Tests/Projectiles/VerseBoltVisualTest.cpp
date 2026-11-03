@@ -12,6 +12,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/AutomationTest.h"
 #include "Projectiles/VerseBoltPresentation.h"
+#include "Projectiles/VersePlaceholderArt.h"
 #include "ShaderCompiler.h"
 #include "Tests/AutomationCommon.h"
 #include "Tests/Weapons/VerseWp02TestUtils.h"
@@ -55,8 +56,8 @@ namespace VerseBoltVisual
 		FActorSpawnParameters P;
 		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-		UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Verse/Test/WP02/SM_WP02_Plane.SM_WP02_Plane"));
-		UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Verse/Test/WP02/M_WP02_Placeholder.M_WP02_Placeholder"));
+		UStaticMesh* Plane = VersePlaceholderArt::Mesh(VersePlaceholderArt::EShape::Plane);
+		UMaterialInterface* Base = VersePlaceholderArt::Material();
 		if (AStaticMeshActor* Floor = World->SpawnActor<AStaticMeshActor>(FVector(3000, 0, 0), FRotator::ZeroRotator, P))
 		{
 			Floor->SetMobility(EComponentMobility::Movable);

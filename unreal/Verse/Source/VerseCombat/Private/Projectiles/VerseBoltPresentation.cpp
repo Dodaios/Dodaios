@@ -9,6 +9,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/App.h"
+#include "Projectiles/VersePlaceholderArt.h"
 #include "Subsystems/SubsystemCollection.h"
 #include "Weapons/VerseCombatTags.h"
 #include "Weapons/VerseWeaponComponent.h"
@@ -181,10 +182,10 @@ void UVerseBoltPresentation::EnsureRender()
 	{
 		return;
 	}
-	UStaticMesh* Cylinder = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Verse/Test/WP02/SM_WP02_Cylinder.SM_WP02_Cylinder"));
-	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Verse/Test/WP02/SM_WP02_Sphere.SM_WP02_Sphere"));
+	UStaticMesh* Cylinder = VersePlaceholderArt::Mesh(VersePlaceholderArt::EShape::Cylinder);
+	UStaticMesh* Sphere = VersePlaceholderArt::Mesh(VersePlaceholderArt::EShape::Sphere);
 	// Placeholder look (own WP02 test material, colour parameter); the glowing bolt material is WP14.9.
-	UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Verse/Test/WP02/M_WP02_Placeholder.M_WP02_Placeholder"));
+	UMaterialInterface* Base = VersePlaceholderArt::Material();
 	if (!Cylinder || !Sphere || !Base)
 	{
 		return;

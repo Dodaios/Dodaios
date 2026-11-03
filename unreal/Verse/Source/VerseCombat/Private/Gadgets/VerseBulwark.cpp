@@ -11,7 +11,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/App.h"
 #include "Net/UnrealNetwork.h"
-#include "UObject/ConstructorHelpers.h"
+#include "Projectiles/VersePlaceholderArt.h"
 #include "VerseCollision.h"
 #include "VerseGameplayTags.h"
 #include "Weapons/VerseCombatEvents.h"
@@ -44,10 +44,23 @@ AVerseBulwark::AVerseBulwark()
 	Look->SetupAttachment(Field);
 	Look->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Look->SetCastShadow(false);
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Game/Verse/Test/WP02/SM_WP02_Box.SM_WP02_Box"));
-	if (Cube.Succeeded())
+}
+
+void AVerseBulwark::BeginPlay()
+{
+	Super::BeginPlay();
+	// Placeholder look on every viewer (the server's InitBulwark only sizes it).
+	if (UStaticMesh* Box = VersePlaceholderArt::Mesh(VersePlaceholderArt::EShape::Box))
 	{
-		Look->SetStaticMesh(Cube.Object);
+		Look->SetStaticMesh(Box);
+		if (UMaterialInterface* Base = VersePlaceholderArt::Material())
+		{
+			if (UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Base, this))
+			{
+				Mid->SetVectorParameterValue(TEXT("Color"), BulwarkAmber);
+				Look->SetMaterial(0, Mid);
+			}
+		}
 	}
 }
 
@@ -76,15 +89,6 @@ void AVerseBulwark::InitBulwark(const UVerseGadgetDefinition& Def, AActor* InOwn
 	Look->SetRelativeScale3D(FVector(Def.Size.Z, Def.Size.X, Def.Size.Y));
 	Look->SetRelativeLocation(FVector::ZeroVector);
 	AddActorWorldOffset(FVector(0.0, 0.0, Half.Z));
-
-	if (FApp::CanEverRender() && Look->GetMaterial(0))
-	{
-		if (UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Look->GetMaterial(0), this))
-		{
-			Mid->SetVectorParameterValue(TEXT("Color"), BulwarkAmber);
-			Look->SetMaterial(0, Mid);
-		}
-	}
 
 	if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
 	{

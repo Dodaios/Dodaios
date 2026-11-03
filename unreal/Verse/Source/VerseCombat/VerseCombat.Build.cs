@@ -13,5 +13,7 @@ public class VerseCombat : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "GameplayTags", "GameplayAbilities", "GameplayTasks" });
 		// Json: the weapon and gadget definition importer (WP02.1).
 		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
+		// MeshDescription: the WP02 placeholder shapes are built in code until WP14 art lands.
+		PrivateDependencyModuleNames.AddRange(new string[] { "MeshDescription", "StaticMeshDescription" });
 	}
 }
