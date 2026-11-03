@@ -7,6 +7,8 @@ environment:
     VERSE_GORE_TEXTURES   folder with the baked ``T_Gore_*_M.png`` masks
     VERSE_GORE_RESULT     JSON report path
     VERSE_GORE_QUIT       "1": quit the editor when done
+    VERSE_GORE_HERE       this folder (for ``spec.py``, the shared asset table)
+    VERSE_GORE_ONLY       comma-separated asset names to rebuild; empty = all
 
 Creates or replaces, under ``/Game/Verse/Gore`` (owned by WP05):
 
@@ -15,7 +17,7 @@ Creates or replaces, under ``/Game/Verse/Gore`` (owned by WP05):
     MI_Gore_Spatter_0..3    wall and floor spatter
     MI_Gore_Drip            floor drip below a wound
     MI_Gore_Pool            pool under a body (glossier)
-    M_Gore_Droplet          burst droplets (instanced static meshes)
+    M_Gore_Droplet          burst droplets (instanced static meshes, animated on the GPU)
     M_Gore_Flash            Reduced level: neutral impact flash (unlit, additive)
     MF_Gore_WoundMask       wound mask function for the character master (WP13)
 
@@ -30,20 +32,19 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import traceback
 
 import unreal
 
-GORE = "/Game/Verse/Gore"
-TEST = "/Game/Verse/Test/WP05"
-TEXTURES = [
-    "T_Gore_Spatter_0_M",
-    "T_Gore_Spatter_1_M",
-    "T_Gore_Spatter_2_M",
-    "T_Gore_Spatter_3_M",
-    "T_Gore_Drip_M",
-    "T_Gore_Pool_M",
-]
+sys.path.insert(0, os.environ.get("VERSE_GORE_HERE") or os.path.dirname(os.path.abspath(__file__)))
+
+import spec  # noqa: E402
+
+GORE = spec.GORE
+TEST = spec.TEST
+TEXTURES = list(spec.TEXTURES)
+ONLY = {name for name in os.environ.get("VERSE_GORE_ONLY", "").split(",") if name}
 # Linear colours: fresh blood is a dark red, thick blood near black-red.
 BLOOD = unreal.LinearColor(0.115, 0.006, 0.004, 1.0)
 BLOOD_THICK = unreal.LinearColor(0.032, 0.0015, 0.001, 1.0)
@@ -76,9 +77,23 @@ def set_prop(obj, name: str, value) -> None:
         warn(f"{obj.get_name()}.{name}: {error}")
 
 
+def wanted(name: str) -> bool:
+    return not ONLY or name in ONLY
+
+
+def load_textures() -> dict:
+    textures = {}
+    for name in TEXTURES:
+        texture = unreal.load_asset(f"{GORE}/{name}")
+        if texture is None:
+            raise RuntimeError(f"texture missing (build it first): {name}")
+        textures[name] = texture
+    return textures
+
+
 def import_textures(folder: str) -> dict:
     tasks = []
-    for name in TEXTURES:
+    for name in [name for name in TEXTURES if wanted(name)]:
         task = unreal.AssetImportTask()
         task.filename = os.path.join(folder, f"{name}.png")
         task.destination_path = GORE
@@ -87,10 +102,11 @@ def import_textures(folder: str) -> dict:
         task.replace_existing = True
         task.save = False
         tasks.append(task)
-    ASSETS.import_asset_tasks(tasks)
-    textures = {}
-    for name in TEXTURES:
-        texture = unreal.load_asset(f"{GORE}/{name}")
+    if tasks:
+        ASSETS.import_asset_tasks(tasks)
+    textures = load_textures()
+    for name in [name for name in TEXTURES if wanted(name)]:
+        texture = textures[name]
         if texture is None:
             raise RuntimeError(f"texture import failed: {name}")
         set_prop(texture, "srgb", False)
@@ -98,7 +114,6 @@ def import_textures(folder: str) -> dict:
         set_prop(texture, "lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
         # Gore appears the frame it is hit; a streaming mip would show a flat square first.
         set_prop(texture, "never_stream", True)
-        textures[name] = texture
         REPORT["assets"].append(f"{GORE}/{name}")
     return textures
 
@@ -187,16 +202,65 @@ def build_instance(name: str, parent, texture, scalars: dict | None = None):
     return instance
 
 
+# World position offset of one droplet instance (HLSL of a Custom node). The instance sits at the
+# burst origin; custom data carries spawn time, velocity, life, drag and gravity, and the motion is
+# the exact solution of gravity plus linear drag, the same as UVerseGoreSubsystem::DropletOffset.
+# A droplet stretches along its velocity, shrinks over its life and collapses to its pivot after.
+DROPLET_WPO = """
+float age = max(Now - Spawn, 0.0);
+float k = max(Drag, 0.01);
+float e = exp(-k * age);
+float3 terminal = float3(0.0, 0.0, Gravity / k);
+float3 velocity = float3(VX, VY, VZ);
+float3 travel = (velocity + terminal) * ((1.0 - e) / k) - terminal * age;
+float3 current = (velocity + terminal) * e - terminal;
+float speed = length(current);
+float3 dir = speed > 0.001 ? current / speed : float3(0.0, 0.0, 1.0);
+float alive = age < Life ? 1.0 : 0.0;
+float shrink = (1.0 - 0.6 * saturate(age / max(Life, 0.01))) * alive;
+float3 shaped = (Offset + dir * dot(Offset, dir) * (speed / 400.0)) * shrink;
+return travel * alive + shaped - Offset;
+"""
+DROPLET_INPUTS = ["Offset", "Now", "Spawn", "VX", "VY", "VZ", "Life", "Drag", "Gravity"]
+
+
 def build_droplet():
     material = fresh("M_Gore_Droplet", GORE, unreal.Material, unreal.MaterialFactoryNew())
     set_prop(material, "used_with_instanced_static_meshes", True)
+    # Droplets fly up to ~4 m from their instance; culling bounds must cover the offset.
+    set_prop(material, "max_world_position_offset_displacement", 450.0)
     color = node(material, unreal.MaterialExpressionVectorParameter, -500, -100,
                  parameter_name="BloodColor", default_value=BLOOD)
     MEL.connect_material_property(color, "", unreal.MaterialProperty.MP_BASE_COLOR)
     rough = node(material, unreal.MaterialExpressionConstant, -500, 100, r=0.12)
     MEL.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
-    spec = node(material, unreal.MaterialExpressionConstant, -500, 200, r=0.65)
-    MEL.connect_material_property(spec, "", unreal.MaterialProperty.MP_SPECULAR)
+    spec_node = node(material, unreal.MaterialExpressionConstant, -500, 200, r=0.65)
+    MEL.connect_material_property(spec_node, "", unreal.MaterialProperty.MP_SPECULAR)
+
+    inputs = []
+    for name in DROPLET_INPUTS:
+        item = unreal.CustomInput()
+        item.set_editor_property("input_name", name)
+        inputs.append(item)
+    custom = node(material, unreal.MaterialExpressionCustom, -300, 400,
+                  code=DROPLET_WPO.strip(), description="VerseGoreDroplet",
+                  output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    set_prop(custom, "inputs", inputs)
+    # Vertex offset from the instance pivot in world space (local = instance space for an ISM).
+    local = node(material, unreal.MaterialExpressionLocalPosition, -1100, 300,
+                 included_offsets=unreal.PositionIncludedOffsets.EXCLUDE_OFFSETS)
+    to_world = node(material, unreal.MaterialExpressionTransform, -900, 300,
+                    transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_LOCAL,
+                    transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_WORLD)
+    link(local, "", to_world, "")
+    link(to_world, "", custom, "Offset")
+    now = node(material, unreal.MaterialExpressionTime, -900, 400)
+    link(now, "", custom, "Now")
+    for index, name in enumerate(["Spawn", "VX", "VY", "VZ", "Life", "Drag", "Gravity"]):
+        data = node(material, unreal.MaterialExpressionPerInstanceCustomData,
+                    -900, 480 + 80 * index, data_index=index)
+        link(data, "", custom, name)
+    MEL.connect_material_property(custom, "", unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET)
     MEL.recompile_material(material)
     return material
 
@@ -311,16 +375,22 @@ def build_test_body():
 def main() -> None:
     folder = os.environ["VERSE_GORE_TEXTURES"]
     textures = import_textures(folder)
-    master = build_decal_master(textures)
-    for index in range(4):
-        build_instance(f"MI_Gore_Spatter_{index}", master, textures[f"T_Gore_Spatter_{index}_M"])
-    build_instance("MI_Gore_Drip", master, textures["T_Gore_Drip_M"], {"RoughnessThick": 0.1})
-    build_instance("MI_Gore_Pool", master, textures["T_Gore_Pool_M"],
-                   {"RoughnessThick": 0.05, "RoughnessThin": 0.2})
-    build_droplet()
-    build_flash()
-    build_wound_function()
-    build_test_body()
+    if wanted("M_Gore_Decal"):
+        master = build_decal_master(textures)
+    else:
+        master = unreal.load_asset(f"{GORE}/M_Gore_Decal")
+    for name, (texture, scalars) in spec.INSTANCES.items():
+        if wanted(name):
+            build_instance(name, master, textures[texture], scalars)
+    builders = {
+        "M_Gore_Droplet": build_droplet,
+        "M_Gore_Flash": build_flash,
+        "MF_Gore_WoundMask": build_wound_function,
+        "M_Gore_TestBody": build_test_body,
+    }
+    for name, build in builders.items():
+        if wanted(name):
+            build()
     for path in REPORT["assets"]:
         if not LIB.save_asset(path, only_if_is_dirty=False):
             warn(f"save failed: {path}")

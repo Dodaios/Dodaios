@@ -4,6 +4,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
+#include "Gore/VerseGoreSubsystem.h"
 #include "Materials/MaterialInterface.h"
 
 AVerseGoreActor::AVerseGoreActor()
@@ -21,6 +22,8 @@ AVerseGoreActor::AVerseGoreActor()
 	RootComponent = Root;
 
 	Droplets = NewInstanced(TEXT("Droplets"));
+	// M_Gore_Droplet animates each instance from these floats (spawn time, velocity, life, drag, gravity).
+	Droplets->NumCustomDataFloats = UVerseGoreSubsystem::DropletCustomFloats;
 	Flashes = NewInstanced(TEXT("Flashes"));
 }
 

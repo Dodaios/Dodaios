@@ -1,0 +1,18 @@
+{
+  "asset_path": "/Game/Verse/Gore/M_Gore_Droplet.M_Gore_Droplet",
+  "kind": "material",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "M_Gore_Droplet",
+  "owner": "WP05",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "use": "burst droplets on an instanced static mesh; world position offset animates each instance from 7 custom data floats (spawn time, velocity xyz, life, drag, gravity)"
+    },
+    "builder": "art/verse/gore/unreal_assets.py",
+    "function": "build_droplet"
+  }
+}

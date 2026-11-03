@@ -76,7 +76,8 @@ public:
 	/** Replaces the default resolver (game state player array -> pawn -> skeletal mesh). */
 	void SetVictimResolver(FVerseGoreVictimResolver Resolver);
 
-	/** Plays a synthetic stream through the hub from now on (WP05.1). */
+	/** Plays a synthetic stream from now on (WP05.1): into Gore's own handlers, or on the hub when
+	 *  `Params.bPublishOnHub` is set (tests). */
 	void PlaySynthetic(const FVerseGoreSyntheticParams& Params);
 	void StopSynthetic();
 	bool IsPlayingSynthetic() const { return SyntheticCursor < SyntheticEvents.Num(); }
@@ -96,6 +97,15 @@ public:
 	/** The gore actor, created on first use (nullptr while inactive). */
 	AVerseGoreActor* GetGoreActor() const { return GoreActor.Get(); }
 
+	/** Where the live droplets are now (the same motion the droplet material draws). */
+	TArray<FVector> GetDropletPositions() const;
+
+	/** Per-instance custom data floats of a droplet: world spawn time, velocity xyz, life, drag, gravity. */
+	static constexpr int32 DropletCustomFloats = 7;
+
+	/** Droplet offset from its origin after `Age` seconds (exact solution of gravity plus linear drag). */
+	static FVector DropletOffset(const FVector& Velocity, float Age, float Drag, float Gravity);
+
 	/** Wounds currently on one body (ref-pose component space xyz, radius w). */
 	TArray<FVector4f> GetWounds(const USkeletalMeshComponent* Mesh) const;
 
@@ -103,17 +113,26 @@ public:
 	TArray<UDecalComponent*> GetSpatterDecals() const;
 	TArray<UDecalComponent*> GetPoolDecals() const;
 
+	/** Every runtime asset gore loads by path (materials and the droplet mesh). A cooked build must
+	 *  contain all of them; /Game/Verse/Gore is not referenced by any map, so it is cooked through
+	 *  DirectoriesToAlwaysCook (contract change request #1171). */
+	static TArray<FString> RuntimeAssetPaths();
+
+	/** True once every gore material resolved (false: gore is counted but not drawn). */
+	bool HasLook() const { return bLookLoaded && SpatterMaterials.Num() > 0 && PoolMaterial != nullptr; }
+
 	/** Bone-space impact -> reference-pose component space (what the wound mask compares against). */
 	static bool BoneLocalToRefPose(const USkeletalMeshComponent* Mesh, FName Bone, const FVector& BoneLocal, FVector& OutRefPose);
 
 private:
+	/** One droplet. The GPU animates it from its instance's custom data; the game thread only
+	 *  writes the slot once at spawn and clears the instances when the last droplet died. */
 	struct FDroplet
 	{
-		FVector Position = FVector::ZeroVector;
+		FVector Origin = FVector::ZeroVector;
 		FVector Velocity = FVector::ZeroVector;
-		float Age = 0.f;
+		double SpawnTime = 0.0;   // gore time
 		float Life = 0.f;
-		float Size = 1.f;
 	};
 
 	struct FFlash
@@ -157,7 +176,11 @@ private:
 	void ApplyWounds(FWoundSet& Set, int32 Changed = INDEX_NONE);
 	void StartPool(int32 VictimId, const FVector& BodyLocation, const AActor* Ignore);
 	void UpdatePools();
-	void UpdateDroplets(float DeltaSeconds);
+	void UpdateDroplets();
+	int32 LiveDroplets() const;
+	/** Adds a handler's time to the budget (and to the nested time of a running tick). */
+	void AccountEvent(double Ms, bool bHit);
+	void RefreshGameThreadBudget();
 	void UpdateFlashes(float DeltaSeconds);
 	void StartCutToBlack(const FVerseFinisherEvent& Event);
 	void EndCutToBlack();
@@ -190,7 +213,12 @@ private:
 	int32 SpatterLive = 0;
 
 	TArray<FPool> Pools;     // oldest first
-	TArray<FDroplet> DropletsSim;
+	TArray<FDroplet> DropletsSim;   // ring of instance slots; slot i = ISM instance i
+	int32 DropletNext = 0;
+	double DropletsLastExpiry = 0.0;
+	double NestedEventMs = 0.0;
+	double LastPoolUpdate = -1.0;
+	bool bPoolsDirty = false;
 	TArray<FFlash> FlashesSim;
 	TArray<FWoundSet> WoundSets;
 	/** Bodies whose wounds clear at a gore time (respawn). */
@@ -208,4 +236,5 @@ private:
 	TArray<FVerseGoreSyntheticEvent> SyntheticEvents;
 	int32 SyntheticCursor = 0;
 	double SyntheticStart = 0.0;
+	bool bSyntheticOnHub = false;
 };

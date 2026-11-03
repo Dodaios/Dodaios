@@ -10,6 +10,7 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/PointLight.h"
 #include "GameFramework/PlayerController.h"
+#include "Gore/VerseGoreActor.h"
 #include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/App.h"
@@ -41,9 +42,11 @@ namespace VerseGoreVisual
 		FString Dir;
 		int32 Frames = 0;
 		TArray<double> GpuMs;
-		double BaselineMs = 0.0;
-		double LoadedMs = 0.0;
-		double StormClock = 0.0;
+		/** Median GPU frame time of each phase, in order; key = gore shown. */
+		TArray<TPair<bool, double>> Phases;
+		int32 PhaseFrame = 0;
+		int32 StormFrames = 0;
+		bool bShown = true;
 		uint16 Shot = 1;
 		int32 Shots = 0;
 	};
@@ -166,6 +169,61 @@ namespace VerseGoreVisual
 		return Data ? double(Data->RawGPUFrameTime[0]) : 0.0;
 	}
 
+	/** Frames per shown or hidden phase of the GPU measurement, and frames skipped after a switch. */
+	constexpr int32 GpuPhaseFrames = 60;
+	constexpr int32 GpuSettleFrames = 10;
+
+	/** Shows or hides every gore primitive (decals, pools, droplets); the work behind them goes on. */
+	void SetGoreShown(FState& S, bool bShown)
+	{
+		if (AVerseGoreActor* Actor = S.Gore ? S.Gore->GetGoreActor() : nullptr)
+		{
+			Actor->SetActorHiddenInGame(!bShown);
+			if (USceneComponent* Root = Actor->GetRootComponent())
+			{
+				Root->SetVisibility(bShown, true);
+			}
+		}
+	}
+
+	struct FGpuResult
+	{
+		TArray<double> Diffs;
+		double Mean = 0.0;
+		double Half = 0.0;
+	};
+
+	/** Shown phase minus the mean of its hidden neighbours; mean and 95 % half width (Student t). */
+	FGpuResult Evaluate(const TArray<TPair<bool, double>>& Phases)
+	{
+		FGpuResult R;
+		for (int32 I = 1; I + 1 < Phases.Num(); ++I)
+		{
+			if (Phases[I].Key && !Phases[I - 1].Key && !Phases[I + 1].Key)
+			{
+				R.Diffs.Add(Phases[I].Value - 0.5 * (Phases[I - 1].Value + Phases[I + 1].Value));
+			}
+		}
+		const int32 N = R.Diffs.Num();
+		if (N < 2)
+		{
+			R.Half = TNumericLimits<double>::Max();
+			return R;
+		}
+		for (const double D : R.Diffs)
+		{
+			R.Mean += D / N;
+		}
+		double Var = 0.0;
+		for (const double D : R.Diffs)
+		{
+			Var += FMath::Square(D - R.Mean) / (N - 1);
+		}
+		// t(0.975, N-1) ~ 1.96 + 2.5 / (N-1): 2.46 at 5, 2.14 at 14 degrees of freedom.
+		R.Half = (1.96 + 2.5 / (N - 1)) * FMath::Sqrt(Var / N);
+		return R;
+	}
+
 	void Shoot(FState& S, const TCHAR* Name)
 	{
 		const FString Path = FPaths::Combine(S.Dir, FString::Printf(TEXT("%s_%s.png"), Name,
@@ -286,7 +344,12 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 		TestTrue(TEXT("Reduced finisher cut to black once"), S->Gore->GetCutToBlack().Count >= 1);
 	});
 
-	// GPU cost of gore_storm at 1440p: frame GPU time with gore at its caps minus without.
+	// GPU cost of gore_storm at 1440p (A5.4). The storm plays as the row defines it, 30 hits/s for
+	// 60 s, on a fixed 30 Hz step. Gore is shown and hidden in alternating phases; each shown phase
+	// is compared with the mean of the hidden phases on both sides of it, which cancels slow drift
+	// of the shared GPU. The per-pair differences give a mean and a 95 % confidence bound: the test
+	// passes when the upper bound is within 0.3 ms, and fails when the bound is implausible (gore
+	// cheaper than no gore beyond the noise) or too wide to say anything.
 	Do([S]()
 	{
 		if (IConsoleVariable* VSync = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync")))
@@ -298,20 +361,7 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 		S->Gore->Purge();
 		S->Gore->SetGoreLevel(EVerseGoreLevel::Full);
 		Look(*S, FVector(-300.0, -40.0, 160.0), FVector(150.0, 0.0, 100.0));
-		S->GpuMs.Reset();
-	});
-	Wait(60);
-	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S]()
-	{
-		S->GpuMs.Add(GpuFrameMs());
-		if (S->GpuMs.Num() < 150)
-		{
-			return false;
-		}
-		S->GpuMs.Sort();
-		S->BaselineMs = S->GpuMs[S->GpuMs.Num() / 2];
-		S->GpuMs.Reset();
-		// Fill to the caps: 256 spatter decals in view, 16 pools, 16 wounds.
+		// Start at the caps: 256 spatter decals in view, 16 pools, 16 wounds.
 		for (int32 I = 0; I < 220; ++I)
 		{
 			S->Gore->HandleHit(HitOn(*S, EVerseHitZone(1 + I % 6), 55.f));
@@ -321,44 +371,92 @@ bool FVerseGoreVisualPairs::RunTest(const FString&)
 			Body(*S, Id, FVector(-60.0 - 25.0 * (Id - 10), -200.0 + 25.0 * (Id - 10), 0.0), 0.f);
 			FVerseDeathEvent Death;
 			Death.VictimId = Id;
-			S->Hub->OnDeath.Broadcast(Death);
+			S->Gore->HandleDeath(Death);
 		}
-		return true;
-	}));
-	Wait(30);
-	// Steady storm from here: decals and pools exist, so the per-hit cost is the recycling path.
-	Do([S]() { S->Gore->ResetBudget(); });
+	});
+	Wait(60);
+	Do([S]()
+	{
+		FApp::SetUseFixedTimeStep(true);
+		FApp::SetFixedDeltaTime(1.0 / 30.0);
+		S->Gore->ResetBudget();
+		FVerseGoreSyntheticParams Params;
+		Params.Kind = EVerseGoreSyntheticKind::Storm;
+		Params.DurationSeconds = 60.0;
+		Params.Seed = 11;
+		Params.VictimId = 2;
+		Params.VictimLocation = Base;
+		Params.ShooterLocation = Base + FVector(-900.0, -60.0, 160.0);
+		S->Gore->PlaySynthetic(Params);
+		S->GpuMs.Reset();
+		S->Phases.Reset();
+		S->PhaseFrame = 0;
+		S->bShown = false;
+		S->StormFrames = 0;
+		SetGoreShown(*S, false);
+	});
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S]()
 	{
-		// Storm continues at 30 hits/s (one hit per frame at the 30 fps benchmark step).
-		S->Gore->HandleHit(HitOn(*S, EVerseHitZone(1 + S->Shot % 6), 40.f));
-		S->GpuMs.Add(GpuFrameMs());
-		if (S->GpuMs.Num() < 300)
+		const bool bDone = !S->Gore->IsPlayingSynthetic();
+		++S->StormFrames;
+		++S->PhaseFrame;
+		if (S->PhaseFrame > GpuSettleFrames)
 		{
-			return false;
+			S->GpuMs.Add(GpuFrameMs());
 		}
-		S->GpuMs.Sort();
-		S->LoadedMs = S->GpuMs[S->GpuMs.Num() / 2];
-		return true;
+		if (S->PhaseFrame >= GpuPhaseFrames || bDone)
+		{
+			if (S->GpuMs.Num() >= 20)
+			{
+				S->GpuMs.Sort();
+				S->Phases.Add({S->bShown, S->GpuMs[S->GpuMs.Num() / 2]});
+			}
+			S->GpuMs.Reset();
+			S->PhaseFrame = 0;
+			S->bShown = !S->bShown;
+			SetGoreShown(*S, S->bShown);
+		}
+		return bDone;
 	}));
 	Do([this, S]()
 	{
-		const double Delta = S->LoadedMs - S->BaselineMs;
+		FApp::SetUseFixedTimeStep(false);
+		SetGoreShown(*S, true);
+		const FGpuResult R = Evaluate(S->Phases);
 		const FVerseGoreBudget& B = S->Gore->GetBudget();
 		const FIntPoint Size = GEngine->GameViewport && GEngine->GameViewport->Viewport ? GEngine->GameViewport->Viewport->GetSizeXY() : FIntPoint::ZeroValue;
+		FString PhaseList;
+		for (const TPair<bool, double>& Phase : S->Phases)
+		{
+			PhaseList += FString::Printf(TEXT("%s[%s, %.4f]"), PhaseList.IsEmpty() ? TEXT("") : TEXT(", "), Phase.Key ? TEXT("true") : TEXT("false"), Phase.Value);
+		}
+		FString DiffList;
+		for (const double D : R.Diffs)
+		{
+			DiffList += FString::Printf(TEXT("%s%.4f"), DiffList.IsEmpty() ? TEXT("") : TEXT(", "), D);
+		}
 		const FString Json = FString::Printf(
-			TEXT("{\n  \"schema\": \"verse.gore.gpu/1\",\n  \"resolution\": [%d, %d],\n  \"baseline_gpu_ms_median\": %.4f,\n")
-			TEXT("  \"storm_gpu_ms_median\": %.4f,\n  \"gore_gpu_ms\": %.4f,\n  \"limit_gpu_ms\": 0.3,\n")
-			TEXT("  \"live\": {\"spatter_decals\": %d, \"pools\": %d, \"droplets\": %d, \"max_wounds_on_one_character\": %d},\n")
-			TEXT("  \"game_thread_hit_mean_ms\": %.5f\n}\n"),
-			Size.X, Size.Y, S->BaselineMs, S->LoadedMs, Delta, B.SpatterDecals, B.Pools, B.Droplets, B.MaxWoundsOnOneCharacter, B.HitMeanMs);
+			TEXT("{\n  \"schema\": \"verse.gore.gpu/2\",\n  \"resolution\": [%d, %d],\n")
+			TEXT("  \"storm\": {\"hits_per_second\": 30, \"seconds\": 60, \"step_hz\": 30, \"frames\": %d, \"hits\": %d},\n")
+			TEXT("  \"method\": \"alternating gore shown/hidden phases of %d frames (first %d skipped), median raw GPU frame time per phase; diff = shown - mean(hidden before, hidden after)\",\n")
+			TEXT("  \"phases\": [%s],\n  \"diffs_ms\": [%s],\n")
+			TEXT("  \"gore_gpu_ms\": {\"mean\": %.4f, \"ci95_half\": %.4f, \"upper95\": %.4f, \"lower95\": %.4f, \"n\": %d},\n")
+			TEXT("  \"limit_gpu_ms\": 0.3,\n")
+			TEXT("  \"live\": {\"spatter_decals\": %d, \"pools\": %d, \"droplets_peak\": %d, \"max_wounds_on_one_character\": %d},\n")
+			TEXT("  \"game_thread_per_hit_ms\": %.5f\n}\n"),
+			Size.X, Size.Y, S->StormFrames, B.HitsHandled, GpuPhaseFrames, GpuSettleFrames, *PhaseList, *DiffList,
+			R.Mean, R.Half, R.Mean + R.Half, R.Mean - R.Half, R.Diffs.Num(),
+			B.SpatterDecals, B.Pools, B.PeakDroplets, B.MaxWoundsOnOneCharacter, B.GameThreadPerHitMs);
 		FFileHelper::SaveStringToFile(Json, *FPaths::Combine(ProofDir(TEXT("5.8")), TEXT("gpu_gore_storm_1440p.json")));
 		S->Gore->WriteBudgetJson(FPaths::Combine(ProofDir(TEXT("5.8")), TEXT("budget_gore_storm_rendered.json")));
-		AddInfo(FString::Printf(TEXT("gore_storm GPU %.3f ms (baseline %.3f, storm %.3f) at %dx%d"), Delta, S->BaselineMs, S->LoadedMs, Size.X, Size.Y));
-		TestTrue(FString::Printf(TEXT("gore_storm GPU cost %.3f ms <= 0.3 ms at 1440p"), Delta), Delta <= 0.3);
+		AddInfo(FString::Printf(TEXT("gore_storm GPU %.3f ms +- %.3f (95 %%, n=%d) at %dx%d"), R.Mean, R.Half, R.Diffs.Num(), Size.X, Size.Y));
+		TestTrue(FString::Printf(TEXT("storm played 1,800 hits (%d)"), B.HitsHandled), B.HitsHandled == 1800);
+		TestTrue(FString::Printf(TEXT("enough shown/hidden pairs (%d >= 8)"), R.Diffs.Num()), R.Diffs.Num() >= 8);
+		TestTrue(FString::Printf(TEXT("gore_storm GPU upper 95 %% bound %.3f ms <= 0.3 ms at 1440p"), R.Mean + R.Half), R.Mean + R.Half <= 0.3);
+		TestTrue(FString::Printf(TEXT("measurement plausible: upper bound %.3f ms is not below zero"), R.Mean + R.Half), R.Mean + R.Half >= 0.0);
 		TestTrue(TEXT("measured at 1440p"), Size.Y >= 1440);
-		TestTrue(FString::Printf(TEXT("rendered storm game thread per hit %.4f ms <= 0.05 ms"), B.HitMeanMs), B.HitMeanMs <= 0.05);
-		TestTrue(TEXT("GPU frame timing available"), S->BaselineMs > 0.0);
+		TestTrue(FString::Printf(TEXT("rendered storm game thread per hit %.4f ms <= 0.05 ms"), B.GameThreadPerHitMs), B.GameThreadPerHitMs <= 0.05);
+		TestTrue(TEXT("GPU frame timing available"), S->Phases.Num() > 0 && S->Phases[0].Value > 0.0);
 		S->Gore->Purge();
 		S->Gore->SetVictimResolver(nullptr);
 		for (AActor* Actor : S->Spawned)
