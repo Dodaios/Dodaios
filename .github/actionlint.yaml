@@ -1,5 +1,5 @@
-# actionlint configuration.
+# actionlint configuration (run by ci.yml static gates).
 self-hosted-runner:
-  # The dev box that builds and cooks the Unreal Verse (unreal-package.yml).
+  # The Unreal box (architecture.md 8.2): unreal-build, unreal-gauntlet, unreal-perf.
   labels:
     - unreal
