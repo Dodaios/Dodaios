@@ -57,14 +57,26 @@ def editor_cmd() -> Path:
     return engine_root() / "Engine" / "Binaries" / platform / exe
 
 
-def command_line(log: Path) -> list[str]:
+#: Commands that spawn actors. The editor places a new actor through the level viewport, which
+#: divides by its size and crashes without an RHI (UE 5.7.1, measured); these run on the GPU
+#: with the window offscreen instead of `-nullrhi`.
+RENDERED_COMMANDS = frozenset({"placements"})
+
+
+def rhi_args(command: str = "") -> list[str]:
+    if command in RENDERED_COMMANDS:
+        return ["-RenderOffscreen", "-ResX=640", "-ResY=360"]
+    return ["-nullrhi"]
+
+
+def command_line(log: Path, command: str = "") -> list[str]:
     return [
         str(editor_cmd()),
         str(art_common.UPROJECT),
         f"-ExecutePythonScript={CLI}",
         "-unattended",
         "-nosplash",
-        "-nullrhi",
+        *rhi_args(command),
         "-nosound",
         "-NoP4",
         "-stdout",
@@ -86,7 +98,7 @@ def run_pipeline(argv: list[str]) -> tuple[int, dict, Path]:
         VERSE_PIPELINE_RESULT=str(report_path),
         VERSE_PIPELINE_QUIT="1",
     )
-    command = command_line(log)
+    command = command_line(log, argv[0])
     if not editor_cmd().is_file():
         raise FileNotFoundError(f"{editor_cmd()} not found; set {ENGINE_ENV}")
     with art_common.heavy_lock(f"import_art {argv[0]}"):
