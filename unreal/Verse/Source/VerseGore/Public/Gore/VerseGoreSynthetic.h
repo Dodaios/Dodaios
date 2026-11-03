@@ -5,7 +5,7 @@
 
 // Synthetic event player (WP05.1): seeded streams of the contract events Gore listens to, so
 // Gore, its tests and its screenshots run before Combat exists (work-packages.md 0.3). The
-// streams are published on UVerseEventHub, the same path the real Combat events take.
+// streams feed Gore's handlers directly; tests may publish them on UVerseEventHub instead.
 
 enum class EVerseGoreSyntheticKind : uint8
 {
@@ -43,6 +43,10 @@ struct VERSEGORE_API FVerseGoreSyntheticParams
 	/** Where the victim stands (floor point, cm) and where the shooter fires from. */
 	FVector VictimLocation = FVector::ZeroVector;
 	FVector ShooterLocation = FVector(-1000.0, 0.0, 150.0);
+	/** Publish the events on the world's UVerseEventHub (automation tests only). Off by default:
+	 *  playback then feeds only Gore's own handlers, so a dev command can never reach score,
+	 *  respawn, kill cam or the bot (combat-state.md 8, one way). */
+	bool bPublishOnHub = false;
 };
 
 /** Finisher phase offsets from `SequenceStartServerTime`, s (combat-state.md 7.4). */

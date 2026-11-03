@@ -15,7 +15,7 @@ namespace VerseGoreD6
 
 	enum class EMode : uint8 { Off, Full, Reduced };
 
-	TArray<uint32> Run(EMode Mode, uint32 Seed, FVerseGoreBudget& OutBudget)
+	TArray<uint32> Run(EMode Mode, uint32 Seed, FVerseGoreBudget& OutBudget, int32& OutQueries)
 	{
 		FWorld W(Mode != EMode::Off, TEXT("VerseGoreD6World"));
 		TArray<uint32> Hashes;
@@ -36,6 +36,7 @@ namespace VerseGoreD6
 			Hashes.Add(Duel.StateHash());
 		}
 		OutBudget = W.Gore->GetBudget();
+		OutQueries = Duel.Queries;
 		return Hashes;
 	}
 }
@@ -48,9 +49,12 @@ bool FVerseGoreNoGameplayEffectTest::RunTest(const FString&)
 	using namespace VerseGoreD6;
 	const uint32 Seed = 0xD6u;
 	FVerseGoreBudget OffBudget, FullBudget, ReducedBudget;
-	const TArray<uint32> Off = Run(EMode::Off, Seed, OffBudget);
-	const TArray<uint32> Full = Run(EMode::Full, Seed, FullBudget);
-	const TArray<uint32> Reduced = Run(EMode::Reduced, Seed, ReducedBudget);
+	int32 OffQueries = 0, FullQueries = 0, ReducedQueries = 0;
+	const TArray<uint32> Off = Run(EMode::Off, Seed, OffBudget, OffQueries);
+	const TArray<uint32> Full = Run(EMode::Full, Seed, FullBudget, FullQueries);
+	const TArray<uint32> Reduced = Run(EMode::Reduced, Seed, ReducedBudget, ReducedQueries);
+	// The fake's gameplay traces VerseBolt, VerseHitBody and VerseSight through the gore every tick.
+	TestTrue(FString::Printf(TEXT("gameplay queried the world (%d traces per run)"), FullQueries), FullQueries > Ticks * 6);
 	if (!TestEqual(TEXT("every run produced every tick"), Full.Num(), Ticks) || Off.Num() != Ticks || Reduced.Num() != Ticks)
 	{
 		return false;
@@ -84,7 +88,7 @@ bool FVerseGoreNoGameplayEffectTest::RunTest(const FString&)
 
 	const FString Dir = ProofDir(TEXT("5.8"));
 	IFileManager::Get().MakeDirectory(*Dir, true);
-	FString Log = FString::Printf(TEXT("# Verse.Gore.NoGameplayEffect seed=0x%X ticks=%d hz=30 harness=FFakeGoreDuel\n# tick off full reduced\n"), Seed, Ticks);
+	FString Log = FString::Printf(TEXT("# Verse.Gore.NoGameplayEffect seed=0x%X ticks=%d hz=30 harness=FFakeGoreDuel traces_per_run=%d\n# tick off full reduced\n"), Seed, Ticks, FullQueries);
 	for (int32 Tick = 0; Tick < Ticks; Tick += 1)
 	{
 		Log += FString::Printf(TEXT("%d %08x %08x %08x\n"), Tick, Off[Tick], Full[Tick], Reduced[Tick]);

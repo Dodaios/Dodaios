@@ -2,10 +2,12 @@
 """Build the gore assets of the Unreal Verse (WP05).
 
     python art/verse/gore/build.py            # bake masks, then run the editor step
-    python art/verse/gore/build.py --bake     # bake masks only (no editor, no lock)
+    python art/verse/gore/build.py --bake     # masks and records only (no editor, no lock)
+    python art/verse/gore/build.py --only M_Gore_Droplet   # rebuild listed assets only
 
-1. Bakes the procedural masks (``textures.py``) to ``art/verse/.cache/gore/``
-   (ignored; sources are never committed, art-pipeline 6.4).
+1. Bakes the procedural masks (``textures.py``) to ``art/verse/.cache/unreal/gore/``
+   (ignored; sources are never committed, art-pipeline 6.4) and writes the
+   import records and MI recipes (``records.py``, art-pipeline 7 and 10.3).
 2. Runs ``unreal_assets.py`` in a headless editor (``-ExecutePythonScript``) under the machine-wide
    gpu-heavy lock (``scripts/unreal/with_lock.py``), which imports the masks
    and writes the materials into ``unreal/Verse/Content/Verse/Gore/`` and the
@@ -27,12 +29,13 @@ REPO = HERE.parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(HERE))
 
-import textures  # noqa: E402
+import records  # noqa: E402
+import spec  # noqa: E402
 
 from scripts.unreal import _common as common  # noqa: E402
 from scripts.unreal import with_lock  # noqa: E402
 
-CACHE = REPO / "art" / "verse" / ".cache" / "gore"
+CACHE = records.CACHE
 
 
 def editor_command(script: Path, log: Path) -> list[str]:
@@ -55,11 +58,17 @@ def editor_command(script: Path, log: Path) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--bake", action="store_true", help="bake the masks only")
+    parser.add_argument("--bake", action="store_true", help="bake the masks and records only")
+    parser.add_argument("--only", nargs="+", default=[],
+                        help="rebuild only these assets (untouched assets are never re-saved)")
     options = parser.parse_args(argv)
+    known = set(spec.TEXTURES) | set(spec.INSTANCES) | set(spec.MATERIALS)
+    unknown = sorted(set(options.only) - known)
+    if unknown:
+        parser.error(f"unknown assets: {', '.join(unknown)}")
 
-    baked = textures.bake(CACHE)
-    print(f"[gore] baked {len(baked)} masks into {CACHE}")
+    if records.main([]) != 0:
+        return 1
     if options.bake:
         return 0
 
@@ -71,6 +80,8 @@ def main(argv: list[str] | None = None) -> int:
     env["VERSE_GORE_TEXTURES"] = str(CACHE)
     env["VERSE_GORE_RESULT"] = str(result)
     env["VERSE_GORE_QUIT"] = "1"
+    env["VERSE_GORE_HERE"] = str(HERE)
+    env["VERSE_GORE_ONLY"] = ",".join(options.only)
     code = with_lock.run_locked(
         editor_command(HERE / "unreal_assets.py", out_dir / "unreal_assets.log"),
         label="gore assets (wp05)",

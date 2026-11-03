@@ -23,21 +23,10 @@ namespace VerseGoreTestPrivate
 		return FVerseGoreSyntheticStream::MakeHit(Zone, Feet, Shooter, 1, Victim, Damage, Shot, 0.f, bKill);
 	}
 
+	/** Droplet positions now (the material draws the same motion from the instance data). */
 	TArray<FVector> DropletPositions(const UVerseGoreSubsystem* Gore)
 	{
-		TArray<FVector> Result;
-		const AVerseGoreActor* Actor = Gore->GetGoreActor();
-		if (!Actor)
-		{
-			return Result;
-		}
-		for (int32 Index = 0; Index < Actor->Droplets->GetInstanceCount(); ++Index)
-		{
-			FTransform Transform;
-			Actor->Droplets->GetInstanceTransform(Index, Transform, true);
-			Result.Add(Transform.GetLocation());
-		}
-		return Result;
+		return Gore->GetDropletPositions();
 	}
 
 	UMaterialInstanceDynamic* BodyMid(USkeletalMeshComponent* Mesh)
@@ -147,7 +136,7 @@ bool FVerseGoreSyntheticTest::RunTest(const FString&)
 	TestEqual(TEXT("finisher stream phases"), Phases, 5);
 	TestEqual(TEXT("finisher stream death"), Deaths, 1);
 
-	// Playback goes through the hub.
+	// By default playback feeds only gore, never the hub's other consumers (combat-state.md 8).
 	FWorld W;
 	int32 HubHits = 0;
 	W.Hub->OnHit.AddLambda([&HubHits](const FVerseHitEvent&) { ++HubHits; });
@@ -156,9 +145,17 @@ bool FVerseGoreSyntheticTest::RunTest(const FString&)
 	Params.RatePerSecond = 5.0;
 	W.Gore->PlaySynthetic(Params);
 	W.Advance(2.5);
-	TestEqual(TEXT("played hits reach the hub"), HubHits, 10);
-	TestEqual(TEXT("and gore"), W.Gore->GetBudget().HitsHandled, 10);
+	TestEqual(TEXT("default playback publishes nothing on the hub"), HubHits, 0);
+	TestEqual(TEXT("default playback reaches gore"), W.Gore->GetBudget().HitsHandled, 10);
 	TestFalse(TEXT("stream finished"), W.Gore->IsPlayingSynthetic());
+
+	// A test may publish on the hub, the path Combat's events take.
+	W.Gore->ResetBudget();
+	Params.bPublishOnHub = true;
+	W.Gore->PlaySynthetic(Params);
+	W.Advance(2.5);
+	TestEqual(TEXT("hub playback reaches the hub"), HubHits, 10);
+	TestEqual(TEXT("and gore"), W.Gore->GetBudget().HitsHandled, 10);
 	return true;
 }
 
@@ -586,6 +583,24 @@ bool FVerseGoreNoCollisionTest::RunTest(const FString&)
 	return true;
 }
 
+// Every asset gore loads by path resolves, and gore picks up its look. Runs in the editor and in
+// cooked builds (WP22 smoke), where a gore folder left out of the cook would show up here.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseGoreAssetsTest, "Verse.Gore.Assets.Resolve", VERSE_GORE_TEST_FLAGS)
+bool FVerseGoreAssetsTest::RunTest(const FString&)
+{
+	for (const FString& Path : UVerseGoreSubsystem::RuntimeAssetPaths())
+	{
+		TestNotNull(FString::Printf(TEXT("%s resolves"), *Path), StaticLoadObject(UObject::StaticClass(), nullptr, *Path));
+	}
+	FWorld W;
+	W.AddRoom(150.0);
+	W.Gore->HandleHit(Hit(EVerseHitZone::UpperTorso, FVector::ZeroVector, FVector(-800.0, 0.0, 132.0), 2, 1));
+	TestTrue(TEXT("gore materials loaded (gore is drawn, not only counted)"), W.Gore->HasLook());
+	const AVerseGoreActor* Actor = W.Gore->GetGoreActor();
+	TestTrue(TEXT("droplet instances carry the material's custom data"), Actor && Actor->Droplets->NumCustomDataFloats == UVerseGoreSubsystem::DropletCustomFloats);
+	return true;
+}
+
 // A5.4: gore_storm (30 hits/s for 60 s) stays inside the caps and the game-thread budget.
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseGoreBudgetTest, "Verse.Gore.Budget.Storm", VERSE_GORE_TEST_FLAGS)
 bool FVerseGoreBudgetTest::RunTest(const FString&)
@@ -622,7 +637,10 @@ bool FVerseGoreBudgetTest::RunTest(const FString&)
 	TestTrue(FString::Printf(TEXT("spatter decals peak %d <= 256"), B.PeakSpatterDecals), B.PeakSpatterDecals <= 256 && B.PeakSpatterDecals > 0);
 	TestTrue(FString::Printf(TEXT("pools peak %d <= 16"), B.PeakPools), B.PeakPools <= 16 && B.PeakPools > 0);
 	TestTrue(FString::Printf(TEXT("wounds peak %d <= 16"), B.PeakWoundsOnOneCharacter), B.PeakWoundsOnOneCharacter <= 16 && B.PeakWoundsOnOneCharacter > 0);
-	TestTrue(FString::Printf(TEXT("game thread per hit %.4f ms <= 0.05 ms"), B.HitMeanMs), B.HitMeanMs <= 0.05);
+	// All gore game-thread time (hits, deaths, ticks) over the storm, per hit handled.
+	TestTrue(FString::Printf(TEXT("game thread per hit %.4f ms (hits %.1f + events %.1f + ticks %.1f ms over %d hits) <= 0.05 ms"),
+		B.GameThreadPerHitMs, B.HitTotalMs, B.OtherEventTotalMs, B.TickTotalMs, B.HitsHandled), B.GameThreadPerHitMs <= 0.05);
+	TestTrue(TEXT("per-hit figure covers the ticks"), B.Ticks > 0 && B.GameThreadTotalMs >= B.HitTotalMs + B.TickTotalMs - 1e-9);
 
 	const FString Dir = ProofDir(TEXT("5.8"));
 	IFileManager::Get().MakeDirectory(*Dir, true);

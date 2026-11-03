@@ -20,6 +20,7 @@
 #include "Misc/App.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FileHelper.h"
+#include "Misc/ScopeExit.h"
 #include "Stats/Stats.h"
 #include "VerseLog.h"
 #include "VerseRng.h"
@@ -289,6 +290,7 @@ void UVerseGoreSubsystem::Purge()
 	}
 	Pools.Reset();
 	DropletsSim.Reset();
+	DropletNext = 0;
 	FlashesSim.Reset();
 	if (AVerseGoreActor* Actor = GoreActor.Get())
 	{
@@ -339,6 +341,18 @@ void UVerseGoreSubsystem::LoadLook()
 		Actor->SetLook(LoadOptional<UStaticMesh>(DropletMeshPath), LoadOptional<UMaterialInterface>(DropletMaterialPath),
 			LoadOptional<UMaterialInterface>(FlashMaterialPath));
 	}
+}
+
+TArray<FString> UVerseGoreSubsystem::RuntimeAssetPaths()
+{
+	using namespace VerseGorePrivate;
+	TArray<FString> Paths;
+	for (const TCHAR* Path : SpatterMaterialPaths)
+	{
+		Paths.Add(Path);
+	}
+	Paths.Append({DripMaterialPath, PoolMaterialPath, DropletMaterialPath, FlashMaterialPath, DropletMeshPath});
+	return Paths;
 }
 
 AVerseGoreActor* UVerseGoreSubsystem::EnsureGoreActor()
@@ -455,11 +469,8 @@ void UVerseGoreSubsystem::HandleHit(const FVerseHitEvent& Event)
 		}
 	}
 
-	const double Ms = VerseGorePrivate::CyclesToMs(FPlatformTime::Cycles64() - Start);
-	Budget.HitTotalMs += Ms;
-	Budget.HitMaxMs = FMath::Max(Budget.HitMaxMs, Ms);
-	Budget.HitMeanMs = Budget.HitTotalMs / FMath::Max(1, Budget.HitsHandled);
 	RefreshBudgetLive();
+	AccountEvent(VerseGorePrivate::CyclesToMs(FPlatformTime::Cycles64() - Start), true);
 }
 
 void UVerseGoreSubsystem::HandleDeath(const FVerseDeathEvent& Event)
@@ -468,6 +479,8 @@ void UVerseGoreSubsystem::HandleDeath(const FVerseDeathEvent& Event)
 	{
 		return;
 	}
+	const uint64 Start = FPlatformTime::Cycles64();
+	ON_SCOPE_EXIT { AccountEvent(VerseGorePrivate::CyclesToMs(FPlatformTime::Cycles64() - Start), false); };
 	++Budget.DeathsHandled;
 	if (Level == EVerseGoreLevel::Reduced)
 	{
@@ -497,6 +510,8 @@ void UVerseGoreSubsystem::HandleFinisher(const FVerseFinisherEvent& Event)
 	{
 		return;
 	}
+	const uint64 Start = FPlatformTime::Cycles64();
+	ON_SCOPE_EXIT { AccountEvent(VerseGorePrivate::CyclesToMs(FPlatformTime::Cycles64() - Start), false); };
 	++Budget.FinisherPhasesHandled;
 
 	if (Level == EVerseGoreLevel::Reduced)
@@ -549,29 +564,101 @@ void UVerseGoreSubsystem::HandleFinisher(const FVerseFinisherEvent& Event)
 
 void UVerseGoreSubsystem::SpawnBurst(const FVector& Origin, const FVector& Direction, int32 Count, uint32 Seed)
 {
-	if (Count <= 0)
+	const int32 Capacity = Tuning.MaxDroplets;
+	if (Count <= 0 || Capacity <= 0)
 	{
 		return;
 	}
+	// The droplet material moves each instance from its custom data (spawn time, velocity, life,
+	// drag, gravity), so a droplet costs one slot write here and nothing per frame afterwards.
+	AVerseGoreActor* Actor = GoreActor.Get();
+	UInstancedStaticMeshComponent* Ism = Actor ? Actor->Droplets.Get() : nullptr;
+	const UWorld* World = GetWorld();
+	const float WorldTime = World ? float(World->GetTimeSeconds()) : 0.f;
 	FVerseRng Rng(Seed, 1, EVerseRngSalt::None);
 	const int32 BackSpray = FMath::RoundToInt32(Count * Tuning.DropletBackSprayFraction);
+	float Custom[DropletCustomFloats];
 	for (int32 Index = 0; Index < Count; ++Index)
 	{
-		if (DropletsSim.Num() >= Tuning.MaxDroplets)
-		{
-			DropletsSim.RemoveAt(0, 1, EAllowShrinking::No);   // oldest first
-		}
 		const bool bBack = Index < BackSpray;
 		const FVector Axis = bBack ? -Direction : Direction;
 		const FVector Dir = Rng.ConeDirection(Axis, bBack ? 40.0 : 22.0);
 		FDroplet Droplet;
-		Droplet.Position = Origin;
+		Droplet.Origin = Origin;
 		Droplet.Velocity = Dir * Tuning.DropletSpeedCm * Rng.Range(bBack ? 0.25 : 0.5, bBack ? 0.6 : 1.15);
 		Droplet.Life = Tuning.DropletLifeSeconds * float(Rng.Range(0.6, 1.2));
-		Droplet.Size = Tuning.DropletSizeCm * float(Rng.Range(0.5, 1.4));
-		DropletsSim.Add(Droplet);
+		Droplet.SpawnTime = GoreTime;
+		const float Size = Tuning.DropletSizeCm * float(Rng.Range(0.5, 1.4));
+
+		int32 Slot = INDEX_NONE;
+		if (DropletsSim.Num() < Capacity)
+		{
+			Slot = DropletsSim.Add(Droplet);
+		}
+		else
+		{
+			Slot = DropletNext;   // oldest first
+			DropletsSim[Slot] = Droplet;
+			DropletNext = (DropletNext + 1) % Capacity;
+		}
+		DropletsLastExpiry = FMath::Max(DropletsLastExpiry, GoreTime + Droplet.Life);
 		++Budget.DropletsSpawned;
+		if (!Ism)
+		{
+			continue;
+		}
+		// The primitive sphere is 100 cm across.
+		const FTransform Transform(FQuat::Identity, Origin, FVector(Size / 50.f));
+		if (Slot < Ism->GetInstanceCount())
+		{
+			Ism->UpdateInstanceTransform(Slot, Transform, true, false, true);
+		}
+		else
+		{
+			Ism->AddInstance(Transform, true);
+		}
+		Custom[0] = WorldTime;
+		Custom[1] = float(Droplet.Velocity.X);
+		Custom[2] = float(Droplet.Velocity.Y);
+		Custom[3] = float(Droplet.Velocity.Z);
+		Custom[4] = Droplet.Life;
+		Custom[5] = Tuning.DropletDrag;
+		Custom[6] = Tuning.GravityCm;
+		Ism->SetCustomData(Slot, TArrayView<const float>(Custom, DropletCustomFloats), false);
 	}
+}
+
+FVector UVerseGoreSubsystem::DropletOffset(const FVector& Velocity, float Age, float Drag, float Gravity)
+{
+	// dv/dt = -g z - k v, so p(t) = (V + g/k z) (1 - exp(-k t)) / k - (g/k) t z.
+	const double T = FMath::Max(0.f, Age);
+	const double K = FMath::Max(0.01f, Drag);
+	const FVector Terminal(0.0, 0.0, Gravity / K);
+	return (Velocity + Terminal) * ((1.0 - FMath::Exp(-K * T)) / K) - Terminal * T;
+}
+
+TArray<FVector> UVerseGoreSubsystem::GetDropletPositions() const
+{
+	TArray<FVector> Result;
+	for (const FDroplet& D : DropletsSim)
+	{
+		const float Age = float(GoreTime - D.SpawnTime);
+		if (Age < D.Life)
+		{
+			Result.Add(D.Origin + DropletOffset(D.Velocity, Age, Tuning.DropletDrag, Tuning.GravityCm));
+		}
+	}
+	return Result;
+}
+
+int32 UVerseGoreSubsystem::LiveDroplets() const
+{
+	int32 Live = 0;
+	for (const FDroplet& D : DropletsSim)
+	{
+		Live += GoreTime - D.SpawnTime < D.Life ? 1 : 0;
+	}
+	return Live;
 }
 
 void UVerseGoreSubsystem::SpawnSpatter(const FVector& Origin, const FVector& Direction, int32 Traces, uint32 Seed, const AActor* Ignore)
@@ -823,10 +910,20 @@ void UVerseGoreSubsystem::StartPool(int32 VictimId, const FVector& BodyLocation,
 		FLinearColor::White, 0, Transform);
 	Pool.Decal = Decal;
 	Pools.Add(Pool);
+	bPoolsDirty = true;
 }
 
 void UVerseGoreSubsystem::UpdatePools()
 {
+	// Growth is a slow ease-out over seconds; writing it at a fixed low rate looks the same and
+	// keeps decal transform updates off most frames.
+	const double Step = Tuning.PoolUpdateHz > 0.f ? 1.0 / Tuning.PoolUpdateHz : 0.0;
+	if (Pools.Num() == 0 || (!bPoolsDirty && GoreTime - LastPoolUpdate < Step))
+	{
+		return;
+	}
+	LastPoolUpdate = GoreTime;
+	bPoolsDirty = false;
 	for (int32 Index = Pools.Num() - 1; Index >= 0; --Index)
 	{
 		UDecalComponent* Decal = Pools[Index].Decal.Get();
@@ -892,27 +989,32 @@ void UVerseGoreSubsystem::AdvanceTime(float DeltaSeconds)
 	const float Dt = FMath::Max(0.f, DeltaSeconds);
 	GoreTime += Dt;
 
-	// Synthetic playback goes through the hub, the same path Combat's events take.
+	NestedEventMs = 0.0;
+
+	// Synthetic playback feeds Gore's own handlers. Only tests publish it on the hub, where every
+	// other consumer (score, respawn, kill cam, bot) would see it too (combat-state.md 8).
 	if (SyntheticCursor < SyntheticEvents.Num())
 	{
-		UVerseEventHub* EventHub = UVerseEventHub::Get(this);
+		UVerseEventHub* EventHub = bSyntheticOnHub ? UVerseEventHub::Get(this) : nullptr;
 		while (SyntheticCursor < SyntheticEvents.Num() && SyntheticEvents[SyntheticCursor].Time <= GoreTime - SyntheticStart + UE_KINDA_SMALL_NUMBER)
 		{
 			const FVerseGoreSyntheticEvent Event = SyntheticEvents[SyntheticCursor++];
-			if (!EventHub)
-			{
-				continue;
-			}
 			switch (Event.Type)
 			{
-			case FVerseGoreSyntheticEvent::EType::Hit: EventHub->OnHit.Broadcast(Event.Hit); break;
-			case FVerseGoreSyntheticEvent::EType::Death: EventHub->OnDeath.Broadcast(Event.Death); break;
-			case FVerseGoreSyntheticEvent::EType::Finisher: EventHub->OnFinisher.Broadcast(Event.Finisher); break;
+			case FVerseGoreSyntheticEvent::EType::Hit:
+				EventHub ? EventHub->OnHit.Broadcast(Event.Hit) : HandleHit(Event.Hit);
+				break;
+			case FVerseGoreSyntheticEvent::EType::Death:
+				EventHub ? EventHub->OnDeath.Broadcast(Event.Death) : HandleDeath(Event.Death);
+				break;
+			case FVerseGoreSyntheticEvent::EType::Finisher:
+				EventHub ? EventHub->OnFinisher.Broadcast(Event.Finisher) : HandleFinisher(Event.Finisher);
+				break;
 			}
 		}
 	}
 
-	UpdateDroplets(Dt);
+	UpdateDroplets();
 	UpdateFlashes(Dt);
 	UpdatePools();
 
@@ -943,67 +1045,51 @@ void UVerseGoreSubsystem::AdvanceTime(float DeltaSeconds)
 	}
 
 	RefreshBudgetLive();
-	const double Ms = VerseGorePrivate::CyclesToMs(FPlatformTime::Cycles64() - Start);
+	// The tick's own time: handlers that ran inside it are already counted as events.
+	const double Ms = FMath::Max(0.0, VerseGorePrivate::CyclesToMs(FPlatformTime::Cycles64() - Start) - NestedEventMs);
+	NestedEventMs = 0.0;
 	++Budget.Ticks;
 	Budget.TickTotalMs += Ms;
 	Budget.TickMaxMs = FMath::Max(Budget.TickMaxMs, Ms);
 	Budget.TickMeanMs = Budget.TickTotalMs / double(Budget.Ticks);
+	RefreshGameThreadBudget();
 }
 
-void UVerseGoreSubsystem::UpdateDroplets(float DeltaSeconds)
+void UVerseGoreSubsystem::AccountEvent(double Ms, bool bHit)
 {
-	AVerseGoreActor* Actor = GoreActor.Get();
-	if (!Actor)
+	if (bHit)
 	{
-		DropletsSim.Reset();
+		Budget.HitTotalMs += Ms;
+		Budget.HitMaxMs = FMath::Max(Budget.HitMaxMs, Ms);
+		Budget.HitMeanMs = Budget.HitTotalMs / FMath::Max(1, Budget.HitsHandled);
+	}
+	else
+	{
+		Budget.OtherEventTotalMs += Ms;
+	}
+	NestedEventMs += Ms;
+	RefreshGameThreadBudget();
+}
+
+void UVerseGoreSubsystem::RefreshGameThreadBudget()
+{
+	Budget.GameThreadTotalMs = Budget.HitTotalMs + Budget.OtherEventTotalMs + Budget.TickTotalMs;
+	Budget.GameThreadPerHitMs = Budget.HitsHandled > 0 ? Budget.GameThreadTotalMs / Budget.HitsHandled : 0.0;
+}
+
+void UVerseGoreSubsystem::UpdateDroplets()
+{
+	// Nothing moves on the CPU: the material animates every droplet and collapses it at the end
+	// of its life. The instances are dropped in one call once the last droplet has died.
+	if (DropletsSim.Num() == 0 || GoreTime < DropletsLastExpiry)
+	{
 		return;
 	}
-	int32 Write = 0;
-	for (int32 Read = 0; Read < DropletsSim.Num(); ++Read)
+	DropletsSim.Reset();
+	DropletNext = 0;
+	if (AVerseGoreActor* Actor = GoreActor.Get())
 	{
-		FDroplet D = DropletsSim[Read];
-		D.Age += DeltaSeconds;
-		if (D.Age >= D.Life)
-		{
-			continue;
-		}
-		D.Velocity.Z -= Tuning.GravityCm * DeltaSeconds;
-		D.Velocity *= FMath::Max(0.f, 1.f - 1.6f * DeltaSeconds);   // air drag
-		D.Position += D.Velocity * DeltaSeconds;
-		DropletsSim[Write++] = D;
-	}
-	DropletsSim.SetNum(Write, EAllowShrinking::No);
-
-	UInstancedStaticMeshComponent* Ism = Actor->Droplets;
-	TArray<FTransform> Transforms;
-	Transforms.Reserve(DropletsSim.Num());
-	for (const FDroplet& D : DropletsSim)
-	{
-		const float Shrink = 1.f - FMath::Clamp(D.Age / FMath::Max(D.Life, 0.01f), 0.f, 1.f) * 0.6f;
-		const FVector Stretch = D.Velocity.GetSafeNormal(UE_SMALL_NUMBER, FVector::UpVector);
-		const float Speed = float(D.Velocity.Size());
-		const float S = D.Size * Shrink / 50.f;   // the primitive sphere is 100 cm across
-		Transforms.Emplace(Stretch.ToOrientationQuat(), D.Position, FVector(S * (1.f + Speed / 400.f), S, S));
-	}
-	const int32 Have = Ism->GetInstanceCount();
-	if (Have > Transforms.Num())
-	{
-		TArray<int32> Remove;
-		for (int32 Index = Have - 1; Index >= Transforms.Num(); --Index)
-		{
-			Remove.Add(Index);
-		}
-		Ism->RemoveInstances(Remove, true);
-	}
-	else if (Have < Transforms.Num())
-	{
-		TArray<FTransform> Add;
-		Add.Init(FTransform::Identity, Transforms.Num() - Have);
-		Ism->AddInstances(Add, false, true, false);
-	}
-	if (Transforms.Num() > 0)
-	{
-		Ism->BatchUpdateInstancesTransforms(0, Transforms, true, true, true);
+		Actor->Droplets->ClearInstances();
 	}
 }
 
@@ -1106,6 +1192,7 @@ void UVerseGoreSubsystem::SetCameraFade(bool bBlack)
 void UVerseGoreSubsystem::PlaySynthetic(const FVerseGoreSyntheticParams& Params)
 {
 	SyntheticEvents = FVerseGoreSyntheticStream::Build(Params);
+	bSyntheticOnHub = Params.bPublishOnHub;
 	SyntheticCursor = 0;
 	SyntheticStart = GoreTime;
 }
@@ -1123,7 +1210,7 @@ void UVerseGoreSubsystem::RefreshBudgetLive()
 {
 	Budget.SpatterDecals = SpatterRing.Num();
 	Budget.Pools = Pools.Num();
-	Budget.Droplets = DropletsSim.Num();
+	Budget.Droplets = LiveDroplets();
 	Budget.Flashes = FlashesSim.Num();
 	Budget.WoundedCharacters = 0;
 	Budget.MaxWoundsOnOneCharacter = 0;
@@ -1144,6 +1231,7 @@ void UVerseGoreSubsystem::RefreshBudgetLive()
 void UVerseGoreSubsystem::ResetBudget()
 {
 	Budget = FVerseGoreBudget();
+	NestedEventMs = 0.0;
 	RefreshBudgetLive();
 }
 
@@ -1159,7 +1247,7 @@ FString UVerseGoreSubsystem::BudgetJson() const
 		TEXT("  \"live\": {\"spatter_decals\": %d, \"pools\": %d, \"droplets\": %d, \"flashes\": %d, \"wounded_characters\": %d, \"max_wounds_on_one_character\": %d},\n")
 		TEXT("  \"peak\": {\"spatter_decals\": %d, \"pools\": %d, \"droplets\": %d, \"wounds_on_one_character\": %d},\n")
 		TEXT("  \"totals\": {\"hits\": %d, \"deaths\": %d, \"finisher_phases\": %d, \"decals_spawned\": %d, \"decals_recycled\": %d, \"pools_recycled\": %d, \"wounds_recycled\": %d, \"droplets_spawned\": %d, \"flashes_spawned\": %d, \"purges\": %d},\n")
-		TEXT("  \"game_thread_ms\": {\"hit_mean\": %.5f, \"hit_max\": %.5f, \"tick_mean\": %.5f, \"tick_max\": %.5f, \"ticks\": %lld},\n")
+		TEXT("  \"game_thread_ms\": {\"per_hit\": %.5f, \"total\": %.4f, \"hits_total\": %.4f, \"other_events_total\": %.4f, \"ticks_total\": %.4f, \"hit_mean\": %.5f, \"hit_max\": %.5f, \"tick_mean\": %.5f, \"tick_max\": %.5f, \"ticks\": %lld},\n")
 		TEXT("  \"cut_to_black\": {\"count\": %d, \"active\": %s, \"start_frame\": %llu, \"end_frame\": %llu}\n")
 		TEXT("}\n"),
 		Level == EVerseGoreLevel::Full ? TEXT("full") : TEXT("reduced"), bActive ? TEXT("true") : TEXT("false"),
@@ -1168,6 +1256,7 @@ FString UVerseGoreSubsystem::BudgetJson() const
 		B.PeakSpatterDecals, B.PeakPools, B.PeakDroplets, B.PeakWoundsOnOneCharacter,
 		B.HitsHandled, B.DeathsHandled, B.FinisherPhasesHandled, B.DecalsSpawned, B.DecalsRecycled, B.PoolsRecycled,
 		B.WoundsRecycled, B.DropletsSpawned, B.FlashesSpawned, B.Purges,
+		B.GameThreadPerHitMs, B.GameThreadTotalMs, B.HitTotalMs, B.OtherEventTotalMs, B.TickTotalMs,
 		B.HitMeanMs, B.HitMaxMs, B.TickMeanMs, B.TickMaxMs, B.Ticks,
 		CutToBlack.Count, CutToBlack.bActive ? TEXT("true") : TEXT("false"), CutToBlack.StartFrame, CutToBlack.EndFrame);
 }

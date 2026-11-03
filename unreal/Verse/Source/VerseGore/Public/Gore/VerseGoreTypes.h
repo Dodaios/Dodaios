@@ -27,8 +27,8 @@ struct VERSEGORE_API FVerseGoreTuning
 	int32 MaxSpatterDecals = 256;
 	int32 MaxPools = 16;
 	int32 MaxWoundsPerCharacter = 16;
-	/** Droplets alive at once across all bursts (oldest first recycled). */
-	int32 MaxDroplets = 1536;
+	/** Droplet instance slots across all bursts (a ring: the oldest slot is reused first). */
+	int32 MaxDroplets = 768;
 	int32 MaxFlashes = 32;
 
 	/** Spatter: how far blood flies past the body along the bolt, cm. */
@@ -60,6 +60,10 @@ struct VERSEGORE_API FVerseGoreTuning
 	float DropletBackSprayFraction = 0.3f;
 	float DropletSizeCm = 1.6f;
 	float GravityCm = 980.f;
+	/** Linear air drag of droplets, 1/s (the droplet material integrates the same motion). */
+	float DropletDrag = 1.6f;
+	/** Pool growth is written at this rate, Hz (not every frame). */
+	float PoolUpdateHz = 20.f;
 
 	/** Reduced: neutral impact flash life, s, and size, cm. */
 	float FlashLifeSeconds = 0.08f;
@@ -113,8 +117,14 @@ struct VERSEGORE_API FVerseGoreBudget
 	UPROPERTY(BlueprintReadOnly) double TickMeanMs = 0.0;
 	UPROPERTY(BlueprintReadOnly) double TickMaxMs = 0.0;
 
-	/** Accumulators behind the means. */
+	/** All gore game-thread time over the run (hits, deaths, finisher phases and ticks), ms, and
+	 *  that total divided by the hits handled: the A5.4 "game thread per hit" figure. */
+	UPROPERTY(BlueprintReadOnly) double GameThreadTotalMs = 0.0;
+	UPROPERTY(BlueprintReadOnly) double GameThreadPerHitMs = 0.0;
+
+	/** Accumulators behind the means. Tick time excludes handlers that ran inside the tick. */
 	double HitTotalMs = 0.0;
+	double OtherEventTotalMs = 0.0;
 	double TickTotalMs = 0.0;
 	int64 Ticks = 0;
 };

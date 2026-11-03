@@ -33,18 +33,28 @@ struct FFakeGoreDuel
 	int64 Tick = 0;
 	uint16 Shot = 0;
 	FDuellist Duellists[2];
+	/** World queries the gameplay asked this run, folded together: every shot's bolt and body
+	 *  trace, every sight check and the probes toward the walls gore paints (VerseBolt,
+	 *  VerseHitBody, VerseSight). A gore primitive that blocked any of them would change it. */
+	uint32 QueryHash = 0;
+	int32 BlockedShots = 0;
+	int32 Queries = 0;
 
 	FFakeGoreDuel(VerseGoreTest::FWorld& InWorld, uint32 InSeed);
 
-	/** One 30 Hz tick: move, fire, damage, deaths, respawns, finishers. */
+	/** One 30 Hz tick: move, sense, fire (traced), damage, deaths, respawns, finishers. */
 	void Step(double Dt);
 
 	/**
 	 * Hash of everything replicated or gameplay-relevant in the world after the tick: every
 	 * replicated actor's net properties and transform, the duel state, and the collision state of
-	 * every primitive (gore must add none).
+	 * every primitive (gore must add none), and the results of every world query of the tick.
 	 */
 	uint32 StateHash() const;
+
+private:
+	/** One line trace on `Channel`; its result (hit or not, where, what) is folded into QueryHash. */
+	bool Query(const FVector& From, const FVector& To, ECollisionChannel Channel, const AActor* Ignore, FHitResult& OutHit);
 };
 
 #endif // WITH_DEV_AUTOMATION_TESTS

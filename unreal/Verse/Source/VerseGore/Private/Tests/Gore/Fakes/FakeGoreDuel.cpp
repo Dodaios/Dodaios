@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "Gore/VerseGoreSynthetic.h"
 #include "UObject/UnrealType.h"
+#include "VerseCollision.h"
 
 namespace FakeGoreDuelPrivate
 {
@@ -60,6 +61,28 @@ FFakeGoreDuel::FFakeGoreDuel(VerseGoreTest::FWorld& InWorld, uint32 InSeed)
 	}
 }
 
+bool FFakeGoreDuel::Query(const FVector& From, const FVector& To, ECollisionChannel Channel, const AActor* Ignore, FHitResult& OutHit)
+{
+	using namespace FakeGoreDuelPrivate;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(FakeGoreDuel), true);
+	if (Ignore)
+	{
+		Params.AddIgnoredActor(Ignore);
+	}
+	OutHit = FHitResult();
+	const bool bHit = W.World->LineTraceSingleByChannel(OutHit, From, To, Channel, Params);
+	++Queries;
+	uint32 Result = HashCombine(GetTypeHash(int32(Channel)), bHit ? 1u : 0u);
+	if (bHit)
+	{
+		const AActor* Actor = OutHit.GetActor();
+		Result = HashCombine(Result, HashVector(OutHit.ImpactPoint));
+		Result = HashCombine(Result, HashString(Actor ? Actor->GetClass()->GetName() : FString()));
+	}
+	QueryHash = HashCombine(QueryHash, Result);
+	return bHit;
+}
+
 void FFakeGoreDuel::Step(double Dt)
 {
 	Time += Dt;
@@ -80,10 +103,40 @@ void FFakeGoreDuel::Step(double Dt)
 		}
 	}
 
+	// Probes through the space gore paints: from each eye toward both end walls (spatter lands
+	// there) and down to the floor (pools), on every channel gameplay uses.
+	const ECollisionChannel Channels[] = {VerseCollision::Bolt, VerseCollision::HitBody, VerseCollision::Sight};
+	for (const FDuellist& D : Duellists)
+	{
+		const FVector Eye = D.Pawn->GetActorLocation() + FVector(0.0, 0.0, 160.0);
+		const FVector Targets[] = {Eye + FVector(2000.0, 0.0, -40.0), Eye - FVector(2000.0, 0.0, 40.0), Eye - FVector(0.0, 0.0, 400.0)};
+		for (const ECollisionChannel Channel : Channels)
+		{
+			for (const FVector& Target : Targets)
+			{
+				FHitResult Probe;
+				Query(Eye, Target, Channel, D.Pawn, Probe);
+			}
+		}
+	}
+
 	FDuellist& A = Duellists[Tick % 2];
 	FDuellist& B = Duellists[(Tick + 1) % 2];
 	if (Tick % 3 != 0 || A.Health <= 0.f || B.Health <= 0.f)
 	{
+		return;
+	}
+
+	// Sight and the bolt: anything but the target between the two blocks the shot.
+	const FVector Muzzle = A.Pawn->GetActorLocation() + FVector(0.0, 0.0, 160.0);
+	const FVector Chest = B.Pawn->GetActorLocation() + FVector(0.0, 0.0, 130.0);
+	FHitResult SightHit, BoltHit, BodyHit;
+	const bool bSightBlocked = Query(Muzzle, Chest, VerseCollision::Sight, A.Pawn, SightHit) && SightHit.GetActor() != B.Pawn;
+	const bool bBoltBlocked = Query(Muzzle, Chest, VerseCollision::Bolt, A.Pawn, BoltHit) && BoltHit.GetActor() != B.Pawn;
+	Query(Muzzle, Chest + (Chest - Muzzle).GetSafeNormal() * 50.0, VerseCollision::HitBody, A.Pawn, BodyHit);
+	if (bSightBlocked || bBoltBlocked)
+	{
+		++BlockedShots;
 		return;
 	}
 
@@ -162,7 +215,7 @@ uint32 FFakeGoreDuel::StateHash() const
 		}
 	}
 	ActorHashes.Sort();
-	uint32 Hash = GetTypeHash(Colliding);
+	uint32 Hash = HashCombine(GetTypeHash(Colliding), HashCombine(QueryHash, HashCombine(GetTypeHash(BlockedShots), GetTypeHash(Queries))));
 	for (const uint32 H : ActorHashes)
 	{
 		Hash = HashCombine(Hash, H);

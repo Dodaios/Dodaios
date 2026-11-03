@@ -1,0 +1,18 @@
+{
+  "asset_path": "/Game/Verse/Gore/M_Gore_Flash.M_Gore_Flash",
+  "kind": "material",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "M_Gore_Flash",
+  "owner": "WP05",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "use": "Reduced level: neutral, unlit, additive impact flash"
+    },
+    "builder": "art/verse/gore/unreal_assets.py",
+    "function": "build_flash"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "MI_Gore_Spatter_3",
+  "owner": "WP05",
+  "parent": "/Game/Verse/Gore/M_Gore_Decal.M_Gore_Decal",
+  "replaces": null,
+  "scalars": {},
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "Mask": "/Game/Verse/Gore/T_Gore_Spatter_3_M.T_Gore_Spatter_3_M"
+  },
+  "vectors": {}
+}

@@ -45,7 +45,7 @@ namespace VerseGoreConsole
 
 	FAutoConsoleCommandWithWorldAndArgs PlayCommand(
 		TEXT("Verse.Gore.Play"),
-		TEXT("Verse.Gore.Play <hits|deaths|finisher|storm> [seed] [seconds]: play a synthetic event stream through the hub"),
+		TEXT("Verse.Gore.Play <hits|deaths|finisher|storm> [seed] [seconds]: play a synthetic event stream into gore only (never on the hub)"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
 		{
 			UVerseGoreSubsystem* Gore = UVerseGoreSubsystem::Get(World);
