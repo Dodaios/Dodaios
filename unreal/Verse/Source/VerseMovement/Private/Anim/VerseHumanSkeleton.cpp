@@ -268,4 +268,61 @@ FVector ReferenceSupport(bool bPistol)
 	// GRIPS-END
 	return bPistol ? Pistol : Rifle;
 }
+TConstArrayView<TPair<FName, EVerseHitZone>> HitBodies()
+{
+	static const TArray<TPair<FName, EVerseHitZone>> Table = []()
+	{
+		TArray<TPair<FName, EVerseHitZone>> Out;
+		auto Z = [&Out](const TCHAR* Bone, EVerseHitZone Zone) { Out.Emplace(FName(Bone), Zone); };
+		// HITZONES-BEGIN
+		Z(TEXT("Hips"), EVerseHitZone::LowerTorso);
+		Z(TEXT("Spine_01"), EVerseHitZone::LowerTorso);
+		Z(TEXT("Spine_03"), EVerseHitZone::UpperTorso);
+		Z(TEXT("Neck"), EVerseHitZone::Neck);
+		Z(TEXT("Head"), EVerseHitZone::Head);
+		Z(TEXT("UpperArm_L"), EVerseHitZone::Arm);
+		Z(TEXT("UpperArm_R"), EVerseHitZone::Arm);
+		Z(TEXT("LowerArm_L"), EVerseHitZone::Arm);
+		Z(TEXT("LowerArm_R"), EVerseHitZone::Arm);
+		Z(TEXT("Thigh_L"), EVerseHitZone::Leg);
+		Z(TEXT("Thigh_R"), EVerseHitZone::Leg);
+		Z(TEXT("Calf_L"), EVerseHitZone::Leg);
+		Z(TEXT("Calf_R"), EVerseHitZone::Leg);
+		// HITZONES-END
+		return Out;
+	}();
+	return Table;
+}
+
+EVerseHitZone HitZoneForBone(FName Bone)
+{
+	static const TMap<FName, EVerseHitZone> Zones = []()
+	{
+		TMap<FName, EVerseHitZone> Out;
+		for (const TPair<FName, EVerseHitZone>& Row : HitBodies())
+		{
+			Out.Add(Row.Key, Row.Value);
+		}
+		return Out;
+	}();
+	static const TMap<FName, FName> Parents = []()
+	{
+		TMap<FName, FName> Out;
+		for (const TPair<FName, FName>& Row : Bones())
+		{
+			Out.Add(Row.Key, Row.Value);
+		}
+		return Out;
+	}();
+	for (FName Current = Bone; !Current.IsNone();)
+	{
+		if (const EVerseHitZone* Zone = Zones.Find(Current))
+		{
+			return *Zone;
+		}
+		const FName* Parent = Parents.Find(Current);
+		Current = Parent ? *Parent : FName(NAME_None);
+	}
+	return EVerseHitZone::None;
+}
 } // namespace VerseHuman

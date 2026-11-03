@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Combat/VerseCombatTypes.h"
 #include "CoreMinimal.h"
 
 /**
@@ -40,4 +41,18 @@ namespace VerseHuman
 	 * The runtime prefers the attached weapon's real socket.
 	 */
 	VERSEMOVEMENT_API FVector ReferenceSupport(bool bPistol);
+
+	/**
+	 * The bone table of `PHYS_Verse_Human` (combat-state.md 5): every bone that
+	 * carries a hit body and its `EVerseHitZone`, generated from `HIT_BODIES`
+	 * in `art/verse/characters/fps/skeleton.py`.
+	 */
+	VERSEMOVEMENT_API TConstArrayView<TPair<FName, EVerseHitZone>> HitBodies();
+
+	/**
+	 * Hit zone of a hit on `Bone`: the zone of its hit body, else of the nearest
+	 * ancestor that carries one (a hand resolves to `Arm`, `Camera` to `Head`);
+	 * `None` for `Root`, IK bones and names that are not on the skeleton.
+	 */
+	VERSEMOVEMENT_API EVerseHitZone HitZoneForBone(FName Bone);
 }
