@@ -12,6 +12,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/AutomationTest.h"
 #include "Projectiles/VerseBoltPresentation.h"
+#include "ShaderCompiler.h"
 #include "Tests/AutomationCommon.h"
 #include "Tests/Weapons/VerseWp02TestUtils.h"
 #include "UnrealClient.h"
@@ -149,7 +150,18 @@ bool FVerseVisualBolts::RunTest(const FString&)
 		TestTrue(TEXT("opponent bolts in flight"), P && P->NumFoe() == 4);
 		return true;
 	}));
-	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(3.0f));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.0f));
+	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([]()
+	{
+		// An uncooked run compiles the placeholder material on first use; until then it draws the
+		// default material. Wait for it, then give the renderer a moment.
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+		return true;
+	}));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.0f));
 	ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([S]()
 	{
 		FScreenshotRequest::RequestScreenshot(S->Path, false, false);
