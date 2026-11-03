@@ -130,7 +130,7 @@ export function MemoryBrowser({
             move(-1);
           }
         }}
-        className="min-h-0 overflow-y-auto px-2 py-2 focus-visible:outline-none"
+        className="mx-auto min-h-0 w-full max-w-[860px] overflow-y-auto px-2 py-2 focus-visible:outline-none"
       >
         {rows.map((memory) => (
           <Row

@@ -103,7 +103,7 @@ export function MemoryView(): JSX.Element {
 
   return (
     <div data-testid="memory-vault-view" className="flex h-full min-h-0 flex-col p-3 sm:p-5">
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-card shadow-float">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1480px] flex-1 overflow-hidden rounded-2xl border border-border bg-card shadow-float">
         {/* Sidebar */}
         <aside className="hidden w-[232px] shrink-0 flex-col border-r border-border bg-sheen/[0.025] md:flex">
           <div className="flex items-center gap-2 px-4 pb-3 pt-4">
