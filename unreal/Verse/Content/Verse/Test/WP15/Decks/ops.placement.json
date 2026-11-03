@@ -1,0 +1,7533 @@
+{
+ "schema": "verse.placement/1",
+ "deck": "ops",
+ "zone": "crew_fixture",
+ "bounds_cm": {
+  "min": [
+   361.0,
+   213.0,
+   -10.0
+  ],
+  "max": [
+   8909.5,
+   5586.65,
+   555.0
+  ]
+ },
+ "level": "/Game/Verse/Decks/Ops/LV_Ops",
+ "source": {
+  "builder": "unreal/Verse/Content/Verse/Test/WP15/Tools/make_crew_fixture_decks.py",
+  "sha256": "c016bbe69f8c16165567a8dce3a6074ff2ad0ba7b147b38207f3538ef317243d"
+ },
+ "generator": {
+  "script": "make_crew_fixture_decks.py",
+  "version": "1",
+  "blender": "none"
+ },
+ "placements": [],
+ "sockets": [
+  {
+   "id": "1",
+   "kind": "bunk",
+   "location": [
+    1450.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "10",
+   "kind": "bunk",
+   "location": [
+    1870.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "11",
+   "kind": "bunk",
+   "location": [
+    2010.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "12",
+   "kind": "bunk",
+   "location": [
+    2150.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "13",
+   "kind": "bunk",
+   "location": [
+    1450.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "14",
+   "kind": "bunk",
+   "location": [
+    1590.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "15",
+   "kind": "bunk",
+   "location": [
+    1730.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "16",
+   "kind": "bunk",
+   "location": [
+    1870.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "17",
+   "kind": "bunk",
+   "location": [
+    2010.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "18",
+   "kind": "bunk",
+   "location": [
+    2150.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "19",
+   "kind": "bunk",
+   "location": [
+    1450.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "2",
+   "kind": "bunk",
+   "location": [
+    1590.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "20",
+   "kind": "bunk",
+   "location": [
+    1590.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "21",
+   "kind": "bunk",
+   "location": [
+    1730.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "22",
+   "kind": "bunk",
+   "location": [
+    1870.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "23",
+   "kind": "bunk",
+   "location": [
+    2010.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "24",
+   "kind": "bunk",
+   "location": [
+    2150.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "25",
+   "kind": "bunk",
+   "location": [
+    2630.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "26",
+   "kind": "bunk",
+   "location": [
+    2770.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "27",
+   "kind": "bunk",
+   "location": [
+    2910.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "28",
+   "kind": "bunk",
+   "location": [
+    3050.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "29",
+   "kind": "bunk",
+   "location": [
+    3190.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "3",
+   "kind": "bunk",
+   "location": [
+    1730.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "30",
+   "kind": "bunk",
+   "location": [
+    3330.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "31",
+   "kind": "bunk",
+   "location": [
+    2630.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "32",
+   "kind": "bunk",
+   "location": [
+    2770.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "33",
+   "kind": "bunk",
+   "location": [
+    2910.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "34",
+   "kind": "bunk",
+   "location": [
+    3050.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "35",
+   "kind": "bunk",
+   "location": [
+    3190.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "36",
+   "kind": "bunk",
+   "location": [
+    3330.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "37",
+   "kind": "bunk",
+   "location": [
+    2630.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "38",
+   "kind": "bunk",
+   "location": [
+    2770.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "39",
+   "kind": "bunk",
+   "location": [
+    2910.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "4",
+   "kind": "bunk",
+   "location": [
+    1870.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "40",
+   "kind": "bunk",
+   "location": [
+    3050.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "41",
+   "kind": "bunk",
+   "location": [
+    3190.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "42",
+   "kind": "bunk",
+   "location": [
+    3330.0,
+    4724.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "43",
+   "kind": "bunk",
+   "location": [
+    2630.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "44",
+   "kind": "bunk",
+   "location": [
+    2770.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "45",
+   "kind": "bunk",
+   "location": [
+    2910.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "46",
+   "kind": "bunk",
+   "location": [
+    3050.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "47",
+   "kind": "bunk",
+   "location": [
+    3190.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "48",
+   "kind": "bunk",
+   "location": [
+    3330.0,
+    4995.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "5",
+   "kind": "bunk",
+   "location": [
+    2010.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "6",
+   "kind": "bunk",
+   "location": [
+    2150.0,
+    3884.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "7",
+   "kind": "bunk",
+   "location": [
+    1450.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "8",
+   "kind": "bunk",
+   "location": [
+    1590.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "9",
+   "kind": "bunk",
+   "location": [
+    1730.0,
+    4155.5,
+    55.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "main",
+   "kind": "lift",
+   "location": [
+    7600.0,
+    3765.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "dispenser_1",
+   "kind": "screen",
+   "location": [
+    361.0,
+    249.4,
+    174.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null,
+   "size_cm": [
+    48.0,
+    28.0
+   ]
+  },
+  {
+   "id": "dispenser_2",
+   "kind": "screen",
+   "location": [
+    465.0,
+    249.4,
+    174.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null,
+   "size_cm": [
+    48.0,
+    28.0
+   ]
+  },
+  {
+   "id": "fitting",
+   "kind": "screen",
+   "location": [
+    8400.0,
+    1065.6,
+    145.06
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quartermaster",
+   "station": {
+    "id": "quartermaster",
+    "kind": "quartermaster"
+   },
+   "size_cm": [
+    130.0,
+    80.0
+   ]
+  },
+  {
+   "id": "med_1",
+   "kind": "screen",
+   "location": [
+    7443.4,
+    5008.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "med_2",
+   "kind": "screen",
+   "location": [
+    7903.4,
+    5008.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "med_3",
+   "kind": "screen",
+   "location": [
+    8363.4,
+    5008.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "med_4",
+   "kind": "screen",
+   "location": [
+    8823.4,
+    5008.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "med_5",
+   "kind": "screen",
+   "location": [
+    7443.4,
+    5488.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "med_6",
+   "kind": "screen",
+   "location": [
+    7903.4,
+    5488.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "med_7",
+   "kind": "screen",
+   "location": [
+    8363.4,
+    5488.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "med_8",
+   "kind": "screen",
+   "location": [
+    8823.4,
+    5488.01,
+    136.15
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.793353,
+    0.608761
+   ],
+   "room": "medbay",
+   "station": null,
+   "size_cm": [
+    40.0,
+    26.0
+   ]
+  },
+  {
+   "id": "quartermaster",
+   "kind": "screen",
+   "location": [
+    8475.0,
+    1787.85,
+    110.19
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quartermaster",
+   "station": {
+    "id": "quartermaster",
+    "kind": "quartermaster"
+   },
+   "size_cm": [
+    44.0,
+    27.0
+   ]
+  },
+  {
+   "id": "records_lectern",
+   "kind": "screen",
+   "location": [
+    4194.0,
+    764.78,
+    109.36
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null,
+   "size_cm": [
+    30.0,
+    18.0
+   ]
+  },
+  {
+   "id": "service_record",
+   "kind": "screen",
+   "location": [
+    4200.0,
+    226.39,
+    216.74
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": {
+    "id": "service_record",
+    "kind": "service_record"
+   },
+   "size_cm": [
+    162.0,
+    92.0
+   ]
+  },
+  {
+   "id": "sim_1",
+   "kind": "screen",
+   "location": [
+    5700.0,
+    963.39,
+    110.1
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   },
+   "size_cm": [
+    44.0,
+    30.0
+   ]
+  },
+  {
+   "id": "sim_2",
+   "kind": "screen",
+   "location": [
+    6100.0,
+    963.39,
+    110.1
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   },
+   "size_cm": [
+    44.0,
+    30.0
+   ]
+  },
+  {
+   "id": "sim_3",
+   "kind": "screen",
+   "location": [
+    6500.0,
+    963.39,
+    110.1
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   },
+   "size_cm": [
+    44.0,
+    30.0
+   ]
+  },
+  {
+   "id": "sim_4",
+   "kind": "screen",
+   "location": [
+    6900.0,
+    963.39,
+    110.1
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   },
+   "size_cm": [
+    44.0,
+    30.0
+   ]
+  },
+  {
+   "id": "sim_instructor",
+   "kind": "screen",
+   "location": [
+    6250.04,
+    1371.16,
+    104.6
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   },
+   "size_cm": [
+    50.0,
+    25.0
+   ]
+  },
+  {
+   "id": "sim_instructor__aux",
+   "kind": "screen",
+   "location": [
+    6344.57,
+    1421.34,
+    87.39
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.866069,
+    0.499924
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   },
+   "size_cm": [
+    36.0,
+    22.0
+   ]
+  },
+  {
+   "id": "sim_main",
+   "kind": "screen",
+   "location": [
+    6300.0,
+    213.0,
+    255.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   },
+   "size_cm": [
+    870.0,
+    210.0
+   ]
+  },
+  {
+   "id": "team_a_plan",
+   "kind": "screen",
+   "location": [
+    4600.0,
+    5327.8,
+    97.05
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "team_a",
+   "station": null,
+   "size_cm": [
+    338.0,
+    40.0
+   ]
+  },
+  {
+   "id": "team_a_wall",
+   "kind": "screen",
+   "location": [
+    4600.0,
+    3457.0,
+    185.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   },
+   "size_cm": [
+    480.0,
+    170.0
+   ]
+  },
+  {
+   "id": "team_b_plan",
+   "kind": "screen",
+   "location": [
+    6200.0,
+    5327.8,
+    97.05
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "team_b",
+   "station": null,
+   "size_cm": [
+    338.0,
+    40.0
+   ]
+  },
+  {
+   "id": "team_b_wall",
+   "kind": "screen",
+   "location": [
+    6200.0,
+    3457.0,
+    185.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   },
+   "size_cm": [
+    480.0,
+    170.0
+   ]
+  },
+  {
+   "id": "mess_1",
+   "kind": "seat",
+   "location": [
+    497.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_10",
+   "kind": "seat",
+   "location": [
+    843.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_100",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_101",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_102",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_103",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_104",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_105",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_106",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_107",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_108",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_109",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_11",
+   "kind": "seat",
+   "location": [
+    775.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_110",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_111",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_112",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_113",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_114",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_115",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_116",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_117",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_118",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_119",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_12",
+   "kind": "seat",
+   "location": [
+    707.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_120",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_121",
+   "kind": "seat",
+   "location": [
+    497.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_122",
+   "kind": "seat",
+   "location": [
+    565.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_123",
+   "kind": "seat",
+   "location": [
+    633.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_124",
+   "kind": "seat",
+   "location": [
+    633.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_125",
+   "kind": "seat",
+   "location": [
+    565.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_126",
+   "kind": "seat",
+   "location": [
+    497.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_127",
+   "kind": "seat",
+   "location": [
+    707.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_128",
+   "kind": "seat",
+   "location": [
+    775.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_129",
+   "kind": "seat",
+   "location": [
+    843.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_13",
+   "kind": "seat",
+   "location": [
+    917.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_130",
+   "kind": "seat",
+   "location": [
+    843.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_131",
+   "kind": "seat",
+   "location": [
+    775.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_132",
+   "kind": "seat",
+   "location": [
+    707.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_133",
+   "kind": "seat",
+   "location": [
+    917.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_134",
+   "kind": "seat",
+   "location": [
+    985.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_135",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_136",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_137",
+   "kind": "seat",
+   "location": [
+    985.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_138",
+   "kind": "seat",
+   "location": [
+    917.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_139",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_14",
+   "kind": "seat",
+   "location": [
+    985.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_140",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_141",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_142",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_143",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_144",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_145",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_146",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_147",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_148",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_149",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_15",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_150",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_151",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_152",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_153",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_154",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_155",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_156",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_157",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_158",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_159",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_16",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_160",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_161",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_162",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_163",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_164",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_165",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_166",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_167",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_168",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_169",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_17",
+   "kind": "seat",
+   "location": [
+    985.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_170",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_171",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_172",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_173",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_174",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_175",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_176",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_177",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    1742.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_178",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_179",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_18",
+   "kind": "seat",
+   "location": [
+    917.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_180",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    1618.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_181",
+   "kind": "seat",
+   "location": [
+    497.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_182",
+   "kind": "seat",
+   "location": [
+    565.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_183",
+   "kind": "seat",
+   "location": [
+    633.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_184",
+   "kind": "seat",
+   "location": [
+    633.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_185",
+   "kind": "seat",
+   "location": [
+    565.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_186",
+   "kind": "seat",
+   "location": [
+    497.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_187",
+   "kind": "seat",
+   "location": [
+    707.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_188",
+   "kind": "seat",
+   "location": [
+    775.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_189",
+   "kind": "seat",
+   "location": [
+    843.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_19",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_190",
+   "kind": "seat",
+   "location": [
+    843.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_191",
+   "kind": "seat",
+   "location": [
+    775.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_192",
+   "kind": "seat",
+   "location": [
+    707.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_193",
+   "kind": "seat",
+   "location": [
+    917.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_194",
+   "kind": "seat",
+   "location": [
+    985.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_195",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_196",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_197",
+   "kind": "seat",
+   "location": [
+    985.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_198",
+   "kind": "seat",
+   "location": [
+    917.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_199",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_2",
+   "kind": "seat",
+   "location": [
+    565.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_20",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_200",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_201",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_202",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_203",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_204",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_205",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_206",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_207",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_208",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_209",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_21",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_210",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_211",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_212",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_213",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_214",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_215",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_216",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_217",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_218",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_219",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_22",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_220",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_221",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_222",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_223",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_224",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_225",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_226",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_227",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_228",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_229",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_23",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_230",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_231",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_232",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_233",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_234",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_235",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_236",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_237",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    2162.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_238",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_239",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_24",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_240",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    2038.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_25",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_26",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_27",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_28",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_29",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_3",
+   "kind": "seat",
+   "location": [
+    633.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_30",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_31",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_32",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_33",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_34",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_35",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_36",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_37",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_38",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_39",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_4",
+   "kind": "seat",
+   "location": [
+    633.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_40",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_41",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_42",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_43",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_44",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_45",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_46",
+   "kind": "seat",
+   "location": [
+    2483.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_47",
+   "kind": "seat",
+   "location": [
+    2415.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_48",
+   "kind": "seat",
+   "location": [
+    2347.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_49",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_5",
+   "kind": "seat",
+   "location": [
+    565.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_50",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_51",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_52",
+   "kind": "seat",
+   "location": [
+    2693.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_53",
+   "kind": "seat",
+   "location": [
+    2625.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_54",
+   "kind": "seat",
+   "location": [
+    2557.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_55",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_56",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_57",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_58",
+   "kind": "seat",
+   "location": [
+    2903.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_59",
+   "kind": "seat",
+   "location": [
+    2835.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_6",
+   "kind": "seat",
+   "location": [
+    497.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_60",
+   "kind": "seat",
+   "location": [
+    2767.0,
+    778.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_61",
+   "kind": "seat",
+   "location": [
+    497.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_62",
+   "kind": "seat",
+   "location": [
+    565.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_63",
+   "kind": "seat",
+   "location": [
+    633.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_64",
+   "kind": "seat",
+   "location": [
+    633.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_65",
+   "kind": "seat",
+   "location": [
+    565.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_66",
+   "kind": "seat",
+   "location": [
+    497.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_67",
+   "kind": "seat",
+   "location": [
+    707.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_68",
+   "kind": "seat",
+   "location": [
+    775.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_69",
+   "kind": "seat",
+   "location": [
+    843.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_7",
+   "kind": "seat",
+   "location": [
+    707.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_70",
+   "kind": "seat",
+   "location": [
+    843.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_71",
+   "kind": "seat",
+   "location": [
+    775.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_72",
+   "kind": "seat",
+   "location": [
+    707.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_73",
+   "kind": "seat",
+   "location": [
+    917.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_74",
+   "kind": "seat",
+   "location": [
+    985.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_75",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_76",
+   "kind": "seat",
+   "location": [
+    1053.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_77",
+   "kind": "seat",
+   "location": [
+    985.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_78",
+   "kind": "seat",
+   "location": [
+    917.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_79",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_8",
+   "kind": "seat",
+   "location": [
+    775.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_80",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_81",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_82",
+   "kind": "seat",
+   "location": [
+    1263.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_83",
+   "kind": "seat",
+   "location": [
+    1195.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_84",
+   "kind": "seat",
+   "location": [
+    1127.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_85",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_86",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_87",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_88",
+   "kind": "seat",
+   "location": [
+    1473.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_89",
+   "kind": "seat",
+   "location": [
+    1405.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_9",
+   "kind": "seat",
+   "location": [
+    843.0,
+    902.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_90",
+   "kind": "seat",
+   "location": [
+    1337.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_91",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_92",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_93",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_94",
+   "kind": "seat",
+   "location": [
+    2063.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_95",
+   "kind": "seat",
+   "location": [
+    1995.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_96",
+   "kind": "seat",
+   "location": [
+    1927.0,
+    1198.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_97",
+   "kind": "seat",
+   "location": [
+    2137.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_98",
+   "kind": "seat",
+   "location": [
+    2205.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_99",
+   "kind": "seat",
+   "location": [
+    2273.0,
+    1322.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "quarters_1",
+   "kind": "seat",
+   "location": [
+    1932.0,
+    5562.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_10",
+   "kind": "seat",
+   "location": [
+    3068.0,
+    5438.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_11",
+   "kind": "seat",
+   "location": [
+    3000.0,
+    5438.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_12",
+   "kind": "seat",
+   "location": [
+    2932.0,
+    5438.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_2",
+   "kind": "seat",
+   "location": [
+    2000.0,
+    5562.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_3",
+   "kind": "seat",
+   "location": [
+    2068.0,
+    5562.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_4",
+   "kind": "seat",
+   "location": [
+    2068.0,
+    5438.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_5",
+   "kind": "seat",
+   "location": [
+    2000.0,
+    5438.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_6",
+   "kind": "seat",
+   "location": [
+    1932.0,
+    5438.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_7",
+   "kind": "seat",
+   "location": [
+    2932.0,
+    5562.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_8",
+   "kind": "seat",
+   "location": [
+    3000.0,
+    5562.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "quarters_9",
+   "kind": "seat",
+   "location": [
+    3068.0,
+    5562.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quarters",
+   "station": null
+  },
+  {
+   "id": "sim_1",
+   "kind": "seat",
+   "location": [
+    5700.0,
+    1040.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_2",
+   "kind": "seat",
+   "location": [
+    6100.0,
+    1040.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_3",
+   "kind": "seat",
+   "location": [
+    6500.0,
+    1040.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_4",
+   "kind": "seat",
+   "location": [
+    6900.0,
+    1040.0,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_instructor",
+   "kind": "seat",
+   "location": [
+    6250.04,
+    1457.81,
+    46.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "team_a_1",
+   "kind": "seat",
+   "location": [
+    4523.46,
+    4384.78,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.55557,
+    0.83147
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_a_2",
+   "kind": "seat",
+   "location": [
+    4415.22,
+    4276.54,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.19509,
+    0.980785
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_a_3",
+   "kind": "seat",
+   "location": [
+    4415.22,
+    4123.46,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.19509,
+    0.980785
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_a_4",
+   "kind": "seat",
+   "location": [
+    4523.46,
+    4015.22,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.55557,
+    0.83147
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_a_5",
+   "kind": "seat",
+   "location": [
+    4676.54,
+    4015.22,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.83147,
+    0.55557
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_a_6",
+   "kind": "seat",
+   "location": [
+    4784.78,
+    4123.46,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.980785,
+    0.19509
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_a_7",
+   "kind": "seat",
+   "location": [
+    4784.78,
+    4276.54,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.980785,
+    0.19509
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_a_8",
+   "kind": "seat",
+   "location": [
+    4676.54,
+    4384.78,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.83147,
+    0.55557
+   ],
+   "room": "team_a",
+   "station": {
+    "id": "team_a",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_1",
+   "kind": "seat",
+   "location": [
+    6123.46,
+    4384.78,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.55557,
+    0.83147
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_2",
+   "kind": "seat",
+   "location": [
+    6015.22,
+    4276.54,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.19509,
+    0.980785
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_3",
+   "kind": "seat",
+   "location": [
+    6015.22,
+    4123.46,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.19509,
+    0.980785
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_4",
+   "kind": "seat",
+   "location": [
+    6123.46,
+    4015.22,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.55557,
+    0.83147
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_5",
+   "kind": "seat",
+   "location": [
+    6276.54,
+    4015.22,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.83147,
+    0.55557
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_6",
+   "kind": "seat",
+   "location": [
+    6384.78,
+    4123.46,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.980785,
+    0.19509
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_7",
+   "kind": "seat",
+   "location": [
+    6384.78,
+    4276.54,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.980785,
+    0.19509
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "team_b_8",
+   "kind": "seat",
+   "location": [
+    6276.54,
+    4384.78,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.83147,
+    0.55557
+   ],
+   "room": "team_b",
+   "station": {
+    "id": "team_b",
+    "kind": "team"
+   }
+  },
+  {
+   "id": "commander",
+   "kind": "spawn",
+   "location": [
+    7600.0,
+    3940.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null,
+   "spawn": {
+    "team": "any",
+    "duel": false
+   }
+  },
+  {
+   "id": "dispenser_1",
+   "kind": "stand",
+   "location": [
+    368.0,
+    296.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "dispenser_2",
+   "kind": "stand",
+   "location": [
+    472.0,
+    296.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "fitting",
+   "kind": "stand",
+   "location": [
+    8400.0,
+    1145.2,
+    12.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quartermaster",
+   "station": {
+    "id": "quartermaster",
+    "kind": "quartermaster"
+   }
+  },
+  {
+   "id": "medbay_1",
+   "kind": "stand",
+   "location": [
+    7529.5,
+    5106.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "medbay_2",
+   "kind": "stand",
+   "location": [
+    7989.5,
+    5106.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "medbay_3",
+   "kind": "stand",
+   "location": [
+    8449.5,
+    5106.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "medbay_4",
+   "kind": "stand",
+   "location": [
+    8909.5,
+    5106.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "medbay_5",
+   "kind": "stand",
+   "location": [
+    7529.5,
+    5586.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "medbay_6",
+   "kind": "stand",
+   "location": [
+    7989.5,
+    5586.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "medbay_7",
+   "kind": "stand",
+   "location": [
+    8449.5,
+    5586.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "medbay_8",
+   "kind": "stand",
+   "location": [
+    8909.5,
+    5586.65,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "medbay",
+   "station": null
+  },
+  {
+   "id": "mess_1",
+   "kind": "stand",
+   "location": [
+    873.33,
+    520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_2",
+   "kind": "stand",
+   "location": [
+    1113.33,
+    520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_3",
+   "kind": "stand",
+   "location": [
+    1353.33,
+    520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_4",
+   "kind": "stand",
+   "location": [
+    1593.33,
+    520.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_server_1",
+   "kind": "stand",
+   "location": [
+    990.33,
+    297.7,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "mess_server_2",
+   "kind": "stand",
+   "location": [
+    1476.33,
+    297.7,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "quartermaster_clerk",
+   "kind": "stand",
+   "location": [
+    8400.0,
+    1712.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "quartermaster",
+   "station": {
+    "id": "quartermaster",
+    "kind": "quartermaster"
+   }
+  },
+  {
+   "id": "records_1",
+   "kind": "stand",
+   "location": [
+    3810.0,
+    1210.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null
+  },
+  {
+   "id": "records_2",
+   "kind": "stand",
+   "location": [
+    4590.0,
+    1210.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null
+  },
+  {
+   "id": "records_3",
+   "kind": "stand",
+   "location": [
+    3810.0,
+    1690.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null
+  },
+  {
+   "id": "records_4",
+   "kind": "stand",
+   "location": [
+    4590.0,
+    1690.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null
+  },
+  {
+   "id": "records_5",
+   "kind": "stand",
+   "location": [
+    3810.0,
+    2170.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null
+  },
+  {
+   "id": "records_6",
+   "kind": "stand",
+   "location": [
+    4590.0,
+    2170.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null
+  },
+  {
+   "id": "records_lectern",
+   "kind": "stand",
+   "location": [
+    4200.0,
+    711.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": null
+  },
+  {
+   "id": "service_record",
+   "kind": "stand",
+   "location": [
+    4200.0,
+    333.82,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": {
+    "id": "service_record",
+    "kind": "service_record"
+   }
+  },
+  {
+   "id": "sim_1",
+   "kind": "stand",
+   "location": [
+    5700.0,
+    1155.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_2",
+   "kind": "stand",
+   "location": [
+    6100.0,
+    1155.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_3",
+   "kind": "stand",
+   "location": [
+    6500.0,
+    1155.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_4",
+   "kind": "stand",
+   "location": [
+    6900.0,
+    1155.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "sim_instructor",
+   "kind": "stand",
+   "location": [
+    6250.04,
+    1523.81,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": {
+    "id": "games",
+    "kind": "games"
+   }
+  },
+  {
+   "id": "viewport_1",
+   "kind": "stand",
+   "location": [
+    2065.0,
+    325.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "viewport_2",
+   "kind": "stand",
+   "location": [
+    2288.33,
+    325.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "viewport_3",
+   "kind": "stand",
+   "location": [
+    2511.67,
+    325.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "viewport_4",
+   "kind": "stand",
+   "location": [
+    2735.0,
+    325.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "games",
+   "kind": "station",
+   "location": [
+    6460.0,
+    1540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "simulator",
+   "station": null
+  },
+  {
+   "id": "lift",
+   "kind": "station",
+   "location": [
+    7600.0,
+    3790.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lobby",
+   "station": null
+  },
+  {
+   "id": "mess_call",
+   "kind": "station",
+   "location": [
+    1233.33,
+    500.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "mess",
+   "station": null
+  },
+  {
+   "id": "quartermaster",
+   "kind": "station",
+   "location": [
+    8400.0,
+    1892.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "quartermaster",
+   "station": {
+    "id": "quartermaster",
+    "kind": "quartermaster"
+   }
+  },
+  {
+   "id": "service_record",
+   "kind": "station",
+   "location": [
+    4200.0,
+    333.82,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "records",
+   "station": {
+    "id": "service_record",
+    "kind": "service_record"
+   }
+  },
+  {
+   "id": "team_a",
+   "kind": "station",
+   "location": [
+    4600.0,
+    4475.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "team_a",
+   "station": null
+  },
+  {
+   "id": "team_b",
+   "kind": "station",
+   "location": [
+    6200.0,
+    4475.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "team_b",
+   "station": null
+  },
+  {
+   "id": "corridor_1",
+   "kind": "waypoint",
+   "location": [
+    720.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_10",
+   "kind": "waypoint",
+   "location": [
+    5040.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_11",
+   "kind": "waypoint",
+   "location": [
+    5520.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_12",
+   "kind": "waypoint",
+   "location": [
+    6120.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_13",
+   "kind": "waypoint",
+   "location": [
+    6480.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_14",
+   "kind": "waypoint",
+   "location": [
+    6960.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_15",
+   "kind": "waypoint",
+   "location": [
+    7440.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_16",
+   "kind": "waypoint",
+   "location": [
+    7920.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_17",
+   "kind": "waypoint",
+   "location": [
+    8400.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_18",
+   "kind": "waypoint",
+   "location": [
+    8880.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_2",
+   "kind": "waypoint",
+   "location": [
+    1200.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_3",
+   "kind": "waypoint",
+   "location": [
+    1800.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_4",
+   "kind": "waypoint",
+   "location": [
+    2160.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_5",
+   "kind": "waypoint",
+   "location": [
+    2640.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_6",
+   "kind": "waypoint",
+   "location": [
+    3120.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_7",
+   "kind": "waypoint",
+   "location": [
+    3600.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_8",
+   "kind": "waypoint",
+   "location": [
+    4080.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "corridor_9",
+   "kind": "waypoint",
+   "location": [
+    4560.0,
+    3000.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "patrol_a_1",
+   "kind": "waypoint",
+   "location": [
+    840.0,
+    2920.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "patrol_a_2",
+   "kind": "waypoint",
+   "location": [
+    8880.0,
+    2920.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "patrol_a_3",
+   "kind": "waypoint",
+   "location": [
+    8880.0,
+    3080.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "corridor",
+   "station": null
+  },
+  {
+   "id": "patrol_a_4",
+   "kind": "waypoint",
+   "location": [
+    840.0,
+    3080.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "corridor",
+   "station": null
+  }
+ ],
+ "rooms": [
+  {
+   "id": "corridor",
+   "name": "Main Corridor",
+   "polygon_cm": [
+    [
+     420.0,
+     2760.0
+    ],
+    [
+     420.0,
+     3240.0
+    ],
+    [
+     9180.0,
+     3240.0
+    ],
+    [
+     9180.0,
+     2760.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": true
+  },
+  {
+   "id": "lobby",
+   "name": "Turbolift Lobby",
+   "polygon_cm": [
+    [
+     7100.0,
+     3360.0
+    ],
+    [
+     7100.0,
+     4600.0
+    ],
+    [
+     8100.0,
+     4600.0
+    ],
+    [
+     8100.0,
+     3360.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "medbay",
+   "name": "Medical Bay",
+   "polygon_cm": [
+    [
+     7100.0,
+     4700.0
+    ],
+    [
+     7100.0,
+     5800.0
+    ],
+    [
+     9300.0,
+     5800.0
+    ],
+    [
+     9300.0,
+     4700.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "mess",
+   "name": "Mess Hall",
+   "polygon_cm": [
+    [
+     300.0,
+     200.0
+    ],
+    [
+     300.0,
+     2640.0
+    ],
+    [
+     3100.0,
+     2640.0
+    ],
+    [
+     3100.0,
+     200.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "quartermaster",
+   "name": "Quartermaster",
+   "polygon_cm": [
+    [
+     7500.0,
+     200.0
+    ],
+    [
+     7500.0,
+     2640.0
+    ],
+    [
+     9300.0,
+     2640.0
+    ],
+    [
+     9300.0,
+     200.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "quarters",
+   "name": "Crew Quarters",
+   "polygon_cm": [
+    [
+     300.0,
+     3360.0
+    ],
+    [
+     300.0,
+     5800.0
+    ],
+    [
+     3700.0,
+     5800.0
+    ],
+    [
+     3700.0,
+     3360.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "records",
+   "name": "Records Hall",
+   "polygon_cm": [
+    [
+     3300.0,
+     200.0
+    ],
+    [
+     3300.0,
+     2640.0
+    ],
+    [
+     5100.0,
+     2640.0
+    ],
+    [
+     5100.0,
+     200.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "simulator",
+   "name": "Simulator Room",
+   "polygon_cm": [
+    [
+     5300.0,
+     200.0
+    ],
+    [
+     5300.0,
+     2640.0
+    ],
+    [
+     7300.0,
+     2640.0
+    ],
+    [
+     7300.0,
+     200.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "storage",
+   "name": "Stores",
+   "polygon_cm": [
+    [
+     8300.0,
+     3360.0
+    ],
+    [
+     8300.0,
+     4600.0
+    ],
+    [
+     9300.0,
+     4600.0
+    ],
+    [
+     9300.0,
+     3360.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "team_a",
+   "name": "Ready Room A",
+   "polygon_cm": [
+    [
+     3900.0,
+     3360.0
+    ],
+    [
+     3900.0,
+     5800.0
+    ],
+    [
+     5300.0,
+     5800.0
+    ],
+    [
+     5300.0,
+     3360.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "team_b",
+   "name": "Ready Room B",
+   "polygon_cm": [
+    [
+     5500.0,
+     3360.0
+    ],
+    [
+     5500.0,
+     5800.0
+    ],
+    [
+     6900.0,
+     5800.0
+    ],
+    [
+     6900.0,
+     3360.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  }
+ ]
+}

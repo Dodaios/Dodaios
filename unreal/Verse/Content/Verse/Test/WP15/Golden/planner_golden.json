@@ -1,0 +1,7425 @@
+{
+ "source": "dodaios/ui/web/frontend/src/components/society/verse/life/planner.ts",
+ "generator": "export_planner_golden.mjs",
+ "hash32": [
+  {
+   "text": "",
+   "hash": 2166136261
+  },
+  {
+   "text": "a",
+   "hash": 3826002220
+  },
+  {
+   "text": "ag_7f1:phase",
+   "hash": 2955937451
+  },
+  {
+   "text": "ws_91:T1:pace",
+   "hash": 1881285532
+  },
+  {
+   "text": "Mara:42",
+   "hash": 3815525614
+  }
+ ],
+ "idle_venue": [
+  {
+   "id": "ag_102i",
+   "t": 1790551552573,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ist",
+   "t": 1790333443526,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ylw",
+   "t": 1790115334479,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1hc7",
+   "t": 1791020425432,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_rzi",
+   "t": 1790300788761,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_apt",
+   "t": 1790082679714,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1qiw",
+   "t": 1790987770667,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1997",
+   "t": 1790769661620,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jwi",
+   "t": 1791053080197,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_2mt",
+   "t": 1790834971150,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_sg7",
+   "t": 1791083876898,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_19pw",
+   "t": 1790178785945,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1z2l",
+   "t": 1790647658804,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_b6i",
+   "t": 1790865767851,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_kd7",
+   "t": 1790211440710,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_11mw",
+   "t": 1790429549757,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1qzl",
+   "t": 1790898422616,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_33i",
+   "t": 1791116531663,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ca7",
+   "t": 1790462204522,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_tjw",
+   "t": 1790680313569,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_njg",
+   "t": 1790896510381,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_69r",
+   "t": 1790678401334,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1u5u",
+   "t": 1790460292287,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cw5",
+   "t": 1790242183240,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_fgg",
+   "t": 1790645746569,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_23cj",
+   "t": 1790427637522,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1m2u",
+   "t": 1790209528475,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_14t5",
+   "t": 1791114619428,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_13pg",
+   "t": 1790274838005,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_mfr",
+   "t": 1790056728958,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_xf9",
+   "t": 1790871185848,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1eoy",
+   "t": 1791089294895,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1vyn",
+   "t": 1790184203942,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_82k",
+   "t": 1790402312989,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_pc9",
+   "t": 1790620422036,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_16ly",
+   "t": 1790838531083,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1nvn",
+   "t": 1791056640130,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_255c",
+   "t": 1790151549177,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1dl9",
+   "t": 1790249513472,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1uuy",
+   "t": 1790467622519,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1596",
+   "t": 1790820603147,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_nzh",
+   "t": 1790602494100,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23sk",
+   "t": 1790133621241,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1miv",
+   "t": 1791038712194,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_x66",
+   "t": 1791071366959,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_fwh",
+   "t": 1790853257912,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1vpk",
+   "t": 1790384385053,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1efv",
+   "t": 1790166276006,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_p36",
+   "t": 1790198930771,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_7th",
+   "t": 1791104021724,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_dnn",
+   "t": 1790633236630,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_uxc",
+   "t": 1790851345677,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ka1",
+   "t": 1790197018536,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21jq",
+   "t": 1790415127583,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_lqn",
+   "t": 1790382472818,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_130c",
+   "t": 1790600581865,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1sd1",
+   "t": 1791069454724,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_4gy",
+   "t": 1790164363771,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ttn",
+   "t": 1790011564254,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1b3c",
+   "t": 1790229673301,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_lhk",
+   "t": 1790445870113,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_47v",
+   "t": 1790227761066,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1s3y",
+   "t": 1790009652019,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1au9",
+   "t": 1790914742972,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_tkk",
+   "t": 1790696633925,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_cav",
+   "t": 1790478524878,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_206y",
+   "t": 1790260415831,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ix9",
+   "t": 1790042306784,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_5bk",
+   "t": 1791067542489,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1t7n",
+   "t": 1790849433442,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_vdd",
+   "t": 1790258503596,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cn2",
+   "t": 1790476612643,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1twr",
+   "t": 1790694721690,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_60o",
+   "t": 1790912830737,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_13gd",
+   "t": 1790509267408,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1kq2",
+   "t": 1790727376455,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21zr",
+   "t": 1790945485502,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_e3o",
+   "t": 1790040394549,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_f7d",
+   "t": 1790880175972,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_wh2",
+   "t": 1791098285019,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_qgm",
+   "t": 1790011259599,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_96x",
+   "t": 1790916350552,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1p00",
+   "t": 1790447477693,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_17qb",
+   "t": 1790229368646,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_yjm",
+   "t": 1790883695787,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_h9x",
+   "t": 1790665586740,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1x30",
+   "t": 1790196713881,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ftb",
+   "t": 1791101804834,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_16mm",
+   "t": 1790512787223,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_pcx",
+   "t": 1790294678176,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_10cf",
+   "t": 1790947093082,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1hm4",
+   "t": 1790042002129,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1t1",
+   "t": 1790510874988,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_j2q",
+   "t": 1790728984035,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_s9f",
+   "t": 1790074656894,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_19j4",
+   "t": 1790292765941,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1yvt",
+   "t": 1790761638800,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_azq",
+   "t": 1790979747847,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gif",
+   "t": 1790445565458,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1xs4",
+   "t": 1790663674505,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_2ol",
+   "t": 1790860157974,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jya",
+   "t": 1791078267021,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_117z",
+   "t": 1790423939880,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1iho",
+   "t": 1790642048927,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1zrd",
+   "t": 1790609394162,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bva",
+   "t": 1790827503209,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_t4z",
+   "t": 1790173176068,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1aeo",
+   "t": 1790391285115,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_iul",
+   "t": 1790238485598,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_104a",
+   "t": 1790456594645,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_16rw",
+   "t": 1791047524491,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_pi7",
+   "t": 1790829415444,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_88i",
+   "t": 1790360542585,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1w4l",
+   "t": 1790142433538,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_yow",
+   "t": 1790175088303,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_hf7",
+   "t": 1791080179256,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_5i",
+   "t": 1790611306397,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1o1l",
+   "t": 1790393197350,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1mxw",
+   "t": 1790425852115,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_15o7",
+   "t": 1790207743068,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_mg7",
+   "t": 1790485424940,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_13pw",
+   "t": 1790703533987,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1t2l",
+   "t": 1790921643034,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_56i",
+   "t": 1790016552081,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ed7",
+   "t": 1790736188752,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_vmw",
+   "t": 1790954297799,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1kzl",
+   "t": 1790049206846,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_229a",
+   "t": 1790267315893,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_6a7",
+   "t": 1791107097316,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_njw",
+   "t": 1790202006363,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_cke",
+   "t": 1790672791457,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_20gh",
+   "t": 1790454682410,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1b3s",
+   "t": 1790236573363,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_tu3",
+   "t": 1790018464316,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_kne",
+   "t": 1790923555269,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_3dp",
+   "t": 1790705446222,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1j6s",
+   "t": 1790487337175,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_11x3",
+   "t": 1790269228128,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21k6",
+   "t": 1790171263833,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1kah",
+   "t": 1791076354786,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_pdd",
+   "t": 1790187598242,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_16n2",
+   "t": 1790405707289,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1nwr",
+   "t": 1790874580148,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_o",
+   "t": 1791092689195,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_xgd",
+   "t": 1790438362054,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1eq2",
+   "t": 1790656471101,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1vzr",
+   "t": 1790002143960,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_83o",
+   "t": 1790220253007,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_97d",
+   "t": 1790689125866,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_qh2",
+   "t": 1790907234913,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_fhk",
+   "t": 1790134675255,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23dn",
+   "t": 1791039766208,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1m3y",
+   "t": 1790570893349,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14u9",
+   "t": 1790352784302,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_nkk",
+   "t": 1791007111443,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_6av",
+   "t": 1790789002396,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1u6y",
+   "t": 1790320129537,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cx9",
+   "t": 1790102020490,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_24hc",
+   "t": 1790756347631,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1n7n",
+   "t": 1790538238584,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ww3",
+   "t": 1791098107192,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1e5s",
+   "t": 1790193016239,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23ih",
+   "t": 1790411125286,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_fme",
+   "t": 1790629234333,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14z3",
+   "t": 1790847343380,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1m8s",
+   "t": 1791065452427,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_6fp",
+   "t": 1790160361474,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_npe",
+   "t": 1790378470521,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1d23",
+   "t": 1790476434816,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ubs",
+   "t": 1790694543863,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_aii",
+   "t": 1790000231725,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1yel",
+   "t": 1790905322678,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_191w",
+   "t": 1790687213631,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_rs7",
+   "t": 1790469104584,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_2fi",
+   "t": 1790872667913,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qbl",
+   "t": 1790654558866,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10yw",
+   "t": 1790436449819,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jp7",
+   "t": 1790218340772,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zia",
+   "t": 1790501759349,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1i8l",
+   "t": 1790283650302,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_nbh",
+   "t": 1790723374158,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_14l6",
+   "t": 1790941483205,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1luv",
+   "t": 1790287156064,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_234k",
+   "t": 1790505265111,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_f8h",
+   "t": 1790472610346,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_wi6",
+   "t": 1790690719393,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1drv",
+   "t": 1790036392252,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1v1k",
+   "t": 1790254501299,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_75h",
+   "t": 1790221846534,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_of6",
+   "t": 1790439955581,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_dfo",
+   "t": 1790910740675,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21br",
+   "t": 1790692631628,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1k22",
+   "t": 1790223758769,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_12sd",
+   "t": 1790005649722,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_5co",
+   "t": 1790038304487,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1t8r",
+   "t": 1790943395440,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1bz2",
+   "t": 1790474522581,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_upd",
+   "t": 1790256413534,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_22fg",
+   "t": 1790409213051,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1l5r",
+   "t": 1790191104004,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_lqs",
+   "t": 1791004665831,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_4h3",
+   "t": 1790786556784,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1sd6",
+   "t": 1790317683925,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1b3h",
+   "t": 1790099574878,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_dns",
+   "t": 1790753902019,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_21jv",
+   "t": 1790535792972,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ka6",
+   "t": 1790066920113,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_130h",
+   "t": 1790972011066,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_5ks",
+   "t": 1790503138207,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tgv",
+   "t": 1790285029160,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_vml",
+   "t": 1790259813970,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cwa",
+   "t": 1790477923017,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1u5z",
+   "t": 1790946795876,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_69w",
+   "t": 1790041704923,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_njl",
+   "t": 1790510577782,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14ta",
+   "t": 1790728686829,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1m2z",
+   "t": 1790074359688,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_23co",
+   "t": 1790292468735,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_fgl",
+   "t": 1790435916442,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_wqa",
+   "t": 1790654025489,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_t9i",
+   "t": 1791032264285,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bzt",
+   "t": 1790814155238,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1rsw",
+   "t": 1790596046191,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1aj7",
+   "t": 1790377937144,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_11ci",
+   "t": 1790781500473,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_k2t",
+   "t": 1790563391426,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zvw",
+   "t": 1790345282379,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1im7",
+   "t": 1790127173332,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_19fi",
+   "t": 1790410591909,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_s5t",
+   "t": 1790192482862,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_135b",
+   "t": 1790844897768,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1kf0",
+   "t": 1791063006815,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_4lx",
+   "t": 1790157915862,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_lvm",
+   "t": 1790376024909,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_v2b",
+   "t": 1790594133956,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cc0",
+   "t": 1790812243003,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21op",
+   "t": 1791030352050,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_dsm",
+   "t": 1790125261097,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1jbb",
+   "t": 1790223225392,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_20l0",
+   "t": 1790441334439,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_w6o",
+   "t": 1790794315067,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ewz",
+   "t": 1790576206020,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_22t2",
+   "t": 1790107333161,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ljd",
+   "t": 1791012424114,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_149o",
+   "t": 1791045078879,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_mzz",
+   "t": 1790826969832,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_5qa",
+   "t": 1790358096973,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tmd",
+   "t": 1790139987926,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cco",
+   "t": 1790172642691,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_v2z",
+   "t": 1791077733644,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_162h",
+   "t": 1790606948550,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1nc6",
+   "t": 1790825057597,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_24lv",
+   "t": 1790170730456,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_gps",
+   "t": 1790388839503,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1e5h",
+   "t": 1790356184738,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1vf6",
+   "t": 1790574293785,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_7j3",
+   "t": 1791043166644,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_oss",
+   "t": 1790138075691,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1m8h",
+   "t": 1791108476174,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23i6",
+   "t": 1790203385221,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1z6",
+   "t": 1790419582033,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1pv9",
+   "t": 1790201472986,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10ik",
+   "t": 1791106563939,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_j8v",
+   "t": 1790888454892,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1z1y",
+   "t": 1790670345845,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1hs9",
+   "t": 1790452236798,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_sfk",
+   "t": 1790234127751,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_b5v",
+   "t": 1790016018704,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_i56",
+   "t": 1791041254409,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_vh",
+   "t": 1790823145362,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_buz",
+   "t": 1790068832348,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_t4o",
+   "t": 1790286941395,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ihd",
+   "t": 1790505050442,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1zr2",
+   "t": 1790723159489,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_jxz",
+   "t": 1790319596160,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_117o",
+   "t": 1790537705207,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qkd",
+   "t": 1790755814254,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_2oa",
+   "t": 1790973923301,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_20ur",
+   "t": 1790690504724,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_cyo",
+   "t": 1790908613771,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_qcc",
+   "t": 1791108171519,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_92n",
+   "t": 1790890062472,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1wyq",
+   "t": 1790421189613,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1fp1",
+   "t": 1790203080566,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_i9c",
+   "t": 1790059632859,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_zn",
+   "t": 1790639298660,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ovq",
+   "t": 1790495850953,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_17m1",
+   "t": 1790277741906,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_16ic",
+   "t": 1790486499143,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_p8n",
+   "t": 1790268390096,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1085",
+   "t": 1791082846986,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1hhu",
+   "t": 1790177756033,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1yrj",
+   "t": 1790646628892,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_avg",
+   "t": 1790864737939,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_s55",
+   "t": 1790210410798,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_19eu",
+   "t": 1790428519845,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qoj",
+   "t": 1790897392704,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_2sg",
+   "t": 1791115501751,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ge5",
+   "t": 1790581319362,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1xnu",
+   "t": 1790799428409,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_lwf",
+   "t": 1790321439768,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1364",
+   "t": 1790539548815,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1sit",
+   "t": 1790757657862,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_4mq",
+   "t": 1790975766909,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_dtf",
+   "t": 1790070675956,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_v34",
+   "t": 1790288785003,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1kft",
+   "t": 1790506894050,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21pi",
+   "t": 1790725003097,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_122f",
+   "t": 1790822967392,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1jc4",
+   "t": 1791041076439,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_c0m",
+   "t": 1790508806285,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zwp",
+   "t": 1790290697238,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ak0",
+   "t": 1790072588191,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_tab",
+   "t": 1790977679144,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_k3m",
+   "t": 1790258042473,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_2tx",
+   "t": 1790039933426,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1in0",
+   "t": 1790945024379,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_11db",
+   "t": 1790726915332,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_s6m",
+   "t": 1791010333909,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_awx",
+   "t": 1790792224862,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ust",
+   "t": 1790696172802,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_6wq",
+   "t": 1790914281849,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_o6f",
+   "t": 1790259954708,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_15g4",
+   "t": 1790478063755,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1mpt",
+   "t": 1790946936614,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_23zi",
+   "t": 1790041845661,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_g3f",
+   "t": 1790510718520,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_xd4",
+   "t": 1790728827567,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1emt",
+   "t": 1790074500426,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1vwi",
+   "t": 1790292609473,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_4hw",
+   "t": 1790481207831,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1sdz",
+   "t": 1790263098784,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1b4a",
+   "t": 1790119651077,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_tul",
+   "t": 1790699316878,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_21ko",
+   "t": 1790555869171,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1kaz",
+   "t": 1790337760124,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_131a",
+   "t": 1790992087265,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_lrl",
+   "t": 1790773978218,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tho",
+   "t": 1790305105359,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1c7z",
+   "t": 1790086996312,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zrv",
+   "t": 1790993999500,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bvs",
+   "t": 1790088908547,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_118h",
+   "t": 1790307017594,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ii6",
+   "t": 1790525126641,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_2p3",
+   "t": 1790121563312,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jys",
+   "t": 1790339672359,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_19bh",
+   "t": 1790557781406,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ql6",
+   "t": 1790775890453,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1jlv",
+   "t": 1790492471876,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_20vk",
+   "t": 1790710580923,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1pw2",
+   "t": 1790058166017,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_18md",
+   "t": 1790963256970,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_j9o",
+   "t": 1790745147923,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zz",
+   "t": 1790527038876,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ht2",
+   "t": 1790308929829,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10jd",
+   "t": 1790090820782,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_b6o",
+   "t": 1790995911735,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1z2r",
+   "t": 1790777802688,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_wa",
+   "t": 1790679838393,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1osd",
+   "t": 1790461729346,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1g09",
+   "t": 1790083490550,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1x9y",
+   "t": 1790301599597,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_9dv",
+   "t": 1790770472456,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_qnk",
+   "t": 1790988581503,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1o39",
+   "t": 1790955926738,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_76",
+   "t": 1790050835785,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_hgv",
+   "t": 1790519708644,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_yqk",
+   "t": 1790737817691,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1w69",
+   "t": 1790585018174,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_8a6",
+   "t": 1790803127221,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_exs",
+   "t": 1790270857067,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_22tv",
+   "t": 1790052748020,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1lk6",
+   "t": 1790707075161,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_14ah",
+   "t": 1790488966114,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_n0s",
+   "t": 1790521620879,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_5r3",
+   "t": 1790303511832,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1tn6",
+   "t": 1790957838973,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cdh",
+   "t": 1790739729926,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_v3s",
+   "t": 1790772384691,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_du3",
+   "t": 1790554275644,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1txj",
+   "t": 1790184655952,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_61g",
+   "t": 1790402764999,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ve5",
+   "t": 1790620874046,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cnu",
+   "t": 1790838983093,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1luj",
+   "t": 1791057092140,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_2348",
+   "t": 1790152001187,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_nb5",
+   "t": 1790370110234,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14ku",
+   "t": 1790588219281,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1drj",
+   "t": 1790806328328,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1v18",
+   "t": 1791024437375,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_sv2",
+   "t": 1790372022469,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_bld",
+   "t": 1790153913422,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1reg",
+   "t": 1791059004375,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1a4r",
+   "t": 1790840895328,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10y2",
+   "t": 1790121258657,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jod",
+   "t": 1791026349610,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zhg",
+   "t": 1790808240563,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1i7r",
+   "t": 1790590131516,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_cp2",
+   "t": 1790993694845,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_20l5",
+   "t": 1790775585798,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1mm6",
+   "t": 1791052609025,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_15ch",
+   "t": 1790834499978,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_fzs",
+   "t": 1790616390931,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23vv",
+   "t": 1790398281884,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1up6",
+   "t": 1790180172837,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1dfh",
+   "t": 1790759838638,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_o2s",
+   "t": 1790541729591,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_6t3",
+   "t": 1790323620544,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_16g6",
+   "t": 1790551081401,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_p6h",
+   "t": 1790332972354,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_17rb",
+   "t": 1790539817356,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1p10",
+   "t": 1790757926403,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_97x",
+   "t": 1790178260602,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_qhm",
+   "t": 1790396369649,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_zob",
+   "t": 1790790581168,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gy0",
+   "t": 1791008690215,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_14x",
+   "t": 1790103599262,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_iem",
+   "t": 1790321708309,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_rlb",
+   "t": 1790363714884,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_18v0",
+   "t": 1790581823931,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_12uk",
+   "t": 1790142100075,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_lkv",
+   "t": 1791047191028,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_4b6",
+   "t": 1790578318169,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1s79",
+   "t": 1790360209122,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_urk",
+   "t": 1790392863887,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_dhv",
+   "t": 1790174754840,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_21dy",
+   "t": 1790829081981,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1k49",
+   "t": 1790610972934,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1j0k",
+   "t": 1790643627699,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_11qv",
+   "t": 1790425518652,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cqd",
+   "t": 1791077933558,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1u02",
+   "t": 1790172842605,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_63z",
+   "t": 1790641715464,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ndo",
+   "t": 1790859824511,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14nd",
+   "t": 1790827169746,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1lx2",
+   "t": 1791045278793,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_236r",
+   "t": 1790390951652,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_fao",
+   "t": 1790609060699,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1swd",
+   "t": 1790456261182,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_50a",
+   "t": 1790674370229,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1kka",
+   "t": 1790380049293,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_13al",
+   "t": 1790161940246,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_dxw",
+   "t": 1791067031199,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21tz",
+   "t": 1790848922152,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cha",
+   "t": 1790129285481,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_v7l",
+   "t": 1791034376434,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_5uw",
+   "t": 1790816267387,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tqz",
+   "t": 1790598158340,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_14ea",
+   "t": 1790881576917,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_n4l",
+   "t": 1790663467870,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_syr",
+   "t": 1790192682776,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1a8g",
+   "t": 1790410791823,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zl5",
+   "t": 1790628900870,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bp2",
+   "t": 1790847009917,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_111r",
+   "t": 1791065118964,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ibg",
+   "t": 1790160028011,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_2id",
+   "t": 1790378137058,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_js2",
+   "t": 1790596246105,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_194r",
+   "t": 1790694210400,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qeg",
+   "t": 1790912319447,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_10so",
+   "t": 1790352450839,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jiz",
+   "t": 1790134341792,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_29a",
+   "t": 1790788668933,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1q5d",
+   "t": 1790570559886,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_18vo",
+   "t": 1790101687027,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_rlz",
+   "t": 1791006777980,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_aca",
+   "t": 1790537905121,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1y8d",
+   "t": 1790319796074,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_kmo",
+   "t": 1790176348367,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_3cz",
+   "t": 1790756014168,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1aoh",
+   "t": 1790567415810,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ry6",
+   "t": 1790785524857,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_423",
+   "t": 1790131197716,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_lbs",
+   "t": 1790349306763,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1irh",
+   "t": 1790818179622,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_2016",
+   "t": 1791036288669,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_c53",
+   "t": 1790381961528,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_tes",
+   "t": 1790600070575,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_uih",
+   "t": 1791068943434,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1bs6",
+   "t": 1790163852481,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_15rq",
+   "t": 1790032914713,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_oi1",
+   "t": 1790938005666,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_24b4",
+   "t": 1790719896619,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1n1f",
+   "t": 1790501787572,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1duq",
+   "t": 1790283678525,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_wl1",
+   "t": 1790065569478,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_78c",
+   "t": 1790970660431,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1v4f",
+   "t": 1790752551384,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1lxq",
+   "t": 1790534442337,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14o1",
+   "t": 1790316333290,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1fnj",
+   "t": 1790968748196,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1wx8",
+   "t": 1790063657243,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_h45",
+   "t": 1790281766290,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ydu",
+   "t": 1790499875337,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_17kj",
+   "t": 1790096312008,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ou8",
+   "t": 1790314421055,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_915",
+   "t": 1790532530102,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_qau",
+   "t": 1790750639149,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1vtj",
+   "t": 1790347075820,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_7xg",
+   "t": 1790565184867,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1nbd",
+   "t": 1790314206386,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_24l2",
+   "t": 1790532315433,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_goz",
+   "t": 1791001188292,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_xyo",
+   "t": 1790096097339,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ved",
+   "t": 1790564970198,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_7ia",
+   "t": 1790783079245,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_orz",
+   "t": 1790128752104,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_161o",
+   "t": 1790346861151,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23hd",
+   "t": 1790815734010,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_fla",
+   "t": 1791033843057,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1dfk",
+   "t": 1790424666567,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_w5v",
+   "t": 1790206557520,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ew6",
+   "t": 1790860884661,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_22s9",
+   "t": 1790642775614,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1lik",
+   "t": 1790173902755,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_148v",
+   "t": 1791078993708,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_mz6",
+   "t": 1790610120849,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_5ph",
+   "t": 1790392011802,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1tlk",
+   "t": 1791046338943,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cbv",
+   "t": 1790828229896,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_t3v",
+   "t": 1791062673352,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1adk",
+   "t": 1790157582399,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zq9",
+   "t": 1790375691446,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bu6",
+   "t": 1790593800493,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_116v",
+   "t": 1790811909540,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1igk",
+   "t": 1791030018587,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_rvx",
+   "t": 1790124927634,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_195m",
+   "t": 1790343036681,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_cxv",
+   "t": 1790441000976,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_u7k",
+   "t": 1790659110023,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1x76",
+   "t": 1790126839869,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1fxh",
+   "t": 1791031930822,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_qks",
+   "t": 1790813821775,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_9b3",
+   "t": 1790595712728,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1p46",
+   "t": 1790999276057,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_17uh",
+   "t": 1790781167010,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ihs",
+   "t": 1790563057963,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_183",
+   "t": 1790344948916,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_87e",
+   "t": 1790628367493,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1w3h",
+   "t": 1790410258446,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_223x",
+   "t": 1790986766118,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_e7u",
+   "t": 1790081675165,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_vhj",
+   "t": 1790550548024,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cr8",
+   "t": 1790768657071,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1u0x",
+   "t": 1790736002306,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_64u",
+   "t": 1790954111353,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_nej",
+   "t": 1790299784212,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14o8",
+   "t": 1790517893259,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_wph",
+   "t": 1790365093742,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1dz6",
+   "t": 1790583202789,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1s84",
+   "t": 1791012090651,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ayf",
+   "t": 1790793981604,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_toq",
+   "t": 1790325108745,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_cf1",
+   "t": 1790106999698,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_uwo",
+   "t": 1790139654463,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_dmz",
+   "t": 1791044745416,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_21j2",
+   "t": 1790575872557,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_4c1",
+   "t": 1790357763510,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_mto",
+   "t": 1790390418275,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_5jz",
+   "t": 1790172309228,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ke7",
+   "t": 1790612033084,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_21nw",
+   "t": 1790830142131,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_lut",
+   "t": 1791048251178,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_134i",
+   "t": 1790143160225,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cb7",
+   "t": 1790862796896,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tkw",
+   "t": 1791080905943,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_drt",
+   "t": 1790175814990,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_v1i",
+   "t": 1790393924037,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_20k7",
+   "t": 1790110505460,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_co4",
+   "t": 1790328614507,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1aie",
+   "t": 1790799399601,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_t8p",
+   "t": 1790581290554,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_3w0",
+   "t": 1790363181507,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1rs3",
+   "t": 1790145072460,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ile",
+   "t": 1791050163413,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_11bp",
+   "t": 1790832054366,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_bz0",
+   "t": 1790613945319,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zv3",
+   "t": 1790395836272,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qoe",
+   "t": 1790297871977,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_19ep",
+   "t": 1790079762930,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_245t",
+   "t": 1790177422570,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_g9q",
+   "t": 1790395531617,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_xjf",
+   "t": 1790864404476,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1et4",
+   "t": 1791082513523,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_731",
+   "t": 1790428186382,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ocq",
+   "t": 1790646295429,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_15mf",
+   "t": 1791115168288,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1mw4",
+   "t": 1790210077335,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1nzt",
+   "t": 1790799094946,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_3q",
+   "t": 1791017203993,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ua0",
+   "t": 1790364789087,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1d0b",
+   "t": 1790146680040,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_vqm",
+   "t": 1790801007181,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_egx",
+   "t": 1790582898134,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_22d0",
+   "t": 1790114025275,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1l3b",
+   "t": 1791019116228,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_13tm",
+   "t": 1790550243369,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_mjx",
+   "t": 1790332134322,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1e40",
+   "t": 1790866316711,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_wub",
+   "t": 1790648207664,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ivc",
+   "t": 1790784139395,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ln",
+   "t": 1790566030348,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1phq",
+   "t": 1790097157489,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1881",
+   "t": 1791002248442,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_qyc",
+   "t": 1791034903207,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_9on",
+   "t": 1790816794160,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1xkq",
+   "t": 1790347921301,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gb1",
+   "t": 1790129812254,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_2pc",
+   "t": 1790282611771,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qlf",
+   "t": 1790064502724,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_sr5",
+   "t": 1790596772878,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1a0u",
+   "t": 1790814881925,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1raj",
+   "t": 1790160554784,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_3eg",
+   "t": 1790378663831,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10u5",
+   "t": 1790346009066,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1i3u",
+   "t": 1790564118113,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zdj",
+   "t": 1791032990972,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_bhg",
+   "t": 1790127900019,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_cl5",
+   "t": 1790095245254,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_tuu",
+   "t": 1790313354301,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_dwa",
+   "t": 1790486312697,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_21sd",
+   "t": 1790268203650,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cfo",
+   "t": 1790050094603,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_v5z",
+   "t": 1790955185556,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_5ta",
+   "t": 1790737076509,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1tpd",
+   "t": 1790518967462,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14co",
+   "t": 1790300858415,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_n2z",
+   "t": 1790082749368,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_22w2",
+   "t": 1790987840321,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1lmd",
+   "t": 1790769731274,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_109v",
+   "t": 1790298946180,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1hjk",
+   "t": 1790517055227,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qh",
+   "t": 1790735164274,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_j06",
+   "t": 1790953273321,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_18cv",
+   "t": 1790549709992,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1pmk",
+   "t": 1790767819039,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_9th",
+   "t": 1790985928086,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_r36",
+   "t": 1790080837133,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gfv",
+   "t": 1790800473804,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1xpk",
+   "t": 1791018582851,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1a5o",
+   "t": 1790111579663,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_svz",
+   "t": 1791016670616,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bma",
+   "t": 1790547797757,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zid",
+   "t": 1790329688710,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_122o",
+   "t": 1790984015851,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ksz",
+   "t": 1790765906804,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_3ja",
+   "t": 1790297033945,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1rfd",
+   "t": 1790078924898,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1qbo",
+   "t": 1790613107287,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_191z",
+   "t": 1790394998240,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_62d",
+   "t": 1791047413146,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_nc2",
+   "t": 1790142322193,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14lr",
+   "t": 1790611195052,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1lvg",
+   "t": 1790829304099,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_2355",
+   "t": 1790174976958,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_f92",
+   "t": 1790393086005,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_wir",
+   "t": 1790861958864,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1dsg",
+   "t": 1791080067911,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_m8d",
+   "t": 1790545885522,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_13i2",
+   "t": 1790763994569,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_fy6",
+   "t": 1791022088613,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23u9",
+   "t": 1790803979566,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ehk",
+   "t": 1790585870519,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_x7v",
+   "t": 1790367761472,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_o16",
+   "t": 1790771324801,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_6rh",
+   "t": 1790553215754,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1mkk",
+   "t": 1790335106707,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_15av",
+   "t": 1790116997660,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_24xy",
+   "t": 1790520560989,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1no9",
+   "t": 1790302451942,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ptz",
+   "t": 1790834722096,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_173o",
+   "t": 1791052831143,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1wgd",
+   "t": 1790147740190,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_8ka",
+   "t": 1790365849237,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_hqz",
+   "t": 1790583958284,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_z0o",
+   "t": 1790802067331,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1odd",
+   "t": 1791020176378,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ha",
+   "t": 1790115085425,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_9nz",
+   "t": 1790333194472,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_qxo",
+   "t": 1790551303519,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_20w",
+   "t": 1790920923211,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1pwz",
+   "t": 1790702814164,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_18na",
+   "t": 1790233941305,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_rdl",
+   "t": 1790015832258,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_a3w",
+   "t": 1790048487023,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1xzz",
+   "t": 1790953577976,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gqa",
+   "t": 1790484705117,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_zgl",
+   "t": 1790266596070,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_i6w",
+   "t": 1790299250835,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_x7",
+   "t": 1790081141788,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bwp",
+   "t": 1790733556694,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_t6e",
+   "t": 1790951665741,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ag3",
+   "t": 1790297338600,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1rps",
+   "t": 1790515447647,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_jzp",
+   "t": 1790482792882,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_119e",
+   "t": 1790700901929,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ij3",
+   "t": 1790046574788,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1zss",
+   "t": 1790264683835,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_s2p",
+   "t": 1790111884318,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_19ce",
+   "t": 1790329993365,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_j0z",
+   "t": 1790045736756,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_10ao",
+   "t": 1790263845803,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1pnd",
+   "t": 1790481954850,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ra",
+   "t": 1790700063897,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_r3z",
+   "t": 1790296500568,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_18do",
+   "t": 1790514609615,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1xqd",
+   "t": 1790732718662,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_9ua",
+   "t": 1790950827709,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_z6z",
+   "t": 1790547264380,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ggo",
+   "t": 1790765373427,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_21t6",
+   "t": 1790233103273,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1kjh",
+   "t": 1790014994226,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_v6s",
+   "t": 1790920085179,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_dx3",
+   "t": 1790701976132,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1tq6",
+   "t": 1790483867085,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cgh",
+   "t": 1790265758038,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_n3s",
+   "t": 1790047648991,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_5u3",
+   "t": 1790952739944,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ln6",
+   "t": 1790734630897,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14dh",
+   "t": 1790516521850,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1rxd",
+   "t": 1790343563454,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_41a",
+   "t": 1790561672501,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_laz",
+   "t": 1791030545360,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_12ko",
+   "t": 1790125454407,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_200d",
+   "t": 1790092799642,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_c4a",
+   "t": 1790310908689,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_tdz",
+   "t": 1790779781548,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1ano",
+   "t": 1790997890595,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1brd",
+   "t": 1790965235830,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1t12",
+   "t": 1790060144877,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1mg",
+   "t": 1790530929971,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1pij",
+   "t": 1790312820924,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_188u",
+   "t": 1790967148065,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_qz5",
+   "t": 1790749039018,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_9pg",
+   "t": 1790781693783,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1xlj",
+   "t": 1790563584736,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gbu",
+   "t": 1790094711877,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_z25",
+   "t": 1790999802830,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1qm8",
+   "t": 1790029402347,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_19cj",
+   "t": 1790934493300,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_8l3",
+   "t": 1790581512672,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_pus",
+   "t": 1790799621719,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1f7h",
+   "t": 1791017730766,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1wh6",
+   "t": 1790112639813,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_i3",
+   "t": 1790330748860,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_hrs",
+   "t": 1790548857907,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_174h",
+   "t": 1790766966954,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1oe6",
+   "t": 1790985076001,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1xkv",
+   "t": 1790079985048,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_9os",
+   "t": 1790298094095,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_23v2",
+   "t": 1790768879189,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1mld",
+   "t": 1790550770142,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_x8o",
+   "t": 1790332661095,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_fyz",
+   "t": 1790114552048,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_6sa",
+   "t": 1790518115377,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1uod",
+   "t": 1790300006330,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_15bo",
+   "t": 1790081897283,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_o1z",
+   "t": 1790986988236,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1np2",
+   "t": 1790267351565,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_16fd",
+   "t": 1790049242518,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tz9",
+   "t": 1790956245706,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_636",
+   "t": 1790051154753,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ncv",
+   "t": 1790520027612,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14mk",
+   "t": 1790738136659,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1lw9",
+   "t": 1790083809518,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_235y",
+   "t": 1790301918565,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_f9v",
+   "t": 1790770791424,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_wjk",
+   "t": 1790988900471,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_4zh",
+   "t": 1790454718082,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_m96",
+   "t": 1790672827129,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1k3g",
+   "t": 1790981570239,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_12tr",
+   "t": 1790763461192,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_lk2",
+   "t": 1790294588333,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_4ad",
+   "t": 1790076479286,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1c0g",
+   "t": 1790730806427,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_uqr",
+   "t": 1790512697380,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_dh2",
+   "t": 1790043824521,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_21d5",
+   "t": 1790948915474,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_209g",
+   "t": 1790359897863,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1izr",
+   "t": 1790141788816,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1uuj",
+   "t": 1791065431068,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_6yg",
+   "t": 1790160340115,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_wb5",
+   "t": 1790378449162,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1dku",
+   "t": 1790596558209,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_22xj",
+   "t": 1790192994880,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_f1g",
+   "t": 1790411103927,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_14e5",
+   "t": 1790629212974,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1lnu",
+   "t": 1790847322021,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1eoj",
+   "t": 1790563903444,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1vy8",
+   "t": 1790782012491,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1kyq",
+   "t": 1790292980753,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_13p1",
+   "t": 1790074871706,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ecc",
+   "t": 1790979962659,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_228f",
+   "t": 1790761853612,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1cvq",
+   "t": 1790543744565,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_vm1",
+   "t": 1790325635518,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_69c",
+   "t": 1790107526471,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1u5f",
+   "t": 1791012617424,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_214q",
+   "t": 1790914653129,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1jv1",
+   "t": 1790696544082,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1t9u",
+   "t": 1790128988717,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1c05",
+   "t": 1791034079670,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_mng",
+   "t": 1790815970623,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_5dr",
+   "t": 1790597861576,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1l6u",
+   "t": 1791001424905,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_13x5",
+   "t": 1790783315858,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ekg",
+   "t": 1790565206811,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_22gj",
+   "t": 1790347097764,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_4a2",
+   "t": 1790630516341,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1s65",
+   "t": 1790412407294,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_235n",
+   "t": 1790103664184,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_f9k",
+   "t": 1790321773231,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14m9",
+   "t": 1790539882278,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1lvy",
+   "t": 1790757991325,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_62v",
+   "t": 1790976100372,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_nck",
+   "t": 1790071009419,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cp9",
+   "t": 1790289118466,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1tyy",
+   "t": 1790507227513,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1mzn",
+   "t": 1790605191808,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_249c",
+   "t": 1790823300855,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ibk",
+   "t": 1790263432247,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_11v",
+   "t": 1790045323200,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1oxy",
+   "t": 1790699650341,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_17o9",
+   "t": 1790481541294,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_qek",
+   "t": 1790012668435,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_94v",
+   "t": 1790917759388,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1x0y",
+   "t": 1790448886529,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1fr9",
+   "t": 1790230777482,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_yhk",
+   "t": 1790885104623,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_h7v",
+   "t": 1790666995576,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1je1",
+   "t": 1790316355234,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_20nq",
+   "t": 1790534464281,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_crn",
+   "t": 1791003337140,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_u1c",
+   "t": 1790098246187,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1rh1",
+   "t": 1790567119046,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_3ky",
+   "t": 1790785228093,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_kun",
+   "t": 1790130900952,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_124c",
+   "t": 1790349009999,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zk1",
+   "t": 1790817882858,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_bny",
+   "t": 1791035991905,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_fee",
+   "t": 1790801548449,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_23ah",
+   "t": 1790583439402,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1dxs",
+   "t": 1790365330355,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_wo3",
+   "t": 1790147221308,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_nhe",
+   "t": 1791052312261,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_67p",
+   "t": 1790834203214,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1m0s",
+   "t": 1790616094167,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_14r3",
+   "t": 1790397985120,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_vke",
+   "t": 1790300020825,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_eap",
+   "t": 1790081911778,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_pa7",
+   "t": 1790614181932,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_16jw",
+   "t": 1790832290979,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1vwl",
+   "t": 1791050400026,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_80i",
+   "t": 1790145309073,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_h77",
+   "t": 1790864945744,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ygw",
+   "t": 1791083054791,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ntl",
+   "t": 1790177963838,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_253a",
+   "t": 1790396072885,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_15g7",
+   "t": 1790112654308,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1mpw",
+   "t": 1790330763355,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_7vo",
+   "t": 1790053081483,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1vrr",
+   "t": 1790958172436,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ei2",
+   "t": 1790489299577,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_x8d",
+   "t": 1790271190530,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_24yg",
+   "t": 1790303845295,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1nor",
+   "t": 1790085736248,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_16f2",
+   "t": 1790740063389,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_p5d",
+   "t": 1790521954342,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1wvg",
+   "t": 1790554609107,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1flr",
+   "t": 1790336500060,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1y6l",
+   "t": 1790988914966,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_aai",
+   "t": 1790083824013,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_rk7",
+   "t": 1790552696872,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_18tw",
+   "t": 1790770805919,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1q3l",
+   "t": 1790738151154,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_27i",
+   "t": 1790956260201,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jh7",
+   "t": 1790301933060,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10qw",
+   "t": 1790520042107,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1i0l",
+   "t": 1790367242590,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1zaa",
+   "t": 1790585351637,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_4yi",
+   "t": 1790154246885,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1sul",
+   "t": 1791059337838,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_13hw",
+   "t": 1790841228791,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_m87",
+   "t": 1790623119744,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_221a",
+   "t": 1791026683073,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1krl",
+   "t": 1790808574026,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_vew",
+   "t": 1790590464979,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_e57",
+   "t": 1790372355932,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tya",
+   "t": 1790775919261,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1col",
+   "t": 1790557810214,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_2lf",
+   "t": 1791090080368,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_jv4",
+   "t": 1790184989415,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_197t",
+   "t": 1790403098462,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1qhi",
+   "t": 1790621207509,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_aof",
+   "t": 1790839316556,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ry4",
+   "t": 1791057425603,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1hat",
+   "t": 1790152334650,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1yki",
+   "t": 1790370443697,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_irf",
+   "t": 1790588552744,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1014",
+   "t": 1790806661791,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gxp",
+   "t": 1790598921726,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1y7e",
+   "t": 1790817030773,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_abb",
+   "t": 1790162703632,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_rl0",
+   "t": 1790380812679,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_18up",
+   "t": 1790348157914,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1q4e",
+   "t": 1790566266961,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_28b",
+   "t": 1791035139820,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ji0",
+   "t": 1790130048867,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10rp",
+   "t": 1790097394102,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1i1e",
+   "t": 1790315503149,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_171w",
+   "t": 1790786288243,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ps7",
+   "t": 1790568179196,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_8ii",
+   "t": 1790099306337,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1wel",
+   "t": 1791004397290,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_yyw",
+   "t": 1791037052055,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_hp7",
+   "t": 1790818943008,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_fi",
+   "t": 1790350070149,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1obl",
+   "t": 1790131961102,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_qvw",
+   "t": 1790284760619,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_9m7",
+   "t": 1790066651572,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_z7z",
+   "t": 1790626520180,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1gho",
+   "t": 1790844629227,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ol",
+   "t": 1791062738274,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_hya",
+   "t": 1790157647321,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_r4z",
+   "t": 1790877283992,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_18eo",
+   "t": 1791095393039,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1xrd",
+   "t": 1790190302086,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_9va",
+   "t": 1790408411133,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1fdz",
+   "t": 1790004847804,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1wno",
+   "t": 1790222956851,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_23ba",
+   "t": 1790813886697,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1m1l",
+   "t": 1790595777650,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_wow",
+   "t": 1790377668603,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_ff7",
+   "t": 1790159559556,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_68i",
+   "t": 1791064650509,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1u4l",
+   "t": 1790846541462,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14rw",
+   "t": 1790628432415,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ni7",
+   "t": 1790410323368,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ebi",
+   "t": 1790192214321,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_227l",
+   "t": 1791097305274,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1255",
+   "t": 1790088403978,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1jeu",
+   "t": 1790306513025,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_20oj",
+   "t": 1790775385884,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_csg",
+   "t": 1790993494931,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1a85",
+   "t": 1790339167790,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1rhu",
+   "t": 1790557276837,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_3lr",
+   "t": 1791026149696,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_kvg",
+   "t": 1790121058743,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ib5",
+   "t": 1790710076354,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1zku",
+   "t": 1790928185401,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_s9c",
+   "t": 1790439153663,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_azn",
+   "t": 1790221044616,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1yvq",
+   "t": 1790875371757,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1hm1",
+   "t": 1790657262710,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_10cc",
+   "t": 1790188389851,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_j2n",
+   "t": 1791093480804,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1sy",
+   "t": 1790624607945,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1pp1",
+   "t": 1790406498898,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_18fc",
+   "t": 1790615256135,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_r5n",
+   "t": 1790397147088,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1lwr",
+   "t": 1790836870944,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_236g",
+   "t": 1791054979991,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ndd",
+   "t": 1790149889038,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_14n2",
+   "t": 1790367998085,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1tzr",
+   "t": 1790586107132,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_63o",
+   "t": 1790804216179,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_vgd",
+   "t": 1791022325226,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cq2",
+   "t": 1790117234273,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_15qr",
+   "t": 1790335343320,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1n0g",
+   "t": 1790553452367,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1c0y",
+   "t": 1791024237461,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ur9",
+   "t": 1790806128414,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_5ek",
+   "t": 1790588019367,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1tan",
+   "t": 1790369910320,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_13xy",
+   "t": 1790773473649,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_mo9",
+   "t": 1790555364602,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_22hc",
+   "t": 1790337255555,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1l7n",
+   "t": 1790119146508,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1s6y",
+   "t": 1790522709837,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1ax9",
+   "t": 1790304600790,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_545",
+   "t": 1790735705542,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_mdu",
+   "t": 1790953814589,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_13nj",
+   "t": 1790299487448,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1kx8",
+   "t": 1790517596495,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_226x",
+   "t": 1790484941730,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_eau",
+   "t": 1790703050777,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_vkj",
+   "t": 1790048723636,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1cu8",
+   "t": 1790266832683,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_la5",
+   "t": 1790114033166,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_12ju",
+   "t": 1790332142213,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_20e4",
+   "t": 1790923072059,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1j4f",
+   "t": 1790704963012,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_11uq",
+   "t": 1790236090153,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_kl1",
+   "t": 1790017981106,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1sb4",
+   "t": 1790050635871,
+   "venue": "viewport",
+   "deck": "bridge",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_1b1f",
+   "t": 1790955726824,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_trq",
+   "t": 1790486853965,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_ci1",
+   "t": 1790268744918,
+   "venue": "corridor",
+   "deck": "ops",
+   "activity": "stand_rest"
+  },
+  {
+   "id": "ag_bec",
+   "t": 1790301399683,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  },
+  {
+   "id": "ag_1zaf",
+   "t": 1790083290636,
+   "venue": "mess",
+   "deck": "ops",
+   "activity": "sit_rest"
+  }
+ ],
+ "roster": [
+  {
+   "id": "ag_00",
+   "name": "Officer 0",
+   "role": "officer",
+   "status": "working",
+   "createdMs": 1790000000000,
+   "lead": false
+  },
+  {
+   "id": "ag_01",
+   "name": "Officer 1",
+   "role": "officer",
+   "status": "waiting",
+   "createdMs": 1790000060000,
+   "lead": false
+  },
+  {
+   "id": "ag_02",
+   "name": "Officer 2",
+   "role": "officer",
+   "status": "idle",
+   "createdMs": 1790000120000,
+   "lead": false
+  },
+  {
+   "id": "ag_03",
+   "name": "Officer 3",
+   "role": "officer",
+   "status": "paused",
+   "createdMs": 1790000180000,
+   "lead": true
+  },
+  {
+   "id": "ag_04",
+   "name": "Officer 4",
+   "role": "officer",
+   "status": "error",
+   "createdMs": 1790000240000,
+   "lead": false
+  },
+  {
+   "id": "ag_05",
+   "name": "Officer 5",
+   "role": "officer",
+   "status": "working",
+   "createdMs": 1790000300000,
+   "lead": false
+  },
+  {
+   "id": "ag_06",
+   "name": "Officer 6",
+   "role": "officer",
+   "status": "idle",
+   "createdMs": 1790000360000,
+   "lead": false
+  },
+  {
+   "id": "ag_07",
+   "name": "Officer 7",
+   "role": "officer",
+   "status": "idle",
+   "createdMs": 1790000420000,
+   "lead": false
+  },
+  {
+   "id": "ag_08",
+   "name": "Officer 8",
+   "role": "officer",
+   "status": "working",
+   "createdMs": 1790000480000,
+   "lead": false
+  },
+  {
+   "id": "ag_09",
+   "name": "Officer 9",
+   "role": "officer",
+   "status": "waiting",
+   "createdMs": 1790000540000,
+   "lead": false
+  },
+  {
+   "id": "ag_10",
+   "name": "Officer 10",
+   "role": "officer",
+   "status": "idle",
+   "createdMs": 1790000600000,
+   "lead": false
+  },
+  {
+   "id": "ag_11",
+   "name": "Officer 11",
+   "role": "officer",
+   "status": "working",
+   "createdMs": 1790000660000,
+   "lead": false
+  },
+  {
+   "id": "ws_1:T1",
+   "name": "T1",
+   "role": "technician",
+   "status": "working",
+   "createdMs": 1790000100000,
+   "lead": false
+  },
+  {
+   "id": "ws_1:T2",
+   "name": "T2",
+   "role": "technician",
+   "status": "waiting",
+   "createdMs": 1790000101000,
+   "lead": false
+  },
+  {
+   "id": "ws_1:T3",
+   "name": "T3",
+   "role": "technician",
+   "status": "error",
+   "createdMs": 1790000102000,
+   "lead": false
+  },
+  {
+   "id": "ws_1:T4",
+   "name": "T4",
+   "role": "technician",
+   "status": "idle",
+   "createdMs": 1790000103000,
+   "lead": false
+  }
+ ],
+ "now_ms": 1790000500000,
+ "rounds": {
+  "ag_06": "speaker",
+  "ag_07": "listener"
+ },
+ "plans": [
+  {
+   "deck": "bridge",
+   "first": {
+    "placements": {
+     "ag_00": {
+      "socket": "seat:pit_p_1",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_01": {
+      "socket": "seat:pit_s_1",
+      "venue": "console",
+      "activity": "stand_wait",
+      "face": true
+     },
+     "ag_04": {
+      "socket": "seat:pit_p_2",
+      "venue": "console",
+      "activity": "stand_alert",
+      "face": false
+     },
+     "ag_05": {
+      "socket": "seat:pit_s_2",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_08": {
+      "socket": "seat:pit_p_3",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_09": {
+      "socket": "seat:pit_s_3",
+      "venue": "console",
+      "activity": "stand_wait",
+      "face": true
+     },
+     "ag_11": {
+      "socket": "seat:pit_p_4",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_02": {
+      "socket": "waypoint:vp_3",
+      "venue": "viewport",
+      "activity": "stand_rest",
+      "face": false
+     },
+     "ag_06": {
+      "socket": "seat:brief_1",
+      "venue": "briefing",
+      "activity": "talk",
+      "face": false
+     },
+     "ag_07": {
+      "socket": "seat:brief_2",
+      "venue": "briefing",
+      "activity": "listen",
+      "face": false
+     }
+    },
+    "homes": {
+     "ag_00": "pit_p_1",
+     "ag_01": "pit_s_1",
+     "ag_04": "pit_p_2",
+     "ag_05": "pit_s_2",
+     "ag_08": "pit_p_3",
+     "ag_09": "pit_s_3",
+     "ag_11": "pit_p_4",
+     "ag_03": "pit_s_4",
+     "ag_02": "pit_p_5",
+     "ag_06": "pit_s_5",
+     "ag_07": "pit_p_6",
+     "ag_10": "pit_s_6"
+    }
+   },
+   "second": {
+    "placements": {
+     "ag_00": {
+      "socket": "seat:pit_p_1",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_01": {
+      "socket": "seat:pit_s_1",
+      "venue": "console",
+      "activity": "stand_wait",
+      "face": true
+     },
+     "ag_04": {
+      "socket": "seat:pit_p_2",
+      "venue": "console",
+      "activity": "stand_alert",
+      "face": false
+     },
+     "ag_05": {
+      "socket": "seat:pit_s_2",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_08": {
+      "socket": "seat:pit_p_3",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_09": {
+      "socket": "seat:pit_s_3",
+      "venue": "console",
+      "activity": "stand_wait",
+      "face": true
+     },
+     "ag_11": {
+      "socket": "seat:pit_p_4",
+      "venue": "console",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ag_06": {
+      "socket": "seat:brief_1",
+      "venue": "briefing",
+      "activity": "talk",
+      "face": false
+     },
+     "ag_07": {
+      "socket": "seat:brief_2",
+      "venue": "briefing",
+      "activity": "listen",
+      "face": false
+     }
+    },
+    "homes": {
+     "ag_00": "pit_p_1",
+     "ag_01": "pit_s_1",
+     "ag_04": "pit_p_2",
+     "ag_05": "pit_s_2",
+     "ag_08": "pit_p_3",
+     "ag_09": "pit_s_3",
+     "ag_11": "pit_p_4",
+     "ag_03": "pit_s_4",
+     "ag_10": "pit_s_6",
+     "ag_06": "pit_p_5",
+     "ag_07": "pit_s_5"
+    }
+   }
+  },
+  {
+   "deck": "ops",
+   "first": {
+    "placements": {
+     "ag_03": {
+      "socket": "bunk:2",
+      "venue": "bunk",
+      "activity": "sleep",
+      "face": false
+     },
+     "ag_10": {
+      "socket": "waypoint:corridor_12",
+      "venue": "corridor",
+      "activity": "stand_rest",
+      "face": false
+     }
+    },
+    "homes": {}
+   },
+   "second": {
+    "placements": {
+     "ag_03": {
+      "socket": "bunk:2",
+      "venue": "bunk",
+      "activity": "sleep",
+      "face": false
+     },
+     "ag_10": {
+      "socket": "waypoint:corridor_12",
+      "venue": "corridor",
+      "activity": "stand_rest",
+      "face": false
+     }
+    },
+    "homes": {}
+   }
+  },
+  {
+   "deck": "engineering",
+   "first": {
+    "placements": {
+     "ws_1:T1": {
+      "socket": "seat:term_1",
+      "venue": "terminal",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ws_1:T2": {
+      "socket": "seat:term_2",
+      "venue": "terminal",
+      "activity": "stand_wait",
+      "face": true
+     },
+     "ws_1:T3": {
+      "socket": "seat:term_3",
+      "venue": "terminal",
+      "activity": "stand_alert",
+      "face": false
+     },
+     "ws_1:T4": {
+      "socket": "stand:workshop_11",
+      "venue": "workshop",
+      "activity": "stand_rest",
+      "face": false
+     }
+    },
+    "homes": {
+     "ws_1:T1": "term_1",
+     "ws_1:T2": "term_2",
+     "ws_1:T3": "term_3",
+     "ws_1:T4": "term_4"
+    }
+   },
+   "second": {
+    "placements": {
+     "ws_1:T1": {
+      "socket": "seat:term_1",
+      "venue": "terminal",
+      "activity": "sit_type",
+      "face": false
+     },
+     "ws_1:T2": {
+      "socket": "seat:term_2",
+      "venue": "terminal",
+      "activity": "stand_wait",
+      "face": true
+     },
+     "ws_1:T3": {
+      "socket": "seat:term_3",
+      "venue": "terminal",
+      "activity": "stand_alert",
+      "face": false
+     },
+     "ws_1:T4": {
+      "socket": "stand:workshop_11",
+      "venue": "workshop",
+      "activity": "stand_rest",
+      "face": false
+     }
+    },
+    "homes": {
+     "ws_1:T1": "term_1",
+     "ws_1:T2": "term_2",
+     "ws_1:T3": "term_3",
+     "ws_1:T4": "term_4"
+    }
+   }
+  }
+ ]
+}
