@@ -236,11 +236,11 @@ protected:
 public:
 	/**
 	 * Server: a client location within this distance of the server's (same movement mode) is not
-	 * corrected. Lost and reordered move packets leave errors of 1-3 cm that the stock 1.73 cm
+	 * corrected. Lost and reordered move packets leave errors of 1-5 cm that the stock 1.73 cm
 	 * threshold would correct. The server never adopts the client's location.
 	 */
 	UPROPERTY(EditAnywhere, Category = "Verse|Movement")
-	float ServerCorrectionToleranceCm = 4.f;
+	float ServerCorrectionToleranceCm = 5.f;
 
 protected:
 
