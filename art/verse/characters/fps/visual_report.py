@@ -6,8 +6,8 @@
   colour in `fp_wall_off` (no wall) and `fp_wall_on` (wall 20 cm past the
   support hand); a weapon pixel is hidden when it is no longer red with the
   wall up. Grey against grey (body, floor, wall) cannot tell occlusion from
-  the light the wall bounces onto the arms. Pass: weapon in view, 0 hidden
-  8 x 8 blocks (a lone flickering edge pixel is not a hidden region).
+  the light the wall bounces onto the arms. Pass: weapon in view and 0 hidden
+  weapon pixels; the anti-aliased silhouette (2 px) is reported on its own.
 * Contact sheets: turnarounds, first-person views and the finisher phases,
   written next to the shots (`sheet_*.png`), plus `fp_clipping.json`.
 
@@ -26,39 +26,24 @@ from PIL import Image
 
 REPO = Path(__file__).resolve().parents[4]
 DEFAULT = REPO / "unreal/Verse/Saved/Harness/proof/WP13/visual"
-#: Per-channel difference (0..255) that counts as a changed pixel.
-THRESHOLD = 40
 
 
 def load(path: Path) -> np.ndarray:
     return np.asarray(Image.open(path).convert("RGB"), dtype=np.int16)
 
 
-#: Shots are compared as means of BLOCK x BLOCK pixels: the floor's grain and
-#: sub-pixel edges change between frames, a body or a weapon does not.
-BLOCK = 8
-
-
-def blocks(img: np.ndarray) -> np.ndarray:
-    h, w = (img.shape[0] // BLOCK) * BLOCK, (img.shape[1] // BLOCK) * BLOCK
-    return img[:h, :w].reshape(h // BLOCK, BLOCK, w // BLOCK, BLOCK, 3).mean(axis=(1, 3))
-
-
-def erode(mask: np.ndarray) -> np.ndarray:
-    """Keep blocks whose 3 x 3 neighbourhood is set: drops one-block lines (the
-    anti-aliased horizon), keeps a body or a weapon."""
-    m = np.pad(mask, 1)
-    out = np.ones_like(mask)
-    for dy in (0, 1, 2):
-        for dx in (0, 1, 2):
-            out &= m[dy : dy + mask.shape[0], dx : dx + mask.shape[1]]
-    return out
+#: Red minus the larger of green and blue. The weapon measures about 120 in the
+#: open and about 30 with the wall's bounced light on it; the grey scene stays
+#: at or below 20 (99.9 %), and an occluded weapon pixel shows bare wall (~0).
+CHROMA = 24
+#: Width of the anti-aliased silhouette, in pixels.
+EDGE = 2
 
 
 def red(img: np.ndarray) -> np.ndarray:
     """Pixels of the saturated red stand-in weapon, under any of the scene's light."""
-    r, g, b = img[..., 0], img[..., 1], img[..., 2]
-    return (r > 50) & (r > 1.8 * g) & (r > 1.8 * b)
+    r = img[..., 0]
+    return (r > 50) & (r - np.maximum(img[..., 1], img[..., 2]) > CHROMA)
 
 
 def clipping(folder: Path) -> dict:
@@ -66,16 +51,19 @@ def clipping(folder: Path) -> dict:
     off, on = (load(folder / f"fp_wall_{n}.png") for n in ("off", "on"))
     weapon = red(off)
     hidden = weapon & ~red(on)
-    # One-pixel anti-aliased edges flicker between frames; a hidden region is wider.
-    h, w = (hidden.shape[0] // BLOCK) * BLOCK, (hidden.shape[1] // BLOCK) * BLOCK
-    share = hidden[:h, :w].reshape(h // BLOCK, BLOCK, w // BLOCK, BLOCK).mean(axis=(1, 3))
-    hidden_blocks = share > 0.5
+    # Silhouette pixels (within EDGE px of the outline) are anti-aliased against
+    # whatever lies behind, so their colour changes with the backdrop alone.
+    pad = np.pad(weapon, EDGE)
+    interior = np.ones_like(weapon)
+    for dy in range(2 * EDGE + 1):
+        for dx in range(2 * EDGE + 1):
+            interior &= pad[dy : dy + weapon.shape[0], dx : dx + weapon.shape[1]]
     return {
         "weapon_pixels": int(weapon.sum()),
-        "hidden_weapon_pixels": int(hidden.sum()),
-        "hidden_weapon_blocks": int(hidden_blocks.sum()),
-        "block": BLOCK,
-        "pass": bool(weapon.sum() > 0 and hidden_blocks.sum() == 0),
+        "hidden_weapon_pixels": int((hidden & interior).sum()),
+        "hidden_silhouette_pixels": int((hidden & ~interior).sum()),
+        "silhouette_px": EDGE,
+        "pass": bool(weapon.sum() > 0 and (hidden & interior).sum() == 0),
     }
 
 
