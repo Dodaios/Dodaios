@@ -43,19 +43,24 @@ namespace VerseHoleGlow
 		return FLinearColor(0.018f, 0.014f, 0.011f);
 	}
 
-	TArray<int32> SelectGlowing(TConstArrayView<uint32> TimesMs, uint32 NowMs, int32 Cap, float EndS)
+	float AgeS(uint32 TimeMs, uint32 NowMs, uint32 MaxFutureMs)
+	{
+		if (TimeMs <= NowMs)
+		{
+			return (NowMs - TimeMs) / 1000.f;
+		}
+		// Within the skew window a record from the future is fresh; beyond it the clock that
+		// stamped it is not this one, and the hole reads as long cooled.
+		return TimeMs - NowMs <= MaxFutureMs ? 0.f : MAX_flt;
+	}
+
+	TArray<int32> SelectGlowing(TConstArrayView<uint32> TimesMs, uint32 NowMs, int32 Cap, float EndS, uint32 MaxFutureMs)
 	{
 		TArray<int32> Young;
-		const uint32 EndMs = uint32(EndS * 1000.f);
 		for (int32 Index = 0; Index < TimesMs.Num(); ++Index)
 		{
-			if (TimesMs[Index] <= NowMs && NowMs - TimesMs[Index] < EndMs)
+			if (AgeS(TimesMs[Index], NowMs, MaxFutureMs) < EndS)
 			{
-				Young.Add(Index);
-			}
-			else if (TimesMs[Index] > NowMs)
-			{
-				// A record from the future (clock skew on a client) glows as fresh.
 				Young.Add(Index);
 			}
 		}

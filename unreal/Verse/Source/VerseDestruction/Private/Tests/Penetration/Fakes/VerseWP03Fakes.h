@@ -52,6 +52,14 @@ public:
 	AActor* SpawnPiece(uint16 PieceIndex, EVersePenetrationMaterial Material, const FVector& Center, float ThicknessCm,
 		float WidthCm = 100.f, float HeightCm = 100.f, const FRotator& Rotation = FRotator::ZeroRotator);
 
+	/**
+	 * A piece whose proxy is one body of several boxes, like a convex-decomposed or a concave
+	 * Holed proxy: a static mesh component whose transient mesh has only simple collision.
+	 * Shapes are (actor-local centre, half extent) in cm.
+	 */
+	AActor* SpawnCompoundPiece(uint16 PieceIndex, EVersePenetrationMaterial Material, const FVector& Center,
+		TConstArrayView<TPair<FVector, FVector>> Shapes);
+
 	/** Non-destructible world geometry; null Surface = no Verse physical material at all. */
 	AActor* SpawnWorldBox(const EVerseWorldSurface* Surface, const FVector& Center, float ThicknessCm, float WidthCm = 200.f,
 		float HeightCm = 200.f);

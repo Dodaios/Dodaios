@@ -14,7 +14,7 @@ UVerseBoltHoleComponent::UVerseBoltHoleComponent()
 void UVerseBoltHoleComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UVerseBoltHoleComponent, Holes);
+	DOREPLIFETIME(UVerseBoltHoleComponent, Slots);
 	DOREPLIFETIME(UVerseBoltHoleComponent, Epoch);
 }
 
@@ -30,6 +30,11 @@ bool UVerseBoltHoleComponent::HasServerAuthority() const
 	return OwnerActor == nullptr || OwnerActor->HasAuthority();
 }
 
+bool UVerseBoltHoleComponent::IsLiveSlot(int32 SlotIndex) const
+{
+	return Slots.IsValidIndex(SlotIndex) && Slots[SlotIndex].IsUsed() && Slots[SlotIndex].Hole.Epoch == Epoch;
+}
+
 EVerseHoleAddResult UVerseBoltHoleComponent::AddHole(uint16 PieceIndex, EVersePenetrationMaterial Material,
 	const FVector& AxisPointLocalCm, const FVector& AxisDirectionLocal, uint8 RadiusMm, uint32 ServerTimeMs)
 {
@@ -43,6 +48,8 @@ EVerseHoleAddResult UVerseBoltHoleComponent::AddHole(uint16 PieceIndex, EVersePe
 	}
 
 	const FVerseBoltHole NewHole = FVerseBoltHole::Make(PieceIndex, AxisPointLocalCm, AxisDirectionLocal, RadiusMm, ServerTimeMs, Epoch);
+	TArray<uint16, TInlineAllocator<2>> Touched;
+	Touched.Add(PieceIndex);
 	if (NumOnPiece(PieceIndex) >= HolesPerPiece)
 	{
 		if (VersePenetration::IsWallMaterial(Material))
@@ -59,59 +66,87 @@ EVerseHoleAddResult UVerseBoltHoleComponent::AddHole(uint16 PieceIndex, EVersePe
 			OnPieceHoleCap.Broadcast(PieceIndex, Centroid);
 			return EVerseHoleAddResult::PieceHoled;
 		}
-		RemoveOldestOnPiece(PieceIndex);
+		// Glass and ceiling panels: the piece's oldest hole goes.
+		RemoveSlot(ByPiece.FindChecked(PieceIndex).SlotIndices[0]);
 	}
-	while (Holes.Num() >= HolesPerArena)
+	while (LiveCount >= HolesPerArena)
 	{
+		const int32 Before = LiveCount;
 		EvictForArenaCap();
+		if (LiveCount == Before)
+		{
+			break;
+		}
 	}
 
-	Holes.Add(NewHole);
-	MarkChanged();
+	const int32 SlotIndex = FreeSlots.IsEmpty() ? Slots.AddDefaulted() : FreeSlots.Pop(EAllowShrinking::No);
+	FVerseBoltHoleSlot& Slot = Slots[SlotIndex];
+	Slot.Hole = NewHole;
+	Slot.Sequence = NextSequence++;
+	if (NextSequence == 0)
+	{
+		NextSequence = 1;
+	}
+	FPieceHoles& Piece = ByPiece.FindOrAdd(PieceIndex);
+	Piece.Holes.Add(NewHole);
+	Piece.SlotIndices.Add(SlotIndex);
+	Piece.Axes.Emplace(NewHole);
+	++LiveCount;
+	Broadcast(Touched, false);
 	return EVerseHoleAddResult::Added;
 }
 
-void UVerseBoltHoleComponent::RemoveOldestOnPiece(uint16 PieceIndex)
+void UVerseBoltHoleComponent::RemoveSlot(int32 SlotIndex)
 {
-	// Items stay in insertion order, so the first item of a piece is its oldest hole.
-	const int32 Index = Holes.IndexOfByPredicate([PieceIndex](const FVerseBoltHole& Hole) { return Hole.PieceIndex == PieceIndex; });
-	if (Index != INDEX_NONE)
+	if (!Slots.IsValidIndex(SlotIndex) || !Slots[SlotIndex].IsUsed())
 	{
-		Holes.RemoveAt(Index);
-		MarkChanged();
+		return;
 	}
+	const uint16 PieceIndex = Slots[SlotIndex].Hole.PieceIndex;
+	if (FPieceHoles* Piece = ByPiece.Find(PieceIndex))
+	{
+		const int32 At = Piece->SlotIndices.IndexOfByKey(SlotIndex);
+		if (At != INDEX_NONE)
+		{
+			Piece->SlotIndices.RemoveAt(At);
+			Piece->Holes.RemoveAt(At);
+			Piece->Axes.RemoveAt(At);
+		}
+		if (Piece->SlotIndices.IsEmpty())
+		{
+			ByPiece.Remove(PieceIndex);
+		}
+	}
+	Slots[SlotIndex] = FVerseBoltHoleSlot();
+	FreeSlots.Add(SlotIndex);
+	--LiveCount;
+	const uint16 Touched[] = {PieceIndex};
+	Broadcast(Touched, false);
 }
 
 void UVerseBoltHoleComponent::EvictForArenaCap()
 {
 	// The piece with the most holes; ties go to the piece whose oldest hole is older.
-	TMap<uint16, int32> Counts;
-	TMap<uint16, int32> FirstIndex;
-	for (int32 Index = 0; Index < Holes.Num(); ++Index)
+	int32 BestCount = -1;
+	uint32 BestSequence = MAX_uint32;
+	int32 BestSlot = INDEX_NONE;
+	for (const TPair<uint16, FPieceHoles>& Pair : ByPiece)
 	{
-		const uint16 Piece = Holes[Index].PieceIndex;
-		Counts.FindOrAdd(Piece) += 1;
-		FirstIndex.FindOrAdd(Piece, Index);
-	}
-	uint16 Fullest = 0;
-	int32 Best = -1;
-	int32 BestFirst = MAX_int32;
-	for (const TPair<uint16, int32>& Pair : Counts)
-	{
-		const int32 First = FirstIndex[Pair.Key];
-		if (Pair.Value > Best || (Pair.Value == Best && First < BestFirst))
+		const int32 Count = Pair.Value.SlotIndices.Num();
+		if (Count == 0)
 		{
-			Fullest = Pair.Key;
-			Best = Pair.Value;
-			BestFirst = First;
+			continue;
+		}
+		const int32 OldestSlot = Pair.Value.SlotIndices[0];
+		const uint32 Sequence = Slots[OldestSlot].Sequence;
+		if (Count > BestCount || (Count == BestCount && Sequence < BestSequence))
+		{
+			BestCount = Count;
+			BestSequence = Sequence;
+			BestSlot = OldestSlot;
 		}
 	}
-	if (Best < 0)
-	{
-		return;
-	}
-	Holes.RemoveAt(BestFirst);
-	MarkChanged();
+	RemoveSlot(BestSlot);
 }
 
 void UVerseBoltHoleComponent::ClearPiece(uint16 PieceIndex)
@@ -120,11 +155,19 @@ void UVerseBoltHoleComponent::ClearPiece(uint16 PieceIndex)
 	{
 		return;
 	}
-	const int32 Removed = Holes.RemoveAll([PieceIndex](const FVerseBoltHole& Hole) { return Hole.PieceIndex == PieceIndex; });
-	if (Removed > 0)
+	FPieceHoles Removed;
+	if (!ByPiece.RemoveAndCopyValue(PieceIndex, Removed))
 	{
-		MarkChanged();
+		return;
 	}
+	for (const int32 SlotIndex : Removed.SlotIndices)
+	{
+		Slots[SlotIndex] = FVerseBoltHoleSlot();
+		FreeSlots.Add(SlotIndex);
+		--LiveCount;
+	}
+	const uint16 Touched[] = {PieceIndex};
+	Broadcast(Touched, false);
 }
 
 void UVerseBoltHoleComponent::ResetAll(uint16 NewEpoch)
@@ -133,82 +176,178 @@ void UVerseBoltHoleComponent::ResetAll(uint16 NewEpoch)
 	{
 		return;
 	}
-	Holes.Reset();
+	Slots.Reset();
+	FreeSlots.Reset();
+	ByPiece.Reset();
+	LiveCount = 0;
 	Epoch = NewEpoch;
-	MarkChanged();
+	Broadcast({}, true);
 }
 
-void UVerseBoltHoleComponent::MarkChanged()
+void UVerseBoltHoleComponent::Broadcast(TConstArrayView<uint16> Pieces, bool bAll)
 {
-	bCacheDirty = true;
-	OnHolesChanged.Broadcast();
+	OnHolesChanged.Broadcast(Pieces, bAll);
 }
 
-void UVerseBoltHoleComponent::HandleReplicatedChange()
+void UVerseBoltHoleComponent::OnRep_Slots()
 {
-	bCacheDirty = true;
-	OnHolesChanged.Broadcast();
-}
-
-void UVerseBoltHoleComponent::OnRep_Holes()
-{
-	HandleReplicatedChange();
+	// Find the pieces whose slots changed since the last update; rebuild only those.
+	TArray<uint16, TInlineAllocator<8>> Touched;
+	const int32 Count = FMath::Max(Slots.Num(), SeenSlots.Num());
+	for (int32 Index = 0; Index < Count; ++Index)
+	{
+		const FVerseBoltHoleSlot* Now = Slots.IsValidIndex(Index) ? &Slots[Index] : nullptr;
+		const FVerseBoltHoleSlot* Was = SeenSlots.IsValidIndex(Index) ? &SeenSlots[Index] : nullptr;
+		if (Now && Was && *Now == *Was)
+		{
+			continue;
+		}
+		if (Now && Now->IsUsed())
+		{
+			Touched.AddUnique(Now->Hole.PieceIndex);
+		}
+		if (Was && Was->IsUsed())
+		{
+			Touched.AddUnique(Was->Hole.PieceIndex);
+		}
+	}
+	SeenSlots = Slots;
+	RebuildPieces(Touched);
+	Broadcast(Touched, false);
 }
 
 void UVerseBoltHoleComponent::OnRep_Epoch()
 {
-	HandleReplicatedChange();
+	SeenSlots = Slots;
+	RebuildAll();
+	Broadcast({}, true);
 }
 
-void UVerseBoltHoleComponent::RebuildCache() const
+void UVerseBoltHoleComponent::RebuildPieces(TConstArrayView<uint16> Pieces)
 {
-	if (!bCacheDirty)
+	if (Pieces.IsEmpty())
 	{
 		return;
 	}
-	ByPiece.Reset();
-	for (const FVerseBoltHole& Hole : Holes)
+	struct FEntry
+	{
+		uint32 Sequence;
+		int32 Slot;
+	};
+	TMap<uint16, TArray<FEntry>> Found;
+	for (const uint16 Piece : Pieces)
+	{
+		Found.Add(Piece);
+		if (const FPieceHoles* Old = ByPiece.Find(Piece))
+		{
+			LiveCount -= Old->SlotIndices.Num();
+		}
+		ByPiece.Remove(Piece);
+	}
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
 	{
 		// A client can briefly hold records of the previous epoch; they never count.
-		if (Hole.Epoch == Epoch)
+		if (!IsLiveSlot(Index))
 		{
-			ByPiece.FindOrAdd(Hole.PieceIndex).Add(Hole);
+			continue;
+		}
+		if (TArray<FEntry>* Entries = Found.Find(Slots[Index].Hole.PieceIndex))
+		{
+			Entries->Add({Slots[Index].Sequence, Index});
 		}
 	}
-	bCacheDirty = false;
+	for (TPair<uint16, TArray<FEntry>>& Pair : Found)
+	{
+		if (Pair.Value.IsEmpty())
+		{
+			continue;
+		}
+		Pair.Value.Sort([](const FEntry& A, const FEntry& B) { return A.Sequence < B.Sequence; });
+		FPieceHoles& Piece = ByPiece.Add(Pair.Key);
+		for (const FEntry& Entry : Pair.Value)
+		{
+			Piece.Holes.Add(Slots[Entry.Slot].Hole);
+			Piece.SlotIndices.Add(Entry.Slot);
+			Piece.Axes.Emplace(Slots[Entry.Slot].Hole);
+		}
+		LiveCount += Pair.Value.Num();
+	}
+}
+
+void UVerseBoltHoleComponent::RebuildAll()
+{
+	ByPiece.Reset();
+	LiveCount = 0;
+	TArray<uint16> Pieces;
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
+	{
+		if (IsLiveSlot(Index))
+		{
+			Pieces.AddUnique(Slots[Index].Hole.PieceIndex);
+		}
+	}
+	RebuildPieces(Pieces);
 }
 
 TConstArrayView<FVerseBoltHole> UVerseBoltHoleComponent::GetPieceHoles(uint16 PieceIndex) const
 {
-	RebuildCache();
-	const TArray<FVerseBoltHole>* Found = ByPiece.Find(PieceIndex);
-	return Found ? TConstArrayView<FVerseBoltHole>(*Found) : TConstArrayView<FVerseBoltHole>();
+	const FPieceHoles* Found = ByPiece.Find(PieceIndex);
+	return Found ? TConstArrayView<FVerseBoltHole>(Found->Holes) : TConstArrayView<FVerseBoltHole>();
 }
 
 void UVerseBoltHoleComponent::GetAllHoles(TArray<FVerseBoltHole>& OutHoles) const
 {
-	OutHoles.Reset(Holes.Num());
-	for (const FVerseBoltHole& Hole : Holes)
+	TArray<int32> Live;
+	Live.Reserve(LiveCount);
+	for (int32 Index = 0; Index < Slots.Num(); ++Index)
 	{
-		if (Hole.Epoch == Epoch)
+		if (IsLiveSlot(Index))
 		{
-			OutHoles.Add(Hole);
+			Live.Add(Index);
 		}
+	}
+	Live.Sort([this](int32 A, int32 B) { return Slots[A].Sequence < Slots[B].Sequence; });
+	OutHoles.Reset(Live.Num());
+	for (const int32 Index : Live)
+	{
+		OutHoles.Add(Slots[Index].Hole);
 	}
 }
 
-int32 UVerseBoltHoleComponent::Num() const
+UVerseBoltHoleComponent::FHoleAxis::FHoleAxis(const FVerseBoltHole& Hole)
+	: PointCm(Hole.GetAxisPointCm())
+	, Direction(Hole.GetAxisDirection())
 {
-	RebuildCache();
-	int32 Count = 0;
-	for (const TPair<uint16, TArray<FVerseBoltHole>>& Pair : ByPiece)
+	const double RadiusCm = double(Hole.RadiusMm) / 10.0;
+	RadiusSq = RadiusCm * RadiusCm;
+}
+
+bool UVerseBoltHoleComponent::FHoleAxis::Contains(const FVector& PieceLocalCm) const
+{
+	// Exactly FVerseBoltHole::ContainsPoint, with the axis already decoded.
+	const FVector Rel = PieceLocalCm - PointCm;
+	return (Rel - Direction * FVector::DotProduct(Rel, Direction)).SizeSquared() <= RadiusSq;
+}
+
+bool UVerseBoltHoleComponent::RayPassesPieceHoles(uint16 PieceIndex, const FVector& EntryLocalCm, const FVector& ExitLocalCm) const
+{
+	const FPieceHoles* Found = ByPiece.Find(PieceIndex);
+	if (!Found)
 	{
-		Count += Pair.Value.Num();
+		return false;
 	}
-	return Count;
+	for (const FHoleAxis& Axis : Found->Axes)
+	{
+		if (Axis.Contains(EntryLocalCm) && Axis.Contains(ExitLocalCm))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 int32 UVerseBoltHoleComponent::NumOnPiece(uint16 PieceIndex) const
 {
-	return GetPieceHoles(PieceIndex).Num();
+	const FPieceHoles* Found = ByPiece.Find(PieceIndex);
+	return Found ? Found->SlotIndices.Num() : 0;
 }

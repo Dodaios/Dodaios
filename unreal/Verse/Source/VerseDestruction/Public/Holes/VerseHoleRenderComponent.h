@@ -46,8 +46,14 @@ public:
 	 */
 	void RegisterPieceVisual(uint16 PieceIndex, UMeshComponent* Mesh, const FBox& LocalBounds, USceneComponent* Frame = nullptr);
 
-	/** Server time in ms the glow ages against; default: the world's time seconds. */
+	/**
+	 * Server time in ms the glow ages against. Default: the replicated server clock
+	 * (AGameStateBase::GetServerWorldTimeSeconds), the world's own time only without a game state.
+	 */
 	void SetServerTimeSource(TFunction<uint32()> InNow);
+
+	/** The server time in ms the glow ages against right now. */
+	uint32 CurrentTimeMs() const;
 
 	/** Brings masks, decals and glow up to date now (normally on the next tick). */
 	void Sync();
@@ -61,7 +67,12 @@ public:
 	static bool CanRender(const UWorld* World);
 
 	int32 NumMaskSlots() const { return MaskPieces.Num(); }
-	int32 NumHoleSlots() const { return HoleSlots.Num(); }
+	/** Holes drawn (one decal slot each). */
+	int32 NumHoleSlots() const { return LiveSlots; }
+	/** Piece masks queued for a redraw since the start (a change redraws only the pieces it touched). */
+	int32 NumMaskRedraws() const { return MaskRedraws; }
+	/** Hole slots (decals) placed since the start (only holes that are new, or whose piece visual changed). */
+	int32 NumSlotUpdates() const { return SlotUpdates; }
 	int32 NumGlowing() const { return GlowingCount; }
 	bool HasMask(uint16 PieceIndex) const { return MaskPieces.Contains(PieceIndex); }
 	UTextureRenderTarget2D* GetMask(uint16 PieceIndex) const;
@@ -98,9 +109,11 @@ private:
 		FBox LocalBounds = FBox(ForceInit);
 	};
 
+	/** Mirrors one slot of the hole component (same index); Sequence 0 = empty. */
 	struct FHoleSlot
 	{
 		FVerseBoltHole Hole;
+		uint32 Sequence = 0;
 		TWeakObjectPtr<UDecalComponent> Decal;
 		TWeakObjectPtr<UMaterialInstanceDynamic> Material;
 		bool bGlowing = false;
@@ -112,8 +125,16 @@ private:
 	TMap<uint16, FPieceVisual> Pieces;
 	TSet<uint16> MaskPieces;
 	TArray<FHoleSlot> HoleSlots;
+	/** Pieces whose holes changed since the last sync; their masks are redrawn. */
+	TSet<uint16> DirtyPieces;
+	/** Pieces whose visual changed; their decals are placed again. */
+	TSet<uint16> DirtyVisuals;
+	int32 LiveSlots = 0;
 	int32 GlowingCount = 0;
+	int32 MaskRedraws = 0;
+	int32 SlotUpdates = 0;
 	bool bDirty = true;
+	bool bAllDirty = true;
 	bool bWarnedNoMaterial = false;
 
 	UPROPERTY(Transient)
@@ -122,9 +143,10 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UDecalComponent>> DecalPool;
 
-	void HandleHolesChanged();
-	uint32 CurrentTimeMs() const;
+	void HandleHolesChanged(TConstArrayView<uint16> InPieces, bool bAll);
+	void MarkAllDirty();
 	void RebuildSlots();
+	void PlaceDecal(int32 Index, UMaterialInterface* RimMaterial);
 	void RedrawMasks(const TSet<uint16>& PiecesToDraw);
 	void UpdateGlow();
 	UDecalComponent* AcquireDecal(int32 Index);

@@ -3,6 +3,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "HAL/PlatformTime.h"
+#include "Holes/VerseBoltHoleComponent.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Penetration/VersePenetrationJson.h"
@@ -430,30 +431,75 @@ bool FVersePenetrationCostTest::RunTest(const FString& Parameters)
 	W.SpawnWorldBox(&Wall, FVector(800.f, 0, 0), 30.f, 600.f, 600.f);
 	W.Settle();
 
+	// Under fire: the walls carry holes, the arena is near its cap, and every bolt records its
+	// holes inside the tick, so per-piece caps, wall Holed events and arena evictions all run.
+	uint32 ServerMs = 1000;
+	for (int32 I = 0; I < 480; ++I)
+	{
+		W.Holes->AddHole(uint16(3 + I % 20), EVersePenetrationMaterial::SheetMetal, FVector(0, -40.0 + 4.0 * (I / 20), 0),
+			FVector::ForwardVector, 15, ServerMs++);
+	}
+	for (int32 I = 0; I < 3; ++I)
+	{
+		for (int32 H = 0; H < 12; ++H)
+		{
+			W.Holes->AddHole(uint16(I), EVersePenetrationMaterial::SheetMetal, FVector(0, 190.0, -190.0 + 10.0 * H), FVector::ForwardVector, 15,
+				ServerMs++);
+		}
+	}
+
 	constexpr int32 Ticks = 41;
 	constexpr int32 CallsPerTick = 64;
 	TArray<double> TickMs;
+	TArray<double> RecordMs;
+	TArray<double> TraceMs;
 	int32 Entered = 0;
+	int32 Recorded = 0;
 	for (int32 Tick = 0; Tick < Ticks; ++Tick)
 	{
 		const double Start = FPlatformTime::Seconds();
+		double InRecord = 0.0;
+		double InTrace = 0.0;
 		for (int32 Call = 0; Call < CallsPerTick; ++Call)
 		{
 			const FVector Origin(0.f, -150.f + 300.f * Call / CallsPerTick, -100.f + 3.f * Tick);
-			Entered += W.Penetration->TraceBolt(Origin, FVector::ForwardVector, 1500.f, 100.f, 30.f, 15, 3).Num();
+			const double TraceStart = FPlatformTime::Seconds();
+			const TArray<FVersePenetrationHit> Hits = W.Penetration->TraceBolt(Origin, FVector::ForwardVector, 1500.f, 100.f, 30.f, 15, 3);
+			InTrace += FPlatformTime::Seconds() - TraceStart;
+			Entered += Hits.Num();
+			const double RecordStart = FPlatformTime::Seconds();
+			Recorded += W.Penetration->RecordBoltHoles(Hits, FVector::ForwardVector, 15, ServerMs++);
+			InRecord += FPlatformTime::Seconds() - RecordStart;
 		}
 		TickMs.Add((FPlatformTime::Seconds() - Start) * 1000.0);
+		RecordMs.Add(InRecord * 1000.0);
+		TraceMs.Add(InTrace * 1000.0);
 	}
 	TickMs.Sort();
-	// The dev box is shared by many agents and builds; preemption inflates wall time. The gate
-	// reads the lower quartile (a tick that ran mostly unpreempted) and logs the rest.
+	RecordMs.Sort();
+	TraceMs.Sort();
+	UE_LOG(LogVerseDestruction, Display, TEXT("WP03 cost: RecordBoltHoles share of a tick: median %.4f ms, p90 %.4f ms"), RecordMs[Ticks / 2],
+		RecordMs[Ticks * 9 / 10]);
+	// Wall time on a box shared by many agents and builds: a preempted tick says nothing about
+	// the code, so the gate reads the median and the log keeps the tail.
 	const double Q25 = TickMs[Ticks / 4];
 	const double Median = TickMs[Ticks / 2];
 	const double P90 = TickMs[Ticks * 9 / 10];
-	UE_LOG(LogVerseDestruction, Display, TEXT("WP03 cost: 64 TraceBolt per tick, min %.4f ms, q25 %.4f ms, median %.4f ms, p90 %.4f ms, max %.4f ms"),
-		TickMs[0], Q25, Median, P90, TickMs.Last());
+	UE_LOG(LogVerseDestruction, Display,
+		TEXT("WP03 cost: 64 TraceBolt + RecordBoltHoles per tick, %d holes live, min %.4f ms, q25 %.4f ms, median %.4f ms, p90 %.4f ms, max %.4f ms"),
+		W.Holes->Num(), TickMs[0], Q25, Median, P90, TickMs.Last());
 	TestEqual(TEXT("every call enters three walls and the structural wall"), Entered, Ticks * CallsPerTick * 4);
-	TestTrue(FString::Printf(TEXT("lower-quartile tick %.4f ms <= 0.3 ms"), Q25), Q25 <= 0.3);
+	TestTrue(FString::Printf(TEXT("holes recorded under fire (%d)"), Recorded), Recorded > Ticks * CallsPerTick);
+	TestTrue(TEXT("the arena stays at or under its cap"), W.Holes->Num() <= W.Holes->GetHolesPerArena());
+	// A3.5 is about the 64 TraceBolt calls: 0.3 ms, read as the median of their share of each
+	// tick (holes present, records written in the same ticks). RecordBoltHoles has its own budget.
+	const double TraceMedian = TraceMs[Ticks / 2];
+	const double RecordMedian = RecordMs[Ticks / 2];
+	UE_LOG(LogVerseDestruction, Display, TEXT("WP03 cost: TraceBolt share of a tick: median %.4f ms, p90 %.4f ms"), TraceMedian,
+		TraceMs[Ticks * 9 / 10]);
+	TestTrue(FString::Printf(TEXT("A3.5: 64 TraceBolt calls, median %.4f ms <= 0.3 ms"), TraceMedian), TraceMedian <= 0.3);
+	TestTrue(FString::Printf(TEXT("RecordBoltHoles for 64 bolts, median %.4f ms <= 0.1 ms"), RecordMedian), RecordMedian <= 0.1);
+	AddInfo(FString::Printf(TEXT("full tick (TraceBolt + RecordBoltHoles) median %.4f ms"), Median));
 	AddInfo(FString::Printf(TEXT("TraceBolt cost per 64 calls: min %.4f ms, q25 %.4f ms, median %.4f ms, p90 %.4f ms, max %.4f ms"), TickMs[0], Q25, Median,
 		P90, TickMs.Last()));
 	return true;

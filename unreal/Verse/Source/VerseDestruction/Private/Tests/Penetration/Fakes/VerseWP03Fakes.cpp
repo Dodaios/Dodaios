@@ -3,6 +3,9 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Components/BoxComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "Holes/VerseBoltHoleComponent.h"
@@ -106,6 +109,40 @@ AActor* FVerseWP03World::SpawnPiece(uint16 PieceIndex, EVersePenetrationMaterial
 	Penetration->RegisterPieceProxy(Box, PieceIndex, Material);
 	Query.Materials.Add(PieceIndex, Material);
 	Query.Bounds.Add(PieceIndex, Box->Bounds.GetBox());
+	return Actor;
+}
+
+AActor* FVerseWP03World::SpawnCompoundPiece(uint16 PieceIndex, EVersePenetrationMaterial Material, const FVector& Center,
+	TConstArrayView<TPair<FVector, FVector>> Shapes)
+{
+	UStaticMesh* Mesh = NewObject<UStaticMesh>(GetTransientPackage(), NAME_None, RF_Transient);
+	Mesh->CreateBodySetup();
+	UBodySetup* Setup = Mesh->GetBodySetup();
+	Setup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
+	Setup->bNeverNeedsCookedCollisionData = true;
+	FBox Local(ForceInit);
+	for (const TPair<FVector, FVector>& Shape : Shapes)
+	{
+		FKBoxElem Elem(Shape.Value.X * 2.0, Shape.Value.Y * 2.0, Shape.Value.Z * 2.0);
+		Elem.Center = Shape.Key;
+		Setup->AggGeom.BoxElems.Add(Elem);
+		Local += FBox(Shape.Key - Shape.Value, Shape.Key + Shape.Value);
+	}
+	Mesh->SetExtendedBounds(FBoxSphereBounds(Local));
+	PhysMats.Emplace(static_cast<UObject*>(Mesh));
+
+	FActorSpawnParameters Params;
+	Params.ObjectFlags = RF_Transient;
+	AActor* Actor = TestWorld->SpawnActor<AActor>(AActor::StaticClass(), FTransform(Center), Params);
+	UStaticMeshComponent* Proxy = NewObject<UStaticMeshComponent>(Actor, TEXT("Proxy"));
+	Proxy->SetStaticMesh(Mesh);
+	Proxy->SetCollisionProfileName(Material == EVersePenetrationMaterial::Glass ? VerseCollision::Profile::Glass : VerseCollision::Profile::Destructible);
+	Actor->SetRootComponent(Proxy);
+	Proxy->RegisterComponent();
+	Actor->SetActorLocation(Center);
+	Penetration->RegisterPieceProxy(Proxy, PieceIndex, Material);
+	Query.Materials.Add(PieceIndex, Material);
+	Query.Bounds.Add(PieceIndex, Proxy->Bounds.GetBox());
 	return Actor;
 }
 

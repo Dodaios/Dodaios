@@ -6,6 +6,7 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/GameStateBase.h"
 #include "Holes/VerseBoltHoleComponent.h"
 #include "Holes/VerseHoleGlow.h"
 #include "Kismet/KismetRenderingLibrary.h"
@@ -64,7 +65,7 @@ void UVerseHoleRenderComponent::SetHoleSource(UVerseBoltHoleComponent* InHoles)
 	{
 		HolesChangedHandle = InHoles->OnHolesChanged.AddUObject(this, &UVerseHoleRenderComponent::HandleHolesChanged);
 	}
-	HandleHolesChanged();
+	MarkAllDirty();
 }
 
 void UVerseHoleRenderComponent::RegisterPieceVisual(uint16 PieceIndex, UMeshComponent* Mesh, const FBox& LocalBounds, USceneComponent* Frame)
@@ -73,7 +74,10 @@ void UVerseHoleRenderComponent::RegisterPieceVisual(uint16 PieceIndex, UMeshComp
 	Visual.Mesh = Mesh;
 	Visual.Frame = Frame ? Frame : (Mesh && Mesh->GetOwner() ? Mesh->GetOwner()->GetRootComponent() : nullptr);
 	Visual.LocalBounds = LocalBounds;
-	HandleHolesChanged();
+	DirtyPieces.Add(PieceIndex);
+	DirtyVisuals.Add(PieceIndex);
+	bDirty = true;
+	SetComponentTickEnabled(true);
 }
 
 void UVerseHoleRenderComponent::SetServerTimeSource(TFunction<uint32()> InNow)
@@ -88,13 +92,31 @@ uint32 UVerseHoleRenderComponent::CurrentTimeMs() const
 		return NowMs();
 	}
 	const UWorld* World = GetWorld();
-	return World ? uint32(World->GetTimeSeconds() * 1000.0) : 0;
+	if (!World)
+	{
+		return 0;
+	}
+	// Hole records carry server time. A client world clock lags the server clock (a late joiner
+	// by the whole match), so the glow ages against the replicated server clock.
+	const AGameStateBase* GameState = World->GetGameState();
+	const double Seconds = GameState ? GameState->GetServerWorldTimeSeconds() : World->GetTimeSeconds();
+	return uint32(FMath::Max(0.0, Seconds) * 1000.0);
 }
 
-void UVerseHoleRenderComponent::HandleHolesChanged()
+void UVerseHoleRenderComponent::HandleHolesChanged(TConstArrayView<uint16> InPieces, bool bAll)
 {
+	if (bAll)
+	{
+		bAllDirty = true;
+	}
+	DirtyPieces.Append(InPieces);
 	bDirty = true;
 	SetComponentTickEnabled(true);
+}
+
+void UVerseHoleRenderComponent::MarkAllDirty()
+{
+	HandleHolesChanged({}, true);
 }
 
 void UVerseHoleRenderComponent::EndPlay(const EEndPlayReason::Type Reason)
@@ -181,21 +203,8 @@ UDecalComponent* UVerseHoleRenderComponent::AcquireDecal(int32 Index)
 
 void UVerseHoleRenderComponent::RebuildSlots()
 {
-	TArray<FVerseBoltHole> Records;
-	if (const UVerseBoltHoleComponent* Source = HoleSource.Get())
-	{
-		Source->GetAllHoles(Records);
-	}
-
-	// A piece gets its mask on its first hole and keeps it (cleared) until the component goes.
-	TSet<uint16> WithHoles;
-	for (const FVerseBoltHole& Hole : Records)
-	{
-		WithHoles.Add(Hole.PieceIndex);
-	}
-	TSet<uint16> ToDraw = WithHoles;
-	ToDraw.Append(MaskPieces);
-	MaskPieces.Append(WithHoles);
+	const UVerseBoltHoleComponent* Source = HoleSource.Get();
+	const TConstArrayView<FVerseBoltHoleSlot> Slots = Source ? Source->GetSlots() : TConstArrayView<FVerseBoltHoleSlot>();
 
 	const bool bRender = CanRender(GetWorld());
 	UMaterialInterface* RimMaterial = bRender ? RimDecalMaterial.LoadSynchronous() : nullptr;
@@ -206,49 +215,115 @@ void UVerseHoleRenderComponent::RebuildSlots()
 		bWarnedNoMaterial = true;
 	}
 
-	TArray<FHoleSlot> NewSlots;
-	NewSlots.Reserve(Records.Num());
-	for (int32 Index = 0; Index < Records.Num(); ++Index)
+	// The hole component keeps every hole at a stable slot index, so a change touches only the
+	// slots whose hole is new or gone; the decal of a slot follows the hole that lives in it.
+	if (bAllDirty)
 	{
-		FHoleSlot& Slot = NewSlots.AddDefaulted_GetRef();
-		Slot.Hole = Records[Index];
-		const FPieceVisual* Visual = Pieces.Find(Slot.Hole.PieceIndex);
-		const USceneComponent* Frame = Visual ? Visual->Frame.Get() : nullptr;
-		if (!RimMaterial || !Frame)
+		DirtyPieces.Append(MaskPieces);
+		DirtyVisuals.Append(MaskPieces);
+	}
+	const int32 Count = FMath::Max(Slots.Num(), HoleSlots.Num());
+	HoleSlots.SetNum(Count);
+	LiveSlots = 0;
+	for (int32 Index = 0; Index < Count; ++Index)
+	{
+		FHoleSlot& Slot = HoleSlots[Index];
+		const bool bLive = Slots.IsValidIndex(Index) && Source->IsLiveSlot(Index);
+		const uint32 Sequence = bLive ? Slots[Index].Sequence : 0;
+		if (bLive)
+		{
+			++LiveSlots;
+			if (bAllDirty)
+			{
+				DirtyPieces.Add(Slots[Index].Hole.PieceIndex);
+			}
+		}
+		const bool bChanged = Slot.Sequence != Sequence;
+		const bool bVisualChanged = bLive && (bAllDirty || DirtyVisuals.Contains(Slots[Index].Hole.PieceIndex));
+		if (!bChanged && !bVisualChanged)
 		{
 			continue;
 		}
-		UDecalComponent* Decal = AcquireDecal(Index);
-		if (!Decal)
+		if (bChanged && Slot.Sequence != 0)
 		{
+			DirtyPieces.Add(Slot.Hole.PieceIndex);
+		}
+		Slot.Sequence = Sequence;
+		Slot.bGlowing = false;
+		if (!bLive)
+		{
+			Slot.Hole = FVerseBoltHole();
+			if (UDecalComponent* Decal = Slot.Decal.Get())
+			{
+				Decal->SetVisibility(false);
+			}
 			continue;
 		}
-		const FTransform& PieceToWorld = Frame->GetComponentTransform();
-		const FVector AxisWorld = PieceToWorld.TransformVectorNoScale(Slot.Hole.GetAxisDirection());
-		const float RadiusCm = Slot.Hole.RadiusMm / 10.f;
-		const float HalfDepth = float(Visual->LocalBounds.GetExtent().GetMin()) + 0.5f;
-		Decal->SetWorldLocationAndRotation(PieceToWorld.TransformPosition(Slot.Hole.GetAxisPointCm()), FRotationMatrix::MakeFromX(AxisWorld).Rotator());
-		Decal->DecalSize = FVector(HalfDepth, RadiusCm * RimFootprint, RadiusCm * RimFootprint);
-		UMaterialInstanceDynamic* Mid = Cast<UMaterialInstanceDynamic>(Decal->GetDecalMaterial());
-		if (!Mid || Mid->Parent != RimMaterial)
-		{
-			Mid = UMaterialInstanceDynamic::Create(RimMaterial, this);
-			Decal->SetDecalMaterial(Mid);
-		}
-		Decal->SetVisibility(true);
-		Decal->MarkRenderStateDirty();
-		Slot.Decal = Decal;
-		Slot.Material = Mid;
+		Slot.Hole = Slots[Index].Hole;
+		DirtyPieces.Add(Slot.Hole.PieceIndex);
+		++SlotUpdates;
+		PlaceDecal(Index, RimMaterial);
 	}
-	for (int32 Index = Records.Num(); Index < DecalPool.Num(); ++Index)
+	// After a reset the slot array is shorter: hide and drop the rest.
+	for (int32 Index = Slots.Num(); Index < HoleSlots.Num(); ++Index)
 	{
-		if (DecalPool[Index])
+		if (UDecalComponent* Decal = HoleSlots[Index].Decal.Get())
 		{
-			DecalPool[Index]->SetVisibility(false);
+			Decal->SetVisibility(false);
 		}
 	}
-	HoleSlots = MoveTemp(NewSlots);
+	HoleSlots.SetNum(Slots.Num());
+
+	// A piece gets its mask on its first hole and keeps it (cleared) until the component goes.
+	TSet<uint16> ToDraw;
+	for (const uint16 PieceIndex : DirtyPieces)
+	{
+		if (Source && Source->NumOnPiece(PieceIndex) > 0)
+		{
+			MaskPieces.Add(PieceIndex);
+		}
+		if (MaskPieces.Contains(PieceIndex))
+		{
+			ToDraw.Add(PieceIndex);
+		}
+	}
+	DirtyPieces.Reset();
+	DirtyVisuals.Reset();
+	bAllDirty = false;
+	MaskRedraws += ToDraw.Num();
 	RedrawMasks(ToDraw);
+}
+
+void UVerseHoleRenderComponent::PlaceDecal(int32 Index, UMaterialInterface* RimMaterial)
+{
+	FHoleSlot& Slot = HoleSlots[Index];
+	const FPieceVisual* Visual = Pieces.Find(Slot.Hole.PieceIndex);
+	const USceneComponent* Frame = Visual ? Visual->Frame.Get() : nullptr;
+	if (!RimMaterial || !Frame)
+	{
+		return;
+	}
+	UDecalComponent* Decal = AcquireDecal(Index);
+	if (!Decal)
+	{
+		return;
+	}
+	const FTransform& PieceToWorld = Frame->GetComponentTransform();
+	const FVector AxisWorld = PieceToWorld.TransformVectorNoScale(Slot.Hole.GetAxisDirection());
+	const float RadiusCm = Slot.Hole.RadiusMm / 10.f;
+	const float HalfDepth = float(Visual->LocalBounds.GetExtent().GetMin()) + 0.5f;
+	Decal->SetWorldLocationAndRotation(PieceToWorld.TransformPosition(Slot.Hole.GetAxisPointCm()), FRotationMatrix::MakeFromX(AxisWorld).Rotator());
+	Decal->DecalSize = FVector(HalfDepth, RadiusCm * RimFootprint, RadiusCm * RimFootprint);
+	UMaterialInstanceDynamic* Mid = Cast<UMaterialInstanceDynamic>(Decal->GetDecalMaterial());
+	if (!Mid || Mid->Parent != RimMaterial)
+	{
+		Mid = UMaterialInstanceDynamic::Create(RimMaterial, this);
+		Decal->SetDecalMaterial(Mid);
+	}
+	Decal->SetVisibility(true);
+	Decal->MarkRenderStateDirty();
+	Slot.Decal = Decal;
+	Slot.Material = Mid;
 }
 
 void UVerseHoleRenderComponent::RedrawMasks(const TSet<uint16>& PiecesToDraw)
@@ -287,14 +362,12 @@ void UVerseHoleRenderComponent::RedrawMasks(const TSet<uint16>& PiecesToDraw)
 		UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(this, Mask, Canvas, Size, Context);
 		if (Canvas)
 		{
-			for (const FHoleSlot& Slot : HoleSlots)
+			const UVerseBoltHoleComponent* Source = HoleSource.Get();
+			const TConstArrayView<FVerseBoltHole> PieceHoles = Source ? Source->GetPieceHoles(PieceIndex) : TConstArrayView<FVerseBoltHole>();
+			for (const FVerseBoltHole& Hole : PieceHoles)
 			{
-				if (Slot.Hole.PieceIndex != PieceIndex)
-				{
-					continue;
-				}
-				const FVector2D Uv = HoleUV(Visual->LocalBounds, Slot.Hole.GetAxisPointCm());
-				const float Radius = HoleRadiusPx(Visual->LocalBounds, Slot.Hole.RadiusMm / 10.f, MaskSize);
+				const FVector2D Uv = HoleUV(Visual->LocalBounds, Hole.GetAxisPointCm());
+				const float Radius = HoleRadiusPx(Visual->LocalBounds, Hole.RadiusMm / 10.f, MaskSize);
 				Canvas->K2_DrawPolygon(nullptr, Uv * Size, FVector2D(Radius, Radius), 24, FLinearColor::Black);
 			}
 		}
@@ -306,16 +379,22 @@ void UVerseHoleRenderComponent::UpdateGlow()
 {
 	const uint32 Now = CurrentTimeMs();
 	TArray<uint32> Times;
-	Times.Reserve(HoleSlots.Num());
-	for (const FHoleSlot& Slot : HoleSlots)
+	TArray<int32> SlotOf;
+	Times.Reserve(LiveSlots);
+	SlotOf.Reserve(LiveSlots);
+	for (int32 Index = 0; Index < HoleSlots.Num(); ++Index)
 	{
-		Times.Add(Slot.Hole.ServerTimeMs);
+		if (HoleSlots[Index].Sequence != 0)
+		{
+			Times.Add(HoleSlots[Index].Hole.ServerTimeMs);
+			SlotOf.Add(Index);
+		}
 	}
 	const TArray<int32> Glowing = VerseHoleGlow::SelectGlowing(Times, Now, GlowingCap, GlowEndS);
 	TBitArray<> IsGlowing(false, HoleSlots.Num());
 	for (const int32 Index : Glowing)
 	{
-		IsGlowing[Index] = true;
+		IsGlowing[SlotOf[Index]] = true;
 	}
 	GlowingCount = Glowing.Num();
 	for (int32 Index = 0; Index < HoleSlots.Num(); ++Index)
@@ -324,11 +403,11 @@ void UVerseHoleRenderComponent::UpdateGlow()
 		const bool bWasGlowing = Slot.bGlowing;
 		Slot.bGlowing = IsGlowing[Index];
 		UMaterialInstanceDynamic* Mid = Slot.Material.Get();
-		if (!Mid || (!Slot.bGlowing && !bWasGlowing))
+		if (!Mid || Slot.Sequence == 0 || (!Slot.bGlowing && !bWasGlowing))
 		{
 			continue;
 		}
-		const float AgeS = Now >= Slot.Hole.ServerTimeMs ? (Now - Slot.Hole.ServerTimeMs) / 1000.f : 0.f;
+		const float AgeS = VerseHoleGlow::AgeS(Slot.Hole.ServerTimeMs, Now);
 		const FVerseHoleGlowSample Sample = Slot.bGlowing ? VerseHoleGlow::Sample(AgeS, GlowTauS, GlowEndS) : FVerseHoleGlowSample();
 		Mid->SetScalarParameterValue(GlowParameter, Sample.Intensity * VerseHoleGlow::PeakEmissive);
 		Mid->SetVectorParameterValue(GlowColorParameter, Sample.bGlowing ? Sample.Color : VerseHoleGlow::CharredColor());

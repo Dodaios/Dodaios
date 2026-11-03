@@ -34,11 +34,22 @@ namespace VerseHoleGlow
 	/** The charred rim colour after the glow ends (dark, nearly neutral). */
 	VERSEDESTRUCTION_API FLinearColor CharredColor();
 
+	/** How far a record may lie in the future of the local server clock and still count as fresh (clock skew). */
+	inline constexpr uint32 DefaultMaxFutureMs = 250;
+
+	/**
+	 * Age in seconds of a hole stamped TimeMs at server time NowMs. A record up to MaxFutureMs in
+	 * the future is 0 s old; one further ahead is treated as long cooled (MAX_flt), so a client
+	 * whose clock lags never lights every recent hole at once.
+	 */
+	VERSEDESTRUCTION_API float AgeS(uint32 TimeMs, uint32 NowMs, uint32 MaxFutureMs = DefaultMaxFutureMs);
+
 	/**
 	 * Which holes may glow: the newest `Cap` of those younger than EndS (the oldest cools first).
 	 * Times in ms of server time, NowMs the current server time. Returns indices into TimesMs.
 	 */
-	VERSEDESTRUCTION_API TArray<int32> SelectGlowing(TConstArrayView<uint32> TimesMs, uint32 NowMs, int32 Cap, float EndS = DefaultEndS);
+	VERSEDESTRUCTION_API TArray<int32> SelectGlowing(TConstArrayView<uint32> TimesMs, uint32 NowMs, int32 Cap, float EndS = DefaultEndS,
+		uint32 MaxFutureMs = DefaultMaxFutureMs);
 
 	/**
 	 * The rendered-pixel ban of art-pipeline.md 8.3 for one sRGB pixel: hue in 160..330 deg with

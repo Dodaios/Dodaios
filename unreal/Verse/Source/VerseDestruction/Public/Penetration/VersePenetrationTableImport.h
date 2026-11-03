@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Destruction/VersePenetrationTable.h"
+#include "UObject/SoftObjectPath.h"
 
 // Importer from unreal/Verse/Data/destruction/penetration.json (schema verse.penetration/1,
 // propose-only: it changes only through the destruction contract's change rule) into the rows
@@ -14,6 +15,17 @@ namespace VersePenetrationImport
 
 	/** <ProjectDir>/Data/destruction/penetration.json */
 	VERSEDESTRUCTION_API FString DefaultTablePath();
+
+	/** DA_PenetrationTable, the cooked table the game loads (written from the JSON by the WP03.2 import step). */
+	VERSEDESTRUCTION_API FSoftObjectPath TableAssetPath();
+
+	/**
+	 * The table the game uses: the DA_PenetrationTable asset, which cooks and ships with every
+	 * build, dedicated servers included. Editor builds warn when the asset and the JSON disagree
+	 * (the import step was not re-run after a retune). Without the asset: the JSON when it is on
+	 * disk, else the contract table, and both fallbacks log.
+	 */
+	VERSEDESTRUCTION_API UVersePenetrationTable* LoadRuntimeTable(UObject* Outer);
 
 	/** Parses the JSON text. Returns false and fills OutErrors on any schema, value or wire order error. */
 	VERSEDESTRUCTION_API bool ParseTableJson(const FString& JsonText, TArray<FVersePenetrationRow>& OutRows, TArray<FString>& OutErrors);

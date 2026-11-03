@@ -23,19 +23,52 @@ enum class EVerseHoleAddResult : uint8
 	NotAuthority
 };
 
+/**
+ * One replicated slot of the arena's hole records. A slot keeps its index for the life of its
+ * hole, so adding or evicting a hole changes one slot and replication sends only that slot.
+ * Sequence orders holes by age (server insertion order); 0 marks a free slot.
+ */
+USTRUCT()
+struct VERSEDESTRUCTION_API FVerseBoltHoleSlot
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVerseBoltHole Hole;
+
+	UPROPERTY()
+	uint32 Sequence = 0;
+
+	bool IsUsed() const { return Sequence != 0; }
+
+	bool operator==(const FVerseBoltHoleSlot& Other) const
+	{
+		return Sequence == Other.Sequence && Hole.PieceIndex == Other.Hole.PieceIndex && Hole.Epoch == Other.Hole.Epoch
+			&& Hole.ServerTimeMs == Other.Hole.ServerTimeMs;
+	}
+};
+
 /** (PieceIndex, hole centroid piece-local cm). The piece owner turns the wall Holed with the variant nearest the centroid. */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnVersePieceHoleCap, uint16, const FVector&);
-/** Any change of the hole set, on server and clients (the renderer listens). */
-DECLARE_MULTICAST_DELEGATE(FOnVerseHolesChanged);
+/**
+ * A change of the hole set, on server and clients (the renderer listens): the pieces whose holes
+ * changed, or bAll after a reset or an epoch change.
+ */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnVerseHolesChanged, TConstArrayView<uint16> /*Pieces*/, bool /*bAll*/);
 
 /**
  * Bolt hole records of one arena (destruction.md 5, WP03.5). Lives on AVerseDestructionManager
- * (always relevant). The records replicate as one array, oldest first; it moves to an
- * FFastArraySerializer once VerseDestruction links NetCore (CCR: the module edges of
- * architecture.md 2 give it Core, CoreUObject, Engine and VerseCore only). Caps: 24 per piece, 512 per arena. Hole 25 on a wall piece clears its holes
- * and asks the owner to turn it Holed; on glass and ceiling panels the piece's oldest hole goes.
- * At the arena cap the oldest hole of the piece with the most holes is dropped. A reset bumps
- * the epoch and clears everything.
+ * (always relevant). Caps: 24 per piece, 512 per arena. Hole 25 on a wall piece clears its
+ * holes and asks the owner to turn it Holed; on glass and ceiling panels the piece's oldest hole
+ * goes. At the arena cap the oldest hole of the piece with the most holes is dropped. A reset
+ * bumps the epoch and clears everything.
+ *
+ * Replication: the contract asks for an FFastArraySerializer, which needs NetCore, and the
+ * module edges of architecture.md 2 give VerseDestruction only Core, CoreUObject, Engine and
+ * VerseCore (CCR #1134). Until that edge exists the records are a slot array with stable indices
+ * and a free list: an add, an eviction or a clear rewrites only the slots it touches, nothing
+ * shifts, and property replication sends exactly those slots. The per-piece view is kept up to
+ * date incrementally on the server and from a slot diff on clients.
  */
 UCLASS(ClassGroup = (Verse), meta = (BlueprintSpawnableComponent))
 class VERSEDESTRUCTION_API UVerseBoltHoleComponent : public UActorComponent
@@ -66,7 +99,18 @@ public:
 	/** Every hole of the current epoch, oldest first. */
 	void GetAllHoles(TArray<FVerseBoltHole>& OutHoles) const;
 
-	int32 Num() const;
+	/**
+	 * The two-point hole test of FVerseBoltHole::RayPassesHoles on one piece, with each hole's axis
+	 * decoded once when it is recorded instead of on every query (the same arithmetic).
+	 */
+	bool RayPassesPieceHoles(uint16 PieceIndex, const FVector& EntryLocalCm, const FVector& ExitLocalCm) const;
+
+	/** The raw slots (free ones included); a slot index identifies one hole while it lives. */
+	TConstArrayView<FVerseBoltHoleSlot> GetSlots() const { return Slots; }
+	/** True when a slot holds a hole of the current epoch. */
+	bool IsLiveSlot(int32 SlotIndex) const;
+
+	int32 Num() const { return LiveCount; }
 	int32 NumOnPiece(uint16 PieceIndex) const;
 	uint16 GetEpoch() const { return Epoch; }
 	int32 GetHolesPerPiece() const { return HolesPerPiece; }
@@ -77,15 +121,15 @@ public:
 
 protected:
 	UFUNCTION()
-	void OnRep_Holes();
+	void OnRep_Slots();
 
 	UFUNCTION()
 	void OnRep_Epoch();
 
 private:
-	/** Every hole of the arena, oldest first (insertion order). */
-	UPROPERTY(ReplicatedUsing = OnRep_Holes)
-	TArray<FVerseBoltHole> Holes;
+	/** Every hole of the arena at a stable index; free slots have Sequence 0. */
+	UPROPERTY(ReplicatedUsing = OnRep_Slots)
+	TArray<FVerseBoltHoleSlot> Slots;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Epoch)
 	uint16 Epoch = 0;
@@ -96,13 +140,36 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Verse")
 	int32 HolesPerArena = 512;
 
-	mutable TMap<uint16, TArray<FVerseBoltHole>> ByPiece;
-	mutable bool bCacheDirty = true;
+	/** One piece's live holes, oldest first, and the slot each one sits in. */
+	/** A hole axis as FVerseBoltHole::ContainsPoint reads it, decoded once. */
+	struct FHoleAxis
+	{
+		FVector PointCm = FVector::ZeroVector;
+		FVector Direction = FVector::ForwardVector;
+		double RadiusSq = 0.0;
+
+		explicit FHoleAxis(const FVerseBoltHole& Hole);
+		bool Contains(const FVector& PieceLocalCm) const;
+	};
+
+	struct FPieceHoles
+	{
+		TArray<FVerseBoltHole> Holes;
+		TArray<int32> SlotIndices;
+		TArray<FHoleAxis> Axes;
+	};
+
+	TMap<uint16, FPieceHoles> ByPiece;
+	TArray<int32> FreeSlots;
+	uint32 NextSequence = 1;
+	int32 LiveCount = 0;
+	/** Clients: the slots as last seen, to find which pieces a replication update touched. */
+	TArray<FVerseBoltHoleSlot> SeenSlots;
 
 	bool HasServerAuthority() const;
-	void RebuildCache() const;
-	void MarkChanged();
-	void HandleReplicatedChange();
+	void RemoveSlot(int32 SlotIndex);
 	void EvictForArenaCap();
-	void RemoveOldestOnPiece(uint16 PieceIndex);
+	void RebuildPieces(TConstArrayView<uint16> Pieces);
+	void RebuildAll();
+	void Broadcast(TConstArrayView<uint16> Pieces, bool bAll);
 };

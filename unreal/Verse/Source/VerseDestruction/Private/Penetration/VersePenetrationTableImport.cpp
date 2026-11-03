@@ -5,12 +5,61 @@
 #include "Penetration/VersePenetrationJson.h"
 #include "Penetration/VersePenetrationMath.h"
 #include "VerseGameplayTags.h"
+#include "VerseLog.h"
 
 namespace VersePenetrationImport
 {
 	FString DefaultTablePath()
 	{
 		return FPaths::Combine(FPaths::ProjectDir(), TEXT("Data"), TEXT("destruction"), TEXT("penetration.json"));
+	}
+
+	FSoftObjectPath TableAssetPath()
+	{
+		return FSoftObjectPath(TEXT("/Game/Verse/Destruction/_Holes/DA_PenetrationTable.DA_PenetrationTable"));
+	}
+
+	UVersePenetrationTable* LoadRuntimeTable(UObject* Outer)
+	{
+		const FString JsonPath = DefaultTablePath();
+		if (UVersePenetrationTable* Asset = Cast<UVersePenetrationTable>(TableAssetPath().TryLoad()))
+		{
+#if WITH_EDITOR
+			TArray<FVersePenetrationRow> JsonRows;
+			TArray<FString> Errors;
+			FString Text;
+			if (FPaths::FileExists(JsonPath) && FFileHelper::LoadFileToString(Text, *JsonPath) && ParseTableJson(Text, JsonRows, Errors))
+			{
+				const TArray<FString> Diffs = DiffRows(Asset->Rows, JsonRows);
+				if (!Diffs.IsEmpty())
+				{
+					UE_LOG(LogVerseDestruction, Warning,
+						TEXT("DA_PenetrationTable differs from %s (%s); re-run Content/Verse/Test/WP03/Python/wp03_content.py"), *JsonPath,
+						*FString::Join(Diffs, TEXT("; ")));
+				}
+			}
+#endif
+			return Asset;
+		}
+		UVersePenetrationTable* Table = NewObject<UVersePenetrationTable>(Outer, TEXT("DA_PenetrationTable_Runtime"), RF_Transient);
+		if (!FPaths::FileExists(JsonPath))
+		{
+			UE_LOG(LogVerseDestruction, Warning, TEXT("neither %s nor %s found; using the contract table"), *TableAssetPath().ToString(),
+				*JsonPath);
+			return Table;
+		}
+		TArray<FString> Errors;
+		if (!ImportIntoTable(*Table, JsonPath, Errors))
+		{
+			UE_LOG(LogVerseDestruction, Error, TEXT("penetration table %s rejected, using the contract table: %s"), *JsonPath,
+				*FString::Join(Errors, TEXT("; ")));
+		}
+		else
+		{
+			UE_LOG(LogVerseDestruction, Warning, TEXT("%s missing; using %s directly (not staged in cooked builds)"),
+				*TableAssetPath().ToString(), *JsonPath);
+		}
+		return Table;
 	}
 
 	bool CheckWireOrder(TConstArrayView<FVersePenetrationRow> Rows, TArray<FString>& OutErrors)
