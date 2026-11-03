@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Engineering/Bay/SM_Engineering_Bay_Shell.SM_Engineering_Bay_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Bay_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "793338c03e259951b290e9683bbc6ea9e6a0b1d1cc0e00f6d5309424c38edc70"
+    "sha256": "6d492edf0cc7dbf4901f219ca32a94629a3392fc285e7d105cddf0731535b6e1"
   },
   "kind": "static_mesh",
   "license": {
@@ -37,10 +37,6 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
         "slot": "M_Wall_PaintedDark"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
-        "slot": "M_Section_Cap"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
@@ -115,9 +111,9 @@
         "slot": "M_Floor_Grating"
       }
     ],
-    "triangles": 7038,
+    "triangles": 7000,
     "uv_sets": 1,
-    "vertices": 4180
+    "vertices": 4152
   },
   "name": "SM_Engineering_Bay_Shell",
   "nanite": {

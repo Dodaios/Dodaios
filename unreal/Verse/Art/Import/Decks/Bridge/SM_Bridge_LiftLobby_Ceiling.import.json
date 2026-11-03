@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/bridge/SM_Bridge_LiftLobby_Ceiling.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "8546c2b8e56e235ed50863124c80ea4c6a95b5456b096e859c5e607242b7c066"
+    "sha256": "e78949ba7719188a0a87a4c7785d6355dcbe57309371f7180e27deb19fbf7131"
   },
   "kind": "static_mesh",
   "license": {
@@ -35,12 +35,20 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
-        "slot": "M_Ceiling_Panel"
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
+        "slot": "M_Hull_Pipe"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
         "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
+        "slot": "M_Hull_PipeInsulated"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
+        "slot": "M_Ceiling_Panel"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_CeilingPanel.MI_Light_CeilingPanel",
@@ -71,9 +79,9 @@
         "slot": "M_Light_WallStrip"
       }
     ],
-    "triangles": 12062,
+    "triangles": 14722,
     "uv_sets": 1,
-    "vertices": 6987
+    "vertices": 8427
   },
   "name": "SM_Bridge_LiftLobby_Ceiling",
   "nanite": {

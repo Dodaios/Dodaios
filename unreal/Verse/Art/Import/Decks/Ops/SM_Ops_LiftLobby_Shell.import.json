@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/LiftLobby/SM_Ops_LiftLobby_Shell.SM_Ops_LiftLobby_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_LiftLobby_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "1c39c4830cb0784dea3b87cbf0de66541db410ca52a6d78adcd745fa58bcfed2"
+    "sha256": "9368e97ed3ee67a65ba188c804357a13a77e40934847cc22f37bb0bd585919ac"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         670.0,
         1820.0,
-        460.0
+        459.6
       ],
       "min": [
         -530.5,
@@ -131,9 +131,9 @@
         "slot": "M_Crate_Paint"
       }
     ],
-    "triangles": 23628,
+    "triangles": 21092,
     "uv_sets": 1,
-    "vertices": 13364
+    "vertices": 12204
   },
   "name": "SM_Ops_LiftLobby_Shell",
   "nanite": {

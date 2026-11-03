@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Hangar_Container_L_Olive.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "81a9035a9d181cb6cc7141db444f9c57ee8ffb807041632c925ff60d67431bb5"
+    "sha256": "e2f7eac1219c9695e685b54dfc48998e4d94c4a51e0e2769d1fcd406ef0ac4b3"
   },
   "kind": "static_mesh",
   "license": {
@@ -35,8 +35,8 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerOlive.MI_TMP_PropsInd_ContainerOlive",
-        "slot": "M_TMP_PropsInd_ContainerOlive"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerOlive.MI_PropsInd_ContainerOlive",
+        "slot": "M_PropsInd_ContainerOlive"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
@@ -51,8 +51,8 @@
         "slot": "M_Deck_Marking_White"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
-        "slot": "M_TMP_PropsInd_StencilRed"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilRed.MI_PropsInd_StencilRed",
+        "slot": "M_PropsInd_StencilRed"
       }
     ],
     "triangles": 15701,

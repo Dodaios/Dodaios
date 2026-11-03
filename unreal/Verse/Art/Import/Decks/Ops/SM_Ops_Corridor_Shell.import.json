@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/Corridor/SM_Ops_Corridor_Shell.SM_Ops_Corridor_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Corridor_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "981ddee295c9bde7c9e3b47e25ef9c37ed0f5ec9f3fe8ddc853a7e9161a09361"
+    "sha256": "a75793d45cbda4eb341a2aa048f91aeed56e8df2cafa9718ab2a235fb64544cc"
   },
   "kind": "static_mesh",
   "license": {
@@ -95,9 +95,9 @@
         "slot": "M_Light_Maint_Red"
       }
     ],
-    "triangles": 23904,
+    "triangles": 23864,
     "uv_sets": 1,
-    "vertices": 25508
+    "vertices": 25436
   },
   "name": "SM_Ops_Corridor_Shell",
   "nanite": {

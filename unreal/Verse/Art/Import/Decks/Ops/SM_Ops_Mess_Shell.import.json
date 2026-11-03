@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/Mess/SM_Ops_Mess_Shell.SM_Ops_Mess_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Mess_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "e3c30a5ac18e9b9cdd14c4401e577f871eb270f107313f3852017f82213e93c0"
+    "sha256": "ff1b3545ce9a4dd1d32614be1fd3b890591fde5626f44e5e9460176c2579c6d0"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         8310.0,
         1205.0,
-        478.0
+        459.0
       ],
       "min": [
         -1690.0,
@@ -43,10 +43,6 @@
         "slot": "M_Hull_Structure"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
-        "slot": "M_Struct_Gunmetal"
-      },
-      {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
         "slot": "M_Wall_PaintedLight"
       },
@@ -57,6 +53,10 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_Grating.MI_Floor_Grating",
         "slot": "M_Floor_Grating"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
@@ -147,9 +147,9 @@
         "slot": "M_Indicator_Amber"
       }
     ],
-    "triangles": 75864,
+    "triangles": 74754,
     "uv_sets": 1,
-    "vertices": 40700
+    "vertices": 40188
   },
   "name": "SM_Ops_Mess_Shell",
   "nanite": {

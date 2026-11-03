@@ -52,6 +52,64 @@
       }
     },
     {
+      "asset": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Bounds.SM_Hangar_DayStations_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Hangar_Day",
+      "destructible": null,
+      "id": "day_stations_bounds_1",
+      "location": [
+        5100.0,
+        5380.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Hangar_DayStations_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Bounds2.SM_Hangar_DayStations_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Hangar_Day",
+      "destructible": null,
+      "id": "day_stations_bounds_2",
+      "location": [
+        5100.0,
+        5380.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Hangar_DayStations_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Ceiling.SM_Hangar_DayStations_Ceiling",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Hangar_Day",
@@ -232,7 +290,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/hangar/zones/day_stations.py",
-    "sha256": "929a1fa4797be13ed01202592a7498c738818d74da03bfc02b594478e4233072"
+    "sha256": "487ed9c0a50aabd8bd90d770456a3739d990b4f0b6a8cf65d020d9eeb77a41a3"
   },
   "zone": "day_stations"
 }

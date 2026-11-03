@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds12.SM_Ops_TeamRooms_Bounds12",
+  "collision": {
+    "primitives": 5,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_TeamRooms_Bounds12.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "a48ec781607cdc601247b95da726d1f9e317e42af6547d83b0e0c7972f937188"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        1015.0,
+        675.0,
+        300.0
+      ],
+      "min": [
+        -1000.0,
+        505.0,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 60,
+    "uv_sets": 1,
+    "vertices": 40
+  },
+  "name": "SM_Ops_TeamRooms_Bounds12",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "team_rooms"
+    },
+    "builder": "art/verse/decks/ops/build.py",
+    "function": "build"
+  }
+}

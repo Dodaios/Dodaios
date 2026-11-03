@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Engineering/Gallery/SM_Engineering_Gallery_Shell.SM_Engineering_Gallery_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Gallery_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "08a642d28bb8be001d5c25bfb63eb38001738a91851392ef9ea30a6f05e89b9e"
+    "sha256": "a9c54cbccb9576a58f5fd9849d42062ab788d6658c7e984bf8cc0f90ce44015c"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         2205.0,
         498.0,
-        317.0
+        316.435
       ],
       "min": [
         -2594.0,
@@ -115,9 +115,9 @@
         "slot": "M_Floor_Grating"
       }
     ],
-    "triangles": 24659,
+    "triangles": 24368,
     "uv_sets": 1,
-    "vertices": 14376
+    "vertices": 14301
   },
   "name": "SM_Engineering_Gallery_Shell",
   "nanite": {

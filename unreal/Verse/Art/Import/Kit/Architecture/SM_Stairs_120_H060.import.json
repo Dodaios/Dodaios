@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Kit/Architecture/SM_Stairs_120_H060.SM_Stairs_120_H060",
   "collision": {
-    "primitives": 0,
+    "primitives": 3,
     "profile": "Verse_Architecture",
-    "source": "auto_box"
+    "source": "authored"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/kit/SM_Stairs_120_H060.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "d10505c03b8f08665f5f048d36aac0888086aa63b4893feb6572a36256bd46a9"
+    "sha256": "d3d58d03d37f500b73698f0604d5d1b5d32da87815555ef87f8afce8cf5e4c91"
   },
   "kind": "static_mesh",
   "license": {

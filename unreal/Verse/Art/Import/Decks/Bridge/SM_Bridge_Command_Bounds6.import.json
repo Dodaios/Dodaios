@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Bridge/Command/SM_Bridge_Command_Bounds6.SM_Bridge_Command_Bounds6",
+  "collision": {
+    "primitives": 6,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/bridge/SM_Bridge_Command_Bounds6.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "50b30859fdc54c6e0c074f8b810fb880eadb3bcdf840801a9001612a1e486a0b"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        775.0,
+        1555.0,
+        300.0
+      ],
+      "min": [
+        -590.0,
+        1385.0,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 72,
+    "uv_sets": 1,
+    "vertices": 48
+  },
+  "name": "SM_Bridge_Command_Bounds6",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "command"
+    },
+    "builder": "art/verse/decks/bridge/build.py",
+    "function": "build"
+  }
+}

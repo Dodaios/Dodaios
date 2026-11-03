@@ -513,6 +513,354 @@
       "station": null
     },
     {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds.SM_Ops_TeamRooms_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_1",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds10.SM_Ops_TeamRooms_Bounds10",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_10",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds10",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds11.SM_Ops_TeamRooms_Bounds11",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_11",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds11",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds12.SM_Ops_TeamRooms_Bounds12",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_12",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds12",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds2.SM_Ops_TeamRooms_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_2",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds3.SM_Ops_TeamRooms_Bounds3",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_3",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds3",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds4.SM_Ops_TeamRooms_Bounds4",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_4",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds4",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds5.SM_Ops_TeamRooms_Bounds5",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_5",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds5",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds6.SM_Ops_TeamRooms_Bounds6",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_6",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds6",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds7.SM_Ops_TeamRooms_Bounds7",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_7",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds7",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds8.SM_Ops_TeamRooms_Bounds8",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_8",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds8",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Bounds9.SM_Ops_TeamRooms_Bounds9",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "team_rooms_bounds_9",
+      "location": [
+        5400.0,
+        4740.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_TeamRooms_Bounds9",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Ceiling.SM_Ops_TeamRooms_Ceiling",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Ops_Base",
@@ -1248,7 +1596,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/ops/zones.py",
-    "sha256": "21746f87a36d95f95fdbf268d3830e4522c16e0cd250f64dd3e5a8f81bbf7e05"
+    "sha256": "329c8c808950e8e72fcd63a0dfbb06f865436b131b4a00915c294e4d47919afa"
   },
   "zone": "team_rooms"
 }

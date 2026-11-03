@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Shell.SM_Engineering_Reactor_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Reactor_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "7880d2ad17d6120fc1d45137133966911e07b56d0be256a2f51a69f5bdf992b8"
+    "sha256": "95a223e04da6f0c93a83ab24deab7a4bac7ce2d91652ea308c1a24d996bb2bbd"
   },
   "kind": "static_mesh",
   "license": {
@@ -63,21 +63,13 @@
         "slot": "M_Hull_Pipe"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_Grating.MI_Floor_Grating",
-        "slot": "M_Floor_Grating"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Red.MI_Light_Maint_Red",
-        "slot": "M_Light_Maint_Red"
-      },
-      {
         "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
         "slot": "M_Deck_Marking_White"
       }
     ],
-    "triangles": 25428,
+    "triangles": 5986,
     "uv_sets": 1,
-    "vertices": 13200
+    "vertices": 3380
   },
   "name": "SM_Engineering_Reactor_Shell",
   "nanite": {

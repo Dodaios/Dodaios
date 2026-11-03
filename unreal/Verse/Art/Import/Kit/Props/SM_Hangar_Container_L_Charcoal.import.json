@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Hangar_Container_L_Charcoal.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "25195d89c1c3cac6e2115f55a6ebfa47f78d7358b07c111d834020fc0d5f3c22"
+    "sha256": "cd83a518384da616eece37364bf7e0ac4afeb861b22aa30400e2adb11a83c662"
   },
   "kind": "static_mesh",
   "license": {
@@ -51,8 +51,8 @@
         "slot": "M_Deck_Marking_White"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
-        "slot": "M_TMP_PropsInd_StencilRed"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilRed.MI_PropsInd_StencilRed",
+        "slot": "M_PropsInd_StencilRed"
       }
     ],
     "triangles": 13852,

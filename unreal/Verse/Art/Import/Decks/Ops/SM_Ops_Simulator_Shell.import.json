@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Shell.SM_Ops_Simulator_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Simulator_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "9ba01e9ae27117db5ae1976b7ed83ac415ed66a71dbed9a19336100f7f77a457"
+    "sha256": "9000b78cb00b1549c4c7871ceaa53791dd24ae630a3ba17c1e7dde184586ffca"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         1170.0,
         1225.0,
-        377.0
+        376.5
       ],
       "min": [
         -1030.5,
@@ -147,9 +147,9 @@
         "slot": "M_Indicator_Blue"
       }
     ],
-    "triangles": 23066,
+    "triangles": 22989,
     "uv_sets": 1,
-    "vertices": 13284
+    "vertices": 13252
   },
   "name": "SM_Ops_Simulator_Shell",
   "nanite": {

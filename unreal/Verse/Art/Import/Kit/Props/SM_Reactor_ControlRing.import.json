@@ -2,15 +2,15 @@
   "asset_path": "/Game/Verse/Kit/Props/SM_Reactor_ControlRing.SM_Reactor_ControlRing",
   "collision": {
     "primitives": 0,
-    "profile": "Verse_Prop",
-    "source": "auto_box"
+    "profile": "Verse_NoCollision",
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/kit/SM_Reactor_ControlRing.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "460679efc9efdec6fb9db5bfbe5a4d079f7f11d4a39f9ffdde0eb66bb67c21b2"
+    "sha256": "083554e5e781000f5fc69bccbe6125ed78338e32e6f002d921012e8279651b87"
   },
   "kind": "static_mesh",
   "license": {
@@ -35,8 +35,8 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_Tread.MI_TMP_PropsInd_Tread",
-        "slot": "M_TMP_PropsInd_Tread"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_Tread.MI_PropsInd_Tread",
+        "slot": "M_PropsInd_Tread"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
@@ -51,8 +51,8 @@
         "slot": "M_Deck_Hazard"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_LampDim.MI_TMP_PropsInd_LampDim",
-        "slot": "M_TMP_PropsInd_LampDim"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_LampDim.MI_PropsInd_LampDim",
+        "slot": "M_PropsInd_LampDim"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",

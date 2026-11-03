@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Bridge/ReadyRoom/SM_Bridge_ReadyRoom_Shell.SM_Bridge_ReadyRoom_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/bridge/SM_Bridge_ReadyRoom_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "6748f6b87da8f5a71fc1d80f9d5db43f141e00f4b45d694400a1b86ef79eb02e"
+    "sha256": "d8411f11a69e6149769317fbfb4e1d75b20172c081ac8f5ae526000b49e795b2"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,13 +23,13 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        991.0,
+        990.0,
         442.0,
-        722.0
+        360.0
       ],
       "min": [
         -1890.0,
-        -3120.0,
+        -850.0,
         -90.0
       ]
     },
@@ -111,9 +111,9 @@
         "slot": "M_Seat_Upholstery"
       }
     ],
-    "triangles": 19714,
+    "triangles": 18577,
     "uv_sets": 1,
-    "vertices": 10708
+    "vertices": 10165
   },
   "name": "SM_Bridge_ReadyRoom_Shell",
   "nanite": {

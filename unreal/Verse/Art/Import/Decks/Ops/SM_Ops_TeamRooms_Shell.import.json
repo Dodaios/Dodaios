@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/TeamRooms/SM_Ops_TeamRooms_Shell.SM_Ops_TeamRooms_Shell",
   "collision": {
-    "primitives": 2,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_TeamRooms_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "313fc52a4a5e27c9fe538ea04321d0ad0dbabc2f98ea0daf72b4e6b556eacf8a"
+    "sha256": "685ca951c85a486b73a31d20e8f845e9439f06b02592f171416e52414e83d848"
   },
   "kind": "static_mesh",
   "license": {

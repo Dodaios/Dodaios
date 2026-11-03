@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Hangar/DayStations/SM_Hangar_DayStations_Shell.SM_Hangar_DayStations_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/hangar/SM_Hangar_DayStations_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "970be3983040a9978233b14b2cab2e7f47ca8ed4de37f63fd06023a96dc18fb8"
+    "sha256": "4f5563e1029b0cd589eece531ec35cd47cdd33b5a30b8f62c23e104ad2d8080d"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         1100.0,
         780.0,
-        322.0
+        309.0
       ],
       "min": [
         -1100.0,
@@ -57,10 +57,6 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
         "slot": "M_Trim_BrushedSteel"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
-        "slot": "M_Indicator_Red"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_SignBacklit.MI_Hangar_SignBacklit",
@@ -101,11 +97,15 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
         "slot": "M_Indicator_Amber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
       }
     ],
-    "triangles": 9902,
+    "triangles": 9278,
     "uv_sets": 1,
-    "vertices": 6258
+    "vertices": 5970
   },
   "name": "SM_Hangar_DayStations_Shell",
   "nanite": {

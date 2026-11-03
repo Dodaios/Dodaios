@@ -180,6 +180,151 @@
       }
     },
     {
+      "asset": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Bounds.SM_Ops_Simulator_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "simulator_bounds_1",
+      "location": [
+        6300.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Simulator_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Bounds2.SM_Ops_Simulator_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "simulator_bounds_2",
+      "location": [
+        6300.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Simulator_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Bounds3.SM_Ops_Simulator_Bounds3",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "simulator_bounds_3",
+      "location": [
+        6300.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Simulator_Bounds3",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Bounds4.SM_Ops_Simulator_Bounds4",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "simulator_bounds_4",
+      "location": [
+        6300.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Simulator_Bounds4",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Bounds5.SM_Ops_Simulator_Bounds5",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "simulator_bounds_5",
+      "location": [
+        6300.0,
+        1420.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_Simulator_Bounds5",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Ops/Simulator/SM_Ops_Simulator_Ceiling.SM_Ops_Simulator_Ceiling",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Ops_Base",
@@ -780,7 +925,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/ops/zones.py",
-    "sha256": "21746f87a36d95f95fdbf268d3830e4522c16e0cd250f64dd3e5a8f81bbf7e05"
+    "sha256": "329c8c808950e8e72fcd63a0dfbb06f865436b131b4a00915c294e4d47919afa"
   },
   "zone": "simulator"
 }

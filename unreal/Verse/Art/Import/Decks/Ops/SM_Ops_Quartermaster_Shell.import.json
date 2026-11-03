@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/Quartermaster/SM_Ops_Quartermaster_Shell.SM_Ops_Quartermaster_Shell",
   "collision": {
-    "primitives": 2,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Quartermaster_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "274674a0fa2573a9ac868e279b7833ded7a9b247b8d9b8ef5ca7a8ec505fd616"
+    "sha256": "08402e1167e524df34f188352565190f8dfd46538107c3b6151e4e2c385e133c"
   },
   "kind": "static_mesh",
   "license": {

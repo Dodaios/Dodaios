@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Hangar_Crate_B.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "2f77e734b561657b85fa4cf67200961e1db12bf62cd36333a6f802cdf31e8c34"
+    "sha256": "af9298f58aabdbde3a24fdb108cec37ad8edc21d224d5470fc1b8204616b2ef9"
   },
   "kind": "static_mesh",
   "license": {
@@ -35,8 +35,8 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerGunmetal.MI_TMP_PropsInd_ContainerGunmetal",
-        "slot": "M_TMP_PropsInd_ContainerGunmetal"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerGunmetal.MI_PropsInd_ContainerGunmetal",
+        "slot": "M_PropsInd_ContainerGunmetal"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",

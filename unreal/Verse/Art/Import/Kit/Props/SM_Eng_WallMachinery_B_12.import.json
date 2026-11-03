@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Eng_WallMachinery_B_12.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "181e1ae487a4568dbfc614d19376ab2e85a3c1ec033e114ecc61fab8ca4430d6"
+    "sha256": "69eeb9f12279c8080966b76ddb0662319b63196dccd0af7f14b37b97de127514"
   },
   "kind": "static_mesh",
   "license": {
@@ -43,16 +43,16 @@
         "slot": "M_Hull_Structure"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerGrey.MI_TMP_PropsInd_ContainerGrey",
-        "slot": "M_TMP_PropsInd_ContainerGrey"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerGrey.MI_PropsInd_ContainerGrey",
+        "slot": "M_PropsInd_ContainerGrey"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
         "slot": "M_Struct_Gunmetal"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
-        "slot": "M_TMP_PropsInd_StencilRed"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilRed.MI_PropsInd_StencilRed",
+        "slot": "M_PropsInd_StencilRed"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
@@ -67,16 +67,16 @@
         "slot": "M_Indicator_Amber"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_LampDim.MI_TMP_PropsInd_LampDim",
-        "slot": "M_TMP_PropsInd_LampDim"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_LampDim.MI_PropsInd_LampDim",
+        "slot": "M_PropsInd_LampDim"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Red.MI_Light_Maint_Red",
         "slot": "M_Light_Maint_Red"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilDark.MI_TMP_PropsInd_StencilDark",
-        "slot": "M_TMP_PropsInd_StencilDark"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilDark.MI_PropsInd_StencilDark",
+        "slot": "M_PropsInd_StencilDark"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",

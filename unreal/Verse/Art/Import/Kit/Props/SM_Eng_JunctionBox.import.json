@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Eng_JunctionBox.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "0655a7b6ae4cfe57041386d03c11c4dd0f140e4ad8d3bafa4d8551bcd388dd68"
+    "sha256": "7a1186a0df4d6c064df3beacbed8ef09c08a2884175db9d8f1faf115e21b3785"
   },
   "kind": "static_mesh",
   "license": {
@@ -67,13 +67,13 @@
         "slot": "M_Deck_Hazard"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilDark.MI_TMP_PropsInd_StencilDark",
-        "slot": "M_TMP_PropsInd_StencilDark"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilDark.MI_PropsInd_StencilDark",
+        "slot": "M_PropsInd_StencilDark"
       }
     ],
-    "triangles": 2890,
+    "triangles": 2825,
     "uv_sets": 1,
-    "vertices": 1892
+    "vertices": 1839
   },
   "name": "SM_Eng_JunctionBox",
   "nanite": {

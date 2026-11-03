@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Engineering/Control/SM_Engineering_Control_Shell.SM_Engineering_Control_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Control_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "bb0b6e7f0cb00248ec55663c7963bd2421a3c93718524328f4c78dba504cb49c"
+    "sha256": "d7b8f194e2d71d90d35e9950250036c27c9a67bdb9e2d05e7eb51dde6c2d233f"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         1770.0,
         3145.0,
-        450.0
+        449.4
       ],
       "min": [
         -1330.0,
@@ -119,9 +119,9 @@
         "slot": "M_Paint_Hazard"
       }
     ],
-    "triangles": 33183,
+    "triangles": 31493,
     "uv_sets": 1,
-    "vertices": 20128
+    "vertices": 19456
   },
   "name": "SM_Engineering_Control_Shell",
   "nanite": {

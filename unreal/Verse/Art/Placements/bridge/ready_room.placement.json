@@ -1444,6 +1444,64 @@
       }
     },
     {
+      "asset": "/Game/Verse/Decks/Bridge/ReadyRoom/SM_Bridge_ReadyRoom_Bounds.SM_Bridge_ReadyRoom_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "ready_room_bounds_1",
+      "location": [
+        5970.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bridge_ReadyRoom_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Bridge/ReadyRoom/SM_Bridge_ReadyRoom_Bounds2.SM_Bridge_ReadyRoom_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Bridge_Base",
+      "destructible": null,
+      "id": "ready_room_bounds_2",
+      "location": [
+        5970.0,
+        3960.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Bridge_ReadyRoom_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Decks/Bridge/ReadyRoom/SM_Bridge_ReadyRoom_Ceiling.SM_Bridge_ReadyRoom_Ceiling",
       "collision": "Verse_Architecture",
       "data_layer": "DL_Bridge_Base",
@@ -1770,7 +1828,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/bridge/zones.py",
-    "sha256": "e9a134d4aba55990ae5b4ed330a802eb1277ec1e4819dc13d7115253104df54c"
+    "sha256": "c2db2be844a85aea0af5f2219e4e92fb642873bc9d36861e1200213093d8a1ff"
   },
   "zone": "ready_room"
 }

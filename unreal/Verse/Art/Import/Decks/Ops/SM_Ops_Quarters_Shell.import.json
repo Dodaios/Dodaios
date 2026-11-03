@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/Quarters/SM_Ops_Quarters_Shell.SM_Ops_Quarters_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Quarters_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "3f532fbf745eb98e7597938a6628bf32c409993836a641ad6005b31c58e9240e"
+    "sha256": "6b5f1826f4caaba64de8a7ab9e089a0bf0f9923320c75fcf2338988c379a14f5"
   },
   "kind": "static_mesh",
   "license": {

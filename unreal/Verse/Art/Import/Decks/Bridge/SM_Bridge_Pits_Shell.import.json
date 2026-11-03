@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Bridge/Pits/SM_Bridge_Pits_Shell.SM_Bridge_Pits_Shell",
   "collision": {
-    "primitives": 2,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/bridge/SM_Bridge_Pits_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "ff93bc73a7915c3a6f253d90e6a9b402028881f573c80b2802d13e372f35a8d1"
+    "sha256": "d5b905f997f1e57bf80ab6441e621630fe5dd303d3f78befce270d5191818b6a"
   },
   "kind": "static_mesh",
   "license": {

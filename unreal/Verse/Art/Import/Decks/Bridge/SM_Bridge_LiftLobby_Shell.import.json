@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Bridge/LiftLobby/SM_Bridge_LiftLobby_Shell.SM_Bridge_LiftLobby_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/bridge/SM_Bridge_LiftLobby_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "677763f1b17a035ca66d490e846cfde42de02c426a508eba5c9aa519ffff7552"
+    "sha256": "11259dd0b59b13e2d4e7eb05393329c6efd43435280ccb942b7b141643a9d076"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         3360.0,
         440.6,
-        330.0
+        329.7
       ],
       "min": [
         -3360.0,
@@ -99,9 +99,9 @@
         "slot": "M_Light_Maint_Amber"
       }
     ],
-    "triangles": 10798,
+    "triangles": 8138,
     "uv_sets": 1,
-    "vertices": 6468
+    "vertices": 5188
   },
   "name": "SM_Bridge_LiftLobby_Shell",
   "nanite": {

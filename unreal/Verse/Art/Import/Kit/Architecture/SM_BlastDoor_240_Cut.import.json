@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Kit/Architecture/SM_BlastDoor_240_Cut.SM_BlastDoor_240_Cut",
   "collision": {
-    "primitives": 0,
+    "primitives": 2,
     "profile": "Verse_Architecture",
-    "source": "auto_box"
+    "source": "authored"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/kit/SM_BlastDoor_240_Cut.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "e3a53c57ca97fe9f88fb623d740b5c9cb5743ff12154f573493efa4b972d679f"
+    "sha256": "72cb52a1babb8840ed43c8850fba7de4d0fd00b54308498363a799c9920b8702"
   },
   "kind": "static_mesh",
   "license": {

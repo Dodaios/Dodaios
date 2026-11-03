@@ -2,15 +2,15 @@
   "asset_path": "/Game/Verse/Kit/Props/SM_Reactor_Haze.SM_Reactor_Haze",
   "collision": {
     "primitives": 0,
-    "profile": "Verse_Prop",
-    "source": "auto_box"
+    "profile": "Verse_NoCollision",
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/kit/SM_Reactor_Haze.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "93a2955a46094b0041a810faa3d76f7c0f03fa05496095ddca7a856c5994c1a9"
+    "sha256": "6e5050badbd13524d6444bc9283e9efe229926dd90ba499da1ec3ac4ac7ed916"
   },
   "kind": "static_mesh",
   "license": {
@@ -35,8 +35,8 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_Haze.MI_TMP_PropsInd_Haze",
-        "slot": "M_TMP_PropsInd_Haze"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_Haze.MI_PropsInd_Haze",
+        "slot": "M_PropsInd_Haze"
       }
     ],
     "triangles": 188,

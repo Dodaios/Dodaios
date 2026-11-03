@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Hangar_TowTug.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "770b49456c8b99c9942957b9cde313f233d8f1dab1a227c3d0a50e2e6af1f473"
+    "sha256": "bbe43d296debe796efcecf1ef34b0b10b6dec5063c8cd561e0f46320eeb4aa3c"
   },
   "kind": "static_mesh",
   "license": {
@@ -35,8 +35,8 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_ContainerGrey.MI_TMP_PropsInd_ContainerGrey",
-        "slot": "M_TMP_PropsInd_ContainerGrey"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerGrey.MI_PropsInd_ContainerGrey",
+        "slot": "M_PropsInd_ContainerGrey"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
@@ -47,8 +47,8 @@
         "slot": "M_Struct_Gunmetal"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_GlassDark.MI_TMP_PropsInd_GlassDark",
-        "slot": "M_TMP_PropsInd_GlassDark"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_GlassDark.MI_PropsInd_GlassDark",
+        "slot": "M_PropsInd_GlassDark"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
@@ -67,13 +67,13 @@
         "slot": "M_Indicator_Red"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilDark.MI_TMP_PropsInd_StencilDark",
-        "slot": "M_TMP_PropsInd_StencilDark"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilDark.MI_PropsInd_StencilDark",
+        "slot": "M_PropsInd_StencilDark"
       }
     ],
-    "triangles": 4137,
+    "triangles": 4124,
     "uv_sets": 1,
-    "vertices": 2716
+    "vertices": 2711
   },
   "name": "SM_Hangar_TowTug",
   "nanite": {

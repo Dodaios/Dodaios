@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Hangar_FuelBowser.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "45d0a769eeb1016580a2a4d0b7cac6efcb93eaff4016f3116a51d21c65506c96"
+    "sha256": "2053695fc281afd172b33bb3c9a7e1591dbea8bc60e007e8bffceb35c2a35804"
   },
   "kind": "static_mesh",
   "license": {
@@ -35,8 +35,8 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_HullPaint.MI_TMP_PropsInd_HullPaint",
-        "slot": "M_TMP_PropsInd_HullPaint"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_HullPaint.MI_PropsInd_HullPaint",
+        "slot": "M_PropsInd_HullPaint"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
@@ -47,8 +47,8 @@
         "slot": "M_Wall_PaintedDark"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_GlassDark.MI_TMP_PropsInd_GlassDark",
-        "slot": "M_TMP_PropsInd_GlassDark"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_GlassDark.MI_PropsInd_GlassDark",
+        "slot": "M_PropsInd_GlassDark"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_RedTrim.MI_Light_RedTrim",
@@ -67,12 +67,12 @@
         "slot": "M_Rubber_Black"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_Tread.MI_TMP_PropsInd_Tread",
-        "slot": "M_TMP_PropsInd_Tread"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_Tread.MI_PropsInd_Tread",
+        "slot": "M_PropsInd_Tread"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilRed.MI_TMP_PropsInd_StencilRed",
-        "slot": "M_TMP_PropsInd_StencilRed"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilRed.MI_PropsInd_StencilRed",
+        "slot": "M_PropsInd_StencilRed"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Amber.MI_Indicator_Amber",
@@ -87,11 +87,11 @@
         "slot": "M_Indicator_Red"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_StencilDark.MI_TMP_PropsInd_StencilDark",
-        "slot": "M_TMP_PropsInd_StencilDark"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilDark.MI_PropsInd_StencilDark",
+        "slot": "M_PropsInd_StencilDark"
       }
     ],
-    "triangles": 35499,
+    "triangles": 35498,
     "uv_sets": 1,
     "vertices": 19074
   },

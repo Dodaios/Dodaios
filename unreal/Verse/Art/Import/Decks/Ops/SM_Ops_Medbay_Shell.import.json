@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/Medbay/SM_Ops_Medbay_Shell.SM_Ops_Medbay_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Medbay_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "2bfb04ddbd47dc47209bf680300e2b157b5533ca292e68ebaed559dbb15dc8c7"
+    "sha256": "25a76bfafe45a2d6e8ea334a5fefb793042f68f6f9e4a3f878ffa280a5046ba1"
   },
   "kind": "static_mesh",
   "license": {

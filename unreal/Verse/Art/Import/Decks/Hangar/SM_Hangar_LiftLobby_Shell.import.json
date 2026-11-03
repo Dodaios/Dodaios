@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Hangar/LiftLobby/SM_Hangar_LiftLobby_Shell.SM_Hangar_LiftLobby_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/hangar/SM_Hangar_LiftLobby_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "1e583f8323e278ca2aa4e10e1cee38dae11115a2f976d3e44edd87314fbb8702"
+    "sha256": "a57bf6492f44e03db236498805ba0b905117f1b46303ad2fa14e3c89e0fb2c7e"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         750.0,
         780.0,
-        450.0
+        388.8
       ],
       "min": [
         -750.0,
@@ -99,9 +99,9 @@
         "slot": "M_Indicator_Red"
       }
     ],
-    "triangles": 4308,
+    "triangles": 3738,
     "uv_sets": 1,
-    "vertices": 2384
+    "vertices": 2104
   },
   "name": "SM_Hangar_LiftLobby_Shell",
   "nanite": {

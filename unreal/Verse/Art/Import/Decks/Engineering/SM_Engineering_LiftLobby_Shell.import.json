@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Engineering/LiftLobby/SM_Engineering_LiftLobby_Shell.SM_Engineering_LiftLobby_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_LiftLobby_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "44a81d43a69aefdefe0dcb4222e0838422c8ce200cba01773b3df02782bbf0a4"
+    "sha256": "ee211563fe5c11d460374edbed501dd2d9c0488574af396cdbcc3f7efd9842bd"
   },
   "kind": "static_mesh",
   "license": {

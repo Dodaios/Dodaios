@@ -1387,7 +1387,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_15_00",
+      "id": "enghulln_15_00_ceiling",
       "location": [
         3410.0,
         50.0,
@@ -1416,7 +1416,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_16_00",
+      "id": "enghulln_16_00_ceiling",
       "location": [
         3650.0,
         50.0,
@@ -1445,7 +1445,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_17_00",
+      "id": "enghulln_17_00_ceiling",
       "location": [
         3890.0,
         50.0,
@@ -1474,7 +1474,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_18_00",
+      "id": "enghulln_18_00_ceiling",
       "location": [
         4130.0,
         50.0,
@@ -1503,7 +1503,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_19_00",
+      "id": "enghulln_19_00_ceiling",
       "location": [
         4370.0,
         50.0,
@@ -1532,7 +1532,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_20_00",
+      "id": "enghulln_20_00_ceiling",
       "location": [
         4610.0,
         50.0,
@@ -1561,7 +1561,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_21_00",
+      "id": "enghulln_21_00_ceiling",
       "location": [
         4850.0,
         50.0,
@@ -1590,7 +1590,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_22_00",
+      "id": "enghulln_22_00_ceiling",
       "location": [
         5090.0,
         50.0,
@@ -1619,7 +1619,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_23_00",
+      "id": "enghulln_23_00_ceiling",
       "location": [
         5330.0,
         50.0,
@@ -1648,7 +1648,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_24_00",
+      "id": "enghulln_24_00_ceiling",
       "location": [
         5570.0,
         50.0,
@@ -1677,7 +1677,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_25_00",
+      "id": "enghulln_25_00_ceiling",
       "location": [
         5810.0,
         50.0,
@@ -1706,7 +1706,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_26_00",
+      "id": "enghulln_26_00_ceiling",
       "location": [
         6050.0,
         50.0,
@@ -1735,7 +1735,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_27_00",
+      "id": "enghulln_27_00_ceiling",
       "location": [
         6290.0,
         50.0,
@@ -1764,7 +1764,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_28_00",
+      "id": "enghulln_28_00_ceiling",
       "location": [
         6530.0,
         50.0,
@@ -1793,7 +1793,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_29_00",
+      "id": "enghulln_29_00_ceiling",
       "location": [
         6770.0,
         50.0,
@@ -1822,7 +1822,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_30_00",
+      "id": "enghulln_30_00_ceiling",
       "location": [
         7010.0,
         50.0,
@@ -1851,7 +1851,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_31_00",
+      "id": "enghulln_31_00_ceiling",
       "location": [
         7250.0,
         50.0,
@@ -1880,7 +1880,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_32_00",
+      "id": "enghulln_32_00_ceiling",
       "location": [
         7490.0,
         50.0,
@@ -1909,7 +1909,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_33_00",
+      "id": "enghulln_33_00_ceiling",
       "location": [
         7730.0,
         50.0,
@@ -1938,7 +1938,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_34_00",
+      "id": "enghulln_34_00_ceiling",
       "location": [
         7970.0,
         50.0,
@@ -1967,7 +1967,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_35_00",
+      "id": "enghulln_35_00_ceiling",
       "location": [
         8210.0,
         50.0,
@@ -1996,7 +1996,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_36_00",
+      "id": "enghulln_36_00_ceiling",
       "location": [
         8450.0,
         50.0,
@@ -2025,7 +2025,7 @@
       "collision": "Verse_Architecture",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
-      "id": "enghulln_37_00",
+      "id": "enghulln_37_00_ceiling",
       "location": [
         8690.0,
         50.0,
@@ -2137,8 +2137,733 @@
       "station": null
     },
     {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds.SM_Engineering_Reactor_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_1",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds10.SM_Engineering_Reactor_Bounds10",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_10",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds10",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds11.SM_Engineering_Reactor_Bounds11",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_11",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds11",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds12.SM_Engineering_Reactor_Bounds12",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_12",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds12",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds13.SM_Engineering_Reactor_Bounds13",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_13",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds13",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds14.SM_Engineering_Reactor_Bounds14",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_14",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds14",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds15.SM_Engineering_Reactor_Bounds15",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_15",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds15",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds16.SM_Engineering_Reactor_Bounds16",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_16",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds16",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds17.SM_Engineering_Reactor_Bounds17",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_17",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds17",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds18.SM_Engineering_Reactor_Bounds18",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_18",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds18",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds19.SM_Engineering_Reactor_Bounds19",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_19",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds19",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds2.SM_Engineering_Reactor_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_2",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds20.SM_Engineering_Reactor_Bounds20",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_20",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds20",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds21.SM_Engineering_Reactor_Bounds21",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_21",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds21",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds22.SM_Engineering_Reactor_Bounds22",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_22",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds22",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds23.SM_Engineering_Reactor_Bounds23",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_23",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds23",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds24.SM_Engineering_Reactor_Bounds24",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_24",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds24",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds25.SM_Engineering_Reactor_Bounds25",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_25",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds25",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds3.SM_Engineering_Reactor_Bounds3",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_3",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds3",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds4.SM_Engineering_Reactor_Bounds4",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_4",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds4",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds5.SM_Engineering_Reactor_Bounds5",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_5",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds5",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds6.SM_Engineering_Reactor_Bounds6",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_6",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds6",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds7.SM_Engineering_Reactor_Bounds7",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_7",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds7",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds8.SM_Engineering_Reactor_Bounds8",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_8",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds8",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds9.SM_Engineering_Reactor_Bounds9",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Engineering_Base",
+      "destructible": null,
+      "id": "reactor_bounds_9",
+      "location": [
+        5995.0,
+        1937.5,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Engineering_Reactor_Bounds9",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_Catwalk.SM_Reactor_Catwalk",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_catwalk_1",
@@ -2167,7 +2892,7 @@
     },
     {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_Catwalk.SM_Reactor_Catwalk",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_catwalk_2",
@@ -2196,7 +2921,7 @@
     },
     {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_Catwalk.SM_Reactor_Catwalk",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_catwalk_3",
@@ -2225,7 +2950,7 @@
     },
     {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_Catwalk.SM_Reactor_Catwalk",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_catwalk_4",
@@ -2283,7 +3008,7 @@
     },
     {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_Collar.SM_Reactor_Collar",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_collar",
@@ -2341,7 +3066,7 @@
     },
     {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_Haze.SM_Reactor_Haze",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_haze",
@@ -2370,7 +3095,7 @@
     },
     {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_ControlRing.SM_Reactor_ControlRing",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_ring",
@@ -2399,7 +3124,7 @@
     },
     {
       "asset": "/Game/Verse/Kit/Props/SM_Reactor_Shaft.SM_Reactor_Shaft",
-      "collision": "Verse_Prop",
+      "collision": "Verse_NoCollision",
       "data_layer": "DL_Engineering_Base",
       "destructible": null,
       "id": "reactor_shaft",
@@ -3241,7 +3966,7 @@
   ],
   "source": {
     "builder": "art/verse/decks/engineering/zones.py",
-    "sha256": "d44de706b1e92743dc5f46eb6b3f6691fe675d91063568263dd7c3bc3ba415a2"
+    "sha256": "2debcbf734a02a3c06cfedcae76e5e19820191ce5b17ab2f3d99009347c7b498"
   },
   "zone": "reactor"
 }

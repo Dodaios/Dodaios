@@ -2,15 +2,15 @@
   "asset_path": "/Game/Verse/Kit/Props/SM_Reactor_Shaft.SM_Reactor_Shaft",
   "collision": {
     "primitives": 0,
-    "profile": "Verse_Prop",
-    "source": "auto_box"
+    "profile": "Verse_NoCollision",
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/kit/SM_Reactor_Shaft.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "2bd10312eb0e56bb6202a3c822c23a5d1c4015a0fa5b8206f3b4c109a4d44abb"
+    "sha256": "d8c527008584e6375d03280afccc85bdbd05fa2ab9bf77f87e0fd3e4400d1f79"
   },
   "kind": "static_mesh",
   "license": {
@@ -71,16 +71,16 @@
         "slot": "M_Deck_Marking_White"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_LampFlood.MI_TMP_PropsInd_LampFlood",
-        "slot": "M_TMP_PropsInd_LampFlood"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_LampFlood.MI_PropsInd_LampFlood",
+        "slot": "M_PropsInd_LampFlood"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Red.MI_Light_Maint_Red",
         "slot": "M_Light_Maint_Red"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_TMP_PropsInd_LampDim.MI_TMP_PropsInd_LampDim",
-        "slot": "M_TMP_PropsInd_LampDim"
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_LampDim.MI_PropsInd_LampDim",
+        "slot": "M_PropsInd_LampDim"
       }
     ],
     "triangles": 184396,

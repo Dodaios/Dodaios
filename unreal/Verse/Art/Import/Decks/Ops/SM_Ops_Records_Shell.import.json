@@ -1,16 +1,16 @@
 {
   "asset_path": "/Game/Verse/Decks/Ops/Records/SM_Ops_Records_Shell.SM_Ops_Records_Shell",
   "collision": {
-    "primitives": 1,
+    "primitives": 0,
     "profile": "Verse_Architecture",
-    "source": "authored"
+    "source": "none"
   },
   "export": {
     "blender": "5.0.1",
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Records_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "841fc842671ebbd3f137a2d943693f4710a18660f539f3f3f80fad2ced719adb"
+    "sha256": "c8233d6e65a4adec298054d9be3e22c9042f02e285f1574ecb13b4cf206c3d92"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,13 +23,13 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        5600.0,
+        5450.0,
         1340.0,
-        540.0
+        458.8
       ],
       "min": [
-        -4400.0,
-        -1680.0,
+        -4250.0,
+        -1280.0,
         -61.0
       ]
     },
@@ -37,38 +37,6 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_GlossBlack.MI_Floor_GlossBlack",
         "slot": "M_Floor_GlossBlack"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
-        "slot": "M_Struct_Gunmetal"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
-        "slot": "M_Hull_Structure"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_Grating.MI_Floor_Grating",
-        "slot": "M_Floor_Grating"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
-        "slot": "M_Hull_Pipe"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
-        "slot": "M_Trim_BrushedSteel"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
-        "slot": "M_Hull_PipeInsulated"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_Ops_Light_Maint.MI_Ops_Light_Maint",
-        "slot": "M_Ops_Light_Maint"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Red.MI_Light_Maint_Red",
-        "slot": "M_Light_Maint_Red"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
@@ -79,8 +47,36 @@
         "slot": "M_Recess_Dark"
       },
       {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
         "slot": "M_Wall_PaintedLight"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Floors/MI_Floor_Grating.MI_Floor_Grating",
+        "slot": "M_Floor_Grating"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
+        "slot": "M_Hull_PipeInsulated"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
+        "slot": "M_Hull_Pipe"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Ops_Light_Maint.MI_Ops_Light_Maint",
+        "slot": "M_Ops_Light_Maint"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Red.MI_Light_Maint_Red",
+        "slot": "M_Light_Maint_Red"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
@@ -99,16 +95,16 @@
         "slot": "M_Wall_PaintedMid"
       },
       {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
         "mi": "/Game/Verse/Materials/Instances/Props/MI_Ops_Light_Warm.MI_Ops_Light_Warm",
         "slot": "M_Ops_Light_Warm"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_WallStrip.MI_Light_WallStrip",
         "slot": "M_Light_WallStrip"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
-        "slot": "M_Indicator_Red"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
@@ -153,11 +149,15 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
         "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Red.MI_Indicator_Red",
+        "slot": "M_Indicator_Red"
       }
     ],
-    "triangles": 133936,
+    "triangles": 88114,
     "uv_sets": 1,
-    "vertices": 76560
+    "vertices": 52736
   },
   "name": "SM_Ops_Records_Shell",
   "nanite": {

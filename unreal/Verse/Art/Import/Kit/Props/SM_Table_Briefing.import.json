@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/kit/SM_Table_Briefing.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "f2df8eb4fa9129ed39d507bdfa6efb71b7105dd6d9e6ac1d2449fcea2b3788b8"
+    "sha256": "38f98521c27169d58d8f64be03b9a1a9189e8474d2158eb7d838427452128c84"
   },
   "kind": "static_mesh",
   "license": {
@@ -63,8 +63,8 @@
         "slot": "M_Lacquer_BlackGloss"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_Default.MI_Default",
-        "slot": "TMP_M_Glass_HoloLens"
+        "mi": "/Game/Verse/Materials/Instances/Glass/MI_Glass_HoloLens.MI_Glass_HoloLens",
+        "slot": "M_Glass_HoloLens"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Blue.MI_Indicator_Blue",
@@ -79,7 +79,7 @@
         "slot": "M_Indicator_Red"
       }
     ],
-    "triangles": 58432,
+    "triangles": 58368,
     "uv_sets": 1,
     "vertices": 31134
   },
