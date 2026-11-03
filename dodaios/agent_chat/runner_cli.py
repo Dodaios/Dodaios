@@ -881,8 +881,11 @@ def _plan_claude_code(
         argv += ["--mcp-config", mcp_config]
         if identity is not None and identity.path is not None:
             argv += ["--append-system-prompt-file", str(identity.path)]
-        else:
+        elif identity is not None:
             argv += ["--append-system-prompt", dodaios_harness.SYSTEM_PREAMBLE]
+        else:
+            # No assistant identity: a coding thread, which keeps its sub-agents.
+            argv += ["--append-system-prompt", dodaios_harness.CODING_PREAMBLE]
     if resume:
         argv += ["--resume", resume]
         sid = resume

@@ -1,0 +1,12 @@
+[
+  {
+    "type": "companion.snapshot",
+    "seq": 16,
+    "ts": 1793612340.7,
+    "data": {
+      "pet_id": "drone",
+      "look": "drone_brass",
+      "style": "overlay"
+    }
+  }
+]

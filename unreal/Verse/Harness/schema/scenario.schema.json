@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "verse.scenario/1",
+  "title": "One headless harness process: the units it plays (bot.md 11.1, -VerseHarness=<file>)",
+  "type": "object",
+  "required": ["schema", "run", "map", "output", "units"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "verse.scenario/1"},
+    "run": {"type": "string", "minLength": 1},
+    "job": {"type": "integer", "minimum": 0},
+    "map": {"type": "string", "pattern": "^/(Game|Engine)/"},
+    "output": {"type": "string", "minLength": 1},
+    "maxWallS": {"type": "number", "exclusiveMinimum": 0},
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"bearing": {"type": "boolean"}, "fireAudit": {"type": "boolean"}}
+    },
+    "units": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/unit"}}
+  },
+  "$defs": {
+    "slot": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["bot", "model"]},
+        "tier": {"enum": ["normal", "hard", "elite", "adaptive"]},
+        "learning": {"type": "boolean"},
+        "model": {"enum": ["skilled", "average"]},
+        "trick": {"type": "string", "pattern": "^[a-z]+$"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "bot"}}}, "then": {"required": ["tier"]}},
+        {"if": {"properties": {"kind": {"const": "model"}}}, "then": {"anyOf": [{"required": ["model"]}, {"required": ["tier"]}]}}
+      ]
+    },
+    "unit": {
+      "type": "object",
+      "required": ["pairing", "match", "seed", "bouts", "a", "b"],
+      "additionalProperties": false,
+      "properties": {
+        "pairing": {"type": "string", "pattern": "^[a-z0-9_+.-]+$"},
+        "set": {"type": "string"},
+        "match": {"type": "integer", "minimum": 0},
+        "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "bouts": {"type": "integer", "minimum": 1},
+        "a": {"$ref": "#/$defs/slot"},
+        "b": {"$ref": "#/$defs/slot"},
+        "killsToWin": {"type": "integer", "minimum": 1},
+        "matchTimeLimitS": {"type": "number", "exclusiveMinimum": 0},
+        "scenario": {"type": "string"},
+        "tierPatch": {"type": "object"}
+      }
+    }
+  }
+}

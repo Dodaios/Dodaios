@@ -1,0 +1,22 @@
+[
+  {
+    "request": {
+      "type": "launcher.cancel",
+      "id": "c-72",
+      "ts": 1793612601.0,
+      "data": {}
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 330,
+      "ts": 1793612601.05,
+      "re": "c-72",
+      "data": {
+        "ok": true,
+        "result": {
+          "stopped": 1
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "type": "qa.exec",
+    "id": "c-79",
+    "ts": 1793612608.0,
+    "data": {
+      "command": "Verse.QA.Stats",
+      "args": []
+    }
+  },
+  {
+    "type": "qa.exec",
+    "id": "c-80",
+    "ts": 1793612609.0,
+    "data": {
+      "command": "Verse.QA.SetDuty",
+      "args": [
+        "ag_7f1",
+        "error"
+      ]
+    }
+  }
+]

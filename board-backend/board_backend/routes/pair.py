@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import update
 
 from ..auth import (
     get_db,
@@ -99,8 +100,18 @@ def accept(request: Request, payload: PairAcceptRequest) -> PairAcceptResponse:
         if payload.friend_pubkey == owner.pubkey:
             raise HTTPException(status_code=400, detail="cannot pair with self")
 
-        # Consume the token
-        tok.used_at = now
+        # Consume the token with one conditional UPDATE: the checks above read
+        # the row first, so two concurrent accepts could both pass them. Only
+        # the request whose UPDATE flips ``used_at`` from NULL may pair.
+        consumed = session.execute(
+            update(PairToken)
+            .where(PairToken.token == payload.token, PairToken.used_at.is_(None))
+            .values(used_at=now)
+            .execution_options(synchronize_session=False)
+        )
+        if consumed.rowcount != 1:
+            session.rollback()
+            raise HTTPException(status_code=401, detail="token already used")
 
         existing = session.get(Friend, (owner.pubkey, payload.friend_pubkey))
         if existing is None:

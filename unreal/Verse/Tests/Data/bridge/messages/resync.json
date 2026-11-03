@@ -1,0 +1,19 @@
+[
+  {
+    "type": "resync",
+    "id": "c-9",
+    "ts": 1793612399.0,
+    "data": {
+      "topic": "roster"
+    }
+  },
+  {
+    "type": "resync",
+    "id": "c-10",
+    "ts": 1793612399.5,
+    "data": {
+      "topic": "screens",
+      "pane_id": "ws_91:T1"
+    }
+  }
+]

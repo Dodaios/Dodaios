@@ -1,0 +1,119 @@
+# unreal-build: compile and test the Unreal Verse on the self-hosted runner (architecture.md
+# 8.2, 8.3; work-packages.md WP10.2, WP10.3). Fork pull requests never reach the runner: the
+# only pull_request job is guarded on the head repository (A10.2).
+name: unreal-build
+
+on:
+  pull_request:
+    paths:
+      - "unreal/**"
+      - "art/verse/**"
+      - "scripts/unreal/**"
+      - ".github/workflows/unreal-build.yml"
+  merge_group:
+  push:
+    branches: [main]
+    paths:
+      - "unreal/**"
+      - "art/verse/**"
+      - "scripts/unreal/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One concurrency group per ref: GitHub keeps only one pending run per group, so a shared
+# group would let a newer merge-queue entry cancel an older pending one. Machine-wide
+# serialisation (one Unreal job at a time, also against local agent builds) is the job of
+# scripts/unreal/with_lock.py, which every Unreal step goes through.
+concurrency:
+  group: unreal-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: unreal-build (path filter)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      unreal: ${{ steps.diff.outputs.unreal }}
+    steps:
+      - id: diff
+        name: Unreal paths in this change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          # Only merge-queue entries are filtered here; the other triggers carry their own
+          # path filter or run on a schedule. Any doubt (API error, 300+ files) means run.
+          if [ "$EVENT" != "merge_group" ]; then
+            echo "unreal=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files=$(gh api "repos/$REPO/compare/$BASE...$HEAD" --jq '.files[].filename'); then
+            echo "unreal=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          count=$(printf '%s\n' "$files" | grep -c . || true)
+          pattern='^(unreal/|art/verse/|docs/verse/unreal/|scripts/unreal/|\.github/workflows/unreal-)'
+          if [ "$count" -ge 300 ] || printf '%s\n' "$files" | grep -qE "$pattern"; then
+            echo "unreal=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "unreal=false" >> "$GITHUB_OUTPUT"
+            echo "no Unreal path in this queue entry; the lane is skipped"
+          fi
+
+  win64:
+    name: unreal-build (Win64 Editor + Game, automation, netcode)
+    needs: changes
+    if: needs.changes.outputs.unreal == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, windows, unreal]
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          lfs: true
+          persist-credentials: false
+      - name: Toolchain
+        run: python scripts/unreal/doctor.py --target win64
+      - name: Build Win64 Development Editor
+        run: python scripts/unreal/build.py editor
+      - name: Build Win64 Development Game
+        run: python scripts/unreal/build.py game
+      - name: Automation tests under -nullrhi
+        run: python scripts/unreal/test.py "Verse" --jobs 4
+      - name: Netcode smoke (dedicated + 2 lagged clients, 2 minutes)
+        run: python scripts/unreal/netcode.py --iris on
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unreal-build-reports
+          path: |
+            unreal/Verse/Saved/Automation/
+            unreal/Verse/Saved/Harness/netcode/
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux:
+    name: unreal-build (Linux Game, cross)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: win64
+    runs-on: [self-hosted, windows, unreal]
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          lfs: true
+          persist-credentials: false
+      - name: Build Linux Development Game (cross toolchain, LINUX_MULTIARCH_ROOT)
+        run: python scripts/unreal/build.py linux

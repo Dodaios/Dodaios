@@ -11,7 +11,7 @@ import { useT } from "@/i18n";
 import { AgentSwatch } from "../AgentSwatch";
 import { agentTint } from "../agentTint";
 import type { SocietyAgent } from "../data";
-import { previewText, readableWaiting, type RosterStatus, type WaitingReason } from "./rosterPreview";
+import { previewText, waitingLine, type RosterStatus, type WaitingReason } from "./rosterPreview";
 import { StatusMark, statusLabel } from "./RosterRow";
 
 export interface HoverCardData {
@@ -63,9 +63,7 @@ export function RosterHoverCard({ data }: { data: HoverCardData }) {
         </div>
       </div>
       <p className={data.status === "needs-you" ? "mt-3 text-xs font-medium text-warning" : "mt-3 text-xs text-muted-foreground"}>
-        {data.status === "needs-you" && data.reason?.summary
-          ? `${t("society.shell.preview_needs_you")} · ${readableWaiting(previewText(data.reason.summary), t)}`
-          : statusLabel(data.status, t)}
+        {(data.status === "needs-you" && waitingLine(data.reason, t)) || statusLabel(data.status, t)}
         {data.timeLabel ? <span className="text-muted-foreground"> · {data.timeLabel}</span> : null}
       </p>
       {last ? <p className="mt-2 line-clamp-3 text-[13px] leading-[19px] text-foreground">{last}</p> : null}

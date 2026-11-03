@@ -1,0 +1,14 @@
+{
+  "schema": "verse.l1_fields/1",
+  "contract": "bot.md 7.1, 10 L1 (B8)",
+  "description": "Field names of UVerseBotMatchMemory. L1 fails when any file written under Saved/ or the data dir during the match, or any bridge frame, carries one of them",
+  "fields": [
+    "PositionHeatmap",
+    "ShootingSpots",
+    "PeekHabits",
+    "PreferredRanges",
+    "RouteCounts",
+    "HabitCounters",
+    "UVerseBotMatchMemory"
+  ]
+}
