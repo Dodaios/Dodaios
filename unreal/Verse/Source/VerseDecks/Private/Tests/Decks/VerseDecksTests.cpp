@@ -251,6 +251,67 @@ bool FVerseDecksSubsystemRideTest::RunTest(const FString&)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDecksSubsystemGiveUpTest, "Verse.Decks.Subsystem.GiveUpUnwedges", VERSE_DECKS_TEST_FLAGS)
+bool FVerseDecksSubsystemGiveUpTest::RunTest(const FString&)
+{
+	// A deck that never loads: the lift gives up after 5 s and the next ride must still start.
+	UGameInstance* Instance = NewObject<UGameInstance>(GetTransientPackage());
+	UVerseDeckSubsystem* Decks = NewObject<UVerseDeckSubsystem>(Instance);
+	double Clock = 100.0;
+	TArray<FName> Loads;
+	TArray<TFunction<void(bool)>> Pending;
+	Decks->SetClock([&Clock]() { return Clock; });
+	Decks->SetDayProvider([]() { return FString(TEXT("2026-11-02")); });
+	Decks->SetPlacementsDir(Verse::Decks::PlacementsDir());
+	Decks->GetReporter().Sink = [](const FVerseWorldAction&) {};
+	Decks->SetLevelLoader([&Loads, &Pending](const FVerseDeckInfo& Deck, TFunction<void(bool)> Done)
+		{
+			Loads.Add(Deck.Id);
+			Pending.Add(MoveTemp(Done));
+		});
+
+	TestTrue(TEXT("cold load starts"), Decks->LoadDeckDirect(TEXT("bridge")));
+	Pending.Last()(true);
+	TestEqual(TEXT("on the bridge"), Decks->GetCurrentDeck(), FName(TEXT("bridge")));
+
+	// Ride to ops; its loader never answers.
+	TestTrue(TEXT("ride to ops"), Decks->RequestDeck(TEXT("ops")));
+	Clock += FVerseLiftTravel::DoorsS;
+	Decks->TickDecks(Clock);
+	TestEqual(TEXT("ops load issued"), Loads.Num(), 2);
+	TestFalse(TEXT("no second ride while one is loading"), Decks->RequestDeck(TEXT("engineering")));
+	Clock = 100.0 + FVerseLiftTravel::GiveUpS + 0.01;
+	Decks->TickDecks(Clock);
+	Clock += FVerseLiftTravel::OpenAfterArrivalS;
+	Decks->TickDecks(Clock);
+	TestFalse(TEXT("the lift gave up and is idle"), Decks->GetLift().IsBusy());
+	TestTrue(TEXT("deck marked missing (A-10)"), Decks->GetLift().DeckMissing());
+	TestEqual(TEXT("still on the bridge"), Decks->GetCurrentDeck(), FName(TEXT("bridge")));
+
+	// The deck system is not wedged: a new ride starts and arrives.
+	TestTrue(TEXT("a second ride starts after the give-up"), Decks->RequestDeck(TEXT("engineering")));
+	Clock += FVerseLiftTravel::DoorsS;
+	Decks->TickDecks(Clock);
+	TestEqual(TEXT("engineering load issued"), Loads.Num(), 3);
+	// The abandoned ops load answering late changes nothing.
+	Pending[1](true);
+	TestEqual(TEXT("a late answer for the abandoned load is ignored"), Decks->GetCurrentDeck(), FName(TEXT("bridge")));
+	Pending[2](true);
+	Clock += FVerseLiftTravel::OpenAfterArrivalS;
+	Decks->TickDecks(Clock);
+	TestEqual(TEXT("on engineering"), Decks->GetCurrentDeck(), FName(TEXT("engineering")));
+	TestFalse(TEXT("lift idle"), Decks->GetLift().IsBusy());
+
+	// A load that fails outright frees the deck system too.
+	TestTrue(TEXT("ride to ops again"), Decks->RequestDeck(TEXT("ops")));
+	Clock += FVerseLiftTravel::DoorsS;
+	Decks->TickDecks(Clock);
+	Pending.Last()(false);
+	TestFalse(TEXT("a failed load opens the doors"), Decks->GetLift().IsBusy());
+	TestTrue(TEXT("and the next ride starts"), Decks->RequestDeck(TEXT("ops")));
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDecksInspectionTest, "Verse.Decks.WorldActions.Inspection", VERSE_DECKS_TEST_FLAGS)
 bool FVerseDecksInspectionTest::RunTest(const FString&)
 {
@@ -261,36 +322,77 @@ bool FVerseDecksInspectionTest::RunTest(const FString&)
 		{
 			continue;
 		}
+		// Stand in each room: on its first socket inside it, else on its polygon centroid.
+		TArray<FVector> Spots;
+		for (const FVerseDeckRoom& Room : Deck.Rooms)
+		{
+			FVector2D Centre = FVector2D::ZeroVector;
+			for (const FVector2D& Point : Room.PolygonCm)
+			{
+				Centre += Point / Room.PolygonCm.Num();
+			}
+			FVector Feet(Centre.X, Centre.Y, Room.ZCm);
+			for (const FVerseDeckSocket& Socket : Deck.Sockets)
+			{
+				if (Socket.Room == Room.Id && Room.Contains(Socket.Transform.GetLocation()))
+				{
+					Feet = Socket.Transform.GetLocation();
+					break;
+				}
+			}
+			Spots.Add(Feet);
+		}
+		const FString Id = Info.Id.ToString();
 		FVerseWorldActionReporter Reporter;
 		TArray<FVerseWorldAction> Actions;
-		Reporter.Sink = [&Actions](const FVerseWorldAction& Action) { Actions.Add(Action); };
-		// Walk through every room: stand on its first socket inside it, else its polygon centroid.
-		for (int32 Pass = 0; Pass < 2; ++Pass)
+		Reporter.Sink = [&Actions](const FVerseWorldAction& Action)
 		{
-			for (const FVerseDeckRoom& Room : Deck.Rooms)
+			if (Action.Action == TEXT("inspection"))
 			{
-				FVector2D Centre = FVector2D::ZeroVector;
-				for (const FVector2D& Point : Room.PolygonCm)
-				{
-					Centre += Point / Room.PolygonCm.Num();
-				}
-				FVector Feet(Centre.X, Centre.Y, Room.ZCm);
-				for (const FVerseDeckSocket& Socket : Deck.Sockets)
-				{
-					if (Socket.Room == Room.Id && Room.Contains(Socket.Transform.GetLocation()))
-					{
-						Feet = Socket.Transform.GetLocation();
-						break;
-					}
-				}
-				Reporter.NotifyPosition(Deck, Feet, TEXT("2026-11-02"));
+				Actions.Add(Action);
 			}
+		};
+		// Rooms can overlap, so a partial tour may still cover the deck; only then is it a full tour.
+		auto Covers = [&](int32 From, int32 To)
+		{
+			TSet<FName> Rooms;
+			for (int32 Index = From; Index < To; ++Index)
+			{
+				Rooms.Append(Deck.RoomsAt(Spots[Index]));
+			}
+			return Rooms.Num() == Deck.Rooms.Num();
+		};
+		auto Tour = [&](int32 From, int32 To, const TCHAR* Day)
+		{
+			for (int32 Index = From; Index < To; ++Index)
+			{
+				Reporter.NotifyPosition(Deck, Spots[Index], Day);
+			}
+		};
+
+		Reporter.NotifyArrived(Info.Id);
+		Tour(0, Spots.Num(), TEXT("2026-11-02"));
+		Tour(0, Spots.Num(), TEXT("2026-11-02"));
+		TestEqual(FString::Printf(TEXT("%s: every room visited"), *Id), Reporter.VisitedRooms(Info.Id).Num(), Deck.Rooms.Num());
+		TestEqual(FString::Printf(TEXT("%s: one inspection for a tour, none for the second (W-03)"), *Id),
+			Actions, TArray<FVerseWorldAction>{ { TEXT("inspection"), Id } });
+
+		// The next day, on the same visit: the tour is already complete, as in today's effect.
+		Reporter.NotifyArrived(Info.Id);
+		TestEqual(FString::Printf(TEXT("%s: a new visit starts a new tour"), *Id), Reporter.VisitedRooms(Info.Id).Num(), 0);
+		Reporter.NotifyPosition(Deck, Spots[0], TEXT("2026-11-03"));
+		TestEqual(FString::Printf(TEXT("%s: the next day does not pay without a tour"), *Id), Actions.Num(), Covers(0, 1) ? 2 : 1);
+		const int32 Half = Spots.Num() / 2;
+		if (!Covers(0, 1) && !Covers(Half, Spots.Num()))
+		{
+			// Half a tour, leave, come back, the other half: no inspection (A12.5).
+			Tour(1, Half, TEXT("2026-11-03"));
+			Reporter.NotifyArrived(Info.Id);
+			Tour(Half, Spots.Num(), TEXT("2026-11-03"));
+			TestEqual(FString::Printf(TEXT("%s: a tour split over two visits does not pay"), *Id), Actions.Num(), 1);
+			Tour(0, Half, TEXT("2026-11-03"));
+			TestEqual(FString::Printf(TEXT("%s: a full tour on the next day pays again"), *Id), Actions.Num(), 2);
 		}
-		TestEqual(FString::Printf(TEXT("%s: every room visited"), *Info.Id.ToString()), Reporter.VisitedRooms(Info.Id).Num(), Deck.Rooms.Num());
-		TestEqual(FString::Printf(TEXT("%s: one inspection for a tour, none for the second (W-03)"), *Info.Id.ToString()),
-			Actions, TArray<FVerseWorldAction>{ { TEXT("inspection"), Info.Id.ToString() } });
-		Reporter.NotifyPosition(Deck, Deck.Sockets[0].Transform.GetLocation(), TEXT("2026-11-03"));
-		TestEqual(FString::Printf(TEXT("%s: the next day pays again"), *Info.Id.ToString()), Actions.Num(), 2);
 	}
 	return true;
 }

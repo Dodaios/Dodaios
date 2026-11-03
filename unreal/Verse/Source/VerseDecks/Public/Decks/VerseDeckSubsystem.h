@@ -36,7 +36,10 @@ class VERSEDECKS_API UVerseDeckSubsystem : public UGameInstanceSubsystem
 	GENERATED_BODY()
 
 public:
-	/** Loads a deck's level; calls Done(true) on its first frame, Done(false) on failure. */
+	/**
+	 * Loads a deck's level; calls Done(true) on its first frame, Done(false) on failure. When the lift
+	 * gives up first, the load is abandoned: a later Done is ignored and the next ride can start.
+	 */
 	using FLevelLoader = TFunction<void(const FVerseDeckInfo& Deck, TFunction<void(bool bOk)> Done)>;
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
@@ -79,10 +82,14 @@ public:
 	bool IsCutaway() const { return bCutaway; }
 	/** Captures and tests: force the cutaway on or off; unset follows the deck camera. */
 	void SetCutawayOverride(TOptional<bool> Override);
-	/** Ceiling actors found on the current deck. */
+	/** Ceiling actors on the current deck, including those World Partition streamed in after arrival. */
 	int32 NumCeilingActors() const { return Ceilings.Num(); }
 	/** True for an actor placed as `<zone>_ceiling` (tag `verse.pid:<zone>_ceiling`). */
 	static bool IsCeilingActor(const AActor& Actor);
+	/** True for a deck bounds proxy (`verse.pid:<zone>_bounds_<n>`), hidden in game on arrival. */
+	static bool IsBoundsActor(const AActor& Actor);
+	/** Bounds proxies hidden on the current deck so far. */
+	int32 NumBoundsHidden() const { return BoundsHidden; }
 	AVerseSpaceView* GetSpaceView() const { return SpaceView.Get(); }
 	FVerseWorldActionReporter& GetReporter() { return Reporter; }
 
@@ -112,6 +119,10 @@ private:
 	void SpawnDeckActors(UWorld* World, FName Deck, bool bByLift);
 	void DefaultLoad(const FVerseDeckInfo& Deck, TFunction<void(bool)> Done);
 	void CollectCeilings(UWorld* World);
+	void AddCeilings(TArrayView<AActor* const> Actors);
+	void AbandonLoad(const TCHAR* Why);
+	void OnMapLoaded(const FString& Package);
+	static const FVerseDeckInfo* DeckForPackage(const FString& Package);
 	void UpdateCutaway();
 	void ApplyCutaway(bool bOn);
 	void RegisterQa();
@@ -121,6 +132,10 @@ private:
 
 	FTSTicker::FDelegateHandle TickHandle;
 	FDelegateHandle PostLoadHandle;
+	FDelegateHandle LevelAddedHandle;
+	FDelegateHandle TravelFailureHandle;
+	/** Bumped by every load start and abandon; a loader's late Done for an older serial is ignored. */
+	int32 LoadSerial = 0;
 	TFunction<void(bool)> PendingDone;
 	FString PendingLevel;
 
@@ -145,5 +160,6 @@ private:
 	TWeakObjectPtr<AVerseSpaceView> SpaceView;
 	TArray<TWeakObjectPtr<AActor>> Ceilings;
 	TOptional<bool> CutawayOverride;
+	int32 BoundsHidden = 0;
 	bool bCutaway = false;
 };

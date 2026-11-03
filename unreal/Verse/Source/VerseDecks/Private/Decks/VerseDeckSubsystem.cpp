@@ -6,6 +6,7 @@
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Engine/Level.h"
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -72,13 +73,33 @@ void UVerseDeckSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		}));
 	PostLoadHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddWeakLambda(this, [this](UWorld* World)
 		{
-			if (PendingDone && World && World->GetPackage()->GetName() == PendingLevel)
+			if (World)
 			{
-				TFunction<void(bool)> Done = MoveTemp(PendingDone);
-				PendingDone = nullptr;
-				Done(true);
+				OnMapLoaded(World->GetPackage()->GetName());
 			}
 		});
+	// World Partition streams cells in as levels after arrival; their ceilings join the cutaway.
+	LevelAddedHandle = FWorldDelegates::LevelAddedToWorld.AddWeakLambda(this, [this](ULevel* Level, UWorld* World)
+		{
+			if (Level && World && World == CurrentWorld())
+			{
+				AddCeilings(Level->Actors);
+			}
+		});
+	if (GEngine)
+	{
+		TravelFailureHandle = GEngine->OnTravelFailure().AddWeakLambda(this, [this](UWorld*, ETravelFailure::Type, const FString& Error)
+			{
+				if (PendingDone)
+				{
+					UE_LOG(LogVerseDecks, Warning, TEXT("travel to %s failed: %s"), *PendingLevel, *Error);
+					TFunction<void(bool)> Done = MoveTemp(PendingDone);
+					PendingDone = nullptr;
+					PendingLevel.Reset();
+					Done(false);
+				}
+			});
+	}
 	RegisterQa();
 }
 
@@ -87,6 +108,11 @@ void UVerseDeckSubsystem::Deinitialize()
 	UnregisterQa();
 	FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(PostLoadHandle);
+	FWorldDelegates::LevelAddedToWorld.Remove(LevelAddedHandle);
+	if (GEngine)
+	{
+		GEngine->OnTravelFailure().Remove(TravelFailureHandle);
+	}
 	PendingDone = nullptr;
 	Super::Deinitialize();
 }
@@ -158,11 +184,14 @@ void UVerseDeckSubsystem::StartLoad(FName Deck, bool bByLift)
 	const FVerseDeckInfo* Info = Verse::Decks::Find(Deck);
 	check(Info);
 	bLoadInFlight = true;
+	const int32 Serial = ++LoadSerial;
 	const double StartedAt = Now();
 	TWeakObjectPtr<UVerseDeckSubsystem> Weak(this);
-	TFunction<void(bool)> Done = [Weak, Deck, bByLift, StartedAt](bool bOk)
+	TFunction<void(bool)> Done = [Weak, Serial, Deck, bByLift, StartedAt](bool bOk)
 	{
-		if (UVerseDeckSubsystem* Self = Weak.Get())
+		// A load the lift gave up on (or that was superseded) is no longer ours to finish.
+		UVerseDeckSubsystem* Self = Weak.Get();
+		if (Self && Self->bLoadInFlight && Self->LoadSerial == Serial)
 		{
 			Self->OnLoaded(Deck, bByLift, bOk, StartedAt);
 		}
@@ -189,6 +218,55 @@ void UVerseDeckSubsystem::DefaultLoad(const FVerseDeckInfo& Deck, TFunction<void
 	PendingDone = MoveTemp(Done);
 	UE_LOG(LogVerseDecks, Log, TEXT("opening %s"), *PendingLevel);
 	UGameplayStatics::OpenLevel(World, FName(*PendingLevel));
+}
+
+void UVerseDeckSubsystem::AbandonLoad(const TCHAR* Why)
+{
+	if (!bLoadInFlight && !PendingDone)
+	{
+		return;
+	}
+	UE_LOG(LogVerseDecks, Warning, TEXT("abandoning the load of %s: %s"), PendingLevel.IsEmpty() ? TEXT("(loader)") : *PendingLevel, Why);
+	bLoadInFlight = false;
+	++LoadSerial;
+	PendingDone = nullptr;
+	PendingLevel.Reset();
+}
+
+const FVerseDeckInfo* UVerseDeckSubsystem::DeckForPackage(const FString& Package)
+{
+	for (const FVerseDeckInfo& Info : Verse::Decks::All())
+	{
+		if (VerseDeckSubsystemPrivate::PackageOf(Info.LevelPath) == Package)
+		{
+			return &Info;
+		}
+	}
+	return nullptr;
+}
+
+void UVerseDeckSubsystem::OnMapLoaded(const FString& Package)
+{
+	if (PendingDone)
+	{
+		TFunction<void(bool)> Done = MoveTemp(PendingDone);
+		PendingDone = nullptr;
+		const bool bOurs = Package == PendingLevel;
+		PendingLevel.Reset();
+		Done(bOurs);
+		if (bOurs)
+		{
+			return;
+		}
+		UE_LOG(LogVerseDecks, Warning, TEXT("expected a deck level, %s loaded instead"), *Package);
+	}
+	// A map nobody waits for: a load that arrived after the lift gave up, or travel that fell back
+	// to another map. When it is a deck, that deck is where the commander now is.
+	const FVerseDeckInfo* Info = DeckForPackage(Package);
+	if (Info && !bLoadInFlight && !LevelLoader && bStartupDone)
+	{
+		OnLoaded(Info->Id, false, true, Now());
+	}
 }
 
 void UVerseDeckSubsystem::OnLoaded(FName Deck, bool bByLift, bool bOk, double StartedAt)
@@ -274,22 +352,61 @@ bool UVerseDeckSubsystem::IsCeilingActor(const AActor& Actor)
 	return false;
 }
 
+bool UVerseDeckSubsystem::IsBoundsActor(const AActor& Actor)
+{
+	for (const FName& Tag : Actor.Tags)
+	{
+		const FString Text = Tag.ToString();
+		if (Text.StartsWith(TEXT("verse.pid:")) && Text.Contains(TEXT("_bounds_")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UVerseDeckSubsystem::CollectCeilings(UWorld* World)
 {
 	Ceilings.Reset();
+	BoundsHidden = 0;
 	bCutaway = false;
 	if (World == nullptr)
 	{
 		return;
 	}
+	TArray<AActor*> Actors;
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
-		if (IsCeilingActor(**It))
+		Actors.Add(*It);
+	}
+	AddCeilings(Actors);
+	UE_LOG(LogVerseDecks, Log, TEXT("deck %s: %d ceiling actors, %d bounds hidden"), *CurrentDeck.ToString(), Ceilings.Num(), BoundsHidden);
+}
+
+void UVerseDeckSubsystem::AddCeilings(TArrayView<AActor* const> Actors)
+{
+	int32 Added = 0;
+	for (AActor* Actor : Actors)
+	{
+		if (Actor && IsBoundsActor(*Actor))
 		{
-			Ceilings.Add(*It);
+			// Deck bounds are collision proxies (art-pipeline 5, Verse_ProxyOnly): never drawn in game.
+			Actor->SetActorHiddenInGame(true);
+			++BoundsHidden;
+			continue;
+		}
+		if (Actor && IsCeilingActor(*Actor) && !Ceilings.Contains(TWeakObjectPtr<AActor>(Actor)))
+		{
+			Ceilings.Add(Actor);
+			// A ceiling that streams in while the overview shows takes the current cutaway state.
+			Actor->SetActorHiddenInGame(bCutaway);
+			++Added;
 		}
 	}
-	UE_LOG(LogVerseDecks, Log, TEXT("deck %s: %d ceiling actors"), *CurrentDeck.ToString(), Ceilings.Num());
+	if (Added > 0 && !CurrentDeck.IsNone())
+	{
+		UE_LOG(LogVerseDecks, Verbose, TEXT("deck %s: %d ceiling actors streamed in"), *CurrentDeck.ToString(), Added);
+	}
 }
 
 void UVerseDeckSubsystem::SetCutawayOverride(TOptional<bool> Override)
@@ -349,23 +466,25 @@ void UVerseDeckSubsystem::TickDecks(double NowS)
 		else if (CurrentDeck.IsNone() && !LevelLoader)
 		{
 			// Booted straight into a deck level (the default map or a travel URL): that is the arrival.
-			const FString Package = World->GetPackage()->GetName();
-			for (const FVerseDeckInfo& Info : Verse::Decks::All())
+			if (const FVerseDeckInfo* Info = DeckForPackage(World->GetPackage()->GetName()))
 			{
-				if (VerseDeckSubsystemPrivate::PackageOf(Info.LevelPath) == Package)
-				{
-					OnLoaded(Info.Id, false, true, NowS);
-					break;
-				}
+				OnLoaded(Info->Id, false, true, NowS);
 			}
 		}
 	}
+	const bool bWasRiding = Lift.IsBusy();
 	if (Lift.Tick(NowS))
 	{
 		StartLoad(Lift.Target(), true);
 	}
+	const TArray<EVerseLiftCue> Cues = Lift.TakeCues();
+	if (bWasRiding && Cues.Contains(EVerseLiftCue::GaveUp))
+	{
+		// The doors opened without the deck (parity L-03): drop the load so the next ride can start.
+		AbandonLoad(TEXT("the lift gave up"));
+	}
 	UpdateCutaway();
-	for (const EVerseLiftCue Cue : Lift.TakeCues())
+	for (const EVerseLiftCue Cue : Cues)
 	{
 		OnLiftCue.Broadcast(Cue);
 	}
