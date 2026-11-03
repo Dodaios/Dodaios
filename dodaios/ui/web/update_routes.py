@@ -321,6 +321,7 @@ async def _run(
     cwd: Path,
     timeout_s: float,
     on_stderr_line: Callable[[str], None] | None = None,
+    env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run ``cmd`` in ``cwd``. Returns ``(returncode, stdout, stderr)``.
 
@@ -340,6 +341,7 @@ async def _run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             creationflags=NO_WINDOW_CREATIONFLAGS,
+            env=env,
         )
     except (FileNotFoundError, OSError, NotImplementedError) as exc:
         # Not swallowed: the reason travels back to the caller in stderr and
@@ -384,7 +386,12 @@ async def _git(
     timeout_s: float = 60.0,
     on_stderr_line: Callable[[str], None] | None = None,
 ) -> tuple[int, str, str]:
-    return await _run(["git", *args], cwd=cwd, timeout_s=timeout_s, on_stderr_line=on_stderr_line)
+    # An update never downloads the Unreal Verse's LFS binaries (``unreal/**``,
+    # docs/verse/unreal/architecture.md 8.4); the Verse arrives as its own package.
+    env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
+    return await _run(
+        ["git", *args], cwd=cwd, timeout_s=timeout_s, on_stderr_line=on_stderr_line, env=env
+    )
 
 
 async def _git_output(args: list[str], *, cwd: Path, timeout_s: float = 15.0) -> str | None:

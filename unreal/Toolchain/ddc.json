@@ -1,0 +1,12 @@
+{
+  "schema": "verse.ddc/1",
+  "about": "Derived data cache policy of the Unreal Verse (docs/verse/unreal/architecture.md 8.1). Local only, never a shared cloud cache. package.py passes -ddc=<graph> and sets <local_path_env>; package.py hygiene keeps the cache under cap_gb, prunes Intermediate folders of worktrees untouched for intermediate_max_age_days and alerts below alert_free_gb free.",
+  "graph": "InstalledDerivedDataBackendGraph",
+  "local_path_env": "UE-LocalDataCachePath",
+  "local_path": "C:/demo/.ddc/local",
+  "zen_data_path": "C:/demo/.ddc/zen",
+  "cap_gb": 40,
+  "intermediate_max_age_days": 7,
+  "alert_free_gb": 40,
+  "shared": false
+}
