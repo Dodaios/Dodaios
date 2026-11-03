@@ -1,0 +1,20 @@
+[
+  {
+    "request": {
+      "type": "agents.open_list",
+      "id": "c-73",
+      "ts": 1793612602.0,
+      "data": {}
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 331,
+      "ts": 1793612602.05,
+      "re": "c-73",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  }
+]

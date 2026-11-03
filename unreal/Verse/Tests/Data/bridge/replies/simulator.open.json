@@ -1,0 +1,22 @@
+[
+  {
+    "request": {
+      "type": "simulator.open",
+      "id": "c-75",
+      "ts": 1793612604.0,
+      "data": {
+        "programme": "asteroid-run"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 334,
+      "ts": 1793612604.05,
+      "re": "c-75",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  }
+]
