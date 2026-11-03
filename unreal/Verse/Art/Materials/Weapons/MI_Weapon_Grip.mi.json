@@ -11,7 +11,8 @@
     "NoiseScale": 20.0,
     "OilAmount": 0.1,
     "RoughnessMax": 0.92,
-    "RoughnessMin": 0.7
+    "RoughnessMin": 0.7,
+    "Specular": 0.25
   },
   "schema": "verse.mi/1",
   "switches": {},

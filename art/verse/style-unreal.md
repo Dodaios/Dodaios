@@ -270,6 +270,7 @@ All weapons: black only, edge wear, oil, grime; no emissive.
 | `OilAmount` | scalar | Oil film: darker and glossier patches |
 | `GrimeAmount` | scalar | Strength of vertex colour G (seams) |
 | `NoiseScale` | scalar | Noise frequency per UV metre |
+| `Specular` | scalar | Dielectric specular, F0 = 0.08 x value (0.5 is the engine default); black polymer and grips use 0.25 so a hard work light leaves a dark sheen, not a grey face |
 
 ### `M_Verse_Decal`
 

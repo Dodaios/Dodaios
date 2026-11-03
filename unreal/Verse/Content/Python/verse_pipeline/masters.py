@@ -229,6 +229,7 @@ MASTERS: list[MasterSpec] = [
             _p("scalar", "OilAmount", 0.35, "Oil film: darker and glossier patches"),
             _p("scalar", "GrimeAmount", 0.4, "Strength of vertex colour G (seams)"),
             _p("scalar", "NoiseScale", 9.0, "Noise frequency per UV metre"),
+            _p("scalar", "Specular", 0.5, "Dielectric specular (F0 = 0.08 x value)"),
         ],
     ),
     MasterSpec(
@@ -531,6 +532,7 @@ def build_weapon(g: Graph) -> None:
     g.out("Colour", "", "MP_BASE_COLOR")
     g.out("Rough", "", "MP_ROUGHNESS")
     g.out("Metal", "", "MP_METALLIC")
+    g.out("Specular", "", "MP_SPECULAR")
 
 
 def _hole(g: Graph) -> None:
