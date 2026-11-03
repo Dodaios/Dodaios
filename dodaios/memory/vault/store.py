@@ -510,24 +510,24 @@ class MemoryVault:
         hits.sort(key=lambda h: h.score, reverse=True)
         return hits[:limit]
 
-    def profile_block(self, *, max_chars: int = 2400, scope: str | None = None) -> str:
-        """The always-on summary for the system prompt.
+    def profile_selection(
+        self, *, max_chars: int = 2400, scope: str | None = None
+    ) -> list[tuple[str, list[Memory]]]:
+        """Which memories the always-on block holds, as ``(section, memories)``.
 
         Pinned memories first, then the stable kinds in a fixed order. Episodes
         and sensitive memories stay out; they reach the model through search.
-        A budget cut drops whole lines, oldest last-used first.
+        A budget cut drops whole lines, least used first.
         """
         current = [
             m
             for m in self.list(scope=scope)
             if m.sensitivity == "normal" and (m.pinned or m.kind in _PROFILE_ORDER)
         ]
-        if not current:
-            return ""
         groups: dict[str, list[Memory]] = {}
         for m in current:
             groups.setdefault("pinned" if m.pinned else m.kind, []).append(m)
-        lines: list[str] = []
+        sections: list[tuple[str, list[Memory]]] = []
         budget = max_chars
         for key in ("pinned", *_PROFILE_ORDER):
             items = sorted(
@@ -540,17 +540,25 @@ class MemoryVault:
             heading = f"{_PROFILE_HEADINGS[key]}:"
             if len(heading) + 1 > budget:
                 break
-            section = [heading]
+            chosen: list[Memory] = []
             used = len(heading) + 1
             for m in items:
                 line = f"- {m.text}"
                 if used + len(line) + 1 > budget:
                     break
-                section.append(line)
+                chosen.append(m)
                 used += len(line) + 1
-            if len(section) > 1:
-                lines.extend(section)
+            if chosen:
+                sections.append((key, chosen))
                 budget -= used
+        return sections
+
+    def profile_block(self, *, max_chars: int = 2400, scope: str | None = None) -> str:
+        """The always-on summary for the system prompt (see :meth:`profile_selection`)."""
+        lines: list[str] = []
+        for key, memories in self.profile_selection(max_chars=max_chars, scope=scope):
+            lines.append(f"{_PROFILE_HEADINGS[key]}:")
+            lines.extend(f"- {m.text}" for m in memories)
         return "\n".join(lines)
 
     def stats(self) -> dict[str, Any]:

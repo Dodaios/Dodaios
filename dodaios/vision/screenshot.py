@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
+from dodaios.core.paths import flight_recorder_dir
 from dodaios.core.protocols import CancelToken, Observation
 from dodaios.core.win32_dpi import (
     ensure_dpi_awareness as _ensure_dpi_awareness,
@@ -42,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 # Default blob directory — lives under repo-root/data. Can be overridden via
 # the constructor (e.g. for tests).
-_DEFAULT_BLOB_DIR = Path("data") / "flight_recorder" / "blobs"
+_DEFAULT_BLOB_DIR = flight_recorder_dir() / "blobs"
 
 # H1 (DEEP-DIVE-AUDIT-2026-06-19): on macOS, screen capture is gated behind a
 # TCC "Screen Recording" grant. Without it mss returns ONLY the desktop

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any, Final
 
 from .communication import response_instruction
@@ -75,7 +74,9 @@ def pair_for(cfg: Any, agent: AgentRecord) -> tuple[str, str, str]:
 
 
 def _workspace(cfg: Any, agent: AgentRecord) -> str:
-    data_dir = Path(getattr(getattr(cfg, "memory", None), "data_dir", None) or "data")
+    from dodaios.core.config import memory_data_dir
+
+    data_dir = memory_data_dir(cfg)
     folder = data_dir / (agent.workspace_dir or f"society/{agent.agent_id}/workspace")
     try:
         folder.mkdir(parents=True, exist_ok=True)

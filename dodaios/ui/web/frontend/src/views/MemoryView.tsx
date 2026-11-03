@@ -1,254 +1,288 @@
 /**
  * The Memory section: the personal memory vault (ADR-0044).
  *
- *   ┌──────────────────────────────────────────────┬──────────────────┐
- *   │ Memory · what the assistant knows about you  │ Always in mind   │
- *   │ [ tell me something to remember …    ][Save] │ (the prompt      │
- *   │ search · kind chips · history                │  block, verbatim)│
- *   │ About you ──────────────────────────────     │ Recent changes   │
- *   │  sentence                    pin edit end ✕  │ Take it with you │
- *   │ People ─────────────────────────────────     │  export · import │
- *   └──────────────────────────────────────────────┴──────────────────┘
+ *   ┌──────────────┬──────────────────────────────────────────────────┐
+ *   │ ● ● ●        │  [ Memories | Files | How it works ]   ⌕   +     │
+ *   │ Library      ├───────────────────────────┬──────────────────────┤
+ *   │  All         │ list of memories           │ inspector:           │
+ *   │  In mind     │  (one sentence each)       │  the memory, where   │
+ *   │  Pinned      │                            │  it came from, its   │
+ *   │ Kinds        │                            │  versions, actions   │
+ *   │  About you … │                            │                      │
+ *   │ ─────        │                            │                      │
+ *   │ export/import│                            │                      │
+ *   └──────────────┴───────────────────────────┴──────────────────────┘
  *
- * Every row is one atomic memory. An edit is a new version (the old one
- * stays in the history), "no longer true" closes it with a date, and
- * forgetting erases every version.
+ * "Files" shows the same memory as the Markdown files an export writes, with
+ * a large preview; "How it works" draws what reaches the model and when.
  */
-import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Brain,
-  Check,
-  CircleOff,
-  Download,
-  History,
-  Loader2,
-  Pencil,
-  Pin,
-  PinOff,
-  Search,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { Brain, History, Pin, Plus, Search, X } from "lucide-react";
 import { fill, useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { BrandedSelect } from "@/components/ui/select";
-import { ConfirmDialog } from "@/components/memory/MemoryDialogs";
 import {
   MEMORY_KINDS,
   VAULT_KEYS,
-  addMemory,
-  editMemory,
-  endMemory,
-  exportUrl,
-  forgetMemory,
-  importBundle,
-  pinMemory,
-  useVaultActivity,
-  useVaultHistory,
   useVaultItems,
   useVaultOverview,
-  type MemoryKind,
-  type VaultMemory,
 } from "@/lib/personalMemoryApi";
+import { IN_MIND_STYLE, KIND_STYLE } from "@/components/memoryVault/kinds";
+import { MemoryBrowser, type Shelf } from "@/components/memoryVault/MemoryBrowser";
+import { MemoryFiles } from "@/components/memoryVault/MemoryFiles";
+import { HowItWorks } from "@/components/memoryVault/HowItWorks";
+import { NewMemorySheet } from "@/components/memoryVault/NewMemorySheet";
+import { Portability } from "@/components/memoryVault/Portability";
 
-type Filter = MemoryKind | "all";
-
-function day(stamp: string | null | undefined): string {
-  if (!stamp) return "";
-  const date = new Date(stamp);
-  if (Number.isNaN(date.getTime())) return stamp.slice(0, 10);
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
+type Mode = "memories" | "files" | "how";
 
 export function MemoryView(): JSX.Element {
   const t = useT();
   useLocaleChunk("memory");
   const name = useEventStore((s) => s.assistantName) || "Dodaios";
   const queryClient = useQueryClient();
+  const [mode, setMode] = useState<Mode>("memories");
+  const [shelf, setShelf] = useState<Shelf>("all");
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
-  const [showHistory, setShowHistory] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [forgetting, setForgetting] = useState<VaultMemory | null>(null);
 
   const overview = useVaultOverview();
-  const items = useVaultItems(query, showHistory);
+  const items = useVaultItems(query, shelf === "history");
 
-  const refresh = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: VAULT_KEYS.all }),
-    [queryClient],
-  );
+  const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: VAULT_KEYS.all }), [queryClient]);
   const notify = useCallback((message: string) => {
     setToast(message);
     window.setTimeout(() => setToast((current) => (current === message ? null : current)), 3200);
   }, []);
-  const run = useCallback(
-    async (work: () => Promise<unknown>, done?: string) => {
-      try {
-        await work();
-        await refresh();
-        if (done) notify(done);
-      } catch (error) {
-        notify(error instanceof Error ? error.message : String(error));
+
+  // Cmd/Ctrl+N adds a memory, Cmd/Ctrl+F searches.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === "n") {
+        event.preventDefault();
+        setAdding(true);
+      } else if (key === "f") {
+        event.preventDefault();
+        setMode("memories");
+        document.getElementById("vault-search")?.focus();
       }
-    },
-    [notify, refresh],
-  );
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
-  const rows = useMemo(() => {
-    const all = items.data?.items ?? [];
-    return filter === "all" ? all : all.filter((m) => m.kind === filter);
-  }, [items.data, filter]);
-
-  const grouped = useMemo(() => {
-    if (query.trim()) return [{ kind: null as MemoryKind | null, rows }];
-    return MEMORY_KINDS.map((kind) => ({ kind, rows: rows.filter((m) => m.kind === kind) })).filter(
-      (group) => group.rows.length > 0,
-    );
-  }, [rows, query]);
+  const inMind = useMemo(() => new Set(overview.data?.in_mind_ids ?? []), [overview.data]);
+  const stats = overview.data?.stats;
+  const byKind = stats?.by_kind ?? {};
+  const all = items.data?.items ?? [];
+  const pinnedCount = all.filter((m) => m.pinned && m.current).length;
 
   if (overview.isError) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <EmptyState
-          icon={<Brain />}
-          title={t("vault.offline_title")}
-          description={t("vault.offline_body")}
-        />
+        <EmptyState icon={<Brain />} title={t("vault.offline_title")} description={t("vault.offline_body")} />
       </div>
     );
   }
 
-  const stats = overview.data?.stats;
-  const byKind = stats?.by_kind ?? {};
+  const shelfTitle =
+    shelf === "all"
+      ? t("vault.shelf_all")
+      : shelf === "in_mind"
+        ? t("vault.shelf_in_mind")
+        : shelf === "pinned"
+          ? t("vault.shelf_pinned")
+          : shelf === "history"
+            ? t("vault.shelf_history")
+            : t(`vault.kind_${shelf}`);
 
   return (
-    <div data-testid="memory-vault-view" className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto grid w-full max-w-[1180px] gap-8 px-6 pb-16 pt-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <main className="min-w-0">
-            <header>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground-strong">
-                {t("vault.title")}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {stats
-                  ? fill(t("vault.subtitle"), { name, count: stats.current })
-                  : t("vault.loading")}
+    <div data-testid="memory-vault-view" className="flex h-full min-h-0 flex-col p-3 sm:p-5">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-card shadow-float">
+        {/* Sidebar */}
+        <aside className="hidden w-[232px] shrink-0 flex-col border-r border-border bg-sheen/[0.025] md:flex">
+          <div className="flex items-center gap-2 px-4 pb-3 pt-4">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/15 text-accent">
+              <Brain className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-semibold text-foreground-strong">{t("vault.title")}</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {stats ? fill(t("vault.count"), { count: stats.current }) : t("vault.loading")}
               </p>
-            </header>
-
-            <Composer
-              onSave={(text, kind) =>
-                run(() => addMemory(text, kind), t("vault.saved"))
-              }
+            </div>
+          </div>
+          <nav className="min-h-0 flex-1 overflow-y-auto px-2 pb-3" aria-label={t("vault.title")}>
+            <SidebarLabel>{t("vault.library")}</SidebarLabel>
+            <SidebarItem
+              active={mode === "memories" && shelf === "all"}
+              icon={<Brain />}
+              hue="220 9% 56%"
+              label={t("vault.shelf_all")}
+              count={stats?.current}
+              onClick={() => {
+                setMode("memories");
+                setShelf("all");
+              }}
             />
-
-            <div className="mt-6 flex flex-wrap items-center gap-2">
-              <label className="relative flex min-w-[220px] flex-1 items-center">
-                <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  data-testid="vault-search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t("vault.search_placeholder")}
-                  aria-label={t("vault.search_placeholder")}
-                  className="h-9 w-full rounded-md border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            <SidebarItem
+              active={mode === "memories" && shelf === "in_mind"}
+              icon={<IN_MIND_STYLE.icon />}
+              hue={IN_MIND_STYLE.hue}
+              label={t("vault.shelf_in_mind")}
+              count={inMind.size}
+              onClick={() => {
+                setMode("memories");
+                setShelf("in_mind");
+              }}
+            />
+            <SidebarItem
+              active={mode === "memories" && shelf === "pinned"}
+              icon={<Pin />}
+              hue="4 86% 58%"
+              label={t("vault.shelf_pinned")}
+              count={pinnedCount}
+              onClick={() => {
+                setMode("memories");
+                setShelf("pinned");
+              }}
+            />
+            <SidebarItem
+              active={mode === "memories" && shelf === "history"}
+              icon={<History />}
+              hue="220 9% 56%"
+              label={t("vault.shelf_history")}
+              onClick={() => {
+                setMode("memories");
+                setShelf("history");
+              }}
+            />
+            <SidebarLabel>{t("vault.kinds_label")}</SidebarLabel>
+            {MEMORY_KINDS.filter((kind) => (byKind[kind] ?? 0) > 0 || shelf === kind).map((kind) => {
+              const Icon = KIND_STYLE[kind].icon;
+              return (
+                <SidebarItem
+                  key={kind}
+                  active={mode === "memories" && shelf === kind}
+                  icon={<Icon />}
+                  hue={KIND_STYLE[kind].hue}
+                  label={t(`vault.kind_${kind}`)}
+                  count={byKind[kind] ?? 0}
+                  onClick={() => {
+                    setMode("memories");
+                    setShelf(kind);
+                  }}
                 />
-              </label>
-              <Button
-                variant={showHistory ? "secondary" : "ghost"}
-                size="sm"
-                aria-pressed={showHistory}
-                data-testid="vault-history-toggle"
-                onClick={() => setShowHistory((value) => !value)}
+              );
+            })}
+          </nav>
+          <Portability onDone={(message) => void refresh().then(() => notify(message))} onError={notify} />
+        </aside>
+
+        {/* Main */}
+        <section className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+            <h1 className="hidden min-w-0 truncate text-[15px] font-semibold text-foreground-strong lg:block lg:w-[180px]">
+              {mode === "memories" ? shelfTitle : mode === "files" ? t("vault.mode_files") : fill(t("vault.mode_how"), { name })}
+            </h1>
+            <Segmented
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "memories", label: t("vault.mode_memories") },
+                { value: "files", label: t("vault.mode_files") },
+                { value: "how", label: t("vault.mode_how_short") },
+              ]}
+            />
+            <div className="ml-auto flex items-center gap-2">
+              {mode === "memories" && (
+                <label className="relative hidden items-center sm:flex">
+                  <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    id="vault-search"
+                    data-testid="vault-search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder={t("vault.search_placeholder")}
+                    aria-label={t("vault.search_placeholder")}
+                    className="h-8 w-[200px] rounded-lg border border-border bg-sheen/[0.04] pl-8 pr-7 text-[13px] text-foreground placeholder:text-faint-foreground focus-visible:w-[260px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition-[width]"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      aria-label={t("vault.clear_search")}
+                      onClick={() => setQuery("")}
+                      className="absolute right-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </label>
+              )}
+              <button
+                type="button"
+                data-testid="vault-add"
+                onClick={() => setAdding(true)}
+                title={t("vault.add_title")}
+                aria-label={t("vault.add_title")}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-[13px] font-medium text-accent-foreground shadow-sm hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <History /> {t("vault.show_history")}
-              </Button>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("vault.add")}</span>
+              </button>
             </div>
+          </header>
 
-            <div className="mt-3 flex flex-wrap gap-1.5" role="tablist" aria-label={t("vault.kinds_label")}>
-              <Chip active={filter === "all"} onClick={() => setFilter("all")}>
-                {t("vault.kind_all")}
-                <span className="tabular-nums text-muted-foreground">{stats?.current ?? 0}</span>
-              </Chip>
-              {MEMORY_KINDS.filter((kind) => (byKind[kind] ?? 0) > 0 || filter === kind).map((kind) => (
-                <Chip key={kind} active={filter === kind} onClick={() => setFilter(kind)}>
-                  {t(`vault.kind_${kind}`)}
-                  <span className="tabular-nums text-muted-foreground">{byKind[kind] ?? 0}</span>
-                </Chip>
-              ))}
-            </div>
-
-            {items.isLoading ? (
-              <p className="mt-10 flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> {t("vault.loading")}
-              </p>
-            ) : rows.length === 0 ? (
-              <EmptyState
-                className="mt-6"
-                icon={<Brain />}
-                title={query.trim() ? t("vault.no_results") : t("vault.empty_title")}
-                description={query.trim() ? undefined : fill(t("vault.empty_body"), { name })}
+          <div className="min-h-0 flex-1">
+            {mode === "memories" && (
+              <MemoryBrowser
+                shelf={shelf}
+                query={query}
+                items={all}
+                loading={items.isLoading}
+                inMind={inMind}
+                name={name}
+                onChanged={refresh}
+                notify={notify}
+                onAdd={() => setAdding(true)}
               />
-            ) : (
-              grouped.map((group) => (
-                <section key={group.kind ?? "results"} className="mt-8" data-testid={`vault-group-${group.kind ?? "results"}`}>
-                  <h2 className="mb-2.5 flex items-baseline gap-2 px-1 text-sm font-medium text-foreground">
-                    {group.kind ? t(`vault.kind_${group.kind}`) : t("vault.results")}
-                    <span className="tabular-nums text-muted-foreground">{group.rows.length}</span>
-                  </h2>
-                  <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-                    {group.rows.map((memory) => (
-                      <MemoryRow
-                        key={memory.id}
-                        memory={memory}
-                        onPin={() => run(() => pinMemory(memory.id, !memory.pinned))}
-                        onEdit={(text) => run(() => editMemory(memory.id, text), t("vault.updated"))}
-                        onEnd={() => run(() => endMemory(memory.id), t("vault.ended"))}
-                        onForget={() => setForgetting(memory)}
-                      />
-                    ))}
-                  </ul>
-                </section>
-              ))
             )}
-          </main>
-
-          <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-8 lg:self-start">
-            <AlwaysInMind block={overview.data?.prompt_block ?? ""} name={name} />
-            <RecentChanges />
-            <Portability onImported={(message) => run(async () => undefined, message)} onError={notify} />
-          </aside>
-        </div>
+            {mode === "files" && <MemoryFiles />}
+            {mode === "how" && overview.data && (
+              <HowItWorks
+                name={name}
+                overview={overview.data}
+                onShowInMind={() => {
+                  setMode("memories");
+                  setShelf("in_mind");
+                }}
+              />
+            )}
+          </div>
+        </section>
       </div>
 
-      <ConfirmDialog
-        open={forgetting !== null}
-        title={t("vault.forget_title")}
-        description={fill(t("vault.forget_body"), { name })}
-        confirmLabel={t("vault.forget")}
-        items={forgetting ? [forgetting.text] : undefined}
-        onClose={() => setForgetting(null)}
-        onConfirm={async () => {
-          const target = forgetting;
-          if (!target) return;
-          await forgetMemory(target.id);
-          setForgetting(null);
+      <NewMemorySheet
+        open={adding}
+        name={name}
+        onClose={() => setAdding(false)}
+        onSaved={async (message) => {
+          setAdding(false);
           await refresh();
-          notify(t("vault.forgotten"));
+          notify(message);
         }}
+        onError={notify}
       />
 
       {toast && (
         <div
           role="status"
-          className="pointer-events-none fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 rounded-lg border border-border bg-popover px-4 py-2 text-sm text-popover-foreground shadow-float"
+          className="pointer-events-none fixed bottom-8 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-border bg-popover/95 px-4 py-2 text-[13px] text-popover-foreground shadow-float backdrop-blur"
         >
           {toast}
         </div>
@@ -257,347 +291,79 @@ export function MemoryView(): JSX.Element {
   );
 }
 
-function Chip({
+function SidebarLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-2.5 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-faint-foreground">{children}</p>
+  );
+}
+
+function SidebarItem({
   active,
+  icon,
+  hue,
+  label,
+  count,
   onClick,
-  children,
 }: {
   active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active
-          ? "border-accent/60 bg-accent/10 text-foreground-strong"
-          : "border-border bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Composer({ onSave }: { onSave: (text: string, kind: MemoryKind | "") => Promise<void> }) {
-  const t = useT();
-  const [text, setText] = useState("");
-  const [kind, setKind] = useState<MemoryKind | "">("");
-  const [busy, setBusy] = useState(false);
-  const options = useMemo(
-    () => [
-      { value: "", label: t("vault.kind_auto") },
-      ...MEMORY_KINDS.filter((k) => k !== "ephemeral").map((k) => ({ value: k, label: t(`vault.kind_${k}`) })),
-    ],
-    [t],
-  );
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    const value = text.trim();
-    if (!value || busy) return;
-    setBusy(true);
-    try {
-      await onSave(value, kind);
-      setText("");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <form
-      onSubmit={submit}
-      data-testid="vault-composer"
-      className="mt-6 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2 focus-within:border-accent/50"
-    >
-      <input
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder={t("vault.composer_placeholder")}
-        aria-label={t("vault.composer_placeholder")}
-        maxLength={2000}
-        className="h-9 min-w-[200px] flex-1 bg-transparent px-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
-      />
-      <BrandedSelect
-        value={kind}
-        options={options}
-        onValueChange={(value) => setKind(value as MemoryKind | "")}
-        ariaLabel={t("vault.kind_label")}
-        className="w-[170px]"
-        testId="vault-composer-kind"
-      />
-      <Button type="submit" size="sm" disabled={!text.trim() || busy}>
-        {busy ? <Loader2 className="animate-spin" /> : <Check />}
-        {t("vault.remember")}
-      </Button>
-    </form>
-  );
-}
-
-function MemoryRow({
-  memory,
-  onPin,
-  onEdit,
-  onEnd,
-  onForget,
-}: {
-  memory: VaultMemory;
-  onPin: () => void;
-  onEdit: (text: string) => Promise<void>;
-  onEnd: () => void;
-  onForget: () => void;
-}) {
-  const t = useT();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(memory.text);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const meta = [
-    t(`vault.origin_${memory.origin}`),
-    // An imported memory's start date is the import, not when it became true.
-    memory.valid_from && memory.origin !== "imported" ? fill(t("vault.since"), { date: day(memory.valid_from) }) : "",
-    memory.valid_to ? fill(t("vault.until"), { date: day(memory.valid_to) }) : "",
-    memory.entities.length ? memory.entities.join(", ") : "",
-  ].filter(Boolean);
-
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
-    const value = draft.trim();
-    if (!value || value === memory.text) {
-      setEditing(false);
-      return;
-    }
-    await onEdit(value);
-    setEditing(false);
-  };
-
-  return (
-    <li
-      data-testid="vault-row"
-      data-current={memory.current || undefined}
-      className={cn("group px-4 py-3", !memory.current && "opacity-60")}
-    >
-      {editing ? (
-        <form onSubmit={save} className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            autoFocus
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => event.key === "Escape" && setEditing(false)}
-            aria-label={t("vault.edit")}
-            className="h-8 flex-1 rounded-md border border-border-strong bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <Button type="submit" size="sm">
-            <Check /> {t("vault.save")}
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
-            <X />
-          </Button>
-        </form>
-      ) : (
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <p className={cn("text-sm leading-relaxed text-foreground", !memory.current && "line-through decoration-muted-foreground/50")}>
-              {memory.pinned && <Pin className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px text-accent" aria-label={t("vault.pinned")} />}
-              {memory.text}
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {meta.join(" · ")}
-              {memory.sensitivity === "sensitive" && (
-                <span className="ml-1.5 rounded border border-border px-1 py-px text-[10px] uppercase tracking-wide">
-                  {t("vault.sensitive")}
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-            {memory.supersedes_id && (
-              <IconButton label={t("vault.history")} onClick={() => setHistoryOpen((v) => !v)}>
-                <History />
-              </IconButton>
-            )}
-            {memory.current && (
-              <>
-                <IconButton label={memory.pinned ? t("vault.unpin") : t("vault.pin")} onClick={onPin}>
-                  {memory.pinned ? <PinOff /> : <Pin />}
-                </IconButton>
-                <IconButton
-                  label={t("vault.edit")}
-                  onClick={() => {
-                    setDraft(memory.text);
-                    setEditing(true);
-                  }}
-                >
-                  <Pencil />
-                </IconButton>
-                <IconButton label={t("vault.end")} onClick={onEnd}>
-                  <CircleOff />
-                </IconButton>
-              </>
-            )}
-            <IconButton label={t("vault.forget")} onClick={onForget} danger>
-              <Trash2 />
-            </IconButton>
-          </div>
-        </div>
-      )}
-      {historyOpen && <Versions id={memory.id} />}
-    </li>
-  );
-}
-
-function IconButton({
-  label,
-  onClick,
-  danger = false,
-  children,
-}: {
+  icon: React.ReactNode;
+  hue: string;
   label: string;
+  count?: number;
   onClick: () => void;
-  danger?: boolean;
-  children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
-      title={label}
-      aria-label={label}
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:h-3.5 [&>svg]:w-3.5",
-        danger ? "hover:text-destructive" : "hover:text-foreground",
+        "flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "bg-accent-soft text-foreground-strong" : "text-foreground hover:bg-sheen/[0.05]",
       )}
     >
-      {children}
+      <span
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md [&>svg]:h-3 [&>svg]:w-3"
+        style={{ backgroundColor: `hsl(${hue} / 0.16)`, color: `hsl(${hue})` }}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count !== undefined && <span className="text-[11px] tabular-nums text-muted-foreground">{count}</span>}
     </button>
   );
 }
 
-function Versions({ id }: { id: string }) {
-  const t = useT();
-  const history = useVaultHistory(id);
-  const versions = history.data?.versions ?? [];
+function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: Array<{ value: T; label: string }>;
+}) {
   return (
-    <ol className="mt-3 space-y-1.5 border-l border-border pl-3" data-testid="vault-versions">
-      {versions.map((version) => (
-        <li key={version.id} className="text-xs">
-          <span className="text-muted-foreground">{day(version.valid_from)} · </span>
-          <span className={version.current ? "text-foreground" : "text-muted-foreground line-through"}>
-            {version.text}
-          </span>
-          {version.current && <span className="ml-1.5 text-accent">{t("vault.now")}</span>}
-        </li>
+    <div role="tablist" className="flex h-8 items-center rounded-lg bg-sheen/[0.06] p-0.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="tab"
+          aria-selected={value === option.value}
+          data-testid={`vault-mode-${option.value}`}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "h-7 whitespace-nowrap rounded-md px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            value === option.value
+              ? "bg-surface-raised text-foreground-strong shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {option.label}
+        </button>
       ))}
-    </ol>
+    </div>
   );
 }
 
-function Panel({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-border bg-card p-4">
-      <h2 className="text-sm font-medium text-foreground">{title}</h2>
-      {hint && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>}
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
-function AlwaysInMind({ block, name }: { block: string; name: string }) {
-  const t = useT();
-  const body = block.split("\n").slice(2).join("\n").trim();
-  return (
-    <Panel title={t("vault.always_title")} hint={fill(t("vault.always_hint"), { name })}>
-      {body ? (
-        <pre
-          data-testid="vault-prompt-block"
-          className="max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-background/60 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground"
-        >
-          {body}
-        </pre>
-      ) : (
-        <p className="text-xs text-muted-foreground">{t("vault.always_empty")}</p>
-      )}
-    </Panel>
-  );
-}
-
-function RecentChanges() {
-  const t = useT();
-  const activity = useVaultActivity();
-  const entries = (activity.data?.entries ?? []).filter((e) => e.action !== "pin" && e.action !== "unpin");
-  return (
-    <Panel title={t("vault.recent_title")}>
-      {entries.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("vault.recent_empty")}</p>
-      ) : (
-        <ul className="space-y-2" data-testid="vault-activity">
-          {entries.slice(0, 8).map((entry) => (
-            <li key={entry.seq} className="text-xs leading-snug">
-              <span className="font-medium text-foreground">{t(`vault.action_${entry.action}`)}</span>
-              <span className="text-muted-foreground"> · {day(entry.at)}</span>
-              {entry.text && <p className="mt-0.5 line-clamp-2 text-muted-foreground">{entry.text}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Panel>
-  );
-}
-
-function Portability({ onImported, onError }: { onImported: (message: string) => void; onError: (message: string) => void }) {
-  const t = useT();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const pick = async (file: File | undefined) => {
-    if (!file) return;
-    setBusy(true);
-    try {
-      const report = await importBundle(file);
-      onImported(fill(t("vault.import_done"), { added: report.added, skipped: report.skipped }));
-    } catch (error) {
-      onError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
-  return (
-    <Panel title={t("vault.portable_title")} hint={t("vault.portable_hint")}>
-      <div className="flex flex-col gap-2">
-        <Button asChild variant="secondary" size="sm" className="justify-start">
-          <a href={exportUrl("bundle")} download data-testid="vault-export-bundle">
-            <Download /> {t("vault.export_bundle")}
-          </a>
-        </Button>
-        <Button asChild variant="ghost" size="sm" className="justify-start">
-          <a href={exportUrl("markdown")} download data-testid="vault-export-markdown">
-            <Download /> {t("vault.export_markdown")}
-          </a>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-          data-testid="vault-import"
-        >
-          {busy ? <Loader2 className="animate-spin" /> : <Upload />} {t("vault.import")}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".zip,application/zip"
-          className="hidden"
-          onChange={(event) => void pick(event.target.files?.[0])}
-        />
-      </div>
-    </Panel>
-  );
-}

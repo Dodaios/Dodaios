@@ -78,6 +78,12 @@ const old = (readAt: number | null) => readAt === null || Date.now() - readAt > 
 const outdated = (status: SessionGitHubStatus | null) =>
   status !== null && Date.now() - status.fetched_at * 1000 > FRESH_MS;
 
+/** A thread's answers are kept under `thread:<session id>`, beside the workspaces'. */
+const THREAD_PREFIX = "thread:";
+/** The single entry a thread's answer has, in place of a pane's name. */
+export const THREAD_ENTRY = "thread";
+const threadOf = (key: string) => (key.startsWith(THREAD_PREFIX) ? key.slice(THREAD_PREFIX.length) : "");
+
 function start(workspaceId: string): Entry {
   // What this window saw last is shown at once; once it is old it spins until
   // the backend has confirmed or replaced it.
@@ -121,9 +127,11 @@ function start(workspaceId: string): Entry {
     const timeout = setTimeout(() => controller?.abort(), 30_000);
     try {
       // `instant`: answer from the last read at once; this header asks again.
-      const query = new URLSearchParams({ workspace_id: workspaceId, instant: "1" });
+      const thread = threadOf(workspaceId);
+      const query = new URLSearchParams(thread ? { session_id: thread, instant: "1" } : { workspace_id: workspaceId, instant: "1" });
       if (followUps) query.set("wait", String(WAIT_S));
-      const response = await fetch(`/api/agentic-ide/git/session-status?${query}`, { signal: controller.signal });
+      const route = thread ? "thread-status" : "session-status";
+      const response = await fetch(`/api/agentic-ide/git/${route}?${query}`, { signal: controller.signal });
       if (!response.ok) throw new Error("GitHub status could not be refreshed.");
       const data = await response.json() as {
         panes: Panes; refreshing?: boolean; age?: number | null; waiting?: string[]; failed?: boolean;
@@ -237,4 +245,9 @@ export function useSessionGitHub(workspaceId?: string, pane?: string): SessionGi
 /** Forget every remembered answer; tests only. */
 export function resetSessionGitHubForTests() {
   remembered.clear();
+}
+
+/** The GitHub state of the branches an IDE thread's coding agent worked on. */
+export function useThreadGitHub(sessionId?: string): PaneGitHub {
+  return useSessionGitHubPane(sessionId ? `${THREAD_PREFIX}${sessionId}` : undefined, THREAD_ENTRY);
 }

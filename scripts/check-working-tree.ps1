@@ -7,7 +7,7 @@
     on disk. For every file listed in HEAD that does NOT exist on disk,
     runs ``git checkout HEAD -- <file>`` to bring it back, logs a banner
     line per restored file, and writes a structured log block to
-    ``data/working-tree-check.log``.
+    ``data/working-tree-check.log`` (``$env:JARVIS_DATA_DIR`` when set).
 
     Design contract:
 
@@ -87,7 +87,14 @@ if (-not (Test-Path -LiteralPath $RepoRoot)) {
 
 Set-Location -LiteralPath $RepoRoot
 
-$dataDir = Join-Path $RepoRoot "data"
+# The log lives in the app's data dir: JARVIS_DATA_DIR when set (the same
+# override the app honours; the test suite points it at a temp dir, #458),
+# else <RepoRoot>/data.
+if (-not [string]::IsNullOrWhiteSpace($env:JARVIS_DATA_DIR)) {
+    $dataDir = $env:JARVIS_DATA_DIR.Trim()
+} else {
+    $dataDir = Join-Path $RepoRoot "data"
+}
 if (-not (Test-Path -LiteralPath $dataDir)) {
     try { New-Item -ItemType Directory -Path $dataDir -Force | Out-Null } catch { }
 }

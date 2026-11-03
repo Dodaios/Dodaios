@@ -89,6 +89,17 @@ DATA_DIR_SOURCE = data_dir_source()
 _data_dir_logged = False
 
 
+def memory_data_dir(cfg: Any) -> Path:
+    """``cfg.memory.data_dir``, or :data:`DATA_DIR` when ``cfg`` carries none.
+
+    For callers that may run without a config (a runtime built without one,
+    a stub in a test): the fallback is the runtime data dir, never a
+    cwd-relative ``data/`` (#458).
+    """
+    raw = getattr(getattr(cfg, "memory", None), "data_dir", None)
+    return Path(raw) if raw else DATA_DIR
+
+
 def data_dir_info() -> dict[str, str]:
     """The active data directory and where it came from, for diagnostics."""
     return {"path": str(DATA_DIR), "source": DATA_DIR_SOURCE}

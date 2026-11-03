@@ -202,10 +202,10 @@ def _reindex_vault_fts(request: Request, jarvis_root: Path) -> None:
 
     try:
         config = getattr(request.app.state, "config", None)
+        from dodaios.core.config import memory_data_dir
         from dodaios.memory.wiki.db_path import resolve_wiki_db_path
 
-        data_dir = getattr(getattr(config, "memory", None), "data_dir", "./data")
-        db_path = resolve_wiki_db_path(data_dir)
+        db_path = resolve_wiki_db_path(memory_data_dir(config))
         db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(db_path), check_same_thread=False)
         try:

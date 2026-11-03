@@ -85,15 +85,44 @@ def _kind(kind: str, text: str) -> str:
 
 @router.get("")
 def overview() -> dict[str, Any]:
-    from dodaios.memory.vault.runtime import prompt_block
+    from dodaios.memory.vault.runtime import budget_chars, prompt_block
 
     vault = _vault()
+    budget = budget_chars()
+    block = prompt_block()
+    selection = vault.profile_selection(max_chars=budget)
     return {
         "path": str(vault.path),
         "stats": vault.stats(),
         "kinds": list(KINDS),
-        "prompt_block": prompt_block(),
+        "prompt_block": block,
+        "in_mind_ids": [m.id for _, memories in selection for m in memories],
+        "budget_chars": budget,
+        "used_chars": len(vault.profile_block(max_chars=budget)),
         "imported": vault.get_meta("legacy_import") is not None,
+    }
+
+
+@router.get("/files")
+def files() -> dict[str, Any]:
+    """The memory as readable Markdown files, exactly as the export writes them."""
+    from dodaios.memory.vault.portable import markdown_files
+
+    vault = _vault()
+    rendered = markdown_files(vault)
+    order = ["MEMORY.md", *(f"{k}.md" for k in KINDS)]
+    return {
+        "files": [
+            {
+                "name": name,
+                "kind": name[:-3] if name != "MEMORY.md" else "index",
+                "bytes": len(rendered[name].encode()),
+                "lines": rendered[name].count("\n"),
+                "content": rendered[name],
+            }
+            for name in order
+            if name in rendered
+        ]
     }
 
 
