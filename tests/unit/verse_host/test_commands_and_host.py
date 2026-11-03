@@ -16,6 +16,7 @@ from dodaios.core.events import (
     VerseOpenRequested,
     VerseSettingsChanged,
 )
+from dodaios.verse_host import probe
 from tests.unit.verse_host._support import (
     FakeDuelService,
     close,
@@ -215,7 +216,8 @@ async def test_roster_error_signal_and_companion_update(tmp_path: Path) -> None:
 
 async def test_lifecycle_messages_and_timings(tmp_path: Path) -> None:
     host, backend = make_host(tmp_path)
-    host.check = lambda refresh=False: type("C", (), {"status": "ok"})()  # type: ignore[method-assign]
+    # A cached "ok" verdict: check() and acheck() then never start the real GPU probe.
+    host.capability = probe.Capability("ok", "Verse.exe", probe.GpuReport(True), time.time())
     host.supervisor.state.status = "running"
     host.supervisor.process = type("P", (), {"alive": lambda self: True, "pid": 1})()
     t, task = await connect(host)
