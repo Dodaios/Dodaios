@@ -1,6 +1,12 @@
 #include "Brain/VerseBotTypes.h"
 
 #include "VerseGameplayTags.h"
+#include "VerseRng.h"
+
+double VerseBot::Jitter(FVerseRng& Rng, double Min, double Max)
+{
+	return Rng.Range(Min, Max);
+}
 
 namespace VerseBot
 {

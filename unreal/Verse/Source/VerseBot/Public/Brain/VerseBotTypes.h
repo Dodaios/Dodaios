@@ -123,8 +123,13 @@ struct VERSEBOT_API FVerseBotIntent
 	int8 Strafe = 0;
 };
 
+class FVerseRng;
+
 namespace VerseBot
 {
+	/** The decision period jitter U(Min, Max) of bot.md 5.2, one draw from Rng. */
+	VERSEBOT_API double Jitter(FVerseRng& Rng, double Min, double Max);
+
 	inline constexpr float CmPerM = 100.f;
 	inline constexpr int32 NumStates = 10;
 

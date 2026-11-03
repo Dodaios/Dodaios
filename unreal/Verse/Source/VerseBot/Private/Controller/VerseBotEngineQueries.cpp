@@ -9,6 +9,11 @@
 #include "GameFramework/PlayerStart.h"
 #include "VerseCollision.h"
 
+namespace
+{
+	constexpr ECollisionChannel VerseSightChannel = VerseCollision::Sight;
+}
+
 bool FVerseBotEngineQueries::SegmentHitsBox(const FBox& Box, const FVector& From, const FVector& To)
 {
 	if (!Box.IsValid)
@@ -35,6 +40,7 @@ void FVerseBotEngineQueries::CachePieceBounds(UWorld& World)
 	}
 	CachedWorld = &World;
 	PieceBounds.Reset();
+	GlassBounds.Reset();
 	// Static arena geometry only: pawns are skipped outright (F1), pieces are found by profile.
 	for (TActorIterator<AActor> It(&World); It; ++It)
 	{
@@ -50,8 +56,24 @@ void FVerseBotEngineQueries::CachePieceBounds(UWorld& World)
 			{
 				PieceBounds.Add(Prim->Bounds.GetBox());
 			}
+			else if (Profile == VerseCollision::Profile::Glass)
+			{
+				GlassBounds.Add(Prim->Bounds.GetBox());
+			}
 		}
 	}
+}
+
+bool FVerseBotEngineQueries::GlassCrossed(const FVector& From, const FVector& To) const
+{
+	for (const FBox& Box : GlassBounds)
+	{
+		if (SegmentHitsBox(Box, From, To))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 int32 FVerseBotEngineQueries::PiecesCrossed(const FVector& From, const FVector& To)
@@ -64,20 +86,12 @@ int32 FVerseBotEngineQueries::PiecesCrossed(const FVector& From, const FVector& 
 	return N;
 }
 
-bool FVerseBotEngineQueries::TraceChannel(UWorld& World, ECollisionChannel Channel, const FVector& From, const FVector& To) const
+bool FVerseBotEngineQueries::TraceSight(UWorld& World, const FVector& From, const FVector& To) const
 {
-	const AController* C = Owner.Get();
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseBotTrace), false);
-	if (C)
-	{
-		Params.AddIgnoredActor(C);
-		if (const APawn* Own = C->GetPawn())
-		{
-			Params.AddIgnoredActor(Own);
-		}
-	}
+	// VerseSight only: pawns (own and opponent) ignore the channel, so no capsule is ever read.
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(VerseBotSight), false);
 	FHitResult Hit;
-	return World.LineTraceSingleByChannel(Hit, From, To, Channel, Params);
+	return World.LineTraceSingleByChannel(Hit, From, To, VerseSightChannel, Params);
 }
 
 bool FVerseBotEngineQueries::TestSight(const FVector& Eye, const FVector& Target)
@@ -94,7 +108,7 @@ bool FVerseBotEngineQueries::TestSight(const FVector& Eye, const FVector& Target
 	{
 		return false;
 	}
-	return !TraceChannel(*World, VerseCollision::Sight, Eye, Target);
+	return !TraceSight(*World, Eye, Target);
 }
 
 FVerseBotBoltTrace FVerseBotEngineQueries::TraceBolt(const FVector& Origin, const FVector& Target, const FVerseBotWeaponInfo& Weapon)
@@ -110,12 +124,13 @@ FVerseBotBoltTrace FVerseBotEngineQueries::TraceBolt(const FVector& Origin, cons
 	// No penetration data until IVersePenetrationQuery is wired (WP05/WP06): a believed piece on the
 	// line is counted and stops the bolt, so no wall shot is ever authorised by this stand-in.
 	R.Pieces = PiecesCrossed(Origin, Target);
-	if (R.Pieces > 0)
+	if (R.Pieces > 0 || GlassCrossed(Origin, Target))
 	{
 		R.DamageFrac = 0.f;
 		return R;
 	}
-	R.DamageFrac = TraceChannel(*World, VerseCollision::Bolt, Origin, Target) ? 0.f : 1.f;
+	// Glass is handled above (it stops bolts, sight passes it); the rest blocks both alike.
+	R.DamageFrac = TraceSight(*World, Origin, Target) ? 0.f : 1.f;
 	return R;
 }
 

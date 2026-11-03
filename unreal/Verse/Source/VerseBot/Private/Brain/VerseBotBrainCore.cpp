@@ -438,7 +438,7 @@ void FVerseBotBrainCore::Decide(bool bInterrupt, const float (&Bonus)[VerseBot::
 	}
 	++StateCounts[int32(D.State)];
 	++DecisionIndex;
-	NextDecisionS = NowS + T.DecisionMs / 1000.f * float(DecisionRng.Range(0.8, 1.2));
+	NextDecisionS = NowS + T.DecisionMs / 1000.f * float(VerseBot::Jitter(DecisionRng, 0.8, 1.2));
 
 	// Schedule EQS: at most 2 in flight (the running slice counts); round-robin over the wanted
 	// list so every query refreshes.
