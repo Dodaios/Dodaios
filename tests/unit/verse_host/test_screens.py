@@ -141,7 +141,7 @@ async def test_eight_busy_panes_stay_under_budget(tmp_path: Path) -> None:
     await close(t, task)
     p99_lag_ms = lags[int(len(lags) * 0.99)] * 1000
     p99_base_ms = baseline[int(len(baseline) * 0.99)] * 1000
-    assert rate <= 200 * 1024 * 1.05, rate
+    assert rate <= 200 * 1024, rate
     assert p99_feed <= 5.0, p99_feed
     # The relay's own work per loop step: one output chunk parsed, one pane framed.
     p99_frame = relay.frame_p99_ms()
@@ -249,3 +249,61 @@ async def test_plain_fallback_gone_and_resync(tmp_path: Path, monkeypatch) -> No
     sch = schema()
     for frame in t.frames():
         assert sch.validate_frame(frame) == [], frame
+
+
+async def test_over_budget_frame_keeps_its_rows_for_the_next_tick() -> None:
+    from dodaios.verse_host.relays.screens import ScreensRelay, Watched
+
+    sent: list[dict] = []
+
+    class _Outbox:
+        def clear_topic(self, topic: str) -> None:
+            return None
+
+    class _Session:
+        outbox = _Outbox()
+
+        def send(self, type_: str, data: dict, **kw: object) -> None:
+            sent.append(data)
+
+    relay = ScreensRelay(_Session(), backend=None)
+    mirror = StyledScreen(40, 6)
+    w = Watched(pane_id="ws_91:T1", ref=1, hz=10, mirror=mirror, need_snapshot=False)
+    relay.watched[w.pane_id] = w
+    mirror.dirty = set()
+    mirror.feed("one\r\ntwo\r\nthree")
+    changed = set(mirror.dirty)
+    assert changed
+    relay._window = [(10.0, relay.budget_bytes_per_s)]  # this second's budget is spent
+    await relay.flush(10.5)
+    assert sent == []
+    assert changed <= mirror.dirty, "skipped rows must stay dirty"
+    await relay.flush(11.6)  # a new second: the delayed frame goes out whole
+    assert len(sent) == 1 and sent[0]["kind"] == "delta"
+    assert {r["row"] for r in sent[0]["rows_changed"]} >= changed
+
+
+async def test_snapshots_wait_for_budget_too() -> None:
+    from dodaios.verse_host.relays.screens import ScreensRelay, Watched
+
+    sent: list[dict] = []
+
+    class _Session:
+        class outbox:  # noqa: N801
+            @staticmethod
+            def clear_topic(topic: str) -> None:
+                return None
+
+        def send(self, type_: str, data: dict, **kw: object) -> None:
+            sent.append(data)
+
+    relay = ScreensRelay(_Session(), backend=None)
+    mirror = StyledScreen(40, 6)
+    mirror.feed("hello")
+    w = Watched(pane_id="ws_91:T1", ref=1, hz=10, mirror=mirror, last_snapshot=10.0)
+    relay.watched[w.pane_id] = w
+    relay._window = [(10.0, relay.budget_bytes_per_s)]
+    await relay.flush(10.5)
+    assert sent == [] and w.need_snapshot
+    await relay.flush(11.6)
+    assert [d["kind"] for d in sent] == ["snapshot"]

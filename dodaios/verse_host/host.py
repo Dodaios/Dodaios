@@ -38,6 +38,7 @@ from .supervisor import Supervisor
 log = logging.getLogger(__name__)
 
 IDLE_QUIT_S = 600.0
+GPU_YIELD_QUIT_S = 10.0
 DECKS = ("bridge", "ops", "engineering", "hangar")
 
 
@@ -240,9 +241,24 @@ class VerseHost:
             self.tokens.set("dev", None)
 
     # ------------------------------------------------------------------ status
+    def _stale(self) -> bool:
+        cap = self.capability
+        return cap is None or (
+            cap.gpu.failed and time.time() - cap.checked_at >= probe_mod.RETRY_FAILED_S
+        )
+
     def check(self, *, refresh: bool = False) -> probe_mod.Capability:
-        if self.capability is None or refresh:
+        """The cached capability; blocking when it has to probe (sync callers only)."""
+        if refresh or self._stale():
             self.capability = probe_mod.check(refresh=refresh)
+        assert self.capability is not None
+        return self.capability
+
+    async def acheck(self, *, refresh: bool = False) -> probe_mod.Capability:
+        """:meth:`check` for async paths: the GPU probe runs off the event loop."""
+        if refresh or self._stale():
+            self.capability = await asyncio.to_thread(probe_mod.check, refresh=refresh)
+        assert self.capability is not None
         return self.capability
 
     def status(self) -> dict[str, Any]:
@@ -264,10 +280,15 @@ class VerseHost:
             "crash_report": sup.crash_report,
         }
 
+    async def astatus(self) -> dict[str, Any]:
+        """:meth:`status` for async paths (any probe runs off the event loop)."""
+        await self.acheck()
+        return self.status()
+
     async def _install_changed(self) -> None:
         """A download finished or the Verse was removed: find the executable again."""
         self.capability = None
-        self.check()
+        await self.acheck()
         await self._status_changed()
 
     async def _before_remove(self) -> None:
@@ -283,6 +304,7 @@ class VerseHost:
             return
         from dodaios.core.events import VerseStatusChanged
 
+        await self.acheck()  # status() then reads the cache, never probes on the loop
         st = self.status()
         with contextlib.suppress(Exception):
             await bus.publish(
@@ -299,7 +321,7 @@ class VerseHost:
         """Open the Verse view: launch lazily, then ``lifecycle.show`` once linked."""
         if reason not in ("verse_view", "quick_start_duel", "station"):
             raise ValueError(f"bad show reason {reason!r}")
-        cap = self.check()
+        cap = await self.acheck()
         if cap.status != "ok" and self.supervisor.state.status != "running":
             return self.status()
         self.pending_show = {
@@ -340,7 +362,7 @@ class VerseHost:
 
     async def stop(self, reason: str = "app_quit") -> dict[str, Any]:
         await self.supervisor.stop(reason)
-        return self.status()
+        return await self.astatus()
 
     async def _request_quit(self, reason: str, deadline_ms: int) -> bool:
         return await self.hub.push_all(
@@ -349,7 +371,7 @@ class VerseHost:
 
     async def panel_visibility(self, visible: bool, w: int, h: int, dpr: float) -> bool:
         self.panel = "visible" if visible else "hidden"
-        if visible and not self.supervisor.running and self.check().status == "ok":
+        if visible and not self.supervisor.running and (await self.acheck()).status == "ok":
             await self.supervisor.ensure_running(manual=True)
         return await self.hub.push_all(
             "panel.visibility", {"visible": visible, "w": w, "h": h, "dpr": dpr}
@@ -363,7 +385,12 @@ class VerseHost:
         self.gpu = "yield" if busy else "free"
         if by not in ("blender_cook", "local_stt", "local_model", "other"):
             by = "other"
-        return await self.hub.push_all("gpu.yield" if busy else "gpu.free", {"by": by})
+        sent = await self.hub.push_all("gpu.yield" if busy else "gpu.free", {"by": by})
+        if sent and busy and self.state == "dormant":
+            # Contract 12: a Dormant Verse quits at once on gpu.yield. That exit
+            # gives the GPU back; it is not a crash and must not relaunch.
+            self.supervisor.expect_exit(GPU_YIELD_QUIT_S)
+        return sent
 
     async def settings_changed(self, changed: dict[str, Any]) -> bool:
         if not changed:
@@ -438,6 +465,9 @@ class VerseHost:
 
     async def _n_bye(self, session: BridgeSession, msg: P.Inbound) -> None:
         log.info("verse host: Verse said bye (saved=%s)", msg.data.get("saved"))
+        # Verse quits after a bye (an answer to lifecycle.quit, or its own exit,
+        # e.g. after a launch): the exit that follows is a stop.
+        self.supervisor.expect_exit()
 
     async def _n_window(self, session: BridgeSession, msg: P.Inbound) -> None:
         visible = msg.data.get("visible")

@@ -244,3 +244,55 @@ async def test_real_spawn_keeps_token_off_the_command_line(tmp_path: Path) -> No
     finally:
         p.kill()
         await p.wait()
+
+
+async def test_exit_after_bye_is_a_stop(tmp_path: Path) -> None:
+    clock, spawned = Clock(), []
+    sup = _supervisor(tmp_path, clock, spawned)
+    await sup.ensure_running()
+    sup.expect_exit()  # lifecycle.bye arrived
+    clock.now += 60
+    spawned[0].exit(0)
+    await _settle()
+    assert sup.state.status == "stopped"
+    assert len(spawned) == 1 and sup.state.crashes == []
+    # The next launch clears the expectation: a later exit is a crash again.
+    assert await sup.ensure_running(manual=True)
+    spawned[1].exit(3)
+    await _settle()
+    assert len(sup.state.crashes) == 1 and len(spawned) == 3
+
+
+async def test_expected_exit_window_expires(tmp_path: Path) -> None:
+    clock, spawned = Clock(), []
+    sup = _supervisor(tmp_path, clock, spawned)
+    await sup.ensure_running()
+    sup.expect_exit(10.0)
+    clock.now += 11  # Verse did not quit in time; a later exit is a crash
+    spawned[0].exit(3)
+    await _settle()
+    assert len(sup.state.crashes) == 1 and len(spawned) == 2
+
+
+async def test_dormant_gpu_yield_exit_is_not_a_crash(tmp_path: Path) -> None:
+    from tests.unit.verse_host._support import close, connect, make_host
+
+    clock, spawned = Clock(), []
+    sup = _supervisor(tmp_path, clock, spawned)
+    host, _ = make_host(tmp_path, supervisor=sup)
+    await sup.ensure_running()
+    t, task = await connect(host)
+    t.push({"type": "lifecycle.state", "ts": 1.0, "data": {"state": "dormant", "vram_mb": 900}})
+    for _ in range(100):
+        if host.state == "dormant":
+            break
+        await asyncio.sleep(0.01)
+    assert host.state == "dormant"
+    assert await host.gpu_pressure(True, "local_model")
+    await t.wait_for(lambda f: f["type"] == "gpu.yield")
+    spawned[0].exit(0)  # a Dormant Verse quits at once on gpu.yield (contract 12)
+    await _settle()
+    assert sup.state.status == "stopped"
+    assert len(spawned) == 1, "a GPU yield must not relaunch Verse"
+    assert sup.state.crashes == [] and sup.state.crash_report is None
+    await close(t, task)

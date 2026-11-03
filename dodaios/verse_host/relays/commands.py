@@ -64,6 +64,7 @@ class CommandsRelay(RelayBase):
             ("qa.exec", self._qa_exec),
         ):
             hub.command(name, handler)
+        hub.busy_checks["launcher.start"] = lambda: self.launcher.busy
 
     # ------------------------------------------------------------------ open
     async def _publish_open(self, **fields: Any) -> None:

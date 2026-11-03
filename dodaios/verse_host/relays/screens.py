@@ -3,10 +3,11 @@
 Verse names the desks it wants with ``screens.watch`` (nearest first, at most
 8). Each bound pane gets a :class:`StyledScreen` mirror fed from its PTY as a
 non-claiming viewer (seeded from the replay bytes). Dirty rows go out at
-most ``min(hz, 10)`` times a second, coalesced; the whole screens feed stays
-under 200 KB/s by skipping the farthest panes first. A pane without output
-sends nothing. When the mirror is not available (attach refused, parser
-error) the plain ``ScreenBuffer`` rows go out with ``style: "plain"``.
+most ``min(hz, 10)`` times a second, coalesced; the whole screens feed,
+snapshots included, stays under 200 KB/s by delaying the farthest panes
+first (their dirty rows wait). A pane without output sends nothing. When
+the mirror is not available (attach refused, parser error) the plain
+``ScreenBuffer`` rows go out with ``style: "plain"``.
 """
 
 from __future__ import annotations
@@ -228,13 +229,19 @@ class ScreensRelay(RelayBase):
             if not w.need_snapshot and not self._has_dirty(w):
                 continue
             started = time.perf_counter()
+            pending = self._dirty_rows(w)
             data = self._frame(w)
             size = self._estimate(data)
             self.frame_seconds.append(time.perf_counter() - started)
             if len(self.frame_seconds) > 4096:
                 del self.frame_seconds[:2048]
-            if self._spent(now) + size > self.budget_bytes_per_s and not w.need_snapshot:
-                # Over budget: this and every farther pane wait for the next tick.
+            spent = self._spent(now)
+            if spent and spent + size > self.budget_bytes_per_s:
+                # Over budget (snapshots count too): this pane waits for a later
+                # tick. Framing took its dirty rows, so put them back; nothing
+                # changed is lost. A frame always goes out on an empty window,
+                # so one large snapshot cannot stall forever.
+                self._restore_dirty(w, pending)
                 continue
             self._window.append((now, size))
             w.last_frame = now
@@ -261,6 +268,17 @@ class ScreensRelay(RelayBase):
             for run in record["runs"]:
                 size += 16 + len(run["text"].encode("utf-8"))
         return size
+
+    @staticmethod
+    def _dirty_rows(w: Watched) -> set[int]:
+        return set(w.mirror.dirty) if w.mirror is not None else set(w.plain_dirty)
+
+    @staticmethod
+    def _restore_dirty(w: Watched, rows: set[int]) -> None:
+        if w.mirror is not None:
+            w.mirror.dirty |= rows
+        else:
+            w.plain_dirty |= rows
 
     def _has_dirty(self, w: Watched) -> bool:
         if w.mirror is not None:

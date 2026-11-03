@@ -164,3 +164,32 @@ async def test_signal_route_closes_1013_until_wp20(server) -> None:
     _host, url = server
     async with ws_connect(url.replace("/bridge", "/signal")) as ws:
         assert await _close_code(ws) == 1013
+
+
+def test_outbox_merges_two_queued_deltas_of_one_pane() -> None:
+    from dodaios.verse_host.bridge import Outbox, _Out
+
+    box = Outbox()
+
+    def delta(rows: list[tuple[int, str]], cursor: list[int]) -> _Out:
+        data = {
+            "pane_id": "ws_91:T1",
+            "kind": "delta",
+            "cols": 80,
+            "rows": 24,
+            "cursor": cursor,
+            "style": "styled",
+            "rows_changed": [
+                {"row": r, "runs": [{"col": 0, "text": t}] if t else []} for r, t in rows
+            ],
+        }
+        return _Out("screens.frame", data, key="screens:ws_91:T1", delta=True, ref=1, feed=True)
+
+    box.put(delta([(1, "a"), (2, "old")], [1, 1]))
+    box.put(delta([(2, "new"), (5, "")], [5, 0]))
+    assert len(box) == 1
+    data = box._items[0].data
+    assert [r["row"] for r in data["rows_changed"]] == [1, 2, 5]
+    assert data["rows_changed"][1]["runs"][0]["text"] == "new"
+    assert data["rows_changed"][2]["runs"] == []  # a cleared row survives the merge
+    assert data["cursor"] == [5, 0]

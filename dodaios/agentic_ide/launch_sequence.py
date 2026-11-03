@@ -2,9 +2,10 @@
 
 The web Verse's launcher panel ran this in the browser: open a terminal,
 start it, wait for it to come up, hand it the brief. The Unreal Verse's
-``launcher.start`` needs the same sequence, so it lives here and both
-callers share it. One batch runs at a time across every caller (single
-flight: a second start answers busy); ``cancel`` stops starting further
+``launcher.start`` needs the same sequence, so it lives here. Both callers
+use the one instance the verse host owns (``VerseHost.launcher``), so one
+batch runs at a time across them (single flight: a second start answers
+busy); ``cancel`` stops starting further
 panes, panes already open stay.
 
 The steps are injected (``LaunchSteps``) so the sequence is testable without
@@ -136,16 +137,3 @@ class LaunchSequence:
         finally:
             self.running = None
         return batch.opened
-
-
-_shared: LaunchSequence | None = None
-
-
-def shared_sequence(steps: LaunchSteps) -> LaunchSequence:
-    """The process-wide sequence, so every caller shares one single flight."""
-    global _shared
-    if _shared is None or _shared.steps is not steps:
-        if _shared is not None and _shared.busy:
-            return _shared
-        _shared = LaunchSequence(steps)
-    return _shared

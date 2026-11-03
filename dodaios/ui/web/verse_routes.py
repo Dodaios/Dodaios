@@ -28,8 +28,10 @@ WebSockets (their own auth; exempt from the session cookie check):
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import logging
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket
@@ -43,14 +45,57 @@ from dodaios.verse_host.host import VerseHost, get_host
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/verse", tags=["verse"])
+APP_QUIT_TIMEOUT_S = 6.0
+
+
+def _bound_port(conn: Request | WebSocket) -> int | None:
+    """The port this server's socket is bound to (ASGI ``scope["server"]``).
+
+    Never the Host header: a dev proxy or a forged header must not change the
+    bridge URL the next Verse launch is given.
+    """
+    server = conn.scope.get("server")
+    if isinstance(server, list | tuple) and len(server) == 2 and isinstance(server[1], int):
+        return server[1]
+    return None
 
 
 def _host(request: Request | WebSocket) -> VerseHost:
     host = get_host(request.app)
-    port = request.url.port
-    if port:
-        host.set_port(port)
+    host.set_port(_bound_port(request))
     return host
+
+
+async def start_verse_host(app: Any, port: int | None) -> None:
+    """App start: nothing launches; only the dev discovery file is renewed.
+
+    With the ``dev_bridge`` flag already on, an editor run needs a fresh token
+    after every app restart (contract 1, Dev discovery).
+    """
+    from dodaios.core.config import DATA_DIR
+    from dodaios.verse_host.settings_store import SettingsStore
+
+    store = SettingsStore(Path(DATA_DIR) / "verse" / "settings.json")
+    if not store.flag("dev_bridge", "DODAIOS_VERSE_DEV_BRIDGE"):
+        return
+    host = get_host(app)
+    host.set_port(port)
+    host.write_dev_discovery()
+
+
+async def stop_verse_host(app: Any) -> None:
+    """App quit: ``lifecycle.quit {reason: app_quit}`` (contract 12), then drop the dev file."""
+    host: VerseHost | None = getattr(app.state, "verse_host", None)
+    if host is None:
+        return
+    try:
+        if host.install.running:
+            await host.install.cancel()
+        await asyncio.wait_for(host.stop("app_quit"), APP_QUIT_TIMEOUT_S)
+    except Exception:  # noqa: BLE001 - shutdown goes on; the job object ends Verse
+        log.warning("verse host: clean quit failed", exc_info=True)
+    finally:
+        host.remove_dev_discovery()
 
 
 class Monitor(BaseModel):
@@ -113,10 +158,10 @@ def verse_status(request: Request, refresh: bool = False) -> dict[str, Any]:
 @router.post("/launch", summary="Start the Unreal Verse now (also leaves a crash loop)")
 async def verse_launch(request: Request) -> dict[str, Any]:
     host = _host(request)
-    if host.check().status != "ok":
-        return host.status()
+    if (await host.acheck()).status != "ok":
+        return await host.astatus()
     await host.supervisor.ensure_running(manual=True)
-    return host.status()
+    return await host.astatus()
 
 
 @router.post("/show", summary="Open the Unreal Verse view")
@@ -130,7 +175,7 @@ async def verse_show(body: ShowBody, request: Request) -> dict[str, Any]:
 async def verse_hide(body: HideBody, request: Request) -> dict[str, Any]:
     host = _host(request)
     await host.hide(body.reason)
-    return host.status()
+    return await host.astatus()
 
 
 @router.post("/stop", summary="Quit the Unreal Verse")
@@ -142,7 +187,7 @@ async def verse_stop(request: Request) -> dict[str, Any]:
 async def verse_panel(body: PanelBody, request: Request) -> dict[str, Any]:
     host = _host(request)
     sent = await host.panel_visibility(body.visible, body.w, body.h, body.dpr)
-    return {"sent": sent, **host.status()}
+    return {"sent": sent, **(await host.astatus())}
 
 
 @router.post("/gpu", summary="Tell the Verse another part of the app needs the GPU")
@@ -211,7 +256,8 @@ async def verse_install_progress(request: Request, refresh: bool = False) -> dic
 @router.post("/install", summary="Download and install the Verse (never part of the app install)")
 async def verse_install(request: Request) -> dict[str, Any]:
     host = _host(request)
-    if host.check().status == "unsupported":
+    cap = await host.acheck()
+    if cap.status == "unsupported" and not cap.gpu.failed:
         raise HTTPException(status_code=409, detail="This computer cannot run the Verse.")
     return await host.install.start()
 

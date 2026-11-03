@@ -44,6 +44,9 @@ class GpuReport:
     shader_model: str = ""
     reason: str = ""
     adapters: list[dict[str, Any]] = field(default_factory=list)
+    # The probe itself failed (timeout, crash, garbled output): no verdict yet,
+    # so it is asked again later instead of reading as a final "unsupported".
+    failed: bool = False
 
 
 # ---------------------------------------------------------------------- Windows
@@ -229,16 +232,25 @@ def probe_gpu_here() -> GpuReport:
 # ---------------------------------------------------------------------- cached API
 
 _cache: GpuReport | None = None
+_cache_at = 0.0
+RETRY_FAILED_S = 60.0
 
 
 def probe_gpu(*, refresh: bool = False) -> GpuReport:
-    """The GPU verdict, from a child process, cached for this app run."""
-    global _cache
+    """The GPU verdict, from a child process, cached for this app run.
+
+    Blocking (up to ``PROBE_TIMEOUT_S``): async callers use
+    ``asyncio.to_thread``. A failed probe is cached only for
+    ``RETRY_FAILED_S``, then asked again.
+    """
+    global _cache, _cache_at
     override = getenv("DODAIOS_VERSE_PROBE").strip().lower()
     if override in ("pass", "fail"):
         return GpuReport(override == "pass", "override", reason=f"DODAIOS_VERSE_PROBE={override}")
     if _cache is not None and not refresh:
-        return _cache
+        if not _cache.failed or time.monotonic() - _cache_at < RETRY_FAILED_S:
+            return _cache
+    _cache_at = time.monotonic()
     try:
         out = subprocess.run(
             [sys.executable, "-m", "dodaios.verse_host.probe", "--json"],
@@ -251,7 +263,7 @@ def probe_gpu(*, refresh: bool = False) -> GpuReport:
         data = json.loads(out.stdout.strip().splitlines()[-1])
         _cache = GpuReport(**data)
     except (OSError, subprocess.TimeoutExpired, ValueError, IndexError, TypeError) as exc:
-        _cache = GpuReport(False, reason=f"probe failed: {exc}")
+        _cache = GpuReport(False, reason=f"probe failed: {exc}", failed=True)
     return _cache
 
 

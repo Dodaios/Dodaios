@@ -157,12 +157,15 @@ class Outbox:
         if item.key is not None:
             existing = self._slots.get(item.key)
             if existing is not None:
-                # Newest frame per pane wins; a snapshot is never downgraded to a delta.
-                if existing.delta or not item.delta:
+                # One slot per pane. A newer snapshot replaces whatever is queued; a
+                # newer delta folds its rows into the queued frame (a snapshot is
+                # never downgraded, and an older delta's rows are never lost).
+                if not item.delta:
                     existing.data, existing.delta, existing.type = item.data, item.delta, item.type
-                    self.dropped += 1
-                    return
-                self._merge_rows(existing, item)
+                elif existing.delta:
+                    self._merge_deltas(existing, item)
+                else:
+                    self._merge_rows(existing, item)
                 self.dropped += 1
                 return
             self._slots[item.key] = item
@@ -187,6 +190,23 @@ class Outbox:
         merged["rows_changed"] = [rows[k] for k in sorted(rows) if rows[k]["runs"]]
         merged["cursor"] = delta.data.get("cursor", snapshot.data.get("cursor"))
         snapshot.data = merged
+
+    @staticmethod
+    def _merge_deltas(older: _Out, newer: _Out) -> None:
+        """Two unsent deltas of one pane: the union of their rows, newest row wins.
+
+        Empty rows stay (in a delta they mean "this row is now blank"); the
+        newest frame's cursor and size are kept.
+        """
+        if not isinstance(older.data, dict) or not isinstance(newer.data, dict):
+            older.data = newer.data
+            return
+        rows = {r["row"]: r for r in older.data.get("rows_changed", [])}
+        for record in newer.data.get("rows_changed", []):
+            rows[record["row"]] = record
+        merged = dict(newer.data)
+        merged["rows_changed"] = [rows[k] for k in sorted(rows)]
+        older.data = merged
 
     def _fold(self, topic: str) -> None:
         """Too many pending deltas: drop them and send one fresh snapshot instead."""
@@ -389,6 +409,10 @@ class BridgeSession:
                 self.reply(inbound.id, P.error("bad_request", "Request id reused."))
                 return
             self._ids_seen.add(inbound.id)
+            busy = hub.busy_checks.get(inbound.type)
+            if busy is not None and busy():
+                self.reply(inbound.id, P.error("busy", f"{inbound.type} is already running."))
+                return
             limit = self.rates.get(inbound.type)
             if limit is not None and not limit.allow(hub.clock()):
                 self.reply(inbound.id, P.error("rate_limited", f"{inbound.type} rate limit."))
@@ -508,6 +532,8 @@ class BridgeHub:
         self.clock = clock
         self.current: BridgeSession | None = None
         self.commands: dict[str, Handler] = {}
+        # Single-flight commands: answered ``busy`` before the rate limit is spent.
+        self.busy_checks: dict[str, Callable[[], bool]] = {}
         self.notices: dict[str, NoticeHandler] = {}
         self.relay_factories: list[RelayFactory] = []
         self.on_hung: Callable[[BridgeSession], Awaitable[None]] | None = None

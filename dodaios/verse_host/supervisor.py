@@ -8,7 +8,9 @@
 * Token: 256 bits, minted per launch, passed in ``DODAIOS_VERSE_TOKEN`` with
   the bridge URL in ``DODAIOS_VERSE_BRIDGE``; never on the command line and
   never logged.
-* Liveness: an exit or a hung bridge (5 s silent) is a crash. Restarts after
+* Liveness: an unplanned exit or a hung bridge (5 s silent) is a crash. An
+  exit Verse announced (``lifecycle.bye``, or ``gpu.yield`` while Dormant,
+  contract 12) is a stop: status ``stopped``, no restart, no crash entry. Restarts after
   1 s, 4 s, 15 s; three crashes within 5 minutes stop it: status ``crashed``
   until a manual launch.
 * Crash data: ``<DATA_DIR>/verse/crashes/<stamp>/`` gets the exit record, the
@@ -237,6 +239,7 @@ class Supervisor:
         self._watch: asyncio.Task[None] | None = None
         self._restart: asyncio.Task[None] | None = None
         self._stopping = False
+        self._planned_until: float | None = None
         self._lock = asyncio.Lock()
         self.token_in_env: str | None = None
         self.last_argv: list[str] = []
@@ -284,6 +287,7 @@ class Supervisor:
         self._set_token(token)
         self.token_in_env = token
         self._stopping = False
+        self._planned_until = None
         try:
             process = await self._spawn(argv, env, exe.parent)
         except OSError as exc:
@@ -306,6 +310,21 @@ class Supervisor:
         """``lifecycle.ready`` arrived: the launch counts as healthy."""
         self.healthy_since = self._clock()
 
+    def expect_exit(self, within_s: float | None = None) -> None:
+        """Verse is about to quit on its own (``lifecycle.bye``, or ``gpu.yield`` while
+        Dormant): that exit is a stop, not a crash, and nothing restarts it.
+
+        ``within_s`` bounds the expectation; ``None`` holds until the next launch.
+        """
+        if self.process is None:
+            return
+        self._planned_until = float("inf") if within_s is None else self._clock() + float(within_s)
+        if self._restart is not None:
+            self._restart.cancel()
+
+    def _planned(self) -> bool:
+        return self._planned_until is not None and self._clock() <= self._planned_until
+
     # ------------------------------------------------------------------ watch
     async def _watch_exit(self, process: Process) -> None:
         code = await process.wait()
@@ -316,7 +335,8 @@ class Supervisor:
         self.state.last_exit = code
         self._set_token(None)
         self.token_in_env = None
-        if self._stopping:
+        if self._stopping or self._planned():
+            self._planned_until = None
             self.state.status = "stopped"
             log.info("verse supervisor: Verse exited (%s) after a stop", code)
             await self._changed()

@@ -41,7 +41,6 @@ async def test_launcher_single_flight_busy_and_cancel(tmp_path: Path) -> None:
         if host.launcher.busy:
             break
         await asyncio.sleep(0.01)
-    host.hub.current.rates["launcher.start"].count = 10  # the rate limit is tested separately
     _cmd(t, "launcher.start", "c-2", {"agents": [{"agent": "claude", "count": 1}], "brief": "x"})
     busy = await t.reply_to("c-2")
     assert busy["data"]["error"]["code"] == "busy"
