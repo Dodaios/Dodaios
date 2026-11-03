@@ -1,0 +1,18 @@
+# clang-format style of the Unreal Verse C++ (unreal-static, changed lines only).
+# Matches the engine's layout: tabs, braces on their own line, no reflow of long lines.
+BasedOnStyle: Microsoft
+UseTab: ForContinuationAndIndentation
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 0
+BreakBeforeBraces: Allman
+AccessModifierOffset: -4
+NamespaceIndentation: All
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: All
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+SpaceBeforeParens: ControlStatements
+IndentCaseLabels: false

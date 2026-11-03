@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "verse.balance/1",
+  "title": "Balance run report (bot.md 11.1, 11.3, 11.4), written by scripts/unreal/balance.py",
+  "type": "object",
+  "required": ["schema", "run", "seed", "sets", "pairings", "gates"],
+  "properties": {
+    "schema": {"const": "verse.balance/1"},
+    "run": {"type": "string"},
+    "created": {"type": "string"},
+    "seed": {"type": "integer"},
+    "sets": {"type": "array", "items": {"type": "string"}},
+    "bouts": {"type": ["integer", "null"]},
+    "jobs": {"type": "integer"},
+    "patch": {"type": ["object", "null"]},
+    "speed": {"type": ["object", "null"]},
+    "pairings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "a", "b", "bouts", "boutWinRateA", "killShareA", "killShareA95"],
+        "properties": {
+          "id": {"type": "string"},
+          "set": {"type": "string"},
+          "a": {"type": "object"},
+          "b": {"type": "object"},
+          "bouts": {"type": "integer", "minimum": 0},
+          "kills": {"type": "integer", "minimum": 0},
+          "boutWinRateA": {"type": ["number", "null"]},
+          "boutWinRateA95": {"type": ["array", "null"]},
+          "killShareA": {"type": ["number", "null"]},
+          "killShareA95": {"type": ["array", "null"]},
+          "spawnSide0WinRate": {"type": ["number", "null"]},
+          "kd": {"type": "object"},
+          "ttkS": {"type": "object"},
+          "timeToContactS": {"type": "object"},
+          "accuracy": {"type": "object"},
+          "headshotShare": {"type": "object"},
+          "wallKillShare": {"type": "object"},
+          "finisherShare": {"type": "object"},
+          "knifeShare": {"type": "object"},
+          "bulwarkUses": {"type": "object"},
+          "breachUses": {"type": "object"},
+          "reloadsInFight": {"type": "object"},
+          "engagementRangeHist": {"type": "object"},
+          "spawnKills": {"type": "integer"},
+          "fireAudit": {"type": "object"},
+          "learningDelta": {"type": ["number", "null"]},
+          "adaptiveTrace": {"type": "array"},
+          "botMsP99": {"type": ["number", "null"]},
+          "stuckEvents": {"type": "integer"},
+          "navFailures": {"type": ["integer", "null"]},
+          "matchTimeS": {"type": "number"}
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^(BG([1-9]|1[0-2])|F[1-7]|L1|BR1)$"},
+          "status": {"enum": ["pass", "fail", "not_run"]},
+          "detail": {"type": "string"},
+          "values": {"type": "object"}
+        }
+      }
+    },
+    "fireAuditLog": {"type": ["string", "null"]},
+    "incomplete": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "verse.bout/1",
+  "title": "One bout line in bouts.jsonl, written by UVerseBalanceGauntletController",
+  "type": "object",
+  "required": ["schema", "pairing", "match", "bout", "seed", "spawnSideA", "winner", "durationS", "kills", "a", "b"],
+  "properties": {
+    "schema": {"const": "verse.bout/1"},
+    "pairing": {"type": "string"},
+    "match": {"type": "integer", "minimum": 0},
+    "bout": {"type": "integer", "minimum": 0},
+    "seed": {"type": "integer", "minimum": 0},
+    "spawnSideA": {"enum": [0, 1]},
+    "winner": {"enum": ["A", "B", "none"]},
+    "durationS": {"type": "number", "minimum": 0},
+    "matchTimeStartS": {"type": "number", "minimum": 0},
+    "serverStartMs": {"type": "number", "minimum": 0},
+    "serverEndMs": {"type": "number", "minimum": 0},
+    "fireAudit": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "kills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["t", "killer"],
+        "properties": {
+          "t": {"type": "number", "minimum": 0},
+          "killer": {"enum": ["A", "B"]},
+          "cause": {"enum": ["bolt", "melee", "finisher", "gadget", "world"]},
+          "headshot": {"type": "boolean"},
+          "wall": {"type": "boolean"},
+          "rangeM": {"type": "number", "minimum": 0},
+          "ttkS": {"type": "number", "minimum": 0},
+          "spawnKill": {"type": "boolean"}
+        }
+      }
+    },
+    "a": {"$ref": "#/$defs/side"},
+    "b": {"$ref": "#/$defs/side"},
+    "adaptiveTrace": {"type": "array", "items": {"type": "number"}},
+    "bearingWindows": {
+      "description": "One entry per no-percept window of at least 10 s: [facing deg, true bearing deg, decoy bearing deg] (F5)",
+      "type": "array",
+      "items": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+    },
+    "f7Violations": {"type": "integer", "minimum": 0},
+    "storm": {"type": "object"}
+  },
+  "$defs": {
+    "side": {
+      "type": "object",
+      "required": ["kills", "deaths", "shots", "hits"],
+      "properties": {
+        "kills": {"type": "integer", "minimum": 0},
+        "deaths": {"type": "integer", "minimum": 0},
+        "shots": {"type": "integer", "minimum": 0},
+        "hits": {"type": "integer", "minimum": 0},
+        "headshotHits": {"type": "integer", "minimum": 0},
+        "timeToContactS": {"type": "array", "items": {"type": "number", "minimum": 0}},
+        "bulwarkUses": {"type": "integer", "minimum": 0},
+        "breachUses": {"type": "integer", "minimum": 0},
+        "reloadsInFight": {"type": "integer", "minimum": 0},
+        "fireAudit": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "botMsP99": {"type": ["number", "null"]},
+        "stuckEvents": {"type": "integer", "minimum": 0},
+        "navFailures": {"type": ["integer", "null"]}
+      }
+    }
+  }
+}

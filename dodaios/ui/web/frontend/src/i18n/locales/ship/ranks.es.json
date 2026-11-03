@@ -73,6 +73,9 @@
         "simulator_record": "Récord en el simulador",
         "team_briefing": "Reunión de equipo",
         "inspection": "Inspección de cubierta",
+        "duel_won": "Set de duelo ganado",
+        "duel_lost": "Set de duelo perdido",
+        "duel_finisher": "Remate en duelo",
         "task_done": "Tarea hecha",
         "task_blocked": "Tarea notificada como bloqueada",
         "quest_done": "Misión completada",
@@ -95,6 +98,9 @@
         "simulator_record": "Marca un nuevo récord en la sala del simulador.",
         "team_briefing": "Celebra una reunión de equipo en la sala de reuniones.",
         "inspection": "Recorre todas las salas de una cubierta, una vez por cubierta al día.",
+        "duel_won": "Gana un set de duelo en la arena del hangar; los rivales más duros pagan más.",
+        "duel_lost": "Juega hasta el final un set de duelo de al menos un minuto, aunque lo pierdas.",
+        "duel_finisher": "Logra un remate en un set de duelo que puntúe.",
         "task_done": "Termina una tarea.",
         "task_blocked": "Notifica una tarea como bloqueada, con el motivo.",
         "quest_done": "Completa una misión.",
@@ -155,7 +161,34 @@
         "earn_hint": "Cada recompensa se comprueba con la bitácora de la nave: lo mismo nunca paga dos veces.",
         "crew_empty": "Aún no hay oficiales a bordo.",
         "companion": "Dron de compañía",
-        "sound": "Campana de a bordo en los ascensos"
+        "sound": "Campana de a bordo en los ascensos",
+        "duel": {
+          "title": "Duelos",
+          "empty": "Aún no hay sets de duelo. Empieza uno en la armería del hangar.",
+          "sets": "Sets",
+          "record": "Ganados / perdidos",
+          "won_lost": "{won} / {lost}",
+          "kd": "K/D",
+          "headshots": "Disparos a la cabeza",
+          "finishers": "Remates",
+          "best_streak": "Mejor racha",
+          "unfinished": "Sin terminar",
+          "recent": "Sets recientes",
+          "score": "{player} : {opponent}",
+          "outcome": {
+            "won": "Ganado",
+            "lost": "Perdido",
+            "unfinished": "Sin terminar"
+          },
+          "tier": {
+            "normal": "Normal",
+            "hard": "Difícil",
+            "elite": "Élite",
+            "adaptive": "Adaptativo",
+            "player": "Otro jugador",
+            "unknown": "Rival"
+          }
+        }
       },
       "promo": {
         "eyebrow": "Ascenso",

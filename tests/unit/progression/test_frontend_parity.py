@@ -109,3 +109,12 @@ def test_every_agent_look_is_a_real_accessory():
         (_SOCIETY / "companion/accessories.json").read_text(encoding="utf-8")
     )
     assert set(LOOK_UNLOCKS) == {item["id"] for item in catalog["items"]}
+
+
+def test_the_duel_sources_are_server_rules_the_web_knows():
+    """Duel rows (WP21): the web lists the duel sources, and never as a world action."""
+    from dodaios.progression.rules import DUEL_SOURCES
+
+    sources = _ts_list("XP_SOURCES")
+    assert [s for s in sources if s in DUEL_SOURCES] == list(DUEL_SOURCES)
+    assert not set(DUEL_SOURCES) & _ts_union("WorldAction")

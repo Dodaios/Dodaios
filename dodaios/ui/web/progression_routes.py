@@ -1,7 +1,12 @@
 """REST API of the Dodaios Verse level system (``dodaios/progression``).
 
 - ``GET  /api/progression``          → every subject's level, the rulebook and recent awards
+- ``GET  /api/progression/duels``    → duel totals and the most recent duel sets
 - ``POST /api/progression/actions``  → report a world action from the Verse (metered server-side)
+
+Duel XP is never a world action: ``duel_won``, ``duel_lost`` and
+``duel_finisher`` are server rules that only a ``duel.result`` from the Unreal
+Verse pays (``ProgressionService.record_duel``), so ``/actions`` refuses them.
 
 Live awards travel as ``ProgressionAwarded`` over the WebSocket; this API is
 the first read and the catch-up after a reconnect.
@@ -76,18 +81,33 @@ async def get_progression(
     after_seq: int = Query(0, ge=0, description="Only awards newer than this sequence number"),
 ) -> dict[str, Any]:
     service = _service(request)
-    subjects, recent, latest = await asyncio.gather(
+    subjects, recent, latest, duel_stats = await asyncio.gather(
         asyncio.to_thread(service.snapshot),
         asyncio.to_thread(service.store.recent, after_seq=after_seq, limit=50),
         asyncio.to_thread(service.store.latest_seq),
+        asyncio.to_thread(service.duel_stats),
     )
     return {
         "subjects": subjects,
         "pet_id": service.current_pet(),
         "recent": recent,
         "latest_seq": latest,
+        "duel_stats": duel_stats,
         **_rulebook(),
     }
+
+
+@router.get("/duels", summary="Duel totals and the most recent duel sets, newest first")
+async def get_duels(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100, description="How many recent sets to list"),
+) -> dict[str, Any]:
+    service = _service(request)
+    duels, duel_stats = await asyncio.gather(
+        asyncio.to_thread(service.recent_duels, limit),
+        asyncio.to_thread(service.duel_stats),
+    )
+    return {"duels": duels, "duel_stats": duel_stats}
 
 
 class WorldAction(BaseModel):

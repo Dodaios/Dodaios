@@ -1,0 +1,49 @@
+{
+  "schema": "verse.person_models/1",
+  "status": "uncalibrated until the person plays (README Testing); refit from local duel telemetry (bot.md 11.2)",
+  "models": {
+    "skilled": {
+      "description": "A practised person: fast flicks, good recoil control, learns like the hard tier",
+      "reactionMeanMs": 225,
+      "reactionSdMs": 18,
+      "turnRateDegS": 1000,
+      "recoilPatternComp": 0.8,
+      "headAimChance": 0.3,
+      "aimWanderSdDeg": 0.6,
+      "aimWanderTheta": 4.0,
+      "learning": true,
+      "learnWeight": 0.3
+    },
+    "average": {
+      "description": "Slower, looser aim, little learning",
+      "reactionMeanMs": 270,
+      "reactionSdMs": 40,
+      "turnRateDegS": 600,
+      "recoilPatternComp": 0.5,
+      "headAimChance": 0.12,
+      "aimWanderSdDeg": 1.4,
+      "aimWanderTheta": 2.5,
+      "learning": true,
+      "learnWeight": 0.08
+    }
+  },
+  "tricks": {
+    "spray":     {"behaviour": "Holds the trigger on sight, never bursts, reloads only on empty", "input": {"holdFireOnSight": true, "reloadOnlyOnEmpty": true}},
+    "camper":    {"behaviour": "Holds cover near its spawn", "intent": {"holdSpawnCoverRadiusM": 8}},
+    "rusher":    {"behaviour": "Runs straight at the belief", "input": {"sprintForwardWhenUnseen": true}, "intent": {"rushBelief": true}},
+    "slider":    {"behaviour": "Slides on every approach and every peek", "input": {"slideOnApproach": true, "slideCooldownS": 1.5}},
+    "jumppeek":  {"behaviour": "Peeks only by jumping", "input": {"leanBecomesJump": true}},
+    "leanspam":  {"behaviour": "Flips lean every 150-300 ms while exposed", "input": {"leanFlipMinMs": 150, "leanFlipMaxMs": 300}},
+    "prone":     {"behaviour": "Fights prone from long range", "input": {"proneBeyondM": 20}, "intent": {"preferRangeM": 35}},
+    "wallspam":  {"behaviour": "Fires through every penetrable piece toward the belief; wall-shot authority off for the trick only", "intent": {"wallShotAuthorityOff": true, "fireThroughPenetrable": true}},
+    "turtle":    {"behaviour": "Lives behind Bulwarks, redeploys on cooldown", "input": {"deployBulwarkOnCooldown": true}, "intent": {"stayBehindBulwark": true}},
+    "breacher":  {"behaviour": "Breaches every breachable piece on its route", "intent": {"breachEveryRoutePiece": true}},
+    "knife":     {"behaviour": "Closes in for knife strikes only", "input": {"meleeOnly": true, "meleeRangeM": 2.0}, "intent": {"rushBelief": true}},
+    "finisher":  {"behaviour": "Only stalks for finishers", "input": {"neverFire": true}, "intent": {"stalkForFinisher": true}},
+    "kiter":     {"behaviour": "Keeps 30 m away", "input": {"backOffInsideM": 30}, "intent": {"preferRangeM": 30}},
+    "watcher":   {"behaviour": "Holds a pre-aimed angle onto the bot's likely spawn", "intent": {"watchOpponentSpawn": true}},
+    "silent":    {"behaviour": "Crouch-walks everywhere", "input": {"alwaysCrouch": true}},
+    "repeek":    {"behaviour": "Re-peeks the same angle within 2 s every time", "intent": {"repeekSameAngleWithinS": 2}},
+    "hider":     {"behaviour": "Avoids every fight", "input": {"fireOnlyWhenHurt": true, "backOffWhenSeen": true}, "intent": {"avoidFights": true}}
+  }
+}

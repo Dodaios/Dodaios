@@ -9,5 +9,7 @@ public class VerseBridge : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore" });
+		// Json: the duel.result codec and its pending store (WP21.6, bridge-protocol.md 10).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
 	}
 }

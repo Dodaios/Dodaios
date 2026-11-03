@@ -9,5 +9,7 @@ public class VerseDecks : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge" });
+		// Json: deck manifests from the zone placement files, QA state and the bridge world actions (WP12).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
 	}
 }
