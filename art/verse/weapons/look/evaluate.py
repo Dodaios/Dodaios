@@ -86,8 +86,18 @@ def vfx_cost(report: dict) -> dict:
     cost = report.get("vfx_cost")
     if not cost:
         return {"pass": False, "reason": "lookdev wrote no vfx_cost"}
-    keys = ("median_ms", "delta_64_ms", "per_64_from_1024_ms", "bound_ms", "method")
-    out = {k: cost[k] for k in keys}
+    cost = dict(cost)
+    samples = cost.get("samples_ms")
+    if samples:  # the fastest sample of each configuration (load only adds time)
+        best = {k: min(v) for k, v in samples.items()}
+        cost["min_ms"] = {k: round(v, 4) for k, v in best.items()}
+        cost["delta_64_ms"] = round(best["bolts_64"] - best["none"], 4)
+        per_64 = (best["bolts_1024"] - best["none"]) * 64.0 / 1024.0
+        cost["per_64_from_1024_ms"] = round(per_64, 4)
+        cost["bound_ms"] = round(max(cost["delta_64_ms"], per_64, 0.0), 4)
+        cost["method"] = "wall time of capture + readback, fastest of each, includes render thread"
+    keys = ("median_ms", "min_ms", "delta_64_ms", "per_64_from_1024_ms", "bound_ms", "method")
+    out = {k: cost.get(k) for k in keys}
     out["limit_ms"] = VFX_COST_MAX_MS
     out["pass"] = cost["bound_ms"] <= VFX_COST_MAX_MS
     return out

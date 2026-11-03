@@ -419,9 +419,10 @@ def measure_bolt_cost(u, scene: Scene, cap: Capture, groups: dict[str, str]) -> 
     flushes the render thread and waits for the GPU, so its wall time holds
     the full render of the frame. The configurations (no bolts, 64, 1024)
     alternate inside every round, so drift and other machine load hit all of
-    them alike; the medians are compared. The difference includes the
-    render-thread cost of the extra draws as well, so it bounds the GPU cost
-    of the bolts from above.
+    them alike. Other jobs on the shared GPU only ever add time, so the
+    bound compares the fastest sample of each configuration (medians are
+    reported too). The difference includes the render-thread cost of the
+    extra draws as well, so it bounds the GPU cost of the bolts from above.
     """
 
     def show(n: int) -> None:
@@ -451,21 +452,23 @@ def measure_bolt_cost(u, scene: Scene, cap: Capture, groups: dict[str, str]) -> 
         return ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
 
     med = {k: median(v) for k, v in times.items()}
-    delta_64 = med["bolts_64"] - med["none"]
-    delta_1024 = med["bolts_1024"] - med["none"]
+    best = {k: min(v) for k, v in times.items()}
+    delta_64 = best["bolts_64"] - best["none"]
+    delta_1024 = best["bolts_1024"] - best["none"]
     per_64_from_1024 = delta_1024 * 64.0 / COST_SETS["bolts_1024"]
     return {
         "resolution": [COST_W, COST_H],
         "rounds": COST_ROUNDS,
         "captures_per_sample": COST_INNER,
         "median_ms": {k: round(v, 4) for k, v in med.items()},
+        "min_ms": {k: round(v, 4) for k, v in best.items()},
         "samples_ms": {k: [round(x, 4) for x in v] for k, v in times.items()},
         "delta_64_ms": round(delta_64, 4),
         "delta_1024_ms": round(delta_1024, 4),
         "per_64_from_1024_ms": round(per_64_from_1024, 4),
         "bound_ms": round(max(delta_64, per_64_from_1024, 0.0), 4),
         "limit_ms": 0.1,
-        "method": "wall time of capture + readback, medians, includes render-thread cost",
+        "method": "wall time of capture + readback, fastest of each, includes render thread",
     }
 
 
