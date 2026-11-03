@@ -54,14 +54,21 @@ PROP_SMALL_CM = 30.0
 PROP_NANITE_MIN_TRIS = 300
 
 
+#: WP14's own Blender entry for the `weapons` mode.
+WEAPON_ENTRY = HERE.parents[1] / "art" / "verse" / "weapons" / "_export_entry.py"
+
+
 def _run_blender(mode_args: list[str], label: str) -> dict:
     folder = {"calib": "calib", "weapons": "weapons"}.get(mode_args[0], "kit")
+    entry = ENTRY
+    if mode_args[0] == "weapons":
+        entry, mode_args = WEAPON_ENTRY, mode_args[1:]
     out_dir = art_common.CACHE_ROOT / folder
     result = art_common.CACHE_ROOT / "results" / f"{label}.json"
     result.unlink(missing_ok=True)
     args = [*mode_args, "--out", str(out_dir), "--result", str(result)]
     with art_common.heavy_lock(f"export_unreal {label}"):
-        blender.run(ENTRY, args, lock=False, device="cpu", timeout=1800)
+        blender.run(entry, args, lock=False, device="cpu", timeout=1800)
     return json.loads(result.read_text(encoding="utf-8"))
 
 
@@ -179,6 +186,27 @@ def _weapon_specs():
     return specs
 
 
+#: Masters whose blend mode is translucent (art-pipeline 7). Nanite renders no
+#: translucent material, so a mesh with such a slot gets the glass rule of
+#: art-pipeline 6.2: Nanite off, LOD0 plus an automatic 50 % LOD.
+TRANSLUCENT_MASTERS = frozenset({"M_Verse_Glass"})
+TRANSLUCENT_LOD = {"mode": "auto", "screen_sizes": [1.0, 0.5]}
+
+
+def _mi_parent(mi_path: str) -> str:
+    """The master name of one MI recipe, from `unreal/Verse/Art/Materials/**`."""
+    name = mi_path.rsplit(".", 1)[-1]
+    root = art_common.REPO_ROOT / "unreal" / "Verse" / "Art" / "Materials"
+    for path in root.rglob(f"{name}.mi.json"):
+        return json.loads(path.read_text(encoding="utf-8"))["parent"].rsplit(".", 1)[-1]
+    return ""
+
+
+def has_translucent_slot(slots: list[dict], parent_of=_mi_parent) -> bool:
+    """True when any material slot's MI has a translucent master."""
+    return any(parent_of(slot.get("mi", "")) in TRANSLUCENT_MASTERS for slot in slots)
+
+
 def weapon_records(asset: dict) -> list[dict]:
     """The `verse.import/1` records of one exported weapon, gadget or VFX mesh."""
     specs = _weapon_specs()
@@ -189,6 +217,7 @@ def weapon_records(asset: dict) -> list[dict]:
     else:
         object_path = specs.by_asset(name).object_path
     skeletal = asset["kind"] == "skeletal_mesh"
+    translucent = has_translucent_slot(asset["material_slots"])
     source = asset["source"]
     export = {
         "format": "fbx",
@@ -223,7 +252,10 @@ def weapon_records(asset: dict) -> list[dict]:
         "export": export,
         "mesh": mesh,
         "nanite": {
-            "enabled": not skeletal and not is_vfx and asset["triangles"] > PROP_NANITE_MIN_TRIS
+            "enabled": not skeletal
+            and not is_vfx
+            and not translucent
+            and asset["triangles"] > PROP_NANITE_MIN_TRIS
         },
         "collision": collision,
         "lod": {"mode": "single"},
@@ -233,6 +265,8 @@ def weapon_records(asset: dict) -> list[dict]:
     }
     if record["nanite"]["enabled"]:
         record["lod"] = {"mode": "nanite"}
+    elif translucent:
+        record["lod"] = dict(TRANSLUCENT_LOD)
     out = [record]
     if skeletal:
         spec = specs.by_asset(name)

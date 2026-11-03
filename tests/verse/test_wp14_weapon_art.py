@@ -13,7 +13,9 @@ sys.path.insert(0, str(REPO / "art" / "verse"))
 sys.path.insert(0, str(REPO / "unreal" / "Verse" / "Content" / "Python"))
 sys.path.insert(0, str(REPO / "scripts" / "unreal"))
 
-from verse_pipeline import masters, materials, validate_assets, weapons  # noqa: E402
+from verse_pipeline import materials  # noqa: E402
+from weapons.editor import checks, masters  # noqa: E402
+from weapons.editor import rig  # noqa: E402
 from weapons import specs  # noqa: E402
 from weapons.look import agx, palette  # noqa: E402
 
@@ -97,9 +99,9 @@ def test_editor_check_catches_missing_socket_and_bone_cap():
         "slots": ["M_Weapon_Steel"],
         "materials": ["/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Steel.MI_Weapon_Steel"],
     }
-    assert weapons.check(record, good) == []
+    assert rig.check(record, good) == []
     bad = dict(good, sockets=["SOCKET_Muzzle"], bones=["Root"] + [f"B{i}" for i in range(30)])
-    errors = weapons.check(record, bad)
+    errors = rig.check(record, bad)
     assert any("cap 24" in e for e in errors)
     assert any("SOCKET_Eject" in e for e in errors)
     assert any("Magazine" in e for e in errors)
@@ -131,13 +133,13 @@ def test_weapon_material_base_colour_is_black(recipe):
     assert recipe["owner"] == "WP14"
     assert materials.instance_path(recipe).startswith("/Game/Verse/Materials/Instances/Weapons/")
     assert (
-        validate_assets.weapon_colour_errors(recipe["name"], recipe["parent"], recipe["vectors"])
+        checks.weapon_colour_errors(recipe["name"], recipe["parent"], recipe["vectors"])
         == []
     )
-    for key, rgb in validate_assets.weapon_base_colours(
+    for key, rgb in checks.weapon_base_colours(
         recipe["parent"], recipe["vectors"]
     ).items():
-        assert validate_assets.luminance(rgb) <= 0.06, key
+        assert checks.luminance(rgb) <= 0.06, key
 
 
 @pytest.mark.parametrize("recipe", _recipes(), ids=lambda r: r["name"])
@@ -151,18 +153,18 @@ def test_recipe_parameters_exist_on_the_master(recipe):
 
 def test_weapon_master_clamps_any_tint_to_black():
     lighter = {"BaseTint": (0.5, 0.5, 0.5, 1.0), "EdgeTint": (0.9, 0.9, 0.9, 1.0)}
-    colours = validate_assets.weapon_base_colours(
+    colours = checks.weapon_base_colours(
         "/Game/Verse/Materials/Master/M_Verse_Weapon.M_Verse_Weapon", lighter
     )
-    assert validate_assets.luminance(colours["BaseTint"]) <= 0.0105
-    assert validate_assets.luminance(colours["EdgeTint"]) <= 0.06
+    assert checks.luminance(colours["BaseTint"]) <= 0.0105
+    assert checks.luminance(colours["EdgeTint"]) <= 0.06
     assert "1A1A1B" not in masters.WEAPON_COLOUR  # caps are baked as numbers
     assert str(masters.WEAPON_BASE_CAP[0]) in masters.WEAPON_COLOUR
 
 
 def test_gold_or_coloured_trim_fails():
     gold = (0.578, 0.366, 0.0685, 1.0)
-    errors = validate_assets.weapon_colour_errors(
+    errors = checks.weapon_colour_errors(
         "MI_X", "/Game/Verse/Materials/Master/M_Verse_Glass.M_Verse_Glass", {"BaseTint": gold}
     )
     assert errors
@@ -347,7 +349,7 @@ class _FakeCapture:
 
 
 def test_bolt_cost_measures_the_difference_of_medians(monkeypatch):
-    from verse_pipeline import lookdev
+    from weapons.editor import lookdev
 
     clock = [0.0]
     monkeypatch.setattr(lookdev.time, "perf_counter", lambda: clock[0])
@@ -388,3 +390,79 @@ def test_socket_base_bone_coincides_with_root(spec):
     assert (base.head, base.tail) == (root.head, root.tail)
     assert len(bones) <= specs.MAX_WEAPON_BONES
     assert all(s.bone in {b.name for b in spec.bones} for s in spec.sockets)
+
+
+def _export_unreal():
+    sys.path.insert(0, str(REPO / "scripts" / "verse"))
+    import export_unreal
+
+    return export_unreal
+
+
+def _asset_from_record(record: dict) -> dict:
+    """The exporter summary a committed record came from (inverse of weapon_records)."""
+    return {
+        "name": record["name"],
+        "kind": record["kind"],
+        "source": record["source"],
+        **{k: record["export"][k] for k in ("settings_id", "file", "sha256", "blender")},
+        **record["mesh"],
+        "collision_primitives": 0,
+    }
+
+
+def test_translucent_gadget_gets_nanite_off_and_the_glass_lod():
+    eu = _export_unreal()
+    record = _record(specs.by_asset("SM_Weapon_BulwarkField"))
+    assert eu.has_translucent_slot(record["mesh"]["material_slots"])
+    out = eu.weapon_records(_asset_from_record(record))[0]
+    assert out["nanite"] == {"enabled": False}
+    assert out["lod"] == {"mode": "auto", "screen_sizes": [1.0, 0.5]}
+    assert record["nanite"] == out["nanite"] and record["lod"] == out["lod"]
+
+
+def test_opaque_gadget_above_the_threshold_keeps_nanite():
+    eu = _export_unreal()
+    record = _record(specs.by_asset("SM_Weapon_Bulwark"))
+    assert not eu.has_translucent_slot(record["mesh"]["material_slots"])
+    out = eu.weapon_records(_asset_from_record(record))[0]
+    assert out["nanite"]["enabled"] == (record["mesh"]["triangles"] > eu.PROP_NANITE_MIN_TRIS)
+
+
+def test_no_committed_record_has_nanite_on_a_translucent_slot():
+    parents = {
+        materials.instance_path(r): r["parent"].rsplit(".", 1)[-1]
+        for r in materials.load_recipes()
+    }
+    errors = []
+    for path in sorted((REPO / "unreal" / "Verse" / "Art" / "Import").rglob("*.import.json")):
+        errors += checks.translucent_nanite_errors(json.loads(path.read_text("utf-8")), parents)
+    assert errors == []
+    bad = {"name": "SM_X", "nanite": {"enabled": True}, "mesh": {"material_slots": [
+        {"slot": "M_Weapon_Field", "mi": next(p for p, m in parents.items() if m == "M_Verse_Glass")}
+    ]}}
+    assert checks.translucent_nanite_errors(bad, parents)
+
+
+def test_auto_lod_halves_triangles_per_screen_size():
+    record = {"lod": {"mode": "auto", "screen_sizes": [1.0, 0.5]}}
+    assert rig.lod_reduction(record) == [(1.0, 1.0), (0.5, 0.5)]
+    assert rig.lod_reduction({"lod": {"mode": "nanite"}}) == []
+
+
+EMISSIVE = "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive"
+
+
+def test_only_the_reticle_and_vfx_may_glow_on_a_weapon():
+    amber = {"EmissiveColor": (0.888, 0.366, 0.0423, 1.0)}
+    assert checks.weapon_colour_errors("MI_Weapon_Indicator", EMISSIVE, amber)
+    assert checks.weapon_colour_errors("MI_Weapon_Reticle", EMISSIVE, amber) == []
+    assert checks.weapon_colour_errors("MI_Weapon_Vfx_BoltOwn", EMISSIVE, amber) == []
+
+
+def test_gadget_status_lens_is_black_and_unlit():
+    recipe = next(r for r in _recipes() if r["name"] == "MI_Weapon_Indicator")
+    assert recipe["parent"].endswith("M_Verse_Weapon")
+    assert checks.weapon_colour_errors(recipe["name"], recipe["parent"], recipe["vectors"]) == []
+    emissive = [r["name"] for r in _recipes() if r["parent"] == EMISSIVE]
+    assert all(n == "MI_Weapon_Reticle" or n.startswith("MI_Weapon_Vfx_") for n in emissive)

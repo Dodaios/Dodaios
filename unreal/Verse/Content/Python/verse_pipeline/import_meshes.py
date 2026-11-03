@@ -18,8 +18,6 @@ from .records import split_object_path
 IMPORTER_ENV = "VERSE_FBX_IMPORTER"
 DEFAULT_IMPORTER = "interchange"
 _CVAR = "Interchange.FeatureFlags.Import.FBX"
-#: The importer `use_importer` selected last in this process.
-_active = DEFAULT_IMPORTER
 
 
 def _unreal():
@@ -36,21 +34,7 @@ def use_importer(name: str | None = None) -> str:
         raise ValueError(f"{IMPORTER_ENV} must be interchange or legacy, got {name!r}")
     value = "1" if name == "interchange" else "0"
     unreal.SystemLibrary.execute_console_command(None, f"{_CVAR} {value}")
-    global _active
-    _active = name
     return name
-
-
-def wants_collision_import(source: str | None, importer: str | None = None) -> bool:
-    """`auto_generate_collision` for a record's `collision.source`.
-
-    Interchange maps the FbxImportUI flag onto "import collision" as a whole, so with it off the
-    authored `UBX_/USP_/UCP_/UCX_` primitives are dropped too (measured on UE 5.7.1: 0 primitives
-    off, the authored box on). Authored primitives win over the generated box when they exist.
-    """
-    if source == "auto_box":
-        return True
-    return source == "authored" and (importer or _active) == "interchange"
 
 
 def _base_options(skeletal: bool):
@@ -134,9 +118,8 @@ def run_import(fbx: Path, object_path: str, options, *, save: bool):
 def import_static(record: dict, fbx: Path, *, save: bool = True):
     nanite = bool(record.get("nanite", {}).get("enabled", False))
     collision = record.get("collision", {})
-    options = static_mesh_options(
-        nanite=nanite, auto_collision=wants_collision_import(collision.get("source"))
-    )
+    auto_box = collision.get("source") == "auto_box"
+    options = static_mesh_options(nanite=nanite, auto_collision=auto_box)
     return run_import(fbx, record["asset_path"], options, save=save)
 
 

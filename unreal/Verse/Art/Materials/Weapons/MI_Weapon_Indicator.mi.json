@@ -1,20 +1,33 @@
 {
   "name": "MI_Weapon_Indicator",
   "owner": "WP14",
-  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Weapon.M_Verse_Weapon",
   "replaces": "M_Weapon_Indicator",
   "scalars": {
-    "EmissiveNits": 18.0,
-    "Fade": 1.0
+    "EdgeMetallic": 0.0,
+    "EdgeWear": 0.0,
+    "GrimeAmount": 0.1,
+    "Metallic": 0.0,
+    "NoiseScale": 12.0,
+    "OilAmount": 0.0,
+    "RoughnessMax": 0.18,
+    "RoughnessMin": 0.08,
+    "Specular": 0.5
   },
   "schema": "verse.mi/1",
   "switches": {},
   "textures": {},
   "vectors": {
-    "EmissiveColor": [
-      0.888,
-      0.366,
-      0.0423,
+    "BaseTint": [
+      0.0035,
+      0.0035,
+      0.0037,
+      1.0
+    ],
+    "EdgeTint": [
+      0.0035,
+      0.0035,
+      0.0037,
       1.0
     ]
   }

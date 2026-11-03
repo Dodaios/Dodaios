@@ -18,7 +18,11 @@
   },
   "lightmap": "none",
   "lod": {
-    "mode": "nanite"
+    "mode": "auto",
+    "screen_sizes": [
+      1.0,
+      0.5
+    ]
   },
   "mesh": {
     "bounds_cm": {
@@ -45,7 +49,7 @@
   },
   "name": "SM_Weapon_BulwarkField",
   "nanite": {
-    "enabled": true
+    "enabled": false
   },
   "owner": "WP14",
   "schema": "verse.import/1",

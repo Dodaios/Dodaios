@@ -92,8 +92,7 @@ def _apply(actor, placement: dict, zone: str) -> None:
     movable = placement["mobility"] == "movable"
     component.set_mobility(mobility.MOVABLE if movable else mobility.STATIC)
     component.set_collision_profile_name(placement["collision"])
-    # UE 5.7 Python has no setter for this flag; the property itself is editable.
-    component.set_editor_property("can_ever_affect_navigation", placement["nav"] != "none")
+    component.set_can_ever_affect_navigation(placement["nav"] != "none")
     for slot, mi in (placement.get("material_overrides") or {}).items():
         index = component.get_material_index(slot)
         if index >= 0:

@@ -5,7 +5,7 @@ are exported like `lib/unreal_export.build_rig` (armature node named
 `Armature`, so `Root` is the first bone). Their sockets are empties named
 `SOCKET_<Name>` parented to the static bone `specs.SOCKET_BASE`: the
 Interchange skeletal importer turns them into mesh sockets `<Name>`, which
-`verse_pipeline.weapons` renames to the contract's `SOCKET_<Name>`
+`weapons.editor.rig` renames to the contract's `SOCKET_<Name>`
 (art-pipeline 12.2) and re-binds to their spec bone. Static
 gadgets and VFX go through `unreal_export.export_static_mesh`.
 """

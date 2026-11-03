@@ -3,7 +3,6 @@
 argv: <mode> [options]; modes:
     piece <SM_Name> --out DIR --result FILE [--module M ...]
     calib --out DIR --result FILE
-    weapons --out DIR --result FILE [--only ASSET ...]   (WP14, art/verse/weapons)
 
 Writes FBX files into DIR and a JSON summary into FILE that the host turns
 into import records. Exceptions propagate, so Blender exits with 1.
@@ -52,20 +51,14 @@ def main(argv: list[str]) -> None:
     piece.add_argument("name")
     piece.add_argument("--module", action="append", default=[])
     calib = sub.add_parser("calib")
-    weapons = sub.add_parser("weapons")
-    weapons.add_argument("--only", action="append", default=[])
-    for p in (piece, calib, weapons):
+    for p in (piece, calib):
         p.add_argument("--out", type=Path, required=True)
         p.add_argument("--result", type=Path, required=True)
     options = parser.parse_args(argv)
 
     _reset()
     results = []
-    if options.mode == "weapons":
-        from weapons import export as weapon_export
-
-        results.extend(weapon_export.export_all(options.out, options.only))
-    elif options.mode == "piece":
+    if options.mode == "piece":
         _load(options.module or list(DEFAULT_MODULES))
         results.append(_export_piece(options.name, options.out))
     else:

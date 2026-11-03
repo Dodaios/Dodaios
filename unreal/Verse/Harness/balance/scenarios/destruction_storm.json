@@ -1,0 +1,21 @@
+{
+  "schema": "verse.scenario_script/1",
+  "id": "destruction_storm",
+  "contract": "destruction.md 10",
+  "description": "Two breach charges plus a full magazine into a container row every 2 s for 60 s; every destruction budget must hold",
+  "a": {"kind": "model", "model": "average"},
+  "b": {"kind": "model", "model": "average"},
+  "steps": [
+    {"everyS": 2, "untilS": 60, "do": "breach_charge", "count": 2, "target": "arena.container_row"},
+    {"everyS": 2, "untilS": 60, "do": "empty_magazine", "weapon": "rifle", "target": "arena.container_row"}
+  ],
+  "durationS": 70,
+  "budgets": {
+    "activeDebrisBodiesMax": 400,
+    "fractureEventsPerSMax": 64,
+    "physicsMsMax": 2.0,
+    "penetrationTraceMsMax": 0.3,
+    "geometryCollectionsAliveMax": 32,
+    "fullResetBurstBytesMax": 16384
+  }
+}

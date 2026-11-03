@@ -31,7 +31,7 @@ KNIFE_SOCKETS = ("SOCKET_Tip",)
 #: skeletal importer keys the sockets found directly under the root joint by
 #: the joint's uid instead of its bone name and then drops them (UE 5.7), so
 #: the empties sit on this child of `Root` with Root's exact head and tail;
-#: `verse_pipeline.weapons` re-binds each socket to its spec bone after the
+#: `weapons.editor.rig` re-binds each socket to its spec bone after the
 #: import, which keeps its local transform because both bones coincide.
 SOCKET_BASE = "SocketBase"
 
@@ -250,7 +250,7 @@ BULWARK = WeaponSpec(
     design=(
         "Low steel sled with two fold-out feet and an emitter rail along its top",
         "Energy field panel as a separate mesh SM_Weapon_BulwarkField (thin, translucent)",
-        "One amber status lamp at the rear",
+        "One black glass status lens at the rear (unlit)",
     ),
 )
 
@@ -272,7 +272,7 @@ BREACH_CHARGE = WeaponSpec(
     triangle_cap=MAX_WORLD_WEAPON_TRIANGLES,
     design=(
         "Flat rectangular slab in a chamfered frame with four corner pads",
-        "Detonator block in the middle with one amber arming lamp",
+        "Detonator block in the middle with one black glass arming lens (unlit)",
     ),
 )
 

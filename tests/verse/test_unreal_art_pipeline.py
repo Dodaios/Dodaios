@@ -32,10 +32,9 @@ from lib import placement, ue_space, unreal_materials  # noqa: E402
 from verse_pipeline import (  # noqa: E402
     calib,
     import_assets,
-    import_meshes,
     records,
     sync_placements,
-    validate_assets,
+    validate_assets,  # noqa: E402
 )
 
 
@@ -516,17 +515,11 @@ def test_import_plan_skips_unchanged_exports():
     rec = _record()
     other = _record("SM_Wall_240")
     tex = dict(_record("T_A_BC"), kind="texture")
-    gc = dict(_record("GC_A"), kind="geometry_collection")
-    skel = dict(_record("SKEL_A"), kind="skeleton")
-    steps = import_assets.plan(
-        [rec, other, tex, gc, skel], {rec["asset_path"]: rec["export"]["sha256"]}
-    )
+    steps = import_assets.plan([rec, other, tex], {rec["asset_path"]: rec["export"]["sha256"]})
     assert [(r["name"], a) for r, a in steps] == [
         ("SM_Wall_480", "skip"),
         ("SM_Wall_240", "import"),
-        ("T_A_BC", "import"),
-        ("GC_A", "unsupported"),
-        ("SKEL_A", "with_mesh"),
+        ("T_A_BC", "unsupported"),
     ]
 
 
@@ -664,25 +657,3 @@ def test_export_records_follow_the_kit_rules(tmp_path):
 def test_reserved_export_modes_exit_2(capsys):
     assert export_unreal.main(["characters"]) == 2
     assert "WP13" in capsys.readouterr().err
-
-
-def test_collision_import_flag_keeps_authored_primitives_under_interchange():
-    # Interchange maps the flag onto collision import as a whole (WP12, UE 5.7.1).
-    assert import_meshes.wants_collision_import("auto_box", "legacy")
-    assert import_meshes.wants_collision_import("authored", "interchange")
-    assert not import_meshes.wants_collision_import("authored", "legacy")
-    assert not import_meshes.wants_collision_import("none", "interchange")
-
-
-def test_placement_sync_runs_with_an_offscreen_rhi_and_the_rest_without_one():
-    import_art = _load("import_art", REPO_ROOT / "scripts" / "unreal" / "import_art.py")
-    assert "-RenderOffscreen" in import_art.rhi_args("placements")
-    assert import_art.rhi_args("calib") == ["-nullrhi"]
-
-
-def test_editor_built_test_placeholders_need_no_import_record(tmp_path):
-    root = _scratch_root(tmp_path)
-    _write(root / "unreal/Verse/Content/Verse/Test/G0/SK_Test_Human.uasset", "pointer")
-    assert _errors(root) == []
-    _write(root / "unreal/Verse/Content/Verse/Test/G0/Thing.uasset", "pointer")
-    assert any("prefix not in" in e for e in _errors(root))

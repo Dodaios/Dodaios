@@ -20,11 +20,21 @@ chamfers that catch the light.
 |---|---|---|
 | Weapon, gadget and VFX meshes | `python scripts/verse/export_unreal.py weapons` | FBX in `art/verse/.cache/unreal/weapons/`, records in `unreal/Verse/Art/Import/Weapons/**`, `Art/Import/VFX/Weapons/` |
 | Grade LUT and AgX chart reference | `python scripts/verse/export_unreal.py textures` | `art/verse/.cache/unreal/look/`, record `Art/Import/PostProcess/T_Verse_Grade_LUT_M.import.json` |
-| Everything in Unreal, one lock hold | `python scripts/unreal/import_art.py wp14` | LUT texture, masters, MIs, meshes with sockets and slots, validation, lookdev frames |
-| Single steps | `import_art.py masters`, `materials`, `assets`, `validate`, `lookdev` | as named |
+| Everything in Unreal, one lock hold | `weapons.editor.chain` (entry `import_art.py wp14`, see below) | LUT texture, masters, MIs, meshes with sockets and slots, validation, lookdev frames |
+| Single steps | `weapons.editor.masters`, `verse_pipeline.materials`, `import_art.py assets`, `validate`, `weapons.editor.lookdev` | as named |
 | Evidence numbers | `python art/verse/weapons/look/evaluate.py` | `unreal/Verse/Saved/Harness/proof/WP14/metrics.json` |
 
-Masters are built from `unreal/Verse/Content/Python/verse_pipeline/masters.py`;
+The WP14 editor code lives in `art/verse/weapons/editor/` (WP14 owns it): `masters`
+(master graphs), `rig` (import finish: slots, skeleton, sockets, auto box,
+auto LOD; A14.1 check), `checks` (A14.2, palette bans, glass is Nanite off),
+`lookdev` (evidence frames) and `chain` (all of it in one editor session).
+The pipeline entry points that call it (`import_art.py` commands `masters`,
+`materials`, `lookdev`, `wp14`, the `verse_pipeline.cli` dispatch, texture and
+skeleton records in `import_assets`, the WP14 checks in `validate_assets`)
+belong to the integration owner and are requested in contract change request
+#1174 (art-pipeline 2 and 7).
+
+Masters are built from `art/verse/weapons/editor/masters.py`;
 MIs from `unreal/Verse/Art/Materials/**/MI_*.mi.json`. Edit the text, never the
 `.uasset`.
 
@@ -32,12 +42,12 @@ MIs from `unreal/Verse/Art/Materials/**/MI_*.mi.json`. Edit the text, never the
 
 | Item | Value | Why |
 |---|---|---|
-| Tone map | `M_Verse_PostTonemap` (post-process material, blendable location "replacing the tonemapper") samples `T_Verse_Grade_LUT_M` | The LUT holds Blender's own AgX output, so Unreal frames grade like today's Blender renders |
+| Tone map | `M_Verse_PostTonemap` (post-process material, blendable location "replacing the tonemapper") samples `T_Verse_Grade_LUT_M`. Art-pipeline 7 calls the LUT `T_Verse_Grade_LUT`; the `_M` suffix is the linear-mask suffix that art-pipeline 3 requires of every texture, so the asset keeps it and #1174 asks to amend section 7 to these two names. Deck owners place `M_Verse_PostTonemap` as the one blendable of their post-process volume | The LUT holds Blender's own AgX output, so Unreal frames grade like today's Blender renders |
 | LUT layout | 32 x 32 x 32 lattice as a 1024 x 32 strip of 32 slices (slice = blue), stored linear (HDR compression, no mips, clamped) | One sample pair per pixel, no tonemapper curve to invert |
 | LUT input | per channel `u = (log2(c / 0.18) + 12.47393) / 18.47393`, clamped | AgX's own lower bound, headroom to +6 EV above middle grey |
 | Order in the shader | `(scene + bloom * BloomScale) * exposure`, then the LUT | Bloom input 2 and the eye-adaptation exposure replace the tonemapper's own |
 | Exposure | Manual, physical camera off; `AutoExposureBias` per deck. Bias 0 means exposure scale 1 (chart test) | Fixed exposure per deck (art-pipeline 7) |
-| Reference scenes | bias -4, bloom 0.35 | Values of `verse_pipeline.lookdev.PROFILE` |
+| Reference scenes | bias -4, bloom 0.35 | Values of `weapons.editor.lookdev.PROFILE` |
 | Work light, hard | Spot, 5600 K, 2600 cd, 26 degree cone, source radius 1.5 cm, shadows on | Hard light, deep falloff, key-to-shadow at least 8 : 1 |
 | Fill | Spot, 4300 K, 90 cd, wide, no shadows | Keeps blacks readable without lifting them |
 | Rim | Spot, 6500 K, 900 cd, 18 degree cone | Separates black weapons from black walls |
@@ -62,8 +72,9 @@ must be at most 0.1 ms.
 
 All weapons are original. Names are fictional. Every part is fully black:
 base colour at most `#1A1A1B`, worn edges at most `#3B3F47`, no gold, no
-coloured trim; the only light on a weapon is a sight reticle or a gadget
-status lamp in amber. The silhouettes are built from 45 degree chamfered
+coloured trim; the only light on a weapon is the sight reticle in amber
+(art-pipeline 7). Gadget status lenses are black glossy `M_Verse_Weapon`
+instances (`MI_Weapon_Indicator`) and never glow. The silhouettes are built from 45 degree chamfered
 slabs and faceted prisms (brutalist grid), never from the outline of any
 existing firearm.
 
@@ -83,8 +94,8 @@ Shape language per weapon:
 - **Graveline** (assault rifle): Monolithic slab receiver with a 45 degree chamfered spine; no carry handle, no rail lugs; Hexagonal handguard prism with three stepped vent slots per side; Squat box sight with a recessed amber dot reticle; Skeleton stock of two angled struts closing on a rubber butt block; Magazine straight and tapered, with a ribbed base plate.
 - **Tallow** (pistol): Wedge slide whose front third steps down by a 45 degree chamfer; Rear serration as three deep horizontal grooves, not vertical cuts; Grip with a hard brutalist backstrap step and a flat base plate; Square trigger guard with a chamfered front corner.
 - **Hookbill** (knife): Straight single-edged blade whose spine bends down into a short hook at the tip; Faceted blade grind: two flat planes, no hollow grind; Square guard plate and a handle of stacked chamfered rubber blocks; Pommel as a flat hexagonal cap.
-- **Bulwark** (deployable energy barricade): Low steel sled with two fold-out feet and an emitter rail along its top; Energy field panel as a separate mesh SM_Weapon_BulwarkField (thin, translucent); One amber status lamp at the rear.
-- **BreachCharge** (breach charge): Flat rectangular slab in a chamfered frame with four corner pads; Detonator block in the middle with one amber arming lamp.
+- **Bulwark** (deployable energy barricade): Low steel sled with two fold-out feet and an emitter rail along its top; Energy field panel as a separate mesh SM_Weapon_BulwarkField (thin, translucent); One black glass status lens at the rear (unlit).
+- **BreachCharge** (breach charge): Flat rectangular slab in a chamfered frame with four corner pads; Detonator block in the middle with one black glass arming lens (unlit).
 - **Skitter** (submachine gun): Short box receiver with a forward magazine that doubles as the support grip; Charging slot on the left side; Stubby collapsed stock of a single flat bar; Low open sight blades instead of an optic.
 - **Longsight** (designated marksman rifle): Long faceted octagonal barrel shroud ending in a squared muzzle block; Tube sight on two flat stand-offs with deep sun hoods; Solid stock with a stepped cheek riser; Short box magazine.
 
@@ -109,7 +120,7 @@ checks the turnarounds against it.
 origin and bone `Root` sit at the grip point that attaches to `Weapon_R`.
 Sockets are relative to `Root`; their positions are in
 `art/verse/weapons/specs.py` and are added on import by
-`verse_pipeline.weapons` (skeletal FBX files carry no socket objects).
+`weapons.editor.rig` (skeletal FBX files carry no socket objects).
 
 ## 5. Weapon VFX (WP14.9)
 
@@ -139,7 +150,7 @@ hot core; the scorch is a DBuffer decal with the procedural round mask of
 ## 6. Master materials and their parameters (WP14.1)
 
 Frozen names (art-pipeline 7). Parameter tables are generated from
-`verse_pipeline/masters.py`; a test fails when a parameter is missing here.
+`art/verse/weapons/editor/masters.py`; a test fails when a parameter is missing here.
 Rules beyond the parameters:
 
 - `M_Verse_Weapon` clamps `BaseTint` to `#1A1A1B` and `EdgeTint` to
