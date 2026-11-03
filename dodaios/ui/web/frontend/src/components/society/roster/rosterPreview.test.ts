@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SocietyAgent } from "../data";
 import en from "@/i18n/locales/en.json";
 import { markAnswered, resetAttentionStore } from "../attention/attentionStore";
-import { formatRelative, needsYou, previewText, readableWaiting, relativeStamp, rosterPreview, rosterStatus, waitingReasonOf } from "./rosterPreview";
+import { formatRelative, needsYou, previewText, readableWaiting, relativeStamp, rosterPreview, rosterStatus, waitingLine, waitingReasonOf } from "./rosterPreview";
 
 function agent(over: Partial<SocietyAgent> & Record<string, unknown> = {}): SocietyAgent {
   return {
@@ -21,7 +21,7 @@ const reason = { kind: "question", summary: "Which **folder** should I use?", se
 describe("rosterPreview priority", () => {
   it("puts the waiting reason above a draft and the last message", () => {
     const preview = rosterPreview({ agent: agent({ waiting_reason: reason }), draft: "half a thought", lastMessage: "Done." });
-    expect(preview).toEqual({ kind: "waiting", text: "Which folder should I use?" });
+    expect(preview).toEqual({ kind: "waiting", text: "Which folder should I use?", waitingKind: "question" });
   });
 
   it("falls back to the plain waiting state when the backend sends no reason", () => {
@@ -126,5 +126,17 @@ describe("what the person already answered", () => {
     markAnswered("p1");
     expect(rosterStatus(proposing, false)).toBe("idle");
     resetAttentionStore();
+  });
+});
+
+describe("waitingLine", () => {
+  const t = (key: string) => (key === "login_card.title" ? "Sign in to {site}" : key);
+  it("says a sign-in is missing, not just the site name", () => {
+    expect(waitingLine({ kind: "credential", summary: "Hacker News" }, t))
+      .toBe("society.shell.preview_needs_you · Sign in to Hacker News");
+  });
+  it("keeps a question's own summary", () => {
+    expect(waitingLine({ kind: "question", summary: "Which folder?" }, t))
+      .toBe("society.shell.preview_needs_you · Which folder?");
   });
 });

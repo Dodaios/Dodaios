@@ -4286,6 +4286,17 @@ class BrainManager:
             parts.append(agentic_block)
         return "\n\n".join(p for p in parts if p)
 
+    @staticmethod
+    async def _vault_recall(user_text: str) -> str:
+        """Per-message memory recall, bounded to 150 ms so a busy disk never stalls a turn."""
+        from dodaios.memory.vault.runtime import turn_block
+
+        try:
+            return await asyncio.wait_for(asyncio.to_thread(turn_block, user_text), timeout=0.15)
+        except TimeoutError:
+            log.info("memory vault: per-message recall skipped (over 150 ms)")
+            return ""
+
     def _upcoming_block(self) -> str:
         """Dated plans from the notebooks for the next two weeks (initiative grounding).
 
@@ -11528,6 +11539,18 @@ class BrainManager:
             # Any unexpected error in the injector must never crash a voice turn.
             log.warning("WikiContextInjector raised unexpectedly — skipping", exc_info=True)
             self._wiki_context_suffix = ""
+
+        # Personal memory vault (ADR-0044): memories that match this message and
+        # are not in the always-on block ride along in the same per-turn slot.
+        if not (
+            turn_override is not None
+            and turn_override.tool_context.get("tool_origin") == "society"
+        ):
+            recalled = await self._vault_recall(user_text)
+            if recalled:
+                self._wiki_context_suffix = "\n\n".join(
+                    p for p in (self._wiki_context_suffix.strip(), recalled) if p
+                )
 
         # Wave 2 (omni-latency): assemble the per-turn dynamic context (date +
         # wiki) once. In cache-optimized mode it rides on the user

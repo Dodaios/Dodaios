@@ -157,6 +157,44 @@ def test_claude_without_identity_spawns_exactly_as_before(monkeypatch, tmp_path:
     assert dodaios_harness.HEADER_NAME not in plan.argv[plan.argv.index("--mcp-config") + 1]
 
 
+def test_a_coding_thread_may_spawn_sub_agents(monkeypatch, tmp_path: Path):
+    """A coding thread (no assistant identity) keeps the CLI's own sub-agents.
+
+    The assistant chat's "spawn no sub-agents" rule, appended here too, made
+    Claude Code refuse the sub-agents the person had asked for (2026-11-02).
+    """
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
+    runtime_refs.set_api_base_url("http://127.0.0.1:47821")
+    plan = runner_cli.plan_claude(
+        prompt="hi", cwd=tmp_path, model="", effort="", permission_mode="ask", resume=None
+    )
+    appended = plan.argv[plan.argv.index("--append-system-prompt") + 1]
+    assert appended == dodaios_harness.CODING_PREAMBLE
+    assert "sub-agent" not in appended
+    # The assistant's own chat keeps its rule: there the turn is the worker.
+    assert dodaios_harness.SYSTEM_PREAMBLE.endswith("spawn no sub-agents.")
+    assert dodaios_harness.SYSTEM_PREAMBLE.startswith(dodaios_harness.CODING_PREAMBLE)
+
+
+def test_an_identity_without_a_file_keeps_the_assistant_rule(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
+    runtime_refs.set_api_base_url("http://127.0.0.1:47821")
+    ident = dodaios_harness.Identity(session_id="sess-1", text="x", compact="x", path=None)
+    plan = runner_cli.plan_claude(
+        prompt="hi",
+        cwd=tmp_path,
+        model="",
+        effort="",
+        permission_mode="ask",
+        resume=None,
+        identity=ident,
+    )
+    appended = plan.argv[plan.argv.index("--append-system-prompt") + 1]
+    assert appended == dodaios_harness.SYSTEM_PREAMBLE
+
+
 def test_codex_gets_the_identity_on_stdin_and_the_session_header(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "read_codex_models", lambda: None)

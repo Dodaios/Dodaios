@@ -1,0 +1,64 @@
+[
+  {
+    "request": {
+      "type": "settings.set",
+      "id": "c-77",
+      "ts": 1793612606.0,
+      "data": {
+        "gore": "reduced"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 336,
+      "ts": 1793612606.05,
+      "re": "c-77",
+      "data": {
+        "ok": true,
+        "result": {
+          "settings": {
+            "gore": "reduced",
+            "reduced_motion": false,
+            "return_key": "F10",
+            "ui_sound": true,
+            "level_sound": true,
+            "uniform": "standard",
+            "view": {
+              "mode": "third",
+              "sensitivity": 1.0,
+              "invert_y": false,
+              "fov_third": 70,
+              "fov_first": 85,
+              "quality": "auto",
+              "volume": 0.7
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "settings.set",
+      "id": "c-83",
+      "ts": 1793612606.0,
+      "data": {
+        "gore": "none"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 337,
+      "ts": 1793612606.05,
+      "re": "c-83",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "bad_request",
+          "message": "gore must be full or reduced."
+        }
+      }
+    },
+    "request_invalid": true
+  }
+]

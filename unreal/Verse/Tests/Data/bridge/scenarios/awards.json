@@ -1,0 +1,98 @@
+{
+  "name": "awards",
+  "description": "XP awards for the commander, a level-up with an unlock, an agent and the drone; world actions.",
+  "topics": [
+    "progression",
+    "companion"
+  ],
+  "watch_screens": [],
+  "watch_chat_tails": [],
+  "state": {
+    "progression.snapshot": {
+      "subjects": [
+        {
+          "subject_id": "person",
+          "kind": "person",
+          "level": 14,
+          "total_xp": 5230,
+          "into_level": 130,
+          "for_next": 600,
+          "title": "Lieutenant"
+        }
+      ],
+      "pet_id": "drone",
+      "latest_seq": 902,
+      "told_seq": 897,
+      "rulebook": {
+        "ranks": [
+          {
+            "id": "recruit",
+            "level": 1,
+            "tier": "deck"
+          }
+        ],
+        "rewards": [],
+        "looks": [],
+        "titles": {}
+      },
+      "duel_stats": {
+        "matches": 12,
+        "wins": 7,
+        "losses": 5,
+        "kills": 96,
+        "deaths": 81,
+        "headshots": 31,
+        "finishers": 4,
+        "best_streak": 6,
+        "by_tier": {
+          "hard": {
+            "wins": 5,
+            "losses": 3
+          }
+        }
+      }
+    },
+    "companion.snapshot": {
+      "pet_id": "drone",
+      "look": "drone_brass",
+      "style": "overlay"
+    }
+  },
+  "replies": {
+    "progression.action": [
+      {
+        "ok": true,
+        "result": {
+          "awarded": {
+            "seq": 908,
+            "subject_id": "person",
+            "subject_kind": "person",
+            "xp_source": "deck_discovered",
+            "xp": 20,
+            "total_xp": 5850,
+            "level": 15,
+            "previous_level": 15,
+            "title": "Lieutenant",
+            "unlocked": [],
+            "unlocked_looks": []
+          }
+        }
+      },
+      {
+        "ok": true,
+        "result": {
+          "awarded": null
+        }
+      }
+    ]
+  },
+  "steps": [
+    {"at_ms": 200, "frame": {"type": "progression.awarded", "data": {"seq": 903, "subject_id": "person", "subject_kind": "person", "xp_source": "daily_visit", "xp": 25, "total_xp": 5255, "level": 14, "previous_level": 14, "title": "Lieutenant", "unlocked": [], "unlocked_looks": []}}},
+    {"at_ms": 400, "frame": {"type": "progression.awarded", "data": {"seq": 904, "subject_id": "person", "subject_kind": "person", "xp_source": "duel_won", "xp": 40, "total_xp": 5295, "level": 14, "previous_level": 14, "title": "Lieutenant", "unlocked": [], "unlocked_looks": []}}},
+    {"at_ms": 600, "frame": {"type": "progression.awarded", "data": {"seq": 905, "subject_id": "person", "subject_kind": "person", "xp_source": "inspection", "xp": 15, "total_xp": 5830, "level": 15, "previous_level": 14, "title": "Lieutenant", "unlocked": ["plate_line_gold"], "unlocked_looks": []}}},
+    {"at_ms": 800, "frame": {"type": "progression.awarded", "data": {"seq": 906, "subject_id": "agent:ag_001", "subject_kind": "agent", "xp_source": "task_done", "xp": 40, "total_xp": 820, "level": 7, "previous_level": 6, "title": "Deckhand", "unlocked": [], "unlocked_looks": ["look_05"]}}},
+    {"at_ms": 1000, "frame": {"type": "progression.awarded", "data": {"seq": 907, "subject_id": "pet:drone", "subject_kind": "pet", "xp_source": "walk_together", "xp": 3, "total_xp": 211, "level": 4, "previous_level": 4, "title": "Deckhand", "unlocked": [], "unlocked_looks": []}}},
+    {"at_ms": 1200, "frame": {"type": "companion.update", "data": {"pet_id": "drone", "look": "drone_gold", "style": "overlay"}}},
+    {"at_ms": 1300, "expect": {"type": "progression.told", "data": {"seq": 905}}, "timeout_ms": 5000, "note": "Verse reports the level-up it has shown."}
+  ]
+}

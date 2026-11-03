@@ -18,13 +18,16 @@ not at boot (AP-26). Writes run off the event loop.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
+import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .duel_stats import DuelResult, DuelResultError, DuelStatsStore, parse_duel_result
 from .rules import (
     LEAD_AGENT_ID,
     PERSON_ID,
@@ -32,6 +35,7 @@ from .rules import (
     VERSE_DECKS,
     WORLD_ACTIONS,
     agent_subject,
+    duel_awards,
     looks_between,
     pet_subject,
     progress_for_xp,
@@ -43,7 +47,7 @@ from .store import Award, ProgressionStore
 
 log = logging.getLogger(__name__)
 
-__all__ = ["VERSE_DECKS", "ProgressionService", "UnknownAction"]
+__all__ = ["VERSE_DECKS", "DuelResultError", "ProgressionService", "UnknownAction"]
 
 
 class UnknownAction(ValueError):
@@ -61,6 +65,10 @@ class ProgressionService:
     ) -> None:
         self._clock = clock or (lambda: int(time.time() * 1000))
         self.store = ProgressionStore(db_path, clock=self._clock)
+        self.duels = DuelStatsStore(db_path, clock=self._clock)
+        # One duel result at a time: its row, its awards and its mark are one step.
+        self._duel_lock = threading.Lock()
+        self._ledger_open = False
         self._bus = bus
         self._pet_id = pet_id or (lambda: "gigi")
         self._attached = False
@@ -92,6 +100,7 @@ class ProgressionService:
     def close(self) -> None:
         for task in list(self._tasks):
             task.cancel()
+        self.duels.close()
         self.store.close()
 
     async def drain(self) -> None:
@@ -201,6 +210,110 @@ class ProgressionService:
     async def note_agent_hired(self, agent_id: str) -> None:
         if agent_id and agent_id != LEAD_AGENT_ID:
             self._later((PERSON_ID, "agent_hired", f"agent:{agent_id}"))
+
+    # ------------------------------------------------------------ duels
+
+    async def record_duel(self, data: Mapping[str, Any]) -> dict[str, Any]:
+        """Store one ``duel.result`` (bridge-protocol 10) and pay its XP.
+
+        Idempotent on ``match_id``: a result sent again stores nothing, pays
+        nothing and answers with the awards the first one paid. Implausible
+        numbers are clamped and logged. Raises :class:`DuelResultError` for a
+        payload that is not a result (the bridge answers ``bad_request``).
+        """
+        result = parse_duel_result(data)
+        if result.clamped:
+            log.warning(
+                "progression: duel %s clamped: %s", result.match_id, "; ".join(result.clamped)
+            )
+        fresh, awards, paid = await asyncio.to_thread(self._record_duel_locked, result)
+        for award in paid:
+            await self._announce(award)
+        if fresh:
+            await self._announce_duel(result)
+        totals = await asyncio.to_thread(self.duels.bridge_totals)
+        # Exactly the reply result of bridge-protocol 10 (golden schema ``result.duel.result``).
+        return {
+            "recorded": True,
+            "awards": [{"xp_source": a["xp_source"], "xp": a["xp"]} for a in awards],
+            "duel_stats": totals,
+        }
+
+    def _record_duel_locked(
+        self, result: DuelResult
+    ) -> tuple[bool, list[dict[str, Any]], list[Award]]:
+        """Store the row and pay its rules; returns (fresh, award summaries, new awards)."""
+        with self._duel_lock:
+            self._ledger_first()
+            fresh = self.duels.insert(result)
+            row = self.duels.get(result.match_id)
+            if row is not None and row["awards_done"]:
+                return fresh, list(row["awards"]), []
+            # A new row, or one whose awards a crash interrupted: the ledger's
+            # per-ref uniqueness keeps a rerun from paying anything twice.
+            ref = f"duel:{result.match_id}"
+            paid: list[Award] = []
+            for source, xp in duel_awards(
+                mode=result.mode,
+                outcome=result.outcome,
+                match_time_s=result.match_time_s,
+                tier_key=result.tier_key,
+                finishers=result.stats["finishers"],
+            ):
+                rule = dataclasses.replace(RULES_BY_SOURCE[source], xp=xp)
+                award = self.store.award(PERSON_ID, rule, ref=ref)
+                if award is not None:
+                    paid.append(award)
+            # Summaries from the ledger, not only from this run: after a crash
+            # between paying and finish() the rerun pays nothing new, yet the
+            # set still paid what the ledger holds for its ref.
+            summaries = self.duels.paid_awards(PERSON_ID, ref)
+            self.duels.finish(result.match_id, summaries)
+            return fresh, summaries, paid
+
+    async def _announce_duel(self, result: DuelResult) -> None:
+        """Publish ``VerseDuelRecorded`` once the bus has the event (WP17 adds it)."""
+        if self._bus is None:
+            return
+        from dodaios.core import events
+
+        event_type = getattr(events, "VerseDuelRecorded", None)
+        if event_type is None:
+            log.debug("progression: VerseDuelRecorded not defined yet; %s not announced",
+                      result.match_id)
+            return
+        try:
+            await self._bus.publish(
+                event_type(
+                    source_layer="progression",
+                    match_id=result.match_id,
+                    outcome=result.outcome,
+                    kills=result.stats["kills"],
+                    deaths=result.stats["deaths"],
+                )
+            )
+        except Exception:  # noqa: BLE001 - the row is stored; the read path still has it
+            log.debug("progression: duel %s not announced", result.match_id, exc_info=True)
+
+    def _ledger_first(self) -> None:
+        """Open the XP ledger before the duel tables, so one connection creates the file."""
+        if not self._ledger_open:
+            self.store.latest_seq()
+            self._ledger_open = True
+
+    def duel_stats(self) -> dict[str, Any]:
+        """Duel totals for ``GET /api/progression`` and the bridge snapshot."""
+        self._ledger_first()
+        return self.duels.totals()
+
+    def bridge_duel_stats(self) -> dict[str, Any]:
+        """Duel totals in the strict ``duel_stats`` shape of ``progression.snapshot``."""
+        self._ledger_first()
+        return self.duels.bridge_totals()
+
+    def recent_duels(self, limit: int = 20) -> list[dict[str, Any]]:
+        self._ledger_first()
+        return self.duels.recent(limit=limit)
 
     # ------------------------------------------------------------ bus handlers
 

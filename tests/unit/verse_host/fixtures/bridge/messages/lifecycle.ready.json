@@ -1,0 +1,9 @@
+[
+  {
+    "type": "lifecycle.ready",
+    "ts": 1793612346.0,
+    "data": {
+      "first_frame_ms": 5230
+    }
+  }
+]

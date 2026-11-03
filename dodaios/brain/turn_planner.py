@@ -817,8 +817,8 @@ def is_contextual_follow_up(text: str, context: Sequence[str]) -> bool:
 # the planner (``remember`` is a save verb) although the user is asking, not
 # ordering. Kept next to the lookup regex so ``is_lookup_shape`` covers both.
 _RECALL_QUESTION_RE = re.compile(
-    r"(?:do you (?:remember|know|recall)|weisst du(?: noch)?|"  # i18n-allow: speech input
-    r"erinnerst du dich|kennst du|te acuerdas|recuerdas|sabes)"  # i18n-allow: speech input
+    r"\b(?:do you (?:remember|know|recall)|weisst du(?: noch)?|"  # i18n-allow: speech input
+    r"erinnerst du dich|kennst du|te acuerdas|recuerdas|sabes)\b"  # i18n-allow: speech input
 )
 
 
