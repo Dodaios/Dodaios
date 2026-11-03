@@ -958,6 +958,10 @@ GIT_VERBOSITY='--quiet'
 #   2. a mid-transfer disconnect aborts the install -> retry a clean clone
 #      up to 3 times before giving up with an honest message.
 GIT_NET_OPTS='-c http.lowSpeedLimit=1024 -c http.lowSpeedTime=30'
+# An install never downloads the Unreal Verse's LFS binaries (unreal/**); the
+# Verse arrives as its own package (docs/verse/unreal/architecture.md 8.4).
+GIT_LFS_SKIP_SMUDGE=1
+export GIT_LFS_SKIP_SMUDGE
 
 # Restyle git's raw transfer chatter into the installer's visual grammar
 # (maintainer request 2026-07-18: phases 1-2 look polished, then raw
@@ -1495,6 +1499,11 @@ if [ ! -f "$INSTALLER_PY" ]; then
 fi
 
 note 'handing over to the Python installer (phases 4-6)'
+
+# The LFS skip is for this script's own git calls only. Drop it before the
+# hand-off so the app installer.py launches (and every git it runs in the
+# user's own repos) never inherits it.
+unset GIT_LFS_SKIP_SMUDGE
 
 cd "$INSTALL_DIR"
 exec "$VENV_PYTHON" "$INSTALLER_PY" "$@"

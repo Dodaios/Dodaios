@@ -114,6 +114,9 @@ def _run(
     env = dict(os.environ)
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
+    # Following main never downloads the Unreal Verse's LFS binaries (``unreal/**``,
+    # docs/verse/unreal/architecture.md 8.4); the Verse arrives as its own package.
+    env["GIT_LFS_SKIP_SMUDGE"] = "1"
     if read_only:
         # A read never takes the index lock (``git status`` would refresh the index
         # under it), so a read that is given up on can never leave one behind.

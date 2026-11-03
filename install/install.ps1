@@ -755,6 +755,9 @@ $GitVerbosity = if ([Console]::IsErrorRedirected) { '--quiet' } else { '--progre
 #   2. a mid-transfer disconnect aborts the install -> retry a clean clone
 #      up to 3 times before giving up with an honest message.
 $GitNetOpts = @('-c', 'http.lowSpeedLimit=1024', '-c', 'http.lowSpeedTime=30')
+# An install never downloads the Unreal Verse's LFS binaries (unreal/**); the
+# Verse arrives as its own package (docs/verse/unreal/architecture.md 8.4).
+$env:GIT_LFS_SKIP_SMUDGE = '1'
 
 # --- install-ref begin (extracted by tests/unit/install/test_install_ref.py)
 # Without JARVIS_INSTALL_REF an install follows the newest published release,
@@ -1242,6 +1245,11 @@ if (-not (Test-Path $InstallerPy)) {
 }
 
 Write-Note 'handing over to the Python installer (phases 4-6)'
+
+# The LFS skip is for this script's own git calls only. Drop it before the
+# hand-off so the app installer.py launches (and every git it runs in the
+# user's own repos) never inherits it.
+Remove-Item Env:GIT_LFS_SKIP_SMUDGE -ErrorAction SilentlyContinue
 
 Push-Location $InstallDir
 try {

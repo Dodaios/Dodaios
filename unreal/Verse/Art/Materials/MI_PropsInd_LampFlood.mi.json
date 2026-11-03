@@ -1,0 +1,20 @@
+{
+  "name": "MI_PropsInd_LampFlood",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "replaces": "M_PropsInd_LampFlood",
+  "scalars": {
+    "EmissiveNits": 400.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "EmissiveColor": [
+      0.8,
+      0.8,
+      0.8,
+      1.0
+    ]
+  }
+}

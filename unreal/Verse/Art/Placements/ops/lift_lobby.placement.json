@@ -1,0 +1,290 @@
+{
+  "bounds_cm": {
+    "max": [
+      8160.0,
+      4660.0,
+      900.0
+    ],
+    "min": [
+      7040.0,
+      3300.0,
+      -300.0
+    ]
+  },
+  "deck": "ops",
+  "generator": {
+    "blender": "5.0.1",
+    "script": "deck_import.py",
+    "version": "1"
+  },
+  "level": "/Game/Verse/Decks/Ops/LV_Ops",
+  "placements": [
+    {
+      "asset": "/Game/Verse/Decks/Ops/LiftLobby/SM_Ops_LiftLobby_Bounds.SM_Ops_LiftLobby_Bounds",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "lift_lobby_bounds_1",
+      "location": [
+        7600.0,
+        3980.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_LiftLobby_Bounds",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/LiftLobby/SM_Ops_LiftLobby_Bounds2.SM_Ops_LiftLobby_Bounds2",
+      "collision": "Verse_ProxyOnly",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "lift_lobby_bounds_2",
+      "location": [
+        7600.0,
+        3980.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "block",
+      "owner": "WP12",
+      "piece": "SM_Ops_LiftLobby_Bounds2",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/LiftLobby/SM_Ops_LiftLobby_Ceiling.SM_Ops_LiftLobby_Ceiling",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "lift_lobby_ceiling",
+      "location": [
+        7600.0,
+        3980.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "none",
+      "owner": "WP12",
+      "piece": "SM_Ops_LiftLobby_Ceiling",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    },
+    {
+      "asset": "/Game/Verse/Decks/Ops/LiftLobby/SM_Ops_LiftLobby_Shell.SM_Ops_LiftLobby_Shell",
+      "collision": "Verse_Architecture",
+      "data_layer": "DL_Ops_Base",
+      "destructible": null,
+      "id": "lift_lobby_shell",
+      "location": [
+        7600.0,
+        3980.0,
+        0.0
+      ],
+      "mobility": "static",
+      "nav": "walk",
+      "owner": "WP12",
+      "piece": "SM_Ops_LiftLobby_Shell",
+      "room": null,
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "station": null
+    }
+  ],
+  "rooms": [
+    {
+      "id": "lobby",
+      "main": false,
+      "name": "Turbolift Lobby",
+      "polygon_cm": [
+        [
+          7100.0,
+          3360.0
+        ],
+        [
+          7100.0,
+          4600.0
+        ],
+        [
+          8100.0,
+          4600.0
+        ],
+        [
+          8100.0,
+          3360.0
+        ]
+      ],
+      "z_cm": 0.0
+    }
+  ],
+  "schema": "verse.placement/1",
+  "sockets": [
+    {
+      "id": "door-lift_1",
+      "kind": "door",
+      "location": [
+        7480.0,
+        3720.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift_1",
+        "width": "1.6",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "door-lift_2",
+      "kind": "door",
+      "location": [
+        7720.0,
+        3720.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift_2",
+        "width": "1.6",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "lift-main",
+      "kind": "lift",
+      "location": [
+        7600.0,
+        3765.0,
+        0.0
+      ],
+      "props": {
+        "decks": "all",
+        "manifest_id": "main",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "station": null
+    },
+    {
+      "id": "spawn-commander",
+      "kind": "spawn",
+      "location": [
+        7600.0,
+        3940.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "commander",
+        "yaw_deg": "0.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071068,
+        0.7071068
+      ],
+      "spawn": {
+        "duel": false,
+        "team": "any"
+      },
+      "station": null
+    },
+    {
+      "id": "station-lift",
+      "kind": "station",
+      "location": [
+        7600.0,
+        3790.0,
+        0.0
+      ],
+      "props": {
+        "manifest_id": "lift",
+        "station_kind": "lift",
+        "station_yaw_deg": "180.0",
+        "yaw_deg": "180.0"
+      },
+      "room": "lobby",
+      "rotation": [
+        0.0,
+        0.0,
+        -0.7071068,
+        0.7071068
+      ],
+      "station": {
+        "id": "lift",
+        "kind": "lift"
+      }
+    }
+  ],
+  "source": {
+    "builder": "art/verse/decks/ops/zones.py",
+    "sha256": "329c8c808950e8e72fcd63a0dfbb06f865436b131b4a00915c294e4d47919afa"
+  },
+  "zone": "lift_lobby"
+}

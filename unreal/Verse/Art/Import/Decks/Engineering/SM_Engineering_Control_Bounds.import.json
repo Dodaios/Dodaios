@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Engineering/Control/SM_Engineering_Control_Bounds.SM_Engineering_Control_Bounds",
+  "collision": {
+    "primitives": 16,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Control_Bounds.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "19e84436b9c5e4db6060c8df464a0720a5b71a881e6895694033530843d3e7e5"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        1710.0,
+        2045.0,
+        300.0
+      ],
+      "min": [
+        -1430.0,
+        -1955.0,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 192,
+    "uv_sets": 1,
+    "vertices": 128
+  },
+  "name": "SM_Engineering_Control_Bounds",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "control"
+    },
+    "builder": "art/verse/decks/engineering/build.py",
+    "function": "build"
+  }
+}

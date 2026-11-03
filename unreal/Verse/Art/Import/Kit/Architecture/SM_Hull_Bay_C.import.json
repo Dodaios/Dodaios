@@ -1,0 +1,75 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_Hull_Bay_C.SM_Hull_Bay_C",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hull_Bay_C.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "d6f879377948dc78e465a8da6efdef0b0d96d3411695d9012ab88c987a667b4b"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        120.0,
+        130.0,
+        0.0
+      ],
+      "min": [
+        -132.0,
+        -120.0,
+        -246.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_PipeInsulated.MI_Hull_PipeInsulated",
+        "slot": "M_Hull_PipeInsulated"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
+        "slot": "M_Hull_Pipe"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      }
+    ],
+    "triangles": 4192,
+    "uv_sets": 1,
+    "vertices": 2176
+  },
+  "name": "SM_Hull_Bay_C",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "variant": "C"
+    },
+    "builder": "art/verse/kit/architecture/hull.py",
+    "function": "build_bay"
+  }
+}

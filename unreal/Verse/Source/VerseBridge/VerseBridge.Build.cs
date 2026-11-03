@@ -9,7 +9,11 @@ public class VerseBridge : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore" });
-		// Json: the duel.result codec and its pending store (WP21.6, bridge-protocol.md 10).
-		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
+		// Engine modules of the bridge client (WP17.11, 17.12): Json is in the public
+		// feed and codec headers and also serves the duel.result codec (WP21.6);
+		// Sockets carries the WebSocket client; Slate, SlateCore and InputCore move,
+		// show and focus the window and catch the return key.
+		PublicDependencyModuleNames.AddRange(new string[] { "Json" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "InputCore", "Sockets" });
 	}
 }

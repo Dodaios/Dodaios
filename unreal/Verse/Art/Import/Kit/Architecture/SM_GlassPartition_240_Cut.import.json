@@ -1,0 +1,76 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_GlassPartition_240_Cut.SM_GlassPartition_240_Cut",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_GlassPartition_240_Cut.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b0be0507538280f02720d8405b705f57b76f01d3b709a372eb16c5e2ed437d14"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        120.0,
+        1.0,
+        110.0
+      ],
+      "min": [
+        -120.0,
+        -21.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
+        "slot": "M_Wall_Charcoal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Glass/MI_Glass_Clear.MI_Glass_Clear",
+        "slot": "M_Glass_Clear"
+      }
+    ],
+    "triangles": 758,
+    "uv_sets": 1,
+    "vertices": 396
+  },
+  "name": "SM_GlassPartition_240_Cut",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "cut": true,
+      "width": 2.4
+    },
+    "builder": "art/verse/kit/architecture/windows.py",
+    "function": "build_glass_partition"
+  }
+}

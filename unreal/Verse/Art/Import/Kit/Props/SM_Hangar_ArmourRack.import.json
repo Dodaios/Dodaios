@@ -1,0 +1,77 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_ArmourRack.SM_Hangar_ArmourRack",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_ArmourRack.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "1c496cd0c6671b9f93030eefb925cbb8b6961ba12be08557d48c0756f7378f25"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        125.0,
+        68.0,
+        230.0
+      ],
+      "min": [
+        -125.0,
+        0.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
+        "slot": "M_Wall_PaintedLight"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_GlassDark.MI_PropsInd_GlassDark",
+        "slot": "M_PropsInd_GlassDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      }
+    ],
+    "triangles": 5208,
+    "uv_sets": 1,
+    "vertices": 3056
+  },
+  "name": "SM_Hangar_ArmourRack",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_armour_rack"
+  }
+}

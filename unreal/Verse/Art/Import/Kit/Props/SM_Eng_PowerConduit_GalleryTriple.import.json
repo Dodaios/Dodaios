@@ -1,0 +1,84 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_GalleryTriple.SM_Eng_PowerConduit_GalleryTriple",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Eng_PowerConduit_GalleryTriple.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "da034770fa4d9462065e4479c24f0f31d7e7814f2e009509d404e1ba657f724f"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        120.0,
+        71.0,
+        495.0
+      ],
+      "min": [
+        -120.0,
+        -61.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_CoreHot.MI_PropsInd_CoreHot",
+        "slot": "M_PropsInd_CoreHot"
+      }
+    ],
+    "triangles": 28219,
+    "uv_sets": 1,
+    "vertices": 15739
+  },
+  "name": "SM_Eng_PowerConduit_GalleryTriple",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "height": 4.8,
+      "tubes": 3
+    },
+    "builder": "art/verse/kit/props/industrial/engineering.py",
+    "function": "build_power_conduit"
+  }
+}

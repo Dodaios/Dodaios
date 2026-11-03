@@ -1,0 +1,77 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_StorageRack.SM_Hangar_StorageRack",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_StorageRack.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "53152ac76c8dd176060c378e56c62281b1016c91113202f73607be7c79fab4a2"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        245.0,
+        118.0,
+        460.0
+      ],
+      "min": [
+        -245.0,
+        2.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilAmber.MI_PropsInd_StencilAmber",
+        "slot": "M_PropsInd_StencilAmber"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerGunmetal.MI_PropsInd_ContainerGunmetal",
+        "slot": "M_PropsInd_ContainerGunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerOlive.MI_PropsInd_ContainerOlive",
+        "slot": "M_PropsInd_ContainerOlive"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Crate_Paint.MI_Crate_Paint",
+        "slot": "M_Crate_Paint"
+      }
+    ],
+    "triangles": 10944,
+    "uv_sets": 1,
+    "vertices": 7288
+  },
+  "name": "SM_Hangar_StorageRack",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_storage_rack"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "MI_Space_Earth",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Screen.M_Verse_Screen",
+  "replaces": "M_Space_Earth",
+  "scalars": {
+    "EmissiveNits": 2.0,
+    "Roughness": 0.9
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "ScreenTexture": "/Game/Verse/Kit/Space/T_Space_Earth_E.T_Space_Earth_E"
+  },
+  "vectors": {
+    "ScreenTint": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  }
+}

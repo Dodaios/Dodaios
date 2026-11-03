@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Bridge/Pits/SM_Bridge_Pits_Bounds9.SM_Bridge_Pits_Bounds9",
+  "collision": {
+    "primitives": 10,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/bridge/SM_Bridge_Pits_Bounds9.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0d190d3f70391b6a9145afcb7b105c51bec339c22cf93774bf52604aea2dd798"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        3035.0,
+        855.0,
+        360.0
+      ],
+      "min": [
+        -3275.0,
+        625.0,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 120,
+    "uv_sets": 1,
+    "vertices": 80
+  },
+  "name": "SM_Bridge_Pits_Bounds9",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "pits"
+    },
+    "builder": "art/verse/decks/bridge/build.py",
+    "function": "build"
+  }
+}

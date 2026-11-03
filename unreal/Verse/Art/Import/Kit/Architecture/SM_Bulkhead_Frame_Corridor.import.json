@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Architecture/SM_Bulkhead_Frame_Corridor.SM_Bulkhead_Frame_Corridor",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Architecture",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Bulkhead_Frame_Corridor.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "7a89f6ac817db19750409f982751d8ba17a7db6502313f540bd259474fe372a8"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        15.0,
+        240.0,
+        360.0
+      ],
+      "min": [
+        -15.0,
+        -240.0,
+        -0.5
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
+        "slot": "M_Wall_Charcoal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      }
+    ],
+    "triangles": 312,
+    "uv_sets": 1,
+    "vertices": 216
+  },
+  "name": "SM_Bulkhead_Frame_Corridor",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/architecture/structure.py",
+    "function": "build_corridor_frame"
+  }
+}

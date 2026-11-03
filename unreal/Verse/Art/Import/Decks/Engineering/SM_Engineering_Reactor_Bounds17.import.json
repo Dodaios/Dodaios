@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/Decks/Engineering/Reactor/SM_Engineering_Reactor_Bounds17.SM_Engineering_Reactor_Bounds17",
+  "collision": {
+    "primitives": 16,
+    "profile": "Verse_ProxyOnly",
+    "source": "authored"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/decks/engineering/SM_Engineering_Reactor_Bounds17.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "afe1f9cbd84ac295d60839e929cb62acdebf995e501f7fd4e4e684d05fa7aac9"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        497.645,
+        1727.57,
+        300.0
+      ],
+      "min": [
+        -68.429,
+        1228.956,
+        -150.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      }
+    ],
+    "triangles": 192,
+    "uv_sets": 1,
+    "vertices": 128
+  },
+  "name": "SM_Engineering_Reactor_Bounds17",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "zone": "reactor"
+    },
+    "builder": "art/verse/decks/engineering/build.py",
+    "function": "build"
+  }
+}

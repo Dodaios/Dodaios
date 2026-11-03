@@ -1129,7 +1129,7 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
     # We deliberately do not wait for the App — the installer returns control
     # to the user's shell as soon as the App is spawned.
     try:
-        subprocess.Popen(cmd, cwd=repo_root(), close_fds=True)
+        subprocess.Popen(cmd, cwd=repo_root(), close_fds=True, env=app_launch_env())
     except OSError as exc:
         console.print(f"[bad]│    Could not launch: {exc}[/]")
         console.print(f"[muted]     Open it by hand:[/] [brand]{hint}[/]")
@@ -1140,6 +1140,19 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
     # command behind — this is the line the user needs when the window never
     # appears (macOS first-launch permission prompt, background launch, …).
     console.print(f"[muted]     If it doesn't open, run:[/] [brand]{hint}[/]")
+
+
+def app_launch_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """Environment for the launched app: the installer's own, minus its git-only knobs.
+
+    The shell stage sets ``GIT_LFS_SKIP_SMUDGE`` for its clone so an install
+    never pulls the Verse's LFS binaries. The app (coding-agent panes, git in
+    the user's own repos) must not inherit it, or LFS files there would come
+    out as pointer files.
+    """
+    env = dict(os.environ if base is None else base)
+    env.pop("GIT_LFS_SKIP_SMUDGE", None)
+    return env
 
 
 def step_cli_links(*, dry_run: bool) -> None:

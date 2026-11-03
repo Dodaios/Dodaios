@@ -1,0 +1,89 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Dispenser.SM_Dispenser",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Dispenser.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "815a14d67e3f1cec0ee831e085eb5ed840c9a94c7a2cf379d2d07adc95477eb7"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        46.0,
+        52.0,
+        202.0
+      ],
+      "min": [
+        -46.0,
+        0.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Deck.MI_Console_Deck",
+        "slot": "M_Console_Deck"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_LampOff.MI_Plastic_LampOff",
+        "slot": "M_Plastic_LampOff"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Emit_BacklitPanel.MI_Emit_BacklitPanel",
+        "slot": "M_Emit_BacklitPanel"
+      }
+    ],
+    "triangles": 2718,
+    "uv_sets": 1,
+    "vertices": 1452
+  },
+  "name": "SM_Dispenser",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/fittings.py",
+    "function": "dispenser"
+  }
+}

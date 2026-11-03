@@ -1,0 +1,93 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Board_Rank.SM_Board_Rank",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Board_Rank.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "a442a3a412b2234bd979828a3880113c23ec12f8b7f3b07325865faeaf44dd53"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        180.0,
+        51.687,
+        320.0
+      ],
+      "min": [
+        -180.0,
+        0.139,
+        70.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_RankBlue.MI_Paint_RankBlue",
+        "slot": "M_Paint_RankBlue"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_RankRed.MI_Paint_RankRed",
+        "slot": "M_Paint_RankRed"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Metal_RankGold.MI_Metal_RankGold",
+        "slot": "M_Metal_RankGold"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Emit_BacklitPanel.MI_Emit_BacklitPanel",
+        "slot": "M_Emit_BacklitPanel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_White.MI_Indicator_White",
+        "slot": "M_Indicator_White"
+      }
+    ],
+    "triangles": 5206,
+    "uv_sets": 1,
+    "vertices": 2956
+  },
+  "name": "SM_Board_Rank",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/fittings.py",
+    "function": "rank_board"
+  }
+}

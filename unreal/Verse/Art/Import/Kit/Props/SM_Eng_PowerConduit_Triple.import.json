@@ -1,0 +1,83 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Eng_PowerConduit_Triple.SM_Eng_PowerConduit_Triple",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Eng_PowerConduit_Triple.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "fd0ff668201e758c8099bad8b5e9769d88ca25ca2c0a54487d4f1a08b7326b6d"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        120.0,
+        71.0,
+        600.2
+      ],
+      "min": [
+        -120.0,
+        -61.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
+        "slot": "M_Wall_PaintedDark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Indicator_Green.MI_Indicator_Green",
+        "slot": "M_Indicator_Green"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Section_Cap.MI_Section_Cap",
+        "slot": "M_Section_Cap"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_CoreHot.MI_PropsInd_CoreHot",
+        "slot": "M_PropsInd_CoreHot"
+      }
+    ],
+    "triangles": 32755,
+    "uv_sets": 1,
+    "vertices": 17865
+  },
+  "name": "SM_Eng_PowerConduit_Triple",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "tubes": 3
+    },
+    "builder": "art/verse/kit/props/industrial/engineering.py",
+    "function": "build_power_conduit"
+  }
+}

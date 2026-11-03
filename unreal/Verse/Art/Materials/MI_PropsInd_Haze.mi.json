@@ -1,0 +1,21 @@
+{
+  "name": "MI_PropsInd_Haze",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Glass.M_Verse_Glass",
+  "replaces": "M_PropsInd_Haze",
+  "scalars": {
+    "Opacity": 0.18,
+    "Roughness": 0.05
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.8,
+      0.8,
+      0.8,
+      1.0
+    ]
+  }
+}

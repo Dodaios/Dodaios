@@ -1,0 +1,73 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_FuelCart.SM_Hangar_FuelCart",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_FuelCart.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "c1ce38821ebf2908d6b8271c32388b5ad42b5eecb86bf2ee65f318d9df25442a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        116.0,
+        58.0,
+        124.0
+      ],
+      "min": [
+        -164.755,
+        -58.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Structure.MI_Hull_Structure",
+        "slot": "M_Hull_Structure"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_ContainerGrey.MI_PropsInd_ContainerGrey",
+        "slot": "M_PropsInd_ContainerGrey"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_PropsInd_StencilDark.MI_PropsInd_StencilDark",
+        "slot": "M_PropsInd_StencilDark"
+      }
+    ],
+    "triangles": 4085,
+    "uv_sets": 1,
+    "vertices": 2231
+  },
+  "name": "SM_Hangar_FuelCart",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar_service.py",
+    "function": "build_fuel_cart"
+  }
+}

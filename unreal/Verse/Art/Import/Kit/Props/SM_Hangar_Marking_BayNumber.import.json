@@ -1,0 +1,57 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Marking_BayNumber.SM_Hangar_Marking_BayNumber",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Hangar_Marking_BayNumber.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "3a0ad0badfa1e4e1c0bdf5de68f6847454f24b3a85dab4f65ebe9936a9090c21"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        107.002,
+        76.682,
+        0.15
+      ],
+      "min": [
+        -98.413,
+        -75.647,
+        0.15
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
+        "slot": "M_Deck_Marking_White"
+      }
+    ],
+    "triangles": 287,
+    "uv_sets": 1,
+    "vertices": 287
+  },
+  "name": "SM_Hangar_Marking_BayNumber",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/industrial/hangar.py",
+    "function": "build_marking_number"
+  }
+}
