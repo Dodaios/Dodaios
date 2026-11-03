@@ -10,6 +10,7 @@
 
 class UAnimSequence;
 class USceneComponent;
+class USkeletalMeshComponent;
 
 /** Worker-thread side of `UVerseAnimInstance`: evaluates the frame natively, no anim graph. */
 struct VERSEMOVEMENT_API FVerseAnimInstanceProxy : public FAnimInstanceProxy
@@ -43,6 +44,14 @@ struct VERSEMOVEMENT_API FVerseAnimInstanceProxy : public FAnimInstanceProxy
  * aim pitch, off-hand IK to the weapon's `SOCKET_Support` and foot IK.
  * Evaluated natively (`FVerseAnimInstanceProxy`), so no animation
  * blueprint asset is needed; montages in the `FullBody` slot still play.
+ *
+ * One pawn, one source of animation state: the owner's first-person body
+ * (`UVerseFirstPersonLibrary::ConfigureOwnerView`) mirrors the world body's
+ * instance (`SetStateSource`). Callers drive only the world body
+ * (`SetWeaponState`, `PlayAction`, `SetWeaponComponent`, `SetExternalInputs`);
+ * the first-person body copies its inputs and frame every update and only
+ * adds the hidden head. Calls made on a mirroring instance are forwarded to
+ * its source.
  */
 UCLASS(Transient, Blueprintable, BlueprintType)
 class VERSEMOVEMENT_API UVerseAnimInstance : public UAnimInstance
@@ -72,11 +81,23 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
 	void SetFootIKEnabled(bool bEnabled) { bFootIK = bEnabled; }
 
+	/**
+	 * Mirror the instance on `SourceBody` (the pawn's world body): this
+	 * instance then takes its inputs, frame and weapon component instead of
+	 * running its own state machine. Null stops mirroring.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
+	void SetStateSource(USkeletalMeshComponent* SourceBody);
+
+	/** The instance this one mirrors, or null. */
+	UVerseAnimInstance* GetStateSource() const;
+
 	const FVerseAnimInputs& GetInputs() const { return Inputs; }
 	const FVerseAnimFrame& GetFrame() const { return Frame; }
 	const FVerseAnimClipSet& GetClips() const { return Clips; }
-	EVerseLocoState GetLocoState() const { return Machine.GetState(); }
-	float GetIdleTime() const { return Machine.GetIdleTime(); }
+	EVerseLocoState GetLocoState() const;
+	float GetIdleTime() const;
+	const USceneComponent* GetWeaponComponent() const { return WeaponComponent.Get(); }
 
 	/** Support socket in the weapon's root frame (cm): the attached weapon's, else the reference. */
 	FTransform GetSupportInWeapon() const;
@@ -90,6 +111,8 @@ protected:
 private:
 	void GatherInputs(float DeltaSeconds);
 	void TraceFeet();
+	bool MirrorSource();
+	bool IsMantleHigh(const AActor* Owner);
 
 	FVerseAnimInputs Inputs;
 	FVerseAnimFrame Frame;
@@ -102,6 +125,21 @@ private:
 	float Ads = 0.f;
 	EVerseAnimAction Action = EVerseAnimAction::None;
 	float ActionStart = 0.f;
+	/** Mantle height latched when a mantle starts (no height on `IVerseMovementQuery` yet). */
+	bool bWasMantling = false;
+	bool bMantleHigh = false;
+	/** Heel sole point (under the ankle in the reference pose) in each foot's frame, for the heel probe. */
+	FVector HeelLocal[2] = {FVector::ZeroVector, FVector::ZeroVector};
+	/** Owner-view bodies look for their world body once per initialisation. */
+	bool bSourceSearched = false;
+	/** The override clip resolved for `OverrideName`, loaded only when the name changes. */
+	FName OverrideName;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> OverrideClip;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<USkeletalMeshComponent> StateSourceBody;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UAnimSequence>> Loaded;

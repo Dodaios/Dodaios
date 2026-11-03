@@ -102,6 +102,15 @@ void SpreadRotation(TConstArrayView<int32> Parents, TArray<FTransform>& Local, T
 	LocalToComponent(Parents, Local, CS);
 }
 
+float FootFloorOffset(float AnkleOffset, const FVector& AnkleNormal, float BallOffset, const FVector& AnkleToBall)
+{
+	const FVector N = AnkleNormal.GetSafeNormal(UE_SMALL_NUMBER, FVector::UpVector);
+	const double NZ = FMath::Max(N.Z, 0.25);
+	// Height of the ankle's floor plane under the ball, relative to the ankle's floor.
+	const double PlaneRise = -(N.X * AnkleToBall.X + N.Y * AnkleToBall.Y) / NZ;
+	return static_cast<float>(FMath::Max(static_cast<double>(AnkleOffset), BallOffset - PlaneRise));
+}
+
 float SolveFeet(TConstArrayView<int32> Parents, TArray<FTransform>& Local, TArray<FTransform>& CS, int32 Pelvis,
 	TArrayView<FFootInput> Feet, float MaxDrop)
 {

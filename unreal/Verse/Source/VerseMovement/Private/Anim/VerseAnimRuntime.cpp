@@ -406,7 +406,9 @@ void FVerseAnimStateMachine::Step(const FVerseAnimInputs& In, float Dt, const FV
 	Out.AimPitch = FMath::Clamp(In.AimPitch, -70.f, 70.f);
 	Out.bHasSupport = In.Weapon == EVerseAnimWeapon::Rifle || In.Weapon == EVerseAnimWeapon::Pistol;
 	Out.OffHandAlpha = Out.bHasSupport && !bOwnArms ? 1.f : 0.f;
-	Out.bFootIK = State == EVerseLocoState::Ground && Target != 2 && Speed < 60.f;
+	// Foot IK on the ground while standing or crouching, idle or moving (the probes follow the
+	// stride); off at a sprint and while prone, whose body lies along the floor rather than on its feet.
+	Out.bFootIK = State == EVerseLocoState::Ground && Target != 2 && SprintAlpha < 0.5f;
 	Out.Override = nullptr;
 }
 

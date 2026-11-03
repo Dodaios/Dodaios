@@ -53,6 +53,15 @@ namespace VerseAnim
 	 * leg so its foot follows its floor and tilt the foot onto the floor normal.
 	 * Returns the pelvis drop (cm, <= 0).
 	 */
+	/**
+	 * Floor offset of one foot from two probes, under the ankle (offset and
+	 * normal) and under the ball (`AnkleToBall` apart, component space). On one
+	 * plane both agree and the ankle's offset stands; where the ball's floor
+	 * rises above the ankle's plane (a step edge) the ankle is raised so the
+	 * ball stays on it.
+	 */
+	VERSEMOVEMENT_API float FootFloorOffset(float AnkleOffset, const FVector& AnkleNormal, float BallOffset, const FVector& AnkleToBall);
+
 	VERSEMOVEMENT_API float SolveFeet(TConstArrayView<int32> Parents, TArray<FTransform>& Local, TArray<FTransform>& CS, int32 Pelvis,
 		TArrayView<FFootInput> Feet, float MaxDrop = 60.f);
 }
