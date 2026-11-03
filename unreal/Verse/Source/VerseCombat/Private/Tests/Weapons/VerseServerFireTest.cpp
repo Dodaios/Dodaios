@@ -251,8 +251,8 @@ bool FVerseRecoilClientServerMatch::RunTest(const FString&)
 		TestTrue(FString::Printf(TEXT("%s: shots compared"), Id), Compared >= 20);
 		TestTrue(FString::Printf(TEXT("%s: server kicks equal the client's"), Id), MaxKickErr < 1e-4);
 		TestEqual(FString::Printf(TEXT("%s: shot index matches"), Id), IndexMismatch, 0);
-		// Bloom decays per tick on the owner and analytically on the server: at most one tick apart.
-		TestTrue(FString::Printf(TEXT("%s: sigma within one tick of bloom decay"), Id), MaxSigmaErr <= W->BloomRecoveryRate * VerseWp02Test::Tick + 1e-3);
+		// Both sides decay bloom up to the shot's own time: the same sigma.
+		TestTrue(FString::Printf(TEXT("%s: sigma equals the client's"), Id), MaxSigmaErr <= 1e-4);
 		TestTrue(FString::Printf(TEXT("%s: server spray index equals the client's"), Id),
 			Rig.Weapon->GetServerRecoil().ShotIndex == Rig.Weapon->GetRecoil().ShotIndex);
 	}
@@ -352,7 +352,7 @@ bool FVersePresentationServerStops::RunTest(const FString&)
 		{
 			TestTrue(FString::Printf(TEXT("%s: impact at the stop (x %.1f)"), Name, Impacts[0].ImpactWorld.X),
 				FMath::Abs(Impacts[0].ImpactWorld.X - StopX) < 40.0);
-			TestEqual(FString::Printf(TEXT("%s: impact carries the shot"), Name), Impacts[0].ShotCounter, Shots[0].Counter);
+			TestEqual(FString::Printf(TEXT("%s: impact carries the shot"), Name), int32(Impacts[0].ShotCounter), int32(Shots[0].Counter));
 		}
 	}
 	return true;

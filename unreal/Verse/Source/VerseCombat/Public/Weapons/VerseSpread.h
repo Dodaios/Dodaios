@@ -44,9 +44,9 @@ struct VERSECOMBAT_API FVerseSpread
 	void DecayTo(const UVerseWeaponDefinition& W, float Now, float Dt);
 
 	/**
-	 * The server's decay between two shots: bloom drops at BloomRecoveryRate from LastShotTime +
-	 * BloomRecoveryDelay up to `Now`. Call once per shot, before SigmaFor (matches the owner's per-tick
-	 * DecayTo within one tick).
+	 * Decay between two shots: bloom drops at BloomRecoveryRate from LastShotTime + BloomRecoveryDelay
+	 * up to `Now`. Owner and server both call it once per shot, before SigmaFor, so they derive the
+	 * same sigma from the same shot times.
 	 */
 	void DecayUntilShot(const UVerseWeaponDefinition& W, float Now);
 

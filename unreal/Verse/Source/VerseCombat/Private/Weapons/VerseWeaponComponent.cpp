@@ -146,7 +146,6 @@ FRotator UVerseWeaponComponent::StepFire(const FVerseFireContext& Ctx, TArray<FV
 		OnAnyShotRejected.Broadcast(GetShooterId(), Counter);
 	}
 
-	Spread.DecayTo(*W, Ctx.Now, Ctx.Dt);
 
 	const bool bReady = (!Inv || Inv->IsReady(Ctx.Now)) && !FVerseMagazine::IsReloading(PredictedSlot) && !Ctx.bFiringBlocked;
 	const int32 Rounds = bReady ? FVerseMagazine::RoundsReady(PredictedSlot, *W) : 0;
@@ -182,6 +181,8 @@ FRotator UVerseWeaponComponent::StepFire(const FVerseFireContext& Ctx, TArray<FV
 		In.AdsBlend = Ads;
 		In.HorizontalSpeedMps = Ctx.HorizontalSpeedMps;
 		In.bAirborne = Ctx.bAirborne;
+		// Bloom decays up to this shot's own time (not the tick's end), exactly as the server derives it.
+		Spread.DecayUntilShot(*W, T);
 		Shot.Sigma = Spread.SigmaFor(*W, In, T);
 		Shot.Origin = Ctx.Eye;
 		Shot.Dir = FVerseSpread::ShotDirection(Control.Vector(), Shot.Sigma, Shot.Seed, Shot.ShotIndex);
