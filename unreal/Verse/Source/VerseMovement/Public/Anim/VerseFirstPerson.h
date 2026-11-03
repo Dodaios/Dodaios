@@ -30,8 +30,10 @@ public:
 	 * Defaults: the scale pulls first-person primitives towards the camera, so a
 	 * barrel tip about 85 cm out stays in front of a wall 20 cm past the support
 	 * hand (A13.5), while hands 35 cm out stay past the 10 cm near plane (a scale
-	 * of 0.2 put them inside it). 90 deg keeps the hip-held rifle in the lower
-	 * frame (the world default is 100). ADS sights closer than 17 cm need a nearer
+	 * of 0.2 put them inside it). The field of view equals the shipped world
+	 * default (100 deg): a narrower one magnifies the body outwards by
+	 * tan(world / 2) / tan(fp / 2) and pushes the hip-held rifle off the bottom
+	 * of the frame. ADS sights closer than 17 cm need a nearer
 	 * per-view near plane from the pawn's camera.
 	 */
 	/** Bone hidden on the owner's first-person body. */
@@ -42,7 +44,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
 	static void ConfigureOwnerView(USkeletalMeshComponent* FirstPersonBody, USkeletalMeshComponent* WorldBody,
-		UCameraComponent* Camera, float FirstPersonFieldOfView = 90.f, float FirstPersonScale = 0.6f);
+		UCameraComponent* Camera, float FirstPersonFieldOfView = 100.f, float FirstPersonScale = 0.6f);
 
 	/** Weapons and gadgets held by the owner render like the first-person body. */
 	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
