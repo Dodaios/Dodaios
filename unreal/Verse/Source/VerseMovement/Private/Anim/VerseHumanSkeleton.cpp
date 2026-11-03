@@ -263,8 +263,8 @@ TConstArrayView<TPair<FName, float>> FinisherMarkers()
 FVector ReferenceSupport(bool bPistol)
 {
 	// GRIPS-BEGIN
-	static const FVector Rifle(3.083f, 17.469f, -7.193f);
-	static const FVector Pistol(4.624f, -4.932f, 0.0f);
+	static const FVector Rifle(3.083f, 7.193f, 17.469f);
+	static const FVector Pistol(4.624f, 0.0f, -4.932f);
 	// GRIPS-END
 	return bPistol ? Pistol : Rifle;
 }

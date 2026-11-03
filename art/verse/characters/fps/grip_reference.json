@@ -2,15 +2,15 @@
   "Pistol": {
     "support_cm": [
       4.624,
-      -4.932,
-      0.0
+      0.0,
+      -4.932
     ]
   },
   "Rifle": {
     "support_cm": [
       3.083,
-      17.469,
-      -7.193
+      7.193,
+      17.469
     ]
   },
   "frame": "weapon Root, Unreal axes, cm",

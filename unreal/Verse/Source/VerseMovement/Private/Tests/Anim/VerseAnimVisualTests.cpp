@@ -125,8 +125,9 @@ namespace VerseVisual
 		}
 
 		/**
-		 * A stand-in weapon on `Weapon_R` until WP14's weapons land: a box around the
-		 * reference grip (barrel along +Y, the weapon frame), rendered first person.
+		 * A stand-in weapon on `Weapon_R` (the knife on `Weapon_L`) until WP14's weapons
+		 * land: a box around the reference grip, rendered first person. In Unreal the
+		 * weapon frame has the barrel along local +Z, up along local -Y.
 		 */
 		void StandInWeapon(USkeletalMeshComponent* Body, const FString& Clip)
 		{
@@ -135,31 +136,33 @@ namespace VerseVisual
 			{
 				return;
 			}
-			// Sizes in cm (X across, Y along the barrel, Z up) and centre in the weapon frame.
-			FVector Size(5.0, 75.0, 14.0);
-			FVector Centre(0.0, 17.5, -3.0);
+			// Sizes in cm (X across, Y height, Z along the barrel) and centre in the weapon frame.
+			FVector Size(5.0, 14.0, 75.0);
+			FVector Centre(0.0, 3.0, 17.5);
+			FName Socket(TEXT("Weapon_R"));
 			if (Clip.Contains(TEXT("Pistol")))
 			{
-				Size = FVector(3.5, 21.0, 14.0);
-				Centre = FVector(0.0, 7.5, -4.0);
+				Size = FVector(3.5, 14.0, 21.0);
+				Centre = FVector(0.0, 4.0, 7.5);
 			}
 			else if (Clip.Contains(TEXT("Knife")))
 			{
-				Size = FVector(1.0, 22.0, 3.0);
-				Centre = FVector(0.0, 9.0, 0.0);
+				Size = FVector(1.0, 3.0, 22.0);
+				Centre = FVector(0.0, 0.0, 9.0);
+				Socket = TEXT("Weapon_L");
 			}
 			UStaticMeshComponent* Weapon = NewObject<UStaticMeshComponent>(Body->GetOwner());
 			Weapon->SetMobility(EComponentMobility::Movable);
 			Weapon->SetStaticMesh(Cube);
 			Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			Weapon->SetupAttachment(Body, TEXT("Weapon_R"));
+			Weapon->SetupAttachment(Body, Socket);
 			Weapon->SetRelativeLocation(Centre);
 			Weapon->SetRelativeScale3D(Size / 100.0);
 			Weapon->RegisterComponent();
 			UVerseFirstPersonLibrary::MarkFirstPerson(Weapon);
-			const FVector Tip = Weapon->GetComponentTransform().TransformPosition(FVector(0.0, 50.0, 0.0));
+			const FVector Tip = Weapon->GetComponentTransform().TransformPosition(FVector(0.0, 0.0, 50.0));
 			UE_LOG(LogTemp, Display, TEXT("VerseVisual stand-in %s: root %s tip %s"), *Clip,
-				*Body->GetSocketLocation(TEXT("Weapon_R")).ToString(), *Tip.ToString());
+				*Body->GetSocketLocation(Socket).ToString(), *Tip.ToString());
 		}
 
 		void Look(UWorld* World, const FVector& From, const FVector& At, float Fov = 40.f)
