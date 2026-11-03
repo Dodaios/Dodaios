@@ -12,7 +12,8 @@ from pathlib import Path
 
 from lib import kit
 
-for name in ("kit.architecture", "kit.props.command", "kit.props.industrial"):
+MODULES = ("kit.architecture", "kit.props.command", "kit.props.industrial", "kit.props.space")
+for name in MODULES:
     module = importlib.import_module(name)
     if callable(getattr(module, "load_all", None)):
         module.load_all()

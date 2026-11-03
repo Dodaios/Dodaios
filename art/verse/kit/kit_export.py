@@ -7,6 +7,10 @@ One headless CPU Blender run exports the whole batch (`kit_export_blender.py`);
 the records are built by the same `build_record` as
 `scripts/verse/export_unreal.py piece`, into
 `unreal/Verse/Art/Import/Kit/<Architecture|Props>/<Name>.import.json`.
+
+The collision block of a piece listed in `kit/collision.py` follows that module
+(authored primitives, or none); the material tints of every exported slot are merged
+into `kit/material_tints.json`, which `kit/mi_recipes.py` reads.
 """
 
 from __future__ import annotations
@@ -16,6 +20,10 @@ import json
 import sys
 from pathlib import Path
 
+ART_ROOT = Path(__file__).resolve().parents[1]
+if str(ART_ROOT) not in sys.path:
+    sys.path.insert(0, str(ART_ROOT))
+
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "verse"))
@@ -24,6 +32,8 @@ sys.path.insert(0, str(REPO_ROOT / "scripts" / "unreal"))
 import art_common  # noqa: E402
 import blender  # noqa: E402
 import export_unreal  # noqa: E402
+
+from kit import collision, tints  # noqa: E402
 
 ENTRY = HERE / "kit_export_blender.py"
 LIST_ENTRY = HERE / "kit_list_blender.py"
@@ -59,13 +69,21 @@ def export(names: list[str], deck: str | None = None) -> int:
         args += ["--deck", deck]
     blender.run(ENTRY, args, lock=False, device="cpu", timeout=3600)
     payload = json.loads(result_path.read_text(encoding="utf-8"))
+    found: dict[str, dict] = {}
     for asset in payload["assets"]:
         record = export_unreal.build_record(asset, None)
         path = export_unreal.record_path(record)
         previous = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
         record = export_unreal.build_record(asset, previous)
+        authored = collision.record_collision(
+            asset["name"], record["collision"]["profile"], asset["collision_primitives"]
+        )
+        if authored is not None:
+            record["collision"] = authored
+        found.update(asset.get("material_tints") or {})
         art_common.dump_json(path, record)
         print(f"[verse] {asset['name']}: record {art_common.rel(path)}")
+    tints.merge(found)
     failed = json.loads(result_path.with_suffix(".failed.json").read_text(encoding="utf-8"))
     for item in failed:
         print(f"[verse] FAILED {item['name']}: {item['error']}", file=sys.stderr)

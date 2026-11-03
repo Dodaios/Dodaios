@@ -8,6 +8,11 @@ needs for Unreal: before a piece exports, the modifiers of every mesh in its
 master (and in the masters it instances) are applied and faces whose area is
 zero after the bevels are removed, so the zero-area check of the exporter
 passes on hard-surface pieces (art-pipeline 6.1 "Mesh hygiene").
+
+Two more WP12 steps run per piece: the authored collision of `kit/collision.py`
+becomes `UECOL_` objects in the master (stairs, open doors), and the builders'
+stand-in materials get their Unreal names (`kit/export_materials.py`); each result
+also carries the tint of every material slot for `kit/mi_recipes.py`.
 """
 
 from __future__ import annotations
@@ -22,10 +27,11 @@ from pathlib import Path
 import bmesh
 import bpy
 from lib import kit, unreal_export
+from mathutils import Matrix, Vector
 
-from kit import cap_fit
+from kit import cap_fit, collision, export_materials
 
-MODULES = ("kit.architecture", "kit.props.command", "kit.props.industrial")
+MODULES = ("kit.architecture", "kit.props.command", "kit.props.industrial", "kit.props.space")
 MIN_FACE_AREA = 1e-7  # m2; well below any visible face, above the exporter check after scaling
 
 
@@ -69,6 +75,57 @@ def _clean_collection(collection, done: set[str]) -> None:
         _clean_collection(child, done)
 
 
+def _bounds(collection) -> tuple[list[float], list[float]]:
+    """Piece-space box of the render meshes of a (cleaned) master, Blender metres."""
+    lo = [float("inf")] * 3
+    hi = [float("-inf")] * 3
+    for obj, matrix in unreal_export._walk(collection, Matrix.Identity(4)):  # noqa: SLF001
+        name = unreal_export.strip_suffix(obj.name)
+        if obj.type != "MESH" or name.startswith(("UECOL_", "UCX_")):
+            continue
+        if unreal_export._is_ghost(obj):  # noqa: SLF001
+            continue
+        for vertex in obj.data.vertices:
+            point = matrix @ vertex.co
+            for axis in range(3):
+                lo[axis] = min(lo[axis], point[axis])
+                hi[axis] = max(hi[axis], point[axis])
+    return lo, hi
+
+
+def _collision_mesh(name: str, points) -> bpy.types.Mesh:
+    bm = bmesh.new()
+    for point in points:
+        bm.verts.new(Vector(point))
+    bmesh.ops.convex_hull(bm, input=list(bm.verts))
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    return mesh
+
+
+def _add_collision(name: str, master) -> int:
+    """Link the authored primitives of `kit/collision.py` into the master; returns their count."""
+    for obj in list(master.objects):
+        if obj.name.startswith("UECOL_"):
+            bpy.data.objects.remove(obj)
+    lo, hi = _bounds(master)
+    prims = collision.recipe(name, lo, hi)
+    if not prims:
+        return 0
+    for nn, prim in enumerate(prims):
+        if prim[0] == "box":
+            (x0, y0, z0), (x1, y1, z1) = prim[1], prim[2]
+            points = [(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
+            kind = "Box"
+        else:
+            points = prim[1]
+            kind = "Convex"
+        obj_name = f"UECOL_{kind}_{nn:02d}"
+        master.objects.link(bpy.data.objects.new(obj_name, _collision_mesh(obj_name, points)))
+    return len(prims)
+
+
 def _source_of(fn, args: dict) -> dict:
     path = Path(inspect.getsourcefile(fn)).resolve()
     return {
@@ -101,6 +158,8 @@ def main(argv: list[str]) -> None:
             pdef = registry[name]
             master = kit.build_master(name)
             _clean_collection(master, done)
+            export_materials.rename_stand_ins()
+            authored = _add_collision(name, master)
             source = _source_of(pdef.builder, pdef.params)
             result = cap_fit.export(
                 name,
@@ -112,6 +171,12 @@ def main(argv: list[str]) -> None:
             entry = result.as_dict()
             entry["source"] = source
             entry["nav"] = pdef.nav
+            entry["authored_collision"] = authored
+            for obj in [o for o in master.objects if o.name.startswith("UECOL_")]:
+                bpy.data.objects.remove(obj)  # a piece that instances this master keeps its own
+            entry["material_tints"] = export_materials.tints(
+                bpy.data.materials.get(slot["slot"]) for slot in entry["material_slots"]
+            )
             results.append(entry)
             print(f"[verse] exported {name}: {entry['triangles']} tris", flush=True)
         except Exception as error:  # noqa: BLE001 - report every piece, fail none silently

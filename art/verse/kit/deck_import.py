@@ -48,6 +48,8 @@ if str(ART_ROOT) not in sys.path:
 
 from lib import placement, ue_space  # noqa: E402
 
+from kit import collision, deck_bounds, tints  # noqa: E402
+
 MANIFEST_ROOT = REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "public" / "verse" / "decks"
 PLACEMENTS_ROOT = REPO_ROOT / "unreal" / "Verse" / "Art" / "Placements"
 DECKS_ROOT = ART_ROOT / "decks"
@@ -426,9 +428,7 @@ def zone_path(deck: str, zone: str) -> Path:
     return PLACEMENTS_ROOT / deck / f"{zone}.placement.json"
 
 
-def write_all(
-    decks: Sequence[str] = (*AGENT_DECKS, "hangar"), *, check: bool = False
-) -> list[str]:
+def write_all(decks: Sequence[str] = (*AGENT_DECKS, "hangar"), *, check: bool = False) -> list[str]:
     """Write (or, with `check`, compare) every WP12 zone file; return the stale ones."""
     stale = []
     for deck in decks:
@@ -453,6 +453,12 @@ GEOMETRY_CACHE = ART_ROOT / ".cache" / "unreal" / "decks"
 IMPORT_ROOT = REPO_ROOT / "unreal" / "Verse" / "Art" / "Import"
 KIT_RECORDS = IMPORT_ROOT / "Kit"
 SHELL_TRIANGLE_CAP = 500_000
+#: Collision profile per exported deck mesh kind; bounds are hidden proxies (art-pipeline 5).
+SHELL_PROFILES = {
+    "shell": "Verse_Architecture",
+    "ceiling": "Verse_Architecture",
+    "bounds": "Verse_ProxyOnly",
+}
 #: Hangar zones that stay in the day layer only (hidden while the arena runs).
 DAY_ONLY_ZONES = {("hangar", "day_stations")}
 
@@ -461,23 +467,68 @@ def _title(text: str) -> str:
     return "".join(part.capitalize() for part in text.split("_"))
 
 
+def _footprint_xz(item: Mapping[str, Any], record: Mapping[str, Any]) -> list[list[float]]:
+    """three.js (x, z) metres of the four plan corners of a placed piece's bounds."""
+    lo, hi = record["mesh"]["bounds_cm"]["min"], record["mesh"]["bounds_cm"]["max"]
+    sx, sy, _sz = item["scale"]
+    out = []
+    for x in (lo[0], hi[0]):
+        for y in (lo[1], hi[1]):
+            dx, dy, _dz = ue_space.rotate_vector_xyzw(item["rotation"], [x * sx, y * sy, 0.0])
+            # Unreal (X, Y) cm -> three.js (x, z) m (coordinates.md 2.1).
+            out.append([(item["location"][0] + dx) / 100.0, (item["location"][1] + dy) / 100.0])
+    return out
+
+
+def bounds_inputs(deck: str) -> tuple[list[list], list[list]]:
+    """Footprints of the props that block on their own, and of the pieces walked on their own."""
+    props, own_walk = [], []
+    for zone in zones_of(deck):
+        for item in committed_placements(deck, zone.id):
+            if not item["asset"].startswith("/Game/Verse/Kit/") or item.get("nav") == "none":
+                continue
+            record = _kit_record(item["piece"])
+            if record is None or item["piece"] in collision.NO_COLLISION:
+                continue
+            if collision.walked_on_its_own(item["piece"]):
+                own_walk.append(_footprint_xz(item, record))
+            elif record["collision"]["profile"] == "Verse_Prop" and item.get("nav") == "block":
+                props.append(_footprint_xz(item, record))
+    return props, own_walk
+
+
+def bounds_boxes(deck: str, manifest: Mapping[str, Any] | None = None) -> dict[str, list]:
+    """Zone id -> deck bounds boxes (`kit/deck_bounds.py`), from today's nav grid."""
+    manifest = manifest if manifest is not None else load_manifest(deck)
+    room_zone = assign_zones(manifest, zones_of(deck))
+    zones: dict[str, list] = {zone.id: [] for zone in zones_of(deck)}
+    for room in manifest["rooms"]:
+        zone = room_zone.get(room["id"])
+        if zone is not None:
+            zones[zone].append(room["polygon"])
+    nav = deck_bounds.load_nav(MANIFEST_ROOT / deck, manifest["nav"])
+    props, own_walk = bounds_inputs(deck)
+    return deck_bounds.deck_boxes(nav, zones, props, own_walk, strict=deck == "hangar")
+
+
 def zone_spec(deck: str) -> dict:
-    """Zones for the Blender export: room polygons, floor boxes and the shell origin, in metres."""
+    """Zones for the Blender export: room polygons, deck bounds and the shell origin, in metres."""
+    boxes = bounds_boxes(deck)
     zones = {}
     for doc in build_zone_docs(deck):
-        rooms, floors, zs = [], [], []
+        rooms, zs = [], []
         for room in doc["rooms"]:
             polygon = [ue_space.location_from_ue([x, y, 0.0])[:2] for x, y in room["polygon_cm"]]
-            z = room["z_cm"] / ue_space.CM_PER_M
             rooms.append(polygon)
-            xs = [p[0] for p in polygon]
-            ys = [p[1] for p in polygon]
-            floors.append([min(xs), min(ys), max(xs), max(ys), z])
-            zs.append(z)
+            zs.append(room["z_cm"] / ue_space.CM_PER_M)
         lo, hi = doc["bounds_cm"]["min"], doc["bounds_cm"]["max"]
         centre = ue_space.location_from_ue([(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, 0.0])
         centre[2] = min(zs) if zs else 0.0
-        zones[doc["zone"]] = {"rooms": rooms, "floors": floors, "centre": centre}
+        zones[doc["zone"]] = {
+            "rooms": rooms,
+            "centre": centre,
+            "bounds": [deck_bounds.to_blender(b) for b in boxes.get(doc["zone"], [])],
+        }
     return {"zones": zones, "strict": deck == "hangar"}
 
 
@@ -505,45 +556,51 @@ def geometry_placements(deck: str, result: Mapping[str, Any]) -> tuple[dict, lis
             missing.add(item["piece"])
             continue
         station = item.get("station")
-        per_zone.setdefault(item["zone"], []).append({
-            "id": placement.sanitize_id(item["blender_name"]),
-            "piece": item["piece"],
-            "asset": record["asset_path"],
-            "location": ue_space.location_to_ue(item["location_m"]),
-            "rotation": ue_space.quat_to_ue(item["quat_wxyz"]),
-            "scale": ue_space.scale_to_ue(item["scale"]),
-            "room": item.get("room"),
-            "nav": item.get("nav") or "block",
-            "mobility": "static",
-            "data_layer": _data_layer(deck, item["zone"]),
-            "collision": record["collision"]["profile"],
-            "destructible": None,
-            "station": {"id": station, "kind": item.get("station_kind") or "unknown"}
-            if station
-            else None,
-            "owner": OWNER,
-        })
+        per_zone.setdefault(item["zone"], []).append(
+            {
+                "id": placement.sanitize_id(item["blender_name"]),
+                "piece": item["piece"],
+                "asset": record["asset_path"],
+                "location": ue_space.location_to_ue(item["location_m"]),
+                "rotation": ue_space.quat_to_ue(item["quat_wxyz"]),
+                "scale": ue_space.scale_to_ue(item["scale"]),
+                "room": item.get("room"),
+                "nav": item.get("nav") or "block",
+                "mobility": "static",
+                "data_layer": _data_layer(deck, item["zone"]),
+                "collision": record["collision"]["profile"],
+                "destructible": None,
+                "station": {"id": station, "kind": item.get("station_kind") or "unknown"}
+                if station
+                else None,
+                "owner": OWNER,
+            }
+        )
     for shell in result["shells"]:
         zone = shell["zone"]
         name = shell["name"]
         kind = shell.get("kind", "shell")
-        per_zone.setdefault(zone, []).append({
-            # `<zone>_ceiling` is what the deck subsystem hides for the overview cutaway.
-            "id": f"{zone}_{kind}",
-            "piece": name,
-            "asset": f"/Game/Verse/Decks/{_title(deck)}/{_title(zone)}/{name}.{name}",
-            "location": ue_space.location_to_ue(shell["origin_m"]),
-            "rotation": [0.0, 0.0, 0.0, 1.0],
-            "scale": [1.0, 1.0, 1.0],
-            "room": None,
-            "nav": "walk" if kind == "shell" else "none",
-            "mobility": "static",
-            "data_layer": _data_layer(deck, zone),
-            "collision": "Verse_Architecture",
-            "destructible": None,
-            "station": None,
-            "owner": OWNER,
-        })
+        index = shell.get("index", 1)
+        per_zone.setdefault(zone, []).append(
+            {
+                # `<zone>_ceiling` is what the deck subsystem hides for the overview cutaway;
+                # `<zone>_bounds_<n>` are the hidden collision proxies of `kit/deck_bounds.py`.
+                "id": f"{zone}_bounds_{index}" if kind == "bounds" else f"{zone}_{kind}",
+                "piece": name,
+                "asset": f"/Game/Verse/Decks/{_title(deck)}/{_title(zone)}/{name}.{name}",
+                "location": ue_space.location_to_ue(shell["origin_m"]),
+                "rotation": [0.0, 0.0, 0.0, 1.0],
+                "scale": [1.0, 1.0, 1.0],
+                "room": None,
+                "nav": {"shell": "walk", "bounds": "block"}.get(kind, "none"),
+                "mobility": "static",
+                "data_layer": _data_layer(deck, zone),
+                "collision": SHELL_PROFILES.get(kind, "Verse_Architecture"),
+                "destructible": None,
+                "station": None,
+                "owner": OWNER,
+            }
+        )
     for entries in per_zone.values():
         ids = placement.unique_ids(e["id"] for e in entries)
         for entry, pid in zip(entries, ids, strict=True):
@@ -554,6 +611,7 @@ def geometry_placements(deck: str, result: Mapping[str, Any]) -> tuple[dict, lis
 def shell_record(deck: str, shell: Mapping[str, Any]) -> dict:
     name = shell["name"]
     zone = shell["zone"]
+    kind = shell.get("kind", "shell")
     return {
         "schema": "verse.import/1",
         "name": name,
@@ -578,13 +636,13 @@ def shell_record(deck: str, shell: Mapping[str, Any]) -> dict:
             "uv_sets": shell["uv_sets"],
             "material_slots": shell["material_slots"],
         },
-        "nanite": {"enabled": True},
+        "nanite": {"enabled": kind != "bounds"},
         "collision": {
-            "profile": "Verse_Architecture",
+            "profile": SHELL_PROFILES.get(kind, "Verse_Architecture"),
             "source": "authored" if shell["collision_primitives"] else "none",
             "primitives": shell["collision_primitives"],
         },
-        "lod": {"mode": "nanite"},
+        "lod": {"mode": "nanite" if kind != "bounds" else "single"},
         "lightmap": "none",
         "license": {"kind": "own"},
         "owner": OWNER,
@@ -606,6 +664,10 @@ def export_geometry(deck: str) -> int:
     blender.run(BLENDER_ENTRY, args, lock=False, device="cpu", timeout=3600)
     result = json.loads(result_path.read_text(encoding="utf-8"))
     per_zone, missing = geometry_placements(deck, result)
+    found: dict[str, dict] = {}
+    for shell in result["shells"]:
+        found.update(shell.get("material_tints") or {})
+    tints.merge(found)
     for shell in result["shells"]:
         record = shell_record(deck, shell)
         triangles = record["mesh"]["triangles"]

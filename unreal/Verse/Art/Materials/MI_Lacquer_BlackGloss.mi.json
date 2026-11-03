@@ -5,7 +5,7 @@
   "replaces": "M_Lacquer_BlackGloss",
   "scalars": {
     "EdgeWear": 0.4,
-    "Grime": 0.3,
+    "GrimeAmount": 0.3,
     "Metallic": 0.0,
     "RoughnessMax": 0.3,
     "RoughnessMin": 0.1

@@ -5,7 +5,7 @@
   "replaces": "M_Wall_PaintedDark",
   "scalars": {
     "EdgeWear": 0.4,
-    "Grime": 0.3,
+    "GrimeAmount": 0.3,
     "Metallic": 0.0,
     "RoughnessMax": 0.75,
     "RoughnessMin": 0.45

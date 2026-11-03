@@ -5,7 +5,7 @@
   "replaces": "M_Struct_Gunmetal",
   "scalars": {
     "EdgeWear": 0.4,
-    "Grime": 0.3,
+    "GrimeAmount": 0.3,
     "Metallic": 0.85,
     "RoughnessMax": 0.65,
     "RoughnessMin": 0.35

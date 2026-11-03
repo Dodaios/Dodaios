@@ -5,7 +5,7 @@
   "replaces": "M_Hull_PipeInsulated",
   "scalars": {
     "EdgeWear": 0.4,
-    "Grime": 0.3,
+    "GrimeAmount": 0.3,
     "Metallic": 0.7,
     "RoughnessMax": 0.8,
     "RoughnessMin": 0.45

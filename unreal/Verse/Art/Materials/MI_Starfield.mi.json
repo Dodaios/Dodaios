@@ -1,25 +1,19 @@
 {
   "name": "MI_Starfield",
   "owner": "WP12",
-  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
   "replaces": "M_Starfield",
   "scalars": {
-    "EdgeWear": 0.4,
-    "Grime": 0.3,
-    "Metallic": 0.0,
-    "RoughnessMax": 0.75,
-    "RoughnessMin": 0.45
+    "EmissiveNits": 400.0
   },
   "schema": "verse.mi/1",
-  "switches": {
-    "UseTriplanar": false
-  },
+  "switches": {},
   "textures": {},
   "vectors": {
-    "BaseTint": [
-      0.0,
-      0.0,
-      0.01,
+    "EmissiveColor": [
+      0.000713,
+      0.000713,
+      0.000837,
       1.0
     ]
   }

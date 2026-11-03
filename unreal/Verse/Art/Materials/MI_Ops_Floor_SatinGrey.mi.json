@@ -1,0 +1,22 @@
+{
+  "name": "MI_Ops_Floor_SatinGrey",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Floor.M_Verse_Floor",
+  "replaces": "M_Ops_Floor_SatinGrey",
+  "scalars": {
+    "RoughnessMax": 0.6,
+    "RoughnessMin": 0.3,
+    "WearAmount": 0.35
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.16,
+      0.165,
+      0.17,
+      1.0
+    ]
+  }
+}

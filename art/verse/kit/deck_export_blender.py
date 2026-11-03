@@ -12,12 +12,22 @@ scene the three.js cook used), then splits it for Unreal:
 * every other mesh (the deck's bespoke hull, floors, walls and ceilings, ghosts
   included: Unreal has no plate camera to hide them from) is joined per zone into
   one shell mesh `SM_<Deck>_<Zone>_Shell`, exported as FBX with `fbx-ue/1`, its
-  origin on the zone's floor centre.
+  origin on the zone's floor centre;
+* the zone's ceilings, their fixtures, ghosts and everything that starts higher than
+  `UPPER_M` above the zone floor (upper hull, plenums) go into a separate
+  `SM_<Deck>_<Zone>_Ceiling`, which the deck camera hides in the overview (cutaway);
+* the deck bounds of `kit/deck_bounds.py` (floors and walls from today's nav grid) become
+  hidden proxy meshes `SM_<Deck>_<Zone>_Bounds[<n>]` of at most 16 boxes each: every box
+  is both the render geometry and a `UECOL_` primitive. The shells carry no collision.
+
+Stand-in materials get their Unreal names first (`kit/export_materials.py`), and each
+result lists the tint of every material slot for `kit/mi_recipes.py`.
 
 `ZONES.json` maps each zone to its room polygons in Blender metres
-(`{"zones": {zone: {"rooms": [[[x, y], ...], ...], "z": [..], "centre": [x, y, z]}},
-"strict": bool}`). An object belongs to the zone whose room holds its centre, else
-(unless `strict`, used on the hangar where WP11 owns the other zones) the nearest.
+(`{"zones": {zone: {"rooms": [[[x, y], ...], ...], "centre": [x, y, z], "bounds": [box]}},
+"strict": bool}`, a box being `{"kind", "centre", "size", "yaw_deg"}`). An object belongs
+to the zone whose room holds its centre, else (unless `strict`, used on the hangar where
+WP11 owns the other zones) the nearest.
 """
 
 from __future__ import annotations
@@ -34,7 +44,7 @@ import bpy
 from lib import kit, unreal_export
 from mathutils import Matrix, Vector
 
-from kit import cap_fit
+from kit import cap_fit, export_materials
 
 KIT_MODULES = ("kit.architecture", "kit.props.command", "kit.props.industrial")
 SKIP_PREFIXES = ("SOCKET_", "ROOM_", "UCX_", "UBX_", "USP_", "UCP_", "RT_")
@@ -128,21 +138,42 @@ def _clean(mesh: bpy.types.Mesh) -> None:
     bm.free()
 
 
-FLOOR_THICKNESS_M = 0.2
+#: Bespoke geometry that starts this high above the zone floor belongs to the ceiling mesh.
+UPPER_M = 3.0
+#: Material of the hidden bounds meshes (never seen in game).
+BOUNDS_MATERIAL = "M_Section_Cap"
 
 
-def _floor_box(nn: int, box, collection) -> None:
-    """A collision box under one room floor (`UECOL_Box_<nn>`, art-pipeline 3.1)."""
-    x0, y0, x1, y1, z = box
-    lo = Vector((x0, y0, z - FLOOR_THICKNESS_M))
-    hi = Vector((x1, y1, z))
-    mesh = bpy.data.meshes.new(f"UECOL_Box_{nn:02d}")
+def _box_mesh(name: str, box: dict, offset: Vector) -> bpy.types.Mesh:
+    """A unit cube scaled, turned and moved to one bounds box (zone-local metres)."""
+    mesh = bpy.data.meshes.new(name)
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bm.to_mesh(mesh)
     bm.free()
-    mesh.transform(Matrix.Translation((lo + hi) / 2) @ Matrix.Diagonal((*(hi - lo), 1.0)))
-    collection.objects.link(bpy.data.objects.new(f"UECOL_Box_{nn:02d}", mesh))
+    centre = Vector(box["centre"]) + offset
+    turn = Matrix.Rotation(math.radians(box["yaw_deg"]), 4, "Z")
+    mesh.transform(Matrix.Translation(centre) @ turn @ Matrix.Diagonal((*box["size"], 1.0)))
+    return mesh
+
+
+def _bounds_collections(zone_title: str, boxes: list[dict], offset: Vector):
+    """(name suffix, collection) per group of at most MAX_PRIMITIVES boxes."""
+    material = bpy.data.materials.get(BOUNDS_MATERIAL) or bpy.data.materials.new(BOUNDS_MATERIAL)
+    cap = unreal_export.MAX_PRIMITIVES
+    for index in range(0, len(boxes), cap):
+        group = boxes[index : index + cap]
+        number = index // cap + 1
+        collection = bpy.data.collections.new(f"WP12_{zone_title}_bounds_{number}")
+        for nn, box in enumerate(group):
+            axis_aligned = abs(math.remainder(box["yaw_deg"], 90.0)) < 1e-6
+            kind = "Box" if axis_aligned else "Convex"
+            render = _box_mesh(f"WP12_bounds_{nn:02d}", box, offset)
+            render.materials.append(material)
+            collection.objects.link(bpy.data.objects.new(f"WP12_bounds_{nn:02d}", render))
+            proxy = _box_mesh(f"UECOL_{kind}_{nn:02d}", box, offset)
+            collection.objects.link(bpy.data.objects.new(f"UECOL_{kind}_{nn:02d}", proxy))
+        yield number, collection
 
 
 def main(argv: list[str]) -> None:
@@ -160,6 +191,7 @@ def main(argv: list[str]) -> None:
             module.load_all()
     builder = importlib.import_module(f"decks.{options.deck}.build")
     builder.build()
+    export_materials.rename_stand_ins()
     registry = kit.registry()
     bpy.context.view_layer.update()
 
@@ -177,18 +209,20 @@ def main(argv: list[str]) -> None:
         zone = zones.zone_of((loc.x, loc.y))
         if zone is None:
             continue
-        placements.append({
-            "zone": zone,
-            "blender_name": obj.name,
-            "piece": piece,
-            "location_m": list(loc),
-            "quat_wxyz": list(rot),
-            "scale": list(scale),
-            "room": obj.get("room"),
-            "nav": obj.get("nav") or registry[piece].nav,
-            "station": obj.get("station"),
-            "station_kind": obj.get("station_kind"),
-        })
+        placements.append(
+            {
+                "zone": zone,
+                "blender_name": obj.name,
+                "piece": piece,
+                "location_m": list(loc),
+                "quat_wxyz": list(rot),
+                "scale": list(scale),
+                "room": obj.get("room"),
+                "nav": obj.get("nav") or registry[piece].nav,
+                "station": obj.get("station"),
+                "station_kind": obj.get("station_kind"),
+            }
+        )
 
     # 2. Bespoke geometry: every mesh instance not owned by a kit placement, by zone.
     depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -229,11 +263,14 @@ def main(argv: list[str]) -> None:
             bpy.data.meshes.remove(mesh)
             continue
         # Ceilings, their fixtures and ghosts are hidden from today's plate camera; in Unreal they
-        # are a separate mesh the deck camera hides in the overview (the cutaway).
+        # are a separate mesh the deck camera hides in the overview (the cutaway). So is what
+        # starts above head height (upper hull, plenums): today's plate cut it away too.
+        lowest = min(v.co.z for v in mesh.vertices)
         ceiling = (
             not original.visible_camera
             or bool(original.get("ceiling_ghost"))
             or "Ceiling" in {unreal_export.strip_suffix(c.name) for c in original.users_collection}
+            or lowest >= zones.zones[zone]["centre"][2] + UPPER_M
         )
         per_zone.setdefault(zone, []).append((original.name, mesh, ceiling))
 
@@ -261,11 +298,6 @@ def main(argv: list[str]) -> None:
                 linked += 1
             if kind == "ceiling" and not linked:
                 continue
-            if kind == "shell":
-                floors = zones.zones[zone].get("floors", [])[: unreal_export.MAX_PRIMITIVES]
-                for nn, box in enumerate(floors):
-                    x0, y0, x1, y1, z = box
-                    _floor_box(nn, (x0 - cx, y0 - cy, x1 - cx, y1 - cy, z - cz), collection)
             name = f"SM_{title}_{zone_title}_{kind.capitalize()}"
             result = cap_fit.export(name, collection, options.out, cap=cap_fit.DEFAULT_CAP)
             entry = result.as_dict()
@@ -273,9 +305,28 @@ def main(argv: list[str]) -> None:
             entry["kind"] = kind
             entry["origin_m"] = [cx, cy, cz]
             entry["parts"] = len(parts)
+            entry["material_tints"] = export_materials.tints(
+                bpy.data.materials.get(slot["slot"]) for slot in entry["material_slots"]
+            )
             shells.append(entry)
             tris = entry["triangles"]
             print(f"[verse] {options.deck}/{zone}: {kind} {name}, {tris} tris, {len(parts)} parts")
+
+    for zone, spec in sorted(zones.zones.items()):
+        boxes = spec.get("bounds", [])
+        if not boxes:
+            continue
+        cx, cy, cz = spec["centre"]
+        zone_title = "".join(p.capitalize() for p in zone.split("_"))
+        offset = Vector((-cx, -cy, -cz))
+        for number, collection in _bounds_collections(zone_title, boxes, offset):
+            suffix = "" if number == 1 else str(number)
+            name = f"SM_{title}_{zone_title}_Bounds{suffix}"
+            result = unreal_export.export_static_mesh(name, collection, options.out)
+            entry = result.as_dict()
+            entry.update(zone=zone, kind="bounds", index=number, origin_m=[cx, cy, cz], parts=0)
+            shells.append(entry)
+        print(f"[verse] {options.deck}/{zone}: {len(boxes)} bounds boxes")
 
     options.result.parent.mkdir(parents=True, exist_ok=True)
     options.result.write_text(

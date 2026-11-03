@@ -5,8 +5,7 @@
   "replaces": "M_Glass_Viewport",
   "scalars": {
     "Opacity": 0.18,
-    "RoughnessMax": 0.08,
-    "RoughnessMin": 0.02
+    "Roughness": 0.05
   },
   "schema": "verse.mi/1",
   "switches": {},

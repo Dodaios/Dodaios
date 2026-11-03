@@ -45,6 +45,38 @@ def test_recipes_never_cover_another_package_folder():
     assert "MI_Screen" not in {doc["name"] for doc in mi_recipes.recipes()}
 
 
+def test_every_mi_a_wp12_record_uses_has_a_committed_recipe():
+    names = {doc["name"] for doc in committed()}
+    referenced = mi_recipes.referenced_materials()
+    assert referenced
+    for path, slot in referenced.items():
+        if mi_recipes.group_of(path) in mi_recipes.FOREIGN_GROUPS:
+            continue
+        assert mi_recipes.mi_name(path) in names, (path, slot)
+
+
+def test_recipe_names_are_pascal_case_and_carry_no_stand_in_marker():
+    for doc in mi_recipes.recipes():
+        assert check_art_text.name_errors(doc["name"]) == [], doc["name"]
+        assert "TMP" not in doc["name"] and doc["name"] != "MI_Default", doc["name"]
+
+
+def test_recipes_only_set_parameters_their_wp14_master_has():
+    for doc in mi_recipes.recipes():
+        assert mi_recipes.unknown_parameters(doc) == [], doc["name"]
+
+
+def test_space_view_instances_use_own_textures():
+    textures = _load(
+        "verse_space_textures", ROOT / "art/verse/kit/props/space/space_textures.py"
+    ).TEXTURES
+    by_name = {doc["name"]: doc for doc in mi_recipes.recipes()}
+    for name in ("MI_Space_Earth", "MI_Space_Stars"):
+        texture = by_name[name]["textures"]["ScreenTexture"]
+        assert texture.split(".")[-1] in textures, name
+        assert texture.startswith("/Game/Verse/Kit/Space/"), name
+
+
 def test_recipes_pass_the_schema_and_the_colour_bans():
     validator = check_art_text._validator(ROOT / "art" / "verse" / "schema" / "mi.schema.json")
     for doc in mi_recipes.recipes():

@@ -113,7 +113,8 @@ def test_heading_follows_the_coordinates_table(three, unreal):
 def test_every_zone_file_is_valid_canonical_and_up_to_date():
     files = sorted(deck_import.PLACEMENTS_ROOT.glob("*/*.placement.json"))
     mine = [
-        p for p in files
+        p
+        for p in files
         if p.parent.name in AGENT_DECKS or p.stem.split(".")[0] in deck_import.HANGAR_ZONES
     ]
     assert len(mine) >= 20

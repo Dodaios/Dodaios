@@ -5,7 +5,7 @@
   "replaces": "M_Console_Keys",
   "scalars": {
     "EdgeWear": 0.4,
-    "Grime": 0.3,
+    "GrimeAmount": 0.3,
     "Metallic": 0.2,
     "RoughnessMax": 0.6,
     "RoughnessMin": 0.35
