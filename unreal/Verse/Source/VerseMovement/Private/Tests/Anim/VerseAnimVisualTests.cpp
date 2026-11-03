@@ -15,6 +15,8 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
@@ -161,6 +163,13 @@ namespace VerseVisual
 			Weapon->SetupAttachment(Body, Socket);
 			Weapon->SetRelativeLocation(Centre);
 			Weapon->SetRelativeScale3D(Size / 100.0);
+			// Saturated red: A13.5 finds the weapon's pixels by colour, whatever the lighting.
+			if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
+			{
+				UMaterialInstanceDynamic* Red = UMaterialInstanceDynamic::Create(Base, Weapon);
+				Red->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.8f, 0.02f, 0.02f));
+				Weapon->SetMaterial(0, Red);
+			}
 			Weapon->RegisterComponent();
 			UVerseFirstPersonLibrary::MarkFirstPerson(Weapon);
 			const FVector Tip = Weapon->GetComponentTransform().TransformPosition(FVector(0.0, 0.0, 50.0));

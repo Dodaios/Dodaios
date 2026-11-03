@@ -2,11 +2,12 @@
 
     python art/verse/characters/fps/visual_report.py [--dir <shots folder>]
 
-* A13.5: the body mask is where `fp_wall_off` differs from `fp_wall_nobody`;
-  a body pixel counts as hidden by the wall when `fp_wall_on` looks like the
-  bare wall (`fp_wall_only`) there, within the threshold. Comparing with
-  `fp_wall_off` instead would count the light the wall bounces onto the arms.
-  Pass: body pixels in view and 0 hidden.
+* A13.5: the stand-in weapon is saturated red, so its pixels are found by
+  colour in `fp_wall_off` (no wall) and `fp_wall_on` (wall 20 cm past the
+  support hand); a weapon pixel is hidden when it is no longer red with the
+  wall up. Grey against grey (body, floor, wall) cannot tell occlusion from
+  the light the wall bounces onto the arms. Pass: weapon in view, 0 hidden
+  8 x 8 blocks (a lone flickering edge pixel is not a hidden region).
 * Contact sheets: turnarounds, first-person views and the finisher phases,
   written next to the shots (`sheet_*.png`), plus `fp_clipping.json`.
 
@@ -54,18 +55,27 @@ def erode(mask: np.ndarray) -> np.ndarray:
     return out
 
 
+def red(img: np.ndarray) -> np.ndarray:
+    """Pixels of the saturated red stand-in weapon, under any of the scene's light."""
+    r, g, b = img[..., 0], img[..., 1], img[..., 2]
+    return (r > 50) & (r > 1.8 * g) & (r > 1.8 * b)
+
+
 def clipping(folder: Path) -> dict:
-    off, on, nobody, wall = (
-        blocks(load(folder / f"fp_wall_{n}.png")) for n in ("off", "on", "nobody", "only")
-    )
-    body = erode(np.abs(off - nobody).max(axis=2) > THRESHOLD)
-    hidden = body & (np.abs(on - wall).max(axis=2) <= THRESHOLD)
+    """A13.5: weapon pixels in the owner's view without the wall that the wall hides."""
+    off, on = (load(folder / f"fp_wall_{n}.png") for n in ("off", "on"))
+    weapon = red(off)
+    hidden = weapon & ~red(on)
+    # One-pixel anti-aliased edges flicker between frames; a hidden region is wider.
+    h, w = (hidden.shape[0] // BLOCK) * BLOCK, (hidden.shape[1] // BLOCK) * BLOCK
+    share = hidden[:h, :w].reshape(h // BLOCK, BLOCK, w // BLOCK, BLOCK).mean(axis=(1, 3))
+    hidden_blocks = share > 0.5
     return {
-        "body_pixels": int(body.sum()) * BLOCK * BLOCK,
-        "hidden_body_pixels": int(hidden.sum()) * BLOCK * BLOCK,
+        "weapon_pixels": int(weapon.sum()),
+        "hidden_weapon_pixels": int(hidden.sum()),
+        "hidden_weapon_blocks": int(hidden_blocks.sum()),
         "block": BLOCK,
-        "threshold": THRESHOLD,
-        "pass": bool(body.sum() > 0 and hidden.sum() == 0),
+        "pass": bool(weapon.sum() > 0 and hidden_blocks.sum() == 0),
     }
 
 
