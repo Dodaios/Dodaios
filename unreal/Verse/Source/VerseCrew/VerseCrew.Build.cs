@@ -9,5 +9,7 @@ public class VerseCrew : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge", "VerseDecks" });
+		// Json: crew life reads verse.bridge/1 frames and its tuning files (WP15; CCR in the WP15 PR).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
 	}
 }
