@@ -62,6 +62,8 @@ public:
 	int8 SavedLeanTarget = 0;
 	/** Lean after the move ran; the client sends it so the server can adopt it. */
 	int8 SavedLeanResult = 0;
+	/** Timestamp of the last server correction the client had applied when it made this move. */
+	float SavedAppliedCorrectionStamp = -1.f;
 	FVerseMoveState StartState;
 	/** Move kind at the start and at the end of the move (correction counters, WP01.10). */
 	EVerseMoveKind StartKind = EVerseMoveKind::Walk;
@@ -96,6 +98,8 @@ struct FVerseCharacterNetworkMoveData : public FCharacterNetworkMoveData
 {
 	int8 LeanTarget = 0;
 	int8 LeanResult = 0;
+	/** The last correction (its move timestamp) the client had applied: the server waits for it. */
+	float AppliedCorrectionStamp = -1.f;
 
 	virtual void ClientFillNetworkMoveData(const FSavedMove_Character& ClientMove, ENetworkMoveType MoveType) override;
 	virtual bool Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType) override;

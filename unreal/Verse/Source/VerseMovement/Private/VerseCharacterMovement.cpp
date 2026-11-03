@@ -25,6 +25,8 @@ namespace
 	constexpr float ProneTurnSlackDeg = 0.05f;
 	/** The prone body constraint ignores geometry below this height (floor, low steps). */
 	constexpr float ProneBodyFloorGap = 10.f;
+	/** Seconds the server waits for a client to apply a correction before checking its moves again. */
+	constexpr double CorrectionAckTimeout = 0.5;
 	/** Sphere radius of the mantle top probes. */
 	constexpr float ProbeRadius = 4.f;
 	constexpr float WallProbeRadius = 10.f;
@@ -1210,6 +1212,7 @@ void UVerseCharacterMovement::OnClientCorrectionReceived(FNetworkPredictionData_
 	}
 	++NetStats.Corrections[int32(Kind)];
 	bCorrectionAccepted = true;
+	LastAppliedCorrectionStamp = TimeStamp;
 	UE_LOG(LogVerseMovement, Display, TEXT("correction of a %s move at %.3f: move error %.1f cm, server mode %d, client stance %d"),
 		*StaticEnum<EVerseMoveKind>()->GetNameStringByValue(int64(Kind)), TimeStamp, MoveError, int32(ServerMovementMode), int32(Stance));
 	Super::OnClientCorrectionReceived(ClientData, TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition,
@@ -1258,10 +1261,22 @@ bool UVerseCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 void UVerseCharacterMovement::ServerMoveHandleClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLocation,
 	UPrimitiveComponent* ClientMovementBase, FName ClientBaseBoneName, uint8 ClientMovementMode)
 {
+	// Moves the client made before it applied the last correction still carry the old error:
+	// checking them again would only send the same correction twice. Wait for the client (at most
+	// CorrectionAckTimeout, in case the correction packet was lost).
+	const double Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+	const FVerseCharacterNetworkMoveData* MoveData = static_cast<const FVerseCharacterNetworkMoveData*>(GetCurrentNetworkMoveData());
+	if (MoveData && LastSentCorrectionStamp >= 0.f && MoveData->AppliedCorrectionStamp < LastSentCorrectionStamp - 1e-4f
+		&& ClientTimeStamp > LastSentCorrectionStamp && Now - LastSentCorrectionTime < CorrectionAckTimeout)
+	{
+		return;
+	}
 	Super::ServerMoveHandleClientError(ClientTimeStamp, DeltaTime, Accel, RelativeClientLocation, ClientMovementBase, ClientBaseBoneName, ClientMovementMode);
 	const FNetworkPredictionData_Server_Character* ServerData = GetPredictionData_Server_Character();
 	if (ServerData && !ServerData->PendingAdjustment.bAckGoodMove && ServerData->PendingAdjustment.TimeStamp == ClientTimeStamp)
 	{
+		LastSentCorrectionStamp = ClientTimeStamp;
+		LastSentCorrectionTime = Now;
 		// A correction for this move: send the state as it is now, at the end of the move.
 		FVerseMoveResponseDataContainer& Response = static_cast<FVerseMoveResponseDataContainer&>(*MoveResponseContainer);
 		Response.PendingState.Capture(*this);
@@ -1412,6 +1427,7 @@ void FVerseSavedMove::Clear()
 	bSavedWantsMantle = false;
 	SavedLeanTarget = 0;
 	SavedLeanResult = 0;
+	SavedAppliedCorrectionStamp = -1.f;
 	StartState = FVerseMoveState();
 	StartKind = EVerseMoveKind::Walk;
 	EndKind = EVerseMoveKind::Walk;
@@ -1448,6 +1464,7 @@ void FVerseSavedMove::SetMoveFor(ACharacter* C, float InDeltaTime, FVector const
 		bSavedWantsProne = M->bWantsProne;
 		bSavedWantsMantle = M->bWantsMantle;
 		SavedLeanTarget = M->LeanTargetQuantized;
+		SavedAppliedCorrectionStamp = M->LastAppliedCorrectionStamp;
 	}
 	Super::SetMoveFor(C, InDeltaTime, NewAccel, ClientData);
 }
@@ -1516,6 +1533,7 @@ void FVerseCharacterNetworkMoveData::ClientFillNetworkMoveData(const FSavedMove_
 	const FVerseSavedMove& Move = static_cast<const FVerseSavedMove&>(ClientMove);
 	LeanTarget = Move.SavedLeanTarget;
 	LeanResult = Move.SavedLeanResult;
+	AppliedCorrectionStamp = Move.SavedAppliedCorrectionStamp;
 }
 
 bool FVerseCharacterNetworkMoveData::Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType)
@@ -1523,5 +1541,6 @@ bool FVerseCharacterNetworkMoveData::Serialize(UCharacterMovementComponent& Char
 	FCharacterNetworkMoveData::Serialize(CharacterMovement, Ar, PackageMap, MoveType);
 	Ar << LeanTarget;
 	Ar << LeanResult;
+	Ar << AppliedCorrectionStamp;
 	return !Ar.IsError();
 }

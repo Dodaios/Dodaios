@@ -278,6 +278,11 @@ protected:
 	FVector MoveStartLocation = FVector::ZeroVector;
 	/** Client: the last correction was accepted (its move was still saved). */
 	bool bCorrectionAccepted = false;
+	/** Client: move timestamp of the last correction applied (sent with every move). */
+	float LastAppliedCorrectionStamp = -1.f;
+	/** Server: move timestamp and server time of the last correction sent. */
+	float LastSentCorrectionStamp = -1.f;
+	double LastSentCorrectionTime = -1.0;
 
 	// Server: the lean value the client sent with the current move (-128 = none).
 	int16 PendingClientLean = -128;
