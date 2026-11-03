@@ -469,6 +469,39 @@ def measure_bolt_cost(u, scene: Scene, cap: Capture, groups: dict[str, str]) -> 
     }
 
 
+MI = "/Game/Verse/Materials/Instances/Weapons/"
+MAT_PROBE = {
+    "polymer": MI + "MI_Weapon_Polymer.MI_Weapon_Polymer",
+    "grip": MI + "MI_Weapon_Grip.MI_Weapon_Grip",
+    "steel": MI + "MI_Weapon_Steel.MI_Weapon_Steel",
+    "master": M + "M_Verse_Weapon.M_Verse_Weapon",
+    "engine_grid": "/Engine/EngineMaterials/WorldGridMaterial.WorldGridMaterial",
+}
+
+
+def material_stats(u) -> dict:
+    """Shader instruction counts of the weapon materials (0 means no shader)."""
+    out = {}
+    for name, path in MAT_PROBE.items():
+        asset = u.load_asset(path)
+        if asset is None:
+            out[name] = "missing"
+            continue
+        stats = u.MaterialEditingLibrary.get_statistics(asset)
+        out[name] = {
+            "ps": stats.get_editor_property("num_pixel_shader_instructions"),
+            "vs": stats.get_editor_property("num_vertex_shader_instructions"),
+        }
+    return out
+
+
+def build_material_probe(scene: Scene) -> None:
+    """A row of 20 cm cubes on the pedestal, one per `MAT_PROBE` material."""
+    for i, path in enumerate(MAT_PROBE.values()):
+        material = scene.u.load_asset(path)
+        scene.box((20, 20, 20), (0, -100 + 50 * i, 115), material, "matprobe", rot=(0, 35, 0))
+
+
 def build_chart(scene: Scene, agx) -> list[dict]:
     """24 unlit patches facing -X at x = 2000; returns their pixel centres."""
     patches = []
@@ -714,6 +747,8 @@ class Runner:
         build_vfx(scene)
         patches = build_chart(scene, agx)
         cost_groups = build_bolt_swarm(scene)
+        build_material_probe(scene)
+        self.report["material_stats"] = material_stats(u)
         try:  # built before the warm-up so their shaders compile in time
             probe_mats = probe_materials(u)
         except Exception as error:  # the probe is diagnostics only
@@ -742,6 +777,7 @@ class Runner:
             scene.show("fog", "chart" not in groups)
             scene.show("cost_64", False)
             scene.show("cost_960", False)
+            scene.show("matprobe", "matprobe" in groups)
 
         def chart():
             only({"chart"})
@@ -766,6 +802,13 @@ class Runner:
                 self.log(f"chart probe failed: {self.report['chart_probe_error']}")
 
         self.shots.append(chart)
+
+        def matprobe():
+            only({"matprobe"})
+            cap.setup((-160, 260, 220), (0, 0, 120), 45.0, look)
+            self.report["frames"].append(cap.shoot("matprobe_weapon_materials"))
+
+        self.shots.append(matprobe)
 
         for spec in weapons:
             for view, (yaw, dist_scale, height) in {

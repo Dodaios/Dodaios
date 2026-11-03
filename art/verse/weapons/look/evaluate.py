@@ -75,7 +75,7 @@ def chart_error(report: dict, frame_name: str | None = None) -> dict:
 def banned(report: dict) -> dict:
     out = {}
     for name in report.get("frames", []):
-        if name.startswith("chart"):
+        if name.startswith(("chart", "matprobe")):
             continue
         hits, total = palette.count_banned_image(FRAMES / name)
         out[name] = {"banned": hits, "pixels": total}
