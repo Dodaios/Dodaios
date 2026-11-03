@@ -1,0 +1,14 @@
+{
+  "schema": "verse.perf_budgets/1",
+  "contract": "architecture.md 7",
+  "profiles": {
+    "1440p": {"resX": 2560, "resY": 1440, "fpsAvgMin": 120, "p99FrameMsMax": 11.0},
+    "4k": {"resX": 3840, "resY": 2160, "fpsAvgMin": 90, "p99FrameMsMax": 14.0}
+  },
+  "gameThreadMsMax": 4.0,
+  "physicsMsMax": 2.0,
+  "vramVisibleMbMax": 6144,
+  "systemRamVisibleMbMax": 4096,
+  "stabilityMaxRelDelta": 0.03,
+  "quietHours": {"start": "01:00", "end": "06:00", "idleMinutes": 5}
+}
