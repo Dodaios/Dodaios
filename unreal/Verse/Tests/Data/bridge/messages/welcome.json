@@ -1,0 +1,142 @@
+[
+  {
+    "type": "welcome",
+    "seq": 1,
+    "ts": 1793612340.1,
+    "data": {
+      "protocol": "verse.bridge/1",
+      "app_version": "4.1.1",
+      "app_pid": 9120,
+      "session": "vb-3f2c",
+      "features": [
+        "roster",
+        "panes",
+        "screens",
+        "chat_tails",
+        "meetings",
+        "groups",
+        "progression",
+        "duel_stats",
+        "companion",
+        "lifecycle",
+        "panel"
+      ],
+      "encoding": {
+        "screens": "cells.bin/1"
+      },
+      "limits": {
+        "screens_max_panes": 8,
+        "screens_max_rows": 60,
+        "screens_max_cols": 240,
+        "screens_max_hz": 10,
+        "chat_tails_max_agents": 6,
+        "chat_tail_lines": 12
+      },
+      "locale": {
+        "lang": "en",
+        "fallback": "en",
+        "strings": {
+          "verse.ranks.duty.working": "On duty"
+        }
+      },
+      "settings": {
+        "gore": "full",
+        "reduced_motion": false,
+        "return_key": "F10",
+        "ui_sound": true,
+        "level_sound": true,
+        "uniform": "standard",
+        "view": {
+          "mode": "third",
+          "sensitivity": 1.0,
+          "invert_y": false,
+          "fov_third": 70,
+          "fov_first": 85,
+          "quality": "auto",
+          "volume": 0.7
+        }
+      },
+      "decks": [
+        "bridge",
+        "ops",
+        "engineering",
+        "hangar"
+      ],
+      "state": {
+        "visibility": "visible",
+        "panel": "hidden",
+        "gpu": "free"
+      }
+    }
+  },
+  {
+    "type": "welcome",
+    "seq": 1,
+    "ts": 1793612340.1,
+    "data": {
+      "protocol": "verse.bridge/1",
+      "app_version": "4.1.1",
+      "app_pid": 9120,
+      "session": "vb-9a01",
+      "features": [
+        "roster",
+        "panes",
+        "screens",
+        "chat_tails",
+        "meetings",
+        "groups",
+        "progression",
+        "duel_stats",
+        "companion",
+        "lifecycle",
+        "panel"
+      ],
+      "encoding": {
+        "screens": "cells.json/1"
+      },
+      "limits": {
+        "screens_max_panes": 8,
+        "screens_max_rows": 60,
+        "screens_max_cols": 240,
+        "screens_max_hz": 10,
+        "chat_tails_max_agents": 6,
+        "chat_tail_lines": 12
+      },
+      "locale": {
+        "lang": "en",
+        "fallback": "en",
+        "strings": {
+          "verse.ranks.duty.working": "On duty"
+        }
+      },
+      "settings": {
+        "gore": "reduced",
+        "reduced_motion": false,
+        "return_key": "F10",
+        "ui_sound": true,
+        "level_sound": true,
+        "uniform": "standard",
+        "view": {
+          "mode": "third",
+          "sensitivity": 1.0,
+          "invert_y": false,
+          "fov_third": 70,
+          "fov_first": 85,
+          "quality": "auto",
+          "volume": 0.7
+        }
+      },
+      "decks": [
+        "bridge",
+        "ops",
+        "engineering",
+        "hangar"
+      ],
+      "state": {
+        "visibility": "hidden",
+        "panel": "visible",
+        "gpu": "yield"
+      }
+    }
+  }
+]

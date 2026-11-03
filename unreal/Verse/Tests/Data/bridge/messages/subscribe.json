@@ -1,0 +1,16 @@
+[
+  {
+    "type": "subscribe",
+    "id": "c-1",
+    "ts": 1793612340.2,
+    "data": {
+      "topics": [
+        "roster",
+        "panes",
+        "progression",
+        "meetings",
+        "groups"
+      ]
+    }
+  }
+]

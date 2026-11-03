@@ -1,0 +1,12 @@
+[
+  {
+    "type": "companion.update",
+    "seq": 160,
+    "ts": 1793612611.0,
+    "data": {
+      "pet_id": null,
+      "look": "",
+      "style": "hidden"
+    }
+  }
+]
