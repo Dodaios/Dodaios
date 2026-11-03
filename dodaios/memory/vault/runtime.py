@@ -130,6 +130,85 @@ _WORDS = {
     ),
 }
 
+#: Words that say nothing about what a message is about (shipped input languages).
+_STOPWORDS = frozenset(
+    (
+        "the and you your what when where who how why can could would should will "
+        "are was were have has had this that these those with from for about into "
+        "please tell know remember just also some any more much very "
+        "der die das und ich du wir ihr sie ist sind war was wer wie wo wann warum "  # i18n-allow
+        "ein eine einen dem den des mit von für über auf noch auch bitte mal mir "  # i18n-allow
+        "mich dir dich mein meine kannst kann weißt hast habe nicht oder aber "  # i18n-allow
+        "que los las una por para como con del pero"  # i18n-allow
+    ).split()
+)
+
+#: Budget and size of the per-message recall.
+TURN_MAX_CHARS = 900
+TURN_LIMIT = 6
+#: A hit must score at least this share of the best hit to be shown.
+TURN_RELATIVE_FLOOR = 0.35
+
+_TURN_HEADER = (
+    "## Possibly relevant memories (looked up for this message)\n"
+    "From the user's long-term memory; use them only if they fit the question."
+)
+
+
+def turn_block(user_text: str, *, compact: bool = False) -> str:
+    """Memories that match this message and are not already always in mind.
+
+    Cheap and local: one FTS query on the vault, no model call. ``""`` when
+    nothing fits, no vault runs or the message has no content words.
+    """
+    vault = _active
+    if vault is None or not user_text.strip():
+        return ""
+    words = [
+        w for w in re.findall(r"\w+", user_text.casefold()) if len(w) > 2 and w not in _STOPWORDS
+    ]
+    if not words:
+        return ""
+    try:
+        budget = _budgets["compact" if compact else "full"]
+        in_mind = {
+            m.id for _, memories in vault.profile_selection(max_chars=budget) for m in memories
+        }
+        hits = [
+            h
+            for h in vault.search(" ".join(words), limit=TURN_LIMIT * 2)
+            if h.memory.id not in in_mind
+        ]
+    except Exception:  # noqa: BLE001 — recall must never break a turn
+        log.warning("memory vault: per-message recall failed", exc_info=True)
+        return ""
+    if not hits:
+        return ""
+    floor = hits[0].score * TURN_RELATIVE_FLOOR
+    lines: list[str] = []
+    used = 0
+    chosen = []
+    for hit in hits:
+        if hit.score < floor or len(lines) >= TURN_LIMIT:
+            break
+        memory = hit.memory
+        line = f"- {memory.text}"
+        if memory.valid_from and memory.origin != "imported":
+            line += f" (since {memory.valid_from[:10]})"
+        if used + len(line) > TURN_MAX_CHARS:
+            break
+        lines.append(line)
+        used += len(line) + 1
+        chosen.append(memory.id)
+    if not lines:
+        return ""
+    try:
+        vault.mark_used(chosen)
+    except Exception:  # noqa: BLE001 — a usage counter is not worth failing a turn over
+        log.debug("memory vault: could not count recall use", exc_info=True)
+    return _TURN_HEADER + "\n" + "\n".join(lines)
+
+
 _KIND_HINTS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (kind, re.compile(r"\b(" + "|".join(map(re.escape, words.split())) + r")\b", re.I))
     for kind, words in _WORDS.items()

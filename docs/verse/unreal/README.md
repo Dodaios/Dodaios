@@ -45,7 +45,7 @@ Unreal Verse reads this file first, then its work package in
 | Bot | Full movement including finishers, shoots through walls only at heard or believed positions, breaches, uses Bulwark and gadgets, learns the player within a match. Fair perception, no wallhack. Tiers normal, hard, elite plus an adaptive mode. Higher skill wins more often, never always |
 | Duel entry | Armoury station in the hangar plus a quick-start button in the Verse bar |
 | Progression | Duel wins award commander XP; duel statistics (wins, K/D, headshots, finishers) in the service record |
-| Delivery | The Verse ships inside the normal installer; the updater's size cap is raised; Verse updates are delivered as delta packages |
+| Delivery | Optional download. The installer, a plain `git clone` and app updates never carry the Verse. Opening the Verse the first time shows a card with the download size and a "Download the Verse" button; the package (its own release asset per platform) downloads resumably, is signature- and hash-checked and installs into the user data folder. Settings can remove it again. Only an installed Verse receives delta updates. The source stays in this repo under `unreal/`; `.lfsconfig` keeps its binaries out of every default clone |
 | Testing | Fully autonomous: builds, tests, headless bot-vs-bot runs, screenshots, performance. The user plays at the end of integration |
 | Legal | No names of other games, studios or real firearm makes or models anywhere: code, assets, commits, PRs, docs |
 
