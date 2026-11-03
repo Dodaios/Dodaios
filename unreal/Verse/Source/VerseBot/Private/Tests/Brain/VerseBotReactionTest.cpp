@@ -96,12 +96,13 @@ namespace VerseBotReactionTest
 			if (A.IsReactionPending() && !bReleased)
 			{
 				++R.PendingTicks;
-				R.bIdenticalWhilePending &= SameOutput(OA, OB) && A.GetState() == B.GetState();
+				R.bIdenticalWhilePending &= SameOutput(OA, OB) && A.GetState() == B.GetState() && A.GetDecisionCount() == B.GetDecisionCount();
 			}
 			else
 			{
 				bReleased = true;
-				R.bReactedAfter |= !SameOutput(OA, OB) || A.GetState() != B.GetState();
+				// The answer: a forced re-decide on release, or different input or state.
+				R.bReactedAfter |= A.GetDecisionCount() != B.GetDecisionCount() || !SameOutput(OA, OB) || A.GetState() != B.GetState();
 			}
 		}
 		return R;

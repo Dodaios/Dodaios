@@ -2,6 +2,7 @@
 
 #include "Brain/VerseBotWorldQueries.h"
 #include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
 #include "UObject/WeakObjectPtr.h"
 
 class UWorld;
