@@ -353,20 +353,20 @@ void AVerseCharacter::UpdateBodyPose(float DeltaSeconds)
 		const float SlideTilt = Stance == EVerseStance::Slide ? FMath::DegreesToRadians(-30.f) : 0.f;
 		const FQuat SlideQuat(FVector::RightVector, SlideTilt);
 		const FQuat Rotation = SlideQuat * LeanQuat * Pose;
-		FVector Scale(1.f);
+		// The placeholder is never scaled: a component scale change rescales the physics bodies
+		// differently from their creation (bone scale), so the hit bodies would change size with
+		// the stance. Crouching lowers the whole placeholder instead.
+		const FVector Scale(1.f);
 		FVector Location;
 		if (bHasCameraBone)
 		{
-			// Upright the placeholder shrinks to the eye height; lying keeps its length. The mesh
-			// then goes where its Camera bone lands exactly on the eye.
-			Scale.Z = FMath::Lerp(SmoothedEyeHeight / CameraBoneLocal.Z, 1.f, SmoothedProneAlpha);
-			Location = Eye - Rotation.RotateVector(Scale * CameraBoneLocal);
+			// The mesh goes where its Camera bone lands exactly on the eye.
+			Location = Eye - Rotation.RotateVector(CameraBoneLocal);
 		}
 		else
 		{
 			const bool bLow = Stance == EVerseStance::Crouch || Stance == EVerseStance::Slide;
-			Scale.Z = bLow ? Tuning.CrouchHeight / Tuning.StandHeight : 1.f;
-			const FVector UprightLocation(0.f, 0.f, -HalfHeight);
+			const FVector UprightLocation(0.f, 0.f, -HalfHeight - (bLow ? (Tuning.StandEyeHeight - Tuning.CrouchEyeHeight) * 100.f : 0.f));
 			const FVector LyingLocation(Tuning.ProneRadius * 200.f - Tuning.ProneBodyLength * 100.f, 0.f, -HalfHeight + 15.f);
 			Location = FMath::Lerp(UprightLocation, LyingLocation, SmoothedProneAlpha);
 		}
