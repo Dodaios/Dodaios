@@ -1,30 +1,15 @@
-"""WP12: deck collision imports: authored primitives through Interchange, bounds, ceilings."""
+"""WP12: deck collision records: shells without, bounds proxies with, ceilings apart.
+
+That Interchange keeps authored primitives is the G0 pipeline's test
+(`tests/verse/test_unreal_art_pipeline.py`).
+"""
 
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "unreal" / "Verse" / "Content" / "Python"))
-
-from verse_pipeline import import_meshes  # noqa: E402
-
-
-def test_auto_box_always_imports_collision():
-    assert import_meshes.wants_collision_import("auto_box", "interchange")
-    assert import_meshes.wants_collision_import("auto_box", "legacy")
-
-
-def test_authored_collision_needs_import_on_under_interchange():
-    assert import_meshes.wants_collision_import("authored", "interchange")
-    assert not import_meshes.wants_collision_import("authored", "legacy")
-
-
-def test_no_collision_stays_off():
-    assert not import_meshes.wants_collision_import(None, "interchange")
-    assert not import_meshes.wants_collision_import("none", "interchange")
 
 
 def test_shells_leave_pawn_collision_to_the_deck_bounds():
@@ -43,7 +28,6 @@ def test_shells_leave_pawn_collision_to_the_deck_bounds():
         assert collision["profile"] == "Verse_ProxyOnly", path.name
         assert collision["source"] == "authored", path.name
         assert 1 <= collision["primitives"] <= 16, path.name
-        assert import_meshes.wants_collision_import(collision["source"], "interchange")
     zones_with_bounds = {p.name.split("_Bounds")[0] for p in bounds}
     assert zones_with_bounds == {p.name.split("_Shell")[0] for p in shells}
 
