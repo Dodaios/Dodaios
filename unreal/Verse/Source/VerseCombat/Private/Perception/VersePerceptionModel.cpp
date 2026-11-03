@@ -544,13 +544,15 @@ void FVersePerceptionModel::BuildHeard(FObserver& Observer, const FVersePercepti
 
 	for (const FVerseNoiseEvent& Event : Observer.PendingNoise)
 	{
-		const FVerseAudibilityRow* Row = World.Audibility->FindRow(Event.Noise);
+		// Every audible range comes from the audibility table (DA_Audibility), never from code.
+		const UVerseAudibilityTable& AudibilityTable = *World.Audibility;
+		const FVerseAudibilityRow* Row = AudibilityTable.FindRow(Event.Noise);
 		if (!Row)
 		{
 			// Crouch walk, prone crawl and standing still raise no event; an unknown tag is never heard.
 			continue;
 		}
-		const float RangeM = World.Audibility->GetAudibleRangeM(Event.Noise, Event.Loudness);
+		const float RangeM = AudibilityTable.GetAudibleRangeM(Event.Noise, Event.Loudness);
 		const float DistanceM = float(FVector::Dist(Eye, Event.Location) / 100.0);
 		if (DistanceM > RangeM)
 		{

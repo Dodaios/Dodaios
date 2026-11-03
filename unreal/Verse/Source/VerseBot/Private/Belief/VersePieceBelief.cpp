@@ -160,7 +160,7 @@ int32 FVersePieceBelief::ObserveSight(const FVector& Eye, const FRotator& View, 
 
 void FVersePieceBelief::OnHeardFracture(const FVerseHeardPercept& Heard, float NowS)
 {
-	const double Radius = FMath::Max(100.0, 2.0 * double(Heard.ErrorSdM) * 100.0);
+	const double MarkReachCm = FMath::Max(100.0, 2.0 * double(Heard.ErrorSdM) * 100.0);
 	for (int32 Slot = 0; Slot < Pieces.Num(); ++Slot)
 	{
 		FVerseBelievedPiece& Piece = Pieces[Slot];
@@ -170,7 +170,7 @@ void FVersePieceBelief::OnHeardFracture(const FVerseHeardPercept& Heard, float N
 		}
 		const FVector Closest = Piece.Bounds.GetClosestPointTo(Heard.Location);
 		const double Horizontal = FVector2D(Closest.X - Heard.Location.X, Closest.Y - Heard.Location.Y).Size();
-		if (Horizontal <= Radius && !Piece.bChangedUnknown)
+		if (Horizontal <= MarkReachCm && !Piece.bChangedUnknown)
 		{
 			Piece.bChangedUnknown = true;
 			MarkChanged(Slot);
