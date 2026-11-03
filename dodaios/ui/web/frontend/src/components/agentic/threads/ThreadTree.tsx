@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePlus, Trash2, Users, X } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -20,6 +20,19 @@ const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
 const FOLDED_COUNT = 6;
 /** How often the list asks for fresh session rows while it is on screen. */
 const POLL_MS = 4000;
+const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+/** One row of the list: the same height, inset and type for actions, projects and threads. */
+const ROW = "flex min-h-8 min-w-0 items-center gap-2.5 rounded-md px-2 text-left text-base";
+/** Where a thread's title starts: the row inset, the leading mark and the gap after it. */
+const TITLE_INSET = "pl-[34px]";
+/** A small action that only shows while its row is hovered or focused. */
+const HOVER_ACTION = cn(
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-[opacity,color,background-color] hover:bg-background/70 hover:text-foreground",
+  "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
+  FOCUS_RING,
+);
+/** A start row at the top of the list. */
+const ACTION_ROW = cn(ROW, "w-full text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground", FOCUS_RING);
 
 function readExpansion(): Record<string, boolean> {
   try {
@@ -48,6 +61,14 @@ function StatusMark({ status }: { status: ThreadStatus }) {
     return <span role="img" aria-label={t("ide_threads.new_activity")} title={t("ide_threads.new_activity")} className="h-2 w-2 shrink-0 rounded-full bg-accent" />;
   }
   return null;
+}
+
+/** A quiet heading over a group of rows, with its own small actions on the right. */
+function SectionLabel({ label, children }: { label: string; children?: ReactNode }) {
+  return <div className="flex min-h-8 items-end justify-between gap-2 pb-1 pl-2 pr-1 pt-4 text-sm text-muted-foreground">
+    <span className="truncate">{label}</span>
+    {children && <div className="flex items-center gap-0.5">{children}</div>}
+  </div>;
 }
 
 /**
@@ -170,6 +191,15 @@ export function ThreadTree() {
     }
   };
 
+  /** A new thread or team goes into the project in view, else the first one; with none, a folder is connected first. */
+  const startIn = (start: (projectId: string) => void) => {
+    const current = visible.find((project) => project.id === selection.projectId);
+    const target = current ?? visible.find((project) => project.pinned) ?? visible[0];
+    if (!target) { connectProject(); return; }
+    setProjectOpen(target.id, true);
+    start(target.id);
+  };
+
   const projectRow = (project: IdeProject) => {
     const all = grouped.get(project.id) ?? [];
     const threads = arrangeThreads(all.filter((thread) => !(thread.session_id in archived)), order[project.id]);
@@ -184,10 +214,10 @@ export function ThreadTree() {
     const shown = showAll[project.id] ? threads : threads.slice(0, FOLDED_COUNT);
     const running = threads.filter((thread) => thread.running).length;
     return <div key={project.id} className="mb-px" data-testid={`thread-project-${project.id}`}>
-      <div className="group relative flex min-h-8 items-center rounded-md transition-colors hover:bg-muted">
+      <div className="group relative flex min-h-8 items-center rounded-md pr-1 transition-colors hover:bg-muted">
         <button type="button" aria-expanded={open} aria-label={fill(t(open ? "ide_projects.collapse_named" : "ide_projects.expand_named"), { target: project.name })}
           onClick={() => setProjectOpen(project.id, !open)} title={project.path}
-          className="flex min-h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 text-left text-[15px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className={cn(ROW, "flex-1 text-foreground-secondary group-hover:text-foreground", FOCUS_RING)}>
           {open
             ? <FolderOpen aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
             : <Folder aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />}
@@ -197,20 +227,19 @@ export function ThreadTree() {
         <button type="button" aria-label={fill(t("ide_threads.new_thread_in"), { project: project.name })} title={t("ide_threads.new_thread")}
           data-testid={`thread-new-${project.id}`}
           onClick={() => { setProjectOpen(project.id, true); newThread(project.id); }}
-          className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/80 transition-colors hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <SquarePlus className="h-4 w-4" strokeWidth={1.75} />
+          className={HOVER_ACTION}>
+          <SquarePen className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>
         <button type="button" aria-label={fill(t("team_threads.new_in"), { project: project.name })} title={t("team_threads.new")}
           data-testid={`team-thread-new-${project.id}`}
           onClick={() => { setProjectOpen(project.id, true); newTeam(project.id); }}
-          className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/80 transition-colors hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Users className="h-4 w-4" strokeWidth={1.75} />
+          className={HOVER_ACTION}>
+          <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>
       </div>
-      {open && <div className="mb-1 flex flex-col gap-px">
-        {teamDraftHere && <div aria-current="page"
-          className="flex min-h-8 items-center gap-2 rounded-md bg-muted px-2 pl-8 text-[15px] text-muted-foreground">
-          <Users aria-hidden className="h-3.5 w-3.5 shrink-0" />
+      {open && <div className="mb-2 flex flex-col gap-px">
+        {teamDraftHere && <div aria-current="page" className={cn(ROW, "bg-muted text-muted-foreground")}>
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center"><Users aria-hidden className="h-3.5 w-3.5" /></span>
           <span className="min-w-0 flex-1 truncate">{t("team_threads.new")}</span>
         </div>}
         {teamRows.map((team) => {
@@ -220,10 +249,10 @@ export function ThreadTree() {
             data-testid={`team-thread-row-${team.team_id}`}
             onClick={() => openTeam(team.team_id, project.id)} title={team.title}
             className={cn(
-              "flex min-h-8 min-w-0 items-center gap-2 rounded-md py-1 pl-8 pr-2 text-left text-[15px] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              selected ? "bg-muted text-foreground-strong" : "text-foreground",
+              ROW, "py-1 transition-colors hover:bg-muted hover:text-foreground", FOCUS_RING,
+              selected ? "bg-muted text-foreground-strong" : "text-foreground-secondary",
             )}>
-            <Users aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center"><Users aria-hidden className="h-3.5 w-3.5 text-muted-foreground" /></span>
             <span className="min-w-0 flex-1 truncate">{team.title}</span>
             {team.state === "running"
               ? <Loader2 aria-label={t("team_threads.state.running")} className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
@@ -231,11 +260,11 @@ export function ThreadTree() {
                 ? <span aria-label={t("team_threads.state.needs_input")} className="h-2 w-2 shrink-0 rounded-full bg-warning" />
                 : team.state === "done"
                   ? <Check aria-label={t("team_threads.state.done")} className="h-3.5 w-3.5 shrink-0 text-success" />
-                  : <span className="text-xs tabular-nums text-muted-foreground">{shortAge(team.updated_ms)}</span>}
+                  : <span className="text-micro tabular-nums text-muted-foreground">{shortAge(team.updated_ms)}</span>}
           </button>;
         })}
-        {draftHere && <div aria-current="page"
-          className="flex min-h-8 items-center gap-2 rounded-md bg-muted px-2 pl-8 text-[15px] text-muted-foreground">
+        {draftHere && <div aria-current="page" className={cn(ROW, "bg-muted text-muted-foreground")}>
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center"><SquarePen aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /></span>
           <span className="min-w-0 flex-1 truncate">{t("ide_threads.new_thread")}</span>
         </div>}
         {shown.map((session) => {
@@ -244,7 +273,7 @@ export function ThreadTree() {
           const mark = agentOf.get(session.provider);
           const menuOpen = menu?.sessionId === session.session_id;
           if (renaming?.sessionId === session.session_id) {
-            return <form key={session.session_id} className="flex min-h-8 items-center gap-1 pl-6 pr-1"
+            return <form key={session.session_id} className="flex min-h-8 items-center gap-1 pl-[30px] pr-1"
               onSubmit={(event) => { event.preventDefault(); void rename(session, renaming.title); }}>
               <input autoFocus aria-label={fill(t("ide_projects.rename_named"), { target: threadTitle(session) })} value={renaming.title} maxLength={120}
                 onChange={(event) => setRenaming({ sessionId: session.session_id, title: event.target.value })}
@@ -328,24 +357,27 @@ export function ThreadTree() {
               }}
               title={fill(t("ide_projects.drag_hint"), { target: threadTitle(session) })}
               className={cn(
-                "flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md py-1 pl-8 pr-2 text-left text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                selected ? "text-foreground-strong" : "text-foreground",
+                ROW, "flex-1 py-1", FOCUS_RING,
+                selected ? "text-foreground-strong" : "text-foreground-secondary group-hover/thread:text-foreground",
               )}>
+              {/* The coding agent's own logo leads the row, where a plain list keeps a bullet. */}
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                {mark
+                  ? <AgentMark agent={mark.agent} label={mark.label} variant="plain" size="sm" />
+                  : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />}
+              </span>
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
               {busy === session.session_id
                 ? <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                 : <StatusMark status={status} />}
-              <span className="flex shrink-0 items-center transition-opacity group-hover/thread:opacity-0 [@media(hover:none)]:opacity-0">
-                {mark
-                  ? <AgentMark agent={mark.agent} label={mark.label} variant="plain" size="sm" />
-                  : <span className="text-xs tabular-nums text-muted-foreground">{shortAge(session.updated_ms)}</span>}
-              </span>
+              {status !== "running" && busy !== session.session_id
+                && <span className="shrink-0 text-micro tabular-nums text-muted-foreground transition-opacity group-hover/thread:opacity-0 [@media(hover:none)]:opacity-0">{shortAge(session.updated_ms)}</span>}
             </button>
             <div className={cn(
               "absolute inset-y-0 right-0 flex items-center gap-1 rounded-r-md bg-gradient-to-l from-muted from-60% to-transparent pl-5 pr-1 transition-opacity",
               menuOpen ? "opacity-100" : "pointer-events-none opacity-0 group-hover/thread:pointer-events-auto group-hover/thread:opacity-100 group-focus-within/thread:pointer-events-auto group-focus-within/thread:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
             )}>
-              <span className="text-xs tabular-nums text-muted-foreground" title={new Date(session.updated_ms).toLocaleString(locale)}>{shortAge(session.updated_ms)}</span>
+              <span className="text-micro tabular-nums text-muted-foreground" title={new Date(session.updated_ms).toLocaleString(locale)}>{shortAge(session.updated_ms)}</span>
               <button type="button" aria-label={fill(t("ide_threads.thread_actions_for"), { target: threadTitle(session) })} aria-haspopup="menu" aria-expanded={menuOpen}
                 onClick={(event) => {
                   menuAnchor.current = event.currentTarget;
@@ -362,17 +394,17 @@ export function ThreadTree() {
         })}
         {threads.length > FOLDED_COUNT && <button type="button"
           onClick={() => setShowAll((current) => ({ ...current, [project.id]: !current[project.id] }))}
-          className="flex min-h-7 items-center rounded-md pl-8 text-left text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className={cn("flex min-h-7 items-center rounded-md text-left text-sm text-muted-foreground hover:text-foreground", TITLE_INSET, FOCUS_RING)}>
           {showAll[project.id] ? t("ide_threads.show_less") : fill(t("ide_threads.show_more"), { count: threads.length - FOLDED_COUNT })}
         </button>}
         {threads.length === 0 && !draftHere && !teamDraftHere && <button type="button" onClick={() => newThread(project.id)}
-          className="flex min-h-7 items-center gap-2 rounded-md pl-8 text-left text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className={cn("flex min-h-7 items-center gap-2 rounded-md text-left text-sm text-muted-foreground hover:text-foreground", TITLE_INSET, FOCUS_RING)}>
           <Plus aria-hidden className="h-3.5 w-3.5" />{t("ide_threads.start_thread")}
         </button>}
         {stored.length > 0 && <button type="button" aria-expanded={archiveShown}
           data-testid={`thread-archived-${project.id}`}
           onClick={() => setArchiveOpen((current) => ({ ...current, [project.id]: !archiveShown }))}
-          className="flex min-h-7 items-center gap-1 rounded-md pl-8 text-left text-[13px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className={cn("flex min-h-7 items-center gap-1 rounded-md pl-[30px] text-left text-sm text-muted-foreground hover:text-foreground", FOCUS_RING)}>
           {archiveShown ? <ChevronDown aria-hidden className="h-3.5 w-3.5" /> : <ChevronRight aria-hidden className="h-3.5 w-3.5" />}
           {fill(t("ide_threads.archived_count"), { count: stored.length })}
         </button>}
@@ -389,11 +421,11 @@ export function ThreadTree() {
             }}>
             <button type="button" aria-current={selected ? "page" : undefined}
               onClick={() => openThread(session.session_id, project.id)} title={threadTitle(session)}
-              className="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md py-1 pl-8 pr-2 text-left text-[15px] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              className={cn(ROW, "flex-1 py-1 text-muted-foreground", TITLE_INSET, FOCUS_RING)}>
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
               {busy === session.session_id
                 ? <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
-                : <span className="shrink-0 text-xs tabular-nums transition-opacity group-hover/thread:opacity-0 [@media(hover:none)]:opacity-0">{shortAge(session.updated_ms)}</span>}
+                : <span className="shrink-0 text-micro tabular-nums transition-opacity group-hover/thread:opacity-0 [@media(hover:none)]:opacity-0">{shortAge(session.updated_ms)}</span>}
             </button>
             <div className={cn(
               "absolute inset-y-0 right-0 flex items-center rounded-r-md bg-gradient-to-l from-muted from-60% to-transparent pl-5 pr-1 transition-opacity",
@@ -421,22 +453,33 @@ export function ThreadTree() {
   const columnsFull = split.length + 1 >= MAX_THREAD_COLUMNS;
 
   return <div data-testid="ide-thread-tree" className="flex-1 px-2 pb-3 pt-2">
-    <div className="flex h-8 items-center justify-between gap-2 pl-2 pr-1 text-[15px] font-semibold text-foreground">
-      <span>{t("ide_threads.layout_threads")}</span>
-      <div className="flex items-center gap-1">
-        <button type="button" aria-label="Dodaios Live" title="Dodaios Live" onClick={toggleVoice}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Mic className="h-3.5 w-3.5" /></button>
-        <button type="button" aria-label={t("ide_projects.connect_title")} title={t("ide_projects.connect_folder_title")} onClick={connectProject}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Plus className="h-3.5 w-3.5" /></button>
-      </div>
+    {/* What one starts from here, as rows: a thread, a team, a voice call. */}
+    <div role="group" aria-label={t("ide_threads.layout_threads")} className="flex flex-col gap-px">
+      <button type="button" data-testid="thread-tree-new-thread" onClick={() => startIn(newThread)} className={ACTION_ROW}>
+        <SquarePen aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <span className="min-w-0 flex-1 truncate">{t("ide_threads.new_thread")}</span>
+      </button>
+      <button type="button" data-testid="thread-tree-new-team" onClick={() => startIn(newTeam)} className={ACTION_ROW}>
+        <Users aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <span className="min-w-0 flex-1 truncate">{t("team_threads.new")}</span>
+      </button>
+      <button type="button" onClick={toggleVoice} className={ACTION_ROW}>
+        <Mic aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <span className="min-w-0 flex-1 truncate">Dodaios Live</span>
+      </button>
     </div>
     {visible.some((project) => project.pinned) && <>
-      <div className="px-2 pb-1 pt-3 text-[13px] font-medium text-muted-foreground/80">{t("ide_projects.pinned")}</div>
+      <SectionLabel label={t("ide_projects.pinned")} />
       {visible.filter((project) => project.pinned).map(projectRow)}
-      {visible.some((project) => !project.pinned) && <div className="px-2 pb-1 pt-4 text-[13px] font-medium text-muted-foreground/80">{t("ide_projects.other_projects")}</div>}
     </>}
+    <SectionLabel label={t("ide_threads.projects")}>
+      <button type="button" aria-label={t("ide_projects.connect_title")} title={t("ide_projects.connect_folder_title")} onClick={connectProject}
+        className={cn("flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", FOCUS_RING)}>
+        <FolderPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+      </button>
+    </SectionLabel>
     {visible.filter((project) => !project.pinned).map(projectRow)}
-    {visible.length === 0 && <p className="px-2 py-2 text-[13px] text-muted-foreground">{t("ide_projects.empty")}</p>}
+    {visible.length === 0 && <p className="px-2 py-2 text-sm text-muted-foreground">{t("ide_projects.empty")}</p>}
 
     <ThreadPopover anchor={menuAnchor} open={menu !== null && menuSession !== null} onClose={() => { setMenu(null); setConfirmDelete(null); }}
       label={t("ide_threads.thread_actions")} width={220}>

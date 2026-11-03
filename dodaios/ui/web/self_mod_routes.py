@@ -87,7 +87,7 @@ def _redact_audit_event(event: dict[str, Any]) -> dict[str, Any]:
 def _get_audit(request: Request) -> SelfModAudit:
     audit = getattr(request.app.state, "self_mod_audit", None)
     if audit is None:
-        # Fallback: SelfModAudit() uses the default path data/self_mod.log.
+        # Fallback: SelfModAudit() writes self_mod.log in the data dir.
         audit = SelfModAudit()
     return audit
 

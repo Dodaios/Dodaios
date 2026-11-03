@@ -77,7 +77,9 @@ from dodaios.ui.browser_profiles import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ChromeEmbed", "get_embed", "release_host_if_any", "shutdown_embed"]
+__all__ = [
+    "ChromeEmbed", "get_embed", "park_left_over_window", "release_host_if_any", "shutdown_embed",
+]
 
 T = TypeVar("T")
 
@@ -552,6 +554,62 @@ class ChromeEmbed:
         thread.join(1.0)
 
     # -- a window left by the previous app run ---------------------------------
+
+    def park_left_over(self) -> bool:
+        """Watch the window a previous app run left behind, hidden, until the panel wants it.
+
+        Unwatched, that window stays a hidden, borderless window of the user's
+        browser: the browser keeps sending links and new windows into it, and
+        the user sees nothing. Parked, it is hidden like a closed panel, and a
+        link that arrives in it hands it back as a normal window.
+        """
+        if not self.supported():
+            return False
+        with self._lock:
+            if self._closing or self._chrome:
+                return False
+        try:
+            record = self._read_state()
+            spec = browser_by_id(str(record.get("browser", ""))) if record else None
+            if record is None or spec is None:
+                return False
+            self._ensure_thread()
+            parked = self._call(lambda: self._park(spec, str(record.get("profile", ""))))
+        except Exception as exc:  # noqa: BLE001 - a left-over window is never load-bearing
+            logger.warning("Browser panel could not park the left-over window: %s", exc)
+            return False
+        if parked:
+            logger.info("Browser panel parked the window of the previous run")
+        return bool(parked)
+
+    def _park(self, spec: BrowserSpec, profile: str) -> bool:
+        """Adopt the left-over window with no panel (native thread).
+
+        A window on screen right now is in use: it becomes a normal window
+        instead of vanishing.
+        """
+        if self._chrome:
+            return False
+        record = self._left_over(spec)
+        if record is None:
+            return False
+        on_screen = bool(self._load_api().user32.IsWindowVisible(int(record["hwnd"])))
+        if not self._adopt_left_over(spec, profile, 0):
+            return False
+        if on_screen:
+            self._give_back(close=False, focus=False)
+        return True
+
+    def _read_state(self) -> dict[str, Any] | None:
+        path = self._state_path()
+        if path is None or not path.is_file():
+            return None
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            logger.info("Browser panel window record unreadable, nothing parked: %s", exc)
+            return None
+        return record if isinstance(record, dict) else None
 
     @staticmethod
     def _state_path() -> Path | None:
@@ -1197,6 +1255,14 @@ def get_embed() -> ChromeEmbed:
         if _embed is None:
             _embed = ChromeEmbed()
         return _embed
+
+
+def park_left_over_window() -> None:
+    """At app start: watch the browser window a previous run left behind. Never raises."""
+    try:
+        get_embed().park_left_over()
+    except Exception:  # noqa: BLE001
+        logger.debug("Browser panel left-over window not parked", exc_info=True)
 
 
 def release_host_if_any(host: int) -> None:

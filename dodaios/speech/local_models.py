@@ -319,8 +319,14 @@ def models_root(data_dir: str | None = None) -> Path:
     Honours the same ``JARVIS__MEMORY__DATA_DIR`` seam as the wake-model
     fetcher, so a headless install that relocated its data dir (ADR-0027) keeps
     every model in one place instead of scattering them across two conventions.
+    Without either, the runtime data dir (``JARVIS_DATA_DIR`` or
+    ``<checkout>/data``), never the cwd (#458).
     """
-    base = data_dir or os.environ.get("JARVIS__MEMORY__DATA_DIR") or "data"
+    base = data_dir or os.environ.get("JARVIS__MEMORY__DATA_DIR")
+    if not base:
+        from dodaios.core.paths import runtime_data_dir
+
+        base = str(runtime_data_dir())
     return Path(base) / "models"
 
 

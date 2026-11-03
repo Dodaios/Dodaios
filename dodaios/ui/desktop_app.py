@@ -5873,6 +5873,17 @@ class DesktopApp:
         # page load, and the UI reloads itself after each frontend build.
         self._window.events.loaded += lambda w=self._window: self._register_native_drop(w)
         self._arm_window_frame(self._window)
+        if sys.platform == "win32":
+            self._window.events.shown += self._park_browser_panel_window
+
+    @staticmethod
+    def _park_browser_panel_window() -> None:
+        """Take charge of a browser panel window the previous app run left behind."""
+        from dodaios.ui.browser_embed import park_left_over_window  # noqa: PLC0415
+
+        threading.Thread(
+            target=park_left_over_window, name="browser-panel-park", daemon=True,
+        ).start()
 
     @staticmethod
     def _register_native_drop(window: Any) -> None:

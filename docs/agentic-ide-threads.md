@@ -23,16 +23,20 @@ connected project folder that holds the thread's folder.
 
 ## Sidebar
 
-Projects with their threads, newest first. A thread is named by the title its
+On top, three start rows: New thread, New team thread (both in the project in
+view, else the first one) and Dodaios Live. Below, "Pinned" and "Projects"
+(its folder icon connects another folder), each project with its threads,
+newest first. A thread is named by the title its
 CLI gave the conversation (Claude Code's session title, Codex's thread name —
 `cli_title` on `GET /api/agent-chat/sessions?surface=agent`), until the person
-renames it; before the CLI names it, the first message is the name. The row's
-end shows the CLI's logo, a spinner while it works, an amber dot while it waits
-for an approval and a blue dot for news since it was last opened.
+renames it; before the CLI names it, the first message is the name. The row
+starts with the CLI's logo; its end shows how long ago it last moved, a spinner
+while it works, an amber dot while it waits for an approval and a blue dot for
+news since it was last opened.
 
 ## Thread view
 
-- **New thread:** the small plus on a project row. The empty thread asks what
+- **New thread:** the top row, or the pen on a hovered project row. The empty thread asks what
   to build in the project; the project name is a picker.
 - **Title bar:** an open thread has the same controls as a grid pane's
   header: review the changes in the thread's folder, show them in the Git
