@@ -12,7 +12,8 @@ Runs in the `unreal-static` lane and in `scripts/ci/run_gates.py`. It fails on:
   for their content folder (section 9);
 * MI recipes (`Art/Materials/MI_*.mi.json`) that break `verse.mi/1` or use a
   banned colour (section 8.3);
-* a `.uasset` of an imported kind under `Content/Verse/` with no record, any
+* a `.uasset` of an imported kind under `Content/Verse/` with no record (test
+  placeholders under `Content/Verse/Test/` are built in the editor and exempt), any
   asset name outside section 3, engine sample content (section 11), and
   banned folder names under `unreal/` and `art/verse/` (section 10.1);
 * a `space_vectors.json` that disagrees with `art/verse/lib/ue_space.py`.
@@ -64,6 +65,10 @@ KIND_NAMES = {
 }
 #: Prefixes whose assets come from an import record (a .uasset needs one).
 IMPORTED_PREFIXES = ("SM_", "SK_", "SKEL_", "PHYS_", "A_", "T_", "GC_")
+
+#: Folders whose assets are built inside the editor by test code (the G0 test human,
+#: per-package placeholders), not imported from an export: no import record needed.
+EDITOR_BUILT_FOLDERS = ("/Game/Verse/Test/",)
 
 #: Triangle caps of section 6.2, first matching rule wins: (path prefix, name test, cap).
 TRIANGLE_CAPS: tuple[tuple[str, str, int], ...] = (
@@ -410,7 +415,10 @@ class Checker:
                 on_disk.add(object_path)
                 for error in name_errors(name):
                     self.fail(path, error)
-                if path.suffix == ".uasset" and name.startswith(IMPORTED_PREFIXES):
+                needs_record = name.startswith(IMPORTED_PREFIXES) and not object_path.startswith(
+                    EDITOR_BUILT_FOLDERS
+                )
+                if path.suffix == ".uasset" and needs_record:
                     if object_path not in records:
                         self.fail(path, "no import record in unreal/Verse/Art/Import/")
                 if ENGINE_CONTENT.search(object_path):
