@@ -9,5 +9,7 @@ public class VerseUI : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge", "VerseCombat", "VerseCrew", "VerseDecks" });
+		// Json: station command data; Slate: the plain station overlay until WP18's UI root (WP16, request to the integration owner).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "Slate", "SlateCore" });
 	}
 }

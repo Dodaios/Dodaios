@@ -9,5 +9,11 @@ public class VerseDestruction : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore" });
+		// Engine modules (not Verse edges): FFastArraySerializer and push model of the piece state
+		// (destruction.md 3.3), the debris geometry collections and their real chunk counts (10),
+		// navmesh build feedback for the dirty-tile queue (6.1).
+		PublicDependencyModuleNames.AddRange(new string[] { "NetCore", "Chaos", "GeometryCollectionEngine", "NavigationSystem" });
+		// The validator reads the source geometry of a mesh in the editor (destruction.md 9).
+		PrivateDependencyModuleNames.AddRange(new string[] { "MeshDescription" });
 	}
 }

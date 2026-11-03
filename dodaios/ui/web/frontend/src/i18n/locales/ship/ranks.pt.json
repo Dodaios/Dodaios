@@ -73,6 +73,9 @@
         "simulator_record": "Recorde no simulador",
         "team_briefing": "Reunião de equipa",
         "inspection": "Inspeção de convés",
+        "duel_won": "Set de duelo vencido",
+        "duel_lost": "Set de duelo perdido",
+        "duel_finisher": "Finalização em duelo",
         "task_done": "Tarefa feita",
         "task_blocked": "Tarefa comunicada como bloqueada",
         "quest_done": "Missão concluída",
@@ -95,6 +98,9 @@
         "simulator_record": "Bate um novo recorde na sala do simulador.",
         "team_briefing": "Faz uma reunião de equipa na sala de reuniões.",
         "inspection": "Percorre todas as salas de um convés, uma vez por convés e por dia.",
+        "duel_won": "Vença um set de duelo na arena do hangar; adversários mais duros pagam mais.",
+        "duel_lost": "Jogue até o fim um set de duelo de pelo menos um minuto, mesmo que perca.",
+        "duel_finisher": "Faça uma finalização num set de duelo que conte.",
         "task_done": "Termina uma tarefa.",
         "task_blocked": "Comunica uma tarefa como bloqueada, com o motivo.",
         "quest_done": "Conclui uma missão.",
@@ -155,7 +161,34 @@
         "earn_hint": "Cada atribuição é verificada no diário de bordo da nave: a mesma coisa nunca paga duas vezes.",
         "crew_empty": "Ainda não há oficiais a bordo.",
         "companion": "Drone de companhia",
-        "sound": "Sino de bordo nas promoções"
+        "sound": "Sino de bordo nas promoções",
+        "duel": {
+          "title": "Duelos",
+          "empty": "Ainda não há sets de duelo. Comece um no arsenal do hangar.",
+          "sets": "Sets",
+          "record": "Vencidos / perdidos",
+          "won_lost": "{won} / {lost}",
+          "kd": "K/D",
+          "headshots": "Tiros na cabeça",
+          "finishers": "Finalizações",
+          "best_streak": "Melhor sequência",
+          "unfinished": "Não terminados",
+          "recent": "Sets recentes",
+          "score": "{player} : {opponent}",
+          "outcome": {
+            "won": "Vencido",
+            "lost": "Perdido",
+            "unfinished": "Não terminado"
+          },
+          "tier": {
+            "normal": "Normal",
+            "hard": "Difícil",
+            "elite": "Elite",
+            "adaptive": "Adaptativo",
+            "player": "Outro jogador",
+            "unknown": "Adversário"
+          }
+        }
       },
       "promo": {
         "eyebrow": "Promoção",

@@ -122,6 +122,7 @@ def test_the_server_rules_keep_their_amounts():
         "chat_turn": 5, "voice_turn": 5, "quest_posted": 15, "quest_completed": 20,
         "agent_hired": 50, "mission_completed": 30, "task_done": 40, "task_blocked": 8,
         "quest_done": 60, "answered_teammate": 5, "jarvis_answered": 4, "delegated": 10,
+        "duel_won": 40, "duel_lost": 10, "duel_finisher": 5,
     }
 
 

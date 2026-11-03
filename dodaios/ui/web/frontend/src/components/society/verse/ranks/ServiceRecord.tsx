@@ -2,7 +2,9 @@
  * The service record: an accessible dialog with five pages.
  *
  * - Record: the commander's plate, rank, level, XP, the next rank and what is
- *   still missing, the ribbons held, the log of recent awards, the bell.
+ *   still missing, the duel record (sets, won / lost, K/D, headshots,
+ *   finishers, best streak, the latest sets), the ribbons held, the log of
+ *   recent awards, the bell.
  * - Ladder: every rank by tier; held ranks plain, the current one marked in
  *   red, the ones ahead dimmed with the XP still missing.
  * - Quartermaster: the uniforms issued by tier (the commander picks one, or
@@ -15,7 +17,7 @@
  */
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocaleChunk, useT, useUiLanguage } from "@/i18n";
 import { issuedUniforms, unlockedFor, xpUntilLevel, type UniformChoice } from "../../progression/cosmetics";
 import { rewardKey, type RibbonId, type SubjectKind } from "../../progression/levelCatalog";
@@ -112,6 +114,7 @@ function RecordPage() {
         </div>
       </div>
       <div className="vr-bar" aria-hidden><span style={{ width: `${(view.fraction * 100).toFixed(1)}%` }} /></div>
+      <DuelSection />
       <section className="vr-section">
         <h3 className="vr-caps">{t("verse.ranks.record.ribbons")}</h3>
         {ribbons.length > 0
@@ -137,6 +140,151 @@ function RecordPage() {
         {t("verse.ranks.record.sound")}
       </label>
     </>
+  );
+}
+
+// ------------------------------------------------------------------ duels
+
+/** Duel totals as `GET /api/progression/duels` sends them (`duel_stats`). */
+export interface DuelTotals {
+  matches: number;
+  wins: number;
+  losses: number;
+  unfinished: number;
+  kills: number;
+  deaths: number;
+  kd: number;
+  headshots: number;
+  finishers: number;
+  bestStreak: number;
+}
+
+/** One set of the duels read, newest first. */
+export interface DuelSet {
+  matchId: string;
+  outcome: "won" | "lost" | "unfinished";
+  tierKey: string;
+  player: number;
+  opponent: number;
+  xp: number;
+  recordedMs: number;
+}
+
+export interface DuelRecord {
+  totals: DuelTotals;
+  sets: DuelSet[];
+}
+
+const DUEL_OUTCOMES = ["won", "lost", "unfinished"] as const;
+const DUEL_TIERS = ["normal", "hard", "elite", "adaptive", "player"] as const;
+/** How many of the latest sets the record lists. */
+export const DUEL_SETS_SHOWN = 5;
+
+type RawObject = Record<string, unknown>;
+const asObject = (v: unknown): RawObject => (v && typeof v === "object" ? (v as RawObject) : {});
+const count = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+/** Forgiving parse of the duels read: missing fields read as zero, unknown outcomes are left out. */
+export function parseDuelRecord(raw: unknown): DuelRecord {
+  const body = asObject(raw);
+  const s = asObject(body.duel_stats);
+  const totals: DuelTotals = {
+    matches: count(s.matches), wins: count(s.wins), losses: count(s.losses), unfinished: count(s.unfinished),
+    kills: count(s.kills), deaths: count(s.deaths), kd: count(s.kd), headshots: count(s.headshots),
+    finishers: count(s.finishers), bestStreak: count(s.best_streak),
+  };
+  const sets = (Array.isArray(body.duels) ? body.duels : []).flatMap((row): DuelSet[] => {
+    const r = asObject(row);
+    const outcome = r.outcome;
+    if (!(DUEL_OUTCOMES as readonly unknown[]).includes(outcome)) return [];
+    const score = asObject(r.score);
+    return [{
+      matchId: typeof r.match_id === "string" ? r.match_id : "",
+      outcome: outcome as DuelSet["outcome"],
+      tierKey: typeof r.tier_key === "string" ? r.tier_key : "unknown",
+      player: count(score.player), opponent: count(score.opponent), xp: count(r.xp), recordedMs: count(r.recorded_ms),
+    }];
+  });
+  return { totals, sets };
+}
+
+/** How often an open record reads the duels again; sets that pay nothing raise no award. */
+export const DUEL_REFRESH_MS = 30_000;
+
+/**
+ * The duel record, read when the record opens, after every award (a paid set is
+ * an award), when the window gets focus again, and every DUEL_REFRESH_MS while
+ * open, so sets that pay nothing (unfinished, under 60 s, past the daily cap)
+ * still show up.
+ */
+function useDuelRecord(): DuelRecord | null {
+  const latestSeq = useProgression((s) => s.snapshot?.latestSeq ?? 0);
+  const [record, setRecord] = useState<DuelRecord | null>(null);
+  useEffect(() => {
+    let live = true;
+    const read = async () => {
+      try {
+        const res = await fetch(`/api/progression/duels?limit=${DUEL_SETS_SHOWN}`);
+        if (!res.ok) return;
+        const parsed = parseDuelRecord(await res.json());
+        if (live) setRecord(parsed);
+      } catch (error) {
+        // An older backend without duels, or none at all: the section says "no sets yet".
+        console.debug("Duel record not read", error);
+      }
+    };
+    void read();
+    const onFocus = () => { void read(); };
+    window.addEventListener("focus", onFocus);
+    const timer = window.setInterval(() => { void read(); }, DUEL_REFRESH_MS);
+    return () => {
+      live = false;
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(timer);
+    };
+  }, [latestSeq]);
+  return record;
+}
+
+function DuelSection() {
+  const t = useT();
+  const record = useDuelRecord();
+  const totals = record?.totals;
+  const tierWord = (key: string) => t(`verse.ranks.record.duel.tier.${(DUEL_TIERS as readonly string[]).includes(key) ? key : "unknown"}`);
+  return (
+    <section className="vr-section" data-section="duels">
+      <h3 className="vr-caps">{t("verse.ranks.record.duel.title")}</h3>
+      {!record || !totals || totals.matches === 0 ? <p className="vr-hint">{t("verse.ranks.record.duel.empty")}</p> : (
+        <>
+          <div className="vr-facts">
+            <div className="vr-fact" data-stat="sets"><span className="vr-caps">{t("verse.ranks.record.duel.sets")}</span><span className="vr-num">{figure(totals.matches)}</span></div>
+            <div className="vr-fact" data-stat="record">
+              <span className="vr-caps">{t("verse.ranks.record.duel.record")}</span>
+              <span className="vr-num">{fill(t("verse.ranks.record.duel.won_lost"), { won: figure(totals.wins), lost: figure(totals.losses) })}</span>
+              {totals.unfinished > 0 && <small className="vr-caps">{t("verse.ranks.record.duel.unfinished")} {figure(totals.unfinished)}</small>}
+            </div>
+            <div className="vr-fact" data-stat="kd"><span className="vr-caps">{t("verse.ranks.record.duel.kd")}</span><span className="vr-num">{totals.kd.toFixed(2)}</span></div>
+            <div className="vr-fact" data-stat="headshots"><span className="vr-caps">{t("verse.ranks.record.duel.headshots")}</span><span className="vr-num">{figure(totals.headshots)}</span></div>
+            <div className="vr-fact" data-stat="finishers"><span className="vr-caps">{t("verse.ranks.record.duel.finishers")}</span><span className="vr-num">{figure(totals.finishers)}</span></div>
+            <div className="vr-fact" data-stat="best_streak"><span className="vr-caps">{t("verse.ranks.record.duel.best_streak")}</span><span className="vr-num">{figure(totals.bestStreak)}</span></div>
+          </div>
+          {record.sets.length > 0 && (
+            <>
+              <h4 className="vr-caps">{t("verse.ranks.record.duel.recent")}</h4>
+              <ul className="vr-log" aria-label={t("verse.ranks.record.duel.recent")}>
+                {record.sets.map((set) => (
+                  <li key={set.matchId} data-outcome={set.outcome}>
+                    <span>{t(`verse.ranks.record.duel.outcome.${set.outcome}`)} · {tierWord(set.tierKey)}</span>
+                    <span className="vr-num">{fill(t("verse.ranks.record.duel.score"), { player: set.player, opponent: set.opponent })}</span>
+                    <span className="vr-num vr-xp">{set.xp > 0 ? `+${set.xp}` : "—"}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
