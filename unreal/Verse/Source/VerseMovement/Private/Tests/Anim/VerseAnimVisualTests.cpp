@@ -157,6 +157,9 @@ namespace VerseVisual
 			Weapon->SetRelativeScale3D(Size / 100.0);
 			Weapon->RegisterComponent();
 			UVerseFirstPersonLibrary::MarkFirstPerson(Weapon);
+			const FVector Tip = Weapon->GetComponentTransform().TransformPosition(FVector(0.0, 50.0, 0.0));
+			UE_LOG(LogTemp, Display, TEXT("VerseVisual stand-in %s: root %s tip %s"), *Clip,
+				*Body->GetSocketLocation(TEXT("Weapon_R")).ToString(), *Tip.ToString());
 		}
 
 		void Look(UWorld* World, const FVector& From, const FVector& At, float Fov = 40.f)
@@ -312,6 +315,8 @@ bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 						Wall->GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);
 						Wall->GetStaticMeshComponent()->SetStaticMesh(Cube);
 						Wall->SetActorScale3D(FVector(0.1, 8, 4));
+						UE_LOG(LogTemp, Display, TEXT("VerseVisual wall: eye %s hand_l %s wall face x %.1f"),
+							*Eye.GetLocation().ToString(), *Hand.ToString(), Hand.X + 20.0);
 					}
 				}
 			}});
