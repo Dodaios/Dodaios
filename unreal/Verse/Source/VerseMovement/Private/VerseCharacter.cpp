@@ -39,6 +39,8 @@ AVerseCharacter::AVerseCharacter(const FObjectInitializer& ObjectInitializer)
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
+	// The input frame (Tick) runs before the movement simulates it; see BeginPlay.
+	GetCharacterMovement()->bTickBeforeOwner = false;
 
 	const FVerseMovementTuningValues Defaults;
 	GetCapsuleComponent()->InitCapsuleSize(Defaults.CapsuleRadius * 100.f, Defaults.StandHalfHeightCm());

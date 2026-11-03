@@ -342,7 +342,10 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 	const FVector CameraBone = bHasCamera ? Mesh->GetBoneLocation(TEXT("Camera")) : FVector::ZeroVector;
 	TMap<EVerseHitZone, FVector2f> Standing;
 	FString Profile;
-	Scan(Pawn->GetActorLocation(), Standing, Profile);
+	// The rig's bodies are joint spheres; the legs sit 10 cm off the centre line, so the scan
+	// runs through the right thigh's line (head and spine are on it too).
+	const FVector LegLine = BodyLocation(TEXT("Thigh_R"));
+	Scan(FVector(LegLine.X, LegLine.Y, Pawn->GetActorLocation().Z), Standing, Profile);
 	AddInfo(FString::Printf(TEXT("standing zone profile, 5 cm steps from the floor: %s"), *Profile));
 	for (const EVerseHitZone Zone : {EVerseHitZone::Head, EVerseHitZone::UpperTorso, EVerseHitZone::LowerTorso, EVerseHitZone::Leg})
 	{
@@ -374,6 +377,13 @@ bool FVerseMovementHitZonesTest::RunTest(const FString& Parameters)
 	Run(W, *Pawn, 0u, FVector2f::ZeroVector, 0.5f);
 
 	Run(W, *Pawn, uint32(EVerseInputButton::Prone), FVector2f::ZeroVector, 1.5f);
+	for (const USkeletalBodySetup* Setup : Mesh->GetPhysicsAsset()->SkeletalBodySetups)
+	{
+		const FBodyInstance* Instance = Setup ? Mesh->GetBodyInstance(Setup->BoneName) : nullptr;
+		AddInfo(FString::Printf(TEXT("prone body %s: at %s from the feet, bounds %s"), Setup ? *Setup->BoneName.ToString() : TEXT("?"),
+			Instance ? *(Instance->GetUnrealWorldTransform().GetLocation() - FVerseMovementTestWorld::Feet(*Pawn)).ToCompactString() : TEXT("-"),
+			Instance ? *Instance->GetBodyBounds().GetExtent().ToCompactString() : TEXT("-")));
+	}
 	const FVector ProneHead = BodyLocation(TEXT("Head"));
 	const float Feet = FVerseMovementTestWorld::Feet(*Pawn).Z;
 	AddInfo(FString::Printf(TEXT("prone head body %.1f cm above the floor"), ProneHead.Z - Feet));
