@@ -1,0 +1,31 @@
+{
+  "name": "MI_Weapon_Vfx_MuzzleFoe",
+  "owner": "WP14",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Glass.M_Verse_Glass",
+  "replaces": null,
+  "scalars": {
+    "EmissiveNits": 40.0,
+    "Fade": 1.0,
+    "Opacity": 0.9,
+    "Roughness": 0.5
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseVertexFalloff": true
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "EmissiveColor": [
+      0.768,
+      0.0176,
+      0.0242,
+      1.0
+    ]
+  }
+}
