@@ -1,0 +1,19 @@
+[
+  {
+    "type": "screens.watch",
+    "id": "c-30",
+    "ts": 1793612360.0,
+    "data": {
+      "panes": [
+        {
+          "pane_id": "ws_91:T1",
+          "hz": 10
+        },
+        {
+          "pane_id": "ws_91:T2",
+          "hz": 2
+        }
+      ]
+    }
+  }
+]

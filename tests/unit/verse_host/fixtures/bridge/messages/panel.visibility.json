@@ -1,0 +1,24 @@
+[
+  {
+    "type": "panel.visibility",
+    "seq": 206,
+    "ts": 1793612706.0,
+    "data": {
+      "visible": true,
+      "w": 480,
+      "h": 320,
+      "dpr": 1.5
+    }
+  },
+  {
+    "type": "panel.visibility",
+    "seq": 207,
+    "ts": 1793612707.0,
+    "data": {
+      "visible": false,
+      "w": 0,
+      "h": 0,
+      "dpr": 1.5
+    }
+  }
+]

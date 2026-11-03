@@ -1,0 +1,47 @@
+[
+  {
+    "request": {
+      "type": "meeting.start",
+      "id": "c-44",
+      "ts": 1793612379.0,
+      "data": {
+        "group_id": "grp_a",
+        "text": "Ship 4.2?"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 310,
+      "ts": 1793612379.05,
+      "re": "c-44",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "meeting.start",
+      "id": "c-46",
+      "ts": 1793612379.0,
+      "data": {
+        "group_id": "grp_a",
+        "text": "Ship 4.2?"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 311,
+      "ts": 1793612379.05,
+      "re": "c-46",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "conflict",
+          "message": "The person declined."
+        }
+      }
+    }
+  }
+]

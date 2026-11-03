@@ -1,0 +1,17 @@
+[
+  {
+    "type": "panel.stream_state",
+    "ts": 1793612718.0,
+    "data": {
+      "state": "streaming"
+    }
+  },
+  {
+    "type": "panel.stream_state",
+    "ts": 1793612719.0,
+    "data": {
+      "state": "failed",
+      "error": "encoder_unavailable"
+    }
+  }
+]

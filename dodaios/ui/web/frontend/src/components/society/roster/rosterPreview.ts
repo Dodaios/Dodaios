@@ -15,6 +15,7 @@
  */
 import { hideAskBlocks } from "@/components/agentchat/askFence";
 import { friendlyToolName, isRawToolId } from "@/components/agentchat/traceEntries";
+import { fill } from "@/i18n";
 import { stripInlineMarks } from "@/lib/plainMarks";
 
 import { wasAnswered } from "../attention/attentionStore";
@@ -79,6 +80,22 @@ export function readableWaiting(text: string, t: (key: string) => string): strin
   return text && isRawToolId(text) ? friendlyToolName(text, t) : text;
 }
 
+/**
+ * What the person has to do, in words: "Needs you · Sign in to Hacker News".
+ * A sign-in's summary is only the site name, which alone does not say that a
+ * login is missing, so it reads as the sign-in card's own title.
+ */
+export function waitingLine(
+  reason: Pick<WaitingReason, "kind" | "summary"> | null | undefined,
+  t: (key: string) => string,
+): string {
+  const summary = readableWaiting(previewText(reason?.summary), t);
+  if (reason?.kind === "credential") {
+    return `${t("society.shell.preview_needs_you")} · ${fill(t("login_card.title"), { site: summary || t("society.shell.sign_in_site") })}`;
+  }
+  return summary ? `${t("society.shell.preview_needs_you")} · ${summary}` : "";
+}
+
 export type RosterStatus = "needs-you" | "working" | "unread" | "paused" | "idle";
 
 export function rosterStatus(agent: SocietyAgent, unread: boolean): RosterStatus {
@@ -98,6 +115,8 @@ export type PreviewKind = "waiting" | "draft" | "message" | "role";
 export interface RosterPreview {
   kind: PreviewKind;
   text: string;
+  /** For a waiting preview: what kind of answer the agent waits for. */
+  waitingKind?: WaitingKind;
 }
 
 export interface PreviewSources {
@@ -132,7 +151,7 @@ export function previewText(raw: string | null | undefined): string {
 export function rosterPreview({ agent, draft, lastMessage }: PreviewSources): RosterPreview {
   const reason = waitingReasonOf(agent);
   if (reason || agent.state === "waiting") {
-    return { kind: "waiting", text: previewText(reason?.summary) };
+    return { kind: "waiting", text: previewText(reason?.summary), ...(reason ? { waitingKind: reason.kind } : {}) };
   }
   const unsent = previewText(draft);
   if (unsent) return { kind: "draft", text: unsent };

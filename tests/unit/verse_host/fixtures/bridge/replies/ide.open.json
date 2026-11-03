@@ -1,0 +1,20 @@
+[
+  {
+    "request": {
+      "type": "ide.open",
+      "id": "c-76",
+      "ts": 1793612605.0,
+      "data": {}
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 335,
+      "ts": 1793612605.05,
+      "re": "c-76",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  }
+]

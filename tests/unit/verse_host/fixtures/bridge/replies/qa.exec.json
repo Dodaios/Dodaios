@@ -1,0 +1,55 @@
+[
+  {
+    "request": {
+      "type": "qa.exec",
+      "id": "c-79",
+      "ts": 1793612608.0,
+      "data": {
+        "command": "Verse.QA.Stats",
+        "args": []
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 338,
+      "ts": 1793612608.05,
+      "re": "c-79",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "unavailable",
+          "message": "QA commands need DODAIOS_VERSE_QA=1."
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "qa.exec",
+      "id": "c-80",
+      "ts": 1793612609.0,
+      "data": {
+        "command": "Verse.QA.SetDuty",
+        "args": [
+          "ag_7f1",
+          "error"
+        ]
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 339,
+      "ts": 1793612609.05,
+      "re": "c-80",
+      "data": {
+        "ok": true,
+        "result": {
+          "result": {
+            "agent_id": "ag_7f1",
+            "duty": "error"
+          }
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,45 @@
+[
+  {
+    "request": {
+      "type": "group.open",
+      "id": "c-74",
+      "ts": 1793612603.0,
+      "data": {
+        "group_id": "grp_a"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 332,
+      "ts": 1793612603.05,
+      "re": "c-74",
+      "data": {
+        "ok": true,
+        "result": {}
+      }
+    }
+  },
+  {
+    "request": {
+      "type": "group.open",
+      "id": "c-82",
+      "ts": 1793612603.0,
+      "data": {
+        "group_id": "grp_z"
+      }
+    },
+    "reply": {
+      "type": "reply",
+      "seq": 333,
+      "ts": 1793612603.05,
+      "re": "c-82",
+      "data": {
+        "ok": false,
+        "error": {
+          "code": "not_found",
+          "message": "Group is gone."
+        }
+      }
+    }
+  }
+]
