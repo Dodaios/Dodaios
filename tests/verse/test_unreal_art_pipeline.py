@@ -32,9 +32,10 @@ from lib import placement, ue_space, unreal_materials  # noqa: E402
 from verse_pipeline import (  # noqa: E402
     calib,
     import_assets,
+    import_meshes,
     records,
     sync_placements,
-    validate_assets,  # noqa: E402
+    validate_assets,
 )
 
 
@@ -663,3 +664,25 @@ def test_export_records_follow_the_kit_rules(tmp_path):
 def test_reserved_export_modes_exit_2(capsys):
     assert export_unreal.main(["characters"]) == 2
     assert "WP13" in capsys.readouterr().err
+
+
+def test_collision_import_flag_keeps_authored_primitives_under_interchange():
+    # Interchange maps the flag onto collision import as a whole (WP12, UE 5.7.1).
+    assert import_meshes.wants_collision_import("auto_box", "legacy")
+    assert import_meshes.wants_collision_import("authored", "interchange")
+    assert not import_meshes.wants_collision_import("authored", "legacy")
+    assert not import_meshes.wants_collision_import("none", "interchange")
+
+
+def test_placement_sync_runs_with_an_offscreen_rhi_and_the_rest_without_one():
+    import_art = _load("import_art", REPO_ROOT / "scripts" / "unreal" / "import_art.py")
+    assert "-RenderOffscreen" in import_art.rhi_args("placements")
+    assert import_art.rhi_args("calib") == ["-nullrhi"]
+
+
+def test_editor_built_test_placeholders_need_no_import_record(tmp_path):
+    root = _scratch_root(tmp_path)
+    _write(root / "unreal/Verse/Content/Verse/Test/G0/SK_Test_Human.uasset", "pointer")
+    assert _errors(root) == []
+    _write(root / "unreal/Verse/Content/Verse/Test/G0/Thing.uasset", "pointer")
+    assert any("prefix not in" in e for e in _errors(root))

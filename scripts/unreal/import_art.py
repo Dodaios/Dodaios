@@ -64,19 +64,27 @@ def editor_cmd() -> Path:
     return engine_root() / "Engine" / "Binaries" / platform / exe
 
 
-#: Commands that render frames and need the GPU (no -nullrhi).
-RENDERED = {"lookdev", "wp14"}
+#: Commands that need an RHI. `placements` spawns actors, which the editor places
+#: through the level viewport, dividing by its size and crashing without an RHI
+#: (UE 5.7.1, measured); `lookdev` and `wp14` (WP14) render frames. They run on the
+#: GPU with the window offscreen instead of `-nullrhi`.
+RENDERED_COMMANDS = frozenset({"placements", "lookdev", "wp14"})
+
+
+def rhi_args(command: str = "") -> list[str]:
+    if command in RENDERED_COMMANDS:
+        return ["-d3d12", "-RenderOffscreen", "-ResX=640", "-ResY=360"]
+    return ["-nullrhi"]
 
 
 def command_line(log: Path, command: str = "") -> list[str]:
-    rhi = ["-d3d12", "-RenderOffscreen"] if command in RENDERED else ["-nullrhi"]
     return [
         str(editor_cmd()),
         str(art_common.UPROJECT),
         f"-ExecutePythonScript={CLI}",
         "-unattended",
         "-nosplash",
-        *rhi,
+        *rhi_args(command),
         "-nosound",
         "-NoP4",
         "-stdout",

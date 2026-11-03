@@ -493,7 +493,8 @@ repo root gets `.lfsconfig` with `[lfs] fetchexclude = unreal/**`
 | `budget_override` | `{field, value, reason, approved_by}`; only the integration owner approves |
 
 `check_art_text.py` fails when a `.uasset` under `Content/Verse/` has no
-record, a record has no asset, a name breaks section 3, or a cap below is
+record (test placeholders under `Content/Verse/Test/` are built by editor code
+and need none), a record has no asset, a name breaks section 3, or a cap below is
 exceeded according to the record.
 
 ### 10.4 Size budgets
