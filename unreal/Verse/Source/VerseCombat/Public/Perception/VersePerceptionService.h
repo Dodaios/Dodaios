@@ -57,6 +57,13 @@ public:
 	 */
 	void SetSelfPerceptFiller(TFunction<void(const APawn&, FVerseSelfPercept&)> Filler);
 
+	/**
+	 * Fills what a look at a pawn shows that the service cannot read itself yet: ADS and its field
+	 * of view (WP01), the held weapon and the reload animation (WP02). Called after MakeBody. Firing,
+	 * the last fired weapon and reloads already come from the hub's OnFire and OnReload events.
+	 */
+	void SetBodyFiller(TFunction<void(const APawn&, FVersePerceptionBody&)> Filler);
+
 	/** Run one perception tick now (tests and the headless harness step the world themselves). */
 	void StepPerception(float DeltaS);
 
@@ -87,6 +94,7 @@ private:
 	void UnbindHub();
 	void HandleNoise(const FVerseNoiseEvent& Event);
 	void HandleFire(const FVerseFireEvent& Event);
+	void HandleReload(const FVerseReloadEvent& Event);
 	void HandleHit(const FVerseHitEvent& Event);
 	void HandleDeath(const FVerseDeathEvent& Event);
 	void HandleArenaSwitch(const FVerseArenaSwitchEvent& Event);
@@ -108,12 +116,14 @@ private:
 
 	TFunction<float(const FVector&)> VisibilityProvider;
 	TFunction<void(const APawn&, FVerseSelfPercept&)> SelfFiller;
+	TFunction<void(const APawn&, FVersePerceptionBody&)> BodyFiller;
 	float MidMinZCm = 350.f;
 	float UpperMinZCm = 750.f;
 
 	TWeakObjectPtr<UVerseEventHub> Hub;
 	FDelegateHandle NoiseHandle;
 	FDelegateHandle FireHandle;
+	FDelegateHandle ReloadHandle;
 	FDelegateHandle HitHandle;
 	FDelegateHandle DeathHandle;
 	FDelegateHandle ArenaHandle;

@@ -2,6 +2,7 @@
 #include "Bot/VersePerceptTypes.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "Events/VerseEventHub.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformTime.h"
@@ -187,12 +188,69 @@ bool FVersePerceptionSightTest::RunTest(const FString& Parameters)
 		Scene.Target.Velocity = FVector::ZeroVector;
 		Scene.Target.bFiring = true;
 		TestEqual(TEXT("peripheral firing: seen"), Scene.Tick().Sightings.Num(), 1);
+
+		// The same from the shooter's own OnFire event (the service path): noticed while the
+		// muzzle flash shows, with the weapon it fired; not after.
+		Scene.Target.bFiring = false;
+		TestEqual(TEXT("peripheral still: unseen"), Scene.Tick().Sightings.Num(), 0);
+		FVerseFireEvent Fire;
+		Fire.ShooterId = TargetId;
+		Fire.WeaponId = TEXT("Test.Rifle");
+		Fire.Origin = FVector_NetQuantize10(Scene.Target.Eye);
+		Fire.Direction = FVector_NetQuantizeNormal(FVector(0.0, 1.0, 0.0));
+		Fire.ServerTime = float(double(Scene.NowMs + 17) / 1000.0);
+		Scene.Model.OnFire(Fire);
+		const FVersePerceptFrame Fired = Scene.Tick();
+		if (TestEqual(TEXT("peripheral, OnFire: seen"), Fired.Sightings.Num(), 1))
+		{
+			TestTrue(TEXT("OnFire: peripheral flag"), Fired.Sightings[0].bPeripheral);
+			TestTrue(TEXT("OnFire: weapon shown"), Fired.Sightings[0].HeldWeaponId == FName(TEXT("Test.Rifle")));
+		}
+		for (int32 Tick = 0; Tick < 12; ++Tick)
+		{
+			Scene.Tick();
+		}
+		TestEqual(TEXT("peripheral, 0.2 s after the shot: unseen"), Scene.Tick().Sightings.Num(), 0);
+	}
+	{
+		// A reload event shows the reload animation to a looking observer until it ends.
+		FPerceptionScene Scene;
+		FVerseReloadEvent Reload;
+		Reload.PlayerId = TargetId;
+		Reload.WeaponId = TEXT("Test.Rifle");
+		Reload.StartServerTime = float(double(Scene.NowMs) / 1000.0);
+		Reload.EndServerTime = Reload.StartServerTime + 0.5f;
+		Scene.Model.OnReload(Reload);
+		const FVersePerceptFrame During = Scene.Tick();
+		TestTrue(TEXT("reload: seen reloading"), During.Sightings.Num() == 1 && During.Sightings[0].bReloading);
+		for (int32 Tick = 0; Tick < 40; ++Tick)
+		{
+			Scene.Tick();
+		}
+		const FVersePerceptFrame After = Scene.Tick();
+		TestTrue(TEXT("reload: done after its end"), After.Sightings.Num() == 1 && !After.Sightings[0].bReloading);
 	}
 	{
 		// Awareness: behind the observer within 2 m is noticed, at 2.5 m it is not.
 		FPerceptionScene Scene;
 		Scene.SetTarget(FVector(-150.0, 0.0, 95.0));
-		TestEqual(TEXT("1.5 m behind: felt"), Scene.Tick().Sightings.Num(), 1);
+		Scene.Target.Velocity = FVector(-300.0, 0.0, 0.0);
+		Scene.Target.FacingYawDeg = 33.f;
+		Scene.Target.bReloading = true;
+		Scene.Target.HeldWeaponId = TEXT("Test.Weapon");
+		const FVersePerceptFrame Felt = Scene.Tick();
+		if (TestEqual(TEXT("1.5 m behind: felt"), Felt.Sightings.Num(), 1))
+		{
+			const FVerseSightPercept& Sight = Felt.Sightings[0];
+			TestEqual(TEXT("felt: position"), Sight.PelvisLocation, Scene.Target.Pelvis);
+			TestEqual(TEXT("felt: no visible sample point"), int32(Sight.VisibleMask), 0);
+			TestTrue(TEXT("felt: no visual fields"), Sight.Velocity.IsZero() && Sight.FacingYawDeg == 0.f && !Sight.bReloading &&
+				Sight.HeldWeaponId.IsNone());
+		}
+		Scene.Target.Velocity = FVector::ZeroVector;
+		Scene.Target.FacingYawDeg = 0.f;
+		Scene.Target.bReloading = false;
+		Scene.Target.HeldWeaponId = NAME_None;
 		Scene.SetTarget(FVector(-250.0, 0.0, 95.0));
 		TestEqual(TEXT("2.5 m behind: unseen"), Scene.Tick().Sightings.Num(), 0);
 	}
@@ -250,6 +308,22 @@ bool FVersePerceptionF2Test::RunTest(const FString& Parameters)
 		TestEqual(TEXT("A7.1 opaque: 0 heard over 60 s"), Heard, 0);
 		Report.Add(TEXT("opaqueSightings"), Sightings);
 		Report.Add(TEXT("opaqueHeard"), Heard);
+	}
+
+	// A7.1 a2: the same within the 2 m awareness radius: 1.5 m behind an opaque wall, silent,
+	// in any view direction: never sighted (felt needs a clear line; bot.md B2).
+	{
+		FPerceptionScene Scene;
+		Scene.Sight.AddWall(FVector(60.0, -400.0, 0.0), FVector(80.0, 400.0, 400.0));
+		Scene.SetTarget(FVector(150.0, 0.0, 95.0));
+		int32 Sightings = 0;
+		for (int32 Tick = 0; Tick < 3600; ++Tick)
+		{
+			Scene.Observer.Self.ViewRotation.Yaw = float(FMath::Fmod(Tick * 0.5, 360.0));
+			Sightings += Scene.Tick().Sightings.Num();
+		}
+		TestEqual(TEXT("A7.1 opaque at 1.5 m: 0 sightings over 60 s"), Sightings, 0);
+		Report.Add(TEXT("opaqueAt1_5mSightings"), Sightings);
 	}
 
 	// A7.1 b: wall with a hole: seen exactly on the ticks where TestSight passes for a sample in the cone.
@@ -319,6 +393,9 @@ bool FVersePerceptionF2Test::RunTest(const FString& Parameters)
 	{
 		Json += FString::Printf(TEXT("  \"%s\": %g,\n"), *Item.Key, Item.Value);
 	}
+	// Case c only shows that perception adds no noise of its own; that a crouching pawn raises no
+	// footstep event is the movement layer's (WP01), driven through the service once it lands.
+	Json += TEXT("  \"crouchCaseIsPlaceholderUntilWP01\": true,\n");
 	Json += FString::Printf(TEXT("  \"pass\": %s\n}\n"), HasAnyErrors() ? TEXT("false") : TEXT("true"));
 	SaveProof(TEXT("7.9"), TEXT("f2_percept_boundary.json"), Json);
 	return true;
@@ -641,6 +718,34 @@ bool FVersePerceptionServiceTest::RunTest(const FString& Parameters)
 			Service->StepPerception(TickS);
 			TestEqual(TEXT("no frame after unregister"), Frames, 2);
 			Service->OnPerceptFrame.Remove(Handle);
+		}
+
+		// Hub wiring: a shot and a reload on the hub become what a look at the shooter shows.
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(World))
+		{
+			const float NowS = 2.f;
+			FVerseFireEvent Fire;
+			Fire.ShooterId = TargetId;
+			Fire.WeaponId = TEXT("Test.Rifle");
+			Fire.ServerTime = NowS;
+			Hub->OnFire.Broadcast(Fire);
+			FVersePerceptionBody Body;
+			Body.PlayerId = TargetId;
+			const FVersePerceptionBody Firing = Service->GetModel().ApplyCues(Body, NowS + 0.05f);
+			TestTrue(TEXT("hub OnFire: shooter shows firing"), Firing.bFiring);
+			TestTrue(TEXT("hub OnFire: weapon"), Firing.HeldWeaponId == FName(TEXT("Test.Rifle")));
+			TestFalse(TEXT("hub OnFire: flash over after 0.5 s"), Service->GetModel().ApplyCues(Body, NowS + 0.5f).bFiring);
+			FVerseReloadEvent Reload;
+			Reload.PlayerId = TargetId;
+			Reload.StartServerTime = NowS + 1.f;
+			Reload.EndServerTime = NowS + 2.f;
+			Hub->OnReload.Broadcast(Reload);
+			TestTrue(TEXT("hub OnReload: reloading"), Service->GetModel().ApplyCues(Body, NowS + 1.5f).bReloading);
+			TestFalse(TEXT("hub OnReload: done"), Service->GetModel().ApplyCues(Body, NowS + 2.5f).bReloading);
+		}
+		else
+		{
+			AddError(TEXT("no event hub in the game world"));
 		}
 	}
 

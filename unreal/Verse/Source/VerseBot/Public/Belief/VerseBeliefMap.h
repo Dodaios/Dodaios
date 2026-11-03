@@ -28,14 +28,22 @@ struct VERSEBOT_API FVerseBeliefMapConfig
 	FBox ArenaBox = FBox(ForceInit);
 	/** Belief step period: 10 Hz (bot.md 2). */
 	float StepIntervalS = 0.1f;
-	/** TestSight calls per step for clearing cells (cached visibility is reused when the eye barely moved). */
-	int32 MaxCellSightTestsPerStep = 384;
-	/** TestSight calls per step for pieces. */
-	int32 MaxPieceSightTestsPerStep = 48;
+	/**
+	 * TestSight calls per 10 Hz step for clearing cells: one trace per cell test (the sample height
+	 * rotates through 1.6 m, 1.0 m and, where prone is possible, 0.4 m), the cells in a rotating
+	 * order. Cached visibility is reused while the eye moved less than VisibilityCacheMoveCm.
+	 */
+	int32 MaxCellSightTestsPerStep = 32;
+	/** TestSight calls per 10 Hz step for pieces. */
+	int32 MaxPieceSightTestsPerStep = 16;
 	/** Clear tests cells up to this range, cm. */
 	float ClearRangeCm = 6000.f;
 	/** A cached cell visibility is reused while the eye moved less than this, cm. */
 	float VisibilityCacheMoveCm = 50.f;
+	/** A cached cell visibility expires after this, seconds. */
+	float VisibilityCacheMaxAgeS = 2.f;
+	/** Static arena piece layout (original bounds). Empty: read from the piece query at Initialize. */
+	TArray<FVersePieceLayoutEntry> PieceLayout;
 	/** Damage of one own confirmed hit and headshot, for the health estimate, until weapons provide it. */
 	float OwnHitDamage = 25.f;
 	float OwnHeadshotDamage = 50.f;
@@ -72,16 +80,17 @@ public:
 	FVersePieceBelief& GetPiecesMutable() { return Pieces; }
 	const FVerseBeliefMapConfig& GetConfig() const { return Config; }
 	int32 GetStepCount() const { return StepCount; }
+	/** TestSight calls the last clear made (cost reports). */
+	int32 GetLastClearSightTests() const { return LastClearSightTests; }
 	float GetLastStepS() const { return LastStepS; }
 
-	/** Cell visible from the eye in the view cone at 1.0 m or 1.6 m (0.4 m prone-capable). Uncached. */
+	/** Cell visible from the eye in the view cone at 1.6 m or 1.0 m (0.4 m prone-capable). Uncached, all heights. */
 	bool TestCellVisible(int32 Cell, const FVector& Eye, const FRotator& View, const IVersePenetrationQuery& Sight) const;
 
 	/** The public spawn rule ranked from Eye: out of sight first, then farthest. */
 	TArray<FVector> RankSpawnPoints(const FVector& Eye, const IVersePenetrationQuery* Sight) const;
 
 private:
-	bool InViewCone(const FVector& Eye, const FVector& ForwardFlat, float ViewPitchDeg, const FVector& Point) const;
 	void RunClear(const FVerseSelfPercept& Self, const FVerseBeliefWorld& World, float NowS);
 	void RefreshGates();
 
@@ -95,7 +104,11 @@ private:
 	TArray<uint8> CachedVisible;
 	TArray<FVector> CachedEye;
 	TArray<float> CachedAtS;
+	/** Next sample height index per cell (one trace per test). */
+	TArray<uint8> CachedHeight;
+	TArray<int32> VisibleScratch;
 	int32 ClearCursor = 0;
+	int32 LastClearSightTests = 0;
 
 	float LastStepS = -1.f;
 	int32 StepCount = 0;

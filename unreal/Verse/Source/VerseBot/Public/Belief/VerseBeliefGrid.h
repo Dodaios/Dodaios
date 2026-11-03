@@ -132,6 +132,8 @@ struct VERSEBOT_API FVerseBeliefTuning
 	/**
 	 * Momentum: after a sighting, part of the flow follows the seen velocity (a running person
 	 * keeps running). Neighbour weight cos^Exponent; the advected speed decays with this time.
+	 * Not a bot.md 4.2 rule yet: proposed to the integration owner as a contract change (A7.4 needs
+	 * it). MomentumMaxFraction = 0 gives the contract rules exactly.
 	 */
 	float MomentumExponent = 4.f;
 	float MomentumDecayS = 60.f;
@@ -160,7 +162,7 @@ struct VERSEBOT_API FVerseBeliefTuning
 	float ZoneBiasGain = 0.5f;
 	/** TopCluster disc radius, cm. */
 	float ClusterRadiusCm = 300.f;
-	/** Unused since disc centres are every cell within 8x of the peak; kept for tuning files. */
+	/** Unused: every active cell is a disc centre candidate; kept for tuning files. */
 	int32 ClusterCandidates = 128;
 	/** States: Tracked at or above, Rough at or above, else Lost. */
 	float TrackedConfidence = 0.5f;
@@ -230,6 +232,8 @@ public:
 	 * cone with line of sight at 1.0 m and 1.6 m (0.4 m when prone-capable); Eye for the range term.
 	 */
 	void Clear(const FVector& Eye, TFunctionRef<bool(int32 Cell)> IsVisible, float NowS);
+	/** The same for a list of cells already known visible (the map's cached visibility). */
+	void Clear(const FVector& Eye, TConstArrayView<int32> VisibleCells, float NowS);
 	/** Replace the grid by a Gaussian at the sighted pelvis (level known). */
 	void ApplySighting(const FVector& PelvisLocation, float NowS);
 	/** Multiply by eps + level weight x exp(-d^2 / 2 sd^2). */
@@ -282,6 +286,9 @@ private:
 	};
 
 	void RecomputeRateSums();
+	/** Momentum weights that depend only on the direction (cached until it or the edges change). */
+	void RefreshMomentumWeights(const FVector2f& Dir);
+	float ClearPd(int32 Cell, const FVector& Eye) const;
 
 	int32 Level3(const FIntPoint& Column, EVerseArenaLevel Level) const;
 
@@ -296,15 +303,25 @@ private:
 	TArray<uint8> bCellActive;
 	/** Per cell: sum of Rate x Bias over its active edges. */
 	TArray<float> RateSum;
-	mutable TArray<uint8> BucketScratch;
-	mutable TArray<float> PrefixScratch;
-	/** Per cell: index into the row prefix layout, and the centre split for the moment sums. */
-	TArray<int32> CellPrefix;
-	TArray<double> CentreX;
-	TArray<double> CentreY;
-	TArray<double> CentreZ;
-	TArray<double> CentreSq;
-	mutable TArray<int32> CandidateScratch;
+	/**
+	 * Derived values: a padded per-level layout (Reach zero columns and rows around each level) so
+	 * the disc sum of every cell is a few contiguous box-sum passes. DiscPadMask is 1 on active cells.
+	 */
+	int32 DiscPadWidth = 0;
+	int32 DiscPadSize = 0;
+	TArray<int32> CellDiscPad;
+	TArray<int32> DiscPadCell;
+	TArray<float> DiscPadMask;
+	mutable TArray<float> DiscPadMass;
+	/** Horizontal box sums of half-width h, h = 1 .. Reach (h = 0 is the mass itself). */
+	mutable TArray<float> DiscPadRows[8];
+	mutable TArray<float> DiscPadSum;
+	/** Per cell, 4 floats: centre X, Y, Z in metres from the grid middle, and their squared length (moment sums). */
+	TArray<float> CellMoment;
+	FVector MomentOrigin = FVector::ZeroVector;
+	/** Per cell: 1 when active, else 0 (branch-free passes), and the active count. */
+	TArray<float> ActiveMaskF;
+	int32 ActiveCount = 0;
 	/** Dense padded per-level layout for the predict stencil, rebuilt when gates or biases change. */
 	int32 DenseSize = 0;
 	TArray<int32> CellDense;
@@ -314,14 +331,20 @@ private:
 	TArray<float> DenseOut;
 	TArray<float> DenseDiffuse;
 	TArray<float> DenseAdvect;
-	TArray<float> DenseSumA;
+	/** Momentum, per direction: Cos x Rate / (sum of Cos x Rate of the cell); empty when Cos <= 0. */
+	TArray<float> DenseAdvectWeight[8];
+	TArray<uint8> DenseHasAdvect;
+	float MomentumCos[8] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+	FVector2f MomentumWeightsDir = FVector2f::ZeroVector;
+	bool bMomentumWeightsValid = false;
 	/** Active link edges. */
 	TArray<int32> LinkFrom;
 	TArray<int32> LinkTo;
 	TArray<float> LinkRateBias;
 	TArray<float> LinkRate;
 	TArray<FVector2f> LinkDirs;
-	TArray<float> LinkCos;
+	/** Per link: Cos x Rate / (the from cell's momentum weight sum). */
+	TArray<float> LinkAdvectWeight;
 	/** Disc row half-widths in columns, index dy + reach. */
 	TArray<int32> DiscHalfWidth;
 	/** Neighbours of cell i are Neighbours[NeighbourStart[i] .. NeighbourStart[i + 1]). */

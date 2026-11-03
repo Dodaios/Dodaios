@@ -34,6 +34,21 @@ struct VERSEBOT_API FVerseBeliefNavSettings
 		int32 GatePiece = INDEX_NONE;
 	};
 	TArray<FLink> Links;
+	/**
+	 * Piece gates (destruction.md 6.1): the footprint of a piece that carries or opens walkable
+	 * floor. WhenStanding (a catwalk segment): the sampled cells inside the footprint exist only
+	 * while the piece is not believed Destroyed. WhenOpen (a breach opening): cells at Level inside
+	 * the footprint, sampled or not (the intact piece blocks the navmesh), exist only while the piece
+	 * is believed Breached or Destroyed; their floor is the footprint's bottom.
+	 */
+	struct FPieceFootprint
+	{
+		int32 Piece = INDEX_NONE;
+		FBox Bounds = FBox(ForceInit);
+		EVerseBeliefGate Gate = EVerseBeliefGate::WhenStanding;
+		EVerseArenaLevel Level = EVerseArenaLevel::Floor;
+	};
+	TArray<FPieceFootprint> PieceFootprints;
 	/** Optional per-cell arena data: VisibilityFactor and zone id at a world point. */
 	TFunction<float(const FVector&)> VisibilityAt;
 	TFunction<uint8(const FVector&)> ZoneAt;
@@ -43,6 +58,8 @@ struct VERSEBOT_API FVerseBeliefNavSettings
  * Builds a belief grid source from Recast nav (WP07.5): every 1 x 1 m column of the arena box is
  * projected onto the navmesh at each level's probe height; a hit within reach is a cell. Two
  * same-level neighbours are connected when a move along the nav surface from one reaches the other.
+ * Piece footprints gate cells, so the grid follows the believed nav through FVerseBeliefGrid::ApplyGates
+ * whenever the piece belief changes (WP07.5 "rebuild on believed nav change").
  * Uses only the engine's navigation interface (no NavigationSystem module dependency).
  */
 class VERSEBOT_API FVerseBeliefNavSampler

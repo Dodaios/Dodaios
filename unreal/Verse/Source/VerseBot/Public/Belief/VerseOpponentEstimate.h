@@ -13,6 +13,7 @@ struct VERSEBOT_API FVerseOpponentEstimate
 	float LastSeenYawDeg = 0.f;
 	/** Server time of the last sighting, seconds; negative when never seen. */
 	float LastSeenYawAtS = -1.f;
+	/** A reload was heard or seen and no shot since (cleared by a heard or seen shot, or a respawn). */
 	bool bHeardReload = false;
 	float HeardReloadAtS = -1.f;
 	FVector LastSeenLocation = FVector::ZeroVector;
@@ -35,6 +36,8 @@ struct VERSEBOT_API FVerseOpponentEstimate
 
 	void OnSighting(const FVerseSightPercept& Sight, float NowS);
 	void OnHeard(const FVerseHeardPercept& Heard, float NowS);
+	/** An opponent bolt was seen (a shot): the heard-reload flag no longer holds. */
+	void OnSeenShot(float NowS);
 	/** A hit marker on the opponent; Damage from the bot's own weapon (public rules). */
 	void OnOwnHit(float Damage, float NowS);
 	void OnOpponentDead();

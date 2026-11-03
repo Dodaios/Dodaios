@@ -34,6 +34,30 @@ void FVersePieceBelief::Initialize(const IVersePieceQuery& Query, const FBox& Ar
 	}
 }
 
+void FVersePieceBelief::Initialize(TConstArrayView<FVersePieceLayoutEntry> Layout)
+{
+	Pieces.Reset();
+	SlotOf.Reset();
+	Changed.Reset();
+	DirtyCover.Reset();
+	Cursor = 0;
+	TArray<FVersePieceLayoutEntry> Sorted(Layout.GetData(), Layout.Num());
+	Sorted.Sort([](const FVersePieceLayoutEntry& A, const FVersePieceLayoutEntry& B) { return A.Index < B.Index; });
+	for (const FVersePieceLayoutEntry& Entry : Sorted)
+	{
+		if (SlotOf.Contains(Entry.Index))
+		{
+			continue;
+		}
+		FVerseBelievedPiece& Piece = Pieces.AddDefaulted_GetRef();
+		Piece.Index = Entry.Index;
+		Piece.Material = Entry.Material;
+		Piece.Bounds = Entry.Bounds;
+		Piece.State = EVersePieceState::Intact;
+		SlotOf.Add(Entry.Index, Pieces.Num() - 1);
+	}
+}
+
 void FVersePieceBelief::ResetAll()
 {
 	for (int32 Slot = 0; Slot < Pieces.Num(); ++Slot)

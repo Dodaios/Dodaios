@@ -424,114 +424,227 @@ bool FVerseBeliefMapTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+namespace VerseBotBeliefTests
+{
+	/** How the hidden opponent moves after it leaves the observer's view (A7.4 and its variants). */
+	enum class ETrackingMove : uint8
+	{
+		/** Runs into the lane and along it (the A7.4 case). */
+		Straight,
+		/** Stops 0.5 s after it was last seen. */
+		Stop,
+		/** Turns back 1 s after it was last seen. */
+		TurnBack
+	};
+
+	struct FTrackingResult
+	{
+		double ContainRate = 0.0;
+		double MeanErrorM = 0.0;
+		double MedianErrorM = 0.0;
+	};
+
+	/**
+	 * Trials of a sighting at the lane door, then hidden movement at 4.5 m/s for 3 s: the share in
+	 * which the TopCluster (3 m disc) contains the true position. Whenever the truth is in the
+	 * observer's cone with line of sight it is sighted again, as the perception service would.
+	 */
+	FTrackingResult RunTrackingTrials(const FLaneFixture& Fixture, ETrackingMove Move, const FVerseBeliefTuning& Tuning,
+		int32 Trials, bool bSaveShots)
+	{
+		const FVerseBeliefWorld World = Fixture.BeliefWorld();
+		const FVector Eye = ObserverFeet + FVector(0.0, 0.0, 165.0);
+		const FVersePerceptionModel::FCone Cone = FVersePerceptionModel::ConeFor(false, 70.f);
+		const FRotator View(0.f, ObserverYaw, 0.f);
+		int32 Hits = 0;
+		double SumError = 0.0;
+		TArray<double> Errors;
+		for (int32 Trial = 0; Trial < Trials; ++Trial)
+		{
+			FVerseRng Rng(uint64(Trial) + 1);
+			FVerseBeliefMap Map;
+			Map.Initialize(Fixture.Source, Fixture.Config(), World, Tuning);
+			const double Side = Rng.Chance(0.5) ? 1.0 : -1.0;
+			const double LaneY = 2300.0 + Rng.Range(-150.0, 250.0);
+			FVector Truth(2500.0 + Rng.Range(-80.0, 80.0), 2060.0, 95.0);
+			const FVector Waypoints[2] = {FVector(2500.0 + Side * 150.0, LaneY, 95.0), FVector(2500.0 + Side * 3000.0, LaneY, 95.0)};
+			const FVector BackTarget(2500.0 - Side * 3000.0, LaneY, 95.0);
+			int32 Waypoint = 0;
+			uint32 NowMs = 1000;
+			double HiddenS = 0.0;
+			bool bTurned = false;
+			bool bFirst = true;
+			const bool bShots = bSaveShots && Trial == 0;
+			double NextShotS = 0.0;
+			for (int32 Tick = 0; Tick < 600 && HiddenS < 3.0; ++Tick)
+			{
+				FVector Velocity = FVector::ZeroVector;
+				if (!bFirst)
+				{
+					if (Waypoint == 0 && FVector::Dist2D(Truth, Waypoints[0]) < 50.0)
+					{
+						Waypoint = 1;
+					}
+					bTurned |= Move == ETrackingMove::TurnBack && HiddenS > 1.0;
+					const bool bStopped = Move == ETrackingMove::Stop && HiddenS > 0.5;
+					const FVector Goal = bTurned ? BackTarget : Waypoints[Waypoint];
+					Velocity = bStopped ? FVector::ZeroVector : (Goal - Truth).GetSafeNormal2D() * 450.0;
+					Truth += Velocity * (1.0 / 60.0);
+					NowMs += 17;
+				}
+				else
+				{
+					Velocity = (Waypoints[0] - Truth).GetSafeNormal2D() * 450.0;
+				}
+				FVersePerceptFrame Frame = SelfFrame(NowMs, ObserverFeet, ObserverYaw);
+				bool bVisible = bFirst;
+				for (const double Height : {75.0, 0.0})
+				{
+					const FVector Point = Truth + FVector(0.0, 0.0, Height);
+					bVisible |= FVersePerceptionModel::Classify(Eye, View, Cone, Point) == FVersePerceptionModel::EConeZone::Inside &&
+						Fixture.World.Clear(Eye, Point);
+				}
+				if (bVisible)
+				{
+					Frame.Sightings.Add(Sighting(Truth, Velocity));
+					HiddenS = 0.0;
+				}
+				else
+				{
+					HiddenS += 1.0 / 60.0;
+				}
+				Map.ApplyFrame(Frame, World);
+				if (bShots)
+				{
+					const double SinceSighting = (NowMs - 1000) / 1000.0;
+					if (SinceSighting >= NextShotS)
+					{
+						const TCHAR* Shot = NextShotS == 0.0 ? TEXT("heatmap_sighting.png")
+															: (NextShotS == 1.0 ? TEXT("heatmap_plus1s.png") : TEXT("heatmap_plus3s.png"));
+						NextShotS = NextShotS == 0.0 ? 1.0 : (NextShotS == 1.0 ? 3.0 : 1e9);
+						const FVector Marks[1] = {Truth};
+						FVerseBeliefDebugDraw::SavePng(ProofDir(TEXT("7.10")) / Shot, Map.GetGrid(), Map.GetDerived(),
+							EVerseArenaLevel::Floor, 12, Marks);
+					}
+				}
+				bFirst = false;
+			}
+			if (bShots)
+			{
+				const FVector Marks[1] = {Truth};
+				FVerseBeliefDebugDraw::SavePng(ProofDir(TEXT("7.10")) / TEXT("heatmap_hidden3s.png"), Map.GetGrid(), Map.GetDerived(),
+					EVerseArenaLevel::Floor, 12, Marks);
+			}
+			const double Error = FVector::Dist2D(Map.GetDerived().TopCluster.Centre, Truth);
+			Errors.Add(Error);
+			SumError += Error;
+			Hits += Error <= Map.GetGrid().GetTuning().ClusterRadiusCm ? 1 : 0;
+		}
+		Errors.Sort();
+		FTrackingResult Result;
+		Result.ContainRate = Trials > 0 ? double(Hits) / Trials : 0.0;
+		Result.MeanErrorM = Trials > 0 ? SumError / Trials / 100.0 : 0.0;
+		Result.MedianErrorM = Trials > 0 ? Errors[Trials / 2] / 100.0 : 0.0;
+		return Result;
+	}
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBeliefTrackingTest, "Verse.Bot.Belief.Tracking", VERSE_BELIEF_TEST_FLAGS)
 
 bool FVerseBeliefTrackingTest::RunTest(const FString& Parameters)
 {
-	// A7.4: a sighting at the lane door, then hidden movement at 4.5 m/s: after 3 s hidden the
-	// TopCluster (3 m disc) contains the true position in at least 70 % of 200 trials. The truth
-	// runs into the lane and along it (left or right, at a random line); whenever the truth is in
-	// the observer's cone with line of sight it is sighted again, as the perception service would.
+	// A7.4: a sighting at the lane door, then 3 s hidden movement at 4.5 m/s: the TopCluster
+	// contains the true position in at least 70 % of 200 trials. The variants (the opponent stops
+	// or turns back after the last sighting) and the same trials under the bot.md 4.2 rules alone
+	// (no momentum term) are reported for the contract-change review; they are not gated.
 	FLaneFixture Fixture;
-	const FVerseBeliefWorld World = Fixture.BeliefWorld();
-	const FVector Eye = ObserverFeet + FVector(0.0, 0.0, 165.0);
-	const FVersePerceptionModel::FCone Cone = FVersePerceptionModel::ConeFor(false, 70.f);
-	const FRotator View(0.f, ObserverYaw, 0.f);
-	constexpr int32 Trials = 200;
-	int32 Hits = 0;
-	double SumError = 0.0;
-	TArray<double> Errors;
-	for (int32 Trial = 0; Trial < Trials; ++Trial)
-	{
-		FVerseRng Rng(uint64(Trial) + 1);
-		FVerseBeliefMap Map;
-		Map.Initialize(Fixture.Source, Fixture.Config(), World);
-		const double Side = Rng.Chance(0.5) ? 1.0 : -1.0;
-		const double LaneY = 2300.0 + Rng.Range(-150.0, 250.0);
-		FVector Truth(2500.0 + Rng.Range(-80.0, 80.0), 2060.0, 95.0);
-		const FVector Waypoints[2] = {FVector(2500.0 + Side * 150.0, LaneY, 95.0), FVector(2500.0 + Side * 3000.0, LaneY, 95.0)};
-		int32 Waypoint = 0;
-		uint32 NowMs = 1000;
-		double HiddenS = 0.0;
-		bool bFirst = true;
-		for (int32 Tick = 0; Tick < 600 && HiddenS < 3.0; ++Tick)
-		{
-			FVector Velocity = FVector::ZeroVector;
-			if (!bFirst)
-			{
-				if (Waypoint == 0 && FVector::Dist2D(Truth, Waypoints[0]) < 50.0)
-				{
-					Waypoint = 1;
-				}
-				const FVector Dir = (Waypoints[Waypoint] - Truth).GetSafeNormal2D();
-				Velocity = Dir * 450.0;
-				Truth += Velocity * (1.0 / 60.0);
-				NowMs += 17;
-			}
-			else
-			{
-				Velocity = (Waypoints[0] - Truth).GetSafeNormal2D() * 450.0;
-			}
-			FVersePerceptFrame Frame = SelfFrame(NowMs, ObserverFeet, ObserverYaw);
-			bool bVisible = bFirst;
-			for (const double Height : {75.0, 0.0})
-			{
-				const FVector Point = Truth + FVector(0.0, 0.0, Height);
-				bVisible |= FVersePerceptionModel::Classify(Eye, View, Cone, Point) == FVersePerceptionModel::EConeZone::Inside &&
-					Fixture.World.Clear(Eye, Point);
-			}
-			if (bVisible)
-			{
-				Frame.Sightings.Add(Sighting(Truth, Velocity));
-				HiddenS = 0.0;
-			}
-			else
-			{
-				HiddenS += 1.0 / 60.0;
-			}
-			Map.ApplyFrame(Frame, World);
-			if (Trial == 0)
-			{
-				const double SinceSighting = (NowMs - 1000) / 1000.0;
-				const TCHAR* Shot = nullptr;
-				static double Next = 0.0;
-				if (bFirst)
-				{
-					Next = 0.0;
-				}
-				if (SinceSighting >= Next)
-				{
-					Shot = Next == 0.0 ? TEXT("heatmap_sighting.png") : (Next == 1.0 ? TEXT("heatmap_plus1s.png") : TEXT("heatmap_plus3s.png"));
-					Next = Next == 0.0 ? 1.0 : (Next == 1.0 ? 3.0 : 1e9);
-				}
-				if (Shot)
-				{
-					const FVector Marks[1] = {Truth};
-					FVerseBeliefDebugDraw::SavePng(ProofDir(TEXT("7.10")) / Shot, Map.GetGrid(), Map.GetDerived(),
-						EVerseArenaLevel::Floor, 12, Marks);
-				}
-			}
-			bFirst = false;
-		}
-		if (Trial == 0)
-		{
-			const FVector Marks[1] = {Truth};
-			FVerseBeliefDebugDraw::SavePng(ProofDir(TEXT("7.10")) / TEXT("heatmap_hidden3s.png"), Map.GetGrid(), Map.GetDerived(),
-				EVerseArenaLevel::Floor, 12, Marks);
-		}
-		const double Error = FVector::Dist2D(Map.GetDerived().TopCluster.Centre, Truth);
-		Errors.Add(Error);
-		SumError += Error;
-		Hits += Error <= Map.GetGrid().GetTuning().ClusterRadiusCm ? 1 : 0;
-	}
-	const double Rate = double(Hits) / Trials;
-	Errors.Sort();
-	TestTrue(FString::Printf(TEXT("A7.4 TopCluster contains the truth in %.1f %% of trials (>= 70 %%)"), Rate * 100.0), Rate >= 0.70);
+	const FVerseBeliefTuning WithMomentum = FVerseBeliefTuning();
+	FVerseBeliefTuning ContractOnly;
+	ContractOnly.MomentumMaxFraction = 0.f;
+
+	const FTrackingResult Straight = RunTrackingTrials(Fixture, ETrackingMove::Straight, WithMomentum, 200, true);
+	const FTrackingResult StraightContract = RunTrackingTrials(Fixture, ETrackingMove::Straight, ContractOnly, 200, false);
+	const FTrackingResult Stop = RunTrackingTrials(Fixture, ETrackingMove::Stop, WithMomentum, 100, false);
+	const FTrackingResult StopContract = RunTrackingTrials(Fixture, ETrackingMove::Stop, ContractOnly, 100, false);
+	const FTrackingResult Turn = RunTrackingTrials(Fixture, ETrackingMove::TurnBack, WithMomentum, 100, false);
+	const FTrackingResult TurnContract = RunTrackingTrials(Fixture, ETrackingMove::TurnBack, ContractOnly, 100, false);
+
+	AddInfo(FString::Printf(TEXT("contain rate with momentum / contract rules only: straight %.1f / %.1f %%, stop %.1f / %.1f %%, turn back %.1f / %.1f %%"),
+		Straight.ContainRate * 100.0, StraightContract.ContainRate * 100.0, Stop.ContainRate * 100.0, StopContract.ContainRate * 100.0,
+		Turn.ContainRate * 100.0, TurnContract.ContainRate * 100.0));
+	TestTrue(FString::Printf(TEXT("A7.4 TopCluster contains the truth in %.1f %% of trials (>= 70 %%)"), Straight.ContainRate * 100.0),
+		Straight.ContainRate >= 0.70);
 	SaveProof(TEXT("7.6"), TEXT("tracking.json"),
-		FString::Printf(TEXT("{\n  \"test\": \"A7.4 belief tracking\",\n  \"trials\": %d,\n  \"hidden_s\": 3.0,\n")
+		FString::Printf(TEXT("{\n  \"test\": \"A7.4 belief tracking\",\n  \"trials\": 200,\n  \"hidden_s\": 3.0,\n")
 						TEXT("  \"speed_m_s\": 4.5,\n  \"containRate\": %.4f,\n  \"meanErrorM\": %.3f,\n  \"medianErrorM\": %.3f,\n")
+						TEXT("  \"momentumTermIsAContractChangeProposal\": true,\n")
+						TEXT("  \"containRateContractRulesOnly\": %.4f,\n")
+						TEXT("  \"variants\": {\"stopAfter0_5s\": {\"trials\": 100, \"withMomentum\": %.4f, \"contractRulesOnly\": %.4f},\n")
+						TEXT("               \"turnBackAfter1s\": {\"trials\": 100, \"withMomentum\": %.4f, \"contractRulesOnly\": %.4f}},\n")
 						TEXT("  \"pass\": %s\n}\n"),
-			Trials, Rate, SumError / Trials / 100.0, Errors[Trials / 2] / 100.0, Rate >= 0.70 ? TEXT("true") : TEXT("false")));
+			Straight.ContainRate, Straight.MeanErrorM, Straight.MedianErrorM, StraightContract.ContainRate, Stop.ContainRate,
+			StopContract.ContainRate, Turn.ContainRate, TurnContract.ContainRate, Straight.ContainRate >= 0.70 ? TEXT("true") : TEXT("false")));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBeliefPlateauTest, "Verse.Bot.Belief.Plateau", VERSE_BELIEF_TEST_FLAGS)
+
+bool FVerseBeliefPlateauTest::RunTest(const FString& Parameters)
+{
+	// bot.md 4.3: TopCluster is the 3 m disc with the most mass anywhere. A broad heard percept
+	// (sd 14 m) makes a plateau of far more than a few hundred cells within a factor of 2 of the
+	// peak; the best disc lies in the high cell-index region and must still be found there.
+	FLaneFixture Fixture;
+	FVerseBeliefGrid Grid;
+	Grid.Build(Fixture.Source);
+	Grid.ResetUniform();
+	FVerseHeardPercept Heard;
+	Heard.Location = ColumnCentre(38, 14);
+	Heard.ErrorSdM = 14.f;
+	Heard.LevelGuess = EVerseArenaLevel::Floor;
+	Heard.Noise = VerseTags::Noise_Shot;
+	Grid.ApplyHeard(Heard, 1.f);
+	Grid.Normalise();
+	int32 Plateau = 0;
+	float Peak = 0.f;
+	for (int32 Cell = 0; Cell < Grid.NumCells(); ++Cell)
+	{
+		Peak = FMath::Max(Peak, Grid.GetMass(Cell));
+	}
+	for (int32 Cell = 0; Cell < Grid.NumCells(); ++Cell)
+	{
+		Plateau += Grid.GetMass(Cell) >= 0.5f * Peak ? 1 : 0;
+	}
+	TestTrue(FString::Printf(TEXT("plateau of %d cells within 2x of the peak (> 384)"), Plateau), Plateau > 384);
+	const FVerseBeliefDerived Derived = Grid.ComputeDerived(1.f, false);
+	// Brute force: the disc sum of every active cell.
+	double BestMass = -1.0;
+	int32 BestCell = INDEX_NONE;
+	for (int32 Cell = 0; Cell < Grid.NumCells(); ++Cell)
+	{
+		if (!Grid.IsActive(Cell))
+		{
+			continue;
+		}
+		double Mass = 0.0;
+		for (int32 Other = 0; Other < Grid.NumCells(); ++Other)
+		{
+			if (Grid.IsActive(Other) && FVector::DistSquared2D(Grid.GetCellCentre(Cell), Grid.GetCellCentre(Other)) <= 300.0 * 300.0 + 1.0)
+			{
+				Mass += Grid.GetMass(Other);
+			}
+		}
+		if (Mass > BestMass + 1e-9)
+		{
+			BestMass = Mass;
+			BestCell = Cell;
+		}
+	}
+	TestTrue(TEXT("TopCluster disc holds the most mass (brute force)"), FMath::Abs(Derived.TopCluster.Mass - BestMass) <= 1e-5);
+	TestTrue(TEXT("TopCluster in the high-index region near the heard point"),
+		FVector::Dist2D(Derived.TopCluster.Centre, Heard.Location) < 200.0 && Grid.GetCell(Derived.TopCluster.CentreCell).Column.X >= 33);
+	AddInfo(FString::Printf(TEXT("plateau %d cells, best disc mass %.5f (brute force cell %d, grid cell %d)"), Plateau, BestMass, BestCell,
+		Derived.TopCluster.CentreCell));
 	return true;
 }
 
@@ -821,18 +934,21 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBeliefCostTest, "Verse.Perf.Bot.BeliefCos
 
 bool FVerseBeliefCostTest::RunTest(const FString& Parameters)
 {
-	// A7.6: the belief step (predict with momentum, clear with cached visibility, normalise,
-	// derived values) at most 0.05 ms with 6,000 cells. Sight traces are TestSight's (WP03) cost and
-	// are amortised by the map's per-step budget; they are timed separately below.
+	// A7.6: the belief step (predict with momentum, clear of the cached visible cells, normalise,
+	// derived values) at most 0.05 ms with 6,000 cells. Sight traces are TestSight's (WP03) cost,
+	// bounded by the map's per-step budget; Verse.Perf.Bot.BeliefTraceCost times them with real
+	// line traces on a Recast-built arena.
 	FVerseBeliefGrid Grid;
 	Grid.Build(MakeThreeLevelSource());
 	TestEqual(TEXT("6,000 cells"), Grid.NumCells(), 6000);
 	const FVector Eye(2500.0, 500.0, 165.0);
-	TArray<uint8> Visible;
-	Visible.Init(0, Grid.NumCells());
+	TArray<int32> Visible;
 	for (int32 Cell = 0; Cell < Grid.NumCells(); ++Cell)
 	{
-		Visible[Cell] = Grid.GetCell(Cell).Level == EVerseArenaLevel::Floor && Grid.GetCell(Cell).Column.Y < 15 ? 1 : 0;
+		if (Grid.GetCell(Cell).Level == EVerseArenaLevel::Floor && Grid.GetCell(Cell).Column.Y < 15)
+		{
+			Visible.Add(Cell);
+		}
 	}
 	// Spread the mass everywhere first (worst case: no empty cell to skip).
 	Grid.ApplySighting(FVector(2500.0, 2000.0, 95.0), 0.f);
@@ -853,7 +969,7 @@ bool FVerseBeliefCostTest::RunTest(const FString& Parameters)
 		{
 			const float NowS = 20.f + (Batch * 100 + Step) * 0.1f;
 			Grid.Predict(0.1f, NowS);
-			Grid.Clear(Eye, [&Visible](int32 Cell) { return Visible[Cell] != 0; }, NowS);
+			Grid.Clear(Eye, Visible, NowS);
 			Grid.Normalise();
 			Derived = Grid.ComputeDerived(NowS, false);
 		}
@@ -876,7 +992,7 @@ bool FVerseBeliefCostTest::RunTest(const FString& Parameters)
 			double T0 = FPlatformTime::Seconds();
 			Grid.Predict(0.1f, NowS);
 			double T1 = FPlatformTime::Seconds();
-			Grid.Clear(Eye, [&Visible](int32 Cell) { return Visible[Cell] != 0; }, NowS);
+			Grid.Clear(Eye, Visible, NowS);
 			double T2 = FPlatformTime::Seconds();
 			Grid.Normalise();
 			double T3 = FPlatformTime::Seconds();
@@ -895,10 +1011,11 @@ bool FVerseBeliefCostTest::RunTest(const FString& Parameters)
 	AddInfo(FString::Printf(TEXT("phases ms: predict %.4f clear %.4f normalise %.4f derived %.4f"), PhaseBest[0], PhaseBest[1],
 		PhaseBest[2], PhaseBest[3]));
 
-	// The full map step on the lane fixture with the fake sight query, budgeted traces.
+	// The full map step on the lane fixture with the fake sight query and the default trace budget.
 	FLaneFixture Fixture;
 	FVerseBeliefMapConfig Config = Fixture.Config();
-	Config.MaxCellSightTestsPerStep = 384;
+	Config.MaxCellSightTestsPerStep = FVerseBeliefMapConfig().MaxCellSightTestsPerStep;
+	Config.MaxPieceSightTestsPerStep = FVerseBeliefMapConfig().MaxPieceSightTestsPerStep;
 	FVerseBeliefMap Map;
 	Map.Initialize(Fixture.Source, Config, Fixture.BeliefWorld());
 	uint32 NowMs = 1000;
@@ -915,9 +1032,9 @@ bool FVerseBeliefCostTest::RunTest(const FString& Parameters)
 	SaveProof(TEXT("7.6"), TEXT("belief_cost.json"),
 		FString::Printf(TEXT("{\n  \"test\": \"A7.6 belief cost\",\n  \"cells\": %d,\n  \"msPerStepBestBatch\": %.5f,\n")
 						TEXT("  \"msPerStepMean\": %.5f,\n  \"budgetMs\": 0.05,\n  \"mapStepWithFakeSightMs\": %.5f,\n")
-						TEXT("  \"mapCellSightTestsPerStep\": 384,\n  \"phaseMs\": {\"predict\": %.5f, \"clear\": %.5f, \"normalise\": %.5f, \"derived\": %.5f},\n")
+						TEXT("  \"mapCellSightTestsPerStep\": %d,\n  \"phaseMs\": {\"predict\": %.5f, \"clear\": %.5f, \"normalise\": %.5f, \"derived\": %.5f},\n")
 						TEXT("  \"pass\": %s\n}\n"),
-			Grid.NumCells(), BestMs, MeanMs, MapMs, PhaseBest[0], PhaseBest[1], PhaseBest[2], PhaseBest[3],
+			Grid.NumCells(), BestMs, MeanMs, MapMs, Config.MaxCellSightTestsPerStep, PhaseBest[0], PhaseBest[1], PhaseBest[2], PhaseBest[3],
 			BestMs <= 0.05 ? TEXT("true") : TEXT("false")));
 	return true;
 }

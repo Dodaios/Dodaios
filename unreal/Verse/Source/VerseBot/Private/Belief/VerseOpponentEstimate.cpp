@@ -16,10 +16,6 @@ void FVerseOpponentEstimate::OnSighting(const FVerseSightPercept& Sight, float N
 		bHeardReload = true;
 		HeardReloadAtS = NowS;
 	}
-	else
-	{
-		bHeardReload = false;
-	}
 	if (Sight.HeldWeaponId != LastSeenWeapon)
 	{
 		LastSeenWeapon = Sight.HeldWeaponId;
@@ -32,6 +28,8 @@ void FVerseOpponentEstimate::OnHeard(const FVerseHeardPercept& Heard, float NowS
 	if (Heard.Noise == VerseTags::Noise_Shot)
 	{
 		++ShotsSinceReload;
+		// A shot after the reload: the fresh magazine is being used up.
+		bHeardReload = false;
 	}
 	else if (Heard.Noise == VerseTags::Noise_Reload)
 	{
@@ -39,6 +37,12 @@ void FVerseOpponentEstimate::OnHeard(const FVerseHeardPercept& Heard, float NowS
 		bHeardReload = true;
 		HeardReloadAtS = NowS;
 	}
+}
+
+void FVerseOpponentEstimate::OnSeenShot(float NowS)
+{
+	// A seen bolt is a shot after the reload. Ammo counts only heard shots (every shot is heard).
+	bHeardReload = false;
 }
 
 void FVerseOpponentEstimate::OnOwnHit(float Damage, float NowS)

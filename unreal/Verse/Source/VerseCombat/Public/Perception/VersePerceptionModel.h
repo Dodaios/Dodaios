@@ -43,6 +43,8 @@ namespace VersePerception
 	constexpr float BoltMaxLifeS = 1.0f;
 	/** Default ADS field of view until weapons (WP02) provide theirs. */
 	constexpr float DefaultAdsFovDeg = 70.f;
+	/** A shot keeps its shooter "firing" (muzzle flash visible) this long, seconds. */
+	constexpr float FiringVisibleS = 0.1f;
 }
 
 /** World truth of one perceivable body for one tick. Only the service and tests fill it. */
@@ -132,8 +134,13 @@ public:
 
 	/** A noise event (server only). Heard by every observer except its source. */
 	void OnNoise(const FVerseNoiseEvent& Event);
-	/** A shot: tracks the bolt so observers can see it in flight. */
+	/**
+	 * A shot: tracks the bolt so observers can see it in flight, and marks the shooter as firing
+	 * (FiringVisibleS) with the weapon it fired, which a sighting may then show.
+	 */
 	void OnFire(const FVerseFireEvent& Event);
+	/** A reload: the shooter shows the reload animation from start to end (unless cancelled). */
+	void OnReload(const FVerseReloadEvent& Event);
 	/** A hit: hurt percept for the victim, hit marker for the instigator; ends the bolt. */
 	void OnHit(const FVerseHitEvent& Event);
 	/** A death: kill feed for everyone; respawn feed at RespawnAt. KillerBody is the killer's truth for the kill cam. */
@@ -145,6 +152,9 @@ public:
 	 */
 	FVersePerceptFrame BuildFrame(int32 ObserverId, const FVersePerceptionObserverInput& Input,
 		TConstArrayView<FVersePerceptionBody> Bodies, const FVersePerceptionWorld& World, uint32 NowMs, float DeltaS);
+
+	/** What a look at Body shows this tick: the body plus the cues of its own events (firing, weapon, reload). */
+	FVersePerceptionBody ApplyCues(const FVersePerceptionBody& Body, float NowS) const { return WithCues(Body, NowS); }
 
 	/** Drop live bolts and queued events (destruction full reset, arena switch). Observers stay. */
 	void ResetEvents();
@@ -185,6 +195,18 @@ private:
 		float EndFlightS = TNumericLimits<float>::Max();
 	};
 
+	/** What other players can see a body do, from its own events (firing, weapon, reload). */
+	struct FBodyCues
+	{
+		float LastFireS = -1.f;
+		FName Weapon;
+		float ReloadStartS = 0.f;
+		float ReloadEndS = -1.f;
+	};
+
+	/** Body plus the cues from its events (an explicit flag on the body wins). */
+	FVersePerceptionBody WithCues(const FVersePerceptionBody& Body, float NowS) const;
+
 	struct FPendingRespawn
 	{
 		int32 PlayerId = INDEX_NONE;
@@ -219,6 +241,7 @@ private:
 	TArray<FObserver> Observers;
 	TArray<FLiveBolt> Bolts;
 	TArray<FPendingRespawn> Respawns;
+	TMap<int32, FBodyCues> Cues;
 	/** Latest server time seen, seconds (bolt flight clock). */
 	float ClockS = 0.f;
 };

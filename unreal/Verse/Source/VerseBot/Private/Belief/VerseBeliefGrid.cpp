@@ -1,6 +1,7 @@
 #include "Belief/VerseBeliefGrid.h"
 
 #include "Algo/Reverse.h"
+#include "Math/VectorRegister.h"
 #include "Misc/Crc.h"
 
 namespace
@@ -87,21 +88,20 @@ void FVerseBeliefGrid::Build(const FVerseBeliefGridSource& Source, const FVerseB
 		const FVerseBeliefCellDesc& Desc = Cells[Cell];
 		Centres[Cell] = FVector(Origin.X + double(Desc.Column.X) * CellSizeCm, Origin.Y + double(Desc.Column.Y) * CellSizeCm, Desc.FloorZ);
 	}
-	CellPrefix.SetNumUninitialized(Num);
-	CentreX.SetNumUninitialized(Num);
-	CentreY.SetNumUninitialized(Num);
-	CentreZ.SetNumUninitialized(Num);
-	CentreSq.SetNumUninitialized(Num);
+	FBox CentreBox(ForceInit);
 	for (int32 Cell = 0; Cell < Num; ++Cell)
 	{
-		const FVerseBeliefCellDesc& Desc = Cells[Cell];
-		CellPrefix[Cell] = (int32(Desc.Level) * ColumnSpan.Y + (Desc.Column.Y - MinColumn.Y)) * (ColumnSpan.X + 1) +
-			(Desc.Column.X - MinColumn.X) + 1;
-		const FVector& C = Centres[Cell];
-		CentreX[Cell] = C.X;
-		CentreY[Cell] = C.Y;
-		CentreZ[Cell] = C.Z;
-		CentreSq[Cell] = C.X * C.X + C.Y * C.Y + C.Z * C.Z;
+		CentreBox += Centres[Cell];
+	}
+	MomentOrigin = Num > 0 ? CentreBox.GetCenter() : FVector::ZeroVector;
+	CellMoment.SetNumUninitialized(4 * Num);
+	for (int32 Cell = 0; Cell < Num; ++Cell)
+	{
+		const FVector C = (Centres[Cell] - MomentOrigin) / 100.0;
+		CellMoment[4 * Cell + 0] = float(C.X);
+		CellMoment[4 * Cell + 1] = float(C.Y);
+		CellMoment[4 * Cell + 2] = float(C.Z);
+		CellMoment[4 * Cell + 3] = float(C.X * C.X + C.Y * C.Y + C.Z * C.Z);
 	}
 	TArray<TArray<FNeighbour>> PerCell;
 	PerCell.SetNum(Num);
@@ -187,10 +187,30 @@ void FVerseBeliefGrid::Build(const FVerseBeliefGridSource& Source, const FVerseB
 			}
 		}
 	}
+	// Padded disc layout: Reach zero columns and rows around every level, so no disc reaches past it.
+	DiscPadWidth = ColumnSpan.X + 2 * Reach;
+	const int32 DiscPadHeight = ColumnSpan.Y + 2 * Reach;
+	DiscPadSize = Num > 0 ? LevelCount * DiscPadWidth * DiscPadHeight : 0;
+	CellDiscPad.SetNumUninitialized(Num);
+	DiscPadCell.Init(INDEX_NONE, DiscPadSize);
+	for (int32 Cell = 0; Cell < Num; ++Cell)
+	{
+		const FVerseBeliefCellDesc& Desc = Cells[Cell];
+		const int32 Index = (int32(Desc.Level) * DiscPadHeight + (Desc.Column.Y - MinColumn.Y + Reach)) * DiscPadWidth +
+			(Desc.Column.X - MinColumn.X + Reach);
+		CellDiscPad[Cell] = Index;
+		DiscPadCell[Index] = Cell;
+	}
+	DiscPadMass.Init(0.f, DiscPadSize);
+	DiscPadSum.Init(0.f, DiscPadSize);
+	DiscPadMask.Init(0.f, DiscPadSize);
+	for (TArray<float>& Rows : DiscPadRows)
+	{
+		Rows.Init(0.f, DiscPadSize);
+	}
 
 	bCellActive.Init(1, Num);
 	RateSum.Init(0.f, Num);
-	BucketScratch.Init(0, Num);
 	P.Init(0.f, Num);
 	Scratch.Init(0.f, Num);
 	Prior.Reset();
@@ -289,7 +309,15 @@ void FVerseBeliefGrid::RecomputeRateSums()
 	DenseOut.Init(0.f, DenseSize);
 	DenseDiffuse.Init(0.f, DenseSize);
 	DenseAdvect.Init(0.f, DenseSize);
-	DenseSumA.Init(0.f, DenseSize);
+	bMomentumWeightsValid = false;
+	ActiveMaskF.SetNumUninitialized(Num);
+	ActiveCount = 0;
+	for (int32 Cell = 0; Cell < Num; ++Cell)
+	{
+		DiscPadMask[CellDiscPad[Cell]] = bCellActive[Cell] ? 1.f : 0.f;
+		ActiveMaskF[Cell] = bCellActive[Cell] ? 1.f : 0.f;
+		ActiveCount += bCellActive[Cell] ? 1 : 0;
+	}
 }
 
 int32 FVerseBeliefGrid::FindCell(const FVector& WorldLocation) const
@@ -448,6 +476,67 @@ void FVerseBeliefGrid::ClearMomentum()
 	bMomentum = false;
 }
 
+void FVerseBeliefGrid::RefreshMomentumWeights(const FVector2f& Dir)
+{
+	// The momentum split depends only on the direction and the edges: computed once per sighting
+	// direction, not per step. Weight per edge: cos^Exponent x rate, normalised per source cell.
+	bMomentumWeightsValid = true;
+	MomentumWeightsDir = Dir;
+	const int32 Size = DenseSize;
+	TArray<float> Sum;
+	Sum.Init(0.f, Size);
+	for (int32 DirIndex = 0; DirIndex < 8; ++DirIndex)
+	{
+		const FVector2f Axis = FVector2f(float(EightOffsets[DirIndex].X), float(EightOffsets[DirIndex].Y)).GetSafeNormal();
+		const float C = FastPowCos(FVector2f::DotProduct(Axis, Dir), Tuning.MomentumExponent);
+		MomentumCos[DirIndex] = C;
+		if (C <= 0.f)
+		{
+			continue;
+		}
+		const float* Rate = DenseRate[DirIndex].GetData();
+		for (int32 Index = 0; Index < Size; ++Index)
+		{
+			Sum[Index] += C * Rate[Index];
+		}
+	}
+	const int32 Links = LinkFrom.Num();
+	TArray<float> LinkCos;
+	LinkCos.SetNumUninitialized(Links);
+	for (int32 Link = 0; Link < Links; ++Link)
+	{
+		LinkCos[Link] = FastPowCos(FVector2f::DotProduct(LinkDirs[Link], Dir), Tuning.MomentumExponent);
+		Sum[CellDense[LinkFrom[Link]]] += LinkCos[Link] * LinkRate[Link];
+	}
+	DenseHasAdvect.SetNumUninitialized(Size);
+	for (int32 Index = 0; Index < Size; ++Index)
+	{
+		DenseHasAdvect[Index] = Sum[Index] > 0.f ? 1 : 0;
+		Sum[Index] = Sum[Index] > 0.f ? 1.f / Sum[Index] : 0.f;
+	}
+	for (int32 DirIndex = 0; DirIndex < 8; ++DirIndex)
+	{
+		const float C = MomentumCos[DirIndex];
+		if (C <= 0.f)
+		{
+			DenseAdvectWeight[DirIndex].Reset();
+			continue;
+		}
+		DenseAdvectWeight[DirIndex].SetNumUninitialized(Size);
+		const float* Rate = DenseRate[DirIndex].GetData();
+		float* Weight = DenseAdvectWeight[DirIndex].GetData();
+		for (int32 Index = 0; Index < Size; ++Index)
+		{
+			Weight[Index] = C * Rate[Index] * Sum[Index];
+		}
+	}
+	LinkAdvectWeight.SetNumUninitialized(Links);
+	for (int32 Link = 0; Link < Links; ++Link)
+	{
+		LinkAdvectWeight[Link] = LinkCos[Link] * LinkRate[Link] * Sum[CellDense[LinkFrom[Link]]];
+	}
+}
+
 void FVerseBeliefGrid::Predict(float DeltaS, float NowS)
 {
 	if (bOpponentDead || DeltaS <= 0.f)
@@ -464,17 +553,9 @@ void FVerseBeliefGrid::Predict(float DeltaS, float NowS)
 		MomentumDir = MomentumVelocity.GetSafeNormal();
 	}
 	const bool bAdvect = MomentumCellFraction > 0.f;
-	float Cos[8];
-	for (int32 DirIndex = 0; DirIndex < 8; ++DirIndex)
+	if (bAdvect && (!bMomentumWeightsValid || MomentumDir != MomentumWeightsDir))
 	{
-		const FVector2f Dir = FVector2f(float(EightOffsets[DirIndex].X), float(EightOffsets[DirIndex].Y)).GetSafeNormal();
-		Cos[DirIndex] = bAdvect ? FastPowCos(FVector2f::DotProduct(Dir, MomentumDir), Tuning.MomentumExponent) : 0.f;
-	}
-	const int32 Links = LinkFrom.Num();
-	LinkCos.SetNumUninitialized(Links);
-	for (int32 Link = 0; Link < Links; ++Link)
-	{
-		LinkCos[Link] = bAdvect ? FastPowCos(FVector2f::DotProduct(LinkDirs[Link], MomentumDir), Tuning.MomentumExponent) : 0.f;
+		RefreshMomentumWeights(MomentumDir);
 	}
 
 	const int32 Num = Cells.Num();
@@ -482,36 +563,16 @@ void FVerseBeliefGrid::Predict(float DeltaS, float NowS)
 	float* Out = DenseOut.GetData();
 	float* Diffuse = DenseDiffuse.GetData();
 	float* Advect = DenseAdvect.GetData();
-	float* SumA = DenseSumA.GetData();
 	FMemory::Memzero(Out, sizeof(float) * Size);
 	FMemory::Memzero(Diffuse, sizeof(float) * Size);
-	FMemory::Memzero(Advect, sizeof(float) * Size);
-
-	// Momentum weight sum per cell: dense passes over the 8 directions, then the links.
 	if (bAdvect)
 	{
-		FMemory::Memzero(SumA, sizeof(float) * Size);
-		for (int32 DirIndex = 0; DirIndex < 8; ++DirIndex)
-		{
-			const float C = Cos[DirIndex];
-			if (C <= 0.f)
-			{
-				continue;
-			}
-			const float* Rate = DenseRate[DirIndex].GetData();
-			for (int32 Index = 0; Index < Size; ++Index)
-			{
-				SumA[Index] += C * Rate[Index];
-			}
-		}
-		for (int32 Link = 0; Link < Links; ++Link)
-		{
-			SumA[CellDense[LinkFrom[Link]]] += LinkCos[Link] * LinkRate[Link];
-		}
+		FMemory::Memzero(Advect, sizeof(float) * Size);
 	}
 
-	// Per cell: what stays, the diffusion scale and the advection scale.
+	// Per cell: what stays, the diffusion scale and the advected mass.
 	const float MaxDiffusion = Tuning.MaxDiffusionFraction;
+	const uint8* HasAdvect = bAdvect ? DenseHasAdvect.GetData() : nullptr;
 	for (int32 Cell = 0; Cell < Num; ++Cell)
 	{
 		const float M = P[Cell];
@@ -529,10 +590,11 @@ void FVerseBeliefGrid::Predict(float DeltaS, float NowS)
 		const float DiffusionScale = FMath::Min(1.f, MaxDiffusion / SumW);
 		float Kept = M * (1.f - SumW * DiffusionScale);
 		Diffuse[Dense] = M * DeltaS * DiffusionScale;
-		if (bAdvect && SumA[Dense] > 0.f)
+		if (HasAdvect && HasAdvect[Dense])
 		{
-			Kept -= M * MomentumCellFraction;
-			Advect[Dense] = M * MomentumCellFraction / SumA[Dense];
+			const float Moved = M * MomentumCellFraction;
+			Kept -= Moved;
+			Advect[Dense] = Moved;
 		}
 		Out[Dense] += Kept;
 	}
@@ -545,33 +607,62 @@ void FVerseBeliefGrid::Predict(float DeltaS, float NowS)
 		const int32 Begin = FMath::Max(0, -Offset);
 		const int32 End = FMath::Min(Size, Size - Offset);
 		float* Target = Out + Offset;
-		if (bAdvect && Cos[DirIndex] > 0.f)
+		int32 Index = Begin;
+		if (bAdvect && MomentumCos[DirIndex] > 0.f)
 		{
-			const float C = Cos[DirIndex];
-			const float* Rate = DenseRate[DirIndex].GetData();
-			for (int32 Index = Begin; Index < End; ++Index)
+			const float* Weight = DenseAdvectWeight[DirIndex].GetData();
+			for (; Index + 4 <= End; Index += 4)
 			{
-				Target[Index] += Diffuse[Index] * RateBias[Index] + Advect[Index] * C * Rate[Index];
+				const VectorRegister4Float Flow = VectorAdd(VectorMultiply(VectorLoad(Diffuse + Index), VectorLoad(RateBias + Index)),
+					VectorMultiply(VectorLoad(Advect + Index), VectorLoad(Weight + Index)));
+				VectorStore(VectorAdd(VectorLoad(Target + Index), Flow), Target + Index);
+			}
+			for (; Index < End; ++Index)
+			{
+				Target[Index] += Diffuse[Index] * RateBias[Index] + Advect[Index] * Weight[Index];
 			}
 		}
 		else
 		{
-			for (int32 Index = Begin; Index < End; ++Index)
+			for (; Index + 4 <= End; Index += 4)
+			{
+				const VectorRegister4Float Flow = VectorMultiply(VectorLoad(Diffuse + Index), VectorLoad(RateBias + Index));
+				VectorStore(VectorAdd(VectorLoad(Target + Index), Flow), Target + Index);
+			}
+			for (; Index < End; ++Index)
 			{
 				Target[Index] += Diffuse[Index] * RateBias[Index];
 			}
 		}
 	}
+	const int32 Links = LinkFrom.Num();
 	for (int32 Link = 0; Link < Links; ++Link)
 	{
 		const int32 From = CellDense[LinkFrom[Link]];
-		Out[CellDense[LinkTo[Link]]] += Diffuse[From] * LinkRateBias[Link] + Advect[From] * LinkCos[Link] * LinkRate[Link];
+		float Flow = Diffuse[From] * LinkRateBias[Link];
+		if (bAdvect)
+		{
+			Flow += Advect[From] * LinkAdvectWeight[Link];
+		}
+		Out[CellDense[LinkTo[Link]]] += Flow;
 	}
 
 	for (int32 Cell = 0; Cell < Num; ++Cell)
 	{
 		P[Cell] = Out[CellDense[Cell]];
 	}
+}
+
+float FVerseBeliefGrid::ClearPd(int32 Cell, const FVector& Eye) const
+{
+	const float DistM = float(FVector::Dist(Eye, GetCellCentre(Cell)) / 100.0);
+	float Pd = Tuning.ClearNearPd;
+	if (DistM > Tuning.ClearNearM)
+	{
+		const float Alpha = FMath::Clamp((DistM - Tuning.ClearNearM) / FMath::Max(1.f, Tuning.ClearFarM - Tuning.ClearNearM), 0.f, 1.f);
+		Pd = FMath::Lerp(Tuning.ClearNearPd, Tuning.ClearFarPd, Alpha);
+	}
+	return Pd * FMath::Clamp(Cells[Cell].Visibility, 0.f, 1.f);
 }
 
 void FVerseBeliefGrid::Clear(const FVector& Eye, TFunctionRef<bool(int32 Cell)> IsVisible, float NowS)
@@ -586,15 +677,24 @@ void FVerseBeliefGrid::Clear(const FVector& Eye, TFunctionRef<bool(int32 Cell)> 
 		{
 			continue;
 		}
-		const float DistM = float(FVector::Dist(Eye, GetCellCentre(Cell)) / 100.0);
-		float Pd = Tuning.ClearNearPd;
-		if (DistM > Tuning.ClearNearM)
+		P[Cell] *= 1.f - ClearPd(Cell, Eye);
+		LastClearedS[Cell] = NowS;
+	}
+}
+
+void FVerseBeliefGrid::Clear(const FVector& Eye, TConstArrayView<int32> VisibleCells, float NowS)
+{
+	if (bOpponentDead)
+	{
+		return;
+	}
+	for (const int32 Cell : VisibleCells)
+	{
+		if (!bCellActive.IsValidIndex(Cell) || !bCellActive[Cell])
 		{
-			const float Alpha = FMath::Clamp((DistM - Tuning.ClearNearM) / FMath::Max(1.f, Tuning.ClearFarM - Tuning.ClearNearM), 0.f, 1.f);
-			Pd = FMath::Lerp(Tuning.ClearNearPd, Tuning.ClearFarPd, Alpha);
+			continue;
 		}
-		Pd *= FMath::Clamp(Cells[Cell].Visibility, 0.f, 1.f);
-		P[Cell] *= 1.f - Pd;
+		P[Cell] *= 1.f - ClearPd(Cell, Eye);
 		LastClearedS[Cell] = NowS;
 	}
 }
@@ -779,24 +879,28 @@ void FVerseBeliefGrid::Normalise()
 		return;
 	}
 	const int32 Num = Cells.Num();
-	double Sum = 0.0;
-	int32 Active = 0;
-	for (int32 Cell = 0; Cell < Num; ++Cell)
-	{
-		if (bCellActive[Cell])
-		{
-			Sum += P[Cell];
-			++Active;
-		}
-		else
-		{
-			P[Cell] = 0.f;
-		}
-	}
+	const int32 Active = ActiveCount;
 	if (Active == 0)
 	{
 		return;
 	}
+	// Sum of active mass: four double accumulators, branch-free on the active mask.
+	float* Mass = P.GetData();
+	const float* MaskF = ActiveMaskF.GetData();
+	double Sums[4] = {0.0, 0.0, 0.0, 0.0};
+	int32 Cell = 0;
+	for (; Cell + 4 <= Num; Cell += 4)
+	{
+		Sums[0] += double(Mass[Cell] * MaskF[Cell]);
+		Sums[1] += double(Mass[Cell + 1] * MaskF[Cell + 1]);
+		Sums[2] += double(Mass[Cell + 2] * MaskF[Cell + 2]);
+		Sums[3] += double(Mass[Cell + 3] * MaskF[Cell + 3]);
+	}
+	for (; Cell < Num; ++Cell)
+	{
+		Sums[0] += double(Mass[Cell] * MaskF[Cell]);
+	}
+	const double Sum = (Sums[0] + Sums[1]) + (Sums[2] + Sums[3]);
 	if (!(Sum > 0.0) || !FMath::IsFinite(Sum))
 	{
 		ResetUniform();
@@ -806,9 +910,9 @@ void FVerseBeliefGrid::Normalise()
 	double PriorSum = 0.0;
 	if (Prior.Num() == Num)
 	{
-		for (int32 Cell = 0; Cell < Num; ++Cell)
+		for (int32 Index = 0; Index < Num; ++Index)
 		{
-			PriorSum += bCellActive[Cell] ? FMath::Max(0.f, Prior[Cell]) : 0.f;
+			PriorSum += bCellActive[Index] ? FMath::Max(0.f, Prior[Index]) : 0.f;
 		}
 	}
 	const bool bHeat = PriorSum > 0.0;
@@ -818,22 +922,24 @@ void FVerseBeliefGrid::Normalise()
 	if (bHeat)
 	{
 		const double HeatScale = Mix * 0.9 / PriorSum;
-		for (int32 Cell = 0; Cell < Num; ++Cell)
+		for (int32 Index = 0; Index < Num; ++Index)
 		{
-			if (bCellActive[Cell])
-			{
-				P[Cell] = P[Cell] * Keep + Uniform + float(HeatScale * FMath::Max(0.f, Prior[Cell]));
-			}
+			P[Index] = bCellActive[Index] ? P[Index] * Keep + Uniform + float(HeatScale * FMath::Max(0.f, Prior[Index])) : 0.f;
 		}
+		return;
 	}
-	else
+	// (m x Keep + Uniform) x mask: exact for the 0 / 1 mask, inactive cells stay 0.
+	const VectorRegister4Float KeepV = VectorSetFloat1(Keep);
+	const VectorRegister4Float UniformV = VectorSetFloat1(Uniform);
+	Cell = 0;
+	for (; Cell + 4 <= Num; Cell += 4)
 	{
-		float* Mass = P.GetData();
-		const uint8* ActiveMask = bCellActive.GetData();
-		for (int32 Cell = 0; Cell < Num; ++Cell)
-		{
-			Mass[Cell] = ActiveMask[Cell] ? Mass[Cell] * Keep + Uniform : 0.f;
-		}
+		const VectorRegister4Float Value = VectorAdd(VectorMultiply(VectorLoad(Mass + Cell), KeepV), UniformV);
+		VectorStore(VectorMultiply(Value, VectorLoad(MaskF + Cell)), Mass + Cell);
+	}
+	for (; Cell < Num; ++Cell)
+	{
+		Mass[Cell] = (Mass[Cell] * Keep + Uniform) * MaskF[Cell];
 	}
 }
 
@@ -856,147 +962,181 @@ FVerseBeliefDerived FVerseBeliefGrid::ComputeDerived(float NowS, bool bKnown) co
 		return Out;
 	}
 	const int32 Num = Cells.Num();
-	if (Num == 0)
+	if (Num == 0 || DiscPadSize == 0)
 	{
 		return Out;
 	}
 
-	// Pass 1: mass histogram by absolute float exponent (one bucket per factor of 2), the
-	// highest exponent, and the row prefix inputs. Inactive and empty cells hold 0.
-	const int32 SpanX = ColumnSpan.X;
-	const int32 SpanY = ColumnSpan.Y;
-	const int32 RowLen = SpanX + 1;
-	PrefixScratch.SetNumUninitialized(3 * SpanY * RowLen);
-	FMemory::Memzero(PrefixScratch.GetData(), sizeof(float) * PrefixScratch.Num());
-	double ExpMass[256] = {};
-	int32 ExpCount[256] = {};
-	int32 MaxExp = 0;
-	double Total = 0.0;
+	// Pass 1 over the cells: scatter the mass into the padded disc layout, and a histogram by float
+	// exponent (one bucket per factor of 2) holding the mass and the moment sums (x, y, z, x^2+y^2+z^2
+	// in metres from the grid middle, one vector) of each bucket. Four interleaved banks keep
+	// consecutive cells (usually the same bucket) off one dependency chain.
+	constexpr int32 Banks = 4;
+	constexpr int32 Buckets = 64;
+	constexpr int32 ExpBase = 127 - Buckets + 1;
+	alignas(16) float HistMoments[Banks * Buckets * 4];
+	float HistMass[Banks * Buckets];
+	FMemory::Memzero(HistMoments, sizeof(HistMoments));
+	FMemory::Memzero(HistMass, sizeof(HistMass));
 	{
 		const float* Mass = P.GetData();
-		uint8* Exps = BucketScratch.GetData();
-		float* Prefix = PrefixScratch.GetData();
-		const int32* PrefixIndex = CellPrefix.GetData();
+		const float* Moment = CellMoment.GetData();
+		float* PadOut = DiscPadMass.GetData();
+		const int32* PadIndex = CellDiscPad.GetData();
 		for (int32 Cell = 0; Cell < Num; ++Cell)
 		{
 			const float Value = Mass[Cell];
+			PadOut[PadIndex[Cell]] = Value;
+			if (!(Value > 0.f))
+			{
+				continue;
+			}
 			uint32 Bits;
 			FMemory::Memcpy(&Bits, &Value, sizeof(Bits));
-			const int32 Exp = Value > 0.f ? int32((Bits >> 23) & 0xFFu) : 0;
-			Exps[Cell] = uint8(Exp);
-			ExpMass[Exp] += Value;
-			++ExpCount[Exp];
-			MaxExp = FMath::Max(MaxExp, Exp);
-			Total += Value;
-			Prefix[PrefixIndex[Cell]] = Value;
+			const int32 Bucket = FMath::Clamp(int32((Bits >> 23) & 0xFFu) - ExpBase, 0, Buckets - 1);
+			const int32 Slot = (Cell & (Banks - 1)) * Buckets + Bucket;
+			HistMass[Slot] += Value;
+			float* Acc = HistMoments + 4 * Slot;
+			VectorStoreAligned(VectorAdd(VectorLoadAligned(Acc), VectorMultiply(VectorSetFloat1(Value), VectorLoad(Moment + 4 * Cell))), Acc);
 		}
 	}
-	if (MaxExp == 0 || !(Total > 0.0))
+	double BucketMass[Buckets] = {};
+	double Total = 0.0;
+	for (int32 Bucket = 0; Bucket < Buckets; ++Bucket)
+	{
+		for (int32 Bank = 0; Bank < Banks; ++Bank)
+		{
+			BucketMass[Bucket] += HistMass[Bank * Buckets + Bucket];
+		}
+		Total += BucketMass[Bucket];
+	}
+	if (!(Total > 0.0))
 	{
 		return Out;
 	}
-	// Spread: the exponents (from the top) holding 90 % of the mass. Candidates: the exponents
-	// within a factor of 8 of the peak, at most MaxCandidates cells, heaviest first.
-	int32 SpreadMinExp = 1;
-	double Accumulated = 0.0;
-	for (int32 Exp = MaxExp; Exp >= 1; --Exp)
-	{
-		Accumulated += ExpMass[Exp];
-		if (Accumulated >= 0.9 * Total)
-		{
-			SpreadMinExp = Exp;
-			break;
-		}
-	}
-	constexpr int32 MaxCandidates = 384;
-	int32 CandidateMinExp = MaxExp;
-	for (int32 Exp = MaxExp - 1, Count = ExpCount[MaxExp]; Exp >= FMath::Max(1, MaxExp - 3); --Exp)
-	{
-		Count += ExpCount[Exp];
-		if (Count > MaxCandidates)
-		{
-			break;
-		}
-		CandidateMinExp = Exp;
-	}
 
-	// Pass 2: spread moments and candidates.
-	CandidateScratch.Reset();
-	double W = 0.0;
-	double Sx = 0.0;
-	double Sy = 0.0;
-	double Sz = 0.0;
-	double Sq = 0.0;
+	// Spread: the buckets (from the top) that hold 90 % of the mass.
 	{
-		const float* Mass = P.GetData();
-		const uint8* Exps = BucketScratch.GetData();
-		for (int32 Cell = 0; Cell < Num; ++Cell)
+		double W = 0.0;
+		double Sx = 0.0;
+		double Sy = 0.0;
+		double Sz = 0.0;
+		double Sq = 0.0;
+		for (int32 Bucket = Buckets - 1; Bucket >= 0 && W < 0.9 * Total; --Bucket)
 		{
-			const int32 Exp = Exps[Cell];
-			if (Exp >= SpreadMinExp)
+			for (int32 Bank = 0; Bank < Banks; ++Bank)
 			{
-				const double Value = Mass[Cell];
-				W += Value;
-				Sx += Value * CentreX[Cell];
-				Sy += Value * CentreY[Cell];
-				Sz += Value * CentreZ[Cell];
-				Sq += Value * CentreSq[Cell];
-			}
-			if (Exp >= CandidateMinExp && CandidateScratch.Num() < MaxCandidates)
-			{
-				CandidateScratch.Add(Cell);
+				const int32 Slot = Bank * Buckets + Bucket;
+				W += HistMass[Slot];
+				Sx += HistMoments[4 * Slot + 0];
+				Sy += HistMoments[4 * Slot + 1];
+				Sz += HistMoments[4 * Slot + 2];
+				Sq += HistMoments[4 * Slot + 3];
 			}
 		}
-	}
-	for (int32 Row = 0; Row < 3 * SpanY; ++Row)
-	{
-		float* Line = PrefixScratch.GetData() + Row * RowLen;
-		for (int32 X = 1; X < RowLen; ++X)
+		if (W > 0.0)
 		{
-			Line[X] += Line[X - 1];
+			const double Mx = Sx / W;
+			const double My = Sy / W;
+			const double Mz = Sz / W;
+			const double Var = FMath::Max(0.0, Sq / W - (Mx * Mx + My * My + Mz * Mz));
+			Out.SpreadM = float(FMath::Sqrt(Var));
 		}
 	}
-	if (W > 0.0)
-	{
-		const double Mx = Sx / W;
-		const double My = Sy / W;
-		const double Mz = Sz / W;
-		const double Var = FMath::Max(0.0, Sq / W - (Mx * Mx + My * My + Mz * Mz));
-		Out.SpreadM = float(FMath::Sqrt(Var) / 100.0);
-	}
 
-	// TopCluster: the candidate whose disc holds the most mass (ties: lower cell index).
+	// TopCluster (bot.md 4.3): the disc sum of every cell, from horizontal box sums of the disc's row
+	// half-widths, then the active cell with the largest sum (ties: the lowest padded index).
 	const int32 Reach = DiscHalfWidth.Num() / 2;
-	double BestMass = -1.0;
-	int32 BestCell = INDEX_NONE;
-	for (const int32 Candidate : CandidateScratch)
+	const int32 Width = DiscPadWidth;
+	const int32 Size = DiscPadSize;
+	const float* Pad = DiscPadMass.GetData();
+	int32 MaxHalf = 0;
+	for (const int32 Half : DiscHalfWidth)
 	{
-		const FVerseBeliefCellDesc& Desc = Cells[Candidate];
-		const int32 Lx = Desc.Column.X - MinColumn.X;
-		const int32 Ly = Desc.Column.Y - MinColumn.Y;
-		const int32 LevelBase = int32(Desc.Level) * SpanY;
-		double Mass = 0.0;
-		for (int32 Dy = -Reach; Dy <= Reach; ++Dy)
+		MaxHalf = FMath::Max(MaxHalf, Half);
+	}
+	MaxHalf = FMath::Min(MaxHalf, 7);
+	const float* Rows[8] = {Pad, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+	for (int32 Half = 1; Half <= MaxHalf; ++Half)
+	{
+		const float* Prev = Rows[Half - 1];
+		float* Cur = DiscPadRows[Half].GetData();
+		const int32 End = Size - Reach;
+		int32 Index = Reach;
+		for (; Index + 4 <= End; Index += 4)
 		{
-			const int32 Y = Ly + Dy;
-			if (Y < 0 || Y >= SpanY)
-			{
-				continue;
-			}
-			const int32 Half = DiscHalfWidth[Dy + Reach];
-			if (Half < 0)
-			{
-				continue;
-			}
-			const int32 X0 = FMath::Max(0, Lx - Half);
-			const int32 X1 = FMath::Min(SpanX - 1, Lx + Half);
-			const float* Line = PrefixScratch.GetData() + (LevelBase + Y) * RowLen;
-			Mass += double(Line[X1 + 1]) - double(Line[X0]);
+			const VectorRegister4Float Sides = VectorAdd(VectorLoad(Pad + Index - Half), VectorLoad(Pad + Index + Half));
+			VectorStore(VectorAdd(VectorLoad(Prev + Index), Sides), Cur + Index);
 		}
-		if (Mass > BestMass)
+		for (; Index < End; ++Index)
 		{
-			BestMass = Mass;
-			BestCell = Candidate;
+			Cur[Index] = Prev[Index] + (Pad[Index - Half] + Pad[Index + Half]);
+		}
+		Rows[Half] = Cur;
+	}
+	const float* TermRows[17];
+	int32 TermOffsets[17];
+	int32 NumTerms = 0;
+	for (int32 Dy = -Reach; Dy <= Reach && NumTerms < 17; ++Dy)
+	{
+		const int32 Half = DiscHalfWidth[Dy + Reach];
+		if (Half >= 0 && Half <= MaxHalf)
+		{
+			TermRows[NumTerms] = Rows[Half];
+			TermOffsets[NumTerms] = Dy * Width;
+			++NumTerms;
+		}
+	}
+	if (NumTerms == 0)
+	{
+		return Out;
+	}
+	float* Score = DiscPadSum.GetData();
+	const float* Mask = DiscPadMask.GetData();
+	const int32 Begin = Reach * Width;
+	const int32 End = Size - Reach * Width;
+	const VectorRegister4Float One = VectorSetFloat1(1.f);
+	VectorRegister4Float BestLanes = VectorSetFloat1(-2.f);
+	int32 Index = Begin;
+	for (; Index + 4 <= End; Index += 4)
+	{
+		VectorRegister4Float Acc = VectorLoad(TermRows[0] + Index + TermOffsets[0]);
+		for (int32 Term = 1; Term < NumTerms; ++Term)
+		{
+			Acc = VectorAdd(Acc, VectorLoad(TermRows[Term] + Index + TermOffsets[Term]));
+		}
+		const VectorRegister4Float M = VectorLoad(Mask + Index);
+		// Inactive or no cell: -1, below every real disc sum.
+		const VectorRegister4Float Value = VectorAdd(VectorMultiply(Acc, M), VectorSubtract(M, One));
+		VectorStore(Value, Score + Index);
+		BestLanes = VectorMax(BestLanes, Value);
+	}
+	float Best = -2.f;
+	for (; Index < End; ++Index)
+	{
+		float Acc = TermRows[0][Index + TermOffsets[0]];
+		for (int32 Term = 1; Term < NumTerms; ++Term)
+		{
+			Acc += TermRows[Term][Index + TermOffsets[Term]];
+		}
+		const float Value = Acc * Mask[Index] + (Mask[Index] - 1.f);
+		Score[Index] = Value;
+		Best = FMath::Max(Best, Value);
+	}
+	float Lanes[4];
+	VectorStore(BestLanes, Lanes);
+	Best = FMath::Max(FMath::Max(Best, FMath::Max(Lanes[0], Lanes[1])), FMath::Max(Lanes[2], Lanes[3]));
+	if (Best < 0.f)
+	{
+		return Out;
+	}
+	int32 BestCell = INDEX_NONE;
+	for (Index = Begin; Index < End; ++Index)
+	{
+		if (Score[Index] == Best)
+		{
+			BestCell = DiscPadCell[Index];
+			break;
 		}
 	}
 	if (BestCell == INDEX_NONE)

@@ -192,6 +192,43 @@ void FVersePerceptionModel::OnFire(const FVerseFireEvent& Event)
 	Bolt.Origin = Event.Origin;
 	Bolt.Direction = FVector(Event.Direction).GetSafeNormal();
 	Bolt.StartS = Event.ServerTime;
+	FBodyCues& Cue = Cues.FindOrAdd(Event.ShooterId);
+	Cue.LastFireS = Event.ServerTime;
+	if (!Event.WeaponId.IsNone())
+	{
+		Cue.Weapon = Event.WeaponId;
+	}
+}
+
+void FVersePerceptionModel::OnReload(const FVerseReloadEvent& Event)
+{
+	FBodyCues& Cue = Cues.FindOrAdd(Event.PlayerId);
+	if (!Event.WeaponId.IsNone())
+	{
+		Cue.Weapon = Event.WeaponId;
+	}
+	if (Event.bCancelled)
+	{
+		Cue.ReloadEndS = -1.f;
+		return;
+	}
+	Cue.ReloadStartS = Event.StartServerTime;
+	Cue.ReloadEndS = Event.EndServerTime;
+}
+
+FVersePerceptionBody FVersePerceptionModel::WithCues(const FVersePerceptionBody& Body, float NowS) const
+{
+	FVersePerceptionBody Out = Body;
+	if (const FBodyCues* Cue = Cues.Find(Body.PlayerId))
+	{
+		Out.bFiring |= Cue->LastFireS >= 0.f && NowS >= Cue->LastFireS && NowS - Cue->LastFireS <= VersePerception::FiringVisibleS;
+		if (Out.HeldWeaponId.IsNone())
+		{
+			Out.HeldWeaponId = Cue->Weapon;
+		}
+		Out.bReloading |= NowS >= Cue->ReloadStartS && NowS < Cue->ReloadEndS;
+	}
+	return Out;
 }
 
 void FVersePerceptionModel::OnHit(const FVerseHitEvent& Event)
@@ -260,6 +297,7 @@ void FVersePerceptionModel::ResetEvents()
 {
 	Bolts.Reset();
 	Respawns.Reset();
+	Cues.Reset();
 	for (FObserver& Observer : Observers)
 	{
 		Observer.PendingNoise.Reset();
@@ -357,12 +395,14 @@ void FVersePerceptionModel::BuildSightings(FObserver& Observer, const FVersePerc
 	const FRotator View = Input.Self.ViewRotation;
 	const FCone Cone = ConeFor(Input.bAds, Input.AdsFovDeg);
 
-	for (const FVersePerceptionBody& Body : Bodies)
+	const float NowS = float(double(NowMs) / 1000.0);
+	for (const FVersePerceptionBody& Truth : Bodies)
 	{
-		if (Body.PlayerId == Observer.PlayerId || !Body.bAlive)
+		if (Truth.PlayerId == Observer.PlayerId || !Truth.bAlive)
 		{
 			continue;
 		}
+		const FVersePerceptionBody Body = WithCues(Truth, NowS);
 		uint8 Mask = 0;
 		bool bAnyInside = false;
 		bool bAnyPeripheral = false;
@@ -383,7 +423,19 @@ void FVersePerceptionModel::BuildSightings(FObserver& Observer, const FVersePerc
 		const bool bAware = FVector::DistSquared(Eye, Body.Pelvis) <= FMath::Square(VersePerception::AwarenessRadiusCm);
 		const bool bPeripheralNotice =
 			bAnyPeripheral && (Body.Velocity.Size() > VersePerception::PeripheralSpeedCmS || Body.bFiring);
-		const bool bCandidate = bAnyInside || bPeripheralNotice || bAware;
+		// Awareness alone (bot.md 3.1 "felt, heard"): only with a clear line to the body. Behind a
+		// wall it is not noticed at all; its noises still reach the hearing path (F2, B2).
+		const bool bFeltOnly = bAware && !bAnyInside && !bPeripheralNotice;
+		bool bCandidate = bAnyInside || bPeripheralNotice || bAware;
+		if (bFeltOnly)
+		{
+			bool bClearLine = false;
+			for (int32 Index = 0; Index < 8 && !bClearLine; ++Index)
+			{
+				bClearLine = World.Sight(Eye, Body.SamplePoints[Index]);
+			}
+			bCandidate = bClearLine;
+		}
 
 		if (!bCandidate)
 		{
@@ -420,6 +472,13 @@ void FVersePerceptionModel::BuildSightings(FObserver& Observer, const FVersePerc
 		FVerseSightPercept& Sight = Out.Sightings.AddDefaulted_GetRef();
 		Sight.PerceptId = Observer.NextPerceptId++;
 		Sight.PelvisLocation = Body.Pelvis;
+		if (bFeltOnly)
+		{
+			// Felt, not seen: where it is, nothing a look would show (no mask, no visual fields).
+			Sight.VisibleMask = 0;
+			Sight.bPeripheral = true;
+			continue;
+		}
 		Sight.Velocity = Body.Velocity;
 		Sight.FacingYawDeg = Body.FacingYawDeg;
 		Sight.FacingPitchDeg = Body.FacingPitchDeg;

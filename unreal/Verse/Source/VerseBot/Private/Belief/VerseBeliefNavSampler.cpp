@@ -59,6 +59,65 @@ bool FVerseBeliefNavSampler::Build(const INavigationDataInterface& Nav, const FV
 		}
 	}
 
+	// Piece gates: catwalk cells go with their piece, breach openings appear when it opens.
+	TArray<uint8> Unsampled;
+	Unsampled.Init(0, OutSource.Cells.Num());
+	for (const FVerseBeliefNavSettings::FPieceFootprint& Footprint : Settings.PieceFootprints)
+	{
+		if (!Footprint.Bounds.IsValid || Footprint.Piece == INDEX_NONE || Footprint.Gate == EVerseBeliefGate::Always)
+		{
+			continue;
+		}
+		const int32 X0 = FMath::Max(0, FMath::CeilToInt((Footprint.Bounds.Min.X - OutSource.Origin.X) / Cell));
+		const int32 X1 = FMath::Min(Nx - 1, FMath::FloorToInt((Footprint.Bounds.Max.X - OutSource.Origin.X) / Cell));
+		const int32 Y0 = FMath::Max(0, FMath::CeilToInt((Footprint.Bounds.Min.Y - OutSource.Origin.Y) / Cell));
+		const int32 Y1 = FMath::Min(Ny - 1, FMath::FloorToInt((Footprint.Bounds.Max.Y - OutSource.Origin.Y) / Cell));
+		for (int32 X = X0; X <= X1; ++X)
+		{
+			for (int32 Y = Y0; Y <= Y1; ++Y)
+			{
+				if (Footprint.Gate == EVerseBeliefGate::WhenStanding)
+				{
+					for (int32 Level = 0; Level < 3; ++Level)
+					{
+						const int32* Found = Lookup.Find(FIntVector(X, Y, Level));
+						if (!Found)
+						{
+							continue;
+						}
+						FVerseBeliefCellDesc& Desc = OutSource.Cells[*Found];
+						if (Desc.FloorZ >= Footprint.Bounds.Min.Z - Settings.SameFloorCm &&
+							Desc.FloorZ <= Footprint.Bounds.Max.Z + Settings.SameFloorCm)
+						{
+							Desc.Gate = EVerseBeliefGate::WhenStanding;
+							Desc.GatePiece = Footprint.Piece;
+						}
+					}
+					continue;
+				}
+				const FIntVector Key(X, Y, int32(Footprint.Level));
+				if (const int32* Found = Lookup.Find(Key))
+				{
+					OutSource.Cells[*Found].Gate = EVerseBeliefGate::WhenOpen;
+					OutSource.Cells[*Found].GatePiece = Footprint.Piece;
+					continue;
+				}
+				const FVector Floor(OutSource.Origin.X + X * Cell, OutSource.Origin.Y + Y * Cell, Footprint.Bounds.Min.Z);
+				FVerseBeliefCellDesc& Desc = OutSource.Cells.AddDefaulted_GetRef();
+				Desc.Column = FIntPoint(X, Y);
+				Desc.FloorZ = float(Floor.Z);
+				Desc.Level = Footprint.Level;
+				Desc.Visibility = Settings.VisibilityAt ? Settings.VisibilityAt(Floor) : 1.f;
+				Desc.Zone = Settings.ZoneAt ? Settings.ZoneAt(Floor) : 255;
+				Desc.Gate = EVerseBeliefGate::WhenOpen;
+				Desc.GatePiece = Footprint.Piece;
+				Lookup.Add(Key, OutSource.Cells.Num() - 1);
+				Locations.Add(FNavLocation(Floor));
+				Unsampled.Add(1);
+			}
+		}
+	}
+
 	for (const FVerseBeliefNavSettings::FLink& Link : Settings.Links)
 	{
 		const int32* From = Lookup.Find(FIntVector(Link.FromColumn.X, Link.FromColumn.Y, int32(Link.FromLevel)));
@@ -80,10 +139,15 @@ bool FVerseBeliefNavSampler::Build(const INavigationDataInterface& Nav, const FV
 	// Connectivity of same-level neighbours: a move along the surface must arrive.
 	const INavigationDataInterface* NavPtr = &Nav;
 	TArray<FNavLocation> Captured = Locations;
-	OutSource.AreNeighboursConnected = [NavPtr, Captured, Cell](int32 A, int32 B) {
+	OutSource.AreNeighboursConnected = [NavPtr, Captured, Unsampled, Cell](int32 A, int32 B) {
 		if (!Captured.IsValidIndex(A) || !Captured.IsValidIndex(B))
 		{
 			return false;
+		}
+		if (Unsampled[A] || Unsampled[B])
+		{
+			// An opening has no navmesh while the piece stands: a step of at most 60 cm joins it.
+			return FMath::Abs(Captured[A].Location.Z - Captured[B].Location.Z) <= 60.f;
 		}
 		FNavLocation Reached;
 		if (!NavPtr->FindMoveAlongSurface(Captured[A], Captured[B].Location, Reached))

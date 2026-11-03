@@ -19,6 +19,14 @@ struct VERSEBOT_API FVerseBelievedPiece
 	float LastSeenS = -1.f;
 };
 
+/** One piece of the static arena layout (public arena data: index, material, original bounds). */
+struct VERSEBOT_API FVersePieceLayoutEntry
+{
+	uint16 Index = 0;
+	EVersePenetrationMaterial Material = EVersePenetrationMaterial::Concrete;
+	FBox Bounds = FBox(ForceInit);
+};
+
 /**
  * The bot's copy of piece states. The only place in VerseBot that may call
  * IVersePieceQuery::GetPieceState (bot.md F1), and only for a piece it sees this step
@@ -28,8 +36,14 @@ struct VERSEBOT_API FVerseBelievedPiece
 class VERSEBOT_API FVersePieceBelief
 {
 public:
-	/** Learn the layout of every piece in the arena box; every piece believed Intact. */
+	/**
+	 * Learn the layout of every piece in the arena box from the piece query; every piece believed
+	 * Intact. The query answers with the current bounds, so this is only valid at match start or
+	 * right after a destruction full reset. A belief created mid-match uses the layout overload.
+	 */
 	void Initialize(const IVersePieceQuery& Query, const FBox& ArenaBox);
+	/** Learn the layout from static arena data (original bounds); every piece believed Intact. */
+	void Initialize(TConstArrayView<FVersePieceLayoutEntry> Layout);
 
 	/** Destruction full reset: every piece Intact again, flags cleared (both players see it). */
 	void ResetAll();

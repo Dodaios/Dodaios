@@ -122,6 +122,7 @@ void UVersePerceptionService::BindHub()
 	Hub = HubPtr;
 	NoiseHandle = HubPtr->OnNoise.AddUObject(this, &UVersePerceptionService::HandleNoise);
 	FireHandle = HubPtr->OnFire.AddUObject(this, &UVersePerceptionService::HandleFire);
+	ReloadHandle = HubPtr->OnReload.AddUObject(this, &UVersePerceptionService::HandleReload);
 	HitHandle = HubPtr->OnHit.AddUObject(this, &UVersePerceptionService::HandleHit);
 	DeathHandle = HubPtr->OnDeath.AddUObject(this, &UVersePerceptionService::HandleDeath);
 	ArenaHandle = HubPtr->OnArenaSwitch.AddUObject(this, &UVersePerceptionService::HandleArenaSwitch);
@@ -133,6 +134,7 @@ void UVersePerceptionService::UnbindHub()
 	{
 		HubPtr->OnNoise.Remove(NoiseHandle);
 		HubPtr->OnFire.Remove(FireHandle);
+		HubPtr->OnReload.Remove(ReloadHandle);
 		HubPtr->OnHit.Remove(HitHandle);
 		HubPtr->OnDeath.Remove(DeathHandle);
 		HubPtr->OnArenaSwitch.Remove(ArenaHandle);
@@ -209,6 +211,16 @@ void UVersePerceptionService::SetLevelBands(float InMidMinZCm, float InUpperMinZ
 void UVersePerceptionService::SetSelfPerceptFiller(TFunction<void(const APawn&, FVerseSelfPercept&)> Filler)
 {
 	SelfFiller = MoveTemp(Filler);
+}
+
+void UVersePerceptionService::SetBodyFiller(TFunction<void(const APawn&, FVersePerceptionBody&)> Filler)
+{
+	BodyFiller = MoveTemp(Filler);
+}
+
+void UVersePerceptionService::HandleReload(const FVerseReloadEvent& Event)
+{
+	Model.OnReload(Event);
 }
 
 void UVersePerceptionService::HandleNoise(const FVerseNoiseEvent& Event)
@@ -306,7 +318,11 @@ void UVersePerceptionService::GatherBodies(TArray<FVersePerceptionBody>& OutBodi
 		{
 			continue;
 		}
-		OutBodies.Add(MakeBody(**It, State->GetPlayerId()));
+		FVersePerceptionBody& Body = OutBodies.Add_GetRef(MakeBody(**It, State->GetPlayerId()));
+		if (BodyFiller)
+		{
+			BodyFiller(**It, Body);
+		}
 	}
 	// Actor iteration order is not part of the contract; sort so frames are deterministic (B5).
 	OutBodies.Sort([](const FVersePerceptionBody& A, const FVersePerceptionBody& B) { return A.PlayerId < B.PlayerId; });
@@ -361,7 +377,11 @@ void UVersePerceptionService::StepPerception(float DeltaS)
 		{
 			const FVersePerceptionBody* Own =
 				Bodies.FindByPredicate([&Entry](const FVersePerceptionBody& Body) { return Body.PlayerId == Entry.PlayerId; });
-			const FVersePerceptionBody Body = Own ? *Own : MakeBody(*Pawn, Entry.PlayerId);
+			FVersePerceptionBody Body = Own ? *Own : MakeBody(*Pawn, Entry.PlayerId);
+			if (!Own && BodyFiller)
+			{
+				BodyFiller(*Pawn, Body);
+			}
 			Input.Self.Location = Pawn->GetActorLocation();
 			Input.Self.Velocity = Body.Velocity;
 			Input.Self.EyeLocation = Body.Eye;

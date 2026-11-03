@@ -6,11 +6,59 @@
 
 namespace
 {
-	constexpr float CellSightHeightsCm[2] = {100.f, 160.f};
-	constexpr float ProneSightHeightCm = 40.f;
-	constexpr float CacheMaxAgeS = 1.0f;
+	/** Sample heights of a cell test, in rotation order: 1.6 m, 1.0 m, then 0.4 m where prone is possible. */
+	constexpr float CellSightHeightsCm[3] = {160.f, 100.f, 40.f};
 	/** Bound on the hurt and bolt wedges, cm. */
 	constexpr float WedgeMaxRangeCm = 8000.f;
+
+	/** The view cone of bot.md 3.1 as cheap comparisons (no trigonometry per point). */
+	struct FClearCone
+	{
+		double Fx = 1.0;
+		double Fy = 0.0;
+		double CosHalf = 0.0;
+		double TanLo = 0.0;
+		double TanHi = 0.0;
+		bool bLoOpen = false;
+		bool bHiOpen = false;
+
+		explicit FClearCone(const FRotator& View)
+		{
+			const double Yaw = FMath::DegreesToRadians(double(View.Yaw));
+			Fx = FMath::Cos(Yaw);
+			Fy = FMath::Sin(Yaw);
+			CosHalf = FMath::Cos(FMath::DegreesToRadians(double(VersePerception::ViewHalfAngleDeg)));
+			const double Pitch = double(FRotator::NormalizeAxis(View.Pitch));
+			const double Lo = Pitch - double(VersePerception::VerticalHalfAngleDeg);
+			const double Hi = Pitch + double(VersePerception::VerticalHalfAngleDeg);
+			bLoOpen = Lo <= -89.999;
+			bHiOpen = Hi >= 89.999;
+			TanLo = bLoOpen ? 0.0 : FMath::Tan(FMath::DegreesToRadians(Lo));
+			TanHi = bHiOpen ? 0.0 : FMath::Tan(FMath::DegreesToRadians(Hi));
+		}
+
+		/** Horizontal half-angle against the view yaw, elevation within the vertical half-angle of the pitch. */
+		bool Contains(const FVector& Eye, const FVector& Point) const
+		{
+			const double Vx = Point.X - Eye.X;
+			const double Vy = Point.Y - Eye.Y;
+			const double Vz = Point.Z - Eye.Z;
+			const double H = FMath::Sqrt(Vx * Vx + Vy * Vy);
+			if (H < 1.0)
+			{
+				return true;
+			}
+			if (Vx * Fx + Vy * Fy < CosHalf * H)
+			{
+				return false;
+			}
+			if (!bLoOpen && Vz < H * TanLo)
+			{
+				return false;
+			}
+			return bHiOpen || Vz <= H * TanHi;
+		}
+	};
 }
 
 void FVerseBeliefMap::Initialize(const FVerseBeliefGridSource& Source, const FVerseBeliefMapConfig& InConfig,
@@ -20,7 +68,11 @@ void FVerseBeliefMap::Initialize(const FVerseBeliefGridSource& Source, const FVe
 	Grid.Build(Source, Tuning);
 	Opponent = FVerseOpponentEstimate();
 	Pieces = FVersePieceBelief();
-	if (World.Pieces)
+	if (Config.PieceLayout.Num() > 0)
+	{
+		Pieces.Initialize(Config.PieceLayout);
+	}
+	else if (World.Pieces)
 	{
 		Pieces.Initialize(*World.Pieces, Config.ArenaBox);
 	}
@@ -30,7 +82,10 @@ void FVerseBeliefMap::Initialize(const FVerseBeliefGridSource& Source, const FVe
 	CachedVisible.Init(0, Num);
 	CachedEye.Init(FVector(TNumericLimits<float>::Max()), Num);
 	CachedAtS.Init(-1000.f, Num);
+	CachedHeight.Init(0, Num);
+	VisibleScratch.Reset();
 	ClearCursor = 0;
+	LastClearSightTests = 0;
 	LastStepS = -1.f;
 	StepCount = 0;
 	bHasFrame = false;
@@ -44,75 +99,60 @@ void FVerseBeliefMap::RefreshGates()
 		[this](int32 Piece) { return Pieces.IsBelievedStanding(Piece); });
 }
 
-bool FVerseBeliefMap::InViewCone(const FVector& Eye, const FVector& ForwardFlat, float ViewPitchDeg, const FVector& Point) const
-{
-	const FVector V = Point - Eye;
-	const double H = FMath::Sqrt(V.X * V.X + V.Y * V.Y);
-	if (H < 1.0)
-	{
-		return true;
-	}
-	static const double CosHalf = FMath::Cos(FMath::DegreesToRadians(double(VersePerception::ViewHalfAngleDeg)));
-	if ((V.X * ForwardFlat.X + V.Y * ForwardFlat.Y) < CosHalf * H)
-	{
-		return false;
-	}
-	const double ElevationDeg = FMath::RadiansToDegrees(FMath::Atan2(V.Z, H));
-	return FMath::Abs(ElevationDeg - double(ViewPitchDeg)) <= VersePerception::VerticalHalfAngleDeg;
-}
-
 bool FVerseBeliefMap::TestCellVisible(int32 Cell, const FVector& Eye, const FRotator& View, const IVersePenetrationQuery& Sight) const
 {
 	const FVector Centre = Grid.GetCellCentre(Cell);
-	const FVector Forward = FRotator(0.f, View.Yaw, 0.f).Vector();
-	const float Pitch = FRotator::NormalizeAxis(View.Pitch);
-	for (const float Height : CellSightHeightsCm)
+	const FClearCone Cone(View);
+	const int32 Heights = Grid.GetCell(Cell).bProneCapable ? 3 : 2;
+	for (int32 Height = 0; Height < Heights; ++Height)
 	{
-		const FVector Point = Centre + FVector(0.0, 0.0, Height);
-		if (InViewCone(Eye, Forward, Pitch, Point) && Sight.TestSight(Eye, Point))
+		const FVector Point = Centre + FVector(0.0, 0.0, CellSightHeightsCm[Height]);
+		if (Cone.Contains(Eye, Point) && Sight.TestSight(Eye, Point))
 		{
 			return true;
 		}
-	}
-	if (Grid.GetCell(Cell).bProneCapable)
-	{
-		const FVector Point = Centre + FVector(0.0, 0.0, ProneSightHeightCm);
-		return InViewCone(Eye, Forward, Pitch, Point) && Sight.TestSight(Eye, Point);
 	}
 	return false;
 }
 
 void FVerseBeliefMap::RunClear(const FVerseSelfPercept& Self, const FVerseBeliefWorld& World, float NowS)
 {
+	LastClearSightTests = 0;
 	if (!World.Sight || Self.Phase == EVerseCombatPhase::Dead)
 	{
 		return;
 	}
 	const FVector Eye = Self.EyeLocation;
-	const FVector Forward = FRotator(0.f, Self.ViewRotation.Yaw, 0.f).Vector();
-	const float Pitch = FRotator::NormalizeAxis(Self.ViewRotation.Pitch);
+	const FClearCone Cone(Self.ViewRotation);
 	const int32 Num = Grid.NumCells();
+	if (Num == 0)
+	{
+		return;
+	}
 	const double RangeSq = FMath::Square(double(Config.ClearRangeCm));
 	const double MoveSq = FMath::Square(double(Config.VisibilityCacheMoveCm));
+	const float MaxAgeS = Config.VisibilityCacheMaxAgeS;
 
-	TArray<uint8> Visible;
-	Visible.Init(0, Num);
+	// Every in-cone cell with a valid cache is cleared from the cache; stale ones are retested, one
+	// trace each, in a rotating order until the budget is spent. The rest wait for the next step.
+	VisibleScratch.Reset();
 	int32 Budget = Config.MaxCellSightTestsPerStep;
 	int32 StoppedAt = INDEX_NONE;
 	for (int32 Step = 0; Step < Num; ++Step)
 	{
-		const int32 Cell = (ClearCursor + Step) % Num;
+		int32 Cell = ClearCursor + Step;
+		Cell -= Cell >= Num ? Num : 0;
 		if (!Grid.IsActive(Cell))
 		{
 			continue;
 		}
-		const FVector Mid = Grid.GetCellCentre(Cell) + FVector(0.0, 0.0, 130.0);
-		if (FVector::DistSquared(Eye, Mid) > RangeSq || !InViewCone(Eye, Forward, Pitch, Mid))
+		const FVector Centre = Grid.GetCellCentre(Cell);
+		const FVector Mid = Centre + FVector(0.0, 0.0, 130.0);
+		if (FVector::DistSquared(Eye, Mid) > RangeSq || !Cone.Contains(Eye, Mid))
 		{
 			continue;
 		}
-		const bool bCacheValid =
-			FVector::DistSquared(CachedEye[Cell], Eye) <= MoveSq && NowS - CachedAtS[Cell] <= CacheMaxAgeS;
+		const bool bCacheValid = FVector::DistSquared(CachedEye[Cell], Eye) <= MoveSq && NowS - CachedAtS[Cell] <= MaxAgeS;
 		if (!bCacheValid)
 		{
 			if (Budget <= 0)
@@ -124,17 +164,25 @@ void FVerseBeliefMap::RunClear(const FVerseSelfPercept& Self, const FVerseBelief
 				continue;
 			}
 			--Budget;
-			CachedVisible[Cell] = TestCellVisible(Cell, Eye, Self.ViewRotation, *World.Sight) ? 1 : 0;
+			const int32 Heights = Grid.GetCell(Cell).bProneCapable ? 3 : 2;
+			const int32 Height = CachedHeight[Cell] % Heights;
+			CachedHeight[Cell] = uint8((Height + 1) % Heights);
+			const FVector Point = Centre + FVector(0.0, 0.0, CellSightHeightsCm[Height]);
+			CachedVisible[Cell] = Cone.Contains(Eye, Point) && World.Sight->TestSight(Eye, Point) ? 1 : 0;
 			CachedEye[Cell] = Eye;
 			CachedAtS[Cell] = NowS;
 		}
-		Visible[Cell] = CachedVisible[Cell];
+		if (CachedVisible[Cell])
+		{
+			VisibleScratch.Add(Cell);
+		}
 	}
+	LastClearSightTests = Config.MaxCellSightTestsPerStep - Budget;
 	if (StoppedAt != INDEX_NONE)
 	{
 		ClearCursor = StoppedAt;
 	}
-	Grid.Clear(Eye, [&Visible](int32 Cell) { return Visible[Cell] != 0; }, NowS);
+	Grid.Clear(Eye, VisibleScratch, NowS);
 }
 
 TArray<FVector> FVerseBeliefMap::RankSpawnPoints(const FVector& Eye, const IVersePenetrationQuery* Sight) const
@@ -199,9 +247,18 @@ bool FVerseBeliefMap::ApplyFrame(const FVersePerceptFrame& Frame, const FVerseBe
 		}
 	}
 
-	// bot.md 4.2 order: predict, clear, sighting, heard, hurt / bolt, kill feed, normalise.
+	// bot.md 4.2 order: predict, clear, sighting, heard, hurt / bolt, kill feed, normalise. Clearing
+	// and looking at pieces trace sight, so they run on the 10 Hz steps only; a step that runs at
+	// once for a positive percept between them skips the traces (bot.md 2 budget).
 	Grid.Predict(DeltaS, NowS);
-	RunClear(Frame.Self, World, NowS);
+	if (bDue)
+	{
+		RunClear(Frame.Self, World, NowS);
+	}
+	else
+	{
+		LastClearSightTests = 0;
+	}
 
 	const bool bSighted = Frame.Sightings.Num() > 0;
 	if (bSighted)
@@ -239,6 +296,7 @@ bool FVerseBeliefMap::ApplyFrame(const FVersePerceptFrame& Frame, const FVerseBe
 		}
 		for (const FVerseBoltPercept& Bolt : Frame.Bolts)
 		{
+			Opponent.OnSeenShot(NowS);
 			const FVector Back = -Bolt.Direction.GetSafeNormal();
 			Grid.ApplyWedge(Bolt.Position, Back, Pieces.OpaqueDistance(Bolt.Position, Back, WedgeMaxRangeCm), NowS);
 		}
@@ -280,7 +338,7 @@ bool FVerseBeliefMap::ApplyFrame(const FVersePerceptFrame& Frame, const FVerseBe
 
 	Grid.Normalise();
 
-	if (World.Pieces && World.Sight && Frame.Self.Phase != EVerseCombatPhase::Dead)
+	if (bDue && World.Pieces && World.Sight && Frame.Self.Phase != EVerseCombatPhase::Dead)
 	{
 		Pieces.ObserveSight(Frame.Self.EyeLocation, Frame.Self.ViewRotation, *World.Pieces, *World.Sight, NowS,
 			Config.MaxPieceSightTestsPerStep);
