@@ -210,8 +210,14 @@ def build_mesh(var: Variant, spec: K.MeshSpec, out: Path) -> dict:
 
 
 def ue_vector_cm(v) -> list[float]:
-    """Blender root-like local (a, b, c) m -> Unreal local (a, c, b) cm (art-pipeline 4.1)."""
-    return [round(v[0] * 100.0, 3), round(v[2] * 100.0, 3), round(v[1] * 100.0, 3)]
+    """A vector in a bone's Blender local frame (m) -> the same bone's Unreal local frame (cm).
+
+    Measured on the imported `SKEL_Verse_Human` (Verse.Anim.OffHandIK): the
+    FBX conversion keeps local X and Z and flips local Y, so in Unreal a
+    root-like frame such as `Weapon_R` has +Z forward (the barrel), -Y up and
+    +X towards the character's left. Not the world mapping of art-pipeline 4.1.
+    """
+    return [round(v[0] * 100.0, 3) + 0.0, round(-v[1] * 100.0, 3) + 0.0, round(v[2] * 100.0, 3) + 0.0]
 
 
 def grips(var: Variant) -> dict:
