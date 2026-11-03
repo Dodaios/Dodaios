@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_LiftLobby_Ceiling.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "d641698fca40b49e86395dc0e182e348b62a2a752a45c5fc42fe5204336344c6"
+    "sha256": "575fabf7af7fa8f336140061ae8e7ade5818548e5724604c93856f0576121780"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,20 +23,28 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        500.0,
-        620.0,
+        530.0,
+        1820.0,
         460.0
       ],
       "min": [
-        -500.0,
-        -600.0,
+        -530.0,
+        -620.0,
         0.0
       ]
     },
     "material_slots": [
       {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
         "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_CeilingPanel.MI_Light_CeilingPanel",
+        "slot": "M_Light_CeilingPanel"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
@@ -57,10 +65,6 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
         "slot": "M_Wall_Charcoal"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
-        "slot": "M_Wall_PaintedMid"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_TrimRed.MI_Paint_TrimRed",
@@ -107,9 +111,9 @@
         "slot": "M_Indicator_Amber"
       }
     ],
-    "triangles": 22468,
+    "triangles": 22712,
     "uv_sets": 1,
-    "vertices": 13032
+    "vertices": 13168
   },
   "name": "SM_Ops_LiftLobby_Ceiling",
   "nanite": {

@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Quarters_Ceiling.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "4ad7217c8d2459c1890219e68257361417c48980e242d8efe809f98a6bb405c2"
+    "sha256": "cef03f78ca4f2b6d87d189d771bb935b595bf4d0563f98419becec10976605a0"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,7 +23,7 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        1900.0,
+        1930.0,
         1120.0,
         460.0
       ],
@@ -35,8 +35,16 @@
     },
     "material_slots": [
       {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
         "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Ops_Light_Night.MI_Ops_Light_Night",
+        "slot": "M_Ops_Light_Night"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
@@ -61,10 +69,6 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
         "slot": "M_Wall_Charcoal"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
-        "slot": "M_Wall_PaintedMid"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_TrimRed.MI_Paint_TrimRed",
@@ -115,9 +119,9 @@
         "slot": "M_Indicator_White"
       }
     ],
-    "triangles": 77966,
+    "triangles": 82170,
     "uv_sets": 1,
-    "vertices": 46532
+    "vertices": 48828
   },
   "name": "SM_Ops_Quarters_Ceiling",
   "nanite": {

@@ -71,9 +71,13 @@ def main(argv: list[str]) -> None:
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     # Ceilings and fixtures are hidden from today's plate camera, not from an eye in the room.
+    def is_ceiling(o) -> bool:
+        in_ceiling = any(c.name.split(".")[0] == "Ceiling" for c in o.users_collection)
+        return not o.visible_camera or in_ceiling
+
     hidden = [
         o for o in scene.objects
-        if o.type == "MESH" and not o.visible_camera and not o.hide_render and not o.get("ucx")
+        if o.type == "MESH" and is_ceiling(o) and not o.hide_render and not o.get("ucx")
     ]
     options.out.mkdir(parents=True, exist_ok=True)
     for shot in shots:

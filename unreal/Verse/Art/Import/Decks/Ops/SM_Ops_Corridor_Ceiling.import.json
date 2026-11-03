@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Corridor_Ceiling.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "2c8240718ea380164490fac896a5f40575c4e0560f372acd6cd94b6221832ed2"
+    "sha256": "0c9280356c51ee636cabc9b089b8ba261d7642d8a09e8e5ba4ac80365c97a49d"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,17 +23,45 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        4290.0,
-        300.0,
-        322.0
+        5000.0,
+        3200.0,
+        490.0
       ],
       "min": [
-        -4290.0,
-        -300.0,
+        -5000.0,
+        -2800.0,
         30.447
       ]
     },
     "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
+        "slot": "M_Recess_Dark"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
+        "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_WallStrip.MI_Light_WallStrip",
+        "slot": "M_Light_WallStrip"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
+        "slot": "M_Ceiling_Panel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Ops_Light_Corridor.MI_Ops_Light_Corridor",
+        "slot": "M_Ops_Light_Corridor"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedLight.MI_Wall_PaintedLight",
+        "slot": "M_Wall_PaintedLight"
+      },
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedDark.MI_Wall_PaintedDark",
         "slot": "M_Wall_PaintedDark"
@@ -41,10 +69,6 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_Charcoal.MI_Wall_Charcoal",
         "slot": "M_Wall_Charcoal"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
-        "slot": "M_Wall_PaintedMid"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Props/MI_Paint_TrimRed.MI_Paint_TrimRed",
@@ -55,16 +79,8 @@
         "slot": "M_Console_Body"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
-        "slot": "M_Struct_Gunmetal"
-      },
-      {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
         "slot": "M_Trim_BrushedSteel"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
-        "slot": "M_Recess_Dark"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Markings/MI_Deck_Marking_White.MI_Deck_Marking_White",
@@ -103,9 +119,9 @@
         "slot": "M_Indicator_White"
       }
     ],
-    "triangles": 58896,
+    "triangles": 75020,
     "uv_sets": 1,
-    "vertices": 44640
+    "vertices": 54604
   },
   "name": "SM_Ops_Corridor_Ceiling",
   "nanite": {

@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Mess_Ceiling.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "3c0502ba5418f7c4f38f0d4fab7deeb974dadd785343730bb7db75c5225883b3"
+    "sha256": "65f472ae7127e4f210d7c186d5c49cd66083a92fd50ac7b822a029d4b20a1e08"
   },
   "kind": "static_mesh",
   "license": {
@@ -23,20 +23,28 @@
   "mesh": {
     "bounds_cm": {
       "max": [
-        1610.0,
+        1640.0,
         1200.0,
         460.0
       ],
       "min": [
         -1190.0,
-        -1190.0,
+        -1240.0,
         0.0
       ]
     },
     "material_slots": [
       {
+        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
+        "slot": "M_Wall_PaintedMid"
+      },
+      {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Struct_Gunmetal.MI_Struct_Gunmetal",
         "slot": "M_Struct_Gunmetal"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Ops_Light_MessCool.MI_Ops_Light_MessCool",
+        "slot": "M_Ops_Light_MessCool"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
@@ -49,10 +57,6 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Hull/MI_Hull_Pipe.MI_Hull_Pipe",
         "slot": "M_Hull_Pipe"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
-        "slot": "M_Wall_PaintedMid"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Walls/MI_Recess_Dark.MI_Recess_Dark",
@@ -115,9 +119,9 @@
         "slot": "M_Indicator_Red"
       }
     ],
-    "triangles": 56724,
+    "triangles": 62236,
     "uv_sets": 1,
-    "vertices": 32148
+    "vertices": 35156
   },
   "name": "SM_Ops_Mess_Ceiling",
   "nanite": {

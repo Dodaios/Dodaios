@@ -230,7 +230,11 @@ def main(argv: list[str]) -> None:
             continue
         # Ceilings, their fixtures and ghosts are hidden from today's plate camera; in Unreal they
         # are a separate mesh the deck camera hides in the overview (the cutaway).
-        ceiling = not original.visible_camera or bool(original.get("ceiling_ghost"))
+        ceiling = (
+            not original.visible_camera
+            or bool(original.get("ceiling_ghost"))
+            or "Ceiling" in {unreal_export.strip_suffix(c.name) for c in original.users_collection}
+        )
         per_zone.setdefault(zone, []).append((original.name, mesh, ceiling))
 
     shells = []

@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/decks/ops/SM_Ops_Corridor_Shell.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "b197cab89025f2fdc55036f3ab0cd933c2bb26ac34ffb4a6a920437f215a1fe4"
+    "sha256": "981ddee295c9bde7c9e3b47e25ef9c37ed0f5ec9f3fe8ddc853a7e9161a09361"
   },
   "kind": "static_mesh",
   "license": {
@@ -25,7 +25,7 @@
       "max": [
         5280.0,
         3480.0,
-        490.0
+        300.0
       ],
       "min": [
         -5280.0,
@@ -93,23 +93,11 @@
       {
         "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_Maint_Red.MI_Light_Maint_Red",
         "slot": "M_Light_Maint_Red"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Wall_PaintedMid.MI_Wall_PaintedMid",
-        "slot": "M_Wall_PaintedMid"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Walls/MI_Ceiling_Panel.MI_Ceiling_Panel",
-        "slot": "M_Ceiling_Panel"
-      },
-      {
-        "mi": "/Game/Verse/Materials/Instances/Props/MI_Ops_Light_Corridor.MI_Ops_Light_Corridor",
-        "slot": "M_Ops_Light_Corridor"
       }
     ],
-    "triangles": 40028,
+    "triangles": 23904,
     "uv_sets": 1,
-    "vertices": 35472
+    "vertices": 25508
   },
   "name": "SM_Ops_Corridor_Shell",
   "nanite": {
