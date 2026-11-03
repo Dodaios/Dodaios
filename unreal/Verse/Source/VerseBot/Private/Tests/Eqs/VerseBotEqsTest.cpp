@@ -4,6 +4,7 @@
 #include "Eqs/VerseBotEqs.h"
 #include "Learning/VerseBotMatchMemory.h"
 #include "Misc/AutomationTest.h"
+#include "Tactics/VerseBotTactics.h"
 #include "Tests/Brain/Fakes/FakeVerseBotWorld.h"
 #include "Tests/Brain/VerseBotTestProof.h"
 
@@ -216,6 +217,108 @@ bool FVerseBotNavFilterTest::RunTest(const FString& Parameters)
 	UVerseBotTier* T = NewObject<UVerseBotTier>();
 	UVerseBotTier::ApplyStartValues(TEXT("normal"), *T);
 	TestEqual(TEXT("link cost x NavLinkCostMul"), FVerseBeliefNavFilter::LinkCost(10.f, *T), 20.f);
+	return true;
+}
+
+// 7.2 biases on EQS: peek habits (PeekShare, RepeekShare, TopPeekEdges) steer EQS_PeekCorner and
+// Hold; the person's most used route steers EQS_Cover flank; each changes the decision.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBotEqsLearnedTest, "Verse.Bot.Eqs.Learned", VERSE_BOT_TEST_FLAGS)
+
+bool FVerseBotEqsLearnedTest::RunTest(const FString& Parameters)
+{
+	using namespace VerseBotEqsTest;
+	{
+		// An open floor with one peek edge (id 7) where the believed person stands.
+		FEqsScene S(TEXT("hard"), FVector::ZeroVector, FVector(1000.f, 1000.f, 0.f));
+		S.World.Walls.Reset();
+		S.World.Cover.Reset();
+		FVerseBotCoverPoint Edge;
+		Edge.Id = 7;
+		Edge.EdgeId = 7;
+		Edge.Location = FVector(1000.f, 1000.f, 0.f);
+		Edge.Facing = FVector(-1.f, 0.f, 0.f);
+		S.World.Cover.Add(Edge);
+		FVerseBotCoverPoint From;
+		From.Id = 3;
+		From.EdgeId = 3;
+		From.Location = FVector::ZeroVector;
+		From.Facing = FVector(1.f, 1.f, 0.f).GetSafeNormal();
+		// The person re-peeks edge 7 within 3 s every time.
+		for (int32 i = 0; i < 10; ++i)
+		{
+			S.Memory.RecordPeek(7, EVerseBotPeekType::StepOut, float(i));
+		}
+		FVerseBotQueryContext Ctx = S.Build();
+		Ctx.NowS = 10.f;
+		const FVerseBotPeekResult Learned = VerseBotEqs::PeekCorner(Ctx, From);
+		Ctx.Memory = nullptr;
+		const FVerseBotPeekResult Plain = VerseBotEqs::PeekCorner(Ctx, From);
+		TestTrue(TEXT("a peek is found"), Learned.bFound && Plain.bFound);
+		TestTrue(TEXT("the learned peek watches the person's top peek edge"), Learned.bHasWatch && Learned.WatchEdge == 7);
+		TestFalse(TEXT("no watch without learning"), Plain.bHasWatch);
+		TestTrue(TEXT("PeekShare raises the peek's score"), Learned.Score > Plain.Score);
+		const float Scale = VerseBotTactics::PeekHoldScale(Learned);
+		TestTrue(FString::Printf(TEXT("RepeekShare holds the peek longer (x%.2f)"), Scale), Scale > 1.05f && Scale <= 1.f + 2.f * 0.35f);
+		TestEqual(TEXT("no hold change without learning"), VerseBotTactics::PeekHoldScale(Plain), 1.f);
+	}
+	{
+		// Two mirror flank points; the person's most used route runs through the east one.
+		FEqsScene S(TEXT("hard"), FVector(0.f, -2000.f, 0.f), FVector::ZeroVector);
+		S.World.Walls.Reset();
+		S.World.Cover.Reset();
+		// A wall hides both points from the only belief cell, far north.
+		S.World.AddWall(-30.f, 19.6f, 30.f, 20.f, 3.f);
+		S.Belief.Cells = {FVector(0.f, 3000.f, 0.f)};
+		for (const float X : {-1000.f, 1000.f})
+		{
+			FVerseBotCoverPoint P;
+			P.Id = X < 0.f ? 1 : 2;
+			P.Location = FVector(X, -364.f, 0.f);
+			P.Facing = FVector(0.f, 1.f, 0.f);
+			P.bHigh = true;
+			P.MaterialProtection = 1.f;
+			S.World.Cover.Add(P);
+		}
+		// The same mirror pair, the person's route once through the east point, once through the west one.
+		int32 Picked[2] = {INDEX_NONE, INDEX_NONE};
+		for (int32 Side = 0; Side < 2; ++Side)
+		{
+			S.Memory.Reset();
+			const float X = Side == 0 ? 1000.f : -1000.f;
+			for (int32 i = 0; i < 6; ++i)
+			{
+				S.Memory.RecordZone(1, FVector(X, -1000.f, 0.f), float(2 * i));
+				S.Memory.RecordZone(2, FVector(X, 500.f, 0.f), float(2 * i + 1));
+			}
+			const FVerseBotQueryContext& Ctx = S.Build();
+			const FVerseBotCoverResult R = VerseBotEqs::Cover(Ctx, EVerseBotCoverMode::Flank);
+			TestTrue(TEXT("flank point found"), R.bFound);
+			Picked[Side] = R.bFound ? R.Point.Id : INDEX_NONE;
+		}
+		TestEqual(TEXT("route east: the flank cuts it at the east point"), Picked[0], 2);
+		TestEqual(TEXT("route west: the flank cuts it at the west point"), Picked[1], 1);
+	}
+	{
+		// Time slicing: a budgeted query resumes and ends with the same answer as the full run.
+		FEqsScene S(TEXT("hard"), FVector(0.f, -300.f, 0.f), FVector(-500.f, 1500.f, 0.f));
+		const FVerseBotQueryContext& Ctx = S.Build();
+		const FVerseBotCoverResult Full = VerseBotEqs::Cover(Ctx, EVerseBotCoverMode::Near);
+		FVerseBotEqsSlice Slice;
+		FVerseBotCoverResult Sliced;
+		int32 MaxUnits = 0;
+		int32 Slices = 0;
+		while (!Slice.bDone && Slices < 100)
+		{
+			Slice.BeginSlice(24);
+			VerseBotEqs::CoverSlice(Ctx, EVerseBotCoverMode::Near, Slice, Sliced);
+			MaxUnits = FMath::Max(MaxUnits, Slice.SpentUnits);
+			++Slices;
+		}
+		TestTrue(TEXT("the sliced query finishes"), Slice.bDone);
+		TestTrue(FString::Printf(TEXT("the query spans several ticks (%d slices)"), Slices), Slices > 1);
+		TestTrue(TEXT("same answer as the full run"), Sliced.bFound == Full.bFound && Sliced.Point.Id == Full.Point.Id && Sliced.Score == Full.Score);
+		TestTrue(FString::Printf(TEXT("one slice stays near the budget (max %d units, one candidate at most over)"), MaxUnits), MaxUnits <= 24 + 40);
+	}
 	return true;
 }
 

@@ -78,6 +78,24 @@ public:
 	TArray<uint8> Outputs;
 	bool bRecordOutputs = false;
 
+	/** F4 evidence at the shot event: every round the bot's weapon fired, and every percept the
+	 * sim delivered (id -> kind, time), so a test can re-check each audit record on its own. */
+	enum class EDelivered : uint8 { Sight, Heard };
+	struct FDelivered
+	{
+		EDelivered Kind = EDelivered::Sight;
+		uint32 TimeMs = 0;
+	};
+	struct FShot
+	{
+		uint32 TimeMs = 0;
+		/** The fair sight rule held at the shot tick (truth, sim only). */
+		bool bBotSawOpponent = false;
+	};
+	bool bRecordShots = false;
+	TArray<FShot> Shots;
+	TMap<uint32, FDelivered> Delivered;
+
 	static constexpr int32 BotId = 1;
 	static constexpr int32 OppId = 2;
 
@@ -334,6 +352,17 @@ public:
 		{
 			RecordedFrames.Add(F);
 		}
+		if (bRecordShots)
+		{
+			for (const FVerseSightPercept& P : F.Sightings)
+			{
+				Delivered.Add(P.PerceptId, FDelivered{EDelivered::Sight, TimeMs});
+			}
+			for (const FVerseHeardPercept& H : F.Heard)
+			{
+				Delivered.Add(H.PerceptId, FDelivered{EDelivered::Heard, TimeMs});
+			}
+		}
 		const double T0 = bMeasure ? FPlatformTime::Seconds() : 0.0;
 		const FVerseInputFrame In = Brain.Think(F, World);
 		if (bMeasure)
@@ -379,6 +408,10 @@ public:
 			{
 				BotNextShot = T + 0.1f;
 				--BotMag;
+				if (bRecordShots)
+				{
+					Shots.Add(FShot{TimeMs, bSees});
+				}
 				if (bSees && OppDeadUntil < 0.f && Rng.Chance(Config.BotHitChance))
 				{
 					OppHealth -= 25.f;

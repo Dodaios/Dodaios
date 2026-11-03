@@ -5,6 +5,7 @@
 #include "Brain/VerseBotBrainCore.h"
 #include "Controller/VerseBotEngineQueries.h"
 #include "Engine/World.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
@@ -153,6 +154,8 @@ void AVerseBotController::ReceivePerceptFrame(const FVersePerceptFrame& Frame)
 {
 	PendingFrame = Frame;
 	bHasFrame = true;
+	LastRealFrame = Frame;
+	bHasRealFrame = true;
 }
 
 void AVerseBotController::ResetMatch()
@@ -169,23 +172,31 @@ void AVerseBotController::ResetMatch()
 	bBrainReady = true;
 }
 
-FVersePerceptFrame AVerseBotController::SelfOnlyFrame() const
+uint32 AVerseBotController::WorldServerTimeMs() const
 {
-	// The own HUD only (3.3): no opponent percepts without the perception service.
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return LastThinkMs;
+	}
+	const AGameStateBase* GameState = World->GetGameState();
+	const double Seconds = GameState ? GameState->GetServerWorldTimeSeconds() : World->GetTimeSeconds();
+	return uint32(FMath::Max(Seconds, 0.0) * 1000.0);
+}
+
+FVersePerceptFrame AVerseBotController::SelfRefreshedFrame(uint32 ServerTimeMs) const
+{
+	// The own HUD of the last service frame (3.3) with the own pose refreshed; no percepts, so
+	// nothing new about the opponent and no stimulus is replayed.
 	FVersePerceptFrame F;
-	F.ServerTimeMs = uint32(FMath::Max(ServerTimeS, 0.f) * 1000.f);
+	F.ServerTimeMs = ServerTimeMs;
+	F.Self = LastRealFrame.Self;
 	if (const APawn* P = GetPawn())
 	{
 		F.Self.Location = P->GetActorLocation();
 		F.Self.Velocity = P->GetVelocity();
 		F.Self.EyeLocation = P->GetPawnViewLocation();
 		F.Self.ViewRotation = GetControlRotation();
-		F.Self.Health = 100.f;
-		F.Self.MaxHealth = 100.f;
-		F.Self.Magazine = 30;
-		F.Self.bChambered = true;
-		F.Self.Reserve = 90;
-		F.Self.Phase = EVerseCombatPhase::Alive;
 	}
 	else
 	{
@@ -277,9 +288,16 @@ void AVerseBotController::Tick(float DeltaSeconds)
 	{
 		ResetMatch();
 	}
-	ServerTimeS += DeltaSeconds;
-	const FVersePerceptFrame Frame = bHasFrame ? PendingFrame : SelfOnlyFrame();
+	// Without any service frame the bot has no HUD to act on (health, magazine): it waits.
+	if (!bHasRealFrame)
+	{
+		return;
+	}
+	FVersePerceptFrame Frame = bHasFrame ? PendingFrame : SelfRefreshedFrame(WorldServerTimeMs());
 	bHasFrame = false;
+	// One monotonic clock for the brain: a frame never moves time backward.
+	Frame.ServerTimeMs = FMath::Max(Frame.ServerTimeMs, LastThinkMs);
+	LastThinkMs = Frame.ServerTimeMs;
 	IVerseBotWorldQueries& Queries = QueriesOverride ? *QueriesOverride : *DefaultQueries;
 	const FVerseInputFrame Input = Brain->Think(Frame, Queries);
 	if (GetPawn())

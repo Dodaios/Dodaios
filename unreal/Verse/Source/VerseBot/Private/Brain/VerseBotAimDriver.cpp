@@ -20,7 +20,8 @@ FVerseBotAimResult FVerseBotFollowAim::Step(const FVerseSelfPercept& Self, const
 	}
 	if (Request.bNewTarget)
 	{
-		SinceAcquireS = 0.f;
+		// A reaction the brain already waited is not waited again.
+		SinceAcquireS = Request.ReactionRemainingS >= 0.f ? FMath::Max(ReactionS - Request.ReactionRemainingS, 0.f) : 0.f;
 	}
 	SinceAcquireS += DtS;
 

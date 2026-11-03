@@ -75,57 +75,145 @@ bool FVerseBotAuditClassifierTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-// A8.3 / F4: every fire-held tick of the bot is classified; 0 unclassified over 1,000 bouts.
+// A8.3 / F4 at the shot event: every round the bot's weapon fired over 1,000 bouts has an audit
+// record of that tick, no record is unclassified, and an independent pass over the percepts the
+// sim delivered re-derives each record's mode (fire intents the gate blocked are reported apart).
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBotAuditBoutsTest, "Verse.Bot.Audit.Bouts", VERSE_BOT_TEST_FLAGS)
+
+namespace VerseBotAuditTest
+{
+	using FSim = FFakeVerseDuelSim;
+
+	/** The independent re-check of one record against the delivered percepts (8.4 windows). */
+	bool Recheck(const FVerseBotFireAudit& A, const FSim::FShot& Shot, const TMap<uint32, FSim::FDelivered>& Delivered)
+	{
+		auto AgeMs = [&](uint32 Id, FSim::EDelivered Kind, uint32& OutAge) -> bool
+		{
+			const FSim::FDelivered* D = Delivered.Find(Id);
+			if (!D || D->Kind != Kind || D->TimeMs > Shot.TimeMs)
+			{
+				return false;
+			}
+			OutAge = Shot.TimeMs - D->TimeMs;
+			return true;
+		};
+		uint32 Age = 0;
+		switch (A.Mode)
+		{
+		case EVerseBotFireMode::Visible:
+			// A sighting delivered this very tick, and the fair sight rule held (sim truth).
+			return A.bTargetVisible && Shot.bBotSawOpponent && A.PerceptIds.Num() > 0
+				&& AgeMs(A.PerceptIds[0], FSim::EDelivered::Sight, Age) && Age == 0;
+		case EVerseBotFireMode::Suppression:
+			// A sighting delivered at most 0.35 s (+ one tick) before the shot.
+			return A.PerceptIds.Num() > 0 && AgeMs(A.PerceptIds[0], FSim::EDelivered::Sight, Age) && Age <= 350 + 17;
+		case EVerseBotFireMode::Prefire:
+			// A heard percept of the last 2 s backs it.
+			for (uint32 Id : A.PerceptIds)
+			{
+				if (AgeMs(Id, FSim::EDelivered::Heard, Age) && Age <= 2000)
+				{
+					return true;
+				}
+			}
+			return false;
+		case EVerseBotFireMode::WallShot:
+			// A seen or heard percept within the contract's 4 s source-age cap backs it.
+			for (uint32 Id : A.PerceptIds)
+			{
+				if ((AgeMs(Id, FSim::EDelivered::Heard, Age) || AgeMs(Id, FSim::EDelivered::Sight, Age)) && Age <= 4000)
+				{
+					return true;
+				}
+			}
+			return false;
+		default:
+			return false;
+		}
+	}
+}
 
 bool FVerseBotAuditBoutsTest::RunTest(const FString& Parameters)
 {
+	using namespace VerseBotAuditTest;
 	constexpr int32 TargetBouts = 1000;
 	int32 Bouts = 0;
-	int64 FireTicks = 0;
-	int64 Audited = 0;
+	int64 Shots = 0;
+	int64 ShotsWithoutRecord = 0;
+	int64 Records = 0;
 	int64 Unclassified = 0;
+	int64 RecheckFailures = 0;
+	int64 Blocked = 0;
 	int64 ByMode[5] = {};
-	int64 Reclassified = 0;
 	FString Sample;
+	FString FirstFailure;
 	const FName Tiers[3] = {TEXT("normal"), TEXT("hard"), TEXT("elite")};
 	for (int32 Run = 0; Bouts < TargetBouts && Run < 400; ++Run)
 	{
-		FFakeVerseDuelSim::FConfig Cfg;
+		FSim::FConfig Cfg;
 		Cfg.Seed = 9000 + Run;
-		FFakeVerseDuelSim Sim(Tiers[Run % 3], Cfg);
+		FSim Sim(Tiers[Run % 3], Cfg);
+		Sim.bRecordShots = true;
+		Sim.Brain.GetFireAudit().SetCaptureAll(true);
 		// One run: up to 5 bouts or 4 minutes.
 		for (int32 t = 0; t < 4 * 60 * 60 && Sim.Kills() < 5; ++t)
 		{
 			Sim.Tick();
 		}
 		Bouts += Sim.Kills();
-		FireTicks += Sim.FireTicks;
 		const FVerseBotFireAuditLog& Log = Sim.Brain.GetFireAudit();
-		Audited += Log.Num();
-		for (const FVerseBotFireAudit& A : Log.GetEntries())
+		const TArray<FVerseBotFireAudit> Entries = Log.GetEntries();
+		Records += Entries.Num();
+		Blocked += Log.BlockedCount();
+		TMap<uint32, int32> ByTime;
+		for (int32 i = 0; i < Entries.Num(); ++i)
 		{
-			++ByMode[int32(A.Mode)];
-			Unclassified += A.Mode == EVerseBotFireMode::Unclassified ? 1 : 0;
-			Reclassified += A.PerceptIds.Num() > 0 || A.Mode == EVerseBotFireMode::Suppression ? 1 : 0;
+			ByTime.Add(Entries[i].ServerTimeMs, i);
+			Unclassified += Entries[i].Mode == EVerseBotFireMode::Unclassified ? 1 : 0;
 		}
-		if (Sample.IsEmpty() && Log.Num() > 0)
+		for (const FSim::FShot& Shot : Sim.Shots)
 		{
-			for (int32 i = 0; i < FMath::Min(20, Log.Num()); ++i)
+			++Shots;
+			const int32* Index = ByTime.Find(Shot.TimeMs);
+			if (!Index)
 			{
-				Sample += Log.GetEntries()[i].ToLogLine() + TEXT("\n");
+				++ShotsWithoutRecord;
+				continue;
+			}
+			const FVerseBotFireAudit& A = Entries[*Index];
+			++ByMode[int32(A.Mode)];
+			if (!Recheck(A, Shot, Sim.Delivered))
+			{
+				++RecheckFailures;
+				if (FirstFailure.IsEmpty())
+				{
+					FirstFailure = A.ToLogLine();
+				}
+			}
+		}
+		if (Sample.IsEmpty() && Entries.Num() > 0)
+		{
+			for (int32 i = 0; i < FMath::Min(20, Entries.Num()); ++i)
+			{
+				Sample += Entries[i].ToLogLine() + TEXT("\n");
 			}
 		}
 	}
 	TestTrue(TEXT("1,000 bouts played"), Bouts >= TargetBouts);
-	TestEqual(TEXT("every fire-held tick has an audit record"), Audited, FireTicks);
-	TestEqual(TEXT("0 unclassified shots"), Unclassified, int64(0));
-	TestTrue(TEXT("every audit names its backing percepts"), Reclassified == Audited);
+	TestTrue(TEXT("the bot fired"), Shots > 0);
+	TestEqual(TEXT("every fired round has an audit record of its tick"), ShotsWithoutRecord, int64(0));
+	TestEqual(TEXT("0 unclassified records"), Unclassified, int64(0));
+	TestEqual(TEXT("the independent pass re-derives every fired round's mode"), RecheckFailures, int64(0));
+	if (!FirstFailure.IsEmpty())
+	{
+		AddInfo(FString::Printf(TEXT("first recheck failure: %s"), *FirstFailure));
+	}
 	VerseBotTestProof::Write(TEXT("8.10"), TEXT("f4_fire_audit.json"),
-		FString::Printf(TEXT("{\n  \"test\": \"F4\",\n  \"bouts\": %d,\n  \"fireTicks\": %lld,\n  \"audited\": %lld,\n  \"unclassified\": %lld,\n  \"visible\": %lld,\n  \"suppression\": %lld,\n  \"prefire\": %lld,\n  \"wallShot\": %lld\n}\n"),
-			Bouts, FireTicks, Audited, Unclassified, ByMode[1], ByMode[2], ByMode[3], ByMode[4]));
+		FString::Printf(TEXT("{\n  \"test\": \"F4\",\n  \"bouts\": %d,\n  \"shotsFired\": %lld,\n  \"shotsWithoutRecord\": %lld,\n  \"records\": %lld,\n  \"unclassified\": %lld,\n  \"recheckFailures\": %lld,\n  \"blockedFireIntents\": %lld,\n  \"shotsVisible\": %lld,\n  \"shotsSuppression\": %lld,\n  \"shotsPrefire\": %lld,\n  \"shotsWallShot\": %lld\n}\n"),
+			Bouts, Shots, ShotsWithoutRecord, Records, Unclassified, RecheckFailures, Blocked, ByMode[1], ByMode[2], ByMode[3], ByMode[4]));
 	VerseBotTestProof::Write(TEXT("8.10"), TEXT("fire_audit_sample.log"), Sample);
-	AddInfo(FString::Printf(TEXT("F4: %d bouts, %lld audited fire ticks, %lld unclassified"), Bouts, Audited, Unclassified));
+	AddInfo(FString::Printf(TEXT("F4: %d bouts, %lld rounds fired, %lld without record, %lld recheck failures, %lld blocked intents"),
+		Bouts, Shots, ShotsWithoutRecord, RecheckFailures, Blocked));
 	return true;
 }
 

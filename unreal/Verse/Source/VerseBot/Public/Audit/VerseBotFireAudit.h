@@ -108,22 +108,51 @@ struct VERSEBOT_API FVerseBotFireClassifier
 
 	/** The audit record of a classified shot. */
 	static FVerseBotFireAudit MakeAudit(const FVerseBotFireEvidence& E, EVerseBotFireMode Mode);
+	/** The same, written into an existing record (keeps its PerceptIds allocation). */
+	static void MakeAuditInto(const FVerseBotFireEvidence& E, EVerseBotFireMode Mode, FVerseBotFireAudit& Out);
 };
 
-/** The per-bot audit log (F4). Kept in memory; the harness writes it next to its report. */
+/**
+ * The per-bot audit log (F4). Counts every record per mode for the whole match and keeps the
+ * newest records in a fixed ring (no growth, no per-tick allocation once warm); the harness sets
+ * capture-all to keep every record of a bout and writes them next to its report. Fire intents the
+ * gate blocked because no mode of 8.4 applied are counted apart: they never reach the trigger.
+ */
 class VERSEBOT_API FVerseBotFireAuditLog
 {
 public:
+	/** Records kept outside capture-all. */
+	static constexpr int32 RingCapacity = 1024;
+
+	FVerseBotFireAuditLog();
 	void Add(const FVerseBotFireAudit& Audit);
-	void Reset() { Entries.Reset(); }
-	const TArray<FVerseBotFireAudit>& GetEntries() const { return Entries; }
-	int32 Count(EVerseBotFireMode Mode) const;
-	int32 Num() const { return Entries.Num(); }
-	/** All lines joined with '\n'. */
+	/** Classify-and-log in place: the record is built in its ring slot. */
+	void Add(const FVerseBotFireEvidence& E, EVerseBotFireMode Mode);
+	/** A fire intent the gate dropped as unclassified (never a trigger press). */
+	void AddBlocked() { ++Blocked; }
+	void Reset();
+	/** Keep every record (harness bouts and tests) instead of the newest RingCapacity. */
+	void SetCaptureAll(bool bInCaptureAll) { bCaptureAll = bInCaptureAll; }
+	/** The kept records, oldest first. */
+	TArray<FVerseBotFireAudit> GetEntries() const;
+	/** Records of a mode over the whole match (not only the kept ones). */
+	int32 Count(EVerseBotFireMode Mode) const { return ByMode[int32(Mode)]; }
+	/** All records over the whole match. */
+	int32 Num() const { return Total; }
+	int32 NumKept() const { return Entries.Num(); }
+	int32 BlockedCount() const { return Blocked; }
+	/** The kept lines joined with '\n'. */
 	FString ToText() const;
 
 private:
+	FVerseBotFireAudit& NextSlot();
+
 	TArray<FVerseBotFireAudit> Entries;
+	int32 Head = 0;
+	int32 Total = 0;
+	int32 Blocked = 0;
+	int32 ByMode[5] = {};
+	bool bCaptureAll = false;
 };
 
 namespace VerseBot

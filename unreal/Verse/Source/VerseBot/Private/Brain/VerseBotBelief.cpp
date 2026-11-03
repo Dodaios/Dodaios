@@ -1,5 +1,6 @@
 #include "Brain/VerseBotBelief.h"
 
+#include "Learning/VerseBotMatchMemory.h"
 #include "VerseGameplayTags.h"
 
 namespace
@@ -24,6 +25,10 @@ namespace
 	constexpr float ClearPerStep = 0.12f;
 	constexpr float MinWeight = 0.002f;
 	constexpr float BeliefLevelCm = 400.f;
+	/** Learned priors (7.2): zone-transition weight 0.5 and a 1 % heatmap mix. */
+	constexpr float ZoneTransitionGain = 0.5f;
+	constexpr float HeatPriorMix = 0.01f;
+	constexpr float HeatPriorSdCm = 150.f;
 
 	EVerseArenaLevel LevelOf(const FVector& L)
 	{
@@ -169,6 +174,14 @@ void FVerseBotCoarseBelief::Step(const FVersePerceptFrame& Frame, float DtS, con
 		H.Center += H.Velocity * DtS;
 		H.Velocity *= FMath::Exp(-DtS);
 		H.SdCm = FMath::Sqrt(H.SdCm * H.SdCm + FMath::Square(TypicalSpeedCmS * DtS) * 4.f);
+		// Learned zone-transition prior (7.2): the mass leans toward the zone the person most
+		// often moves on to from here, by 0.5 x the transition probability of the typical speed.
+		FVector NextZone;
+		float Prob = 0.f;
+		if (Memory && Memory->PredictNextZone(H.Center, NextZone, Prob))
+		{
+			H.Center += (NextZone - H.Center).GetSafeNormal2D() * (ZoneTransitionGain * Prob * TypicalSpeedCmS * DtS);
+		}
 	}
 
 	const FVerseSightPercept* Sight = nullptr;
@@ -300,6 +313,32 @@ void FVerseBotCoarseBelief::Step(const FVersePerceptFrame& Frame, float DtS, con
 	}
 
 	Normalise();
+	if (Memory && !bDead && !Sight)
+	{
+		// Normalise (4.2): 1 % of the learned position heatmap is mixed in, as prior-only mass
+		// (it never supports a wall shot or a prefire, 7.3).
+		FVector Hot;
+		float Share = 0.f;
+		if (Memory->HottestCell(FVerseBotMatchMemory::ELayer::Position, NowS, Hot, Share))
+		{
+			FHypothesis* Existing = Hyps.FindByPredicate([&Hot](const FHypothesis& H)
+				{ return H.Support == ESupport::Prior && FVector::DistSquared2D(H.Center, Hot) < 100.f * 100.f; });
+			if (Existing)
+			{
+				Existing->Weight = FMath::Max(Existing->Weight, HeatPriorMix);
+			}
+			else
+			{
+				FHypothesis H;
+				H.Center = Hot;
+				H.SdCm = HeatPriorSdCm;
+				H.Weight = HeatPriorMix;
+				H.Level = LevelOf(Hot);
+				H.Support = ESupport::Prior;
+				AddHypothesis(H);
+			}
+		}
+	}
 	Refresh(NowS);
 	if (Sight)
 	{

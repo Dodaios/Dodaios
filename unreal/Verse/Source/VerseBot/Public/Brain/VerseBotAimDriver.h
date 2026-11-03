@@ -12,6 +12,12 @@ struct VERSEBOT_API FVerseBotAimRequest
 	FVector TargetPoint = FVector::ZeroVector;
 	/** The target was just acquired (a sighting after none): reaction starts now. */
 	bool bNewTarget = false;
+	/**
+	 * With bNewTarget: the reaction still left, s. The brain samples the stimulus reaction of 8.1
+	 * once and holds the sighting back from the decision layer for it, so it hands the aim 0 (the
+	 * reaction is already spent). Negative: the aim layer samples its own.
+	 */
+	float ReactionRemainingS = -1.f;
 	/** Target angular half-width, deg (fire tolerance, bot.md 8.1). */
 	float TargetHalfWidthDeg = 1.f;
 };

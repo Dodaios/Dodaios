@@ -48,6 +48,15 @@ namespace
 
 namespace VerseBotTactics
 {
+	float PeekHoldScale(const FVerseBotPeekResult& Peek)
+	{
+		if (!Peek.bHasWatch)
+		{
+			return 1.f;
+		}
+		return 1.f + 2.f * FMath::Clamp(Peek.WatchWeight, 0.f, float(UVerseBotTier::LearnWeightMaxCap)) * FMath::Clamp(Peek.WatchRepeekShare, 0.f, 1.f);
+	}
+
 	void Utilities(const FVerseBotTacticsContext& Ctx, float (&Out)[VerseBot::NumStates])
 	{
 		for (float& U : Out)
@@ -201,6 +210,8 @@ namespace VerseBotTactics
 			break;
 		case EState::Search:
 			Mem.bHasSearchTarget = false;
+			Mem.bSearchVerifying = false;
+			Mem.SearchQueue.Reset();
 			break;
 		case EState::Attack:
 			Mem.StrafeSign = Rng.Chance(0.5) ? 1 : -1;
@@ -289,9 +300,9 @@ namespace VerseBotTactics
 					&& Ctx.Cache->Peek.bFound)
 				{
 					Mem.HoldPhase = EVerseBotHoldPhase::Peek;
-					Mem.PhaseUntilS = Now + RollRange(Rng, PeekMinS, PeekMaxS);
 					Mem.bHasPeek = true;
 					Mem.Peek = Ctx.Cache->Peek;
+					Mem.PhaseUntilS = Now + RollRange(Rng, PeekMinS, PeekMaxS) * PeekHoldScale(Mem.Peek);
 					if (Mem.RecentPeekEdges.Num() >= 3)
 					{
 						Mem.RecentPeekEdges.RemoveAt(0);
@@ -306,6 +317,12 @@ namespace VerseBotTactics
 			case EVerseBotHoldPhase::Peek:
 				MoveTo(Mem.Peek.StandPoint);
 				I.bAds = true;
+				if (Mem.Peek.bHasWatch && Ctx.Sighting == nullptr)
+				{
+					// Pre-aim the edge the person keeps peeking from (learned, 7.2).
+					I.bHasLookTarget = true;
+					I.LookTarget = Mem.Peek.WatchPoint;
+				}
 				I.bWantFire = Ctx.Sighting != nullptr;
 				switch (Mem.Peek.Type)
 				{
@@ -448,7 +465,27 @@ namespace VerseBotTactics
 		case EState::Search:
 		{
 			const bool bArrived = Mem.bHasSearchTarget && float(FVector::Dist2D(Mem.SearchTarget, Self.Location)) < ArriveCm * 3.f;
-			if (!Mem.bHasSearchTarget || bArrived || Now >= Mem.SearchUntilS)
+			if (Mem.bSearchVerifying)
+			{
+				// One path check per tick (path budget): the next ranked point a path reaches.
+				if (Mem.SearchQueueIndex < Mem.SearchQueue.Num())
+				{
+					const FVector Candidate = Mem.SearchQueue[Mem.SearchQueueIndex++];
+					if (Ctx.Query.World->FindPath(Self.Location, Candidate, false).bValid)
+					{
+						Mem.SearchTarget = Candidate;
+						Mem.bHasSearchTarget = true;
+						Mem.bSearchVerifying = false;
+					}
+				}
+				if (Mem.bSearchVerifying && Mem.SearchQueueIndex >= Mem.SearchQueue.Num())
+				{
+					Mem.SearchTarget = Self.Location + Self.ViewRotation.Vector().GetSafeNormal2D() * 1200.f;
+					Mem.bHasSearchTarget = true;
+					Mem.bSearchVerifying = false;
+				}
+			}
+			else if (!Mem.bHasSearchTarget || bArrived || Now >= Mem.SearchUntilS)
 			{
 				if (bArrived || Now >= Mem.SearchUntilS)
 				{
@@ -498,29 +535,29 @@ namespace VerseBotTactics
 						Ranked.Emplace(FMath::Min(Age, 120.f) / (Dist + 8.f) + float(Rng.Range(0.0, 0.01)), P.Location);
 					}
 					Ranked.StableSort([](const TPair<float, FVector>& A, const TPair<float, FVector>& B) { return A.Key > B.Key; });
-					// The best few by gain that a path actually reaches.
-					float BestGain = -1.f;
+					// The best few by gain that a path actually reaches, checked one per tick.
+					Mem.SearchQueue.Reset();
 					for (int32 i = 0; i < FMath::Min(Ranked.Num(), SearchPathChecks); ++i)
 					{
-						if (Ctx.Query.World->FindPath(Self.Location, Ranked[i].Value, false).bValid)
-						{
-							BestGain = Ranked[i].Key;
-							Mem.SearchTarget = Ranked[i].Value;
-							break;
-						}
+						Mem.SearchQueue.Add(Ranked[i].Value);
 					}
-					if (BestGain < 0.f)
-					{
-						Mem.SearchTarget = Self.Location + Self.ViewRotation.Vector().GetSafeNormal2D() * 1200.f;
-					}
+					Mem.SearchQueueIndex = 0;
+					Mem.bSearchVerifying = true;
+					Mem.bHasSearchTarget = false;
 				}
-				Mem.bHasSearchTarget = true;
+				else
+				{
+					Mem.bHasSearchTarget = true;
+				}
 				Mem.SearchUntilS = Now + SearchRetargetS;
 			}
-			MoveTo(Mem.SearchTarget);
+			if (Mem.bHasSearchTarget)
+			{
+				MoveTo(Mem.SearchTarget);
+			}
 			// Sweep the view to clear cells.
 			Mem.SearchSweepPhase += 0.05f;
-			const FVector Ahead = (Mem.SearchTarget - Self.Location).GetSafeNormal2D();
+			const FVector Ahead = Mem.bHasSearchTarget ? (Mem.SearchTarget - Self.Location).GetSafeNormal2D() : Self.ViewRotation.Vector().GetSafeNormal2D();
 			const FVector Sweep = Ahead.RotateAngleAxis(40.f * FMath::Sin(Mem.SearchSweepPhase), FVector::UpVector);
 			I.bHasLookTarget = true;
 			I.LookTarget = Self.EyeLocation + Sweep * 1000.f;

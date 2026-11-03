@@ -17,10 +17,25 @@ namespace
 	constexpr float EqsChestCm = 120.f;
 	/** Radius of the learned danger sample around a point, cm. */
 	constexpr float LearnRadiusCm = 500.f;
+	/** A peek edge counts as near TopCluster within 6 m (prefire radius, 8.4). */
+	constexpr float WatchEdgeRadiusCm = 600.f;
+	/** A flank point cuts the person's route within 8 m of it (7.2). */
+	constexpr float RouteCutCm = 800.f;
 
 	float LearnedWeight(const FVerseBotQueryContext& Ctx, float Samples)
 	{
 		return (Ctx.bIgnoreLearned || !Ctx.Memory) ? 0.f : Ctx.Memory->Weight(Samples);
+	}
+
+	/** Runs one sliced query to the end with no budget (the synchronous forms). */
+	template <typename R, typename F>
+	R RunToEnd(F&& RunSlice)
+	{
+		FVerseBotEqsSlice S;
+		R Result;
+		S.BeginSlice(MAX_int32);
+		RunSlice(S, Result);
+		return Result;
 	}
 
 	bool PieceBelievedBroken(const FVerseBotQueryContext& Ctx, uint16 Piece)
@@ -100,9 +115,23 @@ namespace VerseBotEqs
 		return true;
 	}
 
+
+	float DistToSegment2D(const FVector& Point, const FVector& A, const FVector& B)
+	{
+		const FVector P(Point.X, Point.Y, 0.f), A2(A.X, A.Y, 0.f), B2(B.X, B.Y, 0.f);
+		return float(FMath::PointDistToSegment(P, A2, B2));
+	}
+
 	FVerseBotCoverResult Cover(const FVerseBotQueryContext& Ctx, EVerseBotCoverMode Mode)
 	{
-		FVerseBotCoverResult Result;
+		return RunToEnd<FVerseBotCoverResult>([&](FVerseBotEqsSlice& S, FVerseBotCoverResult& R) { CoverSlice(Ctx, Mode, S, R); });
+	}
+
+	void CoverSlice(const FVerseBotQueryContext& InCtx, EVerseBotCoverMode Mode, FVerseBotEqsSlice& Slice, FVerseBotCoverResult& Result)
+	{
+		FVerseBotMeteredWorld Metered(*InCtx.World, Slice);
+		FVerseBotQueryContext Ctx = InCtx;
+		Ctx.World = &Metered;
 		const FVector Self = Ctx.Self->Location;
 		const FVector Top = Ctx.Belief->TopCenter;
 		TArray<FVerseBotCoverPoint> Points;
@@ -110,15 +139,24 @@ namespace VerseBotEqs
 		SortByDistance(Points, Self, [](const FVerseBotCoverPoint& P) { return P.Location; });
 		TArray<FVector> Cells;
 		BeliefCells(Ctx, Cells);
+		// Flank (7.2): prefer points that cut the person's most used route.
+		FVector RouteA = FVector::ZeroVector;
+		FVector RouteB = FVector::ZeroVector;
+		float RouteSamples = 0.f;
+		const bool bRoute = Mode == EVerseBotCoverMode::Flank && Ctx.Memory && Ctx.Memory->MostUsedRouteSegment(RouteA, RouteB, RouteSamples);
 
-		float BestScore = -1.0e9f;
-		int32 Tested = 0;
-		for (const FVerseBotCoverPoint& P : Points)
+		for (int32 i = Slice.Next; i < Points.Num(); ++i)
 		{
-			if (Tested >= MaxCoverCandidates)
+			if (Slice.Tested >= MaxCoverCandidates)
 			{
 				break;
 			}
+			if (Slice.OutOfBudget(i))
+			{
+				Slice.Next = i;
+				return;
+			}
+			const FVerseBotCoverPoint& P = Points[i];
 			if (Mode == EVerseBotCoverMode::Bulwark ? !P.bBulwarkSpot : false)
 			{
 				continue;
@@ -132,7 +170,7 @@ namespace VerseBotEqs
 			{
 				continue;
 			}
-			++Tested;
+			++Slice.Tested;
 			const FVerseBotPath Path = Ctx.World->FindPath(Self, P.Location, false);
 			if (!Path.bValid || Path.LengthCm > CoverRadiusCm)
 			{
@@ -174,21 +212,36 @@ namespace VerseBotEqs
 				Samples = Ctx.Memory->SamplesNear(FLayer::Shooting, P.Location, LearnRadiusCm, Ctx.NowS);
 				const float Danger = Ctx.Memory->HeatShare(FLayer::Shooting, P.Location, LearnRadiusCm, Ctx.NowS);
 				Learned = Base - FMath::Clamp(Danger * 2.f, 0.f, 1.f);
+				if (bRoute)
+				{
+					const float Cut = FMath::Clamp(1.f - DistToSegment2D(P.Location, RouteA, RouteB) / RouteCutCm, 0.f, 1.f);
+					Learned += 0.6f * Cut;
+					Samples += RouteSamples;
+				}
 			}
 			const float Score = Blend(Base, Learned, LearnedWeight(Ctx, Samples));
-			if (Score > BestScore)
+			if (Score > Slice.BestScore)
 			{
-				BestScore = Score;
+				Slice.BestScore = Score;
 				Result.bFound = true;
 				Result.Point = P;
 				Result.Score = Score;
 			}
 		}
-		return Result;
+		Slice.Next = Points.Num();
+		Slice.bDone = true;
 	}
 
 	FVerseBotPeekResult PeekCorner(const FVerseBotQueryContext& Ctx, const FVerseBotCoverPoint& From)
 	{
+		return RunToEnd<FVerseBotPeekResult>([&](FVerseBotEqsSlice& S, FVerseBotPeekResult& R) { PeekCornerSlice(Ctx, From, S, R); });
+	}
+
+	void PeekCornerSlice(const FVerseBotQueryContext& InCtx, const FVerseBotCoverPoint& From, FVerseBotEqsSlice& Slice, FVerseBotPeekResult& Best)
+	{
+		FVerseBotMeteredWorld Metered(*InCtx.World, Slice);
+		FVerseBotQueryContext Ctx = InCtx;
+		Ctx.World = &Metered;
 		struct FCandidate
 		{
 			EVerseBotPeekType Type;
@@ -223,10 +276,44 @@ namespace VerseBotEqs
 			Repeats += (Edge != INDEX_NONE && Edge == From.EdgeId) ? 1 : 0;
 		}
 
-		FVerseBotPeekResult Best;
-		float BestScore = -1.0e9f;
-		for (const FCandidate& C : Candidates)
+		// Learned peek habits (7.2): the person's most used peek edge near TopCluster.
+		bool bWatch = false;
+		FVector Watch = FVector::ZeroVector;
+		int32 WatchEdge = INDEX_NONE;
+		float WatchShare = 0.f;
+		float WatchSamples = 0.f;
+		if (Ctx.Memory && !Ctx.bIgnoreLearned)
 		{
+			TArray<int32> TopEdges;
+			Ctx.Memory->TopPeekEdges(2, TopEdges);
+			if (TopEdges.Num() > 0)
+			{
+				TArray<FVerseBotCoverPoint> Near;
+				Ctx.World->GetCoverPoints(Ctx.Belief->TopCenter, WatchEdgeRadiusCm, Near);
+				for (int32 Edge : TopEdges)
+				{
+					const FVerseBotCoverPoint* P = Near.FindByPredicate([Edge](const FVerseBotCoverPoint& C) { return C.EdgeId == Edge; });
+					if (P)
+					{
+						bWatch = true;
+						Watch = P->Location + FVector(0, 0, EqsChestCm);
+						WatchEdge = Edge;
+						WatchShare = Ctx.Memory->PeekShare(Edge, WatchSamples);
+						break;
+					}
+				}
+			}
+		}
+		const float WatchW = bWatch ? LearnedWeight(Ctx, WatchSamples) : 0.f;
+
+		for (int32 i = Slice.Next; i < Candidates.Num(); ++i)
+		{
+			if (Slice.OutOfBudget(i))
+			{
+				Slice.Next = i;
+				return;
+			}
+			const FCandidate& C = Candidates[i];
 			const FVector Stand = From.Location + Right * C.Lateral;
 			const FVector Eye = Stand + FVector(0, 0, C.EyeCm);
 			if (!Ctx.World->TestSight(Eye, Top))
@@ -252,6 +339,7 @@ namespace VerseBotEqs
 
 			float Samples = 0.f;
 			float Learned = Base;
+			bool bSeesWatch = false;
 			if (Ctx.Memory)
 			{
 				// Avoid angles the person holds (they fire from there), prefer peeks onto their frequent spots.
@@ -260,28 +348,49 @@ namespace VerseBotEqs
 				const float Frequent = Ctx.Memory->HeatShare(FLayer::Position, Ctx.Belief->TopCenter, LearnRadiusCm, Ctx.NowS);
 				const float Held = Ctx.Memory->HeatShare(FLayer::Shooting, Ctx.Belief->TopCenter, LearnRadiusCm, Ctx.NowS);
 				Learned = Base + 0.5f * Frequent - 0.5f * Held * C.Exposure;
+				if (bWatch)
+				{
+					// A peek that sees the edge the person keeps appearing at (PeekShare).
+					bSeesWatch = Ctx.World->TestSight(Eye, Watch);
+					Learned += bSeesWatch ? 0.8f * WatchShare : 0.f;
+					Samples += WatchSamples;
+				}
 			}
 			const float Score = Blend(Base, Learned, LearnedWeight(Ctx, Samples));
-			if (Score > BestScore)
+			if (Score > Slice.BestScore)
 			{
-				BestScore = Score;
+				Slice.BestScore = Score;
 				Best.bFound = true;
 				Best.Type = C.Type;
 				Best.StandPoint = Stand;
 				Best.Eye = Eye;
 				Best.Score = Score;
+				Best.bHasWatch = bSeesWatch;
+				Best.WatchPoint = bSeesWatch ? Watch : FVector::ZeroVector;
+				Best.WatchEdge = bSeesWatch ? WatchEdge : INDEX_NONE;
+				Best.WatchRepeekShare = bSeesWatch ? Ctx.Memory->RepeekShare(WatchEdge) : 0.f;
+				Best.WatchWeight = bSeesWatch ? WatchW : 0.f;
 			}
 		}
-		return Best;
+		Slice.Next = Candidates.Num();
+		Slice.bDone = true;
 	}
 
 	FVerseBotWallbangResult WallbangSpot(const FVerseBotQueryContext& Ctx)
 	{
-		FVerseBotWallbangResult Best;
+		return RunToEnd<FVerseBotWallbangResult>([&](FVerseBotEqsSlice& S, FVerseBotWallbangResult& R) { WallbangSpotSlice(Ctx, S, R); });
+	}
+
+	void WallbangSpotSlice(const FVerseBotQueryContext& InCtx, FVerseBotEqsSlice& Slice, FVerseBotWallbangResult& Best)
+	{
+		FVerseBotMeteredWorld Metered(*InCtx.World, Slice);
+		FVerseBotQueryContext Ctx = InCtx;
+		Ctx.World = &Metered;
 		const FVerseBotBeliefSummary& B = *Ctx.Belief;
 		if (B.State == EVerseBeliefState::Dead || B.bPriorOnly)
 		{
-			return Best;
+			Slice.bDone = true;
+			return;
 		}
 		const FVector Aim = B.TopCenter + FVector(0, 0, EqsChestCm);
 		TArray<FVector, TInlineAllocator<8>> Spots;
@@ -300,9 +409,14 @@ namespace VerseBotEqs
 		TArray<FVector> Cells;
 		BeliefCells(Ctx, Cells);
 
-		float BestScore = -1.0e9f;
-		for (const FVector& Spot : Spots)
+		for (int32 i = Slice.Next; i < Spots.Num(); ++i)
 		{
+			if (Slice.OutOfBudget(i))
+			{
+				Slice.Next = i;
+				return;
+			}
+			const FVector Spot = Spots[i];
 			const FVector Eye = Spot + FVector(0, 0, StandEyeCm);
 			if (Ctx.World->TestSight(Eye, Aim))
 			{
@@ -329,9 +443,9 @@ namespace VerseBotEqs
 			const bool bHidden = HiddenFromBelief(Ctx, Spot, Cells, false);
 			const float Score = E.SupportedMassAtAim + 0.5f * Trace.DamageFrac - (bHidden ? 0.f : 0.3f)
 				- 0.1f * float(FVector::Dist(Spot, Ctx.Self->Location)) / 800.f;
-			if (Score > BestScore)
+			if (Score > Slice.BestScore)
 			{
-				BestScore = Score;
+				Slice.BestScore = Score;
 				Best.bFound = true;
 				Best.FireFrom = Spot;
 				Best.AimPoint = Aim;
@@ -340,16 +454,25 @@ namespace VerseBotEqs
 				Best.Score = Score;
 			}
 		}
-		return Best;
+		Slice.Next = Spots.Num();
+		Slice.bDone = true;
 	}
 
 	FVerseBotBreachResult BreachSpot(const FVerseBotQueryContext& Ctx)
 	{
-		FVerseBotBreachResult Best;
+		return RunToEnd<FVerseBotBreachResult>([&](FVerseBotEqsSlice& S, FVerseBotBreachResult& R) { BreachSpotSlice(Ctx, S, R); });
+	}
+
+	void BreachSpotSlice(const FVerseBotQueryContext& InCtx, FVerseBotEqsSlice& Slice, FVerseBotBreachResult& Best)
+	{
+		FVerseBotMeteredWorld Metered(*InCtx.World, Slice);
+		FVerseBotQueryContext Ctx = InCtx;
+		Ctx.World = &Metered;
 		const FVerseBotBeliefSummary& B = *Ctx.Belief;
 		if (B.State == EVerseBeliefState::Dead)
 		{
-			return Best;
+			Slice.bDone = true;
+			return;
 		}
 		const FVector Self = Ctx.Self->Location;
 		TArray<FVerseBotPieceInfo> Pieces;
@@ -357,8 +480,13 @@ namespace VerseBotEqs
 		SortByDistance(Pieces, Self, [](const FVerseBotPieceInfo& P) { return P.Center; });
 		TArray<FVector> Cells;
 		BeliefCells(Ctx, Cells);
-		const FVerseBotPath Direct = Ctx.World->FindPath(Self, B.TopCenter, false);
-		const float DirectLen = Direct.bValid ? Direct.LengthCm : 2.f * float(FVector::Dist(Self, B.TopCenter)) + 2000.f;
+		if (!Slice.bScratchSet)
+		{
+			const FVerseBotPath Direct = Ctx.World->FindPath(Self, B.TopCenter, false);
+			Slice.Scratch = Direct.bValid ? Direct.LengthCm : 2.f * float(FVector::Dist(Self, B.TopCenter)) + 2000.f;
+			Slice.bScratchSet = true;
+		}
+		const float DirectLen = Slice.Scratch;
 
 		TPair<int32, int32> Route(INDEX_NONE, INDEX_NONE);
 		if (Ctx.Memory)
@@ -366,15 +494,19 @@ namespace VerseBotEqs
 			Route = Ctx.Memory->MostUsedRoute();
 		}
 
-		float BestScore = -1.0e9f;
-		int32 Tested = 0;
-		for (const FVerseBotPieceInfo& P : Pieces)
+		for (int32 i = Slice.Next; i < Pieces.Num(); ++i)
 		{
+			if (Slice.OutOfBudget(i))
+			{
+				Slice.Next = i;
+				return;
+			}
+			const FVerseBotPieceInfo& P = Pieces[i];
 			if (!P.bBreachable || Ctx.BeliefMap->GetPieceBelief(P.PieceIndex) != EVersePieceState::Intact)
 			{
 				continue;
 			}
-			if (++Tested > MaxBreachCandidates)
+			if (++Slice.Tested > MaxBreachCandidates)
 			{
 				break;
 			}
@@ -417,9 +549,9 @@ namespace VerseBotEqs
 				Learned = Base + ((Zone == Route.Key || Zone == Route.Value) ? 0.5f : 0.f);
 			}
 			const float Score = Blend(Base, Learned, LearnedWeight(Ctx, Samples));
-			if (Score > BestScore && Shortening > -0.5f)
+			if (Score > Slice.BestScore && Shortening > -0.5f)
 			{
-				BestScore = Score;
+				Slice.BestScore = Score;
 				Best.bFound = true;
 				Best.PieceIndex = P.PieceIndex;
 				Best.PlantPoint = Plant;
@@ -427,25 +559,39 @@ namespace VerseBotEqs
 				Best.Score = Score;
 			}
 		}
-		return Best;
+		Slice.Next = Pieces.Num();
+		Slice.bDone = true;
 	}
 
 	FVerseBotFinisherResult FinisherApproach(const FVerseBotQueryContext& Ctx)
 	{
-		FVerseBotFinisherResult Best;
+		return RunToEnd<FVerseBotFinisherResult>([&](FVerseBotEqsSlice& S, FVerseBotFinisherResult& R) { FinisherApproachSlice(Ctx, S, R); });
+	}
+
+	void FinisherApproachSlice(const FVerseBotQueryContext& InCtx, FVerseBotEqsSlice& Slice, FVerseBotFinisherResult& Best)
+	{
+		FVerseBotMeteredWorld Metered(*InCtx.World, Slice);
+		FVerseBotQueryContext Ctx = InCtx;
+		Ctx.World = &Metered;
 		const FVerseBotBeliefSummary& B = *Ctx.Belief;
 		const UVerseBotTier& Tier = *Ctx.Tier;
 		if (B.State == EVerseBeliefState::Dead || B.Confidence < Tier.FinisherCommitConfidence)
 		{
-			return Best;
+			Slice.bDone = true;
+			return;
 		}
 		const FVector Facing = BeliefFacing(Ctx);
 		const FVector TopEye = B.TopCenter + FVector(0, 0, StandEyeCm);
 		const float CosCone = FMath::Cos(FMath::DegreesToRadians(BelievedViewHalfAngleDeg));
-		float BestScore = -1.0e9f;
-		for (const float RelDeg : {130.f, 155.f, 180.f, 205.f, 230.f})
+		static constexpr float RelDegs[5] = {130.f, 155.f, 180.f, 205.f, 230.f};
+		for (int32 i = Slice.Next; i < 5; ++i)
 		{
-			const FVector Dir = Facing.RotateAngleAxis(RelDeg, FVector::UpVector);
+			if (Slice.OutOfBudget(i))
+			{
+				Slice.Next = i;
+				return;
+			}
+			const FVector Dir = Facing.RotateAngleAxis(RelDegs[i], FVector::UpVector);
 			const FVector Point = B.TopCenter + Dir * (FinisherRangeCm * 0.8f);
 			if (OffFacingDeg(Ctx, Point) <= FinisherArcDeg)
 			{
@@ -482,9 +628,9 @@ namespace VerseBotEqs
 				continue;
 			}
 			const float Score = -Path.LengthCm / 1000.f - 0.2f * float(InCone) / FMath::Max(1, Path.Waypoints.Num());
-			if (Score > BestScore)
+			if (Score > Slice.BestScore)
 			{
-				BestScore = Score;
+				Slice.BestScore = Score;
 				Best.bFound = true;
 				Best.Approach = Point;
 				Best.PathLengthCm = Path.LengthCm;
@@ -492,6 +638,7 @@ namespace VerseBotEqs
 				Best.Score = Score;
 			}
 		}
-		return Best;
+		Slice.Next = 5;
+		Slice.bDone = true;
 	}
 }

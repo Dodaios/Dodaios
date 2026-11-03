@@ -60,6 +60,7 @@ void FVerseBotMatchMemory::Reset()
 	RouteOut.Reset();
 	LastZone = INDEX_NONE;
 	Habits.Reset();
+	Centroids.Reset();
 }
 
 bool FVerseBotMatchMemory::IsEmpty() const
@@ -67,9 +68,10 @@ bool FVerseBotMatchMemory::IsEmpty() const
 	bool bRanges = true;
 	for (const FRangeBin& Bin : Ranges)
 	{
-		bRanges &= Bin.Engagements == 0;
+		bRanges &= Bin.Engagements == 0 && Bin.NoDecision == 0;
 	}
 	return Layers[0].Num() == 0 && Layers[1].Num() == 0 && Peeks.Num() == 0 && Routes.Num() == 0 && Habits.Num() == 0
+		&& Centroids.Num() == 0
 		&& bRanges && LastZone == INDEX_NONE && LayerTotal[0].Value == 0.f && LayerTotal[1].Value == 0.f;
 }
 
@@ -142,6 +144,25 @@ void FVerseBotMatchMemory::RecordEngagementEnd(float RangeCm, bool bPersonWon)
 	FRangeBin& Bin = Ranges[RangeBin(RangeCm)];
 	++Bin.Engagements;
 	Bin.PersonWins += bPersonWon ? 1 : 0;
+}
+
+void FVerseBotMatchMemory::RecordEngagementNoDecision(float RangeCm)
+{
+	if (bEnabled)
+	{
+		++Ranges[RangeBin(RangeCm)].NoDecision;
+	}
+}
+
+void FVerseBotMatchMemory::RecordZone(int32 ZoneId, const FVector& Location, float NowS)
+{
+	if (bEnabled && ZoneId != INDEX_NONE)
+	{
+		FZoneCentroid& C = Centroids.FindOrAdd(ZoneId);
+		C.Sum += Location;
+		C.Count += 1.f;
+	}
+	RecordZone(ZoneId, NowS);
 }
 
 void FVerseBotMatchMemory::RecordZone(int32 ZoneId, float NowS)
@@ -309,4 +330,97 @@ int32 FVerseBotMatchMemory::HabitCount(FName Habit) const
 {
 	const int32* N = Habits.Find(Habit);
 	return N ? *N : 0;
+}
+
+bool FVerseBotMatchMemory::ZoneCentroid(int32 ZoneId, FVector& Out) const
+{
+	const FZoneCentroid* C = Centroids.Find(ZoneId);
+	if (!C || C->Count <= 0.f)
+	{
+		return false;
+	}
+	Out = C->Sum / C->Count;
+	return true;
+}
+
+bool FVerseBotMatchMemory::PredictNextZone(const FVector& From, FVector& OutTarget, float& OutProb) const
+{
+	OutProb = 0.f;
+	if (!bEnabled)
+	{
+		return false;
+	}
+	// The zone of From: the nearest centroid within 10 m (zones are arena data the memory only
+	// knows through the person's perceived positions).
+	int32 FromZone = INDEX_NONE;
+	float BestD2 = 1000.f * 1000.f;
+	for (const TPair<int32, FZoneCentroid>& Z : Centroids)
+	{
+		if (Z.Value.Count <= 0.f)
+		{
+			continue;
+		}
+		const float D2 = float(FVector::DistSquared2D(Z.Value.Sum / Z.Value.Count, From));
+		if (D2 < BestD2 || (D2 == BestD2 && Z.Key < FromZone))
+		{
+			BestD2 = D2;
+			FromZone = Z.Key;
+		}
+	}
+	if (FromZone == INDEX_NONE)
+	{
+		return false;
+	}
+	const int32 Next = MostLikelyNextZone(FromZone);
+	if (Next == INDEX_NONE || !ZoneCentroid(Next, OutTarget))
+	{
+		return false;
+	}
+	OutProb = ZoneTransitionProb(FromZone, Next);
+	return OutProb > 0.f;
+}
+
+bool FVerseBotMatchMemory::MostUsedRouteSegment(FVector& OutFrom, FVector& OutTo, float& OutSamples) const
+{
+	OutSamples = 0.f;
+	const TPair<int32, int32> Route = MostUsedRoute();
+	if (Route.Key == INDEX_NONE || !ZoneCentroid(Route.Key, OutFrom) || !ZoneCentroid(Route.Value, OutTo))
+	{
+		return false;
+	}
+	const float* N = Routes.Find(RouteKey(Route.Key, Route.Value));
+	OutSamples = N ? *N : 0.f;
+	return OutSamples > 0.f;
+}
+
+bool FVerseBotMatchMemory::HottestCell(ELayer Layer, float NowS, FVector& OutLocation, float& OutShare) const
+{
+	OutShare = 0.f;
+	const float Total = Decayed(LayerTotal[int32(Layer)], NowS);
+	if (Total <= KINDA_SMALL_NUMBER)
+	{
+		return false;
+	}
+	float Best = 0.f;
+	FIntVector BestCell(0);
+	bool bFound = false;
+	for (const TPair<FIntVector, FCell>& C : Layers[int32(Layer)])
+	{
+		const float V = Decayed(C.Value, NowS);
+		const bool bTieBreak = V == Best && bFound
+			&& (C.Key.X < BestCell.X || (C.Key.X == BestCell.X && (C.Key.Y < BestCell.Y || (C.Key.Y == BestCell.Y && C.Key.Z < BestCell.Z))));
+		if (V > Best || bTieBreak)
+		{
+			Best = V;
+			BestCell = C.Key;
+			bFound = true;
+		}
+	}
+	if (!bFound)
+	{
+		return false;
+	}
+	OutLocation = FVector((float(BestCell.X) + 0.5f) * CellCm, (float(BestCell.Y) + 0.5f) * CellCm, float(BestCell.Z) * MemoryLevelCm);
+	OutShare = FMath::Clamp(Best / Total, 0.f, 1.f);
+	return true;
 }

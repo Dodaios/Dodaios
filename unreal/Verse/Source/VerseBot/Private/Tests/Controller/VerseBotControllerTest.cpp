@@ -1,7 +1,7 @@
 #include "Bot/VerseBotTier.h"
 #include "Controller/VerseBotController.h"
 #include "Misc/AutomationTest.h"
-#include "Tests/Controller/Fakes/VerseBotFakePlayerState.h"
+#include "Tests/Controller/Fakes/FakeVersePlayerState.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -17,8 +17,8 @@ bool FVerseBotControllerIdentityTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("unknown tier"), AVerseBotController::ParseBotTierOption(TEXT("?BotTier=nightmare")), FName(NAME_None));
 	TestEqual(TEXT("no option"), AVerseBotController::ParseBotTierOption(TEXT("?Listen")), FName(NAME_None));
 
-	FVerseBotFakePlayerStateFields Fields;
-	TestTrue(TEXT("identity written"), AVerseBotController::WriteBotIdentity(FVerseBotFakePlayerStateFields::StaticStruct(), &Fields, TEXT("adaptive"), 0.62f));
+	FFakeVersePlayerStateFields Fields;
+	TestTrue(TEXT("identity written"), AVerseBotController::WriteBotIdentity(FFakeVersePlayerStateFields::StaticStruct(), &Fields, TEXT("adaptive"), 0.62f));
 	TestEqual(TEXT("BotTier"), Fields.BotTier, FName(TEXT("adaptive")));
 	TestEqual(TEXT("BotEffectiveSkill"), Fields.BotEffectiveSkill, 0.62f);
 	TestFalse(TEXT("a type without the fields is refused"), AVerseBotController::WriteBotIdentity(TBaseStructure<FVector>::Get(), &Fields, TEXT("hard"), 0.5f));

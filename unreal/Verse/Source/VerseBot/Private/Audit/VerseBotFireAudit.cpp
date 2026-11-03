@@ -96,6 +96,13 @@ EVerseBotFireMode FVerseBotFireClassifier::Classify(const FVerseBotFireEvidence&
 FVerseBotFireAudit FVerseBotFireClassifier::MakeAudit(const FVerseBotFireEvidence& E, EVerseBotFireMode Mode)
 {
 	FVerseBotFireAudit A;
+	MakeAuditInto(E, Mode, A);
+	return A;
+}
+
+void FVerseBotFireClassifier::MakeAuditInto(const FVerseBotFireEvidence& E, EVerseBotFireMode Mode, FVerseBotFireAudit& A)
+{
+	A.PerceptIds.Reset();
 	A.ServerTimeMs = E.ServerTimeMs;
 	A.Mode = Mode;
 	A.bTargetVisible = E.bTargetVisible;
@@ -117,28 +124,65 @@ FVerseBotFireAudit FVerseBotFireClassifier::MakeAudit(const FVerseBotFireEvidenc
 	}
 	A.BeliefMassAtAim = E.MassAtAim;
 	A.SupportAgeS = E.SupportAgeS;
-	return A;
+}
+
+FVerseBotFireAuditLog::FVerseBotFireAuditLog()
+{
+	Entries.Reserve(RingCapacity);
+}
+
+void FVerseBotFireAuditLog::Reset()
+{
+	// Keep the allocations: a new match fills the same slots.
+	Entries.Reset();
+	Head = 0;
+	Total = 0;
+	Blocked = 0;
+	FMemory::Memzero(ByMode);
+}
+
+FVerseBotFireAudit& FVerseBotFireAuditLog::NextSlot()
+{
+	if (bCaptureAll || Entries.Num() < RingCapacity)
+	{
+		return Entries.AddDefaulted_GetRef();
+	}
+	FVerseBotFireAudit& Slot = Entries[Head];
+	Head = (Head + 1) % RingCapacity;
+	return Slot;
 }
 
 void FVerseBotFireAuditLog::Add(const FVerseBotFireAudit& Audit)
 {
-	Entries.Add(Audit);
+	NextSlot() = Audit;
+	++Total;
+	++ByMode[int32(Audit.Mode)];
 }
 
-int32 FVerseBotFireAuditLog::Count(EVerseBotFireMode Mode) const
+void FVerseBotFireAuditLog::Add(const FVerseBotFireEvidence& E, EVerseBotFireMode Mode)
 {
-	int32 N = 0;
-	for (const FVerseBotFireAudit& A : Entries)
+	FVerseBotFireClassifier::MakeAuditInto(E, Mode, NextSlot());
+	++Total;
+	++ByMode[int32(Mode)];
+}
+
+TArray<FVerseBotFireAudit> FVerseBotFireAuditLog::GetEntries() const
+{
+	TArray<FVerseBotFireAudit> Out;
+	Out.Reserve(Entries.Num());
+	// In ring mode Head is the oldest slot once the ring is full.
+	const int32 Start = (!bCaptureAll && Entries.Num() == RingCapacity) ? Head : 0;
+	for (int32 i = 0; i < Entries.Num(); ++i)
 	{
-		N += A.Mode == Mode ? 1 : 0;
+		Out.Add(Entries[(Start + i) % Entries.Num()]);
 	}
-	return N;
+	return Out;
 }
 
 FString FVerseBotFireAuditLog::ToText() const
 {
 	FString Out;
-	for (const FVerseBotFireAudit& A : Entries)
+	for (const FVerseBotFireAudit& A : GetEntries())
 	{
 		Out += A.ToLogLine();
 		Out += TEXT("\n");

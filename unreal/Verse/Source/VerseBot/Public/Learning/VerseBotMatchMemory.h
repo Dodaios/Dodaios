@@ -39,8 +39,13 @@ public:
 	void RecordHeard(const FVector& Location, float NowS);
 	void RecordShotFrom(const FVector& Location, float NowS, bool bSeen);
 	void RecordPeek(int32 EdgeId, EVerseBotPeekType Type, float NowS);
+	/** An engagement decided by a kill or the bot's death. */
 	void RecordEngagementEnd(float RangeCm, bool bPersonWon);
+	/** An engagement that ended without a decision (contact lost): not part of the win share. */
+	void RecordEngagementNoDecision(float RangeCm);
 	void RecordZone(int32 ZoneId, float NowS);
+	/** Zone entry with the percept position: also keeps the zone's centroid of the person's positions. */
+	void RecordZone(int32 ZoneId, const FVector& Location, float NowS);
 	void RecordHabit(FName Habit);
 
 	// Reads (7.2, 7.3)
@@ -67,6 +72,19 @@ public:
 	/** Preferred range shift in bins (-1, 0, 1) toward the bin where the person wins least (7.2). */
 	int32 RangeBinShift(float PreferredRangeCm) const;
 	int32 HabitCount(FName Habit) const;
+	/** Engagements of a range bin without a decision (contact lost). */
+	int32 NoDecisionCount(int32 Bin) const { return Ranges[FMath::Clamp(Bin, 0, NumRangeBins - 1)].NoDecision; }
+	/** The mean position the person was perceived at inside a zone; false when never seen there. */
+	bool ZoneCentroid(int32 ZoneId, FVector& Out) const;
+	/**
+	 * Belief predict bias (7.2): the zone whose centroid is nearest From (within 10 m), the zone the
+	 * person most often entered from it, that zone's centroid and the transition probability.
+	 */
+	bool PredictNextZone(const FVector& From, FVector& OutTarget, float& OutProb) const;
+	/** The most used route as the two zone centroids and its move count (7.2 breach / flank). */
+	bool MostUsedRouteSegment(FVector& OutFrom, FVector& OutTo, float& OutSamples) const;
+	/** The hottest 1 m cell of a layer and its share of the layer (heatmap prior of 4.2). */
+	bool HottestCell(ELayer Layer, float NowS, FVector& OutLocation, float& OutShare) const;
 	float HalfLifeS() const { return HabitHalfLifeS; }
 
 private:
@@ -87,6 +105,12 @@ private:
 	{
 		int32 Engagements = 0;
 		int32 PersonWins = 0;
+		int32 NoDecision = 0;
+	};
+	struct FZoneCentroid
+	{
+		FVector Sum = FVector::ZeroVector;
+		float Count = 0.f;
 	};
 
 	static FIntVector CellOf(const FVector& Location);
@@ -103,6 +127,7 @@ private:
 	TMap<int32, float> RouteOut;
 	int32 LastZone = INDEX_NONE;
 	TMap<FName, int32> Habits;
+	TMap<int32, FZoneCentroid> Centroids;
 
 	bool bEnabled = true;
 	float LearnWeightMax = 0.1f;

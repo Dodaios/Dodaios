@@ -81,7 +81,10 @@ private:
 	void EnsureBrain();
 	void ApplyInput(const FVerseInputFrame& Frame);
 	void WriteIdentity();
-	FVersePerceptFrame SelfOnlyFrame() const;
+	/** The last service frame with only the own pose refreshed from the own pawn (no new percepts). */
+	FVersePerceptFrame SelfRefreshedFrame(uint32 ServerTimeMs) const;
+	/** The world's server clock, ms: one clock for service frames and refreshed frames. */
+	uint32 WorldServerTimeMs() const;
 	const UVerseBotTier* EffectiveTier();
 
 	TUniquePtr<FVerseBotBrainCore> Brain;
@@ -102,8 +105,11 @@ private:
 	float PendingSkill = -1.f;
 	bool bHasFrame = false;
 	FVersePerceptFrame PendingFrame;
+	/** The newest service frame: its own HUD (health, magazine, gadgets) stays valid between frames. */
+	FVersePerceptFrame LastRealFrame;
+	bool bHasRealFrame = false;
+	uint32 LastThinkMs = 0;
 	FVerseInputFrame LastInput;
-	float ServerTimeS = 0.f;
 	uint64 Seed = 0;
 	uint64 FixedSeed = 0;
 	bool bBrainReady = false;

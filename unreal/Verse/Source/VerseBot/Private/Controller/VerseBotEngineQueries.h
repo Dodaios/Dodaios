@@ -8,11 +8,16 @@ class UWorld;
 class AController;
 
 /**
- * The controller's default world queries until the producers land: static geometry only for sight
- * (object type WorldStatic, never pawns, so no opponent truth), straight-line paths (the Recast
- * query behind UVerseBeliefNavFilter needs NavigationSystem in VerseBot.Build.cs), no cover or
- * piece data (WP11 arena data, WP06 pieces), spawn points from the level's player starts, zones as
- * a 10 m grid. Every answer is public map knowledge or the bot's own state (bot.md 3.3).
+ * The controller's default world queries until the producers land. Every answer is public map
+ * knowledge or the bot's own state (bot.md 3.3):
+ * - Sight and bolt traces run on the VerseSight and VerseBolt channels (pawns ignore both, so no
+ *   opponent truth) and treat every destructible piece as its believed state. Without WP06/WP07
+ *   piece belief that is Intact for every piece: a segment that crosses a piece's intact bounds is
+ *   blocked, whatever the server's current proxy shows, so a hole the bot never perceived never
+ *   opens a line (DR6, F7). Glass follows the channel rules (sight passes, bolts stop).
+ * - No world: every line is blocked.
+ * - Paths are straight lines until NavigationSystem is linked (CCR #1162); no cover or piece data
+ *   (WP11 arena data, WP06 pieces); spawn points from the level's player starts; zones a 10 m grid.
  */
 class FVerseBotEngineQueries final : public IVerseBotWorldQueries
 {
@@ -29,6 +34,17 @@ public:
 	virtual FVerseBotWeaponInfo GetOwnWeapon() override;
 	virtual bool CanActivateFinisher() override;
 
+	/** True when the segment crosses the box (the believed-intact piece rule). */
+	static bool SegmentHitsBox(const FBox& Box, const FVector& From, const FVector& To);
+
 private:
+	/** Pieces crossed by the segment, counted against their intact bounds. */
+	int32 PiecesCrossed(const FVector& From, const FVector& To);
+	void CachePieceBounds(UWorld& World);
+	bool TraceChannel(UWorld& World, ECollisionChannel Channel, const FVector& From, const FVector& To) const;
+
 	TWeakObjectPtr<AController> Owner;
+	/** Intact bounds of every destructible piece, taken once per world before any can break. */
+	TArray<FBox> PieceBounds;
+	TWeakObjectPtr<UWorld> CachedWorld;
 };

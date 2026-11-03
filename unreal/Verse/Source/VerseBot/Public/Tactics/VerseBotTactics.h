@@ -66,6 +66,10 @@ struct VERSEBOT_API FVerseBotTacticsMemory
 	bool bHasSearchTarget = false;
 	float SearchSweepPhase = 0.f;
 	float SearchUntilS = 0.f;
+	/** Search: ranked arena points still to check for a path, one per tick (path budget). */
+	TArray<FVector, TInlineAllocator<5>> SearchQueue;
+	int32 SearchQueueIndex = 0;
+	bool bSearchVerifying = false;
 	/** Search: when each arena cover point was last visited this life (information gain). */
 	TMap<int32, float> Visited;
 	/** Flank: chosen point. */
@@ -74,6 +78,10 @@ struct VERSEBOT_API FVerseBotTacticsMemory
 	/** Prefire roll for the current approach (8.4: one roll per approach). */
 	bool bPrefireRolled = false;
 	bool bPrefireRollDone = false;
+	/** The approach the roll belongs to: the peek edge the heard percept is near. */
+	int32 PrefireEdge = INDEX_NONE;
+	FVector PrefirePoint = FVector::ZeroVector;
+	bool bPrefireActive = false;
 
 	void Reset() { *this = FVerseBotTacticsMemory(); }
 };
@@ -123,4 +131,10 @@ namespace VerseBotTactics
 
 	/** Hold substate times (5.2): hide U(0.5, 1.1) s, peek U(0.7, 1.5) s. */
 	inline constexpr float HideMinS = 0.5f, HideMaxS = 1.1f, PeekMinS = 0.7f, PeekMaxS = 1.5f;
+
+	/**
+	 * Learned peek habit (7.2) on a peek result: the person re-peeks the watched edge fast, so the
+	 * bot holds the pre-aimed angle longer. 1 without a watched edge; at most 1 + 2 x 0.35.
+	 */
+	VERSEBOT_API float PeekHoldScale(const FVerseBotPeekResult& Peek);
 }

@@ -1,9 +1,11 @@
 #include "Bot/VerseBotTier.h"
+#include "Brain/VerseBotBelief.h"
 #include "Learning/VerseBotMatchMemory.h"
 #include "Misc/AutomationTest.h"
 #include "Tests/Brain/Fakes/FakeVerseDuelSim.h"
 #include "Tests/Brain/VerseBotTestProof.h"
 #include "UObject/UnrealType.h"
+#include "VerseGameplayTags.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -136,6 +138,98 @@ bool FVerseBotLearningResetTest::RunTest(const FString& Parameters)
 	VerseBotTestProof::Write(TEXT("8.9"), TEXT("bg9_l1_reset.json"),
 		FString::Printf(TEXT("{\n  \"gate\": \"BG9/L1 (world-free part)\",\n  \"resetEmpties\": %s,\n  \"match2EqualsMatch1\": %s,\n  \"reflectedFields\": %d\n}\n"),
 			Sim.Brain.GetMemory().IsEmpty() ? TEXT("true") : TEXT("false"), Out == A.Outputs ? TEXT("true") : TEXT("false"), Reflected));
+	return true;
+}
+
+// 8.9 / 7.2: the belief consumes the learned zone transitions and the 1 % heatmap prior, and a
+// contact-lost engagement is no decision for the range bias.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBotLearningBiasTest, "Verse.Bot.Learning.Bias", VERSE_BOT_TEST_FLAGS)
+
+bool FVerseBotLearningBiasTest::RunTest(const FString& Parameters)
+{
+	UVerseBotTier* T = NewObject<UVerseBotTier>();
+	T->AddToRoot();
+	UVerseBotTier::ApplyStartValues(TEXT("hard"), *T);
+	auto Frame = [](uint32 Ms)
+	{
+		FVersePerceptFrame F;
+		F.ServerTimeMs = Ms;
+		F.Self.Location = FVector(0.f, -5000.f, 0.f);
+		F.Self.EyeLocation = FVector(0.f, -5000.f, 165.f);
+		F.Self.ViewRotation = FRotator(0.f, -90.f, 0.f);
+		return F;
+	};
+	{
+		// Zone transitions: the person keeps moving from zone 1 (around the origin) to zone 2 (20 m east).
+		FVerseBotMatchMemory M;
+		M.Configure(*T);
+		for (int32 i = 0; i < 6; ++i)
+		{
+			M.RecordZone(1, FVector(0.f, 0.f, 0.f), float(2 * i));
+			M.RecordZone(2, FVector(2000.f, 0.f, 0.f), float(2 * i + 1));
+		}
+		FVerseBotCoarseBelief WithMemory, Without;
+		for (FVerseBotCoarseBelief* B : {&WithMemory, &Without})
+		{
+			B->Reset();
+			FVersePerceptFrame F = Frame(100);
+			FVerseHeardPercept H;
+			H.PerceptId = 1;
+			H.Noise = VerseTags::Noise_Footstep_Run;
+			H.Location = FVector::ZeroVector;
+			H.ErrorSdM = 1.f;
+			F.Heard.Add(H);
+			const FVerseBotMatchMemory* Mem = B == &WithMemory ? &M : nullptr;
+			B->Step(F, 0.1f, Mem, {});
+			for (int32 i = 0; i < 10; ++i)
+			{
+				B->Step(Frame(200 + 100 * i), 0.1f, Mem, {});
+			}
+		}
+		const float Lean = float(WithMemory.Summary().TopCenter.X - Without.Summary().TopCenter.X);
+		TestTrue(FString::Printf(TEXT("belief leans toward the learned next zone (%.1f cm)"), Lean), Lean > 100.f);
+	}
+	{
+		// Heatmap prior: a lost belief keeps 1 % of mass on the person's hottest spot, prior-only.
+		FVerseBotMatchMemory M;
+		M.Configure(*T);
+		const FVector Hot(2000.f, 2000.f, 0.f);
+		for (int32 i = 0; i < 5; ++i)
+		{
+			M.RecordSighting(Hot, 1.f, false);
+		}
+		FVerseBotCoarseBelief WithMemory, Without;
+		WithMemory.Reset();
+		Without.Reset();
+		WithMemory.Step(Frame(1000), 0.1f, &M, {});
+		Without.Step(Frame(1000), 0.1f, nullptr, {});
+		const float Mass = WithMemory.MassWithin(Hot, 300.f);
+		TestTrue(FString::Printf(TEXT("heatmap prior mixed in (%.4f)"), Mass), Mass > 0.005f && Mass < 0.02f);
+		TestEqual(TEXT("no prior without learning"), Without.MassWithin(Hot, 300.f), 0.f);
+		TestEqual(TEXT("the prior is never support"), WithMemory.SupportedMassWithin(Hot, 300.f), 0.f);
+	}
+	{
+		// Contact lost is no decision: it does not count as a bot win in the range bin.
+		FVerseBotMatchMemory M;
+		M.Configure(*T);
+		for (int32 i = 0; i < 4; ++i)
+		{
+			M.RecordEngagementEnd(700.f, true);
+			M.RecordEngagementEnd(1500.f, true);
+			M.RecordEngagementEnd(1500.f, false);
+			// 20-35 m: the person wins only one in four, so the band moves out one bin.
+			M.RecordEngagementEnd(2500.f, i == 0);
+		}
+		const int32 Before = M.RangeBinShift(1200.f);
+		TestEqual(TEXT("range band moves toward the person's weakest bin"), Before, 1);
+		for (int32 i = 0; i < 20; ++i)
+		{
+			M.RecordEngagementNoDecision(1500.f);
+		}
+		TestEqual(TEXT("no-decision engagements leave the range bias alone"), M.RangeBinShift(1200.f), Before);
+		TestEqual(TEXT("no-decision engagements are counted apart"), M.NoDecisionCount(FVerseBotMatchMemory::RangeBin(1500.f)), 20);
+	}
+	T->RemoveFromRoot();
 	return true;
 }
 

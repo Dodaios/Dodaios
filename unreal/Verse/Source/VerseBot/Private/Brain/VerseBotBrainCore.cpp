@@ -24,6 +24,14 @@ namespace
 	/** A sighting starting within 1.5 m of a cover edge counts as a peek there (7.1). */
 	constexpr float PeekEdgeRadiusCm = 150.f;
 	constexpr float InCoverCm = 90.f;
+	/** Knife reflex only on an opponent inside the bot's view cone (5.2 "frontal", 3.1 cone). */
+	constexpr float KnifeFrontalHalfAngleDeg = 55.f;
+	/** Reaction floor 0.6 x mean (8.1); fewer visible samples than this is a partial exposure. */
+	constexpr float ReactionFloorFrac = 0.6f;
+	constexpr int32 PartialExposureSamples = 4;
+	/** Prefire fires into the edge only right after the sound; the aim must sit on the edge. */
+	constexpr float PrefireFireAgeS = 0.6f;
+	constexpr float PrefireAimCm = 50.f;
 
 	const FVerseSightPercept* FirstVisible(const FVersePerceptFrame& F)
 	{
@@ -55,6 +63,18 @@ void FVerseBotBrainCore::Init(const UVerseBotTier& InTier, const FConfig& InConf
 	DecisionRng = FVerseRng(Config.Seed, 1, EVerseRngSalt::Brain);
 	TacticsRng = FVerseRng(Config.Seed, 2, EVerseRngSalt::Brain);
 	ReflexRng = FVerseRng(Config.Seed, 3, EVerseRngSalt::Brain);
+	ReactRng = FVerseRng(Config.Seed, 4, EVerseRngSalt::Brain);
+	bRawHadSighting = false;
+	bSightHeld = false;
+	SightReactUntilS = -1.f;
+	bHurtPending = false;
+	HurtReactUntilS = -1.f;
+	PendingHurt = FVerseHurtPercept();
+	HealthBeforeHurt = 0.f;
+	LastRawHealth = -1.f;
+	Job = FQueryJob();
+	QuerySlices = 0;
+	QueryBudgetStops = 0;
 	Memory->Reset();
 	Memory->Configure(InTier);
 	Memory->SetEnabled(Config.bLearning);
@@ -163,6 +183,7 @@ void FVerseBotBrainCore::ResetMatch()
 	TacticsMem.Reset();
 	Cache.Reset();
 	Pending.Reset();
+	Job.bActive = false;
 	Path = FVerseBotPath();
 	Selector.Reset(EVerseBotState::Search, NowS);
 	bInEngagement = false;
@@ -192,8 +213,13 @@ void FVerseBotBrainCore::OnOwnDeath()
 	TacticsMem.Reset();
 	Cache.Reset();
 	Pending.Reset();
+	Job.bActive = false;
 	Path = FVerseBotPath();
 	PathTarget = FVector(1.0e9);
+	bRawHadSighting = false;
+	bSightHeld = false;
+	SightReactUntilS = -1.f;
+	bHurtPending = false;
 	if (bInEngagement)
 	{
 		Memory->RecordEngagementEnd(EngagementRangeCm, true);
@@ -287,7 +313,7 @@ void FVerseBotBrainCore::UpdateLearning(const FVersePerceptFrame& Frame)
 			Memory->RecordSighting(P, NowS, !bFirstContactDone);
 			bFirstContactDone = true;
 			const int32 Zone = WorldThisTick->GetZoneId(P);
-			Memory->RecordZone(Zone, NowS);
+			Memory->RecordZone(Zone, P, NowS);
 		}
 		if (bStart && Ctx.SinceSightS > 1.f)
 		{
@@ -325,7 +351,8 @@ void FVerseBotBrainCore::UpdateLearning(const FVersePerceptFrame& Frame)
 	}
 	else if (bInEngagement && NowS - EngagementLastS > EngagementLostS)
 	{
-		Memory->RecordEngagementEnd(EngagementRangeCm, false);
+		// Contact lost: no winner (7.1 counts wins on a kill or the bot's death only).
+		Memory->RecordEngagementNoDecision(EngagementRangeCm);
 		bInEngagement = false;
 	}
 	for (const FVerseHeardPercept& H : Frame.Heard)
@@ -413,20 +440,23 @@ void FVerseBotBrainCore::Decide(bool bInterrupt, const float (&Bonus)[VerseBot::
 	++DecisionIndex;
 	NextDecisionS = NowS + T.DecisionMs / 1000.f * float(DecisionRng.Range(0.8, 1.2));
 
-	// Schedule EQS: at most 2 in flight; round-robin over the wanted list so every query refreshes.
+	// Schedule EQS: at most 2 in flight (the running slice counts); round-robin over the wanted
+	// list so every query refreshes.
 	TArray<EVerseBotQuery, TInlineAllocator<8>> Wanted;
 	VerseBotTactics::WantedQueries(D.State, Ctx, Wanted);
-	if (Wanted.Num() > 0 && Pending.Num() < 2)
+	auto InFlight = [this]() { return Pending.Num() + (Job.bActive ? 1 : 0); };
+	auto Queued = [this](EVerseBotQuery Q) { return Pending.Contains(Q) || (Job.bActive && Job.Query == Q); };
+	if (Wanted.Num() > 0 && InFlight() < 2)
 	{
 		// The current state's own query (first) always goes in; the rest rotate.
-		if (!Pending.Contains(Wanted[0]))
+		if (!Queued(Wanted[0]))
 		{
 			Pending.Add(Wanted[0]);
 		}
-		for (int32 i = 0; i < Wanted.Num() && Pending.Num() < 2; ++i)
+		for (int32 i = 0; i < Wanted.Num() && InFlight() < 2; ++i)
 		{
 			const EVerseBotQuery Q = Wanted[(QueryCursor + i) % Wanted.Num()];
-			if (!Pending.Contains(Q))
+			if (!Queued(Q))
 			{
 				Pending.Add(Q);
 				QueryCursor = (QueryCursor + i + 1) % FMath::Max(1, Wanted.Num());
@@ -436,33 +466,237 @@ void FVerseBotBrainCore::Decide(bool bInterrupt, const float (&Bonus)[VerseBot::
 	}
 }
 
+void FVerseBotBrainCore::StartQuery(EVerseBotQuery Query)
+{
+	Job.bActive = true;
+	Job.Query = Query;
+	Job.Self = *Ctx.Query.Self;
+	Job.Belief = BeliefSummary;
+	Job.From = TacticsMem.bHasCover ? TacticsMem.Cover : Cache.GetCover(EVerseBotCoverMode::Near).Point;
+	Job.Ctx = Ctx.Query;
+	Job.Ctx.Self = &Job.Self;
+	Job.Ctx.Belief = &Job.Belief;
+	Job.Slice = FVerseBotEqsSlice();
+	Job.Cover = FVerseBotCoverResult();
+	Job.Peek = FVerseBotPeekResult();
+	Job.Wallbang = FVerseBotWallbangResult();
+	Job.Breach = FVerseBotBreachResult();
+	Job.Finisher = FVerseBotFinisherResult();
+}
+
 void FVerseBotBrainCore::RunScheduledQuery()
 {
-	if (Pending.Num() == 0)
+	// One slice per tick under the cost budget; a query resumes where it stopped (bot.md 2).
+	if (!Job.bActive)
+	{
+		if (Pending.Num() == 0)
+		{
+			return;
+		}
+		const EVerseBotQuery Q = Pending[0];
+		Pending.RemoveAt(0);
+		StartQuery(Q);
+	}
+	FVerseBotQueryContext& C = Job.Ctx;
+	C.World = WorldThisTick;
+	C.BeliefMap = Belief.Get();
+	C.Memory = Memory->IsEnabled() ? Memory : nullptr;
+	Job.Slice.BeginSlice(QueryUnitsPerTick);
+	++QuerySlices;
+	switch (Job.Query)
+	{
+	case EVerseBotQuery::CoverNear: VerseBotEqs::CoverSlice(C, EVerseBotCoverMode::Near, Job.Slice, Job.Cover); break;
+	case EVerseBotQuery::CoverFar: VerseBotEqs::CoverSlice(C, EVerseBotCoverMode::Far, Job.Slice, Job.Cover); break;
+	case EVerseBotQuery::CoverFlank: VerseBotEqs::CoverSlice(C, EVerseBotCoverMode::Flank, Job.Slice, Job.Cover); break;
+	case EVerseBotQuery::CoverBulwark: VerseBotEqs::CoverSlice(C, EVerseBotCoverMode::Bulwark, Job.Slice, Job.Cover); break;
+	case EVerseBotQuery::PeekCorner: VerseBotEqs::PeekCornerSlice(C, Job.From, Job.Slice, Job.Peek); break;
+	case EVerseBotQuery::WallbangSpot: VerseBotEqs::WallbangSpotSlice(C, Job.Slice, Job.Wallbang); break;
+	case EVerseBotQuery::BreachSpot: VerseBotEqs::BreachSpotSlice(C, Job.Slice, Job.Breach); break;
+	case EVerseBotQuery::FinisherApproach: VerseBotEqs::FinisherApproachSlice(C, Job.Slice, Job.Finisher); break;
+	default: Job.Slice.bDone = true; break;
+	}
+	if (!Job.Slice.bDone)
+	{
+		++QueryBudgetStops;
+		return;
+	}
+	switch (Job.Query)
+	{
+	case EVerseBotQuery::CoverNear: Cache.Cover[int32(EVerseBotCoverMode::Near)] = Job.Cover; break;
+	case EVerseBotQuery::CoverFar: Cache.Cover[int32(EVerseBotCoverMode::Far)] = Job.Cover; break;
+	case EVerseBotQuery::CoverFlank: Cache.Cover[int32(EVerseBotCoverMode::Flank)] = Job.Cover; break;
+	case EVerseBotQuery::CoverBulwark: Cache.Cover[int32(EVerseBotCoverMode::Bulwark)] = Job.Cover; break;
+	case EVerseBotQuery::PeekCorner: Cache.Peek = Job.Peek; break;
+	case EVerseBotQuery::WallbangSpot: Cache.Wallbang = Job.Wallbang; break;
+	case EVerseBotQuery::BreachSpot: Cache.Breach = Job.Breach; break;
+	case EVerseBotQuery::FinisherApproach: Cache.Finisher = Job.Finisher; break;
+	default: break;
+	}
+	if (Job.Query != EVerseBotQuery::Count)
+	{
+		Cache.ProducedAt[int32(Job.Query)] = DecisionIndex;
+	}
+	Job.bActive = false;
+}
+
+float FVerseBotBrainCore::SampleReactionS(float Mul)
+{
+	const UVerseBotTier& T = *Tier;
+	const float Mean = T.ReactionMs.X;
+	const float Ms = FMath::Max(float(ReactRng.Gaussian(Mean, T.ReactionMs.Y)), ReactionFloorFrac * Mean);
+	return Ms * Mul / 1000.f;
+}
+
+const FVersePerceptFrame& FVerseBotBrainCore::GateStimuli(const FVersePerceptFrame& Raw)
+{
+	const UVerseBotTier& T = *Tier;
+	if (LastRawHealth < 0.f)
+	{
+		LastRawHealth = Raw.Self.Health;
+	}
+	// Sighting acquired: the decision layer, the reflexes and the belief get it only after the
+	// sampled reaction (peripheral and partial exposure slower, 8.1). A sighting that ends inside
+	// its reaction was never acted on.
+	const FVerseSightPercept* RawSight = FirstVisible(Raw);
+	if (RawSight && !bRawHadSighting)
+	{
+		float Mul = 1.f;
+		if (RawSight->bPeripheral)
+		{
+			Mul *= T.PeripheralReactionMul;
+		}
+		if (FMath::CountBits(uint64(RawSight->VisibleMask)) <= PartialExposureSamples)
+		{
+			Mul *= T.PartialExposureAcquireMul;
+		}
+		SightReactUntilS = NowS + SampleReactionS(Mul);
+	}
+	bRawHadSighting = RawSight != nullptr;
+	bSightHeld = RawSight != nullptr && NowS < SightReactUntilS;
+
+	// Hit taken: the forced decision and its bonuses wait the reaction too; meanwhile the HUD health
+	// reads as before the hit so no scheduled decision answers it early.
+	if (Raw.bHasHurt)
+	{
+		if (!bHurtPending)
+		{
+			bHurtPending = true;
+			HurtReactUntilS = NowS + SampleReactionS(1.f);
+			PendingHurt = Raw.Hurt;
+			HealthBeforeHurt = LastRawHealth;
+		}
+		else
+		{
+			const float Damage = PendingHurt.Damage + Raw.Hurt.Damage;
+			PendingHurt = Raw.Hurt;
+			PendingHurt.Damage = Damage;
+		}
+	}
+	LastRawHealth = Raw.Self.Health;
+	const bool bReleaseHurt = bHurtPending && NowS >= HurtReactUntilS;
+	if (!bSightHeld && !bHurtPending)
+	{
+		return Raw;
+	}
+	GatedFrame = Raw;
+	if (bSightHeld)
+	{
+		GatedFrame.Sightings.Reset();
+	}
+	if (bReleaseHurt)
+	{
+		GatedFrame.bHasHurt = true;
+		GatedFrame.Hurt = PendingHurt;
+		bHurtPending = false;
+	}
+	else
+	{
+		GatedFrame.bHasHurt = false;
+		GatedFrame.Self.Health = FMath::Max(HealthBeforeHurt, Raw.Self.Health);
+	}
+	return GatedFrame;
+}
+
+void FVerseBotBrainCore::UpdatePrefire(FVerseBotIntent& Intent)
+{
+	FVerseBotTacticsMemory& M = TacticsMem;
+	M.bPrefireActive = false;
+	if (bSightingThisTick)
+	{
+		// A sighting ends the approach.
+		M.bPrefireRollDone = false;
+		M.PrefireEdge = INDEX_NONE;
+		return;
+	}
+	const FVerseHeardPercept* Heard = Ctx.RecentHeard;
+	const EVerseBotState State = Selector.Current();
+	const bool bStateMay = State == EVerseBotState::Hold || State == EVerseBotState::Search || State == EVerseBotState::Flank
+		|| State == EVerseBotState::Attack;
+	if (!Heard || !bStateMay || BeliefSummary.State == EVerseBeliefState::Dead)
 	{
 		return;
 	}
-	const EVerseBotQuery Q = Pending[0];
-	Pending.RemoveAt(0);
-	const FVerseBotQueryContext& C = Ctx.Query;
-	switch (Q)
+	const UVerseBotTier& T = *Tier;
+	if (LastHeardS == NowS || M.PrefireEdge == INDEX_NONE)
 	{
-	case EVerseBotQuery::CoverNear: Cache.Cover[int32(EVerseBotCoverMode::Near)] = VerseBotEqs::Cover(C, EVerseBotCoverMode::Near); break;
-	case EVerseBotQuery::CoverFar: Cache.Cover[int32(EVerseBotCoverMode::Far)] = VerseBotEqs::Cover(C, EVerseBotCoverMode::Far); break;
-	case EVerseBotQuery::CoverFlank: Cache.Cover[int32(EVerseBotCoverMode::Flank)] = VerseBotEqs::Cover(C, EVerseBotCoverMode::Flank); break;
-	case EVerseBotQuery::CoverBulwark: Cache.Cover[int32(EVerseBotCoverMode::Bulwark)] = VerseBotEqs::Cover(C, EVerseBotCoverMode::Bulwark); break;
-	case EVerseBotQuery::PeekCorner:
+		// The peek edge the sound is near: the person's top two learned edges first (7.2), else the
+		// nearest edge of the static arena data.
+		TArray<FVerseBotCoverPoint> Edges;
+		WorldThisTick->GetCoverPoints(Heard->Location, FVerseBotFireClassifier::PrefireEdgeRadiusCm, Edges);
+		TArray<int32> Learned;
+		if (Ctx.Query.Memory && !Ctx.Query.bIgnoreLearned)
+		{
+			Ctx.Query.Memory->TopPeekEdges(2, Learned);
+		}
+		const FVerseBotCoverPoint* Pick = nullptr;
+		float PickScore = 1.0e9f;
+		for (const FVerseBotCoverPoint& E : Edges)
+		{
+			const FVector Point = E.Location + FVector(0, 0, BrainChestCm);
+			if (E.EdgeId == INDEX_NONE || float(FVector::Dist(Point, Heard->Location)) > FVerseBotFireClassifier::PrefireEdgeRadiusCm)
+			{
+				continue;
+			}
+			const int32 Rank = Learned.IndexOfByKey(E.EdgeId);
+			const float Score = (Rank == INDEX_NONE ? 1.0e6f : float(Rank) * 1.0e5f) + float(FVector::Dist2D(Point, BeliefSummary.TopCenter));
+			if (Score < PickScore)
+			{
+				PickScore = Score;
+				Pick = &E;
+			}
+		}
+		const int32 Edge = Pick ? Pick->EdgeId : INDEX_NONE;
+		if (Edge != M.PrefireEdge)
+		{
+			// A new edge is a new approach: one roll each (8.4).
+			M.bPrefireRollDone = false;
+		}
+		M.PrefireEdge = Edge;
+		M.PrefirePoint = Pick ? Pick->Location + FVector(0, 0, BrainChestCm) : FVector::ZeroVector;
+	}
+	if (M.PrefireEdge == INDEX_NONE)
 	{
-		const FVerseBotCoverPoint& From = TacticsMem.bHasCover ? TacticsMem.Cover : Cache.GetCover(EVerseBotCoverMode::Near).Point;
-		Cache.Peek = VerseBotEqs::PeekCorner(C, From);
-		break;
+		return;
 	}
-	case EVerseBotQuery::WallbangSpot: Cache.Wallbang = VerseBotEqs::WallbangSpot(C); break;
-	case EVerseBotQuery::BreachSpot: Cache.Breach = VerseBotEqs::BreachSpot(C); break;
-	case EVerseBotQuery::FinisherApproach: Cache.Finisher = VerseBotEqs::FinisherApproach(C); break;
-	default: break;
+	// Belief mass at the edge from perceived support only (learned mass never authorises, 7.3).
+	if (Belief->SupportedMassWithin(M.PrefirePoint, FVerseBotFireClassifier::MassRadiusCm) < FVerseBotFireClassifier::MinBelief(T))
+	{
+		return;
 	}
-	Cache.ProducedAt[int32(Q)] = DecisionIndex;
+	if (!M.bPrefireRollDone)
+	{
+		M.bPrefireRollDone = true;
+		M.bPrefireRolled = ReflexRng.Chance(T.PrefireChance);
+	}
+	if (!M.bPrefireRolled)
+	{
+		return;
+	}
+	M.bPrefireActive = true;
+	Intent.bHasLookTarget = true;
+	Intent.LookTarget = M.PrefirePoint;
+	Intent.bAds = true;
+	Intent.bWantFire = Ctx.RecentHeardAgeS <= PrefireFireAgeS;
 }
 
 void FVerseBotBrainCore::Reflexes(FVerseBotIntent& Intent)
@@ -495,8 +729,11 @@ void FVerseBotBrainCore::Reflexes(FVerseBotIntent& Intent)
 		Intent.bWantFire = false;
 		return;
 	}
-	// Knife: within 2 m frontal, magazine empty or the KnifeChoice roll.
-	if (Dist <= KnifeRangeCm)
+	// Knife: within 2 m frontal (inside the bot's view cone), magazine empty or the KnifeChoice roll.
+	const FVector ToOpp = (Opp - S.Location).GetSafeNormal2D();
+	const FVector ViewAxis = S.ViewRotation.Vector().GetSafeNormal2D();
+	const float FrontDeg = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(float(FVector::DotProduct(ViewAxis, ToOpp)), -1.f, 1.f)));
+	if (Dist <= KnifeRangeCm && FrontDeg <= KnifeFrontalHalfAngleDeg)
 	{
 		if (!bKnifeRolled)
 		{
@@ -560,7 +797,9 @@ void FVerseBotBrainCore::ApplyFireGate(FVerseBotIntent& Intent, const FVerseBotA
 	E.SupportAgeS = BeliefSummary.SupportAgeS;
 	E.bPriorOnly = BeliefSummary.bPriorOnly;
 	E.bAimInTopCluster = float(FVector::Dist2D(E.AimPoint, BeliefSummary.TopCenter)) <= 300.f;
-	E.bPrefireRolled = false;
+	const FVerseBotTacticsMemory& M = TacticsMem;
+	E.bPrefireRolled = M.bPrefireActive && M.bPrefireRolled;
+	E.bAimAtPeekEdge = M.bPrefireActive && float(FVector::Dist(E.AimPoint, M.PrefirePoint)) <= PrefireAimCm;
 	if (!E.bTargetVisible && E.SinceSightLostS > FVerseBotFireClassifier::SuppressionS)
 	{
 		const FVerseBotBoltTrace Trace = WorldThisTick->TraceBolt(FrameThisTick->Self.EyeLocation, E.AimPoint, Ctx.Query.Weapon);
@@ -569,12 +808,19 @@ void FVerseBotBrainCore::ApplyFireGate(FVerseBotIntent& Intent, const FVerseBotA
 	}
 	const EVerseBotFireMode Mode = FVerseBotFireClassifier::Classify(E, T);
 	const bool bAimed = AimResult.bOnTarget || (Mode != EVerseBotFireMode::Visible && AimResult.ErrorDeg < 2.f);
-	if (Mode == EVerseBotFireMode::Unclassified || !bAimed)
+	if (Mode == EVerseBotFireMode::Unclassified)
+	{
+		// Counted apart: a fire intent without a mode of 8.4 never reaches the trigger.
+		Audit.AddBlocked();
+		Intent.bWantFire = false;
+		return;
+	}
+	if (!bAimed)
 	{
 		Intent.bWantFire = false;
 		return;
 	}
-	Audit.Add(FVerseBotFireClassifier::MakeAudit(E, Mode));
+	Audit.Add(E, Mode);
 }
 
 FVector FVerseBotBrainCore::NextWaypoint(const FVector& Target, bool bCrouch)
@@ -659,10 +905,12 @@ FVerseInputFrame FVerseBotBrainCore::ToInput(const FVerseBotIntent& Intent, cons
 	return F;
 }
 
-FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& Frame, IVerseBotWorldQueries& World)
+FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& RawFrame, IVerseBotWorldQueries& World)
 {
 	check(Tier);
-	NowS = float(Frame.ServerTimeMs) / 1000.f;
+	NowS = float(RawFrame.ServerTimeMs) / 1000.f;
+	// Reaction (8.1, 5.2): from here on the brain sees a stimulus only once its reaction elapsed.
+	const FVersePerceptFrame& Frame = GateStimuli(RawFrame);
 	const float Dt = LastThinkS < 0.f ? 1.f / 60.f : FMath::Max(NowS - LastThinkS, 0.f);
 	LastThinkS = NowS;
 	WorldThisTick = &World;
@@ -733,6 +981,7 @@ FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& Frame, IVer
 	}
 
 	FVerseBotIntent Intent = VerseBotTactics::Tick(Selector.Current(), Ctx, TacticsMem, TacticsRng);
+	UpdatePrefire(Intent);
 	if (TacticsMem.bBreachPlanted && NowS - TacticsMem.BreachPlantedS >= 2.5f && Belief->GetPieceBelief(TacticsMem.BreachPiece) == EVersePieceState::Intact)
 	{
 		// Own action (destruction 6.2): the bot knows its own charge went off.
@@ -745,6 +994,8 @@ FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& Frame, IVer
 	AimReq.bHasTarget = Intent.bHasLookTarget;
 	AimReq.TargetPoint = Intent.LookTarget;
 	AimReq.bNewTarget = bSightingThisTick && !bHadSighting;
+	// The reaction was spent in the gate above; the aim starts at once.
+	AimReq.ReactionRemainingS = 0.f;
 	const float TargetDist = FMath::Max(float(FVector::Dist(Intent.LookTarget, Frame.Self.EyeLocation)), 100.f);
 	AimReq.TargetHalfWidthDeg = FMath::RadiansToDegrees(FMath::Atan(25.f / TargetDist));
 	const FVerseBotAimResult AimResult = Aim->Step(Frame.Self, AimReq, Dt);

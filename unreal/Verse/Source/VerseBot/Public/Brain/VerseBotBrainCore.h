@@ -73,12 +73,27 @@ public:
 	int32 GetNavFailures() const { return NavFailures; }
 	/** Stuck events by the state the bot was in. */
 	const int32* GetStuckByState() const { return StuckByState; }
+	/** A sighting or hurt stimulus is still inside its sampled reaction (8.1): not yet acted on. */
+	bool IsReactionPending() const { return bSightHeld || bHurtPending; }
+	/** Ticks a query slice ran on, and query slices that stopped on the per-tick budget. */
+	int32 GetQuerySlices() const { return QuerySlices; }
+	int32 GetQueryBudgetStops() const { return QueryBudgetStops; }
+
+	/** EQS cost units (FVerseBotEqsSlice) a query may spend per tick: bot.md 2, EQS 0.2 ms amortised. */
+	static constexpr int32 QueryUnitsPerTick = 24;
 
 private:
 	void BuildContext(const FVersePerceptFrame& Frame, IVerseBotWorldQueries& World);
 	void UpdateLearning(const FVersePerceptFrame& Frame);
 	bool ForcedTriggers(const FVersePerceptFrame& Frame, float (&Bonus)[VerseBot::NumStates]);
 	void RunScheduledQuery();
+	void StartQuery(EVerseBotQuery Query);
+	/** Holds new sighting and hurt stimuli back for their sampled reaction (8.1, 5.2). */
+	const FVersePerceptFrame& GateStimuli(const FVersePerceptFrame& Raw);
+	/** N(ReactionMs), floor 0.6 x mean, times Mul (peripheral, partial exposure). Seconds. */
+	float SampleReactionS(float Mul);
+	/** Prefire (8.4, 7.2): pre-aim and fire at the peek edge a fresh heard percept is near. */
+	void UpdatePrefire(FVerseBotIntent& Intent);
 	void Decide(bool bInterrupt, const float (&Bonus)[VerseBot::NumStates]);
 	void Reflexes(FVerseBotIntent& Intent);
 	void ApplyFireGate(FVerseBotIntent& Intent, const FVerseBotAimResult& Aim);
@@ -101,6 +116,39 @@ private:
 	FVerseRng DecisionRng;
 	FVerseRng TacticsRng;
 	FVerseRng ReflexRng;
+	FVerseRng ReactRng;
+
+	// Reaction gate (8.1, 5.2)
+	FVersePerceptFrame GatedFrame;
+	bool bRawHadSighting = false;
+	bool bSightHeld = false;
+	float SightReactUntilS = -1.f;
+	bool bHurtPending = false;
+	float HurtReactUntilS = -1.f;
+	FVerseHurtPercept PendingHurt;
+	float HealthBeforeHurt = 0.f;
+	float LastRawHealth = 0.f;
+
+	// The running time-sliced query (at most one; Pending holds the next).
+	struct FQueryJob
+	{
+		bool bActive = false;
+		EVerseBotQuery Query = EVerseBotQuery::Count;
+		/** Snapshot of the context at start: the generator sees the same inputs on every slice. */
+		FVerseSelfPercept Self;
+		FVerseBotBeliefSummary Belief;
+		FVerseBotCoverPoint From;
+		FVerseBotQueryContext Ctx;
+		FVerseBotEqsSlice Slice;
+		FVerseBotCoverResult Cover;
+		FVerseBotPeekResult Peek;
+		FVerseBotWallbangResult Wallbang;
+		FVerseBotBreachResult Breach;
+		FVerseBotFinisherResult Finisher;
+	};
+	FQueryJob Job;
+	int32 QuerySlices = 0;
+	int32 QueryBudgetStops = 0;
 
 	// Per-tick context (valid inside Think).
 	FVerseBotTacticsContext Ctx;
