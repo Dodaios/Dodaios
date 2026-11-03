@@ -15,6 +15,7 @@
   "crew_radius_cm": 35.0,
   "separation_gain": 1.0,
   "stuck_s": 6.0,
+  "yield_s": 2.0,
   "arrive_tolerance_cm": 15.0,
   "arena_bounds_cm": { "min": [1000.0, 400.0, -100.0], "max": [6000.0, 4400.0, 1500.0] },
   "open_commands_per_s": 4.0,
@@ -22,5 +23,9 @@
   "sit_drop_cm": 45.0,
   "beacon_height_cm": 215.0,
   "nameplate_height_cm": 235.0,
-  "salute_s": 3.0
+  "salute_s": 3.0,
+  "tick_budget_ms": 0.45,
+  "tick_hard_cap_ms": 0.8,
+  "nav_project_extent_cm": [150.0, 150.0, 250.0],
+  "pawn_pool_size": 16
 }

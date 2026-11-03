@@ -6,9 +6,16 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 
-FString FVerseCrewSocket::Key() const
+const FString& FVerseCrewSocket::Key() const
 {
-	return FString::Printf(TEXT("%s:%s"), VerseCrew::SocketKindName(Kind), *Id);
+	// Built once: the planner asks for keys of every socket for every member.
+	if (CachedKey.IsEmpty() || CachedKind != Kind || CachedId != Id)
+	{
+		CachedKey = FString::Printf(TEXT("%s:%s"), VerseCrew::SocketKindName(Kind), *Id);
+		CachedKind = Kind;
+		CachedId = Id;
+	}
+	return CachedKey;
 }
 
 const FVerseCrewSocket* FVerseCrewDeck::FindSocket(EVerseCrewSocketKind Kind, const FString& SocketId) const

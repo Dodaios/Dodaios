@@ -36,7 +36,12 @@ struct VERSECREW_API FVerseCrewSocket
 	int32 Order = 0;
 
 	/** "<kind>:<id>", unique on a deck (planner.ts socketKey). */
-	FString Key() const;
+	const FString& Key() const;
+
+private:
+	mutable FString CachedKey;
+	mutable FString CachedId;
+	mutable EVerseCrewSocketKind CachedKind = EVerseCrewSocketKind::Other;
 };
 
 struct VERSECREW_API FVerseCrewRoom

@@ -103,6 +103,8 @@ struct VERSECREW_API FVerseCrewTuning
 	float SeparationGain = 1.f;
 	/** A pawn that has not got closer to its goal for this long counts as stuck. */
 	float StuckSeconds = 6.f;
+	/** A walker without progress for this long squeezes past others (doorway jams in counterflow). */
+	float YieldSeconds = 2.f;
 	float ArriveToleranceCm = 15.f;
 	/** Hangar arena bounds, deck-local cm (WP11 owns the real zone; this is its start value). */
 	FBox ArenaBoundsCm = FBox(FVector(1000.f, 400.f, -100.f), FVector(6000.f, 4400.f, 1500.f));
@@ -115,6 +117,18 @@ struct VERSECREW_API FVerseCrewTuning
 	float NameplateHeightCm = 235.f;
 	/** Salute after a commander promotion (parity C-19). */
 	float SaluteSeconds = 3.f;
+	/**
+	 * Game-thread budget per tick for queued crew work (planning a deck, spawning a pawn, a
+	 * nav path query, retiring a pawn): work stops once the tick has used this much; the rest
+	 * waits for the next tick (A15.5: the crew tick stays at most 1 ms).
+	 */
+	float TickBudgetMs = 0.45f;
+	/** No work item starts unless its predicted cost keeps the tick under this. */
+	float TickHardCapMs = 0.8f;
+	/** How far a socket may sit from the navmesh and still be reached (chairs block their own cell). */
+	FVector NavProjectExtentCm = FVector(150.f, 150.f, 250.f);
+	/** Retired pawns kept hidden for reuse, so churn does not spawn and destroy actors. */
+	int32 PawnPoolSize = 16;
 
 	bool LoadFrom(const FString& Path, FString& OutError);
 	static FString DefaultPath();
