@@ -1,0 +1,147 @@
+{
+	"$schema": "verse.weapon/1",
+	"WeaponId": "longsight",
+	"DisplayName": "Longsight",
+	"Slot": "Primary",
+	"FireMode": "Semi",
+	"BurstCount": 3,
+	"RPM": 240,
+	"MagazineSize": 12,
+	"bClosedBolt": true,
+	"ReserveRounds": 48,
+	"ReloadTactical": 2.3,
+	"ReloadEmpty": 3.0,
+	"ReloadCommitFraction": 0.6,
+	"EquipTime": 0.55,
+	"HolsterTime": 0.35,
+	"BaseDamage": 52,
+	"ZoneMultipliers": {
+		"Head": 2.6,
+		"Neck": 1.5,
+		"UpperTorso": 1.0,
+		"LowerTorso": 0.9,
+		"Arm": 0.8,
+		"Leg": 0.75
+	},
+	"FalloffStart": 40,
+	"FalloffEnd": 70,
+	"FalloffMinFraction": 0.8,
+	"ProjectileSpeed": 300,
+	"MaxRange": 150,
+	"PenetrationPower": 120,
+	"MaxPenetrations": 3,
+	"PieceDamage": 14,
+	"HoleRadiusMm": 18,
+	"RecoilPitchCurve": [
+		[
+			0,
+			1.6
+		]
+	],
+	"RecoilYawCurve": [
+		[
+			0,
+			0.2
+		],
+		[
+			1,
+			-0.2
+		],
+		[
+			2,
+			0.2
+		],
+		[
+			3,
+			-0.2
+		],
+		[
+			4,
+			0.2
+		],
+		[
+			5,
+			-0.2
+		],
+		[
+			6,
+			0.2
+		],
+		[
+			7,
+			-0.2
+		],
+		[
+			8,
+			0.2
+		],
+		[
+			9,
+			-0.2
+		],
+		[
+			10,
+			0.2
+		],
+		[
+			11,
+			-0.2
+		],
+		[
+			12,
+			0.2
+		],
+		[
+			13,
+			-0.2
+		]
+	],
+	"RecoilRandomFraction": 0.15,
+	"RecoilKickTime": 0.01,
+	"RecoilRecoveryRate": 2.0,
+	"RecoilRecoveryDelay": 0.15,
+	"PatternResetTime": 0.4,
+	"RecoilStanceMultiplier": {
+		"Stand": 1.0,
+		"Crouch": 0.85,
+		"Prone": 0.65,
+		"Slide": 1.3
+	},
+	"RecoilAdsMultiplier": 0.8,
+	"ViewPunchScale": 1.0,
+	"AdsTime": 0.3,
+	"AdsFov": 40,
+	"AdsMoveSpeedMultiplier": 0.5,
+	"SpreadBase": {
+		"Stand": [
+			2.0,
+			0.05
+		],
+		"Crouch": [
+			1.6,
+			0.04
+		],
+		"Prone": [
+			1.2,
+			0.02
+		],
+		"Slide": [
+			3.5,
+			2.0
+		]
+	},
+	"FirstShotSpread": [
+		1.5,
+		0.0
+	],
+	"FirstShotRestTime": 0.4,
+	"SpreadMovePerMps": 0.35,
+	"SpreadAirborne": 3.0,
+	"BloomPerShot": 0.4,
+	"BloomMax": 2.0,
+	"BloomRecoveryRate": 4.0,
+	"BloomRecoveryDelay": 0.1,
+	"NoiseLoudness": 1.0,
+	"BoltColorOwn": "Verse.Presentation.Bolt.Amber",
+	"BoltColorFoe": "Verse.Presentation.Bolt.Red"
+}
