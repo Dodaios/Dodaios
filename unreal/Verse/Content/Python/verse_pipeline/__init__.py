@@ -22,3 +22,12 @@ SPACE_VECTORS = ART_TEXT / "space_vectors.json"
 CACHE_ROOT = REPO_ROOT / "art" / "verse" / ".cache" / "unreal"
 
 SETTINGS_ID = "fbx-ue/1"
+
+
+def art_on_path() -> None:
+    """Put `art/verse` on `sys.path`, so WP14's editor code (`weapons.editor`) imports."""
+    import sys
+
+    path = str(REPO_ROOT / "art" / "verse")
+    if path not in sys.path:
+        sys.path.insert(0, path)

@@ -43,11 +43,17 @@ flowchart LR
 | Import | `python scripts/unreal/import_art.py {assets \| placements} [--deck D --zone Z] [--only NAME,...]` | `UnrealEditor-Cmd.exe unreal/Verse/Verse.uproject -ExecutePythonScript=<Content/Python/verse_pipeline/cli.py> -unattended -nosplash -nullrhi` (a headless editor, not the `pythonscript` commandlet: asset import tasks need the Slate application, which a commandlet does not create) | same lock |
 | Validate | `python scripts/unreal/import_art.py validate` | same headless editor; also in `unreal-build` | same lock |
 | Calibrate | `python scripts/unreal/import_art.py calib [--export]` | export, then the same headless editor (6.1) | same lock |
+| Masters, MIs (WP14) | `python scripts/unreal/import_art.py {masters \| materials} [--only NAME,...] [--no-save]` | same headless editor; masters from `art/verse/weapons/editor/masters.py`, MIs from the recipes of section 7 | same lock |
+| Look evidence (WP14) | `python scripts/unreal/import_art.py lookdev`, `python scripts/unreal/import_art.py wp14 [--no-lookdev]` (LUT, masters, MIs, WP14 meshes, validate, lookdev in one session) | headless editor with the D3D12 RHI offscreen (`-d3d12 -RenderOffscreen`), like `placements` | same lock |
 | Static check (no engine) | `python scripts/unreal/check_art_text.py` | `unreal-static` lane, GitHub-hosted, LFS not fetched | none |
 
 Parallel agents call only these scripts, never Blender or UnrealEditor
 directly (architecture 8.2). If an importer turns out to need a GPU device,
 `import_art.py` drops `-nullrhi`; it still runs under the lock.
+Commands that render or place actors (`placements`, `lookdev`, `wp14`) run
+with `-d3d12 -RenderOffscreen`. WP14's editor code lives in
+`art/verse/weapons/editor/` (owned by WP14); `verse_pipeline.art_on_path()`
+puts `art/verse` on `sys.path` so the pipeline can call it.
 
 ## 3. Naming
 
@@ -303,7 +309,7 @@ Everything else is a material instance described as text.
 | Recipes | One file per instance: `unreal/Verse/Art/Materials/MI_<Name>.mi.json` = `{schema: "verse.mi/1", name, parent, scalars{}, vectors{name: [r,g,b,a] linear}, textures{name: T path}, switches{}, owner, replaces: "<Blender M_ name>"}`. `verse_pipeline.materials` creates or updates the `.uasset` from it |
 | Mapping | `art/verse/lib/unreal_materials.py` maps each Blender `M_` name (`lib/materials.py`) to its `MI_`; the export writes the MI path into each mesh's slot list |
 | Decals | Every opaque world master has "receive decals" on (gore spatter, scorch, markings) |
-| Tone map | Fixed manual exposure per deck; a grade LUT `T_Verse_Grade_LUT` approximates the AgX view transform of today's Blender renders. Accepted when a palette chart rendered in Unreal matches the Blender render within ΔE 5 on the greys |
+| Tone map | Fixed manual exposure per deck; the grade LUT `T_Verse_Grade_LUT_M` (32^3 strip, linear `_M` suffix of section 3) holds the AgX view transform of today's Blender renders. The post-process material `M_Verse_PostTonemap` (blendable location "replacing the tonemapper", `/Game/Verse/PostProcess/`) samples it; it is the one blendable each deck's post-process volume places. Accepted when a palette chart rendered in Unreal matches the Blender render within ΔE 5 on the greys |
 
 ## 8. Military-Industrial Noir: palette and look
 
@@ -493,7 +499,8 @@ repo root gets `.lfsconfig` with `[lfs] fetchexclude = unreal/**`
 | `budget_override` | `{field, value, reason, approved_by}`; only the integration owner approves |
 
 `check_art_text.py` fails when a `.uasset` under `Content/Verse/` has no
-record, a record has no asset, a name breaks section 3, or a cap below is
+record (test placeholders under `Content/Verse/Test/` are built by editor code
+and need none), a record has no asset, a name breaks section 3, or a cap below is
 exceeded according to the record.
 
 ### 10.4 Size budgets

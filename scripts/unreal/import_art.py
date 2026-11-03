@@ -15,6 +15,13 @@ Slate application, which a commandlet does not create (assertion
     python scripts/unreal/import_art.py placements --deck hangar [--zone arena_canyon] [--dry-run]
     python scripts/unreal/import_art.py validate [--only ...]
     python scripts/unreal/import_art.py calib [--export] [--importer interchange|legacy]
+    python scripts/unreal/import_art.py masters [--only M_Verse_Weapon] [--no-save]   (WP14)
+    python scripts/unreal/import_art.py materials [--only MI_A,MI_B] [--no-save]      (WP14)
+    python scripts/unreal/import_art.py lookdev                                       (WP14, GPU)
+    python scripts/unreal/import_art.py wp14 [--no-lookdev]    (WP14: all of it in one hold)
+
+`lookdev` renders frames, so it runs the editor with its RHI (no `-nullrhi`),
+still headless and under the same lock (art-pipeline 2).
 
 `calib` is the `fbx-ue/1` calibration test: with `--export` it first runs
 `scripts/verse/export_unreal.py calib`, then imports `SM_Calib_Axes` and
@@ -57,14 +64,27 @@ def editor_cmd() -> Path:
     return engine_root() / "Engine" / "Binaries" / platform / exe
 
 
-def command_line(log: Path) -> list[str]:
+#: Commands that need an RHI. `placements` spawns actors, which the editor places
+#: through the level viewport, dividing by its size and crashing without an RHI
+#: (UE 5.7.1, measured); `lookdev` and `wp14` (WP14) render frames. They run on the
+#: GPU with the window offscreen instead of `-nullrhi`.
+RENDERED_COMMANDS = frozenset({"placements", "lookdev", "wp14"})
+
+
+def rhi_args(command: str = "") -> list[str]:
+    if command in RENDERED_COMMANDS:
+        return ["-d3d12", "-RenderOffscreen", "-ResX=640", "-ResY=360"]
+    return ["-nullrhi"]
+
+
+def command_line(log: Path, command: str = "") -> list[str]:
     return [
         str(editor_cmd()),
         str(art_common.UPROJECT),
         f"-ExecutePythonScript={CLI}",
         "-unattended",
         "-nosplash",
-        "-nullrhi",
+        *rhi_args(command),
         "-nosound",
         "-NoP4",
         "-stdout",
@@ -86,7 +106,7 @@ def run_pipeline(argv: list[str]) -> tuple[int, dict, Path]:
         VERSE_PIPELINE_RESULT=str(report_path),
         VERSE_PIPELINE_QUIT="1",
     )
-    command = command_line(log)
+    command = command_line(log, argv[0])
     if not editor_cmd().is_file():
         raise FileNotFoundError(f"{editor_cmd()} not found; set {ENGINE_ENV}")
     with art_common.heavy_lock(f"import_art {argv[0]}"):
@@ -140,12 +160,19 @@ def main(argv: list[str] | None = None) -> int:
     calib = sub.add_parser("calib", help="the fbx-ue/1 calibration test")
     calib.add_argument("--export", action="store_true", help="export the calibration assets first")
     calib.add_argument("--importer", choices=("interchange", "legacy"))
+    for name in ("masters", "materials"):
+        cmd = sub.add_parser(name, help=f"WP14: build the {name} from text")
+        cmd.add_argument("--only", default="")
+        cmd.add_argument("--no-save", action="store_true")
+    sub.add_parser("lookdev", help="WP14: render the look evidence frames (GPU)")
+    wp14 = sub.add_parser("wp14", help="WP14: LUT, masters, MIs, weapons, validate, lookdev")
+    wp14.add_argument("--no-lookdev", action="store_true")
     options = parser.parse_args(argv)
 
     forwarded: list[str] = [options.command]
-    if options.command in ("assets", "validate") and options.only:
+    if options.command in ("assets", "validate", "masters", "materials") and options.only:
         forwarded += ["--only", options.only]
-    if options.command == "assets" and options.no_save:
+    if options.command in ("assets", "masters", "materials") and options.no_save:
         forwarded.append("--no-save")
     if options.command == "placements":
         forwarded += ["--deck", options.deck]
@@ -153,6 +180,8 @@ def main(argv: list[str] | None = None) -> int:
             forwarded += ["--zone", options.zone]
         if options.dry_run:
             forwarded.append("--dry-run")
+    if options.command == "wp14" and options.no_lookdev:
+        forwarded.append("--no-lookdev")
     if options.command == "calib":
         if options.export:
             export = HERE.parent / "verse" / "export_unreal.py"
