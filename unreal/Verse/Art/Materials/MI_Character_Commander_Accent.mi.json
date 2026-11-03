@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Commander_Accent",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Accent",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.55
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.42,
+      0.045,
+      0.035,
+      1.0
+    ]
+  }
+}

@@ -363,7 +363,9 @@ def garment_body(ctx: Ctx, classify, name="Body"):
         labs = [labels[v.index] for v in f.verts]
         if "DELETE" in labs:
             continue
-        best = max(set(labs), key=lambda lab: (labs.count(lab), -order.get(lab, 5)))
+        # The name is the last key: a tie must not depend on the per-run string
+        # hash seed (set order), or the exported bytes change on every build.
+        best = max(set(labs), key=lambda lab: (labs.count(lab), -order.get(lab, 5), lab))
         f.material_index = mi[best]
     dead = [v for v in bm.verts if labels[v.index] == "DELETE"]
     bmesh.ops.delete(bm, geom=dead, context="VERTS")

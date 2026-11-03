@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Locomotion/A_Prone_Idle.A_Prone_Idle",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Prone_Idle.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "8fa70c01689d9fc261b552abf139d1ff5a95f117b489c42ed370b9a8542f07b0"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Prone_Idle",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}
