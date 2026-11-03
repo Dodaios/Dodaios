@@ -25,7 +25,14 @@ void FVerseWorldActionReporter::NotifyVisible()
 
 void FVerseWorldActionReporter::NotifyArrived(FName Deck)
 {
-	if (Deck.IsNone() || Discovered.Contains(Deck))
+	if (Deck.IsNone())
+	{
+		return;
+	}
+	// Each visit starts a new tour, as today's effect re-runs (and drops its visited set) on every
+	// deck change: `inspection` needs every room within one visit (A12.5).
+	Visited.Remove(Deck);
+	if (Discovered.Contains(Deck))
 	{
 		return;
 	}

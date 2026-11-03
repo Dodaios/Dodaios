@@ -22,7 +22,7 @@ struct VERSEDECKS_API FVerseWorldAction
  * - `daily_visit` on the first Visible state of a launch (parity W-01);
  * - `deck_discovered` with the deck id on the first arrival on each deck (W-02);
  * - `inspection` with the deck id once the commander stood in every room of the deck, once per deck
- *   per day (W-03).
+ *   per day (W-03). The tour is per visit: arriving on a deck again starts it over.
  *
  * Reporting twice is harmless (the server meters, W-07), so this only avoids noise. Pure: no world,
  * no bridge; the deck subsystem forwards `Sink` to the bridge client.
@@ -35,7 +35,7 @@ public:
 	/** The Verse window became Visible (lifecycle). */
 	void NotifyVisible();
 
-	/** The commander arrived on `Deck` (first frame after a load or a ride). */
+	/** The commander arrived on `Deck` (first frame after a load or a ride); starts a new room tour of it. */
 	void NotifyArrived(FName Deck);
 
 	/**
@@ -44,7 +44,7 @@ public:
 	 */
 	void NotifyPosition(const FVerseDeckManifest& Deck, const FVector& FeetCm, const FString& Day);
 
-	/** Rooms of `Deck` visited since its tour started (sorted names, for QA and tests). */
+	/** Rooms of `Deck` visited during the current visit (sorted names, for QA and tests). */
 	TArray<FName> VisitedRooms(FName Deck) const;
 
 	/** `{"type":"progression.action","id":..,"ts":..,"data":{"action":..,"ref":..}}` (bridge-protocol 9). */
