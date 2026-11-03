@@ -387,6 +387,8 @@ bool FVerseUiBarTest::RunTest(const FString&)
 	TestEqual(TEXT("quick start tier"), W.Game->Started[0], W.Ui->GetUserSettings()->LastTier);
 	W.Ui->LeaveDuel();
 	TestEqual(TEXT("leave"), W.Game->Left, 1);
+	TestEqual(TEXT("leave shows the session summary"), W.Ui->GetScreen(), EVerseUiScreen::SessionSummary);
+	W.Ui->ShowScreen(EVerseUiScreen::None);
 	W.Ui->TravelToDeck(TEXT("engineering"));
 	TestEqual(TEXT("deck navigation"), W.Game->CurrentDeck, FName(TEXT("engineering")));
 	W.Ui->ReturnToApp(TEXT("esc_menu"));

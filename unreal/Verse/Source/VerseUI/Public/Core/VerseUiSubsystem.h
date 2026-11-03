@@ -7,6 +7,7 @@
 #include "Hud/VerseHudPainter.h"
 #include "KillCam/VerseKillCam.h"
 #include "Menus/VerseUiMenus.h"
+#include "Settings/VerseUiInputRemap.h"
 #include "Settings/VerseUiSettings.h"
 #include "Subsystems/WorldSubsystem.h"
 
@@ -18,6 +19,8 @@ class ACameraActor;
 class APawn;
 class SVerseUiRoot;
 class UCanvas;
+class USkeletalMeshComponent;
+struct FActorSpawnParameters;
 class FVerseUiInputProcessor;
 class UVerseEventHub;
 
@@ -62,6 +65,20 @@ public:
 	void SetDuelFov(float Fov);
 	void SetScalability(int32 Level);
 	void SetTextScale(float Scale);
+	/** Settings reset (parity T-01): sensitivity 1, invert off, quality auto, FOV 70/85, volume 0.7, view third. */
+	void ResetSettings();
+
+	/** Applies a scalability level: 0..4, or -1 (auto) for the engine's default levels. */
+	static void ApplyScalabilityLevel(int32 Level);
+
+	/**
+	 * Writes the gore level where VerseGore reads it: UVerseSettings::GoreLevel
+	 * ([/Script/Verse.VerseSettings] in GameUserSettings, combat-state 8), on the class default
+	 * object and in the ini, and asks a live UVerseGoreSubsystem to re-read it.
+	 */
+	static void WriteGoreSetting(UWorld* World, EVerseGoreLevel Level);
+	/** The gore level stored for VerseGore, read back the way VerseGore reads it. */
+	static EVerseGoreLevel ReadGoreSetting();
 
 	// Screens and actions.
 	void ShowScreen(EVerseUiScreen InScreen);
@@ -78,6 +95,35 @@ public:
 
 	/** Key routing; true when the UI used the key. */
 	bool HandleKey(const FKey& Key);
+	/** True while the controls page waits for the key of a rebind (mouse buttons count too). */
+	bool IsListeningForKey() const;
+
+	/** Bridge lifecycle (parity Q-01): booting until welcome, then WP17 sets visible, panel or dormant. */
+	void SetLifecycleState(FName State) { LifecycleState = State; }
+	FName GetLifecycleState() const { return LifecycleState; }
+
+	/** One replayed bolt the kill cam draws (WP18.5: fire events replayed). */
+	struct FReplayBolt
+	{
+		FVector Start = FVector::ZeroVector;
+		FVector End = FVector::ZeroVector;
+		double LocalTime = 0.0;
+	};
+	const TArray<FReplayBolt>& GetReplayBolts() const { return ReplayBolts; }
+	/** Seconds a replayed bolt stays drawn. */
+	static constexpr double ReplayBoltLife = 0.25;
+
+	/** Session totals for the summary shown on leave (parity D-10). */
+	const FVerseSessionSummary& GetSession() const { return Session; }
+	const FVerseEndScreen& GetSessionScreen() const { return SessionScreen; }
+
+	/** Rebinds the local player's Enhanced Input contexts to the current keys now (tests, possession). */
+	int32 ApplyKeyBindingsToInput();
+	FVerseUiInputRemap& GetInputRemap() { return InputRemap; }
+
+	/** The replayed killer: a scene root at the recorded capsule with a copy of the killer's mesh under it at the pawn's mesh offset. */
+	AActor* SpawnKillCamProxy(UWorld* World, const FActorSpawnParameters& Params, const APawn* Killer, USkeletalMeshComponent* KillerMesh);
+	bool IsPausedByUi() const { return bPausedByUi; }
 
 	// Read access.
 	const FVerseUiStrings& GetStrings() const { return Strings; }
@@ -103,7 +149,10 @@ public:
 	void BuildHudFrame(const FVector2D& Viewport, FVerseHudDrawList& Out) const;
 
 	FOnVerseUiScreenChanged OnScreenChanged;
-	/** Kill cam replay of fire and fracture events (VFX and the destruction client redraw them). */
+	/**
+	 * Kill cam replay of fire and fracture events. The UI draws replayed bolts itself; the
+	 * fracture hook is for the destruction client (destruction.md 4) once it binds it.
+	 */
 	TFunction<void(const FVerseFireEvent&)> OnKillCamFire;
 	TFunction<void(const FVerseFractureEvent&)> OnKillCamFracture;
 
@@ -124,6 +173,9 @@ private:
 	void ApplyKillCamView(bool bStart);
 	void TickKillCam(double Now);
 	void OnHudPostRender(AHUD* InHud, UCanvas* Canvas);
+	void DrawReplayBolts(UCanvas* Canvas);
+	void AddReplayBolt(const FVerseFireEvent& Event);
+	void UpdatePause();
 	double LocalNow() const;
 	void PublishSettings();
 
@@ -156,7 +208,15 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> KillCamProxy;
 
+	/** The live killer hidden in the local view only (PlayerController::HiddenActors, not replicated). */
 	TWeakObjectPtr<APawn> KillCamHiddenKiller;
+	TArray<FReplayBolt> ReplayBolts;
+	FVerseSessionSummary Session;
+	FVerseEndScreen SessionScreen;
+	FVerseUiInputRemap InputRemap;
+	double NextInputRemapAt = 0.0;
+	bool bPausedByUi = false;
+	FName LifecycleState = TEXT("booting");
 	/** Own health from own-hit events while the source cannot read it (WP02 attribute set). */
 	float TrackedHealth = 100.f;
 	bool bLastDuelRunning = false;

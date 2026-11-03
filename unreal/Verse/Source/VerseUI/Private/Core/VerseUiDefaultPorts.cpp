@@ -7,6 +7,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
+#include "Kismet/GameplayStatics.h"
 #include "Movement/VerseMovementQuery.h"
 #include "Policies/CondensedJsonPrintPolicy.h"
 #include "Qa/VerseQaRegistry.h"
@@ -23,6 +24,12 @@ namespace
 		const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
 		FJsonSerializer::Serialize(Object, Writer);
 		return Out;
+	}
+
+	bool IsQaRegistered(const FString& Command)
+	{
+		UVerseQaRegistry* Registry = UVerseQaRegistry::Get();
+		return Registry && Registry->IsRegistered(Command);
 	}
 
 	void RunQa(const FString& Command, const TArray<FString>& Args)
@@ -68,6 +75,20 @@ void FVerseUiQaGamePort::TravelToDeck(FName Deck)
 {
 	CurrentDeck = Deck;
 	RunQa(TEXT("Verse.QA.View.Set"), {FString::Printf(TEXT("deck=%s"), *Deck.ToString())});
+}
+
+void FVerseUiQaGamePort::SetPaused(bool bPaused)
+{
+	if (IsQaRegistered(TEXT("Verse.QA.Duel.Pause")))
+	{
+		RunQa(TEXT("Verse.QA.Duel.Pause"), {bPaused ? TEXT("on") : TEXT("off")});
+		return;
+	}
+	// The person hosts the duel (combat-state 5.1), so the engine pause holds the bot too.
+	if (UWorld* W = World.Get())
+	{
+		UGameplayStatics::SetGamePaused(W, bPaused);
+	}
 }
 
 void FVerseUiQaGamePort::NoteArenaSwitch(bool bOn, FName Deck)
@@ -237,6 +258,11 @@ void FVerseUiWorldHudSource::GetPawnPoses(TArray<FVersePawnPose>& Out) const
 			Pose.PlayerId = State->GetPlayerId();
 			Pose.Location = Pawn->GetActorLocation();
 			Pose.Rotation = Pawn->GetBaseAimRotation();
+			// The capsule of a simulated proxy sits at its newest replicated state (both smoothing
+			// modes move only the mesh), and the client's server clock (AGameStateBase: replicated
+			// server time minus local time at receipt) lags the server by the same one-way trip as
+			// that state, so the source's "now" stamps the capsule right (Pose.ServerTime < 0).
+			// The kill cam records and replays capsule positions, never the smoothed mesh.
 			Out.Add(Pose);
 		}
 	}

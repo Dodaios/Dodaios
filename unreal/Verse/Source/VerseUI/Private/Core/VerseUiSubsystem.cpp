@@ -2,15 +2,20 @@
 
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
+#include "CanvasItem.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/VerseUiDefaultPorts.h"
+#include "Core/VerseUiTheme.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
+#include "EnhancedInputSubsystems.h"
 #include "Events/VerseEventHub.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
@@ -19,12 +24,15 @@
 #include "HAL/IConsoleManager.h"
 #include "Menus/SVerseUiRoot.h"
 #include "Misc/App.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "QA/VerseUiQaCommands.h"
 #include "Scalability.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Subsystems/WorldSubsystem.h"
+#include "UObject/UnrealType.h"
 #include "VerseLog.h"
 
 /** Routes key presses to the UI before the game sees them; passes every key the UI does not use. */
@@ -40,6 +48,21 @@ public:
 		return !InKeyEvent.IsRepeat() && Owner.IsValid() && Owner->HandleKey(InKeyEvent.GetKey());
 	}
 
+	/** Mouse buttons finish a pending rebind (fire and ADS default to them); else they pass. */
+	virtual bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
+	{
+		return Owner.IsValid() && Owner->IsListeningForKey() && Owner->HandleKey(MouseEvent.GetEffectingButton());
+	}
+
+	virtual bool HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent) override
+	{
+		if (!Owner.IsValid() || !Owner->IsListeningForKey() || InWheelEvent.GetWheelDelta() == 0.f)
+		{
+			return false;
+		}
+		return Owner->HandleKey(InWheelEvent.GetWheelDelta() > 0.f ? EKeys::MouseScrollUp : EKeys::MouseScrollDown);
+	}
+
 	virtual const TCHAR* GetDebugName() const override { return TEXT("VerseUiInput"); }
 
 	TWeakObjectPtr<UVerseUiSubsystem> Owner;
@@ -47,10 +70,16 @@ public:
 
 namespace
 {
+	/** UVerseSettings (combat-state 8) as VerseGore reads it; VerseUI cannot include Verse. */
+	const TCHAR* VerseSettingsSection = TEXT("/Script/Verse.VerseSettings");
+	const TCHAR* VerseSettingsClass = TEXT("/Script/Verse.VerseSettings");
+	const TCHAR* VerseGoreSubsystemClass = TEXT("/Script/VerseGore.VerseGoreSubsystem");
+
 	/**
-	 * Settings other modules read without including VerseUI (it sits at the top of the module
-	 * graph): duel FOV, sensitivity, view FOVs, gore, reduced motion, volume, and every gameplay
-	 * key binding as Verse.Settings.Key.<action>.
+	 * Interim console variables for the view settings that have no contracted consumer yet
+	 * (duel FOV, sensitivity, invert Y, deck FOVs, reduced motion, volume); a contract change
+	 * request asks for their fields on UVerseSettings. Gore goes to UVerseSettings and the key
+	 * bindings into Enhanced Input.
 	 */
 	void PublishCVar(const TCHAR* Name, const FString& Value, const TCHAR* Help)
 	{
@@ -76,7 +105,9 @@ UVerseUiSubsystem* UVerseUiSubsystem::Get(const UObject* WorldContextObject)
 bool UVerseUiSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
 	const UWorld* World = Cast<UWorld>(Outer);
-	return World && (World->WorldType == EWorldType::Game || World->WorldType == EWorldType::PIE) && Super::ShouldCreateSubsystem(Outer);
+	// Client runtime only (architecture.md): a dedicated server has no person to show a UI to.
+	return World && (World->WorldType == EWorldType::Game || World->WorldType == EWorldType::PIE)
+		&& !IsRunningDedicatedServer() && World->GetNetMode() != NM_DedicatedServer && Super::ShouldCreateSubsystem(Outer);
 }
 
 void UVerseUiSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -88,7 +119,7 @@ void UVerseUiSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	UserSettings->ReloadFromDisk();
 
 	BridgePort = MakeShared<FVerseUiLogBridgePort>();
-	GamePort = MakeShared<FVerseUiQaGamePort>();
+	GamePort = MakeShared<FVerseUiQaGamePort>(GetWorld());
 	HudSource = MakeShared<FVerseUiWorldHudSource>(GetWorld());
 
 	LoadData();
@@ -97,7 +128,14 @@ void UVerseUiSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Armoury.SelectTier(UserSettings->LastTier);
 	Hud.Timing.FeedMax = FMath::Max(1, Hud.Timing.FeedMax);
 
-	KillCam.OnReplayFire = [this](const FVerseFireEvent& E) { if (OnKillCamFire) { OnKillCamFire(E); } };
+	KillCam.OnReplayFire = [this](const FVerseFireEvent& E)
+	{
+		AddReplayBolt(E);
+		if (OnKillCamFire)
+		{
+			OnKillCamFire(E);
+		}
+	};
 	KillCam.OnReplayFracture = [this](const FVerseFractureEvent& E) { if (OnKillCamFracture) { OnKillCamFracture(E); } };
 
 	BindHub();
@@ -115,11 +153,21 @@ void UVerseUiSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	Super::OnWorldBeginPlay(InWorld);
 	BindHub();
 	AttachSlate();
+	// The saved quality level applies at start, not only when the menu changes it.
+	if (!FApp::IsUnattended() && FApp::CanEverRender())
+	{
+		ApplyScalabilityLevel(UserSettings->Scalability);
+	}
 }
 
 void UVerseUiSubsystem::Deinitialize()
 {
 	ApplyKillCamView(false);
+	if (bPausedByUi)
+	{
+		GamePort->SetPaused(false);
+		bPausedByUi = false;
+	}
 	DetachSlate();
 	UnbindHub();
 	AHUD::OnHUDPostRender.Remove(PostRenderHandle);
@@ -278,8 +326,9 @@ void UVerseUiSubsystem::HandleDeath(const FVerseDeathEvent& Event)
 		const double Server = HudSource->GetServerTime();
 		for (const FVersePawnPose& Pose : Poses)
 		{
-			KillCamBuffer.AddPose(Pose.PlayerId, Server, Pose.Location, Pose.Rotation);
+			KillCamBuffer.AddPose(Pose.PlayerId, Pose.ServerTime >= 0.0 ? Pose.ServerTime : Server, Pose.Location, Pose.Rotation);
 		}
+		ReplayBolts.Reset();
 		if (KillCam.Begin(KillCamBuffer, Event, LocalId, Now, Server, AppSettings.Gore == EVerseGoreLevel::Reduced))
 		{
 			ApplyKillCamView(true);
@@ -294,6 +343,7 @@ void UVerseUiSubsystem::HandleSetEnded(const FVerseSetSummary& Summary)
 	{
 		return;
 	}
+	Session.AddSet(Summary);
 	EndScreen = FVerseEndScreen::Build(Summary, HudSource->GetBotEffectiveSkill(Summary.Opponent.PlayerId), Strings.GetLanguage());
 	ShowScreen(EVerseUiScreen::EndOfSet);
 }
@@ -336,10 +386,18 @@ void UVerseUiSubsystem::Tick(float DeltaTime)
 	HudSource->GetPawnPoses(Poses);
 	for (const FVersePawnPose& Pose : Poses)
 	{
-		KillCamBuffer.AddPose(Pose.PlayerId, Server, Pose.Location, Pose.Rotation);
+		KillCamBuffer.AddPose(Pose.PlayerId, Pose.ServerTime >= 0.0 ? Pose.ServerTime : Server, Pose.Location, Pose.Rotation);
 	}
 	KillCamBuffer.Trim(Server);
 	TickKillCam(Now);
+	ReplayBolts.RemoveAll([Now](const FReplayBolt& Bolt) { return Now - Bolt.LocalTime > ReplayBoltLife; });
+
+	// Key bindings follow the contexts the input owners add after possession.
+	if (Now >= NextInputRemapAt)
+	{
+		NextInputRemapAt = Now + 0.25;
+		ApplyKeyBindingsToInput();
+	}
 
 	const bool bDuel = GamePort->IsDuelRunning();
 	if (bDuel != bLastDuelRunning)
@@ -371,6 +429,7 @@ void UVerseUiSubsystem::TickKillCam(double Now)
 	FRotator KillerRotation;
 	if (KillCamProxy && KillCam.GetKillerPose(KillerLocation, KillerRotation))
 	{
+		// The proxy root stands for the recorded capsule; the mesh copy keeps the pawn's mesh offset.
 		KillCamProxy->SetActorLocationAndRotation(KillerLocation, FRotator(0.f, KillerRotation.Yaw, 0.f));
 	}
 }
@@ -416,15 +475,10 @@ void UVerseUiSubsystem::ApplyKillCamView(bool bStart)
 		USkeletalMeshComponent* KillerMesh = Killer ? Killer->FindComponentByClass<USkeletalMeshComponent>() : nullptr;
 		if (KillerMesh && KillerMesh->GetSkeletalMeshAsset())
 		{
-			KillCamProxy = World->SpawnActor<AActor>(Params);
-			USkeletalMeshComponent* Copy = NewObject<USkeletalMeshComponent>(KillCamProxy);
-			Copy->SetSkeletalMeshAsset(KillerMesh->GetSkeletalMeshAsset());
-			Copy->SetRelativeTransform(KillerMesh->GetRelativeTransform());
-			Copy->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			KillCamProxy->SetRootComponent(Copy);
-			Copy->RegisterComponent();
-			Copy->SetLeaderPoseComponent(KillerMesh);
-			Killer->SetActorHiddenInGame(true);
+			KillCamProxy = SpawnKillCamProxy(World, Params, Killer, KillerMesh);
+			// Hide the live killer in this view only: PlayerController::HiddenActors is local
+			// and never replicated (AActor::bHidden is, and the person hosts the duel).
+			PC->HiddenActors.AddUnique(Killer);
 			KillCamHiddenKiller = Killer;
 		}
 		return;
@@ -440,11 +494,42 @@ void UVerseUiSubsystem::ApplyKillCamView(bool bStart)
 		KillCamProxy->Destroy();
 		KillCamProxy = nullptr;
 	}
-	if (APawn* Hidden = KillCamHiddenKiller.Get())
+	if (PC)
 	{
-		Hidden->SetActorHiddenInGame(false);
+		PC->HiddenActors.Remove(KillCamHiddenKiller.Get());
+		PC->HiddenActors.RemoveAll([](const TObjectPtr<AActor>& Actor) { return !IsValid(Actor); });
 	}
 	KillCamHiddenKiller.Reset();
+	ReplayBolts.Reset();
+}
+
+AActor* UVerseUiSubsystem::SpawnKillCamProxy(UWorld* World, const FActorSpawnParameters& Params, const APawn* Killer, USkeletalMeshComponent* KillerMesh)
+{
+	AActor* Proxy = World ? World->SpawnActor<AActor>(Params) : nullptr;
+	if (!Proxy || !Killer || !KillerMesh)
+	{
+		return Proxy;
+	}
+	// Root = the capsule centre the buffer records; the mesh hangs under it with the pawn's own
+	// offset (AVerseCharacter: -half height in Z, -90 deg yaw). On a character the base offsets
+	// are used, so a network smoothing offset of the live mesh is not copied.
+	USceneComponent* Root = NewObject<USceneComponent>(Proxy, TEXT("KillCamRoot"));
+	Proxy->SetRootComponent(Root);
+	Root->RegisterComponent();
+	FTransform MeshOffset = KillerMesh->GetRelativeTransform();
+	if (const ACharacter* Character = Cast<ACharacter>(Killer); Character && Character->GetMesh() == KillerMesh)
+	{
+		MeshOffset = FTransform(Character->GetBaseRotationOffset(), Character->GetBaseTranslationOffset(), KillerMesh->GetRelativeScale3D());
+	}
+	USkeletalMeshComponent* Copy = NewObject<USkeletalMeshComponent>(Proxy, TEXT("KillCamMesh"));
+	Copy->SetSkeletalMeshAsset(KillerMesh->GetSkeletalMeshAsset());
+	Copy->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Copy->SetupAttachment(Root);
+	Copy->SetRelativeTransform(MeshOffset);
+	Copy->RegisterComponent();
+	Copy->SetLeaderPoseComponent(KillerMesh);
+	Proxy->SetActorLocationAndRotation(Killer->GetActorLocation(), FRotator(0.f, Killer->GetActorRotation().Yaw, 0.f));
+	return Proxy;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -495,12 +580,65 @@ void UVerseUiSubsystem::OnHudPostRender(AHUD* InHud, UCanvas* Canvas)
 	const double Start = FPlatformTime::Seconds();
 	BuildHudFrame(FVector2D(Canvas->ClipX, Canvas->ClipY), LastDrawList);
 	FVerseHudCanvasRenderer::Render(Canvas, LastDrawList);
+	DrawReplayBolts(Canvas);
 	HudCostAccum += (FPlatformTime::Seconds() - Start) * 1000.0;
 	if (++HudCostFrames >= 120)
 	{
 		HudCostMs = HudCostAccum / HudCostFrames;
 		HudCostAccum = 0.0;
 		HudCostFrames = 0;
+	}
+}
+
+void UVerseUiSubsystem::AddReplayBolt(const FVerseFireEvent& Event)
+{
+	FReplayBolt Bolt;
+	Bolt.Start = Event.Origin;
+	Bolt.End = Bolt.Start + FVector(Event.Direction).GetSafeNormal() * 10000.0;
+	Bolt.LocalTime = LocalNow();
+	if (UWorld* World = GetWorld())
+	{
+		FCollisionQueryParams Query(SCENE_QUERY_STAT(VerseKillCamBolt), false);
+		if (KillCamProxy)
+		{
+			Query.AddIgnoredActor(KillCamProxy);
+		}
+		FHitResult Hit;
+		if (World->LineTraceSingleByChannel(Hit, Bolt.Start, Bolt.End, ECC_Visibility, Query))
+		{
+			Bolt.End = Hit.ImpactPoint;
+		}
+	}
+	ReplayBolts.Add(Bolt);
+}
+
+void UVerseUiSubsystem::DrawReplayBolts(UCanvas* Canvas)
+{
+	if (!KillCam.IsPlaying() || ReplayBolts.Num() == 0)
+	{
+		return;
+	}
+	const double Now = LocalNow();
+	for (const FReplayBolt& Bolt : ReplayBolts)
+	{
+		const double Age = Now - Bolt.LocalTime;
+		if (Age < 0.0 || Age > ReplayBoltLife)
+		{
+			continue;
+		}
+		const FVector A = Canvas->Project(Bolt.Start, false);
+		const FVector B = Canvas->Project(Bolt.End, false);
+		if (A.Z <= 0.0 || B.Z <= 0.0)
+		{
+			continue;
+		}
+		FLinearColor Colour = VerseUiTheme::Amber;
+		Colour.A = float(1.0 - Age / ReplayBoltLife);
+		FCanvasLineItem Line(FVector2D(A.X, A.Y), FVector2D(B.X, B.Y));
+		Line.SetColor(Colour);
+		Line.LineThickness = 2.f;
+		Line.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Line);
 	}
 }
 
@@ -579,7 +717,21 @@ void UVerseUiSubsystem::ShowScreen(EVerseUiScreen InScreen)
 	}
 	RebuildScreen();
 	ApplyInputMode();
+	UpdatePause();
 	OnScreenChanged.Broadcast(Screen);
+}
+
+void UVerseUiSubsystem::UpdatePause()
+{
+	// Escape mid-match pauses (parity D-09); so does the end-of-set screen, so the endless match
+	// does not go on behind a panel. The match resumes when the screen closes.
+	const bool bWant = GamePort->IsDuelRunning()
+		&& (Screen == EVerseUiScreen::EscMenu || Screen == EVerseUiScreen::Settings || Screen == EVerseUiScreen::EndOfSet);
+	if (bWant != bPausedByUi)
+	{
+		bPausedByUi = bWant;
+		GamePort->SetPaused(bWant);
+	}
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -593,7 +745,7 @@ void UVerseUiSubsystem::SetBridgePort(TSharedPtr<IVerseUiBridgePort> Port)
 void UVerseUiSubsystem::SetGamePort(TSharedPtr<IVerseUiGamePort> Port)
 {
 	bOwnsGamePort = !Port.IsValid();
-	GamePort = Port.IsValid() ? Port : MakeShared<FVerseUiQaGamePort>();
+	GamePort = Port.IsValid() ? Port : MakeShared<FVerseUiQaGamePort>(GetWorld());
 	RebuildScreen();
 }
 
@@ -628,6 +780,10 @@ void UVerseUiSubsystem::ApplyWelcome(const TSharedPtr<FJsonObject>& Data)
 		}
 	}
 	KeyMap.SetReturnKey(AppSettings.ReturnKey);
+	if (LifecycleState == FName(TEXT("booting")))
+	{
+		LifecycleState = TEXT("visible");
+	}
 	PublishSettings();
 	RebuildScreen();
 }
@@ -643,6 +799,58 @@ void UVerseUiSubsystem::ApplySettingsChanged(const TSharedPtr<FJsonObject>& Data
 	KeyMap.SetReturnKey(AppSettings.ReturnKey);
 	PublishSettings();
 	RebuildScreen();
+}
+
+void UVerseUiSubsystem::WriteGoreSetting(UWorld* World, EVerseGoreLevel Level)
+{
+	const FString Value = Level == EVerseGoreLevel::Reduced ? TEXT("Reduced") : TEXT("Full");
+	if (GConfig)
+	{
+		FString Stored;
+		if (!GConfig->GetString(VerseSettingsSection, TEXT("GoreLevel"), Stored, GGameUserSettingsIni) || Stored != Value)
+		{
+			GConfig->SetString(VerseSettingsSection, TEXT("GoreLevel"), *Value, GGameUserSettingsIni);
+			GConfig->Flush(false, GGameUserSettingsIni);
+		}
+	}
+	// The class default object, for code that reads GetDefault<UVerseSettings>().
+	if (UClass* Class = FindObject<UClass>(nullptr, VerseSettingsClass))
+	{
+		if (UObject* Defaults = Class->GetDefaultObject())
+		{
+			if (FEnumProperty* Prop = FindFProperty<FEnumProperty>(Class, TEXT("GoreLevel")))
+			{
+				Prop->GetUnderlyingProperty()->SetIntPropertyValue(Prop->ContainerPtrToValuePtr<void>(Defaults), int64(Level));
+			}
+			else if (FByteProperty* Byte = FindFProperty<FByteProperty>(Class, TEXT("GoreLevel")))
+			{
+				Byte->SetPropertyValue_InContainer(Defaults, uint8(Level));
+			}
+		}
+	}
+	// Live switch (WP05.7): a live VerseGore re-reads the level when it offers the call.
+	UClass* GoreClass = FindObject<UClass>(nullptr, VerseGoreSubsystemClass);
+	if (World && GoreClass && GoreClass->IsChildOf(UWorldSubsystem::StaticClass()))
+	{
+		if (UWorldSubsystem* Gore = World->GetSubsystemBase(GoreClass))
+		{
+			if (UFunction* Reload = Gore->FindFunction(TEXT("ReloadLevelFromSettings")))
+			{
+				Gore->ProcessEvent(Reload, nullptr);
+			}
+		}
+	}
+}
+
+EVerseGoreLevel UVerseUiSubsystem::ReadGoreSetting()
+{
+	// Exactly how VerseGore reads it (UVerseGoreSubsystem::ReloadLevelFromSettings).
+	FString Value;
+	if (GConfig && GConfig->GetString(VerseSettingsSection, TEXT("GoreLevel"), Value, GGameUserSettingsIni))
+	{
+		return Value.TrimStartAndEnd().Equals(TEXT("Reduced"), ESearchCase::IgnoreCase) ? EVerseGoreLevel::Reduced : EVerseGoreLevel::Full;
+	}
+	return EVerseGoreLevel::Full;
 }
 
 void UVerseUiSubsystem::SetAppSettings(const FVerseAppSettings& Next)
@@ -705,16 +913,45 @@ void UVerseUiSubsystem::SetDuelFov(float Fov)
 	PublishSettings();
 }
 
+void UVerseUiSubsystem::ApplyScalabilityLevel(int32 Level)
+{
+	Scalability::FQualityLevels Levels = Scalability::GetQualityLevels();
+	if (Level >= 0)
+	{
+		Levels.SetFromSingleQualityLevel(FMath::Clamp(Level, 0, 4));
+	}
+	else
+	{
+		// Auto: the engine's default levels.
+		Levels.SetDefaults();
+	}
+	Scalability::SetQualityLevels(Levels);
+}
+
 void UVerseUiSubsystem::SetScalability(int32 Level)
 {
 	UserSettings->Scalability = Level;
 	UserSettings->SaveToDisk();
-	if (UserSettings->Scalability >= 0 && !FApp::IsUnattended())
+	if (!FApp::IsUnattended())
 	{
-		Scalability::FQualityLevels Levels = Scalability::GetQualityLevels();
-		Levels.SetFromSingleQualityLevel(UserSettings->Scalability);
-		Scalability::SetQualityLevels(Levels);
+		ApplyScalabilityLevel(UserSettings->Scalability);
 	}
+}
+
+void UVerseUiSubsystem::ResetSettings()
+{
+	FVerseAppSettings Next = AppSettings;
+	const FVerseAppSettings Defaults;
+	Next.Sensitivity = Defaults.Sensitivity;
+	Next.bInvertY = Defaults.bInvertY;
+	Next.Quality = Defaults.Quality;
+	Next.FovThird = Defaults.FovThird;
+	Next.FovFirst = Defaults.FovFirst;
+	Next.Volume = Defaults.Volume;
+	Next.ViewMode = Defaults.ViewMode;
+	SetScalability(-1);
+	SetAppSettings(Next);
+	RebuildScreen();
 }
 
 void UVerseUiSubsystem::SetTextScale(float Scale)
@@ -731,17 +968,19 @@ void UVerseUiSubsystem::PublishSettings()
 	PublishCVar(TEXT("Verse.Settings.FovFirst"), FString::SanitizeFloat(AppSettings.FovFirst), TEXT("Deck first-person FOV (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.Sensitivity"), FString::SanitizeFloat(AppSettings.Sensitivity), TEXT("Look sensitivity (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.InvertY"), AppSettings.bInvertY ? TEXT("1") : TEXT("0"), TEXT("Invert look Y (VerseUI)"));
-	PublishCVar(TEXT("Verse.Settings.Gore"), AppSettings.Gore == EVerseGoreLevel::Reduced ? TEXT("1") : TEXT("0"), TEXT("0 full, 1 reduced (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.ReducedMotion"), AppSettings.bReducedMotion ? TEXT("1") : TEXT("0"), TEXT("Reduced motion (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.Volume"), FString::SanitizeFloat(AppSettings.Volume), TEXT("Master volume 0-1 (VerseUI)"));
-	for (const FVerseKeyMap::FAction& Action : KeyMap.GetActions())
-	{
-		if (Action.Command == EVerseUiCommand::None)
-		{
-			const FString Name = FString::Printf(TEXT("Verse.Settings.Key.%s"), *Action.Action.ToString());
-			PublishCVar(*Name, KeyMap.GetKey(Action.Action).GetFName().ToString(), TEXT("Gameplay key binding (VerseUI)"));
-		}
-	}
+	WriteGoreSetting(GetWorld(), AppSettings.Gore);
+	ApplyKeyBindingsToInput();
+}
+
+int32 UVerseUiSubsystem::ApplyKeyBindingsToInput()
+{
+	UWorld* World = GetWorld();
+	APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+	ULocalPlayer* Player = PC ? PC->GetLocalPlayer() : nullptr;
+	UEnhancedInputLocalPlayerSubsystem* Input = Player ? Player->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>() : nullptr;
+	return InputRemap.ApplyToPlayer(Input, KeyMap);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -751,20 +990,31 @@ void UVerseUiSubsystem::StartDuelFromArmoury()
 {
 	UserSettings->LastTier = Armoury.GetSelectedTier();
 	UserSettings->SaveToDisk();
+	Session.Reset();
 	GamePort->StartDuel(Armoury.GetSelectedTier());
 	ShowScreen(EVerseUiScreen::None);
 }
 
 void UVerseUiSubsystem::QuickStartDuel()
 {
+	Session.Reset();
 	GamePort->StartDuel(UserSettings->LastTier);
 	ShowScreen(EVerseUiScreen::None);
 }
 
 void UVerseUiSubsystem::LeaveDuel()
 {
+	// Endless sets: leaving anywhere but the end-of-set screen leaves a set open (parity D-10;
+	// the duel owner reports it as unfinished, W-08). The summary shows the session and "again".
+	Session.bLeftMidSet = GamePort->IsDuelRunning() && Screen != EVerseUiScreen::EndOfSet;
+	if (bPausedByUi)
+	{
+		GamePort->SetPaused(false);
+		bPausedByUi = false;
+	}
 	GamePort->LeaveDuel();
-	ShowScreen(EVerseUiScreen::None);
+	SessionScreen = Session.BuildScreen(Strings.GetLanguage());
+	ShowScreen(EVerseUiScreen::SessionSummary);
 }
 
 void UVerseUiSubsystem::ReturnToApp(const FString& Reason)
@@ -796,6 +1046,11 @@ void UVerseUiSubsystem::ToggleBar()
 {
 	bBarOpen = !bBarOpen;
 	RebuildScreen();
+}
+
+bool UVerseUiSubsystem::IsListeningForKey() const
+{
+	return SlateRoot.IsValid() && SlateRoot->IsListening();
 }
 
 bool UVerseUiSubsystem::HandleKey(const FKey& Key)

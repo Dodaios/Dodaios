@@ -1,6 +1,8 @@
 #include "Core/VerseUiLayout.h"
 #include "Core/VerseUiStrings.h"
 #include "Core/VerseUiTheme.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
@@ -82,7 +84,7 @@ const TArray<FString>& FVerseUiStrings::SupportedLanguages()
 
 FString FVerseUiStrings::DefaultCatalogueDir()
 {
-	return FPaths::Combine(FPaths::ProjectDir(), TEXT("Data"), TEXT("ui"), TEXT("locales"));
+	return FPaths::Combine(FPaths::ProjectDir(), TEXT("Data"), TEXT("ui"));
 }
 
 bool FVerseUiStrings::LoadCatalogue(const FString& Dir, FString* OutError)
@@ -251,6 +253,37 @@ FString FVerseUiStrings::GetIn(const FString& Key, const FString& Lang) const
 		}
 	}
 	return FString();
+}
+
+FCulturePtr FVerseUiStrings::GetCulture() const
+{
+	if (!CachedCulture.IsValid() || CachedCultureLang != Language)
+	{
+		CachedCultureLang = Language;
+		CachedCulture = FInternationalization::Get().GetCulture(Language);
+		if (!CachedCulture.IsValid())
+		{
+			CachedCulture = FInternationalization::Get().GetCulture(TEXT("en"));
+		}
+	}
+	return CachedCulture;
+}
+
+FText FVerseUiStrings::Number(double Value, int32 FractionDigits, bool bGrouping) const
+{
+	FNumberFormattingOptions Options;
+	Options.UseGrouping = bGrouping;
+	Options.MinimumFractionalDigits = FractionDigits;
+	Options.MaximumFractionalDigits = FractionDigits;
+	return FText::AsNumber(Value, &Options, GetCulture());
+}
+
+FText FVerseUiStrings::Percent(double Value, int32 FractionDigits) const
+{
+	FNumberFormattingOptions Options;
+	Options.MinimumFractionalDigits = FractionDigits;
+	Options.MaximumFractionalDigits = FractionDigits;
+	return FText::AsPercent(Value, &Options, GetCulture());
 }
 
 TArray<FString> FVerseUiStrings::GetKeys() const

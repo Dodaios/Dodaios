@@ -86,6 +86,24 @@ struct VERSEUI_API FVerseEndScreen
 	static FVerseEndScreen Build(const FVerseSetSummary& Summary, float BotEffectiveSkill, const FString& Lang = TEXT("en"));
 };
 
+/** Totals of the duel session the summary shows on leave (parity D-10). */
+struct VERSEUI_API FVerseSessionSummary
+{
+	int32 SetsWon = 0;
+	int32 SetsLost = 0;
+	/** Summed lines of every finished set; BestStreak is the best of them. */
+	FVerseSetSummary Totals;
+	/** The person left while a set was running (verse.duel.notice.left). */
+	bool bLeftMidSet = false;
+
+	void Reset() { *this = FVerseSessionSummary(); }
+	void AddSet(const FVerseSetSummary& Set);
+	int32 NumSets() const { return SetsWon + SetsLost; }
+
+	/** Rows like the end-of-set screen, in Lang. */
+	FVerseEndScreen BuildScreen(const FString& Lang) const;
+};
+
 /** The screens the UI layer can show over the game. */
 enum class EVerseUiScreen : uint8
 {
@@ -94,4 +112,5 @@ enum class EVerseUiScreen : uint8
 	Settings,
 	Armoury,
 	EndOfSet,
+	SessionSummary,
 };

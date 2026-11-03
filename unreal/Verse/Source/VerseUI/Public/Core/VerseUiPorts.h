@@ -40,6 +40,8 @@ public:
 	virtual void TravelToDeck(FName Deck) = 0;
 	virtual bool IsDuelRunning() const = 0;
 	virtual FName GetCurrentDeck() const = 0;
+	/** Holds or releases the match while a menu covers it (parity D-09). */
+	virtual void SetPaused(bool bPaused) = 0;
 };
 
 struct VERSEUI_API FVerseHudGadgetState
@@ -97,6 +99,11 @@ struct VERSEUI_API FVersePawnPose
 	FVector Location = FVector::ZeroVector;
 	/** Control (view) rotation. */
 	FRotator Rotation = FRotator::ZeroRotator;
+	/**
+	 * Server time of the state this pose shows, s; negative = the source's server time now.
+	 * A source sets it when the pawn is drawn later than its replicated state (smoothing).
+	 */
+	double ServerTime = -1.0;
 };
 
 /** What the HUD reads every frame. */

@@ -28,8 +28,10 @@ namespace
 		const double Delta = FMath::Max(1e-6, FApp::GetDeltaTime());
 		const int32 Level = Scalability::GetQualityLevels().GetSingleQualityLevel();
 		const double HudMs = GOwner.IsValid() ? GOwner->GetHudCostMs() : 0.0;
+		// Lifecycle as the bridge reports it (WP17 sets visible, panel, dormant; booting until welcome).
+		const FString State = GOwner.IsValid() ? GOwner->GetLifecycleState().ToString() : FString(TEXT("booting"));
 		return FString::Printf(TEXT("{\"fps\":%.1f,\"frame_ms\":%.2f,\"tier\":\"%s\",\"state\":\"%s\",\"hud_ms\":%.3f}"),
-			1.0 / Delta, Delta * 1000.0, QualityName(Level), TEXT("visible"), HudMs);
+			1.0 / Delta, Delta * 1000.0, QualityName(Level), *State, HudMs);
 	}
 }
 

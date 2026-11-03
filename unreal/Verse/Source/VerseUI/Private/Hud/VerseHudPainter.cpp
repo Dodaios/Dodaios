@@ -90,17 +90,15 @@ namespace
 		return Label.Size;
 	}
 
-	FText Num(int32 Value)
+	// Numbers follow the Verse UI language, never the machine's culture.
+	FText Num(const FVerseUiStrings& Strings, int32 Value)
 	{
-		return FText::AsNumber(Value, &FNumberFormattingOptions::DefaultNoGrouping());
+		return Strings.Number(Value, 0, false);
 	}
 
-	FText Seconds(float Value)
+	FText Seconds(const FVerseUiStrings& Strings, float Value)
 	{
-		FNumberFormattingOptions Options;
-		Options.MinimumFractionalDigits = 1;
-		Options.MaximumFractionalDigits = 1;
-		return FText::AsNumber(FMath::Max(0.f, Value), &Options);
+		return Strings.Number(FMath::Max(0.f, Value), 1, false);
 	}
 
 	FString StanceKey(EVerseStance Stance)
@@ -420,7 +418,7 @@ void FVerseHudPainter::PaintVitals(const FVerseHudFrame& Frame, FVerseHudDrawLis
 
 	const float Fraction = Frame.Pawn.MaxHealth > 0.f ? FMath::Clamp(Frame.Pawn.Health / Frame.Pawn.MaxHealth, 0.f, 1.f) : 0.f;
 	const bool bLow = Fraction < 0.3f;
-	Text(Out, Measure, P + FVector2D(Pad, L.Px(24.f)), Num(FMath::CeilToInt(Frame.Pawn.Health)), L.FontSize(26.f), true,
+	Text(Out, Measure, P + FVector2D(Pad, L.Px(24.f)), Num(*Frame.Strings, FMath::CeilToInt(Frame.Pawn.Health)), L.FontSize(26.f), true,
 		bLow ? VerseUiTheme::Red : VerseUiTheme::Text, EVerseTextAlign::Left, 0.f, TEXT("vitals.health"));
 
 	const FVector2D BarPos = P + FVector2D(Pad, L.Px(72.f));
@@ -443,7 +441,7 @@ void FVerseHudPainter::PaintVitals(const FVerseHudFrame& Frame, FVerseHudDrawLis
 	if (Frame.Pawn.bSpawnProtected)
 	{
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("seconds"), Seconds(Frame.Pawn.SpawnProtectionRemaining));
+		Args.Add(TEXT("seconds"), Seconds(*Frame.Strings, Frame.Pawn.SpawnProtectionRemaining));
 		const FVector2D Above = P - FVector2D(0, L.Px(34.f));
 		const float Sq = L.Px(16.f);
 		Outline(Out, Above + FVector2D(0, L.Px(4.f)), FVector2D(Sq, Sq), FMath::Max(1.f, L.Px(2.f)), VerseUiTheme::Blocked, TEXT("vitals.protected"));
@@ -475,7 +473,7 @@ void FVerseHudPainter::PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawLis
 
 		const bool bLow = Pawn.MagazineSize > 0 && Pawn.Magazine * 4 <= Pawn.MagazineSize;
 		FFormatNamedArguments Reserve;
-		Reserve.Add(TEXT("reserve"), Num(Pawn.Reserve));
+		Reserve.Add(TEXT("reserve"), Num(*Frame.Strings, Pawn.Reserve));
 		const FVector2D ReserveSize = Text(Out, Measure, RightTop + FVector2D(0, L.Px(40.f)), S.Format(TEXT("verse.hud.reserve"), Reserve),
 			L.FontSize(14.f), false, VerseUiTheme::TextDim, EVerseTextAlign::Right, 0.f, TEXT("weapon.reserve"));
 		float X = RightTop.X - ReserveSize.X - L.Px(10.f);
@@ -485,7 +483,7 @@ void FVerseHudPainter::PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawLis
 				VerseUiTheme::Gold, EVerseTextAlign::Right, 0.f, TEXT("weapon.chambered"));
 			X -= Plus.X + L.Px(4.f);
 		}
-		Text(Out, Measure, FVector2D(X, P.Y + L.Px(22.f)), Num(Pawn.Magazine), L.FontSize(30.f), true, bLow ? VerseUiTheme::Red : VerseUiTheme::Text,
+		Text(Out, Measure, FVector2D(X, P.Y + L.Px(22.f)), Num(*Frame.Strings, Pawn.Magazine), L.FontSize(30.f), true, bLow ? VerseUiTheme::Red : VerseUiTheme::Text,
 			EVerseTextAlign::Right, 0.f, TEXT("weapon.magazine"));
 
 		if (Pawn.bReloading)
@@ -530,7 +528,7 @@ void FVerseHudPainter::PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawLis
 		if (G.CooldownRemaining > 0.f)
 		{
 			FFormatNamedArguments Args;
-			Args.Add(TEXT("seconds"), FText::AsNumber(FMath::CeilToInt(G.CooldownRemaining)));
+			Args.Add(TEXT("seconds"), Num(*Frame.Strings, FMath::CeilToInt(G.CooldownRemaining)));
 			Text(Out, Measure, GP + FVector2D(GW - L.Px(8.f), GH - L.Px(22.f)), S.Format(TEXT("verse.hud.cooldown"), Args), L.FontSize(10.f), false,
 				VerseUiTheme::TextDim, EVerseTextAlign::Right, GW * 0.5f, TEXT("gadget.cooldown"));
 		}
@@ -547,11 +545,11 @@ void FVerseHudPainter::PaintScore(const FVerseHudFrame& Frame, FVerseHudDrawList
 	const float Mid = P.X + BlockSize.X * 0.5f;
 	const float Half = BlockSize.X * 0.5f - L.Px(42.f);
 
-	Text(Out, Measure, FVector2D(Mid - L.Px(14.f), P.Y + L.Px(4.f)), Num(Frame.Model->GetScoreSelf()), L.FontSize(22.f), true, VerseUiTheme::Amber,
+	Text(Out, Measure, FVector2D(Mid - L.Px(14.f), P.Y + L.Px(4.f)), Num(*Frame.Strings, Frame.Model->GetScoreSelf()), L.FontSize(22.f), true, VerseUiTheme::Amber,
 		EVerseTextAlign::Right, 0.f, TEXT("score.self"));
 	Text(Out, Measure, FVector2D(Mid, P.Y + L.Px(4.f)), S.Get(TEXT("verse.hud.score.separator")), L.FontSize(22.f), true, VerseUiTheme::TextDim,
 		EVerseTextAlign::Centre, 0.f, TEXT("score.separator"));
-	Text(Out, Measure, FVector2D(Mid + L.Px(14.f), P.Y + L.Px(4.f)), Num(Frame.Model->GetScoreOpponent()), L.FontSize(22.f), true, VerseUiTheme::Red,
+	Text(Out, Measure, FVector2D(Mid + L.Px(14.f), P.Y + L.Px(4.f)), Num(*Frame.Strings, Frame.Model->GetScoreOpponent()), L.FontSize(22.f), true, VerseUiTheme::Red,
 		EVerseTextAlign::Left, 0.f, TEXT("score.opponent"));
 
 	Text(Out, Measure, FVector2D(P.X + L.Px(10.f), P.Y + L.Px(14.f)), S.Get(TEXT("verse.hud.score.you")), L.FontSize(9.f), true, VerseUiTheme::TextDim,
@@ -560,8 +558,8 @@ void FVerseHudPainter::PaintScore(const FVerseHudFrame& Frame, FVerseHudDrawList
 		VerseUiTheme::TextDim, EVerseTextAlign::Right, Half - L.Px(10.f), TEXT("score.opponent_label"));
 
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("set"), Num(Frame.Model->GetSetIndex()));
-	Args.Add(TEXT("target"), Num(Frame.Model->Timing.SetTarget));
+	Args.Add(TEXT("set"), Num(*Frame.Strings, Frame.Model->GetSetIndex()));
+	Args.Add(TEXT("target"), Num(*Frame.Strings, Frame.Model->Timing.SetTarget));
 	Text(Out, Measure, FVector2D(Mid, P.Y + L.Px(44.f)), S.Format(TEXT("verse.hud.score.set"), Args), L.FontSize(9.f), false, VerseUiTheme::TextDim,
 		EVerseTextAlign::Centre, BlockSize.X - L.Px(16.f), TEXT("score.set"));
 }
@@ -659,7 +657,7 @@ void FVerseHudPainter::PaintCentre(const FVerseHudFrame& Frame, FVerseHudDrawLis
 	if (Frame.Model->IsLocalDead())
 	{
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("seconds"), Seconds(Frame.Model->GetRespawnRemaining(Frame.ServerTime)));
+		Args.Add(TEXT("seconds"), Seconds(*Frame.Strings, Frame.Model->GetRespawnRemaining(Frame.ServerTime)));
 		const float Y = L.SafeMin.Y + L.SafeSize().Y * 0.70f;
 		Text(Out, Measure, FVector2D(Mid, Y), S.Format(TEXT("verse.hud.respawn_in"), Args), L.FontSize(20.f), true, VerseUiTheme::Text,
 			EVerseTextAlign::Centre, Width, TEXT("centre.respawn"));

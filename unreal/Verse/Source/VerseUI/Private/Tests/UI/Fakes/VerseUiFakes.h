@@ -112,8 +112,15 @@ public:
 	virtual void TravelToDeck(FName Deck) override { CurrentDeck = Deck; }
 	virtual bool IsDuelRunning() const override { return bDuel; }
 	virtual FName GetCurrentDeck() const override { return CurrentDeck; }
+	virtual void SetPaused(bool bPaused) override
+	{
+		bIsPaused = bPaused;
+		++PauseCalls;
+	}
 
 	TArray<FName> Started;
+	bool bIsPaused = false;
+	int32 PauseCalls = 0;
 	int32 Left = 0;
 	bool bDuel = false;
 	FName CurrentDeck = TEXT("hangar");

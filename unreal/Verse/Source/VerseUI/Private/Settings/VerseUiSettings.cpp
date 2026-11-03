@@ -211,6 +211,11 @@ bool FVerseKeyMap::LoadJson(const FString& Json, FString* OutError)
 		(*Obj)->TryGetStringField(TEXT("key"), Text);
 		Action.DefaultKey = FKey(*Text);
 		(*Obj)->TryGetStringField(TEXT("label"), Action.LabelKey);
+		FString InputAction;
+		if ((*Obj)->TryGetStringField(TEXT("input_action"), InputAction))
+		{
+			Action.InputAction = FName(*InputAction);
+		}
 		FString Command;
 		if ((*Obj)->TryGetStringField(TEXT("ui"), Command))
 		{

@@ -54,20 +54,6 @@ namespace
 		return Ui->GetStrings().Get(bOn ? TEXT("verse.ui.on") : TEXT("verse.ui.off"));
 	}
 
-	FText Number(double Value, int32 Digits)
-	{
-		FNumberFormattingOptions Options;
-		Options.MinimumFractionalDigits = Digits;
-		Options.MaximumFractionalDigits = Digits;
-		return FText::AsNumber(Value, &Options);
-	}
-
-	FText Percent(double Value)
-	{
-		FNumberFormattingOptions Options;
-		Options.MaximumFractionalDigits = 0;
-		return FText::AsPercent(Value, &Options);
-	}
 
 	const TCHAR* ScalabilityKey(int32 Level)
 	{
@@ -138,6 +124,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildScreen()
 	case EVerseUiScreen::Settings: return BuildSettings();
 	case EVerseUiScreen::Armoury: return BuildArmoury();
 	case EVerseUiScreen::EndOfSet: return BuildEndOfSet();
+	case EVerseUiScreen::SessionSummary: return BuildSessionSummary();
 	case EVerseUiScreen::None: break;
 	}
 	return SNullWidget::NullWidget;
@@ -347,9 +334,21 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettings()
 		]
 		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right).Padding(FMargin(0.f, 12.f, 0.f, 0.f))
 		[
-			SNew(SBox).WidthOverride(240.f)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0.f, 0.f, 8.f, 0.f))
 			[
-				Button(S(TEXT("verse.ui.back")), FSimpleDelegate::CreateLambda([Ui] { if (Ui.IsValid()) { Ui->ShowScreen(EVerseUiScreen::EscMenu); } }))
+				SNew(SBox).WidthOverride(240.f)
+				[
+					// parity T-01: reset restores the view defaults.
+					Button(S(TEXT("verse.settings.reset")), FSimpleDelegate::CreateLambda([Ui] { if (Ui.IsValid()) { Ui->ResetSettings(); } }))
+				]
+			]
+			+ SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SBox).WidthOverride(240.f)
+				[
+					Button(S(TEXT("verse.ui.back")), FSimpleDelegate::CreateLambda([Ui] { if (Ui.IsValid()) { Ui->ShowScreen(EVerseUiScreen::EscMenu); } }))
+				]
 			]
 		];
 	PageSlot->SetContent(BuildSettingsPage());
@@ -382,16 +381,16 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettingsPage()
 			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? OnOff(Ui.Get(), Ui->GetAppSettings().bReducedMotion) : FText(); }),
 			[Ui](int32) { if (Ui.IsValid()) { Ui->SetReducedMotion(!Ui->GetAppSettings().bReducedMotion); } }));
 		Add(Stepper(TEXT("verse.settings.duel_fov"),
-			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Number(Ui->GetUserSettings()->DuelFov, 0) : FText(); }),
+			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Ui->GetStrings().Number(Ui->GetUserSettings()->DuelFov) : FText(); }),
 			[Ui](int32 D) { if (Ui.IsValid()) { Ui->SetDuelFov(Ui->GetUserSettings()->DuelFov + 5.f * D); } }));
 		Add(Stepper(TEXT("verse.settings.fov_third"),
-			TAttribute<FText>::CreateLambda([App] { return Number(App().FovThird, 0); }),
+			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Number(App().FovThird) : FText(); }),
 			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.FovThird = FMath::Clamp(S.FovThird + 5.f * D, 50.f, 110.f); }); }));
 		Add(Stepper(TEXT("verse.settings.fov_first"),
-			TAttribute<FText>::CreateLambda([App] { return Number(App().FovFirst, 0); }),
+			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Number(App().FovFirst) : FText(); }),
 			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.FovFirst = FMath::Clamp(S.FovFirst + 5.f * D, 50.f, 110.f); }); }));
 		Add(Stepper(TEXT("verse.settings.sensitivity"),
-			TAttribute<FText>::CreateLambda([App] { return Number(App().Sensitivity, 1); }),
+			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Number(App().Sensitivity, 1) : FText(); }),
 			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.Sensitivity = FMath::Clamp(FMath::RoundToFloat((S.Sensitivity + 0.1f * D) * 10.f) / 10.f, 0.1f, 5.f); }); }));
 		Add(Stepper(TEXT("verse.settings.invert_y"),
 			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? OnOff(Ui.Get(), App().bInvertY) : FText(); }),
@@ -432,7 +431,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettingsPage()
 
 	case 2: // Audio
 		Add(Stepper(TEXT("verse.settings.volume"),
-			TAttribute<FText>::CreateLambda([App] { return Percent(App().Volume); }),
+			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Percent(App().Volume) : FText(); }),
 			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.Volume = FMath::Clamp(FMath::RoundToFloat((S.Volume + 0.05f * D) * 20.f) / 20.f, 0.f, 1.f); }); }));
 		Add(Stepper(TEXT("verse.settings.ui_sound"),
 			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? OnOff(Ui.Get(), App().bUiSound) : FText(); }),
@@ -457,7 +456,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettingsPage()
 
 	default: // Accessibility
 		Add(Stepper(TEXT("verse.settings.text_size"),
-			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Percent(Ui->GetUserSettings()->TextScale) : FText(); }),
+			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Ui->GetStrings().Percent(Ui->GetUserSettings()->TextScale) : FText(); }),
 			[Ui](int32 D) { if (Ui.IsValid()) { Ui->SetTextScale(Ui->GetUserSettings()->TextScale + 0.1f * D); } }));
 		Add(Label(S(TEXT("verse.settings.markers_note")), 13.f, false, VerseUiTheme::TextDim));
 		break;
@@ -536,18 +535,8 @@ TSharedRef<SWidget> SVerseUiRoot::BuildArmoury()
 	return Panel(TEXT("verse.armoury.title"), Body, 860.f);
 }
 
-TSharedRef<SWidget> SVerseUiRoot::BuildEndOfSet()
+TSharedRef<SWidget> SVerseUiRoot::BuildStatsTable(const FVerseEndScreen& End)
 {
-	TWeakObjectPtr<UVerseUiSubsystem> Ui = Owner;
-	const FVerseEndScreen& End = Owner->GetEndScreen();
-	const FVerseUiStrings& Strings = Owner->GetStrings();
-
-	FFormatNamedArguments SetArgs;
-	SetArgs.Add(TEXT("set"), FText::AsNumber(End.SetIndex));
-	FFormatNamedArguments ScoreArgs;
-	ScoreArgs.Add(TEXT("person"), FText::AsNumber(End.PersonKills));
-	ScoreArgs.Add(TEXT("opponent"), FText::AsNumber(End.OpponentKills));
-
 	TSharedRef<SVerticalBox> Table = SNew(SVerticalBox);
 	Table->AddSlot().AutoHeight().Padding(FMargin(0.f, 2.f))
 	[
@@ -566,6 +555,22 @@ TSharedRef<SWidget> SVerseUiRoot::BuildEndOfSet()
 			+ SHorizontalBox::Slot().FillWidth(1.f).HAlign(HAlign_Right)[Label(Row.Opponent, 15.f, true, VerseUiTheme::Text)]
 		];
 	}
+	return Table;
+}
+
+TSharedRef<SWidget> SVerseUiRoot::BuildEndOfSet()
+{
+	TWeakObjectPtr<UVerseUiSubsystem> Ui = Owner;
+	const FVerseEndScreen& End = Owner->GetEndScreen();
+	const FVerseUiStrings& Strings = Owner->GetStrings();
+
+	FFormatNamedArguments SetArgs;
+	SetArgs.Add(TEXT("set"), Strings.Number(End.SetIndex));
+	FFormatNamedArguments ScoreArgs;
+	ScoreArgs.Add(TEXT("person"), Strings.Number(End.PersonKills));
+	ScoreArgs.Add(TEXT("opponent"), Strings.Number(End.OpponentKills));
+
+	TSharedRef<SWidget> Table = BuildStatsTable(End);
 
 	TSharedRef<SVerticalBox> Body = SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[Label(Strings.Format(TEXT("verse.end.set"), SetArgs), 14.f, false, VerseUiTheme::TextDim)]
@@ -577,7 +582,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildEndOfSet()
 	if (End.bShowSkill)
 	{
 		FFormatNamedArguments SkillArgs;
-		SkillArgs.Add(TEXT("skill"), Number(End.Skill, 2));
+		SkillArgs.Add(TEXT("skill"), Strings.Number(End.Skill, 2));
 		Body->AddSlot().AutoHeight().Padding(FMargin(0.f, 14.f, 0.f, 0.f))[Label(Strings.Format(TEXT("verse.end.adaptive"), SkillArgs), 14.f, true, VerseUiTheme::Amber)];
 	}
 	else if (!End.Tier.IsNone())
@@ -599,4 +604,38 @@ TSharedRef<SWidget> SVerseUiRoot::BuildEndOfSet()
 		]
 	];
 	return Panel(End.TitleKey, Body, 720.f);
+}
+
+TSharedRef<SWidget> SVerseUiRoot::BuildSessionSummary()
+{
+	// parity D-10: leave shows the session summary and "again"; a mid-set leave says so.
+	TWeakObjectPtr<UVerseUiSubsystem> Ui = Owner;
+	const FVerseEndScreen& Summary = Owner->GetSessionScreen();
+	const FVerseUiStrings& Strings = Owner->GetStrings();
+	TSharedRef<SVerticalBox> Body = SNew(SVerticalBox);
+	if (Owner->GetSession().bLeftMidSet)
+	{
+		Body->AddSlot().AutoHeight().Padding(FMargin(0.f, 0.f, 0.f, 10.f))[Label(S(TEXT("verse.duel.notice.left")), 15.f, true, VerseUiTheme::Amber)];
+	}
+	FFormatNamedArguments SetsArgs;
+	SetsArgs.Add(TEXT("won"), Strings.Number(Summary.PersonKills));
+	SetsArgs.Add(TEXT("lost"), Strings.Number(Summary.OpponentKills));
+	Body->AddSlot().AutoHeight().Padding(FMargin(0.f, 0.f, 0.f, 14.f))[Label(Strings.Format(TEXT("verse.end.sets"), SetsArgs), 26.f, true, VerseUiTheme::Text)];
+	if (Summary.SetIndex > 0)
+	{
+		Body->AddSlot().AutoHeight()[BuildStatsTable(Summary)];
+	}
+	Body->AddSlot().AutoHeight().Padding(FMargin(0.f, 22.f, 0.f, 0.f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot().FillWidth(1.f).Padding(FMargin(0.f, 0.f, 6.f, 0.f))
+		[
+			Button(S(TEXT("verse.duel.result.leave")), FSimpleDelegate::CreateLambda([Ui] { if (Ui.IsValid()) { Ui->ShowScreen(EVerseUiScreen::None); } }))
+		]
+		+ SHorizontalBox::Slot().FillWidth(2.f)
+		[
+			Button(S(TEXT("verse.duel.result.rematch")), FSimpleDelegate::CreateLambda([Ui] { if (Ui.IsValid()) { Ui->QuickStartDuel(); } }), true)
+		]
+	];
+	return Panel(Summary.TitleKey, Body, 720.f);
 }

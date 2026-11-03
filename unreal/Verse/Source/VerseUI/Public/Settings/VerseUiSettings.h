@@ -124,6 +124,11 @@ public:
 		FString LabelKey;
 		/** The UI handles it itself (return, Esc menu, skip, bar); others are gameplay input. */
 		EVerseUiCommand Command = EVerseUiCommand::None;
+		/**
+		 * Gameplay input: the Enhanced Input action the input owner maps DefaultKey to (for
+		 * example IA_Jump, WP01). The binding moves that one mapping (FVerseUiInputRemap).
+		 */
+		FName InputAction;
 	};
 
 	static FName ReturnAction() { return TEXT("return_to_app"); }

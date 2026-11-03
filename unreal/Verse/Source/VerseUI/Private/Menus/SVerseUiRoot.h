@@ -42,6 +42,8 @@ private:
 	TSharedRef<SWidget> BuildSettingsPage();
 	TSharedRef<SWidget> BuildArmoury();
 	TSharedRef<SWidget> BuildEndOfSet();
+	TSharedRef<SWidget> BuildSessionSummary();
+	TSharedRef<SWidget> BuildStatsTable(const struct FVerseEndScreen& Screen);
 
 	TSharedRef<SWidget> Panel(const FString& TitleKey, TSharedRef<SWidget> Body, float Width);
 	TSharedRef<SWidget> Button(TAttribute<FText> Label, FSimpleDelegate OnClick, bool bPrimary = false, TAttribute<bool> bSelected = false);

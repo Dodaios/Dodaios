@@ -195,3 +195,58 @@ FVerseEndScreen FVerseEndScreen::Build(const FVerseSetSummary& Summary, float Bo
 	};
 	return Screen;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Session summary
+
+namespace
+{
+	void AddLine(FVerseSetLine& Sum, const FVerseSetLine& Line)
+	{
+		Sum.PlayerId = Line.PlayerId;
+		Sum.bIsBot = Line.bIsBot;
+		Sum.Kills += Line.Kills;
+		Sum.Deaths += Line.Deaths;
+		Sum.Headshots += Line.Headshots;
+		Sum.Finishers += Line.Finishers;
+		Sum.MeleeKills += Line.MeleeKills;
+		Sum.ShotsFired += Line.ShotsFired;
+		Sum.ShotsHit += Line.ShotsHit;
+		Sum.DamageDealt += Line.DamageDealt;
+		Sum.DamageTaken += Line.DamageTaken;
+		Sum.WallsBreached += Line.WallsBreached;
+		Sum.BestStreak = FMath::Max(Sum.BestStreak, Line.BestStreak);
+	}
+}
+
+void FVerseSessionSummary::AddSet(const FVerseSetSummary& Set)
+{
+	if (Set.Outcome == EVerseSetOutcome::Won)
+	{
+		++SetsWon;
+	}
+	else if (Set.Outcome == EVerseSetOutcome::Lost)
+	{
+		++SetsLost;
+	}
+	else
+	{
+		return;
+	}
+	AddLine(Totals.Person, Set.Person);
+	AddLine(Totals.Opponent, Set.Opponent);
+	Totals.BotTier = Set.BotTier;
+	Totals.SetIndex = Set.SetIndex;
+}
+
+FVerseEndScreen FVerseSessionSummary::BuildScreen(const FString& Lang) const
+{
+	FVerseSetSummary Sum = Totals;
+	Sum.Outcome = EVerseSetOutcome::Unfinished;
+	FVerseEndScreen Screen = FVerseEndScreen::Build(Sum, -1.f, Lang);
+	Screen.TitleKey = TEXT("verse.duel.result.cancelled");
+	Screen.SetIndex = NumSets();
+	Screen.PersonKills = SetsWon;
+	Screen.OpponentKills = SetsLost;
+	return Screen;
+}

@@ -5,7 +5,7 @@
 
 /**
  * Every user-visible string of the Verse UI (WP18.1, A18.4). Code names keys only; text comes
- * from the catalogue unreal/Verse/Data/ui/locales/strings.<lang>.json (5 locales) overlaid by the strings the
+ * from the catalogue unreal/Verse/Data/ui/strings.<lang>.json (5 locales, a fallback) overlaid by the strings the
  * bridge sends in welcome.locale and settings.changed (bridge-protocol 3.2, 12), so a string
  * change needs no rebuild. Lookup order: bridge string, catalogue in the language, catalogue in
  * the fallback language, English, the key itself (a visible bug, logged once).
@@ -16,7 +16,7 @@ public:
 	/** en, de, es, pt, zh: the 5 locales the web app bundles. */
 	static const TArray<FString>& SupportedLanguages();
 
-	/** <project>/Data/ui/locales */
+	/** <project>/Data/ui (strings.<lang>.json) */
 	static FString DefaultCatalogueDir();
 
 	/** Loads strings.<lang>.json of every supported language from Dir (replaces the catalogue). */
@@ -43,6 +43,13 @@ public:
 
 	TArray<FString> GetKeys() const;
 	const FString& GetLanguage() const { return Language; }
+
+	/** The culture of the Verse UI language (never the machine's culture), English as fallback. */
+	FCulturePtr GetCulture() const;
+	/** Numbers in the Verse UI language: fixed fraction digits, optional grouping. */
+	FText Number(double Value, int32 FractionDigits = 0, bool bGrouping = false) const;
+	/** Value 0..1 as a percent in the Verse UI language. */
+	FText Percent(double Value, int32 FractionDigits = 0) const;
 	int32 NumBridgeStrings() const { return BridgeStrings.Num(); }
 
 private:
@@ -55,4 +62,6 @@ private:
 	FString Language = TEXT("en");
 	FString Fallback = TEXT("en");
 	mutable TSet<FString> ReportedMissing;
+	mutable FCulturePtr CachedCulture;
+	mutable FString CachedCultureLang;
 };

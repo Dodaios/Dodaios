@@ -10,8 +10,8 @@ public class VerseUI : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge", "VerseCombat", "VerseCrew", "VerseDecks" });
 		// Engine modules only: Json and Slate for WP16's station overlay and command data; WP18's HUD,
-		// menus, key bindings, JSON data and render-target captures. Engine re-exports their
-		// headers but not their import libraries.
-		PrivateDependencyModuleNames.AddRange(new string[] { "InputCore", "Json", "Slate", "SlateCore", "RenderCore", "RHI", "ImageCore" });
+		// menus, key bindings into Enhanced Input, JSON data and render-target captures. Engine
+		// re-exports their headers but not their import libraries.
+		PrivateDependencyModuleNames.AddRange(new string[] { "InputCore", "EnhancedInput", "Json", "Slate", "SlateCore", "RenderCore", "RHI", "ImageCore" });
 	}
 }

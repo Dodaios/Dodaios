@@ -3,11 +3,13 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Misc/ScopeExit.h"
 #include "Qa/VerseQaRegistry.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Settings/VerseUiSettings.h"
 #include "Tests/UI/Fakes/VerseUiFakes.h"
+#include "UObject/UnrealType.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -152,6 +154,8 @@ bool FVerseUiSettingsPersistTest::RunTest(const FString&)
 			return false;
 		}
 		FUserSettingsGuard Guard(First.Ui->GetUserSettings());
+		const EVerseGoreLevel GoreBefore = UVerseUiSubsystem::ReadGoreSetting();
+		ON_SCOPE_EXIT { UVerseUiSubsystem::WriteGoreSetting(nullptr, GoreBefore); };
 		First.Ui->ApplyWelcome(Backend->MakeWelcome());
 
 		// Unreal-side settings.
@@ -253,6 +257,8 @@ bool FVerseUiGoreSettingTest::RunTest(const FString&)
 	{
 		return false;
 	}
+	const EVerseGoreLevel Before = UVerseUiSubsystem::ReadGoreSetting();
+	ON_SCOPE_EXIT { UVerseUiSubsystem::WriteGoreSetting(nullptr, Before); };
 	W.Ui->ApplyWelcome(W.Bridge->MakeWelcome());
 	W.Bridge->Frames.Reset();
 	W.Ui->SetGore(EVerseGoreLevel::Reduced);
@@ -266,14 +272,25 @@ bool FVerseUiGoreSettingTest::RunTest(const FString&)
 	FVerseUiTestWorld Restart;
 	Restart.Ui->ApplyWelcome(Welcome);
 	TestEqual(TEXT("restarted Verse reads gore reduced"), Restart.Ui->GetAppSettings().Gore, EVerseGoreLevel::Reduced);
-	IConsoleVariable* Gore = IConsoleManager::Get().FindConsoleVariable(TEXT("Verse.Settings.Gore"));
-	TestTrue(TEXT("gore published for the gore module"), Gore && Gore->GetInt() == 1);
+	// VerseGore reads UVerseSettings::GoreLevel from GameUserSettings (combat-state 8, WP05).
+	TestEqual(TEXT("UVerseSettings GoreLevel as VerseGore reads it"), UVerseUiSubsystem::ReadGoreSetting(), EVerseGoreLevel::Reduced);
+	if (UClass* VerseSettings = FindObject<UClass>(nullptr, TEXT("/Script/Verse.VerseSettings")))
+	{
+		const FEnumProperty* Prop = FindFProperty<FEnumProperty>(VerseSettings, TEXT("GoreLevel"));
+		TestTrue(TEXT("UVerseSettings default object carries Reduced"),
+			Prop && Prop->GetUnderlyingProperty()->GetSignedIntPropertyValue(Prop->ContainerPtrToValuePtr<void>(VerseSettings->GetDefaultObject())) == int64(EVerseGoreLevel::Reduced));
+	}
+	else
+	{
+		AddWarning(TEXT("Verse module not loaded: UVerseSettings default object not checked"));
+	}
 
 	// settings.changed from the app applies live.
 	TSharedRef<FJsonObject> Changed = MakeShared<FJsonObject>();
 	Changed->SetStringField(TEXT("gore"), TEXT("full"));
 	Restart.Ui->ApplySettingsChanged(Changed);
 	TestEqual(TEXT("settings.changed applies"), Restart.Ui->GetAppSettings().Gore, EVerseGoreLevel::Full);
+	TestEqual(TEXT("settings.changed reaches VerseGore's setting"), UVerseUiSubsystem::ReadGoreSetting(), EVerseGoreLevel::Full);
 	return true;
 }
 

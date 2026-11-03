@@ -22,14 +22,19 @@ public:
 class FVerseUiQaGamePort : public IVerseUiGamePort
 {
 public:
+	explicit FVerseUiQaGamePort(UWorld* InWorld = nullptr) : World(InWorld) {}
+
 	virtual void StartDuel(FName Tier) override;
 	virtual void LeaveDuel() override;
 	virtual void TravelToDeck(FName Deck) override;
 	virtual bool IsDuelRunning() const override { return bArenaOn; }
 	virtual FName GetCurrentDeck() const override { return CurrentDeck; }
+	/** Verse.QA.Duel.Pause when the duel owner registers it, else the engine pause. */
+	virtual void SetPaused(bool bPaused) override;
 
 	void NoteArenaSwitch(bool bOn, FName Deck);
 
+	TWeakObjectPtr<UWorld> World;
 	bool bArenaOn = false;
 	FName CurrentDeck = TEXT("bridge");
 };
