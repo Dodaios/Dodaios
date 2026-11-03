@@ -217,7 +217,8 @@ def ue_vector_cm(v) -> list[float]:
     root-like frame such as `Weapon_R` has +Z forward (the barrel), -Y up and
     +X towards the character's left. Not the world mapping of art-pipeline 4.1.
     """
-    return [round(v[0] * 100.0, 3) + 0.0, round(-v[1] * 100.0, 3) + 0.0, round(v[2] * 100.0, 3) + 0.0]
+    # `+ 0.0` turns -0.0 into 0.0 so the JSON stays stable.
+    return [round(c * 100.0, 3) + 0.0 for c in (v[0], -v[1], v[2])]
 
 
 def grips(var: Variant) -> dict:
