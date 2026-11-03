@@ -23,9 +23,14 @@ How it works (a per-file runner):
    file on a loaded runner is not a hang.
 
 Outputs: ``--report`` (JSON: failed test ids, flaky files, counts) and
-``--junit-out`` (merged JUnit XML), plus ``--durations-out`` (timings of files
+``--junit-out`` (merged JUnit XML), both in the run's temp dir unless given,
+plus ``--durations-out`` (timings of files
 that passed on the first attempt or alone after a timeout — a killed run has no
 timing, so a hang can never ratchet its own budget).
+
+The run must leave the checkout as it found it: a tracked file it rewrote
+or a new file it left behind (outside its own outputs) fails it, see
+``checkout_guard.py``.
 
 The runner exits 1 when any test failed for real; whether that blocks the
 build is ``test_ratchet.py``'s decision (known failures are baselined).
@@ -48,6 +53,11 @@ import xml.etree.ElementTree as ET  # noqa: S405 - parses our own pytest output
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
+
+try:  # imported as scripts.ci.run_tests_parallel (tests, select_tests.py)
+    from scripts.ci import checkout_guard
+except ImportError:  # run as a script: its own directory is on sys.path
+    import checkout_guard  # type: ignore[no-redef]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MARKERS = (
@@ -490,6 +500,16 @@ def merge_junit(paths: list[Path], out: Path) -> None:
     ET.ElementTree(merged).write(out, encoding="utf-8", xml_declaration=True)
 
 
+def checkout_changes(before: checkout_guard.Snapshot | None, outputs: list[Path]) -> list[str]:
+    """Paths the run changed in the checkout, minus its own requested outputs."""
+    if before is None:
+        return []
+    after = checkout_guard.snapshot()
+    if after is None:
+        return []
+    return checkout_guard.changes(before, after, checkout_guard.relative_ignores(outputs))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("roots", nargs="*", default=["tests"], help="Discovery roots.")
@@ -500,8 +520,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pytest-args", default="", help="Extra args for every pytest run.")
     parser.add_argument("--durations", type=Path, default=REPO_ROOT / "test_durations.json")
     parser.add_argument("--durations-out", type=Path)
-    parser.add_argument("--report", type=Path, default=Path("test-report.json"))
-    parser.add_argument("--junit-out", type=Path, default=Path("report.xml"))
+    # Defaults live in the run's temp dir: a bare run must not drop files
+    # into the checkout it is testing.
+    parser.add_argument("--report", type=Path, help="Default: <run temp dir>/test-report.json.")
+    parser.add_argument("--junit-out", type=Path, help="Default: <run temp dir>/report.xml.")
     parser.add_argument("--list", action="store_true", help="Print the shard's files and exit.")
     parser.add_argument(
         "--deadline-minutes",
@@ -535,6 +557,9 @@ def main(argv: list[str] | None = None) -> int:
     batches = make_batches(mine, durations)
     started = time.monotonic()
     workdir = Path(tempfile.mkdtemp(prefix="jarvis-tests-"))
+    args.report = args.report or workdir / "test-report.json"
+    args.junit_out = args.junit_out or workdir / "report.xml"
+    checkout_before = checkout_guard.snapshot()
     runner = Runner(args, durations, workdir)
     all_runs: list[RunResult] = []
     flaky: list[str] = []
@@ -598,6 +623,16 @@ def main(argv: list[str] | None = None) -> int:
         f"{len(report['timeouts'])} timed-out files",
         flush=True,
     )
+    print(f"[runner] report: {args.report}  junit: {args.junit_out}", flush=True)
+    outputs = [args.report, args.junit_out, *([args.durations_out] if args.durations_out else [])]
+    changed = checkout_changes(checkout_before, outputs)
+    if changed:
+        print(
+            "[runner] FAIL: the run modified tracked files or left new files in the "
+            "checkout. Point the writer at a temp path:\n" + checkout_guard.describe(changed),
+            flush=True,
+        )
+        return 1
     return 1 if failed_ids else 0
 
 

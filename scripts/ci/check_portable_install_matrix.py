@@ -891,6 +891,31 @@ def _requirements_diff(expected: bytes, actual: bytes) -> str:
     return "\n".join(diff[:80]) or "files differ at the byte level"
 
 
+def requirements_compile_command(*extra: str) -> list[str]:
+    """Return the exact ``uv pip compile`` that produces ``requirements.txt``.
+
+    Run from the repository root (or a copy holding ``pyproject.toml`` and
+    ``packaging/native-crypto-uv.toml``). ``extra`` takes flags such as
+    ``--upgrade-package NAME``; the gate itself passes none.
+    """
+    return [
+        "uv",
+        "pip",
+        "compile",
+        "--universal",
+        "--generate-hashes",
+        "--emit-find-links",
+        "--python-version",
+        "3.11",
+        "--output-file=requirements.txt",
+        "pyproject.toml",
+        "--find-links",
+        wheel_links_url(),
+        *extra,
+        *_public_uv_flags(),
+    ]
+
+
 def _verify_reproducible_requirements() -> str | None:
     with tempfile.TemporaryDirectory(prefix="jarvis-requirements-recompile-") as raw_dir:
         workspace = Path(raw_dir)
@@ -904,24 +929,7 @@ def _verify_reproducible_requirements() -> str | None:
         # Seeding the output is load-bearing: without --upgrade, uv reuses these
         # exact pins and proves a no-upgrade maintenance recompile is stable.
         shutil.copyfile(REQUIREMENTS_TXT, generated)
-        result = _run_command(
-            [
-                "uv",
-                "pip",
-                "compile",
-                "--universal",
-                "--generate-hashes",
-                "--emit-find-links",
-                "--python-version",
-                "3.11",
-                "--output-file=requirements.txt",
-                "pyproject.toml",
-                "--find-links",
-                wheel_links_url(),
-                *_public_uv_flags(),
-            ],
-            cwd=workspace,
-        )
+        result = _run_command(requirements_compile_command(), cwd=workspace)
         if result.returncode:
             return _command_failure("no-upgrade universal requirements recompile", result)
         expected = REQUIREMENTS_TXT.read_bytes()
