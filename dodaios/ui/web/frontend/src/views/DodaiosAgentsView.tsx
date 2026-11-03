@@ -7,6 +7,7 @@ import { useLocaleChunk } from "@/i18n";
 import type { PlaceId } from "@/components/society/world/islandLayout";
 import { VerseStage } from "@/components/society/verse/VerseStage";
 import { VerseLoadingScreen } from "@/components/society/verse/VerseLoadingScreen";
+import { VerseHostMount } from "@/components/verseHost/VerseHostMount";
 
 export interface DodaiosAgentsViewProps {
   onSelectAgent?: (agentId: string | null) => void;
@@ -21,8 +22,10 @@ export function DodaiosAgentsView({ onSelectAgent, onOpenAgents, onCreateAgent, 
   const ready = useLocaleChunk("society");
   if (!ready) return <div className="relative h-full"><VerseLoadingScreen /></div>;
   return (
-    <div className="h-full min-h-0">
+    <div className="relative h-full min-h-0">
       <VerseStage active={active} onOpenLedger={onOpenAgents} onSelectAgent={onSelectAgent} onCreateAgent={onCreateAgent} onOpenGroup={onOpenGroup} />
+      {/* The Unreal Verse launcher, behind verse.unreal_preview until the deletion PR. */}
+      <VerseHostMount />
     </div>
   );
 }

@@ -2729,3 +2729,69 @@ class SelfBuildChanged(Event):
     kind: str = ""
     state: str = ""
     title: str = ""
+
+
+# ----------------------------------------------------------------------
+# Unreal Verse host (docs/verse/unreal/contracts/bridge-protocol.md)
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class VerseOpenRequested(Event):
+    """``Verse.exe`` asked the app to open one of its views (contract 11, 14).
+
+    Published by the verse host's command relay for ``pane.open``,
+    ``ide.focus_terminal``, ``agent.open``, ``agents.open_list``,
+    ``group.open``, ``simulator.open`` and ``ide.open``. The web UI's
+    ``useWebSocket`` handler runs the same code the web Verse runs for each
+    target; the desktop process raises the app window (``ShowWindowRequested``
+    follows). Verse hides itself.
+
+    ``target`` is ``pane``, ``agent``, ``agents``, ``group``, ``simulator`` or
+    ``ide``. ``focus`` asks for keyboard focus on the pane at once (desk
+    takeover); ``open`` is ``changes`` for the pane's changes view.
+    """
+
+    target: str = ""
+    workspace_id: str = ""
+    name: str = ""
+    focus: bool = False
+    open: str = ""
+    agent_id: str = ""
+    group_id: str = ""
+    programme: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class VerseStatusChanged(Event):
+    """The Unreal Verse's host status or lifecycle state changed.
+
+    ``status`` is ``not_installed``, ``unsupported``, ``stopped``,
+    ``running`` or ``crashed``; ``state`` the lifecycle state while running
+    (``booting``, ``visible``, ``panel``, ``dormant``, ``exiting``), else
+    empty. The launcher card re-reads ``GET /api/verse/status`` on it.
+    """
+
+    status: str = ""
+    state: str = ""
+    pid: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class VerseSettingsChanged(Event):
+    """``verse.*`` settings were written (by Verse's ``settings.set`` or the import).
+
+    ``settings`` holds only the keys that changed, with their new values.
+    """
+
+    settings: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class VerseDuelRecorded(Event):
+    """One duel set was stored by ``ProgressionService.record_duel`` (contract 10)."""
+
+    match_id: str = ""
+    outcome: str = ""
+    kills: int = 0
+    deaths: int = 0
