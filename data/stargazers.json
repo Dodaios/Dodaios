@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 326,
+  "count": 327,
   "forks": 119,
-  "placed": 67,
-  "stated": 80,
-  "generatedAt": "2026-11-04T17:05:28.317Z",
+  "placed": 68,
+  "stated": 81,
+  "generatedAt": "2026-11-04T18:05:54.340Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -228,6 +228,13 @@
       "lon": 28.488,
       "label": "Moldova",
       "country": "Moldova",
+      "count": 1
+    },
+    {
+      "lat": 55.754,
+      "lon": 37.614,
+      "label": "Moscow",
+      "country": "Russia",
       "count": 1
     },
     {
