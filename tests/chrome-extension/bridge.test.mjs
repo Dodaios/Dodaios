@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {inspectPage} from "../../dodaios/assets/chrome-extension/page.mjs";
+import {webcrypto} from "node:crypto";
 
 const store = {}, calls = [], tabs = new Map();
 let nextTab = 40, idleState = "active", onTarget = null;
@@ -267,4 +268,26 @@ test("repeated owned-tab downloads of one URL are all stopped, and an older user
     const stopped = downloadCalls(start).filter(([op]) => op === "downloads.cancel").map(([, id]) => id);
     assert.deepEqual(stopped, [32, 33]);
   } finally { downloadItems.clear(); await current.call("shutdown"); }
+});
+
+test("observe works where crypto.randomUUID is unavailable (non-secure about:blank)", () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+  // Only getRandomValues, as in Chrome 156's extension-created about:blank tab.
+  Object.defineProperty(globalThis, "crypto", {configurable: true,
+    value: {getRandomValues: (bytes) => webcrypto.getRandomValues(bytes)}});
+  globalThis.location = new URL("about:blank");
+  globalThis.getComputedStyle = () => ({visibility: "visible", display: "block"});
+  globalThis.NodeFilter = {SHOW_TEXT: 4};
+  globalThis.innerWidth = 800; globalThis.innerHeight = 600;
+  globalThis.document = {title: "", querySelectorAll: () => [], querySelector: () => null,
+    body: {}, documentElement: {}, createTreeWalker: () => ({nextNode: () => null})};
+  try {
+    const first = inspectPage("observe");
+    assert.match(first.observation_id, /^[0-9a-f-]{32,36}$/);
+    assert.notEqual(inspectPage("observe").observation_id, first.observation_id);
+  } finally {
+    Object.defineProperty(globalThis, "crypto", original);
+    delete globalThis.__jarvisOwnedTab;
+    for (const key of ["document", "location", "getComputedStyle", "NodeFilter", "innerWidth", "innerHeight"]) delete globalThis[key];
+  }
 });
