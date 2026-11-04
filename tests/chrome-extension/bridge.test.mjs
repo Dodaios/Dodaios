@@ -48,7 +48,9 @@ globalThis.chrome = {
   downloads: {
     onCreated: captured("downloads.onCreated"),
     search: async (query) => [...downloadItems.values()].filter((item) => (query.id === undefined || item.id === query.id)
-      && (query.url === undefined || item.url === query.url)),
+      && (query.url === undefined || item.url === query.url)
+      && (query.startedAfter === undefined || item.startTime === undefined || item.startTime > query.startedAfter))
+      .sort((a, b) => String(b.startTime).localeCompare(String(a.startTime))).slice(0, query.limit),
     cancel: async (id) => { calls.push(["downloads.cancel", id]); if (failCancel) throw new Error("cancel failed"); },
     removeFile: async (id) => { calls.push(["downloads.removeFile", id]); },
     erase: async (query) => { calls.push(["downloads.erase", query.id]); return [query.id]; },
@@ -243,4 +245,26 @@ test("one owned-tab announcement stops one download; a failed cancel still remov
     await settle(); await settle();
     assert.deepEqual(downloadCalls(start), [["downloads.cancel", 21], ["downloads.removeFile", 21], ["downloads.erase", 21]]);
   } finally { failCancel = false; downloadItems.clear(); await current.call("shutdown"); }
+});
+
+test("repeated owned-tab downloads of one URL are all stopped, and an older user download is not claimed", async () => {
+  const current = await session();
+  const start = calls.length;
+  try {
+    // The user started this download in another tab before the owned tab announced the same URL.
+    const older = {id: 31, url: "https://example.com/twice.zip", state: "in_progress", startTime: new Date(Date.now() - 1500).toISOString()};
+    downloadItems.set(older.id, older);
+    // Two announcements arrive before Chrome creates either download item.
+    listeners["debugger.onEvent"]({tabId: current.tabId}, "Page.downloadWillBegin", {url: "https://example.com/twice.zip"});
+    listeners["debugger.onEvent"]({tabId: current.tabId}, "Page.downloadWillBegin", {url: "https://example.com/twice.zip"});
+    await settle(); await settle();
+    for (const id of [32, 33]) {
+      const owned = {id, url: "https://example.com/twice.zip", state: "in_progress", startTime: new Date().toISOString()};
+      downloadItems.set(id, owned);
+      listeners["downloads.onCreated"](owned);
+    }
+    await settle(); await settle();
+    const stopped = downloadCalls(start).filter(([op]) => op === "downloads.cancel").map(([, id]) => id);
+    assert.deepEqual(stopped, [32, 33]);
+  } finally { downloadItems.clear(); await current.call("shutdown"); }
 });

@@ -66,15 +66,26 @@ async function attach(session) {
 // command and does not expose Browser.setDownloadBehavior to them at all. A
 // download announced by an attached owned tab is cancelled instead; a small file
 // can finish before that, so its file is removed. Keyed by URL because Chrome's
-// download items carry no tab id; each announcement stops at most one download
-// within a short window, so the user's downloads in other tabs stay untouched.
-const ownedDownloads = new Map();
+// download items carry no tab id: every announcement is one pending claim that
+// stops exactly one download of that URL, so the user's downloads stay untouched.
+const ownedDownloads = new Map(); // url -> expiry times of pending claims
+const handledDownloads = new Set();
 const ownedDownloadWindow = 2000;
+// onCreated can fire a moment before the announcement; older items are not the tab's.
+const ownedDownloadLead = 500;
 
 function claimOwnedDownload(item) {
+  if (handledDownloads.has(item.id)) return false;
   const now = Date.now();
-  const url = [item.url, item.finalUrl].find((value) => ownedDownloads.get(value) > now);
-  return url !== undefined && ownedDownloads.delete(url);
+  for (const url of [item.url, item.finalUrl]) {
+    const claims = (ownedDownloads.get(url) || []).filter((until) => until > now);
+    if (!claims.length) continue;
+    claims.shift();
+    if (claims.length) ownedDownloads.set(url, claims); else ownedDownloads.delete(url);
+    handledDownloads.add(item.id);
+    return true;
+  }
+  return false;
 }
 
 async function discardDownload(id) {
@@ -332,12 +343,15 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
   if (method !== "Page.downloadWillBegin") return;
   if (![...sessions.values()].some((session) => session.tabId === source.tabId && session.attached)) return;
   const now = Date.now();
-  for (const [url, until] of ownedDownloads) if (until <= now) ownedDownloads.delete(url);
-  ownedDownloads.set(params.url, now + ownedDownloadWindow);
+  for (const [url, claims] of ownedDownloads) if (claims.every((until) => until <= now)) ownedDownloads.delete(url);
+  ownedDownloads.set(params.url, [...(ownedDownloads.get(params.url) || []), now + ownedDownloadWindow]);
   // The download item may already exist when the event arrives.
-  const startedAfter = new Date(now - ownedDownloadWindow).toISOString();
-  void chrome.downloads.search({url: params.url, startedAfter, orderBy: ["-startTime"], limit: 1})
-    .then(([item]) => (item && ownedDownloads.delete(params.url) ? discardDownload(item.id) : undefined))
+  const startedAfter = new Date(now - ownedDownloadLead).toISOString();
+  void chrome.downloads.search({url: params.url, startedAfter, orderBy: ["-startTime"]})
+    .then((items) => {
+      const item = items.find(claimOwnedDownload);
+      return item ? discardDownload(item.id) : undefined;
+    })
     .catch(() => { /* Search failed; onCreated still catches a download that starts later. */ });
 });
 chrome.downloads.onCreated.addListener((item) => {
