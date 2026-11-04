@@ -60,7 +60,26 @@ async function attach(session) {
   await cdp(session, "Page.addScriptToEvaluateOnNewDocument", {
     source: "Object.defineProperty(window,'open',{value:()=>null,writable:false,configurable:false});",
   });
-  await cdp(session, "Page.setDownloadBehavior", {behavior: "deny"});
+}
+
+// Chrome 156 refuses Page.setDownloadBehavior to extensions as a browser-level
+// command and does not expose Browser.setDownloadBehavior to them at all. A
+// download announced by an attached owned tab is cancelled instead; a small file
+// can finish before that, so its file is removed. Keyed by URL because Chrome's
+// download items carry no tab id.
+const ownedDownloads = new Map();
+const ownedDownloadWindow = 10000;
+
+function ownedDownload(item) {
+  const now = Date.now();
+  return [item.url, item.finalUrl].some((url) => ownedDownloads.get(url) > now);
+}
+
+async function discardDownload(id) {
+  await chrome.downloads.cancel(id);
+  const [item] = await chrome.downloads.search({id});
+  if (item?.state === "complete") await chrome.downloads.removeFile(id);
+  await chrome.downloads.erase({id});
 }
 
 async function release(session, closeTab = false) {
@@ -305,6 +324,21 @@ chrome.debugger.onDetach.addListener((source) => {
       void release(session);
     }
   }
+});
+chrome.debugger.onEvent.addListener((source, method, params) => {
+  if (method !== "Page.downloadWillBegin") return;
+  if (![...sessions.values()].some((session) => session.tabId === source.tabId && session.attached)) return;
+  const now = Date.now();
+  for (const [url, until] of ownedDownloads) if (until <= now) ownedDownloads.delete(url);
+  ownedDownloads.set(params.url, now + ownedDownloadWindow);
+  // The download item may already exist when the event arrives.
+  const startedAfter = new Date(now - ownedDownloadWindow).toISOString();
+  void chrome.downloads.search({url: params.url, startedAfter})
+    .then((items) => Promise.all(items.map((item) => discardDownload(item.id))))
+    .catch(() => { /* The download already ended or was removed. */ });
+});
+chrome.downloads.onCreated.addListener((item) => {
+  if (ownedDownload(item)) void discardDownload(item.id).catch(() => { /* The download already ended or was removed. */ });
 });
 chrome.tabs.onRemoved.addListener((tabId) => {
   for (const session of sessions.values()) if (session.tabId === tabId) {

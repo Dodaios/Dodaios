@@ -6,6 +6,9 @@ const store = {}, calls = [], tabs = new Map();
 let nextTab = 40, idleState = "active", onTarget = null;
 let page = {url: "https://example.com/", identity: "", blocked: false, observation_id: "fresh"};
 const event = () => ({addListener() {}});
+const listeners = {};
+const captured = (name) => ({addListener(listener) { listeners[name] = listener; }});
+const downloadItems = new Map();
 const storage = {setAccessLevel: async () => {}, get: async (key) => ({[key]: store[key]}),
   set: async (value) => Object.assign(store, value), remove: async (key) => { delete store[key]; }};
 globalThis.chrome = {
@@ -24,6 +27,9 @@ globalThis.chrome = {
     detach: async (target) => { calls.push(["detach", target.tabId]); },
     sendCommand: async (target, method, args) => {
       calls.push([method, target.tabId, args]);
+      // Chrome 156 refuses these to extensions; they used to break every ensure.
+      if (method === "Page.setDownloadBehavior") throw new Error("Cannot not access browser-level commands");
+      if (method.startsWith("Browser.")) throw new Error(`'${method}' wasn't found`);
       if (method === "Page.getFrameTree") return {frameTree: {frame: {id: "main"}}};
       if (method === "Page.createIsolatedWorld") return {executionContextId: 1};
       if (method === "Runtime.evaluate") {
@@ -36,7 +42,15 @@ globalThis.chrome = {
       }
       if (method === "Page.captureScreenshot") return {data: "fake-jpeg"};
       return {};
-    }, onDetach: event(),
+    }, onDetach: event(), onEvent: captured("debugger.onEvent"),
+  },
+  downloads: {
+    onCreated: captured("downloads.onCreated"),
+    search: async (query) => [...downloadItems.values()].filter((item) => (query.id === undefined || item.id === query.id)
+      && (query.url === undefined || item.url === query.url)),
+    cancel: async (id) => { calls.push(["downloads.cancel", id]); },
+    removeFile: async (id) => { calls.push(["downloads.removeFile", id]); },
+    erase: async (query) => { calls.push(["downloads.erase", query.id]); return [query.id]; },
   },
   declarativeNetRequest: {updateSessionRules: async (value) => { calls.push(["rules", value]); }},
   runtime: {id: "test-extension", getURL: (path) => `chrome-extension://test-extension/${path}`, onMessage: event(), onStartup: event()},
@@ -161,4 +175,55 @@ test("pointer cleanup does not inspect the login page", () => {
   assert.deepEqual(inspectPage("clear"), {});
   assert.equal(removed, true);
   delete globalThis.document;
+});
+
+test("ensure attaches on Chrome 156, which refuses browser-level download commands to extensions", async () => {
+  const start = calls.length;
+  const current = await session();
+  assert.equal(calls.slice(start).some(([op]) => op.endsWith("setDownloadBehavior")), false);
+  await current.call("shutdown");
+});
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const downloadCalls = (start) => calls.slice(start).filter(([op]) => op.startsWith("downloads."));
+
+test("a download started by an owned tab is cancelled and erased; the user's own downloads are untouched", async () => {
+  const current = await session();
+  const start = calls.length;
+  try {
+    listeners["debugger.onEvent"]({tabId: current.tabId}, "Page.downloadWillBegin", {url: "https://example.com/owned.zip"});
+    const owned = {id: 7, url: "https://example.com/owned.zip", finalUrl: "https://example.com/owned.zip", state: "in_progress"};
+    downloadItems.set(owned.id, owned);
+    listeners["downloads.onCreated"](owned);
+    // The same file downloaded by the user in a normal tab, and an unrelated download.
+    listeners["debugger.onEvent"]({tabId: 999}, "Page.downloadWillBegin", {url: "https://example.com/user.zip"});
+    listeners["downloads.onCreated"]({id: 8, url: "https://example.com/user.zip", state: "in_progress"});
+    listeners["downloads.onCreated"]({id: 9, url: "https://example.com/other.zip", state: "in_progress"});
+    await settle(); await settle();
+    assert.deepEqual(downloadCalls(start), [["downloads.cancel", 7], ["downloads.erase", 7]]);
+  } finally { downloadItems.clear(); await current.call("shutdown"); }
+});
+
+test("an owned-tab download that already finished, or was announced after it was created, loses its file", async () => {
+  const current = await session();
+  const start = calls.length;
+  try {
+    const finished = {id: 11, url: "https://example.com/tiny.txt", finalUrl: "https://example.com/tiny.txt", state: "complete"};
+    downloadItems.set(finished.id, finished);
+    listeners["downloads.onCreated"](finished);
+    listeners["debugger.onEvent"]({tabId: current.tabId}, "Page.downloadWillBegin", {url: finished.url});
+    await settle(); await settle();
+    assert.deepEqual(downloadCalls(start), [["downloads.cancel", 11], ["downloads.removeFile", 11], ["downloads.erase", 11]]);
+  } finally { downloadItems.clear(); await current.call("shutdown"); }
+});
+
+test("downloads in manual takeover belong to the user and are not cancelled", async () => {
+  const current = await session();
+  await current.call("takeover", {enabled: true});
+  const start = calls.length;
+  listeners["debugger.onEvent"]({tabId: current.tabId}, "Page.downloadWillBegin", {url: "https://example.com/manual.pdf"});
+  listeners["downloads.onCreated"]({id: 12, url: "https://example.com/manual.pdf", state: "in_progress"});
+  await settle(); await settle();
+  assert.deepEqual(downloadCalls(start), []);
+  await current.call("shutdown");
 });
