@@ -9,6 +9,7 @@ const event = () => ({addListener() {}});
 const listeners = {};
 const captured = (name) => ({addListener(listener) { listeners[name] = listener; }});
 const downloadItems = new Map();
+let failCancel = false;
 const storage = {setAccessLevel: async () => {}, get: async (key) => ({[key]: store[key]}),
   set: async (value) => Object.assign(store, value), remove: async (key) => { delete store[key]; }};
 globalThis.chrome = {
@@ -48,7 +49,7 @@ globalThis.chrome = {
     onCreated: captured("downloads.onCreated"),
     search: async (query) => [...downloadItems.values()].filter((item) => (query.id === undefined || item.id === query.id)
       && (query.url === undefined || item.url === query.url)),
-    cancel: async (id) => { calls.push(["downloads.cancel", id]); },
+    cancel: async (id) => { calls.push(["downloads.cancel", id]); if (failCancel) throw new Error("cancel failed"); },
     removeFile: async (id) => { calls.push(["downloads.removeFile", id]); },
     erase: async (query) => { calls.push(["downloads.erase", query.id]); return [query.id]; },
   },
@@ -226,4 +227,20 @@ test("downloads in manual takeover belong to the user and are not cancelled", as
   await settle(); await settle();
   assert.deepEqual(downloadCalls(start), []);
   await current.call("shutdown");
+});
+
+test("one owned-tab announcement stops one download; a failed cancel still removes the file", async () => {
+  const current = await session();
+  const start = calls.length;
+  failCancel = true;
+  try {
+    listeners["debugger.onEvent"]({tabId: current.tabId}, "Page.downloadWillBegin", {url: "https://example.com/report.pdf"});
+    const owned = {id: 21, url: "https://example.com/report.pdf", state: "complete"};
+    downloadItems.set(owned.id, owned);
+    listeners["downloads.onCreated"](owned);
+    // The user downloads the same file right after; it is not the agent's.
+    listeners["downloads.onCreated"]({id: 22, url: "https://example.com/report.pdf", state: "in_progress"});
+    await settle(); await settle();
+    assert.deepEqual(downloadCalls(start), [["downloads.cancel", 21], ["downloads.removeFile", 21], ["downloads.erase", 21]]);
+  } finally { failCancel = false; downloadItems.clear(); await current.call("shutdown"); }
 });

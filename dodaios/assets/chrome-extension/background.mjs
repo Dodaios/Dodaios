@@ -66,20 +66,23 @@ async function attach(session) {
 // command and does not expose Browser.setDownloadBehavior to them at all. A
 // download announced by an attached owned tab is cancelled instead; a small file
 // can finish before that, so its file is removed. Keyed by URL because Chrome's
-// download items carry no tab id.
+// download items carry no tab id; each announcement stops at most one download
+// within a short window, so the user's downloads in other tabs stay untouched.
 const ownedDownloads = new Map();
-const ownedDownloadWindow = 10000;
+const ownedDownloadWindow = 2000;
 
-function ownedDownload(item) {
+function claimOwnedDownload(item) {
   const now = Date.now();
-  return [item.url, item.finalUrl].some((url) => ownedDownloads.get(url) > now);
+  const url = [item.url, item.finalUrl].find((value) => ownedDownloads.get(value) > now);
+  return url !== undefined && ownedDownloads.delete(url);
 }
 
 async function discardDownload(id) {
-  await chrome.downloads.cancel(id);
-  const [item] = await chrome.downloads.search({id});
-  if (item?.state === "complete") await chrome.downloads.removeFile(id);
-  await chrome.downloads.erase({id});
+  // Every step runs on its own: a failed cancel must not leave the file on disk.
+  await chrome.downloads.cancel(id).catch(() => { /* Already finished or gone. */ });
+  const [item] = await chrome.downloads.search({id}).catch(() => []);
+  if (item?.state === "complete") await chrome.downloads.removeFile(id).catch(() => { /* File already gone. */ });
+  await chrome.downloads.erase({id}).catch(() => { /* Entry already gone. */ });
 }
 
 async function release(session, closeTab = false) {
@@ -333,12 +336,12 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
   ownedDownloads.set(params.url, now + ownedDownloadWindow);
   // The download item may already exist when the event arrives.
   const startedAfter = new Date(now - ownedDownloadWindow).toISOString();
-  void chrome.downloads.search({url: params.url, startedAfter})
-    .then((items) => Promise.all(items.map((item) => discardDownload(item.id))))
-    .catch(() => { /* The download already ended or was removed. */ });
+  void chrome.downloads.search({url: params.url, startedAfter, orderBy: ["-startTime"], limit: 1})
+    .then(([item]) => (item && ownedDownloads.delete(params.url) ? discardDownload(item.id) : undefined))
+    .catch(() => { /* Search failed; onCreated still catches a download that starts later. */ });
 });
 chrome.downloads.onCreated.addListener((item) => {
-  if (ownedDownload(item)) void discardDownload(item.id).catch(() => { /* The download already ended or was removed. */ });
+  if (claimOwnedDownload(item)) void discardDownload(item.id);
 });
 chrome.tabs.onRemoved.addListener((tabId) => {
   for (const session of sessions.values()) if (session.tabId === tabId) {
