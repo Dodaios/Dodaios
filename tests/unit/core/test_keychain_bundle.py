@@ -561,3 +561,26 @@ def test_security_cli_write_roundtrips_payload_longer_than_interactive_line_limi
         assert vault.read(service, account) == payload
     finally:
         vault.delete(service, account)
+
+
+def test_security_cli_write_timeout_never_leaks_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The payload rides in argv, and ``TimeoutExpired.__str__`` embeds the
+    full command, so neither the message nor the chained cause may carry it
+    into a log line written with ``exc_info=True``."""
+    import subprocess
+
+    payload = base64.b64encode(b'{"anthropic_api_key": "sk-ant-tops3cret"}').decode()
+    vault = SecurityCliVault()
+    monkeypatch.setattr(vault, "delete", lambda service, account: None)
+
+    def fake_run(cmd: list[str], **kwargs: object) -> None:
+        raise subprocess.TimeoutExpired(cmd, 10)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(SecurityCliVaultError) as excinfo:
+        vault.write(SERVICE, VAULT_ACCOUNT, payload)
+    assert payload not in str(excinfo.value)
+    assert excinfo.value.__cause__ is None
+    assert excinfo.value.__suppress_context__

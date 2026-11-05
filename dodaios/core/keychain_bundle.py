@@ -183,7 +183,12 @@ class SecurityCliVault:
                 creationflags=self._creationflags(),
             )
         except (OSError, subprocess.SubprocessError) as exc:
-            raise SecurityCliVaultError(f"security CLI write failed: {exc}") from exc
+            # ``TimeoutExpired.__str__`` embeds the argv (= the payload), and a
+            # chained cause would be printed by ``exc_info=True``: name the
+            # type only and drop the chain.
+            raise SecurityCliVaultError(
+                f"security CLI write failed: {type(exc).__name__}"
+            ) from None
         if proc.returncode != 0:
             raise SecurityCliVaultError(
                 f"security CLI write exited {proc.returncode}: "
