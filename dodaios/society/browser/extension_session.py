@@ -23,6 +23,11 @@ Use only element indexes from the latest observation. Unsupported: uploads, down
 JavaScript, other tabs, browser settings, credentials, account changes. There is no
 CAPTCHA solver: on human verification, uncertain login or an unconfirmed result, return
 {"done": ...} saying the person must take control."""
+_FORMAT_REMINDER = (
+    "Your reply contained no valid browser step. Reply with exactly one JSON object as "
+    'described, for example {"action": {"wait": {}}} or {"done": "result"}, and no other text.'
+)
+_NO_PROPOSAL = "The model did not return a browser action; try again or choose another model"
 
 
 class ChromeSession:
@@ -220,31 +225,30 @@ class ChromeSession:
                 identity = observed_identity or identity
                 if url and url not in urls:
                     urls.append(url)
-                answer = await self.rpc["llm"](
+                prompt = messages + [
                     {
-                        "messages": messages
-                        + [
-                            {
-                                "role": "user",
-                                "content": json.dumps(
-                                    {
-                                        "task": task,
-                                        "observation": observation,
-                                    }
-                                ),
-                            }
-                        ],
-                        "schema": None,
+                        "role": "user",
+                        "content": json.dumps({"task": task, "observation": observation}),
                     }
-                )
+                ]
+                answer = await self.rpc["llm"]({"messages": prompt, "schema": None})
                 if not answer.get("ok"):
                     return {"ok": False, "error": "The selected model is unavailable"}
                 raw = str(answer.get("text", "")).strip()
-                if raw.startswith("```"):
-                    raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-                proposal = json.loads(raw)
-                if not isinstance(proposal, dict):
-                    raise ValueError("Expected one browser action")
+                proposal = self._proposal(raw)
+                if proposal is None:
+                    # Models sometimes describe the page in prose; remind them once.
+                    reminder = [
+                        {"role": "assistant", "content": raw[:6000]},
+                        {"role": "user", "content": _FORMAT_REMINDER},
+                    ]
+                    answer = await self.rpc["llm"]({"messages": prompt + reminder, "schema": None})
+                    if not answer.get("ok"):
+                        return {"ok": False, "error": "The selected model is unavailable"}
+                    raw = str(answer.get("text", "")).strip()
+                    proposal = self._proposal(raw)
+                if proposal is None:
+                    return {"ok": False, "error": _NO_PROPOSAL, "steps": steps, "urls": urls}
                 if isinstance(proposal.get("done"), str):
                     return {
                         "ok": True,
@@ -306,6 +310,35 @@ class ChromeSession:
         finally:
             self.state["running"] = False
             self.publish(self.state)
+
+    @classmethod
+    def _proposal(cls, raw: str) -> dict | None:
+        """Returns the one valid step in a model reply, or None.
+
+        The JSON may be wrapped in prose or a code fence. Only an object with a string
+        "done" or an "action" that passes _validate_action counts, and a reply holding
+        two different steps is ambiguous, so an action echoed from page text can never
+        be picked out of a longer reply.
+        """
+        raw = raw[:20000]
+        decoder = json.JSONDecoder()
+        found: list[dict] = []
+        for start in (index for index, char in enumerate(raw) if char == "{"):
+            try:
+                value, _end = decoder.raw_decode(raw, start)
+            except ValueError:  # this brace is not a JSON object
+                continue
+            if not isinstance(value, dict) or value in found:
+                continue
+            if isinstance(value.get("done"), str):
+                found.append(value)
+                continue
+            try:
+                cls._validate_action(value.get("action"))
+            except ValueError:  # this object is not an allowed browser action
+                continue
+            found.append(value)
+        return found[0] if len(found) == 1 else None
 
     @staticmethod
     def _validate_action(action: Any) -> None:
