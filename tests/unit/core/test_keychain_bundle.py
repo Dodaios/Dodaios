@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import base64
 import json
+import os
+import sys
 
 import pytest
 from keyring.errors import PasswordDeleteError
@@ -541,3 +543,44 @@ def test_wrapper_is_accepted_by_keyring_set_keyring(
         }, "the write must land in the single vault item, not a per-key item"
     finally:
         keyring.set_keyring(original)
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin" or not os.path.exists("/usr/bin/security"),
+    reason="needs the real macOS security CLI",
+)
+def test_security_cli_write_roundtrips_payload_longer_than_interactive_line_limit() -> None:
+    """``security -i`` truncates input lines at ~4 KB, so a grown vault failed
+    every CLI write, fell back to the per-app-ACL inner write and re-armed the
+    Keychain prompt. Uses a throwaway item, never the real vault."""
+    vault = SecurityCliVault()
+    service, account = "dodaios-test-long-payload", "t"
+    payload = base64.b64encode(b"x" * 6000).decode("ascii")  # 8000 chars
+    try:
+        vault.write(service, account, payload)
+        assert vault.read(service, account) == payload
+    finally:
+        vault.delete(service, account)
+
+
+def test_security_cli_write_timeout_never_leaks_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The payload rides in argv, and ``TimeoutExpired.__str__`` embeds the
+    full command, so neither the message nor the chained cause may carry it
+    into a log line written with ``exc_info=True``."""
+    import subprocess
+
+    payload = base64.b64encode(b'{"anthropic_api_key": "sk-ant-tops3cret"}').decode()
+    vault = SecurityCliVault()
+    monkeypatch.setattr(vault, "delete", lambda service, account: None)
+
+    def fake_run(cmd: list[str], **kwargs: object) -> None:
+        raise subprocess.TimeoutExpired(cmd, 10)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(SecurityCliVaultError) as excinfo:
+        vault.write(SERVICE, VAULT_ACCOUNT, payload)
+    assert payload not in str(excinfo.value)
+    assert excinfo.value.__cause__ is None
+    assert excinfo.value.__suppress_context__
