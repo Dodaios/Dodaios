@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "minimum_chrome_version": "120",
   "description": "Connect this Chrome profile to Dodaios. Only Dodaios-created, visible tabs are controlled; logins stay in Chrome.",
-  "permissions": ["debugger", "tabs", "storage", "alarms", "idle", "declarativeNetRequestWithHostAccess"],
+  "permissions": ["debugger", "downloads", "tabs", "storage", "alarms", "idle", "declarativeNetRequestWithHostAccess"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {"service_worker": "background.mjs", "type": "module"},
   "action": {"default_popup": "popup.html", "default_title": "Dodaios Chrome connection"},

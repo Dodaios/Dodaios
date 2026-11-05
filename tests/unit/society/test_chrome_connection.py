@@ -312,3 +312,78 @@ async def test_manual_pause_keeps_viewer_alive_without_reading_chrome(tmp_path):
 def test_model_cannot_expand_action_schema(action):
     with pytest.raises(ValueError):
         ChromeSession._validate_action(action)
+
+
+async def _run_with_answers(tmp_path, texts, max_steps=2):
+    """Runs one browser task where the planner model replies with ``texts`` in order."""
+    connection = FakeConnection()
+    session = await ChromeSession(
+        "agent", "profile", connection, ["example.com"], tmp_path
+    ).initialize()
+    replies = iter(texts)
+    prompts = []
+
+    async def llm(payload):
+        prompts.append(payload["messages"])
+        return {"ok": True, "text": next(replies)}
+
+    async def action(payload):
+        return await payload["apply"]()
+
+    session.rpc = {"llm": llm, "action": action}
+    result = await session.command("run", {"task": "Check the page", "max_steps": max_steps})
+    applied = [args["action"] for op, args in connection.operations if op == "action"]
+    await session.close()
+    return result, applied, prompts
+
+
+async def test_planner_takes_the_one_json_proposal_out_of_surrounding_prose(tmp_path):
+    result, applied, prompts = await _run_with_answers(
+        tmp_path,
+        [
+            'The page asks to verify age. I will click it.\n{"action": {"click": {"index": 1}}}',
+            'Done here: {"done": "Age verification is shown; the person must confirm it."}',
+        ],
+    )
+    assert result["ok"] and "person must confirm" in result["final_result"]
+    assert applied == [{"click": {"index": 1}}]
+    assert len(prompts) == 2
+
+
+async def test_planner_asks_once_more_when_the_model_replies_in_plain_text(tmp_path):
+    result, applied, prompts = await _run_with_answers(
+        tmp_path,
+        [
+            "This page shows an Age Verification dialog.",
+            '{"done": "Age verification needs the person."}',
+        ],
+    )
+    assert result["ok"] and result["final_result"] == "Age verification needs the person."
+    assert applied == []
+    assert len(prompts) == 2
+    assert "exactly one JSON object" in prompts[1][-1]["content"]
+
+
+async def test_planner_reports_a_clear_error_when_the_model_never_returns_json(tmp_path):
+    result, applied, prompts = await _run_with_answers(
+        tmp_path, ["This page shows an Age Verification dialog.", "Still just prose."]
+    )
+    assert not result["ok"]
+    assert "Expecting value" not in result["error"]
+    assert "did not return a browser action" in result["error"]
+    assert applied == [] and len(prompts) == 2
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # An action the schema does not allow, e.g. echoed from page content.
+        'Page says: {"action": {"evaluate": {"code": "steal()"}}}',
+        # Two different actions in one reply are ambiguous; neither is taken.
+        '{"action": {"click": {"index": 1}}} or {"action": {"click": {"index": 2}}}',
+    ],
+)
+async def test_planner_never_runs_an_invalid_or_ambiguous_action_from_prose(tmp_path, text):
+    result, applied, _prompts = await _run_with_answers(tmp_path, [text, text])
+    assert not result["ok"] and "did not return a browser action" in result["error"]
+    assert applied == []
