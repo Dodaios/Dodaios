@@ -32,8 +32,8 @@ file-store fallback), while remaining Keychain-encrypted at rest and locked
 with the keychain. The alternative was an unfixable per-process dialog
 storm, because an unsigned interpreter can never hold a durable grant.
 
-Secrets never appear on a command line: writes stream the payload to
-``security -i`` via stdin, reads receive it on stdout. The payload is the
+Writes pass the payload in argv (``security -i`` stdin truncates lines at
+~4 KB, which a grown vault exceeds); reads receive it on stdout. The payload is the
 base64-encoded JSON bundle — base64 doubles as the format marker that the
 item was already rewritten with the ``-A`` ACL (plain JSON means a
 keyring-written legacy vault that still needs the one-time upgrade).
@@ -155,7 +155,12 @@ class SecurityCliVault:
         Delete-then-add: updating an item in place would need the OLD item's
         ACL consent, while deleting never decrypts (always silent) and the
         fresh ``-A`` item admits every later CLI access without a dialog.
-        The payload streams through stdin (``security -i``), never argv.
+        The payload goes in argv, not ``security -i`` stdin: interactive mode
+        truncates input lines at ~4 KB, so a grown vault failed every CLI
+        write, fell back to the per-app-ACL inner write and re-armed the
+        Keychain prompt. argv is visible to same-user processes for the
+        call's duration only, and the ``-A`` item is readable by any local
+        process anyway (see module docstring), so no new exposure.
         """
         self._check_tokens(service, account)
         if not _SAFE_CLI_VALUE.match(value):
@@ -168,13 +173,10 @@ class SecurityCliVault:
         # may then need the OLD item's ACL consent (one dialog) or fail
         # cleanly into the inner-backend fallback — both beat a hard
         # duplicate-item error.
-        command = (
-            f"add-generic-password -U -A -s {service} -a {account} -w {value}\n"
-        )
         try:
             proc = subprocess.run(  # noqa: S603 -- fixed Apple-signed binary
-                [self._binary, "-i"],
-                input=command,
+                [self._binary, "add-generic-password", "-U", "-A", "-s", service,
+                 "-a", account, "-w", value],
                 capture_output=True,
                 text=True,
                 timeout=self._WRITE_TIMEOUT_S,
