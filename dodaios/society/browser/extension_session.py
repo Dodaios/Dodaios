@@ -326,7 +326,7 @@ class ChromeSession:
         for start in (index for index, char in enumerate(raw) if char == "{"):
             try:
                 value, _end = decoder.raw_decode(raw, start)
-            except ValueError:
+            except ValueError:  # this brace is not a JSON object
                 continue
             if not isinstance(value, dict) or value in found:
                 continue
@@ -335,7 +335,7 @@ class ChromeSession:
                 continue
             try:
                 cls._validate_action(value.get("action"))
-            except ValueError:
+            except ValueError:  # this object is not an allowed browser action
                 continue
             found.append(value)
         return found[0] if len(found) == 1 else None
