@@ -60,7 +60,40 @@ async function attach(session) {
   await cdp(session, "Page.addScriptToEvaluateOnNewDocument", {
     source: "Object.defineProperty(window,'open',{value:()=>null,writable:false,configurable:false});",
   });
-  await cdp(session, "Page.setDownloadBehavior", {behavior: "deny"});
+}
+
+// Chrome 156 refuses Page.setDownloadBehavior to extensions as a browser-level
+// command and does not expose Browser.setDownloadBehavior to them at all. A
+// download announced by an attached owned tab is cancelled instead; a small file
+// can finish before that, so its file is removed. Keyed by URL because Chrome's
+// download items carry no tab id: every announcement is one pending claim that
+// stops exactly one download of that URL, so the user's downloads stay untouched.
+const ownedDownloads = new Map(); // url -> expiry times of pending claims
+const handledDownloads = new Set();
+const ownedDownloadWindow = 2000;
+// onCreated can fire a moment before the announcement; older items are not the tab's.
+const ownedDownloadLead = 500;
+
+function claimOwnedDownload(item) {
+  if (handledDownloads.has(item.id)) return false;
+  const now = Date.now();
+  for (const url of [item.url, item.finalUrl]) {
+    const claims = (ownedDownloads.get(url) || []).filter((until) => until > now);
+    if (!claims.length) continue;
+    claims.shift();
+    if (claims.length) ownedDownloads.set(url, claims); else ownedDownloads.delete(url);
+    handledDownloads.add(item.id);
+    return true;
+  }
+  return false;
+}
+
+async function discardDownload(id) {
+  // Every step runs on its own: a failed cancel must not leave the file on disk.
+  await chrome.downloads.cancel(id).catch(() => { /* Already finished or gone. */ });
+  const [item] = await chrome.downloads.search({id}).catch(() => []);
+  if (item?.state === "complete") await chrome.downloads.removeFile(id).catch(() => { /* File already gone. */ });
+  await chrome.downloads.erase({id}).catch(() => { /* Entry already gone. */ });
 }
 
 async function release(session, closeTab = false) {
@@ -305,6 +338,24 @@ chrome.debugger.onDetach.addListener((source) => {
       void release(session);
     }
   }
+});
+chrome.debugger.onEvent.addListener((source, method, params) => {
+  if (method !== "Page.downloadWillBegin") return;
+  if (![...sessions.values()].some((session) => session.tabId === source.tabId && session.attached)) return;
+  const now = Date.now();
+  for (const [url, claims] of ownedDownloads) if (claims.every((until) => until <= now)) ownedDownloads.delete(url);
+  ownedDownloads.set(params.url, [...(ownedDownloads.get(params.url) || []), now + ownedDownloadWindow]);
+  // The download item may already exist when the event arrives.
+  const startedAfter = new Date(now - ownedDownloadLead).toISOString();
+  void chrome.downloads.search({url: params.url, startedAfter, orderBy: ["-startTime"]})
+    .then((items) => {
+      const item = items.find(claimOwnedDownload);
+      return item ? discardDownload(item.id) : undefined;
+    })
+    .catch(() => { /* Search failed; onCreated still catches a download that starts later. */ });
+});
+chrome.downloads.onCreated.addListener((item) => {
+  if (claimOwnedDownload(item)) void discardDownload(item.id);
 });
 chrome.tabs.onRemoved.addListener((tabId) => {
   for (const session of sessions.values()) if (session.tabId === tabId) {

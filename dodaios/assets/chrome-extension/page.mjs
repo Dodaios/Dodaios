@@ -30,7 +30,10 @@ export function inspectPage(mode, input = {}) {
   if (mode === "observe") {
     state.elements = [...document.querySelectorAll("a,button,input,textarea,select,[role=button],[contenteditable=true]")]
       .filter((element) => visible(element) && !sensitive(element)).slice(0, 200);
-    state.observation = crypto.randomUUID();
+    // crypto.randomUUID exists only in secure contexts; Chrome 156 does not treat the
+    // extension-created about:blank tab as one. getRandomValues works everywhere.
+    state.observation = typeof crypto.randomUUID === "function" ? crypto.randomUUID()
+      : [...crypto.getRandomValues(new Uint8Array(16))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
     // Read visible text nodes only; form values and hidden application data stay in Chrome.
     const texts = [];
     const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
