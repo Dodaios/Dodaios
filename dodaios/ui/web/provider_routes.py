@@ -2837,11 +2837,11 @@ async def set_provider_base_url(
 ) -> BaseUrlResponse:
     """Set (or clear) the server URL of a local/self-hosted provider.
 
-    Only cards with ``supports_base_url`` accept one (400 otherwise). The URL
-    is normalized to a bare server root (a pasted ``…/v1`` suffix is stripped,
-    ``0.0.0.0`` maps to localhost) and persisted atomically to
-    ``[brain.providers.<id>].base_url``; clearing falls back to the vendor
-    default (ollama: OLLAMA_HOST → http://localhost:11434).
+    Only cards with ``supports_base_url`` accept one (400 otherwise). A card
+    whose default is an OpenAI base (it ends in ``/v1``, LiteLLM) keeps that
+    path: the client posts to ``{base}/chat/completions``. Every other card
+    stores a bare server root (a pasted ``…/v1`` is stripped, ``0.0.0.0``
+    maps to localhost). Clearing falls back to the vendor default.
     """
     spec = get_spec(provider_id)
     if spec is None:
@@ -2858,9 +2858,15 @@ async def set_provider_base_url(
                 status_code=422,
                 detail="The server URL must start with http:// or https://.",
             )
-        from dodaios.plugins.brain.ollama import normalize_server_root
+        # OpenAI-base cards (default ends in /v1) are stored as the client
+        # base. Stripping /v1 would send chat to the server root.
+        keeps_openai_base = (spec.default_base_url or "").rstrip("/").endswith("/v1")
+        if keeps_openai_base:
+            cleaned = cleaned.rstrip("/").replace("://0.0.0.0", "://localhost", 1)
+        else:
+            from dodaios.plugins.brain.ollama import normalize_server_root
 
-        cleaned = normalize_server_root(cleaned)
+            cleaned = normalize_server_root(cleaned)
     from dodaios.core import config_writer
 
     config_writer.set_provider_base_url(provider_id, cleaned or None)

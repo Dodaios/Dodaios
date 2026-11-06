@@ -608,6 +608,9 @@ openrouter-tts = "dodaios.plugins.tts.openrouter_tts:OpenRouterTTS"
 [project.entry-points."jarvis.brain"]
 claude-api = "dodaios.plugins.brain.claude_api:ClaudeAPIBrain"
 openrouter = "dodaios.plugins.brain.openrouter:OpenRouterBrain"
+# Self-hosted OpenAI-compatible gateway. The host is the user's proxy
+# ([brain.providers.litellm].base_url), not a vendor URL.
+litellm = "dodaios.plugins.brain.litellm:LiteLLMBrain"
 nvidia = "dodaios.plugins.brain.nvidia:NvidiaBrain"
 openai = "dodaios.plugins.brain.openai:OpenAIBrain"
 gemini = "dodaios.plugins.brain.gemini:GeminiBrain"

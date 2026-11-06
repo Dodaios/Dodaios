@@ -65,6 +65,7 @@ Two render paths, chosen per file and recorded in the table:
 | inworld | Inworld's own site icon, `https://inworld.ai/icon.png` (PNG, 180 px) | vendor asset | own ground | 2026-08-23 |
 | ionos | simple-icons `ionos.svg` (Computers section, provider gallery) | CC0-1.0 | mono | 2026-09-28 |
 | linode | simple-icons `linode.svg` (Computers section, provider gallery) | CC0-1.0 | mono | 2026-09-28 |
+| litellm | LiteLLM brand kit monogram, `https://www.litellm.ai/brand-assets` (`litellm-monogram-blue.svg`) | vendor asset | colour | 2026-11-05 |
 | nvidia | lobehub/lobe-icons `nvidia-color.svg` | MIT | colour | 2026-08-23 |
 | ollama | lobehub/lobe-icons `ollama.svg` | MIT | mono | 2026-08-23 |
 | openai | lobehub/lobe-icons `openai.svg` (also Codex cards) | MIT | mono | 2026-08-23 |

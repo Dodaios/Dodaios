@@ -322,9 +322,12 @@ function ProviderDetail({
   const name = displayName(family);
   const subscription = entry.access === "subscription";
   const keyed = entry.access === "api_key";
-  // The OpenAI-compatible local server is the local agent provider with both
-  // a configurable endpoint and an optional credential. Ollama has its own
-  // URL controls on its provider card and does not use an API key.
+  // A keyed gateway you host (LiteLLM) declares supports_base_url. The local
+  // OpenAI-compatible server does too, and is handled with its optional key
+  // below. Ollama has its own URL controls and does not use an API key.
+  const hostedGateway = keyed
+    ? state.members.find((member) => member.supports_base_url)
+    : undefined;
   const localOpenAi = entry.access === "local"
     ? state.members.find((member) =>
         entry.rows.some((row) => row.jarvis === member.id)
@@ -361,6 +364,11 @@ function ProviderDetail({
             />
           )}
           {subscription && family.subscription && <SubscriptionAccountRow family={family} state={state} onChanged={onChanged} />}
+          {hostedGateway && (
+            <div className="px-4 py-3">
+              <BaseUrlField descriptor={hostedGateway} onChanged={onChanged} />
+            </div>
+          )}
           {keyed && family.key_slot && (
             <KeyField
               slot={family.key_slot}

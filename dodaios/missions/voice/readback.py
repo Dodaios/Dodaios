@@ -340,6 +340,7 @@ _PROVIDER_DISPLAY: Final[dict[str, str]] = {
     "antigravity": "Gemini",
     "grok": "Grok",
     "openrouter": "OpenRouter",
+    "litellm": "LiteLLM",
     "nvidia": "NVIDIA",
 }
 

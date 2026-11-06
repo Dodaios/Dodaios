@@ -93,6 +93,7 @@ AUTH_PROVIDER_ALIASES: dict[str, str] = {
     "openai-tts": "openai",
     "openai-api": "openai",
     "openrouter": "openrouter",
+    "litellm": "litellm",
     "groq": "groq",
     "groq-api": "groq",
     # Dedicated slot — Deepgram shares its key with nothing else.

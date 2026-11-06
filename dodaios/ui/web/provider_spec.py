@@ -461,6 +461,23 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         ),
     ),
     ProviderSpec(
+        id="litellm",
+        label="LiteLLM",
+        tier="brain",
+        auth_mode="api_key",
+        secret_keys=("litellm_api_key",),
+        dashboard_url="https://docs.litellm.ai/docs/proxy/virtual_keys",
+        signup_url="https://docs.litellm.ai/docs/proxy/quick_start",
+        supports_base_url=True,
+        default_base_url="http://localhost:4000/v1",
+        credential_help=(
+            "LiteLLM proxy key — the master key, or a virtual key. Set the "
+            "server URL to your proxy (the default is a LiteLLM proxy on this "
+            "machine). One key reaches every model that proxy is configured "
+            "to serve."
+        ),
+    ),
+    ProviderSpec(
         id="grok",
         label="xAI Grok",
         tier="brain",

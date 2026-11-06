@@ -99,6 +99,9 @@ def _error_means_family_unusable(text: str) -> bool:
 _BRAIN_BY_PROVIDER: dict[str, tuple[str, str]] = {
     "openai": ("dodaios.plugins.brain.openai", "OpenAIBrain"),
     "openrouter": ("dodaios.plugins.brain.openrouter", "OpenRouterBrain"),
+    # LiteLLM proxy speaks the same OpenAI-compatible protocol. The host is
+    # the user's proxy URL; model names are the proxy's own aliases.
+    "litellm": ("dodaios.plugins.brain.litellm", "LiteLLMBrain"),
     # xAI Grok speaks the same OpenAI-compatible streaming/tool-call protocol
     # and needs no vendor SDK or external worker CLI.
     "grok": ("dodaios.plugins.brain.grok", "GrokBrain"),

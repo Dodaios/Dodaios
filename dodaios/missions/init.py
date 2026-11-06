@@ -99,7 +99,7 @@ def _spawn_boot_cleanup(coro: Any, *, name: str) -> asyncio.Task[Any]:
 # other API providers, on the VertexBrain — so picking it as the subagent
 # actually runs the mission on Vertex instead of silently falling back to Claude.
 _API_AGENT_SLUGS: frozenset[str] = frozenset(
-    {"openai", "openrouter", "grok", "nvidia", "ollama", "local-openai", "vertex"}
+    {"openai", "openrouter", "litellm", "grok", "nvidia", "ollama", "local-openai", "vertex"}
 )
 
 
@@ -728,7 +728,7 @@ def reachable_worker_families() -> list[str]:
         families.append("codex")
     from dodaios.missions.workers.api_agent_worker import supports_api_agent_worker
 
-    for prov in ("claude-api", "gemini", "openrouter", "openai", "grok", "nvidia"):
+    for prov in ("claude-api", "gemini", "openrouter", "litellm", "openai", "grok", "nvidia"):
         if supports_api_agent_worker(prov) and _api_key_family_viable(prov):
             families.append(prov)
     return families
@@ -811,7 +811,7 @@ def _cross_family_last_resort_worker(
         return None
     from dodaios.missions.workers.api_agent_worker import supports_api_agent_worker
 
-    for prov in ("claude-api", "gemini", "openrouter", "openai", "grok", "nvidia"):
+    for prov in ("claude-api", "gemini", "openrouter", "litellm", "openai", "grok", "nvidia"):
         if supports_api_agent_worker(prov) and _api_key_family_viable(prov):
             logger.warning(
                 "Mission worker -> ApiAgentWorker(%r): no Claude CLI / Codex login "
@@ -945,7 +945,7 @@ _PAID_FAMILY_FOR_SUBSCRIPTION: dict[str, str] = {
     "grok-build": "grok",
 }
 _PAID_FAMILY_ORDER: tuple[str, ...] = (
-    "claude-api", "gemini", "openrouter", "openai", "grok", "nvidia",
+    "claude-api", "gemini", "openrouter", "litellm", "openai", "grok", "nvidia",
 )
 
 
