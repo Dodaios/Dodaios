@@ -221,7 +221,11 @@ def test_a_green_nightly_passes_the_strict_gate():
 
 def test_dependency_review_runs_only_on_pull_requests_and_may_skip_elsewhere():
     ci = workflows()["ci.yml"]["jobs"]
-    assert ci["dependency-review"]["if"] == "github.event_name == 'pull_request'"
+    # A fork has no dependency graph, and the review API refuses the run.
+    # The upstream repository keeps the check; every other event still skips.
+    assert ci["dependency-review"]["if"] == (
+        "github.event_name == 'pull_request' && github.repository == 'Dodaios/Dodaios'"
+    )
     # The workflow audit runs on every event; only a push whose commit the
     # merge queue already audited skips it.
     assert ci["zizmor"]["if"] == "needs.detect.outputs.proven != 'true'"
