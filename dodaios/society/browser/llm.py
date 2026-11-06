@@ -48,6 +48,7 @@ _MAP: Final[dict[str, tuple[str, str, str | None, bool]]] = {
     "gemini": ("ChatGoogle", "gemini-2.5-flash", None, True),
     "groq": ("ChatGroq", "llama-3.3-70b-versatile", None, True),
     "openrouter": ("ChatOpenRouter", "openai/gpt-5", None, True),
+    "litellm": ("ChatOpenAI", "", "http://localhost:4000/v1", True),
     "grok": ("ChatOpenAI", "grok-4", "https://api.x.ai/v1", True),
     "ollama": ("ChatOllama", "llama3.1:8b", None, False),
     "local-openai": ("ChatOpenAI", "", "http://127.0.0.1:8080/v1", False),
@@ -79,10 +80,49 @@ def llm_spec_for(
         key = lookup(pid) or None
         if not key:
             raise LLMUnavailable(FailureReason.AUTH_FAILED, f"no API key stored for {pid}")
+    resolved_base = (base_url or "").strip() or default_base
+    via_proxy = False
+    # The LiteLLM host is whatever the user saved on the card. The map default
+    # is only the local proxy. A caller-supplied base_url still wins.
+    if pid == "litellm" and not (base_url or "").strip():
+        try:
+            from dodaios.core.config import resolve_provider_endpoint
+
+            ep = resolve_provider_endpoint(pid, vendor_default_base_url=default_base)
+            if ep.base_url:
+                resolved_base = ep.base_url
+                via_proxy = bool(ep.via_proxy)
+        except Exception:  # noqa: BLE001 — a missing config keeps the map default
+            resolved_base = default_base
+    if (
+        pid == "litellm"
+        and resolved_base
+        and not via_proxy
+        and not resolved_base.rstrip("/").endswith("/v1")
+    ):
+        from dodaios.plugins.brain.litellm import openai_client_base
+
+        resolved_base = openai_client_base(resolved_base)
+    resolved_model = (model or "").strip() or default_model
+    if pid == "litellm" and not resolved_model:
+        from dodaios.plugins.brain.litellm import discover_chat_model
+
+        try:
+            resolved_model = discover_chat_model(resolved_base or "", key or "")
+        except Exception as exc:  # noqa: BLE001 — the proxy's own error is the answer
+            raise LLMUnavailable(
+                FailureReason.PROVIDER_ERROR,
+                "LiteLLM has no model selected and the proxy did not answer /models.",
+            ) from exc
+        if not resolved_model:
+            raise LLMUnavailable(
+                FailureReason.PROVIDER_ERROR,
+                "The LiteLLM proxy lists no chat models.",
+            )
     return BrowserLLMSpec(
         provider=pid,
         cls=cls,
-        model=(model or "").strip() or default_model,
+        model=resolved_model,
         api_key=key,
-        base_url=(base_url or "").strip() or default_base,
+        base_url=resolved_base,
     )

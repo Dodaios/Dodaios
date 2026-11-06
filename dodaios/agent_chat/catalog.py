@@ -359,6 +359,13 @@ PROVIDER_ROWS: Final[tuple[ProviderRow, ...]] = (
         models_source="live",
     ),
     ProviderRow(
+        id="litellm",
+        label="LiteLLM",
+        family="litellm",
+        runner="api",
+        models_source="live",
+    ),
+    ProviderRow(
         id="nvidia", label="NVIDIA NIM", family="nvidia", runner="api", models_source="live"
     ),
     ProviderRow(

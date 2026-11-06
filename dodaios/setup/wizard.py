@@ -135,6 +135,14 @@ SECRETS: list[SecretSpec] = [
         section="brain",
     ),
     SecretSpec(
+        key="litellm_api_key",
+        env_fallback="LITELLM_API_KEY",
+        label="LiteLLM API Key (proxy master or virtual key)",
+        help_url="https://docs.litellm.ai/docs/proxy/virtual_keys",
+        required_for="Brain (LiteLLM proxy — set the server URL on the card)",
+        section="brain",
+    ),
+    SecretSpec(
         key="nvidia_api_key",
         env_fallback="NVIDIA_API_KEY",
         label="NVIDIA API Key (NIM — build.nvidia.com, nvapi-)",
@@ -303,6 +311,14 @@ SECRETS: list[SecretSpec] = [
         label="Grok API Key for Dodaios-Agents",
         help_url="https://console.x.ai/",
         required_for="Dodaios-Agents (Grok)",
+        prompt=False,
+    ),
+    SecretSpec(
+        key="jarvis_agent_litellm_api_key",
+        env_fallback="JARVIS_AGENT_LITELLM_API_KEY",
+        label="LiteLLM API Key for Dodaios-Agents",
+        help_url="https://docs.litellm.ai/docs/proxy/virtual_keys",
+        required_for="Dodaios-Agents (LiteLLM proxy)",
         prompt=False,
     ),
     SecretSpec(
