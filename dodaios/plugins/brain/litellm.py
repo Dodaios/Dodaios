@@ -94,7 +94,8 @@ async def _model_info_window(root: str, model: str, headers: dict[str, str]) -> 
         return None
     try:
         payload = response.json()
-    except ValueError:
+    except ValueError as exc:
+        log.debug("litellm: /model/info at %s was not JSON: %s", root, exc)
         return None
     tokens = context_tokens_from_model_info(payload, model)
     if tokens:
