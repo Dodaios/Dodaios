@@ -9,6 +9,12 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The README contributor wall shows everyone who has shipped work. People whose
+  git email GitHub never linked to an account are named, and a pull request
+  author appears even when the contributors index has not caught up yet.
+
 ### Changed
 
 - The small-machine vision download is `qwen3-vl:2b-instruct` (1.9 GB, refreshed
