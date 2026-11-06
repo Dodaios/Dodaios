@@ -112,12 +112,27 @@ def _run_bootstrap(fake: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _skip_unless_child_is_the_copy(proc: subprocess.Popen[bytes], expected: Path) -> None:
+    """Same limit as the unit stop test: the bootstrap finds the process by path."""
+    try:
+        import psutil
+
+        exe = Path(psutil.Process(proc.pid).exe())
+    except Exception as exc:  # noqa: BLE001 — AccessDenied is the runner's answer
+        pytest.skip(f"runner hides the child executable: {exc}")
+    if exe.resolve() != expected.resolve():
+        pytest.skip(f"runner reports the child as {exe}, not the copy we launched")
+
+
 def test_bootstrap_removes_fake_install_despite_running_process(tmp_path: Path) -> None:
     fake = _make_fake_install(tmp_path)
     proc = _start_process_from(fake)
+    expected = fake / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
+    expected = expected / ("jarvis-fake.exe" if sys.platform == "win32" else "jarvis-fake")
     try:
         time.sleep(1)
         assert proc.poll() is None, "the fake app must be running when the bootstrap starts"
+        _skip_unless_child_is_the_copy(proc, expected)
 
         result = _run_bootstrap(fake)
 

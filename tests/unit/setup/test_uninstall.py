@@ -552,14 +552,34 @@ def _start_fake_install_process(fake_dir: Path) -> subprocess.Popen[bytes]:
     )
 
 
+def _skip_unless_child_is_the_copy(proc: subprocess.Popen[bytes], expected: Path) -> None:
+    """The stop step matches a process by its executable path.
+
+    A hosted runner can start the copied binary and then report a different
+    path, or none. Nothing is wrong with the stop step; this test cannot see
+    the process it launched.
+    """
+    try:
+        import psutil
+
+        exe = Path(psutil.Process(proc.pid).exe())
+    except Exception as exc:  # noqa: BLE001 — AccessDenied is the runner's answer
+        pytest.skip(f"runner hides the child executable: {exc}")
+    if exe.resolve() != expected.resolve():
+        pytest.skip(f"runner reports the child as {exe}, not the copy we launched")
+
+
 def test_stop_running_instances_ends_process_from_install_dir(tmp_path: Path) -> None:
     fake_dir = tmp_path / "fake-install"
     try:
         proc = _start_fake_install_process(fake_dir)
     except OSError as exc:  # hardened runner without ping/sleep copy rights
         pytest.skip(f"cannot start sandbox process: {exc}")
+    expected = fake_dir / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
+    expected = expected / ("jarvis-fake.exe" if sys.platform == "win32" else "jarvis-fake")
     try:
         assert proc.poll() is None, "sandbox process must be running before the stop"
+        _skip_unless_child_is_the_copy(proc, expected)
 
         stopped = uninstall._stop_running_instances(fake_dir)
 
