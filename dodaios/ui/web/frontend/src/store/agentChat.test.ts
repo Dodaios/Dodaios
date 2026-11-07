@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentChatSession } from "@/lib/agentChatApi";
+import type { AgentChatEvent, AgentChatSession } from "@/lib/agentChatApi";
 import { providerKind } from "@/components/agentchat/AgentComposer";
 import { EMPTY_TIMELINE, type Timeline, type UserItem } from "@/components/agentchat/reduce";
 import { createAgentChatStore, draftKey } from "@/store/agentChat";
@@ -500,6 +500,46 @@ it("opening a society catalog never runs paid provider health probes", async () 
   expect(calls.some((call) => call.url.includes("provider-health"))).toBe(false);
   await createAgentChatStore("jarvis").getState().loadCatalog();
   expect(calls.some((call) => call.url.includes("provider-health"))).toBe(true);
+});
+
+function chatEvent(seq: number, kind: string, payload: Record<string, unknown>): AgentChatEvent {
+  return { seq, ts_ms: seq, kind, payload };
+}
+
+it("drops the stop control when a watched turn ends, even if the session poll still says it is running", async () => {
+  const row = { ...session("s1", "agent"), running: true };
+  stubFetch([{ ...row }]);
+  try {
+    const store = createAgentChatStore("agent", "running-flag");
+    store.setState({ activeSessionId: "s1", activeSession: row, sessions: [row], timeline: EMPTY_TIMELINE });
+    store.getState().ingest(chatEvent(1, "turn_started", { turn_id: "t1" }));
+    store.getState().ingest(chatEvent(2, "assistant_text", { turn_id: "t1", message_id: "m1", text: "PR 1186 is not merged." }));
+    expect(store.getState().activeSession?.running).toBe(true);
+    store.getState().ingest(chatEvent(3, "turn_finished", { turn_id: "t1", status: "done", duration_ms: 17000 }));
+    expect(store.getState().activeSession?.running).toBe(false);
+    expect(store.getState().sessions[0]?.running).toBe(false);
+    // The list route can still say running until the turn task leaves the
+    // server. That must not put the stop control back over a finished turn.
+    await store.getState().loadSessions();
+    expect(store.getState().activeSession?.running).toBe(false);
+    expect(store.getState().sessions[0]?.running).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it("keeps a running mark while the open thread's events have not arrived", async () => {
+  const row = { ...session("s1", "agent"), running: true };
+  stubFetch([row]);
+  try {
+    const store = createAgentChatStore("agent", "running-flag-pending");
+    store.setState({ activeSessionId: "s1", activeSession: row, sessions: [row], timeline: EMPTY_TIMELINE });
+    await store.getState().loadSessions();
+    expect(store.getState().activeSession?.running).toBe(true);
+    expect(store.getState().sessions[0]?.running).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 it("unchanged session refreshes preserve list identity, while title/account changes update it", async () => {

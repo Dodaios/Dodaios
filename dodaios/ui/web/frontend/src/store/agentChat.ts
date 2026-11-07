@@ -44,7 +44,7 @@ import {
   type PatchSessionInput,
   type ProviderHealth,
 } from "@/lib/agentChatApi";
-import { EMPTY_TIMELINE, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, settleApproval, type Timeline } from "@/components/agentchat/reduce";
+import { EMPTY_TIMELINE, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline } from "@/components/agentchat/reduce";
 import { markAnswered } from "@/components/society/attention/attentionStore";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
@@ -371,6 +371,27 @@ function onLadder(value: string, ladder: readonly string[], fallback: string): s
 /** How many left-behind transcripts the store keeps for an instant switch-back. */
 const TIMELINE_CACHE_LIMIT = 24;
 
+/**
+ * What `running` should say for the session this timeline belongs to.
+ *
+ * The row's flag is whatever the last snapshot or poll reported. A thread
+ * the person is watching already has the turn's end in its timeline
+ * ("Worked for"), and nothing used to rewrite that flag until the socket
+ * connected again, so the composer kept its stop control. A timeline with
+ * no turn yet still trusts the report: the thread may already be working
+ * and its events have not arrived.
+ */
+function runningForTimeline(timeline: Timeline, reported: boolean | undefined): boolean | undefined {
+  if (runningTurn(timeline) !== null) return true;
+  if (timeline.items.some((item) => item.type === "turn")) return false;
+  return reported;
+}
+
+function withRunning(session: AgentChatSession, timeline: Timeline): AgentChatSession {
+  const running = runningForTimeline(timeline, session.running);
+  return running === session.running ? session : { ...session, running };
+}
+
 export function createAgentChatStore(surface: AgentChatSurface, draftNamespace = ""): UseBoundStore<StoreApi<AgentChatStore>> {
   const DRAFT_KEY = draftKey(surface) + (draftNamespace ? `:${draftNamespace}` : "");
 
@@ -471,10 +492,13 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           // fold them onto what is already there, else start fresh.
           const base = afterSeq > 0 && prev.activeSessionId === sessionId ? prev.timeline : EMPTY_TIMELINE;
           const tl = reduceEvents(base, frame.events ?? []);
+          const session = withRunning(frame.session, tl);
+          const sessions = prev.sessions.map((row) => row.session_id === session.session_id ? withRunning(row, tl) : row);
           set({
-            activeSession: frame.session,
+            activeSession: session,
+            sessions: sessions.some((row, index) => row !== prev.sessions[index]) ? sessions : prev.sessions,
             timeline: { ...tl, sessionPatch: null },
-            draft: draftFromSession(frame.session, prev.draft),
+            draft: draftFromSession(session, prev.draft),
           });
           if (surface !== "jarvis") writeDraft(DRAFT_KEY, get().draft);
           if (prev.activeSession?.account_id !== frame.session.account_id) void get().loadCatalog();
@@ -643,8 +667,19 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           // update never makes a person's chats vanish until the restart.
           const sessions = rows.filter((row) => row.surface === undefined || row.surface === surface);
           set((state) => {
-            const shared = reuseHistoryRows(state.sessions, sessions, (row) => row.session_id);
-            return shared === state.sessions ? state : { sessions: shared };
+            const sid = state.activeSessionId;
+            // The open thread's timeline is ahead of this poll: a finished
+            // turn must not be marked working again, and one still running
+            // must not drop its mark because the list has not caught up.
+            const next = sid
+              ? sessions.map((row) => row.session_id === sid ? withRunning(row, state.timeline) : row)
+              : sessions;
+            const shared = reuseHistoryRows(state.sessions, next, (row) => row.session_id);
+            const active = state.activeSession && state.activeSession.session_id === sid
+              ? withRunning(state.activeSession, state.timeline)
+              : state.activeSession;
+            if (shared === state.sessions && active === state.activeSession) return state;
+            return { sessions: shared, activeSession: active };
           });
         } catch {
           /* offline / headless — keep the list as-is */
@@ -1008,14 +1043,25 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
       ingest: (event) => {
         const st = get();
         const tl = reduceEvent(st.timeline, event);
-        if (tl === st.timeline) return;
-        const patch: Partial<AgentChatStore> = { timeline: tl };
-        if (tl.sessionPatch && st.activeSession) {
-          const session = { ...st.activeSession, ...tl.sessionPatch } as AgentChatSession;
+        const patch: Partial<AgentChatStore> = {};
+        if (tl !== st.timeline) patch.timeline = tl;
+        let session = st.activeSession;
+        if (patch.timeline && tl.sessionPatch && session) {
+          session = { ...session, ...tl.sessionPatch } as AgentChatSession;
           patch.activeSession = session;
           patch.draft = draftFromSession(session, st.draft);
           if (surface !== "jarvis") writeDraft(DRAFT_KEY, patch.draft);
         }
+        // The stop control reads this flag. The turn's own end is in the
+        // timeline now; leave the flag on and the arrow never comes back.
+        if (session && session.session_id === st.activeSessionId) {
+          const aligned = withRunning(session, tl);
+          if (aligned !== session) patch.activeSession = aligned;
+          const id = session.session_id;
+          const sessions = st.sessions.map((row) => row.session_id === id ? withRunning(row, tl) : row);
+          if (sessions.some((row, index) => row !== st.sessions[index])) patch.sessions = sessions;
+        }
+        if (Object.keys(patch).length === 0) return;
         set(patch);
         if (event.kind === "turn_finished" || event.kind === "user_message") {
           invalidateAgentChatSessions();
