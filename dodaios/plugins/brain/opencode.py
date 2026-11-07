@@ -262,7 +262,7 @@ class OpenCodeBrain:
         self._structured_prompts = bool(structured_prompts)
         try:
             budget = float(cli_timeout_s) if cli_timeout_s is not None else 0.0
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # unset or non-numeric timeout -> default budget
             budget = 0.0
         self._cli_timeout_s = budget if budget > 0 else _CLI_TIMEOUT_S
 
@@ -386,7 +386,7 @@ class OpenCodeBrain:
                         continue
                     try:
                         obj = json.loads(line)
-                    except ValueError:
+                    except ValueError:  # a malformed line is not an ACP frame; skip it
                         continue
                     if not isinstance(obj, dict):
                         continue
@@ -428,7 +428,7 @@ class OpenCodeBrain:
                     event = await asyncio.wait_for(
                         io.events.get(), timeout=min(_TICK_S, remaining)
                     )
-                except TimeoutError:
+                except TimeoutError:  # no frame yet; the heartbeat delta keeps the turn alive
                     if pump_task.done():
                         break
                     yield BrainDelta(content="")

@@ -244,7 +244,7 @@ class OpenCodeWorker:
                     break
                 try:
                     raw = await asyncio.wait_for(proc.stdout.readline(), timeout=remaining)
-                except TimeoutError:
+                except TimeoutError:  # deadline passed; end the turn with frames so far
                     break
                 if not raw:
                     break
@@ -254,7 +254,7 @@ class OpenCodeWorker:
                 frames.append(line)
                 try:
                     obj = json.loads(line)
-                except ValueError:
+                except ValueError:  # a malformed line is not an ACP frame; skip it
                     continue
                 await turn.on_message(obj, io)
         finally:

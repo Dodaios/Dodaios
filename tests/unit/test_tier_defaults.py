@@ -56,6 +56,8 @@ class TestTierDefaultsCatalog:
                 continue  # empty by design: plugin-side model discovery
             if provider == "openrouter":
                 continue  # deliberate free-model default; not a frontier slug
+            if provider == "opencode":
+                continue  # deliberate free-model default; the Zen catalog is curated free models
             if provider == "grok":
                 continue  # grok-4.3 serves both tiers — see the router-tier note above
             assert any(tag in model.lower() for tag in
