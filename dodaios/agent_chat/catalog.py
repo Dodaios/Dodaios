@@ -71,7 +71,10 @@ Runner = Literal[
     "agy-cli",
     "grok-cli",
     "opencode-cli",
+    "opencode-acp",
     "kimi-cli",
+    # (``opencode-acp`` is the seat the ``opencode`` row runs; ``opencode-cli``
+    # remains its ``opencode run`` planner for existing sessions.)
     "glm-cli",
     "dsh-cli",
     "cursor-cli",
@@ -275,7 +278,11 @@ PROVIDER_ROWS: Final[tuple[ProviderRow, ...]] = (
         id="opencode",
         label="OpenCode",
         family="opencode",
-        runner="opencode-cli",
+        # ``opencode acp`` — the ACP session OpenMausBot drives, not a
+        # ``run`` process: the conversation is an ACP session id, the model a
+        # session config option, and the agent's permission requests become
+        # this chat's approval cards.
+        runner="opencode-acp",
         models_source="curated",
         # OpenCode's ids are ``provider/model`` and depend on which providers
         # the person configured, so nothing is shipped: the route replaces

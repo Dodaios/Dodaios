@@ -80,7 +80,8 @@ def test_a_cli_the_ide_dropped_leaves_the_picker(monkeypatch: pytest.MonkeyPatch
 def test_resolve_runner_names_each_clis_own_runner(surface: str) -> None:
     from dodaios.agent_chat.service import resolve_runner
 
-    assert resolve_runner("opencode", surface=surface) == "opencode-cli"
+    # OpenCode's seat speaks ACP (``opencode acp``), like OpenMausBot drives it.
+    assert resolve_runner("opencode", surface=surface) == "opencode-acp"
     assert resolve_runner("kimi", surface=surface) == "kimi-cli"
     assert resolve_runner("glm", surface=surface) == "glm-cli"
     assert resolve_runner("deepseek-harness", surface=surface) == "dsh-cli"

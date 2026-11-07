@@ -34,6 +34,7 @@ _RUNNER_LABELS: Final[dict[str, str]] = {
     "agy-cli": "Antigravity",
     "grok-cli": "Grok Build",
     "opencode-cli": "OpenCode",
+    "opencode-acp": "OpenCode (ACP)",
     "kimi-cli": "Kimi Code",
     "glm-cli": "GLM Coding Plan",
     "dsh-cli": "DeepSeek Harness",

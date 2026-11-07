@@ -127,6 +127,8 @@ CLI_BINARIES: Final[dict[str, tuple[str, ...]]] = {
     "agy-cli": ("agy", "agy.exe"),
     "grok-cli": ("grok", "grok.exe", "grok.cmd"),
     "opencode-cli": ("opencode", "opencode.cmd", "opencode.exe"),
+    # The same binary in its ACP server mode (``opencode acp``).
+    "opencode-acp": ("opencode", "opencode.cmd", "opencode.exe"),
     "kimi-cli": ("kimi", "kimi.cmd", "kimi.exe"),
     # GLM Coding Plan IS Claude Code — Z.ai ships no binary of its own
     # (``dodaios.workspace.agents``), so its seat stands on Claude Code's.
@@ -1486,6 +1488,73 @@ def plan_opencode(
     return CliPlan(argv, env, None, "opencode", resume)
 
 
+def _harness_mcp_servers(session_id: str | None) -> list[Any]:
+    """Dodaios' own tools as one ACP ``mcpServers`` entry (``[]`` if unready).
+
+    The same server an external runtime gets: the app's MCP endpoint with the
+    control key, and the chat's session header when there is one. Nothing is
+    handed over when the web server has not bound yet or there is no key — the
+    seat then answers without tools instead of failing to connect.
+    """
+    from dodaios.agent_chat import dodaios_harness
+    from dodaios.agent_runtimes.acp import McpServer
+    from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
+
+    url = dodaios_harness.endpoint()
+    key = dodaios_harness.control_key()
+    if not url or not key:
+        return []
+    headers = {"Authorization": f"Bearer {key}"}
+    if session_id:
+        headers[dodaios_harness.HEADER_NAME] = session_id
+    return [McpServer(name=MCP_TOOLS_SERVER_NAME, url=url, headers=headers)]
+
+
+def plan_opencode_acp(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: dodaios_harness.Identity | None = None,
+) -> CliPlan:
+    """One turn on ``opencode acp``: the ACP exchange, not a ``run`` process.
+
+    The same pipeline OpenMausBot drives: ``initialize`` -> ``session/load`` of
+    the stored conversation (else ``session/new``) -> ``session/set_config_option``
+    for the picked model and variant -> ``session/prompt``, with every
+    ``session/update`` becoming chat events (``AcpTurn``). One process per turn;
+    the conversation is carried by the ACP session id, and the agent's own
+    permission requests become this chat's approval cards.
+    """
+    from dodaios.agent_runtimes.acp import AcpTurn
+
+    mode = normalize_permission("opencode-acp", permission_mode)
+    text = _with_identity(prompt, identity, resume)
+    turn = AcpTurn(
+        turn_id="",
+        cwd=str(cwd),
+        prompt_text=text,
+        resume=resume,
+        auto_allow=mode == "auto",
+        auto_deny=mode == "plan",
+        mcp_servers=_harness_mcp_servers(identity.session_id if identity else None),
+        config={"model": model, "variant": effort},
+    )
+    env = _registry_env("opencode", _account_env("opencode"))
+    return CliPlan(
+        argv=[*opencode_argv_prefix(), "acp"],
+        env=env,
+        stdin_text=None,
+        shape="acp",
+        vendor_session=resume,
+        keep_stdin=True,
+        acp=turn,
+    )
+
+
 def _kimi_session_after(cwd: Path, started_at: float) -> str | None:
     """The session Kimi's print run in ``cwd`` created after ``started_at``.
 
@@ -1657,6 +1726,7 @@ _PLANNERS: Final[dict[str, Any]] = {
     "agy-cli": plan_agy,
     "codex-cli": plan_codex,
     "opencode-cli": plan_opencode,
+    "opencode-acp": plan_opencode_acp,
     "kimi-cli": plan_kimi,
     "glm-cli": plan_glm,
     "dsh-cli": plan_dsh,
@@ -4139,6 +4209,10 @@ async def _drive_cli(
     if plan.acp is not None:
         state: Any = plan.acp
         translate: Any = None
+        if not getattr(state, "turn_id", ""):
+            # A planner builds the ACP turn before the runner has the handle's
+            # turn id; every event it emits carries that id.
+            state.turn_id = handle.turn_id
     else:
         make_state, translate = _SHAPES[plan.shape]
         state = make_state(handle.turn_id, vendor_session)

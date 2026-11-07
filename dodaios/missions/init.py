@@ -68,6 +68,7 @@ from .workers.capabilities import (
 from .workers.claude_direct_worker import ClaudeDirectWorker
 from .workers.codex_direct_worker import CodexDirectWorker
 from .workers.gemini_worker import GeminiWorker
+from .workers.opencode_worker import OpenCodeWorker
 from .workers.google_cli_worker import GoogleCliWorker
 from .workers.grok_build_direct_worker import GrokBuildDirectWorker
 
@@ -406,7 +407,7 @@ def _select_subagent_worker_kind(sub_jarvis_provider: str | None, step_model: st
     """Pure routing decision for the Heavy-Task subagent worker.
 
     Returns one of ``"claude_direct"`` | ``"codex_direct"`` | ``"antigravity"``
-    | ``"grok_build"`` | ``"subjarvis"`` | ``"gemini"``.
+    | ``"grok_build"`` | ``"subjarvis"`` | ``"gemini"`` | ``"opencode"``.
 
     Defense-in-depth (2026-05-29, user mandate: heavy tasks run on the
     configured provider — claude-api -> Claude Max OAuth — and Gemini must
@@ -451,6 +452,12 @@ def _select_subagent_worker_kind(sub_jarvis_provider: str | None, step_model: st
     # ran on Claude instead of Gemini.
     if sub_jarvis_provider == "gemini":
         return "gemini"
+    # "opencode": the work runs on OpenCode over ACP (``opencode acp``), the
+    # same pipeline the OpenCode chat seat drives. A HARD LOCK like
+    # claude-api/gemini: the person picked OpenCode, so no per-step model
+    # diverts the mission to Claude.
+    if sub_jarvis_provider == "opencode":
+        return "opencode"
     if sub_jarvis_provider:
         return "subjarvis"
     # No subagent provider configured — legacy default path.
@@ -1616,6 +1623,12 @@ async def bootstrap_missions(
                 getattr(step, "model", ""),
             )
             return GeminiWorker(capability_inventory=capability_inventory)
+        if kind == "opencode":
+            logger.info(
+                "Mission worker -> OpenCodeWorker (opencode acp over ACP) — runs on the "
+                "OpenCode login on this machine, no API key in the worker env."
+            )
+            return OpenCodeWorker(capability_inventory=capability_inventory)
         # The legacy ``"subjarvis"`` kind (the legacy ``openclaw-claude`` alias /
         # unknown provider / unset default) routed to the Jarvis-Agent
         # subprocess worker, which was removed (it caused the ~92%

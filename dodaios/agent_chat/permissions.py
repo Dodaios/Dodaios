@@ -313,6 +313,8 @@ _LADDERS: Final[dict[str, tuple[tuple[PermissionMode, ...], str]]] = {
     "agy-cli": (_AGY, "skip-permissions"),
     "grok-cli": (_GROK, "bypassPermissions"),
     "opencode-cli": (_OPENCODE, "auto"),
+    # The same CLI over ACP (``opencode acp``): one product, one ladder.
+    "opencode-acp": (_OPENCODE, "auto"),
     "kimi-cli": (_KIMI, "auto"),
     # GLM Coding Plan drives the Claude Code binary, so it takes Claude
     # Code's own words.
