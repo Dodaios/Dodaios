@@ -18,7 +18,9 @@ from typing import Literal
 
 from dodaios.dictation.polish_client import POLISH_FAMILIES
 
-AuthMode = Literal["api_key", "codex", "antigravity", "claude_cli", "grok_build", "none"]
+AuthMode = Literal[
+    "api_key", "codex", "antigravity", "claude_cli", "grok_build", "opencode", "none"
+]
 Tier = Literal["brain", "tts", "stt", "realtime", "dictation"]
 # How using a provider is billed. Derived from auth_mode (never branched on a
 # provider name — see provider_billing): an API key bills per token on an API
@@ -129,7 +131,13 @@ def provider_billing(spec: ProviderSpec) -> Billing:
     * ``none`` → ``"local"`` — no credential, runs on-device.
     * everything else (``api_key``) → ``"api"`` — pay per token on an API account.
     """
-    if spec.auth_mode in ("antigravity", "codex", "claude_cli", "grok_build"):
+    if spec.auth_mode in (
+        "antigravity",
+        "codex",
+        "claude_cli",
+        "grok_build",
+        "opencode",
+    ):
         return "subscription_or_api" if spec.secret_keys else "subscription"
     if spec.auth_mode == "none":
         return "local"
@@ -575,6 +583,27 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "Claude Code CLI — no API key needed. Sign in from the local "
             "model panel, or run 'claude /login' in a terminal. Too slow to "
             "start for spoken replies, so it is not offered as a voice brain."
+        ),
+    ),
+    # ── Brain: OpenCode itself, driven over ACP (``opencode acp``) ──
+    # No secret_keys slot: the binary owns its provider logins and its free
+    # models work with no login at all, so there is no key for Dodaios to store.
+    ProviderSpec(
+        id="opencode",
+        label="OpenCode (local CLI)",
+        tier="brain",
+        auth_mode="opencode",
+        secret_keys=(),
+        dashboard_url=None,
+        login_cli=("opencode", "auth", "login"),
+        install_hint="npm i -g opencode-ai",
+        credential_path_hint="~/.local/share/opencode/auth.json",
+        signup_url="https://opencode.ai",
+        credential_help=(
+            "Answer through the OpenCode CLI over ACP — no Dodaios API key. "
+            "OpenCode uses the providers and logins you configured there; its "
+            "free models need no login. Startup is a full coding agent, so it "
+            "is a fallback brain rather than the fast voice tier."
         ),
     ),
     ProviderSpec(

@@ -326,6 +326,16 @@ def is_credential_present(spec: ProviderSpec, binary_path: str | None = None) ->
             return grok_build_provider_ready(GrokBuildAuthService().status())
         except Exception:  # noqa: BLE001 — Grok Build CLI absent is just "not present"
             return False
+    if spec.auth_mode == "opencode":
+        # No key to look up: the CLI owns its logins and even a signed-out
+        # install reaches the free models, so "binary + at least one model" is
+        # the same answer the provider card and the brain resolver give.
+        try:
+            from dodaios.plugins.brain.opencode import OpenCodeBrain
+
+            return OpenCodeBrain.subscription_connected()
+        except Exception:  # noqa: BLE001 — an absent/broken CLI is "not present"
+            return False
     return False
 
 

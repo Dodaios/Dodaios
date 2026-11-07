@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { translate } from "@/i18n";
 
-export type AuthMode = "api_key" | "codex" | "antigravity" | "claude_cli" | "grok_build" | "none";
+export type AuthMode =
+  | "api_key"
+  | "codex"
+  | "antigravity"
+  | "claude_cli"
+  | "grok_build"
+  | "opencode"
+  | "none";
 // Mirror of provider_spec.Tier. "dictation" is the odd one out and deliberately
 // so: it is the OPTIONAL tier that tidies dictated text, and a missing key there
 // costs nothing — the dictation is delivered exactly as it was recognized. Every

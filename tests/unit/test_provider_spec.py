@@ -38,8 +38,8 @@ def test_only_subscription_cli_providers_use_cli_login() -> None:
     """A login CLI belongs to the subscription/login providers only. Codex logs
     in via ``codex login``; Antigravity drives the bare ``agy`` binary (it has
     no ``login`` subcommand); the Claude subscription signs in with the
-    ``/login`` slash command of the ``claude`` CLI. Every pure API-key / local
-    provider has none."""
+    ``/login`` slash command of the ``claude`` CLI; OpenCode uses its own
+    ``opencode auth login``. Every pure API-key / local provider has none."""
     for spec in PROVIDERS:
         assert spec.auth_mode != "subscription_cli"  # never the legacy literal
         if spec.id in {"codex", "codex-subscription-realtime"}:
@@ -57,6 +57,12 @@ def test_only_subscription_cli_providers_use_cli_login() -> None:
             assert spec.secret_keys == ()
             assert provider_billing(spec) == "subscription"
             assert spec.brain_switchable is False
+        elif spec.id == "opencode":
+            assert spec.auth_mode == "opencode"
+            assert spec.login_cli == ("opencode", "auth", "login")
+            assert spec.secret_keys == ()
+            assert provider_billing(spec) == "subscription"
+            assert spec.brain_switchable is True
         else:
             assert spec.login_cli is None, f"{spec.id}: unexpected login_cli"
 

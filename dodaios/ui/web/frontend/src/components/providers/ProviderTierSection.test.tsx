@@ -206,6 +206,44 @@ describe("ProviderCard selected without credentials", () => {
   });
 });
 
+describe("OpenCode card state", () => {
+  afterEach(cleanup);
+
+  const opencodeCard = (over: Partial<ProviderDescriptor> = {}) =>
+    dictationCard({
+      id: "opencode",
+      label: "OpenCode (local CLI)",
+      tier: "brain",
+      auth_mode: "opencode",
+      secret_keys: [],
+      secrets_set: {},
+      configured: true,
+      credential_help: "Answer through the OpenCode CLI over ACP.",
+      install_hint: "npm i -g opencode-ai",
+      ...over,
+    });
+
+  it("is ready when the CLI probe lists models and no key is stored", () => {
+    expect(providerStateChip(opencodeCard())).toBe("ready");
+  });
+
+  it("is not_installed when the CLI probe finds nothing", () => {
+    expect(providerStateChip(opencodeCard({ configured: false }))).toBe(
+      "not_installed",
+    );
+  });
+
+  it("shows the install command only while the CLI is missing", () => {
+    installFetchMock();
+    useI18nStore.getState().setUi("en", { push: false });
+    const { unmount } = renderCard(opencodeCard({ configured: false }));
+    expect(screen.getByText("npm i -g opencode-ai")).toBeTruthy();
+    unmount();
+    renderCard(opencodeCard());
+    expect(screen.queryByText("npm i -g opencode-ai")).toBeNull();
+  });
+});
+
 describe("ProviderCard — dictation polish activation", () => {
   beforeEach(() => {
     window.localStorage.clear();

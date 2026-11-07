@@ -253,6 +253,7 @@ PROVIDER_ALIASES = {
     "nvidia": "nvidia",
     "nim": "nvidia",
     "nemotron": "nvidia",
+    "opencode": "opencode",
 }
 
 SUBAGENT_ONLY_BRAIN_PROVIDERS: frozenset[str] = frozenset(
@@ -266,6 +267,9 @@ _MAIN_BRAIN_FALLBACK_PROVIDER_ORDER: tuple[str, ...] = (
     "openrouter",
     "grok",
     "nvidia",
+    # Last resort: OpenCode starts a full agent process, but it works with no
+    # key at all (the free models), so it beats an empty provider chain.
+    "opencode",
 )
 
 # Human-readable display names for each brain provider id. Used to tell the
@@ -289,6 +293,7 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "gemini": "Google Gemini",
     "antigravity": "Google Antigravity (Gemini)",
     "grok-build": "Grok Build (xAI subscription)",
+    "opencode": "OpenCode",
 }
 
 
@@ -400,6 +405,10 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # the dense model it replaces. Verified against integrate.api.nvidia.com.
         "nvidia": "nvidia/nemotron-3-super-120b-a12b",
         "mistral": "mistral-small-3.1",
+        # OpenCode resolves the id through the ACP session's config option.
+        # The free Zen lineup is what a signed-out install actually has; a
+        # flash model keeps the fallback tier fast.
+        "opencode": "opencode/glm-5.3-flash-free",
         # Local providers: no server-side catalog is knowable ahead of time —
         # empty means "the plugin discovers the first installed model".
         "ollama": "",
@@ -426,6 +435,10 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # the OpenRouter tiers above already name.
         "nvidia": "nvidia/nemotron-3-ultra-550b-a55b",
         "mistral": "mistral-large-3",
+        # OpenCode's free deep pick: Big Pickle is the strongest general model
+        # in the signed-out Zen lineup. A user who configured a provider in
+        # OpenCode can type that provider/model id instead.
+        "opencode": "opencode/big-pickle",
         # Local providers: empty = plugin-side discovery (see router tier).
         "ollama": "",
         "local-openai": "",
