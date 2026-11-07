@@ -164,8 +164,5 @@
   },
   "brain.providers.openai-live": {
     "model": "gpt-live-1"
-  },
-  "brain.providers.litellm": {
-    "base_url": "https://llm-proxy.ai.use1.test.dmnr.io"
   }
 }
