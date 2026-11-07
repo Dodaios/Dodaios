@@ -221,6 +221,12 @@ PROVIDER_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
         ("openai_api_key", "OPENAI_API_KEY"),
     ),
     "openrouter": (("openrouter_api_key", "OPENROUTER_API_KEY"),),
+    # LiteLLM proxy (OpenAI-compatible gateway the user hosts). The master key
+    # is the proxy's own env name; a virtual key saved in the app wins.
+    "litellm": (
+        ("litellm_api_key", "LITELLM_API_KEY"),
+        ("litellm_master_key", "LITELLM_MASTER_KEY"),
+    ),
     # Groq remains a speech-to-text credential family even though it is not a
     # selectable brain provider.
     "groq": (("groq_api_key", "GROQ_API_KEY"),),
@@ -311,6 +317,10 @@ JARVIS_AGENT_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
     "openrouter": (
         ("jarvis_agent_openrouter_api_key", "JARVIS_AGENT_OPENROUTER_API_KEY"),
         *PROVIDER_SECRET_CANDIDATES["openrouter"],
+    ),
+    "litellm": (
+        ("jarvis_agent_litellm_api_key", "JARVIS_AGENT_LITELLM_API_KEY"),
+        *PROVIDER_SECRET_CANDIDATES["litellm"],
     ),
     "grok": (
         ("jarvis_agent_grok_api_key", "JARVIS_AGENT_GROK_API_KEY"),
@@ -6183,6 +6193,7 @@ _SECRET_BASE_FAMILIES: tuple[str, ...] = (
     "claude-api",
     "openai",
     "openrouter",
+    "litellm",
     "groq",
     "nvidia",
     "gemini",

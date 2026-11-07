@@ -249,6 +249,7 @@ PROVIDER_ALIASES = {
     "flash": "gemini",
     "pro": "gemini",
     "openrouter": "openrouter",
+    "litellm": "litellm",
     "grok": "grok",
     "nvidia": "nvidia",
     "nim": "nvidia",
@@ -266,6 +267,7 @@ _MAIN_BRAIN_FALLBACK_PROVIDER_ORDER: tuple[str, ...] = (
     "openrouter",
     "grok",
     "nvidia",
+    "litellm",
 )
 
 # Human-readable display names for each brain provider id. Used to tell the
@@ -284,6 +286,7 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "codex": "OpenAI Codex (GPT-5.5)",
     "openai-codex": "OpenAI Codex (GPT-5.5)",
     "openrouter": "OpenRouter",
+    "litellm": "LiteLLM",
     "grok": "xAI Grok",
     "nvidia": "NVIDIA NIM",
     "gemini": "Google Gemini",
@@ -330,6 +333,8 @@ _SECRET_KEY_TO_BRAIN: dict[str, str] = {
     "anthropic_api_key": "claude-api",
     "openai_api_key": "openai",
     "openrouter_api_key": "openrouter",
+    "litellm_api_key": "litellm",
+    "litellm_master_key": "litellm",
     "grok_api_key": "grok",
     "xai_api_key": "grok",
     "nvidia_api_key": "nvidia",
@@ -390,6 +395,9 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # general-purpose model degrades with a clean 404 if ever retired, instead
         # of silently billing the most expensive model in the catalog.
         "openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free",
+        # Proxy aliases belong to the user's config. Empty means the plugin
+        # asks the proxy which model to use.
+        "litellm": "",
         # Grok 4.3 is available across regions and supports local tool use.
         "grok": "grok-4.3",
         # NVIDIA NIM router pick: a widely-hosted, tool-capable, low-latency model
@@ -419,6 +427,7 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         # Gateway: never a paid Anthropic default for a model-less OpenRouter
         # user (§3/AP-22) — see the router-tier note above.
         "openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "litellm": "",
         "grok": "grok-4.3",
         # NVIDIA NIM deep pick: NVIDIA's own reasoning flagship. 2026-08-09:
         # the Llama-3.1-based Nemotron Ultra gives way to the current
@@ -2042,6 +2051,7 @@ _SUBAGENT_VOICE_TO_CANONICAL: dict[str, str] = {
     "claude": "claude-api", "anthropic": "claude-api",
     "gemini": "gemini",
     "openrouter": "openrouter",
+    "litellm": "litellm",
     "grok": "grok",
     "nvidia": "nvidia", "nim": "nvidia", "nemotron": "nvidia",
     "antigravity": "antigravity",
@@ -2052,7 +2062,7 @@ _SUBAGENT_VOICE_TO_CANONICAL: dict[str, str] = {
 }
 _SUBAGENT_DISPLAY: dict[str, str] = {
     "openai": "OpenAI", "openai-codex": "Codex", "claude-api": "Claude",
-    "gemini": "Gemini", "openrouter": "OpenRouter", "grok": "xAI Grok",
+    "gemini": "Gemini", "openrouter": "OpenRouter", "litellm": "LiteLLM", "grok": "xAI Grok",
     "nvidia": "NVIDIA NIM",
     "antigravity": "Antigravity",
     "grok-build": "Grok Build",
@@ -3042,6 +3052,7 @@ class BrainManager:
             "openrouter",
             "grok",
             "nvidia",
+            "litellm",
             *self._registry.available(),
         ]
         seen: set[str] = set()
@@ -10175,7 +10186,7 @@ class BrainManager:
         db = self._config.brain.deep_brain
         if db:
             order.append(db)
-        order += ["gemini", "claude-api", "openai", "openrouter", "grok", "nvidia"]
+        order += ["gemini", "claude-api", "openai", "openrouter", "grok", "nvidia", "litellm"]
         from dodaios.brain.voice_key import bills_voice_key
 
         # The realtime voice key leads a turn only when no other provider can
@@ -10360,6 +10371,7 @@ class BrainManager:
             "openai",
             "grok",                 # xAI Grok
             "nvidia",               # NVIDIA NIM (free dev tier)
+            "litellm",              # user-hosted LiteLLM proxy
         ]
         for name in cross_order:
             if name == active:
@@ -14001,6 +14013,7 @@ _PROVIDER_SETUP_HINTS: dict[str, str] = {
     "claude-api": "ANTHROPIC_API_KEY setzen",
     "openai": "OPENAI_API_KEY setzen",
     "openrouter": "OPENROUTER_API_KEY setzen",
+    "litellm": "Set LITELLM_API_KEY and the proxy server URL",
     "grok": "Set XAI_API_KEY (key from console.x.ai)",
     "nvidia": "Set NVIDIA_API_KEY (nvapi- key from build.nvidia.com)",
     "ollama-local": "Ollama-Server starten (localhost:11434)",

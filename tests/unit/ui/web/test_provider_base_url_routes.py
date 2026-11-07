@@ -55,6 +55,19 @@ def test_put_normalizes_to_server_root(
     assert recorded_writes == [("ollama", "http://gpu.lan:11434")]
 
 
+def test_put_litellm_keeps_the_openai_base(
+    server: WebServer, recorded_writes: list[tuple[str, str | None]]
+) -> None:
+    with TestClient(server.app) as client:
+        resp = client.put(
+            "/api/providers/litellm/base-url",
+            json={"base_url": "https://llm.example/v1/"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["base_url"] == "https://llm.example/v1"
+    assert recorded_writes == [("litellm", "https://llm.example/v1")]
+
+
 def test_put_clear_resets_to_vendor_default(
     server: WebServer, recorded_writes: list[tuple[str, str | None]]
 ) -> None:

@@ -48,6 +48,7 @@ const PROVIDER_FAMILY_LOGOS: Record<string, FamilyLogo> = {
   ollama: { file: "ollama.svg", render: "mono" },
   openai: { file: "openai.svg", render: "mono" },
   openrouter: { file: "openrouter.svg", render: "mono" },
+  litellm: { file: "litellm.svg", render: "colour" },
   oracle: { file: "oracle.svg", render: "mono" },
   ovhcloud: { file: "ovhcloud.svg", render: "mono" },
   raspberrypi: { file: "raspberrypi.svg", render: "mono" },
@@ -86,6 +87,7 @@ export function providerFamily(providerId: string): string | null {
   if (id.includes("claude")) return "claude";
   if (id.includes("grok")) return "xai";
   if (id.includes("openrouter")) return "openrouter";
+  if (id.includes("litellm")) return "litellm";
   if (id.includes("groq")) return "groq";
   if (id.includes("ollama")) return "ollama";
   if (id.includes("elevenlabs")) return "elevenlabs";
