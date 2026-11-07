@@ -12,6 +12,7 @@ import { translate } from "@/i18n";
 const PROVIDER_NAMES: Record<string, string> = {
   "claude-api": "Claude (API)",
   openrouter: "OpenRouter",
+  litellm: "LiteLLM",
   "ollama-cloud": "Ollama (Cloud)",
   gemini: "Gemini",
   vertex: "Vertex AI",

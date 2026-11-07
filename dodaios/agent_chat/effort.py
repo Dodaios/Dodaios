@@ -60,6 +60,8 @@ _LADDERS: Final[dict[str, tuple[tuple[str, ...], str]]] = {
     "antigravity": (("low", "medium", "high"), "medium"),
     # OpenRouter forwards reasoning.effort to whatever sits behind the slug.
     "openrouter": (("", "none", "low", "medium", "high", "xhigh"), ""),
+    # Same gateway shape as OpenRouter: the model behind the alias decides.
+    "litellm": (("", "none", "low", "medium", "high", "xhigh"), ""),
     # xAI reasoning_effort: grok-4.7 and grok-4.6 take low..xhigh (their own
     # default is high). grok-4.5 stops at high and treats xhigh as high.
     # "" leaves the model's own default alone.

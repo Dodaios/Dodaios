@@ -494,9 +494,12 @@ def _from_openai_models(payload: Any, model: str) -> ServerWindow | None:
     rows = payload.get("data") if isinstance(payload, dict) else None
     for row in rows or ():
         if isinstance(row, dict) and _same_id(row.get("id"), model):
-            tokens = _positive(row.get("max_model_len"))
+            info = row.get("model_info") if isinstance(row.get("model_info"), dict) else {}
+            tokens = _positive(row.get("max_model_len")) or _positive(
+                info.get("max_input_tokens")
+            )
             if tokens:
-                return ServerWindow(tokens, "vllm")
+                return ServerWindow(tokens, "vllm" if row.get("max_model_len") else "litellm")
     return None
 
 
@@ -539,6 +542,7 @@ async def probe_server_window(
     headers: dict[str, str] | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
     fresh: bool = False,
+    provider: str = "local-openai",
 ) -> ServerWindow | None:
     """Ask an OpenAI-compatible server which context it runs ``model`` with.
 
@@ -558,7 +562,7 @@ async def probe_server_window(
     if silent_since is not None and now - silent_since < _SILENT_TTL_S:
         return None
     if not fresh:
-        hit = _REGISTRY.get(_key("local-openai", root, model))
+        hit = _REGISTRY.get(_key(provider, root, model))
         if hit is not None and hit.source == "server" and now - hit.at < _SERVER_TTL_S:
             return ServerWindow(hit.tokens, hit.kind)
     found: ServerWindow | None = None
@@ -584,5 +588,5 @@ async def probe_server_window(
             # answer: this server does not publish its window.
             _SILENT_ROOTS[root] = now
         return None
-    remember_window("local-openai", root, model, found.tokens, source="server", kind=found.kind)
+    remember_window(provider, root, model, found.tokens, source="server", kind=found.kind)
     return found

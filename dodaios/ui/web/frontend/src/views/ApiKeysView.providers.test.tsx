@@ -232,6 +232,53 @@ describe("ApiKeysView — Live calls", () => {
 });
 
 describe("ApiKeysView — Agents", () => {
+  it("shows a server URL on a keyed gateway that declares a host", async () => {
+    routeOverrides.providers = {
+      providers: [
+        ...PROVIDERS,
+        {
+          id: "litellm", label: "LiteLLM", tier: "brain", auth_mode: "api_key",
+          secret_keys: ["litellm_api_key"], secrets_set: { litellm_api_key: true }, configured: true,
+          active: false, billing: "api", supports_base_url: true,
+          default_base_url: "http://localhost:4000/v1", base_url: null,
+        },
+      ],
+    };
+    routeOverrides.families = {
+      families: [
+        ...FAMILIES,
+        {
+          id: "litellm", label: "LiteLLM", logo_id: "litellm", local: false,
+          key_slot: "litellm_api_key", key_present: true, separate_keys: [],
+          dashboard_url: "https://docs.litellm.ai/docs/proxy/virtual_keys", signup_url: null,
+          subscription: null, provider_ids: ["litellm"], hidden_ids: [], agent_ids: ["litellm"],
+        },
+      ],
+    };
+    routeOverrides.agents = {
+      ...AGENTS,
+      mapping: [
+        ...AGENTS.mapping,
+        { jarvis: "litellm", label: "LiteLLM", key_set: true, keyless: false, is_active_brain: false, billing: "api" },
+      ],
+    };
+
+    renderPage();
+    await screen.findByTestId("apikeys-voice");
+    openAgents();
+    fireEvent.click(within(await screen.findByTestId("agent-provider-litellm")).getByRole("button", { name: "LiteLLM" }));
+
+    const detail = await screen.findByTestId("agent-provider-detail-litellm");
+    const url = within(detail).getByRole("textbox", { name: "Server URL" });
+    expect((url as HTMLInputElement).placeholder).toBe("http://localhost:4000/v1");
+    fireEvent.change(url, { target: { value: "https://llm.example/v1" } });
+    fireEvent.click(within(detail).getByTestId("provider-base-url-save"));
+    await waitFor(() => {
+      const save = calls.find((call) => call.method === "PUT" && call.url === "/api/providers/litellm/base-url");
+      expect(save?.body).toEqual({ base_url: "https://llm.example/v1" });
+    });
+  });
+
   it("shows and saves the local OpenAI-compatible server URL and optional key", async () => {
     routeOverrides.providers = {
       providers: [

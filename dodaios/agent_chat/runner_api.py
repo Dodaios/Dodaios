@@ -58,6 +58,7 @@ log = logging.getLogger(__name__)
 BRAIN_BY_PROVIDER: Final[dict[str, tuple[str, str]]] = {
     "openai": ("dodaios.plugins.brain.openai", "OpenAIBrain"),
     "openrouter": ("dodaios.plugins.brain.openrouter", "OpenRouterBrain"),
+    "litellm": ("dodaios.plugins.brain.litellm", "LiteLLMBrain"),
     "grok": ("dodaios.plugins.brain.grok", "GrokBrain"),
     "nvidia": ("dodaios.plugins.brain.nvidia", "NvidiaBrain"),
     "claude-api": ("dodaios.plugins.brain.claude_api", "ClaudeAPIBrain"),

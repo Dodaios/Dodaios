@@ -11,6 +11,7 @@ capability ``core:browser``.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from dataclasses import replace
@@ -219,7 +220,11 @@ class BrowserTool:
                 approval_id=item.id,
             )
         try:
-            spec = llm_spec_for(caller.provider or _default_provider(rt), caller.model)
+            # Model discovery for a self-hosted proxy is a blocking HTTP call.
+            # Off the event loop so a slow proxy cannot stall the rest of the app.
+            spec = await asyncio.to_thread(
+                llm_spec_for, caller.provider or _default_provider(rt), caller.model,
+            )
         except LLMUnavailable as exc:
             return _failure(exc.reason, str(exc))
         steps_seen: list[dict[str, Any]] = []

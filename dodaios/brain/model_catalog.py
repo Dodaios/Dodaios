@@ -54,6 +54,8 @@ _PROVIDER_TTL_CAP_SECONDS: dict[str, float] = {
     # server restart, and the fetch is a LAN round-trip — keep it near-live.
     "ollama": 60,
     "local-openai": 60,
+    # The proxy's model list is whatever its config currently serves.
+    "litellm": 60,
 }
 
 # The brain providers whose catalogs we can enumerate. Codex is excluded
@@ -67,6 +69,10 @@ CATALOG_PROVIDERS: tuple[str, ...] = (
     "openrouter",
     "grok",
     "nvidia",
+    # User-hosted OpenAI-compatible gateway. The catalog is the proxy's
+    # own /models list; there is no curated fallback (the names are aliases
+    # the user defined).
+    "litellm",
     # Keyless local providers (2026-07-25): their "catalog" is the live list of
     # models the user's own server holds — ollama via the native /api/tags,
     # local-openai via the standard /v1/models.
@@ -119,6 +125,10 @@ _ENDPOINTS: dict[str, _CatalogEndpoint] = {
         "query",
     ),
     "openrouter": _CatalogEndpoint("https://openrouter.ai/api/v1", "/models", "bearer_opt"),
+    # Same OpenAI ``data[].id`` roster as OpenRouter, on the user's proxy.
+    # The key is required (the proxy master or a virtual key). The vendor
+    # base is the local default; a saved server URL replaces it.
+    "litellm": _CatalogEndpoint("http://localhost:4000/v1", "/models", "bearer"),
     # xAI uses the OpenAI-compatible ``data[].id`` model roster and requires
     # the same bearer key used for Grok inference.
     "grok": _CatalogEndpoint("https://api.x.ai/v1", "/models", "bearer"),
@@ -938,6 +948,7 @@ def parse_models_response(provider: str, payload: dict) -> list[ModelInfo]:
         if not raw:
             continue
         label = (m.get("name") or "").strip() or raw  # OpenRouter has a name
+        info = m.get("model_info") if isinstance(m.get("model_info"), dict) else {}
         out.append(
             ModelInfo(
                 id=raw,
@@ -947,7 +958,12 @@ def parse_models_response(provider: str, payload: dict) -> list[ModelInfo]:
                 supported_parameters=_supported_parameters(m),
                 pricing=_pricing(m),
                 created=_created(m),
-                context_length=_positive_limit(m.get("context_length") or m.get("context_window")),
+                context_length=_positive_limit(
+                    m.get("context_length")
+                    or m.get("context_window")
+                    or m.get("max_model_len")
+                    or info.get("max_input_tokens")
+                ),
                 max_output_tokens=_positive_limit(
                     m.get("max_output_tokens")
                     or (m["top_provider"].get("max_completion_tokens")
@@ -2022,6 +2038,17 @@ class ModelCatalog:
 
         resolved = cfg.resolve_provider_endpoint(provider, vendor_default_base_url=ep.vendor_base)
         base = (resolved.base_url or "").rstrip("/")
+        # A gateway whose vendor base is an OpenAI ``/v1`` URL (LiteLLM) keeps
+        # working when the saved host is the bare proxy root. Team-proxy URLs
+        # already replace the whole base and must not gain a ``/v1``.
+        if (
+            not resolved.via_proxy
+            and ep.vendor_base
+            and ep.vendor_base.rstrip("/").endswith("/v1")
+            and base
+            and not base.endswith("/v1")
+        ):
+            base += "/v1"
         return base + ep.path
 
     async def _fetch_raw(self, provider: str) -> list[ModelInfo]:

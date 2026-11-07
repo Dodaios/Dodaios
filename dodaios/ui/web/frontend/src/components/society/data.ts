@@ -244,6 +244,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   "openai-codex": "OpenAI Codex",
   grok: "xAI Grok",
   openrouter: "OpenRouter",
+  litellm: "LiteLLM",
   nvidia: "NVIDIA NIM",
 };
 

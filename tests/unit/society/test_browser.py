@@ -83,6 +83,19 @@ def test_llm_mapping_with_explicit_keys():
     assert unknown.value.reason is FailureReason.BLOCKED_BY_POLICY
 
 
+def test_litellm_browser_uses_a_discovered_chat_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "dodaios.plugins.brain.litellm.discover_chat_model",
+        lambda base_url, api_key: "my-alias",
+    )
+    spec = llm_spec_for(
+        "litellm", secret=lambda _provider: "sk-proxy", base_url="http://localhost:4000/v1",
+    )
+    assert spec.cls == "ChatOpenAI"
+    assert spec.model == "my-alias"
+    assert spec.base_url == "http://localhost:4000/v1"
+
+
 def test_task_needs_approval_words():
     assert task_needs_approval("Send the invoice to Bob")
     assert task_needs_approval("Bitte den Newsletter kündigen")  # i18n-allow: sample task
