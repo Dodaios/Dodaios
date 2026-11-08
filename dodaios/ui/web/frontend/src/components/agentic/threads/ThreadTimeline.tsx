@@ -569,16 +569,32 @@ export function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide
 }
 
 /**
- * A finished turn read the short way: everything up to its last step folds
- * behind one "Worked for …" line, and the text written after that step — the
- * answer — stays in view. A turn with no step at all has nothing to fold. A
- * card the turn ended on (an end-of-turn question) is no step: it stays with
- * the answer it belongs to.
+ * A finished turn read the short way: its steps and thoughts fold behind one
+ * "Worked for …" line, and the answer stays in view.
+ *
+ * The answer is the last run of prose. A thought or a step that arrives after
+ * those words (a thinking snapshot landing once the text is already on screen)
+ * must not pull the answer into the fold. Prose written before an earlier
+ * step stays with the work. A turn with no step at all has nothing to fold.
+ * A card the turn ended on is no step: it stays with the answer it belongs to.
  */
 export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: ThreadRow[] } {
-  let last = -1;
-  rows.forEach((row, index) => { if (row.kind === "work" || row.kind === "thought") last = index; });
-  return { work: rows.slice(0, last + 1), answer: rows.slice(last + 1) };
+  let lastStep = -1;
+  let lastText = -1;
+  rows.forEach((row, index) => {
+    if (row.kind === "work" || row.kind === "thought") lastStep = index;
+    if (row.kind === "text") lastText = index;
+  });
+  // No prose yet, or the prose already follows every step.
+  if (lastText < 0 || lastText > lastStep) {
+    return { work: rows.slice(0, lastStep + 1), answer: rows.slice(lastStep + 1) };
+  }
+  let start = lastText;
+  while (start > 0 && rows[start - 1].kind === "text") start -= 1;
+  return {
+    work: rows.filter((_, index) => index < start || index > lastText),
+    answer: rows.slice(start, lastText + 1),
+  };
 }
 
 /** "Working for 12s" with the ticking clock in place of the duration. */
