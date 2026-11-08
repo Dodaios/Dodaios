@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 343,
+  "count": 344,
   "forks": 124,
-  "placed": 70,
-  "stated": 83,
-  "generatedAt": "2026-11-08T13:42:16.175Z",
+  "placed": 71,
+  "stated": 84,
+  "generatedAt": "2026-11-08T14:50:29.401Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -102,6 +102,13 @@
       "lon": 123.898,
       "label": "Cebu",
       "country": "Philippines",
+      "count": 1
+    },
+    {
+      "lat": 35.207,
+      "lon": -80.832,
+      "label": "Charlotte",
+      "country": "United States",
       "count": 1
     },
     {
