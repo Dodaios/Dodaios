@@ -52,6 +52,33 @@ describe("thread work log", () => {
     expect(screen.getByText("Now the router.")).toBeTruthy();
   });
 
+  it("keeps the answer in view when a thought lands after it", () => {
+    show(turn([
+      tool("c1", "gh pr view 1191"),
+      { kind: "text", id: "pre", text: "Fetching the description." },
+      { kind: "text", id: "a", text: "The pull request adds two pets." },
+      thought("r1", "Summarizing the pull request.\n\nIt adds two pets."),
+    ]));
+    expect(screen.getByText("Fetching the description.")).toBeTruthy();
+    expect(screen.getByText("The pull request adds two pets.")).toBeTruthy();
+    expect(screen.queryByTestId("thread-thought")).toBeNull();
+    fireEvent.click(screen.getByTestId("thread-worked-for"));
+    expect(screen.getByTestId("thread-thought").textContent).toContain("Summarizing the pull request.");
+  });
+
+  it("folds a preamble that an earlier step separates from the answer", () => {
+    show(turn([
+      { kind: "text", id: "pre", text: "Fetching the description." },
+      tool("c1", "gh pr view 1191"),
+      { kind: "text", id: "a", text: "The pull request adds two pets." },
+      thought("r1", "Done thinking."),
+    ]));
+    expect(screen.getByText("The pull request adds two pets.")).toBeTruthy();
+    expect(screen.queryByText("Fetching the description.")).toBeNull();
+    fireEvent.click(screen.getByTestId("thread-worked-for"));
+    expect(screen.getByText("Fetching the description.")).toBeTruthy();
+  });
+
   it("shows wordless live thinking as one Thinking step", () => {
     show(turn([thought("r1", "", true)], "running"));
     expect(screen.getByText("Thinking")).toBeTruthy();
