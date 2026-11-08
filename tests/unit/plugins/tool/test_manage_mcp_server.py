@@ -61,3 +61,53 @@ async def test_unknown_name_error_survives_a_broken_state() -> None:
     )
     assert result.success is False
     assert "github" in result.error
+
+
+@pytest.mark.asyncio
+async def test_toggle_enable_uses_active_clients_and_notifies_brain(monkeypatch) -> None:
+    """Issue #1189: ManageMcpServerTool._toggle must query registry.active_clients()
+    (not the non-existent active_names()) and publish BrainToolsChanged on live start.
+    """
+    from types import SimpleNamespace
+
+    from dodaios.core import runtime_refs
+    from dodaios.core.events import BrainToolsChanged
+
+    class _ToggleState(_FakeMcpState):
+        def set_enabled(self, name: str, enabled: bool) -> None:
+            self._servers.setdefault(name, {})["enabled"] = enabled
+
+    state = _ToggleState({"tradingview": {"command": "python", "enabled": False}})
+    active: dict[str, object] = {}
+
+    class _LiveRegistry:
+        def load_from_mcp_json(self) -> None:
+            pass
+
+        async def start_enabled(self, names: list[str]) -> None:
+            for n in names:
+                active[n] = SimpleNamespace(_tools_cache=[])
+
+        def active_clients(self) -> dict[str, object]:
+            return dict(active)
+
+    published: list[object] = []
+
+    class _Bus:
+        async def publish(self, event: object) -> None:
+            published.append(event)
+
+    monkeypatch.setattr(runtime_refs, "get_mcp_registry", lambda: _LiveRegistry())
+    monkeypatch.setattr(
+        runtime_refs,
+        "get_web_app",
+        lambda: SimpleNamespace(state=SimpleNamespace(bus=_Bus(), tool_registry={})),
+    )
+
+    result = await ManageMcpServerTool()._toggle(
+        state, "tradingview", enabled=True, reason="enable tradingview"
+    )
+    assert result.success is True
+    assert result.output["applied_live"] is True
+    assert result.output["requires_restart"] is False
+    assert any(isinstance(e, BrainToolsChanged) for e in published)

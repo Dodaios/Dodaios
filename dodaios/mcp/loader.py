@@ -59,7 +59,7 @@ class McpToolLoader:
 
             reg = runtime_refs.get_mcp_registry()
         except Exception as exc:  # noqa: BLE001
-            log.debug("mcp-loader: runtime_refs lookup failed: %s", exc)
+            log.warning("mcp-loader: runtime_refs lookup failed: %s", exc)
             return []
 
         if reg is None:
@@ -68,7 +68,7 @@ class McpToolLoader:
         try:
             active = reg.active_clients()
         except Exception as exc:  # noqa: BLE001
-            log.debug("mcp-loader: active_clients() failed: %s", exc)
+            log.warning("mcp-loader: active_clients() failed: %s", exc)
             return []
 
         adapters: list[Any] = []
@@ -81,7 +81,7 @@ class McpToolLoader:
                     adapter = MCPToolAdapter(client, tool_def, risk_tier="monitor")
                     adapters.append(adapter)
                 except Exception as exc:  # noqa: BLE001
-                    log.debug(
+                    log.warning(
                         "mcp-loader: failed to build adapter for %s/%s: %s",
                         getattr(getattr(client, "spec", None), "name", "?"),
                         tool_def.get("name", "?"),

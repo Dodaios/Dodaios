@@ -616,7 +616,7 @@ def _load_tools_for_tier(
                 try:
                     expanded = inst.expand()
                 except Exception as exc:  # noqa: BLE001
-                    log.debug("virtual-loader '%s' expand() failed: %s", ep.name, exc)
+                    log.warning("virtual-loader '%s' expand() failed: %s", ep.name, exc)
                     continue
                 for tool in expanded:
                     register_tool(tool, source=ep.name, virtual=True)
@@ -977,6 +977,13 @@ def _phase2_full_brain(
     # the name-index render). None until Chunk A is merged — graceful no-op.
     contact_store: Any = _build_contact_store()
 
+    from dodaios.brain.tool_surface import (
+        live_tool_surface_fingerprint,
+        maybe_reconcile_tool_surface,
+    )
+
+    _initial_surface_fp = live_tool_surface_fingerprint()
+
     tools = _load_tools_for_tier(
         tier,
         bus=bus,
@@ -1027,6 +1034,12 @@ def _phase2_full_brain(
     # Live-reload marker: refresh_tools() uses these attributes to reconstruct
     # a factory call identical to this one.
     manager._tier = tier
+    # Stamp the tool surface captured before _load_tools_for_tier ran so
+    # reconcile never mistakes a mid-boot MCP/CLI/plugin start for an initial
+    # baseline and skips refreshing.
+    manager._tool_surface_fp = (
+        _initial_surface_fp if _initial_surface_fp is not None else frozenset()
+    )
 
     # App-Control (2026-05-31): register the live BrainManager so the
     # ``switch-provider`` tool (and the ``describe-app-settings`` snapshot) can
@@ -1039,6 +1052,10 @@ def _phase2_full_brain(
         manager.attach_to_bus(bus)
     except Exception as exc:  # noqa: BLE001
         log.warning("attach_to_bus failed: %s", exc)
+
+    # Catch any MCP/CLI/plugin source that connected while BrainManager was
+    # being constructed (before attach_to_bus subscribed to BrainToolsChanged).
+    maybe_reconcile_tool_surface(manager)
 
     cu_cfg = getattr(config, "computer_use", None)
     cu_enabled = bool(cu_cfg and cu_cfg.enabled)
@@ -1484,7 +1501,7 @@ def _legacy_full_brain(bus: Any | None = None) -> Any:
                 try:
                     expanded = inst.expand()
                 except Exception as exc:  # noqa: BLE001
-                    log.debug("virtual-loader '%s' expand() failed: %s", ep.name, exc)
+                    log.warning("virtual-loader '%s' expand() failed: %s", ep.name, exc)
                     continue
                 for tool in expanded:
                     tools[tool.name] = tool

@@ -233,17 +233,23 @@ class ManageMcpServerTool:
                 error=self._unknown_name_error(mcp_state, name),
             )
         was_running = self._is_running(name)
+        stopped_live = False
+        if was_running:
+            stopped_live = await self._stop_active_server(name)
+            if stopped_live:
+                await self._notify_tools_changed(f"mcp_removed:{name}")
+        requires_restart = was_running and not stopped_live
         log.info(
-            "manage-mcp-server: removed %r (was_running=%s) reason=%r",
-            name, was_running, reason,
+            "manage-mcp-server: removed %r (was_running=%s, requires_restart=%s) reason=%r",
+            name, was_running, requires_restart, reason,
         )
         return ToolResult(
             success=True,
             output={
                 "action": "remove",
                 "name": name,
-                "applied_live": not was_running,
-                "requires_restart": was_running,
+                "applied_live": not requires_restart,
+                "requires_restart": requires_restart,
             },
         )
 
@@ -263,14 +269,22 @@ class ManageMcpServerTool:
             try:
                 registry.load_from_mcp_json()
                 await registry.start_enabled([name])
-                applied_live = name in set(registry.active_names())
+                applied_live = name in self._active_client_names(registry)
                 requires_restart = not applied_live
+                if applied_live:
+                    await self._sync_live_tools(registry, name, adding=True)
+                    await self._notify_tools_changed(f"mcp_enabled:{name}")
             except Exception as exc:  # noqa: BLE001
                 log.error("manage-mcp-server: live enable of %r failed: %s", name, exc)
         elif not enabled:
-            # No per-server stop in the registry — a disable needs a restart to
-            # fully drop a running client. Honest flag rather than a false claim.
-            requires_restart = self._is_running(name)
+            was_running = self._is_running(name)
+            if was_running:
+                stopped_live = await self._stop_active_server(name)
+                if stopped_live:
+                    await self._notify_tools_changed(f"mcp_disabled:{name}")
+                requires_restart = not stopped_live
+            else:
+                requires_restart = False
             applied_live = not requires_restart
 
         log.info(
@@ -295,12 +309,120 @@ class ManageMcpServerTool:
 
         return runtime_refs.get_mcp_registry()
 
+    @staticmethod
+    def _active_client_names(registry: Any) -> set[str]:
+        if registry is None:
+            return set()
+        active_clients = getattr(registry, "active_clients", None)
+        if callable(active_clients):
+            clients = active_clients()
+            if isinstance(clients, dict):
+                return set(clients.keys())
+            return set(clients)
+        active_names = getattr(registry, "active_names", None)
+        if callable(active_names):
+            return set(active_names())
+        return set()
+
     @classmethod
     def _is_running(cls, name: str) -> bool:
+        try:
+            return name in cls._active_client_names(cls._registry())
+        except Exception:  # noqa: BLE001
+            return False
+
+    @classmethod
+    async def _stop_active_server(cls, name: str) -> bool:
         registry = cls._registry()
         if registry is None:
             return False
         try:
-            return name in set(registry.active_names())
-        except Exception:  # noqa: BLE001
+            active_clients = getattr(registry, "active_clients", None)
+            if not callable(active_clients):
+                return False
+            active = active_clients()
+            if not isinstance(active, dict) or name not in active:
+                return False
+            client = active[name]
+            stop_fn = getattr(client, "stop", None)
+            if callable(stop_fn):
+                await stop_fn()
+            clients_dict = getattr(registry, "_clients", None)
+            if isinstance(clients_dict, dict):
+                clients_dict.pop(name, None)
+            await cls._sync_live_tools(registry, name, adding=False)
+            return name not in cls._active_client_names(registry)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("manage-mcp-server: live stop of %r failed: %s", name, exc)
             return False
+
+    @staticmethod
+    async def _sync_live_tools(registry: Any, server_name: str, *, adding: bool) -> None:
+        try:
+            from dodaios.core import runtime_refs
+
+            app = runtime_refs.get_web_app()
+            state = getattr(app, "state", None) if app is not None else None
+            tool_registry = getattr(state, "tool_registry", None)
+            if not isinstance(tool_registry, dict):
+                return
+            prefix = f"{server_name}/"
+            if not adding:
+                for key in list(tool_registry.keys()):
+                    if key.startswith(prefix):
+                        tool_registry.pop(key, None)
+                return
+            from dodaios.mcp.adapter import MCPToolAdapter
+
+            active = registry.active_clients() if hasattr(registry, "active_clients") else {}
+            client = active.get(server_name) if isinstance(active, dict) else None
+            if client is None:
+                return
+            cfg = getattr(state, "cfg", None) or getattr(state, "config", None)
+            risk_tier = getattr(getattr(cfg, "harness", None), "default_risk_tier", "monitor")
+            list_tools = getattr(client, "list_tools", None)
+            tools = (
+                await list_tools()
+                if callable(list_tools)
+                else getattr(client, "_tools_cache", [])
+            )
+            for mcp_tool in tools or []:
+                adapter = MCPToolAdapter(client, mcp_tool, risk_tier=risk_tier)
+                tool_registry[adapter.name] = adapter
+        except Exception as exc:  # noqa: BLE001
+            log.warning("manage-mcp-server: tool_registry sync for %r failed: %s", server_name, exc)
+
+    @staticmethod
+    async def _notify_tools_changed(reason: str) -> None:
+        import asyncio
+
+        from dodaios.core import runtime_refs
+        from dodaios.core.events import BrainToolsChanged
+
+        event = BrainToolsChanged(
+            source_layer="manage_mcp_server",
+            reason=reason,
+        )
+        app = runtime_refs.get_web_app()
+        bus = getattr(getattr(app, "state", None), "bus", None) if app is not None else None
+        brain = runtime_refs.get_brain_manager()
+        if bus is None and brain is not None:
+            bus = getattr(brain, "_bus", None)
+        if bus is not None:
+            try:
+                if asyncio.iscoroutinefunction(bus.publish):
+                    await bus.publish(event)
+                else:
+                    bus.publish(event)
+                return
+            except Exception as exc:  # noqa: BLE001
+                log.debug("manage-mcp-server: BrainToolsChanged publish failed: %s", exc)
+        if brain is not None:
+            try:
+                refresh_async = getattr(brain, "refresh_tools_async", None)
+                if callable(refresh_async):
+                    await refresh_async()
+                elif hasattr(brain, "refresh_tools"):
+                    brain.refresh_tools()
+            except Exception as exc:  # noqa: BLE001
+                log.debug("manage-mcp-server: direct brain tool refresh failed: %s", exc)

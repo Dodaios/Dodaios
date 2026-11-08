@@ -558,10 +558,39 @@ async def update_raw_config(payload: dict[str, Any], request: Request) -> dict[s
 
     mcp_state.save_config(payload)
 
-    # Reload registry from the freshly written file
+    # Reload registry from the freshly written file and sync running clients
     registry = _get_registry(request)
     if registry is not None:
         registry.load_from_mcp_json()
+        active_fn = getattr(registry, "active_clients", None)
+        active = active_fn() if callable(active_fn) else {}
+        enabled_names = [
+            name
+            for name, entry in servers.items()
+            if isinstance(entry, dict) and entry.get("enabled", True)
+        ]
+        enabled_set = set(enabled_names)
+        for running_name, client in list(active.items()):
+            if running_name not in enabled_set:
+                try:
+                    await client.stop()
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("Stop of %s after raw config update failed: %s", running_name, exc)
+                if hasattr(registry, "_clients"):
+                    registry._clients.pop(running_name, None)  # noqa: SLF001
+                await _sync_tools_for_server(request, registry, running_name, adding=False)
+
+        to_start = [name for name in enabled_names if name not in active]
+        start_enabled_fn = getattr(registry, "start_enabled", None)
+        if to_start and callable(start_enabled_fn):
+            try:
+                await start_enabled_fn(to_start)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Start of newly enabled MCP servers from raw config failed: %s", exc)
+            now_active = active_fn() if callable(active_fn) else {}
+            for name in to_start:
+                if name in now_active:
+                    await _sync_tools_for_server(request, registry, name, adding=True)
 
     await _publish_brain_tools_changed(request, "mcp_config_raw")
 

@@ -162,3 +162,28 @@ def test_stamp_records_current_surface(monkeypatch):
     mgr = _FakeManager()
     stamp_tool_surface(mgr)
     assert mgr._tool_surface_fp == frozenset({"cli:cli_gh"})
+
+
+def test_initial_empty_stamp_enables_reconcile_when_mcp_starts_mid_boot(monkeypatch):
+    """Issue #1189: when the factory stamps the pre-load fingerprint (empty at
+    boot start) and an MCP server finishes starting before attach_to_bus, the
+    post-attach reconcile detects the new MCP tools and triggers refresh_tools()
+    instead of adopting the post-MCP fingerprint as the initial baseline.
+    """
+    mcp_clients: dict[str, _FakeMcpClient] = {}
+    _wire_sources(monkeypatch, mcp=_FakeMcpRegistry(mcp_clients))
+
+    mgr = _FakeManager()
+    # Pre-load stamp at the start of _phase2_full_brain (MCP not started yet)
+    initial_fp = live_tool_surface_fingerprint()
+    mgr._tool_surface_fp = initial_fp if initial_fp is not None else frozenset()
+
+    # MCP finishes starting while BrainManager is being constructed
+    mcp_clients["tradingview"] = _FakeMcpClient(["tv_health", "tv_quote"])
+
+    # Post-attach reconcile runs
+    maybe_reconcile_tool_surface(mgr)
+    assert mgr.refresh_calls == 1
+    assert mgr._tool_surface_fp == frozenset(
+        {"mcp:tradingview:tv_health", "mcp:tradingview:tv_quote"}
+    )
