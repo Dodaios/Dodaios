@@ -43,6 +43,10 @@ async def list_tools(request: Request) -> dict[str, Any]:
     # per-turn surface so this endpoint can answer "which tools are available?"
     # honestly; retain the MCP registry as an early-boot fallback.
     brain = getattr(request.app.state, "brain", None)
+    if brain is not None:
+        from dodaios.brain.tool_surface import reconcile_tool_surface_async
+
+        await reconcile_tool_surface_async(brain)
     registry = getattr(brain, "_tools", None)
     if registry is None or not hasattr(registry, "items"):
         registry = getattr(request.app.state, "tool_registry", None)

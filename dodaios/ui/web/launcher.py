@@ -895,10 +895,12 @@ async def _run_headless(args) -> int:
         enabled = mcp_state.get_enabled_names()
         if not enabled:
             return
+        from loguru import logger as _logger
+
         try:
             await mcp_registry.start_enabled(enabled)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            _logger.opt(exception=exc).warning("MCP autostart failed")
         try:
             from dodaios.mcp.adapter import register_mcp_tools_in_registry
 
@@ -907,7 +909,8 @@ async def _run_headless(args) -> int:
                 tool_registry,
                 default_risk_tier=cfg.harness.default_risk_tier,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            _logger.opt(exception=exc).warning("MCP tool registration failed")
             return
 
         # Notify the live brain so it picks up MCP tools without restart.
@@ -923,8 +926,10 @@ async def _run_headless(args) -> int:
                     await server.bus.publish(event)
                 else:
                     server.bus.publish(event)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                _logger.opt(exception=exc).warning(
+                    "BrainToolsChanged publish failed after MCP autostart"
+                )
 
     asyncio.create_task(_autostart_mcps())
 

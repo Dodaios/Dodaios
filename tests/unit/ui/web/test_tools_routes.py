@@ -56,6 +56,41 @@ def test_falls_back_to_user_mcp_registry_before_brain_ready() -> None:
     assert body["by_source"]["mcp"] == 1
 
 
+def test_list_tools_reconciles_stale_brain_surface_before_listing(monkeypatch) -> None:
+    """Issue #1189: GET /api/tools reconciles the brain tool surface before reading
+    brain._tools so MCP tools that connected after initial brain build appear
+    even before the first chat turn.
+    """
+    from dodaios.brain import tool_surface
+
+    app = FastAPI()
+    app.include_router(router)
+
+    brain = SimpleNamespace(
+        _tools={"wiki-recall": _tool("wiki-recall")},
+        _tool_surface_fp=frozenset(),
+    )
+
+    async def _refresh_async() -> None:
+        brain._tools["tradingview/tv_quote"] = _tool("tradingview/tv_quote")
+
+    brain.refresh_tools_async = _refresh_async
+    app.state.brain = brain
+
+    monkeypatch.setattr(
+        tool_surface,
+        "live_tool_surface_fingerprint",
+        lambda: frozenset({"mcp:tradingview:tv_quote"}),
+    )
+
+    with TestClient(app) as client:
+        body = client.get("/api/tools").json()
+
+    assert body["total"] == 2
+    assert body["by_source"] == {"mcp": 1, "cli": 0, "native": 1}
+    assert {t["name"] for t in body["tools"]} == {"wiki-recall", "tradingview/tv_quote"}
+
+
 def test_usage_reports_what_ran_and_what_never_did(tmp_path, monkeypatch) -> None:
     import json
     from datetime import datetime

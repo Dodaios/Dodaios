@@ -118,3 +118,57 @@ async def test_enable_mcp_no_bus_does_not_raise() -> None:
         result = await mcp_routes.enable_mcp("x", request)
 
     assert result["ok"] is True
+
+
+async def test_update_raw_config_starts_newly_enabled_servers_and_syncs_tools() -> None:
+    """PUT /api/mcps/config/raw must start newly enabled servers and sync tools."""
+    from dodaios.core.events import BrainToolsChanged
+    from dodaios.ui.web import mcp_routes
+
+    bus = _FakeBus()
+    active: dict[str, object] = {}
+    started: list[list[str]] = []
+
+    async def _start_enabled(names: list[str]) -> None:
+        started.append(list(names))
+        for n in names:
+            active[n] = SimpleNamespace(_tools_cache=[], is_healthy=True)
+
+    fake_registry = SimpleNamespace(
+        load_from_mcp_json=lambda: None,
+        active_clients=lambda: dict(active),
+        start_enabled=_start_enabled,
+        _clients=active,
+    )
+    app_state = SimpleNamespace(
+        mcp_registry=fake_registry,
+        tool_registry={},
+        bus=bus,
+        cfg=None,
+    )
+    request = SimpleNamespace(app=SimpleNamespace(state=app_state))
+    sync_mock = AsyncMock(return_value=None)
+
+    payload = {
+        "mcpServers": {
+            "tradingview": {
+                "command": "python",
+                "args": ["server.py"],
+                "transport": "stdio",
+                "enabled": True,
+            }
+        }
+    }
+
+    with (
+        patch.object(mcp_routes.mcp_state, "save_config", return_value=None),
+        patch.object(mcp_routes, "_sync_tools_for_server", new=sync_mock),
+    ):
+        result = await mcp_routes.update_raw_config(payload, request)
+
+    assert result == {"ok": True, "servers": 1}
+    assert started == [["tradingview"]]
+    sync_mock.assert_awaited_once_with(request, fake_registry, "tradingview", adding=True)
+    changed = [e for e in bus.published if isinstance(e, BrainToolsChanged)]
+    assert len(changed) == 1
+    assert changed[0].reason == "mcp_config_raw"

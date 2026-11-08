@@ -158,3 +158,30 @@ def test_loader_attributes() -> None:
     assert loader.risk_tier == "block"
     assert loader.name == "mcp_tools_loader"
     assert isinstance(loader.schema, dict)
+
+
+def test_expand_logs_warning_when_adapter_build_fails(monkeypatch, caplog) -> None:
+    """Adapter build errors during expand() must be logged at WARNING level."""
+    import logging
+
+    fake_client = _FakeClient(
+        "tradingview",
+        [{"name": "quote", "description": "Get quote", "inputSchema": {}}],
+    )
+    runtime_refs.set_mcp_registry(_FakeRegistry({"tradingview": fake_client}))
+
+    def _boom(*_args, **_kwargs):
+        raise ValueError("broken tool schema")
+
+    monkeypatch.setattr("dodaios.mcp.adapter.MCPToolAdapter", _boom)
+
+    from dodaios.mcp.loader import McpToolLoader
+
+    with caplog.at_level(logging.WARNING, logger="dodaios.mcp.loader"):
+        result = McpToolLoader().expand()
+
+    assert result == []
+    assert any(
+        "tradingview/quote" in rec.message and rec.levelno == logging.WARNING
+        for rec in caplog.records
+    )

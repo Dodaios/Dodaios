@@ -4103,6 +4103,10 @@ class WebServer:
 
         def _tools() -> Any | None:
             brain = getattr(state, "brain", None)
+            if brain is not None:
+                from dodaios.brain.tool_surface import maybe_reconcile_tool_surface
+
+                maybe_reconcile_tool_surface(brain)
             tools = getattr(brain, "_tools", None)
             return tools if tools is not None and hasattr(tools, "items") else None
 

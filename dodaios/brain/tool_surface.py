@@ -127,7 +127,18 @@ async def reconcile_tool_surface_async(manager) -> None:
         if previous is None:
             manager._tool_surface_fp = fingerprint
         elif fingerprint != previous:
-            await manager.refresh_tools_async()
+            log.warning(
+                "tool-surface drift: +%d/-%d source tools since the last load — "
+                "refreshing the brain tool registry",
+                len(fingerprint - previous),
+                len(previous - fingerprint),
+            )
+            manager._tool_surface_fp = fingerprint
+            refresh_async = getattr(manager, "refresh_tools_async", None)
+            if callable(refresh_async):
+                await refresh_async()
+            else:
+                manager.refresh_tools()
     except Exception:  # noqa: BLE001 — a failed reconcile must not break a turn
         log.debug("async tool-surface reconcile failed", exc_info=True)
 
@@ -135,5 +146,6 @@ async def reconcile_tool_surface_async(manager) -> None:
 __all__ = [
     "live_tool_surface_fingerprint",
     "maybe_reconcile_tool_surface",
+    "reconcile_tool_surface_async",
     "stamp_tool_surface",
 ]
