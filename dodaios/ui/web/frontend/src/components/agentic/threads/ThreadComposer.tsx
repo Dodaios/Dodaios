@@ -9,7 +9,7 @@ import { releaseHeldFiles, useChatAttachments, type HeldFiles } from "@/componen
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { useComposerTypeahead } from "@/components/agentchat/useComposerTypeahead";
 import { fill, useT } from "@/i18n";
-import type { AgentChatSession, ApprovalDecision, ChatAttachment, PlanDecision } from "@/lib/agentChatApi";
+import { discardQueuedMessage, fetchAgentChatQueue, resumeAgentChatQueue, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision } from "@/lib/agentChatApi";
 import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
@@ -17,17 +17,11 @@ import { AccessPicker, AgentModelPicker, EffortPicker, modelsOf } from "./Thread
 import { useRecalledMessages } from "./recalledMessages";
 import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./threadModel";
 
-/** A message typed while the agent was still working, sent when it is free. */
-interface QueuedMessage {
-  id: number;
-  text: string;
-  attachments: ChatAttachment[];
-}
+/** Coding agents that take a message while they work: what is typed then steers the running turn. */
+const STEERABLE_AGENTS = new Set(["claude-cli", "glm-cli"]);
 
 /** Draft text per thread, so switching threads never loses a half-written message. */
 const drafts = new Map<string, string>();
-/** Queued follow-ups per thread, so switching threads never drops one. */
-const queues = new Map<string, QueuedMessage[]>();
 
 /**
  * The message sent last, with its files, when it went and where the thread
@@ -312,24 +306,16 @@ export function ThreadComposer({
   const busy = chat((state) => state.busy);
   const lastError = chat((state) => state.lastError);
   const [value, setValueState] = useState(() => drafts.get(threadKey) ?? "");
-  const [queue, setQueueState] = useState<QueuedMessage[]>(() => queues.get(threadKey) ?? []);
+  // Follow-ups waiting for the next turn live on the server (they survive a
+  // reload); the timeline carries one waiting notice per message.
+  const queue = useMemo(() => timeline.items.flatMap((item) => item.type === "notice" && item.kind === "message_queued"
+    ? [{ id: String(item.data.queue_id ?? item.id), text: item.text }] : []), [timeline.items]);
   // After Stop the queue waits: the person halted the agent, it must not start the next job.
   const [paused, setPaused] = useState(false);
-  const queueKey = useRef(threadKey);
-  queueKey.current = threadKey;
-  const setQueue = useCallback((update: (current: QueuedMessage[]) => QueuedMessage[]) => {
-    setQueueState((current) => {
-      const next = update(current);
-      if (next.length) queues.set(queueKey.current, next);
-      else queues.delete(queueKey.current);
-      return next;
-    });
-  }, []);
   const [problem, setProblem] = useState("");
   const [starting, setStarting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const queueId = useRef(0);
   const t = useT();
 
   const providers = useMemo(
@@ -339,6 +325,8 @@ export function ThreadComposer({
   const provider = providers.find((option) => option.id === draft.provider) ?? null;
   const running = runningTurn(timeline) !== null || Boolean(activeSession?.running);
   const started = timeline.items.length > 0;
+  // Claude Code and GLM take a message while they work; every other agent queues it.
+  const steers = STEERABLE_AGENTS.has(draft.provider);
 
   // A coding thread only runs on a coding agent: an API row left in the draft
   // from elsewhere moves to the first connected CLI.
@@ -381,10 +369,18 @@ export function ThreadComposer({
   // Another thread: its own half-written text, its own queue.
   useEffect(() => {
     setValueState(drafts.get(threadKey) ?? "");
-    setQueueState(queues.get(threadKey) ?? []);
     setPaused(false);
     setProblem("");
   }, [threadKey]);
+
+  // The server owns the pause: a reloaded page shows a queue Stop paused as paused.
+  const waiting = queue.length;
+  useEffect(() => {
+    if (!activeSessionId || waiting === 0) { setPaused(false); return; }
+    let live = true;
+    void fetchAgentChatQueue(activeSessionId).then((state) => { if (live) setPaused(state.paused); }, () => undefined);
+    return () => { live = false; };
+  }, [activeSessionId, waiting]);
 
   useEffect(() => {
     if (autoFocusNonce > 0) textareaRef.current?.focus();
@@ -430,23 +426,6 @@ export function ThreadComposer({
     return !chat.getState().lastError;
   }, [chat, prepareDraft, onSessionCreated]);
 
-  // A queued message goes out the moment the agent is free again.
-  useEffect(() => {
-    if (paused || running || busy || starting || queue.length === 0 || !activeSessionId) return;
-    const [next] = queue;
-    const key = threadKey;
-    setQueue((current) => current.filter((row) => row.id !== next.id));
-    void dispatch(next.text, next.attachments).then((sent) => {
-      if (sent) return;
-      // Not delivered: back to the front of ITS thread's line, and wait for the person.
-      queues.set(key, [next, ...(queues.get(key) ?? [])]);
-      if (queueKey.current === key) {
-        setQueueState(queues.get(key) ?? []);
-        setPaused(true);
-      }
-    });
-  }, [paused, running, busy, starting, queue, activeSessionId, dispatch, setQueue, threadKey]);
-
   const submit = async () => {
     // Send during a dictation ends it first; the message goes once the words land.
     if (dictation.dictating) {
@@ -464,10 +443,12 @@ export function ThreadComposer({
     const attachments = held.attachments;
     setValue("");
     setProblem("");
-    setPaused(false);
     if (running || busy) {
+      // The server decides: a CLI that takes input mid-turn is steered, any
+      // other follow-up waits in the server's queue and runs as the next turn.
       releaseHeldFiles(held);
-      setQueue((current) => [...current, { id: ++queueId.current, text, attachments }]);
+      const sent = await dispatch(text, attachments);
+      if (!sent) setValue(text);
       return;
     }
     const before = chat.getState();
@@ -533,16 +514,18 @@ export function ThreadComposer({
     {queue.length > 0 && <div className="mb-2 flex flex-col gap-1 px-2" data-testid="thread-queue">
       {paused && !running && <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
         <span>{t("ide_threads.queue_paused")}</span>
-        <button type="button" onClick={() => setPaused(false)} className="rounded px-1.5 py-0.5 text-foreground hover:bg-secondary">{t("ide_threads.send_next")}</button>
+        <button type="button" onClick={() => { setPaused(false); if (activeSessionId) void resumeAgentChatQueue(activeSessionId).catch(() => setPaused(true)); }} className="rounded px-1.5 py-0.5 text-foreground hover:bg-secondary">{t("ide_threads.send_next")}</button>
       </div>}
       {queue.map((entry) => <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
         <span className="shrink-0 text-xs text-muted-foreground">{t("ide_threads.queued")}</span>
-        <span className="min-w-0 flex-1 truncate text-foreground">{entry.text || fill(t(entry.attachments.length === 1 ? "ide_threads.files_one" : "ide_threads.files_other"), { count: entry.attachments.length })}</span>
-        <button type="button" aria-label={t("ide_threads.remove_queued")} onClick={() => setQueue((current) => current.filter((row) => row.id !== entry.id))}
+        <span className="min-w-0 flex-1 truncate text-foreground">{entry.text}</span>
+        <button type="button" aria-label={t("ide_threads.remove_queued")} onClick={() => { if (activeSessionId) void discardQueuedMessage(activeSessionId, entry.id).catch((error) => setProblem(error instanceof Error ? error.message : String(error))); }}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
       </div>)}
     </div>}
     {error && <p role="alert" className="mb-2 px-4 text-xs text-destructive">{error}</p>}
+    {running && canSend && <p className="mb-1.5 px-4 text-xs text-muted-foreground" data-testid="thread-send-mode" data-mode={steers ? "steer" : "queue"}>
+      {t(steers ? "ide_threads.steer_hint" : "ide_threads.queue_hint")}</p>}
     <div ref={cardRef} {...files.dragHandlers}
       className={cn(
         "relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong",
@@ -557,7 +540,7 @@ export function ThreadComposer({
       </div>}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
-        placeholder={running ? t("ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
+        placeholder={running ? t(steers ? "ide_threads.steer_placeholder" : "ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
         onKeyUp={() => typeahead.refresh()}
@@ -585,7 +568,7 @@ export function ThreadComposer({
               className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Square className="h-3 w-3 fill-current" />
             </button>
-            : <button type="button" aria-label={running ? t("ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t("ide_threads.queue_title") : t("agent_chat.send")}
+            : <button type="button" aria-label={running ? t(steers ? "ide_threads.steer_title" : "ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t(steers ? "ide_threads.steer_title" : "ide_threads.queue_title") : t("agent_chat.send")}
               data-testid="thread-send" disabled={!canSend} onClick={() => void submit()}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_1px_2px_rgb(var(--accent-rgb)/0.3)] transition-[opacity,transform] duration-150 hover:scale-105 hover:opacity-95 disabled:opacity-40 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {starting || busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
