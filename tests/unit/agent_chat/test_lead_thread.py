@@ -130,3 +130,146 @@ def test_routes_return_the_one_conversation_and_keep_it(tmp_path: Path, monkeypa
             "/api/agent-chat/sessions", json={**body, "surface": "agent", "provider": "openai"}
         )
         assert coding.json()["session_id"] != sid
+
+
+def test_memory_search_finds_what_was_said_in_the_conversation(tmp_path: Path) -> None:
+    from dodaios.plugins.tool.memory_vault import MemorySearchTool
+    from dodaios.society.conversation import ConversationArchive
+
+    class _Runtime:
+        def __init__(self, svc: AgentChatService) -> None:
+            self.conversations = ConversationArchive(tmp_path / "archive.db")
+            self._svc = svc
+
+        def chat_service(self) -> AgentChatService:
+            return self._svc
+
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+        await svc.import_voice_turn(
+            sid, "My sister's wedding is in Lisbon in June", "Noted, Lisbon in June."
+        )
+        await svc.import_voice_turn(sid, "What's the weather?", "Sunny.")
+        from dodaios.society import runtime as society_runtime
+
+        previous = society_runtime.current_runtime()
+        society_runtime.set_current_runtime(_Runtime(svc))  # type: ignore[arg-type]
+        try:
+            rows = lead.search_conversation("wedding Lisbon")
+            assert rows and rows[0]["date"]
+            assert any("Lisbon" in r["text"] and r["who"] == "user" for r in rows)
+            result = await MemorySearchTool().execute({"query": "wedding Lisbon"}, None)  # type: ignore[arg-type]
+            assert result.success
+            assert any("Lisbon" in r["text"] for r in result.output["conversation"])
+        finally:
+            society_runtime.set_current_runtime(previous)
+
+    asyncio.run(scenario())
+
+
+def test_learned_memories_appear_in_the_conversation(tmp_path: Path) -> None:
+    from dodaios.memory.vault import reconcile
+    from dodaios.memory.vault.store import MemoryVault
+
+    class _Runtime:
+        def __init__(self, svc: AgentChatService) -> None:
+            self._svc = svc
+
+        def chat_service(self) -> AgentChatService:
+            return self._svc
+
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+        vault = MemoryVault(tmp_path / "vault.db")
+        receipts: list[dict[str, str]] = []
+        op = reconcile.Op(
+            op="add", text="Sister's wedding is in Lisbon in June", kind="relationship"
+        )
+        assert reconcile.apply(vault, [op], source={"via": "test"}, receipts=receipts) == 1
+        assert receipts[0]["op"] == "added" and receipts[0]["id"]
+        from dodaios.society import runtime as society_runtime
+
+        previous = society_runtime.current_runtime()
+        society_runtime.set_current_runtime(_Runtime(svc))  # type: ignore[arg-type]
+        try:
+            await lead.post_learned(receipts)
+        finally:
+            society_runtime.set_current_runtime(previous)
+        notices = [e for e in svc.store.list_events(sid) if e["kind"] == "notice"]
+        assert notices[-1]["payload"]["kind"] == "memory_learned"
+        assert "Lisbon" in notices[-1]["payload"]["items"][0]["text"]
+
+    asyncio.run(scenario())
+
+
+def test_fresh_start_drops_earlier_history_but_keeps_the_thread(tmp_path: Path) -> None:
+    from dodaios.society.conversation import ConversationArchive
+
+    class _Runtime:
+        def __init__(self, svc: AgentChatService) -> None:
+            self.conversations = ConversationArchive(tmp_path / "archive.db")
+            self._svc = svc
+
+        def chat_service(self) -> AgentChatService:
+            return self._svc
+
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+        await svc.import_voice_turn(sid, "old question", "old answer")
+        from dodaios.society import runtime as society_runtime
+
+        previous = society_runtime.current_runtime()
+        society_runtime.set_current_runtime(_Runtime(svc))  # type: ignore[arg-type]
+        try:
+            through = lead.fresh_start(svc)
+            assert through and through >= 4
+            await svc.import_voice_turn(sid, "new question", "new answer")
+            history = lead.voice_history(sid, svc.store.list_events(sid))
+            texts = [m.content for m in history]
+            assert "old question" not in texts
+            assert "new question" in texts
+            assert lead.FRESH_START_SUMMARY in texts[0]
+            # The thread itself still holds everything.
+            assert len(svc.store.list_events(sid)) == 8
+        finally:
+            society_runtime.set_current_runtime(previous)
+
+    asyncio.run(scenario())
+
+
+def test_answer_in_lead_returns_the_reply_of_its_own_turn(tmp_path: Path, monkeypatch) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+
+        async def fake_send(svc_, session_id, text, attachments=None, *, tool_choices=None):
+            async def run() -> None:
+                from dodaios.agent_chat.events import make_event
+
+                await asyncio.sleep(0.01)
+                await svc._emit(session_id, make_event("user_message", {"text": text}))  # noqa: SLF001
+                await svc._emit(session_id, make_event("turn_started", {"turn_id": "t9"}))  # noqa: SLF001
+                await svc._emit(  # noqa: SLF001
+                    session_id,
+                    make_event("assistant_text", {"turn_id": "t9", "text": "Hello back"}),
+                )
+                await svc._emit(  # noqa: SLF001
+                    session_id, make_event("turn_finished", {"turn_id": "t9", "status": "done"})
+                )
+
+            asyncio.get_running_loop().create_task(run())
+            return "", "queued-1"
+
+        monkeypatch.setattr("dodaios.agent_chat.send_queue.send_or_queue", fake_send)
+        answer = await lead.answer_in_lead(svc, "Hello", source="telegram", timeout_s=5)
+        assert answer == "Hello back"
+        assert sid
+
+    asyncio.run(scenario())

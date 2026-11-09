@@ -3720,7 +3720,19 @@ class WebServer:
         )
         self.app.state.friend_registry = registry
         self.app.state.channel_manager = manager
-        bridge = ChannelChatBridge(bus=self.bus, manager=manager)
+        from .agent_chat_routes import _service_from_state
+
+        app_state = self.app.state
+
+        def _lead_chat_service() -> Any:
+            try:
+                return _service_from_state(app_state)
+            except Exception:  # noqa: BLE001 — the classic chat path stays
+                return None
+
+        bridge = ChannelChatBridge(
+            bus=self.bus, manager=manager, get_chat_service=_lead_chat_service
+        )
         bridge.start()
         self._channel_chat_bridge = bridge
         self.app.state.channel_chat_bridge = bridge

@@ -459,9 +459,16 @@ class JarvisLearningLoop:
         for why in rejected:
             log.info("learning: rejected a vault op — %s", why)
         source = {"via": "review", "reason": reason, **_seat_of(reviewer)}
-        written = await asyncio.to_thread(reconcile.apply, vault, ops, source=source)
+        receipts: list[dict[str, str]] = []
+        written = await asyncio.to_thread(
+            reconcile.apply, vault, ops, source=source, receipts=receipts
+        )
         if written:
             vault_runtime.changed()
+        if receipts:
+            from dodaios.agent_chat.lead import post_learned
+
+            await post_learned(receipts)
         return written, True
 
     def _apply_proposal(self, proposal: Proposal, reason: str, seat: dict[str, str]) -> int:

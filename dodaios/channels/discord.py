@@ -310,6 +310,9 @@ class DiscordChannel:
                     "discord_channel_id": channel_id,
                     "discord_user_id": author_id,
                     "discord_username": getattr(author, "name", None),
+                    # A direct message (no server): only these may reach the
+                    # owner's own conversation (channels/chat_bridge.py).
+                    "discord_dm": getattr(message, "guild", None) is None,
                     # Stable thread key: the chat-bridge groups all messages of a
                     # Discord channel into one conversation thread (discord:<id>).
                     "channel_session_id": channel_id,
