@@ -1,11 +1,11 @@
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Brain, Check, ChevronDown, ChevronRight, Copy, Diff, FileText, Hammer, MessageCircleQuestion, ShieldAlert, X } from "lucide-react";
+import { ArrowDown, Bot, Brain, Check, ChevronDown, ChevronRight, Copy, Diff, FileText, MessageCircleQuestion, ShieldAlert, X } from "lucide-react";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
 import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
-import { CallMark, StretchMark } from "@/components/agentchat/TraceTimeline";
+import { CallMark } from "@/components/agentchat/TraceTimeline";
 import { plural, readableOutput, traceDuration, type Call } from "@/components/agentchat/traceEntries";
 import { fill, useI18nStore, useT } from "@/i18n";
 import { localeForUiLanguage } from "@/components/runs/format";
@@ -13,27 +13,22 @@ import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
-import { buildThreadRows, GIST_RAIL_MAX, isFailed, thoughtGist, type ThreadRow, type WorkGroup, type WorkItem } from "./threadWork";
+import { buildThreadRows, isFailed, joinStretches, thoughtGist, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
 import { SubagentCard, SubagentGroup } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
-import "./threadRail.css";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
  * answer as plain reading text on the left, and the work in between as a
- * quiet log. Every thought the agent put into words reads as a paragraph of
- * its own, a step quieter than the answer. The tool calls between two
- * paragraphs are one group — "Edited files, ran commands" — that opens to a
- * short scrolling list of the single steps; the group the running turn is in
- * stays open and follows its newest step. A call opens to what it ran, the
- * diff it made or what came back. A running turn ends in "Working for 12s";
+ * quiet log. Everything the agent did between two things it said — its
+ * thoughts and its calls — is ONE grey line with a chevron: the newest
+ * thought's heading, else what the calls did ("Edited files, ran commands").
+ * The line opens to a short scrolling list of the single steps; the one the
+ * running turn is in opens by itself, follows its newest step and closes
+ * again once the agent speaks. A call opens to what it ran, the diff it made
+ * or what came back. A running turn ends in "Working for 12s";
  * a finished one says how long it worked and which files it changed.
- *
- * Thoughts and steps that follow one another hang on one hairline rail: a
- * small dot marks a thought, the step's own mark a call. The rail is set a
- * size below the agent's words, so the answer always leads and the work
- * reads as its margin.
  *
  * The work-log geometry and the live shine are adapted from pingdotgg/t3code
  * @ e22c880 (apps/web/src/components/chat/WorkLog.tsx, MessagesTimeline.tsx),
@@ -53,15 +48,11 @@ export const PROSE = cn(
   "prose-table:my-3 prose-table:text-sm prose-th:text-foreground-strong prose-td:text-foreground",
 );
 
-/** True for rows drawn as steps of a rail: they sit tight and a size smaller. */
-const RailContext = createContext(false);
-
 /**
- * One row of the work log: a 16 px mark flush with the text's left edge, the
- * words in the quiet tone, then a trailing note. A row on its own is set like
- * a line of the answer and gets the air of a paragraph; a step of a rail or
- * of an opened group sits tight, a size smaller. A command reads in the
- * terminal's own type. The words of a live row carry the shine. The
+ * One row of the work log, set like a line of the answer: body size, a 16 px
+ * mark flush with the text's left edge, the words in the quiet tone, then a
+ * trailing note. A row on its own gets the air of a paragraph; rows inside an
+ * opened group sit tight. The words of a live row carry the shine. The
  * chevron of a row that opens shows only on hover, focus or while open, so a
  * finished log reads as plain grey lines between the agent's words.
  */
@@ -73,45 +64,43 @@ function WorkRow({
   onToggle,
   grouped = false,
   live = false,
-  mono = false,
   stamp,
   ariaLabel,
   children,
 }: {
-  icon: ReactNode;
+  /** A step inside an opened list wears its mark; a line of the thread itself has none. */
+  icon?: ReactNode;
   label: ReactNode;
   trailing?: ReactNode;
   expanded?: boolean;
   onToggle?: () => void;
   grouped?: boolean;
   live?: boolean;
-  /** The words are a command line. */
-  mono?: boolean;
   /** When the step began; shown while the row is hovered. */
   stamp?: number;
   ariaLabel?: string;
   children?: ReactNode;
 }) {
-  const tight = useContext(RailContext) || grouped;
-  const line = <span className={cn("flex min-h-6 min-w-0 items-center gap-2.5 leading-6", tight ? "text-sm" : "text-base")}>
-    <span aria-hidden className="flex h-6 w-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
+  const line = <span className={cn("flex min-h-6 min-w-0 items-center gap-2.5 leading-6", grouped ? "text-sm" : "text-base")}>
+    {icon && <span aria-hidden className="flex h-6 w-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{icon}</span>}
     <span className={cn(
       "min-w-0 truncate transition-colors",
       "text-muted-foreground",
       onToggle && !live && "group-hover/row:text-foreground",
-      mono && "font-mono text-[13px]",
       live && "live-tool-shine",
     )}>{label}</span>
     {trailing}
-    {onToggle && <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center">
+    {onToggle && <span aria-hidden className={cn("flex h-4 w-4 shrink-0 items-center justify-center", !icon && "-ml-1.5")}>
       <ChevronRight className={cn(
-        "h-3.5 w-3.5 text-muted-foreground opacity-0 transition duration-200 group-hover/row:opacity-70 group-focus-visible/row:opacity-70",
+        "h-3.5 w-3.5 text-muted-foreground transition duration-200 group-hover/row:opacity-100 group-focus-visible/row:opacity-100",
+        // A line of the thread always shows that it opens; a step in a list only when pointed at.
+        icon ? "opacity-0 group-hover/row:opacity-70" : "opacity-60",
         expanded && "rotate-90 opacity-70",
       )} />
     </span>}
     {stamp ? <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-visible/row:opacity-100">{clock(stamp)}</span> : null}
   </span>;
-  const row = cn("group/row relative block w-full min-w-0 rounded-md text-left", tight ? "py-0" : "py-1.5");
+  const row = cn("group/row relative block w-full min-w-0 rounded-md text-left", grouped ? "py-0" : "py-1.5");
   return <div className="min-w-0">
     {onToggle
       ? <button type="button" aria-expanded={expanded} aria-label={ariaLabel} onClick={onToggle}
@@ -233,7 +222,7 @@ function CallRow({ call, stamp, grouped = false, onOpenChange }: { call: Call; s
       {tail && <span className="ml-1.5 text-muted-foreground/70">— {tail}</span>}
     </>;
   return <WorkRow
-    icon={<span className={cn("flex items-center justify-center", failed && "text-destructive/70")}><CallMark call={call} /></span>}
+    icon={grouped ? <span className={cn("flex items-center justify-center", failed && "text-destructive/70")}><CallMark call={call} /></span> : undefined}
     label={label}
     ariaLabel={failed ? fill(t("thread_turn.call_failed"), { call: call.text }) : undefined}
     trailing={<>
@@ -243,7 +232,6 @@ function CallRow({ call, stamp, grouped = false, onOpenChange }: { call: Call; s
     stamp={stamp}
     grouped={grouped}
     live={running}
-    mono={call.kind === "command"}
     expanded={open}
     onToggle={toggle}>
     <CallDetails call={call} />
@@ -253,51 +241,41 @@ function CallRow({ call, stamp, grouped = false, onOpenChange }: { call: Call; s
 const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-secondary prose-p:text-foreground-secondary prose-li:text-foreground-secondary");
 
 /**
- * A thought between the agent's work, read at a glance: a dot on the rail and
- * one short line — its heading or first sentence — in the quiet tone. A click
- * swaps that line for the whole text; nothing long ever stands in the thread
- * unasked, and nothing is said twice. The thought the running turn is still
- * having wears the live dot.
+ * A thought in the agent's own words, read at a glance: one grey line — its
+ * heading or first sentence. A click swaps the line for the whole text;
+ * nothing long ever stands in the thread unasked, and nothing is said twice.
+ * Inside an opened list it lines up with the words of the steps around it.
  */
-function ThoughtView({ text, live = false }: { text: string; live?: boolean }) {
+function ThoughtView({ text, grouped = false }: { text: string; grouped?: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const gist = useMemo(() => thoughtGist(text, GIST_RAIL_MAX), [text]);
+  const gist = useMemo(() => thoughtGist(text), [text]);
   const more = gist !== text.trim();
-  const dot = <span aria-hidden className="flex h-6 w-4 shrink-0 items-center justify-center">
-    <span className={cn("thread-dot", live && "thread-dot-live")} />
-  </span>;
-  const chevron = <ChevronRight className={cn(
-    "h-3.5 w-3.5 text-muted-foreground opacity-0 transition duration-200 group-hover/thought:opacity-70 group-focus-visible/thought:opacity-70",
-    open && "rotate-90 opacity-70",
-  )} />;
-  const row = "flex min-h-6 min-w-0 items-start gap-2.5 text-sm leading-6";
-  const words = "min-w-0 flex-1 text-muted-foreground [overflow-wrap:anywhere]";
-  return <div className="min-w-0" data-testid="thread-thought" data-live={live ? "true" : undefined}>
-    {open
-      ? <div className={cn(row, "group/thought")}>
-        {dot}
-        <div className={cn(THOUGHT_PROSE, "min-w-0 flex-1 select-text py-0 text-sm")}><ChatMarkdown text={text} /></div>
-        <button type="button" aria-expanded aria-label={t("trace_report.show_less")} title={t("trace_report.show_less")} onClick={() => setOpen(false)}
-          className="flex h-6 w-4 shrink-0 items-center justify-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{chevron}</button>
-      </div>
-      : more
-        ? <button type="button" aria-expanded={false} onClick={() => setOpen(true)}
-          className="group/thought block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-          <span className={row}>
-            {dot}
-            <span className={cn(words, "line-clamp-2 transition-colors group-hover/thought:text-foreground")}>{gist}</span>
-            <span aria-hidden className="flex h-6 w-4 shrink-0 items-center justify-center">{chevron}</span>
-          </span>
-        </button>
-        : <div className={row}>{dot}<span className={words}>{gist}</span></div>}
+  const size = grouped ? "pl-[26px] text-sm" : "py-1.5 text-base";
+  if (open) {
+    return <div className={cn("min-w-0", grouped ? "pb-1 pl-[26px]" : "py-1.5")} data-testid="thread-thought">
+      <div className={cn(THOUGHT_PROSE, "select-text py-0", grouped && "text-sm")}><ChatMarkdown text={text} /></div>
+      <button type="button" aria-expanded onClick={() => setOpen(false)}
+        className="mt-0.5 rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {t("trace_report.show_less")}
+      </button>
+    </div>;
+  }
+  return <div className="min-w-0" data-testid="thread-thought">
+    {more
+      ? <button type="button" aria-expanded={false} onClick={() => setOpen(true)}
+        className={cn("group/thought block w-full rounded-md text-left leading-6 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", size)}>
+        {gist}
+        <ChevronRight aria-hidden className={cn("ml-1 inline h-3.5 w-3.5 align-[-2px] transition duration-200 group-hover/thought:opacity-100", grouped ? "opacity-0 group-hover/thought:opacity-70" : "opacity-60")} />
+      </button>
+      : <p className={cn("m-0 leading-6 text-muted-foreground", size)}>{gist}</p>}
   </div>;
 }
 
 /** The wordless thought the running turn is having: one live "Thinking" step. */
 function ThinkingRow({ grouped = false }: { grouped?: boolean }) {
   const t = useT();
-  return <WorkRow icon={<Brain strokeWidth={1.75} />} label={t("thread_turn.thinking")} grouped={grouped} live />;
+  return <WorkRow icon={grouped ? <Brain strokeWidth={1.75} /> : undefined} label={t("thread_turn.thinking")} grouped={grouped} live />;
 }
 
 /**
@@ -306,8 +284,9 @@ function ThinkingRow({ grouped = false }: { grouped?: boolean }) {
  */
 export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
 
-function StepRow({ item, running, grouped, onOpenChange }: { item: WorkItem; running: boolean; grouped?: boolean; onOpenChange?: OpenChange }) {
+function StepRow({ item, running, grouped, onOpenChange }: { item: StretchItem; running: boolean; grouped?: boolean; onOpenChange?: OpenChange }) {
   if (item.kind === "call") return <CallRow call={item.call} stamp={item.startedMs} grouped={grouped} onOpenChange={onOpenChange} />;
+  if (item.kind === "said") return <ThoughtView text={item.text} grouped={grouped} />;
   return running ? <ThinkingRow grouped={grouped} /> : null;
 }
 
@@ -318,7 +297,7 @@ const FADE = "1.5rem";
  * more behind it. A live list follows its newest step while the reader is at
  * its end; opening a step lifts the height cap so its detail reads in full.
  */
-function StepList({ items, running, follow }: { items: WorkItem[]; running: boolean; follow: boolean }) {
+function StepList({ items, running, follow }: { items: StretchItem[]; running: boolean; follow: boolean }) {
   const t = useT();
   const box = useRef<HTMLDivElement | null>(null);
   const atEnd = useRef(true);
@@ -354,7 +333,7 @@ function StepList({ items, running, follow }: { items: WorkItem[]; running: bool
     ? `linear-gradient(to bottom, ${edges.top ? "transparent" : "black"} 0, black ${FADE}, black calc(100% - ${FADE}), ${edges.bottom ? "transparent" : "black"} 100%)`
     : undefined;
   return <div ref={box} role="region" aria-label={t("thread_turn.steps")} tabIndex={-1} onScroll={measure}
-    className="ml-[26px] overflow-y-auto overflow-x-hidden rounded-md scrollbar-jarvis"
+    className="overflow-y-auto overflow-x-hidden rounded-md scrollbar-jarvis"
     style={{ maxHeight: openSteps > 0 ? undefined : "min(18rem, 50dvh)", maskImage: mask, WebkitMaskImage: mask }}>
     <div className="flex min-w-0 flex-col">
       {items.map((item) => <StepRow key={item.id} item={item} running={running} grouped onOpenChange={onOpenChange} />)}
@@ -362,39 +341,26 @@ function StepList({ items, running, follow }: { items: WorkItem[]; running: bool
   </div>;
 }
 
-function hasBrand(call: Call): boolean {
-  return Boolean(call.brand) && (call.kind === "command" || call.kind === "service");
-}
-
-/** A group's mark: the logos it touched, else its one kind of work, else a hammer for mixed work. */
-function GroupMark({ group }: { group: WorkGroup }) {
-  if (group.sole === "thought") return <Brain strokeWidth={1.75} />;
-  const calls = group.items.flatMap((item) => item.kind === "call" ? [item.call] : []);
-  if (calls.some(hasBrand)) return <StretchMark calls={calls} />;
-  if (group.sole) return <CallMark call={calls[0]} />;
-  return <Hammer strokeWidth={1.75} />;
-}
-
 /**
- * The calls between two paragraphs: a lone step on its own line, else one
- * line naming what they did that opens to every step. The group the running
- * turn is in opens by itself and follows its newest step; the reader can
- * still close it.
+ * Everything between two things the agent said, as one line: a lone step on
+ * its own line, else the stretch's words with a chevron that opens every
+ * step. The stretch the running turn is in opens by itself, follows its
+ * newest step and closes once the agent speaks; a reader's own choice stays.
  */
-function WorkGroupView({ group, running }: { group: WorkGroup; running: boolean }) {
+function StretchView({ stretch, running }: { stretch: Stretch; running: boolean }) {
   const t = useT();
-  const [open, setOpen] = useState(group.live);
-  if (group.items.length === 1) return <StepRow item={group.items[0]} running={running} />;
+  const [choice, setChoice] = useState<boolean | null>(null);
+  const open = choice ?? stretch.live;
+  if (stretch.items.length === 1) return <StepRow item={stretch.items[0]} running={running} />;
   return <WorkRow
-    icon={<GroupMark group={group} />}
-    label={group.summary}
-    ariaLabel={group.live ? fill(t("thread_turn.steps_so_far"), { summary: group.summary, count: group.items.length }) : undefined}
-    trailing={<DiffStat added={group.added} removed={group.removed} />}
-    stamp={group.startedMs}
-    live={group.live}
+    label={stretch.label}
+    ariaLabel={stretch.live ? fill(t("thread_turn.steps_so_far"), { summary: stretch.label, count: stretch.items.length }) : undefined}
+    trailing={<DiffStat added={stretch.added} removed={stretch.removed} />}
+    stamp={stretch.startedMs}
+    live={stretch.live}
     expanded={open}
-    onToggle={() => setOpen((value) => !value)}>
-    <StepList items={group.items} running={running} follow={group.live} />
+    onToggle={() => setChoice(!open)}>
+    <StepList items={stretch.items} running={running} follow={stretch.live} />
   </WorkRow>;
 }
 
@@ -736,31 +702,12 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
       : answer ? workedFor : timed("no_answer");
-  // Thoughts and steps that follow one another share one rail; words, cards
-  // and sub-agents break it.
-  const renderRows = (list: readonly ThreadRow[]) => {
-    const out: ReactNode[] = [];
-    let run: ThreadRow[] = [];
-    const flush = () => {
-      if (!run.length) return;
-      out.push(<div key={`rail:${run[0].id}`} className="thread-rail" data-testid="thread-rail">
-        <RailContext.Provider value>
-          {run.map((row) => <div key={row.id} className="thread-step" data-node={row.kind === "thought" ? "dot" : "mark"}>{renderRow(row)}</div>)}
-        </RailContext.Provider>
-      </div>);
-      run = [];
-    };
-    for (const row of joinAgentRuns(list)) {
-      if (row.kind === "work" || row.kind === "thought") { run.push(row); continue; }
-      flush();
-      out.push(row.kind === "agents" ? <SubagentGroup key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
-    }
-    flush();
-    return out;
-  };
+  const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { t, lang, running }).map((row) =>
+    row.kind === "stretch" ? <StretchView key={row.id} stretch={row} running={running} />
+      : row.kind === "agents" ? <SubagentGroup key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
   const renderRow = (row: ThreadRow) => {
-    if (row.kind === "work") return <WorkGroupView key={row.id} group={row} running={running} />;
-    if (row.kind === "thought") return <ThoughtView key={row.id} text={row.text} live={row.live} />;
+    // Work and thoughts are drawn as stretches (renderRows), never as rows of their own.
+    if (row.kind === "work" || row.kind === "thought") return null;
     if (isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
       <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
     </div>;
