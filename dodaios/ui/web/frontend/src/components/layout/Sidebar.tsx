@@ -31,6 +31,7 @@ import { useHomeStore } from "@/store/home";
 import { LazyIdeProjectTree } from "@/components/agentic/LazyIdeProjectTree";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { useIdeProjectsStore } from "@/store/ideProjects";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 import { SidebarSearchBar } from "@/components/layout/SidebarSearchBar";
 import { SidebarMoreFlyout } from "@/components/layout/SidebarMoreFlyout";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
@@ -228,6 +229,10 @@ export function Sidebar({
    * long as any of them is running.
    */
   const onIdeSection = IDE_SECTIONS.includes(active);
+  // The IDE's thread layout lists search as a row under its other start
+  // rows (ThreadTree), so its header keeps the name instead of the field.
+  const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads" && onIdeSection;
+  const headerSearch = searchBarOn && !threadLayout;
   // An empty chat on the front page: nothing open, nothing being read.
   const onEmptyChat = useAgentChatStore(
     (st) => active === "chats" && !st.activeSessionId && st.timeline.items.length === 0,
@@ -401,7 +406,7 @@ export function Sidebar({
             railed ? "flex-col justify-center gap-1.5" : "w-full gap-2",
           )}
         >
-          {(railed || !searchBarOn) && <span
+          {(railed || !headerSearch) && <span
             data-testid="sidebar-style-avatar"
             data-variant="logo"
             title={railed ? `${assistantName} — ${voiceLabel}` : undefined}
@@ -425,7 +430,7 @@ export function Sidebar({
               the loudest spot in the column. The dot says "fine" on its own
               (its hover and accessible name still carry the word); the word
               only appears when there IS news: starting, offline, error. */}
-          {!railed && searchBarOn && (
+          {!railed && headerSearch && (
             <SidebarSearchBar
               assistantName={assistantName}
               status={
@@ -467,7 +472,7 @@ export function Sidebar({
               }
             />
           )}
-          {!railed && !searchBarOn && (
+          {!railed && !headerSearch && (
             <div
               className="flex min-w-0 flex-1 items-center gap-2 text-sm"
               title={voiceLabel}
