@@ -9,5 +9,7 @@ public class VerseGore : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore" });
+		// Niagara: the blood bursts of WP05.2 (change request #1171 item 4).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Niagara" });
 	}
 }

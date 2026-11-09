@@ -416,6 +416,23 @@ Gore is client cosmetic and decoupled from gameplay.
 | Full | Blood bursts, wall and floor spatter, wound masks at the hit location, pools under bodies, bloody finisher. No dismemberment at any level (README) |
 | Reduced | No blood, spatter, wounds or pools; hits show a neutral impact flash; finishers cut to black from Takedown to Recover |
 | Budget | Decals and pools capped and recycled (oldest first); counts reported to the harness |
+| Live switch | `UVerseGoreSubsystem::ReloadLevelFromSettings` is a `UFUNCTION()`: `VerseUI` (which never includes `VerseGore`) writes `GoreLevel` and then calls it by reflection, so a change applies at once |
+
+**View settings on `UVerseSettings`.** The same per-viewer object (local
+`GameUserSettings.ini`, section `[/Script/Verse.VerseSettings]`, never
+replicated) carries the view settings of the Esc menu. `VerseUI` writes them
+as it writes `GoreLevel`: into GameUserSettings and into the class default
+object. Readers use `GetDefault<UVerseSettings>()`.
+
+| Field | Type | Default | Range | Read by |
+|---|---|---|---|---|
+| `DuelFovDeg` | float, degrees (horizontal) | 100 | 80-110 | Person camera (WP01); the bot's view cone (bot.md 3.1, WP07) |
+| `LookSensitivity` | float multiplier | 1 | 0.05-5 | Person input (WP01) |
+| `bInvertLookY` | bool | false | | Person input (WP01) |
+| `DeckFovThirdDeg` | float, degrees | 70 | 50-120 | Deck camera |
+| `DeckFovFirstDeg` | float, degrees | 85 | 50-120 | Deck camera |
+| `MasterVolume` | float | 0.7 | 0-1 | Audio (WP19) |
+| `bReducedMotion` | bool | false | | Camera shake and full-screen effects |
 
 ## 9. Deathmatch rules
 
@@ -962,7 +979,8 @@ Other packages may rely on these without asking:
 - The melee angle definitions (7.1), the classification rules (7.2), the
   finisher phases, their offsets and who is vulnerable (7.4).
 - The gore rules of section 8: one-way, Core-only includes, the two levels,
-  `Full` as default.
+  `Full` as default; the `UVerseSettings` view fields of section 8 (names,
+  units, defaults) and the reflection call `ReloadLevelFromSettings`.
 - The `UVerseRuleset` virtual interface and `UVerseRulesetConfig` fields
   (section 10); `AVerseGameMode` stays a forwarder.
 

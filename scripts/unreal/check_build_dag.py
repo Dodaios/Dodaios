@@ -9,11 +9,15 @@ list it sits in. The check fails when:
   table has no ``<Module>.Build.cs``;
 * a module depends on a Verse module the table does not allow (rule 1);
 * a module misses an edge the table lists (the table is exact, not a ceiling);
-* the Verse graph has a cycle.
+* the Verse graph has a cycle;
+* a module no longer links an engine module that the engine table of
+  architecture.md section 2 lists for it (``ENGINE`` below).
 
-Engine modules are not judged here. A new Verse edge is a contract change:
-update the table in ``docs/verse/unreal/architecture.md`` and ``ALLOWED`` below
-in the same pull request.
+Engine modules a ``Build.cs`` names beyond the engine table are printed as
+notes, not failures: each one is a change request to the integration owner,
+who adds it to the table. A new Verse edge is a contract change: update the
+table in ``docs/verse/unreal/architecture.md`` and ``ALLOWED`` below in the
+same pull request.
 
     python scripts/unreal/check_build_dag.py            # the repo tree
     python scripts/unreal/check_build_dag.py --source <dir>
@@ -64,14 +68,102 @@ ALLOWED: dict[str, frozenset[str]] = {
     "VerseHarness": frozenset(FEATURE) | {"Verse"},
 }
 
+#: Engine modules every module links; the engine table leaves them out.
+BASE_ENGINE = frozenset({"Core", "CoreUObject", "Engine"})
+
+#: architecture.md section 2, engine table: modules linked beyond ``BASE_ENGINE``.
+ENGINE: dict[str, frozenset[str]] = {
+    "VerseCore": frozenset({"GameplayTags", "Json"}),
+    "VerseBridge": frozenset({"Json", "Slate", "SlateCore", "InputCore", "Sockets"}),
+    "VerseMovement": frozenset({"EnhancedInput"}),
+    "VerseDestruction": frozenset(
+        {
+            "NetCore",
+            "Chaos",
+            "GeometryCollectionEngine",
+            "NavigationSystem",
+            "MeshDescription",
+            "PhysicsCore",
+        }
+    ),
+    "VerseCombat": frozenset(
+        {
+            "NetCore",
+            "GameplayTags",
+            "GameplayAbilities",
+            "GameplayTasks",
+            "Json",
+            "MeshDescription",
+            "StaticMeshDescription",
+        }
+    ),
+    "VerseGore": frozenset({"Niagara"}),
+    "VerseDecks": frozenset({"Json"}),
+    "VerseCrew": frozenset({"Json", "NavigationSystem"}),
+    "VerseScreens": frozenset({"Json"}),
+    "VerseBot": frozenset(
+        {"AIModule", "NavigationSystem", "StateTreeModule", "GameplayStateTreeModule"}
+    ),
+    "VerseUI": frozenset(
+        {
+            "InputCore",
+            "EnhancedInput",
+            "Json",
+            "Slate",
+            "SlateCore",
+            "RenderCore",
+            "RHI",
+            "ImageCore",
+        }
+    ),
+    "VerseStream": frozenset(),
+    "Verse": frozenset(
+        {
+            "NetCore",
+            "DeveloperSettings",
+            "EngineSettings",
+            "GameplayAbilities",
+            "GameplayTags",
+            "GameplayTasks",
+        }
+    ),
+    "VerseHarness": frozenset(),
+}
+
 _COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
 _LITERAL = re.compile(r'"(Verse[A-Za-z0-9_]*)"')
+_MODULE_LIST = re.compile(
+    r"(?:Public|Private)DependencyModuleNames\.AddRange\(\s*new\s+string\[\]\s*\{([^}]*)\}"
+)
+_ANY_LITERAL = re.compile(r'"([A-Za-z0-9_]+)"')
 
 
 def edges_of(build_cs: Path) -> set[str]:
     """Verse module names a Build.cs names as string literals (comments ignored)."""
     text = _COMMENT.sub("", build_cs.read_text(encoding="utf-8-sig"))
     return set(_LITERAL.findall(text))
+
+
+def engine_modules_of(build_cs: Path) -> set[str]:
+    """Engine modules in the dependency lists of a Build.cs, without ``BASE_ENGINE``."""
+    text = _COMMENT.sub("", build_cs.read_text(encoding="utf-8-sig"))
+    names: set[str] = set()
+    for block in _MODULE_LIST.findall(text):
+        names.update(_ANY_LITERAL.findall(block))
+    return {n for n in names if not n.startswith("Verse")} - BASE_ENGINE
+
+
+def engine_notes(source: Path) -> list[str]:
+    """Engine modules a Build.cs links that the engine table does not list (notes only)."""
+    notes: list[str] = []
+    for name in sorted(ENGINE):
+        build_cs = source / name / f"{name}.Build.cs"
+        if build_cs.is_file():
+            for extra in sorted(engine_modules_of(build_cs) - ENGINE[name]):
+                notes.append(
+                    f"{name} links engine module {extra}, which the engine table does not list"
+                )
+    return notes
 
 
 def find_cycle(graph: dict[str, set[str]]) -> list[str]:
@@ -124,6 +216,10 @@ def check(source: Path) -> list[str]:
             problems.append(
                 f"{name} -> {missing}: edge listed in architecture.md section 2 is missing"
             )
+        for missing in sorted(ENGINE.get(name, frozenset()) - engine_modules_of(build_cs)):
+            problems.append(
+                f"{name}: engine module {missing} listed in architecture.md section 2 is not linked"
+            )
     for name in sorted(set(ALLOWED) - set(graph)):
         if not any(p.startswith(f"{name}:") for p in problems):
             problems.append(f"{name}: module folder missing under {source}")
@@ -141,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
         print("check_build_dag: no unreal/Verse/Source in this tree, nothing to check")
         return 0
     problems = check(args.source)
+    for line in engine_notes(args.source):
+        print(f"check_build_dag: note: {line}")
     for line in problems:
         print(f"check_build_dag: {line}")
     if problems:

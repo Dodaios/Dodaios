@@ -9,5 +9,7 @@ public class VerseScreens : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge", "VerseDecks" });
+		// Json: cells.json/1 frames, screen command data and golden fixtures (WP16, change request #1142).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
 	}
 }

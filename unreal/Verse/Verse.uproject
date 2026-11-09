@@ -116,6 +116,10 @@
 			"Enabled": true
 		},
 		{
+			"Name": "Niagara",
+			"Enabled": true
+		},
+		{
 			"Name": "MotionWarping",
 			"Enabled": true
 		},

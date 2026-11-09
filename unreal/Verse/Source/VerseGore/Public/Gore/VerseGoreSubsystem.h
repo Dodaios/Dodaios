@@ -59,7 +59,12 @@ public:
 	EVerseGoreLevel GetGoreLevel() const { return Level; }
 	void SetGoreLevel(EVerseGoreLevel NewLevel);
 
-	/** Re-reads the level from the viewer's GameUserSettings (`[/Script/Verse.VerseSettings] GoreLevel`). */
+	/**
+	 * Re-reads the level from the viewer's GameUserSettings (`[/Script/Verse.VerseSettings] GoreLevel`).
+	 * A UFUNCTION so VerseUI, which may not include VerseGore, switches the level live by reflection
+	 * (WP05.7, change request #1165 item 3).
+	 */
+	UFUNCTION()
 	void ReloadLevelFromSettings();
 
 	/** Removes all gore: decals, pools, droplets, flashes, wounds; ends a cut to black. */

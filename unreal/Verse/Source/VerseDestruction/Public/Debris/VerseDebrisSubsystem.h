@@ -49,6 +49,13 @@ public:
 	/** Starts the async load of a piece's debris sets (called when the piece registers). */
 	void PreloadPiece(const AVerseDestructible& Piece);
 
+	/**
+	 * Kill cam replay (destruction.md 4, change request #1165 item 4): redraws the debris burst of a
+	 * recorded fracture inside the same budget. Repairs and resets are not replayed; the piece state
+	 * itself never changes. Returns true when the event was handed to the debris path.
+	 */
+	bool ReplayFracture(const FVerseFractureEvent& Event);
+
 	const FVerseDebrisBudget& GetBudget() const { return Budget; }
 	int32 GetSpawnedBursts() const { return SpawnedBursts; }
 	int32 GetPooledActors() const { return Pool.Num(); }

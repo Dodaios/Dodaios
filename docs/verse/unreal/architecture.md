@@ -152,8 +152,34 @@ DAG rules, enforced by a CI script that parses every `*.Build.cs`:
    transform directly (fair perception contract, `combat/observe.ts`,
    `bot.test.ts:32-46`).
 4. Plugins used: Chaos (Geometry Collection), GameplayAbilities, StateTree,
-   EnhancedInput, PixelStreaming2, Iris, WebSockets. Mover and
-   NetworkPrediction stay disabled (section 3.3).
+   GameplayStateTree, EnhancedInput, Niagara, PixelStreaming2, Iris,
+   WebSockets. Mover and NetworkPrediction stay disabled (section 3.3).
+5. Engine modules are linked explicitly. Unreal links only a module's direct
+   dependencies: `Engine` passes on the include paths of `Json`, `Slate` or
+   `NetCore`, but not their import libraries, so a module that uses one lists
+   it itself. The table below is the floor the CI script checks: removing a
+   listed module fails it, and a module beyond the table is printed as a note
+   that asks the integration owner (who owns every `*.Build.cs`) to add it.
+
+Engine modules beyond `Core`, `CoreUObject` and `Engine` (every module links
+those three):
+
+| Module | Engine modules | Why |
+|---|---|---|
+| `VerseCore` | GameplayTags, Json | Tags; coordinate golden file test |
+| `VerseBridge` | Json, Slate, SlateCore, InputCore, Sockets | Codec and feeds; WebSocket client; window focus and return key |
+| `VerseMovement` | EnhancedInput | The person's input actions and mapping context (WP01.2) |
+| `VerseDestruction` | NetCore, Chaos, GeometryCollectionEngine, NavigationSystem, MeshDescription, PhysicsCore | Fast arrays (bolt holes, piece state); debris; navmesh feedback; validator; surface physical materials |
+| `VerseCombat` | NetCore, GameplayTags, GameplayAbilities, GameplayTasks, Json, MeshDescription, StaticMeshDescription | Push model and fast arrays; GAS; definition importer; placeholder shapes |
+| `VerseGore` | Niagara | Blood bursts (WP05.2) |
+| `VerseDecks` | Json | Deck manifests, QA state, bridge world actions |
+| `VerseCrew` | Json, NavigationSystem | Bridge frames and crew data; typed Recast path queries |
+| `VerseScreens` | Json | `cells.json/1` frames and screen command data |
+| `VerseBot` | AIModule, NavigationSystem, StateTreeModule, GameplayStateTreeModule | `AAIController`, EQS, the belief nav query filter, StateTree tactics (bot.md 5, 6) |
+| `VerseUI` | InputCore, EnhancedInput, Json, Slate, SlateCore, RenderCore, RHI, ImageCore | Slate menus and input pre-processor; key bindings; data files; render-target captures |
+| `VerseStream` | none | |
+| `VerseHarness` | none | |
+| `Verse` | NetCore, DeveloperSettings, EngineSettings, GameplayAbilities, GameplayTags, GameplayTasks | Settings object; the default pawn's ability system component |
 
 ## 3. Networking
 
