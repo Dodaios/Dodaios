@@ -162,3 +162,44 @@ def test_pause_and_upcoming_routes(vault):
     )
     assert client.put("/api/memory/vault/pause", json={}).json() == {"paused": False, "until": None}
     assert json.dumps(vault.audit_log()).count("pause") >= 2
+
+
+def test_agents_read_only_preferences_and_rules(vault):
+    vault.remember("Prefers short answers.", "preference")
+    vault.remember("Never push to main without asking.", "procedural", pinned=True)
+    vault.remember("Lives in Berlin.", "profile")
+    vault.remember("Has a chronic illness.", "preference", sensitivity="sensitive")
+    block = vault_runtime.agent_block()
+    assert block.splitlines()[2] == "- Never push to main without asking."
+    assert "Prefers short answers." in block
+    assert "Berlin" not in block and "illness" not in block
+    vault_runtime.set_active(None)
+    assert vault_runtime.agent_block() == ""
+
+
+def test_voice_recall_is_bounded_and_quiet_without_matches(vault, monkeypatch):
+    import asyncio
+
+    from dodaios.realtime import session as realtime_session
+
+    vault.remember("We hiked the Zugspitze last summer.", "episode")
+    assert "Zugspitze" in asyncio.run(realtime_session._voice_memory_recall("Zugspitze hike"))
+    assert asyncio.run(realtime_session._voice_memory_recall("")) == ""
+
+    def slow(_text: str, **_kw: Any) -> str:
+        import time
+
+        time.sleep(0.5)
+        return "late"
+
+    monkeypatch.setattr(vault_runtime, "turn_block", slow)
+    assert asyncio.run(realtime_session._voice_memory_recall("anything")) == ""
+
+
+def test_realtime_instructions_carry_the_recall_block():
+    from dodaios.realtime import session as realtime_session
+
+    text = realtime_session._session_instructions(
+        "en", memory_recall="## Possibly relevant memories\n- Owns a beagle."
+    )
+    assert "Owns a beagle." in text

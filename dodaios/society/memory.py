@@ -551,6 +551,15 @@ class SocietyMemory:
             "Both notebooks are yours alone; edit them with society_wiki_note and search older "
             "entries with society_memory_recall."
         )
+        try:
+            from dodaios.memory.vault.runtime import agent_block
+
+            shared = agent_block()
+        except Exception:  # noqa: BLE001 — the user's preferences are optional for an agent
+            log.debug("society memory: user preference block unavailable", exc_info=True)
+            shared = ""
+        if shared:
+            lines.append(shared)
         return "\n".join(lines)
 
     def contains(self, agent: AgentRecord, text: str, *, target: str | None = None) -> bool:

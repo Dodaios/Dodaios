@@ -308,3 +308,43 @@ def learning_paused() -> bool:
     except Exception:  # noqa: BLE001 — an unreadable flag must not stop learning silently
         log.warning("memory vault: pause flag unreadable", exc_info=True)
         return False
+
+
+#: Kinds the user's agents may read: how the user wants things done, nothing private.
+AGENT_KINDS = ("preference", "procedural")
+AGENT_BLOCK_MAX_CHARS = 1200
+
+
+def agent_block(*, max_chars: int = AGENT_BLOCK_MAX_CHARS) -> str:
+    """The user's preferences and standing instructions for their agents (read-only).
+
+    Agents never see profile facts, people, places or anything sensitive, and
+    they cannot write or forget memories (ADR-0044).
+    """
+    vault = _active
+    if vault is None:
+        return ""
+    try:
+        memories = [
+            m
+            for kind in AGENT_KINDS
+            for m in vault.list(kind=kind)
+            if m.sensitivity == "normal" and m.scope == "global"
+        ]
+    except Exception:  # noqa: BLE001 — the agents work on without the user's preferences
+        log.debug("memory vault: agent block unavailable", exc_info=True)
+        return ""
+    memories.sort(key=lambda m: (not m.pinned, m.kind != "procedural", m.recorded_at))
+    header = (
+        "## How the user wants things done\n"
+        "From the user's own memory, read-only; follow it unless the task says otherwise."
+    )
+    lines: list[str] = []
+    used = len(header)
+    for memory in memories:
+        line = f"- {memory.text}"
+        if used + len(line) + 1 > max_chars:
+            break
+        lines.append(line)
+        used += len(line) + 1
+    return header + "\n" + "\n".join(lines) if lines else ""
