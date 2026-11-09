@@ -507,8 +507,8 @@ class TurnHost:
             try:
                 raw = await stream.readline()
             except (ValueError, asyncio.LimitOverrunError):
-                turn.reads += 1
                 # an over-long stderr line is dropped; readline already cleared it
+                turn.reads += 1
                 continue
             if not raw:
                 return
