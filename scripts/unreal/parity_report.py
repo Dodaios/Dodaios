@@ -268,6 +268,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 unreal.extend(read_index(newest))
         else:
             unreal.extend(run_parity_tests(options.worktree.resolve()))
+        if not options.index:
+            # The newest app-link Gauntlet run (tests/unit/verse_host/gauntlet) reports GT rows.
+            saved = options.worktree / "unreal" / "Verse" / "Saved"
+            gauntlet = newest_index_dir(saved / "Gauntlet")
+            if gauntlet:
+                unreal.extend(read_index(gauntlet))
     except common.UnrealScriptError as error:
         return common.exit_with(error)
     pytests = [o for path in options.junit for o in read_junit(path)]
