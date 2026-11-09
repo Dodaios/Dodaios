@@ -10,7 +10,7 @@ import { scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
 import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
 import { rosterFaces } from "@/components/agentchat/InternalMessageRun";
-import { useSocietyRoster } from "@/components/society/data";
+import { useCachedRosterAgents } from "@/components/society/data";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { BinaryCursorField } from "@/components/home/BinaryCursorField";
 import { Greeting } from "@/components/home/Greeting";
@@ -68,7 +68,7 @@ function ChatStageContent() {
   const t = useT();
   const assistantName = useEventStore((s) => s.assistantName);
   // Agent messages show each agent's own pet, which only the roster knows.
-  const roster = useSocietyRoster().data?.agents;
+  const roster = useCachedRosterAgents();
   const faces = useMemo(
     () => (roster ? rosterFaces(roster, (agent) => societyDisplayName(agent, assistantName ?? "")) : undefined),
     [roster, assistantName],
