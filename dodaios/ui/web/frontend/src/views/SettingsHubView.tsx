@@ -79,7 +79,7 @@ const PetsTab = lazy(() =>
   import("@/views/PetsView").then((m) => ({ default: m.PetsView })),
 );
 const GamesTab = lazy(() =>
-  import("@/views/GamesView").then((m) => ({ default: m.GamesView })),
+  import("@/views/VerseSettingsView").then((m) => ({ default: m.VerseSettingsView })),
 );
 const CostsTab = lazy(() =>
   import("@/views/CostsView").then((m) => ({ default: m.CostsView })),
