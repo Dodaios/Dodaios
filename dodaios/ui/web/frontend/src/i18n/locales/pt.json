@@ -10321,6 +10321,7 @@
     "projects": "Projetos",
     "connect_another": "Ligar outra pasta",
     "new_activity": "Nova atividade",
+    "in_worktree": "Trabalha no worktree {name}",
     "new_thread_in": "Novo thread em {project}",
     "save_name": "Guardar nome",
     "cancel_renaming": "Cancelar a mudança de nome",
