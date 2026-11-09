@@ -367,7 +367,7 @@ async def verse_signal(ws: WebSocket) -> None:
 
 
 @router.post("/signal/ticket", summary="A single-use ticket for the side panel's signalling socket")
-async def verse_signal_ticket(request: Request) -> dict[str, Any]:
+def verse_signal_ticket(request: Request) -> dict[str, Any]:
     from dodaios.verse_host import signal as sig
     from dodaios.verse_host.bridge import is_loopback
 
