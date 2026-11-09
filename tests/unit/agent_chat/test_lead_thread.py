@@ -130,3 +130,40 @@ def test_routes_return_the_one_conversation_and_keep_it(tmp_path: Path, monkeypa
             "/api/agent-chat/sessions", json={**body, "surface": "agent", "provider": "openai"}
         )
         assert coding.json()["session_id"] != sid
+
+
+def test_memory_search_finds_what_was_said_in_the_conversation(tmp_path: Path) -> None:
+    from dodaios.plugins.tool.memory_vault import MemorySearchTool
+    from dodaios.society.conversation import ConversationArchive
+
+    class _Runtime:
+        def __init__(self, svc: AgentChatService) -> None:
+            self.conversations = ConversationArchive(tmp_path / "archive.db")
+            self._svc = svc
+
+        def chat_service(self) -> AgentChatService:
+            return self._svc
+
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+        await svc.import_voice_turn(
+            sid, "My sister's wedding is in Lisbon in June", "Noted, Lisbon in June."
+        )
+        await svc.import_voice_turn(sid, "What's the weather?", "Sunny.")
+        from dodaios.society import runtime as society_runtime
+
+        previous = society_runtime.current_runtime()
+        society_runtime.set_current_runtime(_Runtime(svc))  # type: ignore[arg-type]
+        try:
+            rows = lead.search_conversation("wedding Lisbon")
+            assert rows and rows[0]["date"]
+            assert any("Lisbon" in r["text"] and r["who"] == "user" for r in rows)
+            result = await MemorySearchTool().execute({"query": "wedding Lisbon"}, None)  # type: ignore[arg-type]
+            assert result.success
+            assert any("Lisbon" in r["text"] for r in result.output["conversation"])
+        finally:
+            society_runtime.set_current_runtime(previous)
+
+    asyncio.run(scenario())

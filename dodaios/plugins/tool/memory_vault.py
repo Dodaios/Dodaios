@@ -21,6 +21,15 @@ def _vault() -> Any:
     return active()
 
 
+def _conversation(query: str, limit: int) -> list[dict[str, Any]]:
+    try:
+        from dodaios.agent_chat.lead import search_conversation
+
+        return search_conversation(query, limit=min(limit, 6))
+    except Exception:  # noqa: BLE001 — the conversation is extra; memory still answers
+        return []
+
+
 def _describe(memory: Any) -> dict[str, Any]:
     row: dict[str, Any] = {
         "id": memory.id,
@@ -40,9 +49,10 @@ class MemorySearchTool:
     risk_tier: str = "safe"
     description: str = (
         "Search the user's long-term memory (facts, preferences, people, projects, "
-        "past events) beyond what your instructions already list. Use it before "
-        "saying you do not know something personal. Set history=true for how "
-        "something changed over time (e.g. where the user lived before)."
+        "past events) and what was said earlier in your conversation with the user, "
+        "beyond what your instructions already list. Use it before saying you do not "
+        "know something personal or do not remember an earlier talk. Set history=true "
+        "for how something changed over time (e.g. where the user lived before)."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -60,8 +70,6 @@ class MemorySearchTool:
 
     async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
         vault = _vault()
-        if vault is None:
-            return ToolResult(success=False, output=None, error="memory is not running")
         query = str(args.get("query") or "").strip()
         if not query:
             return ToolResult(success=False, output=None, error="query is missing")
@@ -69,14 +77,23 @@ class MemorySearchTool:
         history = bool(args.get("history"))
 
         def _run() -> list[dict[str, Any]]:
+            if vault is None:
+                return []
             hits = vault.search(query, limit=limit, include_closed=history)
             vault.mark_used(h.memory.id for h in hits if not h.memory.expired_at)
             return [_describe(h.memory) for h in hits]
 
         rows = await asyncio.to_thread(_run)
-        if not rows:
+        said = await asyncio.to_thread(_conversation, query, limit)
+        if vault is None and not said:
+            return ToolResult(success=False, output=None, error="memory is not running")
+        if not rows and not said:
             return ToolResult(success=True, output=f"Nothing in memory matches {query!r}.")
-        return ToolResult(success=True, output={"memories": rows})
+        output: dict[str, Any] = {"memories": rows}
+        if said:
+            # Earlier in the one endless conversation (agent_chat/lead.py).
+            output["conversation"] = said
+        return ToolResult(success=True, output=output)
 
 
 class MemoryForgetTool:

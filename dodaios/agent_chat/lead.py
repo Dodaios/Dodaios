@@ -193,6 +193,47 @@ def voice_history(
     return kept
 
 
+def search_conversation(query: str, *, limit: int = 6) -> list[dict[str, Any]]:
+    """What was said earlier in the lead's conversation about ``query``.
+
+    Blocking (SQLite); call it off the event loop. Rows carry who said it,
+    the date and an excerpt, newest relevant first. Empty when the society
+    runtime (which owns the archive) or the conversation does not exist.
+    """
+    import datetime as _dt
+
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+    except Exception:  # noqa: BLE001 — society not loaded
+        return []
+    svc = runtime.chat_service() if runtime is not None else None
+    archive = getattr(runtime, "conversations", None) if runtime is not None else None
+    if svc is None or archive is None:
+        return []
+    sid = lead_session_id(svc)
+    if not sid or not str(query or "").strip():
+        return []
+    archive.ingest(sid, svc.store.list_events(sid))
+    rows: list[dict[str, Any]] = []
+    for hit in archive.search(sid, query, limit=max(1, min(20, limit))):
+        if hit.get("kind") not in {"user_message", "assistant_text"}:
+            continue
+        text = str(hit.get("text") or "").strip()
+        if not text:
+            continue
+        ts = int(hit.get("ts_ms") or 0)
+        rows.append(
+            {
+                "who": "user" if hit["kind"] == "user_message" else "you",
+                "date": _dt.datetime.fromtimestamp(ts / 1000).strftime("%Y-%m-%d") if ts else "",
+                "text": text[:600],
+            }
+        )
+    return rows
+
+
 def _archive() -> Any | None:
     try:
         from dodaios.society.runtime import current_runtime
@@ -210,5 +251,6 @@ __all__ = [
     "is_lead",
     "lead_session",
     "lead_session_id",
+    "search_conversation",
     "voice_history",
 ]
