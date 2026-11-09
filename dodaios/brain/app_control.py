@@ -327,6 +327,14 @@ def is_credential_present(spec: ProviderSpec, binary_path: str | None = None) ->
             return grok_build_provider_ready(GrokBuildAuthService().status())
         except Exception:  # noqa: BLE001 — Grok Build CLI absent is just "not present"
             return False
+    if spec.auth_mode == "opencode":
+        # OpenCode owns its model access, so an installed CLI is ready.
+        try:
+            from dodaios.agent_chat.runner_cli import cli_installed
+
+            return cli_installed("opencode-cli")
+        except Exception:  # noqa: BLE001 — OpenCode CLI absent is just "not present"
+            return False
     return False
 
 

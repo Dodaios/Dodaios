@@ -2944,6 +2944,7 @@
     "agents_only_note": "Apenas {0}. Este fornecedor não pode ser usado como cérebro principal nem como planeador de Computer-Use porque não recebe capturas de ecrã.",
     "local_optional_key_hint": "Fornecedor local — funciona sem credenciais. A chave abaixo é opcional, apenas para servidores que a exijam (ex.: vLLM --api-key).",
     "local_no_credentials_hint": "Fornecedor local — não são necessárias credenciais.",
+    "opencode_cli_hint": "Funciona com a tua própria instalação do OpenCode: o Dodaios não guarda nenhuma chave. Instala-o com npm i -g opencode-ai e usa os modelos gratuitos ou inicia sessão com opencode auth login.",
     "polish_verify_failed": "O {0} está selecionado, mas não respondeu: {1}",
     "switch_note_next_start": " (ativo a partir do próximo arranque de voz)",
     "switch_done_brain": "Cérebro → {0}",

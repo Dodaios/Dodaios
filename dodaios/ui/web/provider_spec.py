@@ -18,7 +18,9 @@ from typing import Literal
 
 from dodaios.dictation.polish_client import POLISH_FAMILIES
 
-AuthMode = Literal["api_key", "codex", "antigravity", "claude_cli", "grok_build", "none"]
+AuthMode = Literal[
+    "api_key", "codex", "antigravity", "claude_cli", "grok_build", "opencode", "none"
+]
 Tier = Literal["brain", "tts", "stt", "realtime", "dictation"]
 # How using a provider is billed. Derived from auth_mode (never branched on a
 # provider name — see provider_billing): an API key bills per token on an API
@@ -129,7 +131,7 @@ def provider_billing(spec: ProviderSpec) -> Billing:
     * ``none`` → ``"local"`` — no credential, runs on-device.
     * everything else (``api_key``) → ``"api"`` — pay per token on an API account.
     """
-    if spec.auth_mode in ("antigravity", "codex", "claude_cli", "grok_build"):
+    if spec.auth_mode in ("antigravity", "codex", "claude_cli", "grok_build", "opencode"):
         return "subscription_or_api" if spec.secret_keys else "subscription"
     if spec.auth_mode == "none":
         return "local"
@@ -592,6 +594,34 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "Claude Code CLI — no API key needed. Sign in from the local "
             "model panel, or run 'claude /login' in a terminal. Too slow to "
             "start for spoken replies, so it is not offered as a voice brain."
+        ),
+    ),
+    # ── Brain: OpenCode CLI ──
+    # OpenCode owns its model access (its own logins, its own keys, its free
+    # models), so there is no key slot and nothing to sign in to from here: an
+    # installed CLI is ready. Like the other CLI brains it is too slow to start
+    # for a spoken turn and cannot see Computer-Use screenshots, so it is never
+    # the main brain. Card order matters: it sits after the subscription CLIs,
+    # so the subscription resolver only reaches it when none of them is
+    # signed in.
+    ProviderSpec(
+        id="opencode",
+        label="OpenCode",
+        tier="brain",
+        auth_mode="opencode",
+        secret_keys=(),
+        dashboard_url=None,
+        login_cli=("opencode", "auth", "login"),
+        install_hint="npm i -g opencode-ai",
+        credential_path_hint="~/.local/share/opencode/auth.json",
+        brain_switchable=False,
+        signup_url="https://opencode.ai",
+        credential_help=(
+            "Writes Agentic IDE task briefs and background text through your "
+            "own OpenCode install — no key stored in Dodaios. OpenCode uses "
+            "the providers you signed in to with 'opencode auth login', or "
+            "its free models. Runs read-only. Too slow to start for spoken "
+            "replies, so it is not offered as a voice brain."
         ),
     ),
     ProviderSpec(

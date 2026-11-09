@@ -291,6 +291,7 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "gemini": "Google Gemini",
     "antigravity": "Google Antigravity (Gemini)",
     "grok-build": "Grok Build (xAI subscription)",
+    "opencode": "OpenCode",
 }
 
 

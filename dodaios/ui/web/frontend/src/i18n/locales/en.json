@@ -2944,6 +2944,7 @@
     "agents_only_note": "{0} only. This provider cannot be used as the main Brain or Computer-Use planner because it does not receive screenshots.",
     "local_optional_key_hint": "Local provider — runs without credentials. The key below is optional, only for servers that enforce one (e.g. vLLM --api-key).",
     "local_no_credentials_hint": "Local provider — no credentials needed.",
+    "opencode_cli_hint": "Runs through your own OpenCode install: no key is stored in Dodaios. Install it with npm i -g opencode-ai, then use its free models or sign in with opencode auth login.",
     "polish_verify_failed": "{0} is selected, but it did not answer: {1}",
     "switch_note_next_start": " (active from next voice start)",
     "switch_done_brain": "Brain → {0}",

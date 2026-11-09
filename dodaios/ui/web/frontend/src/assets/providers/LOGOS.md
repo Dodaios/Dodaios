@@ -69,6 +69,7 @@ Two render paths, chosen per file and recorded in the table:
 | nvidia | lobehub/lobe-icons `nvidia-color.svg` | MIT | colour | 2026-08-23 |
 | ollama | lobehub/lobe-icons `ollama.svg` | MIT | mono | 2026-08-23 |
 | openai | lobehub/lobe-icons `openai.svg` (also Codex cards) | MIT | mono | 2026-08-23 |
+| opencode | simple-icons 16.30.0 `icons/opencode.svg` (byte-for-byte, same file as `../agents/opencode.svg`) | CC0-1.0 | mono | 2026-11-09 |
 | openclaw | lobehub/lobe-icons 1.95.1 `openclaw-color.svg` (OpenClaw agent runtime) | MIT | colour | 2026-10-06 |
 | openrouter | lobehub/lobe-icons `openrouter.svg` | MIT | mono | 2026-08-23 |
 | oracle | simple-icons `oracle.svg` (Computers section, provider gallery) | CC0-1.0 | mono | 2026-09-28 |

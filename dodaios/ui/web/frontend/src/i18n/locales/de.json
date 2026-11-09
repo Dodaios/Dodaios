@@ -2943,6 +2943,7 @@
     "agents_only_note": "Nur {0}. Dieser Anbieter kann nicht als Haupt-Brain oder Computer-Use-Planer dienen, weil er keine Screenshots erhält.",
     "local_optional_key_hint": "Lokaler Anbieter — läuft ohne Zugangsdaten. Der Schlüssel unten ist optional und nur für Server nötig, die einen verlangen (z. B. vLLM --api-key).",
     "local_no_credentials_hint": "Lokaler Anbieter — keine Zugangsdaten nötig.",
+    "opencode_cli_hint": "Läuft über deine eigene OpenCode-Installation: In Dodaios wird kein Schlüssel gespeichert. Installiere es mit npm i -g opencode-ai und nutze dann die kostenlosen Modelle oder melde dich mit opencode auth login an.",
     "polish_verify_failed": "{0} ist ausgewählt, hat aber nicht geantwortet: {1}",
     "switch_note_next_start": " (aktiv ab dem nächsten Sprachstart)",
     "switch_done_brain": "Brain → {0}",

@@ -3246,6 +3246,9 @@ export function AuthWidget({
       {descriptor.auth_mode === "antigravity" && (
         <AntigravityAuthWidget descriptor={descriptor} onChanged={onChanged} />
       )}
+      {descriptor.auth_mode === "opencode" && (
+        <p className="text-xs text-muted-foreground">{t("apikeys_view.opencode_cli_hint")}</p>
+      )}
       {descriptor.auth_mode === "api_key" && (
         <>
           {descriptor.secret_keys.map((k) => (
@@ -3851,6 +3854,10 @@ export function providerStateChip(
     const status = descriptor.antigravity_status;
     if (!status?.installed) return "missing";
     return status.connected ? "ready" : "not_connected";
+  }
+  // OpenCode owns its model access: an installed CLI is ready.
+  if (descriptor.auth_mode === "opencode" && !verification) {
+    return descriptor.configured ? "ready" : "not_installed";
   }
   // A live verdict outranks everything below: the provider was asked and
   // answered (or did not).
