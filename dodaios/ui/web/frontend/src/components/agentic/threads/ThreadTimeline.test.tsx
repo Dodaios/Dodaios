@@ -52,6 +52,26 @@ describe("thread work log", () => {
     expect(screen.getByText("Now the router.")).toBeTruthy();
   });
 
+  it("hangs thoughts and steps that follow one another on one rail, broken by the agent's words", () => {
+    show(turn([
+      thought("r1", "Checking the workflow."),
+      tool("c1", "gh run list"),
+      thought("r2", "The gate never ran."),
+      { kind: "text", id: "n1", text: "The failure hits several pull requests." },
+      tool("c2", "gh pr list"),
+      thought("r3", "Nobody is on it.", true),
+    ], "running"));
+    const rails = screen.getAllByTestId("thread-rail");
+    expect(rails).toHaveLength(2);
+    // A thought hangs on a dot, a call on its own mark.
+    expect([...rails[0].children].map((step) => step.getAttribute("data-node"))).toEqual(["dot", "mark", "dot"]);
+    expect([...rails[1].children].map((step) => step.getAttribute("data-node"))).toEqual(["mark", "dot"]);
+    // The words stand between the rails, not on one.
+    expect(screen.getByText("The failure hits several pull requests.").closest("[data-testid=thread-rail]")).toBeNull();
+    // Only the thought the turn is still having is live.
+    expect(screen.getAllByTestId("thread-thought").map((node) => node.getAttribute("data-live"))).toEqual([null, null, "true"]);
+  });
+
   it("keeps the answer in view when a thought lands after it", () => {
     show(turn([
       tool("c1", "gh pr view 1191"),

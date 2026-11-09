@@ -55,12 +55,15 @@ export function isFailed(call: Call): boolean {
 /** How long a thought's gist may run before it is cut at a word. */
 export const GIST_MAX = 140;
 
+/** The cut for a thought on a thread's rail, where the line may wrap once. */
+export const GIST_RAIL_MAX = 240;
+
 /**
  * A thought as one short line a reader takes in at a glance: its heading
  * when it opens with one ("**Checking the build**"), else its first
- * sentence, without Markdown marks and cut at a word past GIST_MAX.
+ * sentence, without Markdown marks and cut at a word past `max`.
  */
-export function thoughtGist(text: string): string {
+export function thoughtGist(text: string, max: number = GIST_MAX): string {
   const source = text.trim();
   const heading = /^(?:#{1,6}\s+(.+)|\*\*([^*\n]+)\*\*\s*(?:\n|$))/.exec(source);
   const raw = heading ? (heading[1] ?? heading[2]) : source.split(/\n\s*\n/)[0];
@@ -72,10 +75,10 @@ export function thoughtGist(text: string): string {
     .replace(/\s+/g, " ")
     .trim();
   const sentence = /^.+?[.!?:](?=\s|$)/.exec(plain)?.[0] ?? plain;
-  if (sentence.length <= GIST_MAX) return sentence;
-  const cut = sentence.slice(0, GIST_MAX);
+  if (sentence.length <= max) return sentence;
+  const cut = sentence.slice(0, max);
   const space = cut.lastIndexOf(" ");
-  return `${(space > GIST_MAX / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:]+$/, "")}…`;
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:]+$/, "")}…`;
 }
 
 function soleKind(items: WorkItem[]): WorkGroup["sole"] {

@@ -1,0 +1,70 @@
+/* ── The rail of a thread turn's work (ThreadTimeline.tsx) ─────────────────
+   Thoughts and steps that follow one another hang on one hairline. Every
+   step is a 24 px first line inside 2 px of padding, so its node — a 5 px
+   dot for a thought, a 16 px mark for a call — is centred 14 px down. The
+   line runs in two segments per step, above the node and from below it to
+   the step's end, leaving a 3 px gap around the node. It needs no surface
+   colour behind the marks and passes beside whatever a step opens to.
+   Colour tokens only, so both themes read the same ladder. */
+.thread-rail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.thread-rail > .thread-step {
+  --thread-node-half: 8px;
+  position: relative;
+  min-width: 0;
+  padding: 2px 0;
+}
+.thread-rail > .thread-step[data-node="dot"] {
+  --thread-node-half: 2.5px;
+}
+.thread-rail > .thread-step::before,
+.thread-rail > .thread-step::after {
+  content: "";
+  position: absolute;
+  left: 7.5px;
+  width: 1px;
+  background: hsl(var(--border-strong));
+  pointer-events: none;
+}
+.thread-rail > .thread-step::before {
+  top: 0;
+  height: calc(14px - var(--thread-node-half) - 3px);
+}
+.thread-rail > .thread-step::after {
+  top: calc(14px + var(--thread-node-half) + 3px);
+  bottom: 0;
+}
+.thread-rail > .thread-step:first-child::before,
+.thread-rail > .thread-step:last-child::after {
+  display: none;
+}
+
+/* A thought's node. */
+.thread-dot {
+  display: block;
+  height: 5px;
+  width: 5px;
+  border-radius: 9999px;
+  background: hsl(var(--muted-foreground));
+  opacity: 0.55;
+}
+/* The thought the running turn is still having. */
+.thread-dot-live {
+  background: hsl(var(--accent));
+  opacity: 1;
+  animation: thread-dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes thread-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgb(var(--accent-rgb) / 0.12); }
+  50% { box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.24); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread-dot-live {
+    animation: none;
+  }
+}
