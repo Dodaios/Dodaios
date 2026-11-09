@@ -11,7 +11,12 @@ import { reloadHeld, setReloadHold } from "./lib/reloadHold";
 import { useEventStore } from "./store/events";
 import { browserSafeReloadDeps, reloadWhenServable } from "./lib/safeReload";
 import { loadUiLocale, useI18nStore } from "./i18n";
+import { installDomMutationGuard } from "./lib/domMutationGuard";
 import "./index.css";
+
+// Before React touches the page: a translator or extension that rewrites
+// nodes under the app must cost one stale label, not the whole view.
+installDomMutationGuard();
 
 // When the frontend is rebuilt while the window is open, the old main bundle
 // still references lazy chunks by their previous content hash; those URLs now

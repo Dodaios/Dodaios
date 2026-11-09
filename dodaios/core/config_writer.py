@@ -2537,6 +2537,12 @@ def set_live_profile(values: dict, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
         if "voice" not in doc:
             doc["voice"] = tomlkit.table()
         doc["voice"]["mode"] = "realtime"
+        # Saving GPT-Live selects the realtime engine. A classic voice profile
+        # left behind (an older install lands on one by migration) outranks
+        # that engine at call time: the page then reads "Saved & active" while
+        # no call can start. Retire it in the same atomic write.
+        if str(doc["voice"].get("profile") or "").strip():
+            doc["voice"]["profile"] = ""
         _write_doc(path, doc, bom)
     clear_config_cache()
     _update_config_soll_section("live", profile.model_dump())  # i18n-allow
@@ -2544,6 +2550,57 @@ def set_live_profile(values: dict, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
         "brain.realtime", {"provider": profile.provider_id, "model": effective.model}
     )
     _update_config_soll_section("voice", {"mode": "realtime"})  # i18n-allow
+
+
+def retire_voice_profile_under_live(*, path: Path = DEFAULT_CONFIG_FILE) -> bool:
+    """Repair a saved GPT-Live setup that a classic voice profile still blocks.
+
+    Before :func:`set_live_profile` retired the profile itself, saving GPT-Live
+    on an install that carried ``voice.profile = "codex-subscription-voice"``
+    left realtime mode, the Live provider and that Pipeline-only profile
+    together. The profile wins when a call starts, so no realtime session is
+    built and the call ends at once. Only that exact combination is touched:
+    realtime mode, a configured Live profile, and its own provider selected.
+    """
+    if path == DEFAULT_CONFIG_FILE:
+        from dodaios.core.config import resolve_config_path
+
+        path = resolve_config_path()
+    if not path.exists():
+        return False
+    with _WRITE_LOCK:
+        # A string probe first: this runs on every boot, and a full TOML parse
+        # of a large config is far too slow to pay for a repair almost no
+        # install needs. Only this one classic profile exists.
+        if "codex-subscription-voice" not in path.read_text(encoding="utf-8"):
+            return False
+        doc, bom = _read_doc(path)
+        voice = doc.get("voice")
+        if voice is None or not str(voice.get("profile") or "").strip():
+            return False
+        if str(voice.get("mode") or "").strip().lower() != "realtime":
+            return False
+        live = doc.get("live")
+        brain = doc.get("brain")
+        realtime = brain.get("realtime") if brain is not None else None
+        if live is None or realtime is None:
+            return False
+        # Imported only for the rare config that reaches this point: this
+        # runs on every boot and must not pull the voice stack in by default.
+        from dodaios.live.config import LiveConfig
+
+        try:
+            profile = LiveConfig.model_validate(
+                live.unwrap() if hasattr(live, "unwrap") else dict(live)
+            )
+        except ValueError:
+            return False  # An unreadable Live table is not a saved selection.
+        if not profile.configured or str(realtime.get("provider") or "") != profile.provider_id:
+            return False
+        voice["profile"] = ""
+        _write_doc(path, doc, bom)
+    clear_config_cache()
+    return True
 
 
 def _write_doc(path: Path, doc: TOMLDocument, had_bom: bool) -> None:

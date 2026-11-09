@@ -66,6 +66,10 @@ def _static_message(code: str, plan: str = "") -> str:
         "invalid_response": "ChatGPT subscription voice returned an invalid response.",
         "connection_lost": "The ChatGPT subscription voice connection was lost.",
         "control_unavailable": "The ChatGPT subscription voice control connection failed.",
+        "network_unreachable": (
+            "ChatGPT subscription voice could not be reached. Check the internet "
+            "connection, proxy or firewall, then try again."
+        ),
         "provider_error": "ChatGPT subscription voice is temporarily unavailable.",
     }
     return messages.get(code, messages["provider_error"])
@@ -81,6 +85,7 @@ _STATIC_CODES = (
     "invalid_response",
     "connection_lost",
     "control_unavailable",
+    "network_unreachable",
     "provider_error",
 )
 _NAMED_PLAN_MESSAGE = re.compile(
@@ -101,13 +106,30 @@ class SubscriptionLiveError(RuntimeError):
         super().__init__(_static_message(code, plan))
 
 
+def static_code_message(code: str, plan: str = "") -> str:
+    """The fixed sentence for a classified failure code (never provider text)."""
+    return _static_message(code if code in _STATIC_CODES else "provider_error", plan)
+
+
+def _is_network_failure(error: BaseException) -> bool:
+    """Whether the request never reached an answer: DNS, TLS, proxy, timeout."""
+    if isinstance(error, (TimeoutError, OSError)):
+        return True
+    try:
+        import httpx
+    except ImportError:  # the transport that would raise it is absent too
+        return False
+    return isinstance(error, httpx.TransportError)
+
+
 def static_failure_message(error: BaseException | str | None) -> str | None:
     """Return the safe, classified text behind a subscription voice failure.
 
     Accepts the raised exception (its cause/context chain is searched for a
     :class:`SubscriptionLiveError`) or a failure string a session recorded.
-    A string only counts when it is exactly one of the static messages, so raw
-    provider text can never come back out of this function.
+    A string only counts when it is exactly one of the static messages or one
+    of the classification codes, so raw provider text can never come back out
+    of this function.
     """
     if isinstance(error, BaseException):
         seen: set[int] = set()
@@ -122,6 +144,9 @@ def static_failure_message(error: BaseException | str | None) -> str | None:
     if not isinstance(error, str):
         return None
     text = error.strip()
+    if text in _STATIC_CODES and text != "provider_error":
+        # A session records the bare code of a failure that ended the call.
+        return _static_message(text)
     if any(text == _static_message(code) for code in _STATIC_CODES):
         return text
     match = _NAMED_PLAN_MESSAGE.match(text)
@@ -766,15 +791,22 @@ class OpenAISubscriptionLiveProvider:
                 await self._retire_allocation(call_id, headers, connector)
                 error.allocation_unconfirmed = True
             raise
-        except Exception:
+        except Exception as error:
             if not credentials_ready:
                 # Preserve the auth layer's actionable, sanitized errors just
                 # as before preparation was overlapped with credential work.
                 raise
             if allocated:
                 await self._retire_allocation(call_id, headers, connector)
+            # A request that never got an answer is the network's fault, not
+            # the service's: "temporarily unavailable" sends the person
+            # waiting when a proxy or firewall has to change. Only the class
+            # of the failure is read; its text never leaves this scope.
             raise SubscriptionLiveError(
-                "provider_error", allocation_unconfirmed=allocated
+                "network_unreachable"
+                if not allocated and _is_network_failure(error)
+                else "provider_error",
+                allocation_unconfirmed=allocated,
             ) from None
         log.info(
             "Subscription Live call created in %.0f ms.", (time.monotonic() - started_at) * 1000

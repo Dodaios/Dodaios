@@ -5362,6 +5362,30 @@ def _heal_legacy_codex_realtime_once(path: Path) -> None:
         )
 
 
+_LIVE_VOICE_PROFILE_HEALED: set[Path] = set()
+
+
+def _heal_live_voice_profile_once(path: Path) -> None:
+    """Free a saved GPT-Live setup from a leftover classic voice profile."""
+    if path in _LIVE_VOICE_PROFILE_HEALED:
+        return
+    _LIVE_VOICE_PROFILE_HEALED.add(path)
+    try:
+        from dodaios.core.config_writer import retire_voice_profile_under_live
+
+        healed = retire_voice_profile_under_live(path=path)
+    except Exception:  # noqa: BLE001 - a boot repair must not block startup
+        logging.getLogger(__name__).warning(
+            "Could not repair the voice profile of the saved GPT-Live setup.",
+            exc_info=True,
+        )
+        return
+    if healed:
+        logging.getLogger(__name__).warning(
+            "Retired a classic voice profile that blocked the saved GPT-Live setup."
+        )
+
+
 def _heal_dictation_hotkeys_once(path: Path) -> None:
     """Run the one-time dictation-shortcut backfill. Never raises, never blocks.
 
@@ -5401,6 +5425,9 @@ def load_config(
         # config still pinning it is routed onto the stable subscription
         # profile before the first parse so the UI and runtime see one state.
         _heal_legacy_codex_realtime_once(config_file)
+        # A GPT-Live setup saved over a classic voice profile could not start
+        # a call (issue #828). Repair that pairing before the first parse.
+        _heal_live_voice_profile_once(config_file)
         # One-time dictation-shortcut backfill BEFORE the file is read, so the
         # very first boot after the update already sees the healed values
         # (BUG-010 config drift; see config_writer for why a marker and not an
