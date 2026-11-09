@@ -435,7 +435,10 @@ def test_no_committed_record_has_nanite_on_a_translucent_slot():
         for r in materials.load_recipes()
     }
     errors = []
-    for path in sorted((REPO / "unreal" / "Verse" / "Art" / "Import").rglob("*.import.json")):
+    import_root = REPO / "unreal" / "Verse" / "Art" / "Import"
+    # WP14 owns the weapon and weapon-VFX records only; other packages answer for their own.
+    for path in sorted([*(import_root / "Weapons").rglob("*.import.json"),
+                        *(import_root / "VFX" / "Weapons").rglob("*.import.json")]):
         errors += checks.translucent_nanite_errors(json.loads(path.read_text("utf-8")), parents)
     assert errors == []
     bad = {"name": "SM_X", "nanite": {"enabled": True}, "mesh": {"material_slots": [
