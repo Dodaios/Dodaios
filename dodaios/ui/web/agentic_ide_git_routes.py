@@ -314,7 +314,10 @@ def thread_github_status(
     found = _thread_folder_and_agent(request, session_id)
     if found is None:
         return {"panes": {THREAD_KEY: None}}
+    from dodaios.ui.web.agent_chat_routes import _service
+
     session, folder, agent = found
+    store = _service(request).store
     record = PaneBranchRecord(
         pane=THREAD_KEY,
         history_id=session.session_id,
@@ -323,6 +326,9 @@ def thread_github_status(
         session_id=session.vendor_session or "",
         home=account_home(agent, session.account_id),
         started_at=(session.created_ms or 0) / 1000,
+        # A thread that lost its CLI session id, or runs on a CLI whose
+        # transcript is not read, still names its branches in its own record.
+        events=lambda: store.list_events(session.session_id),
     )
     return github_status.board(f"thread:{session.session_id}", [record], wait=wait)
 
