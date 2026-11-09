@@ -469,7 +469,16 @@ jobs:
           mount_point="${RUNNER_TEMP}/jarvis-browser-dmg"
           mkdir -p "$mount_point"
           hdiutil attach "dist/installers/Dodaios-macOS-${{ matrix.arch }}.dmg" -readonly -nobrowse -mountpoint "$mount_point"
-          trap 'hdiutil detach "$mount_point"' EXIT
+          # The app the check just quit can hold the volume for a moment;
+          # retry, then force, so a busy unmount does not fail a passed check.
+          detach() {
+            for _ in 1 2 3 4 5; do
+              hdiutil detach "$mount_point" && return 0
+              sleep 3
+            done
+            hdiutil detach -force "$mount_point"
+          }
+          trap detach EXIT
           python scripts/ci/check_frozen_browser.py --executable "$mount_point/Dodaios.app/Contents/MacOS/DodaiosApp" --output frozen-browser-proof
 
       - name: Preserve frozen browser evidence

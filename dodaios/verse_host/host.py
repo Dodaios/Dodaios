@@ -112,6 +112,9 @@ class VerseHost:
 
         self.launcher = LaunchSequence(_LaunchSteps(self.backend))
         self.hub = BridgeHub(check_token=self.tokens.check, welcome=self._welcome)
+        from .signal import SignalHub
+
+        self.signal = SignalHub(lambda: self.tokens.get("launch"), on_panel=self._on_signal_panel)
         self.hub.on_hung = self._on_hung
         self.hub.on_session = self._on_session
         self.supervisor = supervisor or Supervisor(
@@ -480,6 +483,19 @@ class VerseHost:
         state = msg.data.get("state")
         if state in ("starting", "streaming", "stopped", "failed"):
             session.panel_stream = dict(msg.data)
+            await self.signal.publish_stream_state(dict(msg.data))
+
+    async def _on_signal_panel(self, kind: str, data: dict[str, Any]) -> None:
+        """The panel's player socket opened, resized or closed: tell Verse (bridge 12)."""
+        try:
+            w, h, dpr = int(data.get("w", 0)), int(data.get("h", 0)), float(data.get("dpr", 1.0))
+        except (TypeError, ValueError):
+            log.debug("verse host: ignored a malformed %s from the signalling", kind)
+            return
+        if kind == "panel.visibility":
+            await self.panel_visibility(bool(data.get("visible")), w, h, dpr)
+        elif kind == "panel.resize":
+            await self.panel_resize(w, h, dpr)
 
     async def _n_return(self, session: BridgeSession, msg: P.Inbound) -> None:
         """Verse hid itself and allowed our foreground: raise the app window."""
