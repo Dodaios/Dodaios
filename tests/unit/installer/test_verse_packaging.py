@@ -151,8 +151,20 @@ def test_every_deck_level_gets_its_own_chunk() -> None:
         assert by_name[deck.lower()]["maps"] == [f"/Game/Verse/Decks/{deck}/LV_{deck}"]
     block = package.chunk_ini_block(chunks)
     assert "bGenerateChunks=True" in block
-    assert 'PrimaryAssetId="Map:LV_Hangar",Rules=(Priority=14,ChunkId=4' in block
-    assert block.count("+PrimaryAssetRules=") == 4
+    # Every deck level is named for the cook; its label (PAL_<Deck>) picks the chunk.
+    assert block.count("+MapsToCook=") == 4
+    assert '+MapsToCook=(FilePath="/Game/Verse/Decks/Bridge/LV_Bridge")' in block
+
+
+def test_every_deck_chunk_has_its_label_asset() -> None:
+    from scripts.unreal import deck_labels
+
+    labels = deck_labels.deck_labels(package.load_chunks())
+    assert [item["chunk"] for item in labels] == [1, 2, 3, 4]
+    for item in labels:
+        relative = item["folder"].replace("/Game/", "Content/", 1) + "/" + item["name"]
+        assert (package.common.UNREAL_ROOT / "Verse" / f"{relative}.uasset").is_file(), item
+    assert f'"chunk": {labels[0]["chunk"]}' in deck_labels.editor_script(labels)
 
 
 def test_chunk_rule_problems_catch_broken_rules() -> None:
@@ -176,7 +188,7 @@ def test_chunk_rule_problems_catch_broken_rules() -> None:
 def test_missing_chunk_config_lists_what_the_ini_lacks(tmp_path: Path) -> None:
     chunks = package.load_chunks()
     (tmp_path / "Config").mkdir()
-    assert len(package.missing_chunk_config(tmp_path, chunks)) == 8
+    assert len(package.missing_chunk_config(tmp_path, chunks)) == 7
     (tmp_path / "Config/DefaultGame.ini").write_text(
         package.chunk_ini_block(chunks), encoding="utf-8"
     )
@@ -290,7 +302,7 @@ TEST_TOKEN = secrets.token_hex(8)
 FAKE_BRIDGE_STANDIN = """
 import argparse, json, os, sys, time
 p = argparse.ArgumentParser()
-for name in ("--scenario", "--report", "--discovery"):
+for name in ("--scenario", "--report", "--discovery", "--done-file"):
     p.add_argument(name)
 p.add_argument("--once", action="store_true")
 a = p.parse_args()
@@ -586,3 +598,38 @@ def test_manifest_command_refuses_a_misnamed_package_or_tag(tmp_path: Path) -> N
     package.make_full(stage, version="4.2.0", platform="Win64", out=right)
     with pytest.raises(Exception, match="does not match version"):
         package.make_release_manifest(right, [], tag="v4.3.0")
+
+
+# ---------------------------------------------------- 22.3 cold start without a log
+def test_first_frame_comes_from_the_ready_frame() -> None:
+    report = {
+        "expectations": [
+            {"type": "lifecycle.ready", "ok": True, "frame_data": {"first_frame_ms": 2231}}
+        ]
+    }
+    assert package.first_frame_ms(report) == 2231.0
+    assert package.first_frame_ms(None) is None
+    report["expectations"][0]["ok"] = False
+    assert package.first_frame_ms(report) is None
+
+
+def test_wait_for_ready_ends_on_the_done_file(tmp_path: Path) -> None:
+    done = tmp_path / "bridge-done"
+    log = tmp_path / "game.log"
+    ticks = iter(range(100))
+    seen: list[float] = []
+
+    def sleep(_seconds: float) -> None:
+        seen.append(1.0)
+        if len(seen) == 3:
+            done.write_text("done")
+
+    seconds = package.wait_for_ready(
+        log,
+        done,
+        timeout_s=10,
+        alive=lambda: True,
+        clock=lambda: float(next(ticks)),
+        sleep=sleep,
+    )
+    assert seconds is not None and len(seen) == 3

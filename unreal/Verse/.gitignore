@@ -14,3 +14,6 @@ Samples/
 # The engine needs unreal/Verse/Build/ (platform icons and resources); the root
 # .gitignore ignores every folder named build, so it is re-included here.
 !Build/
+# Written by the cook (open order, chunk layers); never committed.
+Build/*/FileOpenOrder/
+Build/*/ChunkLayerInfo/
