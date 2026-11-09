@@ -68,6 +68,20 @@
       "lift": {
         "name": "Elevador",
         "action": "Ir para outro convés"
+      },
+      "armoury": {
+        "action": "Abrir o duelo",
+        "name": "Arsenal"
+      },
+      "close": "Fechar",
+      "error": {
+        "bad_request": "Isso não funcionou.",
+        "busy": "Já está a iniciar um lote.",
+        "conflict": "Isso foi recusado.",
+        "internal": "Isso não funcionou.",
+        "not_found": "Isso já não existe.",
+        "rate_limited": "Demasiados pedidos. Espere um momento e tente de novo.",
+        "unavailable": "Isso não está disponível agora."
       }
     },
     "card": {
@@ -122,7 +136,30 @@
       "reset": "Redefinir",
       "fov_third": "Campo de visão, terceira pessoa",
       "fov_first": "Campo de visão, primeira pessoa",
-      "volume": "Volume do som"
+      "volume": "Volume do som",
+      "duel_fov": "Campo de visão no duelo",
+      "gore": "Sangue",
+      "gore.full": "Completo",
+      "gore.reduced": "Reduzido",
+      "level_sound": "Som de nível",
+      "markers_note": "Os marcadores diferem pela forma: traços, traços com losango, anel, quadrado.",
+      "page": {
+        "access": "Acesso",
+        "audio": "Som",
+        "controls": "Teclas",
+        "gameplay": "Jogo",
+        "video": "Vídeo"
+      },
+      "press_key": "Pressione uma tecla",
+      "quality.auto": "Automática",
+      "quality.cinematic": "Cinema",
+      "quality.epic": "Épica",
+      "quality.high": "Alta",
+      "quality.low": "Baixa",
+      "quality.medium": "Média",
+      "reduced_motion": "Menos movimento",
+      "text_size": "Tamanho do texto",
+      "ui_sound": "Sons da interface"
     },
     "lift": {
       "title": "Elevador",
@@ -162,7 +199,19 @@
     },
     "games": {
       "title": "Sala de simuladores",
-      "loading": "Carregando a simulação…"
+      "loading": "Carregando a simulação…",
+      "programme": {
+        "asteroid_run": "Asteroid Run",
+        "block_drop": "Block Drop",
+        "brick_breaker": "Brick Breaker",
+        "city_defense": "City Defense",
+        "desert_dash": "Desert Dash",
+        "maze_muncher": "Maze Muncher",
+        "neon_snake": "Neon Snake",
+        "paddle_duel": "Paddle Duel",
+        "pixel_raiders": "Pixel Raiders",
+        "road_hopper": "Road Hopper"
+      }
     },
     "duel": {
       "tool": "Duelo",
@@ -273,6 +322,175 @@
       "changes": "Alterações",
       "placeholder": "Prompt para este agente",
       "send": "Enviar"
+    },
+    "armoury": {
+      "loadout": "EQUIPAMENTO",
+      "slot": {
+        "gadgeta": "EQUIPAMENTO",
+        "gadgetb": "EQUIPAMENTO",
+        "melee": "CORPO A CORPO",
+        "primary": "PRINCIPAL",
+        "secondary": "SECUNDÁRIA"
+      },
+      "start": "Iniciar duelo",
+      "tier": "RIVAL",
+      "title": "Arsenal"
+    },
+    "bar": {
+      "leave_duel": "Sair do duelo",
+      "quick_duel": "Duelo rápido",
+      "return": "Voltar ao app"
+    },
+    "end": {
+      "adaptive": "Nível do rival adaptativo: {skill} (0 normal, 0,5 difícil, 1 elite)",
+      "leave": "Sair do duelo",
+      "lost": "Set perdido",
+      "next": "Próximo set",
+      "opponent": "RIVAL",
+      "row": {
+        "accuracy": "Precisão",
+        "damage": "Dano causado",
+        "deaths": "Mortes",
+        "finishers": "Finalizações",
+        "headshots": "Na cabeça",
+        "kd": "K/D",
+        "kills": "Abates",
+        "streak": "Melhor sequência",
+        "walls": "Paredes rompidas"
+      },
+      "score": "{person} : {opponent}",
+      "set": "Set {set}",
+      "sets": "Sets {won} : {lost}",
+      "tier": "Rival: {tier}",
+      "unfinished": "Set em aberto",
+      "won": "Set vencido",
+      "you": "VOCÊ"
+    },
+    "hud": {
+      "chambered": "+1",
+      "cooldown": "{seconds} s",
+      "feed": {
+        "finisher": "Finalização",
+        "headshot": " · na cabeça",
+        "kill": "{killer} · {weapon} · {victim}",
+        "melee": "Corpo a corpo",
+        "opponent": "Rival",
+        "respawn": "{player} voltou",
+        "set_lost": "Set perdido",
+        "set_unfinished": "Set em aberto",
+        "set_won": "Set vencido",
+        "unknown": "Desconhecido",
+        "wallshot": " · através",
+        "world": "O hangar",
+        "you": "Você"
+      },
+      "health": "VIDA",
+      "killcam": "Replay · {player}",
+      "killcam_skip": "Pular: {key}",
+      "protected": "Proteção {seconds} s",
+      "reload_empty": "RECARGA VAZIA",
+      "reload_tactical": "RECARREGANDO",
+      "reserve": "/ {reserve}",
+      "respawn_in": "Retorno em {seconds}",
+      "score": {
+        "opponent": "RIVAL",
+        "separator": ":",
+        "set": "Set {set} · até {target}",
+        "you": "VOCÊ"
+      },
+      "stance": {
+        "crouch": "Agachado",
+        "prone": "Deitado",
+        "slide": "Deslizando",
+        "stand": "Em pé"
+      }
+    },
+    "item": {
+      "breach_charge": {
+        "name": "Carga de brecha",
+        "role": "Explosivo de brecha",
+        "short": "BRECHA"
+      },
+      "bulwark": {
+        "name": "Bulwark",
+        "role": "Barreira de energia móvel",
+        "short": "BULWARK"
+      },
+      "graveline": {
+        "name": "Graveline",
+        "role": "Fuzil de assalto",
+        "short": "FUZIL"
+      },
+      "hookbill": {
+        "name": "Hookbill",
+        "role": "Faca",
+        "short": "FACA"
+      },
+      "longsight": {
+        "name": "Longsight",
+        "role": "Fuzil de precisão",
+        "short": "PRECISÃO"
+      },
+      "skitter": {
+        "name": "Skitter",
+        "role": "Submetralhadora",
+        "short": "SUBMETRALHADORA"
+      },
+      "tallow": {
+        "name": "Tallow",
+        "role": "Pistola",
+        "short": "PISTOLA"
+      }
+    },
+    "key": {
+      "ads": "Mirar",
+      "crouch": "Agachar e deslizar",
+      "fire": "Atirar",
+      "gadget_a": "Bulwark",
+      "gadget_b": "Carga de brecha",
+      "interact": "Usar",
+      "jump": "Pular e escalar",
+      "lean_left": "Inclinar à esquerda",
+      "lean_right": "Inclinar à direita",
+      "melee": "Faca",
+      "move_back": "Recuar",
+      "move_forward": "Avançar",
+      "move_left": "Esquerda",
+      "move_right": "Direita",
+      "prone": "Deitar",
+      "reload": "Recarregar",
+      "return_to_app": "Voltar ao app",
+      "skip_kill_cam": "Pular replay",
+      "slot_melee": "Sacar faca",
+      "slot_primary": "Arma principal",
+      "slot_secondary": "Arma secundária",
+      "sprint": "Correr",
+      "verse_bar": "Barra do Verse",
+      "walk": "Andar (passos silenciosos)"
+    },
+    "menu": {
+      "leave_duel": "Sair do duelo",
+      "resume": "Continuar",
+      "return": "Voltar ao app",
+      "settings": "Configurações",
+      "title": "Menu"
+    },
+    "tier": {
+      "adaptive": "Adaptativo",
+      "adaptive.desc": "Começa no difícil e busca uma luta equilibrada ao longo do set.",
+      "elite": "Elite",
+      "elite.desc": "Rápido, preciso e paciente. Vence na maioria das vezes.",
+      "hard": "Difícil",
+      "hard.desc": "Abre brechas, flanqueia e pune o mesmo truque duas vezes.",
+      "normal": "Normal",
+      "normal.desc": "Um rival constante que deixa você aprender o hangar."
+    },
+    "ui": {
+      "back": "Voltar",
+      "next": ">",
+      "off": "Não",
+      "on": "Sim",
+      "previous": "<"
     }
   }
 }
