@@ -1257,7 +1257,6 @@ void UVerseUiSubsystem::SaveSettingsCache()
 	UserSettings->SaveToDisk();
 }
 
-||||||| 9a2e55fc2a
 void UVerseUiSubsystem::PublishSettings()
 {
 	const FVerseGameSettings& Game = AppSettings.Game;
