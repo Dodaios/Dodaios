@@ -334,8 +334,11 @@ jobs:
             gh pr merge "$CANDIDATE" --merge --match-head-commit "$CANDIDATE_SHA"
           fi
           merged=""
+          # Poll with the job token: the release bot's installation token
+          # expires after an hour, and a busy queue can take longer (the
+          # v4.2.1 cut died here with "HTTP 401: Bad credentials").
           for attempt in {1..150}; do
-            merged="$(gh pr view "$CANDIDATE" --json mergeCommit --jq '.mergeCommit.oid // empty')"
+            merged="$(GH_TOKEN="$DISPATCH_TOKEN" gh pr view "$CANDIDATE" --json mergeCommit --jq '.mergeCommit.oid // empty')"
             [ -n "$merged" ] && break
             sleep 30
           done
