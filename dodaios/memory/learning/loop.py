@@ -440,6 +440,10 @@ class JarvisLearningLoop:
         reviewer = self._vault_reviewer
         if reviewer is None:
             return 0, False
+        if vault_runtime.learning_paused():
+            # The user paused learning: these turns are dropped, never queued for later.
+            log.info("learning: paused by the user; %d turn(s) not reviewed", len(said))
+            return 0, True
         shown = await asyncio.to_thread(reconcile.nearest, vault, said)
         prompt = reconcile.build_prompt(said, shown)
         log.info("learning: reconciling %d picked turn(s) with the vault (%s)", len(said), reason)

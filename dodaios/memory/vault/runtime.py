@@ -266,3 +266,45 @@ def learned_user_name() -> str | None:
             if match:
                 return match.group(1)
     return None
+
+
+# -- dates, pause ------------------------------------------------------------
+
+
+def dated_notes(*, days: int = 30) -> list[tuple[Any, str]]:
+    """``(date, text)`` for current memories falling due soon, for "coming up" grounding."""
+    from datetime import date as _date
+
+    vault = _active
+    if vault is None:
+        return []
+    try:
+        memories = vault.upcoming(days=days)
+    except Exception:  # noqa: BLE001 — dates are grounding, never a turn breaker
+        log.debug("memory vault: upcoming read failed", exc_info=True)
+        return []
+    notes = []
+    for memory in memories:
+        try:
+            notes.append((_date.fromisoformat((memory.due_at or "")[:10]), memory.text))
+        except ValueError:  # an unreadable date is left out of the list
+            continue
+    return notes
+
+
+def upcoming(*, days: int = 14) -> list[Any]:
+    """Current memories due within ``days`` (overdue first); ``[]`` without a vault."""
+    vault = _active
+    return [] if vault is None else vault.upcoming(days=days)
+
+
+def learning_paused() -> bool:
+    """True while the user has paused background learning."""
+    vault = _active
+    if vault is None:
+        return False
+    try:
+        return vault.learning_paused_until() is not None
+    except Exception:  # noqa: BLE001 — an unreadable flag must not stop learning silently
+        log.warning("memory vault: pause flag unreadable", exc_info=True)
+        return False
