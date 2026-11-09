@@ -115,6 +115,8 @@ if (Test-Path (Join-Path $FrontendDist "index.html")) {
     if (-not (Test-Path (Join-Path $FrontendDir "node_modules"))) {
         Invoke-Checked -Executable "npm" -Arguments @("ci") -WorkingDirectory $FrontendDir -What "npm ci"
     }
+    # Node's default heap is too small for the vite build on 7 GB CI runners.
+    if (-not $env:NODE_OPTIONS) { $env:NODE_OPTIONS = "--max-old-space-size=6144" }
     Invoke-Checked -Executable "npm" -Arguments @("run", "build") -WorkingDirectory $FrontendDir -What "npm run build"
     if (-not (Test-Path (Join-Path $FrontendDist "index.html"))) {
         Stop-WithError "npm run build did not produce dodaios/ui/web/dist/index.html"

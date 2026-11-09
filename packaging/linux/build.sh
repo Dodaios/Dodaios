@@ -114,6 +114,9 @@ else
     if [ ! -d node_modules ]; then
       run npm ci
     fi
+    # Node's default heap is too small for the vite build on 7 GB CI runners
+    # (macOS installers died with "JavaScript heap out of memory").
+    export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=6144}"
     run npm run build
   )
 fi
