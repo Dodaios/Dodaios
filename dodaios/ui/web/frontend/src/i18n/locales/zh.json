@@ -3566,6 +3566,25 @@
       "system_now_light": "正在跟随系统，当前为浅色。"
     },
     "invalid_setting": "设置无效",
+    "approvals": {
+      "title": "权限模式",
+      "description": "操作执行前需要谁同意。每个代理仍可在自己的卡片上选择模式。",
+      "app_title": "应用操作",
+      "app_description": "语音、计划任务、任务和应用自行完成的其他工作。Bypass 直接执行常规操作；询问会在任何更改之前先问你。",
+      "agent_title": "新代理",
+      "agent_description": "新代理启动时的模式。代理的模式永远不会比创建它的代理更宽松。",
+      "apply_all": "应用到所有代理",
+      "apply_all_done": "已应用到 {count} 个代理。",
+      "apply_all_skipped": "{count} 个代理保留原模式，因为它们的运行时无法在此聊天中询问。",
+      "save_error": "无法保存权限设置：{detail}",
+      "unavailable": "权限设置暂时不可用。",
+      "always_on": "管理员操作、市场安装以及添加或启用 MCP 服务器在任何模式下都会询问。",
+      "modes": {
+        "bypass": "Bypass",
+        "ask": "询问",
+        "always_ask": "始终询问"
+      }
+    },
     "self_build": {
       "title": "自主构建",
       "description": "{name} 主动为你构建东西时可以走多远。",

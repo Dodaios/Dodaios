@@ -847,7 +847,9 @@ async def test_stop_during_final_roster_lookup_prevents_a_runner(
         await rt.close()
 
 
-async def test_roster_mode_edit_defers_busy_chat_and_preserves_override(world, monkeypatch):
+async def test_roster_mode_edit_defers_busy_chat_and_replaces_override(world, monkeypatch):
+    """A running turn keeps its pinned mode; the agent's new choice then wins
+    over the older chat stance (bug 2026-11-09: "Bypass" kept asking)."""
     from dodaios.ui.web.society_routes import router
 
     rt, svc, cfg = world
@@ -871,7 +873,7 @@ async def test_roster_mode_edit_defers_busy_chat_and_preserves_override(world, m
 
     svc.busy.remove(session.session_id)
     updated = await rt.roster.get(agent.agent_id)
-    assert ensure_session(svc, cfg, updated).permission_mode == "always_ask"
+    assert ensure_session(svc, cfg, updated).permission_mode == "bypass"
 
 
 @pytest.mark.parametrize(

@@ -452,6 +452,15 @@ class AgentChatStore:
             )
             self._conn.commit()
 
+    def clear_permission_override(self, session_id: str) -> None:
+        """Forget the chat's own stance so the agent's chosen mode applies again."""
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM agent_chat_permission_overrides WHERE session_id = ?",
+                (session_id,),
+            )
+            self._conn.commit()
+
     def data_version(self) -> int:
         """How many one-shot data migrations this file has already had.
 

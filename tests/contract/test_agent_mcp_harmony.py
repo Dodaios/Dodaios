@@ -48,6 +48,10 @@ COVERED: Final[dict[str, str]] = {
 
 #: REST route -> why an MCP client does not get it. Each line is a decision.
 WITHHELD: Final[dict[str, str]] = {
+    "PUT /api/society/approval-mode": (
+        "loosening every agent's approval mode at once is the owner's own choice in "
+        "Settings; a remote client must never be able to switch agents to Bypass"
+    ),
     "GET /api/society/sandbox": (
         "Docker readiness belongs to the owner's local execution settings, "
         "not the remote MCP surface"

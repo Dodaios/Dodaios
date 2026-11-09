@@ -457,8 +457,10 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
     if creator is not None:
         from dodaios.society.inherit import inherit_creator_fields
 
-        fields = inherit_creator_fields(fields, creator)
-    requested_mode = str(fields.get("approval_mode") or "bypass")
+        fields = inherit_creator_fields(
+            fields, creator, default_approval_mode=rt.default_approval_mode()
+        )
+    requested_mode = str(fields.get("approval_mode") or rt.default_approval_mode())
     provider = str(fields.get("provider") or body.provider)
     if str(fields.get("runtime") or "jarvis") != "jarvis":
         from dodaios.agent_runtimes.model_map import supports
@@ -532,6 +534,61 @@ async def get_agent(agent_id: str, request: Request) -> dict[str, Any]:
     }
 
 
+def _apply_mode_to_chat(rt: SocietyRuntime, agent: AgentRecord) -> None:
+    """Make the agent's freshly chosen approval mode the one its chat uses.
+
+    The person just chose this mode: it is the newest explicit choice, so an
+    older, stricter stance picked in the chat no longer outranks it (otherwise
+    "Bypass permissions" kept asking). Plan / read-only is the separate
+    Build|Plan switch and stays. An active turn keeps its pinned seat; the next
+    turn rebinds (``bind_society_session``).
+    """
+    svc = rt.chat_service()
+    if svc is None or svc.store.get_session(agent.session_id) is None:
+        return
+    if svc.store.permission_override(agent.session_id) not in ("plan", "read-only"):
+        svc.store.clear_permission_override(agent.session_id)
+    if not svc.is_running(agent.session_id):
+        from dodaios.society.chat_binding import ensure_session
+
+        ensure_session(svc, rt.config(), agent)
+
+
+class ApprovalModeBody(BaseModel):
+    mode: Literal["bypass", "ask", "always_ask"]
+
+
+@router.put("/approval-mode")
+async def set_all_agents_approval_mode(
+    body: ApprovalModeBody, request: Request
+) -> dict[str, Any]:
+    """Settings -> Permissions "apply to all agents": every active agent except
+    the lead (which follows the app's own mode) gets ``mode``. An agent whose
+    runner cannot honor the mode keeps its own and is listed under ``skipped``.
+    """
+    rt = await _runtime(request)
+    changed: list[str] = []
+    skipped: list[dict[str, str]] = []
+    for agent in await rt.roster.list():
+        if agent.agent_id == rt.lead_id or str(agent.approval_mode or "") == body.mode:
+            continue
+        try:
+            _validated_chat_runner(rt, agent, agent.provider, approval_mode=body.mode)
+            updated = await rt.roster.update(agent.agent_id, {"approval_mode": body.mode})
+        except (HTTPException, RosterError) as exc:
+            # The response carries a fixed code, never the exception's text.
+            reason = (
+                "runner_cannot_ask" if isinstance(exc, HTTPException) else str(exc.reason)
+            )
+            log.info("society: %s keeps its approval mode (%s): %s", agent.agent_id, reason, exc)
+            skipped.append({"agent_id": agent.agent_id, "name": agent.name, "reason": reason})
+            continue
+        rt.cache_agent(updated)
+        _apply_mode_to_chat(rt, updated)
+        changed.append(agent.agent_id)
+    return {"mode": body.mode, "changed": changed, "skipped": skipped}
+
+
 @router.patch("/agents/{agent_id}")
 async def patch_agent(agent_id: str, body: PatchAgentBody, request: Request) -> dict[str, Any]:
     rt = await _runtime(request)
@@ -589,18 +646,7 @@ async def patch_agent(agent_id: str, body: PatchAgentBody, request: Request) -> 
     except RosterError as exc:
         raise _typed_error(exc) from exc
     if "approval_mode" in fields:
-        svc = rt.chat_service()
-        if (
-            svc is not None
-            and svc.store.get_session(updated.session_id) is not None
-            and not svc.is_running(updated.session_id)
-        ):
-            from dodaios.society.chat_binding import ensure_session
-
-            # An active turn keeps its pinned seat. An idle one rebinds through
-            # the roster plus any narrower chat override instead of replacing
-            # that override with the card's new default.
-            ensure_session(svc, rt.config(), updated)
+        _apply_mode_to_chat(rt, updated)
     if "state" in fields:
         await rt.checkpoints.refresh(agent.agent_id)
         updated = await rt.roster.get(agent.agent_id) or updated

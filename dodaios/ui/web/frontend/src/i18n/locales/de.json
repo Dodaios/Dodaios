@@ -3566,6 +3566,25 @@
       "system_now_light": "Folgt Ihrem System, das derzeit hell ist."
     },
     "invalid_setting": "Ungültige Einstellung",
+    "approvals": {
+      "title": "Berechtigungsmodi",
+      "description": "Wer zustimmen muss, bevor eine Aktion läuft. Jeder Agent kann auf seiner Karte trotzdem einen eigenen Modus wählen.",
+      "app_title": "App-Aktionen",
+      "app_description": "Sprache, geplante Aufgaben, Missionen und andere Arbeit, die die App selbst erledigt. Bypass führt Routineaktionen ohne Rückfrage aus; Fragen fragt vor allem, was etwas verändert.",
+      "agent_title": "Neue Agents",
+      "agent_description": "Der Modus, mit dem ein neuer Agent startet. Ein Agent bekommt nie einen lockereren Modus als der Agent, der ihn erstellt hat.",
+      "apply_all": "Auf alle Agents anwenden",
+      "apply_all_done": "Auf {count} Agents angewendet.",
+      "apply_all_skipped": "{count} Agents behalten ihren Modus, weil ihre Laufzeit in diesem Chat nicht nachfragen kann.",
+      "save_error": "Die Berechtigungen konnten nicht gespeichert werden: {detail}",
+      "unavailable": "Die Berechtigungen sind gerade nicht verfügbar.",
+      "always_on": "Admin-Aktionen, Marketplace-Installationen und das Hinzufügen oder Aktivieren eines MCP-Servers fragen in jedem Modus nach.",
+      "modes": {
+        "bypass": "Bypass",
+        "ask": "Fragen",
+        "always_ask": "Immer fragen"
+      }
+    },
     "self_build": {
       "title": "Selbstbau",
       "description": "Wie weit {name} gehen darf, wenn es von sich aus Dinge für dich baut.",

@@ -86,7 +86,9 @@ def _capped_ceiling(requested: str, creator: str) -> str:
     return creator
 
 
-def inherit_creator_fields(fields: dict[str, Any], creator: AgentRecord) -> dict[str, Any]:
+def inherit_creator_fields(
+    fields: dict[str, Any], creator: AgentRecord, *, default_approval_mode: str = "bypass"
+) -> dict[str, Any]:
     """Fill unset create fields from ``creator`` and cap any explicit raise.
 
     Mutates and returns ``fields``. Role-specific fields (name, title,
@@ -109,9 +111,10 @@ def inherit_creator_fields(fields: dict[str, Any], creator: AgentRecord) -> dict
     )
 
     # A child may ask more often, but cannot silently bypass a parent's
-    # explicit Ask setting. Legacy parents made no approval-mode choice, so
-    # their children use the new Bypass default under the inherited ceiling.
-    creator_approval = str(creator.approval_mode or "bypass")
+    # explicit Ask setting. Legacy parents (and the lead, which follows the app
+    # policy) made no approval-mode choice, so their children start from the
+    # configured default for new agents under the inherited ceiling.
+    creator_approval = str(creator.approval_mode or default_approval_mode or "bypass")
     requested_approval = str(fields.get("approval_mode") or creator_approval)
     approval_rank = {"always_ask": 0, "ask": 1, "bypass": 2}
     if requested_approval not in approval_rank:

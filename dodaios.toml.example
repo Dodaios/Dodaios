@@ -158,6 +158,9 @@ base_url = "http://127.0.0.1:8080"
 # ── Safety: anti-confirmation-fatigue whitelist + hard blacklist ──
 [safety]
 approval_mode = "bypass"
+# The mode a NEW agent starts with: "bypass" | "ask" | "always_ask"
+# (Settings -> General -> Permission modes). Each agent keeps its own choice.
+agent_approval_mode = "bypass"
 default_tier = "safe"
 always_confirm_tiers = ["ask"]
 always_block_tiers = ["block"]
