@@ -141,21 +141,66 @@ def atomic_write(path: Path, text: str) -> None:
 
 
 def resolve_society_vault(cfg: Any) -> Path:
-    """The vault the agents write into: the configured root wins, the last
-    resolution the app made is the fallback for a config without one."""
-    from dodaios.memory.wiki.vault_root import last_resolution, resolve_vault_root
+    """The folder the agents' notebooks live in: ``<data dir>/agents``.
 
-    raw = None
+    It holds ``society/<agent>/MEMORY.md`` and ``USER.md``, the layout the
+    agents always used. Until ADR-0044 this sat inside the user's wiki vault;
+    the first resolve copies an existing ``society/`` folder from there once
+    (a copy, so nothing is lost if the old vault is still in use).
+    """
+    explicit = None
     for holder in (getattr(cfg, "wiki", None), getattr(cfg, "memory", None)):
-        raw = getattr(holder, "vault_root", None)
-        if raw:
-            break
-    if raw:
-        return resolve_vault_root(raw).path
-    known = last_resolution()
-    if known is not None:
-        return known.path
-    return resolve_vault_root(None).path
+        explicit = getattr(holder, "vault_root", None)
+        if explicit:
+            # An explicitly configured root (tests, custom setups) stays authoritative.
+            return Path(str(explicit)).expanduser().resolve()
+    root = _agents_root(cfg)
+    _adopt_legacy_society(cfg, root)
+    return root
+
+
+def _agents_root(cfg: Any) -> Path:
+    from dodaios.core.config import DATA_DIR
+
+    memory = getattr(cfg, "memory", None)
+    data_dir = str(getattr(memory, "data_dir", "") or "").strip()
+    base = Path(data_dir) if data_dir and data_dir not in ("./data", "data") else DATA_DIR
+    return base / "agents"
+
+
+_ADOPTED: set[Path] = set()
+
+
+def _adopt_legacy_society(cfg: Any, root: Path) -> None:
+    """Copy ``<old wiki vault>/society`` into ``root`` once, when ``root`` has none."""
+    if root in _ADOPTED:
+        return
+    _ADOPTED.add(root)
+    target = root / "society"
+    if target.exists():
+        return
+    try:
+        from dodaios.memory.wiki.vault_root import resolve_vault_root
+
+        raw = None
+        for holder in (getattr(cfg, "wiki_integration", None), getattr(cfg, "wiki", None)):
+            raw = getattr(holder, "vault_root", None)
+            if raw:
+                break
+        legacy = resolve_vault_root(raw).path / "society"
+    except Exception:  # noqa: BLE001 — no old vault to adopt: start empty
+        log.info("society memory: no old vault folder to adopt", exc_info=True)
+        return
+    if not legacy.is_dir():
+        return
+    try:
+        import shutil
+
+        root.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(legacy, target)
+        log.info("society memory: copied agent notebooks from %s to %s", legacy, target)
+    except OSError:
+        log.warning("society memory: could not copy the agent notebooks", exc_info=True)
 
 
 def _parse(raw: str) -> tuple[dict[str, str], str]:
@@ -174,7 +219,7 @@ def _tokens(text: str) -> set[str]:
 
 def _contains_secret(text: str) -> bool:
     try:
-        from dodaios.memory.wiki.secret_guard import contains_secret
+        from dodaios.memory.secret_guard import contains_secret
 
         return bool(contains_secret(text))
     except Exception:  # noqa: BLE001 — a missing guard never opens the door

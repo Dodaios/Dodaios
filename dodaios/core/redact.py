@@ -12,7 +12,7 @@ an event/the DB/the diary: stringify -> mask credential shapes -> cap length.
 
 It is **regex-only** (no LLM call) so it is safe to run inline on the bus-publish
 path without adding latency (cf. AP-11 on the voice path). The credential shapes
-mirror ``dodaios/memory/wiki/secret_guard.py`` (the wiki write-guard) and the
+mirror ``dodaios/memory/secret_guard.py`` (the memory write-guard) and the
 provider key shapes in ``dodaios/core/config.py`` — kept here as an independent
 copy because this module lives in the lowest layer (``dodaios.core``) and must not
 import upward into ``dodaios.memory``. The two differ in intent: ``secret_guard``
