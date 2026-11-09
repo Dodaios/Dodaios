@@ -210,6 +210,7 @@ def _curated(pairs: list[tuple[str, str]]) -> list[ModelInfo]:
 CURATED_MODELS: dict[str, list[ModelInfo]] = {
     "claude-api": _curated(
         [
+            ("claude-fable-5-2", "Claude Fable 5.2"),
             ("claude-opus-5-5", "Claude Opus 5.5"),
             ("claude-fable-5-1", "Claude Fable 5.1"),
             ("claude-fable-5", "Claude Fable 5"),
@@ -254,6 +255,7 @@ CURATED_MODELS: dict[str, list[ModelInfo]] = {
     ),
     "openrouter": _curated(
         [
+            ("anthropic/claude-fable-5.2", "Claude Fable 5.2"),
             ("anthropic/claude-opus-5.5", "Claude Opus 5.5"),
             ("anthropic/claude-fable-5.1", "Claude Fable 5.1"),
             ("anthropic/claude-fable-5", "Claude Fable 5"),
@@ -1462,6 +1464,7 @@ STARRED_MODELS: frozenset[str] = frozenset(
         _squash("gpt-5.5"),  # GPT-5.5
         _squash("gemini-3.5-flash"),  # Gemini 3.5 Flash
         _squash("claude-fable-5"),  # Fable 5
+        _squash("claude-fable-5.2"),  # Fable 5.2
         _squash("glm-5.2"),  # GLM-5.2
     }
 )
