@@ -99,7 +99,7 @@ Error codes: `bad_request`, `not_found`, `conflict`, `busy` (a single-flight com
 | Field | Source | Status |
 |---|---|---|
 | `locale.strings` | The frontend i18n chunk `ship` for the person's language, read from the same JSON files the web app bundles (5 locales); a string change needs no Unreal rebuild | **[A]** loader in the relay |
-| `settings.*` | New `verse.*` keys in the app config (`verse.gore`, `verse.return_key`, `verse.reduced_motion`, `verse.ui_sound`, `verse.level_sound`, `verse.uniform`, `verse.view.*`); changed live with `settings.changed`, written by Verse with `settings.set` (section 14). Duel-only Unreal settings (duel FOV, key bindings other than the return key, scalability) stay in Unreal's own user settings file | **[A]** |
+| `settings.*` | New `verse.*` keys in the app config (`verse.gore`, `verse.return_key`, `verse.reduced_motion`, `verse.ui_sound`, `verse.level_sound`, `verse.uniform`, `verse.view.*`); changed live with `settings.changed`, written by Verse with `settings.set` (section 14). `settings.game` (additive, feature `game_settings`): the in-game settings menu flat by setting id, from the catalogue `dodaios/verse_host/game_settings.py` (graphics, audio, mouse and camera, keybinds incl. duel FOV and scalability, gameplay, HUD, accessibility; `docs/verse/unreal/game-settings.md`). The app config is their truth; Unreal mirrors them into its user settings file only as a cache | **[A]** |
 | `decks` | `VERSE_DECKS` (`dodaios/progression/rules.py:51`) | **[E]** |
 
 ### 3.3 `subscribe` / `unsubscribe` / `resync` (Verse -> server)
@@ -457,7 +457,7 @@ Server -> Verse:
 | `panel.visibility` | `{visible: bool, w, h, dpr}` | The IDE side panel became visible or hidden (`IntersectionObserver` + page visibility in `OfficeTab.tsx`). Visible and no full view: enter Panel, start the Pixel Streaming session. Hidden: stop within 1 s |
 | `panel.resize` | `{w, h, dpr}` | Resize the offscreen panel target |
 | `gpu.yield` / `gpu.free` | `{by: "blender_cook" \| "local_stt" \| "local_model" \| "other"}` | Dormant: quit at once. Visible: drop to Low scalability until `gpu.free` |
-| `settings.changed` | `{gore?, return_key?, reduced_motion?, lang?, strings?}` | Apply live |
+| `settings.changed` | `{gore?, return_key?, reduced_motion?, lang?, strings?, view?, game?}` | Apply live; `game` holds only the changed setting ids |
 | `focus.app_took` | `{}` | The app came to the front by itself (alt-tab, click); same as `lifecycle.hide {reason: "app_focus"}` |
 
 Verse -> server:
