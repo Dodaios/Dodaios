@@ -913,6 +913,23 @@
     "verify": "Verifying"
   },
   "home": {
+    "activity": {
+      "title": "Activity",
+      "open": "Show activity",
+      "close": "Hide activity",
+      "waiting": "Waiting on you",
+      "running": "Running",
+      "done": "Done",
+      "nothing": "Nothing right now",
+      "needs_answer": "Needs your answer",
+      "answering": "Answering",
+      "brief": "Morning brief",
+      "brief_daily": "Every day at",
+      "brief_time": "Time of the brief",
+      "brief_hint": "A short summary of your day in this conversation. Runs only on a subscription or local model.",
+      "brief_failed": "Could not save the brief",
+      "scheduled_hint": "Ask in the conversation to schedule anything else."
+    },
     "greeting_morning": "Good morning{name_part}",
     "greeting_afternoon": "Good afternoon{name_part}",
     "greeting_evening": "Good evening{name_part}",

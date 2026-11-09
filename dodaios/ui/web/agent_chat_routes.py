@@ -1182,6 +1182,33 @@ async def get_lead_session(request: Request) -> dict[str, Any]:
     return d
 
 
+class LeadBriefBody(BaseModel):
+    enabled: bool
+    #: Local wall-clock time, ``HH:MM``.
+    time: str = "08:00"
+    #: IANA zone of the person, e.g. ``Europe/Berlin``.
+    timezone: str = ""
+
+
+@router.get("/lead/brief", summary="The morning brief's state (off until turned on)")
+async def get_lead_brief() -> dict[str, Any]:
+    from dodaios.agent_chat.proactive import brief_state
+
+    return await brief_state()
+
+
+@router.put("/lead/brief", summary="Turn the morning brief on or off, or move it")
+async def put_lead_brief(body: LeadBriefBody) -> dict[str, Any]:
+    from dodaios.agent_chat.proactive import set_brief
+
+    try:
+        return await set_brief(enabled=body.enabled, local_time=body.time, timezone=body.timezone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @router.post("/lead/fresh-start", summary="Start the lead's model fresh; the thread stays")
 async def lead_fresh_start(request: Request) -> dict[str, Any]:
     from dodaios.agent_chat.lead import fresh_start, lead_session

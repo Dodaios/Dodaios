@@ -913,6 +913,23 @@
     "verify": "Prüft"
   },
   "home": {
+    "activity": {
+      "title": "Aktivität",
+      "open": "Aktivität anzeigen",
+      "close": "Aktivität ausblenden",
+      "waiting": "Wartet auf dich",
+      "running": "Läuft",
+      "done": "Erledigt",
+      "nothing": "Gerade nichts",
+      "needs_answer": "Braucht deine Antwort",
+      "answering": "Antwortet",
+      "brief": "Morgen-Briefing",
+      "brief_daily": "Täglich um",
+      "brief_time": "Uhrzeit des Briefings",
+      "brief_hint": "Eine kurze Übersicht über deinen Tag in diesem Gespräch. Läuft nur mit einem Abo oder lokalen Modell.",
+      "brief_failed": "Briefing konnte nicht gespeichert werden",
+      "scheduled_hint": "Alles andere planst du einfach im Gespräch."
+    },
     "greeting_morning": "Guten Morgen{name_part}",
     "greeting_afternoon": "Guten Tag{name_part}",
     "greeting_evening": "Guten Abend{name_part}",

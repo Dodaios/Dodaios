@@ -913,6 +913,23 @@
     "verify": "A verificar"
   },
   "home": {
+    "activity": {
+      "title": "Atividade",
+      "open": "Mostrar atividade",
+      "close": "Ocultar atividade",
+      "waiting": "À tua espera",
+      "running": "Em curso",
+      "done": "Concluído",
+      "nothing": "Nada de momento",
+      "needs_answer": "Precisa da tua resposta",
+      "answering": "A responder",
+      "brief": "Resumo da manhã",
+      "brief_daily": "Todos os dias às",
+      "brief_time": "Hora do resumo",
+      "brief_hint": "Um breve resumo do teu dia nesta conversa. Só com uma subscrição ou um modelo local.",
+      "brief_failed": "Não foi possível guardar o resumo",
+      "scheduled_hint": "Pede na conversa para agendar qualquer outra coisa."
+    },
     "greeting_morning": "Bom dia{name_part}",
     "greeting_afternoon": "Boa tarde{name_part}",
     "greeting_evening": "Boa noite{name_part}",
