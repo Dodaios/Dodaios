@@ -30,6 +30,14 @@ public:
 	virtual bool IsSprinting() const = 0;
 	virtual bool IsAirborne() const = 0;
 	virtual bool IsMantling() const = 0;
+	/**
+	 * True while the current mantle is the high variant (ledge above the low maximum,
+	 * `MantleLowMaxHeight`, up to 2.0 m); false when not mantling or on a low mantle. VerseMovement
+	 * answers from the ledge plan its shared trace chose at move time, so the animation layer plays
+	 * the clip that matches the root motion (combat-state.md 2.1). The default is for
+	 * implementations that have no high variant.
+	 */
+	virtual bool IsMantleHigh() const { return false; }
 	/** -127..127 */
 	virtual int8 GetLeanQuantized() const = 0;
 	/** Mantling and sprinting block firing (combat-state.md 2.1). */

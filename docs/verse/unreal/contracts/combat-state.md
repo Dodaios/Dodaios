@@ -52,7 +52,7 @@ sequenceDiagram
 | Health, MaxHealth | `UVerseHealthSet` (GAS attribute set) on the character | float | Owner only | Opponent health is not shown; hit markers only. Start: 100 |
 | Armor, MaxArmor | `UVerseHealthSet` | float | Owner only | Exists for future modes. Deathmatch sets MaxArmor = 0, so armor is inert |
 | Stance | `UVerseCharacterMovement` (VerseMovement), read through `IVerseMovementQuery` | `EVerseStance` | All (saved moves) | Stand, Crouch, Prone, Slide. Combat never writes it |
-| Sprinting, airborne, mantling | `IVerseMovementQuery` | flags | All | Mantling and sprinting block firing |
+| Sprinting, airborne, mantling, mantle height | `IVerseMovementQuery` (`IsSprinting`, `IsAirborne`, `IsMantling`, `IsMantleHigh`) | flags | All | Mantling and sprinting block firing. `IsMantleHigh` is true only during a high mantle (ledge above `MantleLowMaxHeight`, up to 2.0 m), decided by VerseMovement's ledge trace at move time; the animation layer (WP13) picks the low or high mantle clip from it and never traces the ledge itself |
 | Lean | Movement custom move data | `int8` (-127..127 = -1..1) | All | The server uses the same value when it rewinds hit bodies |
 | ADS | `UVerseWeaponComponent` | `uint8` 0..255 = 0..1 blend | All | Drives spread, recoil multiplier, speed |
 | Active slot | `UVerseInventoryComponent` | `EVerseLoadoutSlot` | All | For third-person and kill-cam animation |

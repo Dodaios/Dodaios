@@ -5,7 +5,9 @@
   "description": "Import record of one Unreal asset (docs/verse/unreal/contracts/art-pipeline.md 10.3). Written by scripts/verse/export_unreal.py, read by verse_pipeline and scripts/unreal/check_art_text.py.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "name", "asset_path", "kind", "source", "export", "lightmap", "license", "owner"],
+  "required": ["schema", "name", "asset_path", "kind", "source", "lightmap", "license", "owner"],
+  "if": { "properties": { "kind": { "enum": ["material", "material_function"] } } },
+  "else": { "required": ["export"] },
   "properties": {
     "schema": { "const": "verse.import/1" },
     "name": { "type": "string", "pattern": "^[A-Z][A-Za-z]*_[A-Za-z0-9][A-Za-z0-9_]{0,60}$" },
@@ -19,7 +21,9 @@
         "animation",
         "texture",
         "geometry_collection",
-        "proxy_mesh"
+        "proxy_mesh",
+        "material",
+        "material_function"
       ]
     },
     "source": {

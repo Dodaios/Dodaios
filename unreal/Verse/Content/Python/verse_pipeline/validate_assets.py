@@ -3,13 +3,17 @@
 Checks per static mesh: the asset exists, Nanite matches `nanite.enabled`,
 no lightmap UVs are generated, the collision primitive count matches
 `collision.primitives` when the record says `authored`, and material slots
-carry the slot names of the record. Further checks (palette bans on MI
-vectors, texture settings, LOD screen sizes) join here as their assets land.
+carry the slot names of the record. With WP14's editor code in the tree
+(art-pipeline 2), skeletal weapons get A14.1 (`weapons.editor.rig.check`),
+every static mesh with Nanite on a translucent master fails (6.2), every MI
+from a recipe gets the palette bans of 8.3 on its vector parameters and weapon
+MIs get A14.2 (`weapons.editor.checks`). Texture settings and LOD screen sizes
+join here as their assets land.
 """
 
 from __future__ import annotations
 
-from verse_pipeline import records
+from verse_pipeline import records, wp14_editor
 
 
 def compare(record: dict, facts: dict) -> list[str]:
@@ -62,12 +66,25 @@ def _facts(record: dict) -> dict:
 
 
 def run(only: list[str]) -> dict:
-    selected = records.select(records.load_all(), only)
+    rig, checks = wp14_editor("rig"), wp14_editor("checks")
+    mesh_only = [n for n in only if not n.startswith("MI_")]
+    selected = records.select(records.load_all(), mesh_only) if mesh_only or not only else []
     errors = []
     checked = []
+    parents = checks.recipe_parents() if checks is not None else {}
     for record in selected:
+        if rig is not None and record["kind"] == "skeletal_mesh" and rig.is_weapon(record):
+            errors += rig.check(record, rig.facts(record))
+            checked.append(record["name"])
+            continue
         if record["kind"] not in ("static_mesh", "proxy_mesh"):
             continue
         errors += compare(record, _facts(record))
+        if checks is not None:
+            errors += checks.translucent_nanite_errors(record, parents)
         checked.append(record["name"])
+    if checks is not None:
+        mi_errors, mi_checked = checks.check_materials([n for n in only if n.startswith("MI_")])
+        errors += mi_errors
+        checked += mi_checked
     return {"checked": checked, "errors": errors, "ok": not errors}

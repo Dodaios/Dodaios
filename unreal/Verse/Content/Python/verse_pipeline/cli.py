@@ -9,7 +9,11 @@ host reads the report, so a failure is never hidden by the editor's own exit
 code. With `VERSE_PIPELINE_QUIT=1` the editor quits when the command is done.
 
 Commands: `assets [--only A,B] [--no-save]`, `placements --deck D [--zone Z]
-[--dry-run]`, `validate [--only A,B]`, `calib [--importer interchange|legacy]`.
+[--dry-run]`, `validate [--only A,B]`, `calib [--importer interchange|legacy]`,
+`masters [--only M_A] [--no-save]`, `materials [--only MI_A] [--no-save]`,
+`lookdev`, `wp14 [--no-lookdev]` (WP14, art-pipeline 2). A command that needs
+rendered frames may return `{"deferred": true}`; it then writes the report and
+quits the editor itself.
 """
 
 from __future__ import annotations
@@ -39,7 +43,23 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--only", default="")
     calib = sub.add_parser("calib")
     calib.add_argument("--importer", choices=("interchange", "legacy"))
+    for name in ("masters", "materials"):
+        cmd = sub.add_parser(name)
+        cmd.add_argument("--only", default="")
+        cmd.add_argument("--no-save", action="store_true")
+    sub.add_parser("lookdev")
+    wp14 = sub.add_parser("wp14")
+    wp14.add_argument("--no-lookdev", action="store_true")
     return parser
+
+
+def _wp14(module: str):
+    from verse_pipeline import wp14_editor
+
+    found = wp14_editor(module)
+    if found is None:
+        raise RuntimeError(f"weapons.editor.{module} is not in art/verse/weapons/editor/ (WP14)")
+    return found
 
 
 def _only(value: str) -> list[str]:
@@ -56,6 +76,16 @@ def dispatch(argv: list[str]) -> dict:
         from verse_pipeline import import_assets
 
         return import_assets.run(_only(options.only), save=not options.no_save)
+    if options.command == "masters":
+        return _wp14("masters").run(_only(options.only), save=not options.no_save)
+    if options.command == "materials":
+        from verse_pipeline import materials
+
+        return materials.run(_only(options.only), save=not options.no_save)
+    if options.command == "lookdev":
+        return _wp14("lookdev").run()
+    if options.command == "wp14":
+        return _wp14("chain").run(with_lookdev=not options.no_lookdev)
     if options.command == "placements":
         from verse_pipeline import sync_placements
 
@@ -77,6 +107,9 @@ def main() -> None:
             "error": f"{type(error).__name__}: {error}",
             "traceback": traceback.format_exc(),
         }
+    if report.get("deferred"):
+        print("[verse_pipeline] " + json.dumps({"deferred": True, "command": argv[:1]}))
+        return
     print("[verse_pipeline] " + json.dumps({"ok": report.get("ok"), "command": argv[:1]}))
     if result_path:
         path = Path(result_path)

@@ -101,3 +101,33 @@ jobs:
         run: python scripts/ci/check_workflow_policy.py
       - name: Harness script tests and fork safety (A10.2)
         run: python -m pytest -q -p no:cacheprovider --noconftest tests/unit/unreal_scripts
+
+  wp19-loudness:
+    # A19.4 evidence (work-packages.md WP19): build the Verse sounds from the CC0 ledger and
+    # the recipes, render the 90 s reference duel offline exactly as the runtime plays it, gate
+    # its loudness and keep the capture WAV and report as an artifact (never committed).
+    name: wp19-loudness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          lfs: false
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install numpy
+        run: python -m pip install --disable-pip-version-check -q numpy
+      - name: Build the sounds
+        run: python art/verse/audio/build_audio.py
+      - name: Reference duel loudness gate (A19.4)
+        run: python art/verse/audio/reference_mix.py --check
+      - name: Upload the capture and the loudness report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wp19-loudness
+          path: unreal/Verse/Saved/Harness/proof/WP19/19.1/
+          if-no-files-found: warn
+          retention-days: 30

@@ -45,7 +45,7 @@ OBJECT_PATH_MAX = 180
 #: Section 3 prefixes of assets under /Game/Verse.
 ASSET_PREFIXES = (
     "SM_", "GC_", "SK_", "SKEL_", "PHYS_", "IKRig_", "RTG_", "A_", "AM_", "BS_", "ABP_",
-    "M_", "MF_", "MI_", "T_", "SW_", "MS_", "NS_", "DA_", "LV_", "DL_", "BP_",
+    "M_", "MF_", "MI_", "T_", "SW_", "MS_", "NS_", "DA_", "PM_", "LV_", "DL_", "BP_",
 )  # fmt: skip
 TEXTURE_SUFFIXES = ("_BC", "_N", "_ORM", "_E", "_M")
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9][A-Za-z0-9_]*$")
@@ -62,7 +62,11 @@ KIND_NAMES = {
     "animation": re.compile(r"^A_[A-Za-z0-9_]+$"),
     "texture": re.compile(rf"^T_[A-Za-z0-9_]+(?:{'|'.join(TEXTURE_SUFFIXES)})$"),
     "geometry_collection": re.compile(r"^GC_[A-Za-z0-9_]+$"),
+    "material": re.compile(r"^M_[A-Za-z0-9_]+$"),
+    "material_function": re.compile(r"^MF_[A-Za-z0-9_]+$"),
 }
+#: Kinds built in the editor by their owner's builder: nothing is exported (art-pipeline 10.3).
+EDITOR_BUILT_KINDS = ("material", "material_function")
 #: Prefixes whose assets come from an import record (a .uasset needs one).
 IMPORTED_PREFIXES = ("SM_", "SK_", "SKEL_", "PHYS_", "A_", "T_", "GC_")
 
@@ -331,6 +335,8 @@ class Checker:
             limit = MAX_BONES["weapon" if "/Weapons/" in object_path else "character"]
             if len(mesh["bones"]) > limit and override.get("field") != "bones":
                 self.fail(path, f"{len(mesh['bones'])} bones, cap {limit} (art-pipeline 10.4)")
+        if doc["kind"] not in EDITOR_BUILT_KINDS and "export" not in doc:
+            self.fail(path, f"kind {doc['kind']} needs an export block")
         if doc["kind"] in ("static_mesh", "skeletal_mesh", "proxy_mesh") and not mesh:
             self.fail(path, "mesh records need a mesh block")
         texture = doc.get("texture")
