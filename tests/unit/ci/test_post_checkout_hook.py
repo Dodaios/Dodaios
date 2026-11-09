@@ -33,7 +33,10 @@ def repo(tmp_path: Path, monkeypatch) -> Path:
     _git(root, "commit", "-q", "--no-verify", "-m", "chore: seed")
     hooks = root / ".hooks"
     hooks.mkdir()
-    shutil.copyfile(HOOK, hooks / "post-checkout")
+    target = hooks / "post-checkout"
+    shutil.copyfile(HOOK, target)
+    # git skips a hook without the executable bit on POSIX.
+    target.chmod(0o755)
     _git(root, "config", "core.hooksPath", str(hooks))
     return root
 
