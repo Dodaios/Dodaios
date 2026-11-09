@@ -32,15 +32,6 @@ def test_openrouter_plugin_default_model_not_paid_anthropic() -> None:
     )
 
 
-def test_curator_cheap_fallback_openrouter_not_paid_anthropic() -> None:
-    from dodaios.memory.wiki.curator_llm import _CHEAP_MODEL_FALLBACK
-
-    got = _CHEAP_MODEL_FALLBACK["openrouter"]
-    assert "anthropic/claude" not in got, (
-        f"curator cheap fallback for openrouter is paid Anthropic: {got!r}"
-    )
-
-
 def test_frontier_resolver_chain_honors_openrouter_pick() -> None:
     """resolve_frontier_brain (skill creation, board/bio) must run the user's
     picked OpenRouter model, not the hardcoded deep TIER default."""

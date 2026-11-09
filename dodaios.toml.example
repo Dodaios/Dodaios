@@ -219,7 +219,6 @@ pet_strip_always = false     # true: the pet's buttons always show; false: only 
 
 # ── Memory ──
 [memory]
-recall_store = "sqlite"
 archival_store = "sqlite"   # chromadb was removed; sqlite is the supported backend
 data_dir = "./data"          # per-user runtime data (gitignored)
 

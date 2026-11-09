@@ -74,7 +74,6 @@ _ALIASES: Final[dict[str, tuple[str, ...]]] = {
         "briefing",
         "morgenbriefing",  # i18n-allow: input vocab
     ),
-    "core:wiki-recall": ("wiki", "wissen", "knowledge", "notes", "notizen", "obsidian"),
     "core:computer-use": ("browser", "website", "webseite", "click", "klicken", "screen"),
     "core:run-shell": ("shell", "terminal", "script", "scripts", "command", "befehl"),
     "core:contact-lookup": ("kontakt", "kontakte", "contact", "contacts", "people", "leute"),

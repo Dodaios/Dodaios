@@ -31,7 +31,7 @@ import {
 import { ApiStatsCard, CaptureCard, LiveCounter } from "@/components/deck/DeckSignalCards";
 import { LogCard } from "@/components/deck/DeckLogCard";
 import { TurnCard } from "@/components/deck/DeckTurnCard";
-import { WikiCard, warmWikiScene } from "@/components/deck/DeckWiki";
+import { MemoryCard } from "@/components/deck/DeckMemory";
 import { useVoiceEngineDisplay } from "@/hooks/useVoiceEngineDisplay";
 import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
 import { useWakeWord } from "@/hooks/useWakeWord";
@@ -168,24 +168,6 @@ export function MissionDeckView({
   // The board is a display case: the pointer sways its planes (lib/deckDepth).
   const boardRef = useRef<HTMLDivElement>(null);
   useDeckParallax(boardRef, phase === "board");
-  // While the stage waits for the first word, the board's heaviest part gets
-  // ready in the idle time: the WebGL probe and the 3D map's chunk. Measured
-  // 2026-08-19: done in the click's own task they froze the launch for half
-  // a second, and every JS-driven beat of it — the orb's travel — jumped.
-  useEffect(() => {
-    if (phase === "board") return;
-    const w = window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    if (w.requestIdleCallback && w.cancelIdleCallback) {
-      const id = w.requestIdleCallback(() => warmWikiScene(), { timeout: 4000 });
-      return () => w.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(() => warmWikiScene(), 1500);
-    return () => window.clearTimeout(id);
-  }, [phase]);
-
   const running = useMemo(
     () => thinkingSteps.filter((s) => s.status === "active"),
     [thinkingSteps],
@@ -366,14 +348,14 @@ export function MissionDeckView({
                 />
               </div>
 
-              {/* RIGHT top: the wiki, in space, tall */}
+              {/* RIGHT top: what the assistant always has in mind */}
               <DeckReveal
                 slot="right-top"
                 reveal={revealBoard}
                 {...depthSlot("right-top")}
                 bodyClassName="flex min-h-0 flex-col"
               >
-                <WikiCard className="min-h-0 flex-1" />
+                <MemoryCard className="min-h-0 flex-1" />
               </DeckReveal>
 
               {/* LEFT bottom: outputs and runs */}

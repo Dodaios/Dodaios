@@ -55,8 +55,8 @@ def _tool(name: str, desc: str = "x.") -> SimpleNamespace:
 TOOLS = {
     "gmail": _tool("gmail", "Read and send mail."),
     "search-web": _tool("search-web", "Search the web."),
-    "wiki-recall": _tool("wiki-recall", "Search the wiki."),
-    "wiki-ingest": _tool("wiki-ingest", "Write the wiki."),
+    "whoami": _tool("whoami", "Who the user is."),
+    "memory-forget": _tool("memory-forget", "Forget a memory."),
     "spawn-worker": _tool("spawn-worker", "Spawn."),
     "cli_gh": _tool("cli_gh", "GitHub."),
 }
@@ -207,8 +207,8 @@ async def test_tools_and_filter_follow_the_roster_row(rt: SocietyRuntime, tmp_pa
     assert set(picked[: len(own_names)]) == own_names
     assert picked[len(own_names)] == "gmail"  # focus first
     assert "spawn-worker" not in picked and "cli_gh" not in picked
-    assert "wiki-ingest" not in picked  # writes go through the namespaced note tool
-    assert "wiki-recall" in picked
+    assert "memory-forget" not in picked  # agents never erase the user's memory
+    assert "whoami" in picked
     assert own[WIKI_NOTE_TOOL_NAME].schema["properties"]["kind"]["enum"] == ["note", "memory"]
     assert "shared to propose" not in extra
 
@@ -251,7 +251,7 @@ async def test_briefing_is_deterministic_and_complete(rt: SocietyRuntime):
     assert "Also available" in a
     assert all(
         name in a
-        for name in ("browser", "coding-session", "search-web", "wiki-ingest", "wiki-recall")
+        for name in ("browser", "coding-session", "search-web", "whoami")
     )
     assert "spawn-worker" not in a
     assert f"Capability epoch: {capability_epoch(catalog)}" in a

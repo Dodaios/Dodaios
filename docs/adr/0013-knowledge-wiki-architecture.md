@@ -1,6 +1,6 @@
 # ADR-0013 — Knowledge Wiki replaces the legacy flat-file Curator
 
-**Status:** Proposed · **Date:** 2026-05-11 · **Phase:** Memory rebuild (B0)
+**Status:** Superseded by ADR-0044 (2026-11-09) · **Date:** 2026-05-11 · **Phase:** Memory rebuild (B0)
 
 ## Context
 
