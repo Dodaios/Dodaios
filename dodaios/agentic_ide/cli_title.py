@@ -321,7 +321,7 @@ def _grok_summary(session_id: str, home: Path | None) -> str:
 
 def _agy_title(session_id: str, home: Path | None) -> str:
     """The ``Title`` the Antigravity CLI keeps for a conversation in its metadata cache."""
-    root = agent_sessions._agy_cli_root()
+    root = agent_sessions._agy_cli_root(home)
     if home is not None and (Path(home) / "antigravity-cli").is_dir():
         root = Path(home) / "antigravity-cli"
     try:

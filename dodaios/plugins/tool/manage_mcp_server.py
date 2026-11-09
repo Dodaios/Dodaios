@@ -414,7 +414,8 @@ class ManageMcpServerTool:
                     await bus.publish(event)
                 else:
                     bus.publish(event)
-                return
+                if brain is None or getattr(brain, "_bus", None) is bus:
+                    return
             except Exception as exc:  # noqa: BLE001
                 log.debug("manage-mcp-server: BrainToolsChanged publish failed: %s", exc)
         if brain is not None:
