@@ -15,6 +15,7 @@ import { CustomCliDialog, runsThroughShell } from "./CustomCliDialog";
 
 vi.mock("@/i18n", () => ({
   useT: () => (key: string) => key,
+  useLocaleChunk: () => true,
 }));
 
 vi.mock("@/lib/workspaceClisApi", () => ({

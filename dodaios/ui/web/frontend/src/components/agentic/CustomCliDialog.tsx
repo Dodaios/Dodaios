@@ -27,7 +27,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AlertTriangle, ImagePlus, Info, Loader2, Terminal, Trash2, X } from "lucide-react";
 
-import { useT } from "@/i18n";
+import { useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -68,6 +68,8 @@ export function CustomCliDialog({
   onSaved: (entry: CustomCli) => void;
 }): JSX.Element {
   const t = useT();
+  // The dialog's own strings load with it, outside the startup bundle.
+  useLocaleChunk("custom_cli");
   const [name, setName] = useState("");
   const [command, setCommand] = useState("");
   const [description, setDescription] = useState("");
