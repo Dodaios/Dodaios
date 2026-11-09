@@ -10,6 +10,9 @@ REST (the app's own session auth):
 * ``POST /api/verse/panel``            IDE side panel visibility / size
 * ``POST /api/verse/gpu``              GPU pressure (``gpu.yield`` / ``gpu.free``)
 * ``POST /api/verse/settings/import``  one-time import of browser-stored settings
+* ``GET/PATCH /api/verse/settings``     the ``verse.*`` settings; a PATCH is ``settings.set``
+  from the app and reaches a running Verse as ``settings.changed``
+* ``GET  /api/verse/settings/catalogue`` every in-game setting (``game_settings.CATALOGUE``)
 * ``GET/POST /api/verse/flags``        ``unreal_preview`` (the launcher card), ``dev_bridge``
 * ``POST /api/verse/launcher/start``   the shared coding-agent launch sequence
 * ``POST /api/verse/launcher/cancel``
@@ -207,6 +210,29 @@ async def verse_settings_import(body: ImportBody, request: Request) -> dict[str,
 @router.get("/settings", summary="The verse.* settings")
 def verse_settings(request: Request) -> dict[str, Any]:
     return {"settings": _host(request).store.settings()}
+
+
+@router.patch("/settings", summary="Change verse.* settings (settings.set from the app)")
+async def verse_settings_patch(body: dict[str, Any], request: Request) -> dict[str, Any]:
+    from dodaios.verse_host.settings_store import SettingsError
+
+    host = _host(request)
+    try:
+        settings = host.store.update(body)
+    except SettingsError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    changed = {k: settings[k] for k in body if k in settings}
+    if "game" in changed:
+        changed["game"] = {k: settings["game"][k] for k in body["game"]}
+    await host.settings_changed(changed)
+    return {"settings": settings}
+
+
+@router.get("/settings/catalogue", summary="Every option of the Verse settings menu")
+def verse_settings_catalogue() -> dict[str, Any]:
+    from dodaios.verse_host.game_settings import catalogue_json
+
+    return catalogue_json()
 
 
 @router.get("/flags", summary="Feature flags of the Unreal Verse")
