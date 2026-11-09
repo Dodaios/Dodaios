@@ -60,10 +60,84 @@ struct FVerseCommanderRecord
 	FString Title;
 };
 
-/** A level-up of the commander the person has not seen yet. */
+/** Who a rule pays, an award went to, a row belongs to. */
+enum class EVerseSubjectKind : uint8
+{
+	Person,
+	Agent,
+	Pet,
+};
+
+/** One reward of the rulebook: a uniform of a tier or a ribbon, with the level that opens it per kind (-1 = never). */
+struct FVerseRewardRow
+{
+	/** "uniform_line", "ribbon_good_conduct" */
+	FName RewardId;
+	/** "uniform" or "ribbon" */
+	FName Slot;
+	int32 PersonLevel = -1;
+	int32 AgentLevel = -1;
+	int32 PetLevel = -1;
+
+	/** The part after the slot: "line", "good_conduct". */
+	FName Key() const;
+	int32 LevelFor(EVerseSubjectKind Kind) const;
+};
+
+/** One XP rule the running server pays. */
+struct FVerseXpRule
+{
+	FName Source;
+	EVerseSubjectKind Kind = EVerseSubjectKind::Person;
+	int32 Xp = 0;
+	/** The ship reports it (a world action) and not the server. */
+	bool bWorld = false;
+	/** 0 = none */
+	int32 CooldownSeconds = 0;
+	/** 0 = none */
+	int32 DailyCap = 0;
+};
+
+/** One line of the award log. */
+struct FVerseAwardRow
+{
+	int64 Seq = 0;
+	FString SubjectId;
+	EVerseSubjectKind Kind = EVerseSubjectKind::Person;
+	FName Source;
+	int32 Xp = 0;
+	int32 LevelBefore = 1;
+	int32 LevelAfter = 1;
+	int64 TimestampMs = 0;
+};
+
+/** The standing of an officer or of the companion. */
+struct FVerseSubjectRow
+{
+	FString SubjectId;
+	EVerseSubjectKind Kind = EVerseSubjectKind::Agent;
+	int32 Level = 1;
+	int64 TotalXp = 0;
+};
+
+/** A level-up the person sees as a quiet line in the corner (parity R-11). */
+struct FVerseQuietLine
+{
+	int64 Seq = 0;
+	FString SubjectId;
+	EVerseSubjectKind Kind = EVerseSubjectKind::Agent;
+	int32 Level = 1;
+	FName RankId;
+	/** The level-up also reached a new rank. */
+	bool bPromoted = false;
+};
+
+/** A level-up of the commander or the companion the person has not seen yet. */
 struct FVersePromotion
 {
 	int64 Seq = 0;
+	/** The commander or the companion drone. */
+	EVerseSubjectKind Kind = EVerseSubjectKind::Person;
 	int32 Level = 1;
 	int32 PreviousLevel = 1;
 	FName RankId;
@@ -72,6 +146,8 @@ struct FVersePromotion
 
 	/** True when the level-up also reached a new rank (not only a level). */
 	bool IsNewRank() const { return RankId != PreviousRankId; }
+	/** Only a new rank earns the full notice; any other level-up is a quiet line (parity R-10, R-11). */
+	bool IsFullNotice() const { return IsNewRank(); }
 };
 
 class VERSEUI_API FVerseServiceRecordModel
@@ -114,6 +190,56 @@ public:
 	 */
 	void MarkPromotionShown();
 
+	// The rulebook and the ledger of the running server (snapshot `rewards`, `rules`, `recent`).
+	/** The server rewards, or the built-in table when it sent none (an older server). */
+	const TArray<FVerseRewardRow>& Rewards() const;
+	static const TArray<FVerseRewardRow>& DefaultRewards();
+	const TArray<FVerseXpRule>& Rules() const { return XpRules; }
+	/** The newest awards of the commander, newest first, at most Limit. */
+	TArray<FVerseAwardRow> CommanderLog(int32 Limit = 8) const;
+	/** Officers and the companion. */
+	const TArray<FVerseSubjectRow>& Subjects() const { return Others; }
+	/** The companion drone: level 1 with 0 XP before the server told. */
+	FVerseSubjectRow Companion() const;
+	const FString& GetPetId() const { return PetId; }
+
+	/** Uniforms issued to the commander at Level, lowest tier first; the work uniform always. */
+	TArray<FName> IssuedUniforms(int32 Level) const;
+	/** "auto" or a tier id (deck, line, command, flag). */
+	FName GetUniformChoice() const { return UniformChoice; }
+	/** The uniform worn now: the choice if it is issued, else the highest issued. */
+	FName EffectiveUniform() const;
+	/** Picks a uniform ("auto" for the highest issued). False when it is not issued. */
+	bool ChooseUniform(FName Choice);
+	/** Called at once with the uniform now worn; the commander material follows it. */
+	TFunction<void(FName Uniform)> OnUniformWorn;
+	/** Where the choice lives between runs; the subsystem installs the config file. */
+	TFunction<void(FName Choice)> SaveUniformChoice;
+	void RestoreUniformChoice(FName Choice);
+
+	/** The ship bell on promotions (parity R-12 reads it; the setting lives in the app config). */
+	bool IsBellOn() const { return bBell; }
+	void SetBellOn(bool bOn)
+	{
+		bBell = bOn;
+		if (SaveBell)
+		{
+			SaveBell(bOn);
+		}
+		OnChanged.Broadcast();
+	}
+	TFunction<void(bool)> SaveBell;
+
+	/** The names the crew page lists, by agent id, and the name of the companion. */
+	void SetCrewNames(const TMap<FString, FString>& Names, const FString& CompanionName);
+	const TMap<FString, FString>& GetCrewNames() const { return CrewNames; }
+	const FString& GetCompanionName() const { return CompanionLabel; }
+
+	/** Level-ups the person sees as a quiet line (officers; the drone without a new rank). */
+	const TArray<FVerseQuietLine>& QuietLines() const { return Quiet; }
+	/** Takes the oldest quiet line; false when there is none. */
+	bool PopQuietLine(FVerseQuietLine& Out);
+
 	/** Sends `progression.told {seq}` (the bridge client; a test's recorder). */
 	TFunction<void(int64 Seq)> SendTold;
 
@@ -123,6 +249,21 @@ public:
 private:
 	void SetCommander(int32 Level, int64 TotalXp, const FString& Title);
 	void DropToldPromotions();
+
+	void ParseRulebook(const FJsonObject& Data);
+	void ApplySubject(const FString& SubjectId, EVerseSubjectKind Kind, int32 Level, int64 TotalXp);
+
+	TArray<FVerseRewardRow> ServerRewards;
+	TArray<FVerseXpRule> XpRules;
+	TArray<FVerseAwardRow> Ledger;
+	TArray<FVerseSubjectRow> Others;
+	TArray<FVerseQuietLine> Quiet;
+	TMap<FString, FString> CrewNames;
+	FString CompanionLabel;
+	FString PetId;
+	FName UniformChoice = TEXT("auto");
+	FName LastWorn;
+	bool bBell = true;
 
 	FVerseCommanderRecord Record;
 	FVerseDuelTotals DuelTotals;

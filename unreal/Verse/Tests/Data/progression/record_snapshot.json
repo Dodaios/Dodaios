@@ -1,0 +1,44 @@
+{
+  "note": "A seeded progression snapshot for the service record tests (Verse.Parity.R.*): the commander at level 14, three officers, the drone, the rulebook the running server pays and the newest awards.",
+  "subjects": [
+    { "subject_id": "person", "kind": "person", "level": 14, "total_xp": 3045, "into_level": 130, "for_next": 460, "title": "Lieutenant" },
+    { "subject_id": "agent:ag_001", "kind": "agent", "level": 9, "total_xp": 1500 },
+    { "subject_id": "agent:ag_002", "kind": "agent", "level": 12, "total_xp": 3100 },
+    { "subject_id": "agent:ag_003", "kind": "agent", "level": 9, "total_xp": 1500 },
+    { "subject_id": "pet:drone", "kind": "pet", "level": 4, "total_xp": 211 }
+  ],
+  "pet_id": "drone",
+  "latest_seq": 902,
+  "told_seq": 897,
+  "rulebook": {
+    "ranks": [ { "id": "recruit", "level": 1, "tier": "deck" } ],
+    "rewards": [
+      { "reward_id": "uniform_deck", "slot": "uniform", "levels": { "person": 1, "agent": null, "pet": null } },
+      { "reward_id": "uniform_line", "slot": "uniform", "levels": { "person": 11, "agent": null, "pet": null } },
+      { "reward_id": "uniform_command", "slot": "uniform", "levels": { "person": 29, "agent": null, "pet": null } },
+      { "reward_id": "uniform_flag", "slot": "uniform", "levels": { "person": 37, "agent": null, "pet": null } },
+      { "reward_id": "ribbon_good_conduct", "slot": "ribbon", "levels": { "person": 6, "agent": 4, "pet": null } },
+      { "reward_id": "ribbon_meritorious", "slot": "ribbon", "levels": { "person": 19, "agent": 16, "pet": null } },
+      { "reward_id": "ribbon_distinguished", "slot": "ribbon", "levels": { "person": 31, "agent": 27, "pet": null } },
+      { "reward_id": "ribbon_fleet_cross", "slot": "ribbon", "levels": { "person": 47, "agent": 43, "pet": null } }
+    ],
+    "rules": [
+      { "source": "chat_turn", "kind": "person", "xp": 5, "trigger": "server", "cooldown_s": 45, "daily_cap": 0 },
+      { "source": "daily_visit", "kind": "person", "xp": 25, "trigger": "world", "cooldown_s": 0, "daily_cap": 0 },
+      { "source": "duel_won", "kind": "person", "xp": 40, "trigger": "server", "cooldown_s": 0, "daily_cap": 200 },
+      { "source": "future_rule_of_a_newer_server", "kind": "person", "xp": 99, "trigger": "server", "cooldown_s": 0, "daily_cap": 0 },
+      { "source": "task_done", "kind": "agent", "xp": 10, "trigger": "server", "cooldown_s": 600, "daily_cap": 100 },
+      { "source": "walk_together", "kind": "pet", "xp": 3, "trigger": "world", "cooldown_s": 0, "daily_cap": 30 }
+    ]
+  },
+  "recent": [
+    { "seq": 899, "subject_id": "person", "kind": "person", "source": "chat_turn", "xp": 5, "level_before": 14, "level_after": 14, "ts_ms": 1793612000000 },
+    { "seq": 900, "subject_id": "agent:ag_001", "kind": "agent", "source": "task_done", "xp": 10, "level_before": 9, "level_after": 9, "ts_ms": 1793612100000 },
+    { "seq": 901, "subject_id": "person", "kind": "person", "source": "daily_visit", "xp": 25, "level_before": 14, "level_after": 14, "ts_ms": 1793612200000 },
+    { "seq": 902, "subject_id": "person", "kind": "person", "source": "duel_won", "xp": 40, "level_before": 14, "level_after": 14, "ts_ms": 1793612300000 }
+  ],
+  "duel_stats": {
+    "matches": 12, "wins": 7, "losses": 5, "unfinished": 2, "kills": 96, "deaths": 81, "headshots": 31, "finishers": 4, "best_streak": 6,
+    "by_tier": { "hard": { "wins": 5, "losses": 3 } }
+  }
+}

@@ -43,6 +43,16 @@ void UVerseDeckHudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Collection.InitializeDependency<UVerseUiSubsystem>();
 	Collection.InitializeDependency<UVerseEventHub>();
 	BindHub();
+	if (UVerseServiceRecordSubsystem* Record = GetRecordSubsystem())
+	{
+		// The record speaks the language of the Verse UI, and shows level-ups only while the Verse is on screen (parity R-13).
+		Record->SetStringsProvider([this]() -> const FVerseUiStrings* { const UVerseUiSubsystem* Ui = GetUi(); return Ui ? &Ui->GetStrings() : nullptr; });
+		Record->SetOverlayVisible([this]()
+		{
+			const UVerseUiSubsystem* Ui = GetUi();
+			return !Ui || Ui->GetLifecycleState() != FName(TEXT("dormant"));
+		});
+	}
 	Lift.TravelTo = [this](FName Deck)
 	{
 		if (UVerseUiSubsystem* Ui = GetUi())
@@ -52,21 +62,26 @@ void UVerseDeckHudSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	};
 	if (UVerseUiSubsystem* Ui = GetUi())
 	{
-		// Escape closes our dialog and not the Esc menu while one is open.
+		// Escape closes our dialog (or the promotion notice) and not the Esc menu while one is open.
 		Ui->KeyPreHandler = [this](const FKey& Key)
 		{
-			if (Key != EKeys::Escape || !(Lift.IsPanelOpen() || (GetRecordSubsystem() && GetRecordSubsystem()->IsRecordOpen())))
+			if (Key != EKeys::Escape)
 			{
 				return false;
 			}
-			if (UVerseServiceRecordSubsystem* Record = GetRecordSubsystem(); Record && Record->IsRecordOpen())
+			UVerseServiceRecordSubsystem* Record = GetRecordSubsystem();
+			if (Record && Record->IsRecordOpen())
 			{
 				Record->CloseRecord();
 				SyncDialogs();
 				return true;
 			}
-			CloseLift();
-			return true;
+			if (Lift.IsPanelOpen())
+			{
+				CloseLift();
+				return true;
+			}
+			return Record && Record->DismissNotice();
 		};
 		SetDeck(Ui->GetGamePort().GetCurrentDeck());
 	}
@@ -87,6 +102,11 @@ void UVerseDeckHudSubsystem::Deinitialize()
 	if (UVerseUiSubsystem* Ui = GetUi())
 	{
 		Ui->KeyPreHandler = nullptr;
+	}
+	if (UVerseServiceRecordSubsystem* Record = GetRecordSubsystem())
+	{
+		Record->SetStringsProvider(nullptr);
+		Record->SetOverlayVisible(nullptr);
 	}
 	if (bLookIgnored)
 	{

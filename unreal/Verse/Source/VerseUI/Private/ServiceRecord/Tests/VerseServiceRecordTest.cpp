@@ -140,15 +140,15 @@ bool FVerseRecordToldTest::RunTest(const FString& Parameters)
 	}
 	TestEqual(TEXT("nothing told without a screen"), Told.Num(), 0);
 
-	// On screen for NoticeSeconds, then told exactly once.
+	// On screen for the quiet line time (14 -> 15 keeps the rank), then told exactly once.
 	int32 Shows = 0;
 	int32 Hides = 0;
 	FVersePromotionPresenter Presenter(Model, [&Shows](const FVersePromotion&) { ++Shows; return true; }, [&Hides]() { ++Hides; });
 	Presenter.Tick(0.f);
 	TestTrue(TEXT("on screen"), Presenter.IsShowing());
-	Presenter.Tick(FVersePromotionPresenter::NoticeSeconds * 0.5f);
+	Presenter.Tick(FVersePromotionPresenter::QuietSeconds * 0.5f);
 	TestEqual(TEXT("not told while on screen"), Told.Num(), 0);
-	Presenter.Tick(FVersePromotionPresenter::NoticeSeconds);
+	Presenter.Tick(FVersePromotionPresenter::QuietSeconds);
 	TestEqual(TEXT("progression.told sent once"), Told.Num(), 1);
 	TestEqual(TEXT("with seq 905"), Told.Num() > 0 ? Told[0] : int64(0), int64(905));
 	TestEqual(TEXT("shown once, hidden once"), Shows * 10 + Hides, 11);
@@ -234,8 +234,8 @@ bool FVerseRecordViewTest::RunTest(const FString& Parameters)
 	TSharedRef<SVerseServiceRecord> View = SNew(SVerseServiceRecord, Model);
 	TestTrue(TEXT("record widget builds"), View->GetChildren()->Num() > 0);
 	TSharedRef<SVersePromotionNotice> Notice = SNew(SVersePromotionNotice, Promotion);
-	TestEqual(TEXT("new rank headline"), Notice->Headline().ToString(), FString(TEXT("PROMOTED")));
-	TestEqual(TEXT("new rank detail"), Notice->Detail().ToString(), FString(TEXT("Commander, level 21")));
+	TestEqual(TEXT("new rank headline"), Notice->Headline().ToString(), FString(TEXT("Promotion")));
+	TestEqual(TEXT("new rank detail"), Notice->Detail().ToString(), FString(TEXT("Commander")));
 	return true;
 }
 
