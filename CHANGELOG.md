@@ -29,14 +29,27 @@ versioning per [SemVer](https://semver.org/).
   model can no longer approve it itself. Adding a scheduled task counts as
   destructive.
 
+---
+
+## [4.2.0] — 2026-11-09
+
 ### Fixed
 
+- The verifying installer (`install-verify.sh` / `install-verify.ps1`) no
+  longer refuses a release whose Rekor proof is older than 24 hours. Release
+  bundles are signed once at tag time, so every release had become
+  unverifiable a day after it was cut. Replay of an older release stays
+  blocked by the tag-binding check and the payload-commit pin (#1181).
 - The README contributor wall shows everyone who has shipped work. People whose
   git email GitHub never linked to an account are named, and a pull request
   author appears even when the contributors index has not caught up yet.
 
 ### Changed
 
+- App icons (taskbar, tray, dock, launcher) now show the hooded head instead of
+  the whole figure, so the face stays readable at small sizes. The boot splash
+  and other logo surfaces keep the full figure. Suggested by a community member
+  (#1183).
 - The small-machine vision download is `qwen3-vl:2b-instruct` (1.9 GB, refreshed
   in the library). The previous tag `qwen3-vl:2b` is still published but Ollama
   shows it as a year old, so a new install no longer offers it.

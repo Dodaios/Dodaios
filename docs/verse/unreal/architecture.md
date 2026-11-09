@@ -313,10 +313,24 @@ also for remote panes, and is what `/screens` reads. What it lacks:
 Takeover stays out of process: Unreal never hosts a live terminal. Taking over
 a desk brings the app to the front on that pane (README).
 
-Rendering on the Unreal side: one glyph atlas (the IDE's font, licence
-checked, 13 px reference size) and one render target per monitor; dirty rows
-are drawn with a canvas or a material quad; a monitor far from the camera
-updates at 2 Hz.
+Rendering on the Unreal side: one glyph atlas (the IDE's font, JetBrains
+Mono under the SIL Open Font License 1.1, sources in
+`unreal/Verse/Art/Fonts/JetBrainsMono/`, recorded in the Fonts section of
+`art/verse/LICENSES.md`; 13 px reference size) and one render target per
+monitor; dirty rows are drawn with a canvas or a material quad; a monitor far
+from the camera updates at 2 Hz.
+
+Wiring on the Unreal side (#1157): there is one `cells.bin/1` and
+`cells.json/1` decoder, `VerseCellsCodec` in `VerseBridge`. The bridge client
+owns the screen watch, refs, gap detection and resync; `VerseScreens` reads
+`FVerseScreensFeed` (and `FVerseChatTailsFeed`) and keeps only its grid
+model, glyph atlas and painter. `VerseDecks` stations and `VerseUI` station
+views send their commands through `UVerseBridgeSubsystem::Client()` behind
+their own `IVerseCommandLink` seam (the seam stays for their fakes; it is not
+a frozen contract). Each consumer binds itself in its subsystem's
+`Initialize` from the game instance's `UVerseBridgeSubsystem`; the primary
+`Verse` module wires nothing. No new module edge is needed: `VerseDecks`,
+`VerseScreens` and `VerseUI` already depend on `VerseBridge` (section 2).
 
 ### 5.4 Data flow
 

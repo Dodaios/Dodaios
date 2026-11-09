@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from dodaios.memory.wiki import secret_guard
+from dodaios.memory import secret_guard
 from dodaios.society import memory
 
 

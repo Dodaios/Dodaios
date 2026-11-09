@@ -53,7 +53,7 @@ def reject_draft_credentials(draft: str) -> None:
     HTTP validation errors otherwise include the rejected input by default.
     The public reason points to in-app key settings without echoing a value.
     """
-    from dodaios.memory.wiki.secret_guard import contains_secret
+    from dodaios.memory.secret_guard import contains_secret
 
     if contains_secret(draft):
         raise DispatchRejected("credential_input_use_api_key_settings", 422)

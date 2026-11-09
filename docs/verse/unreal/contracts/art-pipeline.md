@@ -516,11 +516,12 @@ exceeded according to the record.
 | Rule | Detail |
 |---|---|
 | Ledger | `art/verse/LICENSES.md` stays the single ledger: CC0 only (plus the public-domain rows already in it), append-only, one row per file with source URL and SHA-256 (as today) |
+| Fonts | Fonts are not art assets. A font under the SIL Open Font License 1.1 is allowed when it ships unmodified (no renamed or subset font files in the repo) next to its licence text, with one row per file in the "Fonts" section at the end of `art/verse/LICENSES.md` (licence `OFL-1.1`, source URL, SHA-256). Source files live in `unreal/Verse/Art/Fonts/<Family>/` (LFS); the imported font assets belong to the package that draws them. Today: JetBrains Mono 2.304, the IDE's terminal font, for desk monitors and chat tails (WP16, #1158) |
 | Own work | Everything a builder makes from code is `license.kind: "own"`; no ledger row |
 | Third-party | `license.kind: "ledger"`, with the SHA-256 of every ledger row used. `check_art_text.py` fails on a missing or unknown hash |
-| Forbidden | Fab content of any kind (marketplace or scan libraries), engine Starter Content, engine sample and template content (including the mannequin, section 12), anything under a licence other than CC0 or public domain, assets from model sites unless the exact file is CC0 and ledgered, AI-generated meshes or textures (provenance unclear) |
+| Forbidden | Fab content of any kind (marketplace or scan libraries), engine Starter Content, engine sample and template content (including the mannequin, section 12), anything under a licence other than CC0 or public domain (fonts: row above), assets from model sites unless the exact file is CC0 and ledgered, AI-generated meshes or textures (provenance unclear) |
 | Scan | `unreal-static` rejects paths and names from engine content packs (`/Game/StarterContent`, `/Game/Characters/Mannequins`, `SKM_Manny*`, `SKM_Quinn*`, `SK_Mannequin*`) and any `.uasset` whose import record is missing |
-| Checks owed | Elevation data terms for the Earth view are checked separately before it moves and recorded in the ledger. Fonts are not art assets: their licence is owned by VerseScreens/VerseUI with the integration owner and recorded outside this ledger |
+| Checks owed | Elevation data terms for the Earth view are checked separately before it moves and recorded in the ledger. Fonts: row above |
 | Names | No asset, folder, tag or record names another game, studio, franchise or real firearm make or model (README Legal); `unreal-static` runs `scripts/unreal/check_forbidden_names.py` over `unreal/**`, `art/verse/**` and `docs/verse/unreal/**`, including names inside `.uasset` import records. The list is kept only as SHA-256 hashes (`architecture.md` 8.4), so the repo never spells the names it forbids |
 
 ## 12. FPS character skeleton

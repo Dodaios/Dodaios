@@ -28,7 +28,7 @@ Unreal Verse reads this file first, then its work package in
 | IDE side panel | Pixel Streaming of an Unreal view into the panel, running only while the panel is visible |
 | Live terminals | Desk screens in Unreal show the pane's terminal cells, served by the backend. Taking over a desk brings the app to the front on that terminal |
 | Repo | Public main repo, open source, under `unreal/`. Art as code plus Git LFS for unavoidable binaries. One File Per Actor. Never engine source, never Fab or Megascans content |
-| Assets | Own work or CC0 only (`art/verse/LICENSES.md` stays the ledger) |
+| Assets | Own work or CC0 only (`art/verse/LICENSES.md` stays the ledger). Fonts are the one exception: a font under the SIL Open Font License 1.1 may ship unmodified with its licence text, recorded in the Fonts section of the same file. Desk monitors draw the IDE's terminal font, JetBrains Mono (#1158) |
 | Look | Photoreal (Lumen, Nanite), new style "Military-Industrial Noir": black steel, concrete, oil, wear, hard work lights, dust and haze. Accents sparse in amber, red, gold. Never cyan or violet |
 | Camera | Duel: first person only; third person only for kill cam and finisher. Elsewhere overview, third and first person as today |
 | Projectiles | Visible laser bolts at about 300 m/s, no drop. Own bolts amber, the opponent's red |

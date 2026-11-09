@@ -712,9 +712,10 @@ def _import_legacy_once(config: Any, vault: Any) -> None:
     from dodaios.memory.vault import runtime as vault_runtime
 
     try:
-        from dodaios.society.memory import resolve_society_vault
+        from dodaios.memory.wiki.vault_root import resolve_vault_root
 
-        wiki_root = resolve_society_vault(config)
+        raw = getattr(getattr(config, "wiki_integration", None), "vault_root", None)
+        wiki_root = resolve_vault_root(raw or None).path
     except Exception:  # noqa: BLE001 — no wiki configured: import the other sources only
         log.info("memory vault import: no wiki vault found", exc_info=True)
         wiki_root = None

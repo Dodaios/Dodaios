@@ -152,7 +152,7 @@ class ChatControls:
                 and binder is not None
             ):
                 await binder(sid)
-            from dodaios.memory.wiki.secret_guard import contains_secret
+            from dodaios.memory.secret_guard import contains_secret
 
             if contains_secret(request.arguments):
                 raise ValueError("Configure credentials in app settings, not in chat commands")

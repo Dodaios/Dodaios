@@ -55,7 +55,44 @@ export type ThreadStatus = "approval" | "running" | "unseen" | "idle";
 
 /** What a thread is called in the list and its header. */
 export function threadTitle(session: Pick<AgentChatSession, "title" | "cli_title"> | null | undefined): string {
-  return session?.cli_title?.trim() || session?.title?.trim() || translate("ide_threads.new_thread");
+  const raw = session?.cli_title?.trim() || session?.title?.trim() || "";
+  return compactTitle(raw) || translate("ide_threads.new_thread");
+}
+
+const GITHUB_ITEM = /\bhttps?:\/\/(?:www\.)?github\.com\/[\w.-]+\/[\w.-]+\/(issues|pull)\/(\d+)\S*/gi;
+const ANY_URL = /\bhttps?:\/\/(?:www\.)?([^\s/]+)\S*/gi;
+
+/**
+ * A title short enough to read in a narrow list. A thread's first message
+ * often opens with a pasted link; a GitHub issue or pull request link becomes
+ * "Issue #12" / "PR #12", any other link its host name.
+ */
+export function compactTitle(text: string): string {
+  const out = text
+    .replace(GITHUB_ITEM, (_match, kind: string, number: string) => `${kind.toLowerCase() === "pull" ? "PR" : "Issue"} #${number}`)
+    .replace(ANY_URL, (_match, host: string) => host)
+    .replace(/\s+/g, " ")
+    .trim();
+  return out;
+}
+
+/** Folders that hold linked git worktrees: the IDE's own and Claude Code's. */
+const WORKTREE_FOLDERS = new Set([".worktrees", "worktrees"]);
+
+/**
+ * The worktree a thread works in, when its folder is one inside the project
+ * (`<project>/.worktrees/<name>`, `<project>/.claude/worktrees/<name>`);
+ * null when it works in the project's own checkout.
+ */
+export function threadWorktree(cwd: string, projectPath: string): string | null {
+  if (!cwd || !projectPath || !isInside(cwd, projectPath)) return null;
+  const base = comparablePath(projectPath);
+  const rest = comparablePath(cwd).slice(base.length).split("/").filter(Boolean);
+  const at = rest.findIndex((part) => WORKTREE_FOLDERS.has(part));
+  if (at < 0 || at + 1 >= rest.length) return null;
+  // The name as written, not case-folded.
+  const written = cwd.replace(/\\/g, "/").split("/").filter(Boolean);
+  return written[written.length - (rest.length - at - 1)] ?? rest[at + 1];
 }
 
 /** A path in one comparable spelling: forward slashes, no trailing slash, case folded on drive paths. */

@@ -133,8 +133,7 @@ def _new_id() -> str:
 
 
 def _secret_check(text: str) -> bool:
-    # The secret detector still lives with the wiki; ADR-0044 chunk 6 moves it.
-    from dodaios.memory.wiki.secret_guard import contains_secret
+    from dodaios.memory.secret_guard import contains_secret
 
     return contains_secret(text)
 

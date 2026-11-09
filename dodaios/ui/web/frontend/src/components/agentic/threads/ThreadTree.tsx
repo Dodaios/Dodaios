@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -13,7 +13,7 @@ import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
-import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, arrangeThreads, moveThreadId, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
+import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, arrangeThreads, moveThreadId, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
 /** Threads a project shows before "Show more". */
@@ -271,6 +271,7 @@ export function ThreadTree() {
           const selected = session.session_id === openSessionId && selection.sessionId !== null;
           const status = threadStatus(session, seen, openSessionId);
           const mark = agentOf.get(session.provider);
+          const worktree = threadWorktree(session.cwd, project.path);
           const menuOpen = menu?.sessionId === session.session_id;
           if (renaming?.sessionId === session.session_id) {
             return <form key={session.session_id} className="flex min-h-8 items-center gap-1 pl-[30px] pr-1"
@@ -367,11 +368,17 @@ export function ThreadTree() {
                   : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />}
               </span>
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
-              {busy === session.session_id
-                ? <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
-                : <StatusMark status={status} />}
-              {status !== "running" && busy !== session.session_id
-                && <span className="shrink-0 text-micro tabular-nums text-muted-foreground transition-opacity group-hover/thread:opacity-0 [@media(hover:none)]:opacity-0">{shortAge(session.updated_ms)}</span>}
+              {/* Quiet marks on the right, one column each: where it works, then what it is doing. */}
+              {worktree && <span role="img" aria-label={fill(t("ide_threads.in_worktree"), { name: worktree })}
+                title={fill(t("ide_threads.in_worktree"), { name: worktree })}
+                data-testid={`thread-worktree-${session.session_id}`} className="flex shrink-0 items-center">
+                <GitBranch aria-hidden className="h-3.5 w-3.5 text-accent" strokeWidth={1.75} />
+              </span>}
+              <span className="flex w-3.5 shrink-0 items-center justify-center">
+                {busy === session.session_id
+                  ? <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                  : <StatusMark status={status} />}
+              </span>
             </button>
             <div className={cn(
               "absolute inset-y-0 right-0 flex items-center gap-1 rounded-r-md bg-gradient-to-l from-muted from-60% to-transparent pl-5 pr-1 transition-opacity",

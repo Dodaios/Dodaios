@@ -1,6 +1,6 @@
 # Third-party content ledger
 
-Every third-party file used by the Verse cook. CC0 only. Append-only.
+Every third-party file used by the Verse cook. CC0 only (fonts: section "Fonts" below). Append-only.
 
 | Asset | File | License | Source URL | SHA-256 |
 |---|---|---|---|---|
@@ -30,3 +30,16 @@ Every third-party file used by the Verse cook. CC0 only. Append-only.
 | FS749711 Verse footstep metal boots take 4: freesound 749711 Steps boots on metal surface (RFCaldas) | dodaios/ui/web/frontend/public/verse/audio/step_4.ogg | CC0 | https://freesound.org/people/RFCaldas/sounds/749711/ | 1abdc536ff486daddcb11eb3179b111c878f7b72cec289fbc1ab742ad8c3a0d5 |
 | FS749711 Verse footstep metal boots take 5: freesound 749711 Steps boots on metal surface (RFCaldas) | dodaios/ui/web/frontend/public/verse/audio/step_5.ogg | CC0 | https://freesound.org/people/RFCaldas/sounds/749711/ | 72ec6c9ce69195f30fb6a55d5900be0132d4543fa90a79dc18120a5b9158b19f |
 | FS749711 Verse footstep metal boots take 6: freesound 749711 Steps boots on metal surface (RFCaldas) | dodaios/ui/web/frontend/public/verse/audio/step_6.ogg | CC0 | https://freesound.org/people/RFCaldas/sounds/749711/ | 4269d232824566c934d29b129127d07d71903d6a2c1a3d3539b56f59f1c6b591 |
+
+## Fonts
+
+Fonts are not art assets and are the one exception to CC0 only
+(`docs/verse/unreal/contracts/art-pipeline.md` 11). Each font ships
+unmodified next to its licence text. Append-only.
+
+| Asset | File | License | Source URL | SHA-256 |
+|---|---|---|---|---|
+| JetBrains Mono 2.304 Regular, IDE terminal font for desk monitors (licence text: unreal/Verse/Art/Fonts/JetBrainsMono/OFL.txt) | unreal/Verse/Art/Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip | a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f |
+| JetBrains Mono 2.304 Bold, IDE terminal font for desk monitors (licence text: unreal/Verse/Art/Fonts/JetBrainsMono/OFL.txt) | unreal/Verse/Art/Fonts/JetBrainsMono/JetBrainsMono-Bold.ttf | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip | 5590990c82e097397517f275f430af4546e1c45cff408bde4255dad142479dcb |
+| JetBrains Mono 2.304 Italic, IDE terminal font for desk monitors (licence text: unreal/Verse/Art/Fonts/JetBrainsMono/OFL.txt) | unreal/Verse/Art/Fonts/JetBrainsMono/JetBrainsMono-Italic.ttf | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip | 9d0a1f7a708e6af183f1193b7e81d40da294f5c67682c085d8401c60aac8ded4 |
+| JetBrains Mono 2.304 Bold Italic, IDE terminal font for desk monitors (licence text: unreal/Verse/Art/Fonts/JetBrainsMono/OFL.txt) | unreal/Verse/Art/Fonts/JetBrainsMono/JetBrainsMono-BoldItalic.ttf | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip | 4039d5ce0ed225bf9c8b2c8c6436290ae2f356b7e90d70fa666227238324aa3b |
