@@ -9,6 +9,10 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [4.2.1] — 2026-11-09
+
 ### Security
 
 - Safety whitelist entries match only the tool they name. A bare pattern

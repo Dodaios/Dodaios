@@ -1,0 +1,80 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Skitter/SK_Weapon_Skitter.SK_Weapon_Skitter",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Skitter.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "1403616cf187be87d5d8b34239bce261a7f74a77cbe3c782afc574c67dad0548"
+  },
+  "kind": "skeletal_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bones": [
+      "Root",
+      "Magazine",
+      "Bolt",
+      "Trigger",
+      "SocketBase"
+    ],
+    "bounds_cm": {
+      "max": [
+        39.5,
+        2.45,
+        10.5
+      ],
+      "min": [
+        -19.6,
+        -3.6,
+        -16.4
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Steel.MI_Weapon_Steel",
+        "slot": "M_Weapon_Steel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Polymer.MI_Weapon_Polymer",
+        "slot": "M_Weapon_Polymer"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Grip.MI_Weapon_Grip",
+        "slot": "M_Weapon_Grip"
+      }
+    ],
+    "sockets": [
+      "SOCKET_Eject",
+      "SOCKET_Muzzle",
+      "SOCKET_Sight",
+      "SOCKET_Support"
+    ],
+    "triangles": 2848,
+    "uv_sets": 1,
+    "vertices": 1480
+  },
+  "name": "SK_Weapon_Skitter",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_Skitter"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_skitter"
+  }
+}

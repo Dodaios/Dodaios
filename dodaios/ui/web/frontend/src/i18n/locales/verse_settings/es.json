@@ -1,0 +1,517 @@
+{
+  "verse_settings": {
+    "eyebrow": "Dodaios Verse",
+    "title": "Ajustes del juego",
+    "subtitle": "Cómo se ve, suena y se juega el Verse. Todo lo de aquí también está en el menú del juego (Esc → Ajustes).",
+    "loading": "Cargando los ajustes del juego…",
+    "load_failed": "No se pudieron cargar los ajustes del juego. ¿Está en marcha el backend?",
+    "retry": "Reintentar",
+    "save_failed": "No se ha guardado: {error}",
+    "live": "El Verse está en marcha: los cambios se aplican al instante.",
+    "offline": "Los cambios se aplicarán la próxima vez que se inicie el Verse.",
+    "search": "Buscar ajustes",
+    "no_results": "Ningún ajuste coincide con «{query}».",
+    "reset_tab": "Restablecer valores predeterminados",
+    "reset_tab_confirm": "¿Restablecer todos los ajustes de {tab} a sus valores predeterminados?",
+    "reset_confirm_yes": "Restablecer",
+    "reset_confirm_no": "Cancelar",
+    "reset_one": "Restablecer valor predeterminado",
+    "default": "Predeterminado",
+    "default_value": "Predeterminado: {value}",
+    "changed": "Modificado",
+    "restart": "Se aplica al reiniciar el Verse",
+    "impact": "Impacto en el rendimiento",
+    "impact_low": "Bajo",
+    "impact_medium": "Medio",
+    "impact_high": "Alto",
+    "preset_custom_hint": "Has cambiado un ajuste de calidad concreto, así que el preajuste ahora es Personalizado.",
+    "press_key": "Pulsa una tecla…",
+    "press_key_hint": "Esc cancela. También funcionan los botones del ratón.",
+    "key_reserved": "{key} está reservada para el sistema y el menú Esc.",
+    "key_swapped": "{key} estaba asignada a «{action}»; se han intercambiado.",
+    "rebind": "Cambiar tecla",
+    "crosshair_preview": "Vista previa",
+    "tabs": {
+      "graphics": "Gráficos",
+      "audio": "Audio",
+      "controls": "Ratón y cámara",
+      "keybinds": "Asignación de teclas",
+      "gameplay": "Jugabilidad",
+      "interface": "Interfaz",
+      "accessibility": "Accesibilidad"
+    },
+    "sections": {
+      "display": "Pantalla",
+      "rendering": "Renderizado",
+      "quality": "Calidad",
+      "effects": "Efectos de cámara",
+      "volume": "Volumen",
+      "output": "Salida",
+      "feedback": "Sonidos de respuesta",
+      "mouse": "Ratón",
+      "behaviour": "Mantener o alternar",
+      "camera": "Cámara",
+      "combat": "Combate",
+      "duel": "Duelo",
+      "hud": "HUD",
+      "crosshair": "Retícula",
+      "vision": "Visión",
+      "motion": "Movimiento",
+      "hearing": "Audición",
+      "movement": "Desplazamiento",
+      "equipment": "Equipamiento",
+      "interface": "Interfaz"
+    },
+    "o": {
+      "off": "No",
+      "on": "Sí",
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta",
+      "epic": "Épica",
+      "cinematic": "Cinemática",
+      "auto": "Automático",
+      "custom": "Personalizado",
+      "fullscreen": "Pantalla completa",
+      "borderless": "Sin bordes",
+      "windowed": "Ventana",
+      "native": "Nativa",
+      "unlimited": "Ilimitado",
+      "fxaa": "FXAA",
+      "taa": "TAA",
+      "tsr": "TSR",
+      "headphones": "Auriculares",
+      "speakers": "Altavoces",
+      "night": "Modo nocturno",
+      "hold": "Mantener",
+      "toggle": "Alternar",
+      "third": "Tercera persona",
+      "first": "Primera persona",
+      "overview": "Vista general",
+      "right": "Derecho",
+      "left": "Izquierdo",
+      "full": "Completo",
+      "reduced": "Reducido",
+      "normal": "Normal",
+      "hard": "Difícil",
+      "elite": "Élite",
+      "adaptive": "Adaptativo",
+      "fps": "Solo FPS",
+      "cross": "Cruz",
+      "dot": "Punto",
+      "cross_dot": "Cruz + punto",
+      "circle": "Círculo",
+      "amber": "Ámbar",
+      "white": "Blanco",
+      "green": "Verde",
+      "cyan": "Cian",
+      "magenta": "Magenta",
+      "protanopia": "Protanopía",
+      "deuteranopia": "Deuteranopía",
+      "tritanopia": "Tritanopía",
+      "unbound": "Sin asignar"
+    },
+    "s": {
+      "display": {
+        "window_mode": {
+          "label": "Modo de ventana",
+          "desc": "Sin bordes vuelve a la app al instante. Pantalla completa puede reducir un poco la latencia de entrada en algunos PC."
+        },
+        "resolution": {
+          "label": "Resolución",
+          "desc": "Nativa usa la resolución propia de tu monitor, la imagen más nítida."
+        },
+        "frame_limit": {
+          "label": "Límite de fotogramas",
+          "desc": "Un límite unos fotogramas por debajo de la frecuencia de tu monitor mantiene estable la latencia con la sincronización adaptativa."
+        },
+        "vsync": {
+          "label": "V-Sync",
+          "desc": "Elimina el tearing pero añade latencia de entrada. Desactívalo si tu monitor tiene sincronización adaptativa."
+        },
+        "brightness": {
+          "label": "Brillo",
+          "desc": "Súbelo hasta que los rincones oscuros del hangar apenas se vean."
+        },
+        "hdr": {
+          "label": "HDR",
+          "desc": "Salida de alto rango dinámico para monitores HDR."
+        }
+      },
+      "graphics": {
+        "anti_aliasing": {
+          "label": "Antialiasing",
+          "desc": "TSR ofrece los bordes más limpios y funciona con la escala de resolución. FXAA es el más ligero."
+        },
+        "resolution_scale": {
+          "label": "Resolución 3D",
+          "desc": "Renderiza el mundo por debajo de la resolución de pantalla y lo reescala. Más bajo significa más FPS."
+        },
+        "sharpening": {
+          "label": "Nitidez",
+          "desc": "Compensa la suavidad del reescalado."
+        },
+        "preset": {
+          "label": "Preajuste de calidad",
+          "desc": "Configura todos los grupos de calidad a la vez. Automático mide tu PC en el próximo inicio y elige por ti."
+        },
+        "view_distance": {
+          "label": "Distancia de visión",
+          "desc": "Hasta qué distancia se mantiene el detalle."
+        },
+        "shadows": {
+          "label": "Sombras",
+          "desc": "Nitidez y alcance de las sombras. Uno de los ajustes más exigentes."
+        },
+        "global_illumination": {
+          "label": "Iluminación global",
+          "desc": "Luz rebotada en paredes y suelos. Hace que el hangar parezca real."
+        },
+        "reflections": {
+          "label": "Reflejos",
+          "desc": "Reflejos en metal, cristal y suelos mojados."
+        },
+        "textures": {
+          "label": "Texturas",
+          "desc": "Detalle de las superficies. Consume memoria de vídeo, apenas afecta a los FPS."
+        },
+        "effects": {
+          "label": "Efectos",
+          "desc": "Chispas, humo, impactos láser y escombros."
+        },
+        "post_processing": {
+          "label": "Posprocesado",
+          "desc": "Calidad de los efectos de cámara de abajo."
+        },
+        "foliage": {
+          "label": "Vegetación",
+          "desc": "Plantas en las cubiertas y en el exterior."
+        },
+        "shading": {
+          "label": "Sombreado",
+          "desc": "Detalle de materiales e iluminación en cada superficie."
+        },
+        "motion_blur": {
+          "label": "Desenfoque de movimiento",
+          "desc": "Difumina los giros rápidos de cámara. La mayoría de jugadores lo desactiva en combate."
+        },
+        "depth_of_field": {
+          "label": "Profundidad de campo",
+          "desc": "Desenfoca el fondo al apuntar y en las killcams."
+        },
+        "film_grain": {
+          "label": "Grano de película",
+          "desc": "Un ruido fino sobre la imagen."
+        },
+        "chromatic_aberration": {
+          "label": "Aberración cromática",
+          "desc": "Halos de color en los bordes de la pantalla."
+        },
+        "lens_flares": {
+          "label": "Destellos de lente",
+          "desc": "Reflejos de las luces intensas."
+        },
+        "bloom": {
+          "label": "Bloom",
+          "desc": "Resplandor alrededor de luces intensas y disparos láser."
+        }
+      },
+      "audio": {
+        "master": {
+          "label": "Volumen general",
+          "desc": "Todo lo que reproduce el Verse."
+        },
+        "music": {
+          "label": "Música",
+          "desc": "La banda sonora en las cubiertas y en el duelo."
+        },
+        "effects": {
+          "label": "Efectos",
+          "desc": "Armas, pasos, impactos y destrucción."
+        },
+        "voice": {
+          "label": "Voces",
+          "desc": "Tripulación, locutor y tu rival."
+        },
+        "ambience": {
+          "label": "Ambiente",
+          "desc": "El zumbido de la nave, las máquinas y el viento."
+        },
+        "mix": {
+          "label": "Mezcla de audio",
+          "desc": "Auriculares da la dirección de los pasos más clara. El modo nocturno acerca los sonidos fuertes y los suaves."
+        },
+        "mute_unfocused": {
+          "label": "Silenciar en segundo plano",
+          "desc": "Silencia el Verse mientras trabajas en otra ventana."
+        },
+        "hit_sound": {
+          "label": "Sonido de impacto",
+          "desc": "Un clic breve cuando tu disparo acierta."
+        },
+        "ui_sound": {
+          "label": "Sonidos del menú",
+          "desc": "Clics y confirmaciones en los menús."
+        },
+        "level_sound": {
+          "label": "Sonido de subida de nivel",
+          "desc": "La fanfarria cuando tú o un agente subís de rango."
+        }
+      },
+      "controls": {
+        "sensitivity": {
+          "label": "Sensibilidad del ratón",
+          "desc": "Cuánto gira la cámara por cada movimiento del ratón."
+        },
+        "ads_multiplier": {
+          "label": "Sensibilidad al apuntar",
+          "desc": "Sensibilidad al apuntar con la mira, como proporción de la normal."
+        },
+        "hoverboard_sensitivity": {
+          "label": "Sensibilidad del hoverboard",
+          "desc": "Dirección sobre el hoverboard."
+        },
+        "invert_y": {
+          "label": "Invertir eje vertical",
+          "desc": "Mover el ratón hacia arriba mira hacia abajo."
+        },
+        "raw_input": {
+          "label": "Entrada sin procesar",
+          "desc": "Lee el ratón directamente y omite la aceleración del puntero del sistema."
+        },
+        "mouse_smoothing": {
+          "label": "Suavizado del ratón",
+          "desc": "Atenúa pequeñas vibraciones a costa de un poco de retardo."
+        },
+        "aim_mode": {
+          "label": "Apuntar",
+          "desc": "Mantén la tecla de apuntar, o púlsala una vez para apuntar y otra para dejar de hacerlo."
+        },
+        "crouch_mode": {
+          "label": "Agacharse",
+          "desc": "Mantén para seguir agachado o pulsa para alternar."
+        },
+        "sprint_mode": {
+          "label": "Esprintar",
+          "desc": "Automático esprinta siempre que corres hacia delante."
+        },
+        "lean_mode": {
+          "label": "Asomarse",
+          "desc": "Mantén para asomarte o pulsa para alternar."
+        },
+        "fov_duel": {
+          "label": "Campo de visión (duelo)",
+          "desc": "Visión horizontal en el duelo. Más amplio muestra más; más estrecho agranda los objetivos."
+        },
+        "fov_first": {
+          "label": "Campo de visión (primera persona)",
+          "desc": "Visión al recorrer las cubiertas en primera persona."
+        },
+        "fov_third": {
+          "label": "Campo de visión (tercera persona)",
+          "desc": "Visión al recorrer las cubiertas detrás de tu personaje."
+        },
+        "view_mode": {
+          "label": "Cámara en las cubiertas",
+          "desc": "Cómo ves la nave fuera del duelo."
+        },
+        "shoulder": {
+          "label": "Hombro",
+          "desc": "Sobre qué hombro se sitúa la cámara en tercera persona."
+        },
+        "view_bob": {
+          "label": "Balanceo de cámara",
+          "desc": "Cuánto se mueve la cámara con cada paso."
+        }
+      },
+      "gameplay": {
+        "gore": {
+          "label": "Violencia gráfica",
+          "desc": "Completo muestra sangre y remates. Reducido elimina la sangre y omite los remates."
+        },
+        "kill_cam": {
+          "label": "Killcam",
+          "desc": "Repite cómo te han abatido."
+        },
+        "auto_reload": {
+          "label": "Recarga automática",
+          "desc": "Recarga sola cuando el cargador se vacía."
+        },
+        "bot_tier": {
+          "label": "Rival",
+          "desc": "Lo bueno que es el bot del duelo. Adaptativo se ajusta a tu nivel mientras juegas."
+        },
+        "show_duel_stats": {
+          "label": "Estadísticas tras el duelo",
+          "desc": "Precisión, impactos y tiempo para matar tras cada set."
+        }
+      },
+      "hud": {
+        "scale": {
+          "label": "Tamaño del HUD",
+          "desc": "Tamaño de la salud, la munición y el resto de indicadores."
+        },
+        "opacity": {
+          "label": "Opacidad del HUD",
+          "desc": "Más baja deja ver más del mundo."
+        },
+        "hit_markers": {
+          "label": "Marcadores de impacto",
+          "desc": "Una marca en la retícula cuando aciertas."
+        },
+        "damage_numbers": {
+          "label": "Números de daño",
+          "desc": "Muestra cuánto daño ha hecho cada impacto."
+        },
+        "damage_direction": {
+          "label": "Dirección del daño",
+          "desc": "Una flecha hacia el lugar del que vino un impacto."
+        },
+        "performance_stats": {
+          "label": "Estadísticas de rendimiento",
+          "desc": "FPS, o FPS con tiempo de fotograma y memoria de vídeo."
+        },
+        "crosshair_style": {
+          "label": "Estilo",
+          "desc": "La forma de tu retícula."
+        },
+        "crosshair_color": {
+          "label": "Color",
+          "desc": "Elige uno que destaque sobre el hangar."
+        },
+        "crosshair_size": {
+          "label": "Tamaño",
+          "desc": "Longitud de las líneas de la retícula."
+        },
+        "crosshair_thickness": {
+          "label": "Grosor",
+          "desc": "Anchura de las líneas."
+        },
+        "crosshair_gap": {
+          "label": "Separación",
+          "desc": "Espacio entre el centro y las líneas."
+        },
+        "crosshair_outline": {
+          "label": "Contorno",
+          "desc": "Un borde oscuro fino para que siga visible sobre superficies claras."
+        },
+        "crosshair_dynamic": {
+          "label": "Dispersión con movimiento",
+          "desc": "Las líneas se abren mientras te mueves y disparas."
+        }
+      },
+      "access": {
+        "colorblind": {
+          "label": "Modo daltónico",
+          "desc": "Cambia los colores de enemigos, disparos y marcadores para que se distingan."
+        },
+        "colorblind_strength": {
+          "label": "Intensidad del modo daltónico",
+          "desc": "Cuánto cambian los colores."
+        },
+        "text_scale": {
+          "label": "Tamaño del texto",
+          "desc": "Tamaño de todo el texto de los menús y el HUD."
+        },
+        "high_contrast": {
+          "label": "Alto contraste",
+          "desc": "Contornos más marcados en enemigos y objetos interactivos."
+        },
+        "reduced_motion": {
+          "label": "Movimiento reducido",
+          "desc": "Movimientos de cámara y animaciones de menú más suaves."
+        },
+        "camera_shake": {
+          "label": "Vibración de cámara",
+          "desc": "Sacudidas por explosiones, impactos y aterrizajes."
+        },
+        "flash_reduction": {
+          "label": "Reducción de destellos",
+          "desc": "Suaviza los destellos intensos de explosiones y fogonazos."
+        },
+        "subtitles": {
+          "label": "Subtítulos",
+          "desc": "Texto para los diálogos de la tripulación y los anuncios."
+        },
+        "sound_visualizer": {
+          "label": "Visualizador de sonido",
+          "desc": "Muestra pasos y disparos como marcadores alrededor de la retícula."
+        }
+      },
+      "keybinds": {
+        "move_forward": {
+          "label": "Avanzar"
+        },
+        "move_back": {
+          "label": "Retroceder"
+        },
+        "move_left": {
+          "label": "Moverse a la izquierda"
+        },
+        "move_right": {
+          "label": "Moverse a la derecha"
+        },
+        "sprint": {
+          "label": "Esprintar"
+        },
+        "walk": {
+          "label": "Caminar"
+        },
+        "crouch": {
+          "label": "Agacharse / deslizarse"
+        },
+        "prone": {
+          "label": "Tumbarse"
+        },
+        "jump": {
+          "label": "Saltar / escalar"
+        },
+        "lean_left": {
+          "label": "Asomarse a la izquierda"
+        },
+        "lean_right": {
+          "label": "Asomarse a la derecha"
+        },
+        "fire": {
+          "label": "Disparar"
+        },
+        "ads": {
+          "label": "Apuntar con la mira"
+        },
+        "reload": {
+          "label": "Recargar"
+        },
+        "melee": {
+          "label": "Cuchillo"
+        },
+        "slot_primary": {
+          "label": "Arma principal"
+        },
+        "slot_secondary": {
+          "label": "Arma secundaria"
+        },
+        "slot_melee": {
+          "label": "Ranura del cuchillo"
+        },
+        "gadget_a": {
+          "label": "Dispositivo 1"
+        },
+        "gadget_b": {
+          "label": "Dispositivo 2"
+        },
+        "interact": {
+          "label": "Interactuar"
+        },
+        "verse_bar": {
+          "label": "Barra del Verse"
+        },
+        "skip_kill_cam": {
+          "label": "Saltar killcam"
+        },
+        "return_to_app": {
+          "label": "Volver a la app"
+        }
+      }
+    }
+  }
+}

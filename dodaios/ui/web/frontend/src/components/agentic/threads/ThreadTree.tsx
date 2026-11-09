@@ -13,6 +13,7 @@ import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
+import { ThreadPullRequests } from "./ThreadPullRequests";
 import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, arrangeThreads, moveThreadId, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
@@ -368,11 +369,12 @@ export function ThreadTree() {
                   : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />}
               </span>
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
-              {/* Quiet marks on the right, one column each: where it works, then what it is doing. */}
+              {/* Marks on the right, one column each: its pull requests, where it works, what it is doing. */}
+              <ThreadPullRequests sessionId={session.session_id} />
               {worktree && <span role="img" aria-label={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 title={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 data-testid={`thread-worktree-${session.session_id}`} className="flex shrink-0 items-center">
-                <GitBranch aria-hidden className="h-3.5 w-3.5 text-accent" strokeWidth={1.75} />
+                <GitBranch aria-hidden className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
               </span>}
               <span className="flex w-3.5 shrink-0 items-center justify-center">
                 {busy === session.session_id
