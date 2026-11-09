@@ -15,6 +15,11 @@ versioning per [SemVer](https://semver.org/).
 
 ### Fixed
 
+- The verifying installer (`install-verify.sh` / `install-verify.ps1`) no
+  longer refuses a release whose Rekor proof is older than 24 hours. Release
+  bundles are signed once at tag time, so every release had become
+  unverifiable a day after it was cut. Replay of an older release stays
+  blocked by the tag-binding check and the payload-commit pin (#1181).
 - The README contributor wall shows everyone who has shipped work. People whose
   git email GitHub never linked to an account are named, and a pull request
   author appears even when the contributors index has not caught up yet.

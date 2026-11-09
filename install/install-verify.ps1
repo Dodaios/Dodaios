@@ -59,7 +59,6 @@ $EXPECTED_WORKFLOW_PATH   = '.github/workflows/sign-installer.yml'
 $EXPECTED_OIDC_ISSUER     = 'https://token.actions.githubusercontent.com'
 $COSIGN_VERSION           = 'v2.4.1'
 $COSIGN_SHA256_WINDOWS    = '8d57f8a42a981d27290c4227271fa9f0f62ca6630eb4a21d316bd6b01405b87c'
-$REKOR_MAX_AGE_SECONDS    = 86400
 
 # WAVE 2 PINNED OFFLINE KEY — fingerprint 1e8f2fa590e6454daff34e88e7bde8ffcf04b1eb235f0ca11ff9ebc65e2d1d3a
 #
@@ -409,14 +408,16 @@ try {
     }
     Write-Host "      axis B OK (Ed25519, key fingerprint=$OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)" -ForegroundColor Green
 
-    # --------------------------------------------------------------- freshness
+    # --------------------------------------------------------------- rekor proof
     Write-Host ''
-    Write-Host "[6/13] Checking Rekor inclusion proof freshness (<= ${REKOR_MAX_AGE_SECONDS}s)..." -ForegroundColor Yellow
+    Write-Host "[6/13] Checking the Rekor inclusion proof..." -ForegroundColor Yellow
 
-    # Freshness applies to axis A (Fulcio + Rekor). Axis B is a detached
-    # signature with no transparency log; replay defence comes from the fact
-    # that an old install.ps1.cosign.sig still needs to match the CURRENT
-    # install.ps1 bytes - any tamper invalidates Ed25519.
+    # The proof must be present and its integrated time must not lie in the
+    # future. There is deliberately NO maximum age: release bundles are signed
+    # once, at tag time, so an age limit made every release unverifiable a day
+    # after it was cut (issue #1181). Replay of an older release's genuine
+    # bytes is rejected at stage [7/13] by the tag-binding check and by the
+    # payload-commit pin (TRUST_ROOT.md section 1 and 10.2).
     $BundleJson = Get-Content -Raw -Path $Bundle | ConvertFrom-Json
     $IntegratedTime = $null
     if ($BundleJson.verificationMaterial -and $BundleJson.verificationMaterial.tlogEntries -and $BundleJson.verificationMaterial.tlogEntries[0].integratedTime) {
@@ -434,15 +435,7 @@ try {
         Write-Host "  Rekor integrated time is in the FUTURE (now=$Now, integrated=$IntegratedTime) - refusing." -ForegroundColor Red
         exit 1
     }
-    if ($Age -gt $REKOR_MAX_AGE_SECONDS) {
-        Write-Host "  Rekor inclusion proof too old: ${Age}s > ${REKOR_MAX_AGE_SECONDS}s" -ForegroundColor Red
-        if ($env:JARVIS_INSTALL_ALLOW_STALE -ne '1') {
-            Write-Host '  set $env:JARVIS_INSTALL_ALLOW_STALE=1 to override (read TRUST_ROOT.md first).' -ForegroundColor Red
-            exit 1
-        }
-        Write-Host '  proceeding under JARVIS_INSTALL_ALLOW_STALE=1 (override acknowledged).' -ForegroundColor Red
-    }
-    Write-Host "      Rekor inclusion proof age: ${Age}s (limit ${REKOR_MAX_AGE_SECONDS}s)" -ForegroundColor Green
+    Write-Host "      Rekor inclusion proof present, integrated ${Age}s ago" -ForegroundColor Green
 
     # --------------------------------------------------------------- identity cross-check
     Write-Host ''
@@ -503,8 +496,8 @@ try {
     # the SAN - not that the SAN tag matches the tag the operator asked us to
     # install. Without this cross-check, an attacker who serves the (valid-
     # signed) install.ps1 from a PRIOR release under a fresh URL would pass
-    # axes A+B+C+D - the freshness gate (Rekor integratedTime <= 24h) is the
-    # only barrier and ages out within a day.
+    # axes A+B+C+D. (A former 24 h Rekor age limit was dropped in #1181;
+    # this check is the replay barrier.)
     #
     # The defense: extract the @refs/tags/<X> suffix from the SAN, compare
     # BYTE-FOR-BYTE against the resolved $Tag. Drift => fail-closed.
