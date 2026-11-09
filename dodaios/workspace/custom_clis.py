@@ -138,6 +138,16 @@ class CustomCli:
     #: is what most modern coding CLIs read, but a wrong guess silently pastes
     #: a path a CLI treats as prose, so it stays the user's choice.
     file_reference: Literal["at", "quoted"] = "quoted"
+    #: Optional headless spec — what makes this CLI usable as an Agentic IDE
+    #: THREAD provider. An argv template, ``mycli -p {prompt}``: ``{prompt}`` is
+    #: replaced by the message; a template without it receives the message on
+    #: stdin. Empty = the CLI is a grid terminal only.
+    headless_command: str = ""
+    #: Optional template for a follow-up turn, ``mycli -p {prompt} --resume
+    #: {session}``. ``{session}`` is an id this app chose on the first turn.
+    #: Empty = every turn starts a fresh conversation (the transcript is
+    #: replayed by the thread layer).
+    headless_resume: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -147,6 +157,8 @@ class CustomCli:
             "description": self.description,
             "logo": self.logo,
             "file_reference": self.file_reference,
+            "headless_command": self.headless_command,
+            "headless_resume": self.headless_resume,
         }
 
     @property
@@ -222,6 +234,20 @@ def needs_shell(command: str) -> bool:
     return bool(words) and _is_assignment(words[0])
 
 
+def expand_template(template: str, *, prompt: str, session: str = "") -> tuple[list[str], bool]:
+    """Turn a headless template into ``(argv, prompt_on_stdin)``.
+
+    Words are split like the grid command (:func:`split_command`) and the
+    placeholders substituted PER WORD after splitting, so a prompt with spaces,
+    quotes or shell characters stays exactly one argument and is never parsed
+    by anything. No ``{prompt}`` anywhere means the prompt goes to stdin.
+    """
+    words = split_command(template)
+    on_stdin = not any("{prompt}" in word for word in words)
+    argv = [word.replace("{session}", session).replace("{prompt}", prompt) for word in words]
+    return argv, on_stdin
+
+
 # --------------------------------------------------------------------------
 # Store
 # --------------------------------------------------------------------------
@@ -275,6 +301,8 @@ def _parse(raw: Mapping[str, Any]) -> CustomCli | None:
         description=str(raw.get("description") or "")[:MAX_DESCRIPTION_LEN],
         logo=str(raw.get("logo") or "").strip(),
         file_reference="at" if reference == "at" else "quoted",
+        headless_command=str(raw.get("headless_command") or "").strip()[:MAX_COMMAND_LEN],
+        headless_resume=str(raw.get("headless_resume") or "").strip()[:MAX_COMMAND_LEN],
     )
 
 
@@ -339,6 +367,18 @@ def _clean_command(value: str) -> str:
     return command
 
 
+def _clean_template(value: str | None, label: str) -> str:
+    """A headless argv template: optional, one line, never a shell script."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if "\n" in text or "\r" in text:
+        raise CustomCliError(f"The {label} has to be a single line.")
+    if len(text) > MAX_COMMAND_LEN:
+        raise CustomCliError(f"Keep the {label} under {MAX_COMMAND_LEN} characters.")
+    return text
+
+
 def _clean_description(value: str) -> str:
     text = " ".join(str(value or "").split())
     return text[:MAX_DESCRIPTION_LEN]
@@ -394,6 +434,8 @@ def create_custom_cli(
     *,
     description: str = "",
     file_reference: str = "quoted",
+    headless_command: str = "",
+    headless_resume: str = "",
 ) -> CustomCli:
     """Store a new entry and return it, id assigned."""
     name = _clean_name(display_name)
@@ -403,6 +445,8 @@ def create_custom_cli(
         command=_clean_command(command),
         description=_clean_description(description),
         file_reference="at" if file_reference == "at" else "quoted",
+        headless_command=_clean_template(headless_command, "headless command"),
+        headless_resume=_clean_template(headless_resume, "resume command"),
     )
     _write([*list_custom_clis(), entry])
     return entry
@@ -415,6 +459,8 @@ def update_custom_cli(
     command: str | None = None,
     description: str | None = None,
     file_reference: str | None = None,
+    headless_command: str | None = None,
+    headless_resume: str | None = None,
 ) -> CustomCli:
     """Change a stored entry in place. The id is never touched — see the class."""
     entries = list_custom_clis()
@@ -430,6 +476,10 @@ def update_custom_cli(
         entry = replace(entry, description=_clean_description(description))
     if file_reference is not None:
         entry = replace(entry, file_reference="at" if file_reference == "at" else "quoted")
+    if headless_command is not None:
+        entry = replace(entry, headless_command=_clean_template(headless_command, "headless command"))
+    if headless_resume is not None:
+        entry = replace(entry, headless_resume=_clean_template(headless_resume, "resume command"))
     entries[index] = entry
     _write(entries)
     return entry

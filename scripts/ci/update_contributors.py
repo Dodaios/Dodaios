@@ -21,8 +21,8 @@ Three sources are merged, because any one of them hides people:
 * Commits whose email GitHub could not link to an account come back as
   anonymous names. When every merged pull request with that git name was
   opened by one account, the commits are credited to that account. Otherwise
-  the name is written out. The email is never written: those addresses are
-  local hostnames, and putting them on the README would publish them.
+  they are left off the wall. Neither the name nor the email is written: a
+  git name is often a family member's machine login, not the contributor.
 
 Two kinds of accounts are deliberately excluded:
 
@@ -316,16 +316,6 @@ def _user_cell(person: dict) -> str:
     )
 
 
-def _name_cell(person: dict) -> str:
-    """A person GitHub could not link to an account. No email in the markup."""
-    name = str(person.get("name") or "").strip()
-    safe = html.escape(name, quote=True)
-    query = urllib.parse.quote(f'repo:{REPO} author-name:"{name}"', safe="")
-    href = f"https://github.com/search?q={query}&type=commits"
-    count = int(person.get("contributions") or 0)
-    return f'<a href="{href}">{safe}</a> ({count})'
-
-
 def _marked(line: str) -> str:
     # GitHub logins and real names are not prose: a login or a name made of
     # German words must not trip the output-language gate, so every row
@@ -334,25 +324,19 @@ def _marked(line: str) -> str:
 
 
 def render(people: list[dict]) -> str:
-    """Avatars for accounts, then the names GitHub could not link.
+    """An avatar grid of GitHub accounts, ``PER_ROW`` to a row.
 
-    Accounts stay a grid of ``PER_ROW`` so the wall wraps the way it always
-    has. People with no account follow, most work first, with the commit
-    count in parentheses. Their emails are not part of the line.
+    People with no linked account are left out. Their only identity is a git
+    author name, which is often someone else's machine login, so printing it
+    would name the wrong person.
     """
-    if not people:
-        return "_Nobody yet. That first square is yours._"
-
     accounts = [person for person in people if person.get("login")]
-    named = [person for person in people if not person.get("login")]
+    if not accounts:
+        return "_Nobody yet. That first square is yours._"
     rows = [
         _marked(" ".join(_user_cell(person) for person in accounts[i : i + PER_ROW]))
         for i in range(0, len(accounts), PER_ROW)
     ]
-    for i in range(0, len(named), PER_ROW):
-        chunk = named[i : i + PER_ROW]
-        body = " · ".join(_name_cell(person) for person in chunk)
-        rows.append(_marked(f"Commits not linked to a GitHub account: {body}"))
     return "\n".join(rows)
 
 
