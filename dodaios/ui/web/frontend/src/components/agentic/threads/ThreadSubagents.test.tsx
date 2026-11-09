@@ -6,7 +6,7 @@ import { OpenSubagent, SubagentDock, SubagentHeader } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
 
 const sub = (over: Partial<SubagentState> = {}): SubagentState => ({
-  description: "Explore the auth code", agentType: "Explore", prompt: "Find where tokens are checked.", background: true,
+  description: "Explore the auth code", agentType: "Explore", model: "", prompt: "Find where tokens are checked.", background: true,
   threadId: "", status: "running", summary: "", activity: "Reading auth.py", lastTool: "Read", tokens: 12400,
   toolUses: 3, durationMs: null, startedMs: Date.now(), finishedMs: null, blocks: [], ...over,
 });
@@ -106,6 +106,11 @@ describe("thread sub-agents", () => {
     const entries = listSubagents([earlier, turn([spawn("a1", { status: "done" }), spawn("a2", { status: "failed" })], "done")]);
     render(<SubagentDock entries={entries} openId={null} onOpen={vi.fn()} />);
     expect(screen.getByTestId("thread-subagent-count").textContent).toBe("2 sub-agents · 1 failed · 1 done");
+  });
+
+  it("names the model each sub-agent runs on", () => {
+    render(<ThreadTimeline items={[turn([spawn("a1", { model: "claude-haiku-5-5" }), spawn("a2", { model: "claude-sonnet-5-5" })])]} sessionId="s1" bottomInset={0} />);
+    expect(screen.getAllByTestId("thread-subagent-model").map((chip) => chip.textContent)).toEqual(["Haiku 5.5", "Sonnet 5.5"]);
   });
 
   it("shows no dock in a thread without sub-agents", () => {

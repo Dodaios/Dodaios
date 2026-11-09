@@ -39,6 +39,11 @@ export function SubagentMark({ status, waiting = false, className }: { status: S
   return <CircleSlash aria-hidden className={cn(box, "text-muted-foreground")} />;
 }
 
+/** The model a sub-agent runs on ("Haiku 5.5"), as a quiet chip next to its name. */
+function ModelChip({ model }: { model: string }) {
+  return <span data-testid="thread-subagent-model" className="shrink-0 rounded bg-secondary px-1.5 text-[10.5px] font-normal leading-4 text-foreground-secondary">{model}</span>;
+}
+
 /** A clock that writes its own text once a second, so nothing around it re-renders to tick. */
 function LiveClock({ since }: { since: number }) {
   const ref = useRef<HTMLSpanElement | null>(null);
@@ -121,6 +126,7 @@ function SubagentCardBody({ entry, running }: { entry: SubagentEntry; running: b
       <span className="flex min-w-0 items-center gap-2">
         <span className="truncate text-sm font-medium text-foreground-strong">{entry.title}</span>
         {entry.agentType && <span className="shrink-0 rounded-md border border-border px-1.5 text-[11px] leading-4 text-muted-foreground">{entry.agentType}</span>}
+        {entry.model && <ModelChip model={entry.model} />}
       </span>
       <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
         <span className={cn("min-w-0 truncate", running && !entry.waiting && "live-tool-shine", entry.waiting && "text-warning", entry.status === "failed" && "text-destructive")}>{statusLine(entry)}</span>
@@ -208,6 +214,7 @@ export function SubagentLine({ entry, onOpen, current = false, indent = 0 }: {
     <SubagentMark status={entry.status} waiting={entry.waiting} />
     <span className={cn("min-w-0 max-w-[45%] shrink-0 truncate font-medium", current ? "text-foreground-strong" : "text-foreground")}>{entry.title}</span>
     {entry.agentType && <span className="hidden shrink-0 rounded border border-border px-1 text-[10.5px] leading-4 text-muted-foreground sm:inline">{entry.agentType}</span>}
+    {entry.model && <ModelChip model={entry.model} />}
     <span className={cn("min-w-0 flex-1 truncate text-muted-foreground", running && !entry.waiting && "live-tool-shine", entry.waiting && "text-warning", entry.status === "failed" && "text-destructive")}>{statusLine(entry)}</span>
     <span className="hidden shrink-0 text-[11px] text-muted-foreground md:inline"><SubagentMeta entry={entry} /></span>
   </>;
@@ -287,9 +294,10 @@ export function SubagentDock({ entries: thread, openId, onOpen }: {
   if (entries.length === 0) return null;
   const shown = foldedEntries(entries, openId, all);
   const hidden = entries.length - shown.length;
-  return <div data-testid="thread-subagent-dock" className="mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-popover shadow-float">
+  // A tray tucked behind the top edge of the composer, the twin of the branch strip under it.
+  return <div data-testid="thread-subagent-dock" className="relative mx-auto -mb-4 w-[calc(100%-2.75rem)] overflow-hidden rounded-t-2xl border border-b-0 border-border bg-sidebar pb-4">
     {expanded && <nav aria-label={t("ide_threads.subagents_aria")} data-testid="thread-subagent-dock-list"
-      className="max-h-[40vh] overflow-y-auto border-b border-border/70 px-1 py-1 scrollbar-jarvis">
+      className="max-h-[40vh] overflow-y-auto border-b border-border/70 px-1 pb-1 pt-1.5 scrollbar-jarvis">
       {openId !== null && <button type="button" onClick={() => onOpen(null)} data-testid="thread-subagent-main"
         className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] text-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <MessageSquare aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -300,11 +308,11 @@ export function SubagentDock({ entries: thread, openId, onOpen }: {
     </nav>}
     <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} data-testid="thread-subagent-dock-toggle"
       title={t(expanded ? "ide_threads.dock_collapse" : "ide_threads.dock_expand")}
-      className="flex w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-      <Bot aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+      className="flex h-8 w-full min-w-0 items-center gap-2 px-3 text-left transition-colors hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+      <Bot aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} />
       <span className="min-w-0 flex-1 truncate text-xs text-foreground-secondary" data-testid="thread-subagent-count">{subagentSummary(entries)}</span>
-      <SubagentProgress entries={entries} className="w-24 shrink-0" />
-      <ChevronUp aria-hidden className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150", expanded && "rotate-180")} />
+      <SubagentProgress entries={entries} className="w-20 shrink-0" />
+      <ChevronUp aria-hidden className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150", expanded && "rotate-180")} />
     </button>
   </div>;
 }
@@ -339,6 +347,7 @@ export function SubagentHeader({ entry, path, onOpen }: {
         <h2 className="flex min-w-0 items-center gap-2 text-base font-semibold text-foreground-strong">
           <span className="truncate">{entry.title}</span>
           {entry.agentType && <span className="shrink-0 rounded-md border border-border px-1.5 text-[11px] font-normal leading-4 text-muted-foreground">{entry.agentType}</span>}
+          {entry.model && <ModelChip model={entry.model} />}
         </h2>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">

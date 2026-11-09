@@ -288,6 +288,7 @@ export function ThreadComposer({
   placeholder,
   autoFocusNonce,
   strip,
+  tray,
   onScreen = true,
 }: {
   /** Which thread the box is typing for — the session id, or `draft:<project>`. */
@@ -298,6 +299,8 @@ export function ThreadComposer({
   autoFocusNonce: number;
   /** The strip that hangs under the card — where the agent works and on which branch. */
   strip?: ReactNode;
+  /** The tray that sits on the card's top edge — the thread's sub-agents. */
+  tray?: ReactNode;
   /** False while the IDE section is hidden: its keys belong to whatever is on screen. */
   onScreen?: boolean;
 }) {
@@ -543,6 +546,7 @@ export function ThreadComposer({
       </div>)}
     </div>}
     {error && <p role="alert" className="mb-2 px-4 text-xs text-destructive">{error}</p>}
+    {tray}
     <div ref={cardRef} {...files.dragHandlers}
       className={cn(
         "relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong",
