@@ -89,7 +89,7 @@ def instruction_like(text: str) -> bool:
 def contains_secret(text: str) -> bool:
     """The wiki's secret detector; refuses everything when it is missing."""
     try:
-        from dodaios.memory.wiki.secret_guard import contains_secret as _detect
+        from dodaios.memory.secret_guard import contains_secret as _detect
     except ImportError:
         # The guard ships with the package; without it we store nothing.
         log.warning("learning guard: secret guard unavailable, refusing the write")
