@@ -477,8 +477,10 @@ class SocietyRuntime:
             try:
                 session_id = str(request.payload.get("reply_session_id") or "")
                 if not session_id:
-                    sessions = svc.store.list_sessions(limit=1, surface="jarvis")
-                    session_id = sessions[0].session_id if sessions else ""
+                    from dodaios.agent_chat.lead import lead_session
+
+                    lead = lead_session(svc)
+                    session_id = lead.session_id if lead is not None else ""
                 # Never redirect a result from a deleted chat into an unrelated one.
                 session = svc.store.get_session(session_id) if session_id else None
                 if session is not None and session.surface == "jarvis":
@@ -822,8 +824,8 @@ class SocietyRuntime:
         """A society notice in the agent's own chat (learned skill, login needed).
 
         The LEAD is the one agent whose card shows the app's own Jarvis chat
-        rather than a ``society:`` session, so its notices go to the newest
-        session of that surface — otherwise they would land where nobody looks.
+        rather than a ``society:`` session, so its notices go to the lead's one
+        conversation (``agent_chat/lead.py``).
         """
         svc = self._get_chat()
         post = getattr(svc, "post_notice", None)
@@ -832,12 +834,14 @@ class SocietyRuntime:
         session_id = agent.session_id
         if agent.agent_id == LEAD_AGENT_ID:
             try:
-                seen = svc.store.list_sessions(limit=1, surface="jarvis")
+                from dodaios.agent_chat.lead import lead_session
+
+                lead = lead_session(svc)
             except Exception:  # noqa: BLE001 — falls back to the society session below
-                log.warning("society: could not read the Dodaios chat sessions", exc_info=True)
-                seen = []
-            if seen:
-                session_id = seen[0].session_id
+                log.warning("society: could not read the Dodaios conversation", exc_info=True)
+                lead = None
+            if lead is not None:
+                session_id = lead.session_id
         if svc.store.get_session(session_id) is None:
             return
         await post(session_id, payload)

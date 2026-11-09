@@ -1,0 +1,132 @@
+"""The lead keeps one endless conversation (dodaios/agent_chat/lead.py)."""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+
+import pytest
+
+from dodaios.agent_chat import lead
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore, ChatSelection
+
+
+def _service(cwd: Path, path: str = ":memory:") -> AgentChatService:
+    store = AgentChatStore(path)
+    return AgentChatService(store, assistant_name=lambda: "Dodaios", default_cwd=lambda: str(cwd))
+
+
+def test_first_use_creates_one_conversation_on_the_chat_pick(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+    first = svc.lead_session()
+    assert first is not None
+    assert (first.provider, first.model, first.surface) == ("openai", "m", "jarvis")
+    assert svc.lead_session().session_id == first.session_id
+    assert svc.store.lead_session_id() == first.session_id
+    assert len(svc.store.list_sessions(limit=10, surface="jarvis")) == 1
+
+
+def test_an_upgrade_adopts_the_newest_existing_chat(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.create_session(provider="openai", model="m", effort="low", surface="jarvis")
+    newest = svc.create_session(provider="openai", model="m", effort="low", surface="jarvis")
+    svc.store._conn.execute(  # noqa: SLF001 — make "newest" unambiguous
+        "UPDATE agent_chat_sessions SET updated_ms = updated_ms + 10000 WHERE session_id = ?",
+        (newest.session_id,),
+    )
+    assert svc.lead_session().session_id == newest.session_id
+    # Once chosen, a later chat never takes the lead's place.
+    svc.create_session(provider="openai", model="m", effort="low", surface="jarvis")
+    assert svc.lead_session().session_id == newest.session_id
+
+
+def test_the_choice_survives_a_restart(tmp_path: Path) -> None:
+    db = str(tmp_path / "agent_chat.db")
+    first = _service(tmp_path, db)
+    first.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+    sid = first.lead_session().session_id
+    first.store.close()
+    again = _service(tmp_path, db)
+    assert again.lead_session().session_id == sid
+
+
+def test_a_deleted_lead_is_replaced(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+    sid = svc.lead_session().session_id
+    svc.store.delete_session(sid)
+    replacement = svc.lead_session()
+    assert replacement is not None and replacement.session_id != sid
+    assert lead.is_lead(svc, replacement.session_id)
+
+
+def test_create_false_never_writes(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    assert lead.lead_session(svc, create=False) is None
+    assert svc.store.list_sessions(limit=10, surface="jarvis") == []
+
+
+def test_a_new_pick_changes_the_seat_not_the_conversation(tmp_path: Path) -> None:
+    svc = _service(tmp_path)
+    svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+    sid = svc.lead_session().session_id
+    updated = lead.adopt_seat(svc, {"provider": "openai", "model": "other", "effort": None})
+    assert updated.session_id == sid
+    assert updated.model == "other"
+    with pytest.raises(ValueError):
+        lead.adopt_seat(svc, {"provider": "no-such-provider"})
+
+
+def test_voice_history_is_the_conversation_tail(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+        for i in range(30):
+            await svc.import_voice_turn(sid, f"question {i}", f"answer {i}", voice_turn_id=f"v{i}")
+        events = svc.store.list_events(sid)
+        # More than the old 40-message window; the char budget decides.
+        full = lead.voice_history(sid, events)
+        assert len(full) == 60
+        assert full[-1].content == "answer 29"
+        small = lead.voice_history(sid, events, max_chars=200)
+        assert 0 < len(small) < 60
+        assert small[-1].content == "answer 29"
+        # An unbound call starts on the lead's conversation.
+        assert [m.content for m in svc.voice_chat_history()][-1] == "answer 29"
+
+    asyncio.run(scenario())
+
+
+def test_routes_return_the_one_conversation_and_keep_it(tmp_path: Path, monkeypatch) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from dodaios.ui.web import agent_chat_routes
+
+    async def no_live_models() -> dict:
+        return {}
+
+    monkeypatch.setattr(agent_chat_routes, "_live_cli_models", no_live_models)
+    monkeypatch.setattr(agent_chat_routes, "_cli_installed", lambda runner: False)
+    application = FastAPI()
+    application.include_router(agent_chat_routes.router)
+    application.state.agent_chat = _service(tmp_path, str(tmp_path / "chat.db"))
+    with TestClient(application) as client:
+        body = {"surface": "jarvis", "provider": "openai", "model": "first", "cwd": str(tmp_path)}
+        first = client.post("/api/agent-chat/sessions", json=body)
+        assert first.status_code == 201, first.text
+        assert first.json()["lead"] is True
+        second = client.post("/api/agent-chat/sessions", json={**body, "model": "second"})
+        assert second.json()["session_id"] == first.json()["session_id"]
+        assert second.json()["model"] == "second"
+        sid = first.json()["session_id"]
+        refused = client.delete(f"/api/agent-chat/sessions/{sid}")
+        assert refused.status_code == 409
+        # Coding chats keep their own sessions.
+        coding = client.post(
+            "/api/agent-chat/sessions", json={**body, "surface": "agent", "provider": "openai"}
+        )
+        assert coding.json()["session_id"] != sid

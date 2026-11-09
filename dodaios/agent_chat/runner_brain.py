@@ -710,7 +710,8 @@ async def _generate(
     # The task inherits the credential override through its context copy, so
     # the scoped brain instance resolves the Agents-tab key on first use.
     with override_provider_secrets(overrides):
-        if session.surface == "society":
+        lead_thread = session.surface == "jarvis" and _is_lead(session.session_id)
+        if session.surface == "society" or lead_thread:
             from dodaios.society.conversation import prepare_history
             from dodaios.society.runtime import current_runtime
 
@@ -729,6 +730,11 @@ async def _generate(
                     text,
                     provider,
                     prompt_chars=len(override.system_extra) + 16000,
+                    **(
+                        {"recall_hint": "older details are summarized, ask if one is missing"}
+                        if lead_thread
+                        else {}
+                    ),
                 )
         task: asyncio.Task[str] = asyncio.create_task(
             brain.generate(text, **kwargs), name=f"agent-chat-brain-{handle.turn_id[:8]}"
@@ -760,6 +766,19 @@ async def _generate(
         raise asyncio.CancelledError
     finally:
         waiter.cancel()
+
+
+def _is_lead(session_id: str) -> bool:
+    """True when ``session_id`` is the lead's one endless conversation."""
+    try:
+        from dodaios.agent_chat.lead import is_lead
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+    except Exception:  # noqa: BLE001 — no service: keep the plain window
+        return False
+    return svc is not None and is_lead(svc, session_id)
 
 
 def _agent_secret(resolver: Callable[[str], str | None], provider: str) -> str | None:

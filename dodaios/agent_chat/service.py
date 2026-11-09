@@ -1940,9 +1940,19 @@ class AgentChatService:
         archived = (voice_session or "").strip() or None
         continue_voice_session(archived if session_id is None else None)
         self._voice_archive_history = voice_history if archived and session_id is None else None
+        if session_id is None and archived:
+            self._voice_chat_id = None
+            self._voice_chat_fresh = False
+        else:
+            if session_id is None:
+                # No "blank page" any more: a call without a chosen chat
+                # continues the lead's one conversation.
+                from dodaios.agent_chat.lead import lead_session
+
+                lead = lead_session(self)
+                session_id = lead.session_id if lead is not None else None
         if session_id is None:
             self._voice_chat_id = None
-            self._voice_chat_fresh = True
         else:
             session = self.store.get_session(session_id)
             if session is None or session.surface != "jarvis":
@@ -1962,10 +1972,25 @@ class AgentChatService:
         archive = self._voice_archive_history
         if archive is not None and self.voice_session_continued:
             return archive()
+        from dodaios.agent_chat import lead
+
         session_id = self._voice_chat_id
         if not session_id or self.store.get_session(session_id) is None:
+            # Nothing chosen on screen: the call continues the lead's conversation.
+            current = lead.lead_session(self)
+            session_id = current.session_id if current is not None else None
+        if not session_id:
             return []
-        return brain_history_from_events(self.store.list_events(session_id))
+        events = self.store.list_events(session_id)
+        if lead.is_lead(self, session_id):
+            return lead.voice_history(session_id, events)
+        return brain_history_from_events(events)
+
+    def lead_session(self) -> AgentChatSession | None:
+        """The lead's one endless conversation (see ``agent_chat/lead.py``)."""
+        from dodaios.agent_chat.lead import lead_session
+
+        return lead_session(self)
 
     def voice_call_chat(self, call_id: str) -> str | None:
         """The chat a running call already files into, if its first turn landed."""
