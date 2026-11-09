@@ -3,6 +3,12 @@
 #include "Bot/VerseBotAdaptiveConfig.h"
 #include "Bot/VerseBotTier.h"
 #include "Brain/VerseBotBrainCore.h"
+#include "Brain/VerseBotGridBelief.h"
+#include "Controller/VerseBotArenaData.h"
+#include "Belief/VerseBeliefDebugDraw.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "Misc/Paths.h"
 #include "Controller/VerseBotEngineQueries.h"
 #include "Engine/World.h"
 #include "GameFramework/GameStateBase.h"
@@ -17,6 +23,8 @@ namespace
 {
 	const FName BotTierField(TEXT("BotTier"));
 	const FName BotSkillField(TEXT("BotEffectiveSkill"));
+	/** Match seconds between two health lines of a bot. */
+	constexpr float DiagnosticPeriodS = 30.f;
 
 	float SkillOf(FName TierId)
 	{
@@ -158,6 +166,57 @@ void AVerseBotController::ReceivePerceptFrame(const FVersePerceptFrame& Frame)
 	bHasRealFrame = true;
 }
 
+void AVerseBotController::AttachArena()
+{
+	UWorld* World = GetWorld();
+	if (bArenaAttached || !World || !Brain || !DefaultQueries)
+	{
+		return;
+	}
+	IVerseBotWorldQueries& Queries = QueriesOverride ? *QueriesOverride : *DefaultQueries;
+	GridBelief = FVerseBotArenaData::AttachTo(*World, *Brain, *static_cast<FVerseBotEngineQueries*>(DefaultQueries.Get()), Queries,
+		PlayerState ? PlayerState->GetPlayerId() : INDEX_NONE);
+	if (!GridBelief)
+	{
+		return;
+	}
+	bArenaAttached = true;
+	FParse::Value(FCommandLine::Get(), TEXT("VerseBotBeliefPng="), BeliefPngDir);
+	UE_LOG(LogVerseBot, Log, TEXT("[VerseBot] %s: belief grid attached (%d cells)"), *GetName(), GridBelief->GetMap().GetGrid().NumCells());
+}
+
+void AVerseBotController::LogDiagnostics(const FVersePerceptFrame& Frame, const FVerseInputFrame& Input)
+{
+	++DiagFrames;
+	DiagSightFrames += Frame.Sightings.ContainsByPredicate([](const FVerseSightPercept& S) { return S.VisibleMask != 0; }) ? 1 : 0;
+	DiagHeardFrames += Frame.Heard.Num() > 0 ? 1 : 0;
+	DiagFireFrames += (Input.Buttons & uint32(EVerseInputButton::Fire)) != 0 ? 1 : 0;
+	const float NowS = float(Frame.ServerTimeMs) / 1000.f;
+	if (NowS < NextDiagnosticS)
+	{
+		return;
+	}
+	NextDiagnosticS = NowS + (BeliefPngDir.IsEmpty() ? DiagnosticPeriodS : 5.f);
+	const FVerseBotPresentation P = Brain->GetPresentation();
+	const APawn* Own = GetPawn();
+	UE_LOG(LogVerseBot, Log,
+		TEXT("[VerseBot] %s t=%.0f s: state %s, belief %s conf %.2f at %s, at %s, frames %d (sight %d, heard %d, fire %d; want %d, unclassified %d, unaimed %d), grid %d"),
+		*GetName(), NowS, *P.StateTag.ToString(), *UEnum::GetValueAsString(Brain->GetBelief().Summary().State), P.Confidence,
+		*P.BeliefTop.ToCompactString(), Own ? *Own->GetActorLocation().ToCompactString() : TEXT("-"), DiagFrames, DiagSightFrames,
+		DiagHeardFrames, DiagFireFrames, Brain->FireWantTicks, Brain->FireUnclassifiedTicks, Brain->FireUnaimedTicks, bArenaAttached ? 1 : 0);
+	Brain->FireWantTicks = Brain->FireUnclassifiedTicks = Brain->FireUnaimedTicks = 0;
+	DiagFrames = DiagSightFrames = DiagHeardFrames = DiagFireFrames = 0;
+	if (GridBelief && !BeliefPngDir.IsEmpty())
+	{
+		const FVector Marks[] = {Own ? Own->GetActorLocation() : FVector::ZeroVector};
+		for (const EVerseArenaLevel Level : {EVerseArenaLevel::Floor, EVerseArenaLevel::Upper})
+		{
+			const FString Path = FPaths::Combine(BeliefPngDir, FString::Printf(TEXT("%s_%04d_L%d.png"), *GetName(), int32(NowS), int32(Level)));
+			FVerseBeliefDebugDraw::SavePng(Path, GridBelief->GetMap().GetGrid(), GridBelief->GetMap().GetDerived(), Level, 4, Marks);
+		}
+	}
+}
+
 void AVerseBotController::ResetMatch()
 {
 	EnsureBrain();
@@ -272,6 +331,8 @@ void AVerseBotController::EndPlay(const EEndPlayReason::Type Reason)
 	{
 		MatchMemory->ResetMatch();
 	}
+	GridBelief = nullptr;
+	bArenaAttached = false;
 	Brain.Reset();
 	bBrainReady = false;
 	Super::EndPlay(Reason);
@@ -298,10 +359,12 @@ void AVerseBotController::Tick(float DeltaSeconds)
 	// One monotonic clock for the brain: a frame never moves time backward.
 	Frame.ServerTimeMs = FMath::Max(Frame.ServerTimeMs, LastThinkMs);
 	LastThinkMs = Frame.ServerTimeMs;
+	AttachArena();
 	IVerseBotWorldQueries& Queries = QueriesOverride ? *QueriesOverride : *DefaultQueries;
 	const FVerseInputFrame Input = Brain->Think(Frame, Queries);
 	if (GetPawn())
 	{
 		ApplyInput(Input);
 	}
+	LogDiagnostics(Frame, Input);
 }

@@ -12,6 +12,7 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Perception/VersePerceptionService.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -106,8 +107,18 @@ bool FVerseHarnessModelsActTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("A spawned at side 0"), DistTo(A, Side0) < 1.0);
 	TestTrue(TEXT("B spawned at side 1"), DistTo(B, Side1) < 1.0);
 
-	// One server tick: the feed delivers frames, the trick layers act without any brain.
+	// The models read the perception service's frames, the frames a bot reads (bot.md F6).
+	TestTrue(TEXT("A is served by the perception service"), Run->GetPerceptFeed()->IsServed(A));
+	TestTrue(TEXT("B is served by the perception service"), Run->GetPerceptFeed()->IsServed(B));
+
+	// One server tick: the service delivers frames, the trick layers act without any brain.
 	TestTrue(TEXT("tick runs"), Run->Tick());
+	UVersePerceptionService* Service = UVersePerceptionService::Get(Fixture.World);
+	if (!TestNotNull(TEXT("the fixture world has the perception service"), Service))
+	{
+		return false;
+	}
+	Service->StepPerception(1.f / 60.f);
 	TestEqual(TEXT("A thought once"), Cast<AVerseModelController>(A)->GetFramesThought(), int64(1));
 	const APawn* PawnA = A ? A->GetPawn() : nullptr;
 	TestTrue(TEXT("the rusher pushes its pawn forward"), PawnA && PawnA->GetPendingMovementInputVector().X > 0.5);
@@ -218,6 +229,8 @@ bool FVerseHarnessInputApplyTest::RunTest(const FString& Parameters)
 
 	// Frames of another observer are not this model's.
 	UVerseHarnessPerceptFeed* Feed = NewObject<UVerseHarnessPerceptFeed>();
+	// The null fallback (worlds without the service): frames come from the feed's own tick.
+	Feed->SetUseService(false);
 	Model->AttachPerception(Feed, FVersePerceptionProfile());
 	Model->HandlePerceptFrame(nullptr, FVersePerceptFrame());
 	TestEqual(TEXT("foreign frame ignored"), Model->GetFramesThought(), int64(0));
@@ -227,6 +240,68 @@ bool FVerseHarnessInputApplyTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("self percept is the own pawn"), Self.Location, Pawn->GetActorLocation());
 	Model->DetachPerception();
 	TestEqual(TEXT("detached"), Feed->NumObservers(), 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseBotFairnessF6PersonPerceptTest, "Verse.Bot.Fairness.F6.PersonModelsReadServiceFrames",
+								 VerseHarnessWorldTestPrivate::Flags)
+bool FVerseBotFairnessF6PersonPerceptTest::RunTest(const FString& Parameters)
+{
+	// bot.md F6 symmetry: a person model reads the FVersePerceptFrame the perception service makes,
+	// with perception error applied, not a null feed and not world truth.
+	using namespace VerseHarnessWorldTestPrivate;
+	FFixtureWorld Fixture;
+	UVersePerceptionService* Service = UVersePerceptionService::Get(Fixture.World);
+	if (!TestNotNull(TEXT("the fixture world has the perception service"), Service))
+	{
+		return false;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AVerseModelController* Watcher = Fixture.World->SpawnActor<AVerseModelController>(Params);
+	AVerseModelController* Target = Fixture.World->SpawnActor<AVerseModelController>(Params);
+	ACharacter* WatcherPawn = Fixture.World->SpawnActor<ACharacter>(ACharacter::StaticClass(), FTransform(FVector(0, 0, 100)), Params);
+	ACharacter* TargetPawn = Fixture.World->SpawnActor<ACharacter>(ACharacter::StaticClass(), FTransform(FRotator(0, 180, 0), FVector(1000, 0, 100)), Params);
+	Watcher->Possess(WatcherPawn);
+	Target->Possess(TargetPawn);
+	Watcher->SetControlRotation(FRotator::ZeroRotator);
+	Target->SetControlRotation(FRotator(0, 180, 0));
+
+	UVerseHarnessPerceptFeed* Feed = NewObject<UVerseHarnessPerceptFeed>();
+	TArray<FVersePerceptFrame> Frames;
+	Feed->OnPerceptFrame.AddLambda([&Frames, Watcher](AController* Observer, const FVersePerceptFrame& Frame)
+	{
+		if (Observer == Watcher)
+		{
+			Frames.Add(Frame);
+		}
+	});
+	FVersePerceptionProfile Profile;
+	Profile.Seed = 11;
+	Watcher->AttachPerception(Feed, Profile);
+	Target->AttachPerception(Feed, Profile);
+	TestTrue(TEXT("the watcher is served by the service"), Feed->IsServed(Watcher));
+
+	// The feed's own tick adds nothing for served observers: one source of frames.
+	Feed->Tick(Fixture.World);
+	TestEqual(TEXT("no null frame for a served observer"), Frames.Num(), 0);
+
+	for (int32 Step = 0; Step < 60; ++Step)
+	{
+		Service->StepPerception(1.f / 60.f);
+	}
+	TestTrue(TEXT("the service delivered frames"), Frames.Num() >= 30);
+	const bool bSaw = Frames.ContainsByPredicate([](const FVersePerceptFrame& F)
+		{ return F.Sightings.ContainsByPredicate([](const FVerseSightPercept& S) { return S.VisibleMask != 0; }); });
+	TestTrue(TEXT("the watcher sees the model in front of it in open space"), bSaw);
+	TestTrue(TEXT("own pose comes with the frame"), Frames.Num() > 0 && Frames.Last().Self.Location.Equals(WatcherPawn->GetActorLocation(), 1.0));
+
+	Watcher->DetachPerception();
+	TestFalse(TEXT("detached from the service"), Feed->IsServed(Watcher));
+	const int32 Before = Frames.Num();
+	Service->StepPerception(1.f / 60.f);
+	TestEqual(TEXT("no frames after detaching"), Frames.Num(), Before);
+	Target->DetachPerception();
 	return true;
 }
 

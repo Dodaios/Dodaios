@@ -64,6 +64,11 @@ public:
 	/** Use an external memory (UVerseBotMatchMemory of the controller); it must outlive the brain. */
 	void UseMemory(FVerseBotMatchMemory& InMemory);
 	const IVerseBotBelief& GetBelief() const { return *Belief; }
+
+	/** Health counters (diagnostics, never read by the brain): ticks a fire intent reached the gate, was unclassified, was not yet aimed. */
+	int32 FireWantTicks = 0;
+	int32 FireUnclassifiedTicks = 0;
+	int32 FireUnaimedTicks = 0;
 	int32 GetDecisionCount() const { return DecisionIndex; }
 	/** Number of decisions per state since Init (presentation, harness). */
 	const int32* GetStateCounts() const { return StateCounts; }
@@ -101,6 +106,7 @@ private:
 	void OnOwnDeath();
 	void OnOwnRespawn();
 	void TacticsVisibleReset();
+	void ForgetSearchTarget();
 	FVector NextWaypoint(const FVector& Target, bool bCrouch);
 
 	const UVerseBotTier* Tier = nullptr;

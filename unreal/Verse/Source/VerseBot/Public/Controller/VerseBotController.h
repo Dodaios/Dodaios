@@ -86,6 +86,10 @@ private:
 	/** The world's server clock, ms: one clock for service frames and refreshed frames. */
 	uint32 WorldServerTimeMs() const;
 	const UVerseBotTier* EffectiveTier();
+	/** Once the runtime nav mesh is built: the belief grid and the cover points (bot.md 4, 6). */
+	void AttachArena();
+	/** One health line every DiagnosticPeriodS of match time: state, belief, percepts, shots. */
+	void LogDiagnostics(const FVersePerceptFrame& Frame, const FVerseInputFrame& Input);
 
 	TUniquePtr<FVerseBotBrainCore> Brain;
 	TUniquePtr<IVerseBotWorldQueries> DefaultQueries;
@@ -113,4 +117,15 @@ private:
 	uint64 Seed = 0;
 	uint64 FixedSeed = 0;
 	bool bBrainReady = false;
+
+	bool bArenaAttached = false;
+	/** The grid belief the brain owns (valid while the brain lives and bArenaAttached). */
+	const class FVerseBotGridBelief* GridBelief = nullptr;
+	/** -VerseBotBeliefPng=<dir>: top-down belief images with each health line (debug evidence). */
+	FString BeliefPngDir;
+	float NextDiagnosticS = 0.f;
+	int32 DiagFrames = 0;
+	int32 DiagSightFrames = 0;
+	int32 DiagHeardFrames = 0;
+	int32 DiagFireFrames = 0;
 };

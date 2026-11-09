@@ -1,5 +1,7 @@
 #include "Controller/VerseBotEngineQueries.h"
 
+#include "Controller/VerseBotArenaData.h"
+
 #include "CollisionQueryParams.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
@@ -145,7 +147,8 @@ FVerseBotPath FVerseBotEngineQueries::FindPath(const FVector& From, const FVecto
 	UWorld* World = C ? C->GetWorld() : nullptr;
 	if (UNavigationSystemV1* Nav = World ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr)
 	{
-		const UNavigationPath* Path = Nav->FindPathToLocationSynchronously(World, From, To, C->GetPawn());
+		// The default nav agent (one agent size in the arena); no pawn is handed to the query.
+		const UNavigationPath* Path = Nav->FindPathToLocationSynchronously(World, From, To, nullptr);
 		// A partial path still leads to the reachable point nearest the goal (never into a wall).
 		if (Path && Path->IsValid() && Path->PathPoints.Num() > 1)
 		{
@@ -167,6 +170,10 @@ FVerseBotPath FVerseBotEngineQueries::FindPath(const FVector& From, const FVecto
 void FVerseBotEngineQueries::GetCoverPoints(const FVector& Center, float RadiusCm, TArray<FVerseBotCoverPoint>& Out)
 {
 	Out.Reset();
+	if (Arena.IsValid())
+	{
+		Arena->PointsWithin(Center, RadiusCm, Out);
+	}
 }
 
 void FVerseBotEngineQueries::GetPieces(const FVector& Center, float RadiusCm, TArray<FVerseBotPieceInfo>& Out)

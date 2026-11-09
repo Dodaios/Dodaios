@@ -49,6 +49,11 @@ struct VERSEHARNESS_API FVersePersonModel
 	float AimWanderTheta = 3.f;
 	bool bLearning = true;
 	float LearnWeight = 0.1f;
+	/**
+	 * Where the model's decisions sit on the tier scale (0 normal, 0.5 hard, 1 elite; bot.md 9.2
+	 * interpolation): the brain's tactics before the person numbers above replace aim and reaction.
+	 */
+	float BaseSkill = 0.5f;
 };
 
 /** What a trick asks of the brain's decisions (read by the brain once WP08 lands). */

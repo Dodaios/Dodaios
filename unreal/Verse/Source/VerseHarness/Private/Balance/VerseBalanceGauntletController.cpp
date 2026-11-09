@@ -2,7 +2,15 @@
 
 #include "Balance/VerseHarnessPerceptFeed.h"
 #include "Balance/VerseModelController.h"
+#include "Bot/VerseBotAdaptiveConfig.h"
 #include "Bot/VerseBotTier.h"
+#include "Controller/VerseBotController.h"
+#include "HangarSwitch/VerseHangarSwitchSubsystem.h"
+#include "Perception/VersePerceptionModel.h"
+#include "Perception/VersePerceptionService.h"
+#include "Rules/VerseSpawnPoint.h"
+#include "VerseArenaGraybox.h"
+#include "Weapons/VerseCombatEvents.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Events/VerseEventHub.h"
@@ -174,6 +182,7 @@ bool UVerseBalanceGauntletController::Start(UWorld* InWorld, const FVerseHarness
 	{
 		return false;
 	}
+	PrepareArena(*InWorld);
 	Feed = NewObject<UVerseHarnessPerceptFeed>(this);
 	IFileManager::Get().MakeDirectory(*Scenario.OutputDir, true);
 	BoutsFile = FPaths::Combine(Scenario.OutputDir, TEXT("bouts.jsonl"));
@@ -205,6 +214,54 @@ bool UVerseBalanceGauntletController::Start(UWorld* InWorld, const FVerseHarness
 		return false;
 	}
 	return true;
+}
+
+void UVerseBalanceGauntletController::PrepareArena(UWorld& InWorld)
+{
+	// The hangar has no arena until a duel starts one (arena.md 10): build the WP11 graybox and
+	// switch the hangar to arena mode, as the duel's quick start does. Fixture worlds (no game
+	// mode, no hangar switch) keep what the test placed.
+	if (!UVerseHangarSwitchSubsystem::Get(&InWorld) || !InWorld.GetAuthGameMode())
+	{
+		return;
+	}
+	AVerseArenaGraybox::BuildIfMissing(InWorld);
+	UVerseHangarSwitchSubsystem* Switch = UVerseHangarSwitchSubsystem::Get(&InWorld);
+	if (!Switch->RequestArena(true, UVerseHangarSwitchSubsystem::QuickStartReason))
+	{
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(&InWorld))
+		{
+			FVerseArenaSwitchEvent Event;
+			Event.bArenaOn = true;
+			Event.Deck = UVerseHangarSwitchSubsystem::HangarDeck;
+			Event.ServerTime = VerseCombatEvents::ServerTime(&InWorld);
+			Hub->OnArenaSwitch.Broadcast(Event);
+		}
+	}
+	UE_LOG(LogVerseHarness, Display, TEXT("[VerseHarness] arena prepared"));
+}
+
+UVerseBotTier* UVerseBalanceGauntletController::PersonTier(UObject* Outer, const FVersePersonModel& Person)
+{
+	// The tactics of the model's place on the tier scale, then the person's own numbers (bot.md 11.2).
+	UObject* Owner = Outer ? Outer : GetTransientPackage();
+	UVerseBotTier* Normal = NewObject<UVerseBotTier>(Owner);
+	UVerseBotTier* Hard = NewObject<UVerseBotTier>(Owner);
+	UVerseBotTier* Elite = NewObject<UVerseBotTier>(Owner);
+	UVerseBotTier::ApplyStartValues(TEXT("normal"), *Normal);
+	UVerseBotTier::ApplyStartValues(TEXT("hard"), *Hard);
+	UVerseBotTier::ApplyStartValues(TEXT("elite"), *Elite);
+	UVerseBotTier* Tier = NewObject<UVerseBotTier>(Owner);
+	UVerseBotAdaptiveConfig::InterpolateTier(*Normal, *Hard, *Elite, Person.BaseSkill, *Tier);
+	Tier->TierId = Person.Name;
+	Tier->ReactionMs = FVector2f(Person.ReactionMeanMs, Person.ReactionSdMs);
+	Tier->TurnRateDegS = Person.TurnRateDegS;
+	Tier->RecoilPatternComp = Person.RecoilPatternComp;
+	Tier->HeadAimChance = Person.HeadAimChance;
+	Tier->AimNoiseDeg = Person.AimWanderSdDeg;
+	Tier->AimNoiseRate = Person.AimWanderTheta;
+	Tier->LearnWeightMax = Person.bLearning ? Person.LearnWeight : 0.f;
+	return Tier;
 }
 
 UVerseBotTier* UVerseBalanceGauntletController::MakeTier(UObject* Outer, FName TierId, bool bLearning, const FString& TierPatchJson,
@@ -288,7 +345,7 @@ FVersePersonModel UVerseBalanceGauntletController::PersonFromTier(const UVerseBo
 	return Person;
 }
 
-bool UVerseBalanceGauntletController::ConfigureBot(AController& Bot, const FVerseHarnessSlot& Slot, const FString& TierPatchJson,
+bool UVerseBalanceGauntletController::ConfigureBot(AController& Bot, const FVerseHarnessSlot& Slot, const FString& TierPatchJson, uint32 SlotSeed,
 												   FString& OutError)
 {
 	using namespace VerseBalancePrivate;
@@ -298,6 +355,28 @@ bool UVerseBalanceGauntletController::ConfigureBot(AController& Bot, const FVers
 		return false;
 	}
 	UnitTiers.Add(Tier);
+	if (AVerseBotController* Verse = Cast<AVerseBotController>(&Bot))
+	{
+		Verse->SetSeed(SlotSeed);
+		Verse->SetTier(Tier);
+		Verse->SetAdaptive(Slot.Tier == TEXT("adaptive"));
+		// Perception (bot.md 2): the service serves the slot with its tier's profile; the duel
+		// subsystem of the world delivers the frames to every bot controller it serves.
+		if (UVersePerceptionService* Service = UVersePerceptionService::Get(&Bot))
+		{
+			const UVerseBotTier* ProfileTier = Tier;
+			UVerseBotTier* Hard = nullptr;
+			if (Slot.Tier == TEXT("adaptive"))
+			{
+				// The adaptive bot perceives as its interpolated tier would; hard is the middle.
+				Hard = MakeTier(this, TEXT("hard"), Slot.bLearning, TierPatchJson, OutError);
+				ProfileTier = Hard ? Hard : Tier;
+			}
+			Service->UnregisterObserver(&Bot);
+			Service->RegisterObserver(&Bot, FVersePerceptionModel::MakeProfile(*ProfileTier, uint32(SlotSeed)));
+		}
+		return true;
+	}
 	const bool bTier = CallBotFunction(
 		Bot, TEXT("SetTier"),
 		[Tier](FProperty& Param, void* Value)
@@ -352,7 +431,7 @@ AController* UVerseBalanceGauntletController::SpawnSlot(const FVerseHarnessSlot&
 				OutError = TEXT("cannot spawn ") + BotClass->GetName();
 				return nullptr;
 			}
-			if (!ConfigureBot(*Bot, Slot, TierPatchJson, OutError))
+			if (!ConfigureBot(*Bot, Slot, TierPatchJson, SlotSeed, OutError))
 			{
 				Bot->Destroy();
 				return nullptr;
@@ -400,8 +479,20 @@ AController* UVerseBalanceGauntletController::SpawnSlot(const FVerseHarnessSlot&
 		return nullptr;
 	}
 	Model->Configure(Person, Trick, SlotSeed);
-	FVersePerceptionProfile Profile;
-	Profile.Seed = SlotSeed;
+	UVerseBotTier* BrainTier = !Slot.Model.IsNone() ? PersonTier(this, Person) : MakeTier(this, Slot.Tier, Slot.bLearning, TierPatchJson, OutError);
+	if (!BrainTier)
+	{
+		Model->Destroy();
+		return nullptr;
+	}
+	if (!Slot.bLearning || !Person.bLearning)
+	{
+		BrainTier->LearnWeightMax = 0.f;
+	}
+	UnitTiers.Add(BrainTier);
+	Model->UseBotBrain(BrainTier, FVerseRng::Hash(SlotSeed, 0xB4, 0), BrainTier->LearnWeightMax > 0.f);
+	// The person perceives with the person's reaction and the brain tier's hearing (bot.md F6).
+	FVersePerceptionProfile Profile = FVersePerceptionModel::MakeProfile(*BrainTier, SlotSeed);
 	Model->AttachPerception(Feed, Profile);
 	return Model;
 }
@@ -431,6 +522,43 @@ void UVerseBalanceGauntletController::ResolveSpawnPair()
 		if (!Side1 && Start->PlayerStartTag == TEXT("VerseSide1"))
 		{
 			Side1 = Start;
+		}
+	}
+	if (!Side0 || !Side1)
+	{
+		TArray<FVector> Arena;
+		if (W)
+		{
+			for (TActorIterator<AVerseSpawnPoint> It(W); It; ++It)
+			{
+				Arena.Add(It->GetActorLocation());
+			}
+		}
+		Arena.Sort([](const FVector& L, const FVector& R) { return L.X != R.X ? L.X < R.X : L.Y < R.Y; });
+		// The pair farthest apart: the two sides of the arena.
+		int32 BestA = INDEX_NONE;
+		int32 BestB = INDEX_NONE;
+		double Best = -1.0;
+		for (int32 I = 0; I < Arena.Num(); ++I)
+		{
+			for (int32 J = I + 1; J < Arena.Num(); ++J)
+			{
+				const double D = FVector::DistSquared(Arena[I], Arena[J]);
+				if (D > Best)
+				{
+					Best = D;
+					BestA = I;
+					BestB = J;
+				}
+			}
+		}
+		if (BestA != INDEX_NONE)
+		{
+			const FVector A = Arena[BestA];
+			const FVector B = Arena[BestB];
+			SpawnPair[0] = FTransform((B - A).GetSafeNormal2D().Rotation(), A);
+			SpawnPair[1] = FTransform((A - B).GetSafeNormal2D().Rotation(), B);
+			return;
 		}
 	}
 	if ((!Side0 || !Side1) && Starts.Num() >= 2)
@@ -655,6 +783,11 @@ void UVerseBalanceGauntletController::ReadAdaptive()
 		AController* Controller = Weak.Get();
 		if (!Controller || Controller->IsA<AVerseModelController>())
 		{
+			continue;
+		}
+		if (const AVerseBotController* Verse = Cast<AVerseBotController>(Controller))
+		{
+			AdaptiveTrace.Add(Verse->GetEffectiveSkill());
 			continue;
 		}
 		float Skill = 0.f;
