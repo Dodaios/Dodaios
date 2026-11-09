@@ -7,6 +7,8 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
 #include "AI/NavigationSystemBase.h"
+#include "NavigationPath.h"
+#include "NavigationSystem.h"
 #include "CollisionQueryParams.h"
 #include "Events/VerseEventHub.h"
 #include "GameFramework/Pawn.h"
@@ -42,135 +44,36 @@ namespace
 		return P.X > Box.Min.X && P.X < Box.Max.X && P.Y > Box.Min.Y && P.Y < Box.Max.Y && P.Z > Box.Min.Z && P.Z < Box.Max.Z;
 	}
 
-	/**
-	 * Static UFUNCTIONs of NavigationSystemV1, called through reflection: VerseCrew.Build.cs
-	 * links Core, CoreUObject and Engine only (architecture.md section 2), so the
-	 * NavigationSystem module's symbols are out of reach at link time. The PR's change request
-	 * asks the integration owner for that dependency; until then this is the path.
-	 */
+	/** Typed Recast queries through NavigationSystemV1 (VerseCrew links NavigationSystem, change request #1167). */
 	struct FNavCalls
 	{
-		UClass* NavClass = nullptr;
-		UFunction* FindPath = nullptr;
-		UFunction* Project = nullptr;
-
 		static const FNavCalls& Get()
 		{
 			static FNavCalls Calls;
-			if (!Calls.FindPath || !Calls.Project)
-			{
-				Calls.NavClass = FindObject<UClass>(nullptr, TEXT("/Script/NavigationSystem.NavigationSystemV1"));
-				Calls.FindPath = Calls.NavClass ? Calls.NavClass->FindFunctionByName(TEXT("FindPathToLocationSynchronously")) : nullptr;
-				Calls.Project = Calls.NavClass ? Calls.NavClass->FindFunctionByName(TEXT("K2_ProjectPointToNavigation")) : nullptr;
-			}
 			return Calls;
-		}
-
-		/** Calls a static UFUNCTION: Fill sets the parameters (false skips the call), Read takes the results. */
-		template <typename FillFn, typename ReadFn>
-		void Call(UFunction* Function, FillFn&& Fill, ReadFn&& Read) const
-		{
-			uint8* Params = static_cast<uint8*>(FMemory::Malloc(FMath::Max<int32>(Function->ParmsSize, 1), 16));
-			FMemory::Memzero(Params, Function->ParmsSize);
-			for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
-			{
-				It->InitializeValue_InContainer(Params);
-			}
-			if (Fill(Params))
-			{
-				NavClass->GetDefaultObject()->ProcessEvent(Function, Params);
-				Read(Params);
-			}
-			for (TFieldIterator<FProperty> It(Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
-			{
-				It->DestroyValue_InContainer(Params);
-			}
-			FMemory::Free(Params);
-		}
-
-		static FVector* VectorParam(UFunction* Function, uint8* Params, const TCHAR* Name)
-		{
-			FStructProperty* Prop = CastField<FStructProperty>(Function->FindPropertyByName(Name));
-			return Prop ? Prop->ContainerPtrToValuePtr<FVector>(Params) : nullptr;
-		}
-
-		static bool SetWorld(UFunction* Function, uint8* Params, UWorld* World)
-		{
-			FObjectProperty* Prop = CastField<FObjectProperty>(Function->FindPropertyByName(TEXT("WorldContextObject")));
-			if (!Prop)
-			{
-				return false;
-			}
-			Prop->SetObjectPropertyValue_InContainer(Params, World);
-			return true;
 		}
 
 		/** The navmesh point within Extent of Point, if any. */
 		bool ProjectPoint(UWorld* World, const FVector& Point, const FVector& Extent, FVector& Out) const
 		{
-			if (!Project)
+			FNavLocation Projected;
+			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+			if (!Nav || !Nav->ProjectPointToNavigation(Point, Projected, Extent))
 			{
 				return false;
 			}
-			bool bOk = false;
-			Call(
-				Project,
-				[&](uint8* Params) {
-					FVector* InPoint = VectorParam(Project, Params, TEXT("Point"));
-					FVector* InExtent = VectorParam(Project, Params, TEXT("QueryExtent"));
-					if (!InPoint || !InExtent || !SetWorld(Project, Params, World))
-					{
-						return false;
-					}
-					*InPoint = Point;
-					*InExtent = Extent;
-					return true;
-				},
-				[&](uint8* Params) {
-					const FBoolProperty* Ret = CastField<FBoolProperty>(Project->GetReturnProperty());
-					const FVector* Projected = VectorParam(Project, Params, TEXT("ProjectedLocation"));
-					bOk = Ret && Projected && Ret->GetPropertyValue_InContainer(Params);
-					if (bOk)
-					{
-						Out = *Projected;
-					}
-				});
-			return bOk;
+			Out = Projected.Location;
+			return true;
 		}
 
 		/** Recast path points between two navmesh points. */
 		bool PathPoints(UWorld* World, const FVector& From, const FVector& To, TArray<FVector>& OutPoints) const
 		{
-			if (!FindPath)
+			UNavigationPath* Path = UNavigationSystemV1::FindPathToLocationSynchronously(World, From, To);
+			if (Path && Path->IsValid())
 			{
-				return false;
+				OutPoints = Path->PathPoints;
 			}
-			Call(
-				FindPath,
-				[&](uint8* Params) {
-					FVector* Start = VectorParam(FindPath, Params, TEXT("PathStart"));
-					FVector* End = VectorParam(FindPath, Params, TEXT("PathEnd"));
-					if (!Start || !End || !SetWorld(FindPath, Params, World))
-					{
-						return false;
-					}
-					*Start = From;
-					*End = To;
-					return true;
-				},
-				[&](uint8* Params) {
-					const FObjectProperty* Ret = CastField<FObjectProperty>(FindPath->GetReturnProperty());
-					UObject* Path = Ret ? Ret->GetObjectPropertyValue_InContainer(Params) : nullptr;
-					FArrayProperty* Points = Path ? CastField<FArrayProperty>(Path->GetClass()->FindPropertyByName(TEXT("PathPoints"))) : nullptr;
-					if (Points)
-					{
-						FScriptArrayHelper Helper(Points, Points->ContainerPtrToValuePtr<void>(Path));
-						for (int32 I = 0; I < Helper.Num(); ++I)
-						{
-							OutPoints.Add(*reinterpret_cast<const FVector*>(Helper.GetRawPtr(I)));
-						}
-					}
-				});
 			return OutPoints.Num() >= 2;
 		}
 	};
