@@ -11,6 +11,7 @@ import {
   fetchAgentChatCatalog,
   fetchAgentChatSessions,
   fetchAgentConnections,
+  fetchLeadSession,
   fetchProviderHealth,
   fetchProviderModels,
   isApiRunner,
@@ -44,7 +45,7 @@ import {
   type PatchSessionInput,
   type ProviderHealth,
 } from "@/lib/agentChatApi";
-import { EMPTY_TIMELINE, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
+import { EMPTY_TIMELINE, localStopEvent, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
 import { markAnswered } from "@/components/society/attention/attentionStore";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
@@ -120,6 +121,8 @@ export interface ComposerDraft {
   /** The permission mode to go back to when Plan is switched off. */
   buildMode: string;
   cwd: string;
+  /** The connected computer a new thread runs on; empty or absent = this computer. */
+  computerId?: string;
 }
 
 export interface ProviderOption extends AgentChatProvider {
@@ -211,7 +214,7 @@ export interface AgentChatStore {
    * the backend took the answer, or said nothing waits on it any more; any
    * other failure throws so the card can say why.
    */
-  decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice) => Promise<void>;
+  decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice, feedback?: string) => Promise<void>;
   /**
    * Turn an approval card into a standing rule after the fact ("Allow every
    * time", "Check with me every time"). The card shows it at once; throws so
@@ -369,6 +372,7 @@ function draftFromSession(session: AgentChatSession, prev: ComposerDraft): Compo
     permissionMode: session.permission_mode,
     buildMode: plan ? prev.buildMode || prev.permissionMode : session.permission_mode,
     cwd: session.cwd,
+    computerId: session.computer_id ?? "",
   };
 }
 
@@ -492,6 +496,21 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
     });
   };
 
+  let leadRequest = 0;
+  /** Open the lead's conversation; a blank page stays if the server has none yet. */
+  const openLead = () => {
+    const request = ++leadRequest;
+    bindVoice(null);
+    void chatStore.getState().loadCatalog();
+    // A failure keeps the blank page; the first send then reaches the lead.
+    void fetchLeadSession()
+      .then((session) => {
+        const st = chatStore.getState();
+        if (request === leadRequest && st.activeSessionId === null && session?.session_id) st.openSession(session.session_id);
+      })
+      .catch(() => undefined);
+  };
+
   let catalogRequest = 0;
   const patchQueues = new Map<string, Promise<void>>();
   const patchRevisions = new Map<string, number>();
@@ -499,6 +518,8 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
   const sendLanes = new Map<string, SendLane>();
   const emptySendLane = (): SendLane => ({ tail: Promise.resolve(), pending: 0, sessionId: null });
   let newChatLane = emptySendLane();
+  /** Stop requests still in flight per session; a send waits for its session's. */
+  const stopping = new Map<string, Promise<void>>();
   let selectionRevision = 0;
   let selectionWrite: Promise<unknown> = Promise.resolve();
   let socket: WebSocket | null = null;
@@ -985,6 +1006,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
             body.permission_mode = draft.permissionMode;
           }
           if (patch.cwd !== undefined) body.cwd = draft.cwd;
+          if (patch.computerId !== undefined) body.computer_id = patch.computerId;
           const revision = (patchRevisions.get(sid) ?? 0) + 1;
           patchRevisions.set(sid, revision);
           const previous = surface === "jarvis"
@@ -1052,6 +1074,12 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           // seconds on every new chat.
           catalogStale: get().catalog !== null,
         });
+        if (surface === "jarvis" && !opts?.voiceSessionId) {
+          // Dodaios keeps ONE endless conversation: every door that used to
+          // open a blank chat opens it instead (agent_chat/lead.py).
+          openLead();
+          return;
+        }
         bindVoice(null, opts?.voiceSessionId ?? null);
         void get().loadCatalog();
       },
@@ -1129,6 +1157,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
               effort: d.effort,
               cwd: d.cwd || null,
               permission_mode: d.permissionMode,
+              ...(d.computerId ? { computer_id: d.computerId } : {}),
               surface,
             });
             const visible = isVisible();
@@ -1137,7 +1166,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
             }
             lane.sessionId = session.session_id;
             sendLanes.set(session.session_id, lane);
-            set({ sessions: [session, ...get().sessions] });
+            set({ sessions: [session, ...get().sessions.filter((s) => s.session_id !== session.session_id)] });
             onSessionCreated?.(session);
             if (visible) {
               set({ activeSessionId: session.session_id, activeSession: session, timeline: EMPTY_TIMELINE });
@@ -1146,6 +1175,10 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
             }
           }
           const sid = lane.sessionId;
+          // A turn stopped on screen may still be unwinding in the backend;
+          // a message sent right after Stop waits for that instead of
+          // bouncing off the busy session.
+          await stopping.get(sid);
           await sendAgentChatMessage(sid, content, attachments, toolChoices);
           // The message is in: its turn is on the way even before the socket
           // says so, and the stop control and the row's spinner show it.
@@ -1184,14 +1217,27 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
       cancel: async (via) => {
         const sid = get().activeSessionId;
         if (!sid) return;
-        try {
-          await cancelAgentChatTurn(sid, via);
-        } catch (err) {
+        // The stop shows at once: the backend may need seconds to confirm (an
+        // ACP runtime gets a grace period before it is killed), and the person
+        // pressed Stop now. The real `turn_finished` replaces this local end.
+        const turn = runningTurn(get().timeline);
+        if (turn) get().ingest(localStopEvent(turn.id, Date.now()));
+        const request = cancelAgentChatTurn(sid, via).catch((err: unknown) => {
+          if (get().activeSessionId !== sid) return;
           set({ lastError: errorText(err) });
+          // The stop did not reach the backend: read the thread again so the
+          // turn shows as working again if it still is.
+          if (turn) connect(sid, 0);
+        });
+        stopping.set(sid, request);
+        try {
+          await request;
+        } finally {
+          if (stopping.get(sid) === request) stopping.delete(sid);
         }
       },
 
-      decide: async (approvalId, decision, rule) => {
+      decide: async (approvalId, decision, rule, feedback) => {
         const sid = get().activeSessionId;
         if (!sid) return;
         let outcome: string = decision;
@@ -1200,6 +1246,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         set({ timeline: markApprovalAnswering(get().timeline, approvalId, true) });
         try {
           if (rule) await resolveAgentChatApproval(sid, approvalId, decision, rule);
+          else if (feedback?.trim()) await resolveAgentChatApproval(sid, approvalId, decision, undefined, feedback);
           else await resolveAgentChatApproval(sid, approvalId, decision);
           markAnswered(approvalId);
         } catch (err) {

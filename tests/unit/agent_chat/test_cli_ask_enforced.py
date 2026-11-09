@@ -38,19 +38,13 @@ def _plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mode: str) -> list[st
     ).argv
 
 
-def test_ask_adds_process_only_ask_rules_for_writes_and_commands(monkeypatch, tmp_path):
+def test_ask_leaves_the_persons_own_claude_settings_alone(monkeypatch, tmp_path):
     argv = _plan(monkeypatch, tmp_path, "default")
     assert argv[argv.index("--permission-mode") + 1] == "default"
-    settings = json.loads(argv[argv.index("--settings") + 1])
-    assert set(settings) == {"permissions"}
-    assert set(settings["permissions"]) == {"ask"}
-    assert {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell"} <= set(
-        settings["permissions"]["ask"]
-    )
-    # The person's settings are never replaced: no source is switched off.
+    # No forced ask rules: the person's allow rules apply as in a terminal.
+    assert "--settings" not in argv
     assert "--setting-sources" not in argv
-    # The society word "ask" lands on the same mode and the same rules.
-    assert "--settings" in _plan(monkeypatch, tmp_path, "ask")
+    assert "--settings" not in _plan(monkeypatch, tmp_path, "ask")
 
 
 @pytest.mark.parametrize("mode", ["bypassPermissions", "acceptEdits", "plan", "auto", "dontAsk"])
@@ -58,13 +52,13 @@ def test_other_modes_behave_as_before(monkeypatch, tmp_path, mode):
     assert "--settings" not in _plan(monkeypatch, tmp_path, mode)
 
 
-def test_glm_rides_the_same_rules(monkeypatch, tmp_path):
+def test_glm_adds_no_forced_rules_either(monkeypatch, tmp_path):
     monkeypatch.setattr(rc, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(rc, "_registry_env", lambda agent, base: dict(base))
     argv = rc.plan_glm(
         prompt="hi", cwd=tmp_path, model="", effort="", permission_mode="default", resume=None
     ).argv
-    assert "Write" in json.loads(argv[argv.index("--settings") + 1])["permissions"]["ask"]
+    assert "--settings" not in argv
 
 
 def test_always_allow_rules_cover_only_what_they_name():
@@ -165,6 +159,16 @@ def test_a_write_asks_on_the_card_and_always_allow_answers_the_repeat(monkeypatc
     assert [a["behavior"] for a in answers] == ["allow", "allow", "allow"]
     assert answers[0]["updatedPermissions"][0]["destination"] == "session"
     assert "updatedPermissions" not in answers[1]
+
+
+def test_a_decline_carries_what_the_person_typed(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        _FakeChat, "take_deny_feedback", lambda self, sid, call_id: "use git clean", raising=False
+    )
+    answers, _ = _turn(
+        monkeypatch, tmp_path, [_can_use("Write", {"file_path": "a.txt"})], decision="deny"
+    )
+    assert answers == [{"behavior": "deny", "message": "use git clean"}]
 
 
 def test_a_denied_write_does_not_run(monkeypatch, tmp_path):

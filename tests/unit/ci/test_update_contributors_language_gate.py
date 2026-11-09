@@ -135,8 +135,8 @@ def test_wall_includes_pull_authors_and_unlinked_names_without_emails() -> None:
     assert "one@local" not in block
     assert "claude" not in block
     assert "dependabot" not in block
-    assert "Commits not linked to a GitHub account: " in block
-    assert "Joana Lütke" in block  # i18n-allow
+    assert "Commits not linked" not in block
+    assert "Joana Lütke" not in block  # i18n-allow
     assert "PilarJ" in block
     added = [("README.md", n, line) for n, line in enumerate(block.splitlines(), start=1)]
     assert check_no_new_german.find_violations(added, []) == []

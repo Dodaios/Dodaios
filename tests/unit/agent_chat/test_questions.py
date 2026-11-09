@@ -173,6 +173,26 @@ def test_a_turn_runs_out_of_cards(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_an_unrationed_card_waits_without_limit_or_cap(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        svc, sid, task = await _service_with_turn(tmp_path)
+        q = svc.subscribe(sid)
+        for _ in range(MAX_ASKS_PER_TURN + 1):
+            asking = asyncio.create_task(
+                svc.ask_questions(sid, parse_questions(_DB), timeout_s=None, rationed=False)
+            )
+            card = await _next(q, "question_required")
+            assert card["expires_ms"] is None
+            await asyncio.sleep(0.05)
+            assert not asking.done()
+            assert svc.signal_cancel(sid)
+            await asking
+            svc._running[sid].cancel.clear()  # noqa: SLF001
+        task.cancel()
+
+    asyncio.run(scenario())
+
+
 def test_asking_without_a_running_turn_raises(tmp_path: Path) -> None:
     async def scenario() -> None:
         svc = AgentChatService(AgentChatStore(":memory:"))

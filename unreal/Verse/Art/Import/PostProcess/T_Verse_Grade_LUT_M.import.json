@@ -1,0 +1,35 @@
+{
+  "asset_path": "/Game/Verse/PostProcess/T_Verse_Grade_LUT_M.T_Verse_Grade_LUT_M",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/look/T_Verse_Grade_LUT_M.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "e1d2aab38040e036523e9a751be89d391e6a771d31e61e86bb4ad60ce7db889f"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Verse_Grade_LUT_M",
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/weapons/look/_blender_lut.py",
+    "function": "main"
+  },
+  "texture": {
+    "channels": {
+      "layout": "32 slices of 32 x 32 side by side; slice = blue",
+      "lut": "32",
+      "rgb": "Blender AgX display value (sRGB) of the log2 lattice point"
+    },
+    "compression": "HDR",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

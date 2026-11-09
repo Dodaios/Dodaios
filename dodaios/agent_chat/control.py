@@ -31,7 +31,7 @@ _command_origin: ContextVar[CommandRequest | None] = ContextVar("chat_command_or
 def supports_restricted_turn(session: Any) -> bool:
     from .service import session_runner
 
-    return session_runner(session) not in ("kimi-cli", "dsh-cli")
+    return session_runner(session) not in ("kimi-cli", "dsh-cli", "custom-cli")
 
 
 def _chat_language(current: str, text: str) -> str:

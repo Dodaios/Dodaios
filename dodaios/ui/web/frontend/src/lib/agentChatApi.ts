@@ -157,6 +157,8 @@ export interface AgentChatSession {
   /** Absent on a backend older than the surface split; the store keeps such rows. */
   surface?: AgentChatSurface;
   account_id?: string;
+  /** A coding thread's placement: the computer its turns run on; empty = this one. */
+  computer_id?: string;
   vendor_session: string | null;
   created_ms: number;
   updated_ms: number;
@@ -395,6 +397,11 @@ export function fetchAgentChatSessions(
   });
 }
 
+/** The lead's one endless conversation; the server creates it on first use. */
+export async function fetchLeadSession(): Promise<AgentChatSession> {
+  return json<AgentChatSession>(await fetch("/api/agent-chat/lead"), "lead-failed");
+}
+
 export interface CreateSessionInput {
   provider: string;
   account_id?: string;
@@ -404,6 +411,8 @@ export interface CreateSessionInput {
   permission_mode?: string;
   title?: string;
   surface?: AgentChatSurface;
+  /** A coding thread's placement; empty or absent = this computer. */
+  computer_id?: string;
 }
 
 export async function createAgentChatSession(input: CreateSessionInput): Promise<AgentChatSession> {
@@ -420,7 +429,7 @@ export async function createAgentChatSession(input: CreateSessionInput): Promise
 }
 
 export type PatchSessionInput = Partial<
-  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "cwd" | "permission_mode">
+  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "cwd" | "permission_mode" | "computer_id">
 >;
 
 export async function patchAgentChatSession(
@@ -645,7 +654,10 @@ export async function resolveAgentChatApproval(
   approvalId: string,
   decision: ApprovalDecision,
   rule?: ApprovalRuleChoice,
+  /** What the person typed on a declined card; the agent reads it as the reason. */
+  feedback?: string,
 ): Promise<void> {
+  const why = decision === "deny" ? feedback?.trim() : "";
   await json(
     await fetch(approvalUrl(sessionId, approvalId), {
       method: "POST",
@@ -653,7 +665,7 @@ export async function resolveAgentChatApproval(
       body: JSON.stringify(
         rule && decision === "allow_always"
           ? { decision, scope: rule.scope, breadth: rule.breadth ?? "action", ...(rule.narrow ? { narrow: rule.narrow } : {}) }
-          : { decision },
+          : { decision, ...(why ? { feedback: why } : {}) },
       ),
     }),
     "approval-failed",

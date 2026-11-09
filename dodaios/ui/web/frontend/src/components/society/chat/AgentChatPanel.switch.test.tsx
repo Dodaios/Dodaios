@@ -28,9 +28,14 @@ const attachmentState = vi.hoisted(() => ({
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, fill: (text: string) => text, useUiLanguage: () => "en", useI18nStore: { getState: () => ({ ui: "en" }) } }));
 vi.mock("./AgentModelPicker", () => ({ AgentModelPicker: () => null }));
-vi.mock("@/components/home/VoiceComposer", () => ({ VoiceComposer: () => <div data-testid="voice-composer" /> }));
+vi.mock("@/components/home/VoiceComposer", () => ({ VoiceComposer: ({ onExit }: { onExit?: () => void }) => (
+  <div data-testid="voice-composer">{onExit ? <button type="button" data-testid="voice-mode-exit" onClick={onExit} /> : null}</div>
+) }));
 vi.mock("@/components/home/Greeting", () => ({ Greeting: () => <div>Greeting</div> }));
-vi.mock("@/components/agentic/useVoiceCall", () => ({ useVoiceCall: () => ({ connecting: false }) }));
+const toggleCall = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@/components/agentic/useVoiceCall", () => ({
+  useVoiceCall: () => ({ active: false, connecting: false, busy: false, toggleCall }),
+}));
 vi.mock("@/hooks/useVoiceReadiness", () => ({ useVoiceReadiness: () => ({ connected: true, warming: false }) }));
 vi.mock("@/hooks/useWakeWord", () => ({ useWakeWord: () => ({ config: { phrase: "Hey Jarvis" } }) }));
 vi.mock("../data", async (original) => ({
@@ -221,7 +226,7 @@ it("keeps Jarvis on a fresh chat when history refreshes or the card is reopened"
   expect(useAgentChatStore.getState().activeSessionId).toBeNull();
 });
 
-it("reads archived calls on the actual voice stage and returns there fresh after hangup while closed", async () => {
+it("reads archived calls on the actual voice stage and returns to the conversation after hangup while closed", async () => {
   const jarvis = agent({ agentId: "jarvis", name: "Jarvis", tier: "lead" });
   const voice = { kind: "voice", id: "voice-archive", title: "Archived call", preview: "", created_ms: 1, updated_ms: 2, message_count: 2 };
   vi.mocked(fetch).mockImplementation(async (url) => {
@@ -240,8 +245,12 @@ it("reads archived calls on the actual voice stage and returns there fresh after
   expect(screen.getByTestId("society-chat").getAttribute("data-mode")).toBe("voice");
   expect(screen.getByTestId("voice-composer")).toBeTruthy();
   expect(screen.queryByTestId("voice-thread-stage")).toBeNull();
-  fireEvent.click(screen.getByTestId("society-jarvis-mode-chat"));
-  fireEvent.click(screen.getByTestId("society-jarvis-mode-voice"));
+  // No Voice | Chat switch any more: the voice composer's keyboard button
+  // goes back to the conversation, the history rail reopens the call.
+  expect(screen.queryByTestId("society-jarvis-mode-chat")).toBeNull();
+  fireEvent.click(screen.getByTestId("voice-mode-exit"));
+  expect(screen.getByTestId("society-chat").getAttribute("data-mode")).toBe("chat");
+  act(() => setJarvisCardMode("voice"));
   expect(screen.getByText("Archived question")).toBeTruthy();
   view.unmount();
   act(() => {
@@ -249,8 +258,7 @@ it("reads archived calls on the actual voice stage and returns there fresh after
     useHomeStore.getState().ingest("VoiceSessionEnded", { hangup_reason: "hotkey" }, 3);
   });
   render(<AgentChatPanel agent={jarvis} roster={[jarvis]} />);
-  expect(screen.getByTestId("society-chat").getAttribute("data-mode")).toBe("voice");
-  expect(screen.getByTestId("voice-stage").getAttribute("data-empty")).toBe("true");
+  expect(screen.getByTestId("society-chat").getAttribute("data-mode")).toBe("chat");
   expect(screen.queryByText("Archived question")).toBeNull();
   await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/agent-chat/voice-chat", expect.objectContaining({
     method: "PUT", body: JSON.stringify({ session_id: null, voice_session_id: null }),
@@ -296,7 +304,9 @@ it.each(["specialist", "lead"] as const)("keeps follow-up sending available whil
   setJarvisCardMode("chat");
   render(<AgentChatPanel agent={current} roster={[current]} />);
   expect(screen.getByRole("button", { name: "society.chat.stop" })).toBeTruthy();
-  expect(screen.getByTestId("composer-send")).toBeTruthy();
+  // The lead's empty box offers the call button where Send sits.
+  const sendSlot = tier === "lead" ? "composer-call" : "composer-send";
+  expect(screen.getByTestId(sendSlot)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "society.chat.stop" }));
   await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url, options]) =>
     String(url).includes("/cancel") && options?.method === "POST",
@@ -306,8 +316,33 @@ it.each(["specialist", "lead"] as const)("keeps follow-up sending available whil
       ev("turn_finished", { turn_id: "t-live", status: "done", duration_ms: 12 }),
     ]),
   }));
-  expect(screen.getByTestId("composer-send")).toBeTruthy();
+  expect(screen.getByTestId(sendSlot)).toBeTruthy();
   expect(screen.queryByTestId("composer-cancel")).toBeNull();
+});
+
+it("gives the lead a call button instead of the Voice | Chat switch", async () => {
+  const jarvis = agent({ agentId: "jarvis", name: "Jarvis", tier: "lead" });
+  useAgentChatStore.getState().disconnect();
+  useAgentChatStore.setState({ activeSessionId: null, activeSession: null, sessions: [], timeline: EMPTY_TIMELINE, busy: false });
+  setJarvisCardMode("chat");
+  render(<AgentChatPanel agent={jarvis} roster={[jarvis]} />);
+  expect(screen.queryByRole("tablist")).toBeNull();
+  expect(screen.queryByTestId("composer-send")).toBeNull();
+  fireEvent.click(screen.getByTestId("composer-call"));
+  // The card shows the call and the call starts (bound to the chat first).
+  expect(screen.getByTestId("society-chat").getAttribute("data-mode")).toBe("voice");
+  await waitFor(() => expect(toggleCall).toHaveBeenCalledTimes(1));
+  expect(vi.mocked(fetch).mock.calls.some(([url, options]) =>
+    String(url) === "/api/agent-chat/voice-chat" && options?.method === "PUT",
+  )).toBe(true);
+});
+
+it("keeps the specialist's composer on Send without a call button", () => {
+  setJarvisCardMode("chat");
+  useSocietyChatStore.setState({ activeSessionId: gmail.chatSessionId, timeline: EMPTY_TIMELINE });
+  render(<AgentChatPanel agent={gmail} roster={[gmail]} />);
+  expect(screen.queryByTestId("composer-call")).toBeNull();
+  expect(screen.getByTestId("composer-send")).toBeTruthy();
 });
 
 it("routine-check opens the clicked execution instead of folding its instruction", () => {

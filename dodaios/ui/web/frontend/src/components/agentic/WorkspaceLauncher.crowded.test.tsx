@@ -29,6 +29,7 @@ vi.mock("@/i18n", () => ({
   translate: (key: string) => key,
   fill: (template: string, vars: Record<string, string | number>) =>
     template.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match)),
+  useLocaleChunk: () => true,
 }));
 
 // Nothing in these tests touches the folder picker, and rendering the real one

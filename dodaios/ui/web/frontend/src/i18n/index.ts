@@ -122,6 +122,7 @@ export type LocaleChunk =
   | "appshot_editor"
   | "providers"
   | "pane_review"
+  | "custom_cli"
   | "memory"
   | "ship"
   | "self_build"
@@ -206,6 +207,13 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     pt: () => import("./locales/providers/pt.json"),
   },
   // A pane's "Review changes" dialog: opened from its title bar, never on start.
+  custom_cli: {
+    en: () => import("./locales/custom_cli/en.json"),
+    de: () => import("./locales/custom_cli/de.json"),
+    es: () => import("./locales/custom_cli/es.json"),
+    zh: () => import("./locales/custom_cli/zh.json"),
+    pt: () => import("./locales/custom_cli/pt.json"),
+  },
   pane_review: {
     en: () => import("./locales/pane_review/en.json"),
     de: () => import("./locales/pane_review/de.json"),
