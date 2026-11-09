@@ -99,11 +99,6 @@ readonly COSIGN_SHA256_LINUX_ARM64="3b2e2e3854d0356c45fe6607047526ccd04742d20bd4
 readonly COSIGN_SHA256_DARWIN_AMD64="666032ca283da92b6f7953965688fd51200fdc891a86c19e05c98b898ea0af4e"
 readonly COSIGN_SHA256_DARWIN_ARM64="13343856b69f70388c4fe0b986a31dde5958e444b41be22d785d3dc5e1a9cc62"
 
-# Rekor inclusion freshness window. Anything older than this is rejected,
-# defending against the attacker-replays-old-revoked-signature scenario.
-# 24 hours is tight; raise this only with a documented justification.
-readonly REKOR_MAX_AGE_SECONDS=86400
-
 # WAVE 2 PINNED OFFLINE KEY — fingerprint 1e8f2fa590e6454daff34e88e7bde8ffcf04b1eb235f0ca11ff9ebc65e2d1d3a
 #
 # Ed25519 public key produced in the air-gapped offline-ceremony documented in
@@ -509,25 +504,23 @@ if ! "$COSIGN_BIN" verify-blob \
 fi
 ok "      axis B OK (Ed25519, key fingerprint=$OFFLINE_CEREMONY_PUBKEY_FINGERPRINT)"
 
-# ----------------------------------------------------------------------- freshness
+# ----------------------------------------------------------------------- rekor proof
 note ""
-note "[6/13] Checking Rekor inclusion proof freshness (≤ ${REKOR_MAX_AGE_SECONDS}s)..."
+note "[6/13] Checking the Rekor inclusion proof..."
 
 # The Sigstore bundle carries the Rekor inclusion proof + integrated time.
-# We parse the bundle JSON for the integrated timestamp and reject anything
-# older than REKOR_MAX_AGE_SECONDS. This defends against the "old signature
-# replay" attack (signed binary served from an attacker-controlled mirror
-# even though the maintainer rotated keys / revoked the release).
-#
-# Freshness applies to axis A (Fulcio + Rekor). Axis B is a detached
-# signature with no transparency log; its replay defence comes from the
-# fact that an old install.sh.cosign.sig still needs to match the CURRENT
-# install.sh bytes — any tamper invalidates the Ed25519 signature.
+# The proof must be present and its integrated time must not lie in the
+# future. There is deliberately NO maximum age: release bundles are signed
+# once, at tag time, so an age limit made every release unverifiable a day
+# after it was cut (issue #1181). Replay of an older release's genuine bytes
+# is rejected at stage [7/13] by the tag-binding check (the SAN tag must
+# equal the requested tag) and by the payload-commit pin; a revoked release
+# is withdrawn by deleting its tag and release (TRUST_ROOT.md §1, §10.2).
 #
 # The bundle schema is well-defined: $.verificationMaterial.tlogEntries[0].integratedTime
 # is the Rekor-side timestamp in Unix seconds (string).
 if ! command -v python3 >/dev/null 2>&1; then
-    err "  python3 is required for freshness check — please install python3 (>= 3.6) and retry."
+    err "  python3 is required for the Rekor check — please install python3 (>= 3.6) and retry."
     exit 1
 fi
 
@@ -563,17 +556,7 @@ if [ "$AGE" -lt 0 ]; then
     err "  this is either a clock-skew problem or a clear forgery — refusing."
     exit 1
 fi
-if [ "$AGE" -gt "$REKOR_MAX_AGE_SECONDS" ]; then
-    err "  Rekor inclusion proof is too old: ${AGE}s > ${REKOR_MAX_AGE_SECONDS}s"
-    err "  this signature might be a replay of an old, revoked release."
-    err "  if this is a legitimately-old release you want to install anyway,"
-    err "  set JARVIS_INSTALL_ALLOW_STALE=1 and re-run — but read TRUST_ROOT.md first."
-    if [ "${JARVIS_INSTALL_ALLOW_STALE:-0}" != "1" ]; then
-        exit 1
-    fi
-    err "  proceeding under JARVIS_INSTALL_ALLOW_STALE=1 (override acknowledged)."
-fi
-ok "      Rekor inclusion proof age: ${AGE}s (limit ${REKOR_MAX_AGE_SECONDS}s)"
+ok "      Rekor inclusion proof present, integrated ${AGE}s ago"
 
 # ----------------------------------------------------------------------- identity cross-check
 note ""
@@ -632,9 +615,8 @@ fi
 # above only checks that SOME semver-ish tag is present in the SAN — not that
 # the SAN tag matches the tag the operator asked us to install. Without this
 # cross-check, an attacker who serves the (valid-signed) install.sh from a
-# PRIOR release under a fresh URL would pass axes A+B+C+D — the freshness
-# gate (Rekor integratedTime <= 24h) is the only barrier and ages out within
-# a day.
+# PRIOR release under a fresh URL would pass axes A+B+C+D. (A former 24 h
+# Rekor age limit was dropped in #1181; this check is the replay barrier.)
 #
 # The defense: extract the @refs/tags/<X> suffix from the SAN, compare BYTE-
 # FOR-BYTE against the resolved $TAG. Drift => fail-closed with a clear
