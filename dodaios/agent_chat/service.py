@@ -1098,8 +1098,24 @@ class AgentChatService:
         # token deltas and voice-critical streaming never perform file I/O.
         if session_id.startswith("society:"):
             event = await _redact_credentials(session_id, event)
+        payload = event.get("payload") or {}
+        call_key = (session_id, str(payload.get("call_id") or ""))
+        if not hasattr(self, "_tool_call_names"):
+            self._tool_call_names: dict[tuple[str, str], str] = {}
+        if event.get("kind") == "tool_call" and call_key[1]:
+            # Media delivery needs to know which tool a result came from: what
+            # a Read or a web search merely saw is not a picture for the chat.
+            if len(self._tool_call_names) > 4096:
+                self._tool_call_names.clear()
+            self._tool_call_names[call_key] = str(payload.get("name") or "")
         if event.get("kind") in {"assistant_text", "tool_result", "user_message"}:
             from dodaios.agent_chat.media import normalize_media_event
+
+            tool_name = (
+                self._tool_call_names.pop(call_key, "")
+                if event.get("kind") == "tool_result"
+                else ""
+            )
             from dodaios.core.paths import repo_root
             from dodaios.missions.isolation.worktree import resolve_outputs_root
 
@@ -1112,6 +1128,7 @@ class AgentChatService:
                         cwd=Path(session.cwd),
                         outputs_root=resolve_outputs_root(repo_root()),
                         scope=session_id,
+                        tool_name=tool_name,
                     )
                 except (OSError, ValueError):
                     log.warning("agent chat: media normalization failed", exc_info=True)
