@@ -234,6 +234,33 @@ def search_conversation(query: str, *, limit: int = 6) -> list[dict[str, Any]]:
     return rows
 
 
+FRESH_START_SUMMARY = (
+    "The user started fresh here. Earlier parts of this conversation are not in "
+    "context; what matters is in long-term memory, and memory-search finds what "
+    "was said before."
+)
+
+
+def fresh_start(svc: Any) -> int | None:
+    """Start the model light without ending the conversation.
+
+    Moves the compaction checkpoint to the newest event with a short note as
+    its summary, so the next turn carries no earlier history. The thread,
+    its archive and the memory stay. Blocking (SQLite). Returns the event
+    seq the fresh start begins after, or ``None`` when there is no
+    conversation or no archive.
+    """
+    session = lead_session(svc, create=False)
+    archive = _archive()
+    if session is None or archive is None:
+        return None
+    events = svc.store.list_events(session.session_id, tail=1)
+    through = int(events[-1]["seq"]) if events else 0
+    archive.ingest(session.session_id, svc.store.list_events(session.session_id))
+    archive.save_checkpoint(session.session_id, through, FRESH_START_SUMMARY)
+    return through
+
+
 async def post_learned(receipts: list[dict[str, str]]) -> None:
     """Show in the conversation what the assistant just learned.
 
@@ -288,6 +315,7 @@ __all__ = [
     "SURFACE",
     "adopt_seat",
     "chat_seat",
+    "fresh_start",
     "is_lead",
     "lead_session",
     "lead_session_id",

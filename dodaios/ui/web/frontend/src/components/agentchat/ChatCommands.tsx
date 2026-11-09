@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Loader2, Pause, Play, X } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { createAgentChatSession, type ChatAttachment } from "@/lib/agentChatApi";
+import { createAgentChatSession, freshStartLead, type ChatAttachment } from "@/lib/agentChatApi";
 import { CHAT_COMMAND_NAMES, fetchChatCommands, parseChatCommand, runChatCommand,
   type ChatCommand, type ChatCommandName, type ChatCommandResult, type ChatControlState, type ChatSearchHit } from "@/lib/chatControlApi";
 import { useAgentChat, useAgentChatApi } from "./AgentChatStoreContext";
@@ -111,7 +111,12 @@ export function useChatCommands({ value, setValue, onModel, onClear, agentId = "
     try {
       switch (command.name) {
         case "help": setDismissed(false); setHelp(true); break;
-        case "clear": (onClear ?? view.clear)(); setPanel(null); break;
+        case "clear":
+          // The assistant's one conversation never hides its past: /clear
+          // starts the model fresh and leaves a line in the thread.
+          if (surface === "jarvis" && !onClear) await freshStartLead();
+          else (onClear ?? view.clear)();
+          setPanel(null); break;
         case "history": restoreTranscriptView(sid); break;
         case "model":
           if (state?.goal?.status === "active") await remote("stop", "");

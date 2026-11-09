@@ -7014,6 +7014,7 @@
       "memory_learned_ended": "No longer true",
       "memory_learned_undo": "Undo",
       "memory_learned_undone": "Forgotten",
+      "fresh_start_line": "Fresh start: earlier messages stay above and in memory",
       "context_rollover": "Fresh working context — memory and recent messages carried over",
       "stop_reason_max_tokens": "The answer stopped at the model's output limit; it may be incomplete.",
       "stop_reason_max_turn_requests": "The agent reached its step limit for one turn; the work may be unfinished.",

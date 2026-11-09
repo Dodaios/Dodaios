@@ -1182,6 +1182,20 @@ async def get_lead_session(request: Request) -> dict[str, Any]:
     return d
 
 
+@router.post("/lead/fresh-start", summary="Start the lead's model fresh; the thread stays")
+async def lead_fresh_start(request: Request) -> dict[str, Any]:
+    from dodaios.agent_chat.lead import fresh_start, lead_session
+
+    svc = _service(request)
+    through = await asyncio.to_thread(fresh_start, svc)
+    if through is None:
+        raise HTTPException(status_code=409, detail="The conversation is not ready yet")
+    session = lead_session(svc, create=False)
+    if session is not None:
+        await svc.post_notice(session.session_id, {"kind": "context_reset", "status": "done"})
+    return {"ok": True, "through_seq": through}
+
+
 @router.get("/sessions/{session_id}")
 async def get_session(
     session_id: str,

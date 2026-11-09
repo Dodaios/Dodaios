@@ -7014,6 +7014,7 @@
       "memory_learned_ended": "Já não é verdade",
       "memory_learned_undo": "Desfazer",
       "memory_learned_undone": "Esquecido",
+      "fresh_start_line": "Recomeço: as mensagens anteriores continuam acima e na memória",
       "context_rollover": "Novo contexto de trabalho — memória e mensagens recentes transitadas",
       "stop_reason_max_tokens": "A resposta parou no limite de saída do modelo; pode estar incompleta.",
       "stop_reason_max_turn_requests": "O agente atingiu o limite de passos de um turno; o trabalho pode estar inacabado.",

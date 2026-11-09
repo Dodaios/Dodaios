@@ -402,6 +402,11 @@ export async function fetchLeadSession(): Promise<AgentChatSession> {
   return json<AgentChatSession>(await fetch("/api/agent-chat/lead"), "lead-failed");
 }
 
+/** Start the lead's model fresh; the conversation and memory stay. */
+export async function freshStartLead(): Promise<void> {
+  await json<unknown>(await fetch("/api/agent-chat/lead/fresh-start", { method: "POST" }), "fresh-start-failed");
+}
+
 export interface CreateSessionInput {
   provider: string;
   account_id?: string;
