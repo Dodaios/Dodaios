@@ -5,6 +5,7 @@ import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ide
 import { GitHubIcon, type GitHubIconName } from "./GitHubIcon";
 import { PANE_BRAND, PANE_CHROME, themeFor, type TerminalAppearance } from "./terminalThemes";
 import { FRESH_MS, useSessionGitHubPane, type SessionGitHubStatus } from "./useSessionGitHub";
+import { PULL_REQUEST_TONE } from "./pullRequestTone";
 
 const PR: Record<SessionGitHubStatus["state"], [GitHubIconName, string]> = {
   branch: ["git-branch", "ide_panes.github.state_branch"],
@@ -31,6 +32,8 @@ interface BranchRow {
   pullRequest: string | null;
   /** Merged or closed: listed, but no longer the pane's open work. */
   settled: boolean;
+  /** GitHub's colour for the pull request's state; "" while it is unknown. */
+  tone: string;
 }
 
 function describe(status: SessionGitHubStatus, t: (key: string) => string, pending = false): BranchRow | null {
@@ -43,7 +46,7 @@ function describe(status: SessionGitHubStatus, t: (key: string) => string, pendi
   if (!status.published) {
     // Nothing on GitHub to open yet: the pane still says which branch its work is on.
     return {
-      branch: status.branch, identity, icon: "git-branch", url: null, destination: "", pullRequest: null, settled: false,
+      branch: status.branch, identity, icon: "git-branch", url: null, destination: "", pullRequest: null, settled: false, tone: "",
       label: t(unavailable ? "ide_panes.github.unavailable" : "ide_panes.github.local_only"),
     };
   }
@@ -60,6 +63,7 @@ function describe(status: SessionGitHubStatus, t: (key: string) => string, pendi
     branch: status.branch, identity, icon, label: t(labelKey), url, destination,
     pullRequest: pullRequest ? pullRequest[1] : null,
     settled: !unavailable && (status.state === "merged" || status.state === "closed"),
+    tone: unavailable ? "" : PULL_REQUEST_TONE[status.state] ?? "",
   };
 }
 
@@ -78,14 +82,16 @@ function PendingRing({ appearance }: { appearance: TerminalAppearance }) {
 }
 
 /** The header's symbol; while its status is being confirmed it sits inside the spinner. */
-function Glyph({ icon, pending, appearance }: {
+function Glyph({ icon, pending, appearance, tone = "" }: {
   icon: GitHubIconName | null;
   pending: boolean;
   appearance: TerminalAppearance;
+  /** GitHub's colour for the pull request's state. */
+  tone?: string;
 }) {
   const size = pending ? 10 : 16;
   return <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
-    {icon && <GitHubIcon name={icon} width={size} height={size} className="block shrink-0" />}
+    {icon && <GitHubIcon name={icon} width={size} height={size} className={`block shrink-0 ${tone}`} />}
     {pending && <PendingRing appearance={appearance} />}
   </span>;
 }
@@ -151,7 +157,7 @@ function BranchList({ rows, appearance, pending }: {
     <div className="px-2.5 pb-1 pt-1.5 text-[11px]" style={{ color: brand.inkFaint }}>{t("ide_panes.github.branches_title")}</div>
     {rows.map((row) => {
       const line = <>
-        <GitHubIcon name={row.icon} width={16} height={16} className="block shrink-0" aria-hidden="true" />
+        <GitHubIcon name={row.icon} width={16} height={16} className={`block shrink-0 ${row.tone}`} aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate font-mono text-xs">{row.branch}</span>
         <span className="shrink-0 text-[11px]" style={{ color: brand.inkFaint }}>
           {row.pullRequest ? `#${row.pullRequest} · ` : ""}{row.label}
@@ -187,7 +193,7 @@ function BranchList({ rows, appearance, pending }: {
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => { if (event.key === "ArrowDown" && !open) { event.preventDefault(); toggle(); } }}
       onClick={(event) => { event.stopPropagation(); toggle(); }}>
-      <Glyph icon={shown.icon} pending={pending} appearance={appearance} />
+      <Glyph icon={shown.icon} pending={pending} appearance={appearance} tone={shown.tone} />
       <span className="text-[10px] leading-none tabular-nums" aria-hidden="true">{rows.length}</span>
     </button>
     {menu}
@@ -201,30 +207,16 @@ export function GitHubStatusBadge({ status, appearance, pending = false }: {
   pending?: boolean;
 }) {
   const t = useT();
-  const shown = status ? describe(status, t, pending) : null;
-  if (!shown) {
-    if (!pending) return null;
-    // Nothing known yet: the spinner holds the place the branch will take.
-    const label = t(status === null ? "ide_panes.github.loading" : "ide_panes.github.refreshing");
-    return <span data-header-control="true" data-testid="session-github-status" data-state="loading"
-      role="status" aria-label={label} title={label}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center"
-      style={{ color: PANE_BRAND[appearance].inkMuted }}>
-      <Glyph icon={null} pending appearance={appearance} />
-    </span>;
-  }
-  const others = (status?.others ?? []).map((other) => describe(other, t, pending))
-    .filter((row): row is BranchRow => row !== null && row.identity !== shown.identity);
-  if (others.length) return <BranchList rows={[shown, ...others]} appearance={appearance} pending={pending} />;
+  // Only a pull request earns a place in the header: a branch without one,
+  // or a status still being read, shows nothing.
+  const rows = (status ? [status, ...(status.others ?? [])] : [])
+    .map((row) => describe(row, t, pending))
+    .filter((row): row is BranchRow => row !== null && row.pullRequest !== null && row.url !== null)
+    .filter((row, index, all) => all.findIndex((other) => other.identity === row.identity) === index);
+  const shown = rows[0];
+  if (!shown?.url) return null;
+  if (rows.length > 1) return <BranchList rows={rows} appearance={appearance} pending={pending} />;
   const note = pending ? `\n${t("ide_panes.github.refreshing")}` : "";
-  if (!shown.url) {
-    return <span data-header-control="true" data-testid="session-github-status" role="img"
-      aria-label={`${shown.identity}: ${shown.label}`} title={`${shown.identity}\n${shown.label}${note}`}
-      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center ${pending ? "opacity-75" : "opacity-50"}`}
-      style={{ color: PANE_BRAND[appearance].inkMuted }}>
-      <Glyph icon="git-branch" pending={pending} appearance={appearance} />
-    </span>;
-  }
   const url = shown.url;
   return <a data-header-control="true" data-testid="session-github-status"
     href={url} target="_blank" rel="noopener noreferrer"
@@ -239,7 +231,7 @@ export function GitHubStatusBadge({ status, appearance, pending = false }: {
       // WebView2 drops target=_blank: open it in the IDE's Browser tab.
       void openLinkInIdeBrowser(url);
     }}>
-    <Glyph icon={shown.icon} pending={pending} appearance={appearance} />
+    <Glyph icon={shown.icon} pending={pending} appearance={appearance} tone={shown.tone} />
   </a>;
 }
 
