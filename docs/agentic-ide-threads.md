@@ -56,12 +56,14 @@ news since it was last opened.
   sub-agent, a `monitor`); when it waits on work none of them named, the
   wait shows one task called "background work". While tasks are open the turn
   waits as long as they run; there is no clock.
-- **When a turn ends:** as soon as the CLI sent its final answer and has
-  nothing running in the background. The CLI then gets a few seconds to
-  shut down by itself (Stop hooks, a memory pass) and is ended if it does
-  not; that happens behind the finished turn, and the thread's next turn
-  waits for it. A process the CLI left behind that still holds its output
-  open does not hold the turn either.
+- **When a turn ends:** as soon as the CLI sent its final answer, is idle
+  and has nothing running in the background. A background task that ends
+  after an answer wakes the agent again, and its next answer still belongs
+  to the turn. Behind the finished turn the CLI shuts down by itself
+  (SessionEnd/Stop hooks, a session-file flush); it is ended only after it
+  printed nothing for two minutes (15 s once the thread's next turn waits
+  for it). Stop also ends that wait. A process the CLI left behind that
+  still holds its output open does not hold the turn either.
 - **Composer:** one toolbar — coding agent and model, reasoning effort, access
   mode — beside the paperclip and the send button. A new thread starts on the
   agent, model, effort and access the person picked last (else the newest

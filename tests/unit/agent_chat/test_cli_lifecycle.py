@@ -232,20 +232,158 @@ async def test_a_cli_lingering_after_its_answer_ends_the_turn_promptly(
 async def test_the_next_turn_waits_for_a_lingering_cli(monkeypatch):
     gate = asyncio.Event()
     order: list[str] = []
+    hurried: list[bool] = []
 
-    async def shutting_down() -> None:
+    async def shutting_down(hurry: asyncio.Event) -> None:
         await gate.wait()
+        hurried.append(hurry.is_set())
         order.append("reaped")
 
-    runner_cli._linger("s-linger", shutting_down())
-    waiter = asyncio.create_task(runner_cli._await_lingering("s-linger"))
+    runner_cli._linger("s-linger", shutting_down)
+    waiter = asyncio.create_task(runner_cli._await_lingering("s-linger", asyncio.Event()))
     await asyncio.sleep(0.05)
     assert not waiter.done()
     gate.set()
-    await waiter
+    assert await waiter is True
     order.append("next turn")
     assert order == ["reaped", "next turn"]
+    assert hurried == [True]  # the lingering CLI was told a turn waits for it
     assert "s-linger" not in runner_cli._LINGERING
+
+
+async def test_stop_while_waiting_for_a_lingering_cli_starts_nothing():
+    gate = asyncio.Event()
+
+    async def shutting_down(_hurry: asyncio.Event) -> None:
+        await gate.wait()
+
+    runner_cli._linger("s-stop", shutting_down)
+    cancel = asyncio.Event()
+    waiter = asyncio.create_task(runner_cli._await_lingering("s-stop", cancel))
+    await asyncio.sleep(0.05)
+    cancel.set()
+    assert await asyncio.wait_for(waiter, 2) is False
+    gate.set()
+    await _settle_lingering()
+
+
+async def test_a_late_answer_after_a_background_task_is_part_of_the_turn(
+    tmp_path: Path, monkeypatch
+):
+    """Claude Code answers, its background task ends, and seconds later it
+    wakes and answers again: that answer belongs to the turn and is not cut."""
+    started = json.dumps(
+        {"type": "system", "subtype": "task_started", "task_id": "b1", "description": "pytest"}
+    )
+    ended = json.dumps(
+        {"type": "system", "subtype": "task_notification", "task_id": "b1", "status": "completed"}
+    )
+    wake = json.dumps(
+        {"type": "stream_event", "event": {"type": "message_start", "message": {"id": "m2"}}}
+    )
+    late = json.dumps(
+        {
+            "type": "assistant",
+            "message": {"id": "m2", "content": [{"type": "text", "text": "Late: tests pass."}]},
+        }
+    )
+    source = (
+        "import time\n"
+        f"print({started!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+        "time.sleep(0.5)\n"
+        f"print({ended!r}, flush=True)\n"
+        "time.sleep(3.0)\n"
+        f"print({wake!r}, flush=True)\n"
+        f"print({late!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+    )
+    events: list = []
+    outcome, proc = await _drive_fake_claude(tmp_path, source, events=events)
+    assert outcome.status == "done", outcome.error
+    texts = [e["payload"]["text"] for e in events if e["kind"] == "assistant_text"]
+    assert "Late: tests pass." in texts
+    assert proc.returncode == 0  # it ended by itself, never killed
+
+
+async def test_a_cli_still_writing_after_its_answer_is_not_killed(tmp_path: Path, monkeypatch):
+    """Post-answer work (a SessionEnd hook, a flush) that still prints is no
+    stall: the silence limit restarts with every line, there is no clock."""
+    monkeypatch.setattr(runner_cli, "_REAP_GRACE_S", 0.5)
+    source = (
+        "import sys, time\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+        "for i in range(10):\n"
+        "    time.sleep(0.25)\n"
+        "    print('hook output', i, file=sys.stderr, flush=True)\n"
+    )
+    outcome, proc = await _drive_fake_claude(tmp_path, source, reap=False)
+    assert outcome.status == "done", outcome.error
+    await _settle_lingering()
+    assert proc.returncode == 0
+
+
+async def test_a_handed_over_cli_is_never_reaped():
+    class _Handed:
+        returncode = None
+        handed_over = True
+        detached = True
+        stdout = None
+        stderr = None
+        killed = released = False
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def release(self) -> None:
+            self.released = True
+
+    proc = _Handed()
+    cleaned: list[bool] = []
+    await asyncio.wait_for(
+        runner_cli._reap_after_answer(
+            asyncio.Event(), proc, "t", "claude-cli", True, lambda: cleaned.append(True)
+        ),
+        2,
+    )
+    assert not proc.killed and not proc.released and not cleaned
+
+
+async def test_the_drain_never_cuts_a_line_still_being_handled(monkeypatch):
+    """A pump busy with a line (a slow emit, a stalled loop) is not cut off by
+    the drain window, and a line still buffered is read first."""
+    monkeypatch.setattr(runner_cli, "_PIPE_DRAIN_S", 0.05)
+    stdout = asyncio.StreamReader()
+    for line in (b"one\n", b"result\n"):
+        stdout.feed_data(line)
+    stdout.feed_eof()
+
+    class _Exited:
+        returncode = 0
+        stderr = None
+
+    proc = _Exited()
+    proc.stdout = stdout
+    reads, busy, handled = [0], [False], []
+
+    async def pump() -> None:
+        while True:
+            busy[0] = False
+            raw = await stdout.readline()
+            reads[0] += 1
+            busy[0] = True
+            if not raw:
+                return
+            await asyncio.sleep(0.3)  # far longer than the drain window
+            handled.append(raw)
+
+    pump_task = asyncio.create_task(pump())
+    idle = asyncio.create_task(asyncio.sleep(0))
+    await asyncio.wait_for(
+        runner_cli._natural_end(proc, pump_task, idle, idle, lambda: reads[0], lambda: busy[0]),
+        5,
+    )
+    assert handled == [b"one\n", b"result\n"]
 
 
 async def test_open_background_tasks_keep_the_turn_open_without_a_clock(

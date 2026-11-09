@@ -122,8 +122,10 @@ class HostedTurn:
     #: the CLI exits, even with no app attached to do it (Claude Code's
     #: ``result``; it otherwise waits on its open stdin for ever).
     close_stdin_on: str = ""
-    #: When either pipe last gave a line (``time.monotonic``).
-    last_output: float = 0.0
+    #: Lines read from either pipe so far: the drain after exit counts them.
+    reads: int = 0
+    #: Lines a pump read and is still storing or sending.
+    in_flight: int = 0
 
     @property
     def alive(self) -> bool:
@@ -473,12 +475,13 @@ class TurnHost:
             try:
                 raw = await stream.readline()
             except (ValueError, asyncio.LimitOverrunError):
+                turn.reads += 1
                 # A line past LINE_LIMIT: drop it, keep reading.
                 logger.warning("Turn host: dropped an over-long line of turn {}", turn.turn_id)
                 continue
             if not raw:
                 return
-            turn.last_output = time.monotonic()
+            turn.reads += 1
             text = raw.decode("utf-8", errors="replace").rstrip("\r\n")
             if turn.kept_bytes + len(raw) > MAX_KEPT_BYTES:
                 turn.truncated = True
@@ -489,9 +492,13 @@ class TurnHost:
                 _close_stdin(turn)
             client = self._client
             if turn.streaming and client is not None and not client.closed:
-                await client.send(
-                    {"ev": "line", "id": turn.turn_id, "seq": len(turn.lines), "d": text}
-                )
+                turn.in_flight += 1
+                try:
+                    await client.send(
+                        {"ev": "line", "id": turn.turn_id, "seq": len(turn.lines), "d": text}
+                    )
+                finally:
+                    turn.in_flight -= 1
 
     async def _pump_stderr(self, turn: HostedTurn) -> None:
         stream = turn.proc.stderr
@@ -500,18 +507,23 @@ class TurnHost:
             try:
                 raw = await stream.readline()
             except (ValueError, asyncio.LimitOverrunError):
+                turn.reads += 1
                 # an over-long stderr line is dropped; readline already cleared it
                 continue
             if not raw:
                 return
-            turn.last_output = time.monotonic()
+            turn.reads += 1
             text = raw.decode("utf-8", errors="replace").rstrip()
             if not text:
                 continue
             turn.stderr_tail.append(text)
             client = self._client
             if turn.streaming and client is not None and not client.closed:
-                await client.send({"ev": "err", "id": turn.turn_id, "d": text})
+                turn.in_flight += 1
+                try:
+                    await client.send({"ev": "err", "id": turn.turn_id, "d": text})
+                finally:
+                    turn.in_flight -= 1
 
     async def _reap(self, turn: HostedTurn) -> None:
         proc = turn.proc
@@ -521,13 +533,18 @@ class TurnHost:
             await asyncio.sleep(_EXIT_POLL_S)
         code = proc.returncode
         # Every line first: the exit must never overtake the answer. Lines
-        # still coming are read on; pipes silent for PIPE_DRAIN_S are let go.
+        # still coming are read on; the pipes are let go after a whole
+        # PIPE_DRAIN_S window with no line read and nothing buffered —
+        # counted, not clocked, so a stalled loop never drops a line.
         while True:
             pending = [t for t in turn.pumps if not t.done()]
             if not pending:
                 break
+            seen = turn.reads
             await asyncio.wait(pending, timeout=PIPE_DRAIN_S)
-            if time.monotonic() - turn.last_output >= PIPE_DRAIN_S:
+            for _ in range(3):  # completions that arrived during a stall run first
+                await asyncio.sleep(0)
+            if turn.reads == seen and not turn.in_flight and not _unread(proc):
                 for task in pending:
                     task.cancel()
                 await asyncio.gather(*pending, return_exceptions=True)
@@ -577,6 +594,13 @@ def _close_stdin(turn: HostedTurn) -> None:
         stdin.close()
     except OSError as exc:
         logger.debug("Turn host: stdin close for {} failed: {}", turn.turn_id, exc)
+
+
+def _unread(proc: asyncio.subprocess.Process) -> int:
+    """Bytes already on the process's pipes that no pump took yet."""
+    return sum(
+        len(getattr(stream, "_buffer", b"") or b"") for stream in (proc.stdout, proc.stderr)
+    )
 
 
 def _kill(proc: asyncio.subprocess.Process) -> None:
