@@ -547,12 +547,11 @@ def _close_stdin(turn: HostedTurn) -> None:
 
 
 def _kill(proc: asyncio.subprocess.Process) -> None:
-    if proc.returncode is not None:
-        return
-    try:
-        proc.kill()
-    except (ProcessLookupError, OSError) as exc:
-        logger.debug("Turn host: killing pid {} failed: {}", proc.pid, exc)
+    # The whole tree: a wrapper (node codex.js, claude.cmd) keeps the real
+    # agent in a child that a plain kill would leave working after Stop.
+    from dodaios.core.process_tree import kill_with_descendants
+
+    kill_with_descendants(proc)
 
 
 async def _read_frame(reader: asyncio.StreamReader) -> dict[str, Any] | None:

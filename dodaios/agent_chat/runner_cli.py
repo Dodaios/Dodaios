@@ -4909,6 +4909,14 @@ async def _deliver_codex_images(
 def _kill(proc: asyncio.subprocess.Process) -> None:
     if proc.returncode is not None:
         return
+    if isinstance(proc, asyncio.subprocess.Process):
+        # A local CLI: its wrapper (node codex.js, claude.cmd) keeps the real
+        # agent in a child that a plain kill would leave working after Stop.
+        from dodaios.core.process_tree import kill_with_descendants
+
+        kill_with_descendants(proc)
+        return
+    # A hosted or remote CLI: its own host ends the tree.
     try:
         proc.kill()
     except (ProcessLookupError, OSError) as exc:
