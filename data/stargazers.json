@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 348,
-  "forks": 124,
-  "placed": 71,
-  "stated": 84,
-  "generatedAt": "2026-11-09T17:31:57.951Z",
+  "count": 350,
+  "forks": 125,
+  "placed": 72,
+  "stated": 85,
+  "generatedAt": "2026-11-09T18:06:04.442Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -360,6 +360,13 @@
       "lat": 27.336,
       "lon": -82.531,
       "label": "Sarasota",
+      "country": "United States",
+      "count": 1
+    },
+    {
+      "lat": 33.692,
+      "lon": -111.868,
+      "label": "Scottsdale",
       "country": "United States",
       "count": 1
     },
