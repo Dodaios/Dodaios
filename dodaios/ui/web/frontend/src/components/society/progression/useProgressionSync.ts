@@ -13,8 +13,8 @@
 import { useEffect, useRef } from "react";
 import { useEventStore } from "@/store/events";
 import { useCompanionPet } from "../companion/companionPetStore";
-import { DECK_IDS } from "../verse/decks";
-import { isPromotion } from "../verse/ranks/ranks";
+import { DECK_IDS } from "./decks";
+import { isPromotion } from "./ranks";
 import { fetchProgression, parseAwardEvent, reportWorldAction } from "./progressionApi";
 import { awayCelebrations, readSeenSeq, useProgression, writeSeenSeq } from "./progressionStore";
 import { playLevelUp, playXpTick } from "./levelSounds";

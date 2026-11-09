@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeThreadsStore } from "@/store/ideThreads";
-import { openPaneSession } from "./codingNavigate";
+import { openPaneSession } from "./openPaneSession";
 
 describe("open a coding session from the office", () => {
   const initialSection = useEventStore.getState().activeSection;

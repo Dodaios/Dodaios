@@ -7,7 +7,7 @@
  * driven through the real stage before the decks are cooked.
  */
 import { useEffect, useState } from "react";
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import type { Deck } from "./deck";
 import { loadDeck } from "./loadDeck";
 
