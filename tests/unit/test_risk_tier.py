@@ -24,6 +24,18 @@ class _StubTool:
         raise NotImplementedError
 
 
+class _ShellStub(_StubTool):
+    """A shell-like tool: opts its ``command`` argument into bare patterns."""
+
+    whitelist_command_arg = "command"
+
+
+class _SchemaStub(_StubTool):
+    def __init__(self, name: str, properties: list[str], risk_tier: str = "ask"):
+        super().__init__(name, risk_tier)
+        self.schema = {"type": "object", "properties": {p: {} for p in properties}}
+
+
 def _make_safety(
     whitelist: list[str] | None = None,
     blacklist: list[str] | None = None,
@@ -81,7 +93,7 @@ def test_unprefixed_blacklist_pattern_matches_args_only():
 
 def test_unprefixed_whitelist_pattern_matches_args_only():
     ev = RiskTierEvaluator(_make_safety(whitelist=["git status"]))
-    tool = _StubTool("run_shell", risk_tier="ask")
+    tool = _ShellStub("run_shell", risk_tier="ask")
     decision = ev.evaluate(tool, {"command": "git status"})
     assert decision.tier == "safe"
     assert decision.approved_by == "whitelist"
@@ -232,3 +244,95 @@ def test_tool_without_hook_is_unchanged():
     tool = _StubTool("delete_file", risk_tier="ask")
     decision = ev.evaluate(tool, {"path": "x"})
     assert decision.tier == "ask"
+
+
+# ----------------------------------------------------------------------
+# Security audit 2026-11-09: the model controls argument key names and
+# order, so whitelist matching must not trust them.
+# ----------------------------------------------------------------------
+
+_DEFAULT_WHITELIST = [
+    "open_app *", "type_text *", "search_web *", "remember *",
+    "dispatch_to_harness *", "screenshot *",
+    "git status", "git log *", "git diff *",
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "props", "args"),
+    [
+        ("gmail", ["action", "to", "body"],
+         {"body": "remember this", "action": "send", "to": "a@evil.example"}),
+        ("dispatch_to_admin", ["op"],
+         {"note": "remember this", "op": {"type": "add_scheduled_task"}}),
+        ("manage-mcp-server", ["action", "name", "command", "args", "reason"],
+         {"command": "git log x", "action": "add", "name": "x", "reason": "r"}),
+    ],
+)
+def test_bare_whitelist_pattern_cannot_downgrade_other_tools(name, props, args):
+    ev = RiskTierEvaluator(_make_safety(whitelist=_DEFAULT_WHITELIST))
+    decision = ev.evaluate(_SchemaStub(name, props), args)
+    assert decision.tier == "ask"
+    assert decision.approved_by is None
+
+
+def test_whitelist_uses_schema_order_not_model_order():
+    ev = RiskTierEvaluator(_make_safety(whitelist=["open_app spotify*"]))
+    tool = _SchemaStub("open_app", ["name", "mode"])
+    decision = ev.evaluate(tool, {"mode": "spotify", "name": "calc"})
+    assert decision.approved_by is None
+    decision = ev.evaluate(tool, {"mode": "x", "name": "spotify"})
+    assert decision.approved_by == "whitelist"
+
+
+def test_undeclared_argument_disables_whitelist():
+    ev = RiskTierEvaluator(_make_safety(whitelist=["open_app *"]))
+    tool = _SchemaStub("open_app", ["name"])
+    assert ev.evaluate(tool, {"name": "calc"}).approved_by == "whitelist"
+    assert ev.evaluate(tool, {"name": "calc", "extra": "x"}).approved_by is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git log; rm -rf ~",
+        "git log && rm -rf ~",
+        "git log & rm -rf ~",
+        "git log | sh",
+        "git log $(rm -rf ~)",
+        "git log `rm -rf ~`",
+        "git log > ~/.bashrc",
+        "git log\nrm -rf ~",
+    ],
+)
+def test_whitelist_never_covers_chained_shell_commands(command):
+    ev = RiskTierEvaluator(_make_safety(whitelist=_DEFAULT_WHITELIST))
+    decision = ev.evaluate(_ShellStub("run_shell", "monitor"), {"command": command})
+    assert decision.approved_by is None
+
+
+def test_shell_whitelist_ignores_other_arguments():
+    ev = RiskTierEvaluator(_make_safety(whitelist=["git log *"]))
+    tool = _ShellStub("run_shell", "ask")
+    decision = ev.evaluate(tool, {"cwd": "git log x", "command": "kubectl apply -f x"})
+    assert decision.approved_by is None
+    decision = ev.evaluate(tool, {"cwd": ".", "command": "  git   log  --oneline"})
+    assert decision.approved_by == "whitelist"
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"command": " rm -rf /"},
+        {"command": "\trm -rf /"},
+        {"command": "rm  -rf   /"},
+        {"timeout_s": 60, "command": "rm -rf /"},
+        {"cwd": ".", "command": "rm -rf /"},
+        {"command": "echo hi; rm -rf /"},
+        {"command": "echo $(rm -rf /)"},
+    ],
+)
+def test_blacklist_survives_whitespace_order_and_chaining(args):
+    ev = RiskTierEvaluator(_make_safety(blacklist=["rm -rf /"]))
+    with pytest.raises(ActionBlocked):
+        ev.evaluate(_ShellStub("run_shell", "monitor"), args)

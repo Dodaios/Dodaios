@@ -41,7 +41,7 @@ from .approval_surface import (
     resolve_approval_surface,
 )
 from .origin import OriginLedger, TargetOrigin, classify_targets
-from .risk_tier import ActionBlocked, RiskTierEvaluator
+from .risk_tier import ActionBlocked, RiskTierEvaluator, requires_human_approval
 
 if TYPE_CHECKING:
     from dodaios.brain.plausibility import PlausibilityDecision
@@ -346,7 +346,11 @@ class ToolExecutor:
         # TaskAutoApprover may answer synchronously from that event; registering
         # afterward loses the answer and turns a valid grant into a timeout.
         approved_by = decision.approved_by or "auto"
-        tier_confirm = self._evaluator.needs_user_confirmation(decision)
+        # Some actions need a person every time (see ``requires_human_approval``):
+        # they always arm a confirmation, and neither the explicit-intent waiver
+        # nor the global bypass below may answer it.
+        human_required = requires_human_approval(tool, args)
+        tier_confirm = human_required or self._evaluator.needs_user_confirmation(decision)
         plaus_confirm = plaus is not None and plaus.require_confirmation
         # Explicit intent (Claude-Code permission model, mandate 2026-08-08):
         # a consequential action the user's own utterance already asked for by
@@ -354,7 +358,7 @@ class ToolExecutor:
         # the TIER requirement may be waived — a plausibility-forced
         # confirmation (low STT confidence, stale wake) stays binding, because
         # the whole doubt there is whether the utterance was heard right.
-        if tier_confirm and not plaus_confirm and user_utterance:
+        if tier_confirm and not plaus_confirm and not human_required and user_utterance:
             confirms = getattr(tool, "intent_confirms_args", None)
             if callable(confirms):
                 try:
@@ -375,9 +379,15 @@ class ToolExecutor:
         # Calls from voice, tasks, missions and other app surfaces use the
         # global default. This never overrides the block/read-only/cancel
         # checks, and model-controlled tool arguments cannot set the policy.
-        bypass_default = self._evaluator.bypass_permissions and not (
-            config_snapshot or {}
-        ).get("approval_ref")
+        # Bypass never answers a plausibility-forced confirmation (the doubt is
+        # whether the person was heard right at all) nor an action that needs a
+        # person by definition (security audit 2026-11-09).
+        bypass_default = (
+            self._evaluator.bypass_permissions
+            and not (config_snapshot or {}).get("approval_ref")
+            and not plaus_confirm
+            and not human_required
+        )
         # WHO can answer this gate — declared by the calling layer, never by
         # the model (see ``approval_surface``). It changes only how the
         # approval is obtained, never whether one is needed: ``needs_confirm``
