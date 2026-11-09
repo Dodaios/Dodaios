@@ -15,5 +15,7 @@ public class VerseDestruction : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "NetCore", "Chaos", "GeometryCollectionEngine", "NavigationSystem" });
 		// The validator reads the source geometry of a mesh in the editor (destruction.md 9).
 		PrivateDependencyModuleNames.AddRange(new string[] { "MeshDescription" });
+		// PhysicsCore: a UPhysicalMaterial subclass may carry the world surface role (change request #1134).
+		PrivateDependencyModuleNames.AddRange(new string[] { "PhysicsCore" });
 	}
 }

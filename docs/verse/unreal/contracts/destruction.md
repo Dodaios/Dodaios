@@ -148,6 +148,13 @@ About 30 bytes on the wire, under the 64-byte budget (architecture §7).
 Clients apply the same strain field at the same location with the same seed;
 a different crack pattern on another client is allowed (architecture §4).
 
+**Kill cam replay.** `UVerseDebrisSubsystem::ReplayFracture(const
+FVerseFractureEvent&)` redraws the debris burst of a recorded fracture
+inside the same debris budget, without touching the piece state; repairs
+and resets are not replayed. `VerseUI` cannot include `VerseDestruction`, so
+the primary module binds `UVerseUiSubsystem::OnKillCamFracture` to it when a
+world begins play.
+
 ## 5. Bolt holes as sightlines
 
 A bolt that passes a `Damaged`-capable piece (sheet metal, container wall,
