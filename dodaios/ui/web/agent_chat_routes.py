@@ -1204,6 +1204,10 @@ async def patch_session(
     assert current is not None
     if body.cwd is not None and not kit_for(current.surface).plain:
         fields["cwd"] = _validate_cwd(body.cwd) or svc.default_cwd(current.surface)
+        if fields["cwd"] != current.cwd:
+            # A CLI keeps its conversations per folder: the old id cannot be
+            # resumed from the new one.
+            fields["vendor_session"] = ""
     runner = resolve_runner(
         fields.get("provider") or current.provider,
         surface=current.surface,

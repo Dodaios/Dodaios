@@ -174,7 +174,9 @@ def test_a_coding_thread_may_spawn_sub_agents(monkeypatch, tmp_path: Path):
     assert "sub-agent" not in appended
     # The assistant's own chat keeps its rule: there the turn is the worker.
     assert dodaios_harness.SYSTEM_PREAMBLE.endswith("spawn no sub-agents.")
-    assert dodaios_harness.SYSTEM_PREAMBLE.startswith(dodaios_harness.CODING_PREAMBLE)
+    # No persona or reply-style rules in a coding thread: the CLI acts as in a terminal.
+    for phrase in ("not technical", "No emojis", "prefer them over"):
+        assert phrase not in appended
 
 
 def test_an_identity_without_a_file_keeps_the_assistant_rule(monkeypatch, tmp_path: Path):

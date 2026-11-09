@@ -235,14 +235,17 @@ def test_retired_hidden_and_no_effort_models(monkeypatch):
     assert rows == [{"id": "new", "label": "new", "efforts": [], "note": ""}]
 
 
-async def test_unavailable_codex_model_is_stopped_before_inference(monkeypatch, tmp_path):
+async def test_unlisted_codex_model_is_passed_through_to_codex(monkeypatch, tmp_path):
     monkeypatch.setattr(rc, "read_codex_models", lambda **kwargs: [{"id": "supported"}])
+    seen = {}
 
     def planner(**kwargs):
-        pytest.fail("An unavailable model must not start a turn")
+        seen.update(kwargs)
+        raise rc.CliUnavailable("planned")
 
     monkeypatch.setitem(rc._PLANNERS, "codex-cli", planner)
     handle = SimpleNamespace(
+        turn_id="t1",
         session=SimpleNamespace(
             session_id="test",
             cwd=str(tmp_path),
@@ -253,8 +256,9 @@ async def test_unavailable_codex_model_is_stopped_before_inference(monkeypatch, 
         )
     )
     result = await rc._run_cli_once(handle, "hello", "codex-cli", "existing-conversation")
-    assert result.status == "error"
-    assert "update Codex" in result.error
+    # The turn is planned with the picked model; Codex itself judges it.
+    assert seen["model"] == "unsupported"
+    assert result.error == "planned"
 
 
 @pytest.mark.parametrize("family", ["agy", "opencode"])

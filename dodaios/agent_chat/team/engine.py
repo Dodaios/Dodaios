@@ -48,7 +48,8 @@ MIN_MEMBERS: Final[int] = 2
 #: A swarm: more members than this cost more than another review catches.
 MAX_MEMBERS: Final[int] = 8
 #: Model turns each member brings to a team's default turn bound.
-_TURNS_PER_MEMBER: Final[int] = 10
+#: Caps that are off unless the person sets one (0 = no cap).
+_OPTIONAL_CAPS: Final[frozenset[str]] = frozenset({"max_minutes", "max_turns", "turn_minutes"})
 _MAX_TASK: Final[int] = 40_000
 _MAX_TEXT: Final[int] = 60_000
 
@@ -103,32 +104,30 @@ class SeatPick:
 
 @dataclass(frozen=True, slots=True)
 class Limits:
-    #: Working time of the whole thread; paused time does not count.
-    max_minutes: int = 90
-    #: Model turns of the whole thread.
-    max_turns: int = 40
+    #: Working time of the whole thread; paused time does not count. 0 = no
+    #: cap: coding-agent work has no wall-clock limit, only a person's explicit
+    #: cap ends it.
+    max_minutes: int = 0
+    #: Model turns of the whole thread. 0 = no cap.
+    max_turns: int = 0
     #: Master plans written before the thread asks the person.
     plan_rounds: int = 3
     #: Review rounds before the thread asks the person.
     review_rounds: int = 3
-    #: One turn's own time; a turn over it counts as stalled.
-    turn_minutes: int = 30
+    #: One turn's own time; a turn over it counts as stalled. 0 = no cap.
+    turn_minutes: int = 0
     #: 0 = no cap. Counted only where the runner reports a price.
     max_cost_usd: float = 0.0
 
     @classmethod
-    def for_team(cls, members: int) -> Limits:
-        """The default bounds of a team this size: a bigger team takes more turns per step."""
-        return cls(max_turns=max(cls().max_turns, _TURNS_PER_MEMBER * members))
-
-    @classmethod
-    def of(cls, raw: dict[str, Any] | None, *, members: int = 0) -> Limits:
-        base = cls.for_team(members)
+    def of(cls, raw: dict[str, Any] | None) -> Limits:
+        base = cls()
         raw = raw or {}
 
         def whole(key: str, low: int, high: int) -> int:
             try:
-                return max(low, min(high, int(raw.get(key, getattr(base, key)))))
+                value = int(raw.get(key, getattr(base, key)))
+                return 0 if value <= 0 and key in _OPTIONAL_CAPS else max(low, min(high, value))
             except (TypeError, ValueError):  # not a number: the default bound applies
                 return int(getattr(base, key))
 
@@ -239,7 +238,7 @@ class TeamThreads(PlannedWork):
                 task=task,
                 cwd=str(folder),
                 lang=self._language(task),
-                limits=asdict(Limits.of(limits, members=len(seats))),
+                limits=asdict(Limits.of(limits)),
                 members=members,
                 mode=mode,
                 work=work,
@@ -548,7 +547,8 @@ class TeamThreads(PlannedWork):
 
     def _check_bounds(self, team: dict[str, Any]) -> None:
         limits = team["limits"]
-        if self._elapsed_ms(team) >= int(limits["max_minutes"]) * 60_000:
+        max_minutes = int(limits["max_minutes"])
+        if max_minutes > 0 and self._elapsed_ms(team) >= max_minutes * 60_000:
             self._halt(team, "needs_input", "limit_time")
         cap = float(limits.get("max_cost_usd") or 0.0)
         if cap > 0 and float(team["work"].get("cost_usd", 0.0)) >= cap:
@@ -965,11 +965,18 @@ class TeamThreads(PlannedWork):
         fresh = self._store.get(team_id)
         assert fresh is not None
         limits = fresh["limits"]
-        if int(fresh["work"].get("turns", 0)) + len(members) > int(limits["max_turns"]):
+        max_turns = int(limits["max_turns"])
+        if max_turns > 0 and int(fresh["work"].get("turns", 0)) + len(members) > max_turns:
             self._halt(team, "needs_input", "limit_turns")
-        turn_s = int(limits["turn_minutes"]) * 60
-        left_s = int(limits["max_minutes"]) * 60 - self._elapsed_ms(fresh) // 1000
-        timeout_s = float(max(60, min(turn_s, left_s)))
+        # No cap by default: a member's turn runs until it ends or Stop is pressed.
+        turn_s = int(limits["turn_minutes"]) * 60 or None
+        left_s = (
+            int(limits["max_minutes"]) * 60 - self._elapsed_ms(fresh) // 1000
+            if int(limits["max_minutes"]) > 0
+            else None
+        )
+        caps = [s for s in (turn_s, left_s) if s is not None]
+        timeout_s = float(max(60, min(caps))) if caps else None
         phase = fresh["phase"]
         before = await asyncio.to_thread(self._workspace.snapshot, team["cwd"]) if guard else None
         notes_upto = self._store.entries(team_id)[-1]["seq"]
@@ -1093,10 +1100,11 @@ class TeamThreads(PlannedWork):
                     note="; ".join(f"{member['name']}: {error[:300]}" for member, error in failed),
                 )
         if timed_out:
+            over_total = left_s is not None and (turn_s is None or left_s <= turn_s)
             self._halt(
                 team,
                 "needs_input",
-                "limit_time" if left_s <= turn_s else "stalled",
+                "limit_time" if over_total else "stalled",
                 note=", ".join(timed_out),
             )
         if len(self._active(team_id)) < MIN_MEMBERS:
@@ -1109,7 +1117,7 @@ class TeamThreads(PlannedWork):
         text: str,
         kind: str,
         language: str,
-        timeout_s: float,
+        timeout_s: float | None,
         *,
         label: str = "",
     ) -> TurnResult:

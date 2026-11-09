@@ -60,7 +60,6 @@ const SEATS = {
   default: [{ provider: "claude-api", model: "" }, { provider: "openai-codex", model: "" }],
   min_members: 2,
   max_members: 8,
-  max_turns: { 2: 40, 3: 40, 4: 40, 5: 50, 6: 60, 7: 70, 8: 80 },
 };
 
 afterEach(() => {
@@ -158,7 +157,7 @@ it("drops an effort the newly picked model does not offer", async () => {
 it("grows into a swarm of up to eight members and says what that costs", async () => {
   mount();
   await screen.findByTestId("team-draft-member-1");
-  expect(screen.getByText(/team_threads\.draft\.bounds \{"turns":40\}/)).toBeTruthy();
+  expect(screen.getByText("team_threads.draft.bounds")).toBeTruthy();
   expect(screen.queryByTestId("team-draft-swarm")).toBeNull();
 
   for (let count = 3; count <= 8; count += 1) pick("team-draft-add", count % 2 ? "Codex" : "Gemini");
@@ -168,7 +167,7 @@ it("grows into a swarm of up to eight members and says what that costs", async (
   expect(screen.queryByTestId("team-draft-add")).toBeNull();
   expect(screen.getByTestId("team-draft-full")).toBeTruthy();
   expect(screen.getByTestId("team-draft-swarm")).toBeTruthy();
-  expect(screen.getByText(/team_threads\.draft\.bounds \{"turns":80\}/)).toBeTruthy();
+  expect(screen.getByText("team_threads.draft.bounds")).toBeTruthy();
 
   // Planner and builder: the first two by position, six reviewers.
   fireEvent.click(screen.getByTestId("team-draft-mode-planner_builder"));

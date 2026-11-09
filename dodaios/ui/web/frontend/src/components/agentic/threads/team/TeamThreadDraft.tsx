@@ -78,7 +78,6 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
   const cast = team.map((pick, index) => ({ ...pick, role: pick.role ?? roleAt(index) }));
   const rolesOk = !planned || rolesValid(cast);
   const canStart = !starting && task.trim().length > 0 && team.length >= min && team.length <= max && rolesOk;
-  const turns = seats.data?.max_turns?.[String(Math.max(min, Math.min(max, team.length)))] ?? 40;
 
   // A member that was just added gets the focus on its seat, so it is clearly the person's to set.
   useEffect(() => {
@@ -259,7 +258,7 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
           {starting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Send className="h-3.5 w-3.5" aria-hidden />}
         </button>
       </form>
-      <p className="text-center text-xs text-muted-foreground">{fill(t(planned ? "team_threads.draft.bounds_planned" : "team_threads.draft.bounds"), { turns })}</p>
+      <p className="text-center text-xs text-muted-foreground">{t(planned ? "team_threads.draft.bounds_planned" : "team_threads.draft.bounds")}</p>
     </div>
   </div>;
 }
