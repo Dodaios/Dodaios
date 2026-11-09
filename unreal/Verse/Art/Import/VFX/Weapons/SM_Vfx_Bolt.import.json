@@ -1,0 +1,59 @@
+{
+  "asset_path": "/Game/Verse/VFX/Weapons/SM_Vfx_Bolt.SM_Vfx_Bolt",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SM_Vfx_Bolt.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b260c4115a587a6b0b46d664062caf69ef458479b6123328937255ec5338a247"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        0.0,
+        0.739,
+        0.739
+      ],
+      "min": [
+        -60.0,
+        -0.739,
+        -0.739
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Vfx_BoltOwn.MI_Weapon_Vfx_BoltOwn",
+        "slot": "M_Weapon_Vfx_BoltOwn"
+      }
+    ],
+    "triangles": 84,
+    "uv_sets": 1,
+    "vertices": 48
+  },
+  "name": "SM_Vfx_Bolt",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SM_Vfx_Bolt"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_vfx_bolt"
+  }
+}

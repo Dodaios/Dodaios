@@ -1,0 +1,80 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Tallow/SK_Weapon_Tallow.SK_Weapon_Tallow",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Tallow.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "4213e30d0148dcc3f26cc2327e77ed0b2669aa50dd83122c9425a9716fae2788"
+  },
+  "kind": "skeletal_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bones": [
+      "Root",
+      "Magazine",
+      "Slide",
+      "Trigger",
+      "SocketBase"
+    ],
+    "bounds_cm": {
+      "max": [
+        15.8,
+        1.5,
+        7.9
+      ],
+      "min": [
+        -5.25,
+        -1.5,
+        -9.739
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Steel.MI_Weapon_Steel",
+        "slot": "M_Weapon_Steel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Polymer.MI_Weapon_Polymer",
+        "slot": "M_Weapon_Polymer"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Grip.MI_Weapon_Grip",
+        "slot": "M_Weapon_Grip"
+      }
+    ],
+    "sockets": [
+      "SOCKET_Eject",
+      "SOCKET_Muzzle",
+      "SOCKET_Sight",
+      "SOCKET_Support"
+    ],
+    "triangles": 1388,
+    "uv_sets": 1,
+    "vertices": 728
+  },
+  "name": "SK_Weapon_Tallow",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_Tallow"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_tallow"
+  }
+}

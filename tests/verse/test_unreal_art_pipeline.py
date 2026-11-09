@@ -723,7 +723,9 @@ def test_wp14_editor_code_is_optional_until_it_lands(monkeypatch, tmp_path):
     import verse_pipeline
 
     monkeypatch.setattr(verse_pipeline, "REPO_ROOT", tmp_path)
-    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setattr(
+        sys, "path", [p for p in sys.path if Path(p).resolve() != ART.resolve()]
+    )
     for name in [m for m in sys.modules if m == "weapons" or m.startswith("weapons.")]:
         monkeypatch.delitem(sys.modules, name)
     assert verse_pipeline.wp14_editor("rig") is None

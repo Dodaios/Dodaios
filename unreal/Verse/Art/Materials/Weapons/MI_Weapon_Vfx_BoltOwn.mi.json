@@ -1,0 +1,21 @@
+{
+  "name": "MI_Weapon_Vfx_BoltOwn",
+  "owner": "WP14",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "replaces": "M_Weapon_Vfx_BoltOwn",
+  "scalars": {
+    "EmissiveNits": 60.0,
+    "Fade": 1.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "EmissiveColor": [
+      0.888,
+      0.366,
+      0.0423,
+      1.0
+    ]
+  }
+}
