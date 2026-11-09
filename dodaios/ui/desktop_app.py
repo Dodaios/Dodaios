@@ -2275,7 +2275,8 @@ class DesktopApp:
             if exc is not None:
                 _logger.opt(exception=exc).error("Unhandled asyncio exception: {}", msg)
             else:
-                _logger.error("Asyncio event context: {}", msg)
+                # The task names the leak; the message alone never does.
+                _logger.error("Asyncio event context: {} ({!r})", msg, context.get("task"))
 
         loop.set_exception_handler(_log_unhandled_async)
 
