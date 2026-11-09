@@ -69,6 +69,9 @@ public:
 	int32 FireWantTicks = 0;
 	int32 FireUnclassifiedTicks = 0;
 	int32 FireUnaimedTicks = 0;
+
+	/** The mode of the last fire tick that reached the trigger and its time, s (F4: each round is logged with it). */
+	EVerseBotFireMode GetLastFireMode(float& OutAtS) const { OutAtS = LastFireModeS; return LastFireMode; }
 	int32 GetDecisionCount() const { return DecisionIndex; }
 	/** Number of decisions per state since Init (presentation, harness). */
 	const int32* GetStateCounts() const { return StateCounts; }
@@ -116,6 +119,8 @@ private:
 	FVerseBotMatchMemory OwnedMemory;
 	FVerseBotMatchMemory* Memory = &OwnedMemory;
 	FVerseBotFireAuditLog Audit;
+	EVerseBotFireMode LastFireMode = EVerseBotFireMode::Unclassified;
+	float LastFireModeS = -1.0e6f;
 	FVerseBotUtilitySelector Selector;
 	FVerseBotTacticsMemory TacticsMem;
 	FVerseBotQueryCache Cache;

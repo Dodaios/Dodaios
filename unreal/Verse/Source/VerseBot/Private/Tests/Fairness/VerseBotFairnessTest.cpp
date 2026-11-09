@@ -91,11 +91,14 @@ bool FVerseBotFairnessF3GridTest::RunTest(const FString& Parameters)
 		A.Model = FFakeVerseDuelSim::EModel::Still;
 		A.StillSpot = FVector(0.f, 900.f, 0.f);
 		FFakeVerseDuelSim::FConfig B = A;
-		B.StillSpot = FVector(-1800.f, -1450.f, 0.f);
+		B.StillSpot = FVector(-1800.f, -1250.f, 0.f);  // north of the south-west wall, hidden from the spawn
 		FFakeVerseDuelSim SimA(TEXT("hard"), A);
 		FFakeVerseDuelSim SimB(TEXT("hard"), B);
 		UseGrid(SimA, SimA.Brain, SimA.World);
 		UseGrid(SimB, SimB.Brain, SimB.World);
+		// The sim aims the bot's first view from the opponent's spot; both bots start alike here, so
+		// the only difference between the two worlds is where the hidden opponent stands.
+		SimA.BotView = SimB.BotView = FRotator(0.f, 30.f, 0.f);
 		SimA.bRecordFrames = SimB.bRecordFrames = true;
 		SimA.bRecordOutputs = SimB.bRecordOutputs = true;
 		constexpr int32 Ticks = 60 * 60;
@@ -112,16 +115,20 @@ bool FVerseBotFairnessF3GridTest::RunTest(const FString& Parameters)
 			if (!bSame)
 			{
 				FirstDiff = T;
+				AddInfo(FString::Printf(TEXT("seed %d: percepts differ at tick %d (sight %d/%d heard %d/%d hurt %d/%d hud %d/%d)"), Seed, T,
+					FA.Sightings.Num(), FB.Sightings.Num(), FA.Heard.Num(), FB.Heard.Num(), FA.bHasHurt ? 1 : 0, FB.bHasHurt ? 1 : 0,
+					FA.Hud.Num(), FB.Hud.Num()));
 				break;
 			}
 		}
 		const int32 Compare = FMath::Min(FirstDiff, SimA.Outputs.Num() / FrameBytes);
 		const bool bIdentical = FMemory::Memcmp(SimA.Outputs.GetData(), SimB.Outputs.GetData(), Compare * FrameBytes) == 0;
 		TestTrue(FString::Printf(TEXT("seed %d: input frames identical for %d ticks before the first differing percept"), Seed, Compare), bIdentical);
-		TestTrue(FString::Printf(TEXT("seed %d: the bot acted for at least 2 s unseen before any differing percept"), Seed), Compare >= 120);
+		TestTrue(FString::Printf(TEXT("seed %d: the bot acted at least 2 s before the percepts differed"), Seed), Compare >= 120);
 		Passed += bIdentical ? 1 : 0;
 		TicksCompared += Compare;
 	}
+	AddInfo(FString::Printf(TEXT("F3 grid: %d/20 seeds identical over %d compared ticks"), Passed, TicksCompared));
 	VerseBotTestProof::Write(TEXT("10"), TEXT("f3_grid_counterfactual.json"),
 		FString::Printf(TEXT("{\n  \"test\": \"F3\",\n  \"belief\": \"grid\",\n  \"seeds\": 20,\n  \"passed\": %d,\n  \"ticksCompared\": %d\n}\n"), Passed,
 			TicksCompared));

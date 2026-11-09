@@ -11,6 +11,7 @@
 #include "Rules/VerseSpawnPoint.h"
 #include "VerseArenaGraybox.h"
 #include "Weapons/VerseCombatEvents.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Events/VerseEventHub.h"
@@ -214,6 +215,20 @@ bool UVerseBalanceGauntletController::Start(UWorld* InWorld, const FVerseHarness
 		return false;
 	}
 	return true;
+}
+
+void UVerseBalanceGauntletController::GiveSlotIdentity(AController& Controller, bool bBot)
+{
+	// A player state made by a controller itself comes up with player id 0, which events and the
+	// perception service read as "nobody": both slots would share it and never perceive each other.
+	if (APlayerState* State = Controller.PlayerState)
+	{
+		State->SetIsABot(bBot);
+		if (State->GetPlayerId() == 0)
+		{
+			State->SetPlayerId(NextSlotPlayerId++);
+		}
+	}
 }
 
 void UVerseBalanceGauntletController::PrepareArena(UWorld& InWorld)
@@ -431,6 +446,7 @@ AController* UVerseBalanceGauntletController::SpawnSlot(const FVerseHarnessSlot&
 				OutError = TEXT("cannot spawn ") + BotClass->GetName();
 				return nullptr;
 			}
+			GiveSlotIdentity(*Bot, true);
 			if (!ConfigureBot(*Bot, Slot, TierPatchJson, SlotSeed, OutError))
 			{
 				Bot->Destroy();
@@ -478,6 +494,7 @@ AController* UVerseBalanceGauntletController::SpawnSlot(const FVerseHarnessSlot&
 		OutError = TEXT("cannot spawn a model controller");
 		return nullptr;
 	}
+	GiveSlotIdentity(*Model, false);
 	Model->Configure(Person, Trick, SlotSeed);
 	UVerseBotTier* BrainTier = !Slot.Model.IsNone() ? PersonTier(this, Person) : MakeTier(this, Slot.Tier, Slot.bLearning, TierPatchJson, OutError);
 	if (!BrainTier)
@@ -757,6 +774,40 @@ bool UVerseBalanceGauntletController::Tick()
 	if (!Recorder)
 	{
 		return !bFinished;
+	}
+	// A dedicated server ticks no pose of an unseen mesh, so the hit-zone bones the perception
+	// service samples would stay where the pawn spawned: keep the slot pawns' bones current.
+	for (const TWeakObjectPtr<AController>& Weak : Slots)
+	{
+		const AController* Controller = Weak.Get();
+		if (APawn* Pawn = Controller ? Controller->GetPawn() : nullptr)
+		{
+			TInlineComponentArray<USkeletalMeshComponent*> Meshes(Pawn);
+			for (USkeletalMeshComponent* Mesh : Meshes)
+			{
+				if (Mesh->VisibilityBasedAnimTickOption != EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones)
+				{
+					Mesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+				}
+			}
+		}
+	}
+	if (Now() >= NextBodyLogS)
+	{
+		// Health line: what the perception service reads of each slot pawn (bones, phase).
+		NextBodyLogS = Now() + 60.0;
+		for (const TWeakObjectPtr<AController>& Weak : Slots)
+		{
+			const AController* Controller = Weak.Get();
+			const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+			if (Pawn && Controller->PlayerState)
+			{
+				const FVersePerceptionBody Body = UVersePerceptionService::MakeBody(*Pawn, Controller->PlayerState->GetPlayerId());
+				UE_LOG(LogVerseHarness, Display, TEXT("[VerseHarness] body %s (player %d): actor %s eye %s pelvis %s alive %d"), *Controller->GetName(),
+					Controller->PlayerState->GetPlayerId(),
+					*Pawn->GetActorLocation().ToCompactString(), *Body.Eye.ToCompactString(), *Body.Pelvis.ToCompactString(), Body.bAlive ? 1 : 0);
+			}
+		}
 	}
 	// Model slots perceive and act once per server tick (bot slots run their own perception).
 	Feed->Tick(World.Get());

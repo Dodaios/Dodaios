@@ -821,6 +821,8 @@ void FVerseBotBrainCore::ApplyFireGate(FVerseBotIntent& Intent, const FVerseBotA
 		return;
 	}
 	Audit.Add(E, Mode);
+	LastFireMode = Mode;
+	LastFireModeS = NowS;
 }
 
 void FVerseBotBrainCore::ForgetSearchTarget()

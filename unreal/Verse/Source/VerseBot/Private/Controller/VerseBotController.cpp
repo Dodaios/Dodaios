@@ -5,6 +5,8 @@
 #include "Brain/VerseBotBrainCore.h"
 #include "Brain/VerseBotGridBelief.h"
 #include "Controller/VerseBotArenaData.h"
+#include "Events/VerseEventHub.h"
+#include "Audit/VerseBotFireAudit.h"
 #include "Belief/VerseBeliefDebugDraw.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -25,6 +27,8 @@ namespace
 	const FName BotSkillField(TEXT("BotEffectiveSkill"));
 	/** Match seconds between two health lines of a bot. */
 	constexpr float DiagnosticPeriodS = 30.f;
+	/** A round fired within this time after a classified trigger tick carries its mode, s. */
+	constexpr float FireAuditMatchS = 0.25f;
 
 	float SkillOf(FName TierId)
 	{
@@ -162,6 +166,7 @@ void AVerseBotController::ReceivePerceptFrame(const FVersePerceptFrame& Frame)
 {
 	PendingFrame = Frame;
 	bHasFrame = true;
+	++DiagRealFrames;
 	LastRealFrame = Frame;
 	bHasRealFrame = true;
 }
@@ -200,12 +205,12 @@ void AVerseBotController::LogDiagnostics(const FVersePerceptFrame& Frame, const 
 	const FVerseBotPresentation P = Brain->GetPresentation();
 	const APawn* Own = GetPawn();
 	UE_LOG(LogVerseBot, Log,
-		TEXT("[VerseBot] %s t=%.0f s: state %s, belief %s conf %.2f at %s, at %s, frames %d (sight %d, heard %d, fire %d; want %d, unclassified %d, unaimed %d), grid %d"),
+		TEXT("[VerseBot] %s t=%.0f s: state %s, belief %s conf %.2f at %s, at %s, frames %d (service %d, sight %d, heard %d, fire %d; want %d, unclassified %d, unaimed %d), grid %d"),
 		*GetName(), NowS, *P.StateTag.ToString(), *UEnum::GetValueAsString(Brain->GetBelief().Summary().State), P.Confidence,
-		*P.BeliefTop.ToCompactString(), Own ? *Own->GetActorLocation().ToCompactString() : TEXT("-"), DiagFrames, DiagSightFrames,
+		*P.BeliefTop.ToCompactString(), Own ? *Own->GetActorLocation().ToCompactString() : TEXT("-"), DiagFrames, DiagRealFrames, DiagSightFrames,
 		DiagHeardFrames, DiagFireFrames, Brain->FireWantTicks, Brain->FireUnclassifiedTicks, Brain->FireUnaimedTicks, bArenaAttached ? 1 : 0);
 	Brain->FireWantTicks = Brain->FireUnclassifiedTicks = Brain->FireUnaimedTicks = 0;
-	DiagFrames = DiagSightFrames = DiagHeardFrames = DiagFireFrames = 0;
+	DiagFrames = DiagRealFrames = DiagSightFrames = DiagHeardFrames = DiagFireFrames = 0;
 	if (GridBelief && !BeliefPngDir.IsEmpty())
 	{
 		const FVector Marks[] = {Own ? Own->GetActorLocation() : FVector::ZeroVector};
@@ -215,6 +220,26 @@ void AVerseBotController::LogDiagnostics(const FVersePerceptFrame& Frame, const 
 			FVerseBeliefDebugDraw::SavePng(Path, GridBelief->GetMap().GetGrid(), GridBelief->GetMap().GetDerived(), Level, 4, Marks);
 		}
 	}
+}
+
+void AVerseBotController::HandleOwnFire(const FVerseFireEvent& Event)
+{
+	// Only the own rounds: the shooter id is compared and nothing else of the event is read (F1).
+	if (!Brain || !PlayerState || Event.ShooterId != PlayerState->GetPlayerId())
+	{
+		return;
+	}
+	const UWorld* World = GetWorld();
+	const double NowS = World ? World->GetTimeSeconds() : 0.0;
+	float AtS = 0.f;
+	EVerseBotFireMode Mode = Brain->GetLastFireMode(AtS);
+	// A round belongs to the trigger tick before it; a round with no recent classified tick is unclassified.
+	if (float(LastThinkMs) / 1000.f - AtS > FireAuditMatchS)
+	{
+		Mode = EVerseBotFireMode::Unclassified;
+	}
+	UE_LOG(LogVerseBot, Log, TEXT("[VerseFireAudit] ServerTimeMs=%llu Mode=%s Bot=%s"), uint64(FMath::RoundToDouble(NowS * 1000.0)),
+		*UEnum::GetValueAsString(Mode), *GetName());
 }
 
 void AVerseBotController::ResetMatch()
@@ -305,6 +330,13 @@ void AVerseBotController::PostInitializeComponents()
 void AVerseBotController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
+	if (!FireHandle.IsValid() && HasAuthority())
+	{
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+		{
+			FireHandle = Hub->OnFire.AddUObject(this, &AVerseBotController::HandleOwnFire);
+		}
+	}
 	if (!bBrainReady)
 	{
 		ResetMatch();
@@ -326,6 +358,14 @@ void AVerseBotController::OnUnPossess()
 
 void AVerseBotController::EndPlay(const EEndPlayReason::Type Reason)
 {
+	if (FireHandle.IsValid())
+	{
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+		{
+			Hub->OnFire.Remove(FireHandle);
+		}
+		FireHandle.Reset();
+	}
 	// Verse.exe exit or level change: the match memory is dropped (7.3, B8).
 	if (MatchMemory)
 	{

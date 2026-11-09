@@ -90,6 +90,9 @@ private:
 	void AttachArena();
 	/** One health line every DiagnosticPeriodS of match time: state, belief, percepts, shots. */
 	void LogDiagnostics(const FVersePerceptFrame& Frame, const FVerseInputFrame& Input);
+	/** F4 (bot.md 10): one [VerseFireAudit] line per round the own weapon fires, with its mode. */
+	void HandleOwnFire(const struct FVerseFireEvent& Event);
+	FDelegateHandle FireHandle;
 
 	TUniquePtr<FVerseBotBrainCore> Brain;
 	TUniquePtr<IVerseBotWorldQueries> DefaultQueries;
@@ -125,6 +128,7 @@ private:
 	FString BeliefPngDir;
 	float NextDiagnosticS = 0.f;
 	int32 DiagFrames = 0;
+	int32 DiagRealFrames = 0;
 	int32 DiagSightFrames = 0;
 	int32 DiagHeardFrames = 0;
 	int32 DiagFireFrames = 0;
