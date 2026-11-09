@@ -707,6 +707,25 @@ def test_main_gets_the_whole_suite_on_macos_after_the_merge():
     assert "label=macos-main" in script and "/compare/" in script
 
 
+def test_runs_of_removed_merge_groups_are_cancelled():
+    sweep = workflows()["queue-sweep.yml"]
+    triggers = sweep.get("on", sweep.get(True))
+    # A new group and a queue merge are when old groups disappear.
+    assert triggers["merge_group"] == {"types": ["checks_requested"]}
+    assert triggers["push"]["branches"] == ["main"]
+    assert sweep["permissions"] == {}
+    job = sweep["jobs"]["sweep"]
+    assert job["permissions"] == {"actions": "write", "contents": "read"}
+    # It runs no repository code with a token that can cancel runs.
+    assert not any("uses" in step for step in job["steps"])
+    script = "\n".join(step.get("run", "") for step in job["steps"])
+    # Only a 404 for the group's branch cancels; an API error leaves the run alone.
+    assert '[ "$code" = "404" ]' in script and "gh run cancel" in script
+    assert "gh-readonly-queue/*" in script and '[ "$age" -ge 120 ]' in script
+    # The sweep is no job of the workflow behind `CI gate`.
+    assert "queue-sweep" not in yaml.safe_dump(workflows()["ci.yml"])
+
+
 def test_installers_are_built_and_booted_daily_without_signing_or_publishing():
     installers = workflows()["desktop-installers.yml"]
     triggers = installers.get("on", installers.get(True))
