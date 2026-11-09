@@ -628,6 +628,30 @@ function WorkingFor({ since }: { since: number }) {
   return <>{before}<Elapsed since={since} />{after}</>;
 }
 
+/**
+ * The live line of a turn whose agent ended its message and waits for its own
+ * background tasks: a quiet heading with the clock, then one line per task
+ * under a thin rail, so a long task name never runs into the next one.
+ */
+function BackgroundWait({ tasks, since }: { tasks: readonly string[]; since: number }) {
+  const t = useT();
+  const lang = t("trace_report.locale");
+  return <div className="min-w-0 px-1 text-sm text-muted-foreground" data-testid="thread-working">
+    <div className="flex h-6 min-w-0 items-center gap-2" data-testid="thread-waiting-background">
+      <span aria-hidden className="relative flex h-1.5 w-1.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-primary/60 motion-safe:animate-ping" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary/80" />
+      </span>
+      <span className="live-tool-shine truncate">{fill(t(`thread_turn.waiting_background_${plural(lang, tasks.length)}`), { count: tasks.length })}</span>
+      <span aria-hidden className="text-muted-foreground/50">·</span>
+      <span className="shrink-0 text-muted-foreground/80"><Elapsed since={since} /></span>
+    </div>
+    <ul className="ml-[2.5px] mt-0.5 space-y-0.5 border-l border-border/70 pl-3.5" data-testid="thread-waiting-tasks">
+      {tasks.map((task, index) => <li key={`${index}:${task}`} className="truncate text-[13px] leading-5 text-muted-foreground/90" title={task}>{task}</li>)}
+    </ul>
+  </div>;
+}
+
 export interface ThreadTurnProps {
   turn: TurnItem;
   /**
@@ -763,17 +787,12 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {!folded && extraNodes}
     {renderRows(shown.slice(extraAt))}
     {running
-      ? <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
-        {waitingOn.length > 0
-          ? <>
-            <span className="whitespace-nowrap" data-testid="thread-waiting-background">
-              {fill(t(`thread_turn.waiting_background_${plural(lang, waitingOn.length)}`), { count: waitingOn.length })} · <Elapsed since={turn.startedMs} />
-            </span>
-            <span className="min-w-0 truncate" title={waitingOn.join("\n")}>&nbsp;· {waitingOn.join(", ")}</span>
-          </>
-          : <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
-            {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>}
-      </div>
+      ? waitingOn.length > 0
+        ? <BackgroundWait tasks={waitingOn} since={turn.startedMs} />
+        : <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
+          <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
+            {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
+        </div>
       : <>
         {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
         <ChangedFiles turn={turn} />

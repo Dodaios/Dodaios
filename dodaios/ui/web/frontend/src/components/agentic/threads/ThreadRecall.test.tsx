@@ -260,4 +260,42 @@ describe("Escape takes back a message the agent has not started on", () => {
     expect(box.value).toBe("");
     expect(screen.queryByTestId("chat-attachment-shot.png")).toBeNull();
   });
+
+  it("leaves the turn running when the Escape cancels a rename field", async () => {
+    const box = await sendWithShot("fix the login");
+    const rename = document.createElement("input");
+    document.body.appendChild(rename);
+    try {
+      await act(async () => { fireEvent.keyDown(rename, { key: "Escape" }); });
+    } finally {
+      rename.remove();
+    }
+
+    expect(api.cancelAgentChatTurn).not.toHaveBeenCalled();
+    expect(box.value).toBe("");
+    expect(screen.getAllByTestId("thread-user-message")).toHaveLength(2);
+  });
+});
+
+describe("A message that never reached the agent", () => {
+  it("comes back with its screenshot in an open thread", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    api.sendAgentChatMessage.mockRejectedValue(new Error("network down"));
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().activeSessionId).toBe("s1"));
+    feed([["user_message", { text: "earlier" }], ["turn_started", { turn_id: "t0", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" }],
+      ["turn_finished", { turn_id: "t0", status: "done", duration_ms: 10 }]]);
+    const box = screen.getByTestId("thread-composer-input") as HTMLTextAreaElement;
+    const png = new File([new Uint8Array([1, 2, 3])], "image.png", { type: "image/png" });
+    await act(async () => { fireEvent.paste(box, { clipboardData: transfer([png]) }); });
+    await waitFor(() => expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy());
+    fireEvent.change(box, { target: { value: "fix the login" } });
+
+    await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+
+    await waitFor(() => expect(box.value).toBe("fix the login"));
+    expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("network down");
+  });
 });
