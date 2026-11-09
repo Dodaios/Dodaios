@@ -10,7 +10,7 @@ import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 
 export function openPaneSession(
   pane: Pick<WorkspacePaneRow, "workspace_id" | "name">,
-  options: { open?: "changes" } = {},
+  options: { open?: "changes"; focus?: boolean } = {},
 ): void {
   const events = useEventStore.getState();
   if (events.activeSection !== "agentic-ide") events.setActiveSection("agentic-ide");
@@ -18,6 +18,7 @@ export function openPaneSession(
   useIdeChatStore.getState().requestPane(pane.workspace_id, pane.name, {
     maximize: true,
     ...(options.open ? { open: options.open } : {}),
+    ...(options.focus ? { focus: true } : {}),
   });
   // A full-view side panel would hide the very pane it just focused.
   useIdeSidePanelStore.getState().setMaximized(false);

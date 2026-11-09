@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const terminalHarness = vi.hoisted(() => ({
@@ -221,6 +221,7 @@ import {
   RETURN_REPAINT_NUDGE_MS,
   UNMEASURED_SIZE,
 } from "./AgenticTerminal";
+import { useIdeChatStore } from "@/store/ideChat";
 import { FONT_WAIT_MS } from "@/lib/terminalFont";
 import { PANE_CHROME } from "./terminalThemes";
 
@@ -3335,5 +3336,60 @@ describe("pane font readiness", () => {
     fonts.arrive();
     render(pane());
     expect(terminalHarness.open).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Verse takeover keyboard focus", () => {
+  beforeEach(() => {
+    terminalHarness.focus.mockClear();
+    terminalHarness.input.mockClear();
+    terminalHarness.keys.current = null;
+    globalThis.ResizeObserver = ResizeObserverHarness;
+    useIdeChatStore.setState({ paneRequest: null });
+  });
+
+  afterEach(() => {
+    useIdeChatStore.setState({ paneRequest: null });
+    vi.restoreAllMocks();
+  });
+
+  const pane = (name: string) => (
+    <AgenticTerminal name={name} workspaceId="ws_1" displayName="Claude Code" appearance="dark" fontSize={13} />
+  );
+
+  it("Verse.Parity.X-07 puts keyboard focus in the requested pane's terminal, once", () => {
+    render(pane("T1"));
+    terminalHarness.focus.mockClear();
+    act(() => useIdeChatStore.getState().requestPane("ws_1", "T1", { maximize: true, focus: true }));
+    expect(terminalHarness.focus).toHaveBeenCalledTimes(1);
+    expect(useIdeChatStore.getState().paneRequest?.focus).toBeUndefined();
+    // A re-render (or a remount) after the request was obeyed focuses nothing more.
+    terminalHarness.focus.mockClear();
+    render(pane("T1"));
+    expect(terminalHarness.focus).not.toHaveBeenCalled();
+  });
+
+  it("Verse.Parity.X-09 leaves every other pane alone and opens no second terminal", () => {
+    render(pane("T2"));
+    terminalHarness.focus.mockClear();
+    terminalHarness.open.mockClear();
+    act(() => useIdeChatStore.getState().requestPane("ws_1", "T1", { focus: true }));
+    expect(terminalHarness.focus).not.toHaveBeenCalled();
+    expect(terminalHarness.open).not.toHaveBeenCalled();
+    expect(useIdeChatStore.getState().paneRequest?.focus).toBe(true);
+  });
+
+  it("Verse.Parity.X-09 a pane that mounts after the request still takes the focus", async () => {
+    useIdeChatStore.getState().requestPane("ws_1", "T1", { focus: true });
+    render(pane("T1"));
+    await waitFor(() => expect(terminalHarness.focus).toHaveBeenCalled());
+    expect(useIdeChatStore.getState().paneRequest?.focus).toBeUndefined();
+  });
+
+  it("Verse.Parity.X-10 Escape belongs to the agent: the pane forwards it to xterm", () => {
+    render(pane("T1"));
+    const claimed = terminalHarness.keys.current?.(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(claimed).toBe(true);
+    expect(terminalHarness.input).not.toHaveBeenCalled();
   });
 });

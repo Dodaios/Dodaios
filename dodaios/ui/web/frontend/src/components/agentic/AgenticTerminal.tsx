@@ -924,6 +924,25 @@ export function AgenticTerminal({
     setChangesOpen(true);
     useIdeChatStore.getState().settlePaneOpen(paneRequest.nonce);
   }, [paneRequest, workspaceId, name]);
+  // The Verse's "take over this terminal": keys land in this pane's xterm. Obeyed once,
+  // by the one terminal that is this pane; a terminal that mounts later still obeys it.
+  useEffect(() => {
+    if (!workspaceId || !paneRequest?.focus) return;
+    if (paneRequest.workspaceId !== workspaceId || paneRequest.pane !== name) return;
+    const nonce = paneRequest.nonce;
+    const focusTerminal = () => {
+      const term = termRef.current;
+      if (!term) return false;
+      term.focus();
+      useIdeChatStore.getState().settlePaneFocus(nonce);
+      return true;
+    };
+    if (focusTerminal()) return;
+    // The xterm is created in a later effect; try again until it exists.
+    const timer = window.setInterval(() => { if (focusTerminal()) window.clearInterval(timer); }, 50);
+    const giveUp = window.setTimeout(() => window.clearInterval(timer), 5000);
+    return () => { window.clearInterval(timer); window.clearTimeout(giveUp); };
+  }, [paneRequest, workspaceId, name]);
   // Latest callbacks/appearance without re-running the connect effect.
   const onStatusRef = useRef(onStatus);
   const onAttachErrorRef = useRef(onAttachError);

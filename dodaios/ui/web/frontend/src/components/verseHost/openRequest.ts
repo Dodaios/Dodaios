@@ -45,7 +45,7 @@ export function handleVerseOpen(payload: VerseOpenPayload, solo = useEventStore.
     case "pane": {
       if (!payload.workspace_id || !payload.name) return false;
       openPaneSession({ workspace_id: payload.workspace_id, name: payload.name },
-        payload.open === "changes" ? { open: "changes" } : {});
+        { ...(payload.open === "changes" ? { open: "changes" as const } : {}), ...(payload.focus ? { focus: true } : {}) });
       return true;
     }
     case "ide":

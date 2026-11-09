@@ -10,6 +10,7 @@ import {
   type LazyExoticComponent,
   type ReactNode,
 } from "react";
+import { SimulatorHost } from "@/components/verseHost/SimulatorHost";
 import { Loader2 } from "lucide-react";
 import { useEventStore, type SectionId } from "@/store/events";
 import { sectionPrefetch } from "@/lib/sectionPrefetch";
@@ -406,6 +407,8 @@ export function MainView() {
           </Suspense>
         </ViewErrorBoundary>
       )}
+      {/* The Unreal Verse's simulator room opens the arcade here (bridge `simulator.open`). */}
+      {!solo && <SimulatorHost />}
     </div>
   );
 }

@@ -34,7 +34,7 @@ describe("launcher strings", () => {
   });
 });
 
-describe("VerseLauncherCard", () => {
+describe("Verse.Parity.D-03 VerseLauncherCard", () => {
   beforeEach(() => resetLauncherImportForTests());
   afterEach(() => vi.unstubAllGlobals());
 

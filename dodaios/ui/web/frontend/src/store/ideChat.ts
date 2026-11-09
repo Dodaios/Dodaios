@@ -49,6 +49,11 @@ export interface PaneRequest {
    */
   maximize?: boolean;
   /**
+   * Put keyboard focus in that pane's terminal once it is mounted (the Verse's
+   * "take over this terminal", X-07). The terminal clears it once it has obeyed.
+   */
+  focus?: boolean;
+  /**
    * Open that pane's changes dialog once the view has the pane.
    * Cleared after the pane obeys, so a later remount does not open it again.
    */
@@ -131,11 +136,13 @@ interface IdeChatStore {
   setView: (next: WorkspaceView) => void;
   setWorkspace: (next: IdeWorkspace | null) => void;
   /** Bring a pane to the front, switching to the grid and to its workspace when it lives elsewhere. */
-  requestPane: (workspaceId: string, pane: string, options?: { maximize?: boolean; open?: "changes" }) => void;
+  requestPane: (workspaceId: string, pane: string, options?: { maximize?: boolean; open?: "changes"; focus?: boolean }) => void;
   /** The grid maximized request `nonce`; drop its maximize flag. */
   settlePaneMaximize: (nonce: number) => void;
   /** The pane opened its changes dialog for request `nonce`; drop that flag. */
   settlePaneOpen: (nonce: number) => void;
+  /** The terminal took the keyboard focus a request asked for. */
+  settlePaneFocus: (nonce: number) => void;
   setStagedPane: (pane: string | null) => void;
   setWorkspaces: (rows: IdeWorkspaceRow[]) => void;
   setAgents: (agents: SplitAgentChoice[]) => void;
@@ -180,6 +187,7 @@ export const useIdeChatStore = create<IdeChatStore>((set) => ({
         nonce: (state.paneRequest?.nonce ?? 0) + 1,
         ...(options?.maximize ? { maximize: true } : {}),
         ...(options?.open ? { open: options.open } : {}),
+        ...(options?.focus ? { focus: true } : {}),
       },
     }));
   },
@@ -189,6 +197,14 @@ export const useIdeChatStore = create<IdeChatStore>((set) => ({
         ? { paneRequest: { ...state.paneRequest, maximize: false } }
         : state,
     ),
+  settlePaneFocus: (nonce) =>
+    set((state) => {
+      const request = state.paneRequest;
+      if (!request || request.nonce !== nonce || !request.focus) return state;
+      const rest = { ...request };
+      delete rest.focus;
+      return { paneRequest: rest };
+    }),
   settlePaneOpen: (nonce) =>
     set((state) => {
       const request = state.paneRequest;
