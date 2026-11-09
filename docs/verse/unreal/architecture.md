@@ -112,6 +112,7 @@ required and keeping it thin stops any feature module from becoming the hub.
 | `VerseBot` | Runtime (server only code paths) | `AVerseBotController` (an `AAIController`), fair perception, belief map, utility brain with hysteresis, StateTree tactics, aim model, tiers, in-match learning | Core, Movement, Combat, Destruction |
 | `VerseUI` | Runtime (client) | HUD, menus, Verse bar, kill cam, service record, settings (gore, keys, `F10`) | Core, Bridge, Combat, Crew, Decks |
 | `VerseStream` | Runtime | Pixel Streaming 2 session for the IDE side panel, panel camera, input mapping | Core, Bridge |
+| `VerseAbilities` | Runtime | The commander's look and powers on the decks: Arc Storm, the hoverboard, the Sovereign cloak springs; all off in the arena | Core, Movement |
 | `VerseHarness` | DeveloperTool (not in Shipping) | Automation tests, Gauntlet controllers, bot-vs-bot runs, screenshot and perf capture, balance gates | every runtime module |
 | `Verse` | Runtime, primary | Game instance, default pawn/controller/mode classes, module startup | every runtime module except Harness |
 
@@ -124,6 +125,7 @@ flowchart BT
   Gore[VerseGore] --> Core
   Stream[VerseStream] --> Core
   Stream --> Bridge
+  Abil[VerseAbilities] --> Move
   Decks[VerseDecks] --> Core
   Decks --> Bridge
   Combat[VerseCombat] --> Move
@@ -138,6 +140,7 @@ flowchart BT
   Verse --> Screens
   Verse --> Gore
   Verse --> Stream
+  Verse --> Abil
   Harness[VerseHarness] --> Verse
 ```
 
@@ -178,6 +181,7 @@ those three):
 | `VerseBot` | AIModule, NavigationSystem, StateTreeModule, GameplayStateTreeModule | `AAIController`, EQS, the belief nav query filter, StateTree tactics (bot.md 5, 6) |
 | `VerseUI` | InputCore, EnhancedInput, Json, Slate, SlateCore, RenderCore, RHI, ImageCore | Slate menus and input pre-processor; key bindings; data files; render-target captures |
 | `VerseStream` | none | |
+| `VerseAbilities` | AudioExtensions | Arc Storm's synthesised sound (a procedural sound wave) |
 | `VerseHarness` | none | |
 | `Verse` | NetCore, DeveloperSettings, EngineSettings, GameplayAbilities, GameplayTags, GameplayTasks | Settings object; the default pawn's ability system component |
 
