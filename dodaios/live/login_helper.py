@@ -109,7 +109,12 @@ def _safe_path(path: Path, *, directory: bool = False, missing: bool = False) ->
 
 
 def _prepare_directory(root: Path) -> Path:
-    root = root.absolute()
+    # Resolve the data directory itself once. A home directory behind a system
+    # link (/home -> /var/home, a profile moved to another drive) or a data
+    # folder the person relocated is theirs to choose; refusing it made the
+    # ChatGPT sign-in report "unsafe location" on such machines. The folders
+    # this module creates below are still checked link by link.
+    root = root.resolve()
     for ancestor in reversed((root, *root.parents)):
         _safe_path(ancestor, directory=True, missing=True)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -139,7 +144,7 @@ def find_installed_helper() -> str | None:
     """Return only an intact private login binary, never advertise a coding CLI."""
     try:
         artifact = native_artifact()
-        directory = user_data_dir().absolute() / "login-helpers" / "codex"
+        directory = user_data_dir().resolve() / "login-helpers" / "codex"
         destination = directory / artifact.executable
         if not destination.exists():
             return None

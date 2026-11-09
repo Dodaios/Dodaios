@@ -67,6 +67,34 @@ const DEFAULT_START_BUDGET_MS = 20_000;
 // device or stuck worklet must not leave the call connecting indefinitely.
 const LOCAL_AUDIO_READY_TIMEOUT_MS = 10_000;
 
+/** Why a start failed on this device, for the surface to name. */
+export type RealtimeStartFailure =
+  | "audio_device_timeout"
+  | "media_failed"
+  | "start_timeout"
+  | "webrtc_unsupported";
+
+/**
+ * A start failure the page can explain. The message stays the technical line
+ * for the console; `reason` picks the sentence shown to the person, so a
+ * blocked audio connection no longer reads as "test your provider".
+ */
+export class RealtimeStartError extends Error {
+  constructor(readonly reason: RealtimeStartFailure, message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "RealtimeStartError";
+  }
+}
+
+/** The classified reason behind a start failure, following `cause` links. */
+export function realtimeStartFailure(error: unknown): RealtimeStartFailure | null {
+  for (let current = error, depth = 0; current instanceof Error && depth < 8; depth += 1) {
+    if (current instanceof RealtimeStartError) return current.reason;
+    current = current.cause;
+  }
+  return null;
+}
+
 function awaitLocalStartup<T>(operation: Promise<T>, signal: AbortSignal, timeoutMs?: number): Promise<T> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -81,7 +109,7 @@ function awaitLocalStartup<T>(operation: Promise<T>, signal: AbortSignal, timeou
     const cancel = () => finish(new Error("Voice start cancelled"));
     signal.addEventListener("abort", cancel, { once: true });
     if (timeoutMs !== undefined) {
-      timer = setTimeout(() => finish(new Error("Local voice audio device did not become ready within 10 seconds")), timeoutMs);
+      timer = setTimeout(() => finish(new RealtimeStartError("audio_device_timeout", "Local voice audio device did not become ready within 10 seconds")), timeoutMs);
     }
     void operation.then(value => finish(undefined, value), error => finish(error));
     if (signal.aborted) cancel();
@@ -201,14 +229,14 @@ export class RealtimeWebRtcTransport {
         };
         const onConnectionChange = () => {
           if (peer.connectionState === "failed" || peer.connectionState === "closed") {
-            finish(new Error("GPT-Live media connection failed"));
+            finish(new RealtimeStartError("media_failed", "GPT-Live media connection failed"));
           } else if (!startEventRequired && peer.connectionState === "connected") {
             finish();
           }
         };
         this.finishStartup = finish;
         this.armStartupTimeout = () => {
-          this.startupTimer = setTimeout(() => finish(new Error("GPT-Live did not start")), startBudgetMs);
+          this.startupTimer = setTimeout(() => finish(new RealtimeStartError("media_failed", "GPT-Live did not start")), startBudgetMs);
         };
         channel?.addEventListener("message", onMessage);
         peer.addEventListener("connectionstatechange", onConnectionChange);
@@ -902,14 +930,14 @@ export class RealtimeAudioClient {
         if (result?.error) {
           this.webRtcTransport.close();
           this.webRtcOfferSdp = null;
-          throw new Error("Subscription Realtime WebRTC signalling is unavailable", {
+          throw new RealtimeStartError("webrtc_unsupported", "Subscription Realtime WebRTC signalling is unavailable", {
             cause: result.error,
           });
         }
         this.webRtcOfferSdp = result?.sdp ?? null;
         if (!this.webRtcOfferSdp) {
           this.webRtcTransport.close();
-          throw new Error("Subscription Realtime requires WebRTC support");
+          throw new RealtimeStartError("webrtc_unsupported", "Subscription Realtime requires WebRTC support");
         }
       }
 
@@ -971,7 +999,7 @@ export class RealtimeAudioClient {
       const timeout = window.setTimeout(() => {
         if (settled) return;
         settled = true;
-        reject(new Error("Realtime voice connection timed out"));
+        reject(new RealtimeStartError("start_timeout", "Realtime voice connection timed out"));
       }, budgetMs);
 
       const fail = (error: Error) => {

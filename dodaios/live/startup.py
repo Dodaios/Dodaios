@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import math
 import threading
 import time
@@ -11,6 +12,7 @@ from typing import Any
 
 from dodaios.live.media import InputPrefix
 
+log = logging.getLogger(__name__)
 _lock = threading.Lock()
 _pending: dict[str, tuple[asyncio.AbstractEventLoop, Any]] = {}
 
@@ -67,7 +69,12 @@ async def take(session_id: str, capture_started_at_ms: Any) -> dict | None:
             keep = max(0, min(samples, (cutoff_ns - start_ns) * rate // 1_000_000_000))
             audio.extend(chunk.pcm[: keep * 2])
             if len(audio) > rate * 2 * 30:
-                raise ValueError("Wake microphone exceeded the startup buffer")
+                # A microphone prompt answered late leaves more than the
+                # buffer holds. The opening words are optional context; the
+                # call the person is still waiting for is not. Start without
+                # them instead of failing the whole call.
+                log.warning("Wake audio exceeded the startup buffer; starting without it.")
+                return None
         if not audio:
             return None
         return InputPrefix(

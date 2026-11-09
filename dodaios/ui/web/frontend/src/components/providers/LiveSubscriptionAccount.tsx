@@ -22,6 +22,8 @@ export function LiveSubscriptionAccount({
   loading,
   disabled,
   voiceStatus,
+  voiceCode = "",
+  plan = "",
   onAccountChange,
   onConnected,
 }: {
@@ -30,6 +32,10 @@ export function LiveSubscriptionAccount({
   loading: boolean;
   disabled: boolean;
   voiceStatus: string;
+  /** Why the last call start was refused, when it was. */
+  voiceCode?: string;
+  /** The plan the saved login names for itself. */
+  plan?: string;
   onAccountChange: (accountId: string) => void;
   onConnected: () => void;
 }) {
@@ -235,9 +241,25 @@ export function LiveSubscriptionAccount({
             <span aria-hidden="true" className={connected ? "h-1.5 w-1.5 rounded-full bg-success" : "h-1.5 w-1.5 rounded-full bg-border-strong"} />
             {loading ? t("live.loading") : connected
               ? t("live.subscription_connected") : t("live.subscription_sign_in_required")}
+            {connected && !loading && plan ? (
+              <span data-testid="live-subscription-plan">
+                · {t("live.subscription_plan").replace("{0}", plan.replace(/[_-]/g, " ").replace(/^./, (first) => first.toUpperCase()))}
+              </span>
+            ) : null}
           </p>
+          {/* Signing in proves a login, not voice access. Say what the last
+              call start learned, so "connected" is never read as "works". */}
           {connected && voiceStatus === "unavailable" ? (
-            <p className="text-xs text-warning">{t("live.subscription_voice_unavailable")}</p>
+            <p role="alert" data-testid="live-subscription-voice-unavailable" className="text-xs text-warning">
+              {t(voiceCode === "voice_not_offered"
+                ? "live.subscription_voice_not_offered"
+                : voiceCode === "access_denied"
+                  ? "live.subscription_voice_denied"
+                  : "live.subscription_voice_unavailable")}
+            </p>
+          ) : null}
+          {connected && voiceStatus === "ready" ? (
+            <p data-testid="live-subscription-voice-ready" className="text-xs text-muted-foreground">{t("live.subscription_voice_ready")}</p>
           ) : null}
         </div>
         <BrandedSelect

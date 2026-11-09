@@ -345,3 +345,19 @@ async def test_helper_status_hashing_runs_off_the_request_loop(monkeypatch):
 
     monkeypatch.setattr(module, "login_helper_status", status)
     assert (await get_live_login_helper())["installed"] is False
+
+
+def test_a_data_directory_behind_a_link_is_accepted(tmp_path):
+    """A relocated home or data folder is the person's choice, not an attack."""
+    from dodaios.live.login_helper import _prepare_directory
+
+    real = tmp_path / "real-data"
+    real.mkdir()
+    linked = tmp_path / "linked-data"
+    try:
+        linked.symlink_to(real, target_is_directory=True)
+    except OSError:
+        pytest.skip("Directory symlinks are not available for this user")
+    destination = _prepare_directory(linked)
+    assert destination == real.resolve() / "login-helpers" / "codex"
+    assert destination.is_dir()

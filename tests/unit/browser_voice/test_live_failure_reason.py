@@ -125,3 +125,50 @@ def test_recorded_failure_strings_only_pass_when_static() -> None:
     assert static_failure_message(message + " extra provider detail") is None
     assert _fallback_disabled_detail("stream ended") == _USAGE_FALLBACK_DISABLED_DETAIL
     assert _fallback_disabled_detail(None) == _USAGE_FALLBACK_DISABLED_DETAIL
+
+
+@pytest.mark.asyncio
+async def test_login_and_timeout_failures_are_named(monkeypatch) -> None:
+    from dodaios.live.start_failure import TIMED_OUT
+    from dodaios.live.subscription_auth import SubscriptionAuthError
+
+    expired = "The ChatGPT login expired. Sign in again in Agent accounts."
+    ws = await _run_failing_start(monkeypatch, SubscriptionAuthError(expired))
+    assert _provider_errors(ws) == [f"{expired} {_USAGE_FALLBACK_DISABLED_NOTE}"]
+
+    ws = await _run_failing_start(monkeypatch, TimeoutError())
+    assert _provider_errors(ws) == [f"{TIMED_OUT} {_USAGE_FALLBACK_DISABLED_NOTE}"]
+
+
+@pytest.mark.asyncio
+async def test_api_key_refusal_shows_its_authored_sentence_only(monkeypatch) -> None:
+    from dodaios.core.protocols import VoiceStartError
+
+    error = VoiceStartError(
+        "OpenAI Live session creation failed (HTTP 429, no_credits).",
+        user_message="The OpenAI API account has no credit left.",
+        code="no_credits",
+    )
+    ws = await _run_failing_start(monkeypatch, error)
+    assert _provider_errors(ws) == [
+        f"The OpenAI API account has no credit left. {_USAGE_FALLBACK_DISABLED_NOTE}"
+    ]
+    assert all("HTTP 429" not in str(m) for m in ws.sent_json)
+
+
+def test_a_recorded_failure_code_resolves_to_its_sentence() -> None:
+    assert _fallback_disabled_detail("voice_not_offered").startswith(
+        "The selected ChatGPT account is not offered subscription voice."
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_engine_that_cannot_be_built_says_what_to_do(monkeypatch) -> None:
+    state = _state(_RecSession())
+    state.config.voice = SimpleNamespace(mode="realtime")
+    monkeypatch.setattr(route_mod, "_build_browser_session", lambda **_kwargs: None)
+    monkeypatch.setattr(route_mod, "_automatic_usage_fallback_allowed", lambda _cfg: False)
+    ws = _FakeWS([], state=state)
+    await browser_voice_ws(ws)
+    assert ws.closed == (1011, "realtime access unavailable")
+    assert _provider_errors(ws) == [route_mod._SELECTED_VOICE_NOT_READY_DETAIL]
