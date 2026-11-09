@@ -4,6 +4,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
+#include "VerseCombatDriverComponent.h"
 
 AVerseModelController::AVerseModelController()
 {
@@ -64,6 +65,11 @@ void AVerseModelController::HandlePerceptFrame(AController* Observer, const FVer
 	if (APawn* Own = GetPawn())
 	{
 		ApplyInputToPawn(*this, *Own, Input);
+		// Buttons become shots, reloads, knife and gadgets through the primary module's combat driver.
+		if (UVerseCombatDriverComponent* Driver = UVerseCombatDriverComponent::FindOn(Own))
+		{
+			Driver->SetExternalFrame(Input);
+		}
 	}
 }
 

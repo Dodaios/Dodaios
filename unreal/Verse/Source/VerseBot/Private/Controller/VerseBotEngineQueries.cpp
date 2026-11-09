@@ -7,6 +7,9 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerStart.h"
+#include "NavigationPath.h"
+#include "Rules/VerseSpawnPoint.h"
+#include "NavigationSystem.h"
 #include "VerseCollision.h"
 
 namespace
@@ -137,6 +140,26 @@ FVerseBotBoltTrace FVerseBotEngineQueries::TraceBolt(const FVector& Origin, cons
 FVerseBotPath FVerseBotEngineQueries::FindPath(const FVector& From, const FVector& To, bool bCrouch)
 {
 	FVerseBotPath P;
+	// The nav mesh when the arena has one (integration: the runtime arena builds it), else a straight line.
+	// The own controller is the path context: as a nav agent it answers with its pawn's agent
+	// properties, so the query never reads a pawn handle (bot isolation, bot.md 10).
+	AController* C = Owner.Get();
+	UWorld* World = C ? C->GetWorld() : nullptr;
+	if (UNavigationSystemV1* Nav = World ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr)
+	{
+		const UNavigationPath* Path = Nav->FindPathToLocationSynchronously(World, From, To, C);
+		// A partial path still leads to the reachable point nearest the goal (never into a wall).
+		if (Path && Path->IsValid() && Path->PathPoints.Num() > 1)
+		{
+			P.bValid = true;
+			P.LengthCm = float(Path->GetPathLength());
+			for (int32 I = 1; I < Path->PathPoints.Num(); ++I)
+			{
+				P.Waypoints.Add(Path->PathPoints[I]);
+			}
+			return P;
+		}
+	}
 	P.bValid = true;
 	P.LengthCm = float(FVector::Dist(From, To));
 	P.Waypoints.Add(To);
@@ -162,9 +185,17 @@ void FVerseBotEngineQueries::GetSpawnPoints(TArray<FVector>& Out)
 	{
 		return;
 	}
-	for (TActorIterator<APlayerStart> It(World); It; ++It)
+	// Arena spawn points when the world has them; day starts outside the arena are no spawn prior.
+	for (TActorIterator<AVerseSpawnPoint> It(World); It; ++It)
 	{
 		Out.Add(It->GetActorLocation());
+	}
+	if (Out.Num() == 0)
+	{
+		for (TActorIterator<APlayerStart> It(World); It; ++It)
+		{
+			Out.Add(It->GetActorLocation());
+		}
 	}
 	Out.Sort([](const FVector& A, const FVector& B) { return A.X != B.X ? A.X < B.X : A.Y < B.Y; });
 }

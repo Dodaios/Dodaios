@@ -128,6 +128,9 @@ ENGINE: dict[str, frozenset[str]] = {
             "GameplayAbilities",
             "GameplayTags",
             "GameplayTasks",
+            "InputCore",
+            "Json",
+            "NavigationSystem",
         }
     ),
     "VerseHarness": frozenset(),

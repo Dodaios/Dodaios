@@ -232,7 +232,9 @@ FVerseRulesHost AVerseGameMode::MakeDefaultHost()
 		{
 			for (APlayerState* P : State->PlayerArray)
 			{
-				if (AVersePlayerState* V = Cast<AVersePlayerState>(P))
+				// Spectators (the person watching a bot-vs-bot duel) never join the deathmatch.
+				AVersePlayerState* V = Cast<AVersePlayerState>(P);
+				if (V && !V->IsOnlyASpectator())
 				{
 					Out.Add(V);
 				}
