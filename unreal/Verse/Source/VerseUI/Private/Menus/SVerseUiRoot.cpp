@@ -3,6 +3,7 @@
 #include "Brushes/SlateColorBrush.h"
 #include "Core/VerseUiSubsystem.h"
 #include "Core/VerseUiTheme.h"
+#include "Scalability.h"
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/Input/SButton.h"
@@ -452,6 +453,18 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettingsPage()
 					Ui->SetScalability(Next > 4 ? -1 : (Next < -1 ? 4 : Next));
 				}
 			}));
+		// T-02: the tier in effect, also while the choice is Auto.
+		Add(Label(TAttribute<FText>::CreateLambda([Ui]
+			{
+				if (!Ui.IsValid())
+				{
+					return FText();
+				}
+				const int32 Level = FVerseRenderTier::Resolve(Ui->GetUserSettings()->Scalability, Scalability::GetQualityLevels().GetSingleQualityLevel());
+				FFormatNamedArguments Args;
+				Args.Add(TEXT("tier"), Ui->GetStrings().Get(FVerseRenderTier::KeyFor(Level)));
+				return Ui->GetStrings().Format(TEXT("verse.settings.render_tier"), Args);
+			}), 13.f, false, VerseUiTheme::TextDim));
 		break;
 
 	default: // Accessibility

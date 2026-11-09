@@ -121,7 +121,7 @@ def test_quoted_cli_media_paths_with_spaces(tmp_path):
     cwd = tmp_path / "work"
     cwd.mkdir()
     (cwd / "final movie.mp4").write_bytes(b"video")
-    result = normalize(tmp_path, 'Saved "final movie.mp4"')
+    result = normalize(tmp_path, 'Saved "final movie.mp4"', "assistant_text")
     assert len(result) == 2
     assert "[video]" in result[1]["payload"]["text"]
 
@@ -327,3 +327,45 @@ def test_display_errors_are_marked_so_they_never_fail_the_turn(tmp_path):
     result = normalize(tmp_path, {"path": "../missing.png"})
     assert result[-1]["kind"] == "error"
     assert result[-1]["payload"]["display_only"] is True
+
+
+def test_media_a_tool_merely_mentions_is_not_posted_to_the_chat(tmp_path):
+    # A README read during research: CI badge, docs screenshots, a file list.
+    cwd = tmp_path / "work"
+    (cwd / "docs").mkdir(parents=True)
+    (cwd / "docs" / "shot.png").write_bytes(PNG)
+    readme = (
+        "[![CI](https://github.com/o/r/actions/workflows/ci.yml/badge.svg)](https://x.test)\n"
+        "![Shot](docs/shot.png)\nSee docs/shot.png and https://example.test/hero.png"
+    )
+    assert normalize(tmp_path, readme) == [event(readme)]
+    assert not (tmp_path / "archive").exists()
+
+
+@pytest.mark.parametrize(
+    "name", ["Read", "WebFetch", "WebSearch", "Glob", "read_file", "view_image", "mcp__d__search"]
+)
+def test_inspection_tools_never_post_media(tmp_path, name):
+    encoded = base64.b64encode(PNG).decode()
+    output = json.dumps({"content": [{"type": "image", "mimeType": "image/png", "data": encoded}]})
+    cwd = tmp_path / "work"
+    cwd.mkdir()
+    result = media.normalize_media_event(
+        event(output), cwd=cwd, outputs_root=tmp_path / "archive", scope="s", tool_name=name
+    )
+    assert result == [event(output)]
+
+
+@pytest.mark.parametrize("name", ["Bash", "Write", "generate_image", "mcp__x__create_video"])
+def test_producing_tools_still_post_their_media(tmp_path, name):
+    cwd = tmp_path / "work"
+    cwd.mkdir()
+    (cwd / "out.png").write_bytes(PNG)
+    result = media.normalize_media_event(
+        event({"path": "out.png"}),
+        cwd=cwd,
+        outputs_root=tmp_path / "archive",
+        scope="s",
+        tool_name=name,
+    )
+    assert len(result) == 2 and "![image]" in result[1]["payload"]["text"]

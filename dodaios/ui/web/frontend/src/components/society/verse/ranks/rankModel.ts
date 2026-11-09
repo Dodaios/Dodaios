@@ -7,7 +7,7 @@
 import { LEVEL_XP, MAX_LEVEL, isXpSource, type SubjectKind } from "../../progression/levelCatalog";
 import { xpUntilLevel } from "../../progression/cosmetics";
 import type { AwardRow, SubjectLevel, XpRuleRow } from "../../progression/progressionApi";
-import { nextRank, rankForLevel, type RankDef } from "./ranks";
+import { nextRank, rankForLevel, type RankDef } from "../../progression/ranks";
 
 export interface RankView {
   level: number;

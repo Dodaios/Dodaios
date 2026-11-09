@@ -63,6 +63,37 @@ _RAW = re.compile(
 _BARE = re.compile(rf"(?<![\w:/\\])(?:[\w.-]+[/\\])*[\w.-]+\.(?:{_EXT})(?=$|[\s\"'`),])", re.I)
 _QUOTED = re.compile(rf"[\"'`]([^\"'`\r\n]+\.(?:{_EXT}))[\"'`]", re.I)
 _MIME_SUFFIX = {mime: ext for ext, mime in reversed(list(MEDIA_TYPES.items()))}
+# Tools that only look at things. Their output is what the agent read
+# (a README with a CI badge, a file listing, search hits, a screenshot it
+# inspected), never something it made for the person.
+_INSPECTION_WORDS = {
+    "read",
+    "view",
+    "cat",
+    "grep",
+    "rg",
+    "glob",
+    "search",
+    "find",
+    "fetch",
+    "list",
+    "ls",
+    "tree",
+    "browse",
+    "navigate",
+    "snapshot",
+    "lookup",
+    "query",
+    "screenshot",
+}
+
+
+def is_inspection_tool(name: str) -> bool:
+    """True for ``Read``, ``WebFetch``, ``read_file``, ``mcp__docs__search_pages``."""
+    words = re.findall(r"[a-z]+", re.sub(r"([a-z])([A-Z])", r"\1 \2", name).lower())
+    return any(word in _INSPECTION_WORDS or word.rstrip("s") in _INSPECTION_WORDS for word in words)
+
+
 _REF_KEYS = {
     "url",
     "src",
@@ -137,7 +168,10 @@ def content_markdown(blocks: list[Any], receipts: dict[str, str]) -> str:
 
 
 class MediaNormalizer:
-    def __init__(self, cwd: Path, outputs_root: Path, scope: str) -> None:
+    def __init__(self, cwd: Path, outputs_root: Path, scope: str, *, prose: bool = True) -> None:
+        # ``prose`` scans free text for mentioned files. Only the agent's own
+        # words get that; tool output is full of paths and URLs it merely saw.
+        self.prose = prose
         self.cwd = cwd.expanduser().resolve()
         self.outputs_root = outputs_root.resolve()
         self.scope = scope
@@ -391,18 +425,31 @@ class MediaNormalizer:
         if isinstance(value, str):
             if inherited_hint:
                 return self.reference(value, inherited_hint)
+            if scan_text and not self.prose:
+                # A value that is only a file or URL is an explicit result;
+                # one mentioned inside text is not.
+                ref = value.strip()
+                return self.reference(ref) if ref and not re.search(r"\s", ref) else value
             return self.text(value) if scan_text else value
         return value
 
 
 def normalize_media_event(
-    event: dict[str, Any], *, cwd: Path, outputs_root: Path, scope: str
+    event: dict[str, Any],
+    *,
+    cwd: Path,
+    outputs_root: Path,
+    scope: str,
+    tool_name: str = "",
 ) -> list[dict[str, Any]]:
     kind = event.get("kind")
     payload = event.get("payload") or {}
     if kind not in {"assistant_text", "tool_result", "user_message"} or payload.get("is_error"):
         return [event]
-    normalizer = MediaNormalizer(cwd, outputs_root, scope)
+    tool_name = tool_name or str(payload.get("name") or "")
+    if kind == "tool_result" and is_inspection_tool(tool_name):
+        return [event]
+    normalizer = MediaNormalizer(cwd, outputs_root, scope, prose=kind != "tool_result")
     if kind == "user_message":
         from dodaios.agentic_ide.drops import dereference
 
@@ -431,7 +478,7 @@ def normalize_media_event(
                         # The turn itself succeeded; only a picture is missing.
                         "display_only": True,
                         "message": "Attached media could not be displayed: "
-                        + "; ".join(dict.fromkeys(normalizer.errors))
+                        + "; ".join(dict.fromkeys(normalizer.errors)),
                     },
                 }
             )
@@ -444,11 +491,12 @@ def normalize_media_event(
         except ValueError:  # Malformed JSON falls through to text normalization.
             parsed = None
         processed = normalizer.structured(parsed, scan_text=True) if parsed is not None else None
-        rewritten = (
-            json.dumps(processed, ensure_ascii=False)
-            if parsed is not None
-            else normalizer.text(value)
-        )
+        if parsed is not None:
+            rewritten = json.dumps(processed, ensure_ascii=False)
+        elif kind == "tool_result":
+            rewritten = normalizer.structured(value, scan_text=True)
+        else:
+            rewritten = normalizer.text(value)
         content = processed.get("content") if isinstance(processed, dict) else processed
         if (
             kind == "assistant_text"

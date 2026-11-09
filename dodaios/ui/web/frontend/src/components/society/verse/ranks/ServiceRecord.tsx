@@ -27,7 +27,7 @@ import { SERVICE_TABS, useProgression, type ServiceTab } from "../../progression
 import { RankPlate } from "./RankPlate";
 import { Ribbon } from "./Ribbon";
 import { cooldownText, crewRows, figure, fill, logOf, rankView, rulesByKind, sourceKey, type CrewMember, type RankView } from "./rankModel";
-import { RANK_TIERS, RANKS, TIER_STYLE, UNIFORM_CLOTH, tierStart, type RankTier, type UniformId } from "./ranks";
+import { RANK_TIERS, RANKS, TIER_STYLE, UNIFORM_CLOTH, tierStart, type RankTier, type UniformId } from "../../progression/ranks";
 import "./ranks.css";
 
 export interface ServiceRecordProps {

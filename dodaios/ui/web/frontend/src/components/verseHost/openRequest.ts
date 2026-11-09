@@ -13,8 +13,7 @@
  * | `ide`       | the IDE section without a pane                            |
  */
 import { useEventStore } from "@/store/events";
-import { useIdeChatStore } from "@/store/ideChat";
-import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { openPaneSession } from "@/components/agentic/openPaneSession";
 import { openAgent } from "@/views/society/agentNavigation";
 
 export interface VerseOpenPayload {
@@ -45,13 +44,8 @@ export function handleVerseOpen(payload: VerseOpenPayload, solo = useEventStore.
   switch (payload.target) {
     case "pane": {
       if (!payload.workspace_id || !payload.name) return false;
-      section("agentic-ide");
-      useIdeChatStore.getState().requestPane(payload.workspace_id, payload.name, {
-        maximize: true,
-        ...(payload.open === "changes" ? { open: "changes" as const } : {}),
-      });
-      // A full-view side panel would hide the very pane it just focused.
-      useIdeSidePanelStore.getState().setMaximized(false);
+      openPaneSession({ workspace_id: payload.workspace_id, name: payload.name },
+        payload.open === "changes" ? { open: "changes" } : {});
       return true;
     }
     case "ide":
