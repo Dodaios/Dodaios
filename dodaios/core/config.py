@@ -1838,7 +1838,6 @@ class MemoryVaultConfig(BaseModel):
 
 
 class MemoryConfig(BaseModel):
-    recall_store: str = "sqlite"
     # chromadb was removed (2026-06-28); there is no chroma backend in
     # dodaios/memory/. Default to the sqlite store so a fresh install does not
     # point the archival tier at a backend that no longer exists.

@@ -1,7 +1,7 @@
 version: 1
 language: en
 content_root: docs/product
-page_count: 49
+page_count: 48
 navigation_principle: reader-journey
 authoring_contract:
   audience: People using Dodaios, including readers with no software background.

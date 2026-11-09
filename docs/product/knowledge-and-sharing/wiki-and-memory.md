@@ -77,6 +77,34 @@ Before November 2026 Dodaios kept a Markdown wiki vault (optionally opened in
 Obsidian). On first start the new memory copied the useful facts from it once;
 the old folder is left on disk untouched and is no longer read or written.
 
+## How It Fits Together
+
+- **Chat and voice** read the same memory, so something said on a call is
+  known in the next typed message.
+- **Agents** see only your preferences and standing instructions, never your
+  profile, people or private entries, and they cannot change your memory.
+- **Profile and Contacts** stay separate: the Profile keeps settings about
+  you, Contacts keep phone numbers and addresses. Memory keeps sentences.
+- **Calendar**, when connected, adds the next two weeks of appointments as
+  short-lived memories that disappear after the event.
+
+## Check That It Works
+
+1. Say or type "Remember that I prefer short answers."
+2. Open **Memory**: the sentence appears under **Preferences**, marked
+   *You said*, with a compass when it is always in mind.
+3. Ask a new question; the answer follows the preference.
+
+## Troubleshooting
+
+- **A memory is wrong.** Open it and choose **Edit**; the old version stays in
+  its timeline.
+- **The assistant keeps learning something you do not want kept.** Choose
+  **Forget**; it will not be learned again on its own. To stop learning for a
+  while, use **Pause learning** in the Memory sidebar.
+- **"Memory is not running."** Restart the app; the memory file is
+  `data/memory/vault.db` and opens on start.
+
 ## Next Steps
 
 - Review your profile and people in [Profile and Contacts](profile-and-contacts).
