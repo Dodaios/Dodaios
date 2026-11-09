@@ -38,7 +38,9 @@ import { notifyRoutineChanged } from "../cardData";
 import { routineTaskId } from "./routineExecution";
 import { RoutineChatHost } from "./RoutineChatHost";
 import { AgentConversationsBar } from "./AgentConversations";
-import { Plus, RotateCcw, Send, Square } from "lucide-react";
+import { AudioLines, Plus, RotateCcw, Send, Square } from "lucide-react";
+import { useVoiceCall } from "@/components/agentic/useVoiceCall";
+import { transcriptFromTimeline } from "@/components/home/assistantStatus";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
 
 import { AgentChatStoreProvider, useAgentChat, useAgentChatApi } from "@/components/agentchat/AgentChatStoreContext";
@@ -71,7 +73,7 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { createAgentChatStore, useAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
-import { warmAgentChatSession, type AgentChatSurface, type ApprovalDecision } from "@/lib/agentChatApi";
+import { bindVoiceChat, warmAgentChatSession, type AgentChatSurface, type ApprovalDecision } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 
 import { AgentSwatch, agentColor } from "../AgentSwatch";
@@ -315,12 +317,16 @@ function SpecialistChat({ agent, roster, composerExtras }: AgentChatPanelProps) 
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-background"
+      className="relative flex h-full min-h-0 flex-col bg-background"
       data-testid="society-chat"
       data-session-id={sessionId ?? ""}
       data-session-ready={sessionReady ? "true" : "false"}
     >
-      <AgentConversationsBar agentId={agent.agentId} agentName={agent.name} displayName={displayName} />
+      <ChatTopChrome>
+        <div className="pointer-events-auto">
+          <AgentConversationsBar agentId={agent.agentId} agentName={agent.name} displayName={displayName} />
+        </div>
+      </ChatTopChrome>
       <Transcript key={`${sessionId ?? agent.agentId}:${view.boundaryId}`} items={view.items} agent={agent} roster={roster} onDecide={decide}
         onRetry={sessionReady && !busy ? (text) => void send(text) : undefined} />
       {sessionReady && socketState !== "open" && socketState !== "idle" ? (
@@ -402,8 +408,10 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
 
   // Voice or typed — Jarvis' card only. The other agents have no voice: the
   // wake word, the realtime brain and the microphone belong to the lead.
+  // The card shows the conversation; a call (the composer's call button, a
+  // wake word) shows the voice stage until it ends (store/home.ts).
   const mode = useJarvisCardMode();
-  const pickMode = setJarvisCardMode;
+  const { active: callActive, connecting: callConnecting, busy: callBusy, toggleCall } = useVoiceCall();
 
   // A fresh page: no chat, no spoken thread — the composer below starts it.
   const startFresh = useCallback(() => {
@@ -412,47 +420,59 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
     newChat();
   }, [newChat, setActiveConversation, setMessages]);
 
+  // The call button: the call continues the chat on screen. It is bound on
+  // the backend first (the call starts with its history and files its turns
+  // into it) and the voice lane opens with its lines — the same path as the
+  // front page's voice button (components/home/assistantStatus).
+  const startCall = useCallback(() => {
+    const chat = useAgentChatStore.getState();
+    const callLive = callActive || callConnecting;
+    if (!callLive) useHomeStore.getState().seedTranscript(transcriptFromTimeline(chat.timeline.items));
+    setJarvisCardMode("voice");
+    if (callLive || callBusy) return;
+    void bindVoiceChat(chat.activeSessionId, null)
+      .catch((err: unknown) => {
+        // The call still starts; it just falls back to the newest chat.
+        console.info("Voice chat binding failed.", err);
+      })
+      .finally(() => void toggleCall());
+  }, [callActive, callBusy, callConnecting, toggleCall]);
 
   if (mode === "voice") {
     return (
       <div className="flex h-full min-h-0 flex-col" data-testid="society-chat" data-mode="voice">
-        {/* A flex row, not the chat header's grid: the screen-reader note is
-            absolutely positioned, so in a grid the switch fell into the first
-            1fr track and stretched across it. */}
-        <div className="flex shrink-0 justify-center px-4 pb-2">
-          <span className="sr-only">{t("society.chat.voice_note")}</span>
-          <JarvisModeSwitch mode={mode} onPick={pickMode} />
-        </div>
-        <VoiceStage />
+        <span className="sr-only">{t("society.chat.voice_note")}</span>
+        <VoiceStage onExit={() => setJarvisCardMode("chat")} />
       </div>
     );
   }
 
   const header = (
-    <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 pb-2">
-      <div className="flex min-w-0 items-center gap-1">
+    <div className="pointer-events-none flex items-center justify-between gap-2 px-4 pb-2">
+      <div className="pointer-events-auto flex min-w-0 items-center gap-1 rounded-full bg-background">
         <ModelPicker />
         <EffortPicker />
       </div>
-      <JarvisModeSwitch mode={mode} onPick={pickMode} />
-      <div className="flex items-center justify-end">
-        <button
-          type="button"
-          onClick={startFresh}
-          title={t("society.chat.new_chat")}
-          aria-label={t("society.chat.new_chat")}
-          className="as-round-button"
-        >
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={startFresh}
+        title={t("society.chat.new_chat")}
+        aria-label={t("society.chat.new_chat")}
+        className="as-round-button pointer-events-auto"
+      >
+        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+      </button>
     </div>
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background" data-testid="society-chat" data-mode="chat">
-      {header}
-      <AgentConversationsBar agentId={agent.agentId} agentName={displayName(agent.agentId, agent.name)} displayName={displayName} />
+    <div className="relative flex h-full min-h-0 flex-col bg-background" data-testid="society-chat" data-mode="chat">
+      <ChatTopChrome>
+        {header}
+        <div className="pointer-events-auto">
+          <AgentConversationsBar agentId={agent.agentId} agentName={displayName(agent.agentId, agent.name)} displayName={displayName} />
+        </div>
+      </ChatTopChrome>
       <Transcript key={`${activeSessionId ?? ""}:${view.boundaryId}`} items={view.items} agent={agent} roster={roster} onDecide={decide}
         onRetry={busy ? undefined : (text) => void send(text)} />
       {activeSessionId && socketState !== "open" && socketState !== "idle" ? (
@@ -475,44 +495,48 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
         onClear={view.clear}
         onSend={send}
         onCancel={cancel}
+        onCall={startCall}
+        callBusy={callBusy || callConnecting}
       />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// voice | chat — the lead's card only
+// the chat's top: floats over the transcript
 // ---------------------------------------------------------------------------
 
 /**
- * The same `Voice | Chat` idea as the sidebar's switch, scoped to the card:
- * it changes what THIS column shows and leaves the front page's own choice
- * alone. Voice is the front page's voice stage itself (the Jarvis bar, the
- * wake word, the realtime brain) — one voice, shown in a second place, never
- * a second microphone.
+ * What sits above a transcript (the lead's pickers, the conversations strip)
+ * floats over it, so the conversation scrolls up to the window's top edge
+ * instead of ending at an invisible strip under the window caption. Its
+ * measured height — the caption gap included — becomes `--chat-top-chrome`
+ * on the panel, which the transcript adds to its top padding so the first
+ * line starts clear of both.
  */
-function JarvisModeSwitch({ mode, onPick }: { mode: JarvisCardMode; onPick: (m: JarvisCardMode) => void }) {
-  const t = useT();
-  const tab = (value: JarvisCardMode, label: string) => (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={mode === value}
-      data-testid={`society-jarvis-mode-${value}`}
-      onClick={() => onPick(value)}
-      className="as-seg-pill"
-    >
-      {label}
-    </button>
-  );
+function ChatTopChrome({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    const panel = node?.parentElement;
+    if (!node || !panel) return;
+    const apply = () => panel.style.setProperty("--chat-top-chrome", `${node.offsetHeight}px`);
+    apply();
+    if (typeof ResizeObserver === "undefined") return () => panel.style.removeProperty("--chat-top-chrome");
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      panel.style.removeProperty("--chat-top-chrome");
+    };
+  }, []);
   return (
     <div
-      role="tablist"
-      aria-label={t("society.chat.mode_hint")}
-      className="as-seg-pills"
+      ref={ref}
+      data-testid="chat-top-chrome"
+      className="chat-top-chrome pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col"
     >
-      {tab("voice", t("society.chat.mode_voice"))}
-      {tab("chat", t("society.chat.mode_chat"))}
+      {children}
     </div>
   );
 }
@@ -834,7 +858,7 @@ export function Transcript({
   return (
     <div ref={setFrame} className="relative flex min-h-0 flex-1">
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        <div ref={setRoot} className="chat-scroller min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6" data-testid="society-transcript">
+        <div ref={setRoot} className="chat-scroller min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-[calc(var(--chat-top-chrome,0px)+1.25rem)] sm:px-6" data-testid="society-transcript">
           <div ref={contentRef} className={cn(CHAT_MEASURE, "flex flex-col gap-3")}>
           {items.map((item, index) => {
             const stamp = stamps.has(item.id) ? (item.type === "turn" ? item.startedMs : item.tsMs) : 0;
@@ -1279,10 +1303,19 @@ interface ComposerProps {
   surface?: AgentChatSurface;
   onSend: (text: string, attachments?: ReturnType<typeof useChatAttachments>["attachments"]) => Promise<void | "sent" | "failed" | "stale">;
   onCancel: () => Promise<void>;
+  /**
+   * The lead's call button. While the box is empty it takes the send
+   * button's place and starts a voice call; once there is something to
+   * send, Send is back.
+   */
+  onCall?: () => void;
+  /** A call is being started or ended: the call button waits. */
+  callBusy?: boolean;
 }
 
-export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, surface = "jarvis", onClear, onSend, onCancel }: ComposerProps) {
+export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, surface = "jarvis", onClear, onSend, onCancel, onCall, callBusy = false }: ComposerProps) {
   const t = useT();
+  const assistantName = useEventStore((state) => state.assistantName);
   const chatStore = useAgentChatApi();
   const [ownModelSaving, setModelSaving] = useState(false);
   // The Agents header may carry the brain picker; then it owns the save state.
@@ -1320,6 +1353,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
     setValue(text);
     fieldRef.current?.setText(text);
   }, () => void submit());
+  const nothingToSend = !value.trim() && messageDraft.choices.length === 0 && attachments.attachments.length === 0 && !dictation.dictating;
   const timeline = useAgentChat((s) => s.timeline);
   // A card waiting on the person: the composer becomes a second way to answer it.
   const openAsk = useMemo(() => openQuestionOf(timeline), [timeline]);
@@ -1640,13 +1674,25 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
           className="as-round-button" data-tone="ink">
           <Square className="h-3.5 w-3.5" aria-hidden />
         </button>}
-        {(
+        {onCall && nothingToSend ? (
+          <button
+            type="button"
+            onClick={onCall}
+            disabled={callBusy}
+            aria-label={t("assistant_chat.voice_enter")}
+            title={fill(t("assistant_chat.voice_enter_hint"), { name: societyDisplayName(agent, assistantName) })}
+            data-testid="composer-call"
+            className="as-round-button" data-tone="send"
+          >
+            <AudioLines className="h-4 w-4" aria-hidden />
+          </button>
+        ) : (
           <button
             type="button"
             // While recording, Send ends the dictation and sends once the
             // words land, so it is live before the box holds any text.
             onClick={() => (dictation.dictating ? dictation.stopAndSend() : void submit())}
-            disabled={!sessionReady || modelSaving || attachments.analyzing > 0 || (!value.trim() && messageDraft.choices.length === 0 && attachments.attachments.length === 0 && !dictation.dictating)}
+            disabled={!sessionReady || modelSaving || attachments.analyzing > 0 || nothingToSend}
             aria-label={t("society.chat.send")}
             data-testid="composer-send"
             className="as-round-button" data-tone="send"

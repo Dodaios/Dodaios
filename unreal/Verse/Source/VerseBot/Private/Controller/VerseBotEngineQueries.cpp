@@ -143,12 +143,13 @@ FVerseBotPath FVerseBotEngineQueries::FindPath(const FVector& From, const FVecto
 {
 	FVerseBotPath P;
 	// The nav mesh when the arena has one (integration: the runtime arena builds it), else a straight line.
-	const AController* C = Owner.Get();
+	// The own controller is the path context: as a nav agent it answers with its pawn's agent
+	// properties, so the query never reads a pawn handle (bot isolation, bot.md 10).
+	AController* C = Owner.Get();
 	UWorld* World = C ? C->GetWorld() : nullptr;
 	if (UNavigationSystemV1* Nav = World ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr)
 	{
-		// The default nav agent (one agent size in the arena); no pawn is handed to the query.
-		const UNavigationPath* Path = Nav->FindPathToLocationSynchronously(World, From, To, nullptr);
+		const UNavigationPath* Path = Nav->FindPathToLocationSynchronously(World, From, To, C);
 		// A partial path still leads to the reachable point nearest the goal (never into a wall).
 		if (Path && Path->IsValid() && Path->PathPoints.Num() > 1)
 		{
