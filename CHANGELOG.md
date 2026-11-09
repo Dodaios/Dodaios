@@ -29,6 +29,10 @@ versioning per [SemVer](https://semver.org/).
 - A call you allowed once no longer leaves an "Allowed once" line in the chat;
   the step reads like any other. "Always allowed" lines stay, with their undo.
 
+---
+
+## [4.2.1] — 2026-11-09
+
 ### Security
 
 - Safety whitelist entries match only the tool they name. A bare pattern

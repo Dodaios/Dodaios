@@ -20,7 +20,7 @@ import { PERSON_SUBJECT } from "../../progression/progressionApi";
 import { useProgression, type Celebration } from "../../progression/progressionStore";
 import { RankPlate } from "./RankPlate";
 import { fill, type CrewMember } from "./rankModel";
-import { isPromotion, plateTiles, rankForLevel } from "./ranks";
+import { isPromotion, plateTiles, rankForLevel } from "../../progression/ranks";
 import "./ranks.css";
 
 export const NOTICE_MS = 7000;

@@ -9,7 +9,7 @@
  * reference (the Verse derives every rank from the level), unknown rewards
  * are left out and `rewardsOf` falls back to the client's own table.
  */
-import { RANK_TIERS, type RankTier } from "../verse/ranks/ranks";
+import { RANK_TIERS, type RankTier } from "./ranks";
 import type { RewardId, Slot, SubjectKind, WorldAction } from "./levelCatalog";
 import { REWARD_IDS, REWARD_LEVELS, isRewardId, slotOf } from "./levelCatalog";
 

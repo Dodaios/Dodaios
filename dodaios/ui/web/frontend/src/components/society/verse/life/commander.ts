@@ -7,7 +7,7 @@
  * first visit they stand at their spawn.
  */
 import type { Deck } from "../content/deck";
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import { nearestWalkable } from "../nav/pathfind";
 
 export interface DeckPoint { deck: DeckId; x: number; z: number }

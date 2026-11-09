@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef } from "react";
 import type { Deck } from "../content/deck";
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import type { StageRuntime } from "../runtime";
 import { reportWorldAction } from "../../progression/progressionApi";
 import { insidePolygon } from "../actors/roomLight";

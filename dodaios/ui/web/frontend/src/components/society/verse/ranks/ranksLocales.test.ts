@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { REWARD_IDS, XP_SOURCES, slotOf } from "../../progression/levelCatalog";
 import { SERVICE_TABS } from "../../progression/progressionStore";
 import { DUTY_STATUSES } from "./dutyStatus";
-import { RANK_IDS, RANK_TIERS } from "./ranks";
+import { RANK_IDS, RANK_TIERS } from "../../progression/ranks";
 
 const LANGS = ["en", "de", "es", "pt", "zh"] as const;
 const DIR = join(__dirname, "..", "..", "..", "..", "i18n", "locales", "ship");

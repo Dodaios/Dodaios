@@ -75,6 +75,9 @@ Runner = Literal[
     "glm-cli",
     "dsh-cli",
     "cursor-cli",
+    # A CLI the user added themselves (``dodaios.workspace.custom_clis``) that
+    # declares a headless command; one generic runner serves all of them.
+    "custom-cli",
     # Society agent runtimes (``service.EXTERNAL_RUNTIME_RUNNERS``): picked by
     # the agent's runtime, never by a provider row.
     "hermes-cli",
@@ -141,8 +144,9 @@ class ProviderRow:
             "keyless": self.keyless,
             "native_resume": self.native_resume,
             "agent": self.agent,
-            "effort_levels": list(effort_levels(self.id)),
-            "default_effort": default_effort(self.id),
+            # A custom CLI has no effort knob: its command line is the user's.
+            "effort_levels": [] if self.runner == CUSTOM_RUNNER else list(effort_levels(self.id)),
+            "default_effort": "" if self.runner == CUSTOM_RUNNER else default_effort(self.id),
         }
 
 
@@ -397,12 +401,51 @@ PROVIDER_ROWS: Final[tuple[ProviderRow, ...]] = (
 _BY_ID: Final[dict[str, ProviderRow]] = {row.id: row for row in PROVIDER_ROWS}
 
 
+#: The runner every user-added CLI row shares.
+CUSTOM_RUNNER: Final[str] = "custom-cli"
+#: Prefix of a custom row's id, so it can never collide with a shipped provider.
+CUSTOM_ROW_PREFIX: Final[str] = "custom-"
+
+
+def custom_rows() -> tuple[ProviderRow, ...]:
+    """One row per user-added CLI that declares a headless command.
+
+    Read from the live store each call (a CLI added in the wizard shows up
+    without a restart); a broken store yields no rows rather than an error.
+    Only entries with a ``headless_command`` appear: without one there is no
+    way to run a single prompt, and a row that cannot run is worse than none.
+    """
+    try:
+        from dodaios.workspace import custom_clis
+
+        entries = custom_clis.list_custom_clis()
+    except Exception:  # noqa: BLE001 — never hide the shipped rows
+        log.warning("agent chat: custom CLI rows unavailable", exc_info=True)
+        return ()
+    return tuple(
+        ProviderRow(
+            id=CUSTOM_ROW_PREFIX + entry.id,
+            label=entry.display_name,
+            family="custom",
+            runner=CUSTOM_RUNNER,  # type: ignore[arg-type]
+            models_source="curated",
+            agent=entry.id,
+        )
+        for entry in entries
+        if entry.headless_command
+    )
+
+
 def provider_row(provider_id: str) -> ProviderRow | None:
-    return _BY_ID.get((provider_id or "").strip().lower())
+    pid = (provider_id or "").strip().lower()
+    row = _BY_ID.get(pid)
+    if row is None and pid.startswith(CUSTOM_ROW_PREFIX):
+        row = next((r for r in custom_rows() if r.id == pid), None)
+    return row
 
 
 def known_provider_ids() -> tuple[str, ...]:
-    return tuple(row.id for row in PROVIDER_ROWS)
+    return tuple(row.id for row in (*PROVIDER_ROWS, *custom_rows()))
 
 
 def rows_for(surface: str) -> tuple[ProviderRow, ...]:
@@ -433,7 +476,9 @@ def rows_for(surface: str) -> tuple[ProviderRow, ...]:
             or (row.runner in TOOL_FREE_RUNNERS and _ide_has(row.agent))
         )
     if kit.cli_seats:
-        return tuple(row for row in PROVIDER_ROWS if not row.agent or _ide_has(row.agent))
+        return tuple(
+            row for row in (*PROVIDER_ROWS, *custom_rows()) if not row.agent or _ide_has(row.agent)
+        )
     from dodaios.agent_chat.runner_api import supports_api_runner
 
     return tuple(row for row in PROVIDER_ROWS if supports_api_runner(row.id))
@@ -441,7 +486,7 @@ def rows_for(surface: str) -> tuple[ProviderRow, ...]:
 
 def cli_rows() -> tuple[ProviderRow, ...]:
     """The rows that run a coding CLI — the chat's half of the IDE's registry."""
-    return tuple(row for row in PROVIDER_ROWS if row.agent)
+    return tuple(row for row in (*PROVIDER_ROWS, *custom_rows()) if row.agent)
 
 
 def _ide_has(agent: str) -> bool:

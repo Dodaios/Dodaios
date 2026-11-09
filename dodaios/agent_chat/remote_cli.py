@@ -374,6 +374,7 @@ async def spawn(
     system_prompt_files: dict[str, str] | None = None,
     session_id: str = "",
     tools_enabled: bool = True,
+    remote_cwd_override: str = "",
 ) -> RemoteCliProcess:
     """Start the CLI on ``computer_id`` inside the agent's remote workspace."""
     from dodaios.computers import remote_os
@@ -400,7 +401,12 @@ async def spawn(
                 f"{computer.name} runs Windows without Git for Windows, which coding "
                 f"agents need there. {remote_os.GIT_FOR_WINDOWS_HINT}"
             )
-        folder = remote_workspace_expr(agent_id)
+        # A thread runs in its own synced folder, a society agent in its workspace.
+        folder = (
+            shlex.quote(remote_cwd_override)
+            if remote_cwd_override
+            else remote_workspace_expr(agent_id)
+        )
         # Git Bash's ``pwd -W`` answers C:/Users/... — the path a Windows CLI reads.
         check = (
             f"mkdir -p {folder} && cd {folder} && {'pwd -W' if host.windows else 'pwd'} && "

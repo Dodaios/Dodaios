@@ -1,5 +1,6 @@
 #include "Core/VerseUiSubsystem.h"
 
+#include "Audio/VerseAudioSubsystem.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "CanvasItem.h"
@@ -1041,6 +1042,17 @@ void UVerseUiSubsystem::PublishSettings()
 	PublishCVar(TEXT("Verse.Settings.InvertY"), AppSettings.bInvertY ? TEXT("1") : TEXT("0"), TEXT("Invert look Y (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.ReducedMotion"), AppSettings.bReducedMotion ? TEXT("1") : TEXT("0"), TEXT("Reduced motion (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.Volume"), FString::SanitizeFloat(AppSettings.Volume), TEXT("Master volume 0-1 (VerseUI)"));
+	PublishCVar(TEXT("Verse.Settings.ViewMode"), AppSettings.ViewMode, TEXT("Deck view restored from the app config: third, first, overview (VerseUI)"));
+	// Z-14, R-12: the app-wide sound switch, the level bell switch and the volume reach the audio subsystem.
+	if (UWorld* World = GetWorld())
+	{
+		if (UVerseAudioSubsystem* Audio = World->GetSubsystem<UVerseAudioSubsystem>())
+		{
+			Audio->SetUiSoundEnabled(AppSettings.bUiSound);
+			Audio->SetLevelSoundEnabled(AppSettings.bLevelSound);
+			Audio->SetUserVolume(AppSettings.Volume);
+		}
+	}
 	WriteGoreSetting(GetWorld(), AppSettings.Gore);
 	WriteViewSettings(UserSettings ? UserSettings->DuelFov : 100.f, AppSettings);
 	ApplyKeyBindingsToInput();

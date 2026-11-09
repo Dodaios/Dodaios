@@ -96,6 +96,8 @@ class SettingsRelay(RelayBase):
         except SettingsError as exc:
             raise P.BridgeError("bad_request", str(exc)) from exc
         changed = {k: settings[k] for k in msg.data if k in settings}
+        if "game" in changed:
+            changed["game"] = {k: settings["game"][k] for k in msg.data["game"]}
         self.session.send("settings.changed", changed)
         if self.publish is not None:
             await self.publish(changed)

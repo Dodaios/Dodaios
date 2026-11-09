@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from .env import getenv
+from .game_settings import KEYBINDS, GameSettingsError, duplicate_keys, game_defaults, validate_game
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ DEFAULT_SETTINGS: Final[dict[str, Any]] = {
         "quality": "auto",
         "volume": 0.7,
     },
+    # The in-game settings menu (game_settings.CATALOGUE), flat by setting id.
+    "game": game_defaults(),
 }
 _KEY_NAME = re.compile(r"^[A-Za-z0-9_+\-]{1,24}$")
 
@@ -103,10 +106,25 @@ def validate(patch: Any) -> dict[str, Any]:
                 raise SettingsError("uniform must be a short id")
         elif key == "view":
             value = _check_view(value)
+        elif key == "game":
+            try:
+                value = validate_game(value)
+            except GameSettingsError as exc:
+                raise SettingsError(str(exc)) from exc
         else:
             raise SettingsError(f"unknown setting {key}")
         out[key] = value
     return out
+
+
+def _check_bindings(stored: dict[str, Any]) -> None:
+    """No key may drive two actions (the return key included)."""
+    game = stored.get("game", {})
+    bindings = {a: game.get(f"keybinds.{a}", k) for a, k, _ in KEYBINDS if a != "return_to_app"}
+    bindings["return_to_app"] = stored.get("return_key", DEFAULT_SETTINGS["return_key"])
+    dupes = duplicate_keys(bindings)
+    if dupes:
+        raise SettingsError(f"key bound twice: {', '.join(sorted(set(dupes)))}")
 
 
 class SettingsStore:
@@ -147,8 +165,8 @@ class SettingsStore:
             stored = self._load().get("settings", {})
         out = copy.deepcopy(DEFAULT_SETTINGS)
         for key, value in stored.items():
-            if key == "view" and isinstance(value, dict):
-                out["view"].update(value)
+            if key in ("view", "game") and isinstance(value, dict):
+                out[key].update(value)
             elif key in out:
                 out[key] = value
         return out
@@ -166,12 +184,14 @@ class SettingsStore:
         patch = validate(patch)
         with self._lock:
             data = self._load()
-            stored = data.setdefault("settings", {})
+            stored = copy.deepcopy(data.get("settings", {}))
             for key, value in patch.items():
-                if key == "view":
-                    stored.setdefault("view", {}).update(value)
+                if key in ("view", "game"):
+                    stored.setdefault(key, {}).update(value)
                 else:
                     stored[key] = value
+            _check_bindings(stored)
+            data["settings"] = stored
             self._save()
         return self.settings()
 

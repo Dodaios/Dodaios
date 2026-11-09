@@ -57,7 +57,8 @@ export const useThreadSubagentsStore = create<ThreadSubagentsState>((set, get) =
   openAgent: (sessionId, id) => {
     const current = get().open;
     if (id === null) {
-      if (current) set({ open: null });
+      // Only that thread's own sub-agent closes: a side column never closes the main column's.
+      if (current?.sessionId === sessionId) set({ open: null });
       return;
     }
     if (current?.sessionId === sessionId && current.id === id) return;

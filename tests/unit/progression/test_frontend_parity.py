@@ -1,7 +1,7 @@
 """The Verse's copy of the level-system ids matches the Python rulebook.
 
 ``progression/levelCatalog.ts`` names the ids and the reward levels,
-``verse/ranks/ranks.ts`` draws the ladder and ``verse/decks.ts`` lists the
+``progression/ranks.ts`` draws the ladder and ``progression/decks.ts`` lists the
 decks; the server owns the numbers. An id added on one side without the other
 would render nothing, show a raw key or be refused by the server, so the lists
 must be equal.
@@ -72,7 +72,7 @@ def test_the_clients_reward_levels_are_the_rulebooks():
 
 
 def test_the_verse_draws_the_same_ladder():
-    text = (_SOCIETY / "verse/ranks/ranks.ts").read_text(encoding="utf-8")
+    text = (_SOCIETY / "progression/ranks.ts").read_text(encoding="utf-8")
     ladder = [
         (int(level), rank, tier)
         for rank, level, tier in re.findall(
@@ -85,7 +85,7 @@ def test_the_verse_draws_the_same_ladder():
 
 
 def test_the_decks_the_server_pays_are_the_ships_decks():
-    text = (_SOCIETY / "verse/decks.ts").read_text(encoding="utf-8")
+    text = (_SOCIETY / "progression/decks.ts").read_text(encoding="utf-8")
     assert _ts_list("DECK_IDS", text) == list(VERSE_DECKS)
 
 

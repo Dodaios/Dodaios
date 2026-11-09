@@ -13,7 +13,7 @@
  * promotion notice to set them one by one.
  */
 import { memo } from "react";
-import { PLATE_EDGE, PLATE_RECESS, PLATE_STEEL, plateTiles, type RankId } from "./ranks";
+import { PLATE_EDGE, PLATE_RECESS, PLATE_STEEL, plateTiles, type RankId } from "../../progression/ranks";
 
 /** Plate geometry in millimetres. */
 const W = 54;

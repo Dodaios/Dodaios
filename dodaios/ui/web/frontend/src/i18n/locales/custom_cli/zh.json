@@ -1,0 +1,33 @@
+{
+  "custom_cli": {
+    "title_add": "添加你自己的 CLI",
+    "title_edit": "编辑此 CLI",
+    "description": "任何交互式终端 CLI 都可以在这里的窗格中运行。给它起个名字并填写启动命令，它就会出现在所有内置 CLI 出现的地方。",
+    "close": "关闭",
+    "cancel": "取消",
+    "save": "保存",
+    "save_add": "添加 CLI",
+    "saving": "正在保存…",
+    "name": "名称",
+    "name_placeholder": "Antigravity",
+    "name_hint": "你在选择器里看到、口头说出的名字。",
+    "command": "命令",
+    "command_placeholder": "agy",
+    "command_hint": "就是你在终端里启动它时输入的内容。",
+    "command_shell_hint": "因为这条命令不止一个程序，所以会通过 shell 运行。整行执行完后窗格会关闭。",
+    "description_label": "描述",
+    "optional": "可选",
+    "description_placeholder": "用一句话说明这个 CLI 是什么。",
+    "at_reference": "将拖入的文件写成 @path",
+    "at_reference_hint": "大多数现代编程 CLI 会把 @path 当作要打开的文件。关闭此项则会把路径加引号粘贴。",
+    "threads_title": "在线程中运行(可选)",
+    "headless_command": "无头命令",
+    "headless_command_hint": "让这个 CLI 也作为提供方出现在 Agentic IDE 线程中。在消息的位置写 {prompt};省略则通过 stdin 发送消息。命令输出的内容即为回答。",
+    "headless_resume": "续接命令",
+    "headless_resume_hint": "用于后续轮次。{session} 会被替换为会话 ID。留空则每轮重新开始。",
+    "pick_logo": "选择图标",
+    "remove_logo": "移除图标",
+    "remove_logo_short": "移除",
+    "logo_label": "图标"
+  }
+}

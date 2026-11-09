@@ -39,6 +39,9 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 GATE_CHECK = "CI gate"
 QUALIFICATION_CHECK = "release qualification"
 CI_WORKFLOW = ".github/workflows/ci.yml"
+#: The ref GitHub's merge queue tests a main candidate on. The queue lands
+#: that exact commit on main, so its green run proves the main commit.
+QUEUE_BRANCH = re.compile(r"gh-readonly-queue/main/pr-\d+-[0-9a-f]{40}")
 #: The only path the release bundle commit on top of a main commit may touch.
 BUNDLE_PREFIX = "dodaios/ui/web/dist/"
 
@@ -88,21 +91,44 @@ def api_pages(endpoint: str, key: str) -> list[dict[str, Any]]:
     return [item for page in json.loads(proc.stdout) for item in (page[key] if key else page)]
 
 
+def _main_or_tag_run(run: dict[str, Any], tag: str | None) -> bool:
+    branch = run.get("head_branch") or ""
+    return (
+        run.get("event") in {"push", "schedule", "workflow_dispatch"}
+        and (tag is None or branch == tag)
+        and (branch == "main" or re.fullmatch(r"v\d+\.\d+\.\d+", branch) is not None)
+    )
+
+
+def _main_queue_run(run: dict[str, Any]) -> bool:
+    return run.get("event") == "merge_group" and bool(
+        QUEUE_BRANCH.fullmatch(run.get("head_branch") or "")
+    )
+
+
 def latest_ci_run(
-    runs: list[dict[str, Any]], repo: str, sha: str, *, tag: str | None = None
+    runs: list[dict[str, Any]],
+    repo: str,
+    sha: str,
+    *,
+    tag: str | None = None,
+    allow_queue: bool = False,
 ) -> dict[str, Any] | None:
+    """Newest trusted CI run on ``sha``.
+
+    ``allow_queue`` also trusts main's merge-queue run on that exact commit.
+    A version commit landed through the queue may get no push run of its own
+    (main moved on, or a newer push dropped it), and a resumed cut then waited
+    for CI that never came. Tag admission never takes it: a tag still needs
+    its own full CI with release qualification.
+    """
     trusted = [
         run
         for run in runs
         if run.get("head_sha") == sha
         and (run.get("head_repository") or {}).get("full_name") == repo
         and run.get("path", "").split("@", 1)[0] == CI_WORKFLOW
-        and run.get("event") in {"push", "schedule", "workflow_dispatch"}
-        and (tag is None or run.get("head_branch") == tag)
-        and (
-            run.get("head_branch") == "main"
-            or re.fullmatch(r"v\d+\.\d+\.\d+", run.get("head_branch") or "")
-        )
+        and (_main_or_tag_run(run, tag) or (allow_queue and tag is None and _main_queue_run(run)))
     ]
     return max(trusted, key=lambda run: (run["id"], run["run_attempt"]), default=None)
 
@@ -118,7 +144,12 @@ def latest_gate_state(runs: list[dict]) -> str:
 
 
 def gate_state(
-    repo: str, sha: str, *, require_qualification: bool = False, tag: str | None = None
+    repo: str,
+    sha: str,
+    *,
+    require_qualification: bool = False,
+    tag: str | None = None,
+    allow_queue: bool = False,
 ) -> str:
     """Check the latest attempt of this repository's CI workflow on this SHA.
 
@@ -132,7 +163,7 @@ def gate_state(
             f"repos/{repo}/actions/workflows/ci.yml/runs?head_sha={sha}&per_page=100",
             "workflow_runs",
         )
-        run = latest_ci_run(runs, repo, sha, tag=tag)
+        run = latest_ci_run(runs, repo, sha, tag=tag, allow_queue=allow_queue)
         if run is None:
             return "missing"
         state = latest_gate_state([run])
@@ -204,10 +235,17 @@ def wait_for_ci(
     *,
     require_qualification: bool,
     tag: str | None = None,
+    allow_queue: bool = False,
 ) -> int:
     deadline = time.monotonic() + wait_minutes * 60
     while True:
-        state = gate_state(repo, sha, require_qualification=require_qualification, tag=tag)
+        state = gate_state(
+            repo,
+            sha,
+            require_qualification=require_qualification,
+            tag=tag,
+            allow_queue=allow_queue,
+        )
         print(f"[admit] CI on {sha[:12]}: {state}", flush=True)
         if state == "success":
             return 0
@@ -232,7 +270,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     if args.ci_only:
-        return wait_for_ci(args.repo, args.sha, args.wait_minutes, require_qualification=False)
+        return wait_for_ci(
+            args.repo,
+            args.sha,
+            args.wait_minutes,
+            require_qualification=False,
+            allow_queue=True,
+        )
     if not args.tag:
         parser.error("--tag is required unless --ci-only is specified")
     errors = check_identity(args.tag) + check_commit(args.tag, args.sha)
