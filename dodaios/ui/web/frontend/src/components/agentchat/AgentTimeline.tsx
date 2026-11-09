@@ -5,6 +5,7 @@ import { InternalMessageBubble, type InternalParticipant } from "./InternalMessa
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
+import { MemoryLearnedNotice } from "./MemoryLearnedNotice";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
@@ -213,6 +214,7 @@ export function AgentTimeline({
           </p>
         );
       }
+      if (item.kind === "memory_learned") return <MemoryLearnedNotice key={item.id} item={item} />;
       if (item.kind === "background_result_lost") {
         return (
           <p key={item.id} data-message-id={item.id} role="alert"

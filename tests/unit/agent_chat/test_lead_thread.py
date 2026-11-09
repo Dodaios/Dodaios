@@ -167,3 +167,38 @@ def test_memory_search_finds_what_was_said_in_the_conversation(tmp_path: Path) -
             society_runtime.set_current_runtime(previous)
 
     asyncio.run(scenario())
+
+
+def test_learned_memories_appear_in_the_conversation(tmp_path: Path) -> None:
+    from dodaios.memory.vault import reconcile
+    from dodaios.memory.vault.store import MemoryVault
+
+    class _Runtime:
+        def __init__(self, svc: AgentChatService) -> None:
+            self._svc = svc
+
+        def chat_service(self) -> AgentChatService:
+            return self._svc
+
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+        vault = MemoryVault(tmp_path / "vault.db")
+        receipts: list[dict[str, str]] = []
+        op = reconcile.Op(op="add", text="Sister's wedding is in Lisbon in June", kind="relationship")
+        assert reconcile.apply(vault, [op], source={"via": "test"}, receipts=receipts) == 1
+        assert receipts[0]["op"] == "added" and receipts[0]["id"]
+        from dodaios.society import runtime as society_runtime
+
+        previous = society_runtime.current_runtime()
+        society_runtime.set_current_runtime(_Runtime(svc))  # type: ignore[arg-type]
+        try:
+            await lead.post_learned(receipts)
+        finally:
+            society_runtime.set_current_runtime(previous)
+        notices = [e for e in svc.store.list_events(sid) if e["kind"] == "notice"]
+        assert notices[-1]["payload"]["kind"] == "memory_learned"
+        assert "Lisbon" in notices[-1]["payload"]["items"][0]["text"]
+
+    asyncio.run(scenario())

@@ -191,8 +191,18 @@ def validate(
     return accepted, rejected
 
 
-def apply(vault: MemoryVault, ops: list[Op], *, source: dict[str, Any]) -> int:
-    """Write the operations; returns how many changed the vault."""
+def apply(
+    vault: MemoryVault,
+    ops: list[Op],
+    *,
+    source: dict[str, Any],
+    receipts: list[dict[str, str]] | None = None,
+) -> int:
+    """Write the operations; returns how many changed the vault.
+
+    ``receipts`` collects one ``{"op", "id", "text"}`` row per change, so the
+    conversation can show what was learned (``agent_chat/lead.py``).
+    """
     written = 0
     for op in ops:
         src = {**source, "evidence": op.evidence}
@@ -209,6 +219,10 @@ def apply(vault: MemoryVault, ops: list[Op], *, source: dict[str, Any]) -> int:
                     valid_to=op.valid_to,
                 )
                 written += result.action == "added"
+                if result.action == "added" and result.memory is not None and receipts is not None:
+                    receipts.append(
+                        {"op": "added", "id": result.memory.id, "text": result.memory.text}
+                    )
             elif op.op == "update":
                 result = vault.supersede(
                     op.memory_id,
@@ -220,8 +234,20 @@ def apply(vault: MemoryVault, ops: list[Op], *, source: dict[str, Any]) -> int:
                     valid_to=op.valid_to,
                 )
                 written += result.action == "superseded"
+                if (
+                    result.action == "superseded"
+                    and result.memory is not None
+                    and receipts is not None
+                ):
+                    receipts.append(
+                        {"op": "updated", "id": result.memory.id, "text": result.memory.text}
+                    )
             elif op.op == "invalidate":
-                written += vault.invalidate(op.memory_id, reason=op.evidence)
+                before = vault.get(op.memory_id)
+                ended = vault.invalidate(op.memory_id, reason=op.evidence)
+                written += ended
+                if ended and before is not None and receipts is not None:
+                    receipts.append({"op": "ended", "id": before.id, "text": before.text})
         except (KeyError, ValueError) as exc:
             log.info("memory vault: skipped a %s op - %s", op.op, exc)
             continue

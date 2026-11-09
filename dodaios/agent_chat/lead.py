@@ -234,6 +234,46 @@ def search_conversation(query: str, *, limit: int = 6) -> list[dict[str, Any]]:
     return rows
 
 
+async def post_learned(receipts: list[dict[str, str]]) -> None:
+    """Show in the conversation what the assistant just learned.
+
+    A written notice (``memory_learned``) with one row per change; the page
+    renders it as "Remembered: ..." with an undo. Never spoken. A missing
+    conversation or service is not an error: the memory is already saved.
+    """
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+        if svc is None:
+            return
+        session = lead_session(svc, create=False)
+        if session is None:
+            return
+        rows = [
+            {
+                "op": str(r.get("op") or ""),
+                "id": str(r.get("id") or ""),
+                "text": str(r.get("text") or ""),
+            }
+            for r in receipts[:8]
+            if r.get("text")
+        ]
+        if rows:
+            await svc.post_notice(
+                session.session_id,
+                {
+                    "kind": "memory_learned",
+                    "status": "done",
+                    "text": rows[0]["text"],
+                    "items": rows,
+                },
+            )
+    except Exception:  # noqa: BLE001 — a notice must never undo a saved memory
+        log.warning("lead thread: learned-memory notice not posted", exc_info=True)
+
+
 def _archive() -> Any | None:
     try:
         from dodaios.society.runtime import current_runtime
@@ -251,6 +291,7 @@ __all__ = [
     "is_lead",
     "lead_session",
     "lead_session_id",
+    "post_learned",
     "search_conversation",
     "voice_history",
 ]
