@@ -62,16 +62,6 @@ COMMAND_INDEX: dict[str, tuple[str, ...]] = {
         "language get",
         "language set <de|en|es>",
     ),
-    "wiki": (
-        'recall "<query>"',
-        "page <path>",
-        "tree",
-        "vaults",
-        "health",
-        'ingest "<text>"',
-        "reindex",
-        "backfill",
-    ),
     "missions": (
         "list",
         "show <id>",

@@ -11,7 +11,7 @@ import { Check, CircleOff, Compass, Pencil, Pin, PinOff, Quote, Search, Trash2, 
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/memory/MemoryDialogs";
+import { ConfirmDialog } from "./ConfirmDialog";
 import {
   editMemory,
   endMemory,

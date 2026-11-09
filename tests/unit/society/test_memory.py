@@ -31,24 +31,6 @@ async def rt(tmp_path: Path):
 CTX = SimpleNamespace(trace_id=uuid4(), user_utterance="", config={}, memory_read=None)
 
 
-async def test_pages_are_schema_valid_and_scoped(rt: SocietyRuntime, tmp_path: Path):
-    vault = tmp_path / "vault"
-    scout = await rt.roster.get("scout")
-    rel = await rt.memory.remember(scout, "The user hosts on Hetzner.", root=vault)
-    assert rel == "society/scout/MEMORY.md"
-    text = (vault / rel).read_text(encoding="utf-8")
-    assert text.startswith("---\ntype: society\n") and "author: agent:scout" in text
-    note, row_id = await rt.memory.note(
-        scout, "VPS prices", "Hetzner CX22 costs 4 EUR.", root=vault
-    )
-    assert note.startswith("society/scout/") and row_id > 0
-    # The vault's own page parser accepts the page (it lands in the FTS index).
-    from dodaios.memory.wiki.page import parse_markdown
-
-    page = parse_markdown((vault / note).read_text(encoding="utf-8"), vault / note)
-    assert page.page_type == "society"
-
-
 @pytest.mark.parametrize("knowledge_scope", ["own", "shared"])
 async def test_recall_only_reads_own_notes_and_preserves_existing_vault(
     rt: SocietyRuntime, tmp_path: Path, knowledge_scope: str
@@ -97,38 +79,6 @@ async def test_head_shows_only_own_memory_without_shared_prompts(
     # And the briefing carries it as its own section.
     briefing = build_briefing(scout, [], [scout], memory=head)
     assert "## Your memory" in briefing and "Prefers short answers." in briefing
-
-
-async def test_user_wiki_stays_available_only_through_explicit_wiki_lookup(
-    rt: SocietyRuntime, tmp_path: Path
-):
-    from dodaios.memory.wiki.fts_index import ensure_schema, index_vault
-    from dodaios.memory.wiki.search import VaultSearch
-    from dodaios.plugins.tool.wiki_recall import WikiRecallTool
-
-    vault = tmp_path / "vault"
-    vault.mkdir()
-    page = vault / "hosting.md"
-    page.write_text(
-        "---\ntype: note\n---\n# Hosting\nHetzner hosts the project.\n", encoding="utf-8"
-    )
-    original = page.read_bytes()
-    data_dir = tmp_path / "wiki-data"
-    data_dir.mkdir()
-    conn = sqlite3.connect(data_dir / "jarvis.db")
-    try:
-        ensure_schema(conn)
-        index_vault(vault, conn)
-        conn.commit()
-        rt._get_cfg = lambda: SimpleNamespace(memory=SimpleNamespace(data_dir=str(data_dir)))
-        scout = await rt.roster.get("scout")
-        assert await rt.memory.recall(scout, "Hetzner", root=vault) == []
-        explicit = WikiRecallTool(search=VaultSearch(vault, conn=conn))
-        result = await explicit.execute({"query": "Hetzner"}, CTX)
-        assert result.success and "hosting.md" in result.output
-        assert page.read_bytes() == original
-    finally:
-        conn.close()
 
 
 async def test_share_is_gated_by_the_approvals_queue(rt: SocietyRuntime, tmp_path: Path):

@@ -39,7 +39,7 @@ TOOLS = {
     "search-web": _tool("search-web", "Search the web.", "safe"),
     "spawn-worker": _tool("spawn-worker", "Spawn a worker."),
     "navigate": _tool("navigate", "Switch sidebar section."),
-    "wiki-recall": _tool("wiki-recall", "Search the wiki.", "safe"),
+    "whoami": _tool("whoami", "Who the user is.", "safe"),
 }
 
 
@@ -71,7 +71,7 @@ def test_catalog_groups_orders_and_filters():
         "mcp:github/create_issue",
         "skill:daily-brief",
         "core:search-web",
-        "core:wiki-recall",
+        "core:whoami",
     ]
     gmail = rows[0]
     assert gmail.kind is CapabilityKind.PLUGIN
@@ -131,12 +131,12 @@ def test_select_tools_all_mode_focus_first_denies_out():
         grant_mode="all",
         grants=[],
         focus=["plugin:gmail"],
-        denies=["core:wiki-recall"],
+        denies=["core:whoami"],
     )
     names = list(picked)
     assert names[0] == "gmail"
     assert names[1] == "cli_gws"
-    assert "wiki-recall" not in names
+    assert "whoami" not in names
     assert "spawn-worker" not in names and "navigate" not in names
     rest = names[2:]
     assert rest == sorted(rest, key=lambda n: capability_id_for_tool(n) or "")

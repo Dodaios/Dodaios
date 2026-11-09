@@ -1,241 +1,83 @@
 ---
-title: "Wiki and Memory"
+title: "Memory"
 slug: wiki-and-memory
-summary: "Understand what Dodaios can remember, how the Wiki connects ideas, and how memory supports chats, contacts, and agents."
+summary: "Understand what Dodaios remembers about you, how it uses that memory in each conversation, and how to correct, forget or export it."
 section: "Knowledge and sharing"
 section_order: 4
 order: 1
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-10-14
+last_reviewed: 2026-11-09
 phase: "-"
 audience: end-user
-tags: [wiki, memory, context, profile, contacts, privacy]
-related: [profile-and-contacts, connect-obsidian, jarvis-agents, privacy-and-local-data]
+tags: [memory, context, profile, privacy, export]
+related: [profile-and-contacts, jarvis-agents, privacy-and-local-data]
 ---
 
-Dodaios uses several kinds of memory for different jobs. The **Wiki** is the
-long-term layer: a local collection of readable Markdown notes about durable
-information such as people, preferences, projects, decisions, and recurring
-ideas. Links between notes show how those subjects relate.
+Dodaios keeps a personal memory: short sentences about you and your world,
+such as where you live, how you like answers, the people you mention and the
+projects you are working on. It lives in one file on your computer,
+`data/memory/vault.db`, and you can read, correct, forget or export every
+entry in the **Memory** section.
 
-The Wiki is not a recording of everything you say or do. Current conversation
-context, saved chats, your Profile, Contacts, activity episodes, and Wiki notes
-remain separate so each can keep the right level of detail and control.
+## What reaches the assistant
 
-## Understand the Memory Layers
+Dodaios does not load your whole memory into every conversation.
 
-| Memory area | What it is for | What it does not mean |
+| Layer | What it holds | When the assistant sees it |
 |---|---|---|
-| **Current conversation context** | The recent messages Dodaios uses to follow the conversation you are having now | A message is not automatically a permanent Wiki fact |
-| **Chat and voice history** | Stored turns and sessions that let you review or search past conversations | A transcript is not the same as a cleaned-up knowledge note |
-| **Activity episodes** | Short summaries of periods of computer activity when awareness features are enabled | They are not a complete screen recording, a verified personal fact, or a default source of Wiki session pages |
-| **Profile** | Explicit facts and preferences about you that directly shape how your assistant responds | The Profile view and the Wiki's user page are separate; editing one does not guarantee that the other changes |
-| **Contacts** | The authoritative address book for names and contact details; saving a contact also creates or refreshes a limited Wiki person page | Phone numbers, email addresses, and street addresses stay in Contacts and are deliberately left out of the Wiki copy |
-| **Wiki** | Durable Markdown notes that can be linked, searched, reviewed, and corrected | It is not guaranteed to capture every useful detail from a conversation, and its search index is a rebuildable copy rather than the source of truth |
+| **Always in mind** | Pinned memories, who you are, your preferences, standing instructions, the people and projects that matter | In every chat and voice conversation; it is kept small (about 600 tokens) |
+| **Looked up** | Everything else: moments, older facts, private entries | Only when your message matches it, or when the assistant searches its memory to answer you |
 
-Use the dedicated **Profile** or **Contacts** view when information must stay in
-a structured field. Use the Wiki for knowledge that benefits from explanation,
-history, and links to other subjects.
+The Memory section shows the exact always-in-mind text under **How it
+works**, with a meter for how full it is. A compass mark on a memory means it
+is always in mind.
 
-## Explore the Wiki
+## How memories are made
 
-1. **Open Wiki from the sidebar.** The Memory section opens on an overview:
-   how many pages hold content, how many links and mentions connect them, what
-   changed recently, the most connected pages, and a feed of recent writes.
+- **You say it.** "Remember that I prefer short answers" is saved at once, in
+  your words.
+- **It is learned.** After a conversation, one background pass compares what
+  you said with what is stored. It can add a memory, replace one that changed
+  ("I live in Berlin now"), or mark one as no longer true. Each change must be
+  grounded in something you actually said.
+- **You add it.** Use **New** in the Memory section.
 
-2. **Check the health indicator.** The dot at the top right shows whether
-   writes land and whether the search index is current. Select it for the
-   reason and for **Rebuild search index**.
+Secrets such as API keys or passwords are never stored. Health, religion,
+politics and similar topics are only kept when you ask, and then as private
+entries that never sit in the always-on layer.
 
-3. **Browse by area.** **People & things**, **Projects**, **Concepts**, and
-   **Journal** list pages with their first sentence, how connected they are,
-   and when they changed. Pages without content are folded away until you show
-   them. **Agents** lists each agent's two notebooks (what it learned about its
-   work, and what it knows about you) and its reports, under the agent's
-   current name. Notebooks of deleted or unknown agents are folded away, and
-   empty ones can be moved to the vault's `_archive` folder with **Tidy up
-   empty notebooks**; nothing is deleted.
+## History instead of overwriting
 
-4. **Read a page and its connections.** The side rail lists the pages that
-   link here, the pages this one links to, pages that mention it by name
-   without linking it, and related pages that share a connection. A dashed
-   link points to a page that does not exist yet; select it to create one.
+When something changes, the old memory is closed with a date instead of being
+deleted, so the assistant knows both how things are now and how they were
+before. Open a memory to see its timeline. **No longer true** ends a memory
+without a replacement.
 
-5. **Use the Map.** Pages with content are dots, links are solid lines and
-   mentions dashed ones. Select a dot to open its page, or use **Show on the
-   map** from a page. A connection means that one page refers to another; it
-   does not prove that the relationship is current or correct.
+## Forget
 
-6. **Search with Ctrl+K** (Cmd+K on macOS). Titles match as you type, text
-   and, when switched on, similar meaning follow, and a name that has no page
-   yet can become one.
+**Forget** erases a memory and every earlier version of it. Dodaios will not
+learn it again on its own; only you can save it again.
 
-You can create, edit, rename, and archive knowledge pages in the app. Editing
-saves the page body and keeps its frontmatter, refuses to overwrite a page
-that changed since you opened it, and renaming updates every link that
-pointed to the old name. Agent notebooks are kept by their agents and are
-read-only here. The files remain ordinary Markdown on your computer, so you
-can also edit them with an optional editor through
-[Connect Obsidian](connect-obsidian).
+## Export and import
 
-## Save Something Deliberately
+Your memory is yours to take along:
 
-Background review can discover durable information from [Chats](chats) and
-voice conversations, but it may decide that a turn is temporary, already
-known, unsupported, or unsafe to store. If a detail must be saved, make the
-request explicit and name the Wiki, for example: `Save to my wiki that I prefer
-written summaries.`
+- **Export memory (.zip)** writes a complete, re-importable bundle (one JSON
+  line per memory, an audit log, the list of forgotten entries and checksums).
+- **Export as Markdown** writes readable files, one per kind of memory. The
+  **Files** view in the Memory section shows the same files.
+- **Import a memory file** reads such a bundle back. Importing the same bundle
+  twice changes nothing, and anything you had forgotten stays forgotten.
 
-Dodaios acknowledges that the write has started, then reports whether it was
-saved or failed. Wait for that completion result before relying on the note.
-Open **Wiki** and inspect the page named in the result when the detail matters.
-You can also write or correct a page yourself in the Wiki view.
+## Earlier versions
 
-> [!warning] Never ask your assistant to remember a password, credential, recovery
-> code, or access token. The write guard blocks common secret shapes, but the
-> safe place for credentials is the app's protected connection screen.
-
-## Automatic and Manual Actions
-
-- **Conversation review is automatic.** Eligible completed chat and voice
-  turns are reviewed in the background. The conversation does not wait for
-  extraction or curation, so an ordinary reply is never proof that a note was
-  written.
-- **Pending candidates persist locally.** Candidate arrival normally triggers
-  consolidation. Work that remains pending can be retried after a restart or
-  by the age-based background check. A separate periodic curator run is off by
-  default.
-- **An explicit Wiki request is manual and result-based.** Dodaios sends the
-  text through the guarded curator and announces success only after at least
-  one page was written. Unsupported, duplicate, sensitive, malformed, or
-  conflicting content can still result in no write.
-- **Index repair does not create knowledge.** **Rebuild search index** refreshes the
-  derived full-text search data from the Markdown vault. It does not extract a
-  fact or change a note.
-- **Advanced backfill is opt-in.** The `dodaios wiki backfill` command can
-  review a bounded set of recent Realtime voice sessions. It requires approval,
-  makes provider calls, and is not part of normal background capture.
-
-## How a Conversation Becomes a Wiki Note
-
-The background memory path uses two checks so that an early guess cannot write
-straight into a page:
-
-| Step | What Dodaios does | Possible result |
-|---|---|---|
-| 1. Review the turn | Looks for a durable user-stated fact; assistant text may help resolve context but is not accepted as evidence | No candidate, or a short candidate tied to the user's turn |
-| 2. Compare knowledge | Reads the most relevant complete Wiki pages and checks the candidate against them | Add, update, no change, or invalidate outdated information |
-| 3. Guard the write | Checks the destination, secret patterns, links, and page format; protects recent manual edits | Apply the change, leave it waiting, or reject it |
-| 4. Refresh readers | Updates the local search index and Wiki status after a successful write | The revised page becomes available to Wiki recall |
-
-This is an automated curator review, not a human approval queue. A **no change**
-result usually means the Wiki already says the same thing. **Invalidate** keeps
-the older information as history and marks it as superseded instead of silently
-deleting it. A provider outage or malformed response is not treated as a fact
-decision; the item can remain waiting or the write can fail visibly.
-
-Automatic review favors information that should still help weeks later, such
-as identity, preferences, relationships, owned items, recurring activities,
-projects, plans, and decisions. Greetings, pure questions, immediate commands,
-and passing status updates should not become long-term notes. The review also
-scores how central each fact is to your own life, so world-knowledge trivia is
-skipped while personal facts are kept.
-
-Preferences do not have to be stated literally. When you describe first-person
-experience, such as "I love being out on golf courses with my buddies," the
-curator may record the inferred habit, marked *(inferred)* on the page with its
-source noted as behavioral. Saying it explicitly later ("Golf is my favourite
-sport") upgrades the note and removes the marker. Asking about a topic ("Tell
-me about Monaco") never creates a personal note. This filtering can still miss
-or misclassify information, so verify important pages and correct them in the
-Markdown vault when needed.
-
-## How It Fits Together
-
-1. **A chat or voice turn supplies possible knowledge.** Dodaios can keep the
-   current exchange in conversation context and review the user-stated part in
-   the background. The reply does not wait for this review.
-
-2. **A connected provider performs the language review.** By default, the
-   **Wiki (long-term memory)** setting follows the active Brain and chooses a
-   lower-cost model. You can select a different Wiki provider under **API Keys
-   > Advanced**. If the preferred provider is unavailable, Dodaios tries other
-   registered providers that have a usable credential or login. If none works,
-   the conversation can still finish while the Wiki reports that nothing was
-   written.
-
-3. **The curator updates local notes.** Approved changes pass through guarded
-   writes, backups, validation, and a local full-text search index. The page list,
-   page, graph, and backlink views read the Markdown files directly. The index
-   supports search and later recall. The file watcher normally updates it after
-   manual Markdown edits; the health indicator marks it stale if an update is
-   missed. A slow or missing automatic lookup is skipped rather than holding up
-   the reply.
-
-4. **Profile and Contacts remain authoritative for structured data.** The
-   Profile directly supplies response preferences. Contacts keep full contact
-   details. Saving a contact creates or refreshes a **people** page with the
-   contact's name, aliases, relationship, and note while excluding phone,
-   email, and street address. These companion pages appear in the Wiki,
-   but you should edit the authoritative record in **Contacts**.
-
-5. **Dodaios-Agents use a short-lived supervisor grant.** A mission can receive
-   Wiki tools to list, search, and read pages, plus the guarded Wiki ingest
-   command. Read access is not limited to a predefined set of pages, so a
-   granted agent may search and read any visible page needed for its task.
-   Credentials stay in the supervisor and are not copied into the worker. If
-   the grant or Wiki is unavailable, the agent must continue without that
-   context or report that it is missing.
-
-6. **Obsidian is an optional second view of the same files.** Manual Markdown
-   edits stay on your computer and can appear in the app after the Wiki refreshes.
-   Obsidian does not own the data and is not required for Dodaios to run.
-
-The storage is local, but processing is not necessarily local. When you use a
-remote Wiki provider, relevant user excerpts and related Wiki page content may
-be sent to that provider for extraction and review. A Dodaios-Agent using a
-remote model may also process any Wiki content it reads through its grant. Read
-[Privacy and Local Data](privacy-and-local-data) before storing sensitive
-personal information.
-
-## Check That It Works
-
-1. In a chat or voice conversation, say: `Save to my wiki that I prefer written
-   summaries.`
-2. Wait for Dodaios to report a successful save. A message that it is still
-   writing is not the final result.
-3. Open **Wiki** and confirm that the health indicator reports a successful last
-   write rather than a pending or failed one.
-4. Open the page named in the completion result and confirm that the statement
-   appears in the right context.
-
-The memory path works when Dodaios confirms the completed write, the Wiki health
-stays clear, and the page contains the expected statement. Delete or correct
-the test sentence in the Markdown vault if it does not describe a real
-preference.
-
-## Troubleshooting
-
-| What you see | What it usually means | What to do |
-|---|---|---|
-| The Wiki is empty after ordinary conversations | No durable candidate has passed both review stages, or the Wiki has not completed its first write | Make one explicit, non-sensitive Wiki save request and wait for the completion result |
-| **Facts are waiting to be written** | Review work is queued, the app closed before consolidation, or a provider is temporarily unavailable | Keep the app running, check the Wiki provider status, and wait before repeating the same note |
-| **Chain failure** or **Last write failed** | Every eligible Wiki provider failed, timed out, or returned unusable output | Open **API Keys > Advanced > Wiki (long-term memory)**, connect or choose a working provider, then retry a harmless test note |
-| **Search index** shows fewer indexed pages than vault pages | The Markdown files and the derived local index are out of sync | Select **Rebuild search index**, then reopen the affected page |
-| A saved contact has no companion page under **people** | Contact-to-Wiki synchronization has not completed, the Wiki is unavailable, or a recent manual edit temporarily blocked the write | Keep **Contacts** as the authoritative record, reopen Wiki after synchronization, then check Wiki health and vault permissions if the page is still missing |
-| The **sessions** folder is empty | Activity-to-Wiki session-page writing is disabled by default; normal conversation capture stores durable facts on subject pages instead | Use Chats or Sessions for transcripts and run an approved Realtime backfill only when you deliberately want to review recent voice sessions |
-| The health indicator says **Not checked** even though pages exist | The memory writer has no write result from this run to report yet, which can happen after a restart or for manually added files | Treat the Markdown page as the source of truth; use **Rebuild search index** only if search is also stale |
-| A linked page cannot be opened | The target page is missing, invalid, or the page list has not refreshed | Reopen Wiki, rebuild the index if it is stale, and correct the link in the Markdown vault if the target truly does not exist |
+Before November 2026 Dodaios kept a Markdown wiki vault (optionally opened in
+Obsidian). On first start the new memory copied the useful facts from it once;
+the old folder is left on disk untouched and is no longer read or written.
 
 ## Next Steps
 
-- Read [Profile and Contacts](profile-and-contacts) to choose the authoritative
-  place for personal preferences and contact details.
-- Follow [Connect Obsidian](connect-obsidian) to view and edit the same Markdown
-  vault with a dedicated knowledge editor.
-- Read [Dodaios-Agents](jarvis-agents) to understand short-lived Wiki access,
-  guarded writes, and the supervisor boundary for missions.
-- Review [Privacy and Local Data](privacy-and-local-data) before saving personal
-  information or using a remote provider for memory processing.
+- Review your profile and people in [Profile and Contacts](profile-and-contacts).
+- See what stays on your computer in [Privacy and Local Data](privacy-and-local-data).

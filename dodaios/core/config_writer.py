@@ -1109,20 +1109,6 @@ def set_missions_paid_api_fallback(enabled: bool, *, path: Path = DEFAULT_CONFIG
     _patch_table(path, "missions", "paid_api_fallback", enabled)
 
 
-def set_wiki_semantic_search(
-    enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE
-) -> None:
-    """Persist ``[wiki_context] semantic_search`` (search the wiki by meaning).
-
-    The only writer of this key, called from ``PUT /api/wiki/semantic-search``.
-    The route starts or stops the search engine itself, so the change applies
-    at once; this write makes it survive a restart.
-    """
-    if not isinstance(enabled, bool):
-        raise TypeError("semantic_search must be a bool")
-    _patch_table(path, "wiki_context", "semantic_search", enabled)
-
-
 def set_reply_language(name: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist the user-facing reply-language pin in ``[brain] reply_language``.
 
@@ -1324,21 +1310,6 @@ def set_self_build_settings(
         return
     first, *rest = values.items()
     _patch_table(path, "self_build", first[0], first[1], extra=dict(rest))
-
-
-def set_wiki_vault_root(vault_root: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
-    """Persist ``[wiki_integration] vault_root`` in jarvis.toml (AP-7).
-
-    Written when the Obsidian setup wizard registers the "existing vault"
-    mode (spec A6): the wiki subsystem is repointed to ``<vault>/Jarvis``
-    so every wiki write stays contained inside the user's own vault.
-    TOML-only by design: ``wiki_integration`` is NOT tracked in
-    ``config-soll.json``, so the drift-guard never reverts it (same  # i18n-allow
-    rationale as :func:`set_overlay_style`). Takes effect on the next app
-    restart — the running curator/FTS index still targets the old vault
-    until then.
-    """
-    _patch_table(path, "wiki_integration", "vault_root", vault_root)
 
 
 def set_overlay_style(style: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
@@ -3754,59 +3725,3 @@ def _set_user_env_var_winreg(name: str, value: str) -> None:
         )
     except Exception as exc:  # noqa: BLE001 — broadcast is a nicety, not required
         log.debug("WM_SETTINGCHANGE broadcast failed (non-fatal): %s", exc)
-
-
-def set_wiki_curator_provider(
-    name: str,
-    *,
-    model: str = "",
-    path: Path = DEFAULT_CONFIG_FILE,
-) -> None:
-    """Persist the Wiki-curator model picker in ``[memory.wiki.curator]``.
-
-    Writes ``provider`` and ``model`` together. Empty strings are persisted
-    verbatim — they are the documented fallback sentinels resolved at runtime
-    by ``dodaios.memory.wiki.curator_llm._resolve_provider_and_model``
-    (``provider=""`` -> ``brain.primary``; ``model=""`` -> the provider's
-    cheap/fast router model). Takes effect as a boot default on the next
-    ``load_config``; the live switch happens in the settings route by resetting
-    the running ``WikiCuratorLLM``'s cached brain.
-    """
-    _patch_wiki_curator_toml(path, {"provider": name, "model": model})
-
-
-def _patch_wiki_curator_toml(path: Path, values: dict[str, object]) -> None:
-    """Set keys under the nested ``[memory.wiki.curator]`` table.
-
-    Walks ``memory`` -> ``wiki`` -> ``curator`` (creating any missing level),
-    sets each key in ``values``, and preserves comments, sibling keys, and the
-    optional BOM (same contract as :func:`_patch_sub_jarvis_provider_toml`).
-    """
-    path = _ensure_writable_config_path(path)
-
-    with _WRITE_LOCK:
-        raw = path.read_text(encoding="utf-8")
-        had_bom = raw.startswith(_BOM)
-        if had_bom:
-            raw = raw[len(_BOM) :]
-        doc: TOMLDocument = tomlkit.parse(raw)
-
-        memory = doc.get("memory")
-        if memory is None:
-            memory = tomlkit.table()
-            doc["memory"] = memory
-        wiki = memory.get("wiki")
-        if wiki is None:
-            wiki = tomlkit.table()
-            memory["wiki"] = wiki
-        curator = wiki.get("curator")
-        if curator is None:
-            curator = tomlkit.table()
-            wiki["curator"] = curator
-        for key, value in values.items():
-            curator[key] = value
-
-        out = tomlkit.dumps(doc)
-        if had_bom:
-            out = _BOM + out
-        _atomic_write(path, out)

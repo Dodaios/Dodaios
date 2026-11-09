@@ -10,7 +10,7 @@ backstop can catch a fake confirmation. Pure regex, no LLM (AP-9/AP-11).
 
 from dodaios.brain.contact_intent import (
     CONTACT_WRITE_DIRECTIVE,
-    WIKI_INGEST_DIRECTIVE,
+    MEMORY_SAVE_DIRECTIVE,
     detect_contact_write_intent,
     detect_memory_save_intent,
     resolve_save_mandate,
@@ -88,7 +88,7 @@ def test_directive_forces_the_real_tool_and_clarifies_bad_fields():
     assert "never" in d.lower() or "not" in d.lower()
 
 
-# --- general "merk dir …" facts → wiki-ingest (the wiki document path) --------
+# --- general "merk dir …" facts → remember (the memory vault) --------
 
 
 def test_memory_save_intent_fires_on_explicit_remember():
@@ -122,12 +122,12 @@ def test_resolve_save_mandate_routes_contact_data_to_contact_upsert():
     assert directive == CONTACT_WRITE_DIRECTIVE
 
 
-def test_resolve_save_mandate_routes_general_fact_to_wiki_ingest():
+def test_resolve_save_mandate_routes_general_fact_to_remember():
     mandate = resolve_save_mandate("Merk dir, dass Harald gerne Fußball schaut.")  # i18n-allow
     assert mandate is not None
     tool, directive = mandate
-    assert tool == "wiki-ingest"
-    assert directive == WIKI_INGEST_DIRECTIVE
+    assert tool == "remember"
+    assert directive == MEMORY_SAVE_DIRECTIVE
 
 
 def test_resolve_save_mandate_prefers_contact_when_both_match():
@@ -143,8 +143,8 @@ def test_resolve_save_mandate_none_on_plain_turn():
     assert resolve_save_mandate("Wie ist das Wetter?") is None  # i18n-allow
 
 
-def test_wiki_ingest_directive_forces_the_real_tool():
-    d = WIKI_INGEST_DIRECTIVE
-    assert "wiki-ingest" in d
+def test_memory_save_directive_forces_the_real_tool():
+    d = MEMORY_SAVE_DIRECTIVE
+    assert "remember" in d
     assert "MANDATORY" in d
     assert "never" in d.lower() or "not" in d.lower()

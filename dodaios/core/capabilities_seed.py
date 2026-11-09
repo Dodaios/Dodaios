@@ -74,6 +74,15 @@ _SEED_CAPABILITIES: list[Capability] = [
     # LLM-visible router capabilities
     # ------------------------------------------------------------------ #
     Capability(
+        id="tool.memory-search",
+        source="router_tool",
+        verbs=_READ_VERBS,
+        objects=_WIKI_OBJECTS,
+        description="Search the user's personal memory vault (read-only).",
+        risk_tier="safe",
+        requires_evidence=False,
+    ),
+    Capability(
         id="tool.run-shell",
         source="router_tool",
         verbs=_ACTION_VERBS + (
@@ -145,38 +154,6 @@ _SEED_CAPABILITIES: list[Capability] = [
         verbs=_ACTION_VERBS + ("skill", "faehigkeit", "fähigkeit"),  # i18n-allow
         objects=("skill", "skills", "faehigkeit", "fähigkeit", "macro", "makro"),  # i18n-allow
         description="Execute an installed user skill / macro.",
-        risk_tier="monitor",
-        requires_evidence=True,
-    ),
-    Capability(
-        id="tool.wiki-recall",
-        source="router_tool",
-        verbs=_READ_VERBS,
-        objects=_WIKI_OBJECTS,
-        description="Keyword search over the long-term Obsidian wiki vault (read-only).",
-        risk_tier="safe",
-        requires_evidence=False,
-    ),
-    Capability(
-        id="tool.wiki-page-read",
-        source="router_tool",
-        verbs=_READ_VERBS + ("oeffne", "öffne", "open"),  # i18n-allow
-        objects=_WIKI_OBJECTS,
-        description="Read a full wiki page by vault path (read-only).",
-        risk_tier="safe",
-        requires_evidence=False,
-    ),
-    Capability(
-        id="tool.wiki-ingest",
-        source="router_tool",
-        verbs=(
-            "speicher", "save", "merk", "merke", "notier", "notiere",
-            "ingest", "store", "schreib", "write", "record", "add", "put",
-            "eintrag", "eintrage", "eintragen",  # i18n-allow
-            "anota", "apunta", "agrega", "guarda",  # i18n-allow: input vocabulary
-        ),
-        objects=_WIKI_OBJECTS,
-        description="Store a fact / note deterministically into the wiki vault.",
         risk_tier="monitor",
         requires_evidence=True,
     ),

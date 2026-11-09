@@ -148,7 +148,7 @@ _OWNERSHIP_RE = re.compile(
 # convention `_normalize` produces.  # i18n-allow: names quoted German recall idioms
 _RECALL_RE: re.Pattern[str] | None
 try:
-    from dodaios.brain.wiki_relevance_vocab import STRONG_RECALL_PHRASES
+    from dodaios.brain.recall_vocab import STRONG_RECALL_PHRASES
 
     _RECALL_RE = re.compile(
         r"\b(?:"

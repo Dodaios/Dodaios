@@ -14,11 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-RESTRICTED_WORKER_KNOWLEDGE_TOOLS: tuple[str, ...] = (
-    "wiki-list",
-    "wiki-recall",
-    "wiki-page-read",
-)
+# The personal memory vault stays with the assistant; workers get no memory tools.
+RESTRICTED_WORKER_KNOWLEDGE_TOOLS: tuple[str, ...] = ()
 
 _FORBIDDEN_RECURSIVE_NAMES = frozenset(
     {
@@ -209,8 +206,8 @@ _UNCONDITIONAL_EXTRA_KNOWLEDGE_TOOLS: tuple[str, ...] = (
 def restricted_worker_knowledge_tools() -> tuple[str, ...]:
     """Read-only knowledge surface granted to Jarvis-Agents (ADR-0030).
 
-    The wiki triple plus ``search_web`` and ``contact-lookup``, mirroring the
-    voice brain's read-only reach.
+    ``search_web`` and ``contact-lookup``; the user's personal memory
+    stays with the assistant (ADR-0044).
     Execution always stays in the supervisor via the ADR-0025 broker — a
     worker never holds
     the tool object — and every gate fails closed so a disabled subsystem

@@ -269,6 +269,16 @@ def _import_user_profile(writer: _Writer, data_dir: Path) -> None:
         writer.add(text, "profile", source="user-profile", file="workspace/USER.md")
 
 
+def legacy_wiki_root(config: Any) -> Path:
+    """Where the retired wiki vault lived: ``[wiki_integration].vault_root``, else
+    ``<repo>/wiki/obsidian-vault``. Only read, never written."""
+    from dodaios.core.paths import repo_root
+
+    raw = str(getattr(getattr(config, "wiki_integration", None), "vault_root", "") or "").strip()
+    path = Path(raw or "wiki/obsidian-vault").expanduser()
+    return path if path.is_absolute() else (repo_root() / path).resolve()
+
+
 def user_names(data_dir: Path) -> set[str]:
     """Names the user's own wiki page may carry."""
     names = {"user", "the user"}

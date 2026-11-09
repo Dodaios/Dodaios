@@ -24,7 +24,7 @@ def _manager() -> BrainManager:
     m._people = None
     m._core_memory = None
     m._system_prompt_extra = "ROUTER DISCIPLINE BLOCK"
-    m._wiki_context_suffix = ""
+    m._memory_context_suffix = ""
     m._reply_language = "auto"
     cfg = load_config()
     cfg.performance.cache_optimized_prompt = False

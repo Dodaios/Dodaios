@@ -242,3 +242,27 @@ def remember_explicitly(
     if result.action == "added":
         changed()
     return result
+
+
+_NAME_PATTERNS = (
+    re.compile(r"\buser'?s name is ([A-Z][\w'-]{1,40})"),
+    re.compile(r"^(?:my )?name(?: is|:)\s*([A-Z][\w'-]{1,40})", re.I),
+)
+
+
+def learned_user_name() -> str | None:
+    """The user's first name as a current profile memory states it, else ``None``."""
+    vault = _active
+    if vault is None:
+        return None
+    try:
+        memories = vault.list(kind="profile")
+    except Exception:  # noqa: BLE001 — no learned name is the honest answer
+        log.debug("memory vault: profile unreadable for the name", exc_info=True)
+        return None
+    for memory in memories:
+        for pattern in _NAME_PATTERNS:
+            match = pattern.search(memory.text)
+            if match:
+                return match.group(1)
+    return None

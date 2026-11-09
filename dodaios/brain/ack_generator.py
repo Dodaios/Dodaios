@@ -125,7 +125,7 @@ ACK_SKIP_TOOLS: frozenset[str] = frozenset({
     "find_tools",
     # fast passive memory reads (2026-07-06: wiki-recall answered in 72 ms —
     # a spoken "one moment" for that is pure chatter)
-    "wiki_recall",
+    "memory_search",
     "wiki_search",
     # low-latency UI events
     "click",
