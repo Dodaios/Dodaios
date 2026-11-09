@@ -21,7 +21,8 @@ was excluded on purpose.
    deleted. `dodaios/agent_chat/lead.py` is the one place that resolves it.
 2. **Everything lands there.** Typed turns, voice calls without another chat
    on screen, agent reports, society notices, lead routine results (including
-   the morning brief) and the owner's private Telegram chat. A "new chat"
+   the morning brief) and the owner's private Telegram chat or Discord
+   direct message. A "new chat"
    request returns the conversation with the picked model on its seat.
    Friends' and group messages never enter it.
 3. **Long history is compacted, not cut.** The lead reuses the society
@@ -48,5 +49,4 @@ was excluded on purpose.
 - Memory work (episodes from checkpoints, corrections, nightly consolidation)
   builds on the checkpoints; that is owned by the memory vault (ADR-0044).
 - Coding chats (`agent`), side chats and created agents are unchanged.
-- Discord still uses the classic chat path until it can tell a direct
-  message from a server channel.
+- Server channels and group chats keep the classic chat path.

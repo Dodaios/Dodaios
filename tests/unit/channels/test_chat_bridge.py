@@ -228,3 +228,19 @@ async def test_owner_private_chat_continues_the_lead_conversation(monkeypatch) -
     await bridge.stop()
     assert [e.text for e in published] == ["hi from a friend", "group hello"]
     assert asked == ["Where is the wedding?"]
+
+
+def test_only_discord_direct_messages_of_the_owner_reach_the_lead() -> None:
+    bridge = ChannelChatBridge(
+        bus=EventBus(),
+        manager=_Manager(_QueueChannel()),
+        get_chat_service=lambda: "svc",  # type: ignore[arg-type]
+    )
+
+    def msg(meta: dict) -> ChannelMessage:
+        return ChannelMessage(session_id=uuid4(), kind="text", content="x", metadata=meta)
+
+    assert bridge._lead_service("discord", msg({"discord_dm": True, "friend_id": None})) == "svc"  # noqa: SLF001
+    assert bridge._lead_service("discord", msg({"discord_dm": False})) is None  # noqa: SLF001
+    assert bridge._lead_service("discord", msg({"discord_dm": True, "friend_id": "f"})) is None  # noqa: SLF001
+    assert bridge._lead_service("discord", msg({})) is None  # noqa: SLF001

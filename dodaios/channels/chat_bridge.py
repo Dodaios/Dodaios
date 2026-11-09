@@ -127,18 +127,22 @@ class ChannelChatBridge:
     def _lead_service(self, name: str, msg: ChannelMessage) -> Any | None:
         """The chat service when this message belongs in the lead conversation.
 
-        Only the owner's private Telegram chat qualifies: a friend (``friend_id``)
-        or a group chat (negative chat id) never reaches the owner's personal
-        conversation, and other channels keep their own threads.
+        Only the owner's private chats qualify: a Telegram private chat or a
+        Discord direct message. A friend (``friend_id``), a group chat or a
+        server channel never reaches the owner's personal conversation, and
+        other channels keep their own threads.
         """
-        if self._get_chat_service is None or name != "telegram":
+        if self._get_chat_service is None or name not in ("telegram", "discord"):
             return None
         if _metadata_value(msg.metadata, "friend_id"):
             return None
-        try:
-            if int(_metadata_value(msg.metadata, "telegram_chat_id") or "0") <= 0:
+        if name == "telegram":
+            try:
+                if int(_metadata_value(msg.metadata, "telegram_chat_id") or "0") <= 0:
+                    return None
+            except ValueError:
                 return None
-        except ValueError:
+        elif msg.metadata.get("discord_dm") is not True:
             return None
         try:
             return self._get_chat_service()

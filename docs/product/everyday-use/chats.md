@@ -29,8 +29,9 @@ Use **Chats** for questions, follow-ups, and conversations you may revisit.
 >   forgets a new memory again.
 > - The **Activity** panel on the right shows what waits on you, what runs
 >   and what finished, and turns the daily **morning brief** on or off.
-> - Your own private Telegram chat with the assistant is part of the same
->   conversation; friends and groups are not.
+> - Your own private Telegram chat and Discord direct messages with the
+>   assistant are part of the same conversation; friends, groups and server
+>   channels are not.
 
 History combines local text threads and retained voice transcripts; files,
 detailed runs, and durable knowledge stay elsewhere.
