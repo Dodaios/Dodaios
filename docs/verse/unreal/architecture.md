@@ -179,7 +179,7 @@ those three):
 | `VerseUI` | InputCore, EnhancedInput, Json, Slate, SlateCore, RenderCore, RHI, ImageCore | Slate menus and input pre-processor; key bindings; data files; render-target captures |
 | `VerseStream` | none | |
 | `VerseHarness` | none | |
-| `Verse` | NetCore, DeveloperSettings, EngineSettings, GameplayAbilities, GameplayTags, GameplayTasks | Settings object; the default pawn's ability system component |
+| `Verse` | NetCore, DeveloperSettings, EngineSettings, GameplayAbilities, GameplayTags, GameplayTasks, InputCore, Json, NavigationSystem | Settings object; the default pawn's ability system component; duel input keys, arena JSON and the duel's nav queries |
 
 ## 3. Networking
 
