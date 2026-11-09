@@ -252,6 +252,8 @@ class CreateSessionBody(BaseModel):
     #: Agentic IDE's chat mode ("agent"), or the Local models section's setup
     #: assistant ("local-models"). Fixed for the session's life.
     surface: SurfaceName = "agent"
+    #: A coding thread's placement: a connected computer id; "" = this computer.
+    computer_id: str = ""
 
 
 class PatchSessionBody(BaseModel):
@@ -261,6 +263,7 @@ class PatchSessionBody(BaseModel):
     effort: str | None = None
     cwd: str | None = None
     permission_mode: str | None = None
+    computer_id: str | None = None
 
 
 class MessageBody(BaseModel):
@@ -458,6 +461,22 @@ def _folder_for(surface: str, raw: str | None) -> str | None:
     to refuse the chat.
     """
     return None if kit_for(surface).plain else _validate_cwd(raw)
+
+
+def _validate_computer(raw: str | None, surface: str) -> str:
+    """A thread's placement: "" (this computer) or a configured computer's id."""
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    if surface != "agent":
+        raise HTTPException(400, "Only coding threads can run on another computer")
+    from dodaios.computers.service import get_service
+
+    try:
+        get_service().get(value)
+    except Exception as exc:
+        raise HTTPException(400, "Unknown computer") from exc
+    return value
 
 
 def _validate_cwd(raw: str | None) -> str | None:
@@ -1094,8 +1113,10 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
             ),
         )
     cwd = _folder_for(body.surface, body.cwd)
+    computer_id = _validate_computer(body.computer_id, body.surface)
     try:
         session = svc.create_session(
+            computer_id=computer_id,
             provider=body.provider,
             model=body.model,
             effort=body.effort,
@@ -1208,6 +1229,14 @@ async def patch_session(
         if fields["cwd"] != current.cwd:
             # A CLI keeps its conversations per folder: the old id cannot be
             # resumed from the new one.
+            fields["vendor_session"] = ""
+    if body.computer_id is not None:
+        new_computer = _validate_computer(body.computer_id, current.surface)
+        if new_computer != current.computer_id:
+            if svc.is_running(session_id):
+                raise HTTPException(409, "Stop the running turn before moving the thread")
+            fields["computer_id"] = new_computer
+            # The CLI's conversation lives on the old computer.
             fields["vendor_session"] = ""
     runner = resolve_runner(
         fields.get("provider") or current.provider,

@@ -10318,6 +10318,8 @@
     "empty_body": "Los hilos ejecutan un agente de programación en una carpeta de proyecto. Conecta una para empezar.",
     "connect_folder": "Conectar carpeta",
     "build_in": "¿Qué construimos en {project}?",
+    "runs_on": "Se ejecuta en",
+    "runs_on_computer": "Se ejecuta en {computer}",
     "projects": "Proyectos",
     "connect_another": "Conectar otra carpeta",
     "new_activity": "Actividad nueva",

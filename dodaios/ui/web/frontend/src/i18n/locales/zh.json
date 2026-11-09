@@ -10318,6 +10318,8 @@
     "empty_body": "线程会在项目文件夹中运行编程智能体。连接一个即可开始。",
     "connect_folder": "连接文件夹",
     "build_in": "我们要在 {project} 中构建什么？",
+    "runs_on": "运行于",
+    "runs_on_computer": "运行于 {computer}",
     "projects": "项目",
     "connect_another": "连接另一个文件夹",
     "new_activity": "新动态",
