@@ -60,6 +60,15 @@ def test_every_size_renders_a_filled_tile(size: int) -> None:
     assert tile.getpixel((0, 0))[3] < 16
 
 
+def test_app_icons_show_the_head_larger_than_the_logo_does() -> None:
+    """#1183: at taskbar sizes the icon crops to the head so the face is readable."""
+    head = render_tile(256)
+    full = render_tile(256, head=False)
+    assert head.tobytes() != full.tobytes()
+    ink = lambda tile: sum(tile.convert("L").histogram()[:56])  # noqa: E731
+    assert ink(head) > ink(full), "the head tile should be more ink than the full figure"
+
+
 def test_committed_icons_are_the_current_render() -> None:
     """Re-run ``python scripts/make_app_icon.py`` after editing the logo."""
     committed = Image.open(ROOT / "dodaios" / "assets" / "icons" / "dodaios.png").convert("RGBA")
