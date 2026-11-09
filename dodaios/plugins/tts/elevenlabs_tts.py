@@ -268,6 +268,7 @@ class ElevenLabsTTS:
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[bytes | None | BaseException] = asyncio.Queue(maxsize=64)
         consumer_gone = threading.Event()
+        producer_log = logging.getLogger("jarvis.tts.elevenlabs")
 
         def _deliver(item: bytes | None | BaseException) -> bool:
             """Queue one item, waiting for room; False once nobody is reading.
@@ -279,16 +280,13 @@ class ElevenLabsTTS:
             """
             try:
                 delivered = asyncio.run_coroutine_threadsafe(queue.put(item), loop)
-            except RuntimeError:  # the loop is closed
+            except RuntimeError as exc:
+                producer_log.debug("ElevenLabs producer stopped, loop closed: %s", exc)
                 return False
             while not consumer_gone.is_set():
-                try:
-                    delivered.result(timeout=_PRODUCER_POLL_S)
-                except TimeoutError:
-                    continue
-                except (concurrent.futures.CancelledError, RuntimeError):
-                    return False
-                return True
+                done, _ = concurrent.futures.wait({delivered}, timeout=_PRODUCER_POLL_S)
+                if done:
+                    return not delivered.cancelled() and delivered.exception() is None
             delivered.cancel()
             return False
 
