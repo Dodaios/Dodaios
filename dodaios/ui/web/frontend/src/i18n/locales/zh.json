@@ -10317,6 +10317,7 @@
     "projects": "项目",
     "connect_another": "连接另一个文件夹",
     "new_activity": "新动态",
+    "in_worktree": "在 worktree {name} 中工作",
     "new_thread_in": "在 {project} 中新建线程",
     "save_name": "保存名称",
     "cancel_renaming": "取消重命名",

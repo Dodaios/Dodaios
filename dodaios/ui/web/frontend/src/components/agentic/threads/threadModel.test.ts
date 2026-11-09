@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
-import { arrangeThreads, comparablePath, isInside, moveThreadId, projectIdFor, shortAge, threadStatus, threadTitle, threadsByProject } from "./threadModel";
+import { arrangeThreads, comparablePath, compactTitle, isInside, moveThreadId, projectIdFor, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject } from "./threadModel";
 
 function project(id: string, path: string): IdeProject {
   return {
@@ -115,5 +115,30 @@ describe("moveThreadId", () => {
   it("leaves the order alone for an unknown or identical id", () => {
     expect(moveThreadId(["a", "b"], "x", "a", true)).toEqual(["a", "b"]);
     expect(moveThreadId(["a", "b"], "a", "a", true)).toEqual(["a", "b"]);
+  });
+});
+
+describe("compactTitle", () => {
+  it("turns GitHub issue and pull request links into short references", () => {
+    expect(compactTitle("Https://github.com/Dodaios/Dodaios/issues/1189 what is this")).toBe("Issue #1189 what is this");
+    expect(compactTitle("https://github.com/Dodaios/Dodaios/pull/1191 review please")).toBe("PR #1191 review please");
+  });
+
+  it("keeps only the host of any other link and leaves plain titles alone", () => {
+    expect(compactTitle("look at https://example.com/a/b?c=1   now")).toBe("look at example.com now");
+    expect(compactTitle("GitHub main is red")).toBe("GitHub main is red");
+  });
+});
+
+describe("threadWorktree", () => {
+  it("names the worktree a thread works in", () => {
+    expect(threadWorktree("C:\\Repo\\.worktrees\\Fix-Login", "C:\\repo")).toBe("Fix-Login");
+    expect(threadWorktree("/home/a/repo/.claude/worktrees/agent-1/src", "/home/a/repo")).toBe("agent-1");
+  });
+
+  it("is null in the project's own checkout or outside it", () => {
+    expect(threadWorktree("C:\\Repo", "C:\\repo")).toBeNull();
+    expect(threadWorktree("C:\\Repo\\src", "C:\\repo")).toBeNull();
+    expect(threadWorktree("C:\\Other\\.worktrees\\x", "C:\\repo")).toBeNull();
   });
 });
