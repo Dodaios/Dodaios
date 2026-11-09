@@ -4,7 +4,7 @@
 The engine's Map rules in ``DefaultGame.ini`` do not move a level's assets into
 its own IoStore chunk on 5.7 (every package stays in chunk 0), but a
 PrimaryAssetLabel that labels the assets in its folder does. One label per deck
-sits next to the deck's level, named ``PAL_<Deck>``, with the chunk id of
+sits next to the deck's level, named ``DA_DeckChunk_<Deck>``, with the chunk id of
 ``unreal/Toolchain/chunks.json``.
 
     python scripts/unreal/deck_labels.py            # create the missing labels
@@ -30,7 +30,7 @@ CHUNKS_FILE = common.UNREAL_ROOT / "Toolchain" / "chunks.json"
 
 
 def deck_labels(chunks: dict[str, Any]) -> list[dict[str, Any]]:
-    """``[{"folder": "/Game/Verse/Decks/Bridge", "name": "PAL_Bridge", "chunk": 1}, ...]``."""
+    """``[{"folder": "/Game/Verse/Decks/Bridge", "name": "DA_DeckChunk_Bridge", "chunk": 1}, ...]``."""
     labels = []
     for chunk in sorted(chunks["chunks"], key=lambda c: c["id"]):
         for level in chunk.get("maps", []):
@@ -38,7 +38,7 @@ def deck_labels(chunks: dict[str, Any]) -> list[dict[str, Any]]:
             labels.append(
                 {
                     "folder": folder,
-                    "name": "PAL_" + level_name.removeprefix("LV_"),
+                    "name": "DA_DeckChunk_" + level_name.removeprefix("LV_"),
                     "chunk": chunk["id"],
                     "priority": 10 + chunk["id"],
                 }
