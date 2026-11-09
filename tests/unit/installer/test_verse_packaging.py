@@ -151,7 +151,7 @@ def test_every_deck_level_gets_its_own_chunk() -> None:
         assert by_name[deck.lower()]["maps"] == [f"/Game/Verse/Decks/{deck}/LV_{deck}"]
     block = package.chunk_ini_block(chunks)
     assert "bGenerateChunks=True" in block
-    # Every deck level is named for the cook; its label (PAL_<Deck>) picks the chunk.
+    # Every deck level is named for the cook; its label (DA_DeckChunk_<Deck>) picks the chunk.
     assert block.count("+MapsToCook=") == 4
     assert '+MapsToCook=(FilePath="/Game/Verse/Decks/Bridge/LV_Bridge")' in block
 

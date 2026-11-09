@@ -30,5 +30,5 @@ offer, download with progress, verify, install, launch, uninstall,
 `not_installed`. First numbers (2026-11-09, graybox build): the Shipping
 payload is 419 MB (core 135 MB, binaries 254 MB, decks 27 MB in four chunks),
 a one-chunk delta is 1.1 MB, the first frame arrives 2.2 s after engine start.
-Deck chunks come from the `PAL_<Deck>` labels (`scripts/unreal/deck_labels.py`);
+Deck chunks come from the `DA_DeckChunk_<Deck>` labels (`scripts/unreal/deck_labels.py`);
 the engine's Map rules alone leave every package in chunk 0.
