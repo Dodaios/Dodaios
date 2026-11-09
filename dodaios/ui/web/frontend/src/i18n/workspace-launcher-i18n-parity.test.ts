@@ -3,6 +3,10 @@ import en from "./locales/en.json";
 import de from "./locales/de.json";
 import es from "./locales/es.json";
 import pt from "./locales/pt.json";
+import cliEn from "./locales/custom_cli/en.json";
+import cliDe from "./locales/custom_cli/de.json";
+import cliEs from "./locales/custom_cli/es.json";
+import cliPt from "./locales/custom_cli/pt.json";
 
 type Locale = Record<string, unknown>;
 
@@ -19,6 +23,7 @@ const keys = (locale: Locale, section: string) =>
   flatten((locale[section] ?? {}) as Locale).sort();
 
 describe("workspace launcher i18n parity", () => {
+  const dialog: Record<string, Locale> = { de: cliDe, es: cliEs, pt: cliPt };
   for (const [language, locale] of Object.entries({ de, es, pt })) {
     it(`${language} has the same workspace launcher keys as en`, () => {
       expect(keys(locale as Locale, "workspace_launcher")).toEqual(
@@ -34,6 +39,7 @@ describe("workspace launcher i18n parity", () => {
       expect(keys(locale as Locale, "custom_cli")).toEqual(
         keys(en as Locale, "custom_cli"),
       );
+      expect(keys(dialog[language], "custom_cli")).toEqual(keys(cliEn as Locale, "custom_cli"));
     });
   }
 });
