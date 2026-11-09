@@ -686,6 +686,36 @@ async def spawn(
         return None
 
 
+async def kill_session_turns(session_id: str) -> int:
+    """Kill every CLI the host still runs for chat session ``session_id``.
+
+    Stop's last resort when the app holds no runner for the thread (a
+    restart, a reattach that failed): the host knows each turn's session from
+    its meta, so exactly that thread's agent ends and nothing else does.
+    Never starts a host; returns how many turns were told to end.
+    """
+    if not session_id:
+        return 0
+    client = await get_client(start=False)
+    if client is None or not client.connected:
+        return 0
+    try:
+        reply = await client._request({"op": "list"})
+    except ConnectionError as exc:
+        log.warning("turn host: could not list turns to stop: %s", exc)
+        return 0
+    killed = 0
+    for turn in reply.get("turns") or ():
+        meta = turn.get("meta") if isinstance(turn, dict) else None
+        if not isinstance(meta, dict) or str(meta.get("session_id") or "") != session_id:
+            continue
+        if not turn.get("alive") or not turn.get("id"):
+            continue
+        if client._send({"op": "kill", "id": str(turn["id"])}):
+            killed += 1
+    return killed
+
+
 def live_turn_ids() -> set[str]:
     """Chat turn ids whose CLI runs in the host and is still being read."""
     client = _client
