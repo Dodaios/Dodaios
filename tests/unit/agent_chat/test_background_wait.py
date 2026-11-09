@@ -98,3 +98,134 @@ def test_a_task_patched_to_a_final_status_is_no_longer_open() -> None:
         _task("task_updated", "a1", patch={"status": "completed"}),
     ]
     assert _waits(lines) == [["Review the diff"], []]
+
+
+# ------------------------------------------------------------- Grok Build
+#
+# Grok's stream-json has no task lines: its background work shows only as the
+# tool result that started it and the words of a later one (grok 1.0.77).
+
+
+def _grok_call(call_id: str, name: str, **args: Any) -> dict[str, Any]:
+    return {
+        "type": "assistant",
+        "message": {
+            "id": f"m-{call_id}",
+            "content": [{"type": "tool_use", "id": call_id, "name": name, "input": args}],
+        },
+        "session_id": "g1",
+    }
+
+
+def _grok_result(call_id: str, text: str) -> dict[str, Any]:
+    return {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": call_id, "content": text}],
+        },
+        "session_id": "g1",
+    }
+
+
+def _grok_state() -> _ClaudeState:
+    return _ClaudeState(turn_id="t1", grok=True)
+
+
+def test_grok_background_shell_monitor_and_subagent_are_open_tasks() -> None:
+    st = _grok_state()
+    lines = [
+        _start("m1"),
+        _grok_call("c1", "run_terminal_command", command="npm test", description="Run tests",
+                   background=True),
+        _grok_result("c1", "<task-id>01a0-b1</task-id>\n<task-type>bash</task-type>\n"),
+        _grok_call("c2", "monitor", command="python watch.py", description="Watch CI"),
+        _grok_result(
+            "c2", "Monitor started (task 01a0-m1, timeout 36000000ms).\nYou will be notified."
+        ),
+        _grok_call("c3", "spawn_subagent", description="Review the diff", prompt="..."),
+        _grok_result(
+            "c3",
+            "Subagent started in background.\nsubagent_id: 01a0-s1\ntype: code-reviewer\n"
+            "description: Review the diff\n",
+        ),
+        _stop("end_turn"),
+    ]
+    assert _waits(lines, st) == [["Run tests", "Watch CI", "Review the diff"]]
+
+
+def test_grok_task_end_reminders_close_tasks() -> None:
+    st = _grok_state()
+    lines = [
+        _start("m1"),
+        _grok_call("c1", "run_terminal_command", command="sleep 5", background=True),
+        _grok_result("c1", "<task-id>01a0-b1</task-id>\n<task-type>bash</task-type>\n"),
+        _grok_call("c2", "spawn_subagent", description="Run tests"),
+        _grok_result("c2", "Subagent started in background.\nsubagent_id: 01a0-s1\n"),
+        _stop("end_turn"),
+        _start("m2"),
+        _grok_call("c3", "run_terminal_command", command="git status"),
+        _grok_result(
+            "c3",
+            "clean\n<system-reminder>\nBackground task \"01a0-b1\" completed (exit code: 0).\n"
+            "</system-reminder>",
+        ),
+        _grok_call("c4", "get_command_or_subagent_output", task_ids=["01a0-s1"]),
+        _grok_result(
+            "c4", "=== Task 01a0-s1 ===\nCommand: [subagent] Run tests\nStatus: completed\n"
+        ),
+        _stop("end_turn"),
+    ]
+    assert _waits(lines, st) == [["sleep 5", "Run tests"], []]
+    assert st.open_tasks == {}
+
+
+def test_a_live_status_block_keeps_the_task_open() -> None:
+    st = _grok_state()
+    lines = [
+        _grok_result("c1", "<task-id>01a0-b1</task-id>"),
+        _grok_result("c2", "=== Task 01a0-b1 ===\nStatus: running\n"),
+    ]
+    _waits(lines, st)
+    assert list(st.open_tasks) == ["01a0-b1"]
+
+
+def test_grok_result_clears_whatever_is_left() -> None:
+    """Grok prints its result only after every background task ended."""
+    st = _grok_state()
+    lines = [
+        _grok_result("c1", "<task-id>01a0-b1</task-id>"),
+        _stop("end_turn"),
+        {"type": "result", "subtype": "success", "result": "Done.", "session_id": "g1"},
+    ]
+    assert _waits(lines, st) == [["background task"], []]
+    assert st.open_tasks == {}
+
+
+def test_claude_output_that_looks_like_grok_tasks_is_ignored() -> None:
+    st = _ClaudeState(turn_id="t1")
+    _waits([_grok_result("c1", "<task-id>x1</task-id>"), _stop("end_turn")], st)
+    assert st.open_tasks == {}
+
+
+def test_an_idle_grok_turn_without_named_tasks_gets_a_generic_wait() -> None:
+    from dodaios.agent_chat.runner_cli import GROK_BACKGROUND_WORK, grok_idle_wait
+
+    st = _grok_state()
+    _waits([_start("m1"), _stop("end_turn")], st)
+    events = grok_idle_wait(st)
+    assert [e["payload"]["tasks"] for e in events] == [[GROK_BACKGROUND_WORK]]
+    assert grok_idle_wait(st) == []  # said once
+    # The agent wakes: the wait is taken back.
+    assert _waits([_start("m2")], st) == [[]]
+
+
+def test_no_generic_wait_for_claude_or_after_the_result() -> None:
+    from dodaios.agent_chat.runner_cli import grok_idle_wait
+
+    claude = _ClaudeState(turn_id="t1")
+    _waits([_start("m1"), _stop("end_turn")], claude)
+    assert grok_idle_wait(claude) == []
+    st = _grok_state()
+    _waits([_stop("end_turn"), {"type": "result", "result": "ok", "session_id": "g1"}], st)
+    assert grok_idle_wait(st) == []

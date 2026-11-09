@@ -51,7 +51,17 @@ news since it was last opened.
   which files it changed. When the agent has written its message but still
   waits for background tasks it started (a test run, a push), the line says
   so instead: "Waiting for 2 background tasks · 21m 40s", with the tasks
-  named. The agent picks up again when they finish.
+  named. The agent picks up again when they finish. Grok Build's stream
+  names only the tasks its tool results mention (a background shell, a
+  sub-agent, a `monitor`); when it waits on work none of them named, the
+  wait shows one task called "background work". While tasks are open the turn
+  waits as long as they run; there is no clock.
+- **When a turn ends:** as soon as the CLI sent its final answer and has
+  nothing running in the background. The CLI then gets a few seconds to
+  shut down by itself (Stop hooks, a memory pass) and is ended if it does
+  not; that happens behind the finished turn, and the thread's next turn
+  waits for it. A process the CLI left behind that still holds its output
+  open does not hold the turn either.
 - **Composer:** one toolbar — coding agent and model, reasoning effort, access
   mode — beside the paperclip and the send button. A new thread starts on the
   agent, model, effort and access the person picked last (else the newest
@@ -137,7 +147,8 @@ every line the CLI prints and streams them to the app.
 - **Quit:** the turn stays open while the CLI works. A turn that ends while
   no app is attached is written to a spool folder, and the next start shows
   its answer.
-- **Stop** ends the CLI as before.
+- **Stop** ends the CLI; the turn reads stopped within about two seconds,
+  even when a process the CLI started still holds its output open.
 - **Another app process takes over** (a second start of the same instance):
   the old process hands its turns over without ending them.
 

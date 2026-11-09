@@ -26,8 +26,6 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
         (True, "sys.exit(7)", "error", "exited with code 7"),
         (False, "pass", "error", "without a terminal result"),
         (False, "time.sleep(60)", "error", "did not finish within"),
-        (True, "time.sleep(60)", "error", "did not finish within"),
-        (True, "os.close(1); os.close(2); time.sleep(60)", "error", "did not finish within"),
     ],
     ids=[
         "success",
@@ -35,8 +33,6 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
         "nonzero",
         "partial-exit",
         "partial-stuck",
-        "result-stuck",
-        "pipes-closed-stuck",
     ],
 )
 async def test_claude_process_completion(tmp_path: Path, result, ending, expected, error):
@@ -102,9 +98,9 @@ async def test_claude_process_completion(tmp_path: Path, result, ending, expecte
                 placement=None,
                 tree=None,
                 bridge=None,
-                timeout_s=1.0,
+                timeout_s=5.0,
             ),
-            timeout=4.0,
+            timeout=20.0,
         )
         assert outcome.status == expected
         assert (error in outcome.error) if error else outcome.error is None
@@ -130,14 +126,22 @@ def test_a_coding_agent_turn_has_no_wall_clock_limit():
     assert default is None
 
 
-async def _drive_fake_claude(tmp_path: Path, source: str) -> tuple[object, object]:
+async def _drive_fake_claude(
+    tmp_path: Path,
+    source: str,
+    *,
+    reap: bool = True,
+    runner: str = "claude-cli",
+    events: list | None = None,
+) -> tuple[object, object]:
     store = AgentChatStore(":memory:")
     session = store.create_session(
         provider="claude-api", model="fake", effort="", cwd=str(tmp_path)
     )
 
-    async def emit(_event):
-        return None
+    async def emit(event):
+        if events is not None:
+            events.append(event)
 
     async def approve(*_args):
         pytest.fail("No approval should be requested")
@@ -166,19 +170,20 @@ async def _drive_fake_claude(tmp_path: Path, source: str) -> tuple[object, objec
                     vendor_session=None,
                     keep_stdin=False,
                 ),
-                "claude-cli",
+                runner,
                 cwd=tmp_path,
                 started_at=time.time(),
                 placement=None,
                 tree=None,
                 bridge=None,
             ),
-            timeout=8.0,
+            timeout=30.0,
         )
     finally:
-        if proc.returncode is None:
-            proc.kill()
-        await asyncio.wait_for(proc.wait(), 3)
+        if reap:
+            if proc.returncode is None:
+                proc.kill()
+            await asyncio.wait_for(proc.wait(), 3)
         store.close()
     return outcome, proc
 
@@ -191,20 +196,190 @@ _RESULT_LINE = json.dumps(
 async def test_a_long_silent_turn_is_not_cut_off(tmp_path: Path, monkeypatch):
     """Silent work before the final answer is never stopped by a clock."""
     monkeypatch.setattr(runner_cli, "_ACP_WATCH_TICK_S", 0.05)
-    monkeypatch.setattr(runner_cli, "_EXIT_AFTER_RESULT_S", 0.3)
     source = f"import time\ntime.sleep(1.5)\nprint({_RESULT_LINE!r}, flush=True)\n"
     outcome, _proc = await _drive_fake_claude(tmp_path, source)
     assert outcome.status == "done", outcome.error
 
 
-async def test_a_cli_lingering_silently_after_its_answer_is_stopped(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(runner_cli, "_ACP_WATCH_TICK_S", 0.05)
-    monkeypatch.setattr(runner_cli, "_EXIT_AFTER_RESULT_S", 0.3)
-    source = f"import time\nprint({_RESULT_LINE!r}, flush=True)\ntime.sleep(60)\n"
-    outcome, proc = await _drive_fake_claude(tmp_path, source)
-    assert outcome.status == "error"
-    assert "of its final answer" in outcome.error
+async def _settle_lingering() -> None:
+    for tasks in list(runner_cli._LINGERING.values()):
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.mark.parametrize(
+    "ending",
+    ["time.sleep(60)", "os.close(1); os.close(2); time.sleep(60)"],
+    ids=["lingers", "pipes-closed-lingers"],
+)
+async def test_a_cli_lingering_after_its_answer_ends_the_turn_promptly(
+    tmp_path: Path, monkeypatch, ending
+):
+    """The answer is in: the turn ends within about a second, as done, and the
+    lingering process is killed in the background after a short grace."""
+    monkeypatch.setattr(runner_cli, "_REAP_GRACE_S", 0.3)
+    source = f"import os, time\nprint({_RESULT_LINE!r}, flush=True)\n{ending}\n"
+    t0 = time.monotonic()
+    outcome, proc = await _drive_fake_claude(tmp_path, source, reap=False)
+    assert outcome.status == "done", outcome.error
+    assert outcome.error is None
+    assert outcome.usage["output_tokens"] == 1
+    # Far below the 60 s the process would linger (generous for a loaded box).
+    assert time.monotonic() - t0 < 20.0
+    await _settle_lingering()
     assert proc.returncode is not None
+
+
+async def test_the_next_turn_waits_for_a_lingering_cli(monkeypatch):
+    gate = asyncio.Event()
+    order: list[str] = []
+
+    async def shutting_down() -> None:
+        await gate.wait()
+        order.append("reaped")
+
+    runner_cli._linger("s-linger", shutting_down())
+    waiter = asyncio.create_task(runner_cli._await_lingering("s-linger"))
+    await asyncio.sleep(0.05)
+    assert not waiter.done()
+    gate.set()
+    await waiter
+    order.append("next turn")
+    assert order == ["reaped", "next turn"]
+    assert "s-linger" not in runner_cli._LINGERING
+
+
+async def test_open_background_tasks_keep_the_turn_open_without_a_clock(
+    tmp_path: Path, monkeypatch
+):
+    """A result with an open task is not the end: the CLI wakes and answers again."""
+    monkeypatch.setattr(runner_cli, "_RESULT_EXIT_GRACE_S", 0.1)
+    started = json.dumps(
+        {"type": "system", "subtype": "task_started", "task_id": "b1", "description": "pytest"}
+    )
+    ended = json.dumps(
+        {"type": "system", "subtype": "task_notification", "task_id": "b1", "status": "completed"}
+    )
+    late = json.dumps(
+        {
+            "type": "assistant",
+            "message": {"id": "m2", "content": [{"type": "text", "text": "Tests pass."}]},
+        }
+    )
+    source = (
+        "import time\n"
+        f"print({started!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+        "time.sleep(1.5)\n"
+        f"print({ended!r}, flush=True)\n"
+        f"print({late!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+    )
+    t0 = time.monotonic()
+    outcome, _proc = await _drive_fake_claude(tmp_path, source)
+    assert outcome.status == "done", outcome.error
+    assert time.monotonic() - t0 >= 1.4
+
+
+_GRANDCHILD = (
+    "import subprocess, sys, time\n"
+    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'],"
+    " stdout=sys.stdout, stderr=sys.stderr)\n"
+    "open({pidfile!r}, 'w').write(str(child.pid))\n"
+)
+
+
+def _kill_pid_from(pidfile: Path) -> None:
+    import os
+    import signal
+
+    try:
+        os.kill(int(pidfile.read_text()), signal.SIGTERM)
+    except (OSError, ValueError):
+        pass
+
+
+async def test_a_grandchild_holding_the_pipes_does_not_hold_the_turn(tmp_path: Path):
+    """The CLI exited; a process it left behind keeps stdout open. The turn ends."""
+    pidfile = tmp_path / "grandchild.pid"
+    source = _GRANDCHILD.format(pidfile=str(pidfile)) + "print('All done.', flush=True)\n"
+    try:
+        t0 = time.monotonic()
+        outcome, events = await _drive_plain(tmp_path, source)
+        assert outcome.status == "done", outcome.error
+        # Far below the 30 s the grandchild holds the pipes.
+        assert time.monotonic() - t0 < 15.0
+        assert any(
+            e["kind"] == "assistant_text" and "All done." in e["payload"]["text"] for e in events
+        )
+    finally:
+        _kill_pid_from(pidfile)
+
+
+async def test_stop_ends_the_turn_promptly_with_a_grandchild_holding_the_pipes(tmp_path: Path):
+    pidfile = tmp_path / "grandchild.pid"
+    source = (
+        _GRANDCHILD.format(pidfile=str(pidfile)) + "print('working', flush=True)\ntime.sleep(60)\n"
+    )
+    try:
+        t0 = time.monotonic()
+        outcome, _events = await _drive_plain(tmp_path, source, stop_after=0.8)
+        assert outcome.status == "cancelled"
+        assert time.monotonic() - t0 < 15.0
+    finally:
+        _kill_pid_from(pidfile)
+
+
+async def _drive_plain(
+    tmp_path: Path, source: str, *, stop_after: float | None = None
+) -> tuple[object, list[dict]]:
+    store = AgentChatStore(":memory:")
+    session = store.create_session(
+        provider="claude-api", model="fake", effort="", cwd=str(tmp_path)
+    )
+    events: list[dict] = []
+
+    async def emit(event):
+        events.append(event)
+
+    async def approve(*_args):
+        pytest.fail("No approval should be requested")
+
+    cancel = asyncio.Event()
+    handle = TurnHandle(session, "turn", emit, approve, cancel)
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-u",
+        "-c",
+        source,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+    if stop_after is not None:
+        asyncio.get_running_loop().call_later(stop_after, cancel.set)
+    try:
+        outcome = await asyncio.wait_for(
+            runner_cli._drive_cli(
+                handle,
+                proc,
+                runner_cli.CliPlan(
+                    argv=[], env={}, stdin_text=None, shape="text", vendor_session=None
+                ),
+                "text-cli",
+                cwd=tmp_path,
+                started_at=time.time(),
+                placement=None,
+                tree=None,
+                bridge=None,
+            ),
+            timeout=25.0,
+        )
+    finally:
+        if proc.returncode is None:
+            proc.kill()
+        store.close()
+    return outcome, events
 
 
 @pytest.mark.parametrize("status", ["done", "error", "cancelled"])
@@ -237,3 +412,30 @@ async def test_a_turn_publishes_its_terminal_status_only_once(tmp_path, status):
         assert terminal["payload"] == first["payload"]
     finally:
         store.close()
+
+
+async def test_an_idle_grok_turn_says_it_waits_on_background_work(
+    tmp_path: Path, monkeypatch
+):
+    """Grok holds its result while background work runs; its stream may never
+    say what. A turn that went quiet after its message says it waits."""
+    monkeypatch.setattr(runner_cli, "_GROK_IDLE_HINT_S", 0.2)
+    end_turn = json.dumps(
+        {
+            "type": "stream_event",
+            "event": {"type": "message_delta", "delta": {"stop_reason": "end_turn"}},
+        }
+    )
+    source = (
+        "import time\n"
+        f"print({end_turn!r}, flush=True)\n"
+        "time.sleep(1.0)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+    )
+    events: list = []
+    outcome, _proc = await _drive_fake_claude(
+        tmp_path, source, runner="grok-cli", events=events
+    )
+    assert outcome.status == "done", outcome.error
+    waits = [e["payload"]["tasks"] for e in events if e["kind"] == "background_wait"]
+    assert waits == [[runner_cli.GROK_BACKGROUND_WORK], []]

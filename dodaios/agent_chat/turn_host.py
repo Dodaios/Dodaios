@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import hmac
 import json
 import os
@@ -93,6 +94,12 @@ LINE_LIMIT = 16 * 1024 * 1024
 MAX_KEPT_BYTES = 256 * 1024 * 1024
 
 _STDERR_TAIL = 40
+#: After a CLI exited, its pipes get this long without a new line before the
+#: host stops reading and reports the exit. A grandchild that inherited them
+#: (Windows: the ``py.exe`` launcher killed, ``python.exe`` still running)
+#: otherwise kept the turn open until it ended — 1.5 h, once.
+PIPE_DRAIN_S = 1.5
+_EXIT_POLL_S = 0.05
 
 
 @dataclass(slots=True)
@@ -115,6 +122,8 @@ class HostedTurn:
     #: the CLI exits, even with no app attached to do it (Claude Code's
     #: ``result``; it otherwise waits on its open stdin for ever).
     close_stdin_on: str = ""
+    #: When either pipe last gave a line (``time.monotonic``).
+    last_output: float = 0.0
 
     @property
     def alive(self) -> bool:
@@ -469,6 +478,7 @@ class TurnHost:
                 continue
             if not raw:
                 return
+            turn.last_output = time.monotonic()
             text = raw.decode("utf-8", errors="replace").rstrip("\r\n")
             if turn.kept_bytes + len(raw) > MAX_KEPT_BYTES:
                 turn.truncated = True
@@ -494,6 +504,7 @@ class TurnHost:
                 continue
             if not raw:
                 return
+            turn.last_output = time.monotonic()
             text = raw.decode("utf-8", errors="replace").rstrip()
             if not text:
                 continue
@@ -503,9 +514,31 @@ class TurnHost:
                 await client.send({"ev": "err", "id": turn.turn_id, "d": text})
 
     async def _reap(self, turn: HostedTurn) -> None:
-        code = await turn.proc.wait()
-        # Every line first: the exit must never overtake the answer.
-        await asyncio.gather(*turn.pumps, return_exceptions=True)
+        proc = turn.proc
+        # The process's own exit, not its pipes' EOF (``Process.wait`` may
+        # wait for both, and a grandchild can hold them open for hours).
+        while proc.returncode is None:  # noqa: ASYNC110 — no awaitable for exit alone
+            await asyncio.sleep(_EXIT_POLL_S)
+        code = proc.returncode
+        # Every line first: the exit must never overtake the answer. Lines
+        # still coming are read on; pipes silent for PIPE_DRAIN_S are let go.
+        while True:
+            pending = [t for t in turn.pumps if not t.done()]
+            if not pending:
+                break
+            await asyncio.wait(pending, timeout=PIPE_DRAIN_S)
+            if time.monotonic() - turn.last_output >= PIPE_DRAIN_S:
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+                logger.info(
+                    "Turn host: turn {} exited; a process it left holds its pipes", turn.turn_id
+                )
+                transport = getattr(proc, "_transport", None)
+                if transport is not None:
+                    with contextlib.suppress(Exception):
+                        transport.close()
+                break
         turn.exit_code = int(code)
         logger.info("Turn host: turn {} ended (exit {})", turn.turn_id, code)
         client = self._client
