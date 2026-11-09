@@ -2040,6 +2040,10 @@ class SafetyConfig(BaseModel):
     # App-owned executions run without permission prompts unless the person
     # selects Ask. Chat sessions keep their own explicitly selected stance.
     approval_mode: Literal["bypass", "ask"] = "bypass"
+    #: The permission mode a NEW Society agent starts with (Settings ->
+    #: Permissions). Existing agents keep their own choice; a child agent is
+    #: never looser than the agent that created it.
+    agent_approval_mode: Literal["bypass", "ask", "always_ask"] = "bypass"
     default_tier: RiskTier = "safe"
     always_confirm_tiers: list[RiskTier] = Field(default_factory=lambda: ["ask"])
     always_block_tiers: list[RiskTier] = Field(default_factory=lambda: ["block"])

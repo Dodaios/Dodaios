@@ -31,7 +31,7 @@ import logging
 import sys
 import threading
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field, model_validator
@@ -3278,6 +3278,54 @@ async def put_mute_music(body: BoolToggleBody, request: Request) -> dict[str, ob
     if permission is not None:
         response["permission"] = permission
     return response
+
+
+# ---------------------------------------------------------------------------
+# Permission modes: who answers an approval when nobody is asked per chat. The app
+# mode covers voice, tasks, missions and other app-owned work; the agent mode
+# is what a NEW Society agent starts with (each agent keeps its own setting,
+# changed on its card or for all agents at once via the Society route).
+# ---------------------------------------------------------------------------
+
+
+class ApprovalModesBody(BaseModel):
+    app_mode: Literal["bypass", "ask"] | None = None
+    agent_mode: Literal["bypass", "ask", "always_ask"] | None = None
+
+
+def _permission_modes(cfg: object) -> dict[str, str]:
+    safety = getattr(cfg, "safety", None)
+    return {
+        "app_mode": str(getattr(safety, "approval_mode", "bypass") or "bypass"),
+        "agent_mode": str(getattr(safety, "agent_approval_mode", "bypass") or "bypass"),
+    }
+
+
+@router.get("/approval-modes")
+def get_approval_modes(request: Request) -> dict[str, object]:
+    return _permission_modes(_config(request))
+
+
+@router.put("/approval-modes")
+def put_approval_modes(body: ApprovalModesBody, request: Request) -> dict[str, object]:
+    """Persist and apply live: the risk evaluator and the Society runtime read
+    the same in-memory ``safety`` object, so the next call uses the new mode."""
+    cfg = _config(request)
+    safety = getattr(cfg, "safety", None)
+    if safety is None:
+        raise HTTPException(503, "configuration unavailable")
+    from dodaios.core import config_writer
+
+    try:
+        config_writer.set_approval_modes(app_mode=body.app_mode, agent_mode=body.agent_mode)
+    except Exception as exc:  # noqa: BLE001 — an unsaved safety choice must not look saved
+        log.warning("permissions persist failed: %s", exc)
+        raise HTTPException(500, "could not save the permission settings") from exc
+    if body.app_mode is not None:
+        safety.approval_mode = body.app_mode
+    if body.agent_mode is not None:
+        safety.agent_approval_mode = body.agent_mode
+    return {"ok": True, **_permission_modes(cfg)}
 
 
 @router.get("/sound-effects")

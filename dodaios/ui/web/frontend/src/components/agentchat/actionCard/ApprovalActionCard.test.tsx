@@ -242,7 +242,7 @@ describe("paths on an approval card", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show details" }));
     fireEvent.click(screen.getByTestId("action-card-raw"));
     expect(screen.getByTestId("action-card-detail").textContent).toContain("Users");
-    rerender([...editAsking(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow" })]);
+    rerender([...editAsking(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow_always", scope: "agent" })]);
     const outcome = screen.getByTestId("approval-outcome");
     expect(outcome.textContent).toContain("Edit src\\app.py");
     expect(outcome.textContent).not.toContain("C:\\Users\\Ada");
@@ -365,6 +365,40 @@ describe("a settled approval", () => {
   });
 });
 
+describe("a helper's own approval", () => {
+  it("is answerable from the chat, not hidden inside the folded helper card", async () => {
+    const onDecide = vi.fn();
+    const store = createAgentChatStore("society");
+    store.setState({ activeSessionId: "society:ada" });
+    const turn = turnOf([]);
+    const askBlock = blockOf(asking());
+    const helper: ToolBlock = {
+      kind: "tool", callId: "spawn", name: "Task", input: { description: "Read the website" }, output: null,
+      isError: false, durationMs: null, approval: null, startedMs: 1,
+      subagent: {
+        description: "Read the website", agentType: "web-fetch", prompt: "", background: false, threadId: "",
+        status: "running", summary: "", activity: "", lastTool: "", tokens: null, toolUses: null,
+        durationMs: null, startedMs: 1, finishedMs: null, blocks: [askBlock],
+      } as unknown as ToolBlock["subagent"],
+    };
+    render(<AgentChatStoreProvider store={store}>
+      <MessengerTurn turn={{ ...turn, blocks: [helper] }} avatar={<span />} color="#888888" onDecide={onDecide} />
+    </AgentChatStoreProvider>);
+    expect(screen.getByTestId("thread-approval")).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Allow once/ })); });
+    expect(onDecide).toHaveBeenCalledWith("a1", "allow");
+  });
+});
+
+describe("a call allowed once", () => {
+  it("leaves no approval line behind: the step reads like any other", () => {
+    drawTurn([...asking(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow" })]);
+    expect(screen.queryByTestId("approval-outcome")).toBeNull();
+    expect(screen.queryByTestId("thread-approval")).toBeNull();
+    expect(document.body.textContent).not.toContain("Allowed once");
+  });
+});
+
 describe("secrets in the disclosure", () => {
   // Built at runtime so no credential-shaped literal sits in the source.
   const SECRETS = ["hunter2-correct-horse", ["sk", "proj", "q7".repeat(18)].join("-"), "gh" + "p_" + "Z9".repeat(20)];
@@ -419,7 +453,7 @@ describe("an agent's own tool on the card", () => {
   });
 
   it("reads its settled line by the action, not the id", () => {
-    drawTurn([...routineAsk(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow" })]);
+    drawTurn([...routineAsk(), ev("approval_resolved", { turn_id: "t1", approval_id: "a1", decision: "allow_always", scope: "agent" })]);
     const line = screen.getByTestId("approval-outcome");
     expect(line.textContent).toContain("Create a routine");
     expect(line.textContent).not.toContain("mcp__");

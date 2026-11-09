@@ -3530,6 +3530,25 @@
       "system_now_light": "Following your system, which is currently light."
     },
     "invalid_setting": "Invalid setting",
+    "approvals": {
+      "title": "Permission modes",
+      "description": "Who has to say yes before an action runs. Each agent can still choose its own mode on its card.",
+      "app_title": "App actions",
+      "app_description": "Voice, scheduled tasks, missions and other work the app does on its own. Bypass runs routine actions without asking; Ask asks before anything that changes something.",
+      "agent_title": "New agents",
+      "agent_description": "The mode a new agent starts with. An agent never gets a looser mode than the agent that created it.",
+      "apply_all": "Apply to all agents",
+      "apply_all_done": "Applied to {count} agents.",
+      "apply_all_skipped": "{count} agents kept their mode because their runtime cannot ask in this chat.",
+      "save_error": "Could not save the permission settings: {detail}",
+      "unavailable": "Permission settings are unavailable right now.",
+      "always_on": "Admin operations, marketplace installs and adding or enabling an MCP server always ask, in every mode.",
+      "modes": {
+        "bypass": "Bypass",
+        "ask": "Ask",
+        "always_ask": "Always ask"
+      }
+    },
     "self_build": {
       "title": "Self-building",
       "description": "How far {name} may go when it builds things for you on its own.",

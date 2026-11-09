@@ -1715,6 +1715,26 @@ def set_sound_effects(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> Non
     _patch_table(path, "ui", "sound_effects", bool(enabled))
 
 
+def set_approval_modes(
+    *,
+    app_mode: str | None = None,
+    agent_mode: str | None = None,
+    path: Path = DEFAULT_CONFIG_FILE,
+) -> None:
+    """Persist ``[safety] approval_mode`` / ``agent_approval_mode`` (Settings ->
+    Permissions). Only the person writes these: ``safety.*`` is off limits to
+    self-modification, so no model turn can loosen them.
+    """
+    if app_mode is not None:
+        if app_mode not in ("bypass", "ask"):
+            raise ValueError(f"unknown app approval mode {app_mode!r}")
+        _patch_table(path, "safety", "approval_mode", app_mode)
+    if agent_mode is not None:
+        if agent_mode not in ("bypass", "ask", "always_ask"):
+            raise ValueError(f"unknown agent approval mode {agent_mode!r}")
+        _patch_table(path, "safety", "agent_approval_mode", agent_mode)
+
+
 def set_require_browser_login(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist ``[ui] require_browser_login`` (the optional browser lock).
 

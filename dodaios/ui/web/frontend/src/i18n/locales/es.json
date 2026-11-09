@@ -3530,6 +3530,25 @@
       "system_now_light": "Sigue a su sistema, que actualmente está en modo claro."
     },
     "invalid_setting": "Ajuste no válido",
+    "approvals": {
+      "title": "Modos de permiso",
+      "description": "Quién tiene que aprobar antes de que se ejecute una acción. Cada agente puede elegir su propio modo en su tarjeta.",
+      "app_title": "Acciones de la app",
+      "app_description": "Voz, tareas programadas, misiones y otro trabajo que la app hace por su cuenta. Bypass ejecuta las acciones rutinarias sin preguntar; Preguntar pregunta antes de cualquier cambio.",
+      "agent_title": "Agentes nuevos",
+      "agent_description": "El modo con el que empieza un agente nuevo. Un agente nunca recibe un modo más permisivo que el agente que lo creó.",
+      "apply_all": "Aplicar a todos los agentes",
+      "apply_all_done": "Aplicado a {count} agentes.",
+      "apply_all_skipped": "{count} agentes mantienen su modo porque su entorno no puede preguntar en este chat.",
+      "save_error": "No se pudieron guardar los permisos: {detail}",
+      "unavailable": "Los permisos no están disponibles ahora mismo.",
+      "always_on": "Las operaciones de administrador, las instalaciones del marketplace y añadir o activar un servidor MCP siempre preguntan, en cualquier modo.",
+      "modes": {
+        "bypass": "Bypass",
+        "ask": "Preguntar",
+        "always_ask": "Preguntar siempre"
+      }
+    },
     "self_build": {
       "title": "Autoconstrucción",
       "description": "Hasta dónde puede llegar {name} cuando construye cosas para ti por su cuenta.",
