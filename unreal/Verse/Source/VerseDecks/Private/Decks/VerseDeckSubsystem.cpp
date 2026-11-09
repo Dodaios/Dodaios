@@ -1,6 +1,7 @@
 #include "Decks/VerseDeckSubsystem.h"
 
 #include "Camera/VerseDeckCamera.h"
+#include "Commander/VerseDeckCommander.h"
 #include "Decks/VerseDeckLook.h"
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
@@ -11,6 +12,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformTime.h"
+#include "Input/VerseDeckControlComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
 #include "Misc/DateTime.h"
@@ -337,6 +339,11 @@ void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLif
 					Controller->SetControlRotation(Arrival.Rotator());
 				}
 				Controller->SetViewTarget(DeckCamera);
+				// The commander walks the deck under the deck's own keys and mouse (stream S5).
+				if (UVerseDeckControlComponent* Control = UVerseDeckControlComponent::Ensure(Controller))
+				{
+					Control->OnDeckArrived(Deck, *Manifest, Arrival, DeckCamera);
+				}
 			}
 		}
 		Camera = DeckCamera;
@@ -498,7 +505,10 @@ void UVerseDeckSubsystem::TickDecks(double NowS)
 	{
 		LastSampleAt = NowS;
 		const APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
-		if (const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr)
+		const UVerseDeckControlComponent* Control = Controller ? Controller->FindComponentByClass<UVerseDeckControlComponent>() : nullptr;
+		// On the decks the commander is the body that walks; the controller's own pawn waits for the duel.
+		const APawn* Pawn = Control && Control->IsDeckActive() && Control->GetCommander() ? Control->GetCommander() : (Controller ? Controller->GetPawn() : nullptr);
+		if (Pawn)
 		{
 			float Radius = 0.f;
 			float HalfHeight = 0.f;

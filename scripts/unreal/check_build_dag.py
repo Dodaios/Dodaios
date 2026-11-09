@@ -100,7 +100,7 @@ ENGINE: dict[str, frozenset[str]] = {
         }
     ),
     "VerseGore": frozenset({"Niagara"}),
-    "VerseDecks": frozenset({"Json"}),
+    "VerseDecks": frozenset({"Json", "InputCore", "EnhancedInput"}),
     "VerseCrew": frozenset({"Json", "NavigationSystem"}),
     "VerseScreens": frozenset({"Json"}),
     "VerseBot": frozenset(

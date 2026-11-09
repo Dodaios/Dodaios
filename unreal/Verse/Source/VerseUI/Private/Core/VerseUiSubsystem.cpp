@@ -7,6 +7,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/VerseUiDefaultPorts.h"
 #include "Core/VerseUiTheme.h"
+#include "Input/VerseDeckControlComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -1155,6 +1156,12 @@ bool UVerseUiSubsystem::HandleKey(const FKey& Key)
 		ReturnToApp(TEXT("return_key"));
 		return true;
 	case EVerseUiCommand::EscMenu:
+		// On a deck, Escape first ends mouse look, then closes the crew card (parity K-05); only
+		// with nothing of the deck's open does it reach the menu.
+		if (Screen == EVerseUiScreen::None && UVerseDeckControlComponent::TryEscape(GetWorld()))
+		{
+			return true;
+		}
 		ShowScreen(Screen == EVerseUiScreen::None ? EVerseUiScreen::EscMenu
 			: Screen == EVerseUiScreen::Settings ? EVerseUiScreen::EscMenu
 			: EVerseUiScreen::None);
