@@ -332,6 +332,7 @@ async def analyze(
     *,
     timeout_s: float = ANALYSIS_TIMEOUT_S,
     brain=None,  # noqa: ANN001 - Brain, avoid an import cycle
+    describe_images: bool = True,
 ) -> list[DropAnalysis]:
     """Work out what each dropped file contains.
 
@@ -350,8 +351,11 @@ async def analyze(
         return []
 
     image_indexes = [i for i, pair in enumerate(items) if _kind_of(pair[0]) == KIND_IMAGE]
-    describable = set(image_indexes[:MAX_IMAGES_ANALYZED])
-    overflow = set(image_indexes[MAX_IMAGES_ANALYZED:])
+    # With ``describe_images`` off the receiving CLI looks at the picture itself,
+    # so there is neither a vision call nor a cap on how many pictures go along.
+    describable = set(image_indexes[:MAX_IMAGES_ANALYZED]) if describe_images else set()
+    overflow = set(image_indexes[MAX_IMAGES_ANALYZED:]) if describe_images else set()
+    native = set(image_indexes) if not describe_images else set()
 
     # Resolving a brain touches config and the provider registry; skip it
     # entirely for a drop of nothing but documents.
@@ -371,6 +375,15 @@ async def analyze(
                 ),
             )
 
+    for index in native:
+        item, reference = items[index]
+        results[index] = DropAnalysis(
+            name=item.name,
+            reference=reference,
+            kind=KIND_IMAGE,
+            note="Attached to this message as an image; look at it directly.",
+        )
+
     async def _run_image(index: int, item: DroppedItem, reference: str) -> None:
         results[index] = await _analyze_image(writer, item, reference)
 
@@ -384,7 +397,7 @@ async def analyze(
         if index in describable
         else _run_document(index, item, reference)
         for index, (item, reference) in enumerate(items)
-        if index not in overflow
+        if index not in overflow and index not in native
     ]
 
     try:

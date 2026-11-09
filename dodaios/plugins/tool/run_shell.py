@@ -125,6 +125,8 @@ class RunShellTool:
     name: str = "run_shell"
     read_only: bool = False
     risk_tier: str = "monitor"
+    #: Bare whitelist patterns ("git status") match this argument only.
+    whitelist_command_arg: str = "command"
     description: str = (
         f"Runs a shell command via {_SHELL_LABEL} on this machine. "
         "Use it for ANY local outcome a command can achieve: create/delete/"

@@ -75,6 +75,34 @@ def test_an_unknown_module_and_a_missing_build_file_fail(tmp_path):
     assert "VerseUI: missing VerseUI.Build.cs" in problems
 
 
+def test_the_committed_engine_modules_are_exactly_the_engine_table():
+    assert dag.engine_notes(SOURCE) == []
+    for name in dag.ENGINE:
+        build_cs = SOURCE / name / f"{name}.Build.cs"
+        assert dag.engine_modules_of(build_cs) == dag.ENGINE[name], name
+
+
+def test_a_dropped_engine_module_fails_and_an_extra_one_is_only_a_note(tmp_path):
+    source = _copy_source(tmp_path)
+    crew = source / "VerseCrew" / "VerseCrew.Build.cs"
+    crew.write_text(
+        crew.read_text(encoding="utf-8").replace('"Json", "NavigationSystem"', '"Json"'),
+        encoding="utf-8",
+    )
+    stream = source / "VerseStream" / "VerseStream.Build.cs"
+    stream.write_text(
+        stream.read_text(encoding="utf-8").replace('"Engine" }', '"Engine", "Json" }'),
+        encoding="utf-8",
+    )
+    assert dag.check(source) == [
+        "VerseCrew: engine module NavigationSystem listed in architecture.md section 2"
+        " is not linked"
+    ]
+    assert dag.engine_notes(source) == [
+        "VerseStream links engine module Json, which the engine table does not list"
+    ]
+
+
 def test_a_cycle_is_reported():
     assert dag.find_cycle({"A": {"B"}, "B": {"C"}, "C": {"A"}}) == ["A", "B", "C", "A"]
     assert dag.find_cycle({"A": {"B"}, "B": set()}) == []

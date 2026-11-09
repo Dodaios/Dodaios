@@ -83,6 +83,8 @@ GROUP_AGENTS: Final[str] = "agents"
 #: The user's own agents (the society roster) — not a CLI's subagents.
 GROUP_TEAMMATES: Final[str] = "teammates"
 GROUP_FILES: Final[str] = "files"
+#: Commands the CLI itself reported (built-ins included), not read from disk.
+GROUP_CLI: Final[str] = "cli"
 
 #: Hidden directories that still hold things worth offering under ``@``.
 _VISIBLE_DOT_DIRS: Final[frozenset[str]] = frozenset({".claude", ".agents", ".codex", ".github"})
@@ -173,6 +175,8 @@ def suggest(
     rows: list[Suggestion]
     if trigger == SLASH:
         rows = jarvis_skills() if runner == "brain" else claude_slash(folder)
+        if runner in _CLAUDE_SHAPED:
+            rows = rows + _cli_reported_rows(runner, folder, {r.value for r in rows})
         if society:
             # The agent's OWN learned skills come first: they are the ones it
             # can run with society_run_skill.
@@ -507,6 +511,62 @@ def _installed_plugins(config_dir: Path) -> list[tuple[str, Path]]:
         if chosen is not None:
             out.append((name, chosen))
     return out
+
+
+# ------------------------------------------------- commands the CLI reports
+#
+# Claude Code lists every slash command it will accept (built-ins such as
+# ``/compact``, skills, plugin commands) in the ``system/init`` event of each
+# turn and in the answer to the control handshake. The runner hands that list
+# here, so the picker offers what the CLI itself says it understands instead of
+# only what could be read from disk. Nothing is invented: until a turn has run,
+# the list is the disk list.
+
+_CLI_REPORTED: dict[tuple[str, str], dict[str, str]] = {}
+#: The latest list per runner, for a folder that has not had a turn yet.
+_CLI_REPORTED_ANY: dict[str, dict[str, str]] = {}
+
+
+def _folder_key(folder: str | Path | None) -> str:
+    return os.path.normcase(str(folder)) if folder else ""
+
+
+def remember_cli_commands(
+    runner: str, folder: str | Path | None, commands: Any
+) -> None:
+    """Cache the commands a CLI reported: names, or ``{name, description}`` dicts."""
+    found: dict[str, str] = {}
+    for entry in commands if isinstance(commands, (list, tuple)) else []:
+        if isinstance(entry, str):
+            name, hint = entry, ""
+        elif isinstance(entry, dict):
+            name, hint = str(entry.get("name") or ""), str(entry.get("description") or "")
+        else:
+            continue
+        name = name.strip().lstrip(SLASH)
+        if name and re.fullmatch(r"[\w][\w:.\-]*", name):
+            found[name] = hint.strip()
+    if not found:
+        return
+    key = (runner, _folder_key(folder))
+    merged = {**_CLI_REPORTED.get(key, {}), **found}
+    # A name-only report (init) must not erase a description learned earlier.
+    for name, hint in found.items():
+        if not hint and _CLI_REPORTED.get(key, {}).get(name):
+            merged[name] = _CLI_REPORTED[key][name]
+    _CLI_REPORTED[key] = merged
+    _CLI_REPORTED_ANY[runner] = merged
+
+
+def _cli_reported_rows(runner: str, folder: Path | None, seen: set[str]) -> list[Suggestion]:
+    reported = _CLI_REPORTED.get((runner, _folder_key(folder))) or _CLI_REPORTED_ANY.get(runner)
+    if not reported:
+        return []
+    return [
+        Suggestion(value=name, label=SLASH + name, hint=hint, kind="command", group=GROUP_CLI)
+        for name, hint in reported.items()
+        if name not in seen
+    ]
 
 
 def claude_slash(folder: Path | None) -> list[Suggestion]:
@@ -892,6 +952,7 @@ __all__ = [
     "claude_agents",
     "claude_config_dir",
     "claude_slash",
+    "remember_cli_commands",
     "codex_home",
     "codex_skills",
     "file_suggestions",

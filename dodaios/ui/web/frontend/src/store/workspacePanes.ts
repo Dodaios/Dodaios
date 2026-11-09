@@ -1,11 +1,9 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 
-import {
-  fetchWorkspacePanes,
-  type PaneActivity,
-  type WorkspacePaneRow,
-} from "@/lib/agenticIdeApi";
+// Types only: the IDE API client is loaded on the first poll, so it stays out
+// of the startup bundle (check_frontend_bundle_budget.py).
+import type { PaneActivity, WorkspacePaneRow } from "@/lib/agenticIdeApi";
 
 /**
  * Every coding session running in any open workspace, kept fresh in one place.
@@ -95,6 +93,7 @@ export const useWorkspacePanesStore = create<WorkspacePanesStore>((set) => ({
 
   load: async () => {
     try {
+      const { fetchWorkspacePanes } = await import("@/lib/agenticIdeApi");
       const result = await fetchWorkspacePanes();
       set({ panes: result.panes, activeId: result.active_id, loaded: true });
     } catch {

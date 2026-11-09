@@ -15,11 +15,27 @@ because shipped configs wrote bare command patterns (`"format *"`,
 found every blacklist entry in the default config dead for `run_shell` calls.
 Accepting both forms makes existing user configs behave as their authors
 obviously intended, in the safety-increasing direction for blacklists.
+
+The whitelist is the safety-DECREASING direction, so it matches a much
+narrower, model-proof candidate set (security audit 2026-11-09: the model
+controls argument key names and order, so a bare pattern like
+``"remember *"`` matched ``gmail {"body": "remember ...", "action": "send"}``
+and downgraded a send to ``safe``):
+
+- the tool-name-prefixed form only, with argument values in the tool's
+  SCHEMA order (never the order the model wrote them in);
+- an argument key the schema does not declare disables the downgrade;
+- the bare form only for tools that declare ``whitelist_command_arg`` (shell
+  and CLI tools), and then only that one argument, whitespace-normalized;
+- a command carrying shell control syntax (``;``, ``&``, ``|``, ``$(``,
+  backticks, redirects, newlines) is never whitelisted, so ``"git log *"``
+  cannot cover ``git log; rm -rf ~``.
 """
 from __future__ import annotations
 
 import fnmatch
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, get_args
@@ -76,6 +92,129 @@ def _serialize_args(args: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
+#: Shell control syntax that chains, substitutes or redirects commands. A
+#: command containing any of it is never downgraded by a whitelist glob,
+#: because ``*`` in a pattern would otherwise swallow a second command.
+_SHELL_CONTROL = re.compile(r"[;&|`<>\n\r]|\$\(")
+_WHITESPACE = re.compile(r"\s+")
+#: Split points for blacklist candidates: every chained command is checked on
+#: its own, so ``echo hi; rm -rf /`` still meets a ``"rm -rf /"`` entry.
+_SEGMENT_SPLIT = re.compile(r"\|\||&&|[;&|\n\r`]|\$\(|\)")
+
+
+def _normalize_command(command: str) -> str:
+    return _WHITESPACE.sub(" ", command).strip()
+
+
+def _schema_properties(tool: Tool) -> list[str] | None:
+    """Declared argument names in schema order, or None without a schema."""
+    schema = getattr(tool, "schema", None)
+    if not isinstance(schema, dict):
+        return None
+    props = schema.get("properties")
+    if not isinstance(props, dict) or not props:
+        return None
+    return [str(k) for k in props]
+
+
+def _ordered_values(tool: Tool, args: dict[str, Any]) -> str | None:
+    """Argument values in schema order; None when an undeclared key is present.
+
+    The order comes from the tool, never from the model, and an extra key
+    (which the tool ignores but which would land in the matched string) makes
+    the call ineligible for a whitelist downgrade.
+    """
+    declared = _schema_properties(tool)
+    if declared is None:
+        ordered = {k: args[k] for k in sorted(args, key=str)}
+    else:
+        if any(str(k) not in declared for k in args):
+            return None
+        ordered = {k: args[k] for k in declared if k in args}
+    return _serialize_args(ordered)
+
+
+def _command_arg(tool: Tool, args: dict[str, Any]) -> str | None:
+    """The raw shell command of a tool that opted in via ``whitelist_command_arg``."""
+    key = getattr(tool, "whitelist_command_arg", None)
+    if not isinstance(key, str) or not key:
+        return None
+    value = args.get(key)
+    return value if isinstance(value, str) else ""
+
+
+def _whitelist_candidates(tool: Tool, args: dict[str, Any]) -> tuple[str, ...]:
+    """Model-proof strings a whitelist pattern may match (see module docstring)."""
+    raw = _command_arg(tool, args)
+    if raw is not None:
+        # Checked on the RAW value: normalizing first would turn a newline
+        # (a command separator) into a harmless-looking space.
+        command = _normalize_command(raw)
+        if not command or _SHELL_CONTROL.search(raw):
+            return ()
+        return (f"{tool.name} {command}", command)
+    ordered = _ordered_values(tool, args)
+    if ordered is None:
+        return ()
+    return (f"{tool.name} {ordered}".strip(),)
+
+
+#: Tools a person must approve per call: no whitelist entry downgrades them
+#: and the global ``approval_mode = "bypass"`` never answers for them (security
+#: audit 2026-11-09). Each one hands control of the machine to something new:
+#: elevated admin operations, an MCP server process, outside marketplace code.
+_HUMAN_APPROVAL_TOOLS: frozenset[str] = frozenset({
+    "dispatch_to_admin",
+    "marketplace-install",
+})
+#: Per-action members: only these actions of the tool start something new.
+_HUMAN_APPROVAL_ACTIONS: dict[str, frozenset[str]] = {
+    "manage-mcp-server": frozenset({"add", "enable"}),
+}
+
+
+def requires_human_approval(tool: Tool, args: dict[str, Any]) -> bool:
+    """True when only a person may approve this call (never a whitelist or bypass)."""
+    name = str(getattr(tool, "name", "") or "")
+    if name in _HUMAN_APPROVAL_TOOLS:
+        return True
+    actions = _HUMAN_APPROVAL_ACTIONS.get(name)
+    if actions is None:
+        return False
+    action = str((args or {}).get("action") or "").strip().lower()
+    # An unreadable action is treated as the dangerous one.
+    return action in actions or not action
+
+
+def _blacklist_candidates(tool: Tool, args: dict[str, Any]) -> tuple[str, ...]:
+    """Every reading of the call a blacklist entry should catch.
+
+    Over-matching is the safe direction here, so this is a superset: the raw
+    forms (as before), the schema-ordered form, and for a command-carrying
+    argument its normalized whole and each chained segment.
+    """
+    args_str = _serialize_args(args)
+    cmd = f"{tool.name} {args_str}".strip()
+    found: list[str] = [cmd]
+    if args_str:
+        found.append(args_str)
+    ordered = _serialize_args({k: args[k] for k in sorted(args, key=str)})
+    found.append(f"{tool.name} {ordered}".strip())
+    commands = [
+        v for k, v in args.items()
+        if isinstance(v, str) and k in ("command", getattr(tool, "whitelist_command_arg", None))
+    ]
+    for value in commands:
+        whole = _normalize_command(value)
+        pieces = [whole] + [
+            _normalize_command(seg) for seg in _SEGMENT_SPLIT.split(value)
+        ]
+        for piece in pieces:
+            if piece:
+                found.extend((piece, f"{tool.name} {piece}"))
+    return tuple(dict.fromkeys(found))
+
+
 class RiskTierEvaluator:
     """Evaluator with a config snapshot (whitelist/blacklist patterns).
 
@@ -124,18 +263,21 @@ class RiskTierEvaluator:
     def evaluate(self, tool: Tool, args: dict[str, Any]) -> TierDecision:
         args_str = _serialize_args(args)
         cmd = f"{tool.name} {args_str}".strip()
-        # Patterns match with and without the tool-name prefix (see module
-        # docstring: bare patterns in shipped configs were silently dead).
-        candidates = (cmd, args_str) if args_str else (cmd,)
 
-        # 1. Blacklist — hard block
+        # 1. Blacklist — hard block. Patterns match with and without the
+        # tool-name prefix (see module docstring: bare patterns in shipped
+        # configs were silently dead), and against every chained segment.
+        black = _blacklist_candidates(tool, args)
         for pattern in self._collect_patterns("blacklist"):
-            if self._pattern_matches(pattern, candidates):
+            if self._pattern_matches(pattern, black):
                 raise ActionBlocked(pattern=pattern, matched=cmd)
 
-        # 2. Whitelist — downgrade to safe
-        for pattern in self._collect_patterns("whitelist"):
-            if self._pattern_matches(pattern, candidates):
+        # 2. Whitelist — downgrade to safe, against the narrow model-proof set
+        white = (
+            () if requires_human_approval(tool, args) else _whitelist_candidates(tool, args)
+        )
+        for pattern in self._collect_patterns("whitelist") if white else ():
+            if self._pattern_matches(pattern, white):
                 return TierDecision(
                     tier="safe",
                     approved_by="whitelist",

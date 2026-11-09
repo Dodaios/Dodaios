@@ -496,9 +496,9 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     assert '[ "$label" = "nightly-ci" ] && [ "$conclusion" = "cancelled" ]' in script
     assert 'select(.name == "CI gate") | .conclusion' in script
     assert '[ "$gate_conclusion" != "failure" ]' in script
-    assert '[ "$label" = "macos-main" ] && [ "$conclusion" = "cancelled" ]' in script
+    assert '[ "$label" != "nightly-ci" ] && [ "$conclusion" = "cancelled" ]' in script
     assert '.jobs[] | select(.conclusion == "failure") | .name' in script
-    assert "macOS sweep ended cancelled without a failed job" in script
+    assert "The $what ended cancelled without a failed job" in script
     assert '--label "$label"' in script
     # A check by hand runs from main only, vets the run it is given like the
     # event, and writes nothing unless the dry run is switched off.
@@ -647,24 +647,95 @@ def test_main_gets_the_whole_suite_on_macos_after_the_merge():
     # commit merged while the running one took its single macOS slot.
     assert sweep["concurrency"] == {"group": "macos-main-sweep", "cancel-in-progress": False}
     assert sweep["permissions"] == {"contents": "read"}
-    assert list(sweep["jobs"]) == ["suite"]
+    assert list(sweep["jobs"]) == ["plan", "suite"]
+    plan = sweep["jobs"]["plan"]
+    assert plan["if"] == "github.ref == 'refs/heads/main'"
+    assert plan["runs-on"] == "ubuntu-latest"
+    # Every shard partitions by the same snapshot: the cache is read once.
+    assert any("actions/cache/restore" in step.get("uses", "") for step in plan["steps"])
     job = sweep["jobs"]["suite"]
-    assert job["runs-on"] == "macos-latest" and "strategy" not in job
-    assert job["if"] == "github.ref == 'refs/heads/main'"
+    assert job["needs"] == "plan" and job["runs-on"] == "macos-latest"
+    assert job["strategy"]["matrix"]["shard"] == [1, 2, 3]
+    assert not any("actions/cache" in step.get("uses", "") for step in job["steps"])
     runs = "\n".join(step.get("run", "") for step in job["steps"])
-    assert "run_tests_parallel.py tests" in runs and "--shard" not in runs
+    assert "run_tests_parallel.py tests" in runs and '--shard "$SHARD/3"' in runs
     assert "--files-from" not in runs and "test-baseline-macos.json" in runs
     # Nothing waits for it: it is no job of the workflow behind `CI gate`.
     assert "macos-main-sweep" not in yaml.safe_dump(workflows()["ci.yml"])
     # A red sweep reaches someone through the same job as a red nightly.
     alert = workflows()["nightly-alert.yml"]
     watched = alert.get("on", alert.get(True))["workflow_run"]
-    assert watched["workflows"] == ["CI", sweep["name"]] and watched["branches"] == ["main"]
+    assert watched["workflows"] == ["CI", sweep["name"], "Desktop installers"]
+    assert watched["branches"] == ["main"]
     job = alert["jobs"]["alert"]
     assert f"github.event.workflow_run.name == '{sweep['name']}'" in job["if"]
     script = job["steps"][0]["run"]
     assert '$path == ".github/workflows/macos-main-sweep.yml"' in script
     assert "label=macos-main" in script and "/compare/" in script
+
+
+def test_installers_are_built_and_booted_daily_without_signing_or_publishing():
+    installers = workflows()["desktop-installers.yml"]
+    triggers = installers.get("on", installers.get(True))
+    assert triggers["schedule"] and "tags" in triggers["push"]
+    jobs = installers["jobs"]
+    # A scheduled run is no tag run: admission, signing and upload stay off.
+    assert jobs["admit"]["if"] == "github.ref_type == 'tag'"
+    assert jobs["sign-update-manifest"]["if"] == "github.ref_type == 'tag'"
+    upload = next(
+        step
+        for step in jobs["release"]["steps"]
+        if step.get("name", "").startswith("Upload verified installer assets")
+    )
+    assert upload["if"] == "github.ref_type == 'tag'"
+    for name in ("windows", "macos"):
+        assert "github.ref_type == 'tag'" in yaml.safe_dump(jobs[name]["env"])
+    # The macOS legs boot the frozen app from the DMG on every run.
+    runs = "\n".join(step.get("run", "") for step in jobs["macos"]["steps"])
+    assert "check_frozen_browser.py" in runs
+    # A red scheduled build reaches someone.
+    script = workflows()["nightly-alert.yml"]["jobs"]["alert"]["steps"][0]["run"]
+    assert '$path == ".github/workflows/desktop-installers.yml" and .event == "schedule"' in script
+    assert "label=installers-main" in script
+
+
+def test_signed_installers_become_mandatory_through_one_repository_variable():
+    installers = workflows()["desktop-installers.yml"]["jobs"]
+    report = next(
+        step
+        for step in installers["windows"]["steps"]
+        if step.get("name", "") == "Report the signing state honestly"
+    )
+    assert "contains(vars.REQUIRE_SIGNED_INSTALLERS, 'windows')" in report["env"]["REQUIRE_SIGNED"]
+    assert "exit 1" in report["run"]
+    macos = next(
+        step
+        for step in installers["macos"]["steps"]
+        if step.get("name", "").startswith("Require a notarized DMG")
+    )
+    assert "contains(vars.REQUIRE_SIGNED_INSTALLERS, 'macos')" in macos["if"]
+    assert "github.ref_type == 'tag'" in macos["if"]
+    assert "stapler validate" in macos["run"] and "spctl --assess" in macos["run"]
+    smoke = workflows()["release-smoke.yml"]
+    calls = smoke.get("on", smoke.get(True))["workflow_call"]["inputs"]
+    assert calls["require_signatures"]["default"] is True
+    env = smoke["jobs"]["installers"]["env"]["REQUIRE_SIGNED"]
+    assert "contains(vars.REQUIRE_SIGNED_INSTALLERS, matrix.platform)" in env
+
+
+def test_release_cut_proves_the_bot_can_write_before_it_cuts():
+    cut = workflows()["release-cut.yml"]
+    inputs = cut.get("on", cut.get(True))["workflow_dispatch"]["inputs"]
+    assert inputs["dry_run"]["type"] == "boolean" and inputs["dry_run"]["default"] is False
+    jobs = cut["jobs"]
+    preflight = jobs["preflight"]
+    assert preflight["environment"] == "release-cut"
+    assert preflight["permissions"] == {"contents": "read", "actions": "read", "checks": "read"}
+    runs = "\n".join(step.get("run", "") for step in preflight["steps"])
+    assert "git push --dry-run" in runs and "git push origin" not in runs
+    assert "gh pr" not in runs and "gh workflow run" not in runs
+    assert jobs["cut"]["needs"] == "preflight"
+    assert "!inputs.dry_run" in jobs["cut"]["if"]
 
 
 def test_only_a_complete_green_run_on_main_writes_the_duration_caches():

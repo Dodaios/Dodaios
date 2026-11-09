@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentChatEvent, AgentChatSession } from "@/lib/agentChatApi";
 import { providerKind } from "@/components/agentchat/AgentComposer";
 import { EMPTY_TIMELINE, type Timeline, type UserItem } from "@/components/agentchat/reduce";
-import { createAgentChatStore, draftKey } from "@/store/agentChat";
+import { FRAME_IDLE_MS, TURN_START_GRACE_MS, createAgentChatStore, draftKey, runningForTimeline } from "@/store/agentChat";
+import { invalidateAgentChatSessions } from "@/lib/agentChatApi";
 import { captureComposerDraftTarget, readComposerDraft, writeComposerDraft } from "@/components/agentchat/composerDrafts";
 
 /**
@@ -560,4 +561,232 @@ it("unchanged session refreshes preserve list identity, while title/account chan
   } finally {
     vi.unstubAllGlobals();
   }
+});
+
+/** A socket the test drives: it records where each one connected and lets the test send frames. */
+class ScriptedSocket {
+  static all: ScriptedSocket[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((msg: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
+  constructor(readonly url: string) {
+    ScriptedSocket.all.push(this);
+  }
+  close() {
+    this.closed = true;
+  }
+  open() {
+    this.onopen?.();
+  }
+  frame(data: unknown) {
+    this.onmessage?.({ data: JSON.stringify(data) });
+  }
+  static last(): ScriptedSocket {
+    return ScriptedSocket.all[ScriptedSocket.all.length - 1];
+  }
+}
+
+/** The `?after=` a socket connected with; 0 when it asked for everything. */
+function afterOf(socket: ScriptedSocket): number {
+  const match = /\?after=(\d+)/.exec(socket.url);
+  return match ? Number(match[1]) : 0;
+}
+
+describe("thread running state stays in step with the turn", () => {
+  const stores: Array<ReturnType<typeof createAgentChatStore>> = [];
+  const make = (namespace: string) => {
+    const store = createAgentChatStore("agent", namespace);
+    stores.push(store);
+    return store;
+  };
+  beforeEach(() => {
+    window.localStorage.clear();
+    ScriptedSocket.all = [];
+    vi.stubGlobal("WebSocket", ScriptedSocket);
+  });
+  afterEach(() => {
+    for (const store of stores.splice(0)) store.getState().disconnect();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  /** A store with the row's session open on a live socket whose snapshot held `events`. */
+  function openWith(store: ReturnType<typeof createAgentChatStore>, row: AgentChatSession, events: AgentChatEvent[]) {
+    store.setState({ sessions: [row] });
+    store.getState().openSession(row.session_id);
+    const ws = ScriptedSocket.last();
+    ws.open();
+    ws.frame({ type: "snapshot", session: row, events });
+    return ws;
+  }
+
+  const at = (seq: number, kind: string, payload: Record<string, unknown>, ts = Date.now()): AgentChatEvent => ({ seq, ts_ms: ts, kind, payload });
+
+  it("counts a message sent after the last turn as running until its turn starts, then trusts the report", () => {
+    const t0 = 1_000_000;
+    const turnDone: Timeline = {
+      ...EMPTY_TIMELINE,
+      items: [{ type: "turn", id: "t1", provider: "", model: "", effort: "", runner: "", status: "done", blocks: [], startedMs: t0 - 5000, durationMs: 1000, usage: null, liveUsage: null, costUsd: null, error: null }],
+    };
+    const asked: Timeline = { ...turnDone, items: [...turnDone.items, { type: "user", id: "u2", text: "next", attachments: [], tsMs: t0 }] };
+    expect(runningForTimeline(turnDone, true, { now: t0 })).toBe(false);
+    expect(runningForTimeline(asked, false, { now: t0 + 2000 })).toBe(true);
+    expect(runningForTimeline(asked, false, { now: t0 + TURN_START_GRACE_MS + 1 })).toBe(false);
+    expect(runningForTimeline(turnDone, false, { now: t0 + 10, sentAtMs: t0 })).toBe(true);
+    // A turn that started after the send answers it.
+    expect(runningForTimeline(turnDone, false, { now: t0 + 10, sentAtMs: t0 - 6000 })).toBe(false);
+    // No turn and no message yet: the report decides.
+    expect(runningForTimeline(EMPTY_TIMELINE, true)).toBe(true);
+  });
+
+  it("keeps the stop control between a new message and its turn_started, even when the poll still says idle", async () => {
+    const row = { ...session("c-gap", "agent"), running: false };
+    stubFetch([row]);
+    const store = make("c-gap");
+    openWith(store, row, [at(1, "user_message", { text: "one" }), at(2, "turn_started", { turn_id: "t1" }), at(3, "turn_finished", { turn_id: "t1", status: "done" })]);
+    expect(store.getState().activeSession?.running).toBe(false);
+    store.getState().ingest(at(4, "user_message", { text: "two" }));
+    expect(store.getState().activeSession?.running).toBe(true);
+    expect(store.getState().sessions[0]?.running).toBe(true);
+    await store.getState().loadSessions();
+    expect(store.getState().activeSession?.running).toBe(true);
+    expect(store.getState().sessions[0]?.running).toBe(true);
+    store.getState().ingest(at(5, "turn_started", { turn_id: "t2" }));
+    store.getState().ingest(at(6, "turn_finished", { turn_id: "t2", status: "done" }));
+    expect(store.getState().activeSession?.running).toBe(false);
+  });
+
+  it("shows running as soon as a send is accepted, before its user_message arrives", async () => {
+    const row = { ...session("c-send", "agent"), running: false };
+    stubFetch([row]);
+    const store = make("c-send");
+    openWith(store, row, [at(1, "turn_started", { turn_id: "t1" }, Date.now() - 5000), at(2, "turn_finished", { turn_id: "t1", status: "done" }, Date.now() - 4000)]);
+    expect(store.getState().activeSession?.running).toBe(false);
+    await store.getState().send("again");
+    expect(store.getState().activeSession?.running).toBe(true);
+  });
+
+  it("marks the row idle on turn_finished without waiting for the list", () => {
+    const row = { ...session("e-row", "agent"), running: true };
+    // A list read that fails: only the local patch can clear the row.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("offline"); }));
+    const store = make("e-row");
+    openWith(store, row, [at(1, "turn_started", { turn_id: "t1" })]);
+    expect(store.getState().sessions[0]?.running).toBe(true);
+    store.getState().ingest(at(2, "turn_finished", { turn_id: "t1", status: "done" }));
+    expect(store.getState().sessions[0]?.running).toBe(false);
+    expect(store.getState().activeSession?.running).toBe(false);
+  });
+
+  it("reconnects from the last seq when the socket goes silent, and counts pings as life", () => {
+    vi.useFakeTimers();
+    const row = { ...session("a-silent", "agent"), running: true };
+    stubFetch([row]);
+    const store = make("a-silent");
+    const ws = openWith(store, row, [at(1, "user_message", { text: "go" }), at(2, "turn_started", { turn_id: "t1" })]);
+    vi.advanceTimersByTime(FRAME_IDLE_MS - 1000);
+    ws.frame({ type: "ping" });
+    vi.advanceTimersByTime(FRAME_IDLE_MS - 1000);
+    expect(ScriptedSocket.all).toHaveLength(1);
+    vi.advanceTimersByTime(2000);
+    expect(ScriptedSocket.all).toHaveLength(2);
+    expect(ws.closed).toBe(true);
+    expect(afterOf(ScriptedSocket.last())).toBe(2);
+    // The resumed snapshot folds onto the transcript and ends the turn.
+    ScriptedSocket.last().open();
+    ScriptedSocket.last().frame({ type: "snapshot", session: { ...row, running: false }, events: [at(3, "turn_finished", { turn_id: "t1", status: "done" })] });
+    expect(store.getState().timeline.items.filter((item) => item.type === "user")).toHaveLength(1);
+    expect(store.getState().activeSession?.running).toBe(false);
+  });
+
+  it("resyncs when the list says idle but the timeline still runs, then believes the list if nothing new came", async () => {
+    const row = { ...session("a-poll", "agent"), running: true };
+    stubFetch([{ ...row, running: false }]);
+    const store = make("a-poll");
+    openWith(store, row, [at(1, "user_message", { text: "go" }, 1), at(2, "turn_started", { turn_id: "t1" }, 2)]);
+    await store.getState().loadSessions();
+    expect(ScriptedSocket.all).toHaveLength(2);
+    expect(afterOf(ScriptedSocket.last())).toBe(2);
+    // Still marked running until the resync answers.
+    expect(store.getState().sessions[0]?.running).toBe(true);
+    ScriptedSocket.last().open();
+    ScriptedSocket.last().frame({ type: "snapshot", session: { ...row, running: false }, events: [] });
+    await store.getState().loadSessions();
+    // The resync brought nothing: the list is believed, and no reconnect loop starts.
+    expect(ScriptedSocket.all).toHaveLength(2);
+    expect(store.getState().sessions[0]?.running).toBe(false);
+    expect(store.getState().activeSession?.running).toBe(false);
+  });
+
+  it("resyncs at once when the window comes back, cutting a pending backoff short", () => {
+    vi.useFakeTimers();
+    const row = { ...session("a-focus", "agent"), running: true };
+    stubFetch([row]);
+    const store = make("a-focus");
+    // Stores of other tests that still hold a session wake too; count this one's sockets.
+    const mine = () => ScriptedSocket.all.filter((socket) => socket.url.includes("/a-focus/"));
+    const ws = openWith(store, row, [at(1, "user_message", { text: "go" }), at(2, "turn_started", { turn_id: "t1" })]);
+    ws.onclose?.();
+    expect(mine()).toHaveLength(1);
+    window.dispatchEvent(new Event("focus"));
+    expect(mine()).toHaveLength(2);
+    expect(afterOf(mine()[1])).toBe(2);
+    // The cancelled backoff never opens a third socket.
+    vi.advanceTimersByTime(40_000);
+    expect(mine()).toHaveLength(2);
+  });
+
+  it("reopens a cached thread from its last seq with the row aligned to the cached transcript", () => {
+    const stale = { ...session("d-open", "agent"), running: true };
+    stubFetch([stale]);
+    const store = make("d-open");
+    openWith(store, stale, [at(1, "turn_started", { turn_id: "t1" }), at(2, "turn_finished", { turn_id: "t1", status: "done" })]);
+    store.setState({ sessions: [stale, session("d-other", "agent")] });
+    store.getState().openSession("d-other");
+    store.getState().openSession("d-open");
+    expect(store.getState().activeSession?.running).toBe(false);
+    expect(afterOf(ScriptedSocket.last())).toBe(2);
+    // A snapshot that cannot be folded on (the transcript went missing) reads everything.
+    store.setState({ timeline: EMPTY_TIMELINE });
+    ScriptedSocket.last().frame({ type: "snapshot", session: stale, events: [] });
+    expect(afterOf(ScriptedSocket.last())).toBe(0);
+  });
+
+  it("tells the thread list when a side column's turn starts and ends", () => {
+    const row = { ...session("b-side", "agent"), running: false };
+    // Every list read fails: only the patch between stores can move the row.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("offline"); }));
+    const main = make("b-main");
+    main.setState({ sessions: [row] });
+    void main.getState().loadSessions();
+    const side = make("b-side");
+    openWith(side, row, []);
+    side.getState().ingest(at(1, "turn_started", { turn_id: "t1" }));
+    expect(main.getState().sessions[0]?.running).toBe(true);
+    side.getState().ingest(at(2, "turn_finished", { turn_id: "t1", status: "done" }));
+    expect(main.getState().sessions[0]?.running).toBe(false);
+  });
+
+  it("asks for the list again shortly when every read was invalidated in flight", async () => {
+    vi.useFakeTimers();
+    const row = { ...session("b-retry", "agent"), running: false };
+    let calls = 0;
+    let churning = true;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls += 1;
+      await Promise.resolve();
+      if (churning) invalidateAgentChatSessions();
+      return new Response(JSON.stringify({ sessions: [row] }), { status: 200 });
+    }));
+    const store = make("b-retry");
+    await store.getState().loadSessions();
+    expect(calls).toBe(2);
+    expect(store.getState().sessions).toEqual([]);
+    churning = false;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(calls).toBe(3);
+    expect(store.getState().sessions[0]?.session_id).toBe("b-retry");
+  });
 });

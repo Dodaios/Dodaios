@@ -433,6 +433,7 @@ def _account_env(platform: str) -> dict[str, str]:
         else:
             account = agent_accounts.active_account(platform)  # type: ignore[arg-type]
         account = _seat_with_budget(platform, account)
+        _share_user_setup(platform, account.id)
         env = agent_accounts.spawn_env(platform, account.id, base=os.environ)  # type: ignore[arg-type]
     except CliUnavailable:
         raise
@@ -441,10 +442,42 @@ def _account_env(platform: str) -> dict[str, str]:
             raise CliUnavailable("The selected subscription account could not be loaded.") from exc
         log.debug("CLI account layer unavailable for %s (%s)", platform, type(exc).__name__)
         env = dict(os.environ)
+    env = _without_parent_session(env)
     env.setdefault("PYTHONIOENCODING", "utf-8")
     if snapshot is not None:
         snapshot[platform] = dict(env)
     return env
+
+
+def _without_parent_session(env: dict[str, str]) -> dict[str, str]:
+    """``env`` minus the markers of the agent session this app was started from.
+
+    The same list a grid pane drops: left in, the CLI runs as a CHILD session
+    (no saved transcript, so nothing to resume) and inherits the parent's
+    effort and sandbox state.
+    """
+    from dodaios.agentic_ide.session import PARENT_AGENT_SESSION_VARS
+
+    return {k: v for k, v in env.items() if k not in PARENT_AGENT_SESSION_VARS}
+
+
+def _share_user_setup(platform: str, account_id: str) -> None:
+    """Give a redirected account seat the user's own CLI setup, as a grid pane has.
+
+    Skills, plugins, hooks, global instructions and the default operating mode
+    live in the config directory the seat redirects; without this a thread on
+    an added account ran a stripped CLI. Idempotent, a no-op for the built-in
+    login, and never fatal.
+    """
+    try:
+        from dodaios import agent_accounts, agent_config_parity
+
+        report = agent_config_parity.ensure_parity(platform, account_id)  # type: ignore[arg-type]
+        mode_file = agent_accounts.mode_file_name(platform)  # type: ignore[arg-type]
+        if report.shared.get(str(mode_file)) not in {"mirrored", "current"}:
+            agent_accounts.inherit_default_mode(platform, account_id)  # type: ignore[arg-type]
+    except Exception as exc:  # noqa: BLE001 — parity is a convenience, never a gate
+        log.debug("CLI setup sharing failed for %s (%s)", platform, type(exc).__name__)
 
 
 def _seat_with_budget(platform: str, account: Any) -> Any:
@@ -529,7 +562,7 @@ def _registry_env(agent: str, base: dict[str, str]) -> dict[str, str]:
     Claude Code answer from — and bill — the wrong vendor. An empty value
     removes the variable from the child, as it does for a pane.
     """
-    env = dict(base)
+    env = _without_parent_session(dict(base))
     env.setdefault("PYTHONIOENCODING", "utf-8")
     try:
         from dodaios.workspace import agents as workspace_agents
@@ -2075,6 +2108,14 @@ def grok_idle_wait(st: Any) -> list[dict[str, Any]]:
     return [
         make_event("background_wait", {"turn_id": st.turn_id, "tasks": [GROK_BACKGROUND_WORK]})
     ]
+
+
+def _claude_outstanding(st: Any) -> bool:
+    """True while the CLI still runs background tasks or sub-agents."""
+    if getattr(st, "open_tasks", None):
+        return True
+    children = getattr(st, "agents", None) or {}
+    return any(getattr(child, "open_tasks", None) for child in children.values())
 
 
 def _claude_wait_events(st: _ClaudeState) -> list[dict[str, Any]]:
@@ -4011,11 +4052,12 @@ async def _run_cli_once(
                 if session.model and (
                     models is None or not any(row["id"] == session.model for row in models)
                 ):
-                    raise CliUnavailable(
-                        "The selected model could not be confirmed for this Codex "
-                        "installation and account. "
-                        "Refresh the model list, check the selected account, or update Codex "
-                        "in the CLIs page, then retry."
+                    # Pass it through: Codex itself reports an invalid model,
+                    # as it does in a terminal.
+                    log.warning(
+                        "agent chat %s: model %r is not in the Codex catalog; passing it on",
+                        handle.turn_id,
+                        session.model,
                     )
                 for row in models or []:
                     if row["id"] == session.model:
@@ -4048,13 +4090,20 @@ async def _run_cli_once(
             else:
                 if runner == "agy-cli":
                     model_ladder = _agy_model_ladder(session.model)
-                effort = effort_for_model(session.provider, session.effort, model_ladder)
-                told_effort = (
-                    _agy_effective_effort(session.model, effort) if runner == "agy-cli" else effort
-                )
-                planned_prompt = (
-                    effort_note(session.provider, told_effort, model_ladder) + planned_prompt
-                )
+                if identity is None and not (session.effort or "").strip():
+                    # A coding thread nobody gave an effort runs on the CLI's
+                    # own default, like a grid pane: no flag, no note.
+                    effort = ""
+                else:
+                    effort = effort_for_model(session.provider, session.effort, model_ladder)
+                    told_effort = (
+                        _agy_effective_effort(session.model, effort)
+                        if runner == "agy-cli"
+                        else effort
+                    )
+                    planned_prompt = (
+                        effort_note(session.provider, told_effort, model_ladder) + planned_prompt
+                    )
                 if runner == "claude-cli":
                     await asyncio.to_thread(warm_claude_capabilities)
                 plan = planner(
@@ -4078,9 +4127,9 @@ async def _run_cli_once(
                     plan, runner, keep_session=bool(getattr(handle, "plain_system", ""))
                 )
             images = tuple(getattr(handle, "images", ()) or ())
-            if images and getattr(handle, "plain_system", ""):
-                # A plain chat's pictures go to the model itself, not only
-                # their description (``plain_chat`` says why).
+            if images:
+                # Pictures go to the model itself, not only their description
+                # (``plain_chat`` says why); a coding thread's CLI takes them too.
                 await asyncio.to_thread(
                     plain_chat.attach_images, plan, runner, [Path(p) for p in images]
                 )
@@ -4417,9 +4466,13 @@ async def _drive_cli(
                     await _answer_control_request(obj)
                     continue
                 if obj.get("type") == "control_response":
-                    # The CLI's answer to our handshake (its command list).
-                    # Nothing the timeline shows, and not a line to translate.
+                    # The CLI's answer to our handshake (its command list):
+                    # kept for the thread's "/" picker, never shown on the
+                    # timeline and not a line to translate.
+                    _remember_cli_commands(obj)
                     continue
+            if obj.get("type") == "system" and obj.get("subtype") == "init":
+                _remember_cli_commands(obj)
             for ev in translate(obj, state):
                 await handle.emit(ev)
             if plan.keep_stdin and getattr(state, "saw_result", False):
@@ -4435,6 +4488,24 @@ async def _drive_cli(
             settled.set()
         else:
             settled.clear()
+
+    def _remember_cli_commands(obj: dict[str, Any]) -> None:
+        """Hand the commands Claude Code reports to the thread's "/" picker."""
+        if runner not in _CLAUDE_CODE_RUNNERS:
+            return
+        try:
+            from dodaios.agent_chat import typeahead
+
+            body = obj
+            if obj.get("type") == "control_response":
+                inner = obj.get("response")
+                body = inner.get("response") if isinstance(inner, dict) else None
+                body = body if isinstance(body, dict) else {}
+            for key in ("commands", "slash_commands"):
+                if body.get(key):
+                    typeahead.remember_cli_commands(runner, session.cwd, body[key])
+        except Exception as exc:  # noqa: BLE001 - the picker is a convenience
+            log.debug("agent chat %s: command list not kept: %s", handle.turn_id, exc)
 
     def _close_stdin() -> None:
         if proc.stdin is None or proc.stdin.is_closing():
@@ -4499,7 +4570,12 @@ async def _drive_cli(
                     )
                 )
                 summary = "Plan ready — approve to start building"
-            decision = await handle.request_approval(call_id, tool_name, tool_input, summary)
+            approval_pending[0] += 1
+            try:
+                decision = await handle.request_approval(call_id, tool_name, tool_input, summary)
+            finally:
+                approval_pending[0] -= 1
+                activity[0] = time.monotonic()
             message = (
                 "The person declined this action."
                 if decision == "deny"
@@ -4559,7 +4635,12 @@ async def _drive_cli(
                 "message": "Nobody can answer here. Decide yourself and state your assumptions.",
             }
         try:
-            answers = await ask(session.session_id, specs)
+            approval_pending[0] += 1
+            try:
+                answers = await ask(session.session_id, specs)
+            finally:
+                approval_pending[0] -= 1
+                activity[0] = time.monotonic()
         except (TooManyQuestions, RuntimeError) as exc:
             # The turn already used its cards (or has none to show): the
             # agent's own first options stand, exactly as on an unanswered card.
@@ -4725,11 +4806,11 @@ async def _drive_cli(
             await handle.emit(event)
 
         async def ask(self, call_id: str, name: str, args: dict[str, Any], summary: str) -> str:
-            approval_pending[0] = True
+            approval_pending[0] += 1
             try:
                 decision = await handle.request_approval(call_id, name, args, summary)
             finally:
-                approval_pending[0] = False
+                approval_pending[0] -= 1
                 activity[0] = time.monotonic()
             if decision in {"allow", "allow_always"} and bridge is not None:
                 # A Jarvis tool the runtime just asked about reaches the
@@ -4774,7 +4855,7 @@ async def _drive_cli(
     reads = [0]
     #: The pump is handling a line it read (translating, emitting).
     busy = [False]
-    approval_pending = [False]
+    approval_pending = [0]  # open approval / question cards (a count)
     # POSIX: descendants that leave the process group (setsid) are remembered
     # while the runtime runs and reaped with it (Windows: the job object).
     tracker = None
@@ -4783,6 +4864,24 @@ async def _drive_cli(
 
         tracker = DescendantTracker(proc.pid, marker=(plan.env or {}).get(TURN_MARKER_ENV))
         tracker.start()
+
+    if plan.keep_stdin and plan.shape == "claude" and handle.on_steer is not None:
+
+        async def _steer(text: str) -> bool:
+            # Claude Code reads further stream-json user messages until its
+            # result line; after that (or a stop) there is nobody to read.
+            if (
+                getattr(state, "saw_result", False)
+                or handle.cancel.is_set()
+                or proc.returncode is not None
+                or proc.stdin is None
+                or proc.stdin.is_closing()
+            ):
+                return False
+            await _write_stdin(claude_stream_input(text))
+            return True
+
+        handle.on_steer(_steer)
 
     pump = asyncio.create_task(_pump_stdout())
     drain = asyncio.create_task(_drain_stderr())
@@ -4827,6 +4926,8 @@ async def _drive_cli(
             _kill(proc)
         raise
     finally:
+        if handle.on_steer is not None:
+            handle.on_steer(None)
         if gate_decider is not None:
             native_gate.unregister(handle.session.session_id, gate_decider)
         watcher.cancel()
@@ -5053,7 +5154,8 @@ def _answer_settled(state: Any) -> bool:
         answered = getattr(state, "saw_result", False)
     if not answered or not getattr(state, "idle", True):
         return False
-    return not getattr(state, "open_tasks", None)
+    # Background tasks of the CLI itself or of a sub-agent it started.
+    return not _claude_outstanding(state)
 
 
 async def _until_exit(proc: Any) -> None:

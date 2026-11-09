@@ -59,7 +59,7 @@ def audit(workflows: dict[str, dict]) -> list[str]:
 def _release_bot_findings(workflows: dict[str, dict]) -> list[str]:
     """Only release-cut's main-only jobs may hold the key that creates v* tags."""
     findings = []
-    key_jobs = {"cut", "tag"}
+    key_jobs = {"preflight", "cut", "tag"}
     for filename, workflow in workflows.items():
         for name, job in workflow.get("jobs", {}).items():
             if filename == "release-cut.yml" and name in key_jobs:

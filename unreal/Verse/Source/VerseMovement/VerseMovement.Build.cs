@@ -9,5 +9,7 @@ public class VerseMovement : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore" });
+		// EnhancedInput: the person's input actions and mapping context (WP01.2, change request #1169).
+		PrivateDependencyModuleNames.AddRange(new string[] { "EnhancedInput" });
 	}
 }
