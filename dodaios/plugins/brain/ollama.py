@@ -876,6 +876,30 @@ class OllamaBrain:
             confirmed=bool(planned and confirmed),
         )
 
+    async def preload(self) -> bool:
+        """Load the model the next turn runs, before that turn is sent.
+
+        A cold load costs seconds (live 2026-11-09: 7 s for a 4B model, 19 s
+        for a 14B one) and was paid after the person pressed send. This
+        resolves the same model and profile a tool turn resolves and loads it
+        with an empty ping, so no prompt is processed. Never raises.
+        """
+        try:
+            from dodaios.brain.ollama_profiles import load_now  # noqa: PLC0415 — lazy (AP-26)
+
+            model = await self._resolve_model(need_tools=True)
+            if not model:
+                return False
+            call = await self._prepare_call(model, BrainRequest(messages=()))
+            opts = self._model_options(model)
+            keep_alive = opts.keep_alive if opts is not None else None
+            return await load_now(
+                self._resolve_root(), call.run_model, keep_alive, headers=self._native_headers()
+            )
+        except Exception as exc:  # noqa: BLE001 — the turn loads the model itself then
+            log.info("ollama preload skipped: %s: %s", type(exc).__name__, exc)
+            return False
+
     def estimate_cost(self, req: BrainRequest) -> float:
         # Local inference has no per-token bill.
         return 0.0

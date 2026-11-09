@@ -483,6 +483,27 @@ export function warmAgentChatSession(sessionId: string): void {
 const WARM_COOLDOWN_MS = 60_000;
 const lastWarm = new Map<string, number>();
 
+/**
+ * Load a local model (Ollama) while the person types or dictates, so the
+ * first answer does not wait for the model to load. The backend does nothing
+ * for hosted providers. Fire and forget, at most every 30 s per model.
+ */
+export function preloadLocalModel(provider: string, model: string): void {
+  if (!provider) return;
+  const key = `${provider}/${model}`;
+  const now = Date.now();
+  if (now - (lastPreload.get(key) ?? 0) < PRELOAD_COOLDOWN_MS) return;
+  lastPreload.set(key, now);
+  void fetch("/api/agent-chat/preload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, model }),
+  }).catch(() => undefined);
+}
+
+const PRELOAD_COOLDOWN_MS = 30_000;
+const lastPreload = new Map<string, number>();
+
 /** Messages the server holds for a chat's next turn; they survive a page reload. */
 export interface AgentChatQueue {
   /** Stop paused it: nothing starts until the person lets it go on. */
