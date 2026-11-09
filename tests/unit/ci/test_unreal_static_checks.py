@@ -192,7 +192,10 @@ def test_the_nested_ignore_keeps_build_output_out_and_build_in():
     lines = (REPO_ROOT / "unreal" / "Verse" / ".gitignore").read_text(encoding="utf-8")
     for entry in ("Binaries/", "Intermediate/", "Saved/", "DerivedDataCache/", ".vs/"):
         assert entry in lines.splitlines()
-    assert lines.rstrip().splitlines()[-1] == "!Build/"
+    rules = [rule for rule in lines.splitlines() if rule and not rule.startswith("#")]
+    # Build/ ships; only generated chunk files under it stay ignored after it.
+    assert "!Build/" in rules
+    assert all(rule.startswith("Build/") for rule in rules[rules.index("!Build/") + 1 :])
 
 
 def test_the_pre_push_hook_uploads_lfs_objects_only_when_git_lfs_exists():
