@@ -21,6 +21,12 @@
 #
 # Releases built before provenance existed have no attestation; that is a
 # notice unless `require_attestation` is set (release-cut sets it).
+#
+# Authenticode and Gatekeeper are reported, and required for the platforms the
+# repository variable REQUIRE_SIGNED_INSTALLERS names ("windows,macos") - on
+# the release-cut call and a published release. A manual re-check of an older
+# tag only reports them unless `require_signatures` is set, since releases
+# from before signing was set up are unsigned for good.
 
 name: Release smoke
 
@@ -37,12 +43,19 @@ on:
         description: "Fail when an installer has no build provenance attestation"
         type: boolean
         default: false
+      require_signatures:
+        description: "Fail when an installer named in REQUIRE_SIGNED_INSTALLERS is unsigned"
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       tag:
         type: string
         required: true
       require_attestation:
+        type: boolean
+        default: true
+      require_signatures:
         type: boolean
         default: true
 
@@ -113,6 +126,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.assets.outputs.tag }}
       REQUIRE_ATTESTATION: ${{ inputs.require_attestation && '--require-attestation' || '' }}
+      # The release-cut call (input default true) and the release event check
+      # the release that was just published; a manual re-check opts in.
+      REQUIRE_SIGNED: ${{ (github.event_name == 'release' || inputs.require_signatures) && contains(vars.REQUIRE_SIGNED_INSTALLERS, matrix.platform) }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -134,8 +150,8 @@ jobs:
           $REQUIRE_ATTESTATION
 
       # The checksum proves the bytes; these prove the container opens the way
-      # the OS will open it. Signatures are reported, not required, while the
-      # publisher certificates are optional (see desktop-installers.yml).
+      # the OS will open it. Signatures are reported, and required for the
+      # platforms in REQUIRE_SIGNED_INSTALLERS (see desktop-installers.yml).
       - name: Inspect the Linux packages
         if: matrix.platform == 'linux'
         shell: bash
@@ -166,6 +182,7 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
+          $failed = $false
           foreach ($name in @('Dodaios-Setup-x64.exe', 'PersonalJarvis-Setup-x64.exe')) {
             $installer = Join-Path $env:RUNNER_TEMP "installers\$name"
             # The earlier name is absent once release_assets.py stops publishing it.
@@ -173,9 +190,15 @@ jobs:
             $signature = Get-AuthenticodeSignature -FilePath $installer
             Write-Host "${name} Authenticode: $($signature.Status) $($signature.SignerCertificate.Subject)"
             if ($signature.Status -ne 'Valid') {
-              Write-Host "::notice::$name Authenticode status: $($signature.Status)"
+              if ($env:REQUIRE_SIGNED -eq 'true') {
+                Write-Host "::error::$name Authenticode status: $($signature.Status) (REQUIRE_SIGNED_INSTALLERS names windows)"
+                $failed = $true
+              } else {
+                Write-Host "::notice::$name Authenticode status: $($signature.Status)"
+              }
             }
           }
+          if ($failed) { exit 1 }
 
       - name: Inspect the macOS disk images
         if: matrix.platform == 'macos'
@@ -183,14 +206,21 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/installers"
+          failed=0
           for dmg in Dodaios-macOS-arm64.dmg Dodaios-macOS-x64.dmg PersonalJarvis-macOS-arm64.dmg PersonalJarvis-macOS-x64.dmg; do
             # The earlier name is absent once release_assets.py stops publishing it.
             case "$dmg" in PersonalJarvis-*) [ -e "$dmg" ] || continue ;; esac
             hdiutil verify "$dmg"
             if ! spctl --assess --type open --context context:primary-signature -v "$dmg" 2>&1; then
-              echo "::notice::$dmg is not accepted by Gatekeeper (unsigned or not notarized)"
+              if [ "$REQUIRE_SIGNED" = "true" ]; then
+                echo "::error::$dmg is not accepted by Gatekeeper (REQUIRE_SIGNED_INSTALLERS names macos)"
+                failed=1
+              else
+                echo "::notice::$dmg is not accepted by Gatekeeper (unsigned or not notarized)"
+              fi
             fi
           done
+          exit "$failed"
 
   wrapper:
     needs: assets

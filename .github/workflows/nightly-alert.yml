@@ -12,6 +12,10 @@
 # gets an issue of its own, "macOS tests are red on main", with the range of
 # commits between the last green sweep and the first red one.
 #
+# The daily probe build of every installer (desktop-installers.yml on its
+# schedule) builds and boots the frozen app on Windows, macOS and Linux. It
+# blocks nothing either, so a red one opens "Installer build is red on main".
+#
 # A separate workflow for the same reason as flaky-tests.yml: `issues: write`
 # never reaches a pull-request run. Nothing is checked out; the run's job list
 # is read as data only.
@@ -19,7 +23,7 @@ name: Nightly alert
 
 on:
   workflow_run:
-    workflows: [CI, macOS main sweep]
+    workflows: [CI, macOS main sweep, Desktop installers]
     types: [completed]
     branches: [main]
   # A check by hand against a past run. It reports what it would do and
@@ -27,7 +31,7 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: "A finished nightly (scheduled) CI run or a finished macOS sweep on main"
+        description: "A finished nightly CI run, macOS sweep or scheduled installer build on main"
         required: true
         type: string
       dry_run:
@@ -44,7 +48,7 @@ concurrency:
 
 jobs:
   alert:
-    name: track a red nightly or macOS sweep
+    name: track a red nightly, macOS sweep or installer build
     # A fork pull request can be named `main` too: the repository and event
     # checks, not the branch filter alone, keep its runs out.
     if: >-
@@ -76,13 +80,17 @@ jobs:
             '(.path | split("@")[0]) as $path
              | select(.head_repository.full_name == env.GITHUB_REPOSITORY and .head_branch == "main" and .status == "completed")
              | select(($path == ".github/workflows/ci.yml" and .event == "schedule")
-                 or ($path == ".github/workflows/macos-main-sweep.yml" and (.event == "push" or .event == "workflow_dispatch")))
+                 or ($path == ".github/workflows/macos-main-sweep.yml" and (.event == "push" or .event == "workflow_dispatch"))
+                 or ($path == ".github/workflows/desktop-installers.yml" and .event == "schedule"))
              | "\($path) \(.conclusion) \(.html_url)"')"
-          [ -n "$vetted" ] || { echo "::error::run $RUN_ID is neither a finished nightly CI run nor a finished macOS sweep on main"; exit 1; }
+          [ -n "$vetted" ] || { echo "::error::run $RUN_ID is not a finished nightly CI run, macOS sweep or scheduled installer build on main"; exit 1; }
           read -r path conclusion run_url <<< "$vetted"
           if [ "$path" = ".github/workflows/ci.yml" ]; then
             label=nightly-ci; title="Nightly CI is red"; what="nightly CI run"
             about="The nightly CI run on main is red"
+          elif [ "$path" = ".github/workflows/desktop-installers.yml" ]; then
+            label=installers-main; title="Installer build is red on main"; what="installer build"
+            about="The daily build and boot of the native installers is red on main"
           else
             label=macos-main; title="macOS tests are red on main"; what="macOS sweep"
             about="The whole suite on macOS is red on main"
@@ -101,11 +109,11 @@ jobs:
               exit 0
             fi
           fi
-          if [ "$label" = "macos-main" ] && [ "$conclusion" = "cancelled" ]; then
+          if [ "$label" != "nightly-ci" ] && [ "$conclusion" = "cancelled" ]; then
             failed_macos_job="$(gh api "$jobs_url" --paginate \
               --jq '.jobs[] | select(.conclusion == "failure") | .name' | head -n 1)"
             if [ -z "$failed_macos_job" ]; then
-              message="The macOS sweep ended cancelled without a failed job: nothing to record."
+              message="The $what ended cancelled without a failed job: nothing to record."
               echo "$message" | tee -a "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
@@ -161,11 +169,17 @@ jobs:
               echo "The merge queue runs on macOS only the tests a change can reach, so no pull"
               echo "request was blocked by these. The failed test ids are in the job's ratchet step."
               echo "Reproduce on a branch with"
+            elif [ "$label" = "installers-main" ]; then
+              echo "The installers are built and booted on main once a day, so no pull request"
+              echo "was blocked by this; a release tag would be. Reproduce on a branch with"
+              echo '`gh workflow run desktop-installers.yml --ref <branch>`.'
             else
               echo "Some of these legs run only at night and on release tags, so no pull request"
               echo "was blocked by them. Reproduce on a branch with"
             fi
-            echo '`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.'
+            if [ "$label" != "installers-main" ]; then
+              echo '`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.'
+            fi
           } > "$RUNNER_TEMP/issue.md"
           tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/issue.md"
           if [ -n "$number" ]; then
