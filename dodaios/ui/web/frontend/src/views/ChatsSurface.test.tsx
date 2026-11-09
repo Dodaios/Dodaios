@@ -86,7 +86,7 @@ describe("ChatsSurface (the front page)", () => {
     expect(useHomeStore.getState().surface).toBe("chat");
   });
 
-  it("stays blank after hangup, late timeline updates, and switching back to typing", async () => {
+  it("keeps the voice lane blank after hangup and types on in the one conversation", async () => {
     const fetcher = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ providers: [], sessions: [], session_id: "old-chat" })));
     vi.stubGlobal("fetch", fetcher);
@@ -109,7 +109,8 @@ describe("ChatsSurface (the front page)", () => {
       expect(screen.getByTestId("voice")).toBeTruthy();
       fireEvent.click(screen.getByTestId("voice-mode-exit"));
       expect(await screen.findByTestId("chat")).toBeTruthy();
-      expect(useAgentChatStore.getState().activeSessionId).toBeNull();
+      // Back on the keyboard, the page holds the lead's one conversation.
+      await vi.waitFor(() => expect(useAgentChatStore.getState().activeSessionId).toBe("old-chat"));
       expect(fetcher.mock.calls.some(([url, init]) => String(url) === "/api/agent-chat/voice-chat" && !init?.method)).toBe(false);
     } finally {
       vi.unstubAllGlobals();

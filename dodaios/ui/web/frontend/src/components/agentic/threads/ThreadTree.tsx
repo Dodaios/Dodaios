@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, Mic, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, Mic, MoreHorizontal, Pencil, Plus, Search, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -8,11 +8,14 @@ import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
+import { useQuickSwitcher } from "@/store/quickSwitcher";
+import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { MAX_THREAD_COLUMNS, TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
 import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
+import { ThreadPullRequests } from "./ThreadPullRequests";
 import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, arrangeThreads, moveThreadId, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
@@ -31,8 +34,16 @@ const HOVER_ACTION = cn(
   "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
   FOCUS_RING,
 );
-/** A start row at the top of the list. */
-const ACTION_ROW = cn(ROW, "w-full text-foreground-secondary transition-colors hover:bg-muted hover:text-foreground", FOCUS_RING);
+/**
+ * A start row at the top of the list, drawn like the app's main navigation:
+ * a bright label after an 18px icon, no frame. Inset, icon and gap still add
+ * up to TITLE_INSET, so the labels line up with the projects' names.
+ */
+const ACTION_ROW = cn(
+  "flex min-h-8 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-base text-foreground transition-colors hover:bg-secondary",
+  FOCUS_RING,
+);
+const ACTION_ICON = "h-[18px] w-[18px] shrink-0";
 
 function readExpansion(): Record<string, boolean> {
   try {
@@ -85,6 +96,8 @@ export function ThreadTree() {
   const projects = useIdeProjectsStore((state) => state.projects);
   const connectProject = useIdeProjectsStore((state) => state.connectProject);
   const toggleVoice = useIdeProjectsStore((state) => state.toggleVoice);
+  // In this layout search is a row of the list, not the field atop the sidebar.
+  const searchOn = useQuickSwitchSettings((state) => state.enabled);
   const pushToast = useEventStore((state) => state.pushToast);
   const sessions = useThreadChatStore((state) => state.sessions);
   const catalog = useThreadChatStore((state) => state.catalog);
@@ -368,11 +381,12 @@ export function ThreadTree() {
                   : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />}
               </span>
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
-              {/* Quiet marks on the right, one column each: where it works, then what it is doing. */}
+              {/* Marks on the right, one column each: its pull requests, where it works, what it is doing. */}
+              <ThreadPullRequests sessionId={session.session_id} />
               {worktree && <span role="img" aria-label={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 title={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 data-testid={`thread-worktree-${session.session_id}`} className="flex shrink-0 items-center">
-                <GitBranch aria-hidden className="h-3.5 w-3.5 text-accent" strokeWidth={1.75} />
+                <GitBranch aria-hidden className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
               </span>}
               <span className="flex w-3.5 shrink-0 items-center justify-center">
                 {busy === session.session_id
@@ -460,18 +474,22 @@ export function ThreadTree() {
   const columnsFull = split.length + 1 >= MAX_THREAD_COLUMNS;
 
   return <div data-testid="ide-thread-tree" className="flex-1 px-2 pb-3 pt-2">
-    {/* What one starts from here, as rows: a thread, a team, a voice call. */}
+    {/* What one starts from here, as rows: a thread, a search, a team, a voice call. */}
     <div role="group" aria-label={t("ide_threads.layout_threads")} className="flex flex-col gap-px">
       <button type="button" data-testid="thread-tree-new-thread" onClick={() => startIn(newThread)} className={ACTION_ROW}>
-        <SquarePen aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <Plus aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">{t("ide_threads.new_thread")}</span>
       </button>
+      {searchOn && <button type="button" data-testid="thread-tree-search" onClick={() => useQuickSwitcher.getState().show()} className={ACTION_ROW}>
+        <Search aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
+        <span className="min-w-0 flex-1 truncate">{t("quick_switch.sidebar_search")}</span>
+      </button>}
       <button type="button" data-testid="thread-tree-new-team" onClick={() => startIn(newTeam)} className={ACTION_ROW}>
-        <Users aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <Users aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">{t("team_threads.new")}</span>
       </button>
-      <button type="button" onClick={toggleVoice} className={ACTION_ROW}>
-        <Mic aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+      <button type="button" data-testid="thread-tree-voice" onClick={toggleVoice} className={ACTION_ROW}>
+        <Mic aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
         <span className="min-w-0 flex-1 truncate">Dodaios Live</span>
       </button>
     </div>

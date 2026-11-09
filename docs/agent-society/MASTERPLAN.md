@@ -119,7 +119,7 @@ binding; changing one means editing this section first.
       teammates and routines lands in that chat as a folded delegation card (sender, task,
       outcome), never in a side chat. Old `:with:` / `:routine:` chats stay readable in the
       archive. A message sent while the agent is busy is queued for the next round boundary
-      instead of being refused. Dodaios (the lead) keeps its multi-chat history.
+      instead of being refused. Dodaios (the lead) has one endless conversation too (2026-11-09, `agent_chat/lead.py`); its older chats stay readable as history.
     - *Self-learning loop.* One review path (no second learning trigger), run on a cadence
       (memory every few user turns or at once on a clear correction; skills after enough tool
       work since the last skill write) on the agent's own seat. Background writes may only touch
