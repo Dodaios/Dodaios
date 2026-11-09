@@ -146,7 +146,7 @@ class JarvisLearningLoop:
     async def _memory_upkeep(self) -> None:
         """Background vault upkeep: learn once from the old chats, tidy up daily."""
         from dodaios.core.config import DATA_DIR
-        from dodaios.memory.vault import backfill, consolidate
+        from dodaios.memory.vault import backfill, calendar_sync, consolidate
         from dodaios.memory.vault import runtime as vault_runtime
 
         await asyncio.sleep(_UPKEEP_FIRST_DELAY_S)
@@ -157,6 +157,8 @@ class JarvisLearningLoop:
             vault = vault_runtime.active()
             if vault is not None and self._upkeep_reviewer is not None:
                 await consolidate.run_if_due(vault, self._upkeep_reviewer)
+            if vault is not None and not vault_runtime.learning_paused():
+                await calendar_sync.sync(vault)
             await asyncio.sleep(_UPKEEP_INTERVAL_S)
 
     async def _warm_and_compact(self) -> None:
