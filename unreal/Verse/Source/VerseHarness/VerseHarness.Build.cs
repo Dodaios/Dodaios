@@ -8,6 +8,6 @@ public class VerseHarness : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
-		PublicDependencyModuleNames.AddRange(new string[] { "Verse", "VerseCore", "VerseBridge", "VerseMovement", "VerseDestruction", "VerseCombat", "VerseGore", "VerseDecks", "VerseCrew", "VerseScreens", "VerseBot", "VerseUI", "VerseStream" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Verse", "VerseCore", "VerseBridge", "VerseMovement", "VerseDestruction", "VerseCombat", "VerseGore", "VerseDecks", "VerseCrew", "VerseScreens", "VerseBot", "VerseUI", "VerseStream", "VerseAbilities" });
 	}
 }
