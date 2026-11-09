@@ -13,6 +13,7 @@ class UVerseHealthSet;
 class UVerseInventoryComponent;
 class UVerseMeleeComponent;
 class UVerseWeaponComponent;
+class UVerseCombatDriverComponent;
 
 /**
  * Default pawn: the WP01 first-person character (VerseMovement) with the combat parts of
@@ -42,6 +43,7 @@ public:
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_Controller() override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UVerseCombatStateComponent* GetCombatState() const { return CombatState; }
 	const UVerseHealthSet* GetHealthSet() const { return HealthSet; }
@@ -49,6 +51,7 @@ public:
 	UVerseWeaponComponent* GetWeapon() const { return Weapon; }
 	UVerseMeleeComponent* GetMelee() const { return Melee; }
 	UVerseGadgetComponent* GetGadgets() const { return Gadgets; }
+	UVerseCombatDriverComponent* GetCombatDriver() const { return CombatDriver; }
 
 private:
 	void InitAbilityActorInfo();
@@ -73,4 +76,8 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Combat")
 	TObjectPtr<UVerseGadgetComponent> Gadgets;
+
+	/** Input frame to combat (shots, reloads, slots, knife, gadgets). */
+	UPROPERTY(VisibleAnywhere, Category = "Verse|Combat")
+	TObjectPtr<UVerseCombatDriverComponent> CombatDriver;
 };

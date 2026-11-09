@@ -7,6 +7,8 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerStart.h"
+#include "NavigationPath.h"
+#include "NavigationSystem.h"
 #include "VerseCollision.h"
 
 namespace
@@ -137,6 +139,23 @@ FVerseBotBoltTrace FVerseBotEngineQueries::TraceBolt(const FVector& Origin, cons
 FVerseBotPath FVerseBotEngineQueries::FindPath(const FVector& From, const FVector& To, bool bCrouch)
 {
 	FVerseBotPath P;
+	// The nav mesh when the arena has one (integration: the runtime arena builds it), else a straight line.
+	const AController* C = Owner.Get();
+	UWorld* World = C ? C->GetWorld() : nullptr;
+	if (UNavigationSystemV1* Nav = World ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr)
+	{
+		const UNavigationPath* Path = Nav->FindPathToLocationSynchronously(World, From, To, C->GetPawn());
+		if (Path && Path->IsValid() && !Path->IsPartial() && Path->PathPoints.Num() > 1)
+		{
+			P.bValid = true;
+			P.LengthCm = float(Path->GetPathLength());
+			for (int32 I = 1; I < Path->PathPoints.Num(); ++I)
+			{
+				P.Waypoints.Add(Path->PathPoints[I]);
+			}
+			return P;
+		}
+	}
 	P.bValid = true;
 	P.LengthCm = float(FVector::Dist(From, To));
 	P.Waypoints.Add(To);

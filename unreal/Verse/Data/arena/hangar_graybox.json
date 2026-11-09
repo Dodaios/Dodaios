@@ -1,0 +1,5701 @@
+{
+ "schema": "verse.arena_graybox/1",
+ "source": "art/verse/decks/hangar/unreal_arena/layout.py",
+ "arenaBoundsCm": [
+  2500.0,
+  400.0,
+  7500.0,
+  4400.0
+ ],
+ "boxes": [
+  {
+   "id": "floor_north",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5000.0,
+    450.0,
+    -25.0
+   ],
+   "size": [
+    10000.0,
+    900.0,
+    50.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "floor_south",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5000.0,
+    4050.0,
+    -25.0
+   ],
+   "size": [
+    10000.0,
+    4300.0,
+    50.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "floor_west",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    1350.0,
+    1400.0,
+    -25.0
+   ],
+   "size": [
+    2700.0,
+    1000.0,
+    50.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "floor_east",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    6850.0,
+    1400.0,
+    -25.0
+   ],
+   "size": [
+    6300.0,
+    1000.0,
+    50.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hero_wall",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5000.0,
+    75.0,
+    1100.0
+   ],
+   "size": [
+    10000.0,
+    150.0,
+    2200.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "near_wall",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5000.0,
+    6210.0,
+    1050.0
+   ],
+   "size": [
+    10000.0,
+    100.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hull_west",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    125.0,
+    3155.0,
+    1050.0
+   ],
+   "size": [
+    250.0,
+    6010.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hull_east",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    9875.0,
+    3155.0,
+    1050.0
+   ],
+   "size": [
+    250.0,
+    6010.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "ceiling",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5000.0,
+    3100.0,
+    2150.0
+   ],
+   "size": [
+    10000.0,
+    6200.0,
+    100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "well_wall_n",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    3200.0,
+    925.0,
+    -1300.0
+   ],
+   "size": [
+    1000.0,
+    50.0,
+    2600.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "well_wall_s",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    3200.0,
+    1875.0,
+    -1300.0
+   ],
+   "size": [
+    1000.0,
+    50.0,
+    2600.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "well_wall_w",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    2725.0,
+    1400.0,
+    -1300.0
+   ],
+   "size": [
+    50.0,
+    1000.0,
+    2600.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "well_wall_e",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    3675.0,
+    1400.0,
+    -1300.0
+   ],
+   "size": [
+    50.0,
+    1000.0,
+    2600.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "well_floor",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    3200.0,
+    1400.0,
+    -2625.0
+   ],
+   "size": [
+    1000.0,
+    1000.0,
+    50.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "column_1",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4150.0,
+    1050.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "column_2",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4150.0,
+    2650.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "column_3",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5720.0,
+    2150.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "column_4",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5750.0,
+    900.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hero_pier",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5000.0,
+    425.0,
+    600.0
+   ],
+   "size": [
+    200.0,
+    550.0,
+    1200.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "barrier_north_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    3670.0,
+    370.0,
+    225.0
+   ],
+   "size": [
+    2460.0,
+    60.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_north_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    3670.0,
+    370.0,
+    725.0
+   ],
+   "size": [
+    2460.0,
+    60.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_north_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    6330.0,
+    370.0,
+    225.0
+   ],
+   "size": [
+    2460.0,
+    60.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_north_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    6330.0,
+    370.0,
+    725.0
+   ],
+   "size": [
+    2460.0,
+    60.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_west_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_west_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_west_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    1900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_west_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    1900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_west_3",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    2900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_west_3",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    2900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_west_4",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    3900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_west_4",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2470.0,
+    3900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_south_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2952.0,
+    4430.0,
+    225.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_south_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2952.0,
+    4430.0,
+    725.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_south_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    3976.0,
+    4430.0,
+    225.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_south_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    3976.0,
+    4430.0,
+    725.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_south_3",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    4430.0,
+    225.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_south_3",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    4430.0,
+    725.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_south_4",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    6024.0,
+    4430.0,
+    225.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_south_4",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    6024.0,
+    4430.0,
+    725.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_south_5",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7048.0,
+    4430.0,
+    225.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_south_5",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7048.0,
+    4430.0,
+    725.0
+   ],
+   "size": [
+    1024.0,
+    60.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_east_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_east_1",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_east_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    1900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_east_2",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    1900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_east_3",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    2900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_east_3",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    2900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "barrier_east_4",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    3900.0,
+    225.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fence_east_4",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    7530.0,
+    3900.0,
+    725.0
+   ],
+   "size": [
+    60.0,
+    1000.0,
+    550.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "well_rail_n",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    3200.0,
+    895.0,
+    55.0
+   ],
+   "size": [
+    1000.0,
+    10.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "well_rail_s",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    3200.0,
+    1905.0,
+    55.0
+   ],
+   "size": [
+    1000.0,
+    10.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "well_rail_w",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    2695.0,
+    1400.0,
+    55.0
+   ],
+   "size": [
+    10.0,
+    1000.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "well_rail_e",
+   "zone": "shell",
+   "layer": "arena",
+   "center": [
+    3705.0,
+    1400.0,
+    55.0
+   ],
+   "size": [
+    10.0,
+    1000.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "cat_north_w_01",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2718.3,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_w_02",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3115.0,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_w_03",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3511.7,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_w_04",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3908.3,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_w_05",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4305.0,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_w_06",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4701.7,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_e_01",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5298.3,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_e_02",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5695.0,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_e_03",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6091.7,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_e_04",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6488.3,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_e_05",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6885.0,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_e_06",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    7281.7,
+    520.0,
+    598.5
+   ],
+   "size": [
+    396.7,
+    240.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_west_01",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2630.0,
+    853.3,
+    598.5
+   ],
+   "size": [
+    220.0,
+    426.7,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_west_02",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2630.0,
+    1280.0,
+    598.5
+   ],
+   "size": [
+    220.0,
+    426.7,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_west_03",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2630.0,
+    1706.7,
+    598.5
+   ],
+   "size": [
+    220.0,
+    426.7,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_west_04",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2630.0,
+    2133.3,
+    598.5
+   ],
+   "size": [
+    220.0,
+    426.7,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_west_05",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2630.0,
+    2560.0,
+    598.5
+   ],
+   "size": [
+    220.0,
+    426.7,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_west_06",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2630.0,
+    2986.7,
+    598.5
+   ],
+   "size": [
+    220.0,
+    426.7,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_well_01",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2980.0,
+    1400.0,
+    598.5
+   ],
+   "size": [
+    480.0,
+    200.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_well_02",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3460.0,
+    1400.0,
+    598.5
+   ],
+   "size": [
+    480.0,
+    200.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_landing_01",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3830.0,
+    1500.0,
+    598.5
+   ],
+   "size": [
+    260.0,
+    400.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "cat_north_rail_w",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3820.0,
+    635.0,
+    655.0
+   ],
+   "size": [
+    2160.0,
+    10.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "cat_north_rail_e",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6890.0,
+    635.0,
+    655.0
+   ],
+   "size": [
+    1180.0,
+    10.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "cat_west_rail",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2735.0,
+    970.0,
+    655.0
+   ],
+   "size": [
+    10.0,
+    660.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "cat_west_rail_2",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2735.0,
+    2350.0,
+    655.0
+   ],
+   "size": [
+    10.0,
+    1700.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": false
+  },
+  {
+   "id": "gallery_deck",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4920.0,
+    3750.0,
+    590.0
+   ],
+   "size": [
+    2240.0,
+    300.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "gallery_wall_n_1",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3941.4,
+    3600.2,
+    720.0
+   ],
+   "size": [
+    282.9,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_n_2",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4224.3,
+    3600.2,
+    720.0
+   ],
+   "size": [
+    282.9,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_n_3",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4507.1,
+    3600.2,
+    720.0
+   ],
+   "size": [
+    282.9,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_n_4",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4790.0,
+    3600.2,
+    720.0
+   ],
+   "size": [
+    282.9,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_n_5",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5072.9,
+    3600.2,
+    720.0
+   ],
+   "size": [
+    282.9,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_n_6",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5355.7,
+    3600.2,
+    720.0
+   ],
+   "size": [
+    282.9,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_n_7",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5638.6,
+    3600.2,
+    720.0
+   ],
+   "size": [
+    282.9,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_s_1",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3960.0,
+    3899.8,
+    720.0
+   ],
+   "size": [
+    320.0,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_s_2",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4280.0,
+    3899.8,
+    720.0
+   ],
+   "size": [
+    320.0,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_s_3",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4600.0,
+    3899.8,
+    720.0
+   ],
+   "size": [
+    320.0,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_s_4",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4920.0,
+    3899.8,
+    720.0
+   ],
+   "size": [
+    320.0,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_s_5",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5240.0,
+    3899.8,
+    720.0
+   ],
+   "size": [
+    320.0,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_s_6",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5560.0,
+    3899.8,
+    720.0
+   ],
+   "size": [
+    320.0,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_s_7",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5880.0,
+    3899.8,
+    720.0
+   ],
+   "size": [
+    320.0,
+    0.3,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "gallery_wall_e",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6030.0,
+    3750.0,
+    720.0
+   ],
+   "size": [
+    20.0,
+    300.0,
+    240.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "gallery_roof",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4920.0,
+    3750.0,
+    850.0
+   ],
+   "size": [
+    2240.0,
+    300.0,
+    20.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hung_container",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    2330.0,
+    800.0
+   ],
+   "size": [
+    1200.0,
+    260.0,
+    300.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "ceil_panel_01",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2611.5,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_02",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2794.6,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_03",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    2977.7,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_04",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3160.8,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_05",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3343.8,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_06",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3526.9,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_07",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3710.0,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_08",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3893.1,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_09",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4076.2,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_10",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4259.2,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_11",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4442.3,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_12",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4625.4,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_13",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4808.5,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_14",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5191.5,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_15",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5374.6,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_16",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5557.7,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_17",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5740.8,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_18",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5923.8,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_19",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6106.9,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_20",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6290.0,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_21",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6473.1,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_22",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6656.2,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_23",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6839.2,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_24",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    7022.3,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_25",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    7205.4,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "ceil_panel_26",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    7388.5,
+    520.0,
+    901.2
+   ],
+   "size": [
+    183.1,
+    240.0,
+    2.5
+   ],
+   "material": "ceiling_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "ceiling_panel"
+  },
+  {
+   "id": "screen_1",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4600.0,
+    2015.0,
+    660.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    480.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "screen_2",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5400.0,
+    2765.0,
+    660.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    480.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "screen_3",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3115.0,
+    3000.0,
+    660.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    480.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "plinth",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3150.0,
+    3800.0,
+    150.0
+   ],
+   "size": [
+    1300.0,
+    1200.0,
+    300.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "wall_n_1",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2662.5,
+    3202.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "wall_n_2",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2987.5,
+    3202.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "wall_n_3",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3312.5,
+    3202.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "wall_n_4",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3637.5,
+    3202.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "wall_s_1",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2662.5,
+    4398.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "wall_s_2",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2987.5,
+    4398.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "wall_s_3",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3312.5,
+    4398.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "wall_s_4",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3637.5,
+    4398.0,
+    450.0
+   ],
+   "size": [
+    325.0,
+    4.0,
+    300.0
+   ],
+   "material": "cladding_panel",
+   "solid": true,
+   "sight": true,
+   "piece": "cladding_wall"
+  },
+  {
+   "id": "parapet_e",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3790.0,
+    3750.0,
+    345.0
+   ],
+   "size": [
+    20.0,
+    400.0,
+    90.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "lintel_e",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3790.0,
+    3750.0,
+    585.0
+   ],
+   "size": [
+    20.0,
+    400.0,
+    30.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "wall_e_s",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3790.0,
+    4175.0,
+    450.0
+   ],
+   "size": [
+    20.0,
+    450.0,
+    300.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "glass_e_1",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3788.8,
+    3650.0,
+    480.0
+   ],
+   "size": [
+    2.4,
+    200.0,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "glass_e_2",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3788.8,
+    3850.0,
+    480.0
+   ],
+   "size": [
+    2.4,
+    200.0,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "wall_w",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2510.0,
+    3800.0,
+    450.0
+   ],
+   "size": [
+    20.0,
+    1200.0,
+    300.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_floor_a",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3300.0,
+    3800.0,
+    615.0
+   ],
+   "size": [
+    1000.0,
+    1200.0,
+    30.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_floor_b",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2650.0,
+    3375.0,
+    615.0
+   ],
+   "size": [
+    300.0,
+    350.0,
+    30.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_wall_n",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3280.0,
+    3210.0,
+    780.0
+   ],
+   "size": [
+    1040.0,
+    20.0,
+    300.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_wall_w",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2510.0,
+    3810.0,
+    780.0
+   ],
+   "size": [
+    20.0,
+    1180.0,
+    300.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_wall_e_n",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3790.0,
+    3400.0,
+    780.0
+   ],
+   "size": [
+    20.0,
+    400.0,
+    300.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_wall_e_s",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3790.0,
+    4150.0,
+    780.0
+   ],
+   "size": [
+    20.0,
+    500.0,
+    300.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_parapet_s",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3150.0,
+    4390.0,
+    675.0
+   ],
+   "size": [
+    1300.0,
+    20.0,
+    90.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_roof",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3150.0,
+    3800.0,
+    945.0
+   ],
+   "size": [
+    1300.0,
+    1200.0,
+    30.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "upper_glass_s_1",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2608.3,
+    4388.8,
+    810.0
+   ],
+   "size": [
+    216.7,
+    2.4,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "upper_glass_s_2",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2825.0,
+    4388.8,
+    810.0
+   ],
+   "size": [
+    216.7,
+    2.4,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "upper_glass_s_3",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3041.7,
+    4388.8,
+    810.0
+   ],
+   "size": [
+    216.7,
+    2.4,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "upper_glass_s_4",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3258.3,
+    4388.8,
+    810.0
+   ],
+   "size": [
+    216.7,
+    2.4,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "upper_glass_s_5",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3475.0,
+    4388.8,
+    810.0
+   ],
+   "size": [
+    216.7,
+    2.4,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "upper_glass_s_6",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3691.7,
+    4388.8,
+    810.0
+   ],
+   "size": [
+    216.7,
+    2.4,
+    180.0
+   ],
+   "material": "glass",
+   "solid": true,
+   "sight": false,
+   "piece": "glass"
+  },
+  {
+   "id": "console_1",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3200.0,
+    3540.0,
+    350.0
+   ],
+   "size": [
+    400.0,
+    80.0,
+    100.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "console_2",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    2850.0,
+    3925.0,
+    350.0
+   ],
+   "size": [
+    100.0,
+    250.0,
+    100.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "bridge_shuttle",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    4200.0,
+    3275.0,
+    298.5
+   ],
+   "size": [
+    800.0,
+    250.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "hull_w_fore",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4620.0,
+    1900.0,
+    150.0
+   ],
+   "size": [
+    40.0,
+    800.0,
+    300.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hull_w_aft",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4620.0,
+    2900.0,
+    150.0
+   ],
+   "size": [
+    40.0,
+    800.0,
+    300.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hull_e_fore",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5380.0,
+    1900.0,
+    150.0
+   ],
+   "size": [
+    40.0,
+    800.0,
+    300.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "hull_e_aft",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5380.0,
+    2900.0,
+    150.0
+   ],
+   "size": [
+    40.0,
+    800.0,
+    300.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "nose",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    1520.0,
+    150.0
+   ],
+   "size": [
+    800.0,
+    40.0,
+    300.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "roof",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    2400.0,
+    280.0
+   ],
+   "size": [
+    800.0,
+    1800.0,
+    40.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "turret",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    2325.0,
+    410.0
+   ],
+   "size": [
+    240.0,
+    450.0,
+    220.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "bulkhead_w",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4770.0,
+    2790.0,
+    130.0
+   ],
+   "size": [
+    260.0,
+    20.0,
+    260.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "bulkhead_e",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5230.0,
+    2790.0,
+    130.0
+   ],
+   "size": [
+    260.0,
+    20.0,
+    260.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "service_panel",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    2785.2,
+    110.0
+   ],
+   "size": [
+    200.0,
+    0.3,
+    220.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true,
+   "piece": "wall_panel"
+  },
+  {
+   "id": "nacelle_w",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4490.0,
+    3050.0,
+    140.0
+   ],
+   "size": [
+    220.0,
+    500.0,
+    200.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "nacelle_e",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5510.0,
+    3050.0,
+    140.0
+   ],
+   "size": [
+    220.0,
+    500.0,
+    200.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "fuel_cart",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4320.0,
+    4180.0,
+    120.0
+   ],
+   "size": [
+    240.0,
+    440.0,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "crate_n_1",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4500.0,
+    780.0,
+    120.0
+   ],
+   "size": [
+    200.0,
+    200.0,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "crate_n_2",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5250.0,
+    1000.0,
+    60.0
+   ],
+   "size": [
+    200.0,
+    200.0,
+    120.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "barrier_s",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4950.0,
+    4080.0,
+    55.0
+   ],
+   "size": [
+    500.0,
+    60.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "crate_s",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5700.0,
+    3960.0,
+    110.0
+   ],
+   "size": [
+    200.0,
+    200.0,
+    220.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "crate_w_1",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    3100.0,
+    2400.0,
+    120.0
+   ],
+   "size": [
+    200.0,
+    200.0,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "lowwall_w",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    3480.0,
+    2870.0,
+    55.0
+   ],
+   "size": [
+    240.0,
+    60.0,
+    110.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r1c1_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6060.2,
+    1400.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c1_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6299.8,
+    1400.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c1_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6180.0,
+    1400.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r1c2_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6060.2,
+    2000.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c2_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6299.8,
+    2000.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c2_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6180.0,
+    2000.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r1c2_doors",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6180.0,
+    1700.2,
+    140.0
+   ],
+   "size": [
+    240.0,
+    0.4,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c3_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6060.2,
+    2800.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c3_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6299.8,
+    2800.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c3_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6180.0,
+    2800.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r1c4_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6060.2,
+    3400.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c4_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6299.8,
+    3400.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r1c4_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6180.0,
+    3400.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r1c4_doors",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6180.0,
+    3100.2,
+    140.0
+   ],
+   "size": [
+    240.0,
+    0.4,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c1_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6660.2,
+    825.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    550.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c1_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6899.8,
+    825.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    550.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c1_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6780.0,
+    825.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    550.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r2c2_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6660.2,
+    1600.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c2_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6899.8,
+    1600.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c2_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6780.0,
+    1600.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r2c2_doors",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6780.0,
+    1300.2,
+    140.0
+   ],
+   "size": [
+    240.0,
+    0.4,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c3_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6660.2,
+    2200.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c3_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6899.8,
+    2200.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c3_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6780.0,
+    2200.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r2c4_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6660.2,
+    3000.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c4_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6899.8,
+    3000.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c4_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6780.0,
+    3000.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r2c4_doors",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6780.0,
+    2700.2,
+    140.0
+   ],
+   "size": [
+    240.0,
+    0.4,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c5_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6660.2,
+    3600.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c5_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6899.8,
+    3600.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r2c5_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6780.0,
+    3600.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r3c1_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7260.2,
+    825.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    550.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c1_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7499.8,
+    825.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    550.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c1_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7380.0,
+    825.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    550.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r3c2_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7260.2,
+    1400.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c2_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7499.8,
+    1400.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c2_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7380.0,
+    1400.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r3c2_doors",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7380.0,
+    1100.2,
+    140.0
+   ],
+   "size": [
+    240.0,
+    0.4,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c3_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7260.2,
+    2200.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c3_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7499.8,
+    2200.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c3_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7380.0,
+    2200.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r3c4_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7260.2,
+    3000.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c4_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7499.8,
+    3000.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c4_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7380.0,
+    3000.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "r3c4_doors",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7380.0,
+    2700.2,
+    140.0
+   ],
+   "size": [
+    240.0,
+    0.4,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c5_wall_w",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7260.2,
+    3800.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c5_wall_e",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7499.8,
+    3800.0,
+    140.0
+   ],
+   "size": [
+    0.4,
+    600.0,
+    280.0
+   ],
+   "material": "container_wall",
+   "solid": true,
+   "sight": true,
+   "piece": "container_wall"
+  },
+  {
+   "id": "r3c5_roof",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    7380.0,
+    3800.0,
+    290.0
+   ],
+   "size": [
+    240.0,
+    600.0,
+    20.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "bridge_shuttle",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    5730.0,
+    1600.0,
+    298.5
+   ],
+   "size": [
+    660.0,
+    200.0,
+    3.0
+   ],
+   "material": "catwalk_grating",
+   "solid": true,
+   "sight": false,
+   "piece": "catwalk"
+  },
+  {
+   "id": "wall_n_w",
+   "zone": "armoury",
+   "layer": "base",
+   "center": [
+    8100.0,
+    4735.0,
+    225.0
+   ],
+   "size": [
+    800.0,
+    30.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "wall_n_e",
+   "zone": "armoury",
+   "layer": "base",
+   "center": [
+    9275.0,
+    4735.0,
+    225.0
+   ],
+   "size": [
+    950.0,
+    30.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "lintel_n",
+   "zone": "armoury",
+   "layer": "base",
+   "center": [
+    8650.0,
+    4735.0,
+    355.0
+   ],
+   "size": [
+    300.0,
+    30.0,
+    190.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "wall_w",
+   "zone": "armoury",
+   "layer": "base",
+   "center": [
+    7715.0,
+    5440.0,
+    225.0
+   ],
+   "size": [
+    30.0,
+    1440.0,
+    450.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "ceiling",
+   "zone": "armoury",
+   "layer": "base",
+   "center": [
+    8725.0,
+    5440.0,
+    465.0
+   ],
+   "size": [
+    2050.0,
+    1440.0,
+    30.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "rack_e",
+   "zone": "armoury",
+   "layer": "base",
+   "center": [
+    9710.0,
+    5400.0,
+    120.0
+   ],
+   "size": [
+    80.0,
+    800.0,
+    240.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "bench",
+   "zone": "armoury",
+   "layer": "base",
+   "center": [
+    8700.0,
+    5690.0,
+    25.0
+   ],
+   "size": [
+    800.0,
+    80.0,
+    50.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_01",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4500.0,
+    2800.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_02",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5500.0,
+    1000.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_03",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6300.0,
+    3000.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_04",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "center": [
+    6300.0,
+    4000.0,
+    170.0
+   ],
+   "size": [
+    40.0,
+    400.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_05",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3700.0,
+    2200.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_06",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6300.0,
+    3600.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_07",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4700.0,
+    1000.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_08",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6700.0,
+    800.0,
+    630.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_09",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3900.0,
+    1800.0,
+    630.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_10",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4100.0,
+    3000.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_11",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5900.0,
+    2400.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_12",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4700.0,
+    1140.0,
+    170.0
+   ],
+   "size": [
+    40.0,
+    400.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_13",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    6500.0,
+    4000.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_14",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5700.0,
+    1400.0,
+    630.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_15",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4700.0,
+    1400.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_16",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6500.0,
+    2000.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_17",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4300.0,
+    2200.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_18",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5900.0,
+    600.0,
+    170.0
+   ],
+   "size": [
+    40.0,
+    400.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_19",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4500.0,
+    3800.0,
+    170.0
+   ],
+   "size": [
+    400.0,
+    40.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_20",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4500.0,
+    1800.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_crate_21",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3900.0,
+    800.0,
+    130.0
+   ],
+   "size": [
+    240.0,
+    240.0,
+    260.0
+   ],
+   "material": "sheet_metal",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_22",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5900.0,
+    4000.0,
+    170.0
+   ],
+   "size": [
+    40.0,
+    400.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_23",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4900.0,
+    1000.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_24",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5300.0,
+    4000.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_25",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4100.0,
+    4000.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_26",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6000.0,
+    1775.0,
+    700.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    400.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_27",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3700.0,
+    2400.0,
+    170.0
+   ],
+   "size": [
+    40.0,
+    400.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_28",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    5200.0,
+    3700.0,
+    170.0
+   ],
+   "size": [
+    40.0,
+    400.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_29",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6600.0,
+    2400.0,
+    630.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_30",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4000.0,
+    2200.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_31",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    6100.0,
+    3700.0,
+    630.0
+   ],
+   "size": [
+    30.0,
+    600.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_32",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5500.0,
+    1900.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_33",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    3700.0,
+    2700.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_34",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    5000.0,
+    2900.0,
+    700.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    400.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_35",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    5300.0,
+    800.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_column_36",
+   "zone": "shell",
+   "layer": "base",
+   "center": [
+    4100.0,
+    1300.0,
+    1050.0
+   ],
+   "size": [
+    120.0,
+    120.0,
+    2100.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_37",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "center": [
+    3400.0,
+    3000.0,
+    170.0
+   ],
+   "size": [
+    400.0,
+    40.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_wall_38",
+   "zone": "arena_shuttle",
+   "layer": "arena",
+   "center": [
+    4700.0,
+    3900.0,
+    170.0
+   ],
+   "size": [
+    400.0,
+    40.0,
+    340.0
+   ],
+   "material": "concrete",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_39",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    4200.0,
+    3500.0,
+    630.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  },
+  {
+   "id": "cover_screen_40",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "center": [
+    3700.0,
+    3000.0,
+    630.0
+   ],
+   "size": [
+    600.0,
+    30.0,
+    540.0
+   ],
+   "material": "armor_steel",
+   "solid": true,
+   "sight": true
+  }
+ ],
+ "ramps": [
+  {
+   "id": "stair_cat_canyon",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "start": [
+    6180.0,
+    640.0,
+    600.0
+   ],
+   "end": [
+    6180.0,
+    1100.0,
+    300.0
+   ],
+   "widthCm": 240.0,
+   "thicknessCm": 20.0
+  },
+  {
+   "id": "stair_cat_shuttle",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "start": [
+    3960.0,
+    1600.0,
+    600.0
+   ],
+   "end": [
+    4600.0,
+    1600.0,
+    300.0
+   ],
+   "widthCm": 200.0,
+   "thicknessCm": 20.0
+  },
+  {
+   "id": "stair_gantry",
+   "zone": "arena_catwalks",
+   "layer": "arena",
+   "start": [
+    5880.0,
+    2800.0,
+    0.0
+   ],
+   "end": [
+    5880.0,
+    3600.0,
+    600.0
+   ],
+   "widthCm": 200.0,
+   "thicknessCm": 20.0
+  },
+  {
+   "id": "stair_booth_inner",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "start": [
+    2710.0,
+    3550.0,
+    630.0
+   ],
+   "end": [
+    2710.0,
+    4150.0,
+    300.0
+   ],
+   "widthCm": 180.0,
+   "thicknessCm": 20.0
+  },
+  {
+   "id": "stair_booth_floor",
+   "zone": "arena_booth",
+   "layer": "arena",
+   "start": [
+    3880.0,
+    3400.0,
+    300.0
+   ],
+   "end": [
+    3880.0,
+    4200.0,
+    0.0
+   ],
+   "widthCm": 160.0,
+   "thicknessCm": 20.0
+  },
+  {
+   "id": "stair_r2",
+   "zone": "arena_canyon",
+   "layer": "arena",
+   "start": [
+    6780.0,
+    3900.0,
+    300.0
+   ],
+   "end": [
+    6780.0,
+    4360.0,
+    0.0
+   ],
+   "widthCm": 240.0,
+   "thicknessCm": 20.0
+  }
+ ],
+ "spawns": [
+  {
+   "id": "sp_nw_floor",
+   "location": [
+    2600.0,
+    500.0,
+    0.0
+   ],
+   "yaw": 45.0
+  },
+  {
+   "id": "sp_north_mid",
+   "location": [
+    4800.0,
+    800.0,
+    0.0
+   ],
+   "yaw": 90.0
+  },
+  {
+   "id": "sp_ne_canyon",
+   "location": [
+    7080.0,
+    600.0,
+    0.0
+   ],
+   "yaw": 90.0
+  },
+  {
+   "id": "sp_e_canyon",
+   "location": [
+    7100.0,
+    4000.0,
+    0.0
+   ],
+   "yaw": 270.0
+  },
+  {
+   "id": "sp_south_mid",
+   "location": [
+    4850.0,
+    4300.0,
+    0.0
+   ],
+   "yaw": 270.0
+  },
+  {
+   "id": "sp_booth",
+   "location": [
+    3150.0,
+    4050.0,
+    300.0
+   ],
+   "yaw": 0.0
+  },
+  {
+   "id": "sp_cat_west",
+   "location": [
+    2620.0,
+    1800.0,
+    600.0
+   ],
+   "yaw": 90.0
+  },
+  {
+   "id": "sp_shuttle_roof",
+   "location": [
+    5000.0,
+    3050.0,
+    300.0
+   ],
+   "yaw": 270.0
+  },
+  {
+   "id": "sp_cat_gantry",
+   "location": [
+    5750.0,
+    3720.0,
+    600.0
+   ],
+   "yaw": 180.0
+  }
+ ],
+ "lights": [
+  {
+   "id": "work_01",
+   "type": "spot",
+   "location": [
+    1200.0,
+    800.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_02",
+   "type": "spot",
+   "location": [
+    1200.0,
+    2400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_03",
+   "type": "spot",
+   "location": [
+    1200.0,
+    4000.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_04",
+   "type": "spot",
+   "location": [
+    1200.0,
+    5400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_05",
+   "type": "spot",
+   "location": [
+    3200.0,
+    800.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_06",
+   "type": "spot",
+   "location": [
+    3200.0,
+    2400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_07",
+   "type": "spot",
+   "location": [
+    3200.0,
+    4000.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_08",
+   "type": "spot",
+   "location": [
+    3200.0,
+    5400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_09",
+   "type": "spot",
+   "location": [
+    5000.0,
+    800.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_10",
+   "type": "spot",
+   "location": [
+    5000.0,
+    2400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_11",
+   "type": "spot",
+   "location": [
+    5000.0,
+    4000.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_12",
+   "type": "spot",
+   "location": [
+    5000.0,
+    5400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_13",
+   "type": "spot",
+   "location": [
+    6800.0,
+    800.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_14",
+   "type": "spot",
+   "location": [
+    6800.0,
+    2400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_15",
+   "type": "spot",
+   "location": [
+    6800.0,
+    4000.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_16",
+   "type": "spot",
+   "location": [
+    6800.0,
+    5400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_17",
+   "type": "spot",
+   "location": [
+    8800.0,
+    800.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_18",
+   "type": "spot",
+   "location": [
+    8800.0,
+    2400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_19",
+   "type": "spot",
+   "location": [
+    8800.0,
+    4000.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "work_20",
+   "type": "spot",
+   "location": [
+    8800.0,
+    5400.0,
+    1850.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 42000.0,
+   "attenuationCm": 3000.0,
+   "coneDeg": 55.0
+  },
+  {
+   "id": "cat_north_a",
+   "type": "rect",
+   "location": [
+    3400.0,
+    500.0,
+    880.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 2400.0,
+   "attenuationCm": 900.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "cat_north_b",
+   "type": "rect",
+   "location": [
+    5200.0,
+    500.0,
+    880.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 2400.0,
+   "attenuationCm": 900.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "cat_gantry",
+   "type": "rect",
+   "location": [
+    5000.0,
+    3750.0,
+    830.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 1500.0,
+   "attenuationCm": 600.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "booth_a",
+   "type": "rect",
+   "location": [
+    3000.0,
+    3700.0,
+    590.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 1800.0,
+   "attenuationCm": 700.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "booth_b",
+   "type": "rect",
+   "location": [
+    3500.0,
+    3700.0,
+    590.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 1800.0,
+   "attenuationCm": 700.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "cabin_a",
+   "type": "rect",
+   "location": [
+    5000.0,
+    1900.0,
+    250.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 1200.0,
+   "attenuationCm": 600.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "cabin_b",
+   "type": "rect",
+   "location": [
+    5000.0,
+    3000.0,
+    250.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 1200.0,
+   "attenuationCm": 600.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "aisle_11",
+   "type": "spot",
+   "location": [
+    6480.0,
+    900.0,
+    750.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 5000.0,
+   "attenuationCm": 1000.0,
+   "coneDeg": 60.0
+  },
+  {
+   "id": "aisle_12",
+   "type": "spot",
+   "location": [
+    7080.0,
+    900.0,
+    750.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 5000.0,
+   "attenuationCm": 1000.0,
+   "coneDeg": 60.0
+  },
+  {
+   "id": "aisle_21",
+   "type": "spot",
+   "location": [
+    6480.0,
+    2100.0,
+    750.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 5000.0,
+   "attenuationCm": 1000.0,
+   "coneDeg": 60.0
+  },
+  {
+   "id": "aisle_22",
+   "type": "spot",
+   "location": [
+    7080.0,
+    2100.0,
+    750.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 5000.0,
+   "attenuationCm": 1000.0,
+   "coneDeg": 60.0
+  },
+  {
+   "id": "aisle_31",
+   "type": "spot",
+   "location": [
+    6480.0,
+    3300.0,
+    750.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 5000.0,
+   "attenuationCm": 1000.0,
+   "coneDeg": 60.0
+  },
+  {
+   "id": "aisle_32",
+   "type": "spot",
+   "location": [
+    7080.0,
+    3300.0,
+    750.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4300.0,
+   "lumens": 5000.0,
+   "attenuationCm": 1000.0,
+   "coneDeg": 60.0
+  },
+  {
+   "id": "armoury_a",
+   "type": "rect",
+   "location": [
+    8200.0,
+    5400.0,
+    440.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 3000.0,
+   "attenuationCm": 800.0,
+   "coneDeg": 0.0
+  },
+  {
+   "id": "armoury_b",
+   "type": "rect",
+   "location": [
+    9200.0,
+    5400.0,
+    440.0
+   ],
+   "pitch": -90.0,
+   "kelvin": 4500.0,
+   "lumens": 3000.0,
+   "attenuationCm": 800.0,
+   "coneDeg": 0.0
+  }
+ ]
+}
