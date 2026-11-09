@@ -78,6 +78,28 @@ def test_a_thread_takes_codex_s_thread_name(tmp_path, monkeypatch) -> None:
     assert _settled("codex", "thread-1", "Speed up the build") == "Speed up the build"
 
 
+def test_a_thread_takes_grok_build_s_own_session_summary(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(cli_title, "_account_home", lambda agent, account: tmp_path)
+    sid = "562e6e6d-896f-4921-8f07-78ac3cf449e8"
+    folder = tmp_path / "sessions" / "C%3A%5Crepo" / sid
+    folder.mkdir(parents=True)
+    (folder / "summary.json").write_text(
+        json.dumps({"info": {"id": sid}, "session_summary": "PR 1191 shader pets"}),
+        encoding="utf-8",
+    )
+    assert _settled("grok-build", sid, "PR 1191 shader pets") == "PR 1191 shader pets"
+
+
+def test_a_thread_takes_antigravity_s_own_title(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(cli_title, "_account_home", lambda agent, account: tmp_path)
+    sid = "9acf4021-ea31-42aa-bfed-4233a1f0f847"
+    cache = tmp_path / "antigravity-cli" / "cache"
+    cache.mkdir(parents=True)
+    rows = {"conversations": {sid: {"summary": {"ID": sid, "Title": "Git Push Run"}}}}
+    (cache / "conversation_metadata.json").write_text(json.dumps(rows), encoding="utf-8")
+    assert _settled("antigravity", sid, "Git Push Run") == "Git Push Run"
+
+
 def test_no_title_for_other_clis_or_unsafe_ids(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(cli_title, "_account_home", lambda agent, account: tmp_path)
     assert cli_title.session_title("opencode", "abc") == ""

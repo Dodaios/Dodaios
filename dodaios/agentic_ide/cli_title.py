@@ -52,6 +52,9 @@ MAX_CHARS = 120
 #: process that never closes anything from growing without limit.
 MAX_ENTRIES = 512
 
+#: The coding CLIs whose own conversation title a chat thread can take.
+THREAD_AGENTS = frozenset({"claude", "codex", "grok-build", "antigravity"})
+
 #: Window titles that name the program rather than the session.
 _GENERIC = frozenset({"claude", "claude code", "codex", "openai codex", "gemini", "opencode"})
 
@@ -168,7 +171,7 @@ def session_title(agent: str, session_id: str, account_id: str = "") -> str:
     try:
         agent = (agent or "").strip().lower()
         session_id = (session_id or "").strip()
-        if agent not in ("claude", "codex") or not session_id:
+        if agent not in THREAD_AGENTS or not session_id:
             return ""
         if "/" in session_id or "\\" in session_id:
             return ""
@@ -208,8 +211,12 @@ def _cached_title(
         try:
             if agent == "claude":
                 _read_claude(entry, session_id, home)
-            else:
+            elif agent == "codex":
                 entry.ai_title = _codex_name(session_id, home)
+            elif agent == "grok-build":
+                entry.ai_title = _grok_summary(session_id, home)
+            elif agent == "antigravity":
+                entry.ai_title = _agy_title(session_id, home)
         except Exception as exc:  # noqa: BLE001 - a title must never break a state read
             logger.debug("Agentic IDE: title record of {} unreadable: {}", session_id, exc)
         finally:
@@ -291,6 +298,41 @@ def _codex_name_locked(path: Path, session_id: str) -> str:
             if thread and name:
                 index.names[thread] = name
     return index.names.get(session_id, "")
+
+
+def _grok_summary(session_id: str, home: Path | None) -> str:
+    """The ``session_summary`` Grok Build keeps in the session's ``summary.json``.
+
+    Grok files a session under its working folder's encoded name; the id is a
+    UUID, so it is found by id across every folder group.
+    """
+    root = agent_sessions._grok_home(home) / "sessions"
+    if not root.is_dir():
+        return ""
+    found = next(root.glob(f"*/{session_id}/summary.json"), None)
+    if found is None:
+        return ""
+    try:
+        row = json.loads(found.read_text(encoding="utf-8"))
+    except (OSError, ValueError):  # being rewritten right now; read next time
+        return ""
+    return str(row.get("session_summary") or "").strip() if isinstance(row, dict) else ""
+
+
+def _agy_title(session_id: str, home: Path | None) -> str:
+    """The ``Title`` the Antigravity CLI keeps for a conversation in its metadata cache."""
+    root = agent_sessions._agy_cli_root()
+    if home is not None and (Path(home) / "antigravity-cli").is_dir():
+        root = Path(home) / "antigravity-cli"
+    try:
+        metadata = root / "cache" / "conversation_metadata.json"
+        data = json.loads(metadata.read_text(encoding="utf-8"))
+    except (OSError, ValueError):  # missing, or being rewritten right now
+        return ""
+    conversations = data.get("conversations") if isinstance(data, dict) else None
+    row = conversations.get(session_id) if isinstance(conversations, dict) else None
+    summary = row.get("summary") if isinstance(row, dict) else None
+    return str(summary.get("Title") or "").strip() if isinstance(summary, dict) else ""
 
 
 def _json(line: bytes) -> dict[str, Any]:
