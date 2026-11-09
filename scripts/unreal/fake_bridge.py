@@ -437,10 +437,12 @@ class Session:
         except TimeoutError:
             ok = False
         waited_ms = round((time.monotonic() - waited_from) * 1000)
+        matched: dict = {}
         if ok:
             # Consume the first match so a later expect waits for a fresh frame.
             for n, f in enumerate(self.received):
                 if f["type"] == want["type"] and _matches(want.get("data", {}), f["data"]):
+                    matched = dict(f["data"])
                     del self.received[n]
                     break
         self.bridge.report.expectations.append(
@@ -450,6 +452,7 @@ class Session:
                 "ok": ok,
                 "waited_ms": waited_ms,
                 "optional": bool(step.get("optional")),
+                "frame_data": matched,
             }
         )
 
@@ -625,6 +628,8 @@ async def _run(args: argparse.Namespace, token: str) -> int:
     try:
         if args.once:
             await bridge.finished.wait()
+            if args.done_file:
+                await asyncio.to_thread(Path(args.done_file).write_text, "done", encoding="utf-8")
             await bridge.closed.wait()
         else:
             await asyncio.Event().wait()
@@ -658,6 +663,9 @@ def main(argv: list[str] | None = None) -> int:
         "--once", action="store_true", help="exit when the scenario ends and Verse disconnects"
     )
     parser.add_argument("--report", help="write the run report JSON here")
+    parser.add_argument(
+        "--done-file", help="with --once: create this file when the scenario has finished"
+    )
     parser.add_argument("--discovery", help="write the dev discovery file {url, token, pid} here")
     parser.add_argument(
         "--qa", action="store_true", help="answer qa.exec as DODAIOS_VERSE_QA=1 would"

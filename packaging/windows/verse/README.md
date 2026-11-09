@@ -20,3 +20,15 @@ The Verse is its own signed package on the release:
 Only an installed Verse gets updates, as delta packages when one fits. A
 machine without a GPU is never offered the download; the Verse reports
 `unsupported` and the rest of the app is unaffected.
+
+## Local check of the whole flow
+
+`scripts/unreal/ondemand_e2e.py --full Verse-Win64-<version>.tar` signs the
+manifest with a throwaway key, serves a release list and the package from a
+loopback HTTP server and drives the real `VerseInstaller`: `not_installed`,
+offer, download with progress, verify, install, launch, uninstall,
+`not_installed`. First numbers (2026-11-09, graybox build): the Shipping
+payload is 419 MB (core 135 MB, binaries 254 MB, decks 27 MB in four chunks),
+a one-chunk delta is 1.1 MB, the first frame arrives 2.2 s after engine start.
+Deck chunks come from the `PAL_<Deck>` labels (`scripts/unreal/deck_labels.py`);
+the engine's Map rules alone leave every package in chunk 0.
