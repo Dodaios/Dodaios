@@ -76,7 +76,6 @@ export interface TeamSeats {
   min_members: number;
   max_members: number;
   /** The default turn bound by team size ("2" .. "8"). */
-  max_turns: Record<string, number>;
 }
 
 export interface TeamMember {

@@ -483,13 +483,44 @@ export function warmAgentChatSession(sessionId: string): void {
 const WARM_COOLDOWN_MS = 60_000;
 const lastWarm = new Map<string, number>();
 
+/** Messages the server holds for a chat's next turn; they survive a page reload. */
+export interface AgentChatQueue {
+  /** Stop paused it: nothing starts until the person lets it go on. */
+  paused: boolean;
+  items: { queue_id: string; text: string }[];
+}
+
+export async function fetchAgentChatQueue(sessionId: string): Promise<AgentChatQueue> {
+  return json<AgentChatQueue>(
+    await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/queue`),
+    "queue-failed",
+  );
+}
+
+export async function resumeAgentChatQueue(sessionId: string): Promise<AgentChatQueue> {
+  return json<AgentChatQueue>(
+    await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/queue/resume`, { method: "POST" }),
+    "queue-failed",
+  );
+}
+
+export async function discardQueuedMessage(sessionId: string, queueId: string): Promise<void> {
+  await json<{ removed: boolean }>(
+    await fetch(
+      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/queue/${encodeURIComponent(queueId)}`,
+      { method: "DELETE" },
+    ),
+    "queue-failed",
+  );
+}
+
 export async function sendAgentChatMessage(
   sessionId: string,
   text: string,
   attachments: ChatAttachment[] = [],
   toolChoices: string[] = [],
-): Promise<{ turn_id: string }> {
-  const result = await json<{ turn_id: string }>(
+): Promise<{ turn_id: string; steered?: boolean; queued?: boolean; queue_id?: string }> {
+  const result = await json<{ turn_id: string; steered?: boolean; queued?: boolean; queue_id?: string }>(
     await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

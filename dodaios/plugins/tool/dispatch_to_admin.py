@@ -1,22 +1,24 @@
 """dispatch_to_admin tool — brain calls admin ops via a UAC-elevated helper.
 
-Risk tier = ``ask``. That means every brain call is routed through the
-approval workflow, **unless** the user has set a pattern like
-``dispatch_to_admin *`` via ``[safety.whitelist]``. Destructive ops
-(DESTRUCTIVE_OPS) get a second prompt on top, even with a global whitelist —
-that is intentional.
+Risk tier = ``ask``, and a person approves every call: the tool is on the
+``requires_human_approval`` list, so neither a ``[safety.whitelist]`` entry
+nor the global ``approval_mode = "bypass"`` can answer for it.
+
+Destructive ops (DESTRUCTIVE_OPS) run only when that approval came from a
+person answering THIS call (``ctx.approved_by == "user"``: the chat card, the
+mission card, or the spoken "yes"). The model has no say in it — an earlier
+``destructive_approved`` argument let the model approve itself and was
+removed (security audit 2026-11-09).
 
 Call flow:
 
 1. Brain calls ``{"op": {...AdminOperation JSON...}}``.
-2. Tool validates the JSON against the Pydantic schema.
-3. ``AdminClient.execute(op, destructive_approved=...)``.
-4. On ``DestructiveRequiresApproval``:
-   → Tool returns ``ToolResult(success=False, error="destructive_requires_approval",
-   output={"op_id": ..., "op_type": ...})``. The caller (risk-tier executor)
-   shows the user a prompt and calls the tool again with
-   ``destructive_approved=True``.
-5. On success/failure: the ``AdminResponse`` model is packed into
+2. ToolExecutor obtains the person's approval for the call.
+3. Tool validates the JSON against the Pydantic schema.
+4. ``AdminClient.execute(op, destructive_approved=<a person approved>)``.
+5. On ``DestructiveRequiresApproval`` (no person approved this call):
+   → ``ToolResult(success=False, error="destructive_requires_approval")``.
+6. On success/failure: the ``AdminResponse`` model is packed into
    ``ToolResult.output`` as a dict.
 """
 from __future__ import annotations
@@ -32,6 +34,9 @@ from dodaios.core.protocols import ExecutionContext, ToolResult
 
 _ADMIN_OP_ADAPTER: TypeAdapter[AdminOperation] = TypeAdapter(AdminOperation)
 
+#: ``ExecutionContext.approved_by`` when a person approved the call itself.
+HUMAN_APPROVAL = "user"
+
 
 class DispatchToAdminTool:
     """Protocol-compatible tool. Called by the brain via a tool call."""
@@ -43,7 +48,7 @@ class DispatchToAdminTool:
         "firewall, registry write, scheduled task, write_protected_path) "
         "to the UAC-elevated admin helper. Destructive ops "
         "(uninstall, remove, write_registry_hklm, write_protected_path) "
-        "need explicit approval."
+        "need the user's approval of this exact call."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -56,17 +61,9 @@ class DispatchToAdminTool:
                     "that op type. See dodaios.admin.schema."
                 ),
             },
-            "destructive_approved": {
-                "type": "boolean",
-                "description": (
-                    "If true, the op runs even for a destructive type. "
-                    "Default false — the risk-tier executor sets this "
-                    "after the user's approval."
-                ),
-                "default": False,
-            },
         },
         "required": ["op"],
+        "additionalProperties": False,
     }
 
     def __init__(
@@ -83,7 +80,9 @@ class DispatchToAdminTool:
         self, args: dict[str, Any], ctx: ExecutionContext
     ) -> ToolResult:
         op_payload = args.get("op")
-        destructive_approved = bool(args.get("destructive_approved", False))
+        # Only a person answering this very call unlocks a destructive op —
+        # never a tool argument, a whitelist, a standing grant or bypass.
+        destructive_approved = getattr(ctx, "approved_by", None) == HUMAN_APPROVAL
 
         if not isinstance(op_payload, dict):
             return ToolResult(

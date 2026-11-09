@@ -265,6 +265,10 @@ DESTRUCTIVE_OPS: frozenset[str] = frozenset({
     "remove_firewall_rule",
     "write_registry_hklm",
     "remove_scheduled_task",
+    # Security audit 2026-11-09: a scheduled task can run any command as
+    # SYSTEM — as consequential as any removal, so it needs the per-call
+    # approval of a person like the ops above.
+    "add_scheduled_task",
     # --- shared (every OS) ---
     "write_protected_path",
 }) | UNIX_DESTRUCTIVE_OPS  # apt_remove, brew_remove, ufw_remove, systemctl, launchctl

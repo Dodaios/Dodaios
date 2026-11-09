@@ -131,9 +131,13 @@ remain separate acceptance evidence.
 
 The whole Python suite on macOS is 24 minutes on one runner, too long for
 every merge group on five slots. It runs after the merge instead: every push
-to main (documentation-only pushes excepted) starts a sweep, one job on one
-macOS runner, with the same runner script and the same macOS baseline as the
-nightly shards. Sweeps share one concurrency group and are never cancelled,
+to main (documentation-only pushes excepted) starts a sweep in three shards
+(about eight minutes), with the same runner script and the same macOS
+baseline as the nightly shards. A Linux `plan` job restores the duration
+history once and hands every shard the same snapshot, so the shards never
+compute different partitions. The runner-minutes are those of the single job
+it replaced; the slots are held for a third of the time, so a red result
+arrives after one or two merges instead of five to ten. Sweeps share one concurrency group and are never cancelled,
 so one runs at a time and the pending one covers every commit merged
 meanwhile. It is no part of `CI gate`: no pull request and no merge group
 waits for it.
@@ -450,6 +454,13 @@ A release happens **only** when the maintainer asks for one.
   has the previous version. A later commit with the same version is refused,
   and the run names the version commit, because tagging it would ship changes
   that no CHANGELOG section lists.
+* **Preflight.** Every cut starts with a `preflight` job that changes
+  nothing: a `git push --dry-run` with the release bot's token (a bot that
+  lost write access fails here, before a version is computed; the first cut
+  of v4.2.0 failed on exactly that), the release signing secrets, main's
+  `CI gate`, and the version and notes the cut would write, shown in the run
+  summary. `gh workflow run release-cut.yml -f bump=minor -f dry_run=true`
+  runs only the preflight.
 * **`release-gate.yml`** is the first job of `release.yml` (PyPI),
   `desktop-installers.yml` and `sign-installer.yml`. It admits a tag only
   when tag, versions and CHANGELOG agree, the commit is on main, and
@@ -516,6 +527,28 @@ A release happens **only** when the maintainer asks for one.
   `install/installer.py` uninstalls `personal-jarvis` before it installs the
   checkout, and the app logs one warning when an environment holds a full copy
   under both names.
+* **Daily installer build.** `desktop-installers.yml` also runs once a day
+  on main: it builds all four installers and boots each frozen app (health,
+  macOS permissions, browser provisioning), the same checks a tag runs,
+  without signing or publishing anything. A broken bundle shows up the day it
+  lands instead of on release day. A red scheduled run opens the issue
+  "Installer build is red on main" (label `installers-main`,
+  `nightly-alert.yml`); the next green one closes it.
+* **Upgrade in place.** The Windows leg installs the published release
+  (`releases/latest`; on a tag the previous release, the new one is still a
+  draft), boots it and completes onboarding, then runs the new setup over the
+  same directory and requires the new version to boot with that state intact
+  (`scripts/ci/check_installer_upgrade.py`, evidence artifact
+  `installer-upgrade-windows-x64`). A changed AppId, a renamed executable left
+  behind or a data migration that fails on first boot blocks the release.
+* **Signed installers, once required.** The repository variable
+  `REQUIRE_SIGNED_INSTALLERS` (for example `windows,macos`) makes a missing
+  Authenticode signature or notarization fail the tag build and
+  `release-smoke.yml` instead of printing a notice. Set it after SignPath and
+  the Apple Developer ID are configured: a secret that goes missing later then
+  stops the release instead of shipping an unsigned installer. A manual
+  re-check of an older, unsigned release only reports, unless
+  `-f require_signatures=true`.
 * **Build provenance.** On a tag, `desktop-installers.yml` attests every
   native installer listed in `installers-SHA256SUMS.txt` (`.exe`, both
   `.dmg`, `.AppImage`, `.deb`, under both names) with
@@ -532,7 +565,7 @@ A release happens **only** when the maintainer asks for one.
   stored digests, each OS's installers downloaded and matched against
   `installers-SHA256SUMS.txt` plus their attestation, a container check
   (`dpkg-deb`, ELF header, `hdiutil verify`; Authenticode and Gatekeeper are
-  reported, not required), and the released `install-verify.sh` /
+  reported, and required for the platforms in `REQUIRE_SIGNED_INSTALLERS`), and the released `install-verify.sh` /
   `install-verify.ps1` in dry-run, no-launch mode on Linux, Windows and
   macOS (`release-wrapper-smoke.yml`, which `installer-smoke.yml` also runs on
   Linux). Release cut calls it after publishing and requires attestations; a

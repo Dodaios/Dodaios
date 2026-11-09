@@ -373,3 +373,20 @@ describe("agent-chat reduce: notices", () => {
     expect(card.data.previous).toEqual(previous);
   });
 });
+
+describe("mid-turn steering", () => {
+  it("puts a steered message inside the turn that received it, between its steps", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "start" }),
+      ev("turn_started", { turn_id: "t1" }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "working" }),
+      ev("user_message", { text: "also this", turn_id: "t1", steered: true }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m2", text: "done both" }),
+    ]);
+    expect(tl.items).toHaveLength(2);
+    const turn = tl.items[1] as TurnItem;
+    expect(turn.blocks.map((b) => (b.kind === "text" ? b.text : b.kind))).toEqual(["working", "also this", "done both"]);
+    const steered = turn.blocks[1];
+    expect(steered.kind === "text" && steered.id.startsWith("steer-")).toBe(true);
+  });
+});

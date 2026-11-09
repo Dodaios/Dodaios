@@ -51,8 +51,9 @@ def _plain_error(error: Any) -> str:
     return text
 
 
-async def _turn_ended(svc: Any, session_id: str, timeout_s: float) -> bool:
-    """Wait for the session's running turn; ``False`` when it outlasts ``timeout_s``.
+async def _turn_ended(svc: Any, session_id: str, timeout_s: float | None) -> bool:
+    """Wait for the session's running turn; ``False`` when it outlasts ``timeout_s``
+    (``None`` = wait as long as it runs).
 
     The service hands back the turn's own task, so a turn that was stopped
     (Stop in the member's thread) raises ``CancelledError`` here although nobody
@@ -79,7 +80,7 @@ class TurnPort(Protocol):
         """Create the member's session and return its id."""
 
     async def ask(
-        self, session_id: str, prompt: str, *, display: str, language: str, timeout_s: float
+        self, session_id: str, prompt: str, *, display: str, language: str, timeout_s: float | None
     ) -> TurnResult:
         """Run one turn and return its final message. Cancelling the call stops the turn."""
 
@@ -111,7 +112,7 @@ class ChatTurns:
         return str(session.session_id)
 
     async def ask(
-        self, session_id: str, prompt: str, *, display: str, language: str, timeout_s: float
+        self, session_id: str, prompt: str, *, display: str, language: str, timeout_s: float | None
     ) -> TurnResult:
         from dodaios.agent_chat.service import SessionBusy
 

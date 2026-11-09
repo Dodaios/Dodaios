@@ -119,7 +119,6 @@ async def test_a_new_message_never_overtakes_waiting_ones():
 
 async def test_other_chats_still_refuse_while_busy():
     for surface, session_id in (
-        ("agent", "coding-1"),
         ("society", "society:scout:routine:t1:r1"),
         ("society", "society:scout:with:jarvis"),
     ):
@@ -367,3 +366,81 @@ async def test_concurrent_reopens_publish_one_orphan_receipt(monkeypatch):
     assert sum(
         payload.get("kind") == "message_dequeued" for _, payload in chat.notices
     ) == 1
+
+
+async def test_a_coding_thread_queues_and_stop_pauses_the_queue():
+    chat = BusyChat(surface="agent")
+    chat.busy.add("t1")
+    _, queue_id = await send_or_queue(chat, "t1", "next job")
+    assert queue_id
+    assert send_queue.queue_state(chat, "t1") == {
+        "paused": False, "items": [{"queue_id": queue_id, "text": "next job"}],
+    }
+    send_queue.pause(chat, "t1")
+    chat.busy.clear()
+    await asyncio.sleep(0.05)
+    assert chat.sent == []  # Stop: the halted agent does not start the next job
+    send_queue.resume(chat, "t1")
+    await _until(lambda: chat.sent)
+    assert chat.sent == [("t1", "next job")]
+
+
+async def test_a_queued_message_can_be_taken_back():
+    chat = BusyChat(surface="agent")
+    chat.busy.add("t1")
+    _, queue_id = await send_or_queue(chat, "t1", "never mind")
+    assert await send_queue.discard(chat, "t1", queue_id)
+    assert chat.notices[-1][1]["status"] == "removed"
+    chat.busy.clear()
+    await asyncio.sleep(0.05)
+    assert chat.sent == []
+
+
+async def test_try_steer_goes_to_the_running_cli_only_for_plain_text():
+    chat = BusyChat(surface="agent")
+    chat.busy.add("t1")
+    steered: list[str] = []
+
+    async def steer(session_id: str, text: str) -> bool:
+        steered.append(text)
+        return True
+
+    chat.steer = steer
+    assert await send_queue.try_steer(chat, "t1", "go left")
+    assert not await send_queue.try_steer(chat, "t1", "pic", [{"name": "a.png"}])
+    assert steered == ["go left"]
+    chat.surface = "society"
+    assert not await send_queue.try_steer(chat, "t1", "go right")
+
+
+async def test_service_steer_writes_to_the_cli_and_records_the_message():
+    from dodaios.agent_chat.service import AgentChatService, _Running
+
+    svc = AgentChatService.__new__(AgentChatService)
+    svc._running, svc._preparing, svc._steerers = {}, {}, {}
+    events: list[dict] = []
+
+    async def emit(session_id: str, event: dict) -> None:
+        events.append(event)
+
+    svc._emit = emit
+    run = _Running("turn-1", asyncio.Event())
+    run.task = asyncio.create_task(asyncio.sleep(5))
+    svc._running["s"] = run
+    written: list[str] = []
+
+    async def writer(text: str) -> bool:
+        written.append(text)
+        return bool(text != "late")
+
+    svc._set_steerer("s", "turn-1", writer)
+    assert svc.can_steer("s")
+    assert await svc.steer("s", " go left ")
+    assert written == ["go left"]
+    assert events[0]["kind"] == "user_message"
+    assert events[0]["payload"] == {"text": "go left", "turn_id": "turn-1", "steered": True}
+    assert not await svc.steer("s", "late")  # the CLI no longer takes input
+    assert len(events) == 1
+    svc._set_steerer("s", "turn-1", None)
+    assert not svc.can_steer("s")
+    run.task.cancel()

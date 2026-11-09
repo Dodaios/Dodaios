@@ -32,6 +32,17 @@
 # produces a working, unsigned installer and says so. Windows can sign through
 # SignPath Foundation (docs/code-signing-policy.md) or Azure Trusted Signing.
 #
+# Once signing is set up, the repository variable REQUIRE_SIGNED_INSTALLERS
+# (a list such as "windows,macos") turns "says so" into a failed tag build:
+# a lost secret then stops the release instead of shipping an unsigned
+# installer. release-smoke.yml reads the same variable.
+#
+# A daily scheduled run builds every installer from main and boots each frozen
+# app (the same checks a tag runs), without signing or publishing anything, so
+# a broken macOS or Windows bundle shows up the day it lands, not on release
+# day. A red scheduled run opens the issue "Installer build is red on main"
+# (nightly-alert.yml).
+#
 # Action SHAs are pinned to 40-char commits (CVE-2025-30066 hardening), matching
 # the rest of this repo's workflows.
 
@@ -41,6 +52,10 @@ on:
   push:
     tags:
       - "v*.*.*"
+  # Daily probe build of main: nothing is signed or published off a tag.
+  # Away from ci.yml's nightly slot so the two do not share the macOS slots.
+  schedule:
+    - cron: "43 9 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -170,6 +185,40 @@ jobs:
             frozen-browser-proof/*.log
           if-no-files-found: warn
 
+      # Most users upgrade rather than install from scratch: install the
+      # published release (releases/latest - on a tag run the previous one,
+      # the new release is still a draft), boot it, then run this build's
+      # setup over it and prove the new version boots and keeps the state.
+      - name: Upgrade the published release in place
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $previous = Join-Path $env:RUNNER_TEMP 'previous-release'
+          New-Item -ItemType Directory -Force $previous | Out-Null
+          # Every release since the rename carries the setup under this name.
+          gh release download --repo $env:GITHUB_REPOSITORY --dir $previous --pattern $env:SIGNED_SETUP_NAME --clobber
+          $setup = Join-Path $previous $env:SIGNED_SETUP_NAME
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $setup)) { Write-Host "::error::The latest release carries no Windows setup to upgrade from"; exit 1 }
+          $version = python -c "import dodaios; print(dodaios.__version__)"
+          python scripts/ci/check_installer_upgrade.py `
+            --previous $setup `
+            --current "dist/installers/$env:SIGNED_SETUP_NAME" `
+            --expect-version $version `
+            --install-dir 'C:\pjup' `
+            --output upgrade-proof
+          exit $LASTEXITCODE
+
+      - name: Preserve upgrade evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-upgrade-windows-x64
+          path: |
+            upgrade-proof/report.json
+            upgrade-proof/*.log
+          if-no-files-found: warn
+
       # Signs the SETUP executable. Windows attaches Mark-of-the-Web to the
       # downloaded installer, so this signature is the one SmartScreen weighs;
       # files the installer then writes inherit no MOTW.
@@ -260,8 +309,15 @@ jobs:
       - name: Report the signing state honestly
         if: env.HAS_AZURE_SIGNING != 'true' && env.HAS_SIGNPATH_SIGNING != 'true'
         shell: bash
+        env:
+          REQUIRE_SIGNED: ${{ github.ref_type == 'tag' && contains(vars.REQUIRE_SIGNED_INSTALLERS, 'windows') }}
         run: |
-          echo "::notice::Neither SignPath (SIGNPATH_API_TOKEN + SIGNPATH_ORGANIZATION_ID/PROJECT_SLUG/SIGNING_POLICY_SLUG) nor AZURE_* signing is configured - the installer is UNSIGNED."
+          message="Neither SignPath (SIGNPATH_API_TOKEN + SIGNPATH_ORGANIZATION_ID/PROJECT_SLUG/SIGNING_POLICY_SLUG) nor AZURE_* signing is configured - the installer is UNSIGNED."
+          if [ "$REQUIRE_SIGNED" = "true" ]; then
+            echo "::error::$message REQUIRE_SIGNED_INSTALLERS asks for a signed Windows installer."
+            exit 1
+          fi
+          echo "::notice::$message"
 
       # The signed setup under the name SignPath pins; the release job adds the
       # byte-identical PersonalJarvis-Setup-x64.exe.
@@ -361,6 +417,22 @@ jobs:
       # The permission port loads pyobjc frameworks by name and the bundle's
       # Info.plist decides how LaunchServices runs it; neither shows in the
       # headless smoke test below, so look at the built app itself (BUG-222).
+      # build.sh staples and validates whenever it signs; this step makes a
+      # missing signature fatal once REQUIRE_SIGNED_INSTALLERS names macOS.
+      - name: Require a notarized DMG when the repository asks for one
+        if: github.ref_type == 'tag' && contains(vars.REQUIRE_SIGNED_INSTALLERS, 'macos')
+        shell: bash
+        env:
+          DMG: dist/installers/Dodaios-macOS-${{ matrix.arch }}.dmg
+        run: |
+          set -euo pipefail
+          if [ "$HAS_APPLE_SIGNING" != "true" ]; then
+            echo "::error::REQUIRE_SIGNED_INSTALLERS names macOS, but APPLE_SIGNING_IDENTITY is not configured: the DMG is not notarized."
+            exit 1
+          fi
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature -v "$DMG"
+
       - name: Verify the app bundle can use macOS permissions
         shell: bash
         run: python scripts/ci/check_frozen_macos_app.py --app "dist/Dodaios.app"

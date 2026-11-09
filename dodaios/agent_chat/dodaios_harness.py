@@ -103,10 +103,17 @@ SYSTEM_PREAMBLE: Final[str] = _SHARED_PREAMBLE + " You are this turn's worker: s
 #: The closing block of a coding thread in the Agentic IDE (a Claude Code seat
 #: with no assistant identity). The same transport facts, but the CLI keeps its
 #: own sub-agents: a coding agent splits its work into them, the person asks
-#: for them by name, and the thread lists each one under its row. The rule
-#: above, applied here, made Claude Code refuse sub-agents it was asked for
-#: (2026-11-02).
-CODING_PREAMBLE: Final[str] = _SHARED_PREAMBLE
+#: for them by name, and the thread lists each one under its row. No persona
+#: or reply-style rules: the CLI behaves as it does in a terminal.
+CODING_PREAMBLE: Final[str] = (
+    f"Dodaios tools come from the `{_SERVER_NAME}` MCP server: Claude Code names them "
+    f"`mcp__{_SERVER_NAME}__<tool>`; Grok Build names them `{_SERVER_NAME}__<tool>`, called "
+    "through use_tool. They act on the running Dodaios app and the person's connected "
+    "accounts and are already signed in. Your own file and shell tools work in this "
+    f"thread's folder; `mcp__{_SERVER_NAME}__run_shell` / `{_SERVER_NAME}__run_shell` reach "
+    "the rest of the machine. The live browser in the Options rail is "
+    f"`society_browser` on the same MCP server."
+)
 
 
 #: The child environment variable the control key travels in — the SAME name

@@ -108,8 +108,9 @@ async def test_a_swarm_of_eight_peers_plans_builds_and_reviews(tmp_path: Path) -
     assert len(_authors(snap, "critique")) == 8
     assert len(_authors(snap, "vote")) == 7
     assert len(_authors(snap, "review")) == 7
-    # A bigger team gets a bigger default turn bound.
-    assert snap["limits"]["max_turns"] == 80
+    # No default turn or time cap, however big the team.
+    assert snap["limits"]["max_turns"] == 0
+    assert snap["limits"]["max_minutes"] == 0
     assert snap["usage"]["turns"] == 8 + 8 + 1 + 7 + 1 + 7
 
 
@@ -252,19 +253,11 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         yield test_client
 
 
-def test_seats_offer_up_to_eight_members_and_the_turn_bound_per_size(client: TestClient) -> None:
+def test_seats_offer_up_to_eight_members_without_a_turn_bound(client: TestClient) -> None:
     body = client.get("/api/team-threads/seats").json()
 
     assert body["max_members"] == 8
-    assert body["max_turns"] == {
-        "2": 40,
-        "3": 40,
-        "4": 40,
-        "5": 50,
-        "6": 60,
-        "7": 70,
-        "8": 80,
-    }
+    assert "max_turns" not in body
 
 
 def test_two_claude_members_on_different_models_start_over_the_api(

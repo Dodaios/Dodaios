@@ -344,8 +344,8 @@ function Meters({ thread }: { thread: TeamThread }) {
     title={thread.usage.cost_usd > 0
       ? `${t("team_threads.cost_hint")}${thread.usage.cost_partial ? ` ${t("team_threads.cost_partial")}` : ""}`
       : undefined}>
-    {meter(minutes, thread.limits.max_minutes, fill(t("team_threads.meter_time"), { minutes, max_minutes: thread.limits.max_minutes }))}
-    {meter(thread.usage.turns, thread.limits.max_turns, fill(t("team_threads.meter_turns"), { turns: thread.usage.turns, max_turns: thread.limits.max_turns }))}
+    {thread.limits.max_minutes > 0 && meter(minutes, thread.limits.max_minutes, fill(t("team_threads.meter_time"), { minutes, max_minutes: thread.limits.max_minutes }))}
+    {thread.limits.max_turns > 0 && meter(thread.usage.turns, thread.limits.max_turns, fill(t("team_threads.meter_turns"), { turns: thread.usage.turns, max_turns: thread.limits.max_turns }))}
     {thread.usage.cost_usd > 0 && <span className="tabular-nums">≈ ${thread.usage.cost_usd.toFixed(2)}</span>}
   </div>;
 }
