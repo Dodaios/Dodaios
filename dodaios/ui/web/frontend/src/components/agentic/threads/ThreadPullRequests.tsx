@@ -2,16 +2,17 @@ import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { GitHubIcon, type GitHubIconName } from "../GitHubIcon";
 import { useThreadGitHub, type SessionGitHubStatus } from "../useSessionGitHub";
+import { PULL_REQUEST_TONE } from "../pullRequestTone";
 
 type PullRequestState = Exclude<SessionGitHubStatus["state"], "branch">;
 
-/** GitHub's own symbol and colour for each pull request state (Primer, light and dark). */
+/** GitHub's own symbol and colour for each pull request state. */
 const LOOK: Record<PullRequestState, { icon: GitHubIconName; tone: string; label: string }> = {
-  open: { icon: "git-pull-request", tone: "text-[#1a7f37] dark:text-[#3fb950]", label: "ide_panes.github.state_open" },
-  draft: { icon: "git-pull-request-draft", tone: "text-[#59636e] dark:text-[#9198a1]", label: "ide_panes.github.state_draft" },
-  queued: { icon: "git-merge-queue", tone: "text-[#9a6700] dark:text-[#d29922]", label: "ide_panes.github.state_queued" },
-  merged: { icon: "git-merge", tone: "text-[#8250df] dark:text-[#ab7df8]", label: "ide_panes.github.state_merged" },
-  closed: { icon: "git-pull-request-closed", tone: "text-[#cf222e] dark:text-[#f85149]", label: "ide_panes.github.state_closed" },
+  open: { icon: "git-pull-request", tone: PULL_REQUEST_TONE.open, label: "ide_panes.github.state_open" },
+  draft: { icon: "git-pull-request-draft", tone: PULL_REQUEST_TONE.draft, label: "ide_panes.github.state_draft" },
+  queued: { icon: "git-merge-queue", tone: PULL_REQUEST_TONE.queued, label: "ide_panes.github.state_queued" },
+  merged: { icon: "git-merge", tone: PULL_REQUEST_TONE.merged, label: "ide_panes.github.state_merged" },
+  closed: { icon: "git-pull-request-closed", tone: PULL_REQUEST_TONE.closed, label: "ide_panes.github.state_closed" },
 };
 
 /** Which pull request a row's symbol stands for: work still open before finished work. */
