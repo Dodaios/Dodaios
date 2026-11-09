@@ -36,3 +36,23 @@ CHECKSUMS                sha256 per file
 
 Import matches on `id`, then on `content_hash`, so the same bundle imported
 twice changes nothing.
+
+## The one endless conversation (2026-11-09)
+
+Memory work for the lead's single endless conversation (the conversation
+itself is `docs/plans/one-endless-lead-chat.md`, local only):
+
+| Item | Where |
+|---|---|
+| Due dates on memories, `GET /upcoming`, coming-up grounding | `store.upcoming`, `runtime.dated_notes` |
+| Pause learning (no temporary chats any more) | `PUT /pause`, Memory sidebar |
+| Corrections and standing rules pin themselves | `reconcile` (`pin`, procedural only) |
+| Per-message recall in realtime calls | `realtime/session.py::_voice_memory_recall` |
+| Agents read preferences and standing instructions only | `runtime.agent_block`, `SocietyMemory.head` |
+| One-time learning from the old chats | `vault/backfill.py` (30 calls max, resumable) |
+| Daily merge of near-duplicates | `vault/consolidate.py` |
+| Calendar appointments as short-lived memories | `vault/calendar_sync.py` (no model call, mail not read) |
+| Compacted conversation parts become episodes | `vault/episodes.py`, hooked in `society.conversation.prepare_history` for the lead |
+
+Learning keeps its triggers (5 minutes of quiet or 30 turns), which already
+suit one conversation that never ends.
