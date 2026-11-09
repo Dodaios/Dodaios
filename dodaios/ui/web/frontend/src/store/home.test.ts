@@ -38,12 +38,15 @@ describe("voice conversation boundaries", () => {
     home.ingest("VoiceSessionEnded", { session_id: "first", hangup_reason }, 3);
     expect(useHomeStore.getState().transcript).toEqual([]);
     expect(useHomeStore.getState().liveReply).toBe("");
-    expect(useHomeStore.getState().jarvisCardMode).toBe("voice");
+    // The call is over: the lead's card is back on the conversation.
+    expect(useHomeStore.getState().jarvisCardMode).toBe("chat");
     expect(useHomeStore.getState().freshVoicePending).toBe(true);
     expect(useEventStore.getState().activeThreadId).toBeNull();
     expect(useEventStore.getState().transcription).toBe("");
     home.ingest("VoiceSessionStarted", { session_id: "second" }, 4);
     expect(useHomeStore.getState().freshVoicePending).toBe(false);
+    // A call however it started (wake word, hotkey) shows on the lead's card.
+    expect(useHomeStore.getState().jarvisCardMode).toBe("voice");
     home.ingest("TranscriptFinal", { transcript: { text: "New conversation" } }, 5);
     expect(useHomeStore.getState().transcript.map((line) => line.text)).toEqual(["New conversation"]);
   });
