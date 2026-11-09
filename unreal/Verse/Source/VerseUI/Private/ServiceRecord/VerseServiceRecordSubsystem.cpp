@@ -116,8 +116,9 @@ bool UVerseServiceRecordSubsystem::Tick(float DeltaSeconds)
 	return true;
 }
 
-void UVerseServiceRecordSubsystem::OpenRecord()
+void UVerseServiceRecordSubsystem::OpenRecord(EVerseRecordTab Tab)
 {
+	RecordTab = Tab;
 	UGameViewportClient* Viewport = GetGameInstance() ? GetGameInstance()->GetGameViewportClient() : nullptr;
 	if (RecordWidget.IsValid() || !Viewport)
 	{

@@ -497,6 +497,13 @@
       "off": "Off",
       "on": "On",
       "previous": "<"
+    },
+    "loading": {
+      "title": "Loading",
+      "subtitle": "Dodaios Verse",
+      "tip_1": "Press 1 to 4 to ride the lift straight to a deck.",
+      "tip_2": "Every coding agent you start works at a terminal on Reactor Engineering.",
+      "tip_3": "Press V for a bird's-eye view of the whole deck."
     }
   }
 }

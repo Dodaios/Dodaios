@@ -66,21 +66,21 @@ const TArray<FVerseRankRow>& FVerseServiceRecordModel::Ladder()
 {
 	// VERSE_RANK_LADDER_BEGIN (read by tests/unit/progression/test_duel_parity.py)
 	static const TArray<FVerseRankRow> Rows = {
-		{TEXT("recruit"), 1, TEXT("deck")},
-		{TEXT("deckhand"), 3, TEXT("deck")},
-		{TEXT("technician"), 5, TEXT("deck")},
-		{TEXT("senior_technician"), 8, TEXT("deck")},
-		{TEXT("ensign"), 11, TEXT("line")},
-		{TEXT("lieutenant"), 14, TEXT("line")},
-		{TEXT("senior_lieutenant"), 17, TEXT("line")},
-		{TEXT("commander"), 21, TEXT("line")},
-		{TEXT("captain"), 25, TEXT("line")},
-		{TEXT("line_captain"), 29, TEXT("command")},
-		{TEXT("commodore"), 33, TEXT("command")},
-		{TEXT("rear_admiral"), 37, TEXT("flag")},
-		{TEXT("vice_admiral"), 41, TEXT("flag")},
-		{TEXT("admiral"), 45, TEXT("flag")},
-		{TEXT("fleet_admiral"), 50, TEXT("flag")},
+		{TEXT("recruit"), 1, TEXT("deck"), TEXT("000|010")},
+		{TEXT("deckhand"), 3, TEXT("deck"), TEXT("000|101")},
+		{TEXT("technician"), 5, TEXT("deck"), TEXT("000|111")},
+		{TEXT("senior_technician"), 8, TEXT("deck"), TEXT("010|111")},
+		{TEXT("ensign"), 11, TEXT("line"), TEXT("010|000")},
+		{TEXT("lieutenant"), 14, TEXT("line"), TEXT("101|000")},
+		{TEXT("senior_lieutenant"), 17, TEXT("line"), TEXT("111|000")},
+		{TEXT("commander"), 21, TEXT("line"), TEXT("111|010")},
+		{TEXT("captain"), 25, TEXT("line"), TEXT("111|101")},
+		{TEXT("line_captain"), 29, TEXT("command"), TEXT("010|010")},
+		{TEXT("commodore"), 33, TEXT("command"), TEXT("101|010")},
+		{TEXT("rear_admiral"), 37, TEXT("flag"), TEXT("010|101")},
+		{TEXT("vice_admiral"), 41, TEXT("flag"), TEXT("101|101")},
+		{TEXT("admiral"), 45, TEXT("flag"), TEXT("101|111")},
+		{TEXT("fleet_admiral"), 50, TEXT("flag"), TEXT("111|111")},
 	};
 	// VERSE_RANK_LADDER_END
 	return Rows;

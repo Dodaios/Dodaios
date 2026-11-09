@@ -497,6 +497,13 @@
       "off": "Aus",
       "on": "An",
       "previous": "<"
+    },
+    "loading": {
+      "title": "Wird geladen",
+      "subtitle": "Dodaios Verse",
+      "tip_1": "Drücke 1 bis 4, um mit dem Aufzug direkt zu einem Deck zu fahren.",
+      "tip_2": "Jeder Coding-Agent, den du startest, arbeitet an einem Terminal auf dem Deck Reaktortechnik.",
+      "tip_3": "Drücke V für die Vogelperspektive über das ganze Deck."
     }
   }
 }
