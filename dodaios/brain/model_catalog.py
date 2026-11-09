@@ -318,6 +318,20 @@ GROK_BUILD_MODELS: tuple[tuple[str, str], ...] = (
     ("grok-4.3", "Grok 4.3"),
 )
 
+#: OpenCode's picker. The ACP session resolves models by their own id
+#: (``provider/model``), and ``opencode models`` is the live list. This curated
+#: set is the free Zen lineup a signed-out install can already run, so the card
+#: is useful before any provider login; anything else the user configured can
+#: still be typed, and ACP passes it through unchanged.
+OPENCODE_MODELS: tuple[tuple[str, str], ...] = (
+    ("opencode/big-pickle", "Big Pickle (free)"),
+    ("opencode/glm-5.3-flash-free", "GLM 5.3 Flash (free)"),
+    ("opencode/deepseek-v4.1-flash-free", "DeepSeek V4.1 Flash (free)"),
+    ("opencode/mimo-v2.6-flash-free", "MiMo V2.6 Flash (free)"),
+    ("opencode/nemotron-3.5-lightning-free", "Nemotron 3.5 Lightning (free)"),
+    ("opencode/nemotron-3.5-super-vl-free", "Nemotron 3.5 Super VL (free)"),
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CatalogResult:
@@ -823,6 +837,15 @@ def _build_provider_catalog() -> dict[str, CatalogSpec]:
         "brain",
         "model",
         tuple(_curated(list(GROK_BUILD_MODELS))),
+        live=False,
+    )
+    # OpenCode — driven over ACP; the session's own config options accept a
+    # ``provider/model`` id, so curated only (``opencode models`` is a local
+    # subprocess probe, not an HTTP endpoint this catalog fetcher speaks).
+    cat["opencode"] = CatalogSpec(
+        "brain",
+        "model",
+        tuple(_curated(list(OPENCODE_MODELS))),
         live=False,
     )
     # Claude CLI — the Anthropic-subscription writer (``claude -p``); no

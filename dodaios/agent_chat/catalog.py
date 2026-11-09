@@ -71,6 +71,7 @@ Runner = Literal[
     "agy-cli",
     "grok-cli",
     "opencode-cli",
+    "opencode-acp",
     "kimi-cli",
     "glm-cli",
     "dsh-cli",
@@ -275,7 +276,11 @@ PROVIDER_ROWS: Final[tuple[ProviderRow, ...]] = (
         id="opencode",
         label="OpenCode",
         family="opencode",
-        runner="opencode-cli",
+        # ``opencode acp``: the ACP session, not a ``run`` process — the prompt
+        # rides the protocol on stdin (a long identity no longer overflows
+        # Windows' command line), the model is a session config option, and the
+        # agent's permission requests become this chat's approval cards.
+        runner="opencode-acp",
         models_source="curated",
         # OpenCode's ids are ``provider/model`` and depend on which providers
         # the person configured, so nothing is shipped: the route replaces

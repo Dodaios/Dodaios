@@ -6,10 +6,10 @@
     "single_turn_mode": false
   },
   "tts": {
-    "provider": "grok-voice",
+    "provider": "piper-local",
     "fallback": "grok-voice",
-    "voice_de": "Kore",
-    "voice_en": "Kore",
+    "voice_de": "vits-piper-de_DE-thorsten-medium",
+    "voice_en": "vits-piper-en_US-ryan-medium",
     "language_code": "auto",
     "chunk_by_sentence": false,
     "seed": 7,
@@ -33,7 +33,7 @@
     "allow_sapi5_fallback": false
   },
   "brain": {
-    "primary": "openai",
+    "primary": "opencode",
     "fallback": "openrouter",
     "deep_brain": "claude-cli",
     "routing_provider": "grok",
@@ -64,8 +64,8 @@
     "fallback_model_2": "gemini-3-pro-preview"
   },
   "stt": {
-    "provider": "groq-api",
-    "model": "whisper-large-v3",
+    "provider": "faster-whisper",
+    "model": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
     "bias_prompt": "Jarvis, OpenClaw, Codex, Gemini, Grok, Claude, Anthropic, OpenAI, OpenRouter, Whisper, Subagent, Sub-Agent, Mission-Manager, Critic-Loop, Critic, Worker, Router-Brain, Router, Kontrollierer, Voice-Pipeline, Wake-Word, Silero, VAD, TTS, STT, Telemetry, Transkript, Token, Provider, Plugin, Sprechblase, Orb, Mascot, Quip, Browser, Terminal, Repository, Branch, Commit, Push, Pull-Request, Issue, Merge, Refactor, Deployment, Screenshot, Debuggen, Workflow, Microservice, Container, Docker, Kubernetes, FastAPI, React, TypeScript, Python, JSON, Markdown, Logfile, Konfiguration, Endpoint, Webhook, API-Key, Service-Account, Cloud, Google Cloud, Vertex AI, BigQuery, GitHub, Twilio, ElevenLabs, OAuth, Credential Manager, Frontend, Backend, Skript, Daemon, Hangup, Auflegen, Denkpause, submitted, distanziert, erkennt",
     "language": "auto",
     "models": {
@@ -113,7 +113,7 @@
     "provider": "vertex"
   },
   "brain.computer_use": {
-    "provider": "openai"
+    "provider": "gemini"
   },
   "brain.providers.grok-realtime": {
     "voice": "lux"
@@ -164,5 +164,8 @@
   },
   "brain.providers.openai-live": {
     "model": "gpt-live-1"
+  },
+  "brain.providers.opencode": {
+    "model": "opencode/glm-5.3-flash-free"
   }
 }

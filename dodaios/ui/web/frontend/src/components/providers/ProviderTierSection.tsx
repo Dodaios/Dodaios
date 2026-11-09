@@ -3277,6 +3277,21 @@ export function AuthWidget({
           )}
         </>
       )}
+      {descriptor.auth_mode === "opencode" && (
+        // No Dodaios-held secret: the CLI owns the logins, and its free models
+        // run without one. Show what the card actually depends on, plus the
+        // install command while the binary is missing.
+        <div className="space-y-1 text-xs text-muted-foreground">
+          {descriptor.credential_help && <p>{descriptor.credential_help}</p>}
+          {!descriptor.configured && descriptor.install_hint && (
+            <p>
+              <code className="rounded bg-muted px-1 py-0.5">
+                {descriptor.install_hint}
+              </code>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -3848,6 +3863,12 @@ export function providerStateChip(
     const status = descriptor.antigravity_status;
     if (!status?.installed) return "missing";
     return status.connected ? "ready" : "not_connected";
+  }
+  if (descriptor.auth_mode === "opencode") {
+    // The backend's credential check IS the CLI probe: a present binary whose
+    // ``opencode models`` lists at least one model is ready. Free models need
+    // no login, so "configured" here never means a stored secret.
+    return descriptor.configured ? "ready" : "not_installed";
   }
   // A live verdict outranks everything below: the provider was asked and
   // answered (or did not).

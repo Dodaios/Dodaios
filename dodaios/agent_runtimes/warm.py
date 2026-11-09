@@ -371,6 +371,22 @@ class WarmPool:
             and (spec_signature is None or warm.spec_signature == spec_signature)
         )
 
+    def abandon(self) -> None:
+        """Drop every process without awaiting anything (the loop is gone).
+
+        An in-process app restart (``restart-app``) builds a new event loop;
+        this pool's locks, reaper and child processes belong to the loop that
+        no longer runs. Killing the children now is all that is still safe:
+        awaiting their pipes from the new loop raises "attached to a different
+        loop" and leaves the turn waiting on a future nobody resolves.
+        """
+        for warm in list(self._procs.values()):
+            _kill_now(warm)
+        self._procs.clear()
+        self._locks.clear()
+        self._draining.clear()
+        self._reaper = None
+
     async def stop(self, keys: set[str] | None = None) -> None:
         """Stop the warm processes of ``keys`` (all when ``None``)."""
         for key, warm in list(self._procs.items()):

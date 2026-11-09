@@ -47,6 +47,9 @@ PROTOCOL_VERSION: Final[int] = 1
 _INITIALIZE_ID: Final[int] = 1
 _SESSION_ID: Final[int] = 2
 _PROMPT_ID: Final[int] = 3
+#: Request ids above the fixed ones: the ``session/set_config_option`` calls a
+#: turn makes before its prompt (model, variant).
+_CONFIG_ID_BASE: Final[int] = 10
 
 #: Error text the CLI runner's resume-lost detection recognises
 #: (``runner_cli._RESUME_LOST_MARKERS``) so a vanished conversation is
@@ -178,6 +181,12 @@ class AcpTurn:
     #: (OpenClaw: this prompt's thinking level).
     session_meta: dict[str, Any] | None = None
     prompt_meta: dict[str, Any] | None = None
+    #: ACP config options this turn picks before its prompt, ``{"model": "…"}``:
+    #: one ``session/set_config_option`` per option the session offers, chained,
+    #: and the prompt only after them. OpenCode is driven this way (``model`` is a
+    #: config option, never an argv flag); an option the agent does not offer is
+    #: skipped, so the turn still runs on the agent's own value.
+    config: dict[str, str] = field(default_factory=dict)
     #: Replies the runtime posts as the assistant's message when the turn
     #: failed before any model call (OpenClaw: an unsupported thinking level,
     #: an interruption). The first group of a match is the reason; such a
@@ -202,6 +211,11 @@ class AcpTurn:
     can_load: bool = False
 
     _acp_session: str = field(default="", init=False)
+    #: Config options the session last offered, and the picks already sent.
+    _config_options: list[Any] = field(default_factory=list, init=False)
+    _config_sent: set[str] = field(default_factory=set, init=False)
+    _config_requests: dict[int, str] = field(default_factory=dict, init=False)
+    _next_config_id: int = field(default=_CONFIG_ID_BASE, init=False)
     _replaying: bool = field(default=False, init=False)
     _text_id: str = field(default="", init=False)
     _text_parts: list[str] = field(default_factory=list, init=False)
@@ -293,6 +307,25 @@ class AcpTurn:
             params["_meta"] = dict(self.prompt_meta)
         return _request(_PROMPT_ID, "session/prompt", params)
 
+    def _next_config(self) -> dict[str, Any] | None:
+        """The next ``session/set_config_option`` this turn picked, if offered."""
+        offered = {
+            str(option.get("id")) for option in self._config_options if isinstance(option, dict)
+        }
+        for config_id, value in self.config.items():
+            if not value or config_id in self._config_sent or config_id not in offered:
+                continue
+            self._config_sent.add(config_id)
+            rid = self._next_config_id
+            self._next_config_id += 1
+            self._config_requests[rid] = config_id
+            return _request(
+                rid,
+                "session/set_config_option",
+                {"sessionId": self._acp_session, "configId": config_id, "value": value},
+            )
+        return None
+
     # ---------------------------------------------------------------- dispatch
 
     async def on_message(self, obj: dict[str, Any], io: AcpIO) -> None:
@@ -340,7 +373,16 @@ class AcpTurn:
                 self._fail("ACP session/new returned no session id")
                 return
             self.vendor_session = self.report_session or self._acp_session
-            await io.write(self._prompt_request())
+            self._config_options = _config_options(res)
+            await io.write(self._next_config() or self._prompt_request())
+            return
+        if rid in self._config_requests:
+            config_id = self._config_requests.pop(rid)
+            if error is not None:
+                log.debug("acp: %s not applied: %s", config_id, _error_text(error))
+            else:
+                self._config_options = _config_options(result if isinstance(result, dict) else {})
+            await io.write(self._next_config() or self._prompt_request())
             return
         if rid == _PROMPT_ID:
             await self._flush_thought(io)
@@ -658,6 +700,12 @@ def _failure_reason(text: str, patterns: tuple[re.Pattern[str], ...]) -> str:
         if match:
             return (match.group(1) if match.groups() else stripped).strip()
     return ""
+
+
+def _config_options(result: dict[str, Any]) -> list[Any]:
+    """The config options a session/new, session/load or set_config answer offers."""
+    options = result.get("configOptions")
+    return list(options) if isinstance(options, list) else []
 
 
 def _error_text(error: dict[str, Any]) -> str:

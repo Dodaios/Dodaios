@@ -255,6 +255,8 @@ async def live_models() -> dict[str, list[dict[str, Any]]]:
         "codex-cli": read_codex_models,
         "grok-cli": read_grok_models,
         "opencode-cli": read_opencode_models,
+        # ``opencode acp`` is the same install and the same model list.
+        "opencode-acp": read_opencode_models,
     }
     # One trip off the loop for every installed-check: each is a PATH walk.
     found = await _off_loop(lambda: [r for r in ("claude-cli", *readers) if _installed(r)])
