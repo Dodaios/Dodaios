@@ -283,6 +283,8 @@ class ApprovalBody(BaseModel):
     #: A narrower chat rule: ``folder`` (only this folder) or ``command``
     #: (only this exact command); empty = the whole tool.
     narrow: str = ""
+    #: Why a card was declined, handed to the agent as the deny message.
+    feedback: str = ""
 
 
 class ApprovalRuleBody(BaseModel):
@@ -1443,6 +1445,7 @@ async def resolve_approval(
         scope=body.scope,
         breadth=body.breadth,
         narrow=body.narrow,
+        feedback=body.feedback,
     )
     if not ok:
         if await svc.close_stale_approval(session_id, approval_id):

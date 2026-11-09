@@ -168,6 +168,8 @@ class AgentChatStore:
         self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
+        #: The mode a session was in before it entered plan mode (this run only).
+        self._mode_before_plan: dict[str, str] = {}
         with self._lock:
             if self._path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
@@ -375,12 +377,24 @@ class AgentChatStore:
         updates["updated_ms"] = now_ms()
         cols = ", ".join(f"{k} = ?" for k in updates)
         with self._lock:
+            if updates.get("permission_mode") == "plan":
+                row = self._conn.execute(
+                    "SELECT permission_mode FROM agent_chat_sessions WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone()
+                if row is not None and row[0] not in ("plan", "read-only"):
+                    self._mode_before_plan[session_id] = str(row[0])
             self._conn.execute(
                 f"UPDATE agent_chat_sessions SET {cols} WHERE session_id = ?",  # noqa: S608 — column names are from the allow-list above
                 (*updates.values(), session_id),
             )
             self._conn.commit()
         return self.get_session(session_id)
+
+    def mode_before_plan(self, session_id: str) -> str:
+        """The mode the session was in before it entered plan mode, or "" if unknown."""
+        with self._lock:
+            return self._mode_before_plan.get(session_id, "")
 
     def permission_override(self, session_id: str) -> str:
         """The user's explicit stance, separate from a Society roster ceiling."""

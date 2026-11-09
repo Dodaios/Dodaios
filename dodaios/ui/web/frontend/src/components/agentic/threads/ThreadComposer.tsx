@@ -119,6 +119,7 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
   const chat = useThreadChat();
   const [sending, setSending] = useState<ApprovalDecision | null>(null);
   const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState("");
   const input = pending.input && typeof pending.input === "object" ? pending.input as Record<string, unknown> : {};
   // Claude Code's finished plan asks here too, and the plan itself is what gets approved.
   const isPlan = pending.name === "ExitPlanMode";
@@ -131,7 +132,8 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
     setSending(decision);
     setError("");
     try {
-      await chat.getState().decide(pending.approvalId, decision);
+      if (decision === "deny" && feedback.trim()) await chat.getState().decide(pending.approvalId, decision, undefined, feedback);
+      else await chat.getState().decide(pending.approvalId, decision);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSending(null);
@@ -151,6 +153,11 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
         <p className="mt-0.5 text-sm text-muted-foreground">{isPlan ? t("ide_threads.plan_hint") : pending.summary || pending.name}</p>
         {plan && <div data-testid="thread-approval-plan" className={cn("mt-2 max-h-72 overflow-auto rounded-md bg-secondary px-3 py-2 scrollbar-jarvis", PLAN_PROSE)}><ChatMarkdown text={plan} /></div>}
         {detail && <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-secondary px-2.5 py-1.5 font-mono text-xs text-foreground scrollbar-jarvis">{detail}</pre>}
+        <input type="text" data-testid="thread-approval-feedback" value={feedback} disabled={sending !== null}
+          onChange={(e) => setFeedback(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && feedback.trim()) { e.preventDefault(); void decide("deny"); } }}
+          aria-label={t("ide_threads.deny_feedback")} placeholder={t("ide_threads.deny_feedback")}
+          className="mt-2 w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
         {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
       </div>
     </div>

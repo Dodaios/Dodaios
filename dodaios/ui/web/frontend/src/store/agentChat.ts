@@ -195,7 +195,7 @@ export interface AgentChatStore {
    * the backend took the answer, or said nothing waits on it any more; any
    * other failure throws so the card can say why.
    */
-  decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice) => Promise<void>;
+  decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice, feedback?: string) => Promise<void>;
   /**
    * Turn an approval card into a standing rule after the fact ("Allow every
    * time", "Check with me every time"). The card shows it at once; throws so
@@ -947,7 +947,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         }
       },
 
-      decide: async (approvalId, decision, rule) => {
+      decide: async (approvalId, decision, rule, feedback) => {
         const sid = get().activeSessionId;
         if (!sid) return;
         let outcome: string = decision;
@@ -956,6 +956,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         set({ timeline: markApprovalAnswering(get().timeline, approvalId, true) });
         try {
           if (rule) await resolveAgentChatApproval(sid, approvalId, decision, rule);
+          else if (feedback?.trim()) await resolveAgentChatApproval(sid, approvalId, decision, undefined, feedback);
           else await resolveAgentChatApproval(sid, approvalId, decision);
           markAnswered(approvalId);
         } catch (err) {

@@ -10342,6 +10342,7 @@
     "one_of": "第 1 个，共 {count} 个",
     "plan_hint": "开始构建，或继续规划并说明要改什么。",
     "keep_planning": "继续规划",
+    "deny_feedback": "可选:告诉智能体原因或要修改的内容",
     "decline": "拒绝",
     "always_allow_title": "批准，并在此线程中不再询问此项",
     "always_allow": "始终允许",

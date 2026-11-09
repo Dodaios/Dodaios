@@ -10342,6 +10342,7 @@
     "one_of": "1 de {count}",
     "plan_hint": "Constrúyelo, o sigue planificando y di qué cambiar.",
     "keep_planning": "Seguir planificando",
+    "deny_feedback": "Opcional: dile al agente por qué o qué cambiar",
     "decline": "Rechazar",
     "always_allow_title": "Aprobar y no volver a preguntar por esto en este hilo",
     "always_allow": "Permitir siempre",

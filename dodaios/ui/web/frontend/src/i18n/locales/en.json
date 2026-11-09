@@ -10342,6 +10342,7 @@
     "one_of": "1 of {count}",
     "plan_hint": "Build it, or keep planning and say what to change.",
     "keep_planning": "Keep planning",
+    "deny_feedback": "Optional: tell the agent why or what to change",
     "decline": "Decline",
     "always_allow_title": "Approve, and stop asking for this in this thread",
     "always_allow": "Always allow",
