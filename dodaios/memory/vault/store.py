@@ -133,7 +133,6 @@ def _new_id() -> str:
 
 
 def _secret_check(text: str) -> bool:
-
     from dodaios.memory.secret_guard import contains_secret
 
     return contains_secret(text)
