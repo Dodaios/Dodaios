@@ -71,6 +71,9 @@ PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     # Opus 5.5 / Fable 5.1 (OpenRouter feed, 2026-09-28).
     "claude-opus-5-5": (4.0, 20.0),
     "claude-fable-5-1": (10.0, 50.0),
+    # Fable 5.2: no published rate at the time of writing; the Fable line's
+    # rate is assumed until the feed carries one.
+    "claude-fable-5-2": (10.0, 50.0),
     "claude-sonnet-5": (2.0, 10.0),
     "claude-opus-4-8": (15.0, 75.0),
     "claude-opus-4-7-20251022": (15.0, 75.0),

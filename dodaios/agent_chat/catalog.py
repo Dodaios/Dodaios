@@ -161,6 +161,7 @@ def _agy_fallback_models() -> tuple[tuple[str, str, tuple[str, ...]], ...]:
 #: aliases people type. Per-model effort caps follow the docs (no xhigh on
 #: 4.6; no effort at all on Haiku 4.5 and the 4.5 generation).
 CLAUDE_CODE_MODELS: Final[tuple[CuratedModel, ...]] = (
+    CuratedModel("claude-fable-5-2", "Claude Fable 5.2"),
     CuratedModel("claude-opus-5-5", "Claude Opus 5.5"),
     CuratedModel("claude-fable-5-1", "Claude Fable 5.1"),
     CuratedModel("claude-fable-5", "Claude Fable 5"),

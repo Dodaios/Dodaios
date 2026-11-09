@@ -689,6 +689,7 @@ class TestListModels:
         assert result.source == "static"
         ids = {m.id for m in result.models}
         assert any("fable" in i for i in ids)
+        assert "claude-fable-5-2" in ids
         assert any("opus" in i for i in ids)
         assert any("sonnet" in i for i in ids)
         assert any("haiku" in i for i in ids)
@@ -749,6 +750,8 @@ class TestModelClassification:
         # The separate Fast variant is its own starred pick (distinct from base).
         assert is_starred_model("anthropic/claude-opus-4.8-fast") is True
         assert is_starred_model("claude-fable-5") is True
+        assert is_starred_model("claude-fable-5-2") is True
+        assert is_starred_model("anthropic/claude-fable-5.2") is True
         assert is_starred_model("openai/gpt-5.5") is True
         assert is_starred_model("gemini-3.5-flash") is True
         assert is_starred_model("z-ai/glm-5.2") is True
