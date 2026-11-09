@@ -21,7 +21,16 @@ Use **Chats** for questions, follow-ups, and conversations you may revisit.
 > **Conversation** in the sidebar always opens it; typed messages, voice calls
 > and agent reports all land there. Long conversations are summarized in the
 > background, so nothing has to start over. Older chats stay in the history
-> and can still be opened.
+> and can still be opened (**Earlier chats** in the sidebar).
+>
+> - `/clear` starts the assistant fresh; the conversation and memory stay.
+> - "What did we say about X?" searches the whole conversation.
+> - **Remembered: …** lines show what the assistant just learned; **Undo**
+>   forgets a new memory again.
+> - The **Activity** panel on the right shows what waits on you, what runs
+>   and what finished, and turns the daily **morning brief** on or off.
+> - Your own private Telegram chat with the assistant is part of the same
+>   conversation; friends and groups are not.
 
 History combines local text threads and retained voice transcripts; files,
 detailed runs, and durable knowledge stay elsewhere.
