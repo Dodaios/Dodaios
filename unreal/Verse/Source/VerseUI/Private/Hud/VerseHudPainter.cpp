@@ -610,7 +610,7 @@ void FVerseHudPainter::PaintFeed(const FVerseHudFrame& Frame, FVerseHudDrawList&
 		else if (E.Kind == EVerseFeedKind::Respawn)
 		{
 			FFormatNamedArguments Args;
-			Args.Add(TEXT("name"), PlayerName(Frame, E.VictimId));
+			Args.Add(TEXT("player"), PlayerName(Frame, E.VictimId));
 			Line = S.Format(TEXT("verse.hud.feed.respawn"), Args);
 			Colour = VerseUiTheme::TextDim;
 		}
@@ -641,7 +641,7 @@ void FVerseHudPainter::PaintCentre(const FVerseHudFrame& Frame, FVerseHudDrawLis
 	if (Frame.bKillCam)
 	{
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("name"), PlayerName(Frame, Frame.KillCamKillerId));
+		Args.Add(TEXT("player"), PlayerName(Frame, Frame.KillCamKillerId));
 		const float Y = L.SafeMin.Y + L.Px(96.f);
 		const FVector2D Size = Measure(S.Format(TEXT("verse.hud.killcam"), Args), L.FontSize(16.f), true);
 		FillRect(Out, FVector2D(Mid - Size.X * 0.5f - L.Px(16.f), Y - L.Px(6.f)), FVector2D(Size.X + L.Px(32.f), Size.Y + L.Px(12.f)), VerseUiTheme::Steel, TagCentre);

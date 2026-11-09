@@ -68,6 +68,20 @@
       "lift": {
         "name": "Ascensor",
         "action": "Ir a otra cubierta"
+      },
+      "armoury": {
+        "action": "Abrir el duelo",
+        "name": "Armería"
+      },
+      "close": "Cerrar",
+      "error": {
+        "bad_request": "Eso no ha funcionado.",
+        "busy": "Ya se está iniciando una tanda.",
+        "conflict": "Se ha rechazado.",
+        "internal": "Eso no ha funcionado.",
+        "not_found": "Eso ya no está.",
+        "rate_limited": "Demasiadas solicitudes. Espera un momento y vuelve a intentarlo.",
+        "unavailable": "Eso no está disponible ahora mismo."
       }
     },
     "card": {
@@ -122,7 +136,30 @@
       "reset": "Restablecer",
       "fov_third": "Campo de visión, tercera persona",
       "fov_first": "Campo de visión, primera persona",
-      "volume": "Volumen del sonido"
+      "volume": "Volumen del sonido",
+      "duel_fov": "Campo de visión en duelo",
+      "gore": "Sangre",
+      "gore.full": "Completa",
+      "gore.reduced": "Reducida",
+      "level_sound": "Sonido de nivel",
+      "markers_note": "Los marcadores se distinguen por la forma: trazos, trazos con rombo, anillo, cuadrado.",
+      "page": {
+        "access": "Acceso",
+        "audio": "Sonido",
+        "controls": "Teclas",
+        "gameplay": "Juego",
+        "video": "Gráficos"
+      },
+      "press_key": "Pulsa una tecla",
+      "quality.auto": "Automática",
+      "quality.cinematic": "Cine",
+      "quality.epic": "Épica",
+      "quality.high": "Alta",
+      "quality.low": "Baja",
+      "quality.medium": "Media",
+      "reduced_motion": "Menos movimiento",
+      "text_size": "Tamaño del texto",
+      "ui_sound": "Sonidos de interfaz"
     },
     "lift": {
       "title": "Ascensor",
@@ -162,7 +199,19 @@
     },
     "games": {
       "title": "Sala de simuladores",
-      "loading": "Cargando la simulación…"
+      "loading": "Cargando la simulación…",
+      "programme": {
+        "asteroid_run": "Asteroid Run",
+        "block_drop": "Block Drop",
+        "brick_breaker": "Brick Breaker",
+        "city_defense": "City Defense",
+        "desert_dash": "Desert Dash",
+        "maze_muncher": "Maze Muncher",
+        "neon_snake": "Neon Snake",
+        "paddle_duel": "Paddle Duel",
+        "pixel_raiders": "Pixel Raiders",
+        "road_hopper": "Road Hopper"
+      }
     },
     "duel": {
       "tool": "Duelo",
@@ -273,6 +322,175 @@
       "changes": "Cambios",
       "placeholder": "Prompt para este agente",
       "send": "Enviar"
+    },
+    "armoury": {
+      "loadout": "EQUIPO",
+      "slot": {
+        "gadgeta": "EQUIPO",
+        "gadgetb": "EQUIPO",
+        "melee": "CUERPO A CUERPO",
+        "primary": "PRINCIPAL",
+        "secondary": "SECUNDARIA"
+      },
+      "start": "Empezar duelo",
+      "tier": "RIVAL",
+      "title": "Armería"
+    },
+    "bar": {
+      "leave_duel": "Salir del duelo",
+      "quick_duel": "Duelo rápido",
+      "return": "Volver a la app"
+    },
+    "end": {
+      "adaptive": "Nivel del rival adaptativo: {skill} (0 normal, 0,5 difícil, 1 élite)",
+      "leave": "Salir del duelo",
+      "lost": "Set perdido",
+      "next": "Siguiente set",
+      "opponent": "RIVAL",
+      "row": {
+        "accuracy": "Precisión",
+        "damage": "Daño causado",
+        "deaths": "Muertes",
+        "finishers": "Remates",
+        "headshots": "A la cabeza",
+        "kd": "K/D",
+        "kills": "Bajas",
+        "streak": "Mejor racha",
+        "walls": "Muros abiertos"
+      },
+      "score": "{person} : {opponent}",
+      "set": "Set {set}",
+      "sets": "Sets {won} : {lost}",
+      "tier": "Rival: {tier}",
+      "unfinished": "Set sin terminar",
+      "won": "Set ganado",
+      "you": "TÚ"
+    },
+    "hud": {
+      "chambered": "+1",
+      "cooldown": "{seconds} s",
+      "feed": {
+        "finisher": "Remate",
+        "headshot": " · a la cabeza",
+        "kill": "{killer} · {weapon} · {victim}",
+        "melee": "Cuerpo a cuerpo",
+        "opponent": "Rival",
+        "respawn": "{player} reaparece",
+        "set_lost": "Set perdido",
+        "set_unfinished": "Set sin terminar",
+        "set_won": "Set ganado",
+        "unknown": "Desconocido",
+        "wallshot": " · a través",
+        "world": "El hangar",
+        "you": "Tú"
+      },
+      "health": "SALUD",
+      "killcam": "Repetición · {player}",
+      "killcam_skip": "Saltar: {key}",
+      "protected": "Protección {seconds} s",
+      "reload_empty": "RECARGA VACÍA",
+      "reload_tactical": "RECARGANDO",
+      "reserve": "/ {reserve}",
+      "respawn_in": "Reaparición en {seconds}",
+      "score": {
+        "opponent": "RIVAL",
+        "separator": ":",
+        "set": "Set {set} · a {target}",
+        "you": "TÚ"
+      },
+      "stance": {
+        "crouch": "Agachado",
+        "prone": "Cuerpo a tierra",
+        "slide": "Deslizando",
+        "stand": "De pie"
+      }
+    },
+    "item": {
+      "breach_charge": {
+        "name": "Carga de brecha",
+        "role": "Explosivo de brecha",
+        "short": "BRECHA"
+      },
+      "bulwark": {
+        "name": "Bulwark",
+        "role": "Barricada de energía desplegable",
+        "short": "BULWARK"
+      },
+      "graveline": {
+        "name": "Graveline",
+        "role": "Fusil de asalto",
+        "short": "FUSIL"
+      },
+      "hookbill": {
+        "name": "Hookbill",
+        "role": "Cuchillo",
+        "short": "CUCHILLO"
+      },
+      "longsight": {
+        "name": "Longsight",
+        "role": "Fusil de tirador",
+        "short": "TIRADOR"
+      },
+      "skitter": {
+        "name": "Skitter",
+        "role": "Subfusil",
+        "short": "SUBFUSIL"
+      },
+      "tallow": {
+        "name": "Tallow",
+        "role": "Pistola",
+        "short": "PISTOLA"
+      }
+    },
+    "key": {
+      "ads": "Apuntar",
+      "crouch": "Agacharse y deslizar",
+      "fire": "Disparar",
+      "gadget_a": "Bulwark",
+      "gadget_b": "Carga de brecha",
+      "interact": "Usar",
+      "jump": "Saltar y trepar",
+      "lean_left": "Asomarse izquierda",
+      "lean_right": "Asomarse derecha",
+      "melee": "Cuchillo",
+      "move_back": "Retroceder",
+      "move_forward": "Avanzar",
+      "move_left": "Izquierda",
+      "move_right": "Derecha",
+      "prone": "Tumbarse",
+      "reload": "Recargar",
+      "return_to_app": "Volver a la app",
+      "skip_kill_cam": "Saltar repetición",
+      "slot_melee": "Sacar cuchillo",
+      "slot_primary": "Arma principal",
+      "slot_secondary": "Arma secundaria",
+      "sprint": "Correr",
+      "verse_bar": "Barra del Verse",
+      "walk": "Caminar (pasos silenciosos)"
+    },
+    "menu": {
+      "leave_duel": "Salir del duelo",
+      "resume": "Continuar",
+      "return": "Volver a la app",
+      "settings": "Ajustes",
+      "title": "Menú"
+    },
+    "tier": {
+      "adaptive": "Adaptativo",
+      "adaptive.desc": "Empieza en difícil y busca un combate igualado durante el set.",
+      "elite": "Élite",
+      "elite.desc": "Rápido, preciso y paciente. Gana más veces de las que pierde.",
+      "hard": "Difícil",
+      "hard.desc": "Abre brechas, flanquea y castiga el mismo truco dos veces.",
+      "normal": "Normal",
+      "normal.desc": "Un rival constante que te deja aprender el hangar."
+    },
+    "ui": {
+      "back": "Atrás",
+      "next": ">",
+      "off": "No",
+      "on": "Sí",
+      "previous": "<"
     }
   }
 }

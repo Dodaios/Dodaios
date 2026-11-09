@@ -68,6 +68,20 @@
       "lift": {
         "name": "Lift",
         "action": "Ride to another deck"
+      },
+      "armoury": {
+        "action": "Open the duel",
+        "name": "Armoury"
+      },
+      "close": "Close",
+      "error": {
+        "bad_request": "That did not work.",
+        "busy": "A batch is already starting.",
+        "conflict": "That was declined.",
+        "internal": "That did not work.",
+        "not_found": "That is no longer there.",
+        "rate_limited": "Too many requests. Wait a moment, then try again.",
+        "unavailable": "That is not available right now."
       }
     },
     "card": {
@@ -122,7 +136,30 @@
       "reset": "Reset",
       "fov_third": "Field of view, third person",
       "fov_first": "Field of view, first person",
-      "volume": "Sound volume"
+      "volume": "Sound volume",
+      "duel_fov": "Duel field of view",
+      "gore": "Gore",
+      "gore.full": "Full",
+      "gore.reduced": "Reduced",
+      "level_sound": "Level-up sound",
+      "markers_note": "Hit markers differ by shape: ticks, ticks with a diamond, a ring, a square.",
+      "page": {
+        "access": "Access",
+        "audio": "Sound",
+        "controls": "Keys",
+        "gameplay": "Game",
+        "video": "Video"
+      },
+      "press_key": "Press a key",
+      "quality.auto": "Auto",
+      "quality.cinematic": "Cinematic",
+      "quality.epic": "Epic",
+      "quality.high": "High",
+      "quality.low": "Low",
+      "quality.medium": "Medium",
+      "reduced_motion": "Reduced motion",
+      "text_size": "Text size",
+      "ui_sound": "Interface sounds"
     },
     "lift": {
       "title": "Lift",
@@ -162,7 +199,19 @@
     },
     "games": {
       "title": "Simulator room",
-      "loading": "Loading the simulation…"
+      "loading": "Loading the simulation…",
+      "programme": {
+        "asteroid_run": "Asteroid Run",
+        "block_drop": "Block Drop",
+        "brick_breaker": "Brick Breaker",
+        "city_defense": "City Defense",
+        "desert_dash": "Desert Dash",
+        "maze_muncher": "Maze Muncher",
+        "neon_snake": "Neon Snake",
+        "paddle_duel": "Paddle Duel",
+        "pixel_raiders": "Pixel Raiders",
+        "road_hopper": "Road Hopper"
+      }
     },
     "duel": {
       "tool": "Duel",
@@ -273,6 +322,175 @@
       "changes": "Changes",
       "placeholder": "Prompt for this agent",
       "send": "Send"
+    },
+    "armoury": {
+      "loadout": "LOADOUT",
+      "slot": {
+        "gadgeta": "GADGET",
+        "gadgetb": "GADGET",
+        "melee": "MELEE",
+        "primary": "PRIMARY",
+        "secondary": "SECONDARY"
+      },
+      "start": "Start duel",
+      "tier": "OPPONENT",
+      "title": "Armoury"
+    },
+    "bar": {
+      "leave_duel": "Leave duel",
+      "quick_duel": "Quick duel",
+      "return": "Back to app"
+    },
+    "end": {
+      "adaptive": "Adaptive opponent skill now {skill} (0 normal, 0.5 hard, 1 elite)",
+      "leave": "Leave duel",
+      "lost": "Set lost",
+      "next": "Next set",
+      "opponent": "OPPONENT",
+      "row": {
+        "accuracy": "Accuracy",
+        "damage": "Damage dealt",
+        "deaths": "Deaths",
+        "finishers": "Finishers",
+        "headshots": "Headshots",
+        "kd": "K/D",
+        "kills": "Kills",
+        "streak": "Best streak",
+        "walls": "Walls breached"
+      },
+      "score": "{person} : {opponent}",
+      "set": "Set {set}",
+      "sets": "Sets {won} : {lost}",
+      "tier": "Opponent: {tier}",
+      "unfinished": "Set left open",
+      "won": "Set won",
+      "you": "YOU"
+    },
+    "hud": {
+      "chambered": "+1",
+      "cooldown": "{seconds} s",
+      "feed": {
+        "finisher": "Finisher",
+        "headshot": " · headshot",
+        "kill": "{killer} · {weapon} · {victim}",
+        "melee": "Melee",
+        "opponent": "Opponent",
+        "respawn": "{player} redeployed",
+        "set_lost": "Set lost",
+        "set_unfinished": "Set left open",
+        "set_won": "Set won",
+        "unknown": "Unknown",
+        "wallshot": " · through cover",
+        "world": "The hangar",
+        "you": "You"
+      },
+      "health": "HEALTH",
+      "killcam": "Kill cam · {player}",
+      "killcam_skip": "Skip: {key}",
+      "protected": "Spawn protection {seconds} s",
+      "reload_empty": "EMPTY RELOAD",
+      "reload_tactical": "RELOADING",
+      "reserve": "/ {reserve}",
+      "respawn_in": "Redeploying in {seconds}",
+      "score": {
+        "opponent": "OPPONENT",
+        "separator": ":",
+        "set": "Set {set} · first to {target}",
+        "you": "YOU"
+      },
+      "stance": {
+        "crouch": "Crouched",
+        "prone": "Prone",
+        "slide": "Sliding",
+        "stand": "Standing"
+      }
+    },
+    "item": {
+      "breach_charge": {
+        "name": "Breach charge",
+        "role": "Breaching explosive",
+        "short": "BREACH"
+      },
+      "bulwark": {
+        "name": "Bulwark",
+        "role": "Deployable energy barricade",
+        "short": "BULWARK"
+      },
+      "graveline": {
+        "name": "Graveline",
+        "role": "Assault rifle",
+        "short": "RIFLE"
+      },
+      "hookbill": {
+        "name": "Hookbill",
+        "role": "Knife",
+        "short": "KNIFE"
+      },
+      "longsight": {
+        "name": "Longsight",
+        "role": "Marksman rifle",
+        "short": "DMR"
+      },
+      "skitter": {
+        "name": "Skitter",
+        "role": "Submachine gun",
+        "short": "SMG"
+      },
+      "tallow": {
+        "name": "Tallow",
+        "role": "Pistol",
+        "short": "PISTOL"
+      }
+    },
+    "key": {
+      "ads": "Aim",
+      "crouch": "Crouch and slide",
+      "fire": "Fire",
+      "gadget_a": "Bulwark",
+      "gadget_b": "Breach charge",
+      "interact": "Use",
+      "jump": "Jump and mantle",
+      "lean_left": "Lean left",
+      "lean_right": "Lean right",
+      "melee": "Knife",
+      "move_back": "Move back",
+      "move_forward": "Move forward",
+      "move_left": "Move left",
+      "move_right": "Move right",
+      "prone": "Prone",
+      "reload": "Reload",
+      "return_to_app": "Back to app",
+      "skip_kill_cam": "Skip kill cam",
+      "slot_melee": "Knife in hand",
+      "slot_primary": "Primary weapon",
+      "slot_secondary": "Secondary weapon",
+      "sprint": "Sprint",
+      "verse_bar": "Verse bar",
+      "walk": "Walk (quiet steps)"
+    },
+    "menu": {
+      "leave_duel": "Leave duel",
+      "resume": "Resume",
+      "return": "Back to app",
+      "settings": "Settings",
+      "title": "Paused"
+    },
+    "tier": {
+      "adaptive": "Adaptive",
+      "adaptive.desc": "Starts at hard and moves towards an even fight as the set goes on.",
+      "elite": "Elite",
+      "elite.desc": "Fast, precise and patient. Wins more often than not.",
+      "hard": "Hard",
+      "hard.desc": "Breaches, flanks and punishes the same trick twice.",
+      "normal": "Normal",
+      "normal.desc": "A steady opponent who leaves you room to learn the hall."
+    },
+    "ui": {
+      "back": "Back",
+      "next": ">",
+      "off": "Off",
+      "on": "On",
+      "previous": "<"
     }
   }
 }

@@ -68,6 +68,20 @@
       "lift": {
         "name": "升降梯",
         "action": "前往其他甲板"
+      },
+      "armoury": {
+        "action": "开启对决",
+        "name": "军械库"
+      },
+      "close": "关闭",
+      "error": {
+        "bad_request": "操作没有成功。",
+        "busy": "已有一批正在启动。",
+        "conflict": "请求被拒绝了。",
+        "internal": "操作没有成功。",
+        "not_found": "它已经不在了。",
+        "rate_limited": "请求过多。请稍等片刻再试。",
+        "unavailable": "暂时无法使用。"
       }
     },
     "card": {
@@ -122,7 +136,30 @@
       "reset": "重置",
       "fov_third": "视野（第三人称）",
       "fov_first": "视野（第一人称）",
-      "volume": "音量"
+      "volume": "音量",
+      "duel_fov": "对决视野",
+      "gore": "血腥",
+      "gore.full": "完整",
+      "gore.reduced": "减弱",
+      "level_sound": "升级音效",
+      "markers_note": "命中标记以形状区分：短线、带菱形的短线、圆环、方框。",
+      "page": {
+        "access": "辅助",
+        "audio": "声音",
+        "controls": "按键",
+        "gameplay": "游戏",
+        "video": "画面"
+      },
+      "press_key": "请按键",
+      "quality.auto": "自动",
+      "quality.cinematic": "电影",
+      "quality.epic": "极高",
+      "quality.high": "高",
+      "quality.low": "低",
+      "quality.medium": "中",
+      "reduced_motion": "减少动态",
+      "text_size": "文字大小",
+      "ui_sound": "界面音效"
     },
     "lift": {
       "title": "升降梯",
@@ -162,7 +199,19 @@
     },
     "games": {
       "title": "模拟舱",
-      "loading": "正在载入模拟……"
+      "loading": "正在载入模拟……",
+      "programme": {
+        "asteroid_run": "Asteroid Run",
+        "block_drop": "Block Drop",
+        "brick_breaker": "Brick Breaker",
+        "city_defense": "City Defense",
+        "desert_dash": "Desert Dash",
+        "maze_muncher": "Maze Muncher",
+        "neon_snake": "Neon Snake",
+        "paddle_duel": "Paddle Duel",
+        "pixel_raiders": "Pixel Raiders",
+        "road_hopper": "Road Hopper"
+      }
     },
     "duel": {
       "tool": "决斗",
@@ -273,6 +322,175 @@
       "changes": "更改",
       "placeholder": "给这个代理的提示",
       "send": "发送"
+    },
+    "armoury": {
+      "loadout": "装备",
+      "slot": {
+        "gadgeta": "装置",
+        "gadgetb": "装置",
+        "melee": "近战",
+        "primary": "主武器",
+        "secondary": "副武器"
+      },
+      "start": "开始对决",
+      "tier": "对手",
+      "title": "军械库"
+    },
+    "bar": {
+      "leave_duel": "离开对决",
+      "quick_duel": "快速对决",
+      "return": "返回应用"
+    },
+    "end": {
+      "adaptive": "自适应对手当前强度 {skill}（0 普通，0.5 困难，1 精英）",
+      "leave": "离开对决",
+      "lost": "本局失利",
+      "next": "下一局",
+      "opponent": "对手",
+      "row": {
+        "accuracy": "命中率",
+        "damage": "造成伤害",
+        "deaths": "阵亡",
+        "finishers": "处决",
+        "headshots": "爆头",
+        "kd": "K/D",
+        "kills": "击杀",
+        "streak": "最高连杀",
+        "walls": "破墙次数"
+      },
+      "score": "{person} : {opponent}",
+      "set": "第 {set} 局",
+      "sets": "局数 {won} : {lost}",
+      "tier": "对手：{tier}",
+      "unfinished": "本局未完成",
+      "won": "本局胜利",
+      "you": "你"
+    },
+    "hud": {
+      "chambered": "+1",
+      "cooldown": "{seconds} 秒",
+      "feed": {
+        "finisher": "处决",
+        "headshot": " · 爆头",
+        "kill": "{killer} · {weapon} · {victim}",
+        "melee": "近战",
+        "opponent": "对手",
+        "respawn": "{player} 已重新部署",
+        "set_lost": "本局失利",
+        "set_unfinished": "本局未完成",
+        "set_won": "本局胜利",
+        "unknown": "未知",
+        "wallshot": " · 穿墙",
+        "world": "机库",
+        "you": "你"
+      },
+      "health": "生命",
+      "killcam": "击杀回放 · {player}",
+      "killcam_skip": "跳过：{key}",
+      "protected": "出生保护 {seconds} 秒",
+      "reload_empty": "空仓换弹",
+      "reload_tactical": "换弹中",
+      "reserve": "/ {reserve}",
+      "respawn_in": "{seconds} 秒后重新部署",
+      "score": {
+        "opponent": "对手",
+        "separator": ":",
+        "set": "第 {set} 局 · 先到 {target}",
+        "you": "你"
+      },
+      "stance": {
+        "crouch": "蹲伏",
+        "prone": "卧倒",
+        "slide": "滑行",
+        "stand": "站立"
+      }
+    },
+    "item": {
+      "breach_charge": {
+        "name": "破墙炸药",
+        "role": "破墙炸药",
+        "short": "破门"
+      },
+      "bulwark": {
+        "name": "Bulwark",
+        "role": "可部署能量屏障",
+        "short": "BULWARK"
+      },
+      "graveline": {
+        "name": "Graveline",
+        "role": "突击步枪",
+        "short": "步枪"
+      },
+      "hookbill": {
+        "name": "Hookbill",
+        "role": "匕首",
+        "short": "匕首"
+      },
+      "longsight": {
+        "name": "Longsight",
+        "role": "精确射手步枪",
+        "short": "精确步枪"
+      },
+      "skitter": {
+        "name": "Skitter",
+        "role": "冲锋枪",
+        "short": "冲锋枪"
+      },
+      "tallow": {
+        "name": "Tallow",
+        "role": "手枪",
+        "short": "手枪"
+      }
+    },
+    "key": {
+      "ads": "瞄准",
+      "crouch": "蹲伏与滑行",
+      "fire": "开火",
+      "gadget_a": "Bulwark",
+      "gadget_b": "破墙炸药",
+      "interact": "使用",
+      "jump": "跳跃与攀爬",
+      "lean_left": "左探身",
+      "lean_right": "右探身",
+      "melee": "匕首",
+      "move_back": "后退",
+      "move_forward": "前进",
+      "move_left": "左移",
+      "move_right": "右移",
+      "prone": "卧倒",
+      "reload": "换弹",
+      "return_to_app": "返回应用",
+      "skip_kill_cam": "跳过击杀回放",
+      "slot_melee": "持刀",
+      "slot_primary": "主武器",
+      "slot_secondary": "副武器",
+      "sprint": "冲刺",
+      "verse_bar": "Verse 工具栏",
+      "walk": "慢走（脚步无声）"
+    },
+    "menu": {
+      "leave_duel": "离开对决",
+      "resume": "继续",
+      "return": "返回应用",
+      "settings": "设置",
+      "title": "菜单"
+    },
+    "tier": {
+      "adaptive": "自适应",
+      "adaptive.desc": "从困难开始，随局势调整到势均力敌。",
+      "elite": "精英",
+      "elite.desc": "快速、精准、有耐心，胜多负少。",
+      "hard": "困难",
+      "hard.desc": "会破墙、包抄，同一招用两次就会被惩罚。",
+      "normal": "普通",
+      "normal.desc": "稳健的对手，给你时间熟悉机库。"
+    },
+    "ui": {
+      "back": "返回",
+      "next": ">",
+      "off": "关",
+      "on": "开",
+      "previous": "<"
     }
   }
 }

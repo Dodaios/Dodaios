@@ -68,6 +68,20 @@
       "lift": {
         "name": "Aufzug",
         "action": "Zu einem anderen Deck fahren"
+      },
+      "armoury": {
+        "action": "Zum Duell",
+        "name": "Waffenkammer"
+      },
+      "close": "Schließen",
+      "error": {
+        "bad_request": "Das hat nicht geklappt.",
+        "busy": "Ein Durchgang startet bereits.",
+        "conflict": "Das wurde abgelehnt.",
+        "internal": "Das hat nicht geklappt.",
+        "not_found": "Das gibt es nicht mehr.",
+        "rate_limited": "Zu viele Anfragen. Warte kurz und versuche es dann erneut.",
+        "unavailable": "Das ist gerade nicht verfügbar."
       }
     },
     "card": {
@@ -122,7 +136,30 @@
       "reset": "Zurücksetzen",
       "fov_third": "Sichtfeld, Third Person",
       "fov_first": "Sichtfeld, Ego-Perspektive",
-      "volume": "Lautstärke"
+      "volume": "Lautstärke",
+      "duel_fov": "Sichtfeld im Duell",
+      "gore": "Blut",
+      "gore.full": "Voll",
+      "gore.reduced": "Reduziert",
+      "level_sound": "Aufstiegston",
+      "markers_note": "Treffermarker unterscheiden sich in der Form: Striche, Striche mit Raute, Ring, Quadrat.",
+      "page": {
+        "access": "Zugang",
+        "audio": "Ton",
+        "controls": "Tasten",
+        "gameplay": "Spiel",
+        "video": "Grafik"
+      },
+      "press_key": "Taste drücken",
+      "quality.auto": "Automatisch",
+      "quality.cinematic": "Kino",
+      "quality.epic": "Episch",
+      "quality.high": "Hoch",
+      "quality.low": "Niedrig",
+      "quality.medium": "Mittel",
+      "reduced_motion": "Weniger Bewegung",
+      "text_size": "Textgröße",
+      "ui_sound": "Oberflächentöne"
     },
     "lift": {
       "title": "Aufzug",
@@ -162,7 +199,19 @@
     },
     "games": {
       "title": "Simulatorraum",
-      "loading": "Simulation wird geladen …"
+      "loading": "Simulation wird geladen …",
+      "programme": {
+        "asteroid_run": "Asteroid Run",
+        "block_drop": "Block Drop",
+        "brick_breaker": "Brick Breaker",
+        "city_defense": "City Defense",
+        "desert_dash": "Desert Dash",
+        "maze_muncher": "Maze Muncher",
+        "neon_snake": "Neon Snake",
+        "paddle_duel": "Paddle Duel",
+        "pixel_raiders": "Pixel Raiders",
+        "road_hopper": "Road Hopper"
+      }
     },
     "duel": {
       "tool": "Duell",
@@ -273,6 +322,175 @@
       "changes": "Änderungen",
       "placeholder": "Prompt für diesen Agenten",
       "send": "Senden"
+    },
+    "armoury": {
+      "loadout": "AUSRÜSTUNG",
+      "slot": {
+        "gadgeta": "GERÄT",
+        "gadgetb": "GERÄT",
+        "melee": "NAHKAMPF",
+        "primary": "HAUPTWAFFE",
+        "secondary": "ZWEITWAFFE"
+      },
+      "start": "Duell starten",
+      "tier": "GEGNER",
+      "title": "Waffenkammer"
+    },
+    "bar": {
+      "leave_duel": "Duell verlassen",
+      "quick_duel": "Schnelles Duell",
+      "return": "Zur App"
+    },
+    "end": {
+      "adaptive": "Stärke des adaptiven Gegners jetzt {skill} (0 normal, 0,5 schwer, 1 Elite)",
+      "leave": "Duell verlassen",
+      "lost": "Satz verloren",
+      "next": "Nächster Satz",
+      "opponent": "GEGNER",
+      "row": {
+        "accuracy": "Trefferquote",
+        "damage": "Verursachter Schaden",
+        "deaths": "Tode",
+        "finishers": "Finisher",
+        "headshots": "Kopftreffer",
+        "kd": "K/D",
+        "kills": "Abschüsse",
+        "streak": "Beste Serie",
+        "walls": "Wände durchbrochen"
+      },
+      "score": "{person} : {opponent}",
+      "set": "Satz {set}",
+      "sets": "Sätze {won} : {lost}",
+      "tier": "Gegner: {tier}",
+      "unfinished": "Satz offen",
+      "won": "Satz gewonnen",
+      "you": "DU"
+    },
+    "hud": {
+      "chambered": "+1",
+      "cooldown": "{seconds} s",
+      "feed": {
+        "finisher": "Finisher",
+        "headshot": " · Kopftreffer",
+        "kill": "{killer} · {weapon} · {victim}",
+        "melee": "Nahkampf",
+        "opponent": "Gegner",
+        "respawn": "{player} ist zurück",
+        "set_lost": "Satz verloren",
+        "set_unfinished": "Satz offen",
+        "set_won": "Satz gewonnen",
+        "unknown": "Unbekannt",
+        "wallshot": " · durch Deckung",
+        "world": "Der Hangar",
+        "you": "Du"
+      },
+      "health": "LEBEN",
+      "killcam": "Killcam · {player}",
+      "killcam_skip": "Überspringen: {key}",
+      "protected": "Spawnschutz {seconds} s",
+      "reload_empty": "LEER NACHLADEN",
+      "reload_tactical": "NACHLADEN",
+      "reserve": "/ {reserve}",
+      "respawn_in": "Zurück in {seconds}",
+      "score": {
+        "opponent": "GEGNER",
+        "separator": ":",
+        "set": "Satz {set} · zuerst {target}",
+        "you": "DU"
+      },
+      "stance": {
+        "crouch": "Geduckt",
+        "prone": "Liegend",
+        "slide": "Rutschend",
+        "stand": "Stehend"
+      }
+    },
+    "item": {
+      "breach_charge": {
+        "name": "Breach-Ladung",
+        "role": "Sprengladung zum Durchbrechen",
+        "short": "SPRENG"
+      },
+      "bulwark": {
+        "name": "Bulwark",
+        "role": "Aufstellbare Energiebarriere",
+        "short": "BULWARK"
+      },
+      "graveline": {
+        "name": "Graveline",
+        "role": "Sturmgewehr",
+        "short": "GEWEHR"
+      },
+      "hookbill": {
+        "name": "Hookbill",
+        "role": "Messer",
+        "short": "MESSER"
+      },
+      "longsight": {
+        "name": "Longsight",
+        "role": "Präzisionsgewehr",
+        "short": "PRÄZISION"
+      },
+      "skitter": {
+        "name": "Skitter",
+        "role": "Maschinenpistole",
+        "short": "MP"
+      },
+      "tallow": {
+        "name": "Tallow",
+        "role": "Pistole",
+        "short": "PISTOLE"
+      }
+    },
+    "key": {
+      "ads": "Zielen",
+      "crouch": "Ducken und rutschen",
+      "fire": "Feuern",
+      "gadget_a": "Bulwark",
+      "gadget_b": "Breach-Ladung",
+      "interact": "Benutzen",
+      "jump": "Springen und klettern",
+      "lean_left": "Links lehnen",
+      "lean_right": "Rechts lehnen",
+      "melee": "Messer",
+      "move_back": "Rückwärts",
+      "move_forward": "Vorwärts",
+      "move_left": "Links",
+      "move_right": "Rechts",
+      "prone": "Hinlegen",
+      "reload": "Nachladen",
+      "return_to_app": "Zur App",
+      "skip_kill_cam": "Killcam überspringen",
+      "slot_melee": "Messer ziehen",
+      "slot_primary": "Hauptwaffe",
+      "slot_secondary": "Zweitwaffe",
+      "sprint": "Sprinten",
+      "verse_bar": "Verse-Leiste",
+      "walk": "Gehen (leise Schritte)"
+    },
+    "menu": {
+      "leave_duel": "Duell verlassen",
+      "resume": "Weiter",
+      "return": "Zur App",
+      "settings": "Einstellungen",
+      "title": "Menü"
+    },
+    "tier": {
+      "adaptive": "Adaptiv",
+      "adaptive.desc": "Beginnt bei Schwer und nähert sich im Lauf des Satzes einem ausgeglichenen Kampf.",
+      "elite": "Elite",
+      "elite.desc": "Schnell, präzise und geduldig. Gewinnt meistens.",
+      "hard": "Schwer",
+      "hard.desc": "Bricht durch Wände, flankiert und bestraft denselben Trick beim zweiten Mal.",
+      "normal": "Normal",
+      "normal.desc": "Ein ruhiger Gegner, der dir Raum lässt, die Halle kennenzulernen."
+    },
+    "ui": {
+      "back": "Zurück",
+      "next": ">",
+      "off": "Aus",
+      "on": "An",
+      "previous": "<"
     }
   }
 }
