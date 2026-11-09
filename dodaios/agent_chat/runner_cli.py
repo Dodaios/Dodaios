@@ -3876,7 +3876,7 @@ async def _run_cli_once(
     planned_prompt = plain_chat.cli_prompt(handle, user_text, resume)
     # Set once planning succeeded; an external runtime's plan holds a turn slot.
     plan: CliPlan | None = None
-    is_thread = session.surface != "society"
+    is_thread = getattr(session, "surface", "agent") != "society"
     if placement is not None and not is_thread and not getattr(handle, "tools_disabled", False):
         # Also refresh resumed conversations which remember the old missing bridge.
         planned_prompt = (
