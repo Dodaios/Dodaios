@@ -13,7 +13,7 @@ import { rankView, crewRows, fill, figure, logOf, sourceKey } from "./rankModel"
 import {
   RANK_IDS, RANK_TIERS, RANKS, TIER_STYLE, isPromotion, isRankId, nextRank, plateTiles, rankBadge, rankForLevel, ranksOfTier,
   tierOf, tierStart, uniformForLevel,
-} from "./ranks";
+} from "../../progression/ranks";
 import { RIBBON_STRIPES } from "./Ribbon";
 import { NO_SIGNALS, applyDutyEvent } from "./useRanks";
 

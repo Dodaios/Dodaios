@@ -17,7 +17,7 @@ import { useProgression } from "../../progression/progressionStore";
 import { agentSubject } from "../../progression/progressionApi";
 import { useDutyBoard, type DutyStatus } from "../ranks";
 import type { Deck } from "../content/deck";
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import { lookForLevel, type Look } from "../actors/look";
 import { officerOf, technicianOf, type CrewMember } from "./crew";
 import { useDevDuty } from "./devOverrides";
