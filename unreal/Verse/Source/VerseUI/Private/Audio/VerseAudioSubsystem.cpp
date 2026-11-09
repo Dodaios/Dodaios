@@ -180,6 +180,10 @@ void UVerseAudioSubsystem::SetSink(TSharedPtr<IVerseAudioSink> InSink)
 	Budget.Reset();
 	Loops.Reset();
 	RouteCueSet();
+	if (UserBusGain.Num() > 0)
+	{
+		SetUserBusGains(TArray<float>(UserBusGain));
+	}
 	ApplyMasterVolume();
 }
 
@@ -270,9 +274,28 @@ void UVerseAudioSubsystem::SetUserVolume(float Volume)
 	ApplyMasterVolume();
 }
 
+void UVerseAudioSubsystem::SetUserBusGains(const TArray<float>& Gains)
+{
+	UserBusGain.SetNum(VerseAudioBusCount);
+	for (int32 Bus = 0; Bus < VerseAudioBusCount; ++Bus)
+	{
+		UserBusGain[Bus] = Gains.IsValidIndex(Bus) ? FMath::Clamp(Gains[Bus], 0.f, 1.f) : 1.f;
+		if (Sink)
+		{
+			Sink->SetBusVolume(EVerseAudioBus(Bus), UserBusGain[Bus]);
+		}
+	}
+}
+
+void UVerseAudioSubsystem::SetBackgroundMuted(bool bMuted)
+{
+	bBackgroundMuted = bMuted;
+	ApplyMasterVolume();
+}
+
 void UVerseAudioSubsystem::ApplyMasterVolume()
 {
-	const bool bMuted = bDormant || !bUiSoundEnabled;
+	const bool bMuted = bDormant || !bUiSoundEnabled || bBackgroundMuted;
 	MasterVolume = bMuted ? 0.f : UserVolume * FadeLevel;
 	if (Sink)
 	{

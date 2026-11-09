@@ -19,5 +19,35 @@
         "quality": "high"
       }
     }
+  },
+  {
+    "type": "settings.set",
+    "id": "c-79",
+    "ts": 1793612608.0,
+    "data": {
+      "game": {
+        "graphics.preset": "low",
+        "graphics.view_distance": "low",
+        "graphics.shadows": "low",
+        "graphics.global_illumination": "low",
+        "graphics.reflections": "low",
+        "graphics.textures": "low",
+        "graphics.effects": "low",
+        "graphics.post_processing": "low",
+        "graphics.foliage": "low",
+        "graphics.shading": "low"
+      }
+    }
+  },
+  {
+    "type": "settings.set",
+    "id": "c-80",
+    "ts": 1793612609.0,
+    "data": {
+      "return_key": "F8",
+      "game": {
+        "keybinds.verse_bar": "F10"
+      }
+    }
   }
 ]

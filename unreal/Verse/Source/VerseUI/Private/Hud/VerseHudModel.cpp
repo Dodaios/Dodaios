@@ -28,6 +28,7 @@ void FVerseHudModel::OnHit(const FVerseHitEvent& Event, double Now)
 	{
 		FVerseHitMarker Marker;
 		Marker.StartTime = Now;
+		Marker.Damage = Event.Damage;
 		if (Event.bBlockedBySpawnProtection)
 		{
 			Marker.Kind = EVerseHitMarkerKind::Blocked;

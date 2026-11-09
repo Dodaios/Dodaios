@@ -12,6 +12,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Hud/VerseCrosshair.h"
 #include "Rendering/SlateRenderer.h"
+#include "Settings/VerseGameSettings.h"
 #include "Styling/CoreStyle.h"
 
 namespace
@@ -25,6 +26,8 @@ namespace
 	const FName TagScore(TEXT("score"));
 	const FName TagFeed(TEXT("feed"));
 	const FName TagCentre(TEXT("centre"));
+	const FName TagDamageNumber(TEXT("damage.number"));
+	const FName TagPerformance(TEXT("performance"));
 
 	FName MarkerTag(EVerseHitMarkerKind Kind)
 	{
@@ -237,17 +240,119 @@ void FVerseHudPainter::Paint(const FVerseHudFrame& Frame, FVerseHudDrawList& Out
 	{
 		return;
 	}
+	const FVerseHudOptions& O = Frame.Options;
 	if (Frame.bInDuel)
 	{
 		PaintCrosshair(Frame, Out);
-		PaintMarkers(Frame, Out);
-		PaintDamage(Frame, Out);
+		if (O.bHitMarkers)
+		{
+			PaintMarkers(Frame, Out);
+		}
+		if (O.bDamageNumbers)
+		{
+			PaintDamageNumber(Frame, Out, Measure);
+		}
+		if (O.bDamageDirection)
+		{
+			PaintDamage(Frame, Out);
+		}
 		PaintVitals(Frame, Out, Measure);
 		PaintWeapon(Frame, Out, Measure);
 		PaintScore(Frame, Out, Measure);
 	}
 	PaintFeed(Frame, Out, Measure);
 	PaintCentre(Frame, Out, Measure);
+	PaintPerformance(Frame, Out, Measure);
+
+	// HUD opacity: every block but the crosshair, which keeps its own look.
+	if (O.Opacity < 1.f)
+	{
+		auto Fade = [&O](FLinearColor& Colour, FName Tag)
+		{
+			if (Tag != TagCrosshair && Tag != TagSpread)
+			{
+				Colour.A *= O.Opacity;
+			}
+		};
+		for (FVerseHudDrawList::FLine& L : Out.Lines) { Fade(L.Colour, L.Tag); }
+		for (FVerseHudDrawList::FRect& R : Out.Rects) { Fade(R.Colour, R.Tag); }
+		for (FVerseHudDrawList::FTri& T : Out.Tris) { Fade(T.Colour, T.Tag); }
+		for (FVerseHudDrawList::FLabel& L : Out.Labels) { Fade(L.Colour, L.Tag); }
+	}
+}
+
+FLinearColor FVerseHudOptions::CrosshairColourByName(const FString& Name)
+{
+	if (Name == TEXT("white")) { return FLinearColor(0.95f, 0.95f, 0.93f, 1.f); }
+	if (Name == TEXT("green")) { return FLinearColor(0.25f, 0.95f, 0.30f, 1.f); }
+	if (Name == TEXT("cyan")) { return FLinearColor(0.10f, 0.88f, 0.95f, 1.f); }
+	if (Name == TEXT("magenta")) { return FLinearColor(0.95f, 0.20f, 0.85f, 1.f); }
+	return VerseUiTheme::Amber;
+}
+
+FVerseHudOptions FVerseHudOptions::FromSettings(const FVerseGameSettings& Game)
+{
+	FVerseHudOptions O;
+	O.Opacity = FMath::Clamp(float(Game.GetNumber(TEXT("hud.opacity"))), 0.2f, 1.f);
+	O.bHitMarkers = Game.GetBool(TEXT("hud.hit_markers"));
+	O.bDamageNumbers = Game.GetBool(TEXT("hud.damage_numbers"));
+	O.bDamageDirection = Game.GetBool(TEXT("hud.damage_direction"));
+	const FString Perf = Game.GetString(TEXT("hud.performance_stats"));
+	O.PerformanceStats = Perf == TEXT("full") ? 2 : Perf == TEXT("fps") ? 1 : 0;
+	const FString Style = Game.GetString(TEXT("hud.crosshair_style"));
+	O.CrosshairStyle = Style == TEXT("cross") ? EVerseCrosshairStyle::Cross
+		: Style == TEXT("dot") ? EVerseCrosshairStyle::Dot
+		: Style == TEXT("circle") ? EVerseCrosshairStyle::Circle
+		: EVerseCrosshairStyle::CrossDot;
+	O.CrosshairColour = CrosshairColourByName(Game.GetString(TEXT("hud.crosshair_color")));
+	O.CrosshairSize = float(Game.GetNumber(TEXT("hud.crosshair_size")));
+	O.CrosshairThickness = float(Game.GetNumber(TEXT("hud.crosshair_thickness")));
+	O.CrosshairGap = float(Game.GetNumber(TEXT("hud.crosshair_gap")));
+	O.bCrosshairOutline = Game.GetBool(TEXT("hud.crosshair_outline"));
+	O.bCrosshairDynamic = Game.GetBool(TEXT("hud.crosshair_dynamic"));
+	return O;
+}
+
+void FVerseHudPainter::PaintDamageNumber(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure)
+{
+	// The newest marker with damage: its number beside the crosshair, fading with the marker.
+	const FVerseHitMarker* Newest = nullptr;
+	for (const FVerseHitMarker& Marker : Frame.Model->GetHitMarkers())
+	{
+		if (Marker.Kind != EVerseHitMarkerKind::Blocked && Marker.Damage > 0.f && (!Newest || Marker.StartTime > Newest->StartTime))
+		{
+			Newest = &Marker;
+		}
+	}
+	if (!Newest)
+	{
+		return;
+	}
+	const FVerseUiLayout& L = Frame.Layout;
+	const float Alpha = FVerseHudModel::MarkerAlpha(*Newest, Frame.Now);
+	const FLinearColor Colour = Newest->Kind == EVerseHitMarkerKind::Headshot ? VerseUiTheme::Gold
+		: Newest->Kind == EVerseHitMarkerKind::Kill ? VerseUiTheme::Red
+		: VerseUiTheme::Text;
+	Text(Out, Measure, Out.CrosshairCentre + FVector2D(L.Px(24.f), -L.Px(34.f)), Num(*Frame.Strings, FMath::RoundToInt(Newest->Damage)),
+		L.FontSize(18.f), true, WithAlpha(Colour, Alpha), EVerseTextAlign::Left, 0.f, TagDamageNumber);
+}
+
+void FVerseHudPainter::PaintPerformance(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure)
+{
+	const FVerseHudOptions& O = Frame.Options;
+	if (O.PerformanceStats <= 0)
+	{
+		return;
+	}
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("fps"), Num(*Frame.Strings, FMath::RoundToInt(O.Fps)));
+	Args.Add(TEXT("ms"), Frame.Strings->Number(O.FrameMs, 1, false));
+	const FText Value = Frame.Strings->Format(O.PerformanceStats >= 2 ? TEXT("verse.hud.perf.full") : TEXT("verse.hud.perf.fps"), Args);
+	const FVerseUiLayout& L = Frame.Layout;
+	const int32 Size = L.FontSize(13.f);
+	const FVector2D Measured = Measure(Value, Size, false);
+	Text(Out, Measure, L.Place(EVerseUiAnchor::TopRight, Measured, FVector2D::ZeroVector) + FVector2D(Measured.X, 0.0), Value, Size, false,
+		VerseUiTheme::TextDim, EVerseTextAlign::Right, 0.f, TagPerformance);
 }
 
 void FVerseHudPainter::PaintCrosshair(const FVerseHudFrame& Frame, FVerseHudDrawList& Out)
@@ -279,22 +384,59 @@ void FVerseHudPainter::PaintCrosshair(const FVerseHudFrame& Frame, FVerseHudDraw
 	}
 	Out.bCrosshairVisible = true;
 
-	const float Gap = FMath::Max(L.Px(5.f), Spread);
-	const float Length = L.Px(9.f);
-	const float Thick = FMath::Max(1.f, L.Px(2.f));
-	const FVector2D Dirs[4] = {FVector2D(1, 0), FVector2D(-1, 0), FVector2D(0, 1), FVector2D(0, -1)};
-	for (const FVector2D& D : Dirs)
+	// The person's crosshair (settings.game hud.crosshair_*). The catalogue defaults draw lines
+	// 9 px long and 2 px thick, 5 px from the centre, at 1080p.
+	const FVerseHudOptions& O = Frame.Options;
+	const float CrossScale = O.CrosshairScale > 0.f ? O.CrosshairScale : L.Scale;
+	auto Px = [CrossScale](float Reference) { return Reference * CrossScale; };
+	const float BaseGap = Px(O.CrosshairGap * 5.f / 3.f);
+	const float Gap = O.bCrosshairDynamic ? FMath::Max(BaseGap, Spread) : BaseGap;
+	const float Length = Px(O.CrosshairSize * 2.25f);
+	const float Thick = FMath::Max(1.f, Px(O.CrosshairThickness));
+	const FLinearColor Colour = O.CrosshairColour;
+	const bool bLines = O.CrosshairStyle == EVerseCrosshairStyle::Cross || O.CrosshairStyle == EVerseCrosshairStyle::CrossDot;
+	const bool bDot = O.CrosshairStyle != EVerseCrosshairStyle::Cross;
+	if (bLines)
 	{
-		Line(Out, Centre + D * Gap, Centre + D * (Gap + Length), Thick + 2.f, VerseUiTheme::Shadow, TagCrosshair);
+		const FVector2D Dirs[4] = {FVector2D(1, 0), FVector2D(-1, 0), FVector2D(0, 1), FVector2D(0, -1)};
+		if (O.bCrosshairOutline)
+		{
+			for (const FVector2D& D : Dirs)
+			{
+				Line(Out, Centre + D * Gap, Centre + D * (Gap + Length), Thick + 2.f, VerseUiTheme::Shadow, TagCrosshair);
+			}
+		}
+		for (const FVector2D& D : Dirs)
+		{
+			Line(Out, Centre + D * Gap, Centre + D * (Gap + Length), Thick, Colour, TagCrosshair);
+		}
 	}
-	for (const FVector2D& D : Dirs)
+	if (O.CrosshairStyle == EVerseCrosshairStyle::Circle)
 	{
-		Line(Out, Centre + D * Gap, Centre + D * (Gap + Length), Thick, VerseUiTheme::Text, TagCrosshair);
+		const float Radius = Gap + Length * 0.5f;
+		const int32 Segments = 24;
+		for (int32 Pass = O.bCrosshairOutline ? 0 : 1; Pass < 2; ++Pass)
+		{
+			for (int32 I = 0; I < Segments; ++I)
+			{
+				const double A0 = 2.0 * PI * I / Segments;
+				const double A1 = 2.0 * PI * (I + 1) / Segments;
+				Line(Out, Centre + FVector2D(FMath::Cos(A0), FMath::Sin(A0)) * Radius, Centre + FVector2D(FMath::Cos(A1), FMath::Sin(A1)) * Radius,
+					Pass == 0 ? Thick + 2.f : Thick, Pass == 0 ? VerseUiTheme::Shadow : Colour, TagCrosshair);
+			}
+		}
 	}
-	const float Dot = FMath::Max(2.f, L.Px(2.f));
-	FillRect(Out, Centre - FVector2D(Dot, Dot) * 0.5, FVector2D(Dot, Dot), VerseUiTheme::Amber, TagCrosshair);
+	if (bDot)
+	{
+		const float Dot = FMath::Max(2.f, Px(O.CrosshairThickness));
+		if (O.bCrosshairOutline && !bLines)
+		{
+			FillRect(Out, Centre - FVector2D(Dot + 2.f, Dot + 2.f) * 0.5, FVector2D(Dot + 2.f, Dot + 2.f), VerseUiTheme::Shadow, TagCrosshair);
+		}
+		FillRect(Out, Centre - FVector2D(Dot, Dot) * 0.5, FVector2D(Dot, Dot), Colour, TagCrosshair);
+	}
 
-	if (Spread > Gap * 0.5f && Spread > L.Px(6.f))
+	if (O.bCrosshairDynamic && Spread > Gap * 0.5f && Spread > L.Px(6.f))
 	{
 		// Spread circle: thin, faint, 32 segments.
 		const int32 Segments = 32;

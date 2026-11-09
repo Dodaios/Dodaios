@@ -59,7 +59,7 @@ void FVerseAppSettings::ApplyJson(const TSharedPtr<FJsonObject>& Json)
 		double Number = 0.0;
 		if ((*View)->TryGetNumberField(TEXT("sensitivity"), Number))
 		{
-			Sensitivity = float(FMath::Clamp(Number, 0.1, 5.0));
+			Sensitivity = float(FMath::Clamp(Number, 0.1, 10.0));
 		}
 		(*View)->TryGetBoolField(TEXT("invert_y"), bInvertY);
 		if ((*View)->TryGetNumberField(TEXT("fov_third"), Number))
@@ -68,13 +68,18 @@ void FVerseAppSettings::ApplyJson(const TSharedPtr<FJsonObject>& Json)
 		}
 		if ((*View)->TryGetNumberField(TEXT("fov_first"), Number))
 		{
-			FovFirst = float(FMath::Clamp(Number, 50.0, 110.0));
+			FovFirst = float(FMath::Clamp(Number, 60.0, 120.0));
 		}
 		(*View)->TryGetStringField(TEXT("quality"), Quality);
 		if ((*View)->TryGetNumberField(TEXT("volume"), Number))
 		{
 			Volume = float(FMath::Clamp(Number, 0.0, 1.0));
 		}
+	}
+	const TSharedPtr<FJsonObject>* GameJson = nullptr;
+	if (Json->TryGetObjectField(TEXT("game"), GameJson))
+	{
+		Game.ApplyJson(*GameJson);
 	}
 }
 
@@ -96,6 +101,7 @@ TSharedRef<FJsonObject> FVerseAppSettings::ToJson() const
 	View->SetStringField(TEXT("quality"), Quality);
 	View->SetNumberField(TEXT("volume"), Volume);
 	Json->SetObjectField(TEXT("view"), View);
+	Json->SetObjectField(TEXT("game"), Game.ToJson());
 	return Json;
 }
 
@@ -120,6 +126,11 @@ TSharedRef<FJsonObject> FVerseAppSettings::Diff(const FVerseAppSettings& Other) 
 	if (View->Values.Num() > 0)
 	{
 		Json->SetObjectField(TEXT("view"), View);
+	}
+	const TSharedRef<FJsonObject> GameDiff = Game.Diff(Other.Game);
+	if (GameDiff->Values.Num() > 0)
+	{
+		Json->SetObjectField(TEXT("game"), GameDiff);
 	}
 	return Json;
 }

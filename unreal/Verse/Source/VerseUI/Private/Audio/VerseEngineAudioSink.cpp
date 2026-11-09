@@ -205,6 +205,15 @@ void FVerseEngineAudioSink::SetMasterVolume(float Volume)
 	}
 }
 
+void FVerseEngineAudioSink::SetBusVolume(EVerseAudioBus Bus, float Volume)
+{
+	UWorld* W = World.Get();
+	if (W && BusSubmixes.IsValidIndex(int32(Bus)) && BusSubmixes[int32(Bus)])
+	{
+		BusSubmixes[int32(Bus)]->SetSubmixOutputVolume(W, FMath::Max(0.f, Volume));
+	}
+}
+
 USoundSubmix* FVerseEngineAudioSink::GetBusSubmix(EVerseAudioBus Bus) const
 {
 	return BusSubmixes.IsValidIndex(int32(Bus)) ? BusSubmixes[int32(Bus)].Get() : MasterSubmix.Get();

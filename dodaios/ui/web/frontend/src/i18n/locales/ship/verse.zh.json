@@ -403,6 +403,10 @@
         "prone": "卧倒",
         "slide": "滑行",
         "stand": "站立"
+      },
+      "perf": {
+        "fps": "{fps} FPS",
+        "full": "{fps} FPS · {ms} ms"
       }
     },
     "item": {

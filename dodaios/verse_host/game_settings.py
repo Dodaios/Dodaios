@@ -19,8 +19,10 @@ user settings for window, resolution, frame limit and V-Sync.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Final
 
 QUALITY: Final = ("low", "medium", "high", "epic", "cinematic")
@@ -410,3 +412,24 @@ def catalogue_json() -> dict[str, Any]:
         "preset_groups": list(PRESET_GROUPS),
         "settings": [s.to_json() for s in CATALOGUE],
     }
+
+
+# The Unreal Verse reads the catalogue from this file (VerseUI FVerseGameSettingsCatalogue); a unit
+# test keeps it equal to catalogue_json(). Rewrite it with
+# ``python -m dodaios.verse_host.game_settings``.
+UNREAL_CATALOGUE: Final = Path("unreal") / "Verse" / "Data" / "ui" / "game_settings.json"
+
+
+def unreal_catalogue_text() -> str:
+    """The catalogue file the Unreal Verse ships, byte for byte."""
+    return json.dumps(catalogue_json(), indent=2, ensure_ascii=False) + "\n"
+
+
+def main() -> None:
+    """Writes the Unreal copy of the catalogue (run from the repository root)."""
+    UNREAL_CATALOGUE.write_text(unreal_catalogue_text(), encoding="utf-8", newline="\n")
+    print(f"wrote {UNREAL_CATALOGUE}")
+
+
+if __name__ == "__main__":
+    main()

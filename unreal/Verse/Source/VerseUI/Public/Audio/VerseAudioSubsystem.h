@@ -72,6 +72,12 @@ public:
 	void SetUiSoundEnabled(bool bEnabled);
 	/** User volume 0..1 (parity Z-14). */
 	void SetUserVolume(float Volume);
+	/** settings.game audio volumes: linear gain per EVerseAudioBus (1 = as mixed), on the bus submixes. */
+	void SetUserBusGains(const TArray<float>& Gains);
+	float GetUserBusGain(EVerseAudioBus Bus) const { return UserBusGain.IsValidIndex(int32(Bus)) ? UserBusGain[int32(Bus)] : 1.f; }
+	/** settings.game audio.mute_unfocused while the Verse window is in the background. */
+	void SetBackgroundMuted(bool bMuted);
+	bool IsBackgroundMuted() const { return bBackgroundMuted; }
 	/** Linear master volume handed to the sink right now. */
 	float GetMasterVolume() const { return MasterVolume; }
 
@@ -182,7 +188,9 @@ private:
 	int32 PeakVoices = 0;
 	bool bDormant = false;
 	bool bUiSoundEnabled = true;
+	bool bBackgroundMuted = false;
 	float UserVolume = 1.f;
+	TArray<float> UserBusGain;
 	/** Fade multiplier 0..1 towards the dormant target. */
 	float FadeLevel = 1.f;
 	float MasterVolume = 1.f;

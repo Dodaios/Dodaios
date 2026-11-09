@@ -19,5 +19,20 @@
       "return_key": "F9",
       "reduced_motion": true
     }
+  },
+  {
+    "type": "settings.changed",
+    "seq": 213,
+    "ts": 1793612713.0,
+    "data": {
+      "game": {
+        "graphics.shadows": "low",
+        "graphics.motion_blur": true,
+        "hud.crosshair_style": "circle",
+        "controls.fov_duel": 105,
+        "gameplay.kill_cam": false,
+        "keybinds.jump": "C"
+      }
+    }
   }
 ]
