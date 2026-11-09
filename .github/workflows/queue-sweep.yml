@@ -47,7 +47,8 @@ jobs:
           OWN_RUN: ${{ github.run_id }}
         shell: bash
         run: |
-          set -uo pipefail
+          # The runner starts bash with -e; a 404 from `gh api` is an answer here, not an error.
+          set +e -uo pipefail
           now=$(date +%s)
           for status in queued in_progress waiting pending requested; do
             gh api "repos/$REPO/actions/runs?event=merge_group&status=$status&per_page=100" \
@@ -57,7 +58,7 @@ jobs:
             case "$branch" in (gh-readonly-queue/*) ;; (*) continue ;; esac
             age=$(( now - $(date -d "$created" +%s) ))
             [ "$age" -ge 120 ] || continue
-            code=$(gh api -i "repos/$REPO/git/ref/heads/$branch" 2>/dev/null | head -n1 | awk '{print $2}')
+            code=$(gh api -i "repos/$REPO/git/ref/heads/$branch" 2>/dev/null | head -n1 | awk '{print $2}' || true)
             if [ "$code" = "404" ]; then
               echo "Cancel '$name' run $id: $branch left the merge queue"
               gh run cancel "$id" -R "$REPO" || echo "::warning::could not cancel run $id"
