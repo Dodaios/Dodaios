@@ -58,7 +58,9 @@ asset must stay on the same values so nothing drifts.
   tables in `terminalThemes.ts`. Never hardcode one mode's value.
 - **The logo** is the hooded figure in black and white: black ink on a white tile, white ink
   on dark surfaces. It is the primary Dodaios logo; no other mark stands in for it. Its single source is `assets/brand/dodaios-logo.svg`; every icon is
-  rendered from it by `scripts/make_app_icon.py`.
+  rendered from it by `scripts/make_app_icon.py`. App icons (taskbar, tray, dock, launcher)
+  show the head and shoulders, so the face stays readable at 16-48 px; logo surfaces (boot
+  splash, orb mascot, social card) show the whole figure.
 - **Rasters convert on max(r, g, b), the orb on luma.** That is what keeps a mark legible
   after it loses its colour.
 

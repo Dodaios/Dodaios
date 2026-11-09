@@ -48,6 +48,17 @@ SPAN_SMALL_AT = 16
 HAIRLINE_ALPHA = 0.14
 HAIRLINE_WIDTH = 0.007
 
+#: App icons show the hooded head and shoulders: at taskbar and dock sizes the
+#: whole figure shrank until the face was a few pixels (issue #1183). The head
+#: tile is cut just below the scarf (viewBox y = HEAD_CUT_Y), and that cut sits
+#: on the tile's bottom edge, so the body runs out of the frame instead of
+#: ending on a line. The full figure stays on every logo surface.
+HEAD_CUT_Y = 196.0
+HEAD_X = (10.0, 222.0)  # the hood's widest extent, centred in the tile
+#: Head tiles: share of the tile from the top margin to the bottom edge.
+HEAD_SPAN_LARGE = 0.78
+HEAD_SPAN_SMALL = 0.88
+
 MASTER = 1024
 ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 
@@ -70,19 +81,28 @@ def logo_polygons(d: str) -> list[list[tuple[float, float]]]:
     return polygons
 
 
-def figure_mask(size: int, span: float) -> Image.Image:
-    """The figure as an antialiased ``L`` mask, centred in a ``size`` square.
+def figure_mask(size: int, span: float, head: bool = False) -> Image.Image:
+    """The figure as an antialiased ``L`` mask in a ``size`` square.
+
+    The whole figure is centred and fills ``span`` of the square. With
+    ``head`` the part above :data:`HEAD_CUT_Y` fills ``span`` of the height,
+    from the top margin down to the bottom edge; the rest is cut off by it.
 
     The path's subpaths are filled even-odd: each one is XOR-ed into the mask,
     so a hole (an eye, a fold of the cloak) cuts the shape it sits in.
     """
     big = size * SUPERSAMPLE
-    scale = big * span / VIEWBOX
-    offset = (big - VIEWBOX * scale) / 2.0
+    if head:
+        scale = big * span / HEAD_CUT_Y
+        off_x = (big - (HEAD_X[1] - HEAD_X[0]) * scale) / 2.0 - HEAD_X[0] * scale
+        off_y = big - HEAD_CUT_Y * scale
+    else:
+        scale = big * span / VIEWBOX
+        off_x = off_y = (big - VIEWBOX * scale) / 2.0
     acc = np.zeros((big, big), dtype=bool)
     for polygon in logo_polygons(logo_path_data()):
         layer = Image.new("1", (big, big), 0)
-        points = [(x * scale + offset, y * scale + offset) for x, y in polygon]
+        points = [(x * scale + off_x, y * scale + off_y) for x, y in polygon]
         ImageDraw.Draw(layer).polygon(points, fill=1)
         acc ^= np.asarray(layer, dtype=bool)
     mask = Image.fromarray((acc * 255).astype(np.uint8), mode="L")
@@ -106,9 +126,11 @@ def squircle_mask(size: int) -> Image.Image:
     return mask.resize((size, size), Image.Resampling.LANCZOS)
 
 
-def mark_span(size: int) -> float:
+def mark_span(size: int, head: bool = False) -> float:
     """Interpolate the figure size, so no two neighbouring sizes jump."""
     t = min(1.0, max(0.0, (size - SPAN_SMALL_AT) / (SPAN_FULL_AT - SPAN_SMALL_AT)))
+    if head:
+        return HEAD_SPAN_SMALL + (HEAD_SPAN_LARGE - HEAD_SPAN_SMALL) * t
     return SPAN_SMALL + (SPAN_LARGE - SPAN_SMALL) * t
 
 
@@ -123,12 +145,16 @@ def _hairline(size: int) -> Image.Image:
     return line
 
 
-def render_tile(size: int) -> Image.Image:
-    """Render one icon size from the vector — never by resampling a bigger one."""
+def render_tile(size: int, head: bool = True) -> Image.Image:
+    """Render one icon size from the vector — never by resampling a bigger one.
+
+    App icons show the head (the default); ``head=False`` draws the whole
+    figure for surfaces where the tile is the logo, not an icon.
+    """
     tile = Image.new("RGBA", (size, size), (*PAPER, 255))
     tile.alpha_composite(_hairline(size))
     ink = Image.new("RGBA", (size, size), (*INK, 255))
-    ink.putalpha(figure_mask(size, mark_span(size)))
+    ink.putalpha(figure_mask(size, mark_span(size, head), head))
     tile.alpha_composite(ink)
     tile.putalpha(squircle_mask(size))
     return tile
@@ -196,19 +222,21 @@ def logo_ts_source(d: str) -> str:
 def main() -> None:
     LOGO_TS.write_text(logo_ts_source(logo_path_data()), encoding="utf-8", newline="\n")
 
-    tile_256 = render_tile(256)
     members = [render_tile(s) for s in sorted(ICO_SIZES, reverse=True)]
     public = FRONTEND / "public"
 
+    # App icons (taskbar, tray, dock, launcher) show the head.
     write_png(ROOT / "assets" / "icons" / "dodaios-1024.png", render_tile(MASTER))
+    write_png(ROOT / "dodaios" / "assets" / "icons" / "dodaios.png", render_tile(256))
+    # Logo surfaces (boot splash, orb mascot, social card) keep the whole figure.
+    logo_256 = render_tile(256, head=False)
     for path in (
-        ROOT / "dodaios" / "assets" / "icons" / "dodaios.png",
         ROOT / "assets" / "icons" / "dodaios-gigi-256.png",
         public / "dodaios-gigi-256.png",
         public / "dodaios-logo.png",
         FRONTEND / "src" / "assets" / "dodaios-mark.png",
     ):
-        write_png(path, tile_256)
+        write_png(path, logo_256)
     write_png(public / "dodaios-mark-256.png", render_mark(256))
     for path in (
         ROOT / "dodaios" / "assets" / "icons" / "dodaios.ico",

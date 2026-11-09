@@ -26,6 +26,10 @@ versioning per [SemVer](https://semver.org/).
 
 ### Changed
 
+- App icons (taskbar, tray, dock, launcher) now show the hooded head instead of
+  the whole figure, so the face stays readable at small sizes. The boot splash
+  and other logo surfaces keep the full figure. Suggested by a community member
+  (#1183).
 - The small-machine vision download is `qwen3-vl:2b-instruct` (1.9 GB, refreshed
   in the library). The previous tag `qwen3-vl:2b` is still published but Ollama
   shows it as a year old, so a new install no longer offers it.
