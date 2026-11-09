@@ -1,0 +1,10 @@
+[
+  {"row": "A-01", "scenario": "a01_show.json", "note": "show reaches Visible and lifecycle.ready is sent"},
+  {"row": "A-05", "scenario": "a05_dormant_and_back.json", "note": "hide to Dormant within 1 s, show to Visible within 300 ms"},
+  {
+    "row": "W-01",
+    "scenario": "w01_daily_visit.json",
+    "note": "one daily_visit on the first Visible, none on later shows",
+    "data_checks": [{"type": "progression.action", "match": {"action": "daily_visit"}, "eq": 1}]
+  }
+]
