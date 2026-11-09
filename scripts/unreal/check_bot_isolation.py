@@ -203,7 +203,7 @@ def check_symmetry(source: Path = DEFAULT_SOURCE) -> list[str]:
                     f"{_rel(path, source)}:{_line_of(code, match.start())}: F6.hearing-literal: "
                     "a hearing range in code; read it from DA_Audibility"
                 )
-            mentions_hearing = re.search(r"\bHear(?:ing|d)\w*", code) and re.search(
+            mentions_hearing = re.search(r"\bHear(?:ing|d)(?!Error)\w*", code) and re.search(
                 r"\b(?:Range|Radius)\b|RangeM\b", code
             )
             if mentions_hearing and not AUDIBILITY.search(code):
