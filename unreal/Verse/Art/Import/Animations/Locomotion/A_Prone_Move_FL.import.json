@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Locomotion/A_Prone_Move_FL.A_Prone_Move_FL",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Prone_Move_FL.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "d282ecc0286d1203410e67b52173ea974e4677a59c61aca4740f9fd4123158c7"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Prone_Move_FL",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

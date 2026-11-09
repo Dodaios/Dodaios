@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Reactions/A_Hit_Torso_Front.A_Hit_Torso_Front",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Hit_Torso_Front.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "be417482ab3765c9908b55c665fb35fdf6917ba3e2236222e070930bdeabf2f4"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Hit_Torso_Front",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": false
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

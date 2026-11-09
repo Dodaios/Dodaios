@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Crew/A_Crew_Bunk.A_Crew_Bunk",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/clips/A_Crew_Bunk.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "e28a1a42b8b9bfac721d5820463b07c4fae5f68185a2f005522313d9f6be2080"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Crew_Bunk",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/fps/clips.py",
+    "function": "author"
+  }
+}

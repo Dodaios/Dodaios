@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Crew_Skin",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Skin",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.52
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.62,
+      0.38,
+      0.27,
+      1.0
+    ]
+  }
+}

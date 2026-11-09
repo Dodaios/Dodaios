@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Opponent_Armor",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Armor",
+  "scalars": {
+    "Metallic": 0.55,
+    "Roughness": 0.36
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.007,
+      0.0075,
+      0.00857,
+      1.0
+    ]
+  }
+}
