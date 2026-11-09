@@ -241,3 +241,35 @@ def test_fresh_start_drops_earlier_history_but_keeps_the_thread(tmp_path: Path) 
             society_runtime.set_current_runtime(previous)
 
     asyncio.run(scenario())
+
+
+def test_answer_in_lead_returns_the_reply_of_its_own_turn(tmp_path: Path, monkeypatch) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        sid = svc.lead_session().session_id
+
+        async def fake_send(svc_, session_id, text, attachments=None, *, tool_choices=None):
+            async def run() -> None:
+                from dodaios.agent_chat.events import make_event
+
+                await asyncio.sleep(0.01)
+                await svc._emit(session_id, make_event("user_message", {"text": text}))  # noqa: SLF001
+                await svc._emit(session_id, make_event("turn_started", {"turn_id": "t9"}))  # noqa: SLF001
+                await svc._emit(  # noqa: SLF001
+                    session_id,
+                    make_event("assistant_text", {"turn_id": "t9", "text": "Hello back"}),
+                )
+                await svc._emit(  # noqa: SLF001
+                    session_id, make_event("turn_finished", {"turn_id": "t9", "status": "done"})
+                )
+
+            asyncio.get_running_loop().create_task(run())
+            return "", "queued-1"
+
+        monkeypatch.setattr("dodaios.agent_chat.send_queue.send_or_queue", fake_send)
+        answer = await lead.answer_in_lead(svc, "Hello", source="telegram", timeout_s=5)
+        assert answer == "Hello back"
+        assert sid
+
+    asyncio.run(scenario())

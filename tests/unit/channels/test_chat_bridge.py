@@ -155,13 +155,76 @@ async def test_bridge_ignores_empty_and_system_messages() -> None:
 
     bus.subscribe(MessageSent, _capture)
     bridge.start()
-    await channel.queue.put(
-        ChannelMessage(session_id=uuid4(), kind="system", content="hidden")
-    )
-    await channel.queue.put(
-        ChannelMessage(session_id=uuid4(), kind="text", content="   ")
-    )
+    await channel.queue.put(ChannelMessage(session_id=uuid4(), kind="system", content="hidden"))
+    await channel.queue.put(ChannelMessage(session_id=uuid4(), kind="text", content="   "))
     await asyncio.sleep(0.05)
     await bridge.stop()
 
     assert seen == []
+
+
+class _ReplyChannel(_QueueChannel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sent: list[ChannelMessage] = []
+        self.got = asyncio.Event()
+
+    async def send_message(self, msg: ChannelMessage) -> None:
+        self.sent.append(msg)
+        self.got.set()
+
+
+@pytest.mark.asyncio
+async def test_owner_private_chat_continues_the_lead_conversation(monkeypatch) -> None:
+    from dodaios.agent_chat import lead
+
+    asked: list[str] = []
+
+    async def fake_answer(svc, text, *, source, timeout_s=900.0):
+        asked.append(text)
+        return "Lisbon, in June."
+
+    monkeypatch.setattr(lead, "answer_in_lead", fake_answer)
+    bus = EventBus()
+    channel = _ReplyChannel()
+    bridge = ChannelChatBridge(
+        bus=bus,
+        manager=_Manager(channel),
+        get_chat_service=lambda: object(),  # type: ignore[arg-type]
+    )
+    published: list[MessageSent] = []
+
+    async def _capture(event: MessageSent) -> None:
+        published.append(event)
+
+    bus.subscribe(MessageSent, _capture)
+    bridge.start()
+    owner = {"telegram_chat_id": 12345, "friend_id": None}
+    await channel.queue.put(
+        ChannelMessage(
+            session_id=uuid4(), kind="text", content="Where is the wedding?", metadata=owner
+        )
+    )
+    await asyncio.wait_for(channel.got.wait(), timeout=2.0)
+    assert asked == ["Where is the wedding?"]
+    assert channel.sent[0].content == "Lisbon, in June."
+    assert channel.sent[0].metadata["telegram_chat_id"] == 12345
+    assert published == []
+
+    # A friend never reaches the owner's conversation.
+    friend = {"telegram_chat_id": 777, "friend_id": "f-1"}
+    await channel.queue.put(
+        ChannelMessage(session_id=uuid4(), kind="text", content="hi from a friend", metadata=friend)
+    )
+    # A group chat neither.
+    group = {"telegram_chat_id": -100, "friend_id": None}
+    await channel.queue.put(
+        ChannelMessage(session_id=uuid4(), kind="text", content="group hello", metadata=group)
+    )
+    for _ in range(50):
+        if len(published) == 2:
+            break
+        await asyncio.sleep(0.02)
+    await bridge.stop()
+    assert [e.text for e in published] == ["hi from a friend", "group hello"]
+    assert asked == ["Where is the wedding?"]

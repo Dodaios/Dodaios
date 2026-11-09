@@ -14,6 +14,7 @@ at and never fails because no chat was open.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 from typing import Any, Final
@@ -234,6 +235,53 @@ def search_conversation(query: str, *, limit: int = 6) -> list[dict[str, Any]]:
     return rows
 
 
+async def answer_in_lead(svc: Any, text: str, *, source: str, timeout_s: float = 900.0) -> str:
+    """Send ``text`` into the lead conversation and return the reply text.
+
+    For messages from outside the app (the owner's Telegram chat). A message
+    that arrives while a turn runs waits in the conversation's queue; its own
+    turn is found by its text. Returns "" when no answer came in time.
+    """
+    from dodaios.agent_chat.send_queue import send_or_queue
+
+    session = lead_session(svc)
+    if session is None:
+        return ""
+    sid = session.session_id
+    queue = svc.subscribe(sid)
+    try:
+        turn_id, _queued = await send_or_queue(svc, sid, text)
+        log.debug("lead thread: a %s message joins the conversation", source)
+        parts: list[str] = []
+        seen_own = bool(turn_id)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout_s
+        while True:
+            left = deadline - loop.time()
+            if left <= 0:
+                return ""
+            event = await asyncio.wait_for(queue.get(), timeout=left)
+            payload = event.get("payload") or {}
+            kind = event.get("kind")
+            if not turn_id:
+                # Queued: our message starts the first turn after it appears.
+                if kind == "user_message" and str(payload.get("text") or "") == text:
+                    seen_own = True
+                elif seen_own and kind == "turn_started":
+                    turn_id = str(payload.get("turn_id") or "")
+                continue
+            if str(payload.get("turn_id") or "") != turn_id:
+                continue
+            if kind == "assistant_text":
+                parts.append(str(payload.get("text") or ""))
+            elif kind == "turn_finished":
+                return "\n".join(p for p in parts if p).strip()
+    except TimeoutError:
+        return ""
+    finally:
+        svc.unsubscribe(sid, queue)
+
+
 FRESH_START_SUMMARY = (
     "The user started fresh here. Earlier parts of this conversation are not in "
     "context; what matters is in long-term memory, and memory-search finds what "
@@ -314,6 +362,7 @@ def _archive() -> Any | None:
 __all__ = [
     "SURFACE",
     "adopt_seat",
+    "answer_in_lead",
     "chat_seat",
     "fresh_start",
     "is_lead",
