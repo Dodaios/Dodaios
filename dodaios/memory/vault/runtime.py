@@ -348,3 +348,21 @@ def agent_block(*, max_chars: int = AGENT_BLOCK_MAX_CHARS) -> str:
         lines.append(line)
         used += len(line) + 1
     return header + "\n" + "\n".join(lines) if lines else ""
+
+
+def record_checkpoint(session: str, through_seq: int, summary: str) -> bool:
+    """Queue a compacted part of the lead conversation for episode memories.
+
+    Cheap and synchronous (one meta write); the background upkeep distills the
+    queue. False when no vault runs, learning is paused, or it was queued already.
+    """
+    vault = _active
+    if vault is None or learning_paused():
+        return False
+    from dodaios.memory.vault.episodes import enqueue
+
+    try:
+        return enqueue(vault, session, through_seq, summary)
+    except Exception:  # noqa: BLE001 — compaction must never fail over memory
+        log.warning("memory vault: could not queue a conversation checkpoint", exc_info=True)
+        return False
