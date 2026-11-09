@@ -101,9 +101,15 @@ describe("thread sub-agents", () => {
     expect(screen.getByTestId("thread-subagent-count").textContent).toBe("2 sub-agents · 2 working");
   });
 
-  it("hides the dock once every sub-agent has ended and none is open", () => {
-    const entries = listSubagents([turn([spawn("a1", { status: "done" })], "done")]);
+  it("keeps the newest batch in the dock once every sub-agent has ended", () => {
+    const earlier = { ...turn([spawn("old", { status: "done" })], "done"), id: "t0" };
+    const entries = listSubagents([earlier, turn([spawn("a1", { status: "done" }), spawn("a2", { status: "failed" })], "done")]);
     render(<SubagentDock entries={entries} openId={null} onOpen={vi.fn()} />);
+    expect(screen.getByTestId("thread-subagent-count").textContent).toBe("2 sub-agents · 1 failed · 1 done");
+  });
+
+  it("shows no dock in a thread without sub-agents", () => {
+    render(<SubagentDock entries={[]} openId={null} onOpen={vi.fn()} />);
     expect(screen.queryByTestId("thread-subagent-dock")).toBeNull();
   });
 

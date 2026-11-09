@@ -10342,6 +10342,7 @@
     "one_of": "1 von {count}",
     "plan_hint": "Bau es, oder plane weiter und sag, was sich ändern soll.",
     "keep_planning": "Weiter planen",
+    "deny_feedback": "Optional: Sag dem Agenten, warum oder was sich ändern soll",
     "decline": "Ablehnen",
     "always_allow_title": "Freigeben und in diesem Thread nicht mehr danach fragen",
     "always_allow": "Immer erlauben",

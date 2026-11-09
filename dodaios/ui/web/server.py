@@ -3861,6 +3861,8 @@ class WebServer:
 
                 maybe_reconcile_tool_surface(brain)
             tools = getattr(brain, "_tools", None)
+            if tools is None:
+                tools = getattr(state, "tool_registry", None)
             return tools if tools is not None and hasattr(tools, "items") else None
 
         def _skills() -> Any | None:
