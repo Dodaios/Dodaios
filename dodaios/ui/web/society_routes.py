@@ -576,9 +576,12 @@ async def set_all_agents_approval_mode(
             _validated_chat_runner(rt, agent, agent.provider, approval_mode=body.mode)
             updated = await rt.roster.update(agent.agent_id, {"approval_mode": body.mode})
         except (HTTPException, RosterError) as exc:
-            reason = exc.detail if isinstance(exc, HTTPException) else str(exc)
-            log.info("society: %s keeps its approval mode (%s)", agent.agent_id, reason)
-            skipped.append({"agent_id": agent.agent_id, "name": agent.name, "reason": str(reason)})
+            # The response carries a fixed code, never the exception's text.
+            reason = (
+                "runner_cannot_ask" if isinstance(exc, HTTPException) else str(exc.reason)
+            )
+            log.info("society: %s keeps its approval mode (%s): %s", agent.agent_id, reason, exc)
+            skipped.append({"agent_id": agent.agent_id, "name": agent.name, "reason": reason})
             continue
         rt.cache_agent(updated)
         _apply_mode_to_chat(rt, updated)
