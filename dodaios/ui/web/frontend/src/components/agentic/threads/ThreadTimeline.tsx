@@ -14,7 +14,7 @@ import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
 import { buildThreadRows, isFailed, thoughtGist, type ThreadRow, type WorkGroup, type WorkItem } from "./threadWork";
-import { SubagentCard } from "./ThreadSubagents";
+import { SubagentCard, SubagentGroup } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
 
@@ -578,6 +578,25 @@ export function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide
  * step stays with the work. A turn with no step at all has nothing to fold.
  * A card the turn ended on is no step: it stays with the answer it belongs to.
  */
+/**
+ * Rows with each run of sub-agents spawned one after another drawn as one:
+ * a lone sub-agent keeps its card, several read as one group with a line
+ * each, so a batch of agents never buries the conversation in cards.
+ */
+export function joinAgentRuns(rows: readonly ThreadRow[]): (ThreadRow | { kind: "agents"; id: string; blocks: ToolBlock[] })[] {
+  const out: (ThreadRow | { kind: "agents"; id: string; blocks: ToolBlock[] })[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.kind !== "agent") { out.push(row); continue; }
+    let j = i;
+    while (j + 1 < rows.length && rows[j + 1].kind === "agent") j++;
+    const run = rows.slice(i, j + 1) as Extract<ThreadRow, { kind: "agent" }>[];
+    out.push(run.length === 1 ? row : { kind: "agents", id: `agents:${row.id}`, blocks: run.map((entry) => entry.block) });
+    i = j;
+  }
+  return out;
+}
+
 export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: ThreadRow[] } {
   let lastStep = -1;
   let lastText = -1;
@@ -673,6 +692,8 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
       : answer ? workedFor : timed("no_answer");
+  const renderRows = (list: readonly ThreadRow[]) => joinAgentRuns(list).map((row) =>
+    row.kind === "agents" ? <SubagentGroup key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
   const renderRow = (row: ThreadRow) => {
     if (row.kind === "work") return <WorkGroupView key={row.id} group={row} running={running} />;
     if (row.kind === "thought") return <ThoughtView key={row.id} text={row.text} />;
@@ -724,12 +745,12 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
       </div>}
       <div aria-hidden className="mt-1 border-b border-border/70" />
     </div>}
-    {folded && agents.length > 0 && <div className="space-y-1.5 pt-1" data-testid="thread-turn-subagents">{agents.map(renderRow)}</div>}
+    {folded && agents.length > 0 && <div className="space-y-1.5 pt-1" data-testid="thread-turn-subagents">{renderRows(agents)}</div>}
     {folded && waiting.map(renderRow)}
     {credentials.map((block) => <CredentialCard key={block.credential!.requestId} credential={block.credential!} />)}
-    {shown.slice(0, extraAt).map(renderRow)}
+    {renderRows(shown.slice(0, extraAt))}
     {!folded && extraNodes}
-    {shown.slice(extraAt).map(renderRow)}
+    {renderRows(shown.slice(extraAt))}
     {running
       ? <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
         {waitingOn.length > 0

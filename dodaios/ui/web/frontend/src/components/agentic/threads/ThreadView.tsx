@@ -14,7 +14,7 @@ import { ThreadComposer } from "./ThreadComposer";
 import { ThreadHeader } from "./ThreadHeader";
 import { ThreadMenuItem, ThreadPopover } from "./ThreadPopover";
 import { ThreadTimeline } from "./ThreadTimeline";
-import { OpenSubagent, SubagentHeader, SubagentSwitcher } from "./ThreadSubagents";
+import { OpenSubagent, SubagentDock, SubagentHeader } from "./ThreadSubagents";
 import { useRecalledMessages, withoutRecalled } from "./recalledMessages";
 import { fetchDiscoveredAgents, listSubagents, mergeDiscovered, subagentPath, subagentTurn, type DiscoveredAgent } from "./subagents";
 import { projectIdFor, rememberedSeat, useThreadChat, useThreadChatStore } from "./threadModel";
@@ -309,13 +309,13 @@ export function ThreadView({ onScreen, column }: {
         </div>
       </div>
       : <OpenSubagent.Provider value={setOpenAgent}>
-        <SubagentSwitcher entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />
         {agent
           ? <ThreadTimeline items={agentItems} sessionId={`agent:${agent.id}`} bottomInset={composerHeight} folder={folder}
             lead={<SubagentHeader entry={agent} path={agentPath} onOpen={setOpenAgent} />} />
           : <ThreadTimeline items={items} sessionId={selection.sessionId} bottomInset={composerHeight} folder={folder} />}
         <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-70% to-transparent px-5 pb-4 pt-6">
           <div className="pointer-events-auto">
+            <SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />
             <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce} strip={strip} onScreen={onScreen} />
           </div>
         </div>
