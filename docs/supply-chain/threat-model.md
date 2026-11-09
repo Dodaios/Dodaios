@@ -267,7 +267,8 @@ Re-walking the scenarios from §3 with Wave 2 active:
 
 #### Scenario A — DNS / TLS interception (T1, T2)
 - **Wave 1 mitigation:** Sigstore signature; pinned OIDC + identity regex;
-  pinned cosign SHA-256; Rekor freshness check ≤ 24 h. **Wave 2
+  pinned cosign SHA-256; Rekor inclusion proof check (its 24 h age limit
+  was dropped in #1181; replay is closed by tag binding). **Wave 2
   mitigation:** unchanged for the transport layer (MITM still fails at
   the Wave-1 cosign step), AND **additionally** even if an attacker
   somehow defeats cosign (e.g. via a hypothetical Sigstore root-key

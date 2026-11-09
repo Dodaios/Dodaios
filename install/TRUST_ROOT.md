@@ -50,10 +50,20 @@ the entire trust root in one screen of code.
 | `EXPECTED_OIDC_ISSUER` | `https://token.actions.githubusercontent.com` | The GitHub Actions production OIDC issuer. | An attacker using a different OIDC issuer (a self-hosted Dex, GitLab, etc.) cannot mint a Fulcio cert that satisfies this issuer pin. |
 | `COSIGN_VERSION` | `v2.4.1` | The cosign release we will download. | Combined with the SHA-256 pins below — if the version doesn't match its known-good hash, verification fails before any signature work begins. |
 | `COSIGN_SHA256_*` | See `install-verify.sh` (4 hashes for 4 platforms; e.g. linux-amd64 = `8b24b946dd5809c6bd93de08033bcf6bc0ed7d336b7785787c080f574b89249b`) | The exact bytes of the cosign binary we will execute. | An attacker swapping the cosign binary on the wire or in a malicious GitHub release will be detected before we hand control to `cosign verify-blob`. |
-| `REKOR_MAX_AGE_SECONDS` | `86400` (24 hours) | Maximum age of the Rekor inclusion proof. | Stale-signed-but-revoked artifacts cannot be replayed. Tightening below 24 h is fine; loosening should not happen without justification. |
 
-The PowerShell sibling (`install-verify.ps1`) holds the same five values for
+The PowerShell sibling (`install-verify.ps1`) holds the same values for
 its platform.
+
+**No Rekor age limit.** Until #1181 the verifier also pinned
+`REKOR_MAX_AGE_SECONDS = 86400` and refused a Rekor inclusion proof older
+than 24 hours. Release bundles are signed once, when the tag is pushed, so
+that limit made every release unverifiable one day after it was cut. Stage
+[6/13] now requires the proof to be present and its integrated time not to
+lie in the future, with no maximum age. Replay of an older release's
+genuine bytes is closed by the tag-binding check (§10.2: the Fulcio SAN tag
+must equal the requested tag) and the payload-commit pin (§10.3). A release
+that must no longer be installed is withdrawn by deleting its tag and
+GitHub Release (§11).
 
 ---
 
