@@ -54,10 +54,7 @@ FIND_TOOLS_NAME: Final[str] = "find_tools"
 CORE_PRIORITY: Final[tuple[str, ...]] = (
     "search_web",
     "memory_search",
-    "wiki_ingest",
     "remember",
-    "wiki_list",
-    "wiki_page_read",
     "run_skill",
     "contact_lookup",
     "call_contact",
