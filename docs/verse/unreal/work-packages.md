@@ -793,14 +793,20 @@ stations.
 **Contracts consumed.** `bridge-protocol.md` 5, 6, 11, 12, 14 (open commands,
 `launcher.cancel`, `busy`); architecture 5.3.
 
+**Bridge wiring (#1157).** `UVerseStationSubsystem` and `UVerseScreensSubsystem` bind
+themselves in `Initialize` to the game instance's `UVerseBridgeSubsystem`: an
+`IVerseCommandLink` implementation over `Client()` in
+`VerseDecks/Private/Stations/`, and the `Screens`, `ChatTails` and `Groups` feeds
+(architecture 5.3). `IVerseCommandLink` stays WP16's own seam for its fakes.
+
 **Depends on.** G0 only (fake bridge and cells fixtures from G0.11). Fakes:
 WP17 bridge client, WP12 screen sockets (fixture map), WP18 UI framework
 (plain UMG root).
 
 | # | Sub-task | Output |
 |---|---|---|
-| 16.1 | `cells.bin/1` and `cells.json/1` decoder and grid model | Decoder |
-| 16.2 | Glyph atlas from the IDE font (licence checked, 13 px reference), one render target per monitor, dirty-row drawing | Renderer |
+| 16.1 | Grid model fed from WP17's `FVerseScreensFeed`; the only `cells.bin/1` and `cells.json/1` decoder is `VerseCellsCodec` in `VerseBridge` (17.11, #1157) | Grid |
+| 16.2 | Glyph atlas from the IDE font, JetBrains Mono (SIL OFL 1.1, `unreal/Verse/Art/Fonts/JetBrainsMono/`, #1158; 13 px reference), one render target per monitor, dirty-row drawing | Renderer |
 | 16.3 | Watch set: desks within view distance, at most 8, far monitors at 2 Hz | Watch manager |
 | 16.4 | Chat tail screens | Screens |
 | 16.5 | Takeover: interact sends `ide.focus_terminal`, Verse hides | Takeover |
@@ -810,7 +816,7 @@ WP17 bridge client, WP12 screen sockets (fixture map), WP18 UI framework
 
 | Id | Acceptance test | Pass |
 |---|---|---|
-| A16.1 | Decoder | Every golden fixture decodes byte-exact |
+| A16.1 | Decoder | Every golden fixture decodes byte-exact through `FVerseScreensFeed` into the grid |
 | A16.2 | Load | 8 panes at 60 x 240 at 10 Hz: at most 0.3 ms game thread per frame, at most 200 KB/s |
 | A16.3 | Colour | 256-colour and RGB test screens vs reference image: mean CIEDE2000 at most 2 |
 | A16.4 | Takeover | Key press to app window in the foreground on that pane at most 500 ms (with WP17 host) |
