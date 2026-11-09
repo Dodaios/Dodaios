@@ -32,6 +32,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -776,6 +777,31 @@ class CatalogSpec:
     #: list (``discovered_from_feed``) — for a login that publishes no catalog
     #: of its own. ``None`` = the curated list is the whole answer.
     discover: str | None = None
+    #: Blocking reader for the models an installed CLI reports itself (for a
+    #: CLI whose model list depends on what the person configured in it).
+    #: Its rows join the curated list. ``None`` = no CLI list.
+    cli_models: Callable[[], list[ModelInfo]] | None = None
+
+
+def _opencode_cli_models() -> list[ModelInfo]:
+    """The models the installed OpenCode CLI can run (``opencode models``).
+
+    Free ``opencode/*`` models come first, since they are what an unset model
+    uses. Never raises: a missing CLI yields an empty list.
+    """
+    try:
+        from dodaios.agent_chat.runner_cli import read_opencode_models
+
+        rows = read_opencode_models()
+    except Exception as exc:  # noqa: BLE001 — a picker list must never crash the page
+        log.info("OpenCode model list unavailable: %s", type(exc).__name__)
+        return []
+    models = [
+        ModelInfo(id=str(row["id"]), label=str(row["id"]))
+        for row in rows
+        if isinstance(row, dict) and row.get("id")
+    ]
+    return sorted(models, key=lambda m: not m.id.startswith("opencode/"))
 
 
 def _build_provider_catalog() -> dict[str, CatalogSpec]:
@@ -869,6 +895,11 @@ def _build_provider_catalog() -> dict[str, CatalogSpec]:
         # ``claude -p --model`` also takes full ids, so a release the aliases
         # have not reached yet is still pickable by name.
         discover="claude-api",
+    )
+    # OpenCode — ids are ``provider/model`` and depend on what the person set
+    # up in OpenCode, so nothing is curated: the installed CLI is asked.
+    cat["opencode"] = CatalogSpec(
+        "brain", "model", (), live=False, cli_models=_opencode_cli_models
     )
     for p, (selects, opts) in TTS_CATALOG.items():
         cat[p] = CatalogSpec("tts", selects, tuple(opts), live=False)
@@ -1902,6 +1933,8 @@ class ModelCatalog:
                 async with self._lock:
                     feed = await self._discovery_feed()
                 curated = merge_discovered(curated, discovered_from_feed(spec.discover, feed))
+            if spec.cli_models is not None:
+                curated = merge_discovered(curated, await asyncio.to_thread(spec.cli_models))
             return CatalogResult(
                 provider=provider,
                 models=tuple(curated),

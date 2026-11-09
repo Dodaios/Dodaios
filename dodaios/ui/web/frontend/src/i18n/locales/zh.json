@@ -2921,6 +2921,7 @@
     "agents_only_note": "仅限 {0}。此服务商无法接收截图，因此不能用作主大脑或 Computer Use 规划器。",
     "local_optional_key_hint": "本地服务商，无需凭据即可运行。下面的密钥是可选的，仅用于强制要求密钥的服务器（例如 vLLM --api-key）。",
     "local_no_credentials_hint": "本地服务商，无需凭据。",
+    "opencode_cli_hint": "通过你自己安装的 OpenCode 运行：Dodaios 不保存任何密钥。使用 npm i -g opencode-ai 安装，然后使用其免费模型，或通过 opencode auth login 登录。",
     "polish_verify_failed": "已选择 {0}，但它没有响应：{1}",
     "switch_note_next_start": " （下次启动语音时生效）",
     "switch_done_brain": "大脑 → {0}",
