@@ -42,6 +42,18 @@ struct VERSEUI_API FVerseAppSettings
 	static bool GoreFromString(const FString& Text, EVerseGoreLevel& Out);
 };
 
+/**
+ * The render tier in effect (parity T-02). The person's choice is -1 (auto) or 0..4; auto shows the
+ * level the engine's benchmark picked, so the panel never says only "Auto".
+ */
+struct VERSEUI_API FVerseRenderTier
+{
+	/** The level in effect: Choice when it is 0..4, else the engine's single level (0..4), else -1. */
+	static int32 Resolve(int32 Choice, int32 EngineLevel);
+	/** strings key of a level (verse.settings.quality.<name>); an unknown level is "custom". */
+	static const TCHAR* KeyFor(int32 Level);
+};
+
 USTRUCT()
 struct VERSEUI_API FVerseKeyBinding
 {
