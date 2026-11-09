@@ -386,6 +386,7 @@ describe("mid-turn steering", () => {
     expect(tl.items).toHaveLength(2);
     const turn = tl.items[1] as TurnItem;
     expect(turn.blocks.map((b) => (b.kind === "text" ? b.text : b.kind))).toEqual(["working", "also this", "done both"]);
-    expect(turn.blocks[1].id.startsWith("steer-")).toBe(true);
+    const steered = turn.blocks[1];
+    expect(steered.kind === "text" && steered.id.startsWith("steer-")).toBe(true);
   });
 });
