@@ -16,6 +16,13 @@ related: [sessions-and-run-inspector, outputs-and-files, instructions-and-person
 ---
 
 Use **Chats** for questions, follow-ups, and conversations you may revisit.
+
+> [!note] Since 2026-11-09 the assistant keeps **one endless conversation**.
+> **Conversation** in the sidebar always opens it; typed messages, voice calls
+> and agent reports all land there. Long conversations are summarized in the
+> background, so nothing has to start over. Older chats stay in the history
+> and can still be opened.
+
 History combines local text threads and retained voice transcripts; files,
 detailed runs, and durable knowledge stay elsewhere.
 

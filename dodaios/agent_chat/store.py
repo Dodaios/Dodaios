@@ -85,6 +85,12 @@ CREATE TABLE IF NOT EXISTS jarvis_chat_selection (
     effort      TEXT NOT NULL DEFAULT '',
     account_id  TEXT NOT NULL DEFAULT ''
 );
+-- The lead's one endless conversation: the chat session that every
+-- typed turn, voice call, agent report and notice of the lead lands in.
+CREATE TABLE IF NOT EXISTS jarvis_lead_session (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    session_id  TEXT NOT NULL
+);
 """
 
 _TITLE_MAX_CHARS = 80
@@ -245,6 +251,25 @@ class AgentChatStore:
                 "provider=excluded.provider, model=excluded.model, "
                 "effort=excluded.effort, account_id=excluded.account_id",
                 (selection.provider, selection.model, selection.effort, selection.account_id),
+            )
+            self._conn.commit()
+
+    # --------------------------------------------------------- lead thread
+
+    def lead_session_id(self) -> str | None:
+        """The id of the lead's one conversation, once it was chosen."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT session_id FROM jarvis_lead_session WHERE id = 1"
+            ).fetchone()
+        return str(row["session_id"]) if row else None
+
+    def set_lead_session_id(self, session_id: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO jarvis_lead_session (id, session_id) VALUES (1, ?) "
+                "ON CONFLICT(id) DO UPDATE SET session_id=excluded.session_id",
+                (session_id,),
             )
             self._conn.commit()
 

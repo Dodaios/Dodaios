@@ -376,10 +376,11 @@ def make_deliver_hook(
             trace_id=env.trace_id,
         )
         if target.agent_id == LEAD_AGENT_ID:
-            sessions = svc.store.list_sessions(limit=1, surface="jarvis")
-            if not sessions:
-                raise DeliveryBusy("Dodaios chat is not open yet")
-            session = sessions[0]
+            from dodaios.agent_chat.lead import lead_session
+
+            session = lead_session(svc)
+            if session is None:
+                raise DeliveryBusy("No chat provider is set up for Dodaios yet")
         else:
             # Everyone reaches a created agent in its one chat; the incoming
             # message carries its sender and renders as a delegation card.

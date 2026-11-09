@@ -395,6 +395,11 @@ export function fetchAgentChatSessions(
   });
 }
 
+/** The lead's one endless conversation; the server creates it on first use. */
+export async function fetchLeadSession(): Promise<AgentChatSession> {
+  return json<AgentChatSession>(await fetch("/api/agent-chat/lead"), "lead-failed");
+}
+
 export interface CreateSessionInput {
   provider: string;
   account_id?: string;

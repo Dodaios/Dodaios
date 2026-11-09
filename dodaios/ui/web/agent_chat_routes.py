@@ -1095,6 +1095,33 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
                 + ", ".join(m.id for m in permission_modes(ladder))
             ),
         )
+    if body.surface == "jarvis":
+        # Dodaios keeps ONE endless conversation: "new chat" returns it with
+        # the picked model on its seat instead of opening a second chat.
+        from dodaios.agent_chat.lead import adopt_seat
+
+        try:
+            lead = adopt_seat(
+                svc,
+                {
+                    "provider": body.provider,
+                    "model": body.model or None,
+                    "effort": body.effort,
+                    "account_id": body.account_id,
+                },
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if lead is not None:
+            from dodaios.agent_chat.store import ChatSelection
+
+            svc.store.save_chat_selection(
+                ChatSelection(lead.provider, lead.model, lead.effort, lead.account_id)
+            )
+            d = lead.to_dict()
+            d["running"] = svc.is_running(lead.session_id)
+            d["lead"] = True
+            return d
     cwd = _folder_for(body.surface, body.cwd)
     try:
         session = svc.create_session(
@@ -1117,6 +1144,20 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
         )
     d = session.to_dict()
     d["running"] = False
+    return d
+
+
+@router.get("/lead", summary="The lead's one endless conversation (created on first use)")
+async def get_lead_session(request: Request) -> dict[str, Any]:
+    from dodaios.agent_chat.lead import lead_session
+
+    svc = _service(request)
+    session = await asyncio.to_thread(lead_session, svc)
+    if session is None:
+        raise HTTPException(status_code=409, detail="No chat provider is set up yet")
+    d = session.to_dict()
+    d["running"] = svc.is_running(session.session_id)
+    d["lead"] = True
     return d
 
 
@@ -1288,6 +1329,12 @@ async def delete_session(session_id: str, request: Request) -> dict[str, Any]:
     svc = (await _async_service(request))
     if svc.store.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="session not found")
+    from dodaios.agent_chat.lead import is_lead
+
+    if is_lead(svc, session_id):
+        raise HTTPException(
+            status_code=409, detail="The main Dodaios conversation cannot be deleted"
+        )
     await svc.controls.pause(session_id, "Session deleted")
     # No request of a deleted chat may come back as a turn.
     svc.parked_work.stop(session_id)

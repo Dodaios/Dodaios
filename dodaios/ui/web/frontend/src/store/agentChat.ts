@@ -11,6 +11,7 @@ import {
   fetchAgentChatCatalog,
   fetchAgentChatSessions,
   fetchAgentConnections,
+  fetchLeadSession,
   fetchProviderHealth,
   fetchProviderModels,
   isApiRunner,
@@ -490,6 +491,21 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
       // Not fatal: the composer's voice button binds again before a call.
       console.info("Voice chat binding failed.", err);
     });
+  };
+
+  let leadRequest = 0;
+  /** Open the lead's conversation; a blank page stays if the server has none yet. */
+  const openLead = () => {
+    const request = ++leadRequest;
+    bindVoice(null);
+    void chatStore.getState().loadCatalog();
+    // A failure keeps the blank page; the first send then reaches the lead.
+    void fetchLeadSession()
+      .then((session) => {
+        const st = chatStore.getState();
+        if (request === leadRequest && st.activeSessionId === null && session?.session_id) st.openSession(session.session_id);
+      })
+      .catch(() => undefined);
   };
 
   let catalogRequest = 0;
@@ -1052,6 +1068,12 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           // seconds on every new chat.
           catalogStale: get().catalog !== null,
         });
+        if (surface === "jarvis" && !opts?.voiceSessionId) {
+          // Dodaios keeps ONE endless conversation: every door that used to
+          // open a blank chat opens it instead (agent_chat/lead.py).
+          openLead();
+          return;
+        }
         bindVoice(null, opts?.voiceSessionId ?? null);
         void get().loadCatalog();
       },
@@ -1137,7 +1159,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
             }
             lane.sessionId = session.session_id;
             sendLanes.set(session.session_id, lane);
-            set({ sessions: [session, ...get().sessions] });
+            set({ sessions: [session, ...get().sessions.filter((s) => s.session_id !== session.session_id)] });
             onSessionCreated?.(session);
             if (visible) {
               set({ activeSessionId: session.session_id, activeSession: session, timeline: EMPTY_TIMELINE });

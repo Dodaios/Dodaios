@@ -4,7 +4,7 @@ import {
   Mic,
   ChevronDown,
   MoreHorizontal,
-  Plus,
+  MessageCircle,
 } from "lucide-react";
 import {
   NAV_GROUPS,
@@ -547,15 +547,14 @@ export function Sidebar({
           </div>
         </nav>) : <nav aria-label={t("sidebar.sections")} className="space-y-px px-2 py-2">
           <ul className="space-y-px">
-            {/* One door: a fresh typed chat. Voice is a mode INSIDE the chat
-                now (its top bar's button), so there is nothing to choose
-                between here (2026-10-01). */}
+            {/* One door: the one endless conversation (2026-11-09). Voice is
+                a mode INSIDE it (its top bar's button). */}
             <li><button type="button" data-testid="sidebar-new-chat" data-tour="new-chat"
-              aria-label={t("sidebar.new_chat")} title={t("sidebar.new_chat")}
+              aria-label={t("sidebar.conversation")} title={t("sidebar.conversation")}
               className={cn(rowClass, onEmptyChat && "bg-secondary text-foreground-strong")}
               onClick={() => { useHomeStore.getState().setSurface("chat"); startNewTextChat(); }}>
-              <Plus aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
-              {!railed && <span>{t("sidebar.new_chat")}</span>}
+              <MessageCircle aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
+              {!railed && <span>{t("sidebar.conversation")}</span>}
             </button></li>
             {/* The order the maintainer chose (2026-11-02): the agents, where
                 they code, the Verse, the voice, then the extensions and the
