@@ -41,6 +41,19 @@ let lastSent: SentMessage | null = null;
 /** How long after sending Escape still takes a message back once the agent started thinking. */
 export const RECALL_WINDOW_MS = 15_000;
 
+/**
+ * The composer a dictation's words belong to, by thread key: the one whose
+ * mic button was pressed, else the one typed in last. Side-by-side columns
+ * each mount a composer, and every one of them hears the same transcript.
+ */
+let dictationOwner: string | null = null;
+
+/** An Escape pressed in another field, menu or dialog is that control's, never a recall. */
+function escapeBelongsElsewhere(target: EventTarget | null, box: HTMLTextAreaElement | null): boolean {
+  if (!(target instanceof HTMLElement) || target === box) return false;
+  return Boolean(target.closest("input, textarea, select, [contenteditable=true], [contenteditable=''], [role=dialog], [role=menu], [role=listbox]"));
+}
+
 function keepSent(next: SentMessage | null): void {
   if (lastSent && lastSent.files !== next?.files) releaseHeldFiles(lastSent.files);
   lastSent = next;
@@ -113,6 +126,7 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
   const chat = useThreadChat();
   const [sending, setSending] = useState<ApprovalDecision | null>(null);
   const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState("");
   const input = pending.input && typeof pending.input === "object" ? pending.input as Record<string, unknown> : {};
   // Claude Code's finished plan asks here too, and the plan itself is what gets approved.
   const isPlan = pending.name === "ExitPlanMode";
@@ -125,7 +139,8 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
     setSending(decision);
     setError("");
     try {
-      await chat.getState().decide(pending.approvalId, decision);
+      if (decision === "deny" && feedback.trim()) await chat.getState().decide(pending.approvalId, decision, undefined, feedback);
+      else await chat.getState().decide(pending.approvalId, decision);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSending(null);
@@ -145,6 +160,11 @@ function ApprovalCard({ pending, count }: { pending: PendingApproval; count: num
         <p className="mt-0.5 text-sm text-muted-foreground">{isPlan ? t("ide_threads.plan_hint") : pending.summary || pending.name}</p>
         {plan && <div data-testid="thread-approval-plan" className={cn("mt-2 max-h-72 overflow-auto rounded-md bg-secondary px-3 py-2 scrollbar-jarvis", PLAN_PROSE)}><ChatMarkdown text={plan} /></div>}
         {detail && <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-secondary px-2.5 py-1.5 font-mono text-xs text-foreground scrollbar-jarvis">{detail}</pre>}
+        <input type="text" data-testid="thread-approval-feedback" value={feedback} disabled={sending !== null}
+          onChange={(e) => setFeedback(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && feedback.trim()) { e.preventDefault(); void decide("deny"); } }}
+          aria-label={t("ide_threads.deny_feedback")} placeholder={t("ide_threads.deny_feedback")}
+          className="mt-2 w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
         {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
       </div>
     </div>
@@ -355,15 +375,21 @@ export function ThreadComposer({
     if (next !== draft.effort) void chat.getState().setDraft({ effort: next });
   }, [chat, provider, liveModels, draft.model, draft.effort, activeSessionId, activeSession]);
 
+  // The thread the box types for now; a send that is still on its way compares against it.
+  const keyRef = useRef(threadKey);
+  keyRef.current = threadKey;
+
   const setValue = useCallback((next: string) => {
     setValueState(next);
     drafts.set(threadKey, next);
   }, [threadKey]);
 
-  // The dictated words append to whatever the box holds when they land.
+  // The dictated words append to whatever the box holds when they land — in
+  // the one composer that owns the dictation, never in a hidden one.
   const setDictated = useCallback((next: string | ((current: string) => string)) => {
+    if (!onScreen || (dictationOwner !== null && dictationOwner !== threadKey)) return;
     setValue(typeof next === "function" ? next(drafts.get(threadKey) ?? "") : next);
-  }, [setValue, threadKey]);
+  }, [setValue, threadKey, onScreen]);
   const dictation = useComposerDictation(setDictated, () => void submit());
 
   // Another thread: its own half-written text, its own queue.
@@ -407,14 +433,20 @@ export function ThreadComposer({
     triggers,
   });
 
-  const dispatch = useCallback(async (text: string, attachments: ChatAttachment[]) => {
+  /** Sends `text`; false when it did not reach the agent. `sent` learns the thread a first message creates. */
+  const dispatch = useCallback(async (text: string, attachments: ChatAttachment[], sent?: SentMessage) => {
     const store = chat.getState();
-    if (!store.activeSessionId) {
+    // A second message while the first one still creates the thread rides on
+    // that creation (the store's send lane), never on a second worktree.
+    if (!store.activeSessionId && !store.busy) {
       setStarting(true);
       try {
         const cwd = await prepareDraft();
         if (cwd === null) return false;
-        if (cwd !== store.draft.cwd) await store.setDraft({ cwd });
+        // The person opened another thread while the worktree was being made:
+        // the folder and the message are this draft's, never that thread's.
+        if (chat.getState().activeSessionId !== null) return false;
+        if (cwd !== chat.getState().draft.cwd) await chat.getState().setDraft({ cwd });
       } catch (error) {
         setProblem(error instanceof Error ? error.message : String(error));
         return false;
@@ -422,9 +454,20 @@ export function ThreadComposer({
         setStarting(false);
       }
     }
-    await chat.getState().send(text, attachments, [], onSessionCreated);
-    return !chat.getState().lastError;
+    const outcome = await chat.getState().send(text, attachments, [], (session) => {
+      if (sent && sent.sessionId === null) sent.sessionId = session.session_id;
+      onSessionCreated?.(session);
+    });
+    return outcome !== "failed";
   }, [chat, prepareDraft, onSessionCreated]);
+
+  /** A message that did not go comes back into its thread's box, ahead of anything typed since. */
+  const giveBack = useCallback((key: string, text: string) => {
+    const current = drafts.get(key) ?? "";
+    const restored = current.trim() ? `${text}\n${current}` : text;
+    drafts.set(key, restored);
+    if (key === keyRef.current) setValueState(restored);
+  }, []);
 
   const submit = async () => {
     // Send during a dictation ends it first; the message goes once the words land.
@@ -439,6 +482,7 @@ export function ThreadComposer({
       setProblem(t("ide_threads.choose_connected_agent"));
       return;
     }
+    const key = threadKey;
     const held = files.take();
     const attachments = held.attachments;
     setValue("");
@@ -448,21 +492,28 @@ export function ThreadComposer({
       // other follow-up waits in the server's queue and runs as the next turn.
       releaseHeldFiles(held);
       const sent = await dispatch(text, attachments);
-      if (!sent) setValue(text);
+      if (!sent) giveBack(key, text);
       return;
     }
     const before = chat.getState();
-    keepSent({ text, files: held, sentMs: Date.now(), sessionId: before.activeSessionId, afterSeq: before.timeline.lastSeq });
-    const sent = await dispatch(text, attachments);
-    if (!sent && !chat.getState().activeSessionId) {
-      // Nothing was created: give the words back instead of losing them.
-      setValue(text);
+    const message: SentMessage = { text, files: held, sentMs: Date.now(), sessionId: before.activeSessionId, afterSeq: before.timeline.lastSeq };
+    keepSent(message);
+    const sent = await dispatch(text, attachments, message);
+    if (!sent) {
+      // It never reached the agent: the words and files come back, in a new
+      // thread's draft and in an open thread alike.
+      if (lastSent === message) lastSent = null;
+      giveBack(key, text);
+      if (key === keyRef.current) files.restore(held);
+      else releaseHeldFiles(held);
     }
   };
 
   // Escape soon after sending stops the turn, takes the message out of the
   // thread and puts it, files included, back into the box to edit and send again.
   const recall = useRef<() => boolean>(() => false);
+  const typeaheadOpen = useRef(false);
+  typeaheadOpen.current = typeahead.open;
   recall.current = () => {
     const asked = lastSent && recallableItem(timeline, lastSent, activeSessionId, Date.now());
     if (!lastSent || !asked) return false;
@@ -484,6 +535,8 @@ export function ThreadComposer({
     // after a send, when the message is still recallable.
     const onEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+      // A rename field, a picker or the open `/` and `@` list take their own Escape.
+      if (escapeBelongsElsewhere(event.target, textareaRef.current) || typeaheadOpen.current) return;
       if (!recall.current()) return;
       event.preventDefault();
       event.stopPropagation();
@@ -532,8 +585,9 @@ export function ThreadComposer({
         files.dragging && "border-accent ring-2 ring-accent/40",
       )}>
       <ApprovalPanel timeline={timeline} />
-      <QuestionPanel timeline={timeline} />
-      {!running && <PlanPanel timeline={timeline} provider={provider} />}
+      {/* Keyed by thread: a half-typed answer or an old error never carries over to another thread's card. */}
+      <QuestionPanel key={`q:${threadKey}`} timeline={timeline} />
+      {!running && <PlanPanel key={`p:${threadKey}`} timeline={timeline} provider={provider} />}
       {(files.attachments.length > 0 || files.analyzing > 0) && <div className="px-3 pt-3 sm:px-4">
         <ChatAttachmentStrip attachments={files.attachments} analyzing={files.analyzing}
           onRemove={files.remove} previews={files.previews} look="thumbnail" />
@@ -543,6 +597,7 @@ export function ThreadComposer({
         placeholder={running ? t(steers ? "ide_threads.steer_placeholder" : "ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
+        onFocus={() => { dictationOwner = threadKey; }}
         onKeyUp={() => typeahead.refresh()}
         onClick={() => typeahead.refresh()}
         onBlur={() => typeahead.blur()}
@@ -560,7 +615,7 @@ export function ThreadComposer({
           onPick={(permissionMode) => void pick({ permissionMode })} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <DictationButton dictating={dictation.dictating} onToggle={dictation.toggle}
+          <DictationButton dictating={dictation.dictating} onToggle={() => { dictationOwner = threadKey; dictation.toggle(); }}
             startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
           {running && !canSend
             ? <button type="button" aria-label={t("ide_threads.stop_agent")} title={t("ide_threads.stop")} data-testid="thread-stop"

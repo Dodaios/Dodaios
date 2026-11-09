@@ -14,7 +14,8 @@ const ChatStage = lazy(() =>
 const HomeAgentChat = lazy(() => import("@/components/home/HomeAgentChat"));
 
 /**
- * The front page: ONE chat with the assistant (2026-10-01).
+ * The front page: ONE chat with the assistant (2026-10-01), and since
+ * 2026-11-09 one endless conversation: there is no blank "new chat" page.
  *
  * Nothing but the conversation — no header row, no side card. An empty chat
  * is a short greeting over the composer in the middle of the page;
@@ -41,6 +42,15 @@ export function AssistantChat() {
     if (!inVoice || voice.live || voiceThreadOpen || freshVoicePending) return;
     seedTranscript(transcriptFromTimeline(chatItems));
   }, [chatItems, freshVoicePending, inVoice, seedTranscript, voice.live, voiceThreadOpen]);
+  // The page always shows the one conversation (agent_chat/lead.py): with no
+  // session on stage — first paint, a deleted chat — it opens it, unless an
+  // archived voice chat was put on stage on purpose.
+  const activeSessionId = useAgentChatStore((s) => s.activeSessionId);
+  const continuedVoiceId = useHomeStore((s) => s.continuedVoiceId);
+  useEffect(() => {
+    if (agentChatId || activeSessionId !== null || continuedVoiceId || voiceThreadOpen) return;
+    useAgentChatStore.getState().newChat();
+  }, [activeSessionId, agentChatId, continuedVoiceId, voiceThreadOpen]);
   const loading = (
     <div role="status" className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
       {t("common.loading")}

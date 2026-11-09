@@ -45,7 +45,12 @@ from dodaios.agent_chat.credential_requests import (
 from dodaios.agent_chat.effort import normalize_effort
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
-from dodaios.agent_chat.permissions import default_permission, ladder_key, normalize_permission
+from dodaios.agent_chat.permissions import (
+    default_permission,
+    is_permission_mode,
+    ladder_key,
+    normalize_permission,
+)
 from dodaios.agent_chat.questions import (
     CANCELLED,
     MAX_ASKS_PER_TURN,
@@ -382,7 +387,10 @@ def _first_open(answers: list[QuestionAnswer | None] | tuple[QuestionAnswer | No
     return next((i for i, a in enumerate(answers) if a is None), -1)
 
 
-def _expires_ms(timeout_s: float) -> int:
+def _expires_ms(timeout_s: float | None) -> int | None:
+    """When a card closes by itself; ``None`` for a card that waits as long as it takes."""
+    if timeout_s is None:
+        return None
     return int(time.time() * 1000 + timeout_s * 1000)
 
 
@@ -511,6 +519,16 @@ class AgentChatService:
         # Where an "Always allow" from the card is to live, by approval id:
         # ``(scope, breadth, narrow)`` as the card's rule editor sent it.
         self._approval_choice: dict[str, tuple[str, str, str]] = {}
+        # What the person typed on a declined card, by approval id; handed to
+        # the agent as the deny message (see :meth:`take_deny_feedback`).
+        self._approval_feedback: dict[str, str] = {}
+        self._deny_feedback: dict[tuple[str, str], str] = {}
+        # Claude Code "Always allow" rules, per session: the rules the CLI
+        # offered, kept across turns like its own session rules in a terminal.
+        self._cli_rules: dict[str, list[dict[str, Any]]] = {}
+        # Tools a coding session's person waved through ("Always allow") on a
+        # runner that has no rule language of its own; the mode stays as it is.
+        self._tool_always: dict[str, set[str]] = {}
         # Narrow chat rules from the card ("only this folder", "only this
         # command"), per session: a matching call runs without a card. They
         # live as long as the app runs, like the chat's other "always".
@@ -918,6 +936,7 @@ class AgentChatService:
         title: str = "",
         surface: str = DEFAULT_SURFACE,
         account_id: str = "",
+        computer_id: str = "",
     ) -> AgentChatSession:
         row = provider_row(provider)
         if row is None and not supports_api_runner(provider):
@@ -946,6 +965,7 @@ class AgentChatService:
             title=title,
             surface=surface,
             account_id=account_id,
+            computer_id=computer_id,
         )
 
     def _set_steerer(
@@ -2055,9 +2075,19 @@ class AgentChatService:
         archived = (voice_session or "").strip() or None
         continue_voice_session(archived if session_id is None else None)
         self._voice_archive_history = voice_history if archived and session_id is None else None
+        if session_id is None and archived:
+            self._voice_chat_id = None
+            self._voice_chat_fresh = False
+        else:
+            if session_id is None:
+                # No "blank page" any more: a call without a chosen chat
+                # continues the lead's one conversation.
+                from dodaios.agent_chat.lead import lead_session
+
+                lead = lead_session(self)
+                session_id = lead.session_id if lead is not None else None
         if session_id is None:
             self._voice_chat_id = None
-            self._voice_chat_fresh = True
         else:
             session = self.store.get_session(session_id)
             if session is None or session.surface != "jarvis":
@@ -2077,10 +2107,25 @@ class AgentChatService:
         archive = self._voice_archive_history
         if archive is not None and self.voice_session_continued:
             return archive()
+        from dodaios.agent_chat import lead
+
         session_id = self._voice_chat_id
         if not session_id or self.store.get_session(session_id) is None:
+            # Nothing chosen on screen: the call continues the lead's conversation.
+            current = lead.lead_session(self)
+            session_id = current.session_id if current is not None else None
+        if not session_id:
             return []
-        return brain_history_from_events(self.store.list_events(session_id))
+        events = self.store.list_events(session_id)
+        if lead.is_lead(self, session_id):
+            return lead.voice_history(session_id, events)
+        return brain_history_from_events(events)
+
+    def lead_session(self) -> AgentChatSession | None:
+        """The lead's one endless conversation (see ``agent_chat/lead.py``)."""
+        from dodaios.agent_chat.lead import lead_session
+
+        return lead_session(self)
 
     def voice_call_chat(self, call_id: str) -> str | None:
         """The chat a running call already files into, if its first turn landed."""
@@ -2291,6 +2336,8 @@ class AgentChatService:
         if self._narrow_allows(session_id, name, args):
             # The person's own narrow rule from an earlier card covers this call.
             return "allow"
+        if name in self._tool_always.get(session_id, ()):
+            return "allow"
         held = self._unanswered.pop((session_id, turn_id, call_id), "") if call_id else ""
         approval_id = held if held and held not in self._approvals else uuid.uuid4().hex
         loop = asyncio.get_running_loop()
@@ -2333,6 +2380,9 @@ class AgentChatService:
             self._approvals.pop(approval_id, None)
             self._approval_session.pop(approval_id, None)
             choice = self._approval_choice.pop(approval_id, None)
+            feedback = self._approval_feedback.pop(approval_id, "")
+            if feedback and call_id:
+                self._deny_feedback[(session_id, call_id)] = feedback
         await self._emit(
             session_id,
             make_event(
@@ -2394,12 +2444,21 @@ class AgentChatService:
                 # own Edit or Bash) stops asking for that one tool, never for
                 # the whole chat.
                 self._always_allowed.setdefault(session_id, set()).add(name)
-            else:
-                self.store.update_session(session_id, permission_mode="auto")
-                await self._emit(
-                    session_id, make_event("session_updated", {"permission_mode": "auto"})
-                )
+            elif session is not None and session_runner(session) not in ("claude-cli", "glm-cli"):
+                # "Always allow" stops asking for this tool, as in a terminal;
+                # the thread's access mode stays what the person picked.
+                self._tool_always.setdefault(session_id, set()).add(name)
+            # Claude Code: the runner hands the CLI the rule it offered
+            # (:meth:`cli_session_rules`); nothing else changes.
         return decision
+
+    def cli_session_rules(self, session_id: str) -> list[dict[str, Any]]:
+        """The Claude Code session rules "Always allow" collected in this session."""
+        return self._cli_rules.setdefault(session_id, [])
+
+    def take_deny_feedback(self, session_id: str, call_id: str) -> str:
+        """What the person typed when declining the card of ``call_id``, once."""
+        return self._deny_feedback.pop((session_id, call_id), "")
 
     def always_allowed(self, session_id: str) -> set[str]:
         """The tools waved through with "always allow" in this session (Jarvis surface)."""
@@ -2414,6 +2473,7 @@ class AgentChatService:
         scope: str = "",
         breadth: str = "",
         narrow: str = "",
+        feedback: str = "",
     ) -> bool:
         """Answer an open card. ``scope``/``breadth`` say where an "Always allow"
         lives (the card's rule editor), ``narrow`` how far a chat rule reaches;
@@ -2435,6 +2495,8 @@ class AgentChatService:
             return False
         if decision == "allow_always" and scope:
             self._approval_choice[approval_id] = (scope, breadth or "action", narrow)
+        if decision == "deny" and feedback.strip():
+            self._approval_feedback[approval_id] = feedback.strip()[:2000]
         fut.set_result(decision)
         return True
 
@@ -2660,7 +2722,8 @@ class AgentChatService:
         specs: tuple[QuestionSpec, ...],
         *,
         asker: str = "",
-        timeout_s: float = QUESTION_TIMEOUT_S,
+        timeout_s: float | None = QUESTION_TIMEOUT_S,
+        rationed: bool = True,
     ) -> str:
         """Show ``specs`` as one card in the running turn; returns its question id.
 
@@ -2670,6 +2733,10 @@ class AgentChatService:
         moving but a person mid-series is never cut off. Closing the card
         applies the recommendations at once; a finished turn cancels it. Wait
         for the outcome with :meth:`wait_questions`.
+
+        ``timeout_s=None`` waits for the person as long as it takes, and
+        ``rationed=False`` lifts the cards-per-turn cap (a coding agent's own
+        ``AskUserQuestion``, which asks as often in a terminal).
 
         Raises ``RuntimeError`` when the session has no running turn, and
         ``TooManyQuestions`` once the turn has used its cards.
@@ -2688,7 +2755,7 @@ class AgentChatService:
             open_q.result.set_result(list(open_q.answers))
             self._questions[question_id] = open_q
             return question_id
-        if run.asks >= MAX_ASKS_PER_TURN:
+        if rationed and run.asks >= MAX_ASKS_PER_TURN:
             raise TooManyQuestions(f"this turn already asked {run.asks} times")
         run.asks += 1
         self._questions[question_id] = open_q
@@ -2701,7 +2768,7 @@ class AgentChatService:
                     "question_id": question_id,
                     "asker": asker,
                     "questions": [spec.to_payload() for spec in specs],
-                    "timeout_s": timeout_s,
+                    "timeout_s": timeout_s or 0,
                     "expires_ms": _expires_ms(timeout_s),
                 },
             ),
@@ -2751,20 +2818,25 @@ class AgentChatService:
         specs: tuple[QuestionSpec, ...],
         *,
         asker: str = "",
-        timeout_s: float = QUESTION_TIMEOUT_S,
+        timeout_s: float | None = QUESTION_TIMEOUT_S,
+        rationed: bool = True,
     ) -> list[QuestionAnswer]:
         """Open a card and wait until it closes (a caller with no call timeout)."""
-        question_id = await self.open_questions(session_id, specs, asker=asker, timeout_s=timeout_s)
+        question_id = await self.open_questions(
+            session_id, specs, asker=asker, timeout_s=timeout_s, rationed=rationed
+        )
         answers = await self.wait_questions(session_id, question_id)
         assert answers is not None
         return answers
 
     async def _watch_question(
-        self, open_q: _OpenQuestion, question_id: str, timeout_s: float
+        self, open_q: _OpenQuestion, question_id: str, timeout_s: float | None
     ) -> None:
         loop = asyncio.get_running_loop()
         reported = 0
-        deadline = loop.time() + timeout_s
+        forever = timeout_s is None
+        window = timeout_s or 0.0
+        deadline = loop.time() + window
         try:
             while not open_q.done:
                 # Inspect stored answers before waiting. A click can arrive
@@ -2774,7 +2846,7 @@ class AgentChatService:
                 touched, open_q.touched = open_q.touched, False
                 if (answered > reported or touched) and not open_q.done:
                     reported = answered
-                    deadline = loop.time() + timeout_s
+                    deadline = loop.time() + window
                     await self._emit(
                         open_q.session_id,
                         make_event(
@@ -2788,8 +2860,8 @@ class AgentChatService:
                         ),
                     )
                     continue
-                remaining = deadline - loop.time()
-                if remaining <= 0:
+                remaining = None if forever else deadline - loop.time()
+                if remaining is not None and remaining <= 0:
                     log.info(
                         "agent chat: question %s in %s timed out; recommendations applied",
                         question_id,
@@ -3152,6 +3224,9 @@ class AgentChatService:
         if session is None or session.permission_mode != "plan" or not text.strip():
             return
         build = default_permission(ladder_key(session.surface, runner))
+        before = self.store.mode_before_plan(session_id)
+        if before and is_permission_mode(ladder_key(session.surface, runner), before):
+            build = before
         if build == "plan":
             return
         await self._emit(

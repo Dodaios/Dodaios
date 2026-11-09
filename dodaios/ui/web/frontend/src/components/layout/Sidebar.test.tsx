@@ -230,11 +230,11 @@ describe("Sidebar new-conversation button", () => {
     useEventStore.setState({ conversations: [], messages: [], activeThreadId: null });
   });
 
-  test("opens an empty typed chat in one click, even from voice mode", async () => {
+  test("opens the one conversation in one click, even from voice mode", async () => {
     useHomeStore.setState({ surface: "voice", transcript: [] });
     renderSidebar();
     const button = screen.getByTestId("sidebar-new-chat");
-    expect(button.textContent).toContain("New chat");
+    expect(button.textContent).toContain("Conversation");
     await act(async () => { button.click(); await Promise.resolve(); });
     expect(useHomeStore.getState().surface).toBe("chat");
     expect(useEventStore.getState().activeSection).toBe("chats");

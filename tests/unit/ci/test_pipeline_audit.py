@@ -93,6 +93,39 @@ def test_named_checks_without_ci_workflow_provenance_do_not_admit(monkeypatch, c
     assert release_admit.gate_state(REPO, SHA) == "missing"
 
 
+QUEUE_BRANCH = f"gh-readonly-queue/main/pr-1238-{'0' * 40}"
+
+
+def test_main_queue_run_proves_the_landed_commit_for_the_cut(monkeypatch):
+    fake = FakeActions([run_record(event="merge_group", head_branch=QUEUE_BRANCH)])
+    monkeypatch.setattr(release_admit, "api_pages", fake.pages)
+    assert release_admit.gate_state(REPO, SHA, allow_queue=True) == "success"
+    assert release_admit.gate_state(REPO, SHA) == "missing"
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        {"event": "merge_group", "head_branch": "gh-readonly-queue/release/pr-1-" + "0" * 40},
+        {"event": "merge_group", "head_branch": "feature"},
+        {"event": "pull_request", "head_branch": QUEUE_BRANCH},
+    ],
+)
+def test_only_mains_queue_counts_as_queue_evidence(monkeypatch, changed):
+    fake = FakeActions([run_record(**changed)])
+    monkeypatch.setattr(release_admit, "api_pages", fake.pages)
+    assert release_admit.gate_state(REPO, SHA, allow_queue=True) == "missing"
+
+
+def test_tag_admission_never_takes_queue_evidence(monkeypatch):
+    fake = FakeActions([run_record(event="merge_group", head_branch=QUEUE_BRANCH)])
+    monkeypatch.setattr(release_admit, "api_pages", fake.pages)
+    state = release_admit.gate_state(
+        REPO, SHA, require_qualification=True, tag=TAG, allow_queue=True
+    )
+    assert state == "missing"
+
+
 def test_only_the_latest_attempts_jobs_count(monkeypatch):
     fake = FakeActions([run_record(run_attempt=3)])
     monkeypatch.setattr(release_admit, "api_pages", fake.pages)

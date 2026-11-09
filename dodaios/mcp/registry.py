@@ -103,11 +103,20 @@ class MCPRegistry:
         - Entries with ``command`` override/extend bootstrap specs.
         - Entries WITHOUT ``command`` (pure enable overrides) are left
           at the existing bootstrap spec and are not touched here.
+        - Custom (non-bootstrap) specs removed from ``mcp.json`` are pruned.
         """
         from .state import load_config  # lazy, prevents circular import
 
         cfg = load_config()
-        for name, entry in cfg.get("mcpServers", {}).items():
+        servers_block = cfg.get("mcpServers", {})
+        if not isinstance(servers_block, dict):
+            servers_block = {}
+        bootstrap_names = {s.name for s in BOOTSTRAP_SERVERS}
+        for existing_name in list(self._specs):
+            if existing_name not in bootstrap_names and existing_name not in servers_block:
+                self._specs.pop(existing_name, None)
+
+        for name, entry in servers_block.items():
             if not isinstance(entry, dict):
                 continue
             transport = entry.get("transport", "stdio")

@@ -80,6 +80,8 @@ function assetUrl(file: string): string | undefined {
  */
 export function providerFamily(providerId: string): string | null {
   const id = providerId.toLowerCase();
+  // A CLI the user added: its own mark, never a brand guessed from its name.
+  if (id.startsWith("custom-")) return null;
   if (id.includes("vertex")) return "google-cloud";
   if (id.includes("antigravity") || id === "agy-cli") return "antigravity";
   if (id.includes("gemini")) return "gemini";

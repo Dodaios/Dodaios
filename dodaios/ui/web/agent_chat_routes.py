@@ -263,6 +263,8 @@ class CreateSessionBody(BaseModel):
     #: Agentic IDE's chat mode ("agent"), or the Local models section's setup
     #: assistant ("local-models"). Fixed for the session's life.
     surface: SurfaceName = "agent"
+    #: A coding thread's placement: a connected computer id; "" = this computer.
+    computer_id: str = ""
 
 
 class PatchSessionBody(BaseModel):
@@ -272,6 +274,7 @@ class PatchSessionBody(BaseModel):
     effort: str | None = None
     cwd: str | None = None
     permission_mode: str | None = None
+    computer_id: str | None = None
 
 
 class MessageBody(BaseModel):
@@ -294,6 +297,8 @@ class ApprovalBody(BaseModel):
     #: A narrower chat rule: ``folder`` (only this folder) or ``command``
     #: (only this exact command); empty = the whole tool.
     narrow: str = ""
+    #: Why a card was declined, handed to the agent as the deny message.
+    feedback: str = ""
 
 
 class ApprovalRuleBody(BaseModel):
@@ -469,6 +474,22 @@ def _folder_for(surface: str, raw: str | None) -> str | None:
     to refuse the chat.
     """
     return None if kit_for(surface).plain else _validate_cwd(raw)
+
+
+def _validate_computer(raw: str | None, surface: str) -> str:
+    """A thread's placement: "" (this computer) or a configured computer's id."""
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    if surface != "agent":
+        raise HTTPException(400, "Only coding threads can run on another computer")
+    from dodaios.computers.service import get_service
+
+    try:
+        get_service().get(value)
+    except Exception as exc:
+        raise HTTPException(400, "Unknown computer") from exc
+    return value
 
 
 def _validate_cwd(raw: str | None) -> str | None:
@@ -1104,9 +1125,38 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
                 + ", ".join(m.id for m in permission_modes(ladder))
             ),
         )
+    if body.surface == "jarvis":
+        # Dodaios keeps ONE endless conversation: "new chat" returns it with
+        # the picked model on its seat instead of opening a second chat.
+        from dodaios.agent_chat.lead import adopt_seat
+
+        try:
+            lead = adopt_seat(
+                svc,
+                {
+                    "provider": body.provider,
+                    "model": body.model or None,
+                    "effort": body.effort,
+                    "account_id": body.account_id,
+                },
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if lead is not None:
+            from dodaios.agent_chat.store import ChatSelection
+
+            svc.store.save_chat_selection(
+                ChatSelection(lead.provider, lead.model, lead.effort, lead.account_id)
+            )
+            d = lead.to_dict()
+            d["running"] = svc.is_running(lead.session_id)
+            d["lead"] = True
+            return d
     cwd = _folder_for(body.surface, body.cwd)
+    computer_id = _validate_computer(body.computer_id, body.surface)
     try:
         session = svc.create_session(
+            computer_id=computer_id,
             provider=body.provider,
             model=body.model,
             effort=body.effort,
@@ -1126,6 +1176,20 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
         )
     d = session.to_dict()
     d["running"] = False
+    return d
+
+
+@router.get("/lead", summary="The lead's one endless conversation (created on first use)")
+async def get_lead_session(request: Request) -> dict[str, Any]:
+    from dodaios.agent_chat.lead import lead_session
+
+    svc = _service(request)
+    session = await asyncio.to_thread(lead_session, svc)
+    if session is None:
+        raise HTTPException(status_code=409, detail="No chat provider is set up yet")
+    d = session.to_dict()
+    d["running"] = svc.is_running(session.session_id)
+    d["lead"] = True
     return d
 
 
@@ -1220,6 +1284,14 @@ async def patch_session(
             # A CLI keeps its conversations per folder: the old id cannot be
             # resumed from the new one.
             fields["vendor_session"] = ""
+    if body.computer_id is not None:
+        new_computer = _validate_computer(body.computer_id, current.surface)
+        if new_computer != current.computer_id:
+            if svc.is_running(session_id):
+                raise HTTPException(409, "Stop the running turn before moving the thread")
+            fields["computer_id"] = new_computer
+            # The CLI's conversation lives on the old computer.
+            fields["vendor_session"] = ""
     runner = resolve_runner(
         fields.get("provider") or current.provider,
         surface=current.surface,
@@ -1297,6 +1369,12 @@ async def delete_session(session_id: str, request: Request) -> dict[str, Any]:
     svc = (await _async_service(request))
     if svc.store.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="session not found")
+    from dodaios.agent_chat.lead import is_lead
+
+    if is_lead(svc, session_id):
+        raise HTTPException(
+            status_code=409, detail="The main Dodaios conversation cannot be deleted"
+        )
     await svc.controls.pause(session_id, "Session deleted")
     # No request of a deleted chat may come back as a turn.
     svc.parked_work.stop(session_id)
@@ -1490,6 +1568,7 @@ async def resolve_approval(
         scope=body.scope,
         breadth=body.breadth,
         narrow=body.narrow,
+        feedback=body.feedback,
     )
     if not ok:
         if await svc.close_stale_approval(session_id, approval_id):

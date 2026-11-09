@@ -187,3 +187,30 @@ def test_initial_empty_stamp_enables_reconcile_when_mcp_starts_mid_boot(monkeypa
     assert mgr._tool_surface_fp == frozenset(
         {"mcp:tradingview:tv_health", "mcp:tradingview:tv_quote"}
     )
+
+
+def test_supervisor_tool_gateway_reconciles_on_catalog_read(monkeypatch):
+    """BrainSupervisorToolGateway._live_tools() reconciles before reading _tools."""
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+
+    mcp_clients: dict[str, _FakeMcpClient] = {}
+    _wire_sources(monkeypatch, mcp=_FakeMcpRegistry(mcp_clients))
+
+    class _GatewayManager(_FakeManager):
+        def __init__(self) -> None:
+            super().__init__()
+            self._tools: dict[str, object] = {}
+            self._tool_surface_fp = frozenset()
+
+        def refresh_tools(self) -> None:
+            super().refresh_tools()
+            self._tools["tradingview/tv_health"] = _NamedTool("tradingview/tv_health")
+
+    mgr = _GatewayManager()
+    mcp_clients["tradingview"] = _FakeMcpClient(["tv_health"])
+
+    gw = BrainSupervisorToolGateway(mgr)
+    live = gw._live_tools()
+    assert mgr.refresh_calls == 1
+    assert "tradingview/tv_health" in live
+

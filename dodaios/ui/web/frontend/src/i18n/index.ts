@@ -122,9 +122,11 @@ export type LocaleChunk =
   | "appshot_editor"
   | "providers"
   | "pane_review"
+  | "custom_cli"
   | "memory"
   | "ship"
-  | "self_build";
+  | "self_build"
+  | "verse_settings";
 
 const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
 
@@ -205,6 +207,13 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     pt: () => import("./locales/providers/pt.json"),
   },
   // A pane's "Review changes" dialog: opened from its title bar, never on start.
+  custom_cli: {
+    en: () => import("./locales/custom_cli/en.json"),
+    de: () => import("./locales/custom_cli/de.json"),
+    es: () => import("./locales/custom_cli/es.json"),
+    zh: () => import("./locales/custom_cli/zh.json"),
+    pt: () => import("./locales/custom_cli/pt.json"),
+  },
   pane_review: {
     en: () => import("./locales/pane_review/en.json"),
     de: () => import("./locales/pane_review/de.json"),
@@ -230,6 +239,14 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     es: () => import("./locales/self_build/es.json"),
     zh: () => import("./locales/self_build/zh.json"),
     pt: () => import("./locales/self_build/pt.json"),
+  },
+  // Settings → Game settings: the Verse's in-game settings menu.
+  verse_settings: {
+    en: () => import("./locales/verse_settings/en.json"),
+    de: () => import("./locales/verse_settings/de.json"),
+    es: () => import("./locales/verse_settings/es.json"),
+    zh: () => import("./locales/verse_settings/zh.json"),
+    pt: () => import("./locales/verse_settings/pt.json"),
   },
 };
 

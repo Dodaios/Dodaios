@@ -366,17 +366,23 @@ def load_state() -> dict[str, Any]:
             continue
         if entry.get("enabled"):
             enabled.append(name)
-        # Custom = everything that contains a command (own specs, not pure enabled overrides)
-        if "command" in entry:
+        # Custom = everything that contains a command or url (own specs, not pure enabled overrides)
+        if "command" in entry or "url" in entry:
+            install_command = (
+                [entry["command"], *entry.get("args", [])] if entry.get("command") else []
+            )
+            default_transport = "http" if "url" in entry and "command" not in entry else "stdio"
             custom[name] = {
                 "name": name,
-                "display": name.replace("-", " ").title(),
+                "display": entry.get("display") or name.replace("-", " ").title(),
                 "description": entry.get("description", ""),
-                "install_command": [entry["command"], *entry.get("args", [])],
+                "install_command": install_command,
                 "required_auth": list(entry.get("required_auth", [])),
-                "transport": entry.get("transport", "stdio"),
+                "transport": entry.get("transport", default_transport),
                 "mandatory": False,
                 "platform_notes": entry.get("platform_notes", ""),
+                "url": entry.get("url"),
+                "headers": dict(entry.get("headers", {})),
             }
     return {"enabled": enabled, "custom": custom}
 

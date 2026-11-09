@@ -10,6 +10,9 @@ REST (the app's own session auth):
 * ``POST /api/verse/panel``            IDE side panel visibility / size
 * ``POST /api/verse/gpu``              GPU pressure (``gpu.yield`` / ``gpu.free``)
 * ``POST /api/verse/settings/import``  one-time import of browser-stored settings
+* ``GET/PATCH /api/verse/settings``     the ``verse.*`` settings; a PATCH is ``settings.set``
+  from the app and reaches a running Verse as ``settings.changed``
+* ``GET  /api/verse/settings/catalogue`` every in-game setting (``game_settings.CATALOGUE``)
 * ``GET/POST /api/verse/flags``        ``unreal_preview`` (the launcher card), ``dev_bridge``
 * ``POST /api/verse/launcher/start``   the shared coding-agent launch sequence
 * ``POST /api/verse/launcher/cancel``
@@ -29,7 +32,6 @@ WebSockets (their own auth; exempt from the session cookie check):
 from __future__ import annotations
 
 import asyncio
-import importlib
 import logging
 from pathlib import Path
 from typing import Any, Literal
@@ -209,6 +211,29 @@ def verse_settings(request: Request) -> dict[str, Any]:
     return {"settings": _host(request).store.settings()}
 
 
+@router.patch("/settings", summary="Change verse.* settings (settings.set from the app)")
+async def verse_settings_patch(body: dict[str, Any], request: Request) -> dict[str, Any]:
+    from dodaios.verse_host.settings_store import SettingsError
+
+    host = _host(request)
+    try:
+        settings = host.store.update(body)
+    except SettingsError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    changed = {k: settings[k] for k in body if k in settings}
+    if "game" in changed:
+        changed["game"] = {k: settings["game"][k] for k in body["game"]}
+    await host.settings_changed(changed)
+    return {"settings": settings}
+
+
+@router.get("/settings/catalogue", summary="Every option of the Verse settings menu")
+def verse_settings_catalogue() -> dict[str, Any]:
+    from dodaios.verse_host.game_settings import catalogue_json
+
+    return catalogue_json()
+
+
 @router.get("/flags", summary="Feature flags of the Unreal Verse")
 def verse_flags(request: Request) -> dict[str, Any]:
     store = _host(request).store
@@ -363,21 +388,21 @@ async def verse_bridge(ws: WebSocket) -> None:
 
 @router.websocket("/signal")
 async def verse_signal(ws: WebSocket) -> None:
-    """Pixel Streaming signalling; served by WP20's ``signal`` module once it lands."""
-    await ws.accept()
-    peer = ws.client.host if ws.client is not None else None
+    """Pixel Streaming signalling (loopback check and handshake are the hub's)."""
+    await get_host(ws.app).signal.serve(ws)
+
+
+@router.post("/signal/ticket", summary="A single-use ticket for the side panel's signalling socket")
+def verse_signal_ticket(request: Request) -> dict[str, Any]:
+    from dodaios.verse_host import signal as sig
     from dodaios.verse_host.bridge import is_loopback
 
-    if not is_loopback(peer):
-        await ws.close(code=P.CLOSE_PEER, reason="loopback only")
-        return
-    try:
-        signal = importlib.import_module("dodaios.verse_host.signal")
-    except ImportError:  # WP20 signalling not installed yet; closes 1013
-        await ws.close(code=P.CLOSE_TRY_LATER, reason="signalling not available")
-        return
-    serve = getattr(signal, "serve", None)
-    if serve is None:
-        await ws.close(code=P.CLOSE_TRY_LATER, reason="signalling not available")
-        return
-    await serve(ws, get_host(ws.app))
+    if not is_loopback(request.client.host if request.client else None):
+        raise HTTPException(status_code=403, detail="loopback only")
+    host = get_host(request.app)
+    return {
+        "ticket": host.signal.mint_player_ticket(),
+        "expires_in": sig.TICKET_TTL_S,
+        "path": sig.SIGNAL_PATH,
+        "protocol": sig.PROTOCOL,
+    }
