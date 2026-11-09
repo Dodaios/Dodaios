@@ -278,20 +278,51 @@ def test_live_site_checks_run_only_nightly_and_never_fail_the_run():
     assert all(s.get("continue-on-error") for s in job["steps"] if "pytest" in s.get("run", ""))
 
 
-def test_every_tier_runs_the_whole_linux_and_windows_suite():
+def test_every_tier_runs_the_whole_linux_suite_and_only_a_pr_selects_on_windows():
     ci = workflows()["ci.yml"]["jobs"]
     for tier in plan_run.TIERS:
         sized = plan_run.matrices(tier, macos=False)
         assert sized["linux_shards"] == [1, 2, 3, 4, 5, 6]
         assert sized["windows_shards"] == [1, 2, 3, 4, 5, 6]
-    # No impact selection in CI: the Windows job always takes its shard of
-    # the whole suite, and the shard count comes from the same plan.
-    windows = "\n".join(step.get("run", "") for step in ci["tests-windows"]["steps"])
-    assert "select_tests" not in windows and "--files-from" not in windows
+    # Only a pull request runs the Windows tests its change can reach; the
+    # merge queue, main and the nightly run the whole Windows suite.
+    assert plan_run.plan("pull_request")["win_impact"] is True
+    for event in ("merge_group", "push", "schedule"):
+        assert plan_run.plan(event)["win_impact"] is False
+    assert plan_run.decide("workflow_dispatch", ref=plan_run.MAIN_REF)["win_impact"] is False
+    linux = "\n".join(step.get("run", "") for step in ci["tests-linux"]["steps"])
+    assert "--files-from" not in linux
+    detect = ci["detect"]
+    select = next(s for s in detect["steps"] if s.get("id") == "wintests")
+    assert select["env"]["WIN_IMPACT"] == "${{ steps.mode.outputs.win_impact }}"
+    assert "select_tests.py --never-empty" in select["run"]
+    # Outside a pull request the selection says "all" and the plan's split holds.
+    assert 'echo "mode=all"' in select["run"]
+    outputs = detect["outputs"]
+    assert outputs["windows_shards"] == (
+        "${{ steps.wintests.outputs.mode == 'selected' && steps.wintests.outputs.shards"
+        " || steps.mode.outputs.windows_shards }}"
+    )
+    assert outputs["win_selected"] == "${{ steps.wintests.outputs.mode == 'selected' }}"
+    share = "Share duration snapshot with every shard"
+    shared = next(s for s in detect["steps"] if s.get("name") == share)
+    assert "win_tests.txt" in shared["with"]["path"].split()
+    run = next(s for s in ci["tests-windows"]["steps"] if s.get("name") == "Run shard")
+    assert run["env"]["WIN_SELECTED"] == "${{ needs.detect.outputs.win_selected }}"
+    assert "selection=(--files-from win_tests.txt)" in run["run"]
     assert ci["tests-windows"]["strategy"]["matrix"]["shard"] == (
         "${{ fromJSON(needs.detect.outputs.windows_shards) }}"
     )
-    assert ci["detect"]["outputs"]["windows_shards"] == "${{ steps.mode.outputs.windows_shards }}"
+
+
+def test_a_selection_that_must_run_falls_back_to_the_smoke_tests():
+    smoke = list(select_tests.SMOKE)[:1]
+    tests = [*smoke, "tests/unit/a/test_x.py"]
+    assert select_tests.never_empty(tests) == ("selected", sorted(smoke))
+    assert select_tests.never_empty(["tests/unit/a/test_x.py"]) == (
+        "all",
+        ["tests/unit/a/test_x.py"],
+    )
 
 
 def test_merge_queue_runs_the_whole_suite_and_is_never_cancelled():
