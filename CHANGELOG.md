@@ -9,6 +9,26 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+
+- Safety whitelist entries match only the tool they name. A bare pattern
+  (`"git status"`, `"git log *"`) now applies only to the command of a shell
+  or CLI tool, never to the arguments of another tool, argument values are
+  read in the tool's own order, and a command that chains, substitutes or
+  redirects (`;`, `&`, `|`, `$(...)`, backticks, `>`) is never whitelisted.
+  Blacklist entries also catch extra whitespace and chained commands.
+- Shell commands that hide a deletion are recognised and ask first:
+  `sh -c '...'`, `$(...)`, backticks, `&`, `find -exec`, `sudo -u ... rm`,
+  `cmd /c`, `powershell -Command`, and code the app cannot see (`python -c`,
+  `node -e`, `eval`, `iex`, encoded PowerShell, `curl ... | sh`).
+- Admin operations, marketplace installs, and adding or enabling an MCP
+  server always need your approval of that call, even with
+  `approval_mode = "bypass"` or a whitelist entry. A confirmation that the
+  plausibility check asked for is no longer answered by bypass either.
+- A destructive admin operation runs only when you approved that call; the
+  model can no longer approve it itself. Adding a scheduled task counts as
+  destructive.
+
 ### Fixed
 
 - The README contributor wall shows everyone who has shipped work. People whose

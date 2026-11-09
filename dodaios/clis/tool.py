@@ -77,6 +77,8 @@ class CliTool:
         self.display_name: str = spec.display_name
         self.description: str = self._build_description(spec)
         self.risk_tier: str = spec.risk.default_tier
+        #: Catalog patterns ("gcloud * list *") match the command argument only.
+        self.whitelist_command_arg: str = "command"
         self.schema: dict[str, Any] = {
             "type": "object",
             "properties": {
