@@ -7,6 +7,8 @@
 
 /** The words of a rank id (`verse.ranks.rank.<id>` on the web). */
 VERSEUI_API FText VerseRankName(FName RankId);
+/** The same words from the strings catalogue, in the language of the Verse UI. */
+VERSEUI_API FText VerseRankName(const class FVerseUiStrings& Strings, FName RankId);
 
 /**
  * The service record panel: the commander's rank, level and XP, the next rank, and the duel

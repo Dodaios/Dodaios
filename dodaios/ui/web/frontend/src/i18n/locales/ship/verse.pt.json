@@ -491,6 +491,13 @@
       "off": "Não",
       "on": "Sim",
       "previous": "<"
+    },
+    "loading": {
+      "title": "Carregando",
+      "subtitle": "Dodaios Verse",
+      "tip_1": "Pressione de 1 a 4 para ir de elevador direto a um convés.",
+      "tip_2": "Cada agente de código que você inicia trabalha em um terminal na Engenharia do Reator.",
+      "tip_3": "Pressione V para ver o convés inteiro de cima."
     }
   }
 }

@@ -20,12 +20,41 @@ _MODEL = _SOURCE / "VerseUI/Private/ServiceRecord/VerseServiceRecordModel.cpp"
 _CODEC = _SOURCE / "VerseBridge/Private/Duel/VerseDuelResultCodec.cpp"
 
 
-def test_the_unreal_service_record_draws_the_servers_ladder():
+_RANKS_TS = (
+    Path(__file__).resolve().parents[3]
+    / "dodaios/ui/web/frontend/src/components/society/verse/ranks/ranks.ts"
+)
+
+
+def _unreal_ladder() -> list[tuple[str, int, str, str]]:
     text = _MODEL.read_text(encoding="utf-8")
     block = re.search(r"VERSE_RANK_LADDER_BEGIN(.*?)VERSE_RANK_LADDER_END", text, re.S)
     assert block, "ladder markers missing"
-    rows = re.findall(r'\{TEXT\("([a-z_]+)"\), (\d+), TEXT\("([a-z]+)"\)\}', block.group(1))
-    assert [(int(level), rank, tier) for rank, level, tier in rows] == list(RANKS)
+    rows = re.findall(
+        r'\{TEXT\("([a-z_]+)"\), (\d+), TEXT\("([a-z]+)"\), TEXT\("([01]{3}\|[01]{3})"\)\}',
+        block.group(1),
+    )
+    return [(rank, int(level), tier, plate) for rank, level, tier, plate in rows]
+
+
+def test_the_unreal_service_record_draws_the_servers_ladder():
+    """Parity R-01: ids, levels and tiers equal rules.py RANKS."""
+    ladder = _unreal_ladder()
+    assert [(level, rank, tier) for rank, level, tier, _ in ladder] == list(RANKS)
+
+
+def test_the_unreal_rank_plates_equal_the_web_plates():
+    """Parity R-01 and R-03: the plate patterns are the web record's, and no two ranks share one."""
+    web = re.findall(
+        r'\{ id: "([a-z_]+)", level: (\d+), tier: "([a-z]+)", plate: "([01]{3}\|[01]{3})" \}',
+        _RANKS_TS.read_text(encoding="utf-8"),
+    )
+    assert [(rank, int(level), tier, plate) for rank, level, tier, plate in web] == _unreal_ladder()
+    plates = [plate for *_, plate in _unreal_ladder()]
+    assert len(set(plates)) == len(plates) == 15
+    for plate in plates:  # left-right symmetric
+        top, bottom = plate.split("|")
+        assert top == top[::-1] and bottom == bottom[::-1]
 
 
 def test_the_unreal_reporter_spells_every_end_reason_and_outcome():

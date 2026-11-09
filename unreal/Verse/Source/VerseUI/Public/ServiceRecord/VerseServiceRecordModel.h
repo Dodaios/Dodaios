@@ -11,12 +11,24 @@ class FJsonObject;
 // The rulebook numbers (level curve, rank ladder) are the server's (dodaios/progression/rules.py);
 // tests/unit/progression/test_duel_parity.py holds this copy to them.
 
+/** The service record's five pages, in tab order (parity R-04). */
+enum class EVerseRecordTab : uint8
+{
+	Record,
+	Ladder,
+	Rewards,
+	Earn,
+	Crew,
+};
+
 /** One step of the fleet's rank ladder. */
 struct FVerseRankRow
 {
 	FName Id;
 	int32 Level = 1;
 	FName Tier;
+	/** The plate's lit tiles, "top|bottom", three digits each (ranks.ts RANKS, style bible 7.2). */
+	FString Plate;
 };
 
 /** Duel totals as `duel_stats` carries them. */

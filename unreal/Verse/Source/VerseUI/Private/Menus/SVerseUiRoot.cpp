@@ -3,6 +3,7 @@
 #include "Brushes/SlateColorBrush.h"
 #include "Core/VerseUiSubsystem.h"
 #include "Core/VerseUiTheme.h"
+#include "DeckHud/SVerseDialogFrame.h"
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/Input/SButton.h"
@@ -171,7 +172,15 @@ TSharedRef<SWidget> SVerseUiRoot::Button(TAttribute<FText> Text, FSimpleDelegate
 
 TSharedRef<SWidget> SVerseUiRoot::Panel(const FString& TitleKey, TSharedRef<SWidget> Body, float Width)
 {
-	return SNew(SBox)
+	// Every menu is a modal dialog (parity H-12): keyboard and gamepad navigation stay inside it.
+	// Escape is routed by the UI subsystem and the screen is rebuilt on each change, so the frame
+	// neither handles Escape nor moves the focus on its own.
+	return SNew(SVerseDialogFrame)
+		.bScrim(false)
+		.bHandleEscape(false)
+		.bTakeFocus(false)
+		[
+		SNew(SBox)
 		.WidthOverride(Width)
 		[
 			SNew(SBorder)
@@ -206,6 +215,7 @@ TSharedRef<SWidget> SVerseUiRoot::Panel(const FString& TitleKey, TSharedRef<SWid
 					]
 				]
 			]
+		]
 		];
 }
 

@@ -58,7 +58,9 @@ public:
 
 	void SetToldSender(TFunction<void(int64 Seq)> Sender);
 
-	void OpenRecord();
+	/** Opens the record on a page (a second call switches the page). */
+	void OpenRecord(EVerseRecordTab Tab = EVerseRecordTab::Record);
+	EVerseRecordTab GetRecordTab() const { return RecordTab; }
 	void CloseRecord();
 	void ToggleRecord();
 	bool IsRecordOpen() const { return RecordWidget.IsValid(); }
@@ -70,6 +72,7 @@ private:
 
 	TSharedPtr<FVerseServiceRecordModel> Model;
 	TUniquePtr<FVersePromotionPresenter> Presenter;
+	EVerseRecordTab RecordTab = EVerseRecordTab::Record;
 	TSharedPtr<SWidget> RecordWidget;
 	TSharedPtr<SWidget> NoticeWidget;
 	FTSTicker::FDelegateHandle TickHandle;

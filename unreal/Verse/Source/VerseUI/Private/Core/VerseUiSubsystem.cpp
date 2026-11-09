@@ -1127,6 +1127,10 @@ bool UVerseUiSubsystem::IsListeningForKey() const
 
 bool UVerseUiSubsystem::HandleKey(const FKey& Key)
 {
+	if (KeyPreHandler && KeyPreHandler(Key))
+	{
+		return true;
+	}
 	if (SlateRoot.IsValid() && SlateRoot->IsListening())
 	{
 		const FName Action = SlateRoot->GetListeningAction();

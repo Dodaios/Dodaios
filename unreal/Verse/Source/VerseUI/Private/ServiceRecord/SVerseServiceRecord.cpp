@@ -1,5 +1,6 @@
 #include "ServiceRecord/SVerseServiceRecord.h"
 
+#include "Core/VerseUiStrings.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
@@ -79,6 +80,11 @@ FText VerseRankName(FName RankId)
 	};
 	const FText* Found = Names.Find(RankId);
 	return Found ? *Found : FText::FromName(RankId);
+}
+
+FText VerseRankName(const FVerseUiStrings& Strings, FName RankId)
+{
+	return Strings.Get(FString::Printf(TEXT("verse.ranks.rank.%s"), *RankId.ToString()));
 }
 
 void SVerseServiceRecord::Construct(const FArguments& InArgs, TSharedRef<FVerseServiceRecordModel> InModel)

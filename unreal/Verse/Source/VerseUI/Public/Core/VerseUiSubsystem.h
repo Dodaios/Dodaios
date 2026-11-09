@@ -95,6 +95,13 @@ public:
 
 	/** Key routing; true when the UI used the key. */
 	bool HandleKey(const FKey& Key);
+	/**
+	 * Asked first with every key; true = used. The deck HUD takes Escape while its own dialog
+	 * (the lift, the service record) is open, so Escape closes that and not the Esc menu.
+	 */
+	TFunction<bool(const FKey&)> KeyPreHandler;
+	/** True while a menu screen is open: the cursor is shown and mouse look stops (parity H-13). */
+	bool IsMouseLookReleased() const { return Screen != EVerseUiScreen::None; }
 	/** True while the controls page waits for the key of a rebind (mouse buttons count too). */
 	bool IsListeningForKey() const;
 
