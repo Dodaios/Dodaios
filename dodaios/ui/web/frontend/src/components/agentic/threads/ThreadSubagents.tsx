@@ -158,8 +158,9 @@ export function foldedEntries<T extends SubagentEntry>(entries: readonly T[], op
 
 /**
  * The batch the dock is about: the sub-agents of every turn that still has
- * one working or waiting, else those of the turn whose sub-agent is open.
- * Agents of earlier turns stay in their groups and the sidebar.
+ * one working or waiting, else those of the turn whose sub-agent is open,
+ * else the newest turn that spawned any. Agents of earlier turns stay in
+ * their groups and the sidebar.
  */
 export function dockEntries(entries: readonly SubagentEntry[], openId: string | null): SubagentEntry[] {
   const turns = new Set(entries.filter(active).map((entry) => entry.turnId));
@@ -167,6 +168,7 @@ export function dockEntries(entries: readonly SubagentEntry[], openId: string | 
     const open = entries.find((entry) => entry.id === openId);
     if (open) turns.add(open.turnId);
   }
+  if (!turns.size && entries.length) turns.add(entries[entries.length - 1].turnId);
   return entries.filter((entry) => turns.has(entry.turnId));
 }
 
@@ -268,10 +270,10 @@ export function SubagentGroup({ blocks, turn }: { blocks: readonly ToolBlock[]; 
 /**
  * The thread's sub-agents above the composer, the way a coding app keeps its
  * running agents in reach: one quiet bar that counts them and shows how far
- * they are, and a list that opens any of them. It shows while one still
- * works or waits, or while a sub-agent's conversation is open (it is the way
- * back to the main thread); once all have ended, the groups in the
- * conversation and the sidebar keep them.
+ * they are, and a list that opens any of them. It shows whenever the thread
+ * has sub-agents: the batch still working, else the newest one, so they stay
+ * one click away above the input (and it is the way back to the main thread
+ * from an open sub-agent).
  */
 export function SubagentDock({ entries: thread, openId, onOpen }: {
   entries: readonly SubagentEntry[];
@@ -282,8 +284,7 @@ export function SubagentDock({ entries: thread, openId, onOpen }: {
   const [expanded, setExpanded] = useState(false);
   const [all, setAll] = useState(false);
   const entries = useMemo(() => dockEntries(thread, openId), [thread, openId]);
-  const busy = entries.some(active);
-  if (entries.length === 0 || (!busy && openId === null)) return null;
+  if (entries.length === 0) return null;
   const shown = foldedEntries(entries, openId, all);
   const hidden = entries.length - shown.length;
   return <div data-testid="thread-subagent-dock" className="mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-popover shadow-float">
