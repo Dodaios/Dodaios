@@ -44,7 +44,7 @@ import {
   type PatchSessionInput,
   type ProviderHealth,
 } from "@/lib/agentChatApi";
-import { EMPTY_TIMELINE, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
+import { EMPTY_TIMELINE, localStopEvent, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
 import { markAnswered } from "@/components/society/attention/attentionStore";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
@@ -499,6 +499,8 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
   const sendLanes = new Map<string, SendLane>();
   const emptySendLane = (): SendLane => ({ tail: Promise.resolve(), pending: 0, sessionId: null });
   let newChatLane = emptySendLane();
+  /** Stop requests still in flight per session; a send waits for its session's. */
+  const stopping = new Map<string, Promise<void>>();
   let selectionRevision = 0;
   let selectionWrite: Promise<unknown> = Promise.resolve();
   let socket: WebSocket | null = null;
@@ -1146,6 +1148,10 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
             }
           }
           const sid = lane.sessionId;
+          // A turn stopped on screen may still be unwinding in the backend;
+          // a message sent right after Stop waits for that instead of
+          // bouncing off the busy session.
+          await stopping.get(sid);
           await sendAgentChatMessage(sid, content, attachments, toolChoices);
           // The message is in: its turn is on the way even before the socket
           // says so, and the stop control and the row's spinner show it.
@@ -1184,10 +1190,23 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
       cancel: async (via) => {
         const sid = get().activeSessionId;
         if (!sid) return;
-        try {
-          await cancelAgentChatTurn(sid, via);
-        } catch (err) {
+        // The stop shows at once: the backend may need seconds to confirm (an
+        // ACP runtime gets a grace period before it is killed), and the person
+        // pressed Stop now. The real `turn_finished` replaces this local end.
+        const turn = runningTurn(get().timeline);
+        if (turn) get().ingest(localStopEvent(turn.id, Date.now()));
+        const request = cancelAgentChatTurn(sid, via).catch((err: unknown) => {
+          if (get().activeSessionId !== sid) return;
           set({ lastError: errorText(err) });
+          // The stop did not reach the backend: read the thread again so the
+          // turn shows as working again if it still is.
+          if (turn) connect(sid, 0);
+        });
+        stopping.set(sid, request);
+        try {
+          await request;
+        } finally {
+          if (stopping.get(sid) === request) stopping.delete(sid);
         }
       },
 
