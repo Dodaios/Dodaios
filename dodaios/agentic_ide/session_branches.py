@@ -28,8 +28,8 @@ import re
 import shlex
 import threading
 import time
-from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +49,12 @@ class PaneBranchRecord:
     # Set by Jarvis only when it creates a fork's new branch/worktree.
     created_branch: str = ""
     started_at: float = 0
+    # A chat thread's own record of its tool calls, read when the CLI's
+    # transcript cannot be (no vendor session id, or a CLI this module does
+    # not read). The same event shape: ``kind``, ``payload``, ``ts_ms``.
+    events: Callable[[], list[dict[str, Any]]] | None = field(
+        default=None, compare=False, hash=False, repr=False
+    )
 
 
 @dataclass(frozen=True)
@@ -448,7 +454,7 @@ def _recorded_creation(folder: str, branch: str, called_at: float, ended_at: flo
 def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple[str, float]]]:
     """What this session's own record says it created and where it wrote."""
     if not record.session_id or not agent_transcript.can_read(record.agent):
-        return [], []
+        return _own_evidence(record)
     key = (record.history_id, record.session_id, record.folder, record.started_at)
     now = time.monotonic()
     with _cache_lock:
@@ -476,6 +482,36 @@ def _evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple
         _cache[key] = _Evidence(now, now, stamp, candidates, worked)
         for expired in [key for key, entry in _cache.items() if now - entry.used_at > 1800]:
             del _cache[expired]
+    return candidates, worked
+
+
+def _own_evidence(record: PaneBranchRecord) -> tuple[list[CreatedBranch], list[tuple[str, float]]]:
+    """The same evidence, from a chat thread's own stored tool calls."""
+    if record.events is None:
+        return [], []
+    key = (record.history_id, "", record.folder, record.started_at)
+    now = time.monotonic()
+    with _cache_lock:
+        cached = _cache.get(key)
+    if cached is not None and now - cached.read_at < 15:
+        cached.used_at = now
+        return cached.candidates, cached.worked
+    try:
+        events = record.events()
+    except Exception as exc:  # noqa: BLE001 - no evidence is the honest answer
+        logger.debug("session branches: thread record of {} unreadable: {}", record.history_id, exc)
+        return [], []
+    # The thread's record only grows: the same length says what it said before.
+    stamp = (len(events), 0)
+    if cached is not None and cached.stamp == stamp:
+        cached.read_at = cached.used_at = now
+        return cached.candidates, cached.worked
+    candidates = created_branches(
+        events, record.folder, not_before=record.started_at, unconfirmed=True
+    )
+    worked = worked_folders(events, record.folder, not_before=record.started_at)
+    with _cache_lock:
+        _cache[key] = _Evidence(now, now, stamp, candidates, worked)
     return candidates, worked
 
 
