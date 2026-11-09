@@ -45,7 +45,8 @@ Kinds (``payload`` keys in brackets):
                         task_id?, thread_id?] — a coding agent spawned a sub-agent;
                         ``agent_id`` is the spawning tool call's id
 ``subagent_progress``  [turn_id, agent_id, activity, last_tool, tokens?, tool_uses?,
-                        duration_ms?] — live only: what the sub-agent is doing now
+                        duration_ms?, model?] — live only: what the sub-agent is doing
+                        now; ``model`` is the model its own messages report
 ``subagent_finished``  [turn_id, agent_id, status, summary?, tokens?, tool_uses?,
                         duration_ms?]   status: done | failed | stopped
 ``background_wait``    [turn_id, tasks] — the agent ended its message but the CLI
