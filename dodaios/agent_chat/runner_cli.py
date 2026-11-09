@@ -1592,6 +1592,53 @@ def plan_dsh(
     return CliPlan(argv, env, None, "text", None)
 
 
+def plan_custom_cli(
+    *,
+    provider: str,
+    session_id: str = "",
+    prompt: str,
+    cwd: Path,
+    resume: str | None = None,
+    **_unused: Any,
+) -> CliPlan:
+    """A CLI the user added (``dodaios.workspace.custom_clis``), run headless.
+
+    The one generic runner behind every ``custom-<id>`` thread provider: it
+    looks the entry up, expands its headless template (``{prompt}`` /
+    ``{session}``; no ``{prompt}`` = the message goes to stdin) and runs it in
+    plain-text mode like the DeepSeek Harness — stdout is the answer. The
+    working folder is the thread's; the environment is the grid pane's.
+    """
+    import uuid
+
+    from dodaios.agent_chat.catalog import CUSTOM_ROW_PREFIX
+    from dodaios.workspace import custom_clis
+
+    entry_id = provider[len(CUSTOM_ROW_PREFIX) :] if provider.startswith(CUSTOM_ROW_PREFIX) else provider
+    entry = custom_clis.get_custom_cli(entry_id)
+    if entry is None or not entry.headless_command:
+        raise CliUnavailable("This CLI no longer has a headless command. Re-add it in the CLI wizard.")
+    resuming = bool(resume and entry.headless_resume)
+    template = entry.headless_resume if resuming else entry.headless_command
+    chosen = str(resume) if resuming else (
+        uuid.uuid4().hex if (entry.headless_resume or "{session}" in template) else ""
+    )
+    argv, on_stdin = custom_clis.expand_template(template, prompt=prompt, session=chosen)
+    overrides: dict[str, str] = {}
+    while argv and custom_clis._is_assignment(argv[0]):  # noqa: SLF001 — same parser as the grid
+        name, _, value = argv.pop(0).partition("=")
+        overrides[name] = value
+    if not argv:
+        raise CliUnavailable("The headless command of this CLI is empty.")
+    binary = _which(argv[0])
+    if binary is None:
+        raise CliUnavailable(f"{entry.display_name} ({argv[0]}) is not installed or not on PATH.")
+    argv[0] = binary
+    env = _registry_env(entry.id, _account_env(entry.id))
+    env.update(overrides)
+    return CliPlan(argv, env, prompt if on_stdin else None, "text", chosen or None)
+
+
 def plan_cursor(
     *,
     prompt: str,
@@ -1694,6 +1741,7 @@ _PLANNERS: Final[dict[str, Any]] = {
     "glm-cli": plan_glm,
     "dsh-cli": plan_dsh,
     "cursor-cli": plan_cursor,
+    "custom-cli": plan_custom_cli,
 }
 
 #: Every runner this module drives — the catalog route's "is this a CLI
@@ -3936,7 +3984,10 @@ async def _run_cli_once(
             else:
                 if runner == "agy-cli":
                     model_ladder = _agy_model_ladder(session.model)
-                if identity is None and not (session.effort or "").strip():
+                if runner == "custom-cli":
+                    # No effort knob: the command line is the user's own.
+                    effort = ""
+                elif identity is None and not (session.effort or "").strip():
                     # A coding thread nobody gave an effort runs on the CLI's
                     # own default, like a grid pane: no flag, no note.
                     effort = ""
@@ -3952,7 +4003,13 @@ async def _run_cli_once(
                     )
                 if runner == "claude-cli":
                     await asyncio.to_thread(warm_claude_capabilities)
+                custom_kwargs: dict[str, Any] = (
+                    {"provider": session.provider, "session_id": session.session_id}
+                    if runner == "custom-cli"
+                    else {}
+                )
                 plan = planner(
+                    **custom_kwargs,
                     prompt=planned_prompt,
                     cwd=cwd,
                     model=session.model,

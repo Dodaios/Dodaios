@@ -37,6 +37,7 @@ _RUNNER_LABELS: Final[dict[str, str]] = {
     "kimi-cli": "Kimi Code",
     "glm-cli": "GLM Coding Plan",
     "dsh-cli": "DeepSeek Harness",
+    "custom-cli": "The CLI",
     "cursor-cli": "Cursor CLI",
     "api": "The model",
     "brain": "The model",
