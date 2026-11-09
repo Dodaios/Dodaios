@@ -312,6 +312,13 @@
     "how_learn_3": "Memory stays current",
     "how_learn_3_body": "New facts are added, changed ones replace the old version, and nothing is erased unless you say so.",
     "how_footer": "Every change is listed here, and you can undo or forget any of it.",
-    "mode_how_short": "How it works"
+    "mode_how_short": "How it works",
+    "pause": "Pause learning",
+    "pause_resume": "Learning paused · resume",
+    "pause_until": "until {time}",
+    "pause_until_resumed": "until you resume it",
+    "pause_hour": "For an hour",
+    "pause_tomorrow": "Until tomorrow morning",
+    "pause_forever": "Until I turn it back on"
   }
 }
