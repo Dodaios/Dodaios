@@ -160,10 +160,10 @@ def verse_routes_is_loopback(peer: str) -> bool:
     return is_loopback(peer)
 
 
-async def test_signal_route_closes_1013_until_wp20(server) -> None:
+async def test_signal_route_is_served_and_wants_a_role(server) -> None:
     _host, url = server
     async with ws_connect(url.replace("/bridge", "/signal")) as ws:
-        assert await _close_code(ws) == 1013
+        assert await _close_code(ws) == 4400
 
 
 def test_outbox_merges_two_queued_deltas_of_one_pane() -> None:

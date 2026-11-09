@@ -16,6 +16,10 @@ export interface CustomCli {
   description: string;
   /** `"at"` writes a dropped file as `@path`, `"quoted"` as `"path"`. */
   file_reference: "at" | "quoted";
+  /** Argv template that runs one prompt headless; non-empty = offered as a thread provider. */
+  headless_command: string;
+  /** Optional follow-up template; may use `{session}`. */
+  headless_resume: string;
   /** Where to fetch this entry's mark; empty when it has none. */
   logo_url: string;
   /**
@@ -42,6 +46,8 @@ export interface CustomCliDraft {
   command: string;
   description?: string;
   file_reference?: "at" | "quoted";
+  headless_command?: string;
+  headless_resume?: string;
 }
 
 const BASE = "/api/workspace-clis";

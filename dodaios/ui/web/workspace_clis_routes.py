@@ -48,6 +48,18 @@ class CustomCliModel(BaseModel):
             "@path (most modern coding CLIs) or 'quoted' for \"path\"."
         ),
     )
+    headless_command: str = Field(
+        default="",
+        description=(
+            "Optional argv template that runs one prompt non-interactively "
+            "(`mycli -p {prompt}`; no {prompt} = prompt on stdin). Set it and the "
+            "CLI is also offered as an Agentic IDE thread provider."
+        ),
+    )
+    headless_resume: str = Field(
+        default="",
+        description="Optional template for a follow-up turn; may use {session}.",
+    )
     logo_url: str = Field(
         default="",
         description="Where to fetch this entry's mark; empty when it has none.",
@@ -81,6 +93,8 @@ class CreateCustomCliRequest(BaseModel):
     command: str
     description: str = ""
     file_reference: str = "quoted"
+    headless_command: str = ""
+    headless_resume: str = ""
 
 
 class UpdateCustomCliRequest(BaseModel):
@@ -90,6 +104,8 @@ class UpdateCustomCliRequest(BaseModel):
     command: str | None = None
     description: str | None = None
     file_reference: str | None = None
+    headless_command: str | None = None
+    headless_resume: str | None = None
 
 
 def _model(entry: custom_clis.CustomCli) -> CustomCliModel:
@@ -99,6 +115,8 @@ def _model(entry: custom_clis.CustomCli) -> CustomCliModel:
         command=entry.command,
         description=entry.description,
         file_reference=entry.file_reference,
+        headless_command=entry.headless_command,
+        headless_resume=entry.headless_resume,
         logo_url=custom_clis.logo_url(entry),
         runs_through_shell=custom_clis.needs_shell(entry.command),
         binary=entry.binary,
@@ -143,6 +161,8 @@ def create_cli(req: CreateCustomCliRequest) -> CustomCliModel:
             req.command,
             description=req.description,
             file_reference=req.file_reference,
+            headless_command=req.headless_command,
+            headless_resume=req.headless_resume,
         )
     except custom_clis.CustomCliError as exc:
         raise _bad_request(exc) from exc
@@ -166,6 +186,8 @@ def update_cli(cli_id: str, req: UpdateCustomCliRequest) -> CustomCliModel:
             command=req.command,
             description=req.description,
             file_reference=req.file_reference,
+            headless_command=req.headless_command,
+            headless_resume=req.headless_resume,
         )
     except custom_clis.CustomCliError as exc:
         raise _bad_request(exc) from exc

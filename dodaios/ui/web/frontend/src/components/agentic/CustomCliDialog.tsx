@@ -27,7 +27,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AlertTriangle, ImagePlus, Info, Loader2, Terminal, Trash2, X } from "lucide-react";
 
-import { useT } from "@/i18n";
+import { useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -68,10 +68,14 @@ export function CustomCliDialog({
   onSaved: (entry: CustomCli) => void;
 }): JSX.Element {
   const t = useT();
+  // The dialog's own strings load with it, outside the startup bundle.
+  useLocaleChunk("custom_cli");
   const [name, setName] = useState("");
   const [command, setCommand] = useState("");
   const [description, setDescription] = useState("");
   const [atReference, setAtReference] = useState(false);
+  const [headless, setHeadless] = useState("");
+  const [headlessResume, setHeadlessResume] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
   const [clearedLogo, setClearedLogo] = useState(false);
@@ -93,6 +97,8 @@ export function CustomCliDialog({
     setCommand(editing?.command ?? "");
     setDescription(editing?.description ?? "");
     setAtReference(editing?.file_reference === "at");
+    setHeadless(editing?.headless_command ?? "");
+    setHeadlessResume(editing?.headless_resume ?? "");
     setLogoFile(null);
     setClearedLogo(false);
     setError("");
@@ -130,6 +136,8 @@ export function CustomCliDialog({
         command: trimmedCommand,
         description: description.trim(),
         file_reference: atReference ? ("at" as const) : ("quoted" as const),
+        headless_command: headless.trim(),
+        headless_resume: headlessResume.trim(),
       };
       let entry = editing
         ? await updateCustomCli(editing.id, draft)
@@ -355,6 +363,52 @@ export function CustomCliDialog({
                 onCheckedChange={setAtReference}
                 className="mt-0.5"
               />
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-background/60 px-4 py-3">
+              <span className="text-sm font-medium text-foreground">
+                {t("custom_cli.threads_title")}
+              </span>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-foreground">
+                  {t("custom_cli.headless_command")}
+                </span>
+                <input
+                  value={headless}
+                  maxLength={500}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  data-testid="custom-cli-headless"
+                  placeholder="mycli -p {prompt}"
+                  className={cn(inputClass, "font-mono")}
+                  onChange={(event) => setHeadless(event.currentTarget.value)}
+                />
+                <span className="text-xs leading-relaxed text-muted-foreground">
+                  {t("custom_cli.headless_command_hint")}
+                </span>
+              </label>
+              {headless.trim() && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-foreground">
+                    {t("custom_cli.headless_resume")}
+                  </span>
+                  <input
+                    value={headlessResume}
+                    maxLength={500}
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    data-testid="custom-cli-headless-resume"
+                    placeholder="mycli -p {prompt} --resume {session}"
+                    className={cn(inputClass, "font-mono")}
+                    onChange={(event) => setHeadlessResume(event.currentTarget.value)}
+                  />
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    {t("custom_cli.headless_resume_hint")}
+                  </span>
+                </label>
+              )}
             </div>
 
             {error && (

@@ -15,6 +15,7 @@ import { CustomCliDialog, runsThroughShell } from "./CustomCliDialog";
 
 vi.mock("@/i18n", () => ({
   useT: () => (key: string) => key,
+  useLocaleChunk: () => true,
 }));
 
 vi.mock("@/lib/workspaceClisApi", () => ({
@@ -43,6 +44,8 @@ const STORED: api.CustomCli = {
   command: "helix",
   description: "A user-added terminal CLI.",
   file_reference: "quoted",
+  headless_command: "",
+  headless_resume: "",
   logo_url: "",
   runs_through_shell: false,
   binary: "helix",
@@ -172,8 +175,25 @@ describe("CustomCliDialog", () => {
       command: "agy",
       description: "",
       file_reference: "quoted",
+      headless_command: "",
+      headless_resume: "",
     });
     expect(onSaved).toHaveBeenCalledWith(STORED);
+  });
+
+  it("sends the headless command so the CLI can run in threads", async () => {
+    vi.mocked(api.createCustomCli).mockResolvedValue(STORED);
+    render(<CustomCliDialog open onOpenChange={() => {}} editing={null} onSaved={() => {}} />);
+    fireEvent.change(screen.getByTestId("custom-cli-name"), { target: { value: "Helix" } });
+    fireEvent.change(screen.getByTestId("custom-cli-command"), { target: { value: "helix" } });
+    fireEvent.change(screen.getByTestId("custom-cli-headless"), {
+      target: { value: "helix -p {prompt}" },
+    });
+    fireEvent.click(screen.getByTestId("custom-cli-save"));
+    await waitFor(() => expect(api.createCustomCli).toHaveBeenCalled());
+    expect(vi.mocked(api.createCustomCli).mock.calls.at(-1)?.[0]).toMatchObject({
+      headless_command: "helix -p {prompt}",
+    });
   });
 
   it("shows the server's own complaint instead of a status code", async () => {

@@ -22,6 +22,7 @@ const COPY: Record<string, string> = {
 
 vi.mock("@/i18n", () => ({
   useT: () => (key: string) => COPY[key] ?? key,
+  useLocaleChunk: () => true,
 }));
 
 const AGENTS: AgentStatus[] = [

@@ -206,6 +206,15 @@ _KIMI: Final[tuple[PermissionMode, ...]] = (
     ),
 )
 
+_CUSTOM: Final[tuple[PermissionMode, ...]] = (
+    PermissionMode(
+        "auto",
+        "CLI's own policy",
+        "A CLI you added runs its headless command as written; whatever it may "
+        "do is decided by that CLI, not by this chat.",
+    ),
+)
+
 _DSH: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "auto",
@@ -318,6 +327,7 @@ _LADDERS: Final[dict[str, tuple[tuple[PermissionMode, ...], str]]] = {
     # Code's own words.
     "glm-cli": (_CLAUDE, "bypassPermissions"),
     "dsh-cli": (_DSH, "auto"),
+    "custom-cli": (_CUSTOM, "auto"),
     "cursor-cli": (_CURSOR, "auto"),
     "api": (_API, "auto"),
     JARVIS_LADDER: (_JARVIS, "bypass"),
