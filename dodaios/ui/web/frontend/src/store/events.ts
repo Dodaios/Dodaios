@@ -89,8 +89,8 @@ export type SectionId =
   // My Pets: the desktop pet — which one, its size, its bubble, and custom
   // pets from a sprite sheet (docs/pets.md). A Settings-hub page.
   | "pets"
-  // Game settings: per-game sensitivity, keybinds, audio, video and
-  // gameplay, plus a sensitivity converter between games. A Settings-hub page.
+  // Game settings: the Dodaios Verse's in-game settings menu (graphics,
+  // audio, mouse, keybinds, gameplay, HUD, accessibility). A Settings-hub page.
   | "games"
   | "dictionary"
   | "dictation"

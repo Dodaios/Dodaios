@@ -1,0 +1,56 @@
+{
+  "asset_path": "/Game/Verse/Weapons/Graveline/SKEL_Weapon_Graveline.SKEL_Weapon_Graveline",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Graveline.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "f5376d3dd4d06ff4830052e7639ae5ac475dabff741cd5095b541bdea89355b4"
+  },
+  "kind": "skeleton",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "mesh": {
+    "bones": [
+      "Root",
+      "Magazine",
+      "Bolt",
+      "Trigger",
+      "SocketBase"
+    ],
+    "bounds_cm": {
+      "max": [
+        73.25,
+        3.6,
+        13.3
+      ],
+      "min": [
+        -31.75,
+        -3.3,
+        -13.59
+      ]
+    },
+    "material_slots": [],
+    "sockets": [
+      "SOCKET_Eject",
+      "SOCKET_Muzzle",
+      "SOCKET_Sight",
+      "SOCKET_Support"
+    ],
+    "triangles": 3984,
+    "uv_sets": 1,
+    "vertices": 2072
+  },
+  "name": "SKEL_Weapon_Graveline",
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_Graveline"
+    },
+    "builder": "art/verse/weapons/build.py",
+    "function": "build_graveline"
+  }
+}
