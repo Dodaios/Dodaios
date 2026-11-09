@@ -21,6 +21,8 @@ namespace VerseDeckCommanderPrivate
 	const FName ColourParams[] = { TEXT("Color"), TEXT("BaseColor"), TEXT("UniformColour") };
 	/** Faces stay a dark skin tone whatever the uniform. */
 	const FLinearColor HeadColour(0.16f, 0.11f, 0.08f, 1.f);
+	/** Rank plates are gold (README accents: amber, red, gold). */
+	const FLinearColor PlateColour(0.55f, 0.38f, 0.10f, 1.f);
 }
 
 AVerseDeckCommander::AVerseDeckCommander()
@@ -52,6 +54,7 @@ AVerseDeckCommander::AVerseDeckCommander()
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> ShapeMaterial(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
 
 	auto MakePart = [this](const TCHAR* Name, UStaticMesh* Shape, USceneComponent* Parent, const FVector& Location, const FVector& SizeCm)
@@ -76,6 +79,8 @@ AVerseDeckCommander::AVerseDeckCommander()
 	Torso = MakePart(TEXT("Torso"), Cylinder.Object, Root, FVector(0.0, 0.0, -14.0), FVector(42.0, 30.0, 152.0));
 	Head = MakePart(TEXT("Head"), Sphere.Object, Root, FVector(3.0, 0.0, 74.0), FVector(23.0, 21.0, 26.0));
 	LeftArm = MakePart(TEXT("LeftArm"), Cylinder.Object, Root, FVector(0.0, -26.0, 17.0), FVector(11.0, 11.0, 66.0));
+	// The rank plate on the chest shows which way the commander faces.
+	RankPlate = MakePart(TEXT("RankPlate"), Cube.Object, Root, FVector(21.5, -8.0, 38.0), FVector(3.0, 12.0, 6.0));
 	RightShoulder = CreateDefaultSubobject<USceneComponent>(TEXT("RightShoulder"));
 	RightShoulder->SetupAttachment(Root);
 	RightShoulder->SetRelativeLocation(FVector(0.0, 26.0, 50.0));
@@ -176,6 +181,7 @@ void AVerseDeckCommander::ApplyUniform()
 	for (UMeshComponent* Part : Meshes)
 	{
 		const bool bHead = Part == Head;
+		const bool bPlate = Part == RankPlate;
 		for (int32 Slot = 0; Slot < Part->GetNumMaterials(); ++Slot)
 		{
 			UMaterialInterface* Current = Part->GetMaterial(Slot);
@@ -195,7 +201,7 @@ void AVerseDeckCommander::ApplyUniform()
 			}
 			for (const FName& Param : ColourParams)
 			{
-				Dynamic->SetVectorParameterValue(Param, bHead ? HeadColour : UniformColour);
+				Dynamic->SetVectorParameterValue(Param, bHead ? HeadColour : bPlate ? PlateColour : UniformColour);
 			}
 		}
 	}

@@ -169,9 +169,9 @@ bool FVerseVisualDeckCommanderTest::RunTest(const FString&)
 			return false;
 		}));
 
-	auto Shot = [this, State](const TCHAR* Name)
+	auto Shot = [this, State](const TCHAR* Name, float SettleS = 1.2f)
 	{
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.2f));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(SettleS));
 		const FString Label(Name);
 		ADD_LATENT_AUTOMATION_COMMAND(FFunctionLatentCommand([this, Label]() -> bool
 			{
@@ -242,10 +242,12 @@ bool FVerseVisualDeckCommanderTest::RunTest(const FString&)
 			C.SetMoveAxes(FVector2D::ZeroVector);
 			C.GetCamera()->Rig.YawDeg = C.GetCommander()->GetActorRotation().Yaw + 165.0;
 			C.GetCamera()->Rig.PitchDeg = -4.0;
-			C.Salute();
 		});
-	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
-	Shot(TEXT("commander_salute"));
+	// The camera swings round first; then the salute.
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.5f));
+	Do([](UVerseDeckControlComponent& C) { C.Salute(); });
+	// Mid-salute: the hand is at the brow from 0.25 s to 1.35 s.
+	Shot(TEXT("commander_salute"), 0.45f);
 	// 4. Dress uniform.
 	Do([](UVerseDeckControlComponent& C) { C.WearUniform(TEXT("dress"), FLinearColor(0.20f, 0.035f, 0.025f, 1.f)); });
 	Shot(TEXT("commander_uniform_dress"));

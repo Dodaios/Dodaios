@@ -90,6 +90,8 @@ public:
 	TObjectPtr<UStaticMeshComponent> Torso;
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Decks|Commander")
 	TObjectPtr<UStaticMeshComponent> Head;
+	UPROPERTY(VisibleAnywhere, Category = "Verse|Decks|Commander")
+	TObjectPtr<UStaticMeshComponent> RankPlate;
 	/** Pivot at the right shoulder; the salute raises it. */
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Decks|Commander")
 	TObjectPtr<USceneComponent> RightShoulder;
