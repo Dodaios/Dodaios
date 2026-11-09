@@ -238,6 +238,16 @@ Changes that pass alone and break together stop in the queue instead of on
 main. A failed entry leaves the queue; the entries behind it are rebuilt
 without it.
 
+The queue groups by the newest entry (`grouping_strategy: HEADGREEN`): each
+entry's run tests main plus every entry ahead of it, so a green entry merges
+together with all entries ahead of it, even if one of their own runs is still
+going or failed on a flake. When a group is rebuilt or merged, GitHub deletes
+its `gh-readonly-queue/...` branch but lets the runs on it finish;
+`.github/workflows/queue-sweep.yml` cancels them (on every new group and every
+queue merge, only on a 404 for the branch). On 2026-11-09 such runs took a
+third of the queue's runner minutes while the live groups waited 8 to 20
+minutes for one of the 60 runners.
+
 Agents push branches named `codex/…`, `claude/…`, `agent/…`, `gemini/…`,
 `cursor/…` or `bot/…`, or add the `auto-merge` label to any pull request. The
 merge train runs on every push to main, after every CI run (pull request or
@@ -699,7 +709,11 @@ request. A checkout of main builds it locally: `npm run build` in
 `dodaios/ui/web/frontend`; the desktop app that follows main does that by
 itself (`main_follow.py`). Never commit the result.
 
-Merge queue: `max_entries_to_build` is 3 (ruleset 24704136; raised from 2 on
-2026-10-26, 12 pull requests were waiting at about 7.5 minutes each).
+Merge queue: `max_entries_to_build` is 5 and `grouping_strategy` is
+`HEADGREEN` (ruleset 24704136; 2 → 3 on 2026-10-26, 3 → 5 and `ALLGREEN` →
+`HEADGREEN` on 2026-11-09). With 3 entries in flight and about 30 minutes per
+group run, the queue merged about 6 pull requests an hour while about 8 an
+hour arrived; 26 were waiting. The runner minutes the queue sweep frees pay
+for the two extra groups.
 
 Dependabot covers npm through security updates only.
