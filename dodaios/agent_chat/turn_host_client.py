@@ -400,8 +400,8 @@ class TurnHostClient:
     def _register(self, cli: HostedCli) -> None:
         previous = self._procs.get(cli.host_id)
         if previous is not None and previous is not cli:
-            # A second recovery in this app used to silently strand the old
-            # reader until its one-hour timeout, even after the CLI exited.
+            # A second recovery in this app would silently strand the old
+            # reader, even after the CLI exited.
             # Wake it with the same ownership signal as a cross-app handover.
             previous._on_handed_over()
         self._procs[cli.host_id] = cli

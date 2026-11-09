@@ -27,7 +27,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
-from dodaios.agent_chat.team import Limits, SeatPick, TeamError, TeamThreads, TeamThreadStore
+from dodaios.agent_chat.team import SeatPick, TeamError, TeamThreads, TeamThreadStore
 from dodaios.agent_chat.team.engine import MAX_MEMBERS, MIN_MEMBERS
 from dodaios.agent_chat.team.store import MODES, ROLES
 
@@ -329,11 +329,6 @@ async def get_seats() -> dict[str, Any]:
         "default": [{"provider": s["provider"], "model": s["model"]} for s in default_team(seats)],
         "min_members": MIN_MEMBERS,
         "max_members": MAX_MEMBERS,
-        # The default turn bound by team size, so the start form can say it.
-        "max_turns": {
-            str(size): Limits.for_team(size).max_turns
-            for size in range(MIN_MEMBERS, MAX_MEMBERS + 1)
-        },
     }
 
 

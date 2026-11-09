@@ -920,7 +920,9 @@ class AgentChatService:
         ladder = ladder_key(surface, runner)
         permission_mode = normalize_permission(ladder, permission_mode)
         eff = normalize_effort(provider, effort) if effort is not None else ""
-        if effort is None:
+        if effort is None and surface != "agent":
+            # A coding thread keeps "" until the person picks a level: the CLI
+            # then runs on its own default, as in a grid pane.
             from dodaios.agent_chat.effort import default_effort
 
             eff = default_effort(provider)
