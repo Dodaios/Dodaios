@@ -416,18 +416,13 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
     const request = ++leadRequest;
     bindVoice(null);
     void chatStore.getState().loadCatalog();
+    // A failure keeps the blank page; the first send then reaches the lead.
     void fetchLeadSession()
       .then((session) => {
         const st = chatStore.getState();
-        if (request !== leadRequest || st.activeSessionId !== null || !session?.session_id) return;
-        if (!st.sessions.some((s) => s.session_id === session.session_id)) {
-          chatStore.setState({ sessions: [session, ...st.sessions] });
-        }
-        st.openSession(session.session_id);
+        if (request === leadRequest && st.activeSessionId === null && session?.session_id) st.openSession(session.session_id);
       })
-      .catch((err: unknown) => {
-        console.info("The main conversation could not be opened.", err);
-      });
+      .catch(() => undefined);
   };
 
   let catalogRequest = 0;

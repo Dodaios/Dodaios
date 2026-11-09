@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS jarvis_chat_selection (
     effort      TEXT NOT NULL DEFAULT '',
     account_id  TEXT NOT NULL DEFAULT ''
 );
--- The lead's one endless conversation: the jarvis-surface session that every
+-- The lead's one endless conversation: the Jarvis chat session that every
 -- typed turn, voice call, agent report and notice of the lead lands in.
 CREATE TABLE IF NOT EXISTS jarvis_lead_session (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
