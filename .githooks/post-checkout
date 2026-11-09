@@ -1,0 +1,33 @@
+#!/bin/sh
+# post-checkout: say so at once when the shared main checkout leaves main.
+#
+# A checkout that several sessions share (the desktop app runs from it) is
+# marked with `git config dodaios.sharedCheckout true`. Its primary worktree
+# stays on main: a session that switches it to a feature branch moves every
+# other session and the running app onto that branch. The pre-commit BRANCH
+# gate refuses a commit there; this hook only warns, because a checkout cannot
+# be refused after the fact.
+#
+# git passes: <old-head> <new-head> <flag>; flag 1 = a branch checkout.
+# Linked worktrees, clones without the setting and CI are left alone.
+#
+# This hook is VERSIONED in .githooks/; git runs it via core.hooksPath=.githooks
+# (set by scripts/ci/install_git_hooks.py). It never sets that itself.
+
+[ "$3" = "1" ] || exit 0
+[ "$GITHUB_ACTIONS" = "true" ] && exit 0
+[ "$(git config --bool dodaios.sharedCheckout 2>/dev/null)" = "true" ] || exit 0
+
+git_dir=$(git rev-parse --path-format=absolute --git-dir 2>/dev/null) || exit 0
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+[ "$git_dir" = "$common_dir" ] || exit 0
+
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0
+[ "$branch" = "main" ] && exit 0
+
+echo "" >&2
+echo "post-checkout WARNING: the shared main checkout is now on '$branch'." >&2
+echo "  Other sessions and the desktop app run from this checkout; it stays on main." >&2
+echo "  Put it back:            git switch main" >&2
+echo "  Work in your own tree:  git worktree add <path> $branch" >&2
+exit 0
