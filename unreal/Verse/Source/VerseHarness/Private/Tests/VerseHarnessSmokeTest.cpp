@@ -24,6 +24,7 @@ bool FVerseHarnessSmokeTest::RunTest(const FString& Parameters)
 		TEXT("VerseBot"),
 		TEXT("VerseUI"),
 		TEXT("VerseStream"),
+		TEXT("VerseAbilities"),
 		TEXT("VerseHarness"),
 	};
 	for (const TCHAR* Name : Modules)
