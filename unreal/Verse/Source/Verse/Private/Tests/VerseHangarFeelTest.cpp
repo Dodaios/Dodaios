@@ -66,7 +66,7 @@ namespace VerseHangarFeelTest
 
 	void Shot(FState& State, const FString& Name)
 	{
-		FScreenshotRequest::RequestScreenshot(FPaths::Combine(State.OutDir, Name + TEXT(".png")), false, false);
+		FScreenshotRequest::RequestScreenshot(FPaths::Combine(State.OutDir, Name + TEXT(".png")), true, false);
 		State.Shots.Add(Name);
 	}
 
@@ -126,6 +126,56 @@ namespace VerseHangarFeelTest
 			Best = *It;
 			BestDist = Dist;
 		}
+		return Best;
+	}
+
+	/**
+	 * Puts the person 7 m in front of a container wall of the arena, facing it: the breach and
+	 * debris shots need a breakable wall in view whatever spawn the match picked.
+	 */
+	AVerseDestructible* StandBeforeWall(UWorld* World)
+	{
+		AVerseDefaultCharacter* Pawn = Person(World);
+		if (!Pawn)
+		{
+			return nullptr;
+		}
+		const FVector ArenaCentre(5000.0, 2400.0, 0.0);
+		AVerseDestructible* Best = nullptr;
+		double BestScore = 1.0e12;
+		for (TActorIterator<AVerseDestructible> It(World); It; ++It)
+		{
+			if (It->PieceClass != EVersePieceClass::ContainerWall && It->PieceClass != EVersePieceClass::WallPanel)
+			{
+				continue;
+			}
+			const FVector Size = It->GetActorScale3D() * 100.0;
+			if (Size.Z < 200.0 || It->GetActorLocation().Z - Size.Z * 0.5 > 60.0)
+			{
+				continue; // ground-floor walls only
+			}
+			const double Score = FVector::Dist2D(It->GetActorLocation(), ArenaCentre);
+			if (Score < BestScore)
+			{
+				Best = *It;
+				BestScore = Score;
+			}
+		}
+		if (!Best)
+		{
+			return nullptr;
+		}
+		const FVector Size = Best->GetActorScale3D() * 100.0;
+		const FVector Centre = Best->GetActorLocation();
+		FVector Normal = Size.X < Size.Y ? FVector(1.0, 0.0, 0.0) : FVector(0.0, 1.0, 0.0);
+		if (FVector::DotProduct(ArenaCentre - Centre, Normal) < 0.0)
+		{
+			Normal = -Normal;
+		}
+		const FVector Floor(Centre.X, Centre.Y, Centre.Z - Size.Z * 0.5);
+		const FVector Stand = Floor + Normal * 700.0 + FVector(0.0, 0.0, 100.0);
+		Pawn->TeleportTo(Stand, (-Normal).Rotation());
+		LookAt(World, Centre);
 		return Best;
 	}
 
@@ -219,12 +269,37 @@ bool FVerseVisualHangarFeelTest::RunTest(const FString&)
 			switch (State->Step)
 			{
 			case 0:
-				// Spawned, nav built, looking at the nearest breakable wall.
-				if (T > 5.0 && Pawn)
+				// Spawned and nav built: in front of a breakable wall, then an exposure sweep.
+				if (T > 4.0 && Pawn)
 				{
-					if ((Target = PieceInView(World)) != nullptr)
+					StandBeforeWall(World);
+					State->Step = 20;
+				}
+				break;
+			case 20:
+			case 21:
+			case 22:
+			case 23:
+			{
+				const float Sweep[] = {1.5f, 2.f, 3.f, 3.5f};
+				const int32 I = State->Step - 20;
+				if (T > 4.4 + 0.3 * I && Graybox)
+				{
+					Graybox->SetExposureEV100(Sweep[I]);
+				}
+				if (T > 4.55 + 0.3 * I)
+				{
+					Shot(*State, FString::Printf(TEXT("00_ev%02.0f"), Sweep[I] * 10.f));
+					State->Step = I == 3 ? 24 : State->Step + 1;
+				}
+				break;
+			}
+			case 24:
+				if (T > 5.4)
+				{
+					if (Graybox)
 					{
-						LookAt(World, Target->GetActorLocation());
+						Graybox->SetExposureEV100(AVerseArenaGraybox::ArenaExposureEV100);
 					}
 					State->Step = 1;
 				}
@@ -311,7 +386,7 @@ bool FVerseVisualHangarFeelTest::RunTest(const FString&)
 				// A breach on the wall in view: the frame, the chunks, then the drones coming.
 				if (T > 12.5)
 				{
-					Target = PieceInView(World);
+					Target = StandBeforeWall(World);
 					AVerseDestructionManager* Manager = Graybox ? Graybox->GetDestructionManager() : nullptr;
 					TestNotNull(TEXT("a breakable piece in view"), Target);
 					TestNotNull(TEXT("the arena's destruction manager"), Manager);
@@ -372,7 +447,7 @@ bool FVerseVisualHangarFeelTest::RunTest(const FString&)
 			default:
 				break;
 			}
-			if (State->Step < 14)
+			if (State->Step != 14)
 			{
 				return false;
 			}

@@ -68,24 +68,24 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	if (Id == TEXT("tallow"))
 	{
 		// Pistol: held further out, one hand.
-		P.HipOffset = FVector(30.0, 11.0, -13.0);
-		P.HipRotation = FRotator(1.5, -3.0, 0.0);
+		P.HipOffset = FVector(36.0, 13.0, -15.0);
+		P.HipRotation = FRotator(2.0, -5.0, 0.0);
 		P.SightDistance = 30.0;
 		P.KickBackCm = 2.0;
 		P.KickPitchDeg = 6.0;
 	}
 	else if (Id == TEXT("skitter"))
 	{
-		P.HipOffset = FVector(22.0, 12.0, -14.0);
-		P.HipRotation = FRotator(1.0, -2.5, 0.0);
+		P.HipOffset = FVector(30.0, 14.0, -17.0);
+		P.HipRotation = FRotator(1.5, -4.5, 0.0);
 		P.SightDistance = 20.0;
 		P.KickBackCm = 1.6;
 		P.KickPitchDeg = 1.6;
 	}
 	else if (Id == TEXT("longsight"))
 	{
-		P.HipOffset = FVector(16.0, 12.5, -16.0);
-		P.HipRotation = FRotator(1.0, -2.0, 0.0);
+		P.HipOffset = FVector(28.0, 15.0, -20.0);
+		P.HipRotation = FRotator(1.5, -3.5, 0.0);
 		P.SightDistance = 12.0;
 		P.KickBackCm = 3.6;
 		P.KickPitchDeg = 4.5;
@@ -93,8 +93,8 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	else if (Id == TEXT("hookbill"))
 	{
 		// Knife: blade forward, edge down, held low on the right.
-		P.HipOffset = FVector(26.0, 14.0, -15.0);
-		P.HipRotation = FRotator(14.0, -12.0, -12.0);
+		P.HipOffset = FVector(30.0, 16.0, -17.0);
+		P.HipRotation = FRotator(18.0, -14.0, -20.0);
 		P.SightDistance = 26.0;
 		P.KickBackCm = 0.0;
 		P.KickPitchDeg = 0.0;
@@ -102,8 +102,8 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	else
 	{
 		// Graveline and any rifle without its own row.
-		P.HipOffset = FVector(18.0, 12.0, -15.0);
-		P.HipRotation = FRotator(1.0, -2.0, 0.0);
+		P.HipOffset = FVector(30.0, 15.0, -19.0);
+		P.HipRotation = FRotator(1.5, -4.0, 0.0);
 		P.SightDistance = 15.0;
 		P.KickBackCm = 2.4;
 		P.KickPitchDeg = 2.6;

@@ -11,6 +11,8 @@ class UDecalComponent;
 class UInstancedStaticMeshComponent;
 class UMaterialInterface;
 class UPointLightComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 
 /** One bolt as the viewer sees it. */
 struct FVerseVisualBolt
@@ -147,10 +149,25 @@ private:
 	TObjectPtr<UInstancedStaticMeshComponent> FoeMeshes;
 	UPROPERTY(Transient)
 	TObjectPtr<UInstancedStaticMeshComponent> ImpactMeshes;
+	/** The WP14.9 meshes and brightened looks (not built for instancing: drawn from a component pool). */
 	UPROPERTY(Transient)
-	TObjectPtr<UInstancedStaticMeshComponent> SparkMeshes;
+	TObjectPtr<UStaticMesh> RodArt;
 	UPROPERTY(Transient)
-	TObjectPtr<UInstancedStaticMeshComponent> FlashMeshes;
+	TObjectPtr<UStaticMesh> FlashArt;
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> SparkArt;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> RodOwnLook;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> RodFoeLook;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> FlashFoeLook;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> SparkLook;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> ArtPool;
+	int32 ArtUsed = 0;
+	void DrawArt(UStaticMesh* Mesh, UMaterialInterface* Look, const FTransform& Transform);
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UPointLightComponent>> Lights;
 	UPROPERTY(Transient)

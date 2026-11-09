@@ -4,6 +4,7 @@
 #include "Components/DecalComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Damage/VerseDamageService.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
@@ -367,16 +368,16 @@ void UVerseBoltPresentation::EnsureRender()
 	const FLinearColor Red = VerseCombatTags::BoltColor(VerseCombatTags::Presentation_Bolt_Red, false);
 	if (bArtBolts)
 	{
-		OwnMeshes = Make(Rod, Amber, TEXT("OwnBolts"), Bright(RodOwnMi, RenderActor, 60.f));
-		FoeMeshes = Make(Rod, Red, TEXT("FoeBolts"), Bright(RodFoeMi, RenderActor, 90.f));
-		SparkMeshes = Make(Spark, Amber, TEXT("Sparks"), Bright(SparksMi, RenderActor, 80.f));
-		FlashMeshes = Make(Flash, Red, TEXT("FoeFlashes"), Bright(FlashFoeMi, RenderActor, 90.f));
+		RodArt = Rod;
+		FlashArt = Flash;
+		SparkArt = Spark;
+		RodOwnLook = Bright(RodOwnMi, RenderActor, 60.f);
+		RodFoeLook = Bright(RodFoeMi, RenderActor, 90.f);
+		SparkLook = Bright(SparksMi, RenderActor, 80.f);
+		FlashFoeLook = Bright(FlashFoeMi, RenderActor, 90.f);
 	}
-	else
-	{
-		OwnMeshes = Make(Cylinder, Amber, TEXT("OwnBolts"), nullptr);
-		FoeMeshes = Make(Cylinder, Red, TEXT("FoeBolts"), nullptr);
-	}
+	OwnMeshes = Make(Cylinder, Amber, TEXT("OwnBolts"), nullptr);
+	FoeMeshes = Make(Cylinder, Red, TEXT("FoeBolts"), nullptr);
 	ImpactMeshes = Make(Sphere, FLinearColor(1.f, 0.8f, 0.5f), TEXT("Impacts"), nullptr);
 
 	// A handful of short lights: the shot lights the walls it passes and the spot it hits.
@@ -407,14 +408,7 @@ void UVerseBoltPresentation::UpdateRender(double Now)
 	OwnMeshes->ClearInstances();
 	FoeMeshes->ClearInstances();
 	ImpactMeshes->ClearInstances();
-	if (SparkMeshes)
-	{
-		SparkMeshes->ClearInstances();
-	}
-	if (FlashMeshes)
-	{
-		FlashMeshes->ClearInstances();
-	}
+	ArtUsed = 0;
 	for (const FVerseVisualBolt& B : Bolts)
 	{
 		if (bArtBolts)
@@ -428,7 +422,7 @@ void UVerseBoltPresentation::UpdateRender(double Now)
 			}
 			const FRotator Rot = FRotationMatrix::MakeFromX(B.Dir).Rotator();
 			const FVector Scale(Length / VerseBoltArt::RodLengthCm, ArtWidthScale, ArtWidthScale);
-			(B.bOwn ? OwnMeshes : FoeMeshes)->AddInstance(FTransform(Rot, Head, Scale), true);
+			DrawArt(RodArt, B.bOwn ? RodOwnLook : RodFoeLook, FTransform(Rot, Head, Scale));
 			continue;
 		}
 		const FVector Head = HeadAt(B, Now);
@@ -450,14 +444,14 @@ void UVerseBoltPresentation::UpdateRender(double Now)
 			FRotator Rot = FRotationMatrix::MakeFromX(S.Axis).Rotator();
 			Rot.Roll = S.Roll;
 			// The burst flies out and thins: grows along its axis, shrinks across it.
-			const FVector Scale(1.4f + 1.8f * Age, 1.6f * (1.f - 0.6f * Age), 1.6f * (1.f - 0.6f * Age));
-			SparkMeshes->AddInstance(FTransform(Rot, S.Location, Scale), true);
+			const FVector Scale(0.7f + 1.1f * Age, 0.9f * (1.f - 0.6f * Age), 0.9f * (1.f - 0.6f * Age));
+			DrawArt(SparkArt, SparkLook, FTransform(Rot, S.Location, Scale));
 		}
 		for (const FVerseVisualBurst& F : FoeFlashes)
 		{
 			FRotator Rot = FRotationMatrix::MakeFromX(F.Axis).Rotator();
 			Rot.Roll = F.Roll;
-			FlashMeshes->AddInstance(FTransform(Rot, F.Location, FVector(2.6)), true);
+			DrawArt(FlashArt, FlashFoeLook, FTransform(Rot, F.Location, FVector(2.6)));
 		}
 	}
 	else
@@ -467,7 +461,49 @@ void UVerseBoltPresentation::UpdateRender(double Now)
 			ImpactMeshes->AddInstance(FTransform(FRotator::ZeroRotator, I.Location, FVector(0.12)), true);
 		}
 	}
+	for (int32 I = ArtUsed; I < ArtPool.Num(); ++I)
+	{
+		if (ArtPool[I] && ArtPool[I]->IsVisible())
+		{
+			ArtPool[I]->SetVisibility(false);
+		}
+	}
 	UpdateLights(Now);
+}
+
+void UVerseBoltPresentation::DrawArt(UStaticMesh* Mesh, UMaterialInterface* Look, const FTransform& Transform)
+{
+	if (!Mesh || !RenderActor)
+	{
+		return;
+	}
+	if (ArtUsed >= ArtPool.Num())
+	{
+		UStaticMeshComponent* New = NewObject<UStaticMeshComponent>(RenderActor);
+		New->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		New->SetCastShadow(false);
+		New->SetMobility(EComponentMobility::Movable);
+		New->SetCanEverAffectNavigation(false);
+		New->RegisterComponent();
+		ArtPool.Add(New);
+	}
+	UStaticMeshComponent* Draw = ArtPool[ArtUsed++];
+	if (Draw->GetStaticMesh() != Mesh)
+	{
+		Draw->SetStaticMesh(Mesh);
+	}
+	for (int32 Slot = 0; Slot < Draw->GetNumMaterials(); ++Slot)
+	{
+		if (Draw->GetMaterial(Slot) != Look)
+		{
+			Draw->SetMaterial(Slot, Look);
+		}
+	}
+	Draw->SetWorldTransform(Transform);
+	if (!Draw->IsVisible())
+	{
+		Draw->SetVisibility(true);
+	}
 }
 
 void UVerseBoltPresentation::UpdateLights(double Now)

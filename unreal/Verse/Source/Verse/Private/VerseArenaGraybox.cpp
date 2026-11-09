@@ -15,6 +15,9 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Events/VerseEventHub.h"
+#include "Holes/VerseBoltHoleComponent.h"
+#include "Holes/VerseHoleRenderComponent.h"
+#include "Penetration/VersePenetrationSubsystem.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "MeshDescription.h"
 #include "Misc/App.h"
@@ -48,7 +51,7 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float WorkLightKelvin = 4300.f;
 	constexpr float PracticalKelvin = 6200.f;
 	constexpr float FillKelvin = 6500.f;
-	constexpr float FillLux = 3.5f;
+	constexpr float FillLux = 12.f;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
 	const FVector DroneDocks[] = {FVector(2620.0, 2400.0, 900.0), FVector(5000.0, 4280.0, 900.0), FVector(7380.0, 2400.0, 900.0)};
 
@@ -437,6 +440,37 @@ void AVerseArenaGraybox::SpawnDestruction(UWorld& World, const TArray<TSharedPtr
 		Manager = NewManager;
 		Spawned.Add(NewManager);
 	}
+	// Bolts find the pieces through the penetration subsystem (proxy to piece index), leave
+	// their holes in the manager's hole record and draw them with the hole renderer.
+	UVersePenetrationSubsystem* Penetration = World.GetSubsystem<UVersePenetrationSubsystem>();
+	if (Manager && Penetration)
+	{
+		Penetration->SetPieceQuery(Manager);
+		UVerseBoltHoleComponent* Holes = NewObject<UVerseBoltHoleComponent>(Manager, TEXT("BoltHoles"));
+		Holes->RegisterComponent();
+		Penetration->SetHoleSource(Holes);
+		TWeakObjectPtr<AVerseDestructionManager> WeakManager(Manager);
+		Holes->OnPieceHoleCap.AddLambda([WeakManager](uint16 PieceIndex, const FVector& Centroid)
+			{
+				if (AVerseDestructionManager* M = WeakManager.Get())
+				{
+					M->ApplyHoleCap(PieceIndex, Centroid);
+				}
+			});
+		UVerseHoleRenderComponent* HoleLook = NewObject<UVerseHoleRenderComponent>(Manager, TEXT("BoltHoleLook"));
+		HoleLook->RegisterComponent();
+		HoleLook->SetHoleSource(Holes);
+		for (AVerseDestructible* Piece : Pieces)
+		{
+			if (!Piece || Piece->GetPieceIndex() == INDEX_NONE)
+			{
+				continue;
+			}
+			const uint16 Index = uint16(Piece->GetPieceIndex());
+			Penetration->RegisterPieceProxy(Piece->GetProxyComponent(), Index, Piece->Material, Piece->GetRootComponent());
+			HoleLook->RegisterPieceVisual(Index, Piece->GetRenderComponent(), FBox(FVector(-50.0), FVector(50.0)), Piece->GetRootComponent());
+		}
+	}
 	DressDrones();
 	UE_LOG(LogVerse, Log, TEXT("[VerseArena] destruction: %d pieces, manager %s, %d drone docks"), Pieces.Num(), Manager ? TEXT("up") : TEXT("missing"),
 		UE_ARRAY_COUNT(DroneDocks));
@@ -593,6 +627,7 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 	// cool shadows against warm highlights so the 4300 K work lights read against the 6500 K fill.
 	if (APostProcessVolume* Post = World.SpawnActor<APostProcessVolume>(Params))
 	{
+		ArenaPost = Post;
 		Post->bUnbound = true;
 		Post->Priority = 10.f;
 		FPostProcessSettings& S = Post->Settings;
@@ -607,6 +642,15 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.DepthOfFieldFstop = 4.f;
 		S.bOverride_CameraShutterSpeed = true;
 		S.CameraShutterSpeed = FMath::Pow(2.f, ArenaExposureEV100) / 16.f;
+		S.bOverride_LensFlareIntensity = true;
+		S.LensFlareIntensity = 0.f;
+		// The f-number only sets the exposure: no depth of field (it would blur the viewmodel).
+		S.bOverride_DepthOfFieldFocalDistance = true;
+		S.DepthOfFieldFocalDistance = 0.f;
+		S.bOverride_DepthOfFieldDepthBlurRadius = true;
+		S.DepthOfFieldDepthBlurRadius = 0.f;
+		S.bOverride_MotionBlurAmount = true;
+		S.MotionBlurAmount = 0.2f;
 		S.bOverride_AutoExposureBias = true;
 		S.AutoExposureBias = 0.f;
 		S.bOverride_BloomIntensity = true;
@@ -644,11 +688,19 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		SavedFogFalloff = Fog->FogHeightFalloff;
 		SavedFogStart = Fog->StartDistance;
 		bFogSaved = true;
-		Fog->SetFogDensity(0.035f);
+		Fog->SetFogDensity(0.03f);
 		Fog->SetFogHeightFalloff(0.12f);
 		Fog->SetStartDistance(400.f);
 		Fog->SetVolumetricFog(true);
 		break;
+	}
+}
+
+void AVerseArenaGraybox::SetExposureEV100(float EV100)
+{
+	if (APostProcessVolume* Post = ArenaPost.Get())
+	{
+		Post->Settings.CameraShutterSpeed = FMath::Pow(2.f, EV100) / 16.f;
 	}
 }
 
@@ -764,7 +816,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 					C->SetMobility(EComponentMobility::Movable);
 					C->SetOuterConeAngle(float(Light->GetNumberField(TEXT("coneDeg")) * 0.5));
 					C->SetInnerConeAngle(float(Light->GetNumberField(TEXT("coneDeg")) * 0.25));
-					C->SetVolumetricScatteringIntensity(1.6f);
+					C->SetVolumetricScatteringIntensity(0.45f);
 					Component = C;
 					Spawned.Add(Spot);
 				}

@@ -50,7 +50,7 @@ public:
 	static FString DefaultJsonPath();
 
 	/** Exposure of the arena look (arena.md 9 "manual exposure"), EV100. */
-	static constexpr float ArenaExposureEV100 = 7.6f;
+	static constexpr float ArenaExposureEV100 = 2.2f;
 	/** Debris chunks alive at once, and how long one lies before it goes. */
 	static constexpr int32 MaxDebrisChunks = 90;
 	static constexpr float DebrisLifeS = 7.f;
@@ -60,6 +60,8 @@ public:
 	int32 NumPieces() const { return Pieces.Num(); }
 	int32 NumDebris() const { return Debris.Num(); }
 	AVerseDestructionManager* GetDestructionManager() const { return Manager; }
+	/** The arena look's exposure (tests sweep it; ArenaExposureEV100 is the default). */
+	void SetExposureEV100(float EV100);
 
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -108,6 +110,7 @@ private:
 	float SavedFogStart = 0.f;
 	bool bFogSaved = false;
 
+	TWeakObjectPtr<class APostProcessVolume> ArenaPost;
 	FDelegateHandle FractureHandle;
 	int32 Boxes = 0;
 	int32 SpawnPoints = 0;
