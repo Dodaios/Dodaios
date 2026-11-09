@@ -5,6 +5,13 @@ teammates and routines runs there too, so the person often writes while a
 turn is still running. Instead of a "turn already running" refusal, the
 message waits here and starts as the next turn once the agent's seat is free.
 
+Coding threads (``agent`` surface) use the same queue for a follow-up typed
+while a turn runs and cannot take it mid-turn (a CLI without steering, or a
+turn about to end): it survives a page reload and starts as the next turn.
+Stop pauses the queue so the halted agent does not start the next job by
+itself; :func:`resume` lets it go on. A CLI that takes a message while it
+works (Claude Code over stream-json) is steered instead — see :func:`try_steer`.
+
 The queue lives in memory and is bounded per chat in size. Waiting for a
 credential or approval never expires an accepted message. Every queued
 message is a ``message_queued`` notice in the chat; when it
@@ -26,7 +33,18 @@ from typing import Any, Final
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MAX_QUEUED", "QueueFull", "close_orphans", "has_waiting", "send_or_queue"]
+__all__ = [
+    "MAX_QUEUED",
+    "QueueFull",
+    "close_orphans",
+    "discard",
+    "has_waiting",
+    "pause",
+    "queue_state",
+    "resume",
+    "send_or_queue",
+    "try_steer",
+]
 
 #: Messages one chat may hold while its agent works.
 MAX_QUEUED: Final[int] = 64
@@ -54,6 +72,8 @@ class _ChatQueue:
     items: deque[_Queued] = field(default_factory=deque)
     drain: asyncio.Task[None] | None = None
     starting: bool = False
+    #: Stop was pressed: nothing starts until :func:`resume`.
+    paused: bool = False
 
 
 def _display_text(text: str, attachments: list[dict[str, Any]] | None) -> str:
@@ -80,7 +100,7 @@ def _queueable(svc: Any, session_id: str) -> bool:
     from dodaios.society.routine_runner import is_routine_session
 
     session = svc.store.get_session(session_id)
-    if session is None or getattr(session, "surface", "") not in ("jarvis", "society"):
+    if session is None or getattr(session, "surface", "") not in ("jarvis", "society", "agent"):
         return False
     if is_routine_session(session_id) or PAIR_SESSION_MARKER in session_id:
         return False
@@ -95,6 +115,75 @@ async def _notice(svc: Any, session_id: str, payload: dict[str, Any]) -> None:
         await post(session_id, payload)
     except Exception:  # noqa: BLE001 — the queue still runs; the notice is a projection
         log.warning("agent chat: queue notice not posted for %s", session_id, exc_info=True)
+
+
+async def try_steer(
+    svc: Any,
+    session_id: str,
+    text: str,
+    attachments: list[dict[str, Any]] | None = None,
+    *,
+    tool_choices: list[str] | None = None,
+) -> bool:
+    """Hand a message to the running turn's CLI; False when it must queue or start instead.
+
+    Only a coding thread whose running turn can take a message does this, and
+    only a plain-text one: files and tool picks travel with a new turn. Messages
+    already waiting keep their place, so a steer never overtakes them.
+    """
+    session = svc.store.get_session(session_id)
+    if session is None or getattr(session, "surface", "") != "agent":
+        return False
+    if attachments or tool_choices or not text.strip():
+        return False
+    if has_waiting(svc, session_id) or not svc.is_running(session_id):
+        return False
+    steer = getattr(svc, "steer", None)
+    return bool(steer is not None and await steer(session_id, text))
+
+
+def pause(svc: Any, session_id: str) -> None:
+    """Stop was pressed: waiting messages stay until the person releases them."""
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    if pending is not None and pending.items:
+        pending.paused = True
+
+
+def resume(svc: Any, session_id: str) -> None:
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    if pending is not None:
+        pending.paused = False
+
+
+def queue_state(svc: Any, session_id: str) -> dict[str, Any]:
+    """What waits for this chat: ``{"paused", "items": [{queue_id, text}]}``."""
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    if pending is None:
+        return {"paused": False, "items": []}
+    return {
+        "paused": pending.paused,
+        "items": [
+            {"queue_id": item.queue_id, "text": _display_text(item.text, item.attachments)}
+            for item in pending.items
+        ],
+    }
+
+
+async def discard(svc: Any, session_id: str, queue_id: str) -> bool:
+    """Take one waiting message back; False when it already started or is gone."""
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    if pending is None:
+        return False
+    for item in list(pending.items):
+        if item.queue_id == queue_id:
+            pending.items.remove(item)
+            await _notice(
+                svc,
+                session_id,
+                {"kind": "message_dequeued", "queue_id": queue_id, "status": "removed"},
+            )
+            return True
+    return False
 
 
 async def send_or_queue(
@@ -201,8 +290,10 @@ async def _drain_loop(svc: Any, session_id: str, pending: _ChatQueue) -> None:
     while pending.items:
         # Jitter only spreads polls of several waiting chats; it is not security.
         await asyncio.sleep(_POLL_S + random.uniform(0, _POLL_S / 2))  # noqa: S311
-        if pending.starting or svc.is_running(session_id):
+        if pending.starting or pending.paused or svc.is_running(session_id):
             continue
+        if not pending.items:  # taken back while waiting
+            break
         head = pending.items[0]
         token = client_timezone.set(head.timezone)
         try:

@@ -9,5 +9,8 @@ public class VerseBot : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseMovement", "VerseCombat", "VerseDestruction" });
+		// The AAIController, EQS, the belief nav query filter and the StateTree tactics of bot.md 5 and 6
+		// (WP08, change request #1162). Engine modules only, no Verse edge.
+		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule", "NavigationSystem", "StateTreeModule", "GameplayStateTreeModule" });
 	}
 }

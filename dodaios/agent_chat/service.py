@@ -28,7 +28,7 @@ import sqlite3
 import time
 import traceback
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Final
@@ -474,6 +474,8 @@ class AgentChatService:
         # Reserved before control state is marked running. The runner has not
         # started yet, but a competing send and Stop must both see this owner.
         self._preparing: dict[str, _Running] = {}
+        #: Running turns whose CLI takes a message mid-turn: session -> (turn, writer).
+        self._steerers: dict[str, tuple[str, Callable[[str], Awaitable[bool]]]] = {}
         self._subscribers: dict[str, set[Subscriber]] = {}
         # Synchronous observers of every stored event (add_event_listener).
         self._event_listeners: list[Callable[[str, dict[str, Any]], None]] = []
@@ -937,6 +939,36 @@ class AgentChatService:
             account_id=account_id,
         )
 
+    def _set_steerer(
+        self, session_id: str, turn_id: str, writer: Callable[[str], Awaitable[bool]] | None
+    ) -> None:
+        if writer is not None:
+            self._steerers[session_id] = (turn_id, writer)
+        elif self._steerers.get(session_id, ("",))[0] == turn_id:
+            self._steerers.pop(session_id, None)
+
+    def can_steer(self, session_id: str) -> bool:
+        return session_id in self._steerers and self.is_running(session_id)
+
+    async def steer(self, session_id: str, text: str) -> bool:
+        """Hand a message to the CLI of the running turn; False when it cannot take one.
+
+        On success the message is a ``user_message`` of that turn (``steered``),
+        so the transcript shows it where the agent received it.
+        """
+        entry = self._steerers.get(session_id)
+        body = text.strip()
+        if entry is None or not body or not self.is_running(session_id):
+            return False
+        turn_id, writer = entry
+        if not await writer(body):
+            return False
+        await self._emit(
+            session_id,
+            make_event("user_message", {"text": body, "turn_id": turn_id, "steered": True}),
+        )
+        return True
+
     def is_running(self, session_id: str) -> bool:
         preparing = self._preparing.get(session_id)
         if preparing is not None and preparing.setup_task is not _current_task():
@@ -1396,6 +1428,35 @@ class AgentChatService:
                         display_text = text
             # A plain chat shows its pictures to the model itself.
             images: tuple[str, ...] = ()
+            native_pictures = False
+            if attached and not kit.plain and session.surface != "jarvis":
+                from dodaios.agent_chat import plain_chat
+
+                # A coding thread's CLI sees the pictures itself (Claude Code and
+                # GLM as image blocks, Codex through ``--image``), so no vision
+                # description is needed and the 4-picture cap does not apply. The
+                # file path stays in the text for the CLI's tools.
+                if (selected_runner or session_runner(session)) in plain_chat.NATIVE_IMAGE_RUNNERS:
+                    found = await asyncio.to_thread(
+                        plain_chat.image_paths, session.cwd, attached, limit=None
+                    )
+                    images = tuple(str(path) for path in found)
+                    native_pictures = bool(images)
+            if native_pictures:
+                from dodaios.agentic_ide import drops as _drops
+
+                sent = set(images)
+                attached = [
+                    replace(
+                        a, detail="", described_by="none",
+                        note="Attached to this message as an image; look at it directly.",
+                    )
+                    if getattr(a, "kind", "") == "image"
+                    and str(Path(session.cwd) / _drops.dereference(str(a.reference))) in sent
+                    else a
+                    for a in attached
+                ]
+                prompt = chat_attachments.compose(text, attached)
             if attached and kit.plain:
                 from dodaios.agent_chat import plain_chat
 
@@ -1598,6 +1659,9 @@ class AgentChatService:
                 output_language=output_language,
                 goal_turn=native_goal,
                 control_service=self,
+                on_steer=lambda writer, _sid=session_id, _tid=turn_id: self._set_steerer(
+                    _sid, _tid, writer
+                ),
             )
         except BaseException as exc:
             try:

@@ -3,7 +3,7 @@ import { ArrowDown, Bot, Brain, Check, ChevronDown, ChevronRight, Copy, Diff, Fi
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import { waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
+import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { CallMark, StretchMark } from "@/components/agentchat/TraceTimeline";
 import { plural, readableOutput, traceDuration, type Call } from "@/components/agentchat/traceEntries";
@@ -541,7 +541,7 @@ export function ChangedFiles({ turn }: { turn: TurnItem }) {
 }
 
 function answerText(turn: TurnItem): string {
-  return turn.blocks.filter((block): block is TextBlock => block.kind === "text").map((block) => block.text.trim()).filter(Boolean).join("\n\n");
+  return turn.blocks.filter((block): block is TextBlock => block.kind === "text" && !block.id.startsWith(STEER_PREFIX)).map((block) => block.text.trim()).filter(Boolean).join("\n\n");
 }
 
 /** How a surface answers an approval: by its id, the person's decision and where an "always" lives. */
@@ -597,19 +597,24 @@ export function joinAgentRuns(rows: readonly ThreadRow[]): (ThreadRow | { kind: 
   return out;
 }
 
+/** The person's own message sent into the running turn, drawn between the agent's steps. */
+function isSteerRow(row: ThreadRow): boolean {
+  return row.kind === "text" && row.block.id.startsWith(STEER_PREFIX);
+}
+
 export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: ThreadRow[] } {
   let lastStep = -1;
   let lastText = -1;
   rows.forEach((row, index) => {
     if (row.kind === "work" || row.kind === "thought") lastStep = index;
-    if (row.kind === "text") lastText = index;
+    if (row.kind === "text" && !isSteerRow(row)) lastText = index;
   });
   // No prose yet, or the prose already follows every step.
   if (lastText < 0 || lastText > lastStep) {
     return { work: rows.slice(0, lastStep + 1), answer: rows.slice(lastStep + 1) };
   }
   let start = lastText;
-  while (start > 0 && rows[start - 1].kind === "text") start -= 1;
+  while (start > 0 && rows[start - 1].kind === "text" && !isSteerRow(rows[start - 1])) start -= 1;
   return {
     work: rows.filter((_, index) => index < start || index > lastText),
     answer: rows.slice(start, lastText + 1),
@@ -675,6 +680,8 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const { work, answer: tail } = useMemo(() => (running ? { work: rows, answer: [] } : foldFinished(rows)), [rows, running]);
   // The sub-agents it spawned stay in view under the fold: each opens its own conversation.
   const agents = useMemo(() => work.filter((row) => row.kind === "agent"), [work]);
+  // What the person told it mid-turn stays in view under the fold too.
+  const steers = useMemo(() => work.filter(isSteerRow), [work]);
   // A call that still waits for the person never folds away.
   const waiting = useMemo(() => work.filter((row) => row.kind === "pending" && waitsForPerson(row.block)), [work]);
   const agentsWorking = useMemo(() => running ? listSubagents([turn]).filter((entry) => entry.status === "running").length : 0, [turn, running]);
@@ -697,6 +704,9 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const renderRow = (row: ThreadRow) => {
     if (row.kind === "work") return <WorkGroupView key={row.id} group={row} running={running} />;
     if (row.kind === "thought") return <ThoughtView key={row.id} text={row.text} />;
+    if (isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
+      <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
+    </div>;
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
     if (row.kind === "agent") return <SubagentCard key={row.id} block={row.block} turn={turn} />;
     // A secret is pasted where it is asked for, never into a composer.
@@ -740,12 +750,13 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
         <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-150", workOpen && "rotate-90")} />
       </button>
       {workOpen && <div className="space-y-1.5 pb-2 pt-1" data-testid="thread-worked-steps">
-        {work.filter((row) => row.kind !== "agent" && !waiting.includes(row)).map(renderRow)}
+        {work.filter((row) => row.kind !== "agent" && !isSteerRow(row) && !waiting.includes(row)).map(renderRow)}
         {extraNodes}
       </div>}
       <div aria-hidden className="mt-1 border-b border-border/70" />
     </div>}
     {folded && agents.length > 0 && <div className="space-y-1.5 pt-1" data-testid="thread-turn-subagents">{renderRows(agents)}</div>}
+    {folded && steers.map(renderRow)}
     {folded && waiting.map(renderRow)}
     {credentials.map((block) => <CredentialCard key={block.credential!.requestId} credential={block.credential!} />)}
     {renderRows(shown.slice(0, extraAt))}

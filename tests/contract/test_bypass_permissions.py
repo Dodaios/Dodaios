@@ -174,3 +174,89 @@ async def test_tool_arguments_cannot_change_an_explicit_ask_policy():
     tool = FakePermissionTool()
     result = await executor.execute(tool, {"approval_mode": "bypass"})
     assert not result.success and not tool.calls
+
+
+# Security audit 2026-11-09: bypass is a standing approval for routine work,
+# never for actions that hand control of the machine to something new.
+
+
+class _HumanOnlyTool(FakePermissionTool):
+    def __init__(self, name: str) -> None:
+        super().__init__("ask")
+        self.name = name
+
+
+@pytest.mark.parametrize(
+    ("name", "args"),
+    [
+        ("dispatch_to_admin", {"op": {"type": "add_scheduled_task"}}),
+        ("marketplace-install", {"item_id": "x"}),
+        ("manage-mcp-server", {"action": "add", "name": "x", "reason": "r"}),
+        ("manage-mcp-server", {"action": "enable", "name": "x", "reason": "r"}),
+    ],
+)
+async def test_bypass_never_answers_for_a_human_only_action(name, args):
+    bus = EventBus()
+    executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), ApprovalWorkflow(bus))
+    tool = _HumanOnlyTool(name)
+    result = await asyncio.wait_for(
+        executor.execute(tool, args, config_snapshot={"approval_surface": "unattended"}), 1
+    )
+    assert not result.success and not tool.calls
+
+
+async def test_a_human_only_action_asks_on_a_conversational_turn():
+    from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL
+
+    bus = EventBus()
+    executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), ApprovalWorkflow(bus))
+    tool = _HumanOnlyTool("dispatch_to_admin")
+    result = await asyncio.wait_for(
+        executor.execute(tool, {"op": {}}, config_snapshot={"voice_confirm": True}), 1
+    )
+    assert result.error == VOICE_CONFIRM_SENTINEL and not tool.calls
+
+
+async def test_a_human_only_action_runs_after_a_person_approves_it():
+    bus = EventBus()
+    workflow = ApprovalWorkflow(bus)
+
+    async def person_says_yes(event):
+        await workflow.approve(event.trace_id, "user")
+
+    from dodaios.core.events import ActionApprovalRequired
+
+    bus.subscribe(ActionApprovalRequired, person_says_yes)
+    executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), workflow)
+    tool = _HumanOnlyTool("dispatch_to_admin")
+    result = await asyncio.wait_for(
+        executor.execute(tool, {"op": {}}, config_snapshot={"approval_surface": "interactive"}), 2
+    )
+    assert result.success and tool.calls[0].approved_by == "user"
+
+
+@pytest.mark.parametrize("action", ["remove", "disable"])
+async def test_bypass_still_covers_mcp_actions_that_only_take_access_away(action):
+    bus = EventBus()
+    executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), ApprovalWorkflow(bus))
+    tool = _HumanOnlyTool("manage-mcp-server")
+    result = await asyncio.wait_for(
+        executor.execute(tool, {"action": action, "name": "x", "reason": "r"}), 1
+    )
+    assert result.success and tool.calls[0].approved_by == "bypass"
+
+
+async def test_bypass_never_answers_a_plausibility_forced_confirmation(monkeypatch):
+    from types import SimpleNamespace
+
+    bus = EventBus()
+    executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), ApprovalWorkflow(bus))
+    monkeypatch.setattr(
+        executor, "_evaluate_plausibility",
+        lambda tool, decision: SimpleNamespace(reason="low_confidence", require_confirmation=True),
+    )
+    tool = FakePermissionTool("monitor")
+    result = await asyncio.wait_for(
+        executor.execute(tool, {}, config_snapshot={"approval_surface": "unattended"}), 1
+    )
+    assert not result.success and not tool.calls

@@ -668,6 +668,8 @@ class ShellTool:
 
     name: str = SHELL_TOOL_NAME
     risk_tier: str = "monitor"
+    #: Bare whitelist patterns ("git status") match this argument only.
+    whitelist_command_arg: str = "command"
     description: str = (
         "Run a shell command in YOUR workspace folder (your files live there; relative paths "
         "resolve inside it, paths outside it are refused). Use it for scripts, file "

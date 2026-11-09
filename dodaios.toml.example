@@ -163,8 +163,11 @@ always_confirm_tiers = ["ask"]
 always_block_tiers = ["block"]
 
 [safety.whitelist]
-# fnmatch patterns against "<tool_name> <args>" or the bare "<args>"; a match
-# downgrades to "safe". Do NOT add "run_shell *": shell commands come with a
+# fnmatch patterns against "<tool_name> <args>" (argument values in the tool's
+# own order); a bare pattern like "git status" matches only the command of a
+# shell or CLI tool. A match downgrades to "safe". A command with ; & | $( ` >
+# is never whitelisted, and admin operations, marketplace installs and adding
+# or enabling an MCP server always ask. Do NOT add "run_shell *": shell commands come with a
 # tiered model out of the box (Claude-Code permission style) — commands that
 # only read or modify run without confirmation, destructive commands (rm,
 # del, format, Remove-Item, ...) ask first UNLESS the user's own request
