@@ -164,7 +164,7 @@ const BASE_ROUTES: Record<string, () => RouteResult> = {
   "/api/settings/agent-instructions": () => ({
     body: { content: "", exists: false, filename: "George.md", template: "", char_count: 0 },
   }),
-  "/api/wiki/page/": () => ({ status: 404, body: { detail: "no such page" } }),
+  "/api/memory/vault": () => ({ status: 200, body: { stats: { current: 42, by_kind: {}, all_versions: 42, forgotten: 0, entities: 0 }, prompt_block: "", in_mind_ids: [], budget_chars: 2400, used_chars: 0, kinds: [], path: "", imported: true } }),
 };
 
 async function openDetails() {
@@ -392,14 +392,12 @@ describe("memory and privacy", () => {
     expect(list.textContent).toContain("MBTI type");
   });
 
-  it("invites the wiki page rather than reporting a 404", async () => {
+  it("points at the memory vault with its size", async () => {
     installFetchMock(BASE_ROUTES);
     renderWithClient(<ProfileView />);
     await openMemory();
 
-    await waitFor(() =>
-      expect(screen.getByTestId("wiki-empty").textContent).toContain("No page yet"),
-    );
+    await waitFor(() => expect(screen.getByTestId("vault-row").textContent).toContain("42"));
   });
 
   it("opens the source file as a sub-page and comes back", async () => {

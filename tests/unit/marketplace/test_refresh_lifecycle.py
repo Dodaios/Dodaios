@@ -136,13 +136,10 @@ async def test_shared_webserver_start_schedules_refresh_after_boot(
         "_init_mission_stack",
         "_init_screenshot_retention",
         "_init_flight_recorder",
-        "_init_wiki_integration",
         "_init_task_stack",
         "_init_channel_stack",
     ):
         monkeypatch.setattr(server, name, _noop_async)
-    monkeypatch.setattr(server, "_init_wiki_boot_index", lambda **_kwargs: None)
-    monkeypatch.setattr(server, "_init_wiki_watcher", lambda: None)
     monkeypatch.setattr(server, "_init_session_stack", lambda: None)
     monkeypatch.setattr(
         server,

@@ -37,19 +37,6 @@ def test_memory_data_dir_without_a_value_is_the_runtime_dir(runtime_dir: Path, c
     assert config.memory_data_dir(cfg) == runtime_dir
 
 
-def test_wiki_db_without_a_data_dir_is_in_the_runtime_dir(runtime_dir: Path) -> None:
-    from dodaios.memory.wiki.db_path import resolve_wiki_db_path
-
-    assert resolve_wiki_db_path() == (runtime_dir / "jarvis.db").resolve()
-
-
-def test_wiki_db_with_a_relative_data_dir_is_anchored_at_the_checkout(runtime_dir: Path) -> None:
-    from dodaios.core.paths import repo_root
-    from dodaios.memory.wiki.db_path import resolve_wiki_db_path
-
-    assert resolve_wiki_db_path("./data") == (repo_root() / "data" / "jarvis.db").resolve()
-
-
 def test_speech_models_without_an_override_are_in_the_runtime_dir(runtime_dir: Path) -> None:
     from dodaios.speech.local_models import models_root
 
@@ -66,17 +53,6 @@ def test_society_workspace_without_a_config_is_in_the_runtime_dir(runtime_dir: P
     from dodaios.society.surface import _workspace_fallback
 
     assert _workspace_fallback(None, "scout") == runtime_dir / "society" / "scout" / "workspace"
-
-
-def test_wiki_cli_defaults_follow_the_session_data_dir() -> None:
-    """Resolved at import, under the session's temp ``JARVIS_DATA_DIR``."""
-    import os
-
-    from dodaios.memory.wiki import cli
-
-    session_dir = Path(os.environ["JARVIS_DATA_DIR"])
-    assert cli.DEFAULT_DB == session_dir / "jarvis.db"
-    assert cli.DEFAULT_BACKUP_DIR == session_dir / "backups"
 
 
 def test_flight_recorder_dir_is_in_the_runtime_dir(runtime_dir: Path) -> None:

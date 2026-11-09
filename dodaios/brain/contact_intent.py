@@ -127,16 +127,16 @@ _MEMORY_VERB_RE = re.compile(
     r")"
 )
 
-# Per-turn directive for a general wiki memory note (English — LLM-facing).
-WIKI_INGEST_DIRECTIVE = (
-    "MANDATORY THIS TURN: write the fact with `wiki-ingest` as one self-contained "
-    "sentence in `text`; do not only acknowledge it."
+# Per-turn directive for a general memory note (English — LLM-facing).
+MEMORY_SAVE_DIRECTIVE = (
+    "MANDATORY THIS TURN: save the fact with `remember` as one self-contained "
+    "sentence in `fact`; do not only acknowledge it."
 )
 
 
 def detect_memory_save_intent(utterance: str) -> bool:
     """True when the user explicitly asks to REMEMBER a general fact (no contact
-    field) — routed to the direct wiki write path (``wiki-ingest``).
+    field) — routed to the memory vault (``remember``).
 
     Requires an explicit remember cue ("merk dir", "notier dir", "remember
     that", "behalte im Hinterkopf") AND enough substance to be worth a page, so
@@ -152,15 +152,15 @@ def resolve_save_mandate(utterance: str) -> tuple[str, str] | None:
     """Map a save/remember turn to ``(tool_name, per-turn directive)``, or None.
 
     Contact-data writes (an email/phone/address, or "save X as a contact") take
-    priority over a general wiki memory note, so a dictated phone number lands in
-    the address book rather than as free prose in the wiki. This is the single
+    priority over a general memory note, so a dictated phone number lands in
+    the address book rather than as a memory sentence. This is the single
     routing point the manager consumes — both the contact and the wiki say-do
     guards flow through here.
     """
     if detect_contact_write_intent(utterance):
         return ("contact-upsert", CONTACT_WRITE_DIRECTIVE)
     if detect_memory_save_intent(utterance):
-        return ("wiki-ingest", WIKI_INGEST_DIRECTIVE)
+        return ("remember", MEMORY_SAVE_DIRECTIVE)
     return None
 
 
@@ -169,5 +169,5 @@ __all__ = [
     "detect_memory_save_intent",
     "resolve_save_mandate",
     "CONTACT_WRITE_DIRECTIVE",
-    "WIKI_INGEST_DIRECTIVE",
+    "MEMORY_SAVE_DIRECTIVE",
 ]

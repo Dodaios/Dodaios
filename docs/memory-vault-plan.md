@@ -1,7 +1,8 @@
 # Personal memory vault — build plan
 
 Decision: ADR-0044. Each chunk ships as its own pull request and leaves the
-app working.
+app working. Status 2026-11-09: chunks 1-6 done (#1093, #1098, #1126, #1160, #1168, #1198,
+and the wiki removal).
 
 | # | Chunk | Done when |
 |---|-------|-----------|

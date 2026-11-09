@@ -822,40 +822,6 @@ def _build_registry() -> tuple[AppCommand, ...]:
         ),
         # ------------------------------------------------ knowledge & history
         AppCommand(
-            id="wiki-ingest",
-            title="Store a fact in the Wiki",
-            description=(
-                "Store one self-contained fact or summary through the guarded "
-                "Wiki curator. The command succeeds only after a page is written."
-            ),
-            method="POST",
-            path="/api/wiki/ingest",
-            worker_allowed=True,
-            params={
-                "type": "object",
-                "properties": {
-                    "text": _str_param(
-                        "Self-contained fact or summary to store.",
-                        min_length=12,
-                        max_length=32_000,
-                    ),
-                    "source": _str_param(
-                        "Optional short audit label for the content source.",
-                        min_length=1,
-                        max_length=128,
-                    ),
-                },
-                "required": ["text"],
-            },
-            ui_section="memory",
-            voice_aliases={
-                "de": ("trag das in mein wiki ein",),  # i18n-allow: input vocab
-                "en": ("store that in my wiki",),
-                "es": ("guarda eso en mi wiki",),  # i18n-allow: input vocab
-                "pt": ("guarda isso na minha wiki",),  # i18n-allow: input vocab
-            },
-        ),
-        AppCommand(
             id="session-latest-turn",
             title="Show latest voice turn",
             description=(

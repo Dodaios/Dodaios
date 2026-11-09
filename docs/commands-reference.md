@@ -261,16 +261,6 @@ List available speaker and microphone devices.
 - **Desktop UI section:** `settings`
 - **Voice example (EN):** "list my audio devices"
 
-## `wiki-ingest` — Store a fact in the Wiki
-
-Store one self-contained fact or summary through the guarded Wiki curator. The command succeeds only after a page is written.
-
-- **Endpoint:** `POST /api/wiki/ingest`
-- **Arguments:** `text` (string; required); `source` (string; optional)
-- **Requires confirmation:** no
-- **Desktop UI section:** `memory`
-- **Voice example (EN):** "store that in my wiki"
-
 ## `session-latest-turn` — Show latest voice turn
 
 Return the latest persisted user transcript and its complete voice turn, optionally restricted to one session.
