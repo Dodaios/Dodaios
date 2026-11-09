@@ -254,6 +254,24 @@ class CreateSessionBody(BaseModel):
     surface: SurfaceName = "agent"
     #: A coding thread's placement: a connected computer id; "" = this computer.
     computer_id: str = ""
+    #: Continue an existing Claude Code / Codex session (a grid pane's): the
+    #: thread's next turn resumes it. Empty = a fresh conversation.
+    vendor_session: str = ""
+
+
+class ForkSessionBody(BaseModel):
+    #: Run the copy in a new git worktree on its own branch.
+    worktree: bool = False
+    #: Branch / worktree name (worktree forks only); suggested when empty.
+    name: str = Field(default="", max_length=120)
+    #: The copy's title (the client words it in the person's language).
+    title: str = Field(default="", max_length=120)
+
+
+class FromTerminalBody(BaseModel):
+    #: The grid pane's call-sign and workspace.
+    name: str = Field(min_length=1, max_length=120)
+    workspace_id: str | None = None
 
 
 class PatchSessionBody(BaseModel):
@@ -1144,6 +1162,15 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
     cwd = _folder_for(body.surface, body.cwd)
     computer_id = _validate_computer(body.computer_id, body.surface)
     try:
+        from dodaios.agent_chat.thread_sessions import clean_vendor_session
+
+        vendor = clean_vendor_session(
+            resolve_runner(body.provider, surface=body.surface, account_id=body.account_id),
+            body.vendor_session,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
         session = svc.create_session(
             computer_id=computer_id,
             provider=body.provider,
@@ -1157,6 +1184,8 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if vendor:
+        session = svc.store.update_session(session.session_id, vendor_session=vendor) or session
     if session.surface == "jarvis":
         from dodaios.agent_chat.store import ChatSelection
 
@@ -1221,6 +1250,84 @@ async def lead_fresh_start(request: Request) -> dict[str, Any]:
     if session is not None:
         await svc.post_notice(session.session_id, {"kind": "context_reset", "status": "done"})
     return {"ok": True, "through_seq": through}
+
+
+@router.post("/sessions/from-terminal", status_code=201)
+async def thread_from_terminal(body: FromTerminalBody, request: Request) -> dict[str, Any]:
+    """A thread that continues the conversation a grid pane is having."""
+    from dodaios.agent_chat.catalog import PROVIDER_ROWS
+    from dodaios.agent_chat.thread_sessions import clean_vendor_session
+    from dodaios.agentic_ide.session import get_registry
+
+    svc = await _async_service(request)
+    registry = get_registry()
+    found = registry._locate(body.name, body.workspace_id)  # noqa: SLF001 — the grid's own lookup
+    if found is None:
+        raise HTTPException(404, "terminal not found")
+    workspace, term = found
+    row = next((r for r in PROVIDER_ROWS if r.agent == term.agent and r.runner.endswith("-cli")), None)
+    handle = term.resume
+    if row is None or handle is None:
+        raise HTTPException(409, "This terminal has no conversation a thread can continue yet.")
+    try:
+        vendor = clean_vendor_session(row.runner, handle.id)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    session = svc.create_session(
+        provider=row.id,
+        model=term.model or "",
+        effort=term.effort or None,
+        cwd=_validate_cwd(term.cwd(workspace.folder)),
+        permission_mode=normalize_permission(
+            ladder_key("agent", row.runner), term.permission_mode or ""
+        ),
+        account_id=term.account or "",
+        surface="agent",
+    )
+    session = svc.store.update_session(session.session_id, vendor_session=vendor) or session
+    d = session.to_dict()
+    d["running"] = False
+    return d
+
+
+@router.post("/sessions/{session_id}/fork", status_code=201)
+async def fork_session(
+    session_id: str, body: ForkSessionBody, request: Request
+) -> dict[str, Any]:
+    """Copy a thread into a new one, optionally in a fresh git worktree."""
+    from dodaios.agent_chat.thread_sessions import fork_session as make_fork
+    from dodaios.agentic_ide import fork as worktree_fork
+
+    svc = await _async_service(request)
+    source = svc.store.get_session(session_id)
+    if source is None:
+        raise HTTPException(404, "session not found")
+    if source.surface != "agent":
+        raise HTTPException(400, "Only coding threads can be forked.")
+    if svc.is_running(session_id):
+        raise HTTPException(409, "Wait for the thread to finish its turn before forking it.")
+    runner = resolve_runner(source.provider, surface=source.surface, account_id=source.account_id)
+    cwd = source.cwd
+    if body.worktree:
+        name = body.name.strip() or await asyncio.to_thread(
+            worktree_fork.suggest_name, cwd, source.title or "thread"
+        )
+        try:
+            created = await asyncio.to_thread(worktree_fork.create_worktree, cwd, name)
+        except worktree_fork.ForkError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        cwd = str(created.folder)
+    copy = await asyncio.to_thread(
+        make_fork,
+        svc,
+        source,
+        runner=runner,
+        cwd=cwd,
+        title=body.title.strip() or source.title,
+    )
+    d = copy.to_dict()
+    d["running"] = False
+    return d
 
 
 @router.get("/sessions/{session_id}")

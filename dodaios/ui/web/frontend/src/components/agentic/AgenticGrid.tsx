@@ -78,7 +78,9 @@ import { WorkspaceFileViewer } from "./WorkspaceFileViewer";
 import { PaneChat } from "./PaneChat";
 import { NewPaneChat } from "./NewPaneChat";
 import type { NewPaneRequest } from "@/store/newPaneChat";
-import type { ChatAttachment } from "@/lib/agentChatApi";
+import { threadFromTerminal, type ChatAttachment } from "@/lib/agentChatApi";
+import { openCodingThread } from "@/components/agentic/threads/openCodingThread";
+import { useThreadChatStore } from "@/components/agentic/threads/threadModel";
 import { useIdeChatStore } from "@/store/ideChat";
 import { PANE_ACTIVITY_EVENT, readPaneActivityChange } from "@/store/workspacePanes";
 import type { WorkspaceView } from "@/components/agentic/workspaceView";
@@ -1469,6 +1471,19 @@ export function AgenticGrid({
    * the stage, the stage in chat mode. From the grid's header buttons and
    * from the stage's own "show terminal" detour alike.
    */
+  const openAsThread = useCallback(
+    async (term: TerminalState) => {
+      try {
+        const thread = await threadFromTerminal(term.name, session.id);
+        await useThreadChatStore.getState().loadSessions();
+        openCodingThread(thread.session_id);
+      } catch (error) {
+        pushToast("error", error instanceof Error ? error.message : String(error));
+      }
+    },
+    [session.id, pushToast],
+  );
+
   const openAsChat = useCallback(
     (term: TerminalState) => {
       setChatPane(term.name);
@@ -2749,6 +2764,7 @@ export function AgenticGrid({
                 // gets the button, and a CLI without a readable record says
                 // so on the stage rather than hiding the way there.
                 onOpenChat={takesPrompts(term) ? () => openAsChat(term) : undefined}
+                onOpenThread={takesPrompts(term) ? () => void openAsThread(term) : undefined}
               />
               {/* Where a drop on THIS pane would put the pane in hand. Every
                   other pane is outlined the moment a drag starts, so the grid

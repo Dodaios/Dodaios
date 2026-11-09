@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, Check, FileDiff, FolderGit2, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, SquarePlus, X } from "lucide-react";
+import { Archive, Check, FileDiff, FolderGit2, GitBranch, GitFork, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, SquarePlus, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
-import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
+import { forkAgentChatSession, patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
 import { fill, loadLocaleChunk, useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
@@ -88,6 +88,15 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
       pushToast("error", error instanceof Error ? error.message : String(error));
     }
   };
+  const fork = async (worktree: boolean) => {
+    try {
+      const copy = await forkAgentChatSession(session.session_id, { worktree, title: fill(t("ide_threads.fork_title"), { thread: title }) });
+      await useThreadChatStore.getState().loadSessions();
+      useIdeThreadsStore.getState().openThread(copy.session_id, projectId);
+    } catch (error) {
+      pushToast("error", error instanceof Error ? error.message : String(error));
+    }
+  };
   const reviewChanges = () => setChangesOpen(true);
   const prefetchReview = () => {
     void loadLocaleChunk("pane_review");
@@ -147,6 +156,10 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
           onSelect={() => { setMenuOpen(false); setRenaming(title); }} />
         <ThreadMenuItem icon={<SquarePlus className="h-3.5 w-3.5" />} label={t("ide_threads.new_thread_here")}
           onSelect={() => { setMenuOpen(false); newThread(); }} />
+        <ThreadMenuItem icon={<GitFork className="h-3.5 w-3.5" />} label={t("ide_threads.fork")} disabled={busy}
+          onSelect={() => { setMenuOpen(false); void fork(false); }} />
+        <ThreadMenuItem icon={<GitBranch className="h-3.5 w-3.5" />} label={t("ide_threads.fork_worktree")} disabled={busy || !folder}
+          onSelect={() => { setMenuOpen(false); void fork(true); }} />
         <ThreadMenuSeparator />
         <ThreadMenuItem icon={<FileDiff className="h-3.5 w-3.5" />} label={t("ide_threads.header.review_changes")} disabled={!folder}
           onSelect={() => { setMenuOpen(false); reviewChanges(); }} />

@@ -418,6 +418,42 @@ export interface CreateSessionInput {
   surface?: AgentChatSurface;
   /** A coding thread's placement; empty or absent = this computer. */
   computer_id?: string;
+  /** Continue an existing Claude Code / Codex session (a uuid). */
+  vendor_session?: string;
+}
+
+/** A thread that continues the conversation a grid pane is having. */
+export async function threadFromTerminal(
+  name: string,
+  workspaceId?: string | null,
+): Promise<AgentChatSession> {
+  const session = await json<AgentChatSession>(
+    await fetch("/api/agent-chat/sessions/from-terminal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, workspace_id: workspaceId ?? null }),
+    }),
+    "create-failed",
+  );
+  invalidateAgentChatSessions();
+  return session;
+}
+
+/** Copy a thread into a new one, optionally in a fresh git worktree. */
+export async function forkAgentChatSession(
+  sessionId: string,
+  input: { worktree?: boolean; name?: string; title?: string } = {},
+): Promise<AgentChatSession> {
+  const session = await json<AgentChatSession>(
+    await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/fork`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+    "fork-failed",
+  );
+  invalidateAgentChatSessions();
+  return session;
 }
 
 export async function createAgentChatSession(input: CreateSessionInput): Promise<AgentChatSession> {
