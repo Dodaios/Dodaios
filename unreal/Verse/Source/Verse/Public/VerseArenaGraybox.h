@@ -50,7 +50,7 @@ public:
 	static FString DefaultJsonPath();
 
 	/** Exposure of the arena look (arena.md 9 "manual exposure"), EV100. */
-	static constexpr float ArenaExposureEV100 = 2.2f;
+	static constexpr float ArenaExposureEV100 = 2.7f;
 	/** Debris chunks alive at once, and how long one lies before it goes. */
 	static constexpr int32 MaxDebrisChunks = 90;
 	static constexpr float DebrisLifeS = 7.f;

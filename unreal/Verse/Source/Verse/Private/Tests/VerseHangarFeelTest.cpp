@@ -424,6 +424,7 @@ bool FVerseVisualHangarFeelTest::RunTest(const FString&)
 					TestTrue(TEXT("repair drones in the arena"), Drones > 0);
 					// The live part: the scripted player plays the bot.
 					UVerseDuelSubsystem::Get(World)->SetAutoplay(true);
+					State->bFoeFireSeen = false;
 					State->Step = 13;
 				}
 				break;

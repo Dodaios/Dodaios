@@ -50,6 +50,15 @@ struct FVerseVisualBurst
 	bool bOwn = false;
 };
 
+/** The fading line a bolt leaves once it has landed: from where it was seen to leave to the impact. */
+struct FVerseVisualTrail
+{
+	FVector Start = FVector::ZeroVector;
+	FVector End = FVector::ZeroVector;
+	double SpawnTime = 0.0;
+	bool bOwn = false;
+};
+
 /**
  * Bolt presentation (WP02.11): the owner's predicted bolt drawn amber at fire time, every other
  * shooter's bolt drawn red from FVerseFireEvent, removal on Rejected and on the bolt's cosmetic hit,
@@ -70,11 +79,13 @@ public:
 	static constexpr double StreakRadiusCm = 3.0;
 	static constexpr double ImpactLifeS = 0.08;
 	/** The art streak: up to this long, this many times the modelled rod's width. */
-	static constexpr double ArtStreakLengthCm = 260.0;
+	static constexpr double ArtStreakLengthCm = 700.0;
 	static constexpr double ArtWidthScale = 2.6;
 	/** An own bolt starts at the viewmodel muzzle and joins the true line over this distance. */
 	static constexpr double ConvergeCm = 900.0;
 	static constexpr double SparkLifeS = 0.14;
+	/** A landed bolt's line fades over this long: a shot reads even when it crosses the room in one frame. */
+	static constexpr double TrailLifeS = 0.09;
 	static constexpr double FoeFlashLifeS = 0.06;
 	static constexpr int32 MaxScorchDecals = 48;
 	static constexpr int32 MaxLights = 6;
@@ -105,6 +116,7 @@ public:
 	const TArray<FVerseVisualImpact>& GetImpacts() const { return Impacts; }
 	const TArray<FVerseVisualBurst>& GetSparks() const { return Sparks; }
 	const TArray<FVerseVisualBurst>& GetFoeFlashes() const { return FoeFlashes; }
+	const TArray<FVerseVisualTrail>& GetTrails() const { return Trails; }
 	int32 NumOwn() const;
 	int32 NumFoe() const;
 	/** Where a bolt's streak head is at Now. */
@@ -133,6 +145,7 @@ private:
 	TArray<FVerseVisualImpact> Impacts;
 	TArray<FVerseVisualBurst> Sparks;
 	TArray<FVerseVisualBurst> FoeFlashes;
+	TArray<FVerseVisualTrail> Trails;
 	FDelegateHandle FireHandle;
 	FDelegateHandle HitHandle;
 	FDelegateHandle RejectHandle;

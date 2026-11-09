@@ -65,6 +65,7 @@ void UVerseBoltPresentation::Deinitialize()
 	Impacts.Reset();
 	Sparks.Reset();
 	FoeFlashes.Reset();
+	Trails.Reset();
 	Super::Deinitialize();
 }
 
@@ -159,7 +160,15 @@ void UVerseBoltPresentation::HandleHit(const FVerseHitEvent& E)
 	bool bOwnBolt = false;
 	for (const FVerseVisualBolt& X : Bolts)
 	{
-		bOwnBolt |= X.ShooterId == E.InstigatorId && X.ShotCounter == E.ShotCounter && X.bOwn;
+		if (X.ShooterId == E.InstigatorId && X.ShotCounter == E.ShotCounter)
+		{
+			bOwnBolt = X.bOwn;
+			FVerseVisualTrail& Trail = Trails.AddDefaulted_GetRef();
+			Trail.Start = X.Origin + X.VisualOffset;
+			Trail.End = E.ImpactWorld;
+			Trail.SpawnTime = WorldNow();
+			Trail.bOwn = X.bOwn;
+		}
 	}
 	Bolts.RemoveAll([&E](const FVerseVisualBolt& X) { return X.ShooterId == E.InstigatorId && X.ShotCounter == E.ShotCounter; });
 	if (Bolts.Num() != Before || E.VictimId == -1)
@@ -265,6 +274,7 @@ void UVerseBoltPresentation::Advance(double Now)
 	Impacts.RemoveAll([Now](const FVerseVisualImpact& I) { return Now - I.SpawnTime > ImpactLifeS; });
 	Sparks.RemoveAll([Now](const FVerseVisualBurst& S) { return Now - S.SpawnTime > S.Life; });
 	FoeFlashes.RemoveAll([Now](const FVerseVisualBurst& F) { return Now - F.SpawnTime > F.Life; });
+	Trails.RemoveAll([Now](const FVerseVisualTrail& T) { return Now - T.SpawnTime > TrailLifeS; });
 	UpdateRender(Now);
 }
 
@@ -396,7 +406,7 @@ void UVerseBoltPresentation::EnsureRender()
 
 void UVerseBoltPresentation::UpdateRender(double Now)
 {
-	if (Bolts.Num() == 0 && Impacts.Num() == 0 && Sparks.Num() == 0 && FoeFlashes.Num() == 0 && !RenderActor)
+	if (Bolts.Num() == 0 && Impacts.Num() == 0 && Sparks.Num() == 0 && FoeFlashes.Num() == 0 && Trails.Num() == 0 && !RenderActor)
 	{
 		return;
 	}
@@ -446,6 +456,20 @@ void UVerseBoltPresentation::UpdateRender(double Now)
 			// The burst flies out and thins: grows along its axis, shrinks across it.
 			const FVector Scale(0.7f + 1.1f * Age, 0.9f * (1.f - 0.6f * Age), 0.9f * (1.f - 0.6f * Age));
 			DrawArt(SparkArt, SparkLook, FTransform(Rot, S.Location, Scale));
+		}
+		for (const FVerseVisualTrail& Trail : Trails)
+		{
+			const FVector Along = Trail.End - Trail.Start;
+			const double Length = Along.Size();
+			if (Length < 10.0)
+			{
+				continue;
+			}
+			// Thins out as it fades; the rod's tip sits on the impact.
+			const double Fade = 1.0 - FMath::Clamp((Now - Trail.SpawnTime) / TrailLifeS, 0.0, 1.0);
+			const double Width = ArtWidthScale * (0.35 + 0.45 * Fade);
+			const FRotator Rot = FRotationMatrix::MakeFromX(Along / Length).Rotator();
+			DrawArt(RodArt, Trail.bOwn ? RodOwnLook : RodFoeLook, FTransform(Rot, Trail.End, FVector(Length / VerseBoltArt::RodLengthCm, Width, Width)));
 		}
 		for (const FVerseVisualBurst& F : FoeFlashes)
 		{

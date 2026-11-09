@@ -51,7 +51,7 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float WorkLightKelvin = 4300.f;
 	constexpr float PracticalKelvin = 6200.f;
 	constexpr float FillKelvin = 6500.f;
-	constexpr float FillLux = 12.f;
+	constexpr float FillLux = 22.f;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
 	const FVector DroneDocks[] = {FVector(2620.0, 2400.0, 900.0), FVector(5000.0, 4280.0, 900.0), FVector(7380.0, 2400.0, 900.0)};
 
@@ -668,9 +668,13 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.bOverride_ColorGainHighlights = true;
 		S.ColorGainHighlights = FVector4(1.06, 1.0, 0.92, 1.0);
 		S.bOverride_LocalExposureHighlightContrastScale = true;
-		S.LocalExposureHighlightContrastScale = 0.85f;
+		S.LocalExposureHighlightContrastScale = 0.75f;
 		S.bOverride_LocalExposureShadowContrastScale = true;
-		S.LocalExposureShadowContrastScale = 0.9f;
+		S.LocalExposureShadowContrastScale = 0.75f;
+		// The graybox's dark albedo bounces little: a stronger Lumen bounce lifts the walls the
+		// work lights do not reach.
+		S.bOverride_IndirectLightingIntensity = true;
+		S.IndirectLightingIntensity = 2.2f;
 		Spawned.Add(Post);
 	}
 
@@ -789,7 +793,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 		// One shadowless cool fill keeps the space between the warm work-light cones readable (the
 		// graybox has no bounce-friendly albedo or light cards yet). One only: two directional lights
 		// compete for forward shading and volumetric fog.
-		if (ADirectionalLight* Fill = World->SpawnActor<ADirectionalLight>(FVector(5000.0, 2400.0, 1500.0), FRotator(-62.0, 35.0, 0.0), Params))
+		if (ADirectionalLight* Fill = World->SpawnActor<ADirectionalLight>(FVector(5000.0, 2400.0, 1500.0), FRotator(-26.0, 35.0, 0.0), Params))
 		{
 			UDirectionalLightComponent* C = CastChecked<UDirectionalLightComponent>(Fill->GetLightComponent());
 			C->SetMobility(EComponentMobility::Movable);

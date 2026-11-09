@@ -102,8 +102,8 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	else
 	{
 		// Graveline and any rifle without its own row.
-		P.HipOffset = FVector(30.0, 15.0, -19.0);
-		P.HipRotation = FRotator(1.5, -4.0, 0.0);
+		P.HipOffset = FVector(34.0, 16.0, -21.0);
+		P.HipRotation = FRotator(2.0, -4.0, 0.0);
 		P.SightDistance = 15.0;
 		P.KickBackCm = 2.4;
 		P.KickPitchDeg = 2.6;
