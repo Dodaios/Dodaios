@@ -22,6 +22,14 @@
 #      users.
 #   6. runs release-smoke.yml against the published release (read-only).
 #
+# Preflight. Before any of that, the `preflight` job proves what the cut will
+# need and changes nothing: the release bot can still push to this repository
+# (a `git push --dry-run` with its token; v4.2.0's first cut failed on exactly
+# that, after it had computed the version), the signing keys are configured,
+# main is green, and the version and notes the cut would write. Run it alone
+# with `-f dry_run=true`: the summary shows the result and no job after it
+# runs.
+#
 # Release bot. The `cut` and `tag` jobs run in the `release-cut` environment, which only
 # main may deploy to. That environment holds the private key of the release
 # bot GitHub App (secret RELEASE_APP_PRIVATE_KEY, variable RELEASE_APP_ID). The
@@ -55,6 +63,10 @@ on:
         description: "Already merged and CI-qualified commit that introduced the version, to finish (optional full SHA)"
         required: false
         default: ""
+      dry_run:
+        description: "Only run the preflight checks: push nothing, open nothing, tag nothing"
+        type: boolean
+        default: false
 
 concurrency:
   group: release-cut
@@ -64,9 +76,103 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    name: preflight
+    if: github.ref == 'refs/heads/main'
+    # The release bot key lives here; nothing in this job writes.
+    environment: release-cut
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Mint a release bot token for the write probe
+        id: probe-token
+        if: vars.RELEASE_APP_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: The release bot can push to this repository
+        env:
+          BOT_TOKEN: ${{ steps.probe-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "::notice::RELEASE_APP_ID is unset: the cut falls back to GITHUB_TOKEN and a maintainer opens the candidate PR."
+            exit 0
+          fi
+          # A dry-run push authenticates for receive-pack exactly like a real
+          # one, so a missing write permission answers 403 here, before the
+          # cut has computed anything. Nothing is sent.
+          probe="refs/heads/release-cut/preflight-${GITHUB_RUN_ID}"
+          if ! GH_TOKEN="$BOT_TOKEN" bash -c 'gh auth setup-git --hostname github.com && git push --dry-run origin "HEAD:$0"' "$probe"; then
+            {
+              echo "::error::The release bot cannot push to $GITHUB_REPOSITORY."
+              echo "Check the app's repository access and its Contents permission:"
+              echo "organisation Settings -> GitHub Apps -> the release bot -> Configure."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Release bot: can push to $GITHUB_REPOSITORY." | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: The release signing keys are configured
+        env:
+          HAS_ED25519: ${{ secrets.WAVE2_OFFLINE_KEY_B64 != '' }}
+          HAS_MLDSA: ${{ secrets.WAVE4_MLDSA65_KEY_B64 != '' }}
+        run: |
+          missing=()
+          [ "$HAS_ED25519" = "true" ] || missing+=(WAVE2_OFFLINE_KEY_B64)
+          [ "$HAS_MLDSA" = "true" ] || missing+=(WAVE4_MLDSA65_KEY_B64)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing release signing secrets: ${missing[*]}. The publishers would stop after the tag is public."
+            exit 1
+          fi
+          echo "Release signing keys: configured." | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: main must be green
+        if: inputs.resume_sha == ''
+        run: python scripts/ci/release_admit.py --ci-only --sha "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY" --wait-minutes 0
+      - name: The version and notes this cut would write
+        if: inputs.resume_sha == ''
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "$VERSION" ]; then arg=(--version "$VERSION"); else arg=(--bump "$BUMP"); fi
+          new="$(python scripts/ci/cut_release.py "${arg[@]}" --notes-out "$RUNNER_TEMP/notes.md" | tail -1)"
+          git fetch --quiet --tags origin
+          if git show-ref --verify --quiet "refs/tags/v$new"; then
+            echo "::error::v$new is already tagged."
+            exit 1
+          fi
+          {
+            echo "### The cut would release v$new"
+            echo
+            echo '```'
+            git diff --stat
+            echo '```'
+            echo
+            cat "$RUNNER_TEMP/notes.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # This checkout is thrown away; the cut job bumps its own.
+          git checkout -- .
+
   cut:
     name: cut release
-    if: github.ref == 'refs/heads/main'
+    needs: preflight
+    if: github.ref == 'refs/heads/main' && !inputs.dry_run
     # Holds the release bot key; its deployment policy admits main only.
     environment: release-cut
     runs-on: ubuntu-latest

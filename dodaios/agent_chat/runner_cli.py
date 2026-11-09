@@ -3973,9 +3973,9 @@ async def _run_cli_once(
                     plan, runner, keep_session=bool(getattr(handle, "plain_system", ""))
                 )
             images = tuple(getattr(handle, "images", ()) or ())
-            if images and getattr(handle, "plain_system", ""):
-                # A plain chat's pictures go to the model itself, not only
-                # their description (``plain_chat`` says why).
+            if images:
+                # Pictures go to the model itself, not only their description
+                # (``plain_chat`` says why); a coding thread's CLI takes them too.
                 await asyncio.to_thread(
                     plain_chat.attach_images, plan, runner, [Path(p) for p in images]
                 )
@@ -4301,14 +4301,36 @@ async def _drive_cli(
                     await _answer_control_request(obj)
                     continue
                 if obj.get("type") == "control_response":
-                    # The CLI's answer to our handshake (its command list).
-                    # Nothing the timeline shows, and not a line to translate.
+                    # The CLI's answer to our handshake (its command list):
+                    # kept for the thread's "/" picker, never shown on the
+                    # timeline and not a line to translate.
+                    _remember_cli_commands(obj)
                     continue
+            if obj.get("type") == "system" and obj.get("subtype") == "init":
+                _remember_cli_commands(obj)
             for ev in translate(obj, state):
                 await handle.emit(ev)
             if plan.keep_stdin and getattr(state, "saw_result", False):
                 # The turn is over; closing stdin lets the CLI exit.
                 _close_stdin()
+
+    def _remember_cli_commands(obj: dict[str, Any]) -> None:
+        """Hand the commands Claude Code reports to the thread's "/" picker."""
+        if runner not in _CLAUDE_CODE_RUNNERS:
+            return
+        try:
+            from dodaios.agent_chat import typeahead
+
+            body = obj
+            if obj.get("type") == "control_response":
+                inner = obj.get("response")
+                body = inner.get("response") if isinstance(inner, dict) else None
+                body = body if isinstance(body, dict) else {}
+            for key in ("commands", "slash_commands"):
+                if body.get(key):
+                    typeahead.remember_cli_commands(runner, session.cwd, body[key])
+        except Exception as exc:  # noqa: BLE001 - the picker is a convenience
+            log.debug("agent chat %s: command list not kept: %s", handle.turn_id, exc)
 
     def _close_stdin() -> None:
         if proc.stdin is None or proc.stdin.is_closing():
@@ -4651,6 +4673,24 @@ async def _drive_cli(
         tracker = DescendantTracker(proc.pid, marker=(plan.env or {}).get(TURN_MARKER_ENV))
         tracker.start()
 
+    if plan.keep_stdin and plan.shape == "claude" and handle.on_steer is not None:
+
+        async def _steer(text: str) -> bool:
+            # Claude Code reads further stream-json user messages until its
+            # result line; after that (or a stop) there is nobody to read.
+            if (
+                getattr(state, "saw_result", False)
+                or handle.cancel.is_set()
+                or proc.returncode is not None
+                or proc.stdin is None
+                or proc.stdin.is_closing()
+            ):
+                return False
+            await _write_stdin(claude_stream_input(text))
+            return True
+
+        handle.on_steer(_steer)
+
     pump = asyncio.create_task(_pump_stdout())
     drain = asyncio.create_task(_drain_stderr())
     feeder = asyncio.create_task(_feed_stdin())
@@ -4714,6 +4754,8 @@ async def _drive_cli(
             _kill(proc)
         raise
     finally:
+        if handle.on_steer is not None:
+            handle.on_steer(None)
         if gate_decider is not None:
             native_gate.unregister(handle.session.session_id, gate_decider)
         watcher.cancel()

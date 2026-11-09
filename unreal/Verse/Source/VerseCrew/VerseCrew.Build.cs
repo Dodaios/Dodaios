@@ -9,5 +9,8 @@ public class VerseCrew : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.AddRange(new string[] { "VerseCore", "VerseBridge", "VerseDecks" });
+		// Json: bridge frames, crew tuning and presentation files; NavigationSystem: typed and async
+		// Recast path queries for crew walks (WP15, change request #1167).
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "NavigationSystem" });
 	}
 }

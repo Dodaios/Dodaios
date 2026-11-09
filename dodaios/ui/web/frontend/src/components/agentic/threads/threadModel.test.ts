@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
-import { arrangeThreads, comparablePath, compactTitle, isInside, moveThreadId, projectIdFor, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject } from "./threadModel";
+import { createAgentChatStore } from "@/store/agentChat";
+import { arrangeThreads, comparablePath, compactTitle, isInside, moveThreadId, projectIdFor, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore } from "./threadModel";
 
 function project(id: string, path: string): IdeProject {
   return {
@@ -140,5 +141,28 @@ describe("threadWorktree", () => {
     expect(threadWorktree("C:\\Repo", "C:\\repo")).toBeNull();
     expect(threadWorktree("C:\\Repo\\src", "C:\\repo")).toBeNull();
     expect(threadWorktree("C:\\Other\\.worktrees\\x", "C:\\repo")).toBeNull();
+  });
+});
+
+describe("thread list row of a thread open in a side column", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("follows the side column's turn without waiting for the list poll", () => {
+    // The list route never answers in time here: only the side column's
+    // store can tell the thread list its turn started and ended.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("offline"); }));
+    vi.stubGlobal("WebSocket", class { close() {} });
+    const row = session("side-thread", "C:\\work", { running: false });
+    useThreadChatStore.setState({ sessions: [row], activeSessionId: null });
+    void useThreadChatStore.getState().loadSessions();
+    const side = createAgentChatStore("agent", "threads-side");
+    side.setState({ sessions: [row] });
+    side.getState().openSession("side-thread");
+    const listed = () => useThreadChatStore.getState().sessions[0];
+    side.getState().ingest({ seq: 1, ts_ms: Date.now(), kind: "turn_started", payload: { turn_id: "t1" } });
+    expect(threadStatus(listed(), {}, null)).toBe("running");
+    side.getState().ingest({ seq: 2, ts_ms: Date.now(), kind: "turn_finished", payload: { turn_id: "t1", status: "done" } });
+    expect(threadStatus(listed(), {}, null)).toBe("idle");
+    side.getState().disconnect();
   });
 });

@@ -108,8 +108,14 @@ IMAGES_NOTE = (
 )
 
 
-def image_paths(cwd: str | Path, attachments: list[Any] | None) -> list[Path]:
-    """The attached pictures as files inside ``cwd``, at most :data:`MAX_IMAGES`.
+#: Runners whose CLI takes a picture natively (stream-json image block / ``--image``).
+NATIVE_IMAGE_RUNNERS = frozenset({"claude-cli", "glm-cli", "codex-cli"})
+
+
+def image_paths(
+    cwd: str | Path, attachments: list[Any] | None, *, limit: int | None = MAX_IMAGES
+) -> list[Path]:
+    """The attached pictures as files inside ``cwd``, at most ``limit`` (None: all).
 
     The references are request data, so each one must resolve INSIDE the
     chat's folder and name a picture type; anything else is left out.
@@ -132,7 +138,7 @@ def image_paths(cwd: str | Path, attachments: list[Any] | None) -> list[Path]:
         if path.suffix.lower() not in INLINE_TYPES or not path.is_file() or path in out:
             continue
         out.append(path)
-        if len(out) >= MAX_IMAGES:
+        if limit is not None and len(out) >= limit:
             break
     return out
 
@@ -176,7 +182,7 @@ def attach_images(plan: Any, runner: str, paths: list[Path]) -> bool:
     """Hand ``paths`` to a planned CLI turn natively. False when the runner cannot take them."""
     if not paths:
         return False
-    if runner == "claude-cli" and plan.shape == "claude" and plan.stdin_text:
+    if runner in ("claude-cli", "glm-cli") and plan.shape == "claude" and plan.stdin_text:
         images = [pair for pair in (encoded(path) for path in paths) if pair is not None]
         if not images:
             return False
@@ -194,6 +200,7 @@ def attach_images(plan: Any, runner: str, paths: list[Path]) -> bool:
 
 __all__ = [
     "IMAGES_NOTE",
+    "NATIVE_IMAGE_RUNNERS",
     "attach_images",
     "claude_message_with_images",
     "cli_prompt",

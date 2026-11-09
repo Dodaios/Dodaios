@@ -83,10 +83,10 @@ namespace
 	const TCHAR* VerseGoreSubsystemClass = TEXT("/Script/VerseGore.VerseGoreSubsystem");
 
 	/**
-	 * Interim console variables for the view settings that have no contracted consumer yet
-	 * (duel FOV, sensitivity, invert Y, deck FOVs, reduced motion, volume); a contract change
-	 * request asks for their fields on UVerseSettings. Gore goes to UVerseSettings and the key
-	 * bindings into Enhanced Input.
+	 * Console variables mirroring the view settings (duel FOV, sensitivity, invert Y, deck FOVs,
+	 * reduced motion, volume) for QA. The contracted values are the UVerseSettings fields of
+	 * combat-state.md 8 (WriteViewSettings); gore goes there too and the key bindings into
+	 * Enhanced Input.
 	 */
 	void PublishCVar(const TCHAR* Name, const FString& Value, const TCHAR* Help)
 	{
@@ -1029,6 +1029,77 @@ void UVerseUiSubsystem::SetTextScale(float Scale)
 	RebuildScreen();
 }
 
+namespace
+{
+	/**
+	 * The view settings on UVerseSettings (combat-state.md 8), written like GoreLevel: into the
+	 * viewer's GameUserSettings and into the class default object that readers use. VerseUI cannot
+	 * include Verse, so the fields are set by name through reflection.
+	 */
+	void WriteViewSettings(float DuelFov, const FVerseAppSettings& S)
+	{
+		struct FFloatField { const TCHAR* Name; float Value; };
+		struct FBoolField { const TCHAR* Name; bool bValue; };
+		const FFloatField Floats[] = {
+			{ TEXT("DuelFovDeg"), DuelFov },
+			{ TEXT("LookSensitivity"), S.Sensitivity },
+			{ TEXT("DeckFovThirdDeg"), S.FovThird },
+			{ TEXT("DeckFovFirstDeg"), S.FovFirst },
+			{ TEXT("MasterVolume"), S.Volume },
+		};
+		const FBoolField Bools[] = {
+			{ TEXT("bInvertLookY"), S.bInvertY },
+			{ TEXT("bReducedMotion"), S.bReducedMotion },
+		};
+		if (GConfig)
+		{
+			bool bChanged = false;
+			for (const FFloatField& F : Floats)
+			{
+				float Stored = 0.f;
+				if (!GConfig->GetFloat(VerseSettingsSection, F.Name, Stored, GGameUserSettingsIni) || !FMath::IsNearlyEqual(Stored, F.Value))
+				{
+					GConfig->SetFloat(VerseSettingsSection, F.Name, F.Value, GGameUserSettingsIni);
+					bChanged = true;
+				}
+			}
+			for (const FBoolField& B : Bools)
+			{
+				bool bStored = false;
+				if (!GConfig->GetBool(VerseSettingsSection, B.Name, bStored, GGameUserSettingsIni) || bStored != B.bValue)
+				{
+					GConfig->SetBool(VerseSettingsSection, B.Name, B.bValue, GGameUserSettingsIni);
+					bChanged = true;
+				}
+			}
+			if (bChanged)
+			{
+				GConfig->Flush(false, GGameUserSettingsIni);
+			}
+		}
+		UClass* Class = FindObject<UClass>(nullptr, VerseSettingsClass);
+		UObject* Defaults = Class ? Class->GetDefaultObject() : nullptr;
+		if (!Defaults)
+		{
+			return;
+		}
+		for (const FFloatField& F : Floats)
+		{
+			if (FFloatProperty* Prop = FindFProperty<FFloatProperty>(Class, F.Name))
+			{
+				Prop->SetPropertyValue_InContainer(Defaults, F.Value);
+			}
+		}
+		for (const FBoolField& B : Bools)
+		{
+			if (FBoolProperty* Prop = FindFProperty<FBoolProperty>(Class, B.Name))
+			{
+				Prop->SetPropertyValue_InContainer(Defaults, B.bValue);
+			}
+		}
+	}
+}
+
 TSharedPtr<FJsonValue> UVerseUiSubsystem::GetGameSetting(const FString& Id) const
 {
 	const FVerseGameSettingDef* Def = FVerseGameSettingsCatalogue::Get().Find(Id);
@@ -1186,6 +1257,7 @@ void UVerseUiSubsystem::SaveSettingsCache()
 	UserSettings->SaveToDisk();
 }
 
+||||||| 9a2e55fc2a
 void UVerseUiSubsystem::PublishSettings()
 {
 	const FVerseGameSettings& Game = AppSettings.Game;
@@ -1231,6 +1303,7 @@ void UVerseUiSubsystem::PublishSettings()
 			TEXT("Verse game setting, settings.game (docs/verse/unreal/game-settings.md; VerseUI)"));
 	}
 	WriteGoreSetting(GetWorld(), AppSettings.Gore);
+	WriteViewSettings(float(Game.GetNumber(TEXT("controls.fov_duel"))), AppSettings);
 	ApplyKeyBindingsToInput();
 
 	if (bSettingsLive)

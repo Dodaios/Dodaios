@@ -24,6 +24,9 @@ export { userAttachments, type UserAttachment };
  * turn's status and the usage the runner reported at the end.
  */
 
+/** Id prefix of a text block that is the person's message sent into a running turn. */
+export const STEER_PREFIX = "steer-";
+
 export interface TextBlock {
   kind: "text";
   id: string;
@@ -898,6 +901,16 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       ) };
 
     case "user_message":
+      // A message sent into the running turn (mid-turn steering) lands in that
+      // turn, where the agent received it: a `steer-` text block the thread draws as the person's own line.
+      if (p.steered === true && turnId && findTurn(base.items, turnId) >= 0) {
+        return updateTurn(base, turnId, (turn) => ({
+          ...closeLiveReasoning(turn, ev.ts_ms),
+          blocks: [...closeLiveReasoning(turn, ev.ts_ms).blocks, {
+            kind: "text", id: `${STEER_PREFIX}${seq || ev.ts_ms}`, text: str(p.text),
+          }],
+        }));
+      }
       return {
         ...base,
         items: [

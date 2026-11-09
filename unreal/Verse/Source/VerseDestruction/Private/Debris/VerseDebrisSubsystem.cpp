@@ -117,6 +117,16 @@ void UVerseDebrisSubsystem::PreloadPiece(const AVerseDestructible& Piece)
 	}
 }
 
+bool UVerseDebrisSubsystem::ReplayFracture(const FVerseFractureEvent& Event)
+{
+	if (Event.Cause == EVerseFractureCause::Reset || Event.Cause == EVerseFractureCause::Repair)
+	{
+		return false;
+	}
+	HandleFracture(Event);
+	return true;
+}
+
 void UVerseDebrisSubsystem::HandleFracture(const FVerseFractureEvent& Event)
 {
 	if (!bEnabled)
