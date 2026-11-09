@@ -9,6 +9,10 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [4.2.0] — 2026-11-09
+
 ### Fixed
 
 - The README contributor wall shows everyone who has shipped work. People whose
