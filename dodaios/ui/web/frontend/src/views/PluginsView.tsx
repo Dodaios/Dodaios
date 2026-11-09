@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   ArrowRight,
   Trash2,
+  KeyRound,
 } from "lucide-react";
 import { CommunityTab } from "@/views/PluginsCommunity";
 import { Breadcrumbs, type Crumb, PluginBrowse, sectionTitle } from "@/views/plugins/PluginBrowse";
@@ -725,6 +726,9 @@ export function PluginsView({
   // Browser plugin awaiting publisher readiness or an optional expert override.
   const [connectFailure, setConnectFailure] = useState<string | null>(null);
   const [pkceSetupPlugin, setPkceSetupPlugin] = useState<Plugin | null>(null);
+  // True when the pre-connect dialog was opened on purpose to enter an own
+  // OAuth client, so the client form starts expanded even for a ready flow.
+  const [pkceOwnClient, setPkceOwnClient] = useState(false);
   // Plugin awaiting a "really disconnect?" confirmation. Removing a plugin is
   // destructive (tokens dropped, brain tools re-expanded), so it must ask first.
   const [disconnectingPlugin, setDisconnectingPlugin] = useState<Plugin | null>(null);
@@ -961,6 +965,7 @@ export function PluginsView({
       (p.authMode === "oauth_pkce_loopback" || p.authMode === "oauth_device_flow") &&
       !p.browserReady
     ) {
+      setPkceOwnClient(false);
       setPkceSetupPlugin(p);
       return;
     }
@@ -976,6 +981,16 @@ export function PluginsView({
     }
     // hosted_mcp_allowlist (Vercel v2) — needs cloud proxy, deferred.
     setConnectFailure(translate("plugins_view.err_pending_publisher"));
+  };
+
+  // Expert path to run a browser flow through the user's own OAuth client.
+  // Connect skips the pre-connect dialog when the publisher client is ready,
+  // so this is the way to reach the client form in that case (#1217).
+  const handleOwnClient = (p: Plugin) => {
+    setConnectFailure(null);
+    if (p.unavailableReason || !supportsOwnClient(p)) return;
+    setPkceOwnClient(true);
+    setPkceSetupPlugin(p);
   };
 
   const handleDisconnect = (id: string) =>
@@ -1111,6 +1126,7 @@ export function PluginsView({
       {pkceSetupPlugin && (
         <PkceConnectDialog
           plugin={pkceSetupPlugin}
+          ownClientOpen={pkceOwnClient}
           onClose={() => setPkceSetupPlugin(null)}
           onProceed={() => startOAuthFlow(pkceSetupPlugin)}
           onUseFallback={
@@ -1246,6 +1262,7 @@ export function PluginsView({
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
             onRemove={setRemovingPlugin}
+            onOwnClient={handleOwnClient}
           />
         ) : (
           <p className="mt-6 text-sm text-muted-foreground">
@@ -1362,7 +1379,12 @@ function PluginDetail({
   onConnect,
   onDisconnect,
   onRemove,
-}: { plugin: Plugin; onRemove?: (plugin: Plugin) => void } & ConnectHandlers) {
+  onOwnClient,
+}: {
+  plugin: Plugin;
+  onRemove?: (plugin: Plugin) => void;
+  onOwnClient?: (plugin: Plugin) => void;
+} & ConnectHandlers) {
   const { busy, run } = useConnectLock(() => onConnect(plugin));
   const filesQuery = useQuery({
     queryKey: ["marketplace-plugin-files", plugin.id],
@@ -1371,6 +1393,9 @@ function PluginDetail({
   const connected = plugin.status === "connected";
   const needsReconnect = plugin.status === "needs_reauth" || plugin.status === "error";
   const family = oauthClientFamily(plugin);
+  const ownClientAction = Boolean(
+    onOwnClient && supportsOwnClient(plugin) && !plugin.unavailableReason,
+  );
 
   const menuActions = [
     ...(plugin.sourceUrl
@@ -1383,6 +1408,17 @@ function PluginDetail({
           },
         ]
       : []),
+    ...(ownClientAction && onOwnClient
+      ? [
+          {
+            id: "own-client",
+            label: translate("plugins_view.pkce_own_client_advanced"),
+            icon: <KeyRound className="h-3.5 w-3.5" />,
+            separatorAbove: Boolean(plugin.sourceUrl),
+            onSelect: () => onOwnClient(plugin),
+          },
+        ]
+      : []),
     ...(connected || needsReconnect
       ? [
           {
@@ -1390,7 +1426,7 @@ function PluginDetail({
             label: translate("plugins_view.disconnect"),
             icon: <X className="h-3.5 w-3.5" />,
             destructive: true,
-            separatorAbove: Boolean(plugin.sourceUrl),
+            separatorAbove: Boolean(plugin.sourceUrl) || ownClientAction,
             onSelect: () => onDisconnect(plugin.id),
           },
         ]
@@ -1404,7 +1440,8 @@ function PluginDetail({
             label: translate("custom_connector.remove"),
             icon: <Trash2 className="h-3.5 w-3.5" />,
             destructive: true,
-            separatorAbove: Boolean(plugin.sourceUrl) || connected || needsReconnect,
+            separatorAbove:
+              Boolean(plugin.sourceUrl) || ownClientAction || connected || needsReconnect,
             onSelect: () => onRemove(plugin),
           },
         ]
@@ -2246,13 +2283,24 @@ function DeviceCodeDialog({
 // Shown before the browser sign-in for Google / Slack / Asana.
 // ---------------------------------------------------------------------------
 
+/** Browser flows whose OAuth client the user can swap for their own. */
+export function supportsOwnClient(p: Plugin): boolean {
+  return (
+    (p.authMode === "oauth_pkce_loopback" || p.authMode === "oauth_device_flow") &&
+    oauthClientFamily(p) != null
+  );
+}
+
 export function PkceConnectDialog({
   plugin,
+  ownClientOpen = false,
   onClose,
   onProceed,
   onUseFallback,
 }: {
   plugin: Plugin;
+  /** Open with the own-client form expanded (expert entry point). */
+  ownClientOpen?: boolean;
   onClose: () => void;
   onProceed: () => boolean | void | Promise<boolean | void>;
   /** Expert token fallback (browser-primary plugins only). */
@@ -2263,7 +2311,7 @@ export function PkceConnectDialog({
   const redirectUri = loopbackRedirectUri(plugin);
   // Publisher-pending flows open expanded: the client form IS the way to
   // connect today, not an expert override. Ready flows keep it collapsed.
-  const [showClient, setShowClient] = useState(clientRequired);
+  const [showClient, setShowClient] = useState(clientRequired || ownClientOpen);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [busy, setBusy] = useState(false);
