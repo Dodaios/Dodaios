@@ -219,8 +219,9 @@ export class VerseAudio {
     if (!list || list.length === 0) return null;
     if (list.length === 1) return list[0];
     const last = this.turn.get(name);
-    let next = last === undefined ? Math.floor(Math.random() * list.length) : (last + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
-    if (next === last) next = (next + 1) % list.length;
+    // Only the start is random; after it every take comes round in turn, so a
+    // run of plays always uses each take and never repeats one back to back.
+    const next = last === undefined ? Math.floor(Math.random() * list.length) : (last + 1) % list.length;
     this.turn.set(name, next);
     return list[next];
   }

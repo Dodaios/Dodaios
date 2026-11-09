@@ -66,6 +66,10 @@ describe("verse audio", () => {
     expect(started).toHaveLength(12);
     for (let i = 1; i < started.length; i++) expect(started[i].buffer).not.toBe(started[i - 1].buffer);
     expect(new Set(started.map((s) => s.buffer)).size).toBe(SOUND_FILES.shot.length);
+    // Round robin after the random start: the sequence repeats with the take count as period.
+    for (let i = SOUND_FILES.shot.length; i < started.length; i++) {
+      expect(started[i].buffer).toBe(started[i - SOUND_FILES.shot.length].buffer);
+    }
     // Each play varies the pitch a little around the asked rate.
     for (const s of started) expect(Math.abs(s.rate - 1)).toBeLessThanOrEqual(0.0401);
   });
