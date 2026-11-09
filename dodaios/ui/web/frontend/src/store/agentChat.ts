@@ -44,11 +44,11 @@ import {
   type PatchSessionInput,
   type ProviderHealth,
 } from "@/lib/agentChatApi";
-import { EMPTY_TIMELINE, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline } from "@/components/agentchat/reduce";
+import { EMPTY_TIMELINE, markApprovalAnswering, noteApprovalRule, reduceEvent, reduceEvents, runningTurn, settleApproval, type Timeline, type TurnItem } from "@/components/agentchat/reduce";
 import { markAnswered } from "@/components/society/attention/attentionStore";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
-import { reuseHistoryRows } from "@/lib/historyRequests";
+import { HISTORY_CHANGED, reuseHistoryRows } from "@/lib/historyRequests";
 
 /**
  * The agent chat's store — one per SURFACE (`createAgentChatStore`).
@@ -94,6 +94,22 @@ const RECONNECT_MS = 1500;
 const RECONNECT_MAX_MS = 30_000;
 /** How many sessions the list holds — the "All chats" archive shows them all. */
 const SESSION_LIST_LIMIT = 500;
+/**
+ * The longest an open socket may stay silent. The backend pings every 20 s of
+ * silence, so two missed pings mean the connection is dead without having
+ * closed; the store drops it and reconnects from the last seq.
+ */
+export const FRAME_IDLE_MS = 45_000;
+/**
+ * How long a sent message counts as the start of a turn whose
+ * `turn_started` has not arrived yet. Some CLIs take seconds to start; a
+ * message that never got a turn stops counting after this.
+ */
+export const TURN_START_GRACE_MS = 60_000;
+/** Wait before asking again for a session list whose reads were all invalidated. */
+const LIST_RETRY_MS = 750;
+/** Focus and visibility events closer together than this resync only once. */
+const WAKE_RESYNC_MIN_MS = 3_000;
 
 export interface ComposerDraft {
   provider: string;
@@ -380,16 +396,83 @@ const TIMELINE_CACHE_LIMIT = 24;
  * connected again, so the composer kept its stop control. A timeline with
  * no turn yet still trusts the report: the thread may already be working
  * and its events have not arrived.
+ *
+ * A message sent after the last turn (in the timeline, or `sentAtMs` from
+ * this window before its `user_message` arrived) is a turn about to start:
+ * for `TURN_START_GRACE_MS` it counts as running, so the stop control and the
+ * row's spinner do not drop in the seconds before `turn_started`, and a
+ * queued message is not flushed into that gap. After the grace the report
+ * decides again.
  */
-function runningForTimeline(timeline: Timeline, reported: boolean | undefined): boolean | undefined {
+export function runningForTimeline(
+  timeline: Timeline,
+  reported: boolean | undefined,
+  opts: { now?: number; sentAtMs?: number } = {},
+): boolean | undefined {
   if (runningTurn(timeline) !== null) return true;
-  if (timeline.items.some((item) => item.type === "turn")) return false;
+  let lastTurn: TurnItem | null = null;
+  let askedAt: number | null = null;
+  for (let i = timeline.items.length - 1; i >= 0; i -= 1) {
+    const item = timeline.items[i];
+    if (item.type === "turn") {
+      lastTurn = item;
+      break;
+    }
+    if (item.type === "user" && askedAt === null) askedAt = item.tsMs;
+  }
+  const sent = opts.sentAtMs;
+  if (sent !== undefined && (lastTurn === null || lastTurn.startedMs <= sent)) askedAt = Math.max(askedAt ?? 0, sent);
+  if (askedAt !== null) {
+    const now = opts.now ?? Date.now();
+    return now - askedAt < TURN_START_GRACE_MS ? true : reported;
+  }
+  if (lastTurn) return false;
   return reported;
 }
 
-function withRunning(session: AgentChatSession, timeline: Timeline): AgentChatSession {
-  const running = runningForTimeline(timeline, session.running);
+function withRunning(session: AgentChatSession, timeline: Timeline, sentAtMs?: number): AgentChatSession {
+  const running = runningForTimeline(timeline, session.running, { sentAtMs });
   return running === session.running ? session : { ...session, running };
+}
+
+/**
+ * What one store tells the other stores of its surface. The IDE's thread list
+ * reads the main thread store, while a side column runs its own store and
+ * socket; without this the list kept a finished side thread's spinner until
+ * its next poll.
+ */
+interface StorePeer {
+  surface: AgentChatSurface;
+  /** Another store saw this session's turn start or end. */
+  patchRunning: (sessionId: string, running: boolean) => void;
+  /** Another store's list read: a report on the session this store has open. */
+  noteRows: (rows: AgentChatSession[]) => void;
+  /** The window came back (focus, visible, online): resync the open session now. */
+  wake: () => void;
+  refresh: () => void;
+}
+
+const storePeers = new Set<StorePeer>();
+let wakeListening = false;
+
+function wakePeers(): void {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  for (const peer of [...storePeers]) peer.wake();
+}
+
+function joinPeers(peer: StorePeer): void {
+  storePeers.add(peer);
+  if (wakeListening || typeof window === "undefined") return;
+  wakeListening = true;
+  window.addEventListener("focus", wakePeers);
+  window.addEventListener("online", wakePeers);
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", wakePeers);
+}
+
+function tellPeers(from: StorePeer, act: (peer: StorePeer) => void): void {
+  for (const peer of [...storePeers]) {
+    if (peer !== from && peer.surface === from.surface) act(peer);
+  }
 }
 
 export function createAgentChatStore(surface: AgentChatSurface, draftNamespace = ""): UseBoundStore<StoreApi<AgentChatStore>> {
@@ -432,6 +515,24 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
    * paints immediately while the socket refreshes.
    */
   const timelineCache = new Map<string, Timeline>();
+  /** When this window last sent into a session whose next turn has not started yet. */
+  const sentAt = new Map<string, number>();
+  /** Drops a socket that stopped delivering frames without closing. */
+  let frameWatchdog: ReturnType<typeof setTimeout> | null = null;
+  /** The session and seq a poll-versus-timeline disagreement already resynced at. */
+  let mismatchResync: { sessionId: string; seq: number } | null = null;
+  /** A list read lost to back-to-back invalidations asks again once, shortly. */
+  let listRetry: ReturnType<typeof setTimeout> | null = null;
+  let lastWakeMs = 0;
+
+  function aligned(session: AgentChatSession, timeline: Timeline): AgentChatSession {
+    return withRunning(session, timeline, sentAt.get(session.session_id));
+  }
+
+  function clearFrameWatchdog(): void {
+    if (frameWatchdog !== null) clearTimeout(frameWatchdog);
+    frameWatchdog = null;
+  }
 
   function rememberTimeline(sessionId: string, timeline: Timeline): void {
     if (timeline.lastSeq <= 0 && timeline.items.length === 0) return;
@@ -445,6 +546,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
   }
 
   function closeSocket(): void {
+    clearFrameWatchdog();
     cancelReconnect?.();
     cancelReconnect = null;
     const s = socket;
@@ -464,22 +566,68 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
   }
 
   const chatStore = create<AgentChatStore>((set, get) => {
+    /**
+     * Drop the open session's socket and connect again from the last seq,
+     * right now: no backoff, since something says the stream fell behind
+     * (a silent socket, a poll that disagrees, the window coming back).
+     */
+    function resync(): void {
+      const st = get();
+      const sid = st.activeSessionId;
+      if (!sid || socketSession !== sid) return;
+      reconnectAttempt = 0;
+      connect(sid, st.timeline.lastSeq);
+    }
+
+    /**
+     * The list says the open session is not running while its timeline still
+     * holds a running turn: the socket may have stopped delivering (the
+     * backend dropped its subscriber, pings still flowing). Resync once at
+     * this seq; if the resync brought nothing new, the report is believed.
+     */
+    function runningMismatch(rows: AgentChatSession[]): "none" | "resync" | "trust" {
+      const st = get();
+      const sid = st.activeSessionId;
+      if (!sid || socketSession !== sid) return "none";
+      const row = rows.find((r) => r.session_id === sid);
+      if (!row || row.running !== false || runningTurn(st.timeline) === null) return "none";
+      const seq = st.timeline.lastSeq;
+      if (mismatchResync?.sessionId === sid && mismatchResync.seq === seq) return "trust";
+      mismatchResync = { sessionId: sid, seq };
+      return "resync";
+    }
+
+    function armFrameWatchdog(ws: WebSocket, sessionId: string): void {
+      clearFrameWatchdog();
+      frameWatchdog = setTimeout(() => {
+        frameWatchdog = null;
+        if (socket !== ws || get().activeSessionId !== sessionId) return;
+        console.info("Agent chat socket went silent; reconnecting.", { sessionId });
+        resync();
+      }, FRAME_IDLE_MS);
+    }
+
     function connect(sessionId: string, afterSeq: number): void {
       if (typeof WebSocket === "undefined") return;
       closeSocket();
+      joinPeers(peer);
       socketSession = sessionId;
       set({ socketState: "connecting" });
       const ws = new WebSocket(agentChatSocketUrl(sessionId, afterSeq));
       socket = ws;
+      armFrameWatchdog(ws, sessionId);
       ws.onopen = () => {
         if (socket !== ws) return;
         // A socket that opened is proof the backend is back: the next outage
         // starts its backoff from the fast end again.
         reconnectAttempt = 0;
+        armFrameWatchdog(ws, sessionId);
         set({ socketState: "open" });
       };
       ws.onmessage = (msg) => {
         if (socket !== ws) return;
+        // Every frame counts as life, pings included.
+        armFrameWatchdog(ws, sessionId);
         let frame: { type?: string; session?: AgentChatSession; events?: AgentChatEvent[]; event?: AgentChatEvent };
         try {
           frame = JSON.parse(String(msg.data));
@@ -489,11 +637,18 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         if (frame.type === "snapshot" && frame.session) {
           const prev = get();
           // A snapshot after a reconnect only carries events past `after`;
-          // fold them onto what is already there, else start fresh.
-          const base = afterSeq > 0 && prev.activeSessionId === sessionId ? prev.timeline : EMPTY_TIMELINE;
+          // fold them onto what is already there, else start fresh. The
+          // timeline on hand must be this session's and reach `after`, or
+          // the events in between would be missing: then read it all again.
+          const resumable = prev.activeSessionId === sessionId && prev.timeline.lastSeq >= afterSeq;
+          if (afterSeq > 0 && !resumable) {
+            connect(sessionId, 0);
+            return;
+          }
+          const base = afterSeq > 0 ? prev.timeline : EMPTY_TIMELINE;
           const tl = reduceEvents(base, frame.events ?? []);
-          const session = withRunning(frame.session, tl);
-          const sessions = prev.sessions.map((row) => row.session_id === session.session_id ? withRunning(row, tl) : row);
+          const session = aligned(frame.session, tl);
+          const sessions = prev.sessions.map((row) => row.session_id === session.session_id ? aligned(row, tl) : row);
           set({
             activeSession: session,
             sessions: sessions.some((row, index) => row !== prev.sessions[index]) ? sessions : prev.sessions,
@@ -501,6 +656,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
             draft: draftFromSession(session, prev.draft),
           });
           if (surface !== "jarvis") writeDraft(DRAFT_KEY, get().draft);
+          if (typeof session.running === "boolean") announceRunning(session.session_id, session.running);
           if (prev.activeSession?.account_id !== frame.session.account_id) void get().loadCatalog();
           return;
         }
@@ -533,6 +689,47 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         /* onclose follows and schedules the reconnect */
       };
     }
+
+    /** Patch one row's running flag; the session open here follows its own timeline instead. */
+    function patchRowRunning(sessionId: string, running: boolean): void {
+      set((state) => {
+        if (state.activeSessionId === sessionId && socketSession === sessionId) return state;
+        let changed = false;
+        const sessions = state.sessions.map((row) => {
+          if (row.session_id !== sessionId || row.running === running) return row;
+          changed = true;
+          return { ...row, running };
+        });
+        return changed ? { sessions } : state;
+      });
+    }
+
+    function announceRunning(sessionId: string, running: boolean): void {
+      tellPeers(peer, (other) => other.patchRunning(sessionId, running));
+    }
+
+    const peer: StorePeer = {
+      surface,
+      patchRunning: patchRowRunning,
+      noteRows: (rows) => {
+        if (runningMismatch(rows) === "resync") resync();
+      },
+      wake: () => {
+        const st = get();
+        if (!st.activeSessionId || socketSession !== st.activeSessionId) return;
+        const now = Date.now();
+        // A socket that is not open reconnects at once, whatever the backoff
+        // said; an open one resyncs too (it may be silently behind), but a
+        // burst of focus and visibility events only does it once.
+        if (socket && st.socketState === "open" && now - lastWakeMs < WAKE_RESYNC_MIN_MS) return;
+        lastWakeMs = now;
+        resync();
+        void st.loadSessions();
+      },
+      refresh: () => {
+        void get().loadSessions();
+      },
+    };
 
     const snapshot = readCatalogSnapshot(surface);
     return {
@@ -659,30 +856,53 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
       },
 
       loadSessions: async () => {
+        joinPeers(peer);
         try {
           const rows = await fetchAgentChatSessions(SESSION_LIST_LIMIT, surface);
+          if (listRetry !== null) {
+            clearTimeout(listRetry);
+            listRetry = null;
+          }
           // The backend filters by surface; a row that names another surface
           // anyway is dropped here too. A row with no surface at all comes
           // from a backend older than the split — those are kept, so an
           // update never makes a person's chats vanish until the restart.
           const sessions = rows.filter((row) => row.surface === undefined || row.surface === surface);
+          const mismatch = runningMismatch(sessions);
           set((state) => {
             const sid = state.activeSessionId;
             // The open thread's timeline is ahead of this poll: a finished
             // turn must not be marked working again, and one still running
             // must not drop its mark because the list has not caught up.
+            // Unless a resync at this seq already brought nothing new: then
+            // the turn's end was lost and the report is the truth.
+            const align = (row: AgentChatSession) => mismatch !== "trust"
+              ? aligned(row, state.timeline)
+              : row.running === false ? row : { ...row, running: false };
             const next = sid
-              ? sessions.map((row) => row.session_id === sid ? withRunning(row, state.timeline) : row)
+              ? sessions.map((row) => row.session_id === sid ? align(row) : row)
               : sessions;
             const shared = reuseHistoryRows(state.sessions, next, (row) => row.session_id);
             const active = state.activeSession && state.activeSession.session_id === sid
-              ? withRunning(state.activeSession, state.timeline)
+              ? align(state.activeSession)
               : state.activeSession;
             if (shared === state.sessions && active === state.activeSession) return state;
             return { sessions: shared, activeSession: active };
           });
-        } catch {
-          /* offline / headless — keep the list as-is */
+          // A disagreement means the socket may be behind: read it again now
+          // rather than trusting a timeline that may never hear the end.
+          if (mismatch === "resync") resync();
+          tellPeers(peer, (other) => other.noteRows(sessions));
+        } catch (err) {
+          // Offline / headless — keep the list as-is. A read every response of
+          // which was invalidated (two turns ending at once, say) is asked
+          // again shortly, so the refresh that asked for it is not lost.
+          if (err instanceof Error && err.name === HISTORY_CHANGED && listRetry === null) {
+            listRetry = setTimeout(() => {
+              listRetry = null;
+              void get().loadSessions();
+            }, LIST_RETRY_MS);
+          }
         }
       },
 
@@ -842,16 +1062,26 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         if (prev.activeSessionId && prev.activeSessionId !== sessionId) {
           rememberTimeline(prev.activeSessionId, prev.timeline);
         }
+        // The transcript this window already holds for the session: the one
+        // left behind on a switch, or the one still on screen when the same
+        // session opens again after its socket was dropped.
+        const timeline = timelineCache.get(sessionId)
+          ?? (prev.activeSessionId === sessionId ? prev.timeline : EMPTY_TIMELINE);
+        const row = prev.sessions.find((s) => s.session_id === sessionId)
+          ?? (prev.activeSession?.session_id === sessionId ? prev.activeSession : null);
         set({
           activeSessionId: sessionId,
-          activeSession: prev.sessions.find((s) => s.session_id === sessionId) ?? null,
-          timeline: timelineCache.get(sessionId) ?? EMPTY_TIMELINE,
+          // The list row may be from before the cached turn ended (or began).
+          activeSession: row ? aligned(row, timeline) : null,
+          timeline,
           busy: (sendLanes.get(sessionId)?.pending ?? 0) > 0,
           lastError: null,
         });
         bindVoice(sessionId);
         void get().loadCatalog();
-        connect(sessionId, 0);
+        // Only what happened since the cached transcript; the snapshot folds
+        // it on, and reads everything when the cache cannot be resumed.
+        connect(sessionId, timeline.lastSeq);
       },
 
       removeSession: async (sessionId) => {
@@ -917,6 +1147,20 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           }
           const sid = lane.sessionId;
           await sendAgentChatMessage(sid, content, attachments, toolChoices);
+          // The message is in: its turn is on the way even before the socket
+          // says so, and the stop control and the row's spinner show it.
+          sentAt.set(sid, Date.now());
+          if (get().activeSessionId === sid) {
+            set((state) => {
+              const active = state.activeSession ? aligned(state.activeSession, state.timeline) : null;
+              const sessions = state.sessions.map((row) => row.session_id === sid ? aligned(row, state.timeline) : row);
+              return {
+                activeSession: active,
+                ...(sessions.some((row, index) => row !== state.sessions[index]) ? { sessions } : {}),
+              };
+            });
+          }
+          announceRunning(sid, true);
           if (surface === "jarvis") writeDraft(DRAFT_KEY, st.draft);
           if (get().activeSessionId === sid) void get().loadSessions();
           return isVisible() ? "sent" as const : "stale" as const;
@@ -1052,25 +1296,42 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           patch.draft = draftFromSession(session, st.draft);
           if (surface !== "jarvis") writeDraft(DRAFT_KEY, patch.draft);
         }
+        const sid = st.activeSessionId;
+        if (sid && event.kind === "turn_started") sentAt.delete(sid);
         // The stop control reads this flag. The turn's own end is in the
         // timeline now; leave the flag on and the arrow never comes back.
-        if (session && session.session_id === st.activeSessionId) {
-          const aligned = withRunning(session, tl);
-          if (aligned !== session) patch.activeSession = aligned;
-          const id = session.session_id;
-          const sessions = st.sessions.map((row) => row.session_id === id ? withRunning(row, tl) : row);
+        // The row is patched here and now too, not left to the list read
+        // below, which can still meet the backend before the turn left it.
+        if (sid) {
+          if (session && session.session_id === sid) {
+            const next = aligned(session, tl);
+            if (next !== session) patch.activeSession = next;
+          }
+          const sessions = st.sessions.map((row) => row.session_id === sid ? aligned(row, tl) : row);
           if (sessions.some((row, index) => row !== st.sessions[index])) patch.sessions = sessions;
         }
         if (Object.keys(patch).length === 0) return;
         set(patch);
+        if (sid && (event.kind === "turn_started" || event.kind === "turn_finished")) {
+          const running = runningForTimeline(tl, true, { sentAtMs: sentAt.get(sid) }) === true;
+          announceRunning(sid, running);
+        }
         if (event.kind === "turn_finished" || event.kind === "user_message") {
           invalidateAgentChatSessions();
           void st.loadSessions();
+          // Every other list of this surface (the thread list, when this is a
+          // side column's store) reads again too; one shared request serves them.
+          if (event.kind === "turn_finished") tellPeers(peer, (other) => other.refresh());
         }
       },
 
       disconnect: () => {
         closeSocket();
+        // A side column's store goes away with its column; it rejoins on its
+        // next connect or list read if it is used again.
+        storePeers.delete(peer);
+        if (listRetry !== null) clearTimeout(listRetry);
+        listRetry = null;
         set({ socketState: "idle" });
       },
     };
