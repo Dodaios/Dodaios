@@ -837,15 +837,6 @@ run-skill = "dodaios.plugins.tool.run_skill:RunSkillTool"
 # Personal memory vault (ADR-0044) — search and forget (router-tier).
 memory-search = "dodaios.plugins.tool.memory_vault:MemorySearchTool"
 memory-forget = "dodaios.plugins.tool.memory_vault:MemoryForgetTool"
-# Phase B5 — long-term wiki recall (router-tier, read-only).
-wiki-recall = "dodaios.plugins.tool.wiki_recall:WikiRecallTool"
-# Phase B5 follow-up — full-page reader (router-tier, read-only).
-wiki-page-read = "dodaios.plugins.tool.wiki_page_read:WikiPageReadTool"
-# Grounded vault listing (2026-07-14) — deterministic "what is in my wiki"
-# answer in one round (router-tier, read-only).
-wiki-list = "dodaios.plugins.tool.wiki_list:WikiListTool"
-# Phase B5 follow-up — deterministic ingest tool (router-tier, write).
-wiki-ingest = "dodaios.plugins.tool.wiki_ingest:WikiIngestTool"
 # Profile-write (2026-05-30) — deterministic writer for the structured USER.md
 # clusters (the Knowledge matrix + per-turn system-prompt source). Router-tier,
 # write, monitor. Closes the gap left by the soft-disabled legacy Curator.
@@ -951,9 +942,6 @@ dodaios = [
     # Marketplace "how to use this plugin" cards shown in the UI
     # (marketplace/usage_cards/loader.py).
     "marketplace/usage_cards/*.md",
-    # Wiki bootstrap templates for a new vault (memory/wiki/__init__.py's
-    # TEMPLATES_DIR + integration.py's schema.md read).
-    "memory/wiki/templates/*.md",
     # Built-in desktop pets and the sprite-sheet template, read at runtime via
     # Path(__file__) (dodaios/ui/pets/loader.py). Scoped to the two file kinds
     # a pet folder holds.

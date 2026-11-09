@@ -89,11 +89,11 @@ _PREFIX: Final[str] = "society:"
 #: Tools every society session keeps regardless of grants — its own hands.
 _OWN_PREFIX: Final[str] = "society_"
 #: Tools a society session never gets even in ``all`` mode: the agent writes
-#: the wiki only through its namespaced note tool and runs commands only
+#: notes only through its namespaced note tool and runs commands only
 #: through its own contained shell (never the free-cwd shell tools).
 _SOCIETY_DENIED: Final[frozenset[str]] = frozenset(
     {
-        "wiki-ingest",
+        "memory-forget",
         "run-shell",
         "run_shell",
         "RunCommand",

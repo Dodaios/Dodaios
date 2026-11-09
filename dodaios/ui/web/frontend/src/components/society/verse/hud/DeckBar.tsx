@@ -6,7 +6,7 @@
  * frame readout under the rail.
  */
 import { useEffect, useRef, type ReactNode } from "react";
-import { deckNumber, type DeckId } from "../decks";
+import { deckNumber, type DeckId } from "../../progression/decks";
 import type { FrameStats, StageRuntime } from "../runtime";
 import { VIEW_ORDER, keyForView, type VerseView } from "../engine/realtime/viewMode";
 

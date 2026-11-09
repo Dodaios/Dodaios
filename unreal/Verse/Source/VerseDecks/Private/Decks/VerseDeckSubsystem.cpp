@@ -47,6 +47,18 @@ namespace VerseDeckSubsystemPrivate
 	}
 }
 
+FName UVerseDeckSubsystem::ParseStartupDeck(const TCHAR* CommandLine)
+{
+#if !UE_BUILD_SHIPPING
+	FString Requested;
+	if (FParse::Value(CommandLine, TEXT("VerseDeck="), Requested) && Verse::Decks::Find(FName(*Requested)))
+	{
+		return FName(*Requested);
+	}
+#endif
+	return NAME_None;
+}
+
 void UVerseDeckSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
@@ -57,14 +69,8 @@ void UVerseDeckSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		OnWorldAction.Broadcast(Action);
 	};
 
-#if !UE_BUILD_SHIPPING
-	// Content override for every deck (parity Q-09).
-	FString Requested;
-	if (FParse::Value(FCommandLine::Get(), TEXT("VerseDeck="), Requested) && Verse::Decks::Find(FName(*Requested)))
-	{
-		StartupDeck = FName(*Requested);
-	}
-#endif
+	// Content override for every deck (parity Q-09), non-shipping only.
+	StartupDeck = ParseStartupDeck(FCommandLine::Get());
 
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
 		{

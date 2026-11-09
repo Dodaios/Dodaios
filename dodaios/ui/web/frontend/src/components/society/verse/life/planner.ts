@@ -14,7 +14,7 @@
  * because a colleague went to the mess.
  */
 import type { Deck, Socket } from "../content/deck";
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import { byServiceOrder, hash32, type CrewMember } from "./crew";
 
 export type Activity =

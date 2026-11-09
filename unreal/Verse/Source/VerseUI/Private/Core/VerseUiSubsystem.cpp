@@ -1301,6 +1301,17 @@ void UVerseUiSubsystem::PublishSettings()
 		PublishCVar(*(TEXT("Verse.Settings.Game.") + Def.Id), JsonText(GetGameSetting(Def.Id)),
 			TEXT("Verse game setting, settings.game (docs/verse/unreal/game-settings.md; VerseUI)"));
 	}
+	PublishCVar(TEXT("Verse.Settings.ViewMode"), AppSettings.ViewMode, TEXT("Deck view restored from the app config: third, first, overview (VerseUI)"));
+	// Z-14, R-12: the app-wide sound switch, the level bell switch and the volume reach the audio subsystem.
+	if (UWorld* World = GetWorld())
+	{
+		if (UVerseAudioSubsystem* Audio = World->GetSubsystem<UVerseAudioSubsystem>())
+		{
+			Audio->SetUiSoundEnabled(AppSettings.bUiSound);
+			Audio->SetLevelSoundEnabled(AppSettings.bLevelSound);
+			Audio->SetUserVolume(AppSettings.Volume);
+		}
+	}
 	WriteGoreSetting(GetWorld(), AppSettings.Gore);
 	WriteViewSettings(float(Game.GetNumber(TEXT("controls.fov_duel"))), AppSettings);
 	ApplyKeyBindingsToInput();

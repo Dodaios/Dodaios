@@ -230,3 +230,27 @@ def test_codex_spawn_and_wait_become_one_agent_card() -> None:
     ]
     calls = [ev["payload"]["name"] for ev in events if ev["kind"] == "tool_call"]
     assert calls == ["spawn_agent", "wait", "close_agent"]
+
+
+def test_claude_subagent_reports_its_own_model_once() -> None:
+    """A sub-agent's messages name the model that wrote them; the card shows it."""
+    st = _ClaudeState(turn_id="t1")
+    line = _assistant([{"type": "text", "text": "Looking."}], mid="m9", parent=SPAWN)
+    line["message"]["model"] = "claude-haiku-5-5"
+    first = translate_claude_line(line, st)
+    again = translate_claude_line({**line, "message": {**line["message"], "id": "m10"}}, st)
+    models = [
+        e["payload"]["model"]
+        for e in first + again
+        if e["kind"] == "subagent_progress" and "model" in e["payload"]
+    ]
+    assert models == ["claude-haiku-5-5"]
+    assert all(e["payload"].get("agent_id") == SPAWN for e in first)
+
+
+def test_claude_synthetic_model_is_not_reported() -> None:
+    st = _ClaudeState(turn_id="t1")
+    line = _assistant([{"type": "text", "text": "x"}], mid="m1", parent=SPAWN)
+    line["message"]["model"] = "<synthetic>"
+    events = translate_claude_line(line, st)
+    assert not [e for e in events if e["kind"] == "subagent_progress"]

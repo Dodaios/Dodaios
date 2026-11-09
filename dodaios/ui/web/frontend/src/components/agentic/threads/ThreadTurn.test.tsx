@@ -23,7 +23,7 @@ describe("a thread turn in an agent chat", () => {
   it("reads a streaming turn like a thread and folds it once it answered", () => {
     const blocks = [thought("r1", "**Checking the inbox**\n\nThree new mails."), tool("c1", "gh pr list"), tool("c2", "gh pr view 3", { output: null, durationMs: null })];
     const { rerender } = render(<ThreadTurn turn={turn(blocks, "running")} prompts="inline" />);
-    // The worded thought is one short line; the running group stays open with its steps.
+    // The worded thought is one short line in the running stretch, which stays open with its steps.
     expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the inbox");
     expect(screen.queryByText("Three new mails.")).toBeNull();
     expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("true");
@@ -36,6 +36,7 @@ describe("a thread turn in an agent chat", () => {
     expect(screen.getByTestId("thread-worked-for").textContent).toContain("Worked for 5.0s");
     expect(screen.getByTestId("thread-turn-closing").textContent).toContain("1.2k tokens");
     fireEvent.click(screen.getByTestId("thread-worked-for"));
+    fireEvent.click(screen.getByRole("button", { name: /^Checking the inbox/ }));
     expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the inbox");
   });
 

@@ -48,11 +48,11 @@ async def test_shared_startup_does_not_provision_optional_browser(monkeypatch, t
 
     for name in (
         "_init_mission_stack", "_init_screenshot_retention", "_init_flight_recorder",
-        "_init_wiki_integration", "_init_task_stack", "_init_channel_stack",
+        "_init_task_stack", "_init_channel_stack",
     ):
         monkeypatch.setattr(server, name, noop_async)
     for name in (
-        "_init_wiki_boot_index", "_init_wiki_watcher", "_init_session_stack",
+        "_init_session_stack",
         "_schedule_anyio_pool_warm", "_schedule_registry_bootstraps",
         "_schedule_marketplace_refresh_scheduler", "_start_local_models_health_monitor",
         "_schedule_local_models_autostart", "_schedule_realtime_transport_warm",

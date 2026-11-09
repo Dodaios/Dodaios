@@ -1,10 +1,12 @@
 import { Fragment, memo, useMemo, type ReactNode } from "react";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
 import { CircleAlert, FileText, ImageIcon } from "lucide-react";
-import { InternalMessageBubble, type InternalParticipant } from "./InternalMessageBubble";
+import type { InternalParticipant } from "./InternalMessageBubble";
+import { InternalMessageRun, groupInternalRuns, type InternalRunItem } from "./InternalMessageRun";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
+import { MemoryLearnedNotice } from "./MemoryLearnedNotice";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
@@ -64,9 +66,14 @@ export function AgentTimeline({
     return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
   }, [items, traceLook]);
   const stamps = bubbles ? timeStamps(shown) : null;
+  // Back-to-back agent-to-agent messages read as one centred line each.
+  const rows = useMemo(
+    () => groupInternalRuns(shown, (item) => !codingThreadOf(item.message.sender_id)),
+    [shown],
+  );
   return (
     <>
-      {shown.map((item) => {
+      {rows.map((item) => {
         const stamp = stamps?.get(item.id);
         const node = renderItem(item);
         return stamp ? (
@@ -81,20 +88,24 @@ export function AgentTimeline({
     </>
   );
 
-  function renderItem(item: TimelineItem) {
+  function renderItem(item: TimelineItem | InternalRunItem) {
+    if (item.type === "internal_run") {
+      return (
+        <InternalMessageRun
+          key={item.id}
+          run={item}
+          agentsById={agentsById}
+          recipientName={recipientName ?? assistantName}
+        />
+      );
+    }
     if (item.type === "internal" && codingThreadOf(item.message.sender_id)) {
       return <CodingThreadActivity key={item.id} label={item.message.text}
         threadId={codingThreadOf(item.message.sender_id)} failed={item.message.status === "failed"} />;
     }
     if (item.type === "internal") {
-      return (
-        <InternalMessageBubble
-          key={item.id}
-          item={item}
-          sender={agentsById?.[item.message.sender_id] ?? null}
-          recipientName={recipientName ?? assistantName}
-        />
-      );
+      return <InternalMessageRun key={item.id} run={{ type: "internal_run", id: item.id, items: [item] }}
+        agentsById={agentsById} recipientName={recipientName ?? assistantName} />;
     }
     if (item.type === "user") {
       if (item.origin === "control") return <div key={item.id} data-message-id={item.id} className="text-xs text-muted-foreground">{t("slash.control_turn")}{item.attachments.map((file) => <span key={file.name} className="ml-2">{file.name}</span>)}</div>;
@@ -211,6 +222,17 @@ export function AgentTimeline({
             className="flex justify-end py-1 text-xs text-destructive">
             {t("society.chat.message_not_sent").replace("{0}", item.text)}
           </p>
+        );
+      }
+      if (item.kind === "memory_learned") return <MemoryLearnedNotice key={item.id} item={item} />;
+      if (item.kind === "context_reset") {
+        return (
+          <div key={item.id} data-message-id={item.id} data-testid="context-reset"
+            className="flex items-center gap-3 py-2 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" aria-hidden />
+            {t("society.chat.fresh_start_line")}
+            <span className="h-px flex-1 bg-border" aria-hidden />
+          </div>
         );
       }
       if (item.kind === "background_result_lost") {

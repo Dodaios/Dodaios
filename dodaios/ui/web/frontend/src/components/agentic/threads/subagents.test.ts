@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_TIMELINE, reduceEvents, type TextBlock, type ToolBlock, type TurnItem } from "@/components/agentchat/reduce";
 import type { AgentChatEvent } from "@/lib/agentChatApi";
-import { isSpawnTool, listSubagents, mergeDiscovered, subagentCounts, subagentPath, subagentTurn, type DiscoveredAgent } from "./subagents";
+import { isSpawnTool, listSubagents, mergeDiscovered, modelName, subagentCounts, subagentPath, subagentTurn, type DiscoveredAgent } from "./subagents";
 
 let seq = 0;
 const ev = (kind: string, payload: Record<string, unknown>, ts = 1000 + seq): AgentChatEvent =>
@@ -210,5 +210,16 @@ describe("sub-agents the CLI filed on its own", () => {
     expect(entries.map((entry) => [entry.id, entry.depth, entry.parentId])).toEqual([["codex:child-1", 0, null], ["codex:grand-1", 1, "codex:child-1"]]);
     const lone = listSubagents(mergeDiscovered([codexTurn("done")], [discovered({ status: "running" })], "root"));
     expect(lone[0].status).toBe("stopped");
+  });
+});
+
+describe("modelName", () => {
+  it("reads model ids the way a person says them", () => {
+    expect(modelName("claude-haiku-5-5")).toBe("Haiku 5.5");
+    expect(modelName("claude-sonnet-5-5-20260301")).toBe("Sonnet 5.5");
+    expect(modelName("sonnet")).toBe("Sonnet");
+    expect(modelName("inherit")).toBe("");
+    expect(modelName("gpt-5.5-codex")).toBe("gpt-5.5-codex");
+    expect(modelName("")).toBe("");
   });
 });

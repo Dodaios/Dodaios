@@ -21,17 +21,19 @@ const show = (item: TurnItem) => render(<ThreadTimeline items={[item]} sessionId
 afterEach(cleanup);
 
 describe("thread work log", () => {
-  it("folds a finished stretch to one named group that opens to its steps", () => {
+  it("folds a finished stretch to one named line that opens to its steps", () => {
     show(turn([thought("r1", "**Checking the build**"), tool("c1", "npm run build"), tool("c2", "npm test"), { kind: "text", id: "n1", text: "All green." }]));
     // A finished turn folds its work behind one "Worked for" line; the answer stays.
     expect(screen.getByText("All green.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Ran commands/ })).toBeNull();
     fireEvent.click(screen.getByTestId("thread-worked-for"));
-    // The thought reads as a paragraph of its own, not hidden in the group.
-    expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the build");
-    const header = screen.getByRole("button", { name: /^Ran commands/ });
+    // The thought and its calls are ONE line, named by the thought's heading.
+    const header = screen.getByRole("button", { name: /^Checking the build/ });
+    expect(screen.queryByTestId("thread-thought")).toBeNull();
     expect(screen.queryByText("npm test")).toBeNull();
     fireEvent.click(header);
+    expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the build");
+    expect(screen.getByText("npm run build")).toBeTruthy();
     expect(screen.getByText("npm test")).toBeTruthy();
     expect(screen.getByText("All green.")).toBeTruthy();
   });
@@ -52,6 +54,27 @@ describe("thread work log", () => {
     expect(screen.getByText("Now the router.")).toBeTruthy();
   });
 
+  it("reads the thoughts and calls between two things the agent said as one line", () => {
+    show(turn([
+      thought("r1", "Checking the workflow."),
+      tool("c1", "gh run list"),
+      thought("r2", "The gate never ran."),
+      { kind: "text", id: "n1", text: "The failure hits several pull requests." },
+      tool("c2", "gh pr list"),
+      tool("c3", "gh pr view 7", { output: null, durationMs: null }),
+    ], "running"));
+    // The finished stretch is one closed line; its thoughts stay out of the thread.
+    const first = screen.getByRole("button", { name: /^gh run list/ });
+    expect(first.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("The gate never ran.")).toBeNull();
+    // The stretch the turn is still in is open and shows its steps.
+    expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("gh pr list")).toBeTruthy();
+    fireEvent.click(first);
+    expect(screen.getByText("The gate never ran.")).toBeTruthy();
+    expect(screen.getByText("Checking the workflow.")).toBeTruthy();
+  });
+
   it("keeps the answer in view when a thought lands after it", () => {
     show(turn([
       tool("c1", "gh pr view 1191"),
@@ -63,6 +86,7 @@ describe("thread work log", () => {
     expect(screen.getByText("The pull request adds two pets.")).toBeTruthy();
     expect(screen.queryByTestId("thread-thought")).toBeNull();
     fireEvent.click(screen.getByTestId("thread-worked-for"));
+    fireEvent.click(screen.getByRole("button", { name: /^gh pr view 1191/ }));
     expect(screen.getByTestId("thread-thought").textContent).toContain("Summarizing the pull request.");
   });
 

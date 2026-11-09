@@ -616,3 +616,48 @@ def test_a_folder_git_gave_no_answer_for_is_asked_again(tmp_path, monkeypatch):
 
     assert branches._common(str(tmp_path)) == ""
     assert branches._common(str(tmp_path)) != ""
+
+
+def test_a_thread_without_a_readable_transcript_reads_its_own_record(repository, monkeypatch):
+    started = time.time()
+    _git(repository, "branch", "claude/topic")
+    events = timed(
+        "git worktree add -q -b claude/topic ../wt main",
+        "",
+        started=started - 1,
+        ended=time.time() + 1,
+    )
+    monkeypatch.setattr(agent_transcript, "read_events", lambda *_, **__: None)
+    record = branches.PaneBranchRecord(
+        "thread", "thread-1", str(repository), "claude", "", events=lambda: events
+    )
+
+    owned = branches.owned_branch(record)
+
+    assert owned is not None and owned.branch == "claude/topic"
+
+
+def test_a_thread_record_is_read_again_once_it_grows(repository, monkeypatch):
+    calls: list[int] = []
+    log: list[dict] = []
+
+    def read() -> list[dict]:
+        calls.append(len(log))
+        return list(log)
+
+    record = branches.PaneBranchRecord(
+        "thread", "thread-2", str(repository), "grok-build", "", events=read
+    )
+    assert branches.owned_branch(record) is None
+    started = time.time()
+    _git(repository, "branch", "grok/topic")
+    log.extend(
+        timed("git switch -c grok/topic", "Switched to a new branch 'grok/topic'",
+              started=started - 1, ended=time.time() + 1)
+    )
+    branches._cache.clear()
+
+    owned = branches.owned_branch(record)
+
+    assert owned is not None and owned.branch == "grok/topic"
+    assert calls == [0, 2]

@@ -8,6 +8,20 @@
 class IConsoleObject;
 
 /**
+ * Layout of the first-person viewmodel as Verse.QA.Viewmodel retunes it (parity Q-08). The viewmodel
+ * component (WP14) reads it and listens to OnViewmodelLayoutChanged; with no consumer it is only state.
+ * A zero FovDeg means "the weapon's own value".
+ */
+struct VERSECORE_API FVerseViewmodelLayout
+{
+	FVector OffsetCm = FVector::ZeroVector;
+	float Scale = 1.0f;
+	float FovDeg = 0.0f;
+};
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnVerseViewmodelLayoutChanged, const FVerseViewmodelLayout&);
+
+/**
  * A Verse.QA.* command handler: arguments after the command name in, a JSON result string out.
  * Handlers return a JSON object; on bad input they return {"error": "..."}.
  */
@@ -54,6 +68,20 @@ public:
 	/** Runs "Verse.QA.Name arg1 arg2" (whitespace separated, quotes keep spaces). */
 	bool ExecuteLine(const FString& Line, FString& OutResult) const;
 
+	/**
+	 * A section of Verse.QA.Dump (parity Q-02): the producer returns one JSON value (object or array text).
+	 * The crew package registers "crew" (statuses of every member). Re-registering a name replaces it.
+	 */
+	void RegisterDumpSection(const FString& Name, TFunction<FString()> Producer);
+	void UnregisterDumpSection(const FString& Name);
+	const TMap<FString, TFunction<FString()>>& GetDumpSectionsForQa() const { return DumpSections; }
+
+	/** The viewmodel layout of Verse.QA.Viewmodel (non-shipping command; state exists in every build). */
+	const FVerseViewmodelLayout& GetViewmodelLayout() const { return ViewmodelLayout; }
+	void SetViewmodelLayout(const FVerseViewmodelLayout& Layout);
+	FOnVerseViewmodelLayoutChanged OnViewmodelLayoutChanged;
+
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
 private:
@@ -65,4 +93,6 @@ private:
 	};
 
 	TMap<FString, FEntry> Commands;
+	TMap<FString, TFunction<FString()>> DumpSections;
+	FVerseViewmodelLayout ViewmodelLayout;
 };

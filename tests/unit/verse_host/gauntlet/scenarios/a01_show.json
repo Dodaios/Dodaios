@@ -1,0 +1,61 @@
+{
+  "name": "a01_show",
+  "description": "A-01: a show brings Verse to Visible and it sends lifecycle.ready.",
+  "topics": [],
+  "watch_screens": [],
+  "watch_chat_tails": [],
+  "state": {},
+  "replies": {},
+  "steps": [
+    {
+      "at_ms": 200,
+      "frame": {
+        "type": "lifecycle.show",
+        "data": {
+          "monitor": {
+            "x": 0,
+            "y": 0,
+            "w": 1280,
+            "h": 720,
+            "dpi": 1.0
+          },
+          "reason": "verse_view"
+        }
+      }
+    },
+    {
+      "at_ms": 200,
+      "expect": {
+        "type": "lifecycle.state",
+        "data": {
+          "state": "visible"
+        }
+      },
+      "timeout_ms": 60000
+    },
+    {
+      "at_ms": 200,
+      "expect": {
+        "type": "lifecycle.ready"
+      },
+      "timeout_ms": 60000
+    },
+    {
+      "at_ms": 200,
+      "frame": {
+        "type": "lifecycle.quit",
+        "data": {
+          "reason": "app_quit",
+          "deadline_ms": 3000
+        }
+      }
+    },
+    {
+      "at_ms": 200,
+      "expect": {
+        "type": "lifecycle.bye"
+      },
+      "timeout_ms": 5000
+    }
+  ]
+}

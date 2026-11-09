@@ -189,6 +189,12 @@ def one_runner(
     return "selected", sorted(kept)
 
 
+def never_empty(tests: list[str]) -> tuple[str, list[str]]:
+    """The smoke tests for a job that must run; everything if none exist."""
+    smoke = sorted(t for t in SMOKE if t in tests)
+    return ("selected", smoke) if smoke else ("all", list(tests))
+
+
 def shards_for(mode: str, count: int) -> list[int]:
     """The runners a selection needs: none, one, two, or the full split."""
     if mode == "none":
@@ -212,6 +218,11 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Per-file duration history: what the selection costs (--one-runner).",
     )
+    parser.add_argument(
+        "--never-empty",
+        action="store_true",
+        help="Run the smoke tests when the change reaches no test (a job that must run).",
+    )
     args = parser.parse_args(argv)
 
     if args.changed_from:
@@ -224,6 +235,8 @@ def main(argv: list[str] | None = None) -> int:
         for t in tests
     }
     mode, chosen = select(changed, tests, texts)
+    if mode == "none" and args.never_empty:
+        mode, chosen = never_empty(tests)
     shard_list = shards_for(mode, len(chosen))
     if args.one_runner:
         reached = len(chosen) if mode == "selected" else 0

@@ -180,14 +180,9 @@ def _adopt_legacy_society(cfg: Any, root: Path) -> None:
     if target.exists():
         return
     try:
-        from dodaios.memory.wiki.vault_root import resolve_vault_root
+        from dodaios.memory.vault.legacy_import import legacy_wiki_root
 
-        raw = None
-        for holder in (getattr(cfg, "wiki_integration", None), getattr(cfg, "wiki", None)):
-            raw = getattr(holder, "vault_root", None)
-            if raw:
-                break
-        legacy = resolve_vault_root(raw).path / "society"
+        legacy = legacy_wiki_root(cfg) / "society"
     except Exception:  # noqa: BLE001 — no old vault to adopt: start empty
         log.info("society memory: no old vault folder to adopt", exc_info=True)
         return
@@ -786,43 +781,3 @@ class SocietyMemory:
         at = min((low.find(t) for t in qtokens if low.find(t) >= 0), default=0)
         start = max(0, at - 60)
         return text[start : start + _SNIPPET_CHARS]
-
-    def _user_hits(self, vault: Path, query: str, k: int) -> list[MemoryHit]:
-        """The user's own vault pages, through the wiki's FTS index when it exists."""
-        try:
-            from dodaios.memory.wiki.db_path import resolve_wiki_db_path
-            from dodaios.memory.wiki.search import VaultSearch
-
-            cfg = self._runtime._get_cfg()  # noqa: SLF001 — the runtime owns its config getter
-            data_dir = getattr(getattr(cfg, "memory", None), "data_dir", None)
-            if not data_dir:
-                return []  # no app config: no user index to consult
-            db = resolve_wiki_db_path(data_dir)
-            if not db.is_file():
-                return []
-            hits = VaultSearch(vault, db_path=db).search(query, k=k)
-        except Exception:  # noqa: BLE001 — the user's index is optional for the agents
-            log.debug("society memory: vault search unavailable", exc_info=True)
-            return []
-        out: list[MemoryHit] = []
-        for hit in hits:
-            try:
-                rel = Path(hit.path).resolve().relative_to(vault.resolve()).as_posix()
-            except ValueError:
-                continue  # an index row from another vault is never this agent's memory
-            if rel.startswith("society/"):
-                continue  # already ranked from the folder scan
-            out.append(
-                MemoryHit(
-                    path=rel,
-                    title=hit.title,
-                    scope="user",
-                    origin="user",
-                    reviewed=True,
-                    author="user",
-                    score=round(min(1.0, float(hit.score)) * 0.9 + _SCOPE_BOOST["user"], 4),
-                    snippet=str(hit.snippet or "")[:_SNIPPET_CHARS],
-                    updated_ms=0,
-                )
-            )
-        return out

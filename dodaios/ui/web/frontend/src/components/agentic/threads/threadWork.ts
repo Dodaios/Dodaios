@@ -149,3 +149,80 @@ export function buildThreadRows(blocks: TurnBlock[], options: { t: Translate; la
   if (running && last?.kind === "work") last.live = true;
   return rows;
 }
+
+/** One step of a stretch: a call, the wordless thought of a running turn, or a thought in words. */
+export type StretchItem =
+  | WorkItem
+  | { kind: "said"; id: string; text: string; live: boolean; startedMs: number };
+
+/**
+ * Everything the agent did between two things it said: its thoughts and its
+ * calls, read as ONE quiet line that opens to the single steps.
+ */
+export interface Stretch {
+  kind: "stretch";
+  id: string;
+  items: StretchItem[];
+  /** The line's words: the newest thought's heading, else what the calls did, else the thought itself. */
+  label: string;
+  added: number;
+  removed: number;
+  startedMs: number;
+  /** The running turn's tail: it opens by itself and follows its newest step. */
+  live: boolean;
+}
+
+/** A thought's own heading ("**Checking the build**", "## Planning"), or null when it has none. */
+export function thoughtHeading(text: string): string | null {
+  return /^(?:#{1,6}\s+.+|\*\*[^*\n]+\*\*\s*(?:\n|$))/.test(text.trim()) ? thoughtGist(text) : null;
+}
+
+type StretchRow = WorkGroup | Extract<ThreadRow, { kind: "thought" }>;
+
+/**
+ * Rows with each run of thoughts and work groups drawn as one stretch. The
+ * agent's words, cards and sub-agents stay rows of their own and end a
+ * stretch. The stretch the running turn ends on is live.
+ */
+export function joinStretches<T extends { kind: string }>(
+  rows: readonly T[],
+  options: { t: Translate; lang: string; running: boolean },
+): (T | Stretch)[] {
+  const out: (T | Stretch)[] = [];
+  let run: StretchRow[] = [];
+  const flush = () => {
+    if (!run.length) return;
+    const items: StretchItem[] = run.flatMap((row): StretchItem[] => row.kind === "work"
+      ? row.items
+      : [{ kind: "said", id: row.id, text: row.text, live: row.live, startedMs: row.block.startedMs }]);
+    const calls = items.flatMap((item) => item.kind === "call" ? [item.call] : []);
+    const said = items.flatMap((item) => item.kind === "said" ? [item.text] : []);
+    const heading = said.map(thoughtHeading).filter(Boolean).pop();
+    const first = run[0];
+    out.push({
+      kind: "stretch",
+      id: `stretch:${first.id}`,
+      items,
+      label: heading
+        || (calls.length ? summarize(calls, options.t, options.lang) : "")
+        || (said.length ? thoughtGist(said[said.length - 1]) : "")
+        || (first.kind === "work" ? first.summary : ""),
+      added: calls.reduce((sum, call) => sum + call.added, 0),
+      removed: calls.reduce((sum, call) => sum + call.removed, 0),
+      startedMs: items[0]?.startedMs ?? 0,
+      live: false,
+    });
+    run = [];
+  };
+  for (const row of rows) {
+    if (row.kind === "work" || row.kind === "thought") run.push(row as unknown as StretchRow);
+    else {
+      flush();
+      out.push(row);
+    }
+  }
+  flush();
+  const last = out[out.length - 1];
+  if (options.running && last?.kind === "stretch") (last as Stretch).live = true;
+  return out;
+}

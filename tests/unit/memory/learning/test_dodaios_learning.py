@@ -587,7 +587,7 @@ def test_the_brain_prompt_carries_the_learned_block(book: JarvisNotebook) -> Non
     manager._core_memory = None
     manager._awareness_manager = None
     manager._system_prompt_extra = ""
-    manager._wiki_context_suffix = ""
+    manager._memory_context_suffix = ""
     manager._reply_language = "auto"
     manager._config = load_config()
     notebook_module.set_active(book)

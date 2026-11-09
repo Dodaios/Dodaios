@@ -2443,8 +2443,7 @@ class BioFeedbackRecorded(Event):
 class IdleEntered(Event):
     """The user has had no mouse/keyboard input for a while.
 
-    The wiki's ``SessionRollupWorker`` flushes a session on it. No built-in
-    watcher publishes it since the awareness recorder was removed
+    No built-in watcher publishes it since the awareness recorder was removed
     (2026-09-30); the explicit flush paths still work without it.
     """
     idle_since_ns: int = 0
@@ -2453,28 +2452,6 @@ class IdleEntered(Event):
 # ----------------------------------------------------------------------
 # Wiki Live-Reload (Phase B3 — Desktop Wiki View, Agent D)
 # ----------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class WikiPageChanged(Event):
-    """A markdown file inside the wiki vault changed on disk.
-
-    Emitted directly by :class:`dodaios.memory.wiki.curator.WikiCurator`
-    after an app-owned atomic write, or by
-    :class:`dodaios.memory.wiki.watcher.WikiWatcher` after a debounced
-    external filesystem event. The desktop wiki view's WebSocket endpoint
-    forwards this event to the frontend so React Query caches can be
-    invalidated immediately.
-
-    ``path`` is the vault-relative POSIX path (e.g. ``"entities/harald.md"``)
-    so the frontend can use the string as-is regardless of the host
-    operating system path separator.
-
-    ``kind`` is one of ``"created" | "modified" | "deleted"``.
-    """
-    slug: str = ""
-    path: str = ""
-    kind: str = ""
 
 
 @dataclass(frozen=True, slots=True)

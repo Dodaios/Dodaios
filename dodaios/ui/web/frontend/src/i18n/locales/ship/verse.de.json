@@ -159,7 +159,9 @@
       "quality.medium": "Mittel",
       "reduced_motion": "Weniger Bewegung",
       "text_size": "Textgröße",
-      "ui_sound": "Oberflächentöne"
+      "ui_sound": "Oberflächentöne",
+      "quality.custom": "Benutzerdefiniert",
+      "render_tier": "Aktuell gerendert in: {tier}"
     },
     "lift": {
       "title": "Aufzug",

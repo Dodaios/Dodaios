@@ -4,59 +4,23 @@
  *
  * Five rows, each pointing at a real source:
  *   - your standing rules ({name}.md), edited in their own section;
- *   - the wiki's long-form page about you, when the vault has one (the slug
- *     comes from your name, so a nameless profile asks for nothing);
- *   - the switch for searching the wiki by meaning (`SemanticSearchRow`);
+ *   - the personal memory vault: how much it holds, one click away;
  *   - the profile file itself, USER.md, which opens in place;
  *   - the `## Do Not Record` categories, quoted from that file rather than
  *     restated in code, so the page can never promise more than the file says.
  */
-import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, FileText, NotebookPen, ScrollText, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useAgentInstructions } from "@/hooks/useAgentInstructions";
-import { useI18nStore, useT } from "@/i18n";
+import { fill, useI18nStore, useLocaleChunk, useT } from "@/i18n";
 import { localeForUiLanguage } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { ProfileGroup, SettingRow } from "@/views/profile/ProfileGroup";
-import { SemanticSearchRow } from "@/views/profile/SemanticSearchRow";
+import { useVaultOverview } from "@/lib/personalMemoryApi";
 import { parseDoNotRecord, shortenCategory } from "@/views/profile/provenance";
 
-interface WikiPage {
-  ok: boolean;
-  slug: string;
-  title: string;
-  body_md: string;
-  wikilinks: string[];
-  stats?: { words?: number };
-}
-
-/**
- * The vault's own slug rules: lowercase, diacritics folded, everything that is
- * not a letter or digit becomes a dash. "Renee Dubois" -> "renee-dubois".
- */
-export function wikiSlug(name: string | null | undefined): string | null {
-  if (!name) return null;
-  const slug = name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // combining marks, after NFD
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || null;
-}
-
-/** Bullet lines under a `## Facts` heading — what the page actually asserts. */
-function countFacts(bodyMd: string): number {
-  const at = bodyMd.search(/^##\s+Facts\s*$/im);
-  if (at < 0) return 0;
-  const after = bodyMd.slice(at);
-  const next = after.search(/\n##\s+/);
-  const section = next > 0 ? after.slice(0, next) : after;
-  return section.split("\n").filter((l) => /^-\s+\S/.test(l.trim())).length;
-}
 
 function RowLabel({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
@@ -73,13 +37,13 @@ function RowLabel({ icon, children }: { icon: ReactNode; children: ReactNode }) 
 const HINT_INDENT = "pl-[1.625rem]";
 
 export function MemorySection({
-  name,
   raw,
   fileUpdatedMs,
   onOpenSource,
   bare = false,
 }: {
-  name: string | null;
+  /** Kept for callers; the memory row no longer needs the name. */
+  name?: string | null;
   raw: string | null;
   fileUpdatedMs: number | null;
   onOpenSource: () => void;
@@ -89,41 +53,16 @@ export function MemorySection({
   const t = useT();
   const setActiveSection = useEventStore((s) => s.setActiveSection);
   const rules = useAgentInstructions();
-  const slug = wikiSlug(name);
+  useLocaleChunk("memory");
+  const vault = useVaultOverview();
   const categories = parseDoNotRecord(raw);
 
-  const wiki = useQuery<WikiPage, Error>({
-    queryKey: ["profile", "wiki-page", slug],
-    enabled: !!slug,
-    retry: false,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const res = await fetch(`/api/wiki/page/${encodeURIComponent(slug as string)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    },
-  });
 
   const rulesContent = rules.config?.content?.trim() ?? "";
   const hasRules = !!rules.config?.exists && rulesContent.length > 0;
   const ruleLines = hasRules ? rulesContent.split("\n").filter((l) => l.trim()).length : 0;
   const rulesFile = rules.config?.filename ?? "";
 
-  const page = wiki.data?.ok ? wiki.data : null;
-  const facts = page ? countFacts(page.body_md ?? "") : 0;
-  const wikiHint = page
-    ? [
-        `${page.slug}.md`,
-        facts > 0 ? t("profile_view.wiki_facts").replace("{0}", String(facts)) : null,
-        page.wikilinks.length > 0
-          ? t("profile_view.wiki_links").replace("{0}", String(page.wikilinks.length))
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : slug
-      ? t("profile_view.wiki_empty_body")
-      : t("profile_view.wiki_needs_name");
 
   const fileDate = fileUpdatedMs
     ? new Date(fileUpdatedMs).toLocaleDateString(localeForUiLanguage(useI18nStore.getState().ui), {
@@ -164,24 +103,21 @@ export function MemorySection({
         }
       />
 
+
       <SettingRow
-        testId="wiki-row"
-        label={<RowLabel icon={<NotebookPen />}>{t("profile_view.wiki_title")}</RowLabel>}
+        testId="vault-row"
+        label={<RowLabel icon={<NotebookPen />}>{t("vault.title")}</RowLabel>}
         hint={
-          <span className={HINT_INDENT} data-testid={page ? "wiki-found" : "wiki-empty"}>
-            {wiki.isLoading ? "…" : wikiHint}
+          <span className={HINT_INDENT}>
+            {vault.data ? fill(t("vault.count"), { count: vault.data.stats.current }) : "…"}
           </span>
         }
         control={
-          page ? (
-            <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("memory")}>
-              {t("profile_view.open")}
-            </Button>
-          ) : undefined
+          <Button type="button" size="sm" variant="outline" onClick={() => setActiveSection("memory")}>
+            {t("profile_view.open")}
+          </Button>
         }
       />
-
-      <SemanticSearchRow />
 
       <SettingRow
         testId="source-row"

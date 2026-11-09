@@ -998,50 +998,6 @@ def test_factory_wires_registry_command_tools_into_router_set() -> None:
     assert "provider-test" in tools
 
 
-def test_factory_native_tool_wins_registry_name_collision_in_any_entrypoint_order(
-    monkeypatch,
-) -> None:
-    """Native tools deterministically outrank same-named virtual commands."""
-    import importlib.metadata
-
-    from dodaios.brain.factory import _load_tools_for_tier
-    from dodaios.plugins.tool.app_command import AppCommandTool
-    from dodaios.plugins.tool.wiki_ingest import WikiIngestTool
-
-    class FakeEntryPoint:
-        def __init__(self, name, target):
-            self.name = name
-            self._target = target
-
-        def load(self):
-            return self._target
-
-    app_command = FakeEntryPoint("app-command", AppCommandTool)
-    wiki_ingest = FakeEntryPoint("wiki-ingest", WikiIngestTool)
-
-    for ordered in (
-        [app_command, wiki_ingest],
-        [wiki_ingest, app_command],
-    ):
-        monkeypatch.setattr(
-            importlib.metadata,
-            "entry_points",
-            lambda *, group, ordered=ordered: list(ordered),
-        )
-        tools = _load_tools_for_tier(
-            "router",
-            bus=EventBus(),
-            executor=None,
-            harness_manager=None,
-            user_profile=None,
-            people=None,
-            config=JarvisConfig(),
-        )
-
-        assert type(tools["wiki-ingest"]) is WikiIngestTool
-        assert "session-latest-turn" in tools
-
-
 def test_inspect_pointer_is_not_a_spawn_in_local_action_set() -> None:
     """The AI-Pointer tool is a router-tier read, never in the worker fast-path."""
     from dodaios.brain.factory import _load_local_action_tools
@@ -1872,16 +1828,6 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # tools"): search and forget, router-tier only.
             "memory-search",
             "memory-forget",
-            # Phase B5 (recall-tool): read-only keyword search over the wiki vault.
-            "wiki-recall",
-            # Phase B5 follow-up (commit 825b1f94a): full-page reader (read-only)
-            # + deterministic ingest (write via WikiCurator). Both router-tier only.
-            "wiki-page-read",
-            "wiki-ingest",
-            # Grounded vault listing (2026-07-14): ground-truth answer for
-            # "what is in my wiki" in one round. Read-only, never a spawn.
-            # ADR-0011 amendment "wiki-list tool".
-            "wiki-list",
             # CLI-Integration (2026-05-24): virtual loader that expands to one
             # cli_<name> tool per connected & usable CLI. Router-tier only — a
             # cli_<name> tool is a direct safe-gated action, never a recursive

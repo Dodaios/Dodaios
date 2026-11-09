@@ -53,11 +53,8 @@ FIND_TOOLS_NAME: Final[str] = "find_tools"
 #: Anything not listed keeps its registry order behind these.
 CORE_PRIORITY: Final[tuple[str, ...]] = (
     "search_web",
-    "wiki_recall",
-    "wiki_ingest",
+    "memory_search",
     "remember",
-    "wiki_list",
-    "wiki_page_read",
     "run_skill",
     "contact_lookup",
     "call_contact",
@@ -93,7 +90,7 @@ CORE_PRIORITY: Final[tuple[str, ...]] = (
 #: What a caller with a role is shown besides the tools the role names: the
 #: reads nearly every job starts with. Canonical names.
 ROLE_BASE: Final[frozenset[str]] = frozenset(
-    {"search_web", "wiki_recall", "wiki_list", "wiki_page_read", "run_skill"}
+    {"search_web", "memory_search", "run_skill"}
 )
 
 #: Chars per token for the size estimate; the same conservative figure the

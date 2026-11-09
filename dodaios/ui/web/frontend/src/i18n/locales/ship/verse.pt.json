@@ -159,7 +159,9 @@
       "quality.medium": "Média",
       "reduced_motion": "Menos movimento",
       "text_size": "Tamanho do texto",
-      "ui_sound": "Sons da interface"
+      "ui_sound": "Sons da interface",
+      "quality.custom": "Personalizada",
+      "render_tier": "Renderização atual: {tier}"
     },
     "lift": {
       "title": "Elevador",

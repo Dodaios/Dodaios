@@ -322,6 +322,38 @@ def make_process_tree(name: str) -> ProcessTree:
     return _NoContainment(name)
 
 
+def kill_with_descendants(proc: Any) -> None:
+    """Kill ``proc`` and every process it started, children first.
+
+    ``proc.kill()`` ends one process. A coding CLI launched through a wrapper
+    (``node codex.js`` starting ``codex.exe``, ``claude.cmd`` starting
+    ``node``) keeps its real worker in a child, so killing the wrapper alone
+    leaves the agent working and holding the output pipe open. The
+    descendants are listed BEFORE the parent dies: on Windows an orphan can
+    no longer be found from its old parent. Never raises.
+    """
+    if getattr(proc, "returncode", None) is not None:
+        return
+    pid = getattr(proc, "pid", None)
+    children: list[Any] = []
+    if isinstance(pid, int) and pid > 0:
+        try:
+            import psutil
+
+            children = psutil.Process(pid).children(recursive=True)
+        except Exception as exc:  # noqa: BLE001 - the parent kill below still runs
+            logger.debug("Listing the descendants of pid {} failed: {}", pid, exc)
+    for child in reversed(children):
+        try:
+            child.kill()
+        except Exception as exc:  # noqa: BLE001 - already gone or not ours
+            logger.debug("Killing descendant pid {} failed: {}", getattr(child, "pid", "?"), exc)
+    try:
+        proc.kill()
+    except (ProcessLookupError, OSError) as exc:
+        logger.debug("Killing pid {} failed: {}", pid, exc)
+
+
 #: Environment variable a tracked process and all its descendants inherit; a
 #: descendant that detached before any snapshot saw it is still found by it.
 TURN_MARKER_ENV = "JARVIS_TURN_MARK"

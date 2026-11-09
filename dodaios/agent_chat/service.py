@@ -281,12 +281,40 @@ def session_runner(session: Any) -> str:
 _CLI_SEATS_RETIRED: Final[int] = 1
 
 
+#: Words in a coding agent CLI's executable or script name (``claude.exe``,
+#: ``codex.js``, ``gemini.cmd``, ...).
+_AGENT_CLI_WORDS: Final[tuple[str, ...]] = (
+    "claude",
+    "codex",
+    "gemini",
+    "grok",
+    "opencode",
+    "kimi",
+    "qwen",
+    "glm",
+    "antigravity",
+    "cursor-agent",
+    "copilot",
+)
+
+
+def _is_agent_cli(cmdline: list[str]) -> bool:
+    """Whether a command line runs a coding agent CLI: its program or the script node runs."""
+    for part in cmdline[:3]:
+        name = part.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if any(word in name for word in _AGENT_CLI_WORDS):
+            return True
+    return False
+
+
 def stop_cli_at_cwd(cwd: str) -> int:
     """Stop a leftover chat CLI whose working folder is exactly ``cwd``.
 
     Used when the stop button finds no in-memory turn. The match is one
     command-line argument, not a substring of the prompt, so a mention of
-    the folder inside the task text does not count.
+    the folder inside the task text does not count — and only a coding
+    agent's process counts: a shell, editor or dev server the person runs
+    in that folder is never Stop's to end.
     """
     root = Path(cwd).expanduser()
     try:
@@ -313,6 +341,8 @@ def stop_cli_at_cwd(cwd: str) -> int:
             continue
         parts = [str(part).rstrip("\\/") for part in (proc.info.get("cmdline") or [])]
         if not any(needle in parts for needle in needles):
+            continue
+        if not _is_agent_cli(parts):
             continue
         try:
             for child in proc.children(recursive=True):
@@ -1063,7 +1093,12 @@ class AgentChatService:
             ),
         )
         session = self.store.get_session(session_id)
-        if session is not None and session.cwd:
+        # The turn host knows which CLI is this thread's; the folder match is
+        # only for a CLI the app started itself before a restart.
+        from dodaios.agent_chat.turn_host_client import kill_session_turns
+
+        stopped = await kill_session_turns(session_id)
+        if not stopped and session is not None and session.cwd:
             await asyncio.to_thread(stop_cli_at_cwd, session.cwd)
         if session is not None and session.surface in ("jarvis", "society"):
             from dodaios.society.browser.tool import stop_chat_browser
@@ -1118,8 +1153,24 @@ class AgentChatService:
         # token deltas and voice-critical streaming never perform file I/O.
         if session_id.startswith("society:"):
             event = await _redact_credentials(session_id, event)
+        payload = event.get("payload") or {}
+        call_key = (session_id, str(payload.get("call_id") or ""))
+        if not hasattr(self, "_tool_call_names"):
+            self._tool_call_names: dict[tuple[str, str], str] = {}
+        if event.get("kind") == "tool_call" and call_key[1]:
+            # Media delivery needs to know which tool a result came from: what
+            # a Read or a web search merely saw is not a picture for the chat.
+            if len(self._tool_call_names) > 4096:
+                self._tool_call_names.clear()
+            self._tool_call_names[call_key] = str(payload.get("name") or "")
         if event.get("kind") in {"assistant_text", "tool_result", "user_message"}:
             from dodaios.agent_chat.media import normalize_media_event
+
+            tool_name = (
+                self._tool_call_names.pop(call_key, "")
+                if event.get("kind") == "tool_result"
+                else ""
+            )
             from dodaios.core.paths import repo_root
             from dodaios.missions.isolation.worktree import resolve_outputs_root
 
@@ -1132,6 +1183,7 @@ class AgentChatService:
                         cwd=Path(session.cwd),
                         outputs_root=resolve_outputs_root(repo_root()),
                         scope=session_id,
+                        tool_name=tool_name,
                     )
                 except (OSError, ValueError):
                     log.warning("agent chat: media normalization failed", exc_info=True)

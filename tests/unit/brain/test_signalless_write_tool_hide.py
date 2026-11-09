@@ -2,7 +2,7 @@
 
 Latent exposure found 2026-06-30 (deep-dive agent 2): on a no-action
 conversational turn the model still saw the foreground write/record tools
-(``contact-upsert``, ``update-profile``, ``wiki-ingest``, ``google_calendar``
+(``contact-upsert``, ``update-profile``, ``remember``, ``google_calendar``
 writes, ``call-contact``) — "does my budget fit?" is the forensic shape.
 
 2026-08-17: the trigger is the turn's own SHAPE (smalltalk or a plain question),
@@ -34,7 +34,7 @@ def _mgr(*, smalltalk: bool = False) -> BrainManager:
 def _surface() -> dict:
     return {
         "search_web": object(),       # read — must stay
-        "wiki-recall": object(),      # read — must stay
+        "memory-search": object(),      # read — must stay
         "screenshot": object(),       # read — must stay
         "contact-upsert": object(),   # write — hide on a conversational turn
         # Keyed by the tool's .name attribute (update_profile) — NOT the
@@ -42,7 +42,7 @@ def _surface() -> dict:
         # constant AND this test both carried "update-profile", so the gate
         # never actually stripped the real tool from a live turn.
         "update_profile": object(),   # write — hide on a conversational turn
-        "wiki-ingest": object(),      # write — hide on a conversational turn
+        "remember": object(),      # write — hide on a conversational turn
         "google_calendar": object(),  # write path — hide on a conversational turn
         "call-contact": object(),     # action (places a call) — hide
         "computer_use": object(),     # inheritance half — see the sibling module
@@ -57,12 +57,12 @@ def test_plain_question_hides_write_and_record_tools():
         _surface(), "Passt das noch in mein Budget?"  # i18n-allow: the forensic turn
     )
     for hidden in (
-        "contact-upsert", "update_profile", "wiki-ingest",
+        "contact-upsert", "update_profile", "remember",
         "google_calendar", "call-contact",
     ):
         assert hidden not in out, hidden
     # Read-only tools are never stripped — the turn stays answerable inline.
-    for kept in ("search_web", "wiki-recall", "screenshot"):
+    for kept in ("search_web", "memory-search", "screenshot"):
         assert kept in out, kept
 
 
@@ -88,11 +88,11 @@ def test_mandated_write_tool_is_exempt_say_do_stays_green():
     # hide must NOT strip the mandated write tool, or the say-do write feature
     # breaks again (project_bug_contact_say_do_gap_no_upsert).
     m = _mgr(smalltalk=True)
-    m._evidence_required_tool = "wiki-ingest"
+    m._evidence_required_tool = "remember"
     out = m._hide_action_tools_on_signalless_turn(
         _surface(), "Merk dir, dass ich nach Bora Bora will"  # i18n-allow
     )
-    assert "wiki-ingest" in out          # the mandated tool survives
+    assert "remember" in out          # the mandated tool survives
     assert "contact-upsert" not in out   # other write tools still hidden
 
 

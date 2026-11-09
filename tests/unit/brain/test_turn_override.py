@@ -413,7 +413,7 @@ def _prompt_manager() -> BrainManager:
     m._people = None
     m._core_memory = None
     m._system_prompt_extra = "ROUTER DISCIPLINE BLOCK"
-    m._wiki_context_suffix = ""
+    m._memory_context_suffix = ""
     m._reply_language = "auto"
     m._active_turn_identity = None
     cfg = load_config()

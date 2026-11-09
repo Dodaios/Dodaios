@@ -752,6 +752,9 @@ class TokenBox:
         else:
             self._tokens.pop(slot, None)
 
+    def get(self, slot: str) -> str | None:
+        return self._tokens.get(slot)
+
     def check(self, token: str) -> bool:
         ok = False
         for valid in self._tokens.values():

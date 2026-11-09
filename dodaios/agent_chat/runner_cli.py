@@ -1814,6 +1814,8 @@ class _ClaudeState:
     idle: bool = False
     #: The task list the last ``background_wait`` event named.
     wait_sent: tuple[str, ...] = ()
+    #: The model a sub-agent's messages last reported (sub-agent states only).
+    reported_model: str = ""
 
 
 #: Streamed characters per estimated output token (English and code average).
@@ -1973,6 +1975,18 @@ def _claude_subagent_line(
     if child is None:
         child = st.agents[parent] = _ClaudeState(turn_id=st.turn_id)
     out: list[dict[str, Any]] = []
+    # Every assistant message names the model that wrote it: the sub-agent's own,
+    # which may differ from the main agent's (a Haiku explorer under an Opus thread).
+    message = obj.get("message") if isinstance(obj.get("message"), dict) else {}
+    model = str(message.get("model") or "") if obj.get("type") == "assistant" else ""
+    if model and not model.startswith("<") and model != child.reported_model:
+        child.reported_model = model
+        out.append(
+            make_event(
+                "subagent_progress",
+                {"turn_id": st.turn_id, "agent_id": parent, "model": model},
+            )
+        )
     for event in translate_claude_line({**obj, "parent_tool_use_id": None}, child):
         if event["kind"] == "usage_delta":
             continue
@@ -5003,6 +5017,14 @@ async def _deliver_codex_images(
 def _kill(proc: asyncio.subprocess.Process) -> None:
     if proc.returncode is not None:
         return
+    if isinstance(proc, asyncio.subprocess.Process):
+        # A local CLI: its wrapper (node codex.js, claude.cmd) keeps the real
+        # agent in a child that a plain kill would leave working after Stop.
+        from dodaios.core.process_tree import kill_with_descendants
+
+        kill_with_descendants(proc)
+        return
+    # A hosted or remote CLI: its own host ends the tree.
     try:
         proc.kill()
     except (ProcessLookupError, OSError) as exc:

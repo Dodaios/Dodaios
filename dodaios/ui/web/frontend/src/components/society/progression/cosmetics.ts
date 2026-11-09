@@ -10,7 +10,7 @@
  */
 import type { RewardRow, SubjectLevel } from "./progressionApi";
 import { LEVEL_XP, SLOTS, rewardKey, type SubjectKind } from "./levelCatalog";
-import { RANK_TIERS, type UniformId } from "../verse/ranks/ranks";
+import { RANK_TIERS, type UniformId } from "./ranks";
 
 export type UniformChoice = UniformId | "auto";
 

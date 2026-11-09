@@ -133,15 +133,3 @@ def test_router_note_prefix_is_language_relative() -> None:
     assert "Notiert" in SYSTEM_PROMPT
 
 
-def test_ack_keywords_cover_all_supported_languages() -> None:
-    """The memory-signal detector must fire on the ack word in any language.
-
-    The wiki ack path keys off the brain's acknowledgement word; if the reply
-    is English/Spanish the word is not "notiert", so the detector must know the
-    other languages' words too, or a non-German memory-save would be missed.
-    """
-    from dodaios.memory.wiki.voice_bridge import _ACK_KEYWORDS
-
-    assert "notiert" in _ACK_KEYWORDS  # de
-    assert "noted" in _ACK_KEYWORDS  # en
-    assert "anotado" in _ACK_KEYWORDS  # es

@@ -1182,6 +1182,47 @@ async def get_lead_session(request: Request) -> dict[str, Any]:
     return d
 
 
+class LeadBriefBody(BaseModel):
+    enabled: bool
+    #: Local wall-clock time, ``HH:MM``.
+    time: str = "08:00"
+    #: IANA zone of the person, e.g. ``Europe/Berlin``.
+    timezone: str = ""
+
+
+@router.get("/lead/brief", summary="The morning brief's state (off until turned on)")
+async def get_lead_brief() -> dict[str, Any]:
+    from dodaios.agent_chat.proactive import brief_state
+
+    return await brief_state()
+
+
+@router.put("/lead/brief", summary="Turn the morning brief on or off, or move it")
+async def put_lead_brief(body: LeadBriefBody) -> dict[str, Any]:
+    from dodaios.agent_chat.proactive import set_brief
+
+    try:
+        return await set_brief(enabled=body.enabled, local_time=body.time, timezone=body.timezone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/lead/fresh-start", summary="Start the lead's model fresh; the thread stays")
+async def lead_fresh_start(request: Request) -> dict[str, Any]:
+    from dodaios.agent_chat.lead import fresh_start, lead_session
+
+    svc = _service(request)
+    through = await asyncio.to_thread(fresh_start, svc)
+    if through is None:
+        raise HTTPException(status_code=409, detail="The conversation is not ready yet")
+    session = lead_session(svc, create=False)
+    if session is not None:
+        await svc.post_notice(session.session_id, {"kind": "context_reset", "status": "done"})
+    return {"ok": True, "through_seq": through}
+
+
 @router.get("/sessions/{session_id}")
 async def get_session(
     session_id: str,
@@ -1425,6 +1466,62 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
 _WARMING: dict[str, asyncio.Task[bool]] = {}
 
 
+def _preload_local_model(session: Any) -> bool:
+    """Start loading this chat's local model (Ollama) in the background."""
+    return _preload_provider_model(
+        str(getattr(session, "provider", "") or ""), str(getattr(session, "model", "") or "")
+    )
+
+
+def _preload_provider_model(provider: str, model: str) -> bool:
+    """Start loading a local model in the background; ``True`` when one loads.
+
+    A local model that is not in memory costs a load of seconds on the first
+    message; started while the person types or dictates, the load is done
+    by the time they send. Only a brain with a ``preload`` method does
+    anything (a capability, not a provider name); every other one is a no-op.
+    """
+    from dodaios.agent_chat.runner_brain import _default_model, brain_manager
+
+    manager = brain_manager()
+    getter = getattr(manager, "_get_brain", None)
+    if manager is None or not provider or not callable(getter):
+        return False
+    key = f"local-preload:{provider}"
+    if key in _WARMING:
+        return True
+    model = model.strip() or _default_model(manager, provider)
+    try:
+        brain = getter(provider, model)
+    except Exception:  # noqa: BLE001 — an unknown provider has nothing to load
+        return False
+    preload = getattr(brain, "preload", None)
+    if not callable(preload):
+        return False
+    task = asyncio.create_task(preload(), name=f"local-model-preload-{provider}")
+    _WARMING[key] = task
+    task.add_done_callback(lambda _done: _WARMING.pop(key, None))
+    return True
+
+
+class PreloadBody(BaseModel):
+    provider: str = Field(min_length=1, max_length=64)
+    model: str = Field(default="", max_length=256)
+
+
+@router.post(
+    "/preload",
+    summary="Load a local model before the next message is sent",
+    description=(
+        "Loads the picked local model (Ollama) into memory in the background while "
+        "the person types or dictates, so the first answer does not wait for the "
+        "load. Sends no prompt. A no-op for hosted providers and coding agents."
+    ),
+)
+async def preload_model(body: PreloadBody) -> dict[str, Any]:
+    return {"loading": _preload_provider_model(body.provider, body.model)}
+
+
 @router.post(
     "/sessions/{session_id}/warm",
     summary="Get a Hermes or OpenClaw agent ready before the next message",
@@ -1440,7 +1537,7 @@ async def warm_session(session_id: str, request: Request) -> dict[str, Any]:
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
     if session.surface != "society" or not session.runtime:
-        return {"warming": False, "session_id": session_id}
+        return {"warming": _preload_local_model(session), "session_id": session_id}
     running = _WARMING.get(session_id)
     if running is None and not svc.is_running(session_id):
         from dodaios.agent_chat.runner_acp import warm_session as warm

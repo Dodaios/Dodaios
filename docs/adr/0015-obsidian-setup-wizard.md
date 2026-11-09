@@ -1,6 +1,6 @@
 # ADR-0015 — Obsidian Setup Wizard
 
-**Status:** Accepted · **Date:** 2026-05-14 · **Phase:** B9 (Obsidian Onboarding)
+**Status:** Superseded by ADR-0044 (2026-11-09) · **Date:** 2026-05-14 · **Phase:** B9 (Obsidian Onboarding)
 
 ## Context
 
