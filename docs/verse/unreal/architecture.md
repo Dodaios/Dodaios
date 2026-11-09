@@ -172,7 +172,7 @@ those three):
 | `VerseDestruction` | NetCore, Chaos, GeometryCollectionEngine, NavigationSystem, MeshDescription, PhysicsCore | Fast arrays (bolt holes, piece state); debris; navmesh feedback; validator; surface physical materials |
 | `VerseCombat` | NetCore, GameplayTags, GameplayAbilities, GameplayTasks, Json, MeshDescription, StaticMeshDescription | Push model and fast arrays; GAS; definition importer; placeholder shapes |
 | `VerseGore` | Niagara | Blood bursts (WP05.2) |
-| `VerseDecks` | Json | Deck manifests, QA state, bridge world actions |
+| `VerseDecks` | Json, InputCore, EnhancedInput | Deck manifests, QA state, bridge world actions; the deck commander's keys and mouse (`IMC_VerseDeck`) |
 | `VerseCrew` | Json, NavigationSystem | Bridge frames and crew data; typed Recast path queries |
 | `VerseScreens` | Json | `cells.json/1` frames and screen command data |
 | `VerseBot` | AIModule, NavigationSystem, StateTreeModule, GameplayStateTreeModule | `AAIController`, EQS, the belief nav query filter, StateTree tactics (bot.md 5, 6) |
