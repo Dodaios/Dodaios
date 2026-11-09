@@ -886,6 +886,17 @@
         },
         "view": {
           "$ref": "#/$defs/view_settings"
+        },
+        "game": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "description": "In-game settings menu, flat by setting id (dodaios/verse_host/game_settings.py). Additive; announced as the game_settings feature."
         }
       },
       "additionalProperties": false
@@ -1650,7 +1661,14 @@
         "features": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/topic"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/topic"
+              },
+              {
+                "const": "game_settings"
+              }
+            ]
           },
           "uniqueItems": true
         },
