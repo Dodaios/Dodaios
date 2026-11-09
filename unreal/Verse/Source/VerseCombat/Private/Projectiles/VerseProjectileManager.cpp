@@ -217,6 +217,7 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 		Hit.DistanceM = DistanceM;
 		Hit.Damage = FVerseDamageMath::BoltDamage(*W, Body.Zone, DistanceM, Bolt.Factor);
 		Hit.PenetrationCount = uint8(FMath::Clamp(Bolt.Passes, 0, 255));
+		Hit.InstigatorId = Bolt.Fire.ShooterId;
 		if (DamageService)
 		{
 			DamageService->ApplyHit(Shooter, Victim, Hit);
