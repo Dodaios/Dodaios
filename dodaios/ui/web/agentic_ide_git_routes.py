@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from dodaios.agentic_ide import (
@@ -67,13 +68,41 @@ from dodaios.ui.web.surface_security import is_loopback_request
 router = APIRouter(prefix="/api/agentic-ide/git", tags=["agentic-ide-git"])
 
 
-def _open_folders() -> list[str]:
-    """Every folder something is running in: each workspace, and each pane's own
-    checkout (an agent's worktree) — none of them may be removed under it."""
+def _open_folders(app_state: Any = None) -> list[str]:
+    """Every folder something is running in: each workspace, each pane's own
+    checkout (an agent's worktree) and the folder of every thread whose agent
+    is working — none of them may be removed under it."""
     folders: list[str] = []
     for session in get_registry().sessions:
         folders.append(session.folder)
         folders.extend(pane.cwd(session.folder) for pane in session.terminals)
+    folders.extend(_running_thread_folders(app_state))
+    return folders
+
+
+def _app_state(request: Request | None) -> Any:
+    """The app's state, or None when a route runs without a request (tests, tools)."""
+    app = getattr(request, "app", None)
+    return getattr(app, "state", None)
+
+
+def _running_thread_folders(app_state: Any) -> list[str]:
+    """The folders of the threads with a turn running now.
+
+    Only a service that already exists is asked: before the first thread
+    request nothing of this process runs a thread.
+    """
+    service = getattr(app_state, "agent_chat", None) if app_state is not None else None
+    if service is None:
+        return []
+    folders: list[str] = []
+    try:
+        for session_id in service.running_session_ids():
+            row = service.store.get_session(session_id)
+            if row is not None and row.cwd:
+                folders.append(row.cwd)
+    except Exception as exc:  # noqa: BLE001 — a guard must never break the git tab
+        logger.warning("Git routes: running thread folders unreadable: {}", exc)
     return folders
 
 
@@ -587,7 +616,7 @@ def update_branch(req: BranchRequest) -> dict:
     summary="Delete a local branch",
     openapi_extra={"x-jarvis-dangerous": True},
 )
-def delete_branch(req: DeleteBranchRequest) -> dict:
+def delete_branch(req: DeleteBranchRequest, request: Request = None) -> dict:  # type: ignore[assignment]
     """Delete a branch whose work is safe elsewhere; ask again otherwise.
 
     "Safe" is decided here, not by the caller: every commit is in another
@@ -606,7 +635,7 @@ def delete_branch(req: DeleteBranchRequest) -> dict:
             merged=merged,
             remote=req.remote,
             with_worktree=req.with_worktree,
-            open_folders=_open_folders(),
+            open_folders=_open_folders(_app_state(request)),
         )
     except GitError as exc:
         raise _fail(exc) from exc
@@ -647,12 +676,13 @@ def merge_branch(req: MergeRequest) -> dict:
     summary="Remove a linked git worktree",
     openapi_extra={"x-jarvis-dangerous": True},
 )
-def remove_worktree(req: RemoveWorktreeRequest) -> dict:
-    if git_ops.worktree_in_use(req.worktree, _open_folders()):
+def remove_worktree(req: RemoveWorktreeRequest, request: Request = None) -> dict:  # type: ignore[assignment]
+    if git_ops.worktree_in_use(req.worktree, _open_folders(_app_state(request))):
         raise HTTPException(
             status_code=422,
             detail={
-                "message": "A workspace is still open in this worktree. Close it first.",
+                "message": "A workspace or a working thread is still open in this worktree. "
+                "Close or stop it first.",
                 "code": "in_use",
             },
         )

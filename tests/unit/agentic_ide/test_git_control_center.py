@@ -555,6 +555,29 @@ def test_a_worktree_an_agent_pane_runs_in_counts_as_open(monkeypatch: pytest.Mon
     assert routes._open_folders() == ["/code/app", "/code/app/.worktrees/agent-x", "/code/app"]
 
 
+def test_a_worktree_a_working_thread_runs_in_counts_as_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from dodaios.ui.web import agentic_ide_git_routes as routes
+
+    monkeypatch.setattr(routes, "get_registry", lambda: SimpleNamespace(sessions=[]))
+    rows = {
+        "t1": SimpleNamespace(cwd="/code/app/.worktrees/thread-1"),
+        "t2": SimpleNamespace(cwd=""),
+    }
+    service = SimpleNamespace(
+        running_session_ids=lambda: ["t1", "t2", "gone"],
+        store=SimpleNamespace(get_session=rows.get),
+    )
+    assert routes._open_folders(SimpleNamespace(agent_chat=service)) == [
+        "/code/app/.worktrees/thread-1"
+    ]
+    # No thread service built yet: nothing of this process runs a thread.
+    assert routes._open_folders(SimpleNamespace()) == []
+
+
 def test_a_local_merge_survives_a_rebase(repo: Path, other: Path) -> None:
     _commit(other, "theirs.txt")
     _git(other, "push", "-q")
