@@ -115,6 +115,8 @@ if (Test-Path (Join-Path $FrontendDist "index.html")) {
     if (-not (Test-Path (Join-Path $FrontendDir "node_modules"))) {
         Invoke-Checked -Executable "npm" -Arguments @("ci") -WorkingDirectory $FrontendDir -What "npm ci"
     }
+    # Same heap as packaging/macos/build.sh; a caller's own value wins.
+    if (-not $env:NODE_OPTIONS) { $env:NODE_OPTIONS = "--max-old-space-size=4096" }
     Invoke-Checked -Executable "npm" -Arguments @("run", "build") -WorkingDirectory $FrontendDir -What "npm run build"
     if (-not (Test-Path (Join-Path $FrontendDist "index.html"))) {
         Stop-WithError "npm run build did not produce dodaios/ui/web/dist/index.html"
