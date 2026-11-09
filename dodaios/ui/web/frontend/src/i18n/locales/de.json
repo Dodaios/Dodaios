@@ -10316,6 +10316,8 @@
     "empty_body": "Threads führen einen Coding-Agent in einem Projektordner aus. Verbinde einen, um zu starten.",
     "connect_folder": "Ordner verbinden",
     "build_in": "Was sollen wir in {project} bauen?",
+    "runs_on": "Läuft auf",
+    "runs_on_computer": "Läuft auf {computer}",
     "projects": "Projekte",
     "connect_another": "Weiteren Ordner verbinden",
     "new_activity": "Neue Aktivität",

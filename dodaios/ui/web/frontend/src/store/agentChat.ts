@@ -121,6 +121,8 @@ export interface ComposerDraft {
   /** The permission mode to go back to when Plan is switched off. */
   buildMode: string;
   cwd: string;
+  /** The connected computer a new thread runs on; empty or absent = this computer. */
+  computerId?: string;
 }
 
 export interface ProviderOption extends AgentChatProvider {
@@ -370,6 +372,7 @@ function draftFromSession(session: AgentChatSession, prev: ComposerDraft): Compo
     permissionMode: session.permission_mode,
     buildMode: plan ? prev.buildMode || prev.permissionMode : session.permission_mode,
     cwd: session.cwd,
+    computerId: session.computer_id ?? "",
   };
 }
 
@@ -1003,6 +1006,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
             body.permission_mode = draft.permissionMode;
           }
           if (patch.cwd !== undefined) body.cwd = draft.cwd;
+          if (patch.computerId !== undefined) body.computer_id = patch.computerId;
           const revision = (patchRevisions.get(sid) ?? 0) + 1;
           patchRevisions.set(sid, revision);
           const previous = surface === "jarvis"
@@ -1153,6 +1157,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
               effort: d.effort,
               cwd: d.cwd || null,
               permission_mode: d.permissionMode,
+              ...(d.computerId ? { computer_id: d.computerId } : {}),
               surface,
             });
             const visible = isVisible();

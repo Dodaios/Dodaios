@@ -3847,7 +3847,8 @@ async def _run_cli_once(
     planned_prompt = plain_chat.cli_prompt(handle, user_text, resume)
     # Set once planning succeeded; an external runtime's plan holds a turn slot.
     plan: CliPlan | None = None
-    if placement is not None and not getattr(handle, "tools_disabled", False):
+    is_thread = getattr(session, "surface", "agent") != "society"
+    if placement is not None and not is_thread and not getattr(handle, "tools_disabled", False):
         # Also refresh resumed conversations which remember the old missing bridge.
         planned_prompt = (
             "<jarvis_remote_context>\n"
@@ -3985,6 +3986,17 @@ async def _run_cli_once(
         from dodaios.agent_chat.remote_cli import RemoteCliUnavailable, spawn
 
         prompt_files: dict[str, str] = {}
+        thread_folder = ""
+        if is_thread:
+            from dodaios.agentic_ide import remote as ide_remote
+            from dodaios.computers.remote_terminal import pool_for
+
+            # The thread's folder goes up first, mapped the way grid panes map it.
+            try:
+                moved = await ide_remote.push_code(pool_for(placement[0]), cwd)
+            except ide_remote.MoveError as exc:
+                return _Outcome("error", str(exc), {}, None, None)
+            thread_folder = moved.remote_folder
         if identity is not None and identity.path is not None:
             try:
                 prompt_files[str(identity.path)] = await asyncio.to_thread(
@@ -4003,7 +4015,8 @@ async def _run_cli_once(
                 env=plan.env,
                 system_prompt_files=prompt_files,
                 session_id=session.session_id,
-                tools_enabled=not getattr(handle, "tools_disabled", False),
+                tools_enabled=not is_thread and not getattr(handle, "tools_disabled", False),
+                remote_cwd_override=thread_folder,
             )
         except RemoteCliUnavailable as exc:
             return _Outcome("error", str(exc), {}, None, None)

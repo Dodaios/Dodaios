@@ -927,6 +927,7 @@ class AgentChatService:
         title: str = "",
         surface: str = DEFAULT_SURFACE,
         account_id: str = "",
+        computer_id: str = "",
     ) -> AgentChatSession:
         row = provider_row(provider)
         if row is None and not supports_api_runner(provider):
@@ -955,6 +956,7 @@ class AgentChatService:
             title=title,
             surface=surface,
             account_id=account_id,
+            computer_id=computer_id,
         )
 
     def _set_steerer(

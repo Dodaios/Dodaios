@@ -10316,6 +10316,8 @@
     "empty_body": "Os threads correm um agente de programação numa pasta de projeto. Liga uma para começar.",
     "connect_folder": "Ligar pasta",
     "build_in": "O que vamos construir em {project}?",
+    "runs_on": "Corre em",
+    "runs_on_computer": "Corre em {computer}",
     "projects": "Projetos",
     "connect_another": "Ligar outra pasta",
     "new_activity": "Nova atividade",

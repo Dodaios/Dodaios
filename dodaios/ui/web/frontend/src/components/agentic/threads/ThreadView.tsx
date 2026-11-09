@@ -9,6 +9,7 @@ import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore, type SplitThread, type ThreadSelection } from "@/store/ideThreads";
 import { useThreadTerminalsStore } from "@/store/threadTerminals";
 import { openSubagentOf, useThreadSubagentsStore, type SubagentRow } from "@/store/threadSubagents";
+import { ThreadRunsOn } from "./ThreadRunsOn";
 import { ThreadBranchBar, type ThreadCheckout } from "./ThreadBranchBar";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadHeader } from "./ThreadHeader";
@@ -280,8 +281,13 @@ export function ThreadView({ onScreen, column }: {
   const [buildBefore, buildAfter = ""] = t("ide_threads.build_in").split("{project}");
   const empty = isDraft && timeline.items.length === 0;
 
-  const strip = <ThreadBranchBar folder={folder} draft={isDraft} checkout={checkout} onCheckout={setCheckout}
-    base={base} onBase={setBase} locked={running} />;
+  const runsOn = <ThreadRunsOn computerId={session?.computer_id ?? draft.computerId ?? ""} locked={running}
+    onChange={(computerId) => void chatStore.getState().setDraft({ computerId })} />;
+  const strip = <>
+    {runsOn}
+    <ThreadBranchBar folder={folder} draft={isDraft} checkout={checkout} onCheckout={setCheckout}
+      base={base} onBase={setBase} locked={running} />
+  </>;
 
   return <div className="relative flex h-full min-h-0 flex-col" data-testid="thread-view">
     {memberOf && <BackToTeam teamId={memberOf} projectId={project.id} />}

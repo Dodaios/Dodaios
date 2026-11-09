@@ -10316,6 +10316,8 @@
     "empty_body": "Threads run a coding agent in a project folder. Connect one to start.",
     "connect_folder": "Connect folder",
     "build_in": "What should we build in {project}?",
+    "runs_on": "Runs on",
+    "runs_on_computer": "Runs on {computer}",
     "projects": "Projects",
     "connect_another": "Connect another folder",
     "new_activity": "New activity",
