@@ -18,6 +18,7 @@
 #include "GameFramework/PlayerState.h"
 #include "Gadgets/VerseGadgetComponent.h"
 #include "HAL/FileManager.h"
+#include "HAL/IConsoleManager.h"
 #include "HangarSwitch/VerseHangarSwitchSubsystem.h"
 #include "Inventory/VerseInventoryComponent.h"
 #include "Inventory/VerseWeaponSlot.h"
@@ -34,7 +35,6 @@
 #include "Perception/VersePerceptionService.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
-#include "Tiers/VerseBotTierData.h"
 #include "VerseArenaGraybox.h"
 #include "VerseDefaultCharacter.h"
 #include "VerseDuelAutopilot.h"
@@ -68,13 +68,43 @@ namespace VerseDuelPrivate
 	FErrorCounter* GErrorCounter = nullptr;
 	int32 GErrorCounterUsers = 0;
 
+	/** DA_BotTier_<Tier> under /Game/Verse/Bot/Tiers (bot.md 9.1); adaptive starts from hard. */
 	const UVerseBotTier* LoadTier(FName TierId)
 	{
-		const FName Id = TierId == TEXT("adaptive") ? FName(TEXT("hard")) : TierId;
-		const FString Package = VerseBotTierData::TierPackagePath(Id);
-		const FString Path = Package + TEXT(".") + VerseBotTierData::ObjectNameOf(Package);
-		return LoadObject<UVerseBotTier>(nullptr, *Path);
+		FString Id = TierId == TEXT("adaptive") ? FString(TEXT("hard")) : TierId.ToString().ToLower();
+		if (Id.IsEmpty())
+		{
+			return nullptr;
+		}
+		Id[0] = FChar::ToUpper(Id[0]);
+		const FString Name = TEXT("DA_BotTier_") + Id;
+		const FString Path = FString::Printf(TEXT("/Game/Verse/Bot/Tiers/%s.%s"), *Name, *Name);
+		return LoadObject<UVerseBotTier>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
 	}
+}
+
+namespace VerseDuelPrivate
+{
+	/** Console: Verse.Duel.Start [normal|hard|elite|adaptive] [bots] [autoplay]; Verse.Duel.Leave. */
+	FAutoConsoleCommandWithWorldAndArgs StartCommand(TEXT("Verse.Duel.Start"),
+		TEXT("Starts the hangar duel: Verse.Duel.Start [normal|hard|elite|adaptive] [bots] [autoplay]"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+			{
+				if (UVerseDuelSubsystem* Duel = UVerseDuelSubsystem::Get(World))
+				{
+					Duel->SetBotVsBot(Args.Contains(TEXT("bots")));
+					Duel->SetAutoplay(Args.Contains(TEXT("autoplay")));
+					Duel->StartDuel(Args.Num() > 0 && Args[0] != TEXT("bots") && Args[0] != TEXT("autoplay") ? FName(*Args[0]) : FName(TEXT("hard")));
+				}
+			}));
+	FAutoConsoleCommandWithWorldAndArgs LeaveCommand(TEXT("Verse.Duel.Leave"), TEXT("Leaves the hangar duel"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* World)
+			{
+				if (UVerseDuelSubsystem* Duel = UVerseDuelSubsystem::Get(World))
+				{
+					Duel->LeaveDuel();
+				}
+			}));
 }
 
 void FVerseDuelFrameStats::Add(float DeltaS)
@@ -559,6 +589,7 @@ void UVerseDuelSubsystem::ResetStats()
 		VerseDuelPrivate::GErrorCounter->Errors = 0;
 	}
 	ErrorsSeen = 0;
+	SetsContinued = 0;
 }
 
 FString UVerseDuelSubsystem::StatsJson() const
@@ -570,6 +601,7 @@ FString UVerseDuelSubsystem::StatsJson() const
 	Root->SetBoolField(TEXT("autoplay"), bAutoplay);
 	Root->SetNumberField(TEXT("matchSeconds"), GetMatchSeconds());
 	Root->SetNumberField(TEXT("errors"), ErrorsSeen);
+	Root->SetNumberField(TEXT("setsFinished"), SetsContinued);
 	Root->SetNumberField(TEXT("frames"), Frames.Frames);
 	Root->SetNumberField(TEXT("fpsAverage"), Frames.AverageFps());
 	Root->SetNumberField(TEXT("fpsOnePercentLow"), Frames.OnePercentLowFps());
@@ -682,6 +714,23 @@ void UVerseDuelSubsystem::Tick(float DeltaTime)
 		return;
 	}
 	UpdatePerson();
+	// Scripted runs play the endless duel on: the end-of-set screen continues by itself.
+	if (bAutoplay || bBotVsBot || RunSeconds > 0.0)
+	{
+		if (UVerseUiSubsystem* Ui = World->GetSubsystem<UVerseUiSubsystem>(); Ui && Ui->GetScreen() == EVerseUiScreen::EndOfSet)
+		{
+			if (EndOfSetSinceS < 0.0)
+			{
+				EndOfSetSinceS = FPlatformTime::Seconds();
+			}
+			else if (FPlatformTime::Seconds() - EndOfSetSinceS > 1.5)
+			{
+				EndOfSetSinceS = -1.0;
+				++SetsContinued;
+				Ui->ContinueAfterSet();
+			}
+		}
+	}
 	Frames.Add(FApp::GetDeltaTime());
 	// Diagnostics for the scripted runs: nav and where the duellists are, early and later.
 	if (NavChecks < 2 && GetMatchSeconds() > (NavChecks == 0 ? 5.0 : 20.0))
@@ -714,6 +763,12 @@ void UVerseDuelSubsystem::LogNavCheck() const
 		const bool bOnNav = Nav && Nav->ProjectPointToNavigation(Pawn->GetActorLocation(), OnNav, FVector(100.0, 100.0, 250.0));
 		UE_LOG(LogVerse, Log, TEXT("[VerseDuel]   pawn %s by %s at %s, on nav %d"), *Pawn->GetName(),
 			Pawn->GetController() ? *Pawn->GetController()->GetClass()->GetName() : TEXT("nobody"), *Pawn->GetActorLocation().ToCompactString(), bOnNav ? 1 : 0);
+		if (const AVerseBotController* Bot = Cast<AVerseBotController>(Pawn->GetController()))
+		{
+			const FVerseInputFrame& In = Bot->GetLastInputFrame();
+			UE_LOG(LogVerse, Log, TEXT("[VerseDuel]     bot state %d, move (%.2f, %.2f), buttons 0x%x"), int32(Bot->GetPresentation().State), In.Move.X,
+				In.Move.Y, In.Buttons);
+		}
 		if (Pawn->GetController())
 		{
 			Pawns.Add(Pawn);

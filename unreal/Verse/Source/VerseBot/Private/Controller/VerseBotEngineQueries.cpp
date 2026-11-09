@@ -8,6 +8,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerStart.h"
 #include "NavigationPath.h"
+#include "Rules/VerseSpawnPoint.h"
 #include "NavigationSystem.h"
 #include "VerseCollision.h"
 
@@ -145,7 +146,8 @@ FVerseBotPath FVerseBotEngineQueries::FindPath(const FVector& From, const FVecto
 	if (UNavigationSystemV1* Nav = World ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr)
 	{
 		const UNavigationPath* Path = Nav->FindPathToLocationSynchronously(World, From, To, C->GetPawn());
-		if (Path && Path->IsValid() && !Path->IsPartial() && Path->PathPoints.Num() > 1)
+		// A partial path still leads to the reachable point nearest the goal (never into a wall).
+		if (Path && Path->IsValid() && Path->PathPoints.Num() > 1)
 		{
 			P.bValid = true;
 			P.LengthCm = float(Path->GetPathLength());
@@ -181,9 +183,17 @@ void FVerseBotEngineQueries::GetSpawnPoints(TArray<FVector>& Out)
 	{
 		return;
 	}
-	for (TActorIterator<APlayerStart> It(World); It; ++It)
+	// Arena spawn points when the world has them; day starts outside the arena are no spawn prior.
+	for (TActorIterator<AVerseSpawnPoint> It(World); It; ++It)
 	{
 		Out.Add(It->GetActorLocation());
+	}
+	if (Out.Num() == 0)
+	{
+		for (TActorIterator<APlayerStart> It(World); It; ++It)
+		{
+			Out.Add(It->GetActorLocation());
+		}
 	}
 	Out.Sort([](const FVector& A, const FVector& B) { return A.X != B.X ? A.X < B.X : A.Y < B.Y; });
 }

@@ -98,6 +98,8 @@ public:
 	virtual void Deinitialize() override;
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 	virtual void Tick(float DeltaTime) override;
+	/** The end-of-set screen pauses the match; scripted runs still continue it. */
+	virtual bool IsTickableWhenPaused() const override { return true; }
 	virtual TStatId GetStatId() const override;
 
 private:
@@ -129,6 +131,8 @@ private:
 	bool bAutoplay = false;
 	bool bPerceptionWired = false;
 	int32 NavChecks = 0;
+	double EndOfSetSinceS = -1.0;
+	int32 SetsContinued = 0;
 	double MatchStartedAt = 0.0;
 	int32 ErrorsSeen = 0;
 

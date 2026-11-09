@@ -1,9 +1,11 @@
 #include "VerseArenaGraybox.h"
 
+#include "Components/DirectionalLightComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/RectLightComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Dom/JsonObject.h"
+#include "Engine/DirectionalLight.h"
 #include "Engine/RectLight.h"
 #include "Engine/SpotLight.h"
 #include "Engine/StaticMesh.h"
@@ -38,7 +40,7 @@ namespace VerseArenaGrayboxPrivate
 		}
 		if (Material == TEXT("armor_steel"))
 		{
-			return FLinearColor(0.09f, 0.09f, 0.1f);
+			return FLinearColor(0.14f, 0.14f, 0.15f);
 		}
 		if (Material == TEXT("sheet_metal"))
 		{
@@ -58,9 +60,9 @@ namespace VerseArenaGrayboxPrivate
 		}
 		if (Material == TEXT("ceiling_panel"))
 		{
-			return FLinearColor(0.07f, 0.07f, 0.075f);
+			return FLinearColor(0.12f, 0.12f, 0.125f);
 		}
-		return FLinearColor(0.11f, 0.11f, 0.11f);
+		return FLinearColor(0.18f, 0.18f, 0.18f);
 	}
 
 	FVector ReadVector(const TSharedPtr<FJsonObject>& Object, const TCHAR* Field)
@@ -106,7 +108,6 @@ AVerseArenaGraybox* AVerseArenaGraybox::BuildIfMissing(UWorld& World)
 		return nullptr;  // the level has its own arena
 	}
 	FActorSpawnParameters Params;
-	Params.Name = TEXT("VerseArenaGraybox");
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	AVerseArenaGraybox* Graybox = World.SpawnActor<AVerseArenaGraybox>(Params);
 	if (Graybox && !Graybox->Build(DefaultJsonPath()))
@@ -207,6 +208,26 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 
 	if (World->GetNetMode() != NM_DedicatedServer)
 	{
+		// Graybox has no bounce-friendly albedo or light cards yet: two shadowless fills keep the
+		// space between the work-light cones readable at the deck's manual exposure (EV100 6-7).
+		const FRotator FillAims[] = {FRotator(-70.0, 35.0, 0.0), FRotator(-20.0, 215.0, 0.0)};
+		const float FillLux[] = {9.f, 3.f};
+		for (int32 Index = 0; Index < 2; ++Index)
+		{
+			if (ADirectionalLight* Fill = World->SpawnActor<ADirectionalLight>(FVector(5000.0, 2400.0, 1500.0), FillAims[Index], Params))
+			{
+				UDirectionalLightComponent* C = CastChecked<UDirectionalLightComponent>(Fill->GetLightComponent());
+				C->SetMobility(EComponentMobility::Movable);
+				C->SetIntensity(FillLux[Index]);
+				C->SetUseTemperature(true);
+				C->SetTemperature(5200.f);
+				C->SetCastShadows(false);
+				C->SetAtmosphereSunLight(false);
+				// The deck's own directional light stays the one for forward shading and fog.
+				C->SetForwardShadingPriority(-1 - Index);
+				Spawned.Add(Fill);
+			}
+		}
 		int32 Shadowed = 0;
 		for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("lights")))
 		{
