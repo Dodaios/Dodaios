@@ -155,6 +155,14 @@ describe("a thread's approval card", () => {
     return ["approval_required", { turn_id: "t1", approval_id: approvalId, call_id: callId, name: "Bash", input: { command }, summary: command }];
   }
 
+  it("sends what the person typed along with a decline", async () => {
+    await openThread();
+    feed([ask("a1", "c1", "rm -rf build")]);
+    fireEvent.change(screen.getByTestId("thread-approval-feedback"), { target: { value: "use git clean instead" } });
+    await act(async () => { fireEvent.click(screen.getByText("Decline")); });
+    expect(api.resolveAgentChatApproval).toHaveBeenCalledWith("s1", "a1", "deny", undefined, "use git clean instead");
+  });
+
   it("closes as soon as the backend took the answer, and stays closed for one click", async () => {
     await openThread();
     feed([ask("a1", "c1", "ls")]);

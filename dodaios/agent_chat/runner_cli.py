@@ -82,12 +82,15 @@ from dodaios.agent_chat.effort import (
     snap_to_ladder,
 )
 from dodaios.agent_chat.events import make_event
-from dodaios.agent_chat.permissions import default_permission, normalize_permission
+from dodaios.agent_chat.permissions import (
+    default_permission,
+    is_permission_mode,
+    normalize_permission,
+)
 from dodaios.agent_chat.questions import (
     CANCELLED,
     DEFAULTED,
     UNATTENDED,
-    TooManyQuestions,
     as_line,
     parse_questions,
     recommended_answer,
@@ -669,22 +672,6 @@ def claude_session_rules(tool_name: str, suggestions: Any) -> list[dict[str, Any
     ]
 
 
-#: Claude Code's own tools that change files or run commands. In "Ask before
-#: acting" (``default``) every call of these must reach the chat's approval
-#: card. Claude Code also loads the person's own settings files, and their
-#: ``permissions.allow`` (``Edit``, ``Write``, ``PowerShell``, …) would let
-#: those calls run without a prompt, so the chat would silently act like
-#: "Bypass". Claude Code evaluates deny, then ask, then allow rules across all
-#: sources: ask rules added for this process (``--settings``) win over any
-#: allow rule without touching the person's files. Their deny rules still win.
-CLAUDE_GATED_TOOLS: Final[tuple[str, ...]] = (
-    "Edit",
-    "Write",
-    "MultiEdit",
-    "NotebookEdit",
-    "Bash",
-    "PowerShell",
-)
 #: The gated tools that Claude Code's "accept edits" mode lets through.
 _CLAUDE_EDIT_TOOLS: Final[frozenset[str]] = frozenset(
     {"Edit", "Write", "MultiEdit", "NotebookEdit"}
@@ -696,24 +683,12 @@ _CLAUDE_SHELL_TOOLS: Final[frozenset[str]] = frozenset({"Bash", "PowerShell"})
 _SHELL_CHAINING: Final[tuple[str, ...]] = (";", "&", "|", "<", ">", "`", "$(", "\n", "\r")
 
 
-def claude_ask_settings(mode: str) -> str | None:
-    """The ``--settings`` JSON that makes ``mode``'s prompts binding, or None.
-
-    Only "Ask before acting" (Claude Code's ``default``) needs it: every other
-    mode either never asks (bypass, auto), changes nothing (plan) or denies
-    what would ask (dontAsk). Bypass therefore behaves exactly as before.
-    """
-    if mode != "default":
-        return None
-    return json.dumps({"permissions": {"ask": list(CLAUDE_GATED_TOOLS)}}, ensure_ascii=False)
-
-
 def claude_rules_cover(rules: Iterable[dict[str, Any]], tool_name: str, tool_input: Any) -> bool:
-    """Whether a rule from an earlier "Always allow" in this process covers a call.
+    """Whether a rule from an earlier "Always allow" in this session covers a call.
 
-    The ask rules of :func:`claude_ask_settings` rank above the session allow
-    rule "Always allow" hands the CLI, so the CLI asks again at the next call;
-    the runner answers that repeat itself. Only what the rule clearly covers
+    Every turn is a new CLI process that has not heard of the session rule an
+    earlier card handed its predecessor, so the runner answers the repeat
+    itself. Only what the rule clearly covers
     is answered: the whole tool, a shell command prefix, or the edit tools of
     an "accept edits" mode. Anything else asks again (the safe side).
     """
@@ -887,10 +862,6 @@ def _plan_claude_code(
         "--permission-mode",
         mode,
     ]
-    ask_settings = claude_ask_settings(mode)
-    if ask_settings:
-        # The person's own allow rules must not turn "Ask" into "Bypass".
-        argv += ["--settings", ask_settings]
     if model:
         argv += ["--model", model]
     if effort:
@@ -3890,7 +3861,8 @@ async def _run_cli_once(
     planned_prompt = plain_chat.cli_prompt(handle, user_text, resume)
     # Set once planning succeeded; an external runtime's plan holds a turn slot.
     plan: CliPlan | None = None
-    if placement is not None and not getattr(handle, "tools_disabled", False):
+    is_thread = getattr(session, "surface", "agent") != "society"
+    if placement is not None and not is_thread and not getattr(handle, "tools_disabled", False):
         # Also refresh resumed conversations which remember the old missing bridge.
         planned_prompt = (
             "<jarvis_remote_context>\n"
@@ -4028,6 +4000,17 @@ async def _run_cli_once(
         from dodaios.agent_chat.remote_cli import RemoteCliUnavailable, spawn
 
         prompt_files: dict[str, str] = {}
+        thread_folder = ""
+        if is_thread:
+            from dodaios.agentic_ide import remote as ide_remote
+            from dodaios.computers.remote_terminal import pool_for
+
+            # The thread's folder goes up first, mapped the way grid panes map it.
+            try:
+                moved = await ide_remote.push_code(pool_for(placement[0]), cwd)
+            except ide_remote.MoveError as exc:
+                return _Outcome("error", str(exc), {}, None, None)
+            thread_folder = moved.remote_folder
         if identity is not None and identity.path is not None:
             try:
                 prompt_files[str(identity.path)] = await asyncio.to_thread(
@@ -4046,7 +4029,8 @@ async def _run_cli_once(
                 env=plan.env,
                 system_prompt_files=prompt_files,
                 session_id=session.session_id,
-                tools_enabled=not getattr(handle, "tools_disabled", False),
+                tools_enabled=not is_thread and not getattr(handle, "tools_disabled", False),
+                remote_cwd_override=thread_folder,
             )
         except RemoteCliUnavailable as exc:
             return _Outcome("error", str(exc), {}, None, None)
@@ -4193,8 +4177,12 @@ async def _drive_cli(
     """
     session = handle.session
     chat_ref = approval_ref(session.session_id)
-    #: The session rules this process was given by "Always allow" (Claude Code).
-    always_rules: list[dict[str, Any]] = []
+    #: The session rules "Always allow" gave this chat (Claude Code), kept
+    #: across turns by the service like a terminal session keeps its own.
+    rules_of = getattr(handle.control_service, "cli_session_rules", None)
+    always_rules: list[dict[str, Any]] = (
+        rules_of(session.session_id) if callable(rules_of) else []
+    )
     status = "done"
     error_text: str | None = None
     vendor_session = plan.vendor_session
@@ -4415,11 +4403,11 @@ async def _drive_cli(
             finally:
                 approval_pending[0] -= 1
                 activity[0] = time.monotonic()
-            message = (
-                "The person declined this action."
-                if decision == "deny"
-                else "The turn was stopped."
-            )
+            message = "The turn was stopped."
+            if decision == "deny":
+                feedback_of = getattr(handle.control_service, "take_deny_feedback", None)
+                said = feedback_of(session.session_id, call_id) if callable(feedback_of) else ""
+                message = said or "The person declined this action."
         if decision in {"allow", "allow_always"}:
             body: dict[str, Any] = {"behavior": "allow", "updatedInput": req.get("input") or {}}
             if decision == "allow_always" and subtype == "can_use_tool":
@@ -4476,13 +4464,15 @@ async def _drive_cli(
         try:
             approval_pending[0] += 1
             try:
-                answers = await ask(session.session_id, specs)
+                # Like the terminal: the card waits for the person, and every ask
+                # of the turn gets one.
+                answers = await ask(session.session_id, specs, timeout_s=None, rationed=False)
             finally:
                 approval_pending[0] -= 1
                 activity[0] = time.monotonic()
-        except (TooManyQuestions, RuntimeError) as exc:
-            # The turn already used its cards (or has none to show): the
-            # agent's own first options stand, exactly as on an unanswered card.
+        except RuntimeError as exc:
+            # The turn has no card to show: the agent's own first options
+            # stand, exactly as on an unanswered card.
             log.info("agent chat %s: question not shown (%s)", handle.turn_id, exc)
             answers = [recommended_answer(spec, UNATTENDED) for spec in specs]
         if any(a.source == CANCELLED for a in answers):
@@ -4503,9 +4493,10 @@ async def _drive_cli(
     async def _leave_plan_mode() -> str:
         """The build mode an approved plan continues in, or "" to leave it to the CLI.
 
-        Coding threads only (``turn_prompts``): the session leaves plan mode
-        for the runner's default, so the next message builds too and the
-        composer's access pick shows it.
+        Coding threads only (``turn_prompts``): the session goes back to the
+        mode it was in before it entered plan mode (the runner's default when
+        that is unknown), so the next message builds too and the composer's
+        access pick shows it.
         """
         from dodaios.agent_chat.surface_kits import kit_for
 
@@ -4513,6 +4504,10 @@ async def _drive_cli(
             return ""
         build = default_permission(runner)
         store = getattr(handle.control_service, "store", None)
+        before_of = getattr(store, "mode_before_plan", None)
+        before = before_of(session.session_id) if callable(before_of) else ""
+        if before and is_permission_mode(runner, before):
+            build = before
         if store is not None and build != session.permission_mode:
             store.update_session(session.session_id, permission_mode=build)
             await handle.emit(make_event("session_updated", {"permission_mode": build}))

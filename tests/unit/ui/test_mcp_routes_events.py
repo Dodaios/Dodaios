@@ -172,3 +172,48 @@ async def test_update_raw_config_starts_newly_enabled_servers_and_syncs_tools() 
     changed = [e for e in bus.published if isinstance(e, BrainToolsChanged)]
     assert len(changed) == 1
     assert changed[0].reason == "mcp_config_raw"
+
+
+async def test_delete_mcp_syncs_tools_and_publishes_brain_tools_changed() -> None:
+    """DELETE /api/mcps/{name} must unregister tools and publish BrainToolsChanged."""
+    from dodaios.core.events import BrainToolsChanged
+    from dodaios.ui.web import mcp_routes
+
+    bus = _FakeBus()
+    stop_mock = AsyncMock(return_value=None)
+    fake_client = SimpleNamespace(_tools_cache=[], is_healthy=True, stop=stop_mock)
+    fake_spec = SimpleNamespace(name="tradingview", mandatory=False)
+    specs = {"tradingview": fake_spec}
+    clients = {"tradingview": fake_client}
+
+    fake_registry = SimpleNamespace(
+        get_spec=lambda n: specs.get(n),
+        active_clients=lambda: dict(clients),
+        load_from_mcp_json=lambda: None,
+        _clients=clients,
+        _specs=specs,
+    )
+    app_state = SimpleNamespace(
+        mcp_registry=fake_registry,
+        tool_registry={},
+        bus=bus,
+        cfg=None,
+    )
+    request = SimpleNamespace(app=SimpleNamespace(state=app_state))
+    sync_mock = AsyncMock(return_value=None)
+
+    with (
+        patch.object(mcp_routes.mcp_state, "get_server_entry", return_value={"command": "python"}),
+        patch.object(mcp_routes.mcp_state, "remove_server", return_value=True),
+        patch.object(mcp_routes, "_sync_tools_for_server", new=sync_mock),
+    ):
+        result = await mcp_routes.delete_mcp("tradingview", request)
+
+    assert result == {"ok": True, "name": "tradingview", "deleted": True}
+    stop_mock.assert_awaited_once()
+    sync_mock.assert_awaited_once_with(request, fake_registry, "tradingview", adding=False)
+    assert "tradingview" not in specs
+    changed = [e for e in bus.published if isinstance(e, BrainToolsChanged)]
+    assert len(changed) == 1
+    assert changed[0].reason == "mcp_deleted:tradingview"
+

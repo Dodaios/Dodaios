@@ -174,6 +174,25 @@ describe("ThreadTree", () => {
     expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null });
   });
 
+  it("opens the search from its own start row and hides that row while search is off", async () => {
+    api.fetchAgentChatSessions.mockResolvedValue([]);
+    const settings = (await import("@/store/quickSwitchSettings")).useQuickSwitchSettings;
+    const switcher = (await import("@/store/quickSwitcher")).useQuickSwitcher;
+    const enabled = settings.getState().enabled;
+    try {
+      settings.setState({ enabled: true });
+      const view = render(<ThreadTree />);
+      fireEvent.click(screen.getByTestId("thread-tree-search"));
+      expect(switcher.getState().open).toBe(true);
+      switcher.getState().hide();
+      act(() => settings.setState({ enabled: false }));
+      view.rerender(<ThreadTree />);
+      expect(screen.queryByTestId("thread-tree-search")).toBeNull();
+    } finally {
+      settings.setState({ enabled });
+    }
+  });
+
   it("archives a thread from its menu and brings it back from the project's archive", async () => {
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow({ cli_title: "Fix login test" })]);
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });

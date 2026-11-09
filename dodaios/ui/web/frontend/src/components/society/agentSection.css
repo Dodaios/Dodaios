@@ -123,6 +123,24 @@
   padding-top: var(--as-caption-gap, 0px);
 }
 
+/* The chat column is the exception: its conversation scrolls up to the
+   window's top edge, under the caption, instead of ending at an invisible
+   strip. The transcript starts its first line clear of the caption and of
+   whatever floats over it (AgentChatPanel's ChatTopChrome), and a side
+   panel inside the column keeps the caption clear itself. */
+.as-shell > .as-region.as-stage {
+  padding-top: 0;
+}
+
+.as-shell > .as-stage .chat-top-chrome,
+.as-shell > .as-stage .work-inspector {
+  padding-top: var(--as-caption-gap, 0px);
+}
+
+.as-shell > .as-stage .routine-chat {
+  padding-top: calc(var(--as-caption-gap, 0px) + 1rem);
+}
+
 /* The pane's content draws its own edge (the details rail has a left border). */
 .as-pane {
   background: hsl(var(--sidebar));

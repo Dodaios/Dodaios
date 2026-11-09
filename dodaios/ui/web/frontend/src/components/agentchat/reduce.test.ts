@@ -7,6 +7,7 @@ import {
   reduceEvents,
   runningTurn,
   settleApproval,
+  stopTurnLocally,
   type ToolBlock,
   type TurnItem,
   type UserItem,
@@ -30,6 +31,23 @@ describe("agent-chat reduce", () => {
     expect(live).toEqual(replay);
     expect(live.items[0]).toMatchObject({ status, error: null, durationMs: 1993344, usage: { output_tokens: 12 }, costUsd: 0.01 });
     expect(live.lastSeq).toBe(late.seq);
+  });
+
+  it("closes a stopped turn at once and lets the backend's own end replace it", () => {
+    const working = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "stop" }),
+      ev("assistant_text", { turn_id: "stop", text: "Reading files" }),
+    ]);
+    const stopped = stopTurnLocally(working, "stop", 5_000);
+    expect(runningTurn(stopped)).toBeNull();
+    expect(stopped.items.at(-1)).toMatchObject({ status: "cancelled", provisional: true });
+    expect(stopped.lastSeq).toBe(working.lastSeq);
+    const confirmed = reduceEvent(stopped, ev("turn_finished", { turn_id: "stop", status: "cancelled", duration_ms: 4_200, usage: { output_tokens: 7 } }));
+    const turn = confirmed.items.at(-1) as TurnItem;
+    expect(turn).toMatchObject({ status: "cancelled", durationMs: 4_200, usage: { output_tokens: 7 } });
+    expect(turn.provisional).toBeUndefined();
+    // Settled for real now: a late duplicate changes nothing.
+    expect(reduceEvent(confirmed, ev("turn_finished", { turn_id: "stop", status: "error", error: "late" })).items).toEqual(confirmed.items);
   });
 
   it("shows a real timeout even when partial text sounds final", () => {

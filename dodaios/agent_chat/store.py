@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS agent_chat_sessions (
     preview          TEXT NOT NULL DEFAULT '',
     surface          TEXT NOT NULL DEFAULT 'agent',
     account_id       TEXT NOT NULL DEFAULT '',
-    runtime          TEXT NOT NULL DEFAULT ''
+    runtime          TEXT NOT NULL DEFAULT '',
+    computer_id      TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS agent_chat_events (
     session_id  TEXT NOT NULL,
@@ -84,6 +85,12 @@ CREATE TABLE IF NOT EXISTS jarvis_chat_selection (
     model       TEXT NOT NULL DEFAULT '',
     effort      TEXT NOT NULL DEFAULT '',
     account_id  TEXT NOT NULL DEFAULT ''
+);
+-- The lead's one endless conversation: the chat session that every
+-- typed turn, voice call, agent report and notice of the lead lands in.
+CREATE TABLE IF NOT EXISTS jarvis_lead_session (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    session_id  TEXT NOT NULL
 );
 """
 
@@ -146,6 +153,9 @@ class AgentChatSession:
     #: A society agent's external runtime (``hermes`` / ``openclaw``,
     #: ``docs/agent-runtimes.md``); empty = the provider picks the runner.
     runtime: str = ""
+    #: A coding thread's placement: the connected computer its turns run on
+    #: (``dodaios.computers``); empty = this computer.
+    computer_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -168,6 +178,8 @@ class AgentChatStore:
         self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
+        #: The mode a session was in before it entered plan mode (this run only).
+        self._mode_before_plan: dict[str, str] = {}
         with self._lock:
             if self._path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
@@ -202,6 +214,12 @@ class AgentChatStore:
             # the provider decides the runner (the pre-column behaviour).
             self._conn.execute(
                 "ALTER TABLE agent_chat_sessions ADD COLUMN runtime TEXT NOT NULL DEFAULT ''"
+            )
+
+        if "computer_id" not in have:
+            # A coding thread's placement; empty = this computer.
+            self._conn.execute(
+                "ALTER TABLE agent_chat_sessions ADD COLUMN computer_id TEXT NOT NULL DEFAULT ''"
             )
 
     def close(self) -> None:
@@ -246,6 +264,25 @@ class AgentChatStore:
             )
             self._conn.commit()
 
+    # --------------------------------------------------------- lead thread
+
+    def lead_session_id(self) -> str | None:
+        """The id of the lead's one conversation, once it was chosen."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT session_id FROM jarvis_lead_session WHERE id = 1"
+            ).fetchone()
+        return str(row["session_id"]) if row else None
+
+    def set_lead_session_id(self, session_id: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO jarvis_lead_session (id, session_id) VALUES (1, ?) "
+                "ON CONFLICT(id) DO UPDATE SET session_id=excluded.session_id",
+                (session_id,),
+            )
+            self._conn.commit()
+
     # ------------------------------------------------------------ sessions
 
     def create_session(
@@ -261,6 +298,7 @@ class AgentChatStore:
         surface: str = DEFAULT_SURFACE,
         account_id: str = "",
         runtime: str = "",
+        computer_id: str = "",
     ) -> AgentChatSession:
         if surface not in SURFACES:
             raise ValueError(f"surface must be one of {SURFACES}, not {surface!r}")
@@ -273,8 +311,8 @@ class AgentChatStore:
             self._conn.execute(
                 "INSERT INTO agent_chat_sessions (session_id, title, provider, model, effort, "
                 "cwd, permission_mode, vendor_session, created_ms, updated_ms, message_count, "
-                "preview, surface, account_id, runtime) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?)",
+                "preview, surface, account_id, runtime, computer_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?, ?)",
                 (
                     sid,
                     title,
@@ -288,6 +326,7 @@ class AgentChatStore:
                     surface,
                     account_id,
                     runtime,
+                    computer_id,
                 ),
             )
             self._conn.commit()
@@ -368,6 +407,7 @@ class AgentChatStore:
             "vendor_session",
             "account_id",
             "runtime",
+            "computer_id",
         }
         updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not updates:
@@ -375,12 +415,24 @@ class AgentChatStore:
         updates["updated_ms"] = now_ms()
         cols = ", ".join(f"{k} = ?" for k in updates)
         with self._lock:
+            if updates.get("permission_mode") == "plan":
+                row = self._conn.execute(
+                    "SELECT permission_mode FROM agent_chat_sessions WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone()
+                if row is not None and row[0] not in ("plan", "read-only"):
+                    self._mode_before_plan[session_id] = str(row[0])
             self._conn.execute(
                 f"UPDATE agent_chat_sessions SET {cols} WHERE session_id = ?",  # noqa: S608 — column names are from the allow-list above
                 (*updates.values(), session_id),
             )
             self._conn.commit()
         return self.get_session(session_id)
+
+    def mode_before_plan(self, session_id: str) -> str:
+        """The mode the session was in before it entered plan mode, or "" if unknown."""
+        with self._lock:
+            return self._mode_before_plan.get(session_id, "")
 
     def permission_override(self, session_id: str) -> str:
         """The user's explicit stance, separate from a Society roster ceiling."""
@@ -758,4 +810,5 @@ class AgentChatStore:
             surface=str(row["surface"] or DEFAULT_SURFACE),
             account_id=str(row["account_id"] or "") if "account_id" in row.keys() else "",
             runtime=str(row["runtime"] or "") if "runtime" in row.keys() else "",
+            computer_id=str(row["computer_id"] or "") if "computer_id" in row.keys() else "",
         )

@@ -96,7 +96,9 @@ export function reduceLiveReply(current: string, name: string, payload: unknown)
 }
 
 export const useHomeStore = create<HomeStore>((set, get) => ({
-  jarvisCardMode: "voice",
+  // The lead's card opens on the conversation; the call button in its
+  // composer (or a wake word) shows the call while it runs.
+  jarvisCardMode: "chat",
   setJarvisCardMode: (jarvisCardMode) => set({ jarvisCardMode }),
   agentChatId: null,
   openAgentChat: (agentChatId) => set({ agentChatId }),
@@ -150,9 +152,10 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
         }
         events.setTranscription("", true);
         // Remember this even while the card is closed. Returning to Jarvis
-        // must not restore the last archive selection or the typed surface.
+        // must not restore the last archive selection. The call is over, so
+        // the lead's card goes back to the conversation.
         set({
-          transcript: [], liveReply: "", jarvisCardMode: "voice",
+          transcript: [], liveReply: "", jarvisCardMode: "chat",
           continuedVoiceId: get().voiceSwitchStopping ? get().continuedVoiceId : null,
           freshVoicePending: !get().voiceSwitchStopping,
           voiceSelectionPending: get().voiceSwitchStopping && get().voiceSelectionPending,
@@ -167,6 +170,8 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       const continued = get().continuedVoiceId;
       set({
         freshVoicePending: false,
+        // The lead's card shows a running call, however it was started.
+        jarvisCardMode: "voice",
         liveSessionId: sessionId,
         liveConversationId: continued && events.activeKind === "voice" && events.activeThreadId === continued
           ? continued : sessionId,

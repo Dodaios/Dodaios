@@ -200,6 +200,8 @@ class VerseHost:
             feats.remove("panel")
         if self.backend.duel_service() is not None:
             feats.insert(feats.index("companion"), "duel_stats")
+        # welcome.settings.game and its settings.changed / settings.set subsets.
+        feats.append("game_settings")
         return feats
 
     def _welcome(self, session: BridgeSession) -> dict[str, Any]:

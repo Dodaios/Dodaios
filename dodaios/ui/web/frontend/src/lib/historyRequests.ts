@@ -1,3 +1,6 @@
+/** `Error.name` of a read whose every response was invalidated while in flight. */
+export const HISTORY_CHANGED = "HistoryChangedError";
+
 /** Shared in-flight history reads, never a completed-data or credential cache. */
 export function createHistoryRequests<T>() {
   const pending = new Map<string, { revision: number; promise: Promise<T> }>();
@@ -31,7 +34,11 @@ export function createHistoryRequests<T>() {
             clearTimeout(timeout);
           }
         }
-        throw new Error("History changed during refresh; retry on the next poll.");
+        // Named so a caller can ask again shortly instead of waiting for its
+        // next poll: the refresh that asked for this read is otherwise lost.
+        const changed = new Error("History changed during refresh; retry on the next poll.");
+        changed.name = HISTORY_CHANGED;
+        throw changed;
       })().finally(() => {
         if (pending.get(key) === entry) pending.delete(key);
       });
