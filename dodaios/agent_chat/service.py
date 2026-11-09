@@ -1396,6 +1396,35 @@ class AgentChatService:
                         display_text = text
             # A plain chat shows its pictures to the model itself.
             images: tuple[str, ...] = ()
+            native_pictures = False
+            if attached and not kit.plain and session.surface != "jarvis":
+                from dodaios.agent_chat import plain_chat
+
+                # A coding thread's CLI sees the pictures itself (Claude Code and
+                # GLM as image blocks, Codex through ``--image``), so no vision
+                # description is needed and the 4-picture cap does not apply. The
+                # file path stays in the text for the CLI's tools.
+                if (selected_runner or session_runner(session)) in plain_chat.NATIVE_IMAGE_RUNNERS:
+                    found = await asyncio.to_thread(
+                        plain_chat.image_paths, session.cwd, attached, limit=None
+                    )
+                    images = tuple(str(path) for path in found)
+                    native_pictures = bool(images)
+            if native_pictures:
+                from dodaios.agentic_ide import drops as _drops
+
+                sent = set(images)
+                attached = [
+                    replace(
+                        a, detail="", described_by="none",
+                        note="Attached to this message as an image; look at it directly.",
+                    )
+                    if getattr(a, "kind", "") == "image"
+                    and str(Path(session.cwd) / _drops.dereference(str(a.reference))) in sent
+                    else a
+                    for a in attached
+                ]
+                prompt = chat_attachments.compose(text, attached)
             if attached and kit.plain:
                 from dodaios.agent_chat import plain_chat
 

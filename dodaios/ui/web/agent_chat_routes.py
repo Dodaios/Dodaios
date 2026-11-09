@@ -1749,6 +1749,13 @@ async def attach_files(
             uploads=uploads,
             provider=provider,
             always_copy=bool(voice_session_id),
+            # These CLIs get the picture itself with the message, so a vision
+            # description (and its 4-picture cap) would only be a worse copy.
+            describe_images=not (
+                provider in {"claude", "codex", "glm"}
+                and not voice_session_id
+                and surface != "jarvis"
+            ),
         )
     except chat_attachments.AttachmentError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

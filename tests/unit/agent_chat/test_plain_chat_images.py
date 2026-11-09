@@ -167,8 +167,8 @@ async def test_an_api_seat_sees_the_picture_when_its_model_can(
         store.close()
 
 
-@pytest.mark.parametrize(("surface", "handed"), [("side", True), ("agent", False)])
-async def test_the_service_hands_pictures_to_a_plain_chat_only(
+@pytest.mark.parametrize(("surface", "handed"), [("side", True), ("agent", True)])
+async def test_the_service_hands_pictures_to_a_native_cli(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, surface: str, handed: bool
 ) -> None:
     seen: list[tuple[str, ...]] = []
@@ -198,3 +198,26 @@ async def test_the_service_hands_pictures_to_a_plain_chat_only(
         assert seen == [expected]
     finally:
         store.close()
+
+
+def test_image_paths_limit_none_lifts_the_cap(tmp_path):
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import plain_chat
+
+    items = []
+    for n in range(12):
+        (tmp_path / f"p{n}.png").write_bytes(b"x")
+        items.append(SimpleNamespace(kind="image", reference=f'"p{n}.png"'))
+    assert len(plain_chat.image_paths(tmp_path, items)) == plain_chat.MAX_IMAGES
+    assert len(plain_chat.image_paths(tmp_path, items, limit=None)) == 12
+
+
+def test_glm_takes_claude_image_blocks():
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import plain_chat
+
+    plan = SimpleNamespace(shape="claude", stdin_text="", argv=[])
+    assert plain_chat.attach_images(plan, "glm-cli", []) is False
+    assert "glm-cli" in plain_chat.NATIVE_IMAGE_RUNNERS
