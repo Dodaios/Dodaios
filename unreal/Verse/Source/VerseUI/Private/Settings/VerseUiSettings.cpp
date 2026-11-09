@@ -349,3 +349,25 @@ EVerseUiCommand FVerseKeyMap::Route(const FKey& Key) const
 	}
 	return EVerseUiCommand::None;
 }
+
+int32 FVerseRenderTier::Resolve(int32 Choice, int32 EngineLevel)
+{
+	if (Choice >= 0 && Choice <= 4)
+	{
+		return Choice;
+	}
+	return EngineLevel >= 0 && EngineLevel <= 4 ? EngineLevel : -1;
+}
+
+const TCHAR* FVerseRenderTier::KeyFor(int32 Level)
+{
+	switch (Level)
+	{
+	case 0: return TEXT("verse.settings.quality.low");
+	case 1: return TEXT("verse.settings.quality.medium");
+	case 2: return TEXT("verse.settings.quality.high");
+	case 3: return TEXT("verse.settings.quality.epic");
+	case 4: return TEXT("verse.settings.quality.cinematic");
+	default: return TEXT("verse.settings.quality.custom");
+	}
+}
