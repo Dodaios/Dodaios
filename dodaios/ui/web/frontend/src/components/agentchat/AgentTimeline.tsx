@@ -1,8 +1,7 @@
 import { Fragment, memo, useMemo, type ReactNode } from "react";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
 import { CircleAlert, FileText, ImageIcon } from "lucide-react";
-import type { InternalParticipant } from "./InternalMessageBubble";
-import { InternalMessageRun, groupInternalRuns, type InternalRunItem } from "./InternalMessageRun";
+import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFace } from "./InternalMessageRun";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
@@ -40,7 +39,7 @@ export function AgentTimeline({
   /** Who an internal agent message was sent to — the chat owner (defaults to the assistant). */
   recipientName?: string;
   /** Sender faces by agent id, where the caller has a roster. */
-  agentsById?: Record<string, InternalParticipant>;
+  agentsById?: Record<string, RunFace>;
   /**
    * The front page's conversation look (2026-10-01):
    * your words in a soft rounded bubble on the right, the assistant's answer

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import en from "@/i18n/locales/en.json";
 
-import { InternalMessageRun, groupInternalRuns, runCounterparts, type InternalRunItem } from "./InternalMessageRun";
+import { InternalMessageRun, groupInternalRuns, rosterFaces, runCounterparts, type InternalRunItem } from "./InternalMessageRun";
 import type { InternalMessageItem, TimelineItem } from "./reduce";
 
 vi.mock("@/i18n", () => ({
@@ -70,4 +70,19 @@ it("reads 'N messages with A and B', reports failures, and unfolds the messages 
   expect(screen.getByText("· 1 failed")).toBeTruthy();
   fireEvent.click(screen.getByTestId("agent-message-run-toggle"));
   expect(screen.getAllByTestId("agent-message-internal")).toHaveLength(3);
+});
+
+it("draws each counterpart from the roster: its own name and identity, so its own pet", () => {
+  const roster = [
+    { agentId: "viral-marketing", name: "Viral Marketing", tier: "specialist" as const, figure: null, palette: { primary: "#111", secondary: "#222", accent: "#333" } },
+    { agentId: "jarvis", name: "Jarvis", tier: "lead" as const, figure: null, palette: { primary: "#111", secondary: "#222", accent: "#333" } },
+  ];
+  const faces = rosterFaces(roster, (agent) => (agent.tier === "lead" ? "George" : agent.name));
+  expect(faces["viral-marketing"].agentId).toBe("viral-marketing");
+  expect(faces.jarvis.name).toBe("George");
+  render(<InternalMessageRun agentsById={faces} run={{ type: "internal_run", id: "a", items: [
+    { ...msg("a", 1, "Viral Marketing"), message: { ...msg("a", 1, "x").message, sender_id: "viral-marketing", sender_name: "old name" } },
+  ] }} />);
+  expect(screen.getByText("Message from")).toBeTruthy();
+  expect(screen.getByText("Viral Marketing")).toBeTruthy();
 });
