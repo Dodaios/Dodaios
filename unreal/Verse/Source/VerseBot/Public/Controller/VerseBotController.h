@@ -129,6 +129,7 @@ private:
 	float NextDiagnosticS = 0.f;
 	int32 DiagFrames = 0;
 	int32 DiagRealFrames = 0;
+	int32 LastStuckEvents = 0;
 	int32 DiagSightFrames = 0;
 	int32 DiagHeardFrames = 0;
 	int32 DiagFireFrames = 0;

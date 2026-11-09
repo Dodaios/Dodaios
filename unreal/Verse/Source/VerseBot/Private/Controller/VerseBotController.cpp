@@ -210,6 +210,18 @@ void AVerseBotController::LogDiagnostics(const FVersePerceptFrame& Frame, const 
 		*P.BeliefTop.ToCompactString(), Own ? *Own->GetActorLocation().ToCompactString() : TEXT("-"), DiagFrames, DiagRealFrames, DiagSightFrames,
 		DiagHeardFrames, DiagFireFrames, Brain->FireWantTicks, Brain->FireUnclassifiedTicks, Brain->FireUnaimedTicks, bArenaAttached ? 1 : 0);
 	Brain->FireWantTicks = Brain->FireUnclassifiedTicks = Brain->FireUnaimedTicks = 0;
+	if (Brain->GetStuckEvents() > 0)
+	{
+		FString Stuck;
+		for (int32 I = 0; I < VerseBot::NumStates; ++I)
+		{
+			if (Brain->GetStuckByState()[I] > 0)
+			{
+				Stuck += FString::Printf(TEXT(" %s=%d"), VerseBot::StateName(EVerseBotState(I)), Brain->GetStuckByState()[I]);
+			}
+		}
+		UE_LOG(LogVerseBot, Log, TEXT("[VerseBot] %s stuck events %d:%s"), *GetName(), Brain->GetStuckEvents(), *Stuck);
+	}
 	DiagFrames = DiagRealFrames = DiagSightFrames = DiagHeardFrames = DiagFireFrames = 0;
 	if (GridBelief && !BeliefPngDir.IsEmpty())
 	{
@@ -405,6 +417,14 @@ void AVerseBotController::Tick(float DeltaSeconds)
 	if (GetPawn())
 	{
 		ApplyInput(Input);
+	}
+	if (Brain->GetStuckEvents() != LastStuckEvents)
+	{
+		LastStuckEvents = Brain->GetStuckEvents();
+		const APawn* Own = GetPawn();
+		UE_LOG(LogVerseBot, Log, TEXT("[VerseBot] %s stuck at %s in %s, move %s"), *GetName(),
+			Own ? *Own->GetActorLocation().ToCompactString() : TEXT("-"), *Brain->GetPresentation().StateTag.ToString(),
+			*FVector(Input.Move.X, Input.Move.Y, 0.f).ToCompactString());
 	}
 	LogDiagnostics(Frame, Input);
 }
