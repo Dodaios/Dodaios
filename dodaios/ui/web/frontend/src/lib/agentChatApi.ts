@@ -245,7 +245,7 @@ export class AgentChatApiError extends Error {
   }
 }
 
-async function json<T>(res: Response, what: string): Promise<T> {
+export async function json<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) {
     let detail = what;
     let code = "";
@@ -420,40 +420,6 @@ export interface CreateSessionInput {
   computer_id?: string;
   /** Continue an existing Claude Code / Codex session (a uuid). */
   vendor_session?: string;
-}
-
-/** A thread that continues the conversation a grid pane is having. */
-export async function threadFromTerminal(
-  name: string,
-  workspaceId?: string | null,
-): Promise<AgentChatSession> {
-  const session = await json<AgentChatSession>(
-    await fetch("/api/agent-chat/sessions/from-terminal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, workspace_id: workspaceId ?? null }),
-    }),
-    "create-failed",
-  );
-  invalidateAgentChatSessions();
-  return session;
-}
-
-/** Copy a thread into a new one, optionally in a fresh git worktree. */
-export async function forkAgentChatSession(
-  sessionId: string,
-  input: { worktree?: boolean; name?: string; title?: string } = {},
-): Promise<AgentChatSession> {
-  const session = await json<AgentChatSession>(
-    await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/fork`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    }),
-    "fork-failed",
-  );
-  invalidateAgentChatSessions();
-  return session;
 }
 
 export async function createAgentChatSession(input: CreateSessionInput): Promise<AgentChatSession> {

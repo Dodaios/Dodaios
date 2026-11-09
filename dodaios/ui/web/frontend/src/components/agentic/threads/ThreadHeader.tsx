@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Archive, Check, FileDiff, FolderGit2, GitBranch, GitFork, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, SquarePlus, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
-import { forkAgentChatSession, patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
+import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
 import { fill, loadLocaleChunk, useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
@@ -90,6 +90,7 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
   };
   const fork = async (worktree: boolean) => {
     try {
+      const { forkAgentChatSession } = await import("@/lib/threadSessionsApi");
       const copy = await forkAgentChatSession(session.session_id, { worktree, title: fill(t("ide_threads.fork_title"), { thread: title }) });
       await useThreadChatStore.getState().loadSessions();
       useIdeThreadsStore.getState().openThread(copy.session_id, projectId);

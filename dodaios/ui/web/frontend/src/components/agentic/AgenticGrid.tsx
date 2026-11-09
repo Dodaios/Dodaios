@@ -1474,7 +1474,7 @@ export function AgenticGrid({
       try {
         // Loaded on use: the thread modules stay out of the startup bundle.
         const [{ threadFromTerminal }, { useThreadChatStore }, { openCodingThread }] = await Promise.all([
-          import("@/lib/agentChatApi"),
+          import("@/lib/threadSessionsApi"),
           import("@/components/agentic/threads/threadModel"),
           import("@/components/agentic/threads/openCodingThread"),
         ]);
