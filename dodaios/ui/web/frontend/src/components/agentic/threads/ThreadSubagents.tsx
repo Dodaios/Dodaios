@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bot, Check, ChevronRight, CircleSlash, Loader2, MessageSquare, ShieldAlert, X } from "lucide-react";
+import { ArrowLeft, Bot, Check, ChevronDown, ChevronRight, ChevronUp, CircleSlash, Loader2, MessageSquare, ShieldAlert, X } from "lucide-react";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import type { SubagentStatus, ToolBlock, TurnItem } from "@/components/agentchat/reduce";
 import { traceDuration } from "@/components/agentchat/traceEntries";
@@ -9,8 +9,9 @@ import { shortCount, subagentCounts, subagentEntry, type SubagentEntry } from ".
 
 /**
  * A thread's sub-agents on screen: a card where the main agent spawned one,
- * a switcher above the conversation that counts them and opens any of them,
- * and the header of an opened sub-agent's own conversation.
+ * a compact group where it spawned several, a dock above the composer that
+ * keeps the working ones in reach, and the header of an opened sub-agent's
+ * own conversation.
  */
 
 /**
@@ -130,55 +131,181 @@ function SubagentCardBody({ entry, running }: { entry: SubagentEntry; running: b
   </>;
 }
 
-/** "3 sub-agents · 2 working · 1 waiting" — the switcher's own count. */
+/** "3 sub-agents · 2 working · 1 waiting" — the count a group and the dock show. */
 export function subagentSummary(entries: readonly SubagentEntry[]): string {
   const counts = subagentCounts(entries);
   const parts = [fill(translate(counts.total === 1 ? "ide_threads.subagents_one" : "ide_threads.subagents_other"), { count: counts.total })];
   if (counts.running) parts.push(fill(translate("ide_threads.count_working"), { count: counts.running }));
   if (counts.waiting) parts.push(fill(translate("ide_threads.count_waiting"), { count: counts.waiting }));
   if (counts.failed) parts.push(fill(translate("ide_threads.count_failed"), { count: counts.failed }));
+  const done = entries.filter((entry) => entry.status === "done").length;
+  if (done && done < counts.total) parts.push(fill(translate("ide_threads.count_done"), { count: done }));
   return parts.join(" · ");
 }
 
+/** How many rows a long list shows before "Show all"; working and waiting ones always show. */
+const FOLDED_ROWS = 5;
+
+function active(entry: SubagentEntry): boolean {
+  return entry.status === "running" || entry.waiting;
+}
+
+/** The first rows of a long list, plus every one still working, waiting, failed or open. */
+export function foldedEntries<T extends SubagentEntry>(entries: readonly T[], openId: string | null, all: boolean): T[] {
+  if (all || entries.length <= FOLDED_ROWS + 1) return [...entries];
+  return entries.filter((entry, index) => index < FOLDED_ROWS || active(entry) || entry.status === "failed" || entry.id === openId);
+}
+
 /**
- * The switcher above the conversation: the main thread first, then every
- * sub-agent the thread spawned — nested ones after their parent — each with
- * its state. The open one is marked; a click switches the conversation.
+ * The batch the dock is about: the sub-agents of every turn that still has
+ * one working or waiting, else those of the turn whose sub-agent is open.
+ * Agents of earlier turns stay in their groups and the sidebar.
  */
-export function SubagentSwitcher({ entries, openId, onOpen }: {
+export function dockEntries(entries: readonly SubagentEntry[], openId: string | null): SubagentEntry[] {
+  const turns = new Set(entries.filter(active).map((entry) => entry.turnId));
+  if (!turns.size && openId !== null) {
+    const open = entries.find((entry) => entry.id === openId);
+    if (open) turns.add(open.turnId);
+  }
+  return entries.filter((entry) => turns.has(entry.turnId));
+}
+
+/**
+ * How the sub-agents stand as one thin bar: done, failed, waiting and
+ * working each take their share, so a glance tells how far the batch is.
+ */
+export function SubagentProgress({ entries, className }: { entries: readonly SubagentEntry[]; className?: string }) {
+  if (entries.length === 0) return null;
+  const parts = [
+    { key: "done", count: entries.filter((e) => e.status === "done").length, tone: "bg-success" },
+    { key: "failed", count: entries.filter((e) => e.status === "failed").length, tone: "bg-destructive" },
+    { key: "waiting", count: entries.filter((e) => e.status === "running" && e.waiting).length, tone: "bg-warning" },
+    { key: "running", count: entries.filter((e) => e.status === "running" && !e.waiting).length, tone: "bg-foreground/35 animate-pulse" },
+    { key: "stopped", count: entries.filter((e) => e.status === "stopped").length, tone: "bg-muted-foreground/30" },
+  ].filter((part) => part.count > 0);
+  return <span aria-hidden data-testid="thread-subagent-progress" className={cn("flex h-1 overflow-hidden rounded-full bg-secondary", className)}>
+    {parts.map((part) => <span key={part.key} data-part={part.key} className={part.tone} style={{ width: `${(part.count / entries.length) * 100}%` }} />)}
+  </span>;
+}
+
+/**
+ * One sub-agent on one line: its state, its name, what it does now or how
+ * it ended, and what it spent. A click opens its conversation where one can
+ * be opened. Many of them read as a list, not as a wall of cards.
+ */
+export function SubagentLine({ entry, onOpen, current = false, indent = 0 }: {
+  entry: SubagentEntry;
+  onOpen: ((id: string) => void) | null;
+  current?: boolean;
+  /** Levels of nesting below the list's own sub-agents. */
+  indent?: number;
+}) {
+  const t = useT();
+  const running = entry.status === "running";
+  const body = <>
+    <SubagentMark status={entry.status} waiting={entry.waiting} />
+    <span className={cn("min-w-0 max-w-[45%] shrink-0 truncate font-medium", current ? "text-foreground-strong" : "text-foreground")}>{entry.title}</span>
+    {entry.agentType && <span className="hidden shrink-0 rounded border border-border px-1 text-[10.5px] leading-4 text-muted-foreground sm:inline">{entry.agentType}</span>}
+    <span className={cn("min-w-0 flex-1 truncate text-muted-foreground", running && !entry.waiting && "live-tool-shine", entry.waiting && "text-warning", entry.status === "failed" && "text-destructive")}>{statusLine(entry)}</span>
+    <span className="hidden shrink-0 text-[11px] text-muted-foreground md:inline"><SubagentMeta entry={entry} /></span>
+  </>;
+  const row = "group/line flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left text-[13px]";
+  const style = indent ? { paddingLeft: 8 + indent * 14 } : undefined;
+  if (!onOpen) return <div className={row} style={style} data-testid="thread-subagent-row" data-status={entry.status}>{body}</div>;
+  return <button type="button" onClick={() => onOpen(entry.id)} style={style} aria-current={current || undefined}
+    title={entry.prompt || entry.title} data-testid="thread-subagent-row" data-status={entry.status}
+    aria-label={fill(t("ide_threads.open_subagent"), { title: entry.title, status: t(STATUS_WORD[entry.status]).toLowerCase() })}
+    className={cn(row, "transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", current && "bg-secondary")}>
+    {body}
+    <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-colors group-hover/line:text-foreground" />
+  </button>;
+}
+
+function ShowAll({ all, count, onToggle }: { all: boolean; count: number; onToggle: () => void }) {
+  const t = useT();
+  return <button type="button" onClick={onToggle} data-testid="thread-subagent-show-all"
+    className="flex min-h-7 w-full items-center rounded-md px-2 text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    {all ? t("ide_threads.show_less") : fill(t("ide_threads.show_all_agents"), { count })}
+  </button>;
+}
+
+/**
+ * Several sub-agents spawned together, read as one block: a header that
+ * counts them and shows how far they are, then one line each. It stays open
+ * while any of them works or waits and folds to its header once all have
+ * ended, unless the person opened or closed it themselves.
+ */
+export function SubagentGroup({ blocks, turn }: { blocks: readonly ToolBlock[]; turn: TurnItem }) {
+  const t = useT();
+  const open = useContext(OpenSubagent);
+  const entries = useMemo(() => blocks.map((block) => subagentEntry(block, turn)), [blocks, turn]);
+  const busy = entries.some(active);
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  const [all, setAll] = useState(false);
+  const expanded = chosen ?? busy;
+  const shown = foldedEntries(entries, null, all);
+  const hidden = entries.length - shown.length;
+  return <section data-testid="thread-subagent-group" aria-label={t("ide_threads.subagents_aria")}
+    className="overflow-hidden rounded-xl border border-border bg-card">
+    <button type="button" aria-expanded={expanded} onClick={() => setChosen(!expanded)} data-testid="thread-subagent-group-toggle"
+      className="flex w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+      <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary text-foreground-secondary">
+        <Bot className="h-3.5 w-3.5" strokeWidth={1.75} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={cn("block truncate text-sm text-foreground-strong", busy && "live-tool-shine")} data-testid="thread-subagent-group-count">{subagentSummary(entries)}</span>
+        <SubagentProgress entries={entries} className="mt-1.5 max-w-[14rem]" />
+      </span>
+      <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150", !expanded && "-rotate-90")} />
+    </button>
+    {expanded && <div className="border-t border-border/70 px-1 py-1" data-testid="thread-subagent-group-rows">
+      {shown.map((entry) => <SubagentLine key={entry.id} entry={entry} onOpen={open} />)}
+      {(hidden > 0 || all) && <ShowAll all={all} count={entries.length} onToggle={() => setAll(!all)} />}
+    </div>}
+  </section>;
+}
+
+/**
+ * The thread's sub-agents above the composer, the way a coding app keeps its
+ * running agents in reach: one quiet bar that counts them and shows how far
+ * they are, and a list that opens any of them. It shows while one still
+ * works or waits, or while a sub-agent's conversation is open (it is the way
+ * back to the main thread); once all have ended, the groups in the
+ * conversation and the sidebar keep them.
+ */
+export function SubagentDock({ entries: thread, openId, onOpen }: {
   entries: readonly SubagentEntry[];
   openId: string | null;
   onOpen: (id: string | null) => void;
 }) {
   const t = useT();
-  const strip = useRef<HTMLDivElement | null>(null);
-  // The open tab stays in view when the list is wider than the column.
-  useEffect(() => {
-    const active = strip.current?.querySelector<HTMLElement>("[aria-current=true]");
-    active?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-  }, [openId]);
-  if (entries.length === 0) return null;
-  const tab = (active: boolean) => cn(
-    "flex h-7 max-w-[15rem] shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-    active ? "bg-secondary text-foreground-strong" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-  );
-  return <nav aria-label={t("ide_threads.subagents_aria")} data-testid="thread-subagent-switcher"
-    className="flex min-w-0 items-center gap-2 border-b border-border/70 bg-background px-3 py-1.5">
-    <div ref={strip} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <button type="button" aria-current={openId === null} onClick={() => onOpen(null)} className={tab(openId === null)} data-testid="thread-subagent-main">
-        <MessageSquare aria-hidden className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{t("ide_threads.main_thread")}</span>
-      </button>
-      <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
-      {entries.map((entry) => <button key={entry.id} type="button" aria-current={openId === entry.id} onClick={() => onOpen(entry.id)}
-        title={entry.prompt || entry.title} className={tab(openId === entry.id)} data-testid="thread-subagent-tab" data-status={entry.status}>
-        {entry.depth > 0 && <span aria-hidden className="shrink-0 text-muted-foreground/60">{"›".repeat(entry.depth)}</span>}
-        <SubagentMark status={entry.status} waiting={entry.waiting} />
-        <span className="truncate">{entry.title}</span>
-      </button>)}
-    </div>
-    <span className="hidden shrink-0 text-xs tabular-nums text-muted-foreground md:inline" data-testid="thread-subagent-count">{subagentSummary(entries)}</span>
-  </nav>;
+  const [expanded, setExpanded] = useState(false);
+  const [all, setAll] = useState(false);
+  const entries = useMemo(() => dockEntries(thread, openId), [thread, openId]);
+  const busy = entries.some(active);
+  if (entries.length === 0 || (!busy && openId === null)) return null;
+  const shown = foldedEntries(entries, openId, all);
+  const hidden = entries.length - shown.length;
+  return <div data-testid="thread-subagent-dock" className="mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-popover shadow-float">
+    {expanded && <nav aria-label={t("ide_threads.subagents_aria")} data-testid="thread-subagent-dock-list"
+      className="max-h-[40vh] overflow-y-auto border-b border-border/70 px-1 py-1 scrollbar-jarvis">
+      {openId !== null && <button type="button" onClick={() => onOpen(null)} data-testid="thread-subagent-main"
+        className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] text-foreground transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <MessageSquare aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate font-medium">{t("ide_threads.main_thread")}</span>
+      </button>}
+      {shown.map((entry) => <SubagentLine key={entry.id} entry={entry} onOpen={onOpen} current={entry.id === openId} indent={entry.depth} />)}
+      {(hidden > 0 || all) && <ShowAll all={all} count={entries.length} onToggle={() => setAll(!all)} />}
+    </nav>}
+    <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} data-testid="thread-subagent-dock-toggle"
+      title={t(expanded ? "ide_threads.dock_collapse" : "ide_threads.dock_expand")}
+      className="flex w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+      <Bot aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1 truncate text-xs text-foreground-secondary" data-testid="thread-subagent-count">{subagentSummary(entries)}</span>
+      <SubagentProgress entries={entries} className="w-24 shrink-0" />
+      <ChevronUp aria-hidden className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150", expanded && "rotate-180")} />
+    </button>
+  </div>;
 }
 
 /**
