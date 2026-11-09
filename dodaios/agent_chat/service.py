@@ -28,7 +28,7 @@ import sqlite3
 import time
 import traceback
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Final
@@ -474,6 +474,8 @@ class AgentChatService:
         # Reserved before control state is marked running. The runner has not
         # started yet, but a competing send and Stop must both see this owner.
         self._preparing: dict[str, _Running] = {}
+        #: Running turns whose CLI takes a message mid-turn: session -> (turn, writer).
+        self._steerers: dict[str, tuple[str, Callable[[str], Awaitable[bool]]]] = {}
         self._subscribers: dict[str, set[Subscriber]] = {}
         # Synchronous observers of every stored event (add_event_listener).
         self._event_listeners: list[Callable[[str, dict[str, Any]], None]] = []
@@ -934,6 +936,36 @@ class AgentChatService:
             surface=surface,
             account_id=account_id,
         )
+
+    def _set_steerer(
+        self, session_id: str, turn_id: str, writer: Callable[[str], Awaitable[bool]] | None
+    ) -> None:
+        if writer is not None:
+            self._steerers[session_id] = (turn_id, writer)
+        elif self._steerers.get(session_id, ("",))[0] == turn_id:
+            self._steerers.pop(session_id, None)
+
+    def can_steer(self, session_id: str) -> bool:
+        return session_id in self._steerers and self.is_running(session_id)
+
+    async def steer(self, session_id: str, text: str) -> bool:
+        """Hand a message to the CLI of the running turn; False when it cannot take one.
+
+        On success the message is a ``user_message`` of that turn (``steered``),
+        so the transcript shows it where the agent received it.
+        """
+        entry = self._steerers.get(session_id)
+        body = text.strip()
+        if entry is None or not body or not self.is_running(session_id):
+            return False
+        turn_id, writer = entry
+        if not await writer(body):
+            return False
+        await self._emit(
+            session_id,
+            make_event("user_message", {"text": body, "turn_id": turn_id, "steered": True}),
+        )
+        return True
 
     def is_running(self, session_id: str) -> bool:
         preparing = self._preparing.get(session_id)
@@ -1596,6 +1628,9 @@ class AgentChatService:
                 output_language=output_language,
                 goal_turn=native_goal,
                 control_service=self,
+                on_steer=lambda writer, _sid=session_id, _tid=turn_id: self._set_steerer(
+                    _sid, _tid, writer
+                ),
             )
         except BaseException as exc:
             try:

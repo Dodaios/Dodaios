@@ -62,7 +62,7 @@ from fastapi import (
 from pydantic import BaseModel, Field
 
 from dodaios.agent_chat import attachments as chat_attachments
-from dodaios.agent_chat import runner_cli, typeahead
+from dodaios.agent_chat import runner_cli, send_queue, typeahead
 from dodaios.agent_chat.catalog import ACCESS_ACCOUNTS, claude_code_models, offers, rows_for
 from dodaios.agent_chat.control_types import CommandRequest, CommandResult
 from dodaios.agent_chat.credential_requests import CredentialRequestBusy
@@ -1305,11 +1305,17 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
             calendar_zone(body.timezone)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-    from dodaios.agent_chat.send_queue import QueueFull, send_or_queue
+    from dodaios.agent_chat.send_queue import QueueFull, send_or_queue, try_steer
 
     svc = (await _async_service(request))
     token = client_timezone.set(body.timezone)
     try:
+        # A coding thread whose running CLI takes a message mid-turn is steered:
+        # the text goes into the turn like typing into a terminal.
+        if await try_steer(
+            svc, session_id, body.text, body.attachments, tool_choices=body.tool_choices
+        ):
+            return {"turn_id": "", "session_id": session_id, "steered": True}
         # A created agent's chat queues a message behind its running turn
         # instead of refusing it; every other chat answers 409 as before.
         turn_id, queue_id = await send_or_queue(
@@ -1404,12 +1410,42 @@ async def cancel_turn(session_id: str, request: Request) -> dict[str, Any]:
     if session.surface in ("jarvis", "society"):
         await svc.controls.pause(session_id, "Stopped by the user")
     else:
+        # Stop halts the agent: messages waiting behind it do not start by themselves.
+        send_queue.pause(svc, session_id)
         cancelled = await svc.cancel(session_id)
     # The runner can already be gone while the transcript still shows Working.
     # Closing that turn is what makes the stop button leave the chat.
     if not svc.is_running(session_id):
         cancelled = await svc.seal_stopped_turn(session_id) or cancelled
     return {"cancelled": cancelled, "session_id": session_id}
+
+
+@router.get("/sessions/{session_id}/queue")
+async def get_queue(session_id: str, request: Request) -> dict[str, Any]:
+    """Messages waiting for this chat's next turn (server side, survives a reload)."""
+    svc = await _async_service(request)
+    if svc.store.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    return send_queue.queue_state(svc, session_id)
+
+
+@router.post("/sessions/{session_id}/queue/resume")
+async def resume_queue(session_id: str, request: Request) -> dict[str, Any]:
+    """Let waiting messages start again after Stop paused them."""
+    svc = await _async_service(request)
+    if svc.store.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    send_queue.resume(svc, session_id)
+    return send_queue.queue_state(svc, session_id)
+
+
+@router.delete("/sessions/{session_id}/queue/{queue_id}")
+async def discard_queued(session_id: str, queue_id: str, request: Request) -> dict[str, Any]:
+    """Take one waiting message back before it starts."""
+    svc = await _async_service(request)
+    if svc.store.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    return {"removed": await send_queue.discard(svc, session_id, queue_id)}
 
 
 @router.post("/sessions/{session_id}/approvals/{approval_id}")

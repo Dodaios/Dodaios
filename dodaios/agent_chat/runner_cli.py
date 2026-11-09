@@ -4592,6 +4592,24 @@ async def _drive_cli(
         tracker = DescendantTracker(proc.pid, marker=(plan.env or {}).get(TURN_MARKER_ENV))
         tracker.start()
 
+    if plan.keep_stdin and plan.shape == "claude" and handle.on_steer is not None:
+
+        async def _steer(text: str) -> bool:
+            # Claude Code reads further stream-json user messages until its
+            # result line; after that (or a stop) there is nobody to read.
+            if (
+                getattr(state, "saw_result", False)
+                or handle.cancel.is_set()
+                or proc.returncode is not None
+                or proc.stdin is None
+                or proc.stdin.is_closing()
+            ):
+                return False
+            await _write_stdin(claude_stream_input(text))
+            return True
+
+        handle.on_steer(_steer)
+
     pump = asyncio.create_task(_pump_stdout())
     drain = asyncio.create_task(_drain_stderr())
     feeder = asyncio.create_task(_feed_stdin())
@@ -4650,6 +4668,8 @@ async def _drive_cli(
             _kill(proc)
         raise
     finally:
+        if handle.on_steer is not None:
+            handle.on_steer(None)
         if gate_decider is not None:
             native_gate.unregister(handle.session.session_id, gate_decider)
         watcher.cancel()
