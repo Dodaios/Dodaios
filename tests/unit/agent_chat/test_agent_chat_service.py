@@ -184,7 +184,7 @@ def test_turn_streams_text_runs_a_tool_and_asks_for_approval(tmp_path: Path, scr
     asyncio.run(scenario())
 
 
-def test_deny_feeds_a_denied_result_and_allow_always_flips_the_mode(tmp_path: Path, scripted):
+def test_deny_feeds_a_denied_result_and_allow_always_keeps_the_mode(tmp_path: Path, scripted):
     ScriptedBrain.script = [
         [BrainDelta(tool_call={"id": "c1", "name": "RunCommand", "input": {"command": "echo x"}})],
         [BrainDelta(tool_call={"id": "c2", "name": "RunCommand", "input": {"command": "echo y"}})],
@@ -208,7 +208,7 @@ def test_deny_feeds_a_denied_result_and_allow_always_flips_the_mode(tmp_path: Pa
         # c2 ran after allow_always, c3 ran with no approval card at all.
         assert kinds.count("approval_required") == 0
         assert kinds.count("tool_result") == 2
-        assert svc.store.get_session(session.session_id).permission_mode == "auto"  # type: ignore[union-attr]
+        assert svc.store.get_session(session.session_id).permission_mode == "ask"  # type: ignore[union-attr]
 
     asyncio.run(scenario())
 
