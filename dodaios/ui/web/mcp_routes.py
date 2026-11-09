@@ -527,17 +527,17 @@ async def mcp_files(name: str, request: Request) -> dict[str, Any]:
 @router.get("/config/info")
 async def config_info() -> dict[str, Any]:
     """Path + existence + raw content of mcp.json (for the UI editor)."""
-    from dodaios.mcp.state import MCP_JSON_PATH
+    active_path = mcp_state._active_mcp_json_path()  # noqa: SLF001
 
-    exists = MCP_JSON_PATH.exists()
+    exists = active_path.exists()
     content: str | None = None
     if exists:
         try:
-            content = MCP_JSON_PATH.read_text(encoding="utf-8")
+            content = active_path.read_text(encoding="utf-8")
         except OSError:
             content = None
     return {
-        "path": str(MCP_JSON_PATH),
+        "path": str(active_path),
         "exists": exists,
         "content": content,
     }
@@ -567,7 +567,7 @@ async def update_raw_config(payload: dict[str, Any], request: Request) -> dict[s
         enabled_names = [
             name
             for name, entry in servers.items()
-            if isinstance(entry, dict) and entry.get("enabled", True)
+            if isinstance(entry, dict) and bool(entry.get("enabled"))
         ]
         enabled_set = set(enabled_names)
         for running_name, client in list(active.items()):
@@ -616,15 +616,16 @@ async def delete_mcp(name: str, request: Request) -> dict[str, Any]:
             400, f"'{name}' is an essential bootstrap server — can only be disabled."
         )
 
-    # Stop the active client
+    # Stop the active client and unregister its tools
     if registry is not None:
         active = registry.active_clients()
         if name in active:
             try:
                 await active[name].stop()
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Stop of %s on delete failed: %s", name, exc)
             registry._clients.pop(name, None)  # noqa: SLF001
+        await _sync_tools_for_server(request, registry, name, adding=False)
 
     # Delete the mcp.json entry
     removed = mcp_state.remove_server(name)
@@ -639,5 +640,7 @@ async def delete_mcp(name: str, request: Request) -> dict[str, Any]:
     # bootstrap specs in case the mcp.json entry was an override.
     if registry is not None:
         registry.load_from_mcp_json()
+
+    await _publish_brain_tools_changed(request, f"mcp_deleted:{name}")
 
     return {"ok": True, "name": name, "deleted": removed}

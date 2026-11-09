@@ -1476,9 +1476,16 @@ def _legacy_full_brain(bus: Any | None = None) -> Any:
     )
 
     tools: dict[str, Any] = {}
-    active_tools = {"open-app", "type-text", "run-shell", "search-web", "remember",
-                    "dispatch-to-harness", "whoami", "cli-tools", "gmail", "vercel",
-                    "google_calendar"}
+    active_tools = {
+        "open-app", "type-text", "run-shell", "search-web", "remember",
+        "dispatch-to-harness", "whoami", "cli-tools", "mcp-tools",
+        "plugin-tools", "gmail", "vercel", "google_calendar",
+    }
+    from dodaios.brain.tool_surface import (
+        live_tool_surface_fingerprint,
+        maybe_reconcile_tool_surface,
+    )
+    _initial_surface_fp = live_tool_surface_fingerprint()
     from dodaios.harness.manager import HarnessManager
     harness_manager = HarnessManager(bus=bus)
 
@@ -1521,6 +1528,13 @@ def _legacy_full_brain(bus: Any | None = None) -> Any:
         soul=soul,
         people=people,
     )
+    manager._tier = "router"
+    manager._tool_surface_fp = (
+        _initial_surface_fp if _initial_surface_fp is not None else frozenset()
+    )
+    if bus is not None and hasattr(manager, "attach_to_bus"):
+        manager.attach_to_bus(bus)
+    maybe_reconcile_tool_surface(manager)
 
     # Keep the legacy/headless path on the same public supervisor-tool boundary
     # as the primary router factory.

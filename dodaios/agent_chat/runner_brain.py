@@ -269,6 +269,10 @@ async def kit_payload(session: AgentChatSession, brain: Any) -> tuple[dict[str, 
     still runs, and the failure is in the log.
     """
     kit = kit_for(session.surface)
+    if brain is not None:
+        from dodaios.brain.tool_surface import reconcile_tool_surface_async
+
+        await reconcile_tool_surface_async(brain)
     cfg = getattr(brain, "_config", None)
     tools: dict[str, Tool] | None = None
     extra = ""

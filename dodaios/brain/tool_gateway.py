@@ -65,6 +65,10 @@ class BrainSupervisorToolGateway:
         self._catalog_version = 0
 
     def _live_tools(self) -> dict[str, Any]:
+        if self._manager is not None:
+            from dodaios.brain.tool_surface import maybe_reconcile_tool_surface
+
+            maybe_reconcile_tool_surface(self._manager)
         tools = getattr(self._manager, "_tools", None)
         if not isinstance(tools, dict):
             return {}
