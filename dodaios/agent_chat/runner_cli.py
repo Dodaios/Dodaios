@@ -5223,6 +5223,7 @@ async def _exited_within(proc: Any, limit_s: float) -> bool:
     try:
         await asyncio.wait_for(_until_exit(proc), limit_s)
     except TimeoutError:
+        # Still running after the limit: the caller decides what happens next.
         return False
     return True
 
@@ -5396,6 +5397,7 @@ async def _reap_after_answer(
             try:
                 raw = await stream.readline()
             except ValueError:
+                # An over-long line is dropped; it still counts as output read.
                 lines[0] += 1
                 continue
             except Exception:  # noqa: BLE001 — a closed pipe ends the reader
