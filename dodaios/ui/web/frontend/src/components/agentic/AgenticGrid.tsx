@@ -78,9 +78,7 @@ import { WorkspaceFileViewer } from "./WorkspaceFileViewer";
 import { PaneChat } from "./PaneChat";
 import { NewPaneChat } from "./NewPaneChat";
 import type { NewPaneRequest } from "@/store/newPaneChat";
-import { threadFromTerminal, type ChatAttachment } from "@/lib/agentChatApi";
-import { openCodingThread } from "@/components/agentic/threads/openCodingThread";
-import { useThreadChatStore } from "@/components/agentic/threads/threadModel";
+import type { ChatAttachment } from "@/lib/agentChatApi";
 import { useIdeChatStore } from "@/store/ideChat";
 import { PANE_ACTIVITY_EVENT, readPaneActivityChange } from "@/store/workspacePanes";
 import type { WorkspaceView } from "@/components/agentic/workspaceView";
@@ -1474,6 +1472,12 @@ export function AgenticGrid({
   const openAsThread = useCallback(
     async (term: TerminalState) => {
       try {
+        // Loaded on use: the thread modules stay out of the startup bundle.
+        const [{ threadFromTerminal }, { useThreadChatStore }, { openCodingThread }] = await Promise.all([
+          import("@/lib/agentChatApi"),
+          import("@/components/agentic/threads/threadModel"),
+          import("@/components/agentic/threads/openCodingThread"),
+        ]);
         const thread = await threadFromTerminal(term.name, session.id);
         await useThreadChatStore.getState().loadSessions();
         openCodingThread(thread.session_id);
