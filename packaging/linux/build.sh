@@ -114,6 +114,11 @@ else
     if [ ! -d node_modules ]; then
       run npm ci
     fi
+    # tsc + vite outgrow V8's default heap on a 7 GB runner ("Abort trap: 6",
+    # #1033); install/installer.py sets the same. A caller's own value wins.
+    if [ -z "${NODE_OPTIONS:-}" ]; then
+      export NODE_OPTIONS="--max-old-space-size=4096"
+    fi
     run npm run build
   )
 fi

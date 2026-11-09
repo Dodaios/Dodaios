@@ -53,15 +53,22 @@ def find_app(install_dir: Path) -> Path:
     raise RuntimeError(f"No app executable in {install_dir}: {found}")
 
 
-def request(port: int, path: str, key: str, *, method: str = "GET") -> tuple[int, dict]:
+def request(
+    port: int, path: str, key: str, *, method: str = "GET", as_browser: bool = False
+) -> tuple[int, dict]:
+    """Call the app as the Control API (Bearer) or as the desktop UI would.
+
+    Completing onboarding is a desktop action: a Bearer is refused as proof
+    that no click authorized it, and the auth-exempt first-boot route wants
+    the same-origin header a browser attaches instead (lifecycle_guard.py).
+    """
+    if as_browser:
+        headers = {"Origin": f"http://127.0.0.1:{port}"}
+    else:
+        headers = {"Authorization": f"Bearer {key}"}
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     try:
-        # Completing onboarding demands the same-origin header a browser sends.
-        connection.request(
-            method,
-            path,
-            headers={"Authorization": f"Bearer {key}", "Origin": f"http://127.0.0.1:{port}"},
-        )
+        connection.request(method, path, headers=headers)
         response = connection.getresponse()
         body = response.read()
         try:
@@ -112,7 +119,9 @@ def boot(app: Path, profile: Path, log: Path, key: str, timeout: float, *, compl
                 raise RuntimeError(f"onboarding state answered HTTP {status}")
             row["onboarding_completed"] = bool(state.get("completed"))
             if complete:
-                status, _ = request(port, "/api/onboarding/complete", key, method="POST")
+                status, _ = request(
+                    port, "/api/onboarding/complete", key, method="POST", as_browser=True
+                )
                 if status != 200:
                     raise RuntimeError(f"completing onboarding answered HTTP {status}")
             return row
