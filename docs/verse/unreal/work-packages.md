@@ -947,7 +947,7 @@ the imported `.uasset` is committed, architecture 8.4);
 
 | # | Sub-task | Output |
 |---|---|---|
-| 19.1 | Framework: MetaSound sources, submixes, concurrency, attenuation from `DA_Audibility` | Framework |
+| 19.1 | Framework: sound-wave sources (`SW_*`, picked per cue from `DA_AudioCues`; layers, variants, pitch and loops played by the audio subsystem), one transient submix per bus (weapons, impacts, foley, destruction, gadgets, ambience, UI) under one master submix with the limiter, concurrency, attenuation from `DA_Audibility`. MetaSound sources are optional later: a cue may name an `MS_*` source (`FVerseAudioCue::Variants` holds `USoundBase`) once the integration owner enables the `Metasound` plugin and WP18 links `MetasoundEngine` for VerseUI | Framework |
 | 19.2 | Weapons: layered mechanical thump, body, tail, room reflection; first and third person; distance layers | Weapon sounds |
 | 19.3 | Bolt flyby, impacts for the 8 materials, penetration exit | Sounds |
 | 19.4 | Footsteps per surface and stance, slide, land, mantle, lean and prone foley | Sounds |
@@ -967,7 +967,10 @@ the imported `.uasset` is committed, architecture 8.4);
 | A19.6 | Licence | Every sound asset cites a ledger row or `own` |
 
 **Evidence.** Loudness report; capture WAV of the reference duel replay (CI
-artifact, not committed); occlusion test JSON.
+artifact, not committed: the `wp19-loudness` job of `unreal-static` runs
+`art/verse/audio/build_audio.py` and `reference_mix.py --check` and uploads
+`unreal/Verse/Saved/Harness/proof/WP19/19.1/` as the `wp19-loudness`
+artifact); occlusion test JSON.
 
 ### WP20 Pixel Streaming side panel
 

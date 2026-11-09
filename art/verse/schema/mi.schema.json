@@ -18,7 +18,8 @@
         "/Game/Verse/Materials/Master/M_Verse_Screen.M_Verse_Screen",
         "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
         "/Game/Verse/Materials/Master/M_Verse_Weapon.M_Verse_Weapon",
-        "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal"
+        "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal",
+        "/Game/Verse/Gore/M_Gore_Decal.M_Gore_Decal"
       ]
     },
     "scalars": { "type": "object", "additionalProperties": { "type": "number" } },

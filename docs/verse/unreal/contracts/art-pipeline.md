@@ -43,11 +43,28 @@ flowchart LR
 | Import | `python scripts/unreal/import_art.py {assets \| placements} [--deck D --zone Z] [--only NAME,...]` | `UnrealEditor-Cmd.exe unreal/Verse/Verse.uproject -ExecutePythonScript=<Content/Python/verse_pipeline/cli.py> -unattended -nosplash -nullrhi` (a headless editor, not the `pythonscript` commandlet: asset import tasks need the Slate application, which a commandlet does not create) | same lock |
 | Validate | `python scripts/unreal/import_art.py validate` | same headless editor; also in `unreal-build` | same lock |
 | Calibrate | `python scripts/unreal/import_art.py calib [--export]` | export, then the same headless editor (6.1) | same lock |
+| Masters, MIs (WP14) | `python scripts/unreal/import_art.py {masters \| materials} [--only NAME,...] [--no-save]` | same headless editor; master graphs from WP14's `art/verse/weapons/editor/masters.py`, MIs from the recipes of section 7 (`verse_pipeline.materials`) | same lock |
+| Look evidence (WP14) | `python scripts/unreal/import_art.py lookdev`, `python scripts/unreal/import_art.py wp14 [--no-lookdev]` (`wp14`: LUT, masters, MIs, WP14 meshes, validate and lookdev in one editor session) | headless editor with the D3D12 RHI offscreen | same lock |
 | Static check (no engine) | `python scripts/unreal/check_art_text.py` | `unreal-static` lane, GitHub-hosted, LFS not fetched | none |
 
 Parallel agents call only these scripts, never Blender or UnrealEditor
 directly (architecture 8.2). If an importer turns out to need a GPU device,
 `import_art.py` drops `-nullrhi`; it still runs under the lock.
+Commands that place actors or render frames (`placements`, `lookdev`,
+`wp14`) run with `-d3d12 -RenderOffscreen` instead of `-nullrhi`: without an
+explicit `-d3d12`, UE 5.7.1 can pick an RHI that cannot render post-process
+captures. Every other command keeps `-nullrhi`.
+
+`assets` imports records of kind `static_mesh`, `proxy_mesh`,
+`skeletal_mesh` and `texture` (through `verse_pipeline.import_textures`); a
+`skeleton` record is created together with its skeletal mesh, and records of
+kind `material` or `material_function` are built in the editor by their
+owner's builder, never imported. WP14's editor code lives in
+`art/verse/weapons/editor/` (owned by WP14); `verse_pipeline.art_on_path()`
+puts `art/verse` on `sys.path` so the pipeline can call it. Once that code is
+present, its import finish (`weapons.editor.rig.finish_import`: slots,
+skeleton and socket names, auto box, auto LOD) runs on WP14 records after
+import, and `validate` adds its checks (section 14, "Asset settings").
 
 ## 3. Naming
 
@@ -79,6 +96,7 @@ centimetres (`SM_Wall_480_H540`), as today.
 | `SW_`, `MS_` | Sound wave, MetaSound source | Audio is outside this contract except the LFS and licence rules |
 | `NS_` | Niagara system | |
 | `DA_` | Data asset | e.g. `DA_PenetrationTable` (architecture 4) |
+| `PM_` | Physical material | `PM_Verse_<Surface>` on world geometry selects a penetration row (section 5.1) |
 | `LV_<Deck>` | Deck level (World Partition map) | Kept from `lib/naming.py` |
 | `DL_<Deck>_<Layer>` | Data layer | `DL_Hangar_Day`, `DL_Hangar_Arena` |
 | `BP_` | Blueprint | Thin data and presentation only (architecture 2) |
@@ -214,6 +232,26 @@ each. A piece with `nav: "walk"` must have a top surface in collision. Walls
 that a person can stand behind are solid and at least 20 cm thick in
 collision even where the visual is thinner.
 
+### 5.1 Physical materials on non-destructible world geometry
+
+Destructibles name their `penetration_material` (section 4.2). Every other
+piece of world geometry gets its penetration row, and with it the impact
+`MaterialWireId` that VFX and audio key on, from the **simple physical
+material** of its collision body, by name (WP03.7):
+
+| Surface | Physical material | Penetration row |
+|---|---|---|
+| Hall floor | `/Game/Verse/Destruction/_Holes/PhysicalMaterials/PM_Verse_HallFloor` | `concrete` |
+| Structural wall | `/Game/Verse/Destruction/_Holes/PhysicalMaterials/PM_Verse_StructuralWall` | `concrete` |
+| Structural beam | `/Game/Verse/Destruction/_Holes/PhysicalMaterials/PM_Verse_StructuralBeam` | `armor_steel` |
+
+| Rule | Detail |
+|---|---|
+| Name rule | A physical material named `PM_Verse_<Surface>` or `PM_Verse_<Surface>_<anything>` maps to that surface's row. Any other physical material, or none, reads as `concrete` |
+| Who assigns | Zone owners (WP12 and the deck zones) set the physical material on the collision of the architecture they place: hall floors, structural walls and structural beams use the assets above. A beam without `PM_Verse_StructuralBeam` still stops bolts but reports the wrong wire id (dust instead of sparks) |
+| Who owns the assets | WP03 (`/Game/Verse/Destruction/_Holes/`, section 9). A new surface is a change to this table and to WP03's mapping together |
+| Consumers | Penetration in VerseCombat (WP03), impact VFX by wire id (WP02), impact audio by material (WP19) |
+
 ## 6. Mesh, Nanite, LOD, lightmaps, textures
 
 ### 6.1 Export format
@@ -293,9 +331,9 @@ Everything else is a material instance described as text.
 | `M_Verse_Emissive` | Light panels, indicators, work lamps | `EmissiveColor` (palette-checked), `EmissiveNits` |
 | `M_Verse_Glass` | Glazing | Translucent, thin; breakable glass uses the same master on the GC |
 | `M_Verse_Screen` | Desk monitors | Render target input from VerseScreens (architecture 5.3) |
-| `M_Verse_Character` | Skin, cloth, gear | Skin subsurface profile, cloth sheen; UV0 must be stable for wound masks (VerseGore) |
+| `M_Verse_Character` | Skin, cloth, gear | Skin subsurface profile, cloth sheen. Wound mask: calls `/Game/Verse/Gore/MF_Gore_WoundMask` (output `Mask`, 0..1) and blends blood with it. Parameters, all set by VerseGore on a dynamic instance: scalar `Verse_WoundCount` (0..16); vectors `Verse_Wound_00` .. `Verse_Wound_15`, where xyz is the reference-pose component-space position in cm and w is the radius in cm; optional scalar `Verse_WoundWetness` (0..1). The mask compares these against the pre-skinned position, so it needs no UV set |
 | `M_Verse_Weapon` | All weapons | Black only (section 8.2), wear on edges, no emissive except the sight reticle |
-| `M_Verse_Decal` | Markings, stencils, grime | DBuffer decal; VerseGore owns its own blood decal master |
+| `M_Verse_Decal` | Markings, stencils, grime | DBuffer decal; VerseGore owns its own blood decal master, `/Game/Verse/Gore/M_Gore_Decal`, which `verse.mi/1` recipes may also name as `parent` |
 
 | Rule | Value |
 |---|---|
@@ -303,7 +341,7 @@ Everything else is a material instance described as text.
 | Recipes | One file per instance: `unreal/Verse/Art/Materials/MI_<Name>.mi.json` = `{schema: "verse.mi/1", name, parent, scalars{}, vectors{name: [r,g,b,a] linear}, textures{name: T path}, switches{}, owner, replaces: "<Blender M_ name>"}`. `verse_pipeline.materials` creates or updates the `.uasset` from it |
 | Mapping | `art/verse/lib/unreal_materials.py` maps each Blender `M_` name (`lib/materials.py`) to its `MI_`; the export writes the MI path into each mesh's slot list |
 | Decals | Every opaque world master has "receive decals" on (gore spatter, scorch, markings) |
-| Tone map | Fixed manual exposure per deck; a grade LUT `T_Verse_Grade_LUT` approximates the AgX view transform of today's Blender renders. Accepted when a palette chart rendered in Unreal matches the Blender render within ΔE 5 on the greys |
+| Tone map | Fixed manual exposure per deck; the grade LUT `T_Verse_Grade_LUT_M` (a 32³ strip, linear, with the `_M` suffix of section 3) holds the AgX view transform of today's Blender renders. The post-process material `M_Verse_PostTonemap` (`/Game/Verse/PostProcess/`, blendable location "replacing the tonemapper") samples it; it is the one blendable each deck owner places in their post-process volume. Accepted when a palette chart rendered in Unreal matches the Blender render within ΔE 5 on the greys |
 
 ## 8. Military-Industrial Noir: palette and look
 
@@ -378,6 +416,7 @@ Binary files never merge, so no two agents may ever write the same binary.
 | Text records | An import record (`Art/Import/**`) or MI recipe (`Art/Materials/**`) belongs to the owner of the content folder its asset lives in (table below); its `owner` field names that package and `validate_ownership` checks it. Placement JSON belongs to the zone owner |
 | Redirectors | Never committed. Renames and moves of assets are integration-owner work: fix up redirectors in the same PR |
 | Text first | Change placements through builders and the placement JSON, materials through `.mi.json`; binaries follow from text wherever possible |
+| Runtime-loaded folders | Assets that code resolves by path at runtime, with no map referencing them, are invisible to the cooker. Their folder is listed in `Config/DefaultGame.ini` as `+DirectoriesToAlwaysCook` (integration owner). Today: `/Game/Verse/Gore` (`UVerseGoreSubsystem::RuntimeAssetPaths()`; `Verse.Gore.Assets.Resolve` belongs in WP22's cooked smoke run). A package that adds such a folder asks for its line |
 
 | Content folder | Owner (`work-packages.md`) |
 |---|---|
@@ -479,9 +518,9 @@ repo root gets `.lfsconfig` with `[lfs] fetchexclude = unreal/**`
 
 | Field | Meaning |
 |---|---|
-| `schema`, `name`, `asset_path`, `kind` | `static_mesh`, `skeletal_mesh`, `skeleton`, `physics_asset`, `animation`, `texture`, `geometry_collection`, `proxy_mesh` |
-| `source` | `{builder, function, args}` |
-| `export` | `{format: "fbx", settings_id: "fbx-ue/1", file, sha256, blender: "5.0.1"}` |
+| `schema`, `name`, `asset_path`, `kind` | `static_mesh`, `skeletal_mesh`, `skeleton`, `physics_asset`, `animation`, `texture`, `geometry_collection`, `proxy_mesh`, `material`, `material_function`. `material` (`M_`: masters, effect and test materials) and `material_function` (`MF_`) are built in the editor by their owner's builder |
+| `source` | `{builder, function, args}`; for `material` and `material_function`, `args.use` describes the asset |
+| `export` | `{format: "fbx" \| "png", settings_id: "fbx-ue/1", file, sha256, blender: "5.0.1"}`. Optional for `material` and `material_function` (nothing is exported). `blender` is `0.0.0` when the builder is not Blender (for example masks generated with numpy) |
 | `mesh` | `{triangles, vertices, bounds_cm, uv_sets, material_slots: [{slot, mi}]}` |
 | `nanite` | `{enabled, fallback_relative_error?}` |
 | `collision` | `{profile, source: "authored" \| "auto_box" \| "proxy_states" \| "none", primitives}` |
@@ -617,16 +656,22 @@ Other packages may rely on these and only these:
    `<zone>.<id>`.
 3. The `verse.import/1` and `verse.mi/1` record schemas (10.3, 7).
 4. The prefixes and suffixes in section 3 and the `UCX_` / `SOCKET_`
-   remapping in 3.1.
+   remapping in 3.1, and the `PM_Verse_<Surface>` physical material rule
+   of 5.1.
 5. The collision profile names and their meaning (section 5) and the
    destructible state names `Intact, Damaged, Holed, Breached, Destroyed,
    Repairing` (architecture 4).
-6. The master material names and their documented parameters (section 7).
+6. The master material names and their documented parameters (section 7),
+   including the wound-mask interface of `M_Verse_Character`
+   (`MF_Gore_WoundMask` with output `Mask`; `Verse_WoundCount`,
+   `Verse_Wound_00` .. `Verse_Wound_15`, `Verse_WoundWetness`) and the
+   tone-map entry `M_Verse_PostTonemap` with `T_Verse_Grade_LUT_M`.
 7. The palette table and the colour bans (section 8).
 8. The content folder layout and ownership (section 9) and the paths in 10.1.
 9. The `.gitattributes` lines in 10.2 and the budgets in 10.4.
 10. The bone and socket names of `SKEL_Verse_Human` and weapon skeletons (12).
-11. The entry commands in section 2 and their arguments.
+11. The entry commands in section 2 and their arguments, and which of
+    them run with an RHI (`-d3d12 -RenderOffscreen`).
 
 ## Change rule
 

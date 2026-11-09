@@ -759,6 +759,7 @@ bool FVerseContractStubs::RunTest(const FString&)
 		TestFalse(TEXT("sprinting"), Movement->IsSprinting());
 		TestFalse(TEXT("airborne"), Movement->IsAirborne());
 		TestFalse(TEXT("mantling"), Movement->IsMantling());
+		TestFalse(TEXT("no high mantle while not mantling"), Movement->IsMantleHigh());
 		TestFalse(TEXT("blocks firing"), Movement->BlocksFiring());
 		TestEqual(TEXT("lean"), Movement->GetLeanQuantized(), int8(0));
 	}

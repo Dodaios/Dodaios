@@ -516,11 +516,20 @@ def test_import_plan_skips_unchanged_exports():
     rec = _record()
     other = _record("SM_Wall_240")
     tex = dict(_record("T_A_BC"), kind="texture")
-    steps = import_assets.plan([rec, other, tex], {rec["asset_path"]: rec["export"]["sha256"]})
+    gc = dict(_record("GC_A"), kind="geometry_collection")
+    skel = dict(_record("SKEL_A"), kind="skeleton")
+    master = dict(_record("M_A"), kind="material")
+    del master["export"]
+    steps = import_assets.plan(
+        [rec, other, tex, gc, skel, master], {rec["asset_path"]: rec["export"]["sha256"]}
+    )
     assert [(r["name"], a) for r, a in steps] == [
         ("SM_Wall_480", "skip"),
         ("SM_Wall_240", "import"),
-        ("T_A_BC", "unsupported"),
+        ("T_A_BC", "import"),
+        ("GC_A", "unsupported"),
+        ("SKEL_A", "with_mesh"),
+        ("M_A", "editor_built"),
     ]
 
 
@@ -670,8 +679,159 @@ def test_collision_import_flag_keeps_authored_primitives_under_interchange():
 
 def test_placement_sync_runs_with_an_offscreen_rhi_and_the_rest_without_one():
     import_art = _load("import_art", REPO_ROOT / "scripts" / "unreal" / "import_art.py")
-    assert "-RenderOffscreen" in import_art.rhi_args("placements")
-    assert import_art.rhi_args("calib") == ["-nullrhi"]
+    for command in ("placements", "lookdev", "wp14"):
+        args = import_art.rhi_args(command)
+        assert args[:2] == ["-d3d12", "-RenderOffscreen"], command
+        assert "-nullrhi" not in args
+    for command in ("assets", "validate", "calib", "masters", "materials"):
+        assert import_art.rhi_args(command) == ["-nullrhi"], command
+
+
+def test_wp14_entry_commands_forward_their_arguments(monkeypatch):
+    import_art = _load("import_art", REPO_ROOT / "scripts" / "unreal" / "import_art.py")
+    seen = []
+
+    def fake_run(argv):
+        seen.append(argv)
+        return 0, {"ok": True}, REPO_ROOT / "report.json"
+
+    monkeypatch.setattr(import_art, "run_pipeline", fake_run)
+    assert import_art.main(["masters", "--only", "M_Verse_Weapon", "--no-save"]) == 0
+    assert import_art.main(["materials", "--only", "MI_A,MI_B"]) == 0
+    assert import_art.main(["lookdev"]) == 0
+    assert import_art.main(["wp14", "--no-lookdev"]) == 0
+    assert seen == [
+        ["masters", "--only", "M_Verse_Weapon", "--no-save"],
+        ["materials", "--only", "MI_A,MI_B"],
+        ["lookdev"],
+        ["wp14", "--no-lookdev"],
+    ]
+
+
+def test_editor_cli_parses_the_wp14_commands_and_names_missing_wp14_code(monkeypatch):
+    import verse_pipeline
+    from verse_pipeline import cli
+
+    parsed = cli._parser().parse_args(["wp14", "--no-lookdev"])
+    assert parsed.command == "wp14" and parsed.no_lookdev
+    monkeypatch.setattr(verse_pipeline, "wp14_editor", lambda module: None)
+    with pytest.raises(RuntimeError, match="weapons.editor.lookdev"):
+        cli.dispatch(["lookdev"])
+
+
+def test_wp14_editor_code_is_optional_until_it_lands(monkeypatch, tmp_path):
+    import verse_pipeline
+
+    monkeypatch.setattr(verse_pipeline, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    for name in [m for m in sys.modules if m == "weapons" or m.startswith("weapons.")]:
+        monkeypatch.delitem(sys.modules, name)
+    assert verse_pipeline.wp14_editor("rig") is None
+    editor = tmp_path / "art" / "verse" / "weapons" / "editor"
+    editor.mkdir(parents=True)
+    (editor.parent / "__init__.py").write_text("", encoding="utf-8")
+    (editor / "__init__.py").write_text("", encoding="utf-8")
+    (editor / "rig.py").write_text("MARK = 14\n", encoding="utf-8")
+    assert verse_pipeline.wp14_editor("rig").MARK == 14
+
+
+def test_physical_materials_carry_the_pm_prefix(tmp_path):
+    root = _scratch_root(tmp_path)
+    folder = root / "unreal/Verse/Content/Verse/Destruction/_Holes/PhysicalMaterials"
+    for surface in ("HallFloor", "StructuralWall", "StructuralBeam"):
+        _write(folder / f"PM_Verse_{surface}.uasset", "pointer")
+    assert _errors(root) == []
+
+
+def _material_record(name="M_Gore_Decal", kind="material") -> dict:
+    record = _record(name, "/Game/Verse/Gore")
+    record.update(kind=kind, owner="WP05")
+    record["source"] = {
+        "builder": "art/verse/gore/unreal_assets.py",
+        "function": "build",
+        "args": {"use": "blood decal master"},
+    }
+    for key in ("export", "mesh", "nanite", "collision", "lod"):
+        del record[key]
+    return record
+
+
+def test_editor_built_materials_need_no_export(tmp_path):
+    root = _scratch_root(tmp_path)
+    for record in (
+        _material_record(),
+        _material_record("MF_Gore_WoundMask", "material_function"),
+    ):
+        _write(root / "unreal/Verse/Content/Verse/Gore" / f"{record['name']}.uasset", "pointer")
+        _write(root / "unreal/Verse/Art/Import/Gore" / f"{record['name']}.import.json", record)
+    assert _errors(root) == []
+
+
+@pytest.mark.parametrize(
+    ("record", "needle"),
+    [
+        (dict(_material_record(), kind="material_function"), "does not fit the name"),
+        (dict(_material_record("MF_A"), kind="material"), "does not fit the name"),
+    ],
+)
+def test_material_record_names_follow_their_kind(tmp_path, record, needle):
+    root = _scratch_root(tmp_path)
+    _write(root / "unreal/Verse/Content/Verse/Gore" / f"{record['name']}.uasset", "pointer")
+    _write(root / "unreal/Verse/Art/Import/Gore" / f"{record['name']}.import.json", record)
+    assert any(needle in e for e in _errors(root))
+
+
+def test_exported_kinds_still_need_an_export_block(tmp_path):
+    root = _scratch_root(tmp_path)
+    record = _record()
+    del record["export"]
+    _with_asset(root, record)
+    assert any("export" in e for e in _errors(root))
+
+
+def test_non_blender_builders_record_blender_0_0_0(tmp_path):
+    root = _scratch_root(tmp_path)
+    record = _record("T_Gore_Pool_M", "/Game/Verse/Gore")
+    record.update(kind="texture", owner="WP05")
+    record["export"].update(format="png", file="art/verse/.cache/unreal/gore/T_Gore_Pool_M.png")
+    record["export"]["blender"] = "0.0.0"
+    del record["mesh"], record["nanite"], record["collision"], record["lod"]
+    record["texture"] = {
+        "group": "World",
+        "max_size": 512,
+        "srgb": False,
+        "compression": "Masks",
+        "flip_green": False,
+    }
+    _write(root / "unreal/Verse/Content/Verse/Gore/T_Gore_Pool_M.uasset", "pointer")
+    _write(root / "unreal/Verse/Art/Import/Gore/T_Gore_Pool_M.import.json", record)
+    assert _errors(root) == []
+
+
+def test_gore_recipes_may_use_the_gore_decal_master(tmp_path):
+    root = _scratch_root(tmp_path)
+    recipe = {
+        "schema": "verse.mi/1",
+        "name": "MI_Gore_Pool",
+        "parent": "/Game/Verse/Gore/M_Gore_Decal.M_Gore_Decal",
+        "scalars": {},
+        "vectors": {"BloodTint": [0.05, 0.004, 0.003, 1.0]},
+        "textures": {},
+        "switches": {},
+        "owner": "WP05",
+        "replaces": None,
+    }
+    path = _write(root / "unreal/Verse/Art/Materials/Gore/MI_Gore_Pool.mi.json", recipe)
+    assert _errors(root) == []
+    recipe["parent"] = "/Game/Verse/Gore/M_Gore_Other.M_Gore_Other"
+    _write(path, recipe)
+    assert any("parent" in e for e in _errors(root))
+
+
+def test_gore_folder_is_always_cooked():
+    ini = (REPO_ROOT / "unreal/Verse/Config/DefaultGame.ini").read_text(encoding="utf-8")
+    section = ini.split("[/Script/UnrealEd.ProjectPackagingSettings]", 1)[1]
+    assert '+DirectoriesToAlwaysCook=(Path="/Game/Verse/Gore")' in section.split("\n[", 1)[0]
 
 
 def test_editor_built_test_placeholders_need_no_import_record(tmp_path):
