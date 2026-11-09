@@ -988,7 +988,8 @@ def _team_sessions(request: Request) -> dict[str, str]:
 def _cli_title(svc: Any, session: Any) -> str:
     """The name the coding CLI gave a thread's conversation itself, or "".
 
-    Claude Code and Codex title their own sessions on their own subscription;
+    Claude Code, Codex, Grok Build and Antigravity title their own sessions
+    on their own subscription;
     a thread shows that name the way a terminal pane does. A title the person
     typed wins, so the CLI's is only offered while the stored one is still
     the first message's.
@@ -1000,7 +1001,7 @@ def _cli_title(svc: Any, session: Any) -> str:
 
     row = provider_row(session.provider)
     agent = row.agent if row is not None else ""
-    if agent not in ("claude", "codex"):
+    if agent not in cli_title.THREAD_AGENTS:
         return ""
     title = cli_title.session_title(agent, session.vendor_session, session.account_id)
     if not title or not svc.store.title_is_automatic(session):
