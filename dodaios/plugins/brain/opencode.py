@@ -202,7 +202,7 @@ def parse_events(stdout: str) -> tuple[str, str | None]:
             continue
         try:
             event = json.loads(line)
-        except ValueError:
+        except ValueError:  # a partial or non-JSON line carries no answer text
             continue
         if not isinstance(event, dict):
             continue
@@ -244,7 +244,7 @@ class OpenCodeBrain:
         self._structured_prompts = bool(structured_prompts)
         try:
             budget = float(cli_timeout_s) if cli_timeout_s is not None else 0.0
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # an unreadable budget falls back to the default cap
             budget = 0.0
         self._cli_timeout_s = budget if budget > 0 else _CLI_TIMEOUT_S
 
