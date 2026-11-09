@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 
 import { AgentSwatch } from "@/components/society/AgentSwatch";
+import type { SocietyAgent } from "@/components/society/data";
 import { useT } from "@/i18n";
 
 import { InternalMessageBubble, type InternalParticipant } from "./InternalMessageBubble";
@@ -47,6 +48,23 @@ export function groupInternalRuns(
   return out;
 }
 
+/** What a face needs, plus the roster id that picks the agent's own pet. */
+export type RunFace = InternalParticipant & Partial<Pick<SocietyAgent, "agentId" | "tier">>;
+
+/**
+ * Faces by agent id from the society roster, under the names a person knows
+ * (the lead wears the assistant's name). Without the roster entry a face falls
+ * back to a symbol derived from the name, which is not the agent's own pet.
+ */
+export function rosterFaces<A extends RunFace & { agentId: string }>(
+  roster: readonly A[],
+  displayName: (agent: A) => string = (agent) => agent.name,
+): Record<string, RunFace> {
+  const out: Record<string, RunFace> = {};
+  for (const agent of roster) out[agent.agentId] = { ...agent, name: displayName(agent) };
+  return out;
+}
+
 interface Counterpart {
   id: string;
   name: string;
@@ -80,7 +98,7 @@ export function InternalMessageRun({
   recipientName,
 }: {
   run: InternalRunItem;
-  agentsById?: Record<string, InternalParticipant>;
+  agentsById?: Record<string, RunFace>;
   recipientName?: string;
 }) {
   const t = useT();
@@ -111,7 +129,7 @@ export function InternalMessageRun({
           {lead}
         </button>
         {people.map((who, index) => {
-          const face = agentsById?.[who.id] ?? { name: who.name, figure: null, palette: NEUTRAL };
+          const face = agentsById?.[who.id] ?? { name: who.name, agentId: who.id || undefined, figure: null, palette: NEUTRAL };
           const canPair = Boolean(openPair && who.id && who.id !== "user");
           return (
             <Fragment key={who.id || who.name}>
@@ -123,8 +141,8 @@ export function InternalMessageRun({
                 data-testid="agent-message-run-person"
                 className="inline-flex items-center gap-1 rounded px-0.5 text-foreground-secondary hover:text-foreground"
               >
-                <AgentSwatch agent={face} size={16} />
-                <span className="max-w-[12rem] truncate">{who.name}</span>
+                <AgentSwatch agent={face} size={18} />
+                <span className="max-w-[12rem] truncate">{agentsById?.[who.id]?.name || who.name}</span>
               </button>
             </Fragment>
           );
