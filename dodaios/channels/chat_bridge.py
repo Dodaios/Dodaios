@@ -140,7 +140,7 @@ class ChannelChatBridge:
             try:
                 if int(_metadata_value(msg.metadata, "telegram_chat_id") or "0") <= 0:
                     return None
-            except ValueError:
+            except ValueError:  # an unreadable chat id is not the owner's private chat
                 return None
         elif msg.metadata.get("discord_dm") is not True:
             return None

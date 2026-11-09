@@ -34,7 +34,7 @@ def _event_time(raw: str) -> int:
     """The event's wall-clock time in ms, 0 when the stored event has none."""
     try:
         return int(json.loads(raw).get("ts_ms") or 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # an old event without a time sorts as unknown
         return 0
 
 

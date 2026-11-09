@@ -276,7 +276,7 @@ async def answer_in_lead(svc: Any, text: str, *, source: str, timeout_s: float =
                 parts.append(str(payload.get("text") or ""))
             elif kind == "turn_finished":
                 return "\n".join(p for p in parts if p).strip()
-    except TimeoutError:
+    except TimeoutError:  # no reply in time: the documented empty answer
         return ""
     finally:
         svc.unsubscribe(sid, queue)
