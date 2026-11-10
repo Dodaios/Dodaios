@@ -126,7 +126,7 @@ def read_manifest(look_dir: Path, *, builtin: bool, check_files: bool = True) ->
 def _list_root(root: Path, *, builtin: bool) -> list[LookManifest]:
     try:
         folders = [p for p in root.iterdir() if p.is_dir() and LOOK_ID_RE.match(p.name)]
-    except FileNotFoundError:
+    except FileNotFoundError:  # A fresh install has no installed-looks folder yet.
         return []
     except OSError as exc:
         _log.warning("looks folder %s is unreadable: %s", root, exc)
