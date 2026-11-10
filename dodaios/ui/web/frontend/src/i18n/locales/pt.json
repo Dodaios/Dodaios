@@ -7880,7 +7880,8 @@
       "the_agent": "O agente"
     },
     "technical_details": "Detalhes técnicos",
-    "ran": "Executou"
+    "ran": "Executou",
+    "getting_ready": "A preparar"
   },
   "work_trace": {
     "tool_failed": "Uma ação de ferramenta falhou",

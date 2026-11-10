@@ -75,7 +75,10 @@ describe("thread work log", () => {
     expect(screen.queryByText("The gate never ran.")).toBeNull();
     // The stretch the turn is in: closed, with the newest thought under its line.
     expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByTestId("thread-thought-live").textContent).toBe("Nobody is on it. I will look at main.");
+    // One short sentence of the live thought, at reading size; the whole thought is its title.
+    const live = screen.getByTestId("thread-thought-live");
+    expect(live.textContent).toBe("Nobody is on it.");
+    expect(live.getAttribute("title")).toBe("Nobody is on it. I will look at main.");
     // Opened, the first stretch tells each thought once, as a row.
     fireEvent.click(first);
     const rows = screen.getAllByTestId("thread-thought").map((row) => row.textContent);
@@ -219,5 +222,17 @@ describe("line indicators", () => {
     const line = screen.getByRole("button", { name: /^Ran 2 commands/ });
     expect(line.querySelector("[class*='text-destructive/80']")?.textContent).toBe("1 failed");
     expect(line.textContent).toContain("· 11s");
+  });
+});
+
+describe("working line", () => {
+  it("shows the pet getting ready before anything arrived, then only its clock", () => {
+    const { rerender } = render(<ThreadTimeline items={[turn([], "running")]} sessionId="s1" bottomInset={0} />);
+    const line = screen.getByTestId("thread-working");
+    expect(line.querySelector("[data-testid=pet-mark]")).toBeTruthy();
+    expect(line.textContent).toContain("Getting ready");
+    expect(line.textContent).toMatch(/^Working for /);
+    rerender(<ThreadTimeline items={[turn([tool("c1", "ls", { output: null, durationMs: null })], "running")]} sessionId="s1" bottomInset={0} />);
+    expect(screen.getByTestId("thread-working").textContent).not.toContain("Getting ready");
   });
 });
