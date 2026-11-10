@@ -11,6 +11,7 @@ import { clsx } from "clsx";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { CodingModeBadge } from "@/components/layout/CodingModeBadge";
+import { StatusLight } from "@/components/layout/StatusLight";
 import { SectionNavButtons } from "@/components/layout/SectionNavButtons";
 import { LayoutMenuButton } from "@/components/layout/tiling/LayoutMenuButton";
 import { IdeLayoutSwitch } from "@/components/agentic/threads/IdeLayoutSwitch";
@@ -105,6 +106,7 @@ export function TopBar() {
       />
       <IdeCaptionSwitch />
       <div className="flex shrink-0 items-center">
+        <StatusLight />
         <CodingModeBadge />
         <IdeCaptionPanelToggle />
         {controls === "trailing" && (

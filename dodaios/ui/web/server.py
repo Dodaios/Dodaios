@@ -511,6 +511,7 @@ class WebServer:
         from .app_actions_routes import router as app_actions_router
         from .appshot_routes import router as appshot_router
         from .attention_routes import router as attention_router
+        from .status_light_routes import router as status_light_router
         from .board_routes import (
             board_router as board_meta_router,
         )
@@ -808,6 +809,7 @@ class WebServer:
         app.state.agent_chat = None
         app.state.agent_chat_factory = self._build_agent_chat_service
         app.include_router(attention_router)
+        app.include_router(status_light_router)
         app.include_router(agent_chat_router)
         from .agent_server_routes import router as agent_server_router
 

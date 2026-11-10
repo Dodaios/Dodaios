@@ -11375,5 +11375,34 @@
       "agent_working": "Woran arbeitet {agent} gerade?",
       "agent_waiting": "Was braucht {agent} von mir?"
     }
+  },
+  "status_light": {
+    "label": "Status",
+    "title": "Status",
+    "summary_running": "{count} laufen",
+    "summary_needs": "{count} brauchen dich",
+    "idle": "Alles ruhig",
+    "summary_joined": "{running} · {needs}",
+    "needs_heading": "Braucht dich",
+    "running_heading": "Läuft",
+    "trouble_heading": "Bitte ansehen",
+    "empty": "Nichts läuft, und niemand wartet auf dich.",
+    "unavailable": "Der Status ist gerade nicht verfügbar.",
+    "close": "Schließen",
+    "open_hint": "Öffnen",
+    "kind_pane": "Coding-Agent",
+    "kind_team": "Team",
+    "kind_mission": "Mission",
+    "kind_task": "Routine",
+    "kind_job": "Auftrag",
+    "kind_question": "Frage",
+    "kind_approval": "Freigabe",
+    "kind_credential": "Schlüsselanfrage",
+    "kind_proposal": "Vorschlag",
+    "class_quota": "Nutzungslimit erreicht",
+    "class_rate_limit": "kurz gedrosselt",
+    "class_auth": "Login oder Schlüssel abgelehnt",
+    "class_model_unavailable": "Modell nicht verfügbar",
+    "class_other": "zuletzt Fehler"
   }
 }

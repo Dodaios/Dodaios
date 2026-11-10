@@ -11375,5 +11375,34 @@
       "agent_working": "What is {agent} working on?",
       "agent_waiting": "What does {agent} need from me?"
     }
+  },
+  "status_light": {
+    "label": "Status",
+    "title": "Status",
+    "summary_running": "{count} running",
+    "summary_needs": "{count} need you",
+    "idle": "All quiet",
+    "summary_joined": "{running} · {needs}",
+    "needs_heading": "Needs you",
+    "running_heading": "Running",
+    "trouble_heading": "Needs a look",
+    "empty": "Nothing is running and nobody is waiting for you.",
+    "unavailable": "The status is not available right now.",
+    "close": "Close",
+    "open_hint": "Open",
+    "kind_pane": "Coding agent",
+    "kind_team": "Team",
+    "kind_mission": "Mission",
+    "kind_task": "Routine",
+    "kind_job": "Job",
+    "kind_question": "Question",
+    "kind_approval": "Approval",
+    "kind_credential": "Key request",
+    "kind_proposal": "Proposal",
+    "class_quota": "usage limit reached",
+    "class_rate_limit": "rate limited for a moment",
+    "class_auth": "login or key rejected",
+    "class_model_unavailable": "model not available",
+    "class_other": "recent failures"
   }
 }
