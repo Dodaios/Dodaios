@@ -7971,7 +7971,9 @@
       "more_one": "{list} and one more",
       "more_other": "{list} and {count} more",
       "failed_one": "{count} failed",
-      "failed_other": "{count} failed"
+      "failed_other": "{count} failed",
+      "watch_one": "watched a process",
+      "watch_other": "watched {count} processes"
     },
     "act_n": {
       "command": "ran {count} commands",
