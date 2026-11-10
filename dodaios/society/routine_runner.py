@@ -294,22 +294,27 @@ async def run_owned_routine(
     # that opens it (MASTERPLAN §2.10).
     title = next((line.strip() for line in task.splitlines() if line.strip()), task_id)
     routine_title = await _routine_title(task_store, task_id)
-    try:
-        await runtime.post_chat_notice(
-            agent,
-            {
-                "kind": "routine_run",
-                "task_id": task_id,
-                "session_id": session.session_id,
-                "agent_id": agent.agent_id,
-                "agent_name": display_name(agent),
-                "text": title[:200],
-                # The routine's own name: the run's opening line in its chat.
-                "title": routine_title[:200],
-            },
-        )
-    except Exception:  # noqa: BLE001 — the card is a projection; the run itself goes on
-        log.warning("society: routine card not posted for %s", agent.agent_id, exc_info=True)
+    from dodaios.agent_chat.proactive_checks import QUIET_TAG, run_context
+
+    # A quiet lead routine (the "needs you" check, a check-in) shows no start
+    # card: the person hears from it only when it has something to say.
+    if QUIET_TAG not in tags:
+        try:
+            await runtime.post_chat_notice(
+                agent,
+                {
+                    "kind": "routine_run",
+                    "task_id": task_id,
+                    "session_id": session.session_id,
+                    "agent_id": agent.agent_id,
+                    "agent_name": display_name(agent),
+                    "text": title[:200],
+                    # The routine's own name: the run's opening line in its chat.
+                    "title": routine_title[:200],
+                },
+            )
+        except Exception:  # noqa: BLE001 — the card is a projection; the run itself goes on
+            log.warning("society: routine card not posted for %s", agent.agent_id, exc_info=True)
     task = (
         f"Scheduled routine {task_id}. Follow your CURRENT standing instructions.\n"
         "This execution has its own background chat and must honor its permission limits.\n"
@@ -317,6 +322,10 @@ async def run_owned_routine(
         "check sources and dates, remember last-seen items, "
         "and report only meaningful new findings.\n\n" + task
     )
+    # Adaptive lead routines see their previous result; the check sees the open loops.
+    extra = await run_context(task_store, task_id, tags)
+    if extra:
+        task = f"{task}\n\n{extra}"
     queue = service.subscribe(session.session_id)
     answer = ""
     read_failures = 0
