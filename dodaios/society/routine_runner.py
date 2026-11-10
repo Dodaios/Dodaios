@@ -294,11 +294,12 @@ async def run_owned_routine(
     # that opens it (MASTERPLAN §2.10).
     title = next((line.strip() for line in task.splitlines() if line.strip()), task_id)
     routine_title = await _routine_title(task_store, task_id)
-    from dodaios.agent_chat.proactive_checks import QUIET_TAG, run_context
+    from dodaios.agent_chat.proactive_checks import quiet_routine, run_context
 
-    # A quiet lead routine (the "needs you" check, a check-in) shows no start
-    # card: the person hears from it only when it has something to say.
-    if QUIET_TAG not in tags:
+    # A quiet lead routine (the "needs you" check, a check-in, a living page's
+    # refresh) shows no start card: the person hears from it only when it has
+    # something to say, or sees the update where it lands.
+    if not quiet_routine(tags):
         try:
             await runtime.post_chat_notice(
                 agent,

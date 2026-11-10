@@ -39,6 +39,10 @@ CHECK_TAG: Final[str] = "lead-check:needs-you"
 QUIET_TAG: Final[str] = "lead-quiet"
 #: A lead routine whose previous result is handed to its next run.
 ADAPTIVE_TAG: Final[str] = "lead-adaptive"
+#: Tag prefixes of lead routines that are quiet by nature: a living page's
+#: refresh (``living-page:<id>``, ``artifacts/living_refresh.py``) shows its
+#: update on the page itself, so the conversation gets no card per run.
+QUIET_TAG_PREFIXES: Final[tuple[str, ...]] = ("living-page:",)
 CHECK_TITLE: Final[str] = "Needs you"
 #: The exact reply of a check with nothing worth saying.
 NOTHING: Final[str] = "NOTHING_TO_REPORT"
@@ -71,6 +75,14 @@ def cron_expression(settings: ProactiveSettings) -> str:
 def runs_per_day(settings: ProactiveSettings) -> int:
     """How many checks the schedule fires on one day."""
     return len(range(settings.from_hour, settings.to_hour + 1, settings.interval_hours))
+
+
+def quiet_routine(tags: tuple[str, ...] | list[str]) -> bool:
+    """Whether a routine with these tags posts no card into the conversation
+    for a run that starts or finishes well (failures and skips keep showing)."""
+    return any(
+        tag == QUIET_TAG or tag.startswith(QUIET_TAG_PREFIXES) for tag in (str(t) for t in tags)
+    )
 
 
 def quiet_result(payload: dict[str, Any]) -> bool:
@@ -308,11 +320,13 @@ __all__ = [
     "CHECK_TITLE",
     "NOTHING",
     "QUIET_TAG",
+    "QUIET_TAG_PREFIXES",
     "apply_settings",
     "check_prompt",
     "checks_state",
     "cron_expression",
     "quiet_result",
+    "quiet_routine",
     "run_context",
     "runs_per_day",
 ]

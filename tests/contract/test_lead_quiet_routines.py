@@ -40,10 +40,15 @@ async def test_a_quiet_routine_posts_no_start_card_and_a_loud_one_does(lead_worl
     runtime, svc, store, lead, conversation, _ = lead_world
     quiet = build_task_spec(lead, title="Needs you", prompt="Check.", schedule={"kind": "every"})
     quiet = quiet.model_copy(update={"tags": (*quiet.tags, QUIET_TAG)})
+    # A living page's refresh (PR "living pages") shows its update on the page.
+    page = build_task_spec(lead, title="Page", prompt="Refresh.", schedule={"kind": "every"})
+    page = page.model_copy(update={"tags": (*page.tags, "living-page:abc123")})
     loud = build_task_spec(lead, title="Brief", prompt="Brief.", schedule={"kind": "every"})
     quiet_id = str(await store.insert(quiet))
+    page_id = str(await store.insert(page))
     loud_id = str(await store.insert(loud))
     await run_owned_routine(runtime, quiet_id, quiet.tags, quiet.action.prompt)
+    await run_owned_routine(runtime, page_id, page.tags, page.action.prompt)
     assert [n["kind"] for n in _notices(svc, conversation.session_id)] == []
     await run_owned_routine(runtime, loud_id, loud.tags, loud.action.prompt)
     cards = _notices(svc, conversation.session_id)

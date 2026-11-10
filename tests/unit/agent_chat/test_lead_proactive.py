@@ -216,6 +216,13 @@ def test_real_results_failures_and_other_notices_keep_showing(payload: dict) -> 
     assert proactive_checks.quiet_result(payload) is False
 
 
+def test_quiet_routines_are_the_tagged_ones_and_living_page_refreshes() -> None:
+    assert proactive_checks.quiet_routine(("society", "agent:jarvis", proactive_checks.QUIET_TAG))
+    assert proactive_checks.quiet_routine(["society", "agent:jarvis", "living-page:abc123"])
+    assert not proactive_checks.quiet_routine(("society", "agent:jarvis", proactive.BRIEF_TAG))
+    assert not proactive_checks.quiet_routine(())
+
+
 # ── the routine ─────────────────────────────────────────────────────────────────
 
 
