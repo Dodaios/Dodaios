@@ -54,6 +54,8 @@ from dodaios.core.events import (
 )
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.missions.events import coerce_mission_language
+from dodaios.orchestrator import mission_jobs
+from dodaios.orchestrator.jobs import with_job_id
 from dodaios.voice.action_phrases import action_phrase, resolve_ambient_language
 
 log = logging.getLogger(__name__)
@@ -323,6 +325,14 @@ class CreateArtifactTool:
         except Exception as exc:  # noqa: BLE001 — see comment above
             log.warning("create_artifact announce failed error=%s", exc)
 
+        # The job exists before the mission does; its id goes into the result.
+        job_id = mission_jobs.begin(
+            "artifact",
+            ctx=ctx,
+            title=brief.title,
+            manager=manager,
+            meta={"artifact_file": brief.filename, "revision": bool(brief.revision)},
+        )
         # Fire-and-forget: the router is free again within the voice budget;
         # the completion reaches the user through the mission voice listener.
         # The task-name prefix is a live matching key — BrainManager
@@ -338,6 +348,7 @@ class CreateArtifactTool:
                 mission_language=mission_language,
                 readback_language=language,
                 background=background,
+                job_id=job_id,
             ),
             name=f"jarvis-agent-artifact-{ctx.trace_id.hex[:8]}",
         )
@@ -365,7 +376,7 @@ class CreateArtifactTool:
         # this background marker as a dict (the spawn_worker precedent).
         return ToolResult(
             success=True,
-            output=ack,
+            output=with_job_id(ack, job_id, ctx),
             artifacts=(  # type: ignore[arg-type]
                 {
                     "background_task": True,
@@ -373,6 +384,7 @@ class CreateArtifactTool:
                     "artifact_title": brief.title,
                     "artifact_file": brief.filename,
                     "revision": brief.revision,
+                    **({"job_id": job_id} if job_id else {}),
                 },
             ),
         )
@@ -425,6 +437,7 @@ class CreateArtifactTool:
         mission_language: str,
         readback_language: str,
         background: bool = False,
+        job_id: str | None = None,
     ) -> None:
         """Read the facts, compose the brief, persist the mission and run it —
         the two-step contract spawn_worker documents (dispatch → PENDING,
@@ -447,7 +460,9 @@ class CreateArtifactTool:
                 language=mission_language,
                 source_actor="system" if background else "hauptjarvis",
             )
+            mission_jobs.linked(job_id, mission_id)
             if kontrollierer is None:
+                mission_jobs.failed(job_id, "No mission runner is available.")
                 log.warning(
                     "create_artifact: mission %s dispatched but no Kontrollierer "
                     "available — it stays PENDING until the next app start",
@@ -461,9 +476,11 @@ class CreateArtifactTool:
             await kontrollierer.run_mission(mission_id)
         except asyncio.CancelledError:
             log.info("create_artifact background dispatch cancelled (app shutdown)")
+            mission_jobs.interrupted(job_id, "The dispatch was cancelled.")
             raise
         except BaseException as exc:  # noqa: BLE001 — fire-and-forget task, see docstring
             log.exception("create_artifact background dispatch crashed")
+            mission_jobs.failed(job_id, f"{type(exc).__name__}: {exc}")
             if not background:
                 await self._publish_failure(utterance, f"{type(exc).__name__}: {exc}")
 

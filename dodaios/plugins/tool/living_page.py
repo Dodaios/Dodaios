@@ -19,6 +19,7 @@ import logging
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.orchestrator import jobs
 
 log = logging.getLogger(__name__)
 
@@ -218,6 +219,18 @@ class LivingPageTool:
             # The page exists either way; the person hears that it will not refresh.
             refresh_error = str(exc)
             log.warning("living page %s: refresh not scheduled: %s", page.id, exc)
+        # Written synchronously, so the job is already done; the ledger lists the page.
+        job_id = jobs.start(
+            "artifact", ctx=ctx, title=page.title, target=f"living-page:{page.id}",
+            meta={"page_id": page.id},
+        )
+        jobs.finish(
+            job_id,
+            "done" if not refresh_error else "blocked",
+            summary=f"Living page with {len(page.rows)} rows."
+            + (f" It cannot refresh yet: {refresh_error}" if refresh_error else ""),
+            result_ref=f"artifact:{page.visual_id}",
+        )
         await post_card(
             session_of(ctx),
             {"kind": "chain_result", "text": page.title, "items": [page_item(page)]},
@@ -225,14 +238,20 @@ class LivingPageTool:
         if refresh_error:
             return ToolResult(
                 True,
-                f"Created the page '{page.title}' (page_id {page.id}) with {len(page.rows)} "
-                f"rows, but it cannot refresh yet: {refresh_error}.",
+                jobs.with_job_id(
+                    f"Created the page '{page.title}' (page_id {page.id}) with "
+                    f"{len(page.rows)} rows, but it cannot refresh yet: {refresh_error}.",
+                    job_id, ctx,
+                ),
             )
         return ToolResult(
             True,
-            f"Created the living page '{page.title}' (page_id {page.id}) with "
-            f"{len(page.rows)} rows. It refreshes every {page.every_minutes} minutes and is "
-            "in the Artifacts section; the person can stop the refresh there.",
+            jobs.with_job_id(
+                f"Created the living page '{page.title}' (page_id {page.id}) with "
+                f"{len(page.rows)} rows. It refreshes every {page.every_minutes} minutes "
+                "and is in the Artifacts section; the person can stop the refresh there.",
+                job_id, ctx,
+            ),
         )
 
 

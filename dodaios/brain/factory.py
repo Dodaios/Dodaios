@@ -94,6 +94,9 @@ ROUTER_TOOLS = frozenset({
     # Direct monitor/safe actions, never a spawn (AP-5/AP-14).
     "living-page",
     "show-result-card",
+    # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
+    "job-status",
+    "await-jobs",
     # Command Registry executor (2026-07-09): run ONE curated app command
     # (dodaios/commands/registry.py) through the SAME REST endpoint the UI
     # uses, in-process via ASGI transport. Enum-constrained command_id +

@@ -147,6 +147,41 @@ and it is not the running order again. A short follow-up ("and?"), a repeat,
 and every spoken spawn stay under the window. Speech arrives in pieces on
 every voice engine, and no engine names a finished order to the tool.
 
+### 6. Every started job has a handle: the jobs ledger
+
+A hand-off returns at once, and until now the lead had no way to ask what became
+of it except polling a shell or a log file. Each started unit of work now writes
+one row in `jobs.db` (`dodaios/orchestrator/jobs.py`): id, kind (`mission`,
+`artifact`, `society_assignment`, `ide_submission`, `team_thread`, `routine`),
+owning chat session and turn, target, title, state (`queued`, `running`, `done`,
+`failed`, `blocked`, `interrupted`, `cancelled`), a result reference, a short
+summary, the error and the cost when known.
+
+- The writers are the places that already read completion evidence: missions and
+  artifact builds (`orchestrator/mission_jobs.py`), assignments to team agents
+  (`society/delegation_wait.py`), prompts typed into coding panes
+  (`agentic_ide/delegation_wait.py`), team threads (`orchestrator/team_jobs.py`)
+  and living pages. Each hands the ledger the same read-only probe the
+  delegation wait uses, so the in-turn wait, the ledger and the tools read one
+  source of truth. No model is called and nothing is dispatched to derive a state.
+- Missions, artifact builds and team threads are registered as delegated work, so
+  a turn that ordered one is held open for it, or hands its seat to the next
+  message and continues later, exactly like an assignment (§4). This closes the
+  mission gap.
+- Every async tool result carries its `job_id`: `spawn_worker`,
+  `create_artifact`, `living_page`, `delegate_to_agent`, `message_agent` (for
+  work or an awaited reply), the coding-pane prompt receipts and a started team
+  thread.
+- `job_status(ids?)` reports jobs now (no ids: the chat's open jobs first, then
+  recent ones). `await_jobs(ids, timeout_s, mode)` waits up to a timeout the
+  model chooses (at most 540 s, below the 600 s tool timeout of the chat CLIs)
+  for all jobs or the first one, and returns which finished, their result
+  references and which still run. A wait that runs out reports running jobs as
+  running. Both tools are read-only and reach every surface that gets the brain's
+  tool catalog, including the outward MCP server.
+- A job whose process is gone with no durable evidence to re-read becomes
+  `interrupted`, never `done`. Missions are re-read from their own store.
+
 ## Consequences
 
 - Orders given in quick succession in a live call or in the chat start right
@@ -159,7 +194,8 @@ every voice engine, and no engine names a finished order to the tool.
   marks it, and the continuation prompt tells the model to name the request.
 - Parked chat work and background tasks live in memory. A restart forgets the
   wait, never the delegated work, whose own report still reaches the chat or
-  the next call.
+  the next call. The jobs ledger survives the restart; rehydrating the waits
+  from it is not built yet.
 
 ## Not covered
 

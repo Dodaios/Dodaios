@@ -11,6 +11,7 @@ import asyncio
 from typing import Any
 
 from dodaios.core.delegated_work import DelegatedWork, register_delegated_work
+from dodaios.orchestrator import jobs
 
 from . import agent_transcript
 
@@ -102,10 +103,19 @@ def _read(term: Any, identity: tuple) -> dict[str, Any] | None:
     }
 
 
-def track_submission(registry: Any, owner: Any, term: Any) -> None:
+def track_submission(registry: Any, owner: Any, term: Any) -> str | None:
+    """Reserve the wait for this submission and record it as a job.
+
+    Returns the jobs-ledger id (also stored on ``term.last_job_id``), or ``None``
+    when the prompt was not submitted.
+    """
+    term.last_job_id = ""
     if term.submitted is False or term.last_submit_at is None:
-        return
+        return None
     identity = _identity(term)
+    key = f"coding:{term.history_id}:{identity[0]}:{identity[1]}"
+    job_id = jobs.job_id_for("ide_submission", key)
+    term.last_job_id = job_id
 
     async def probe() -> dict[str, Any] | None:
         def current() -> bool:
@@ -131,10 +141,19 @@ def track_submission(registry: Any, owner: Any, term: Any) -> None:
             }
         return result
 
+    jobs.start(
+        "ide_submission",
+        job_id=job_id,
+        target="pane:" + str(term.history_id),
+        title=f"{term.name}: " + " ".join(str(term.last_prompt or "").split())[:100],
+        probe=probe,
+        meta={"workspace": str(getattr(owner, "id", "")), "agent": str(term.agent)},
+    )
     register_delegated_work(
         DelegatedWork(
-            key=f"coding:{term.history_id}:{identity[0]}:{identity[1]}",
+            key=key,
             name=str(term.name),
-            probe=probe,
+            probe=jobs.probe_for(job_id) or probe,
         )
     )
+    return job_id

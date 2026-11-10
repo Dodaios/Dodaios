@@ -186,6 +186,10 @@ class Delivery:
     """The pane's status when it could not be reached — the one detail worth
     speaking ("its agent is exited")."""
 
+    job_id: str = ""
+    """The jobs-ledger id of the submission (``job_status`` / ``await_jobs``);
+    empty when the sender reports none."""
+
 
 @dataclass(frozen=True, slots=True)
 class FanOutResult:
@@ -690,12 +694,14 @@ async def deliver(
         # says nothing leaves it None (unknown) rather than claiming success —
         # the readback then stays silent about it instead of overstating.
         submitted = getattr(sent, "submitted", None)
+        job_id = getattr(sent, "last_job_id", "")
         return Delivery(
             terminal=term.name,
             delivered=True,
             submitted=None if submitted is None else bool(submitted),
             files=tuple(getattr(composed, "files", ()) or ()),
             composed_by=str(getattr(composed, "composed_by", "") or ""),
+            job_id=job_id if isinstance(job_id, str) else "",
         )
 
     # return_exceptions is deliberate belt-and-braces: `one` already contains

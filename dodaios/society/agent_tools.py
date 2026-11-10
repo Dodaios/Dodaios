@@ -266,12 +266,17 @@ class MessageAgentTool:
             parent_event_id=parent.event_id if parent is not None else None,
         )
         status = await rt.store.delivery_status(env.event_id)
+        from .delegation_wait import ledger_job_id
+
+        job_id = ledger_job_id(env)
         return ToolResult(
             success=status != "failed",
             error="Internal message delivery failed" if status == "failed" else None,
             output={
                 "status": status,
                 "message_id": env.event_id,
+                # Set when the message starts tracked work (a task or an awaited reply).
+                **({"job_id": job_id} if job_id else {}),
                 "target": display_name(target),
                 **({"delivered_to": display_name(target)} if status == "delivered" else {}),
                 "kind": kind,

@@ -253,8 +253,13 @@ class TeamThreads(PlannedWork):
         if len(families) == 1:
             # Honest about what a one-family team cannot give (AP-22).
             self._notice(team_id, first, "same_family")
+        # The job is written before the run starts, so no evidence is missed.
+        from dodaios.orchestrator import team_jobs
+
+        job_id = team_jobs.begin(self._store, team_id, title)
         self._spawn(team_id)
-        return await asyncio.to_thread(self.snapshot, team_id)
+        started = await asyncio.to_thread(self.snapshot, team_id)
+        return {**started, "job_id": job_id} if job_id else started
 
     async def message(self, team_id: str, text: str) -> dict[str, Any]:
         """The person steps in. Every member reads it with its next turn."""
