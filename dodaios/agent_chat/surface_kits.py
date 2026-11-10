@@ -14,6 +14,7 @@ costs nothing at boot (AP-26).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -221,6 +222,49 @@ async def _jarvis_completed(session: Any, completion: ChatCompletion) -> None:
     if loop is not None:
         await loop.chat_turn_completed(session, completion)
     await self_build_observe(session, completion, surface="jarvis")
+    await _note_proactive_cues(session, completion)
+
+
+async def _note_proactive_cues(session: Any, completion: ChatCompletion) -> None:
+    """Open loops and check-in requests in the person's own words (lazy).
+
+    Only a direct turn of the lead's one conversation counts; a routine's or
+    an agent's words never become a promise of the person. Best effort: a
+    failure here never touches the finished turn.
+    """
+    import json
+
+    turn = getattr(completion, "turn", None)
+    if turn is None or not getattr(turn, "direct_user", True):
+        return
+    try:
+        from dodaios.agent_chat import checkins, open_loops
+        from dodaios.agent_chat.proactive_settings import load_settings
+
+        events = json.loads(completion.events_json)
+        typed = [
+            str((e.get("payload") or {}).get("text") or "")
+            for e in events
+            if e.get("kind") == "user_message"
+        ]
+        text = (typed[-1] if typed else str(getattr(turn, "user_text", "") or "")).strip()
+        if not text:
+            return
+        tools = tuple(
+            str((e.get("payload") or {}).get("name") or "")
+            for e in events
+            if e.get("kind") == "tool_call"
+        )
+        settings = await load_settings()
+        await asyncio.to_thread(
+            open_loops.note_user_text,
+            text,
+            session_id=str(getattr(session, "session_id", "") or ""),
+            timezone=settings.timezone,
+        )
+        await checkins.note_user_text(text, tool_names=tools)
+    except Exception:  # noqa: BLE001 — a missed cue is not worth a broken turn
+        log.warning("lead: proactive cues not read from the turn", exc_info=True)
 
 
 async def _person_chat_completed(session: Any, completion: ChatCompletion) -> None:

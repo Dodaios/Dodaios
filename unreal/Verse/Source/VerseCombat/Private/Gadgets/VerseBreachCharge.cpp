@@ -178,6 +178,7 @@ void AVerseBreachCharge::Detonate(double Now)
 			HitEvent.Direction = (Pelvis - Centre).GetSafeNormal(UE_SMALL_NUMBER, Normal);
 			HitEvent.DistanceM = DistanceM;
 			HitEvent.Damage = Damage;
+			HitEvent.InstigatorId = OwnerId;
 			if (DamageService)
 			{
 				DamageService->ApplyHit(OwnerActor, Pawn, HitEvent);
