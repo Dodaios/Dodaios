@@ -11,6 +11,9 @@ const BASE = "/api/notify";
 export const NOTIFY_KINDS = ["reminder", "needs_you", "approval", "finished"] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
 
+export const PHONE_KINDS = ["decisions", "results", "failures", "progress", "brief"] as const;
+export type PhoneKind = (typeof PHONE_KINDS)[number];
+
 export interface QuietHours {
   enabled: boolean;
   /** Local wall-clock times, `HH:MM`. */
@@ -23,6 +26,8 @@ export interface NotifySettings {
   kinds: Record<NotifyKind, boolean>;
   quiet_hours: QuietHours;
   telegram_approvals: boolean;
+  /** Which lead updates reach the phone chat (Telegram, Discord DM, WhatsApp). */
+  phone: Record<PhoneKind, boolean>;
 }
 
 export interface NotifySettingsPatch {
@@ -30,6 +35,7 @@ export interface NotifySettingsPatch {
   kinds?: Partial<Record<NotifyKind, boolean>>;
   quiet_hours?: Partial<QuietHours>;
   telegram_approvals?: boolean;
+  phone?: Partial<Record<PhoneKind, boolean>>;
 }
 
 export interface NotifyVerdict {
