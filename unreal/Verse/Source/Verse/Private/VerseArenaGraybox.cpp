@@ -58,6 +58,8 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float FillLux = 18.f;
 	/** Soft shadowless bounce stand-ins over the arena (lumens each): faces the work lights miss stay readable. */
 	constexpr float BounceLumens = 30000.f;
+	/** Largest rendered box edge (cm); bigger boxes render as tiles (collision stays one box). */
+	constexpr double MaxTileCm = 600.0;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
 	const FVector DroneDocks[] = {FVector(2620.0, 2400.0, 900.0), FVector(5000.0, 4280.0, 900.0), FVector(7380.0, 2400.0, 900.0)};
 
@@ -370,7 +372,7 @@ UInstancedStaticMeshComponent* AVerseArenaGraybox::SurfaceFor(const FString& Loo
 		Surface->SetVisibility(false);
 		Surface->SetCastShadow(false);
 	}
-	else if (UMaterialInterface* Material = MaterialFor(Look))
+	else if (UMaterialInterface* Material = MaterialFor(Look.EndsWith(TEXT("_Tiles")) ? Look.LeftChop(6) : Look))
 	{
 		Surface->SetMaterial(0, Material);
 		Surface->SetCastShadow(!bGlass);
@@ -720,10 +722,10 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.LocalExposureHighlightContrastScale = 0.75f;
 		S.bOverride_LocalExposureShadowContrastScale = true;
 		S.LocalExposureShadowContrastScale = 0.75f;
-		// The graybox's dark albedo bounces little: a stronger Lumen bounce lifts the walls the
-		// work lights do not reach.
+		// A mild Lumen boost; the shadowless bounce points carry most of the fill, since a stronger
+		// boost shows the surface cache's blocks and noise.
 		S.bOverride_IndirectLightingIntensity = true;
-		S.IndirectLightingIntensity = 2.2f;
+		S.IndirectLightingIntensity = 1.2f;
 		Spawned.Add(Post);
 	}
 
@@ -806,8 +808,29 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 		const FVector Center = ReadVector(Box, TEXT("center"));
 		const FVector Size = ReadVector(Box, TEXT("size"));
 		const FString Look = LookFor(Box);
+		const bool bGlass = Material == TEXT("glass");
 		const bool bVisible = Look != TEXT("Hidden");
-		AddSlab(SurfaceFor(Look, bSolid, Material == TEXT("glass"), bVisible), FTransform(FQuat::Identity, Center, Size / 100.0));
+		const bool bTile = bVisible && !bGlass && FApp::CanEverRender() && Size.GetMax() > MaxTileCm;
+		AddSlab(SurfaceFor(Look, bSolid, bGlass, bVisible && !bTile), FTransform(FQuat::Identity, Center, Size / 100.0));
+		if (bTile)
+		{
+			// Big boxes render as tiles of at most MaxTileCm: one huge scaled cube gets a coarse
+			// Lumen surface cache, which shows as blocky light on floors and walls.
+			UInstancedStaticMeshComponent* Tiles = SurfaceFor(Look + TEXT("_Tiles"), false, false);
+			const FIntVector Count(FMath::CeilToInt(Size.X / MaxTileCm), FMath::CeilToInt(Size.Y / MaxTileCm), FMath::CeilToInt(Size.Z / MaxTileCm));
+			const FVector Step(Size.X / Count.X, Size.Y / Count.Y, Size.Z / Count.Z);
+			const FVector Origin = Center - Size * 0.5 + Step * 0.5;
+			for (int32 X = 0; X < Count.X; ++X)
+			{
+				for (int32 Y = 0; Y < Count.Y; ++Y)
+				{
+					for (int32 Z = 0; Z < Count.Z; ++Z)
+					{
+						Tiles->AddInstance(FTransform(FQuat::Identity, Origin + Step * FVector(X, Y, Z), Step / 100.0), true);
+					}
+				}
+			}
+		}
 	}
 	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("ramps")))
 	{
