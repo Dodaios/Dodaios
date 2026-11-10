@@ -112,6 +112,9 @@ private:
 	void HandleFire(const FVerseFireEvent& Event);
 	void HandleHit(const FVerseHitEvent& Event);
 	void InstallUiPorts();
+	/** The hangar deck stands in the dressed hall from its first frame (the duel adds the arena). */
+	void HandleDeckArrived(FName Deck, bool bByLift);
+	void BuildHallIfOnHangar();
 	void ReadCommandLine();
 	void UpdatePerson();
 	void Spectate();
@@ -147,4 +150,5 @@ private:
 	FDelegateHandle FireHandle;
 	FDelegateHandle HitHandle;
 	FDelegateHandle PerceptHandle;
+	FDelegateHandle DeckArrivedHandle;
 };

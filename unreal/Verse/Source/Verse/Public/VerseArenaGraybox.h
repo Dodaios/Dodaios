@@ -33,8 +33,20 @@ struct FVerseFractureEvent;
  *   the dressing never changes what blocks a pawn, a bolt or the bot's sight.
  *
  * LV_Hangar's nav bounds cover the arena and the nav mesh generates at runtime, so the bot and the
- * scripted player path through it. Removed again when the hangar goes back to day.
+ * scripted player path through it. The duel removes it again when the hangar goes back to day;
+ * the deck view keeps a hall-only graybox (EVerseGrayboxPart::Hall) so the hangar is dressed there too.
  */
+/** What a graybox carries. */
+enum class EVerseGrayboxPart : uint8
+{
+	/** The hangar hall alone (layout layer "base"): hull, floor, ceiling, armoury, hall dressing,
+	 *  floor markings, the truss and armoury lights and the hangar look. The deck view stands in it. */
+	Hall,
+	/** Hall and arena (layers "base" and "arena"): cover, catwalks, booth, shuttle, the breakable
+	 *  pieces, spawn points and the nav mesh on top. The duel plays in it. */
+	Full,
+};
+
 UCLASS(NotPlaceable, Transient)
 class VERSE_API AVerseArenaGraybox : public AActor
 {
@@ -45,11 +57,19 @@ public:
 
 	/** Server and clients: spawns the graybox when the world has no arena spawn points; nullptr when it has. */
 	static AVerseArenaGraybox* BuildIfMissing(UWorld& World);
-	/** The graybox of a world, if built. */
+	/** The duel's (full) graybox of a world, if built. */
 	static AVerseArenaGraybox* Find(const UWorld& World);
+	/**
+	 * The hangar hall for the deck view: built unless the duel's full graybox already stands (it
+	 * contains the hall) or the level has its own arena. BuildIfMissing replaces it with the full one.
+	 */
+	static AVerseArenaGraybox* BuildHall(UWorld& World);
+	/** The hall-only graybox of a world, if built. */
+	static AVerseArenaGraybox* FindHall(const UWorld& World);
 
-	/** Reads the JSON and creates everything; false when the file is missing or broken. */
-	bool Build(const FString& JsonPath);
+	/** Reads the JSON and creates the part; false when the file is missing or broken. */
+	bool Build(const FString& JsonPath, EVerseGrayboxPart InPart = EVerseGrayboxPart::Full);
+	EVerseGrayboxPart GetPart() const { return Part; }
 
 	static FString DefaultJsonPath();
 
@@ -138,6 +158,9 @@ private:
 	/** Directional lights of the world turned off while the arena's fill is the only one. */
 	TArray<TWeakObjectPtr<class UDirectionalLightComponent>> MutedLights;
 	FDelegateHandle FractureHandle;
+	EVerseGrayboxPart Part = EVerseGrayboxPart::Full;
+	/** Whether a box, ramp or light of the JSON belongs to this part (by its "layer"). */
+	bool Includes(const TSharedPtr<class FJsonObject>& Entry) const;
 	int32 Boxes = 0;
 	int32 SpawnPoints = 0;
 	int32 DressingInstances = 0;

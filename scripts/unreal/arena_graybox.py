@@ -99,6 +99,10 @@ def build() -> dict:
         "lights": [
             {
                 "id": light.id,
+                "zone": light.zone,
+                # The arena's practicals (catwalks, booth, cabin, canyon aisles) come and go with
+                # the arena; the truss work lights and the armoury light the hall on every visit.
+                "layer": "arena" if light.zone.startswith("arena") else "base",
                 "type": light.type,
                 "location": [cm(light.x), cm(light.z), cm(light.h)],
                 "pitch": light.pitch_deg,

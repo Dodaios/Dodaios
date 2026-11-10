@@ -695,7 +695,10 @@ void AVerseArenaGraybox::Dress(UWorld& World, const TSharedPtr<FJsonObject>& Roo
 {
 	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("boxes")))
 	{
-		DressBox(Value->AsObject());
+		if (Includes(Value->AsObject()))
+		{
+			DressBox(Value->AsObject());
+		}
 	}
 	DressHall();
 	DressDecals();

@@ -20,6 +20,7 @@
 #include "Gadgets/VerseGadgetComponent.h"
 #include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
+#include "Decks/VerseDeckSubsystem.h"
 #include "HangarSwitch/VerseHangarSwitchSubsystem.h"
 #include "Inventory/VerseInventoryComponent.h"
 #include "Inventory/VerseWeaponSlot.h"
@@ -178,6 +179,10 @@ void UVerseDuelSubsystem::Deinitialize()
 	{
 		Service->OnPerceptFrame.Remove(PerceptHandle);
 	}
+	if (UVerseDeckSubsystem* Decks = UVerseDeckSubsystem::Get(GetWorld()))
+	{
+		Decks->OnDeckArrived.Remove(DeckArrivedHandle);
+	}
 	if (--GErrorCounterUsers == 0 && GErrorCounter)
 	{
 		if (GLog)
@@ -204,7 +209,32 @@ void UVerseDuelSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		WirePerception();
 	}
 	InstallUiPorts();
+	if (UVerseDeckSubsystem* Decks = UVerseDeckSubsystem::Get(&InWorld))
+	{
+		DeckArrivedHandle = Decks->OnDeckArrived.AddUObject(this, &UVerseDuelSubsystem::HandleDeckArrived);
+	}
+	BuildHallIfOnHangar();
 	ReadCommandLine();
+}
+
+void UVerseDuelSubsystem::HandleDeckArrived(FName Deck, bool bByLift)
+{
+	BuildHallIfOnHangar();
+}
+
+void UVerseDuelSubsystem::BuildHallIfOnHangar()
+{
+	UWorld* World = GetWorld();
+	const UVerseDeckSubsystem* Decks = UVerseDeckSubsystem::Get(World);
+	if (!World || !World->IsGameWorld() || !Decks || Decks->GetCurrentDeck() != UVerseHangarSwitchSubsystem::HangarDeck)
+	{
+		return;
+	}
+	// The deck view stands in the same dressed hall as the duel; the duel's full graybox replaces it.
+	if (!bDuelRunning)
+	{
+		AVerseArenaGraybox::BuildHall(*World);
+	}
 }
 
 void UVerseDuelSubsystem::InstallUiPorts()
@@ -412,6 +442,8 @@ void UVerseDuelSubsystem::LeaveDuel()
 			}
 		}
 	}
+	// The arena is gone; the hangar keeps its hall.
+	BuildHallIfOnHangar();
 	UE_LOG(LogVerse, Log, TEXT("[VerseDuel] duel left"));
 }
 

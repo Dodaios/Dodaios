@@ -39,3 +39,14 @@ def test_render_is_stable_json():
     text = arena_graybox.render(arena_graybox.build())
     assert json.loads(text)["schema"] == arena_graybox.SCHEMA
     assert text.endswith("\n")
+
+
+def test_lights_name_their_layer_so_the_deck_hall_lights_without_the_arena():
+    # The hangar deck view builds the hall (layer "base") alone; the arena's practicals come with
+    # the duel. Every light says which part it belongs to.
+    data = arena_graybox.build()
+    layers = {light["id"]: light["layer"] for light in data["lights"]}
+    assert set(layers.values()) == {"base", "arena"}
+    assert all(layers[i] == "base" for i in layers if i.startswith(("work_", "armoury_")))
+    for light in data["lights"]:
+        assert (light["layer"] == "arena") == light["zone"].startswith("arena"), light["id"]
