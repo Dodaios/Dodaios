@@ -717,7 +717,8 @@ SPAWN_BLOCKED_MODEL_FEEDBACK: str = (
 SPAWN_BLOCKED_ADDRESSED_PANE_FEEDBACK: str = (
     "spawn_worker was not executed: this turn is addressed to a coding "
     "terminal in the open workspace, and that terminal does this work. Send "
-    "the user's request to it with the agentic-ide-prompt function, in the "
+    "the user's request to it with the agentic-ide-prompt function (or "
+    "workspace-orchestrate send, if you have no such function), in the "
     "user's own words — including any instruction to spawn sub-agents, which "
     "is an instruction for the agent IN that terminal to carry out itself. You "
     "may still use other functions to gather context for the brief. Do not "

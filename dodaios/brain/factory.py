@@ -771,6 +771,16 @@ def is_worker_bootstrap_failed() -> bool:
     return bool(_WORKER_BOOTSTRAP_FAILED[0])
 
 
+def _is_jarvis_chat_session(session_id: str) -> bool:
+    """Whether ``session_id`` is a Jarvis chat: the surface that has the lead's tool set."""
+    from dodaios.society.runtime import current_runtime
+
+    runtime = current_runtime()
+    service = runtime.chat_service() if runtime is not None else None
+    session = service.store.get_session(session_id) if service is not None else None
+    return session is not None and getattr(session, "surface", "") == "jarvis"
+
+
 def _register_runtime_manager(manager: Any) -> None:
     """Publish one Brain Manager and its public tool gateway for all surfaces."""
     try:
@@ -817,6 +827,7 @@ def _register_runtime_manager(manager: Any) -> None:
                 browser_tool=browser_tool,
                 session_tools=session_tools,
                 workspace_tool=WorkspaceOrchestrationTool(WorkspaceGateway()),
+                lead_session=_is_jarvis_chat_session,
             )
         )
     except Exception as exc:  # noqa: BLE001 - registration never blocks boot

@@ -42,6 +42,12 @@ _VOICE_SUPERSEDED_TOOLS = frozenset(
 )
 
 
+# The ambient-pane prompt tools pick a pane the model never named. The lead
+# addresses a pane by its stable id through ``workspace-orchestrate`` instead;
+# other surfaces that rely on these keep them.
+_LEAD_DROPPED_TOOLS = frozenset({"agentic-ide-prompt", "agentic-ide-fanout"})
+
+
 class BrainSupervisorToolGateway:
     """Adapter that keeps Brain Manager implementation details private."""
 
@@ -54,12 +60,14 @@ class BrainSupervisorToolGateway:
         session_tools: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any] | None]]
         | None = None,
         workspace_tool: Tool | None = None,
+        lead_session: Callable[[str], bool] | None = None,
     ) -> None:
         self._manager = manager
         self._session_tool = session_tool
         self._browser_tool = browser_tool
         self._session_tools = session_tools
         self._workspace_tool = workspace_tool
+        self._lead_session = lead_session
         self._lock = threading.Lock()
         self._fingerprint: tuple[tuple[str, int], ...] = ()
         self._catalog_version = 0
@@ -124,6 +132,49 @@ class BrainSupervisorToolGateway:
         self.catalog()
         with self._lock:
             return self._catalog_version
+
+    def is_lead_session(self, session_id: str) -> bool:
+        """Whether ``session_id`` is a Jarvis chat, which has the lead's tool set."""
+        if self._lead_session is None or not session_id:
+            return False
+        try:
+            return bool(self._lead_session(session_id))
+        except Exception:  # noqa: BLE001 - an unknown session is not the lead
+            return False
+
+    def lead_extra_tools(self) -> dict[str, Any]:
+        """What the lead has beyond the shared tools: addressed-pane coding and the board.
+
+        ``workspace-orchestrate`` and ``workspace-git`` address coding panes by
+        stable id (voice has had them all along); ``work_board`` is the one
+        read of what runs and who needs the person.
+        """
+        from dodaios.brain.work_board_tool import WorkBoardTool
+
+        extra: dict[str, Any] = {}
+        if self._workspace_tool is not None:
+            extra[self._workspace_tool.name] = self._workspace_tool
+            workspaces = getattr(self._workspace_tool, "gateway", None)
+            if workspaces is not None:
+                from dodaios.brain.workspace_git_tool import WorkspaceGitTool
+
+                extra[WorkspaceGitTool.name] = WorkspaceGitTool(workspaces)
+
+        def board_sources() -> dict[str, Any]:
+            return {**self._live_tools(), **extra}
+
+        extra[WorkBoardTool.name] = WorkBoardTool(board_sources)
+        return extra
+
+    def lead_tools(self) -> dict[str, Any]:
+        """The typed lead's tool set: the shared tools, addressed-pane coding, the board."""
+        tools = {
+            name: tool
+            for name, tool in self._live_tools().items()
+            if name not in _LEAD_DROPPED_TOOLS
+        }
+        tools.update(self.lead_extra_tools())
+        return tools
 
     def _voice_tools(self) -> dict[str, Any]:
         from dodaios.harness.computer_use_context import peek_computer_use_context
@@ -213,8 +264,15 @@ class BrainSupervisorToolGateway:
                 error=f"cancelled ({request.cancel_token.reason or 'requested'})",
             )
 
-        tools = self._voice_tools() if request.origin == "realtime" else self._live_tools()
         ref = str(request.config_snapshot.get("approval_ref") or "")
+        if request.origin == "realtime":
+            tools = self._voice_tools()
+        elif request.origin == "agent-chat" and self.is_lead_session(
+            ref.removeprefix("agent-chat:")
+        ):
+            tools = self.lead_tools()
+        else:
+            tools = self._live_tools()
         scoped = None
         if (
             self._session_tools is not None
@@ -279,7 +337,11 @@ class BrainSupervisorToolGateway:
             tools = await self._session_tools(session_id, self._live_tools())
             if tools is not None:
                 return self._describe(tools)
-        catalog = self.catalog()
+        catalog = (
+            self._describe(self.lead_tools())
+            if self.is_lead_session(session_id)
+            else self.catalog()
+        )
         scoped = []
         for resolver in (self._session_tool, self._browser_tool):
             tool = await resolver(session_id) if resolver is not None else None

@@ -30,6 +30,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from dodaios.core.page_cursor import decode_cursor, encode_cursor
 from dodaios.core.protocols import started_by_user
 from dodaios.tasks.scheduler import TaskNotFound, TaskStateConflict
 from dodaios.tasks.schema import PAUSABLE_TRIGGER_TYPES, TERMINAL_STATES, TaskSpec
@@ -163,8 +164,13 @@ async def list_tasks(
     request: Request,
     state: str | None = None,
     limit: int = 100,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """List of all tasks, optionally filtered by state."""
+    """Tasks, newest first, optionally filtered by state, one page at a time.
+
+    ``total`` counts every task the filter matches; ``next_cursor`` (``null`` on
+    the last page) is passed back as ``cursor`` for the next one.
+    """
     store = _require_store(request)
     filter_val: str | list[str] | None
     if state is None or state == "":
@@ -173,14 +179,26 @@ async def list_tasks(
         filter_val = [s.strip() for s in state.split(",") if s.strip()]
     else:
         filter_val = state
-    rows = await store.list(state_filter=filter_val, limit=limit)
+    before = None
+    if cursor:
+        try:
+            before = decode_cursor(cursor)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid cursor") from None
+    limit = max(1, int(limit))
+    rows = await store.list(state_filter=filter_val, limit=limit + 1, before=before)
+    more = len(rows) > limit
+    rows = rows[:limit]
     results = await store.latest_agent_results(
         [r["id"] for r in rows],
         max_chars=LAST_RESULT_MAX_CHARS,
     )
     return {
         "tasks": [_row_to_summary(r, last_result=results.get(r["id"])) for r in rows],
-        "total": len(rows),
+        "total": await store.count(filter_val),
+        "next_cursor": (
+            encode_cursor(rows[-1]["created_at_ns"], rows[-1]["id"]) if more and rows else None
+        ),
     }
 
 

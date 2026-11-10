@@ -32,6 +32,7 @@ from dodaios.brain.spawn_gate import (
     names_spawn_vehicle,
     spawn_blocked_feedback,
 )
+from dodaios.core.bounded_json import bound_json
 from dodaios.core.protocols import (
     Brain,
     BrainMessage,
@@ -117,16 +118,14 @@ _DUPLICATE_CALL_FINAL_DIRECTIVE = (
 )
 
 
-def _cap_tool_result_json(serialized: str) -> str:
-    """Truncate an over-long serialized tool result, leaving an honest marker so
-    the model knows the payload was clipped (rather than silently ending)."""
-    if len(serialized) <= _MAX_TOOL_RESULT_CHARS:
-        return serialized
-    kept = serialized[:_MAX_TOOL_RESULT_CHARS]
-    return (
-        f"{kept}… [truncated: tool output was {len(serialized)} chars, "
-        f"capped at {_MAX_TOOL_RESULT_CHARS}]"
-    )
+def _cap_tool_result_json(payload: Any) -> str:
+    """Serialize a tool result, trimming it structurally when it is over the cap.
+
+    Long strings and lists are shortened so the model always receives valid
+    JSON carrying ``truncated: true`` and a hint (see ``bound_json``), rather
+    than a head-cut string it cannot parse.
+    """
+    return bound_json(payload, _MAX_TOOL_RESULT_CHARS, separators=(",", ":"))
 
 
 def _last_user_text(messages: list[BrainMessage]) -> str:
@@ -1673,12 +1672,7 @@ class ToolUseLoop:
                     content=[{
                         "type": "tool_result",
                         "tool_use_id": call_id,
-                        "content": _cap_tool_result_json(
-                            json.dumps(
-                                tool_result_payload, ensure_ascii=False,
-                                separators=(",", ":"), default=str,
-                            )
-                        ),
+                        "content": _cap_tool_result_json(tool_result_payload),
                     }],
                     tool_call_id=call_id,
                     name=tool_name,

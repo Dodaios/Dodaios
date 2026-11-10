@@ -175,7 +175,27 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     tools.update(lead_browser_tools(session))
     # A service the task needs is offered as a Connect card in the chat.
     tools.update(lead_connect_tools(session))
+    # Addressed-pane coding, the repository tool and the work board: the lead
+    # has them on every seat (a CLI seat gets the same set over MCP).
+    from dodaios.core import runtime_refs
+
+    extra = getattr(runtime_refs.get_supervisor_tool_gateway(), "lead_extra_tools", None)
+    if callable(extra):
+        tools.update(extra())
     return tools
+
+
+#: Tools the lead does not get: they pick an ambient pane instead of addressing one.
+_LEAD_DROPPED_TOOLS: Final[frozenset[str]] = frozenset({"agentic-ide-prompt", "agentic-ide-fanout"})
+
+
+def _jarvis_filter(_session: Any) -> Callable[[dict[str, Tool]], dict[str, Tool]]:
+    """Leaves the ambient-pane prompt tools out of the lead's set."""
+
+    def select(tools: dict[str, Tool]) -> dict[str, Tool]:
+        return {name: tool for name, tool in tools.items() if name not in _LEAD_DROPPED_TOOLS}
+
+    return select
 
 
 async def _society_extra(cfg: Any, brain: Any, session: Any) -> str:
@@ -321,6 +341,7 @@ _KITS: Final[dict[str, SurfaceKit]] = {
         ladder=_JARVIS_LADDER,
         uses_stance=True,
         session_tools=_jarvis_tools,
+        session_tool_filter=_jarvis_filter,
         # Typed turns teach Jarvis the same way spoken ones do.
         turn_completed=_jarvis_completed,
         # Not the home directory: this surface hands out the folder tools, and
