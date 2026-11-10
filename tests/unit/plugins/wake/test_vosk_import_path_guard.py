@@ -135,3 +135,27 @@ def test_browser_install_run_repairs_an_over_budget_path(
     assert len(seen["child"]) <= 4_000
     assert seen["child"].split(os.pathsep)[-1] == str(real)
 
+
+# ------------------------------------------------------------------ loader threads
+
+
+def test_a_module_without_the_library_is_left_alone(tmp_path) -> None:
+    module = types.ModuleType("vosk")
+    module.__file__ = str(tmp_path / "__init__.py")
+    assert vosk_native.cap_loader_threads(module) is False
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows charges untouched buffers")
+def test_models_load_on_one_kaldi_thread() -> None:
+    """Eight loader threads mapped eight 128 MB BLAS buffers for two 40 MB models."""
+    import ctypes
+
+    vosk = pytest.importorskip("vosk")
+    library = os.path.join(os.path.dirname(vosk.__file__), "libvosk.dll")
+    try:
+        threads = ctypes.c_int.in_dll(ctypes.CDLL(library), vosk_native._LOADER_THREADS_SYMBOL)
+    except (OSError, ValueError):
+        pytest.skip("this libvosk does not export kaldi::g_num_threads")
+    threads.value = 8
+    assert vosk_native.cap_loader_threads(vosk) is True
+    assert threads.value == 1
