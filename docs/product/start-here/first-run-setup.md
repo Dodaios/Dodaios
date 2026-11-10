@@ -124,6 +124,22 @@ covered is not repeated.
 - Do it all again anytime under **Settings > App > Do the onboarding again**.
   The replay starts at the pet's explanation and never restarts anything.
 
+## Meet Your Assistant
+
+After the restart, the chat opens with your assistant introducing itself. It
+asks three things, one at a time:
+
+1. What it should call you. The name goes to your Profile and to memory.
+2. What you want help with. Tap any of the suggestions or type your own; the
+   answer is saved as a memory.
+3. Which accounts to connect. Each suggestion has a **Connect** button that
+   runs the same sign-in as the Plugins page.
+
+If nothing that can answer is connected yet, it also offers **Use a free
+local model** (see [Local AI providers](local-ai-providers)). Every question
+has **Skip**, and **Skip introduction** ends it at once. It appears only once,
+and only on a new install.
+
 ## Try the First Steps
 
 After the first tour, the pet stays in the bottom-right corner with ten small

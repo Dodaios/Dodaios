@@ -115,6 +115,11 @@ namespace VerseUiVisual
 		Source.Pawn.MagazineSize = 30;
 		Source.Pawn.bChambered = true;
 		Source.Pawn.Reserve = 90;
+		Source.Pawn.Weapons = {
+			{EVerseLoadoutSlot::Primary, TEXT("graveline"), 17, 30, 90, true},
+			{EVerseLoadoutSlot::Secondary, TEXT("tallow"), 12, 12, 48, true},
+			{EVerseLoadoutSlot::Melee, TEXT("hookbill"), 0, 0, 0, false},
+		};
 		Source.Pawn.Gadgets = {{TEXT("bulwark"), 1, 1, 0.f}, {TEXT("breach_charge"), 1, 2, 0.f}};
 		Source.View.Rotation = FRotator(-2.f, 35.f, 0.f);
 		Source.View.HorizontalFovDeg = 100.f;

@@ -120,6 +120,37 @@ def export_zip_bytes(vault: MemoryVault) -> bytes:
     return _zip(bundle_files(vault))
 
 
+def everything_zip_bytes(vault: MemoryVault) -> bytes:
+    """One download with all of it: the lossless bundle (re-importable as is),
+    ``memories.json`` (a plain list of the current memories) and
+    ``readable/`` (the Markdown pages). The extra files sit outside
+    ``CHECKSUMS``, so the zip still imports as a bundle.
+    """
+    files = bundle_files(vault)
+    current = [
+        {
+            "text": m.text,
+            "kind": m.kind,
+            "scope": m.scope,
+            "origin": m.origin,
+            "pinned": m.pinned,
+            "entities": list(m.entities),
+            "recorded_at": m.recorded_at,
+            "valid_from": m.valid_from,
+            "valid_to": m.valid_to,
+            "due_at": m.due_at,
+            "id": m.id,
+        }
+        for m in vault.list()
+    ]
+    files["memories.json"] = json.dumps(
+        {"memories": current}, ensure_ascii=False, indent=2
+    ).encode()
+    for name, text in markdown_files(vault).items():
+        files[f"readable/{name}"] = text.encode()
+    return _zip(files)
+
+
 def read_bundle(src: str | Path | bytes) -> dict[str, bytes]:
     """Load a bundle from a folder, a zip path or zip bytes and verify it."""
     if isinstance(src, bytes):

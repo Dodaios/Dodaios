@@ -4207,6 +4207,8 @@ async def _run_cli_once(
     log.info("agent chat %s: %s argv=%s", handle.turn_id, runner, plan.argv[:6])
     started_at = time.time()
     tree = None
+    #: Where a remote thread's folder went for this turn (``remote.Placement``).
+    moved: Any = None
     if placement is None and plan.proc is None and (
         getattr(handle, "goal_turn", False)
         or (session.surface == "society" and session.permission_mode == "plan")
@@ -4224,12 +4226,12 @@ async def _run_cli_once(
         prompt_files: dict[str, str] = {}
         thread_folder = ""
         if is_thread:
+            from dodaios.agent_chat import remote_thread_sync
             from dodaios.agentic_ide import remote as ide_remote
-            from dodaios.computers.remote_terminal import pool_for
 
             # The thread's folder goes up first, mapped the way grid panes map it.
             try:
-                moved = await ide_remote.push_code(pool_for(placement[0]), cwd)
+                moved = await remote_thread_sync.send_folder(handle, placement[0], cwd)
             except ide_remote.MoveError as exc:
                 return _Outcome("error", str(exc), {}, None, None)
             thread_folder = moved.remote_folder
@@ -4284,7 +4286,7 @@ async def _run_cli_once(
             proc = await _spawn_child(plan, cwd, tree, runner)
             if isinstance(proc, _Outcome):
                 return proc
-    return await _drive_cli(
+    outcome = await _drive_cli(
         handle,
         proc,
         plan,
@@ -4295,6 +4297,12 @@ async def _run_cli_once(
         tree=tree,
         bridge=bridge,
     )
+    if moved is not None:
+        from dodaios.agent_chat import remote_thread_sync
+
+        # However the turn ended, what it wrote over there comes back here.
+        await remote_thread_sync.return_work(handle, placement[0], cwd, moved)
+    return outcome
 
 
 def _survives_restart(handle: TurnHandle, identity: Any) -> bool:

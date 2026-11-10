@@ -778,6 +778,11 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
               disabled={!catalog || (Boolean(locks?.provider) && Boolean(locks?.model))}
               title={locks?.model ?? locks?.provider}
               className="min-w-0"
+              onLocalModelReady={(model) => {
+                // The new download is not in the catalog yet: read it again.
+                void setDraft({ provider: "ollama", model });
+                void loadCatalog();
+              }}
             />
             {showEffort && (
               <>

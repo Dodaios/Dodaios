@@ -283,8 +283,10 @@ def test_macos_fresh_install_ci_exercises_advertised_full_profile() -> None:
 
 
 def test_full_profile_failure_stops_desktop_install(monkeypatch) -> None:
-    results = iter([0, 0, 1])
+    # The failed install is retried once, then the install stops.
+    results = iter([0, 0, 1, 1])
     monkeypatch.setattr(installer, "run_quiet", lambda *args, **kwargs: next(results))
+    monkeypatch.setattr(installer, "PIP_RETRY_PAUSE_S", 0.0)
 
     with pytest.raises(SystemExit, match="2"):
         installer.step_pip_install(
@@ -292,6 +294,34 @@ def test_full_profile_failure_stops_desktop_install(monkeypatch) -> None:
             with_voice_local=False,
             dry_run=False,
         )
+
+
+def test_a_transient_pip_failure_is_retried_once(monkeypatch, capsys) -> None:
+    labels: list[str] = []
+    results = iter([0, 1, 0, 0])
+
+    def run(cmd, *, label, **_kwargs):
+        labels.append(label)
+        return next(results)
+
+    monkeypatch.setattr(installer, "installed_legacy_distributions", lambda: ())
+    monkeypatch.setattr(installer, "repair_distribution_metadata", lambda **_kwargs: True)
+    monkeypatch.setattr(installer, "dependency_check_passes", lambda *_a, **_k: True)
+    monkeypatch.setattr(installer, "run_quiet", run)
+    monkeypatch.setattr(installer, "PIP_RETRY_PAUSE_S", 0.0)
+
+    installer.step_pip_install(with_desktop=True, with_voice_local=False, dry_run=False)
+    assert labels[1] + " (retry)" == labels[2]
+    assert "retrying once" in capsys.readouterr().out
+
+
+def test_a_failed_install_points_at_the_fixes(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(installer.sys, "platform", "win32")
+    installer.print_pip_failure_help()
+    out = capsys.readouterr().out
+    assert "antivirus" in out
+    # The console wraps at the terminal's width, so fold every break first.
+    assert "install-dodaios.md#troubleshooting" in "".join(out.replace("│", "").split())
 
 
 def test_macos_launch_enters_through_application_bundle(monkeypatch, tmp_path, capsys) -> None:
