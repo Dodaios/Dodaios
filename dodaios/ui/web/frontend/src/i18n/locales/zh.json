@@ -7977,7 +7977,9 @@
       "more_one": "{list}，以及另外 1 项操作",
       "more_other": "{list}，以及另外 {count} 项操作",
       "failed_one": "{count} 项失败",
-      "failed_other": "{count} 项失败"
+      "failed_other": "{count} 项失败",
+      "watch_one": "监视了一个进程",
+      "watch_other": "监视了 {count} 个进程"
     },
     "act_n": {
       "command": "运行了 {count} 条命令",

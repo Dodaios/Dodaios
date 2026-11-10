@@ -7977,7 +7977,9 @@
       "more_one": "{list} und eine weitere Aktion",
       "more_other": "{list} und {count} weitere Aktionen",
       "failed_one": "{count} fehlgeschlagen",
-      "failed_other": "{count} fehlgeschlagen"
+      "failed_other": "{count} fehlgeschlagen",
+      "watch_one": "einen Prozess beobachtet",
+      "watch_other": "{count} Prozesse beobachtet"
     },
     "act_n": {
       "command": "{count} Befehle ausgeführt",
