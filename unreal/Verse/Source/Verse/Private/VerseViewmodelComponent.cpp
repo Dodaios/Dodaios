@@ -19,6 +19,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Melee/VerseMeleeComponent.h"
 #include "Misc/App.h"
+#include "Misc/PackageName.h"
 #include "Projectiles/VerseBoltPresentation.h"
 #include "VerseCharacter.h"
 #include "VerseCharacterMovement.h"
@@ -123,7 +124,18 @@ FString UVerseViewmodelComponent::MeshPathFor(FName WeaponId)
 		return FString();
 	}
 	Id[0] = FChar::ToUpper(Id[0]);
+	// A detailed, textured hero mesh for the own view wins over the WP14 mesh when it is cooked in.
+	const FString Hero = FString::Printf(TEXT("/Game/Verse/Weapons/%sHero/SK_Weapon_%sHero"), *Id, *Id);
+	if (FPackageName::DoesPackageExist(Hero))
+	{
+		return FString::Printf(TEXT("%s.SK_Weapon_%sHero"), *Hero, *Id);
+	}
 	return FString::Printf(TEXT("/Game/Verse/Weapons/%s/SK_Weapon_%s.SK_Weapon_%s"), *Id, *Id, *Id);
+}
+
+bool UVerseViewmodelComponent::IsHeroMeshPath(const FString& Path)
+{
+	return Path.Contains(TEXT("Hero/SK_Weapon_"));
 }
 
 UCameraComponent* UVerseViewmodelComponent::GetCamera() const
@@ -314,7 +326,15 @@ void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 	USkeletalMesh* Asset = Path.IsEmpty() ? nullptr : LoadObject<USkeletalMesh>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
 	Mesh->SetSkinnedAssetAndUpdate(Asset);
 	Pose = PoseFor(WeaponId);
-	if (Asset)
+	bShowingHero = Asset && IsHeroMeshPath(Path);
+	if (bShowingHero)
+	{
+		// The hero holographic sight: a big hooded window, seen from close like a real eye relief.
+		Pose.SightDistance = HeroSightDistanceCm;
+		Pose.HipOffset.Z -= 2.0;
+	}
+	// The hero skin is baked (its own roughness and metal maps); only WP14 meshes get the satin pass.
+	if (Asset && !bShowingHero)
 	{
 		// Seen from a hand's width, the polished weapon steel mirrored the bright hangar ceiling
 		// and the sight's inner walls burned white. A satin finish (rougher, less oil) keeps it

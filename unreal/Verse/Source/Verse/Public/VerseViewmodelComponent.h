@@ -71,6 +71,10 @@ public:
 	static constexpr float FillLumens = 380.f;
 	/** Eye to the Graveline's reflex dot while aiming, cm: far enough that the frame stays small. */
 	static constexpr double GravelineSightDistanceCm = 24.0;
+	/** Eye to the rear window of a hero holographic sight while aiming, cm. */
+	static constexpr double HeroSightDistanceCm = 15.0;
+	/** True for `/Game/Verse/Weapons/<Name>Hero/SK_Weapon_<Name>Hero` (baked hero meshes). */
+	static bool IsHeroMeshPath(const FString& Path);
 	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */
 	static constexpr float ViewmodelRoughnessMin = 0.45f;
 
@@ -121,6 +125,7 @@ private:
 	TObjectPtr<UPointLightComponent> FillLight;
 
 	FName ShownWeaponId;
+	bool bShowingHero = false;
 	EVerseLoadoutSlot LastSlot = EVerseLoadoutSlot::Primary;
 	FName MagBone;
 	FName BoltBone;
