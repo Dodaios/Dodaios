@@ -39,6 +39,8 @@ log = logging.getLogger(__name__)
 TAG_PREFIX: Final[str] = "skill-cron:"
 #: Seconds between two reconcile passes (skills reload from disk at any time).
 SYNC_INTERVAL_S: Final[float] = 120.0
+#: Seconds after society start before the first pass.
+FIRST_PASS_DELAY_S: Final[float] = 20.0
 _TERMINAL: Final[frozenset[str]] = frozenset({"completed", "cancelled", "failed", "interrupted"})
 
 
@@ -194,7 +196,12 @@ async def sync_skill_routines(runtime: Any, skills: Iterable[Any] | None) -> dic
 
 
 async def keep_in_sync(runtime: Any, *, interval_s: float = SYNC_INTERVAL_S) -> None:
-    """Reconcile at start and then on an interval, for the life of the runtime."""
+    """Reconcile shortly after start and then on an interval, for the life of the runtime.
+
+    The first pass waits :data:`FIRST_PASS_DELAY_S` so it never competes with
+    society start (skills and the person's time zone load meanwhile).
+    """
+    await asyncio.sleep(FIRST_PASS_DELAY_S)
     while True:
         try:
             await sync_skill_routines(runtime, runtime._get_skills())  # noqa: SLF001
