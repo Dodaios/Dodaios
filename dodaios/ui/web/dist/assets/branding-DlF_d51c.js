@@ -1,0 +1,1 @@
+const t="Dodaios",o="Dodaios/Dodaios",a=`https://github.com/${o}`,E=`github.com/${o}`,s="Dodaios/marketplace",_=`https://github.com/${s}`,L=["dodaios","jarvis"];export{_ as M,a as O,t as P,L as a,E as b};
