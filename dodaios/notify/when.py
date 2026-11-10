@@ -533,11 +533,32 @@ _CONNECTORS = re.compile(
     r"de|que|a|para|sobre|acerca de|do|da|das|dos|en|em|às|à|a las|a la)[,\s]+",  # i18n-allow
     re.I,
 )
-_TRAILERS = re.compile(
-    r"\s+(?:at|on|in|the|and|please|"
-    r"um|am|und|bitte|en|em|às|à|a las|a la|y|e|por favor)\s*$",  # i18n-allow
-    re.I,
+# A dangling last word left behind by the time words. Matched by comparing the
+# end of the text, not with a `\s+...\s*$` regex: that shape is retried from
+# every space and is polynomial on long runs of spaces (a ReDoS shape).
+_TRAILER_WORDS: tuple[str, ...] = tuple(
+    sorted(
+        (
+            "at", "on", "in", "the", "and", "please",
+            "um", "am", "und", "bitte", "en", "em", "às", "à",  # i18n-allow
+            "a las", "a la", "y", "e", "por favor",  # i18n-allow
+        ),
+        key=len,
+        reverse=True,
+    )
 )
+
+
+def _strip_trailer(text: str) -> str:
+    """Drop one dangling trailer word (and the spaces before it), if any."""
+    trimmed = text.rstrip()
+    lowered = trimmed.lower()
+    for word in _TRAILER_WORDS:
+        if lowered.endswith(word) and len(trimmed) > len(word):
+            head = trimmed[: -len(word)]
+            if head[-1].isspace():
+                return head.rstrip()
+    return text
 
 
 def strip_when(text: str, parsed: ParsedWhen) -> str:
@@ -553,7 +574,7 @@ def strip_when(text: str, parsed: ParsedWhen) -> str:
         before = rest
         rest = _LEAD_INS.sub("", rest)
         rest = _CONNECTORS.sub("", rest)
-        rest = _TRAILERS.sub("", rest)
+        rest = _strip_trailer(rest)
         rest = rest.strip(" ,.;:!-")
         if rest == before:
             break

@@ -236,11 +236,14 @@ def _changed() -> None:
 
 # ---------------------------------------------------------------- brain dump
 
+# No unbounded whitespace runs on both sides of a separator: the pieces are
+# stripped afterwards, and adjacent `\s*`/`\s+` made the split polynomial on
+# long runs of spaces (a ReDoS shape). Connector words need a space on each side.
 _SPLIT = re.compile(
-    r"\s*(?:\n+|;|,|\.\s+|\s+(?:and then|and|then|also|plus|"
+    r"[\n;,]|\.(?=\s)|(?<=\s)(?:and then|and|then|also|plus|"
     r"und dann|und|dann|außerdem|"  # i18n-allow
     r"y luego|y|luego|además|"  # i18n-allow
-    r"e depois|e|depois|também)\s+)\s*",  # i18n-allow
+    r"e depois|e|depois|também)(?=\s)",  # i18n-allow
     re.I,
 )
 _MIN_ITEM_CHARS = 3
