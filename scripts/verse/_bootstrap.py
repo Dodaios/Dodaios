@@ -46,9 +46,31 @@ def configure_cycles(preferred: str) -> str:
     return "CPU"
 
 
+def _scenes_on_gpu(*_args) -> None:
+    for scene in bpy.data.scenes:
+        cycles = getattr(scene, "cycles", None)
+        if cycles is not None and cycles.device != "GPU":
+            cycles.device = "GPU"
+
+
+def pin_scenes_to_gpu() -> None:
+    """Keep every scene's Cycles device on GPU for the whole run.
+
+    A scene's device defaults to CPU even when a GPU backend is enabled, and
+    scripts add scenes or switch to Cycles right before a render or bake, so
+    re-apply it on every load, depsgraph update and render.
+    """
+    _scenes_on_gpu()
+    handlers = bpy.app.handlers
+    for hook in (handlers.load_post, handlers.depsgraph_update_pre, handlers.render_pre):
+        hook.append(bpy.app.handlers.persistent(_scenes_on_gpu))
+
+
 def main() -> None:
     argv = _user_argv()
     backend = configure_cycles(os.environ.get("VERSE_CYCLES_DEVICE", "AUTO").upper())
+    if backend != "CPU":
+        pin_scenes_to_gpu()
     os.environ["VERSE_CYCLES_BACKEND"] = backend
     print(f"[verse] blender {bpy.app.version_string}, cycles backend {backend}", flush=True)
     if argv and argv[0] != "-":
