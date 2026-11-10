@@ -160,7 +160,11 @@ def frame_csp(base: str) -> str:
     )
 
 
-@frame_router.api_route(FRAME_PREFIX + "{look_id}/{file_path:path}", methods=["GET", "HEAD"])
+# Frame files, not an API: kept out of OpenAPI, where GET and HEAD would
+# share one operation id.
+@frame_router.api_route(
+    FRAME_PREFIX + "{look_id}/{file_path:path}", methods=["GET", "HEAD"], include_in_schema=False
+)
 async def look_frame_file(look_id: str, file_path: str, request: Request) -> FileResponse:
     """One file of a look, served only for its sandboxed frame."""
     from dodaios.ui.looks import loader
