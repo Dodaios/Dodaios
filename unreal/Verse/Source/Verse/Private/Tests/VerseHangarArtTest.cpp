@@ -114,9 +114,9 @@ bool FVerseVisualHangarArtTest::RunTest(const FString&)
 				return true;
 			}
 			const double Now = World->GetTimeSeconds();
-			if (Now - State->StartS < 5.0 || !ShadersDone())
+			if (Now - State->StartS < 20.0 || !ShadersDone())
 			{
-				return false;  // nav, streaming and shaders settle first
+				return false;  // nav, shaders, distance fields and Lumen cards settle first
 			}
 			APlayerController* PC = World->GetFirstPlayerController();
 			AVerseDefaultCharacter* Pawn = PC ? Cast<AVerseDefaultCharacter>(PC->GetPawn()) : nullptr;
@@ -141,7 +141,7 @@ bool FVerseVisualHangarArtTest::RunTest(const FString&)
 			case 1:
 				// Lumen and the virtual shadow maps catch up after a teleport.
 				PC->SetControlRotation(FRotator(View.Pitch, View.Yaw, 0.0));
-				if (Now - State->PhaseS > 1.6)
+				if (Now - State->PhaseS > 3.0)
 				{
 					FScreenshotRequest::RequestScreenshot(FPaths::Combine(State->OutDir, FString(View.Name) + TEXT(".png")), true, false);
 					State->PhaseS = Now;

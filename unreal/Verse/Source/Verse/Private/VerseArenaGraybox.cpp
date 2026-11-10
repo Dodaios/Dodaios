@@ -21,6 +21,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "MeshDescription.h"
 #include "Misc/App.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "NavMesh/RecastNavMesh.h"
@@ -51,7 +53,7 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float WorkLightKelvin = 4300.f;
 	constexpr float PracticalKelvin = 6200.f;
 	constexpr float FillKelvin = 6500.f;
-	constexpr float FillLux = 22.f;
+	constexpr float FillLux = 40.f;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
 	const FVector DroneDocks[] = {FVector(2620.0, 2400.0, 900.0), FVector(5000.0, 4280.0, 900.0), FVector(7380.0, 2400.0, 900.0)};
 
@@ -542,7 +544,7 @@ void AVerseArenaGraybox::DressDrones()
 		{
 			Body->SetStaticMesh(Cube);
 			Body->SetRelativeScale3D(FVector(0.5, 0.5, 0.2));
-			Body->SetMaterial(0, MaterialFor(TEXT("armor_steel")));
+			Body->SetMaterial(0, MaterialFor(TEXT("Struct_Gunmetal")));
 		}
 		UStaticMeshComponent* Eye = NewObject<UStaticMeshComponent>(Drone, TEXT("GrayboxEye"));
 		Eye->SetStaticMesh(Sphere);
@@ -563,7 +565,7 @@ void AVerseArenaGraybox::DressDrones()
 			Pod->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			Pod->SetRelativeLocation(Rotor);
 			Pod->SetRelativeScale3D(FVector(0.18, 0.18, 0.05));
-			Pod->SetMaterial(0, MaterialFor(TEXT("sheet_metal")));
+			Pod->SetMaterial(0, MaterialFor(TEXT("Arena_ShuttleDark")));
 			Pod->SetupAttachment(Drone->GetRootComponent());
 			Pod->RegisterComponent();
 		}
@@ -839,6 +841,12 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 	if (FApp::CanEverRender())
 	{
 		Dress(*World, Root);
+		// The duel is played, not debugged: no engine developer lines over it outside the editor
+		// (`-ScreenMessages` keeps them).
+		if (!GIsEditor && !FParse::Param(FCommandLine::Get(), TEXT("ScreenMessages")))
+		{
+			GAreScreenMessagesEnabled = false;
+		}
 	}
 	if (UVerseEventHub* Hub = UVerseEventHub::Get(World))
 	{
@@ -908,6 +916,21 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 			Component->SetTemperature(bSpot ? WorkLightKelvin : PracticalKelvin);
 			Component->SetAttenuationRadius(float(Light->GetNumberField(TEXT("attenuationCm"))));
 			Component->SetCastShadows(bSpot && Shadowed++ < MaxShadowedLights);
+			// The fixture the light comes from: a lamp housing on a hanger, or a lit panel.
+			if (bSpot)
+			{
+				const double Size = At.Z > 1000.0 ? 90.0 : 50.0;
+				AddTrim(TEXT("Struct_Gunmetal"), At + FVector(0.0, 0.0, 22.0), FVector(Size, Size, 36.0));
+				AddTrim(TEXT("Arena_LampWarm"), At + FVector(0.0, 0.0, 3.0), FVector(Size - 14.0, Size - 14.0, 2.0), FRotator::ZeroRotator, false);
+				if (At.Z > 1000.0)
+				{
+					AddTrim(TEXT("Struct_Gunmetal"), FVector(At.X, At.Y, (At.Z + 2100.0) * 0.5 + 20.0), FVector(8.0, 8.0, 2100.0 - At.Z - 40.0));
+				}
+			}
+			else
+			{
+				AddTrim(TEXT("Arena_LedStrip"), At + FVector(0.0, 0.0, 2.0), FVector(160.0, 30.0, 2.0), FRotator::ZeroRotator, false);
+			}
 		}
 		ApplyLook(*World);
 	}

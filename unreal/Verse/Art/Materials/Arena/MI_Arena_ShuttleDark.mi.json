@@ -4,10 +4,10 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Arena_ShuttleDark",
   "scalars": {
-    "EdgeWear": 0.4,
-    "GrimeAmount": 0.4,
+    "EdgeWear": 0.12,
+    "GrimeAmount": 0.15,
     "Metallic": 0.4,
-    "NoiseScale": 1.4,
+    "NoiseScale": 0.15,
     "RoughnessMax": 0.6,
     "RoughnessMin": 0.35
   },
@@ -18,9 +18,9 @@
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.045,
-      0.047,
-      0.05,
+      0.06,
+      0.063,
+      0.067,
       1.0
     ]
   }

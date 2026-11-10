@@ -4,10 +4,10 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Arena_ContainerOlive",
   "scalars": {
-    "EdgeWear": 0.55,
-    "GrimeAmount": 0.6,
+    "EdgeWear": 0.12,
+    "GrimeAmount": 0.15,
     "Metallic": 0.3,
-    "NoiseScale": 1.3,
+    "NoiseScale": 0.15,
     "RoughnessMax": 0.75,
     "RoughnessMin": 0.45
   },
@@ -18,15 +18,15 @@
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.085,
+      0.13,
+      0.14,
       0.09,
-      0.06,
       1.0
     ],
     "EdgeTint": [
+      0.16,
+      0.14,
       0.12,
-      0.1,
-      0.09,
       1.0
     ]
   }

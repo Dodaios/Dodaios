@@ -4,10 +4,10 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Arena_BlastScreen",
   "scalars": {
-    "EdgeWear": 0.5,
-    "GrimeAmount": 0.55,
+    "EdgeWear": 0.12,
+    "GrimeAmount": 0.15,
     "Metallic": 0.8,
-    "NoiseScale": 1.2,
+    "NoiseScale": 0.15,
     "RoughnessMax": 0.7,
     "RoughnessMin": 0.4
   },
@@ -18,15 +18,15 @@
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.06,
-      0.062,
-      0.066,
+      0.1,
+      0.103,
+      0.11,
       1.0
     ],
     "EdgeTint": [
-      0.3,
-      0.3,
-      0.31,
+      0.35,
+      0.35,
+      0.36,
       1.0
     ]
   }

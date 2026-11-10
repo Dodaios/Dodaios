@@ -7,7 +7,7 @@
     "GridCm": 120.0,
     "LaneCm": 480.0,
     "LaneWidthCm": 160.0,
-    "NoiseScale": 0.7,
+    "NoiseScale": 0.05,
     "RoughnessMax": 0.6,
     "RoughnessMin": 0.3,
     "SeamCm": 1.2,
@@ -18,15 +18,15 @@
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.02,
-      0.02,
-      0.022,
+      0.03,
+      0.03,
+      0.033,
       1.0
     ],
     "SeamTint": [
-      0.004,
-      0.004,
-      0.0045,
+      0.006,
+      0.006,
+      0.007,
       1.0
     ]
   }

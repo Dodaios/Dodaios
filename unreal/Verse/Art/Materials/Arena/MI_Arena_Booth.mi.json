@@ -4,10 +4,10 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Arena_Booth",
   "scalars": {
-    "EdgeWear": 0.35,
-    "GrimeAmount": 0.4,
+    "EdgeWear": 0.12,
+    "GrimeAmount": 0.15,
     "Metallic": 0.0,
-    "NoiseScale": 1.0,
+    "NoiseScale": 0.15,
     "RoughnessMax": 0.7,
     "RoughnessMin": 0.45
   },
@@ -18,9 +18,9 @@
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.16,
-      0.165,
-      0.17,
+      0.3,
+      0.31,
+      0.32,
       1.0
     ]
   }

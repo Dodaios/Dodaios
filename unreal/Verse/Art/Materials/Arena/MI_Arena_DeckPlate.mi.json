@@ -7,26 +7,26 @@
     "GridCm": 240.0,
     "LaneCm": 480.0,
     "LaneWidthCm": 160.0,
-    "NoiseScale": 0.7,
-    "RoughnessMax": 0.42,
-    "RoughnessMin": 0.16,
+    "NoiseScale": 0.05,
+    "RoughnessMax": 0.38,
+    "RoughnessMin": 0.12,
     "SeamCm": 1.2,
-    "WearAmount": 0.45
+    "WearAmount": 0.4
   },
   "schema": "verse.mi/1",
   "switches": {},
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.034,
-      0.035,
-      0.038,
+      0.075,
+      0.077,
+      0.082,
       1.0
     ],
     "SeamTint": [
-      0.006,
-      0.006,
-      0.007,
+      0.012,
+      0.012,
+      0.014,
       1.0
     ]
   }

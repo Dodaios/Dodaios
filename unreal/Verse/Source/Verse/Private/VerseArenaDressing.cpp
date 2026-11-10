@@ -118,8 +118,11 @@ FString AVerseArenaGraybox::LookFor(const TSharedPtr<FJsonObject>& Box)
 	{
 		return TEXT("Arena_Truss");
 	}
-	if (StartsWith(Id, TEXT("barrier_")) || StartsWith(Id, TEXT("cover_wall_")) || StartsWith(Id, TEXT("lowwall_")) || Id == TEXT("hero_pier")
-		|| Id == TEXT("plinth"))
+	if (Id == TEXT("plinth"))
+	{
+		return TEXT("Arena_DeckPlate");  // the booth's lower floor
+	}
+	if (StartsWith(Id, TEXT("barrier_")) || StartsWith(Id, TEXT("cover_wall_")) || StartsWith(Id, TEXT("lowwall_")) || Id == TEXT("hero_pier"))
 	{
 		return TEXT("Arena_Barrier");
 	}

@@ -4,10 +4,10 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Arena_HazardBlack",
   "scalars": {
-    "EdgeWear": 0.4,
-    "GrimeAmount": 0.3,
+    "EdgeWear": 0.12,
+    "GrimeAmount": 0.15,
     "Metallic": 0.0,
-    "NoiseScale": 2.0,
+    "NoiseScale": 0.15,
     "RoughnessMax": 0.75,
     "RoughnessMin": 0.45
   },
@@ -18,9 +18,9 @@
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.014,
-      0.014,
-      0.015,
+      0.02,
+      0.02,
+      0.022,
       1.0
     ]
   }
