@@ -201,7 +201,7 @@ _INSERT = (
 def _job(row: tuple[Any, ...]) -> Job:
     try:
         meta = json.loads(row[13] or "{}")
-    except ValueError:
+    except ValueError:  # a damaged meta column reads as no metadata
         meta = {}
     return Job(
         id=row[0], kind=row[1], owner_session=row[2], owner_turn=row[3], target=row[4],

@@ -16,11 +16,14 @@ wait that runs out reports the job as still running, never as done.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.orchestrator import jobs
+
+log = logging.getLogger(__name__)
 
 #: Below the 600 s tool timeout the chat CLIs apply to an MCP call.
 MAX_AWAIT_S: Final[float] = 540.0
@@ -113,7 +116,7 @@ class JobStatusTool:
                 session, _turn = jobs.owner_of(ctx)
                 try:
                     limit = int(args.get("limit") or _DEFAULT_LIST)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError):  # a bad limit falls back to the default
                     limit = _DEFAULT_LIST
                 listed = jobs.get_ledger().recent(
                     owner_session=session,
@@ -123,7 +126,8 @@ class JobStatusTool:
                 rows, unknown = list(
                     await asyncio.gather(*(jobs.refresh(job) for job in listed))
                 ), []
-        except Exception as exc:  # noqa: BLE001 - said to the model, not swallowed
+        except Exception as exc:  # noqa: BLE001
+            log.warning("job_status: ledger unavailable", exc_info=True)
             return ToolResult(False, "", f"The jobs ledger is unavailable: {exc}")
         # The read may have settled some jobs: open ones stay on top.
         rows.sort(key=lambda job: job.settled)
@@ -188,7 +192,7 @@ class AwaitJobsTool:
         try:
             timeout = float(args.get("timeout_s") if args.get("timeout_s") is not None
                             else DEFAULT_AWAIT_S)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # said to the model: the call is rejected, not retried
             return ToolResult(False, "", "'timeout_s' must be a number of seconds.")
         timeout = min(max(timeout, 1.0), MAX_AWAIT_S)
         mode = str(args.get("mode") or "all").strip().lower()
@@ -211,6 +215,7 @@ class AwaitJobsTool:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
+            log.warning("await_jobs: ledger unavailable", exc_info=True)
             return ToolResult(False, "", f"The jobs ledger is unavailable: {exc}")
         waited = round(time.monotonic() - started, 1)
         timed_out = bool(pending) and not (mode == "any" and settled)

@@ -122,7 +122,7 @@ def _rehydrate(job: jobs.Job):
         from dodaios.brain.factory import _resolve_mission_manager
 
         manager = _resolve_mission_manager()
-    except Exception:  # noqa: BLE001
+    except Exception:  # the mission stack is not up yet: nothing to re-read, the job is interrupted
         return None
     if manager is None:
         return None
