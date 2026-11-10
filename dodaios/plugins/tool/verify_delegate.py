@@ -99,7 +99,8 @@ def _find_artifact_file(name: str, since_ms: int) -> str:
         for page in root.glob(f"*/tasks/*/artifacts/files/**/{name}"):
             try:
                 mtime = page.stat().st_mtime
-            except OSError:
+            except OSError as exc:
+                log.debug("verify_delegate: cannot stat %s: %s", page, exc)
                 continue
             if mtime * 1000 >= since_ms and mtime > best[0]:
                 best = (mtime, str(page))
