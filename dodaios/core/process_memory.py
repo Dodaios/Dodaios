@@ -47,7 +47,7 @@ def tree_memory(pid: int | None = None) -> dict[str, Any]:
     try:
         root = psutil.Process(pid or os.getpid())
         members = [root, *root.children(recursive=True)]
-    except psutil.Error:
+    except psutil.Error:  # the process is gone: an empty report says exactly that
         return {"total": {"processes": 0, "private_mb": 0.0, "rss_mb": 0.0}, "processes": []}
     rows: list[dict[str, Any]] = []
     for process in members:
@@ -57,7 +57,7 @@ def tree_memory(pid: int | None = None) -> dict[str, Any]:
                 name = process.name()
                 try:
                     cmdline = process.cmdline()
-                except psutil.Error:
+                except psutil.Error:  # a protected process: its name still labels it
                     cmdline = []
                 # Only Windows reports (and charges) a private commit; elsewhere
                 # the resident size is the honest stand-in.

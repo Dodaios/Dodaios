@@ -627,7 +627,7 @@ class MainFollower:
             scripts = json.loads((folder / "package.json").read_text(encoding="utf-8")).get(
                 "scripts", {}
             )
-        except (OSError, ValueError):
+        except (OSError, ValueError):  # unreadable package file: take the full build
             return False
         if BUNDLE_SCRIPT not in scripts:
             return False
