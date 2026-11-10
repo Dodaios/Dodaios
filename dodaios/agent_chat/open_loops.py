@@ -35,17 +35,34 @@ _MAX_WHAT_CHARS: Final[int] = 120
 _SENTENCE_SPLIT = re.compile(r"([.!?\n]+)")
 
 #: "I'll call Max", "I need to send the report", "ich werde Max anrufen".
+#: Wishes and obligations to someone else are no promise: "I want to / should"
+#: and "ich möchte / sollte / wollte" are left out on purpose.  # i18n-allow
 _COMMITMENTS: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(
-        r"\bI(?:'ll| will|'m going to| am going to| need to| have to| must| should| want to"
+        r"\bI(?:'ll| will|'m going to| am going to| need to| have to| must"
         r"| plan to| promised to|'ve got to| have got to)\s+(?P<what>.{3,160})",
         re.IGNORECASE,
     ),
     re.compile(
-        r"\bich\s+(?:werde|muss|will|möchte|sollte|wollte|plane)\s+"  # i18n-allow
+        r"\bich\s+(?:werde|muss|will|plane)\s+(?P<what>.{3,160})",  # i18n-allow
+        re.IGNORECASE,
+    ),
+    re.compile(  # Spanish: "voy a llamar a Max", "tengo que enviar el informe"
+        r"\b(?:voy a|tengo que|tengo previsto|debo|necesito|planeo|prometí)\s+"  # i18n-allow
         r"(?P<what>.{3,160})",
         re.IGNORECASE,
     ),
+    re.compile(  # Portuguese: "vou ligar ao Max", "tenho de enviar o relatório"
+        r"\b(?:vou|tenho que|tenho de|preciso de|preciso|devo|planeio|prometi)\s+"  # i18n-allow
+        r"(?P<what>.{3,160})",
+        re.IGNORECASE,
+    ),
+)
+
+#: A greeting is not a day: "Guten Morgen, ich muss noch X" has no due day.  # i18n-allow
+_GREETINGS: Final = re.compile(
+    r"\b(?:guten\s+morgen|good\s+morning|buenos\s+d[ií]as|bom\s+dia)\b",  # i18n-allow
+    re.IGNORECASE,
 )
 
 _WEEKDAYS: Final[dict[str, int]] = {
@@ -53,11 +70,18 @@ _WEEKDAYS: Final[dict[str, int]] = {
     "saturday": 5, "sunday": 6,
     "montag": 0, "dienstag": 1, "mittwoch": 2, "donnerstag": 3, "freitag": 4,  # i18n-allow
     "samstag": 5, "sonntag": 6,  # i18n-allow
+    "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3,  # i18n-allow
+    "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6,  # i18n-allow
+    "segunda": 0, "terça": 1, "terca": 1, "quarta": 2, "quinta": 3,  # i18n-allow
+    "sexta": 4,  # i18n-allow
 }
 
-#: Relative day words and their offset from today.
+#: Relative day words and their offset from today. "This morning" comes before
+#: "morning"-style words that also contain a day word ("heute Morgen" is today,
+#: not tomorrow), and "day after tomorrow" before "tomorrow".
 _RELATIVE_DAYS: Final[tuple[tuple[re.Pattern[str], int], ...]] = (
     (re.compile(r"\bday after tomorrow\b", re.IGNORECASE), 2),
+    (re.compile(r"\bthis morning\b", re.IGNORECASE), 0),
     (re.compile(r"\btomorrow\b", re.IGNORECASE), 1),
     (
         re.compile(r"\b(?:today|tonight|this evening|this afternoon|later today)\b", re.IGNORECASE),
@@ -65,13 +89,30 @@ _RELATIVE_DAYS: Final[tuple[tuple[re.Pattern[str], int], ...]] = (
     ),
     (re.compile(r"\bnext week\b", re.IGNORECASE), 7),
     (re.compile(r"\bübermorgen\b", re.IGNORECASE), 2),  # i18n-allow
+    (re.compile(r"\bheute\s+(?:morgen|früh)\b", re.IGNORECASE), 0),  # i18n-allow
     (re.compile(r"\bmorgen\b", re.IGNORECASE), 1),  # i18n-allow
     (re.compile(r"\bheute\b", re.IGNORECASE), 0),  # i18n-allow
     (re.compile(r"\bnächste woche\b", re.IGNORECASE), 7),  # i18n-allow
+    # Spanish
+    (re.compile(r"\bpasado ma[ñn]ana\b", re.IGNORECASE), 2),  # i18n-allow
+    (re.compile(r"\besta ma[ñn]ana\b", re.IGNORECASE), 0),  # i18n-allow
+    (re.compile(r"\bma[ñn]ana\b", re.IGNORECASE), 1),  # i18n-allow
+    (re.compile(r"\b(?:hoy|esta tarde|esta noche)\b", re.IGNORECASE), 0),  # i18n-allow
+    (re.compile(r"\b(?:la )?pr[oó]xima semana\b|\bla semana que viene\b", re.I), 7),  # i18n-allow
+    # Portuguese
+    (re.compile(r"\bdepois de amanh[ãa]\b", re.IGNORECASE), 2),  # i18n-allow
+    (re.compile(r"\bamanh[ãa]\b", re.IGNORECASE), 1),  # i18n-allow
+    (re.compile(r"\b(?:hoje|esta manh[ãa]|esta tarde|esta noite)\b", re.I), 0),  # i18n-allow
+    (re.compile(r"\b(?:na )?pr[oó]xima semana\b|\bsemana que vem\b", re.I), 7),  # i18n-allow
 )
-_IN_DAYS = re.compile(r"\bin (\d{1,2}) (?:days?|tagen?)\b", re.IGNORECASE)  # i18n-allow
+_IN_DAYS = re.compile(
+    r"\b(?:in|en|em|daqui a) (\d{1,2}) (?:days?|tagen?|d[ií]as?)\b",  # i18n-allow
+    re.IGNORECASE,
+)
 _ON_WEEKDAY = re.compile(
-    r"\b(?:on|by|this|next|am|bis)\s+(" + "|".join(_WEEKDAYS) + r")\b",  # i18n-allow
+    r"\b(?:on|by|this|next|am|bis|el|este|pr[oó]ximo|na|no|at[eé])\s+("  # i18n-allow
+    + "|".join(_WEEKDAYS)
+    + r")\b",
     re.IGNORECASE,
 )
 @dataclass(frozen=True)
@@ -114,18 +155,29 @@ def _clean_what(what: str) -> str:
     return what[:_MAX_WHAT_CHARS].rstrip(" ,;:-")
 
 
-def detect(text: str, *, today: date | None = None) -> list[OpenLoop]:
+def _today_in(timezone: str) -> date:
+    """Today's date where the person is: just after midnight Berlin time it is
+    still yesterday in UTC, and "tomorrow" must not land a day early."""
+    try:
+        zone: Any = ZoneInfo(timezone) if timezone else UTC
+    except Exception:  # noqa: BLE001 — an unknown zone falls back to UTC
+        zone = UTC
+    return datetime.now(zone).date()
+
+
+def detect(text: str, *, today: date | None = None, timezone: str = "") -> list[OpenLoop]:
     """The commitments with a date in ``text``, at most a few per message.
 
     A sentence counts when it has a first-person commitment and a day word.
     Questions are left alone: "should I call Max tomorrow?" is not a plan.
+    ``today`` defaults to the date in ``timezone`` (the person's own zone).
     """
-    today = today or datetime.now(UTC).date()
+    today = today or _today_in(timezone)
     loops: list[OpenLoop] = []
     seen: set[str] = set()
     pieces = _SENTENCE_SPLIT.split(text or "")
     for index in range(0, len(pieces), 2):
-        sentence = " ".join(pieces[index].split())
+        sentence = " ".join(_GREETINGS.sub(" ", pieces[index]).split())
         closing = pieces[index + 1] if index + 1 < len(pieces) else ""
         if not sentence or "?" in closing:
             continue
@@ -176,7 +228,7 @@ def note_user_text(text: str, *, session_id: str = "", timezone: str = "") -> in
     if vault is None:
         return 0
     added = 0
-    for loop in detect(text):
+    for loop in detect(text, timezone=timezone):
         try:
             result = vault.remember(
                 loop.text,

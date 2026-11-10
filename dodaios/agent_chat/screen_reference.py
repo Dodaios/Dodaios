@@ -46,10 +46,19 @@ log = logging.getLogger(__name__)
 _AWAY: ContextVar[bool] = ContextVar("dodaios.screen_reference.away", default=False)
 
 
+def is_away() -> bool:
+    """Whether the message being sent now was written away from the desk."""
+    return _AWAY.get()
+
+
 @contextmanager
-def away_from_screen() -> Iterator[None]:
-    """Mark the messages sent inside this block as not written at the screen."""
-    token = _AWAY.set(True)
+def away_from_screen(away: bool = True) -> Iterator[None]:
+    """Mark the messages sent inside this block as not written at the screen.
+
+    ``away=False`` marks them as written at the desk (a queued desk message
+    drained by a task that a phone message created).
+    """
+    token = _AWAY.set(away)
     try:
         yield
     finally:

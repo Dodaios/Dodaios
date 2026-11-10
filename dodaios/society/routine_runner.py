@@ -131,7 +131,9 @@ async def _seat_for_run(runtime: Any, agent: Any, task_id: str) -> tuple[str, st
     return provider, model, effort, account_id
 
 
-async def _hold_unattended_run_off_keys(provider: str, account_id: str) -> None:
+async def _hold_unattended_run_off_keys(
+    provider: str, account_id: str, tags: tuple[str, ...] = ()
+) -> None:
     """Apply the background billing rule to a run nobody started by hand.
 
     Once a subscription is connected (``brain.background_policy``), unattended
@@ -141,12 +143,19 @@ async def _hold_unattended_run_off_keys(provider: str, account_id: str) -> None:
     runner records it and a recurring routine fires again at its next
     occurrence). The seat is not swapped for another one: the routine stays
     on its model. A "Run now" click is the person's own start and runs on the
-    seat as chosen; an install that never connected a subscription keeps
-    billing the seat it picked, so a single-key download still works.
+    seat as chosen; so is a check-in the person asked for in so many words
+    (``lead-checkin`` tag), which they requested for exactly this moment; an
+    install that never connected a subscription keeps billing the seat it
+    picked, so a single-key download still works.
     """
+    from dodaios.agent_chat.checkins import CHECKIN_TAG
     from dodaios.core.protocols import current_started_by_user
 
-    if current_started_by_user.get() or not _billed_via_api(provider, account_id):
+    if (
+        current_started_by_user.get()
+        or CHECKIN_TAG in tags
+        or not _billed_via_api(provider, account_id)
+    ):
         return
     from dodaios.brain.background_policy import BackgroundDeferred, subscription_mode
 
@@ -226,7 +235,7 @@ async def run_owned_routine(
         raise RoutineDeferred(
             "Background work is waiting for a subscription or local model on its owner's seat"
         )
-    await _hold_unattended_run_off_keys(provider, account_id)
+    await _hold_unattended_run_off_keys(provider, account_id, tags)
     # Results nobody opens for days: pause instead of producing another one.
     from .routine_parking import maybe_park
 

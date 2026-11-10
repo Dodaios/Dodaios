@@ -264,8 +264,23 @@ def test_answer_in_lead_returns_the_reply_of_its_own_turn(tmp_path: Path, monkey
                 from dodaios.agent_chat.events import make_event
 
                 await asyncio.sleep(0.01)
-                await svc._emit(session_id, make_event("user_message", {"text": text}))  # noqa: SLF001
+                # The prompt that starts the turn need not equal the typed text.
+                await svc._emit(  # noqa: SLF001
+                    session_id, make_event("user_message", {"text": text + " [context]"})
+                )
                 await svc._emit(session_id, make_event("turn_started", {"turn_id": "t9"}))  # noqa: SLF001
+                await svc._emit(  # noqa: SLF001
+                    session_id,
+                    make_event(
+                        "notice",
+                        {
+                            "kind": "message_dequeued",
+                            "queue_id": "queued-1",
+                            "status": "sent",
+                            "turn_id": "t9",
+                        },
+                    ),
+                )
                 await svc._emit(  # noqa: SLF001
                     session_id,
                     make_event("assistant_text", {"turn_id": "t9", "text": "Hello back"}),
@@ -387,5 +402,118 @@ def test_fresh_start_on_a_cli_seat_forgets_the_vendor_session(tmp_path: Path) ->
             assert text.index(lead.FRESH_START_SUMMARY) < text.index("new typed")
         finally:
             society_runtime.set_current_runtime(previous)
+
+    asyncio.run(scenario())
+
+
+def _fake_queued_send(svc, notice_first: bool, *, events):
+    from dodaios.agent_chat.events import make_event
+
+    async def fake_send(svc_, session_id, text, attachments=None, *, tool_choices=None):
+        async def run() -> None:
+            await asyncio.sleep(0.01)
+            for kind, payload in events:
+                await svc._emit(session_id, make_event(kind, payload))  # noqa: SLF001
+
+        asyncio.get_running_loop().create_task(run())
+        return "", events[0][1].get("queue_id", "q1") if events else "q1"
+
+    return fake_send
+
+
+_SENT = (
+    "notice",
+    {"kind": "message_dequeued", "queue_id": "q1", "status": "sent", "turn_id": "t1"},
+)
+
+
+def test_answer_in_lead_reads_turn_events_that_arrive_before_the_notice(
+    tmp_path: Path, monkeypatch
+) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        svc.lead_session()
+        events = [
+            ("assistant_text", {"turn_id": "t1", "text": "early"}),
+            _SENT,
+            ("turn_finished", {"turn_id": "t1", "status": "done"}),
+        ]
+        monkeypatch.setattr(
+            "dodaios.agent_chat.send_queue.send_or_queue",
+            _fake_queued_send(svc, True, events=events),
+        )
+        report = lead.LeadReport()
+        answer = await lead.answer_in_lead(svc, "hi", source="telegram", timeout_s=5, report=report)
+        assert answer == "early"
+        assert (report.status, report.turn_id) == ("done", "t1")
+
+    asyncio.run(scenario())
+
+
+def test_answer_in_lead_reports_why_there_is_no_answer(tmp_path: Path, monkeypatch) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        svc.lead_session()
+        def sent(queue_id: str, turn_id: str) -> tuple[str, dict]:
+            return ("notice", {**_SENT[1], "queue_id": queue_id, "turn_id": turn_id})
+
+        cases = {
+            "error": [sent("qa", "ta"), ("turn_finished", {"turn_id": "ta", "status": "error"})],
+            "empty": [sent("qb", "tb"), ("turn_finished", {"turn_id": "tb", "status": "done"})],
+            "not_sent": [
+                ("notice", {"kind": "message_dequeued", "queue_id": "qc", "status": "failed"})
+            ],
+        }
+        for expected, events in cases.items():
+            monkeypatch.setattr(
+                "dodaios.agent_chat.send_queue.send_or_queue",
+                _fake_queued_send(svc, False, events=events),
+            )
+            report = lead.LeadReport()
+            assert (
+                await lead.answer_in_lead(svc, "hi", source="x", timeout_s=5, report=report) == ""
+            )
+            assert report.status == expected
+        monkeypatch.setattr(
+            "dodaios.agent_chat.send_queue.send_or_queue", _fake_queued_send(svc, False, events=[])
+        )
+        report = lead.LeadReport()
+        await lead.answer_in_lead(svc, "hi", source="x", timeout_s=0.2, report=report)
+        assert report.status == "timeout"
+
+    asyncio.run(scenario())
+
+
+def test_answer_in_lead_tells_the_caller_about_open_cards(tmp_path: Path, monkeypatch) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("openai", "m", "low"))
+        svc.lead_session()
+        events = [
+            _SENT,
+            (
+                "approval_required",
+                {
+                    "turn_id": "t1",
+                    "approval_id": "a1",
+                    "name": "send_mail",
+                    "summary": "Send the mail",
+                },
+            ),
+            ("turn_finished", {"turn_id": "t1", "status": "done"}),
+        ]
+        monkeypatch.setattr(
+            "dodaios.agent_chat.send_queue.send_or_queue",
+            _fake_queued_send(svc, False, events=events),
+        )
+        cards: list[lead.LeadCard] = []
+
+        async def on_card(card: lead.LeadCard) -> None:
+            cards.append(card)
+
+        await lead.answer_in_lead(svc, "hi", source="x", timeout_s=5, on_card=on_card)
+        assert [(c.kind, c.summary) for c in cards] == [("approval", "Send the mail")]
 
     asyncio.run(scenario())

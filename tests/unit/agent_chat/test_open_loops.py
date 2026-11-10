@@ -63,7 +63,9 @@ def test_note_remembers_in_the_vault_and_asks_back_once(tmp_path, monkeypatch) -
     vault = MemoryVault(tmp_path / "vault.db", clock=lambda: clock["now"])
     monkeypatch.setattr(open_loops, "_vault", lambda: vault)
     detect = open_loops.detect
-    monkeypatch.setattr(open_loops, "detect", lambda text, today=None: detect(text, today=TODAY))
+    monkeypatch.setattr(
+        open_loops, "detect", lambda text, today=None, timezone="": detect(text, today=TODAY)
+    )
     try:
         added = open_loops.note_user_text(
             "I'll call Max tomorrow.", session_id="lead", timezone="Europe/Berlin"
@@ -94,3 +96,75 @@ def test_without_a_vault_nothing_happens(monkeypatch) -> None:
     assert open_loops.note_user_text("I'll call Max tomorrow.") == 0
     assert open_loops.due_loops() == []
     assert open_loops.mark_asked(["x"]) == 0
+
+
+def test_today_follows_the_persons_timezone() -> None:
+    # 25 hours apart: the two dates always differ, whatever the clock says.
+    ahead = open_loops._today_in("Pacific/Kiritimati")  # noqa: SLF001
+    behind = open_loops._today_in("Pacific/Pago_Pago")  # noqa: SLF001
+    assert (ahead - behind).days == 1
+    assert open_loops._today_in("Not/AZone") == open_loops._today_in("")  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    ("text", "due"),
+    [
+        ("Ich muss heute Morgen die Steuer machen", TODAY),  # i18n-allow
+        ("Ich muss morgen früh die Steuer machen", date(2026, 11, 11)),  # i18n-allow
+        ("I'll finish the slides this morning", TODAY),
+        ("I'll finish the slides tomorrow morning", date(2026, 11, 11)),
+    ],
+)
+def test_this_morning_is_today_not_tomorrow(text: str, due: date) -> None:
+    assert [loop.due for loop in open_loops.detect(text, today=TODAY)] == [due]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Guten Morgen, ich muss noch die Steuer machen",  # i18n-allow
+        "Good morning, I'll send the report",
+    ],
+)
+def test_a_greeting_is_not_a_due_day(text: str) -> None:
+    assert open_loops.detect(text, today=TODAY) == []
+
+
+def test_a_greeting_does_not_hide_a_real_day() -> None:
+    loops = open_loops.detect(
+        "Guten Morgen, ich muss morgen Max anrufen", today=TODAY  # i18n-allow
+    )
+    assert [(loop.what, loop.due) for loop in loops] == [("Max anrufen", date(2026, 11, 11))]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I want to know tomorrow's weather",
+        "I should call Max tomorrow",
+        "Ich wollte morgen eigentlich Max anrufen",  # i18n-allow
+        "Ich möchte morgen Max anrufen",  # i18n-allow
+        "Ich sollte morgen Max anrufen",  # i18n-allow
+    ],
+)
+def test_wishes_are_no_commitments(text: str) -> None:
+    assert open_loops.detect(text, today=TODAY) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "what", "due"),
+    [
+        ("Voy a llamar a Max mañana.", "llamar a Max", date(2026, 11, 11)),  # i18n-allow
+        ("Tengo que enviar el informe el viernes", "enviar el informe", date(2026, 11, 13)),
+        ("Voy a pagar el alquiler esta mañana", "pagar el alquiler", TODAY),  # i18n-allow
+        ("Vou ligar ao Max amanhã.", "ligar ao Max", date(2026, 11, 11)),  # i18n-allow
+        (
+            "Tenho de enviar o relatório na sexta",
+            "enviar o relatório",
+            date(2026, 11, 13),
+        ),  # i18n-allow
+        ("Preciso marcar o dentista daqui a 3 dias", "marcar o dentista", date(2026, 11, 13)),
+    ],
+)
+def test_spanish_and_portuguese_commitments(text: str, what: str, due: date) -> None:
+    assert [(loop.what, loop.due) for loop in open_loops.detect(text, today=TODAY)] == [(what, due)]

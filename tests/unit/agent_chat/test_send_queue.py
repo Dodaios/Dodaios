@@ -72,7 +72,9 @@ async def test_a_busy_agent_chat_queues_and_runs_the_message_next():
     turn_id, queue_id = await send_or_queue(chat, "society:scout", "and also this")
     assert turn_id == "" and queue_id
     assert chat.notices[0][1] == {
-        "kind": "message_queued", "queue_id": queue_id, "text": "and also this",
+        "kind": "message_queued",
+        "queue_id": queue_id,
+        "text": "and also this",
     }
     await asyncio.sleep(0.05)
     assert chat.sent == []  # still waiting for the running turn
@@ -81,7 +83,10 @@ async def test_a_busy_agent_chat_queues_and_runs_the_message_next():
     assert chat.sent == [("society:scout", "and also this")]
     await _until(lambda: len(chat.notices) == 2)
     assert chat.notices[1][1] == {
-        "kind": "message_dequeued", "queue_id": queue_id, "status": "sent",
+        "kind": "message_dequeued",
+        "queue_id": queue_id,
+        "status": "sent",
+        "turn_id": "turn-1",
     }
 
 
@@ -163,8 +168,11 @@ async def test_a_message_behind_a_long_running_turn_still_runs():
     chat.busy.clear()
     await _until(lambda: chat.sent)
     assert chat.sent == [("society:scout", "after the setup")]
-    assert any(p == {"kind": "message_dequeued", "queue_id": queue_id, "status": "sent"}
-               for _, p in chat.notices)
+    assert any(
+        p
+        == {"kind": "message_dequeued", "queue_id": queue_id, "status": "sent", "turn_id": "turn-1"}
+        for _, p in chat.notices
+    )
 
 
 async def test_waiting_for_a_credential_does_not_expire_accepted_messages():
@@ -175,10 +183,11 @@ async def test_waiting_for_a_credential_does_not_expire_accepted_messages():
     assert chat.sent == []
     assert not any(p.get("status") == "failed" for _, p in chat.notices)
     chat.busy.clear()
-    await _until(lambda: any(
-        p.get("queue_id") == queue_id and p.get("status") == "sent"
-        for _, p in chat.notices
-    ))
+    await _until(
+        lambda: any(
+            p.get("queue_id") == queue_id and p.get("status") == "sent" for _, p in chat.notices
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -249,8 +258,7 @@ async def test_queued_messages_keep_attachments_and_their_own_timezone():
     chat.busy.clear()
     await _until(lambda: len(delivered) == 2)
     assert delivered == [
-        ([{"name": zone}], [zone], zone)
-        for zone in ("Europe/Berlin", "America/New_York")
+        ([{"name": zone}], [zone], zone) for zone in ("Europe/Berlin", "America/New_York")
     ]
 
 
@@ -280,9 +288,12 @@ async def test_orphan_recovery_keeps_a_message_admitted_during_history_read(monk
 
     def read_with_admission(sid):
         if not admitted:
-            admitted.append(asyncio.run_coroutine_threadsafe(
-                send_or_queue(chat, sid, "arrived during recovery"), loop,
-            ).result(timeout=2))
+            admitted.append(
+                asyncio.run_coroutine_threadsafe(
+                    send_or_queue(chat, sid, "arrived during recovery"),
+                    loop,
+                ).result(timeout=2)
+            )
         return original_read(sid)
 
     monkeypatch.setattr(chat.store, "queue_notice_events", read_with_admission)
@@ -302,15 +313,14 @@ async def test_orphan_recovery_does_not_fail_a_message_sent_during_history_read(
     async def finish_message():
         chat.busy.clear()
         await _until(lambda: bool(chat.sent))
-        await _until(lambda: any(
-            payload.get("status") == "sent" for _, payload in chat.notices
-        ))
+        await _until(lambda: any(payload.get("status") == "sent" for _, payload in chat.notices))
 
     def read_while_message_completes(sid):
         reads.append(sid)
         if len(reads) == 1:
             asyncio.run_coroutine_threadsafe(
-                send_or_queue(chat, sid, "arrived and finished during recovery"), loop,
+                send_or_queue(chat, sid, "arrived and finished during recovery"),
+                loop,
             ).result(timeout=2)
             stale_snapshot = original_read(sid)
             asyncio.run_coroutine_threadsafe(finish_message(), loop).result(timeout=2)
@@ -322,7 +332,8 @@ async def test_orphan_recovery_does_not_fail_a_message_sent_during_history_read(
     assert len(reads) == 2
     assert chat.sent == [("main-chat", "arrived and finished during recovery")]
     assert [
-        payload.get("status") for _, payload in chat.notices
+        payload.get("status")
+        for _, payload in chat.notices
         if payload.get("kind") == "message_dequeued"
     ] == ["sent"]
 
@@ -363,9 +374,7 @@ async def test_concurrent_reopens_publish_one_orphan_receipt(monkeypatch):
         send_queue.close_orphans(chat, "main-chat"),
     )
     assert sum(results) == 1
-    assert sum(
-        payload.get("kind") == "message_dequeued" for _, payload in chat.notices
-    ) == 1
+    assert sum(payload.get("kind") == "message_dequeued" for _, payload in chat.notices) == 1
 
 
 async def test_a_coding_thread_queues_and_stop_pauses_the_queue():
@@ -374,7 +383,8 @@ async def test_a_coding_thread_queues_and_stop_pauses_the_queue():
     _, queue_id = await send_or_queue(chat, "t1", "next job")
     assert queue_id
     assert send_queue.queue_state(chat, "t1") == {
-        "paused": False, "items": [{"queue_id": queue_id, "text": "next job"}],
+        "paused": False,
+        "items": [{"queue_id": queue_id, "text": "next job"}],
     }
     send_queue.pause(chat, "t1")
     chat.busy.clear()
@@ -444,3 +454,36 @@ async def test_service_steer_writes_to_the_cli_and_records_the_message():
     svc._set_steerer("s", "turn-1", None)
     assert not svc.can_steer("s")
     run.task.cancel()
+
+
+async def test_each_queued_message_keeps_its_own_away_flag():
+    from dodaios.agent_chat.screen_reference import away_from_screen, is_away
+
+    class RecordingChat(BusyChat):
+        def __init__(self) -> None:
+            super().__init__("jarvis")
+            self.away_at_send: list[tuple[str, bool]] = []
+
+        async def send(self, session_id, text, attachments=None, *, tool_choices=None) -> str:
+            self.away_at_send.append((text, is_away()))
+            return await super().send(session_id, text, attachments, tool_choices=tool_choices)
+
+    chat = RecordingChat()
+    chat.busy.add("chat-1")
+    # The phone message queues first, so the drain task is created in its context.
+    with away_from_screen():
+        await send_or_queue(chat, "chat-1", "from the phone")
+    await send_or_queue(chat, "chat-1", "from the desk")
+    chat.busy.clear()
+    await _until(lambda: len(chat.away_at_send) == 2)
+    assert chat.away_at_send == [("from the phone", True), ("from the desk", False)]
+
+
+async def test_the_dequeued_notice_names_the_turn_the_message_became():
+    chat = BusyChat("jarvis")
+    chat.busy.add("chat-1")
+    _, queue_id = await send_or_queue(chat, "chat-1", "later")
+    chat.busy.clear()
+    await _until(lambda: any(p.get("status") == "sent" for _, p in chat.notices))
+    sent = next(p for _, p in chat.notices if p.get("status") == "sent")
+    assert (sent["queue_id"], sent["turn_id"]) == (queue_id, "turn-1")

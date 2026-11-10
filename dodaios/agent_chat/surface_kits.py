@@ -241,9 +241,6 @@ async def _note_proactive_cues(session: Any, completion: ChatCompletion) -> None
     if turn is None or not getattr(turn, "direct_user", True):
         return
     try:
-        from dodaios.agent_chat import checkins, open_loops
-        from dodaios.agent_chat.proactive_settings import load_settings
-
         events = json.loads(completion.events_json)
         typed = [
             str((e.get("payload") or {}).get("text") or "")
@@ -251,23 +248,37 @@ async def _note_proactive_cues(session: Any, completion: ChatCompletion) -> None
             if e.get("kind") == "user_message"
         ]
         text = (typed[-1] if typed else str(getattr(turn, "user_text", "") or "")).strip()
-        if not text:
-            return
         tools = tuple(
             str((e.get("payload") or {}).get("name") or "")
             for e in events
             if e.get("kind") == "tool_call"
         )
-        settings = await load_settings()
-        await asyncio.to_thread(
-            open_loops.note_user_text,
-            text,
-            session_id=str(getattr(session, "session_id", "") or ""),
-            timezone=settings.timezone,
-        )
-        await checkins.note_user_text(text, tool_names=tools)
+        await read_proactive_cues(str(getattr(session, "session_id", "") or ""), text, tools)
     except Exception:  # noqa: BLE001 — a missed cue is not worth a broken turn
         log.warning("lead: proactive cues not read from the turn", exc_info=True)
+
+
+async def read_proactive_cues(session_id: str, text: str, tool_names: tuple[str, ...] = ()) -> None:
+    """Open loops and a check-in request in what the person said.
+
+    Shared by typed turns (``_note_proactive_cues``) and imported voice turns
+    (``AgentChatService.import_voice_turn``): a promise made on a call is as
+    much the person's own word as a typed one. May raise; callers guard it.
+    """
+    text = (text or "").strip()
+    if not text:
+        return
+    from dodaios.agent_chat import checkins, open_loops
+    from dodaios.agent_chat.proactive_settings import load_settings
+
+    settings = await load_settings()
+    await asyncio.to_thread(
+        open_loops.note_user_text,
+        text,
+        session_id=session_id,
+        timezone=settings.timezone,
+    )
+    await checkins.note_user_text(text, tool_names=tool_names)
 
 
 async def _person_chat_completed(session: Any, completion: ChatCompletion) -> None:
