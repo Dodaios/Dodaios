@@ -526,5 +526,24 @@
       "title": "Issue #{number} in {repo} lösen: {title}",
       "case": "Issue #{number} in {repo} passt für einen Agenten, der allein arbeitet ({signal}). Ein Coding-Agent würde es über dein Abo bearbeiten, während du weg bist, in einem eigenen Worktree und Branch, und die Tests ausführen ({tests}). Das Ergebnis ist ein Pull Request, der das Issue schließt, als Entwurf, außer du lässt dieses Repository selbst mergen. {url}"
     }
+  },
+  "notify": {
+    "reminder_title": "Erinnerung",
+    "an_agent": "Ein Agent",
+    "needs_you_title": "{agent} braucht dich",
+    "needs_you_body": "Öffne die Unterhaltung, um zu antworten.",
+    "approval_title": "{agent} wartet auf deine Freigabe",
+    "approval_body": "In der App erlauben oder ablehnen.",
+    "finished_title": "{agent} ist fertig",
+    "finished_body": "Das Ergebnis steht in der Unterhaltung.",
+    "telegram_approval": "{agent} möchte {tool} ausführen: {summary}",
+    "telegram_allow": "Erlauben",
+    "telegram_deny": "Ablehnen",
+    "telegram_allowed": "Über Telegram erlaubt.",
+    "telegram_denied": "Über Telegram abgelehnt.",
+    "telegram_settled": "In der App entschieden.",
+    "telegram_expired": "Diese Anfrage ist nicht mehr offen.",
+    "test_title": "Benachrichtigungen sind an",
+    "test_body": "So erreicht dich Dodaios, während die App im Hintergrund ist."
   }
 }
