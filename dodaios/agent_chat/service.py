@@ -1665,6 +1665,16 @@ class AgentChatService:
                     prompt += "\n\n" + screen_block
                     if display_text is None:
                         display_text = text
+            if session.surface == "jarvis" and direct_user and incoming is None and text:
+                # A message from the owner's phone chat: the reply is read on a
+                # small screen (channels.output_contract).
+                from dodaios.agent_chat.screen_reference import is_away
+                from dodaios.channels.output_contract import STYLE_BLOCK
+
+                if is_away():
+                    prompt = f"{prompt}{chr(10)}{chr(10)}{STYLE_BLOCK}"
+                    if display_text is None:
+                        display_text = text
             # Agent cards serialize Add selections as capability pins. Translate the
             # browser pin to the same validated receipt used by the root composer.
             if session.surface == "jarvis" and any(

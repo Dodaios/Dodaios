@@ -22,6 +22,19 @@ log = logging.getLogger(__name__)
 #: What a notification can be about. The settings page offers one switch each.
 KINDS: tuple[str, ...] = ("reminder", "needs_you", "approval", "finished")
 
+#: What the lead may send to the owner's phone chat (Telegram, Discord DM,
+#: WhatsApp) while they are away, and whether each is on by default. Only
+#: things the owner started or opted into: ``progress`` (step-by-step chatter)
+#: is off, ``brief`` (a proactive daily brief) waits for the owner's choice.
+PHONE_DEFAULTS: dict[str, bool] = {
+    "decisions": True,  # an approval or a question the work waits on
+    "results": True,  # the answer to a message the owner sent from that chat
+    "failures": True,  # "I could not finish that"
+    "progress": False,
+    "brief": False,
+}
+PHONE_KINDS: tuple[str, ...] = tuple(PHONE_DEFAULTS)
+
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -53,6 +66,12 @@ class NotifySettings:
     quiet_hours: QuietHours = field(default_factory=QuietHours)
     #: Send waiting approvals to the owner's Telegram with Allow / Deny buttons.
     telegram_approvals: bool = True
+    #: Which kinds of lead updates reach the phone chat (see ``PHONE_DEFAULTS``).
+    phone: dict[str, bool] = field(default_factory=lambda: dict(PHONE_DEFAULTS))
+
+    def phone_allows(self, kind: str) -> bool:
+        """Whether a lead update of ``kind`` may be sent to the phone chat."""
+        return bool(self.phone.get(kind, False))
 
     def allows(self, kind: str) -> bool:
         return self.enabled and bool(self.kinds.get(kind, True))
@@ -60,6 +79,7 @@ class NotifySettings:
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["kinds"] = {kind: bool(self.kinds.get(kind, True)) for kind in KINDS}
+        data["phone"] = {k: bool(self.phone.get(k, d)) for k, d in PHONE_DEFAULTS.items()}
         return data
 
     @classmethod
@@ -67,6 +87,8 @@ class NotifySettings:
         base = cls()
         raw_kinds = data.get("kinds") if isinstance(data.get("kinds"), dict) else {}
         kinds = {kind: bool(raw_kinds.get(kind, True)) for kind in KINDS}
+        raw_phone = data.get("phone") if isinstance(data.get("phone"), dict) else {}
+        phone = {k: bool(raw_phone.get(k, d)) for k, d in PHONE_DEFAULTS.items()}
         quiet_raw = data.get("quiet_hours") if isinstance(data.get("quiet_hours"), dict) else {}
         quiet = QuietHours(
             enabled=bool(quiet_raw.get("enabled", False)),
@@ -78,6 +100,7 @@ class NotifySettings:
             kinds=kinds,
             quiet_hours=quiet,
             telegram_approvals=bool(data.get("telegram_approvals", True)),
+            phone=phone,
         )
 
     def patched(self, patch: dict[str, Any]) -> NotifySettings:
@@ -88,6 +111,8 @@ class NotifySettings:
                 merged[key] = bool(patch[key])
         if isinstance(patch.get("kinds"), dict):
             merged["kinds"] = {**merged["kinds"], **patch["kinds"]}
+        if isinstance(patch.get("phone"), dict):
+            merged["phone"] = {**merged["phone"], **patch["phone"]}
         if isinstance(patch.get("quiet_hours"), dict):
             merged["quiet_hours"] = {**merged["quiet_hours"], **patch["quiet_hours"]}
         return NotifySettings.from_dict(merged)
@@ -167,6 +192,8 @@ def forget_cached(path: Path | None = None) -> None:
 
 __all__ = [
     "KINDS",
+    "PHONE_DEFAULTS",
+    "PHONE_KINDS",
     "NotifySettings",
     "QuietHours",
     "forget_cached",

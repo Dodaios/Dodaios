@@ -4,16 +4,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
 from dodaios.channels.base import ChannelMessage
 from dodaios.channels.manager import ChannelManager
+from dodaios.channels.output_contract import enforce
 from dodaios.core.bus import EventBus
 from dodaios.core.events import MessageSent
 from dodaios.core.protocols import ChannelAdapter
 
 log = logging.getLogger(__name__)
+
+#: The same line is not sent to the same chat twice within this many seconds.
+_DEDUPE_S = 600.0
+
+
+def _phone_allows(kind: str) -> bool:
+    """The owner's routing choice for ``kind`` (``notify.settings`` ``phone``)."""
+    try:
+        from dodaios.notify.settings import load_settings
+
+        return load_settings().phone_allows(kind)
+    except Exception:  # noqa: BLE001 — unreadable settings fall back to the defaults
+        from dodaios.notify.settings import PHONE_DEFAULTS
+
+        return PHONE_DEFAULTS.get(kind, False)
 
 
 class ChannelChatBridge:
@@ -32,12 +49,15 @@ class ChannelChatBridge:
         bus: EventBus,
         manager: ChannelManager,
         get_chat_service: Callable[[], Any | None] | None = None,
+        phone_allows: Callable[[str], bool] | None = None,
     ) -> None:
         self._bus = bus
         self._manager = manager
         self._get_chat_service = get_chat_service
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._replies: set[asyncio.Task[None]] = set()
+        self._phone_allows = phone_allows or _phone_allows
+        self._sent: dict[tuple[str, str], float] = {}
 
     def start(self) -> None:
         for name in self._manager.started():
@@ -162,7 +182,7 @@ class ChannelChatBridge:
         report = LeadReport()
 
         async def on_card(card: LeadCard) -> None:
-            await self._reply(name, msg, _card_line(card, language))
+            await self._update(name, msg, "decisions", _card_line(card, language))
 
         try:
             answer = await answer_in_lead(svc, text, source=name, report=report, on_card=on_card)
@@ -170,8 +190,31 @@ class ChannelChatBridge:
             log.warning("ChannelChatBridge: lead turn for '%s' failed: %s", name, exc)
             answer = ""
             report.status = "error"
-        # The owner always gets an answer: the reply, or one honest line.
-        await self._reply(name, msg, answer or _failure_line(report.status, language))
+        # The owner gets an answer, or one honest line (each kind is the
+        # owner's routing choice). The phone copy is short; the full answer
+        # stays in the lead conversation.
+        if answer:
+            await self._update(name, msg, "results", enforce(answer, language=language).text)
+        else:
+            await self._update(name, msg, "failures", _failure_line(report.status, language))
+
+    async def _update(self, name: str, msg: ChannelMessage, kind: str, content: str) -> None:
+        """Send one update of ``kind`` unless the owner switched that kind off.
+
+        Progress chatter has no sender here and is off by default; a repeat of
+        the same open-card line to the same chat is dropped (no nagging).
+        """
+        if not content or not self._phone_allows(kind):
+            log.debug("ChannelChatBridge: '%s' update for '%s' not sent", kind, name)
+            return
+        if kind == "decisions":  # a card line that is asked again is one ask
+            now = time.monotonic()
+            self._sent = {k: t for k, t in self._sent.items() if now - t < _DEDUPE_S}
+            key = (_thread_id_for(name, msg), content)
+            if key in self._sent:
+                return
+            self._sent[key] = now
+        await self._reply(name, msg, content)
 
     async def _reply(self, name: str, msg: ChannelMessage, content: str) -> None:
         try:

@@ -10,6 +10,7 @@ const SETTINGS = {
   kinds: { reminder: true, needs_you: true, approval: true, finished: true },
   quiet_hours: { enabled: false, start: "22:00", end: "07:00" },
   telegram_approvals: true,
+  phone: { decisions: true, results: true, failures: true, progress: false, brief: false },
 };
 
 function stubFetch(telegram = { connected: false, owner_known: false }) {
@@ -28,6 +29,7 @@ function stubFetch(telegram = { connected: false, owner_known: false }) {
         ...patch,
         kinds: { ...SETTINGS.kinds, ...((patch.kinds as object) ?? {}) },
         quiet_hours: { ...SETTINGS.quiet_hours, ...((patch.quiet_hours as object) ?? {}) },
+        phone: { ...SETTINGS.phone, ...((patch.phone as object) ?? {}) },
       };
       return new Response(JSON.stringify(merged));
     }
@@ -77,4 +79,17 @@ it("says when the settings cannot be loaded", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 503 })));
   render(<NotificationsView />);
   await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("notify.load_failed"));
+});
+
+it("the phone chat routing shows its defaults and saves one switch", async () => {
+  const calls = stubFetch();
+  render(<NotificationsView />);
+  await waitFor(() => expect(screen.getByTestId("notify-phone-decisions")).toBeTruthy());
+  expect(screen.getByTestId("notify-phone-decisions").getAttribute("aria-checked")).toBe("true");
+  expect(screen.getByTestId("notify-phone-progress").getAttribute("aria-checked")).toBe("false");
+  fireEvent.click(screen.getByTestId("notify-phone-brief"));
+  await waitFor(() =>
+    expect(screen.getByTestId("notify-phone-brief").getAttribute("aria-checked")).toBe("true"));
+  const put = calls.find((c) => c.init?.method === "PUT");
+  expect(JSON.parse(String(put?.init?.body))).toEqual({ phone: { brief: true } });
 });

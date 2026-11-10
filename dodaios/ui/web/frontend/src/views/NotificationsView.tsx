@@ -15,8 +15,18 @@ import {
   type NotifySettings,
   type NotifySettingsPatch,
   type TelegramState,
+  PHONE_KINDS,
+  type PhoneKind,
 } from "@/lib/remindersApi";
 import { cn } from "@/lib/utils";
+
+const PHONE_LABEL: Record<PhoneKind, string> = {
+  decisions: "notify.phone_decisions",
+  results: "notify.phone_results",
+  failures: "notify.phone_failures",
+  progress: "notify.phone_progress",
+  brief: "notify.phone_brief",
+};
 
 const KIND_LABEL: Record<NotifyKind, string> = {
   reminder: "notify.kind_reminder",
@@ -193,6 +203,22 @@ export function NotificationsView() {
                   />
                 }
               />
+              <Row label={t("notify.phone_title")} hint={t("notify.phone_hint")} control={null}>
+                <ul className="mt-3 space-y-2">
+                  {PHONE_KINDS.map((kind) => (
+                    <li key={kind} className="flex items-center justify-between gap-6">
+                      <span className="text-sm text-foreground">{t(PHONE_LABEL[kind])}</span>
+                      <Switch
+                        checked={settings.phone?.[kind] === true}
+                        disabled={saving}
+                        aria-label={t(PHONE_LABEL[kind])}
+                        data-testid={`notify-phone-${kind}`}
+                        onCheckedChange={(on) => void save({ phone: { [kind]: on } })}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </Row>
             </div>
           ) : null}
         </div>
