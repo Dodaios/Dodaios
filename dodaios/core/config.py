@@ -1758,6 +1758,11 @@ class BrainConfig(BaseModel):
     # beheads with a misleading "took too long" phrase). Set False to fall back to
     # the UI-approval path.
     voice_confirm: bool = True
+    # Show the model a small frozen core of tools and keep every connected-server,
+    # plugin and rarer tool behind ``find_tools`` (searched in the same turn, so
+    # nothing is unreachable). Better tool choice and a stable prompt-cache prefix
+    # with hundreds of tools; not a token cap. Small-window models always defer.
+    defer_tools: bool = True
 
     @field_validator("proactivity", mode="before")
     @classmethod

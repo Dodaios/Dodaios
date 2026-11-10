@@ -36,7 +36,19 @@ class LeadMessageAgentTool:
             if runtime is None:
                 return ToolResult(success=False, output=None, error="society unavailable")
             await runtime.ensure_started()
-            return await MessageAgentTool(runtime, runtime.lead_id).execute(args, ctx)
+            sender = MessageAgentTool(runtime, runtime.lead_id)
+            store = getattr(runtime, "store", None)
+            if store is None:
+                return await sender.execute(args, ctx)
+            # A repeat inside one turn, or a CLI seat's retry of a slow call,
+            # gets the first receipt instead of a second message.
+            from dodaios.society.idempotency import idempotency_key, run_once
+
+            return await run_once(
+                store,
+                idempotency_key(ctx, self.name, args),
+                lambda: sender.execute(args, ctx),
+            )
         except Exception as exc:  # noqa: BLE001 — return an honest, inspectable tool failure
             log.warning("message_agent: delivery failed", exc_info=True)
             return ToolResult(success=False, output=None, error=str(exc))
