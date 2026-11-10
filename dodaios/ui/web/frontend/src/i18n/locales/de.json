@@ -11299,5 +11299,34 @@
     "voice_saved_next_call": "Stimme für den nächsten Anruf gespeichert.",
     "voice_save_failed": "Die Stimme konnte nicht geändert werden.",
     "all_settings": "Alle Spracheinstellungen"
+  },
+  "design": {
+    "settings": {
+      "group_you": "Du",
+      "group_voice": "Stimme",
+      "group_connections": "Verbindungen",
+      "group_agents": "Agenten",
+      "group_advanced": "Erweitert",
+      "language_app": "Sprache & App",
+      "memory": "Gedächtnis",
+      "voice_wake": "Stimme & Aktivierungswort",
+      "dictation": "Diktat",
+      "plugins": "Plugins & Kanäle",
+      "behavior": "Verhalten",
+      "agents": "Deine Agenten",
+      "all_settings": "Alle Einstellungen",
+      "more_options": "Weitere Optionen",
+      "more_options_hint": "Musik, Overlay, Taskleiste, Spiel",
+      "opens_page": "Öffnet eine eigene Seite"
+    },
+    "activity": {
+      "waiting": "Aktivität zeigen — gerade läuft etwas"
+    },
+    "greeting": {
+      "suggestions": "Vorschläge",
+      "due": "Hilf mir bei der Vorbereitung: {text}",
+      "agent_working": "Woran arbeitet {agent} gerade?",
+      "agent_waiting": "Was braucht {agent} von mir?"
+    }
   }
 }

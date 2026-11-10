@@ -1,7 +1,19 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { isTourEvent } from "@/components/onboarding/tourEvents";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentType, type LazyExoticComponent } from "react";
-import { Loader2, Search, X } from "lucide-react";
+import { ArrowUpRight, Loader2, Search, X } from "lucide-react";
+import {
+  HUB_GROUPS,
+  HUB_PAGES,
+  PAGE_ENTRIES,
+  entryKey,
+  entryTestId,
+  resolveHubTab,
+  type HubContent,
+  type HubEntry,
+  type HubPageKey,
+  type HubTabId,
+} from "@/views/settings/hubNav";
 import {
   NAV_FOOTER_ITEMS,
   NAV_GROUPS,
@@ -20,13 +32,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * The Settings hub — every personal/system section behind one full-window
- * page over the user's current section, with a searchable left navigation
- * (General · System · Activity) and the selected section on the right:
- *
- *   General: General, Keyboard shortcuts, Appshots, My Pets, Game settings, Profile,
- *            {name} (the assistant), Socials
- *   System: Computers, API Keys
- *   Activity: Spend, Feedback
+ * page over the user's current section, with a searchable left navigation in
+ * five groups (You · Voice · Connections · Agents · Advanced, see
+ * views/settings/hubNav) and the selected section on the right.
  *
  * Same merged-section pattern as VoiceHubView / ClisHubView: the active
  * section id IS the tab state, so deep links, voice commands ("open the API
@@ -35,10 +43,11 @@ import { cn } from "@/lib/utils";
  * "telephony-setup") resolve to the tab that hosts their content today,
  * exactly like MainView used to map them to standalone views.
  *
- * Labels, icons and grouping resolve from `NAV_GROUPS` (via `resolveNavLabel`,
- * so all three locales behave exactly like the sidebar rows did) — no second hand-written list to drift (AP-4).
- * One exception: inside the hub the "settings" entry reads "General", because
- * the whole page already is Settings.
+ * Tab labels and icons resolve from `NAV_GROUPS` (via `resolveNavLabel`, so
+ * every locale behaves exactly like the sidebar rows did) — no second
+ * hand-written list to drift (AP-4). One exception: inside the hub the
+ * "settings" entry reads "All settings", because the whole page already is
+ * Settings.
  *
  * Tab contents stay code-split one `lazy` boundary per view, so opening the
  * hub still only pays for the shell plus the visible tab.
@@ -99,51 +108,7 @@ const FeedbackTab = lazy(() =>
   })),
 );
 
-/** The entries of the left navigation, in display order. */
-type HubNavId =
-  | "settings"
-  | "shortcuts"
-  | "appshots"
-  | "pets"
-  | "games"
-  | "notifications"
-  | "profile"
-  | "agent-instructions"
-  | "trust"
-  | "socials"
-  | "apikeys"
-  | "computers"
-  | "phone"
-  | "costs"
-  | "feedback";
-
-const HUB_NAV_GROUPS: readonly { labelKey: string; ids: readonly HubNavId[] }[] = [
-  {
-    labelKey: "settings_hub.group_general",
-    ids: [
-      "settings",
-      "shortcuts",
-      "appshots",
-      "pets",
-      "games",
-      "notifications",
-      "profile",
-      "agent-instructions",
-      "trust",
-      "socials",
-    ],
-  },
-  {
-    labelKey: "settings_hub.group_system",
-    ids: ["computers", "phone", "apikeys"],
-  },
-  {
-    labelKey: "settings_hub.group_activity",
-    ids: ["costs", "feedback"],
-  },
-];
-
-const TAB_CONTENT: Record<HubNavId | "telephony-setup", LazyExoticComponent<ComponentType>> = {
+const TAB_CONTENT: Record<HubContent, LazyExoticComponent<ComponentType>> = {
   settings: SettingsTab,
   profile: ProfileTab,
   "agent-instructions": AssistantTab,
@@ -162,52 +127,6 @@ const TAB_CONTENT: Record<HubNavId | "telephony-setup", LazyExoticComponent<Comp
   feedback: FeedbackTab,
 };
 
-/**
- * Which tab content — and which nav entry is highlighted — for an active
- * section id. Plain ids name their own tab; the merged-in ids resolve to the
- * tab hosting their content; anything else falls back to Settings.
- */
-function resolveHubTab(active: string): { content: HubNavId | "telephony-setup"; highlight: HubNavId } {
-  switch (active) {
-    case "profile":
-      return { content: "profile", highlight: "profile" };
-    case "agent-instructions":
-      return { content: "agent-instructions", highlight: "agent-instructions" };
-    case "socials":
-      return { content: "socials", highlight: "socials" };
-    case "apikeys":
-    case "telephony":
-      return { content: "apikeys", highlight: "apikeys" };
-    case "telephony-setup":
-      return { content: "telephony-setup", highlight: "apikeys" };
-    case "computers":
-      return { content: "computers", highlight: "computers" };
-    case "phone":
-      return { content: "phone", highlight: "phone" };
-    case "appshots":
-      return { content: "appshots", highlight: "appshots" };
-    case "shortcuts":
-      return { content: "shortcuts", highlight: "shortcuts" };
-    case "pets":
-      return { content: "pets", highlight: "pets" };
-    case "games":
-      return { content: "games", highlight: "games" };
-    case "notifications":
-      return { content: "notifications", highlight: "notifications" };
-    case "trust":
-      return { content: "trust", highlight: "trust" };
-    case "costs":
-      return { content: "costs", highlight: "costs" };
-    case "feedback":
-      return { content: "feedback", highlight: "feedback" };
-    case "settings":
-    case "taskbar":
-    case "languages":
-    default:
-      return { content: "settings", highlight: "settings" };
-  }
-}
-
 // `NAV_GROUPS` plus the footer: "feedback" lives in `NAV_FOOTER_ITEMS`, not in
 // a group (same lookup as TopBar/DockRail) — without it the hub cannot resolve
 // its own tenth entry.
@@ -217,7 +136,7 @@ const ALL_NAV_ITEMS: readonly NavItem[] = [
   ...SETTINGS_HUB_ONLY_ITEMS,
 ];
 
-function findNavItem(id: HubNavId): NavItem {
+function findNavItem(id: HubTabId): NavItem {
   const item = ALL_NAV_ITEMS.find((row) => row.id === id);
   if (!item) throw new Error(`Settings hub nav item missing: ${id}`);
   return item;
@@ -242,8 +161,16 @@ export function SettingsHubView() {
   const active = useEventStore((s) => s.activeSection);
   const setActive = useEventStore((s) => s.setActiveSection);
   const [query, setQuery] = useState("");
-  const [searchTarget, setSearchTarget] = useState<string | null>(null);
+  const [searchTarget, setSearchTargetState] = useState<string | null>(null);
+  // The slice of the General page picked in the nav ("Voice & wake word" …);
+  // null shows the whole page. View state only: the section stays "settings".
+  const [pickedPage, setPickedPage] = useState<HubPageKey | null>(null);
   const { health: sectionHealth } = useSectionHealth();
+  // A search hit or a jump lands on the WHOLE page, where every anchor lives.
+  const setSearchTarget = (target: string | null) => {
+    if (target) setPickedPage(null);
+    setSearchTargetState(target);
+  };
 
   // A group picked in the quick switcher while the hub was closed (or open on
   // another tab) — take it over once; see store/settingsJump.
@@ -251,48 +178,72 @@ export function SettingsHubView() {
   useEffect(() => {
     if (pendingJump === null) return;
     const target = useSettingsJump.getState().take();
-    if (target) setSearchTarget(target);
+    if (target) {
+      setPickedPage(null);
+      setSearchTargetState(target);
+    }
   }, [pendingJump]);
 
-  const { content, highlight } = resolveHubTab(active);
+  // Leaving the General page forgets the slice; coming back shows it whole.
+  useEffect(() => {
+    if (active !== "settings") setPickedPage(null);
+  }, [active]);
+
+  const { content, highlight, page } = resolveHubTab(active, pickedPage);
   const Content = TAB_CONTENT[content];
 
-  const labelOf = (item: NavItem) =>
-    item.id === "settings" ? t("settings_hub.general") : resolveNavLabel(t, item);
+  const labelOf = (entry: HubEntry) => {
+    if (entry.kind !== "tab") return t(entry.labelKey);
+    if (entry.id === "settings") return t("design.settings.all_settings");
+    return resolveNavLabel(t, findNavItem(entry.id));
+  };
+  const iconOf = (entry: HubEntry) => (entry.kind === "tab" ? findNavItem(entry.id).icon : entry.icon);
   const needle = query.trim().toLowerCase();
-  const matches = (item: NavItem) =>
-    needle === "" || labelOf(item).toLowerCase().includes(needle);
+  const matches = (entry: HubEntry) =>
+    needle === "" || labelOf(entry).toLowerCase().includes(needle);
 
-  // Twelve entries — filtered inline; no memo needed at this size.
-  const visibleGroups = HUB_NAV_GROUPS.map((group) => ({
+  // Under twenty entries — filtered inline; no memo needed at this size.
+  const visibleGroups = HUB_GROUPS.map((group) => ({
     ...group,
-    items: group.ids.map(findNavItem).filter(matches),
+    items: group.entries.filter(matches),
   })).filter((group) => group.items.length > 0);
   const optionMatches = searchSettingsOptions(language, query, t);
   const pageMatches = searchSettingsPages(language, query, t)
     .filter((match) => !visibleGroups.some((group) =>
-      group.items.some((item) => item.id === match.id)))
-    .map((match) => ({ ...match, label: labelOf(findNavItem(match.id)) }));
+      group.items.some((entry) => entry.kind === "tab" && entry.id === match.id)))
+    .map((match) => ({ ...match, label: labelOf({ kind: "tab", id: match.id }) }));
 
   // The health signal the sidebar row used to carry, now on the hub's own
   // nav: a hard provider error on API Keys. Badge only, never a toast.
   const apikeysHasError = useMemo(() => apiKeysHealthError(sectionHealth), [sectionHealth]);
 
-  const renderNavItem = (item: NavItem) => {
-    const Icon = item.icon;
-    const isActive = item.id === highlight;
-    const showAlert = item.id === "apikeys" && apikeysHasError;
-    const hint = showAlert ? t("sidebar.apikeys_alert") : undefined;
+  const pick = (entry: HubEntry) => {
+    setQuery("");
+    setSearchTarget(null);
+    if (entry.kind === "page") {
+      setPickedPage(entry.key);
+      setActive("settings");
+      return;
+    }
+    setPickedPage(null);
+    // A link leaves the hub: its section is not a hub id, so the router
+    // closes Settings and opens that page.
+    setActive(entry.id);
+  };
+
+  const renderNavItem = (entry: HubEntry) => {
+    const Icon = iconOf(entry);
+    const key = entryKey(entry);
+    const isActive = key === highlight;
+    const showAlert = entry.kind === "tab" && entry.id === "apikeys" && apikeysHasError;
+    const hint = showAlert ? t("sidebar.apikeys_alert") : entry.kind === "link" ? t("design.settings.opens_page") : undefined;
     return (
-      <li key={item.id}>
+      <li key={key}>
         <button
           type="button"
-          data-testid={`settings-hub-nav-${item.id}`}
-          onClick={() => {
-            setQuery("");
-            setSearchTarget(null);
-            setActive(item.id);
-          }}
+          data-testid={entryTestId(entry)}
+          data-kind={entry.kind}
+          onClick={() => pick(entry)}
           title={hint}
           aria-current={isActive ? "page" : undefined}
           className={cn(
@@ -310,7 +261,10 @@ export function SettingsHubView() {
               isActive ? "text-foreground-strong" : "text-muted-foreground group-hover:text-foreground",
             )}
           />
-          <span className="min-w-0 flex-1 truncate text-left">{labelOf(item)}</span>
+          <span className="min-w-0 flex-1 truncate text-left">{labelOf(entry)}</span>
+          {entry.kind === "link" && (
+            <ArrowUpRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-foreground-faint" />
+          )}
           {showAlert && (
             <span
               data-testid="settings-hub-alert-apikeys"
@@ -357,7 +311,7 @@ export function SettingsHubView() {
           className="min-h-0 flex-1 overflow-y-auto px-3 pb-5 scrollbar-jarvis">
           <ul>
             {visibleGroups.map((group) => (
-              <li key={group.labelKey}>
+              <li key={group.id} data-testid={`settings-hub-group-${group.id}`}>
                 <p className="px-2.5 pb-1.5 pt-5 text-xs font-medium text-muted-foreground">
                   {t(group.labelKey)}
                 </p>
@@ -430,7 +384,12 @@ export function SettingsHubView() {
           >
             <Suspense fallback={<HubLoadingFallback />}>
               {content === "settings"
-                ? <SettingsTab searchTarget={searchTarget} onSearchTargetHandled={() => setSearchTarget(null)} />
+                ? <SettingsTab
+                    searchTarget={searchTarget}
+                    onSearchTargetHandled={() => setSearchTargetState(null)}
+                    sections={page ? HUB_PAGES[page] : undefined}
+                    title={page ? labelOf(PAGE_ENTRIES[page]) : undefined}
+                  />
                 : <Content />}
             </Suspense>
           </div>
