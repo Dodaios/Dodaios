@@ -113,3 +113,53 @@ async def test_a_registered_resolver_takes_over_its_prefix() -> None:
         assert "ledger says 7 is gone" in res.output["summary"]
     finally:
         tool_mod._RESOLVERS.pop("job", None)
+
+
+@pytest.fixture
+def ledger():
+    from dodaios.orchestrator import jobs
+
+    store = jobs.JobLedger(":memory:")
+    jobs.set_ledger(store)
+    yield store
+    jobs.set_ledger(None)
+    store.close()
+
+
+async def test_ledger_ids_resolve_by_kind_and_state(ledger, tmp_path: Path) -> None:
+    from dodaios.orchestrator import jobs
+
+    tool = VerifyDelegateTool()
+
+    async def run(job_id: str) -> dict:
+        res = await tool.execute({"job_id": job_id}, None)  # type: ignore[arg-type]
+        assert res.success
+        return res.output
+
+    assert "No such job" in (await run("job_missing"))["summary"]
+
+    running = jobs.start("mission", title="m", state="running")
+    assert "still running" in (await run(running))["summary"]
+
+    dead = jobs.start("mission", title="m", state="running")
+    jobs.finish(dead, "failed", error="boom")
+    out = await run(dead)
+    assert out["verdict"] == "failed" and "boom" in out["summary"]
+
+    plain = jobs.start("mission", title="m", state="running")
+    jobs.finish(plain, "done", summary="ok")
+    assert "nothing to verify" in (await run(plain))["summary"]
+
+    page = tmp_path / "page.html"
+    page.write_text("<html><body>hi</body></html>")
+    art = jobs.start("artifact", title="a", state="running", meta={"artifact_file": "page.html"})
+    jobs.finish(art, "done", summary="built")
+    from dodaios.plugins.tool import verify_delegate as mod
+
+    mod_find = mod._find_artifact_file
+    mod._find_artifact_file = lambda name, since: str(page)  # type: ignore[assignment]
+    try:
+        out = await run(art)
+    finally:
+        mod._find_artifact_file = mod_find  # type: ignore[assignment]
+    assert out["verdict"] == "verified" and out["kind"] == "artifact"
