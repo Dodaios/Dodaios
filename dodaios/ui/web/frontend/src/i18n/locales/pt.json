@@ -7971,7 +7971,9 @@
       "more_one": "{list} e mais uma ação",
       "more_other": "{list} e mais {count} ações",
       "failed_one": "{count} falhou",
-      "failed_other": "{count} falharam"
+      "failed_other": "{count} falharam",
+      "watch_one": "acompanhou um processo",
+      "watch_other": "acompanhou {count} processos"
     },
     "act_n": {
       "command": "executou {count} comandos",
