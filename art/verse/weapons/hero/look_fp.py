@@ -3,7 +3,7 @@
     python scripts/verse/blender.py run art/verse/weapons/hero/look_fp.py -- <out_dir> [samples]
 
 Camera and weapon poses match `UVerseViewmodelComponent` (field of view 74 deg,
-hip offset 26/11/-17 cm, sight at 19 cm while aiming). The room is a plain
+hip offset 26/11/-17 cm, glass at 16 cm while aiming). The room is a plain
 dark hangar bay lit by warm overhead strips and a cool fill, close to the duel
 arena, so the result reads as it will in the game.
 """
@@ -22,7 +22,7 @@ from weapons.hero import graveline
 FOV_DEG = 74.0
 HIP = (0.26, 0.11, -0.17)  # camera space: forward, right, up (metres)
 HIP_ROT = (2.0, -4.0, 0.0)  # pitch, yaw, roll (degrees, Unreal order)
-SIGHT_DISTANCE = 0.19
+SIGHT_DISTANCE = 0.16
 
 
 def _reset():
@@ -133,6 +133,14 @@ def main(out_dir: Path, samples: int) -> None:
     direction = Vector((0.22, 0.0, 0.02)) - cam.location
     cam.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
     scene.render.filepath = str(out_dir / "product.png")
+    bpy.ops.render.render(write_still=True)
+
+    # The sight on its own, three-quarter from the front right, like a product photo.
+    cam.data.angle = math.radians(24)
+    cam.location = Vector((0.27, -0.2, 0.2))
+    direction = Vector((0.085, 0.0, 0.112)) - cam.location
+    cam.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
+    scene.render.filepath = str(out_dir / "sight.png")
     bpy.ops.render.render(write_still=True)
 
 

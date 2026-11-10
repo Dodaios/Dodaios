@@ -333,13 +333,13 @@ VFX_MATERIALS: tuple[tuple[str, str, str], ...] = (
 GRAVELINE_HERO = WeaponSpec(
     weapon_id="graveline",
     display_name="GravelineHero",
-    role="assault rifle, first-person hero mesh with a holographic sight",
+    role="assault rifle, first-person hero mesh with an open reflex sight",
     asset="SK_Weapon_GravelineHero",
     kind="skeletal",
     bones=GRAVELINE.bones,
     sockets=_sockets(
         muzzle=(0.742, 0.0, 0.045),
-        sight=(0.072, 0.0, 0.1365),
+        sight=(0.103, 0.0, 0.12152),
         support=(0.40, 0.0, 0.005),
         eject=(0.12, -0.026, 0.06),
     ),

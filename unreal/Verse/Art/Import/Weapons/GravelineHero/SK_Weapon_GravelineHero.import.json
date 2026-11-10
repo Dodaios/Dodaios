@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/weapons/SK_Weapon_GravelineHero.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "dd5b9f8c07652bf328578091bb17b82ab41db222d82c929903631ad1596c84d2"
+    "sha256": "0b409fddfb9c70a8064d35e1105410f879a7bcb249789479a7a1865b23846d83"
   },
   "kind": "skeletal_mesh",
   "license": {
@@ -31,12 +31,12 @@
     "bounds_cm": {
       "max": [
         74.2,
-        3.45,
-        16.3
+        3.4,
+        13.68
       ],
       "min": [
         -30.0,
-        -3.1,
+        -3.0,
         -24.244
       ]
     },
@@ -60,9 +60,9 @@
       "SOCKET_Sight",
       "SOCKET_Support"
     ],
-    "triangles": 31944,
+    "triangles": 32792,
     "uv_sets": 1,
-    "vertices": 16200
+    "vertices": 16670
   },
   "name": "SK_Weapon_GravelineHero",
   "nanite": {
