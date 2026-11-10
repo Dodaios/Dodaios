@@ -90,6 +90,26 @@ def data_dir() -> dict[str, str]:
     return data_dir_info()
 
 
+@router.get("/memory", summary="Memory of the app's processes")
+def memory(objects: bool = False) -> dict[str, Any]:
+    """What every process of the app holds, largest first, with a total.
+
+    ``private_mb`` is committed memory (the number that exhausts a machine),
+    ``rss_mb`` what is in physical memory now. ``?objects=true`` adds the
+    backend's Python heap by type and its largest objects with their owners
+    (type names only, never contents); that walk holds the interpreter for a
+    moment, so it is opt-in. A plain ``def``: it runs on a worker thread and
+    never on the serving loop.
+    """
+    from dodaios.core.process_memory import loaded_packages, python_objects, tree_memory
+
+    report = tree_memory()
+    report["packages"] = loaded_packages()
+    if objects:
+        report["python"] = python_objects()
+    return report
+
+
 @router.get("/event-loop-tasks")
 async def event_loop_tasks() -> dict[str, Any]:
     """Snapshot all tasks on the serving loop, suspects first.
