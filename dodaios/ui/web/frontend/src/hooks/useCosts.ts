@@ -77,6 +77,14 @@ export interface CostRefBucket extends CostBucket {
   surface: string;
 }
 
+/** One Dodaios agent's spend. `key` is its roster id; the lead is `jarvis`. */
+export interface CostAgentBucket extends CostBucket {
+  /** Roster name; empty when the agent is no longer in the roster. */
+  name: string;
+  lead: boolean;
+  archived: boolean;
+}
+
 export interface CostTotals {
   cost_usd: number;
   tokens_in: number;
@@ -122,6 +130,11 @@ export interface CostSummary {
   by_model: CostBucket[];
   by_role: CostBucket[];
   by_surface: CostBucket[];
+  /**
+   * Spend per Dodaios agent, the assistant itself included. Optional on the
+   * wire: a backend from before the field answers without it.
+   */
+  by_agent?: CostAgentBucket[];
   series: CostBucket[];
   top_refs: CostRefBucket[];
   models: CostModelRow[];
@@ -230,6 +243,8 @@ export interface CostFilters {
   surfaces: CostSurface[];
   /** Session / mission ids — set by clicking a row in "Where it went". */
   refs: string[];
+  /** Dodaios agent ids — set by clicking a row in the agents panel. */
+  agents: string[];
   search: string;
   /** "all" · "billed" (an API key paid) · "subscription" (seat quotes only). */
   billing: CostBilling;
@@ -250,6 +265,7 @@ export const EMPTY_FILTERS: CostFilters = {
   roles: [],
   surfaces: [],
   refs: [],
+  agents: [],
   billing: "all",
   search: "",
 };
@@ -262,6 +278,7 @@ export function hasActiveFilters(f: CostFilters): boolean {
     f.roles.length > 0 ||
     f.surfaces.length > 0 ||
     f.refs.length > 0 ||
+    f.agents.length > 0 ||
     f.search.trim().length > 0
   );
 }
@@ -279,6 +296,7 @@ function toParams(f: CostFilters): URLSearchParams {
   for (const r of f.roles) params.append("role", r);
   for (const s of f.surfaces) params.append("surface", s);
   for (const r of f.refs) params.append("ref", r);
+  for (const a of f.agents) params.append("agent", a);
   if (f.billing !== "all") params.set("billing", f.billing);
   if (f.search.trim()) params.set("search", f.search.trim());
   return params;

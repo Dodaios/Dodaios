@@ -92,6 +92,9 @@ export type SectionId =
   // Game settings: the Dodaios Verse's in-game settings menu (graphics,
   // audio, mouse, keybinds, gameplay, HUD, accessibility). A Settings-hub page.
   | "games"
+  // Notifications: desktop notifications, quiet hours, approvals in Telegram
+  // (dodaios/notify). A Settings-hub page.
+  | "notifications"
   | "dictionary"
   | "dictation"
   // The three tabs added by the merged voice section. "dictation" (default
@@ -119,7 +122,10 @@ export type SectionId =
   // Built for you: everything Dodaios built on its own initiative (the
   // self-building loop, docs/self-build.md) — why, how it was checked, what it
   // cost — with keep, undo and the loop's pause in one place.
-  | "self-build";
+  | "self-build"
+  // Trust & privacy: what runs without asking (standing rules, revocable),
+  // what is known and where it goes. A Settings-hub page.
+  | "trust";
 
 export const SECTION_IDS = [
   "chats",
@@ -149,6 +155,7 @@ export const SECTION_IDS = [
   "shortcuts",
   "pets",
   "games",
+  "notifications",
   "dictionary",
   "dictation",
   // `satisfies` only catches array entries that are missing from the union,
@@ -163,6 +170,7 @@ export const SECTION_IDS = [
   "agentic-ide-classic",
   "marketplace",
   "self-build",
+  "trust",
 ] as const satisfies readonly SectionId[];
 
 export function isSectionId(value: unknown): value is SectionId {
@@ -247,6 +255,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   shortcuts: "Keyboard shortcuts",
   pets: "My Pets",
   games: "Game settings",
+  notifications: "Notifications",
   dictionary: "Dictionary",
   dictation: "Dictation",
   // Plain English, deliberately NOT the "{name} Voice" brand: these labels are
@@ -261,6 +270,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   "agentic-ide-classic": "Terminal grid",
   marketplace: "Marketplace",
   "self-build": "Built for you",
+  trust: "Trust and privacy",
 };
 /**
  * i18n keys for `SECTION_LABELS`, for user-facing readbacks (the voice-navigation
@@ -295,6 +305,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   shortcuts: "nav.shortcuts",
   pets: "nav.pets",
   games: "nav.games",
+  notifications: "nav.notifications",
   dictionary: "nav.dictionary",
   dictation: "nav.dictation",
   "voice-shortcuts": "shell_sections.voice_shortcuts",
@@ -306,6 +317,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   "agentic-ide-classic": "quick_switch.terminal_grid",
   marketplace: "nav.marketplace",
   "self-build": "nav.self_build",
+  trust: "trust.nav",
 };
 
 export interface EventItem {

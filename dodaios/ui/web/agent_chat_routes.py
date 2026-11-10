@@ -432,6 +432,13 @@ def schedule_turn_reattach(state: Any) -> asyncio.Task[None] | None:
     except RuntimeError:
         log.debug("agent chat: boot reattach not scheduled — no running loop")
         return None
+    # The service is built below in a plain worker thread, where it cannot
+    # find the app's loop by asking. Without it every turn the host still ran
+    # was closed as "The app restarted" — always in the background service,
+    # which has no window whose requests record the loop first (2026-11-09).
+    from dodaios.agent_chat.service import remember_app_loop
+
+    remember_app_loop(loop)
 
     async def _run() -> None:
         await asyncio.sleep(_REATTACH_DELAY_S)
@@ -1243,6 +1250,58 @@ async def put_lead_brief(body: LeadBriefBody) -> dict[str, Any]:
 
     try:
         return await set_brief(enabled=body.enabled, local_time=body.time, timezone=body.timezone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+class LeadProactiveBody(BaseModel):
+    #: ``off`` | ``important`` | ``everything``.
+    level: str = "off"
+    #: Any of ``mail``, ``calendar``, ``agents``, ``deadlines``.
+    topics: list[str] = Field(default_factory=lambda: ["mail", "calendar", "agents", "deadlines"])
+    #: Hours between two checks: 1, 3 or 6.
+    interval_hours: int = 3
+    #: IANA zone of the person, e.g. ``Europe/Berlin``.
+    timezone: str = ""
+
+
+class LeadCheckinBody(BaseModel):
+    minutes: int = Field(ge=1, le=12 * 60)
+    #: What the person is doing meanwhile, if they said.
+    doing: str = Field(default="", max_length=160)
+
+
+@router.get("/lead/proactive", summary="Proactivity settings and the 'needs you' check's state")
+async def get_lead_proactive() -> dict[str, Any]:
+    from dodaios.agent_chat.proactive_checks import checks_state
+
+    return await checks_state()
+
+
+@router.put("/lead/proactive", summary="Set the proactivity level, topics and rhythm")
+async def put_lead_proactive(body: LeadProactiveBody) -> dict[str, Any]:
+    from dodaios.agent_chat.proactive_checks import apply_settings
+    from dodaios.agent_chat.proactive_settings import ProactiveSettings
+
+    settings = ProactiveSettings.from_dict(body.model_dump())
+    try:
+        return await apply_settings(settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post(
+    "/lead/proactive/checkin", status_code=201, summary="A one-shot check-in in N minutes"
+)
+async def post_lead_checkin(body: LeadCheckinBody) -> dict[str, Any]:
+    from dodaios.agent_chat.checkins import CheckinRequest, schedule_checkin
+
+    try:
+        return await schedule_checkin(CheckinRequest(minutes=body.minutes, doing=body.doing))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:

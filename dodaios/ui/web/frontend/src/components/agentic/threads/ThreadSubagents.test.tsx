@@ -26,18 +26,22 @@ function turn(blocks: TurnBlock[], status: TurnStatus = "running"): TurnItem {
 afterEach(cleanup);
 
 describe("thread sub-agents", () => {
-  it("shows a spawned sub-agent as a card that opens its conversation", () => {
+  it("shows a spawned sub-agent as one line of the thread that opens to its row", () => {
     const open = vi.fn();
     render(<OpenSubagent.Provider value={open}>
       <ThreadTimeline items={[turn([spawn("a1")])]} sessionId="s1" bottomInset={0} />
     </OpenSubagent.Provider>);
-    const card = screen.getByTestId("thread-subagent-card");
-    expect(card.textContent).toContain("Explore the auth code");
-    expect(card.textContent).toContain("Reading auth.py");
-    expect(card.textContent).toContain("3 tools");
-    expect(card.textContent).toContain("12.4k tokens");
+    expect(screen.queryByTestId("thread-subagent-card")).toBeNull();
+    const label = screen.getByTestId("thread-subagent-run-label");
+    expect(label.textContent).toBe("Running 1 sub-agent");
+    expect(label.className).toContain("live-tool-shine");
+    expect(screen.queryByTestId("thread-subagent-run-rows")).toBeNull();
     expect(screen.getByTestId("thread-working").textContent).toContain("1 sub-agent working");
-    fireEvent.click(card);
+    fireEvent.click(screen.getByTestId("thread-subagent-run-toggle"));
+    const row = screen.getByTestId("thread-subagent-row");
+    expect(row.textContent).toContain("Explore the auth code");
+    expect(row.textContent).toContain("Reading auth.py");
+    fireEvent.click(row);
     expect(open).toHaveBeenCalledWith("a1");
   });
 
@@ -48,19 +52,22 @@ describe("thread sub-agents", () => {
       { kind: "text", id: "m1", text: "Done." },
     ], "done")]} sessionId="s1" bottomInset={0} />);
     expect(screen.getByTestId("thread-worked-for")).toBeTruthy();
-    const card = screen.getByTestId("thread-subagent-card");
-    expect(card.getAttribute("data-status")).toBe("done");
-    expect(card.textContent).toContain("Tokens are checked in auth.py.");
+    expect(screen.getByTestId("thread-subagent-run-label").textContent).toBe("Ran 1 sub-agent");
+    fireEvent.click(screen.getByTestId("thread-subagent-run-toggle"));
+    const row = screen.getByTestId("thread-subagent-row");
+    expect(row.getAttribute("data-status")).toBe("done");
+    expect(row.textContent).toContain("Tokens are checked in auth.py.");
   });
 
-  it("draws several sub-agents spawned together as one group with a line each", () => {
+  it("draws several sub-agents spawned together as one line with a row each", () => {
     const open = vi.fn();
     render(<OpenSubagent.Provider value={open}>
-      <ThreadTimeline items={[turn([spawn("a1"), spawn("a2", { description: "Write tests", status: "done", summary: "Added 4 tests." }), spawn("a3", { description: "Check docs" })])]} sessionId="s1" bottomInset={0} />
+      <ThreadTimeline items={[turn([spawn("a1"), spawn("a2", { description: "Write tests", status: "done", summary: "Added 4 tests." }), spawn("a3", { description: "Check docs", status: "failed" })])]} sessionId="s1" bottomInset={0} />
     </OpenSubagent.Provider>);
-    expect(screen.queryByTestId("thread-subagent-card")).toBeNull();
-    expect(screen.getAllByTestId("thread-subagent-group")).toHaveLength(1);
-    expect(screen.getByTestId("thread-subagent-group-count").textContent).toBe("3 sub-agents · 2 working · 1 done");
+    expect(screen.getAllByTestId("thread-subagent-run")).toHaveLength(1);
+    expect(screen.getByTestId("thread-subagent-run-label").textContent).toBe("Running 3 sub-agents");
+    expect(screen.getByTestId("thread-subagent-run").textContent).toContain("1 failed");
+    fireEvent.click(screen.getByTestId("thread-subagent-run-toggle"));
     const rows = screen.getAllByTestId("thread-subagent-row");
     expect(rows).toHaveLength(3);
     expect(rows[1].textContent).toContain("Added 4 tests.");
@@ -68,11 +75,12 @@ describe("thread sub-agents", () => {
     expect(open).toHaveBeenCalledWith("a2");
   });
 
-  it("folds a finished group to its header and shows the first lines of a long one", () => {
+  it("shows the first rows of a long run and the rest on demand", () => {
     const blocks = Array.from({ length: 9 }, (_, i) => spawn(`a${i}`, { description: `Agent ${i}`, status: "done", summary: "ok" }));
     render(<ThreadTimeline items={[turn([...blocks, { kind: "text", id: "m1", text: "Done." }], "done")]} sessionId="s1" bottomInset={0} />);
-    expect(screen.queryByTestId("thread-subagent-group-rows")).toBeNull();
-    fireEvent.click(screen.getByTestId("thread-subagent-group-toggle"));
+    expect(screen.getByTestId("thread-subagent-run-label").textContent).toBe("Ran 9 sub-agents");
+    expect(screen.queryByTestId("thread-subagent-run-rows")).toBeNull();
+    fireEvent.click(screen.getByTestId("thread-subagent-run-toggle"));
     expect(screen.getAllByTestId("thread-subagent-row")).toHaveLength(5);
     fireEvent.click(screen.getByTestId("thread-subagent-show-all"));
     expect(screen.getAllByTestId("thread-subagent-row")).toHaveLength(9);
@@ -110,6 +118,7 @@ describe("thread sub-agents", () => {
 
   it("names the model each sub-agent runs on", () => {
     render(<ThreadTimeline items={[turn([spawn("a1", { model: "claude-haiku-5-5" }), spawn("a2", { model: "claude-sonnet-5-5" })])]} sessionId="s1" bottomInset={0} />);
+    fireEvent.click(screen.getByTestId("thread-subagent-run-toggle"));
     expect(screen.getAllByTestId("thread-subagent-model").map((chip) => chip.textContent)).toEqual(["Haiku 5.5", "Sonnet 5.5"]);
   });
 

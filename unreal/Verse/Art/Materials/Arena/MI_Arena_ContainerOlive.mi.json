@@ -1,0 +1,40 @@
+{
+  "name": "MI_Arena_ContainerOlive",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_ContainerOlive",
+  "scalars": {
+    "EdgeWear": 0.1,
+    "GrimeAmount": 0.1,
+    "Metallic": 0.3,
+    "NoiseScale": 0.04,
+    "RoughnessMax": 1.0,
+    "RoughnessMin": 0.75,
+    "TriplanarScale": 0.4,
+    "TriplanarWorld": 0.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTextureSet": true,
+    "UseTriplanar": true
+  },
+  "textures": {
+    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Paint_BC.T_Arena_Paint_BC",
+    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Paint_N.T_Arena_Paint_N",
+    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Paint_ORM.T_Arena_Paint_ORM"
+  },
+  "vectors": {
+    "BaseTint": [
+      1.97,
+      2.121,
+      1.364,
+      1.0
+    ],
+    "EdgeTint": [
+      0.16,
+      0.14,
+      0.12,
+      1.0
+    ]
+  }
+}

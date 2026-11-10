@@ -90,6 +90,7 @@ describe("ranking", () => {
     ["api", "apikeys"],
     ["market", "marketplace"],
     ["wiki", "memory"],
+    ["memory", "memory"],
   ])("puts the meant destination first for %j", (query, expected) => {
     expect(top(query)).toBe(expected);
   });

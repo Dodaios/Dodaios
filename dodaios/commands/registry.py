@@ -955,6 +955,52 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 ),
             },
         ),
+        AppCommand(
+            id="marketplace-remove",
+            title="Remove a marketplace entry",
+            description=(
+                "Remove ONE installed marketplace entry by its exact name. The "
+                "kind is resolved by the app: a plugin is disconnected and "
+                "leaves the plugin list, a skill is deleted from the skills. "
+                "An agent is not removed this way; the answer says so. Only "
+                "what was installed from the marketplace can be removed here."
+            ),
+            method="DELETE",
+            path="/api/marketplace/community/install/{item_id}",
+            dangerous=True,
+            params={
+                "type": "object",
+                "properties": {
+                    "item_id": _str_param(
+                        "Exact name of the installed entry to remove, as shown "
+                        "by marketplace-browse (e.g. three-bullet-brief).",
+                        min_length=1,
+                        max_length=128,
+                    ),
+                },
+                "required": ["item_id"],
+            },
+            path_params=("item_id",),
+            ui_section="plugins",
+            voice_aliases={
+                "de": (  # i18n-allow: input vocab
+                    "entferne den skill aus dem marktplatz",  # i18n-allow: input vocab
+                    "deinstalliere das marktplatz plugin",  # i18n-allow: input vocab
+                ),
+                "en": (
+                    "remove that marketplace skill",
+                    "uninstall that marketplace plugin",
+                ),
+                "es": (  # i18n-allow: input vocab
+                    "quita ese skill del mercado",
+                    "desinstala ese complemento del mercado",
+                ),
+                "pt": (  # i18n-allow: input vocab
+                    "remove essa skill do mercado",
+                    "desinstala esse plugin do mercado",
+                ),
+            },
+        ),
         # -------------------------------------------------------- dictation
         AppCommand(
             id="dictation-start",

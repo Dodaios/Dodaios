@@ -68,7 +68,7 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	if (Id == TEXT("tallow"))
 	{
 		// Pistol: held further out, one hand.
-		P.HipOffset = FVector(36.0, 13.0, -15.0);
+		P.HipOffset = FVector(28.0, 9.0, -12.0);
 		P.HipRotation = FRotator(2.0, -5.0, 0.0);
 		P.SightDistance = 30.0;
 		P.KickBackCm = 2.0;
@@ -76,7 +76,7 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	}
 	else if (Id == TEXT("skitter"))
 	{
-		P.HipOffset = FVector(30.0, 14.0, -17.0);
+		P.HipOffset = FVector(24.0, 10.0, -14.0);
 		P.HipRotation = FRotator(1.5, -4.5, 0.0);
 		P.SightDistance = 20.0;
 		P.KickBackCm = 1.6;
@@ -84,7 +84,7 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	}
 	else if (Id == TEXT("longsight"))
 	{
-		P.HipOffset = FVector(28.0, 15.0, -20.0);
+		P.HipOffset = FVector(24.0, 11.0, -16.0);
 		P.HipRotation = FRotator(1.5, -3.5, 0.0);
 		P.SightDistance = 12.0;
 		P.KickBackCm = 3.6;
@@ -93,7 +93,7 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	else if (Id == TEXT("hookbill"))
 	{
 		// Knife: blade forward, edge down, held low on the right.
-		P.HipOffset = FVector(30.0, 16.0, -17.0);
+		P.HipOffset = FVector(24.0, 12.0, -14.0);
 		P.HipRotation = FRotator(18.0, -14.0, -20.0);
 		P.SightDistance = 26.0;
 		P.KickBackCm = 0.0;
@@ -101,10 +101,13 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	}
 	else
 	{
-		// Graveline and any rifle without its own row.
-		P.HipOffset = FVector(34.0, 16.0, -21.0);
+		// Graveline and any rifle without its own row: the sight sits right of and below the
+		// crosshair and the barrel points at it, so the weapon fills the lower right quarter.
+		// Aiming, the slim reflex frame sits 24 cm out: its 4 cm frame spans about a tenth of
+		// the view and the tall riser keeps rail and receiver low in the frame.
+		P.HipOffset = FVector(26.0, 11.0, -17.0);
 		P.HipRotation = FRotator(2.0, -4.0, 0.0);
-		P.SightDistance = 15.0;
+		P.SightDistance = GravelineSightDistanceCm;
 		P.KickBackCm = 2.4;
 		P.KickPitchDeg = 2.6;
 	}
@@ -186,6 +189,9 @@ void UVerseViewmodelComponent::Build()
 	Mesh->SetCastShadow(false);
 	Mesh->bOnlyOwnerSee = true;
 	Mesh->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
+	// Channel 0 for the hangar lights, channel 1 for the own fill light below.
+	Mesh->LightingChannels.bChannel0 = true;
+	Mesh->LightingChannels.bChannel1 = true;
 	Mesh->RegisterComponent();
 
 	Flash = NewObject<UStaticMeshComponent>(Owner, TEXT("ViewmodelFlash"));
@@ -218,6 +224,23 @@ void UVerseViewmodelComponent::Build()
 	FlashLight->SetVisibility(false);
 	FlashLight->RegisterComponent();
 
+	// The hangar lights hit the weapon from far above, so at the hip it read as a black shape.
+	// A soft light near the eye on channel 1 shows its form; the drawn weapon sits 5 to 30 cm
+	// from the eye (first-person scale), so the light sits about 35 cm away from it.
+	FillLight = NewObject<UPointLightComponent>(Owner, TEXT("ViewmodelFillLight"));
+	FillLight->SetupAttachment(Camera);
+	FillLight->SetRelativeLocation(FVector(22.0, 6.0, 24.0));  // ahead and above the handguard, so its vents read at the hip
+	FillLight->SetIntensityUnits(ELightUnits::Lumens);
+	FillLight->SetIntensity(FillLumens);
+	FillLight->SetLightColor(FLinearColor(1.f, 0.93f, 0.84f));
+	FillLight->SetAttenuationRadius(120.f);
+	FillLight->SetSourceRadius(8.f);
+	FillLight->SetCastShadows(false);
+	FillLight->SetAffectTranslucentLighting(false);
+	FillLight->LightingChannels.bChannel0 = false;
+	FillLight->LightingChannels.bChannel1 = true;
+	FillLight->RegisterComponent();
+
 	ShownWeaponId = NAME_None;
 	bHaveViewRotation = false;
 
@@ -242,7 +265,7 @@ void UVerseViewmodelComponent::TearDown()
 			Bolts->VisualMuzzle = nullptr;
 		}
 	}
-	for (USceneComponent* C : {static_cast<USceneComponent*>(FlashLight.Get()), static_cast<USceneComponent*>(Flash.Get()),
+	for (USceneComponent* C : {static_cast<USceneComponent*>(FillLight.Get()), static_cast<USceneComponent*>(FlashLight.Get()), static_cast<USceneComponent*>(Flash.Get()),
 			 static_cast<USceneComponent*>(Mesh.Get()), Root.Get()})
 	{
 		if (C)
@@ -250,6 +273,7 @@ void UVerseViewmodelComponent::TearDown()
 			C->DestroyComponent();
 		}
 	}
+	FillLight = nullptr;
 	FlashLight = nullptr;
 	Flash = nullptr;
 	FlashMaterial = nullptr;
@@ -263,6 +287,22 @@ bool UVerseViewmodelComponent::IsShowing() const
 	return Mesh && Mesh->IsVisible() && Mesh->GetSkinnedAsset() != nullptr;
 }
 
+bool UVerseViewmodelComponent::HasOptic() const
+{
+	if (!IsShowing())
+	{
+		return false;
+	}
+	for (const FName& Slot : Mesh->GetMaterialSlotNames())
+	{
+		if (Slot.ToString().Contains(TEXT("Optic")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 {
 	if (!Mesh || WeaponId == ShownWeaponId)
@@ -274,6 +314,28 @@ void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 	USkeletalMesh* Asset = Path.IsEmpty() ? nullptr : LoadObject<USkeletalMesh>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
 	Mesh->SetSkinnedAssetAndUpdate(Asset);
 	Pose = PoseFor(WeaponId);
+	if (Asset)
+	{
+		// Seen from a hand's width, the polished weapon steel mirrored the bright hangar ceiling
+		// and the sight's inner walls burned white. A satin finish (rougher, less oil) keeps it
+		// readable; metal-ness stays the recipe's (coated steel is mostly dielectric).
+		// Reticle and lens keep their own look.
+		const TArray<FName> Slots = Mesh->GetMaterialSlotNames();
+		for (int32 Index = 0; Index < Slots.Num(); ++Index)
+		{
+			const FString Slot = Slots[Index].ToString();
+			if (Slot.Contains(TEXT("Reticle")) || Slot.Contains(TEXT("Optic")))
+			{
+				continue;
+			}
+			if (UMaterialInstanceDynamic* Satin = Mesh->CreateDynamicMaterialInstance(Index))
+			{
+				Satin->SetScalarParameterValue(TEXT("RoughnessMin"), ViewmodelRoughnessMin);
+				Satin->SetScalarParameterValue(TEXT("RoughnessMax"), 0.7f);
+				Satin->SetScalarParameterValue(TEXT("OilAmount"), 0.08f);
+			}
+		}
+	}
 	MagBone = NAME_None;
 	BoltBone = NAME_None;
 	if (Asset)
@@ -410,6 +472,7 @@ void UVerseViewmodelComponent::Step(float Dt)
 	ShowWeapon(Want);
 	const bool bVisible = bAlive && !bFinisher && Mesh->GetSkinnedAsset() != nullptr;
 	Mesh->SetVisibility(bVisible, false);
+	FillLight->SetVisibility(bVisible);
 	if (!bVisible)
 	{
 		Flash->SetVisibility(false);
@@ -428,6 +491,8 @@ void UVerseViewmodelComponent::Step(float Dt)
 		const FVector Sight = Mesh->GetSocketTransform(SightSocket, RTS_Component).GetLocation();
 		AdsOffset = FVector(Pose.SightDistance - Sight.X, -Sight.Y, -Sight.Z);
 	}
+	// While aiming the sight sits a hand's width from the eye: the fill light would burn its inner walls white.
+	FillLight->SetIntensity(FillLumens * FMath::Lerp(1.f, 0.12f, AdsSmoothed));
 	FVector Pos = FMath::Lerp(Pose.HipOffset, AdsOffset, double(AdsSmoothed));
 	FRotator Rot = Pose.HipRotation * (1.f - AdsSmoothed);
 
@@ -523,11 +588,12 @@ void UVerseViewmodelComponent::Step(float Dt)
 	FlashLight->SetVisibility(bFlash);
 	if (bFlash)
 	{
-		FVector Muzzle;
-		if (GetMuzzleWorld(Muzzle))
+		// The drawn muzzle sits a few cm from the eye: a light there burned the sight white.
+		// The light sits where the shot leaves into the room instead, and is softer while aiming.
+		if (const UCameraComponent* Camera = GetCamera())
 		{
-			FlashLight->SetWorldLocation(Muzzle);
+			FlashLight->SetWorldLocation(Camera->GetComponentLocation() + Camera->GetForwardVector() * FlashLightForwardCm);
 		}
-		FlashLight->SetIntensity(3500.f);
+		FlashLight->SetIntensity(FlashLumens * FMath::Lerp(1.f, 0.12f, AdsSmoothed));
 	}
 }

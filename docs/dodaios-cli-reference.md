@@ -157,6 +157,7 @@ _Generated from the curated command tree by `scripts/ci/gen_cli_reference.py` �
 - `dodaios marketplace disconnect <plugin_id> --yes --dry-run` — Disconnect a plugin.
 - `dodaios marketplace install <item_id> --yes --dry-run` — Install a marketplace entry by name — skill, plugin or agent — and report it.
 - `dodaios marketplace list` — List marketplace plugins + their connection status.
+- `dodaios marketplace remove <item_id> --yes --dry-run` — Remove an installed marketplace entry by name — a plugin or a skill.
 
 ## mcps
 

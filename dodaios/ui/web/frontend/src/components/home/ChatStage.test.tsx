@@ -215,7 +215,7 @@ describe("ChatStage (agent chat)", () => {
     expect(within(composer).getByTestId("composer-add")).toBeTruthy();
   });
 
-  it("turns the empty composer's round button into voice mode, and into Send once there is text", () => {
+  it("turns the empty composer's round button into a call, and into Send once there is text", () => {
     useHomeStore.setState({ surface: "chat" });
     render(<ChatStage />);
     expect(screen.queryByTestId("composer-send")).toBeNull();
@@ -227,8 +227,9 @@ describe("ChatStage (agent chat)", () => {
     box.textContent = "";
     fireEvent.input(box);
     fireEvent.click(screen.getByTestId("composer-voice-mode"));
-    expect(useHomeStore.getState().surface).toBe("voice");
-    useHomeStore.setState({ surface: "chat" });
+    // A call stays in the conversation: the page does not switch away.
+    expect(useHomeStore.getState().surface).toBe("chat");
+    expect(screen.getByRole("textbox")).toBeTruthy();
   });
 
   it("restores an unsent multiline draft after leaving the chat section", () => {
@@ -734,6 +735,29 @@ describe("ChatStage (agent chat)", () => {
     expect(decide).toHaveBeenCalledWith("a1", "allow");
     // The composer offers Stop while the turn runs.
     expect(screen.getByTestId("composer-stop")).toBeTruthy();
+  });
+
+  it("opens the call window above the composer for a call, a call asked for and a call that failed", async () => {
+    useAgentChatStore.setState({ activeSessionId: "s1", timeline: reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "hello" })]) });
+    useHomeStore.setState({ callPending: false, callProblem: null });
+    useEventStore.setState({ voiceState: "idle" });
+    render(<ChatStage />);
+    expect(screen.queryByTestId("call-window")).toBeNull();
+    // Asked for from this window: there before any state arrives.
+    act(() => useHomeStore.setState({ callPending: true }));
+    const call = await screen.findByTestId("call-window");
+    // It stands on the composer: same wrapper, before it.
+    expect(call.parentElement?.querySelector("[data-testid='agent-composer'], textarea, [contenteditable]")).toBeTruthy();
+    // Running, however it was started.
+    act(() => { useHomeStore.setState({ callPending: false }); useEventStore.setState({ voiceState: "listening" }); });
+    expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("listening");
+    // Ended on a problem: the window stays with the reason.
+    act(() => { useEventStore.setState({ voiceState: "idle" }); useHomeStore.setState({ callProblem: { message: "refused" } }); });
+    expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("failed");
+    act(() => useHomeStore.setState({ callProblem: null }));
+    expect(screen.queryByTestId("call-window")).toBeNull();
+    // The conversation never left the page.
+    expect(screen.getByTestId("agent-message-user").textContent).toContain("hello");
   });
 
   it("shows stop while a send is in flight, before the turn stream starts", () => {

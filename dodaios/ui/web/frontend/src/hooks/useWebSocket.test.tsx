@@ -119,7 +119,7 @@ describe("useWebSocket VoiceBootStatus handling", () => {
     expect(useEventStore.getState().voiceReady).toBe(true);
   });
 
-  it("switches the open Jarvis chat to voice on a session-start frame without sending a call", async () => {
+  it("follows a session-start frame in the open chat without sending a call", async () => {
     render(<Harness />);
     await Promise.resolve();
     const socket = MockWebSocket.last!;
@@ -128,7 +128,7 @@ describe("useWebSocket VoiceBootStatus handling", () => {
     socket.deliver(envelope("WakeWordDetected", { keyword: "jarvis" }));
     expect(useHomeStore.getState().surface).toBe("chat");
     socket.deliver(envelope("VoiceSessionStarted", { session_id: "wake-call", wake_keyword: "jarvis" }));
-    expect(useHomeStore.getState().surface).toBe("voice");
+    expect(useHomeStore.getState().surface).toBe("chat");
     expect(useHomeStore.getState().liveSessionId).toBe("wake-call");
     expect(socket.send.mock.calls.length).toBe(sentBeforeStart);
   });

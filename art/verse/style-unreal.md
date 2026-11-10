@@ -91,7 +91,7 @@ existing firearm.
 
 Shape language per weapon:
 
-- **Graveline** (assault rifle): Monolithic slab receiver with a 45 degree chamfered spine; no carry handle, no rail lugs; Hexagonal handguard prism with three stepped vent slots per side; Squat box sight with a recessed amber dot reticle; Skeleton stock of two angled struts closing on a rubber butt block; Magazine straight and tapered, with a ribbed base plate.
+- **Graveline** (assault rifle): Split upper receiver with a panel break, raised side panels and a framed ejection port; Handguard of bands and ribs around a dark core: two rows of open vents per side; Low open reflex sight on a short riser: slim posts, wide glass, small amber dot; Top rail of cross lugs from the end plate to the handguard's front; Slotted muzzle device of three rings on a faceted core; Skeleton stock on a tube: cheek riser, angled lower strut, butt block with rubber pad; Magazine in two segments that curve forward, with side ribs and a steel base plate.
 - **Tallow** (pistol): Wedge slide whose front third steps down by a 45 degree chamfer; Rear serration as three deep horizontal grooves, not vertical cuts; Grip with a hard brutalist backstrap step and a flat base plate; Square trigger guard with a chamfered front corner.
 - **Hookbill** (knife): Straight single-edged blade whose spine bends down into a short hook at the tip; Faceted blade grind: two flat planes, no hollow grind; Square guard plate and a handle of stacked chamfered rubber blocks; Pommel as a flat hexagonal cap.
 - **Bulwark** (deployable energy barricade): Low steel sled with two fold-out feet and an emitter rail along its top; Energy field panel as a separate mesh SM_Weapon_BulwarkField (thin, translucent); One black glass status lens at the rear (unlit).
@@ -181,12 +181,16 @@ Opaque hard surface: steel, concrete, paint, rubber.
 | `EdgeTint` | vector | Colour of worn edges |
 | `GrimeAmount` | scalar | Strength of vertex colour G (grime) and noise grime |
 | `NoiseScale` | scalar | World noise frequency per metre |
+| `PanelCm` | scalar | World-space panel seam grid in cm on the face's plane (0 off) |
+| `PanelDark` | scalar | How much a panel seam darkens and roughens the surface |
 | `UseTriplanar` | switch | Object-relative triplanar mapping for pieces without UVs |
 | `TriplanarScale` | scalar | Texture repeats per metre in triplanar mode |
+| `TriplanarWorld` | scalar | 1 maps triplanar textures to the world grid (seamless across pieces) |
 | `UseTextureSet` | switch | Sample Set1 (and Set2/Set3 by noise masks) instead of flat tint |
 | `Set1_BC` | texture | Texture set 1 base colour (sRGB) |
 | `Set1_ORM` | texture | Texture set 1 AO/roughness/metallic |
-| `Set1_N` | texture | Texture set 1 normal (UV mode only) |
+| `Set1_N` | texture | Texture set 1 normal (UV or triplanar) |
+| `NormalStrength` | scalar | Strength of the set 1 normal in triplanar mode |
 | `Set2_BC` | texture | Texture set 2 base colour (triplanar blend, noise mask) |
 | `Set3_BC` | texture | Texture set 3 base colour (triplanar blend, vertex colour B) |
 | `Set2Amount` | scalar | Share of set 2 |
@@ -262,6 +266,8 @@ Skin, cloth, gear (subsurface profile); UV0 stable for wound masks.
 | `ORMMap` | texture | AO, roughness, metallic |
 | `NormalMap` | texture | Normal |
 | `RoughnessScale` | scalar | Roughness multiplier |
+| `Roughness` | scalar | Roughness without a map (multiplies ORM green) |
+| `Metallic` | scalar | Metallic without a map (multiplies ORM blue) |
 | `Sheen` | scalar | Cloth sheen at grazing angles |
 | `SubsurfaceAmount` | scalar | Skin subsurface opacity |
 

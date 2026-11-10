@@ -107,12 +107,16 @@ beforeAll(async () => {
 afterEach(cleanup);
 
 describe("MemoryView", () => {
-  it("lists memories and inspects the first one with its timeline", async () => {
+  it("groups memories by kind and inspects one with its timeline", async () => {
     stubFetch();
     renderView();
     expect(await screen.findByText("Lea is my sister.")).toBeTruthy();
     expect(screen.getAllByTestId("vault-row")).toHaveLength(3);
-    const inspector = await screen.findByTestId("vault-inspector");
+    expect(screen.getAllByTestId("vault-group")).toHaveLength(3);
+    expect(screen.getByTestId("vault-summary").textContent).toContain("3");
+    expect(screen.getByText("Pick a memory")).toBeTruthy();
+    fireEvent.click(screen.getByText("I live in Berlin."));
+    const [inspector] = await screen.findAllByTestId("vault-inspector");
     expect(within(inspector).getByText("Always in mind")).toBeTruthy();
     const versions = await within(inspector).findByTestId("vault-versions");
     expect(within(versions).getByText("I live in Hamburg.")).toBeTruthy();
@@ -145,7 +149,7 @@ describe("MemoryView", () => {
   it("shows the memory as files with a readable preview", async () => {
     stubFetch();
     renderView();
-    fireEvent.click(await screen.findByTestId("vault-mode-files"));
+    fireEvent.click(await screen.findByRole("button", { name: "As files" }));
     const files = await screen.findAllByTestId("vault-file");
     fireEvent.click(files[1]);
     const preview = await screen.findByTestId("vault-quicklook");
@@ -164,7 +168,8 @@ describe("MemoryView", () => {
   it("asks before forgetting and then deletes", async () => {
     stubFetch();
     renderView();
-    const inspector = await screen.findByTestId("vault-inspector");
+    fireEvent.click(await screen.findByText("We hiked on Sunday."));
+    const [inspector] = await screen.findAllByTestId("vault-inspector");
     fireEvent.click(within(inspector).getByRole("button", { name: "Forget" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Forget" }));

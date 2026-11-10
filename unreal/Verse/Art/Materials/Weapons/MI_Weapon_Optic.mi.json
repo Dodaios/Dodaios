@@ -6,7 +6,7 @@
   "scalars": {
     "EmissiveNits": 0.0,
     "Fade": 1.0,
-    "Opacity": 0.45,
+    "Opacity": 0.12,
     "Roughness": 0.04
   },
   "schema": "verse.mi/1",

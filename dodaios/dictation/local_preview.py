@@ -38,6 +38,11 @@ worker runs this same class; the parent talks to it through a faster-whisper-
 shaped proxy (``_WorkerModel``), so every timeout/failure/recovery path below
 applies to both hostings. ``JARVIS_DICTATION_PREVIEW_IN_PROCESS=1`` is the
 debug escape back to the in-process build.
+
+The worker is released when nobody has dictated for a while
+(:mod:`dodaios.dictation.idle_release`): on a CUDA card it holds about 1.3 GB
+of committed memory for a 75 MB model. The next dictation starts it again with
+the key press; it is ready in about two seconds.
 """
 
 from __future__ import annotations
@@ -52,6 +57,8 @@ import weakref
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+
+from dodaios.dictation.idle_release import DEFAULT_IDLE_MINUTES, IdleRelease
 
 log = logging.getLogger(__name__)
 
@@ -357,6 +364,14 @@ class LocalPreviewTranscriber:
         self._load_task: asyncio.Task | None = None
         self._cleanup_task: asyncio.Task | None = None
         self._load_timings: dict[str, float] = {}
+        #: Releases the worker after a stretch without a dictation. Only the
+        #: out-of-process engine is watched: killing its process is what gives
+        #: the memory back, and an in-process model has nothing to kill.
+        self._idle = IdleRelease(
+            _idle_release_s, self._release_idle_engine, name="dictation-preview-idle"
+        )
+        #: True from an idle release until the engine is asked for again.
+        self._released_idle = False
         #: Language of the MOST RECENT preview, as ``(code, probability)``.
         #: The engine computes this on every call and it used to be discarded.
         #: It is the only reading of the spoken language taken from the AUDIO
@@ -395,6 +410,7 @@ class LocalPreviewTranscriber:
                         self._model = worker
                         self._engine_device = worker.device
                         self._engine_compute = worker.compute
+                    self._idle.arm()
                     log.info(
                         "Dictation preview engine ready: %s on %s (%s), out of process.",
                         self._model_name,
@@ -615,6 +631,7 @@ class LocalPreviewTranscriber:
         """
         if self._unavailable or not pcm:
             return None
+        self._idle.touch()
         if self._model is None:
             # Building the engine takes seconds — far longer than the timeout a
             # PREVIEW may hold. Loading it inside the timed call meant the first
@@ -686,12 +703,55 @@ class LocalPreviewTranscriber:
             if release_here:
                 guard.release()
 
+    def set_idle_release(self, seconds: float) -> None:
+        """How long the engine may sit unused before it is released; 0 = never."""
+        self._idle.idle_s = max(0.0, float(seconds))
+
+    def restart_if_released(self) -> None:
+        """A dictation is starting: bring back an engine the idle release put down.
+
+        Never builds the FIRST engine. That stays with the first preview tick,
+        so a session that shows no live line starts no worker.
+        """
+        self._idle.touch()
+        if self._released_idle and not self._unavailable:
+            self._start_loading()
+
+    def _release_idle_engine(self) -> bool:
+        """Idle-watch callback: kill the unused worker. ``False`` = busy."""
+        guard = self._busy
+        if not guard.acquire(blocking=False):
+            return False  # a preview is decoding: not idle
+        try:
+            with self._lock:
+                if self._idle.due_in() > 0:
+                    return False  # used between the watch's look and this lock
+                dropped, self._model = self._model, None
+                if dropped is not None:
+                    self._released_idle = True
+        finally:
+            guard.release()
+        close = getattr(dropped, "close", None)
+        if dropped is None or not callable(close):
+            return True
+        log.info(
+            "Dictation preview engine released after %.0f min without a dictation; "
+            "the next dictation starts it again.",
+            self._idle.idle_s / 60.0,
+        )
+        try:
+            close()  # blocking, and this is the watch's own thread
+        except Exception as exc:  # noqa: BLE001 - a dead worker is the goal state
+            log.debug("Idle preview worker close skipped: %s", exc)
+        return True
+
     def _start_loading(self) -> None:
         """Kick off a one-shot background load. Cheap and idempotent."""
         with self._lock:
             if self._loading or self._model is not None or self._load_failed:
                 return
             self._loading = True
+            self._released_idle = False
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:  # Without a running loop, model loading uses a daemon thread.
@@ -738,6 +798,7 @@ class LocalPreviewTranscriber:
             dropped = self._model
             self._model = None
             self._busy = threading.Lock()
+            self._idle.disarm()
             # Not the same engine again: the next build takes the next entry
             # of the attempt list (float16 -> int8_float16 -> cpu) and stays
             # on the last one. An engine that keeps failing live is slow or
@@ -774,6 +835,26 @@ class LocalPreviewTranscriber:
 
 _INSTANCE: LocalPreviewTranscriber | None = None
 _INSTANCE_LOCK = threading.Lock()
+#: Seconds without a dictation before the shared engine is released
+#: (``[dictation].local_idle_minutes``; the dictation lane sets it per session).
+_idle_release_s = DEFAULT_IDLE_MINUTES * 60.0
+
+
+def dictation_starting(idle_release_s: float | None = None) -> None:
+    """Called when a dictation begins: apply the setting, wake a released engine.
+
+    Cheap and never raises into the dictation: it builds nothing by itself and
+    only restarts an engine that had been running before.
+    """
+    global _idle_release_s
+    if idle_release_s is not None:
+        _idle_release_s = max(0.0, float(idle_release_s))
+    with _INSTANCE_LOCK:
+        instance = _INSTANCE
+    if instance is None:
+        return
+    instance.set_idle_release(_idle_release_s)
+    instance.restart_if_released()
 
 
 def local_preview() -> LocalPreviewTranscriber | None:
@@ -800,15 +881,17 @@ def local_preview() -> LocalPreviewTranscriber | None:
 
 def reset_local_preview_for_tests() -> None:
     """Drop the shared engine — test-isolation hook."""
-    global _INSTANCE
+    global _INSTANCE, _idle_release_s
     with _INSTANCE_LOCK:
         _INSTANCE = None
+        _idle_release_s = DEFAULT_IDLE_MINUTES * 60.0
 
 
 __all__ = [
     "PREVIEW_MODEL",
     "PREVIEW_TIMEOUT_S",
     "LocalPreviewTranscriber",
+    "dictation_starting",
     "faster_whisper_available",
     "local_preview",
     "reset_local_preview_for_tests",

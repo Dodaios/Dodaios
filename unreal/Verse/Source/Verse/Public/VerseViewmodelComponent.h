@@ -59,6 +59,15 @@ public:
 	/** First-person scale towards the camera: small enough to stay in front of any wall. */
 	static constexpr float ViewmodelScale = 0.25f;
 	static constexpr float MuzzleFlashSeconds = 0.05f;
+	/** Muzzle flash light: lumens, and how far ahead of the eye it sits (past the drawn weapon). */
+	static constexpr float FlashLumens = 1200.f;
+	static constexpr float FlashLightForwardCm = 80.f;
+	/** Fill light on the held weapon, lumens; it sits above and right of the eye (camera space, cm, drawn space). */
+	static constexpr float FillLumens = 380.f;
+	/** Eye to the Graveline's reflex dot while aiming, cm: far enough that the frame stays small. */
+	static constexpr double GravelineSightDistanceCm = 24.0;
+	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */
+	static constexpr float ViewmodelRoughnessMin = 0.45f;
 
 	/** The pose table per weapon id (pure, tests read it). */
 	static FVerseViewmodelPose PoseFor(FName WeaponId);
@@ -69,6 +78,8 @@ public:
 	FName GetShownWeaponId() const { return ShownWeaponId; }
 	bool IsBuilt() const { return Root != nullptr; }
 	bool IsShowing() const;
+	/** The drawn weapon carries a sight with its own reticle (an `Optic` material slot). */
+	bool HasOptic() const;
 	/** The muzzle socket in world space; false without a firearm drawn. */
 	bool GetMuzzleWorld(FVector& OutLocation) const;
 	/** The current offset of the mesh root from the camera, camera space (tests). */
@@ -100,6 +111,9 @@ private:
 	TObjectPtr<UPointLightComponent> FlashLight;
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> FlashMaterial;
+	/** Soft key light on lighting channel 1: lights the held weapon only, never the world. */
+	UPROPERTY(Transient)
+	TObjectPtr<UPointLightComponent> FillLight;
 
 	FName ShownWeaponId;
 	EVerseLoadoutSlot LastSlot = EVerseLoadoutSlot::Primary;

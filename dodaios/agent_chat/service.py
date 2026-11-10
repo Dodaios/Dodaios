@@ -122,14 +122,17 @@ _FINISHING_WAIT_S: Final[float] = 10.0
 _KNOWN_LOOP: asyncio.AbstractEventLoop | None = None
 
 
-def remember_app_loop() -> None:
+def remember_app_loop(loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Find and record the app's loop, so building the service never asks it.
 
     Call it without holding any lock the loop could be waiting for: from a
-    worker thread, finding the loop waits until the loop answers.
+    worker thread, finding the loop waits until the loop answers. A caller on
+    the loop passes it: the boot reattach builds the service in a plain
+    ``asyncio.to_thread`` thread, where asking finds no loop at all.
     """
     global _KNOWN_LOOP  # one process-wide reference, set before the service is built
-    loop, _on_loop = _app_loop()
+    if loop is None:
+        loop, _on_loop = _app_loop()
     if loop is not None:
         _KNOWN_LOOP = loop
 
@@ -563,6 +566,11 @@ class AgentChatService:
         # command"), per session: a matching call runs without a card. They
         # live as long as the app runs, like the chat's other "always".
         self._narrow_rules: dict[str, list[dict[str, str]]] = {}
+        # A reversible action the executor ran for one of these chats leaves
+        # its inverse in the undo ledger; the chat posts the undo notice.
+        from dodaios.trust.undo import undo_ledger
+
+        self._stop_undo_notices = undo_ledger().on_recorded(self._on_undo_recorded)
         # Tools whose "Always allow" the card just saved on the society agent,
         # by session: the approval bridge must not also wave the whole tool
         # through for the chat (a rule for one action would read wider).
@@ -582,6 +590,11 @@ class AgentChatService:
         self._voice_call_chats: dict[str, str] = {}
         # The archived voice chat's history while one is continued (bind_voice_chat).
         self._voice_archive_history: Callable[[], list[Any]] | None = None
+        # Sessions whose restart turn is held while the turn host is asked
+        # (``_seal_orphaned_turns``): a shutdown in that window leaves them
+        # open for the next process instead of stopping their CLI.
+        self._held_for_reattach: set[str] = set()
+        self._reattach_task: Any = None
         self._retire_cli_seats()
         self._seal_orphaned_turns()
 
@@ -611,6 +624,11 @@ class AgentChatService:
             log.warning("agent chat: could not look for turns a restart left open", exc_info=True)
             return
         loop, on_loop = _app_loop()
+        if loop is None and orphans:
+            log.warning(
+                "agent chat: built outside the app's loop, so open thread turns "
+                "cannot be carried on"
+            )
         hosted_possible: bool | None = None
         deferred: list[tuple[str, str, int, int]] = []
         sealed = 0
@@ -636,6 +654,7 @@ class AgentChatService:
                 held = _Running(turn_id, asyncio.Event())
                 held.setup_task = None
                 self._running[session_id] = held
+                self._held_for_reattach.add(session_id)
             if on_loop:
                 self._reattach_task = loop.create_task(
                     self._reattach_hosted(deferred), name="agent-chat-reattach"
@@ -649,7 +668,7 @@ class AgentChatService:
 
     async def wait_reattached(self) -> None:
         """Until the restart's thread turns are reattached or sealed (tests, tools)."""
-        task = getattr(self, "_reattach_task", None)
+        task = self._reattach_task
         if task is None:
             return
         if isinstance(task, asyncio.Future):
@@ -665,6 +684,10 @@ class AgentChatService:
         """Carry on every open thread turn whose CLI the turn host still holds."""
         try:
             await self._reattach_hosted_turns(orphans)
+        except asyncio.CancelledError:
+            # Shutdown mid-reattach: the turns stay open and their CLIs stay
+            # in the host for the next process (``_stop_reattach``).
+            raise
         except Exception:  # noqa: BLE001 — a held thread must never stay on Working
             log.exception("agent chat: reattaching thread turns failed")
             for session_id, turn_id, started_ms, last_ms in orphans:
@@ -713,10 +736,17 @@ class AgentChatService:
             if proc is None or held is None or held.turn_id != turn_id:
                 if held is not None and held.turn_id == turn_id and held.task is None:
                     self._running.pop(session_id, None)
+                    self._held_for_reattach.discard(session_id)
                     held.ready.set()
                 if self.store.turn_terminal(session_id, turn_id) is None:
+                    log.info(
+                        "agent chat: turn %s ended by the restart (turn host %s)",
+                        turn_id,
+                        "does not hold it" if client is not None else "not reachable",
+                    )
                     self._publish_event(session_id, _orphan_event(turn_id, started_ms, last_ms))
                 continue
+            self._held_for_reattach.discard(session_id)
             self._resume_hosted_turn(session_id, held, proc)
             resumed += 1
         # A CLI the host holds for a turn nobody has open any more (closed by
@@ -2343,6 +2373,7 @@ class AgentChatService:
             await self._controls.close()
         from dodaios.agent_chat import turn_host_client
 
+        await self._stop_reattach()
         hosted = turn_host_client.live_turn_ids()
         detached: list[asyncio.Task[None]] = []
         for run in list(self._running.values()):
@@ -2356,6 +2387,28 @@ class AgentChatService:
         turn_host_client.detach_all()
         for sid in list(dict.fromkeys([*self._running, *self._preparing])):
             await self.cancel(sid)
+
+    async def _stop_reattach(self) -> None:
+        """Shutdown while restart turns are still being reattached: leave them open.
+
+        The background service hands the app back seconds after it booted,
+        often while it still asks the turn host about the turns it found open.
+        Cancelling those held turns would stop CLIs that are still working,
+        and closing them showed "The app restarted" on turns the next process
+        could have carried on (2026-11-09). They stay open in the store and
+        the host keeps their CLIs for the next process.
+        """
+        task = self._reattach_task
+        if task is not None and not task.done():
+            task.cancel()
+            waited = task if isinstance(task, asyncio.Future) else asyncio.wrap_future(task)
+            await asyncio.gather(waited, return_exceptions=True)
+        for session_id in list(self._held_for_reattach):
+            held = self._running.get(session_id)
+            if held is not None and held.task is None:
+                self._running.pop(session_id, None)
+                held.ready.set()
+        self._held_for_reattach.clear()
 
     @property
     def controls(self) -> Any:
@@ -2383,13 +2436,21 @@ class AgentChatService:
         args: dict[str, Any],
         summary: str,
     ) -> str:
-        # The same tool call asked again after a restart answers on the card
-        # the person already sees (_hold_unanswered_approvals).
-        if self._narrow_allows(session_id, name, args):
-            # The person's own narrow rule from an earlier card covers this call.
-            return "allow"
-        if name in self._tool_always.get(session_id, ()):
-            return "allow"
+        # A hard limit (money, credentials, deleting for good, a new recipient)
+        # always asks: no rule of the person's, however it was saved, covers it.
+        from dodaios.trust.hooks import before_execute
+
+        limited = before_execute(name, args).needs_person
+        if not limited:
+            # The same tool call asked again after a restart answers on the card
+            # the person already sees (_hold_unanswered_approvals).
+            if self._narrow_allows(session_id, name, args):
+                # The person's own narrow rule from an earlier card covers this call.
+                return "allow"
+            if name in self._tool_always.get(session_id, ()):
+                return "allow"
+            if self._standing_rule_allows(session_id, name, args):
+                return "allow"
         held = self._unanswered.pop((session_id, turn_id, call_id), "") if call_id else ""
         approval_id = held if held and held not in self._approvals else uuid.uuid4().hex
         loop = asyncio.get_running_loop()
@@ -2435,6 +2496,13 @@ class AgentChatService:
             feedback = self._approval_feedback.pop(approval_id, "")
             if feedback and call_id:
                 self._deny_feedback[(session_id, call_id)] = feedback
+        if decision == "allow_always":
+            from dodaios.trust.hard_limits import NO_RULE_LIMITS, hard_limit_for
+
+            if hard_limit_for(name, args) in NO_RULE_LIMITS:
+                # Money, credentials, deleting for good: this call runs once
+                # and nothing is remembered, whatever the answer asked for.
+                decision = "allow"
         await self._emit(
             session_id,
             make_event(
@@ -2592,9 +2660,15 @@ class AgentChatService:
         restarts (the Jarvis and society surfaces, whose tools ask through the
         approval bridge). Nothing else is ever widened from here.
         """
+        from dodaios.trust.hard_limits import NO_RULE_LIMITS, hard_limit_for
+
         from .approval_bridge import _bare
         from .approval_card import app_label
 
+        if kind == "always_allow" and hard_limit_for(name, args or {}) in NO_RULE_LIMITS:
+            # No standing "always" for money, credentials or deleting for good.
+            # (A new recipient asks anyway; the rule itself is fine to keep.)
+            return None
         rule: dict[str, Any] | None = None
         if narrow:
             rule = self._narrow_rule_from_card(session, name, args or {}, kind, scope, narrow)
@@ -2614,6 +2688,12 @@ class AgentChatService:
             rule = {"kind": kind, "pattern": bare, "app": app_label(bare), "verb": ""}
         if rule is None:
             return None
+        if scope == "chat" and kind == "always_allow":
+            # A chat rule outlives the chat: it is the person's standing rule,
+            # listed and revocable on the Trust page (dodaios/trust/rules.py).
+            standing = self._persist_standing_rule(session, name, args or {}, rule)
+            if standing is not None:
+                rule["rule_id"] = standing["id"]
         await self._emit(
             session.session_id,
             make_event(
@@ -2628,6 +2708,7 @@ class AgentChatService:
                     "app": rule.get("app", ""),
                     "verb": rule.get("verb", ""),
                     "still_asks": bool(rule.get("still_asks")),
+                    **({"rule_id": rule["rule_id"]} if rule.get("rule_id") else {}),
                     **(
                         {"narrow": rule["narrow"], "target": rule.get("target", "")}
                         if rule.get("narrow")
@@ -2637,6 +2718,118 @@ class AgentChatService:
             ),
         )
         return rule
+
+    # ------------------------------------------------------------ standing rules
+
+    def _persist_standing_rule(
+        self, session: Any, name: str, args: dict[str, Any], rule: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Write a chat rule into the person's standing rules; ``None`` if that failed."""
+        from dodaios.trust.rules import trust_rules
+
+        from .approval_bridge import _bare
+        from .approval_card import narrow_tool
+
+        try:
+            narrow = str(rule.get("narrow") or "")
+            if narrow:
+                entry = next(
+                    (
+                        r
+                        for r in self._narrow_rules.get(session.session_id, [])
+                        if r.get("kind") == narrow
+                        and r.get("tool", "").lower() == narrow_tool(name).lower()
+                    ),
+                    None,
+                )
+                target = str((entry or {}).get("value") or "")
+                if not target:
+                    return None
+                return trust_rules().add(
+                    tool=narrow_tool(name),
+                    kind=narrow,
+                    target=target,
+                    label=str(rule.get("target") or target),
+                    app=str(rule.get("app") or ""),
+                )
+            return trust_rules().add(
+                tool=_bare(name), kind="tool", label=str(rule.get("app") or _bare(name)),
+                app=str(rule.get("app") or ""),
+            )
+        except Exception:  # noqa: BLE001 — the chat still remembers for this run
+            log.warning("agent chat: could not persist a standing rule for %s", name, exc_info=True)
+            return None
+
+    def _standing_rule_allows(self, session_id: str, name: str, args: dict[str, Any]) -> bool:
+        """Whether one of the person's standing rules (Trust page) covers this call."""
+        from dodaios.trust.rules import trust_rules
+
+        session = self.store.get_session(session_id)
+        cwd = str(session.cwd or "") if session is not None else ""
+        try:
+            return trust_rules().allows(name, args or {}, cwd=cwd) is not None
+        except Exception:  # noqa: BLE001 — no match: the card asks as usual
+            log.warning("agent chat: standing rule check failed for %s", name, exc_info=True)
+            return False
+
+    def forget_standing_rule(self, rule: dict[str, Any]) -> None:
+        """A rule revoked on the Trust page stops covering calls in every open chat."""
+        tool = str(rule.get("tool") or "").lower()
+        kind = str(rule.get("kind") or "")
+        target = str(rule.get("target") or "")
+        if not tool:
+            return
+        if kind == "tool":
+            for bag in (self._always_allowed, self._tool_always):
+                for names in bag.values():
+                    for name in [n for n in names if n.lower() == tool]:
+                        names.discard(name)
+            if self._bridge is not None:
+                for grant in list(self._bridge._grants.values()):
+                    for name in [n for n in grant.always_allowed if n.lower() == tool]:
+                        grant.always_allowed.discard(name)
+        elif kind in ("folder", "command"):
+            for rules in self._narrow_rules.values():
+                rules[:] = [
+                    r
+                    for r in rules
+                    if not (
+                        r.get("kind") == kind
+                        and r.get("tool", "").lower() == tool
+                        and r.get("value", "") == target
+                    )
+                ]
+
+    # ------------------------------------------------------------ undo
+
+    def _on_undo_recorded(self, entry: dict[str, Any]) -> None:
+        """The undo ledger kept an inverse: tell the chat it came from (an undo toast)."""
+        session_id = str(entry.get("session_id") or "")
+        if not session_id or self.store.get_session(session_id) is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # recorded off the loop (a sync test): no chat to tell
+            return
+        task = loop.create_task(
+            self._emit(
+                session_id,
+                make_event(
+                    "notice",
+                    {
+                        "kind": "undo_available",
+                        "undo_id": entry.get("id"),
+                        "tool": entry.get("tool"),
+                        "text": entry.get("label") or "",
+                        "expires_ms": entry.get("expires_ms"),
+                        **({"turn_id": t} if (t := self._running_turn_id(session_id)) else {}),
+                    },
+                ),
+            ),
+            name=f"agent-chat-undo-notice-{session_id[:8]}",
+        )
+        self._question_tasks.add(task)
+        task.add_done_callback(self._question_tasks.discard)
 
     def _narrow_rule_from_card(
         self,

@@ -1,0 +1,24 @@
+{
+  "name": "MI_Arena_OilStain",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal",
+  "replaces": "M_Arena_OilStain",
+  "scalars": {
+    "NoiseScale": 5.0,
+    "Opacity": 0.75,
+    "Roughness": 0.12
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseRadialMask": true
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.008,
+      0.008,
+      0.009,
+      1.0
+    ]
+  }
+}

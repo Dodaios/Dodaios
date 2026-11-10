@@ -1,14 +1,20 @@
 import { Fragment, memo, useMemo, type ReactNode } from "react";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
-import { CircleAlert, FileText, ImageIcon } from "lucide-react";
+import { FileText, ImageIcon } from "lucide-react";
 import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFace } from "./InternalMessageRun";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
 import { MemoryLearnedNotice } from "./MemoryLearnedNotice";
+import { ReminderDueNotice } from "./reminders/ReminderDueNotice";
+import { TasksCapturedCard } from "./reminders/TasksCapturedCard";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
-import { TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
+import { livePetState, TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
+import { LeadReply, REPLY_PROSE } from "./LeadReply";
+import { PetMark } from "@/components/pets/PetMark";
+import { PetStageContext } from "@/components/pets/petStage";
+import type { PetState } from "@/lib/petStates";
 import type { TimelineItem, TurnItem, TextBlock } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
@@ -42,11 +48,12 @@ export function AgentTimeline({
   /** Sender faces by agent id, where the caller has a roster. */
   agentsById?: Record<string, RunFace>;
   /**
-   * The front page's conversation look (2026-10-01):
-   * your words in a soft rounded bubble on the right, the assistant's answer
-   * as plain text with no name-and-model header above it, and a quiet
-   * centred time stamp wherever the conversation paused. The Agentic IDE
-   * keeps the labelled document look (the default).
+   * The front page's conversation look: two people writing to each other.
+   * Your words in a soft bubble on the right; the assistant's answer as its
+   * own messages on the left, one per paragraph, with its pet standing at
+   * the foot of the newest one; a quiet centred time stamp wherever the
+   * conversation paused. The work behind an answer folds into one line above
+   * it. The Agentic IDE keeps the labelled document look (the default).
    */
   bubbles?: boolean;
   /** How turns draw their work; the Agentic IDE keeps the classic rows. */
@@ -65,6 +72,12 @@ export function AgentTimeline({
     return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
   }, [items, traceLook]);
   const stamps = bubbles ? timeStamps(shown) : null;
+  // The assistant's pet stands beside its newest turn only.
+  const latestTurnId = useMemo(() => {
+    if (!bubbles) return null;
+    for (let i = shown.length - 1; i >= 0; i--) if (shown[i].type === "turn") return shown[i].id;
+    return null;
+  }, [bubbles, shown]);
   // Back-to-back agent-to-agent messages read as one centred line each.
   const rows = useMemo(
     () => groupInternalRuns(shown, (item) => !codingThreadOf(item.message.sender_id)),
@@ -133,7 +146,7 @@ export function AgentTimeline({
             className={cn(
               "text-[15px] leading-[23px]",
               bubbles
-                ? "jarvis-user-bubble max-w-[80%] rounded-[20px] px-4 py-2.5"
+                ? "jarvis-user-bubble lead-bubble-own max-w-[80%] px-4 py-2"
                 : "jarvis-user-bubble max-w-[85%] rounded-lg px-4 py-3",
             )}
           >
@@ -194,13 +207,15 @@ export function AgentTimeline({
         <div
           key={item.id}
           data-message-id={item.id}
-          // Fault ink on a normal surface. A red-washed panel makes the
-          // failure the brightest object on the screen and buries what it
-          // says under what it looks like.
-          className="mx-auto flex max-w-[85%] items-center gap-row rounded-lg bg-card px-4 py-3 text-body text-destructive"
+          // A small fault mark on a normal surface, the sentence in the
+          // page's own ink. A red panel, or a red sentence, makes the failure
+          // the brightest object on the screen and buries what it says under
+          // what it looks like.
+          role="alert"
+          className="trace-note mx-auto"
         >
-          <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>{item.text}</span>
+          <span aria-hidden className="trace-flag" />
+          <span className="min-w-0">{item.text}</span>
         </div>
       );
     }
@@ -224,6 +239,8 @@ export function AgentTimeline({
         );
       }
       if (item.kind === "memory_learned") return <MemoryLearnedNotice key={item.id} item={item} />;
+      if (item.kind === "reminder_due") return <ReminderDueNotice key={item.id} item={item} />;
+      if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;
       if (item.kind === "context_reset") {
         return (
           <div key={item.id} data-message-id={item.id} data-testid="context-reset"
@@ -277,6 +294,7 @@ export function AgentTimeline({
         traceLook={traceLook}
         traceCompanion={traceCompanion}
         traceFace={traceFace}
+        latest={item.id === latestTurnId}
         messages={messagesByTurn.get(item.id)}
       />
     );
@@ -321,8 +339,10 @@ function stampLabel(at: Date, now: Date): string {
 
 const NO_MESSAGES = new Map<string, TraceMessage[]>();
 
-const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, messages }: {
+const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, latest = false, messages }: {
   turn: TurnItem; assistantName: string; providerLabel: string; modelName?: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;
+  /** The newest turn of the conversation: the assistant's face stands beside it. */
+  latest?: boolean;
   /** Agent messages that arrived while this turn worked. */
   messages?: TraceMessage[];
 }) {
@@ -331,6 +351,32 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
     () => messages?.map((message) => ({ key: message.id, node: <TraceMessageLine message={message} /> })),
     [messages],
   );
+  const background = turn.background && turn.background.length > 0 ? (
+    <p className="text-xs text-muted-foreground" data-testid="turn-background">
+      {t("society.chat.background_running").replace("{0}", turn.background.join(", "))}
+    </p>
+  ) : null;
+  if (bubbles) {
+    // The pet plays what the assistant is doing while the turn runs and
+    // rests beside its last message afterwards. A turn that waits for the
+    // person is not working, so the pet waits too.
+    const waiting = turn.blocks.some((block) => block.kind === "tool" && block.approval?.decision === null);
+    const pet: PetState = turn.status === "running" && !waiting ? livePetState(turn.blocks) : "idle";
+    const face = traceFace
+      ? <PetStageContext.Provider value={pet}>{traceFace}</PetStageContext.Provider>
+      : traceCompanion ? <PetMark size={32} state={pet} /> : null;
+    return <div className="lead-turn" data-testid="agent-turn" data-look="lead" data-message-id={turn.id} data-status={turn.status}>
+      <div className="lead-face-lane" aria-hidden>
+        {latest && face ? <span className="lead-face" data-testid="lead-face" data-pet={pet}>{face}</span> : null}
+      </div>
+      <div className="lead-turn-body">
+        <TurnTrace turn={turn} look={traceLook} messenger extras={extras} onDecide={onDecide}
+          renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />}
+          renderAnswer={(text, _id, live) => <LeadReply text={text} live={live} />} />
+        {background}
+      </div>
+    </div>;
+  }
   return <div className="flex min-w-0 flex-col gap-3" data-testid="agent-turn" data-message-id={turn.id} data-status={turn.status}>
     {!bubbles && (
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -341,11 +387,7 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
       </div>
     )}
     <TurnTrace turn={turn} look={traceLook} companion={traceCompanion} face={traceFace} extras={extras} onDecide={onDecide} renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />} />
-    {turn.background && turn.background.length > 0 ? (
-      <p className="text-xs text-muted-foreground" data-testid="turn-background">
-        {t("society.chat.background_running").replace("{0}", turn.background.join(", "))}
-      </p>
-    ) : null}
+    {background}
   </div>;
 });
 
@@ -354,22 +396,7 @@ function Prose({ block }: { block: TextBlock }) {
   return (
     <div
       data-testid="agent-text"
-      className={cn(
-        // Compact reading size: headings stay close to body
-        // size and set apart by weight and spacing, not by scale.
-        "prose prose-neutral max-w-none text-[15px] leading-[25px] text-foreground dark:prose-invert dark:text-foreground [overflow-wrap:anywhere]",
-        "[&>div>:first-child]:mt-0 [&>div>:last-child]:mb-0",
-        "prose-p:my-2.5 prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground-strong",
-        "prose-headings:mb-1.5 prose-headings:mt-5 prose-headings:font-semibold prose-headings:tracking-normal prose-headings:text-foreground-strong",
-        "prose-h1:text-[17px] prose-h1:leading-[25px] prose-h2:text-[16px] prose-h2:leading-[25px] prose-h3:text-[15px] prose-h3:leading-[25px] prose-h4:text-[15px]",
-        "prose-a:text-foreground-strong prose-a:underline prose-a:decoration-border-strong prose-a:underline-offset-2",
-        "prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.85em] prose-code:font-normal prose-code:before:hidden prose-code:after:hidden",
-        "prose-pre:my-2.5 prose-pre:bg-card prose-pre:text-[13px] prose-pre:leading-[20px]",
-        "prose-li:my-1 prose-ul:my-2.5 prose-ol:my-2.5 prose-ul:pl-5 prose-ol:pl-5 prose-li:pl-1",
-        "prose-hr:my-5",
-        "prose-table:my-3 prose-table:text-[14px] prose-table:leading-[21px]",
-        "prose-thead:text-foreground-strong prose-th:text-foreground-strong prose-td:text-foreground",
-      )}
+      className={REPLY_PROSE}
     >
       <ChatMarkdown text={block.text} />
     </div>

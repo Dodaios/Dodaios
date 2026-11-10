@@ -21,6 +21,7 @@ import {
   type BrowserRealtimeSupportIssue,
 } from "@/lib/realtimeAudio";
 import { useEventStore, type VoiceState } from "@/store/events";
+import { useHomeStore } from "@/store/home";
 import { setReloadHold } from "@/lib/reloadHold";
 import { registerRealtimeAudioPreparation } from "@/lib/realtimeAudioPreparation";
 import { cn } from "@/lib/utils";
@@ -296,6 +297,7 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
     // A call the person started here reports a failure as a toast and frees
     // the controls again; there is no card on the page to hold an error line.
     const endLocalCall = (message: string) => {
+      useHomeStore.getState().setCallProblem({ message });
       pushToast("error", message);
       void stop();
     };
@@ -460,6 +462,7 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
             clientRef.current = null;
             void client.disconnect();
             setState("error");
+            useHomeStore.getState().setCallProblem({ message: backendDetail || t("sidebar.realtime_error") });
             setError(backendDetail || t("sidebar.realtime_error"));
             levelRef.current = 0;
             clearVoiceInputLevel("browser");
@@ -509,6 +512,7 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
         return;
       }
       setState("error");
+      useHomeStore.getState().setCallProblem({ message });
       setError(message);
       setVoice("error");
     }
@@ -585,6 +589,7 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
             handledRequest.current = event.id;
             void reportNativeStartupFailure(requestId);
             setState("error");
+            useHomeStore.getState().setCallProblem({ message: t("sidebar.realtime_start_unavailable") });
             setError(t("sidebar.realtime_start_unavailable"));
             setVoice("error");
           }, START_UNAVAILABLE_GRACE_MS);

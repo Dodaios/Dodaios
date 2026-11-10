@@ -18,7 +18,7 @@ function agent(id: string, runs: number, extra: Partial<SocietyAgent> = {}): Soc
 describe("mostUsedAgents", () => {
   it("lists the most-run agents first and stops at the cap", () => {
     const rows = mostUsedAgents([agent("a", 2), agent("b", 9), agent("c", 5), agent("d", 1)]);
-    expect(rows.map((r) => r.agentId)).toEqual(["b", "c", "a"].slice(0, SIDEBAR_AGENTS_MAX));
+    expect(rows.map((r) => r.agentId)).toEqual(["b", "c", "a", "d"].slice(0, SIDEBAR_AGENTS_MAX));
   });
 
   it("leaves out Jarvis itself and archived agents", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { ChatsSurface } from "@/views/ChatsSurface";
 import { useHomeStore } from "@/store/home";
 import { readHomeSurface } from "@/lib/homeSurface";
@@ -7,20 +7,10 @@ import { useEventStore } from "@/store/events";
 import { useAgentChatStore } from "@/store/agentChat";
 
 /**
- * The front page is ONE chat with a voice mode inside it (2026-10-01). What
- * is under test is the shell: it opens on the chat, voice mode swaps in the
- * spoken stage and hands it the way back to typing, and the mode is remembered. Both
- * stages are stubbed; the composer's voice button is ChatStage's own test.
+ * The front page is ONE conversation, and a call happens inside it: the chat
+ * stays on screen while the call runs. What is under test is the shell; the
+ * composer's voice button and the call window are ChatStage's own tests.
  */
-vi.mock("@/components/home/VoiceStage", () => ({
-  VoiceStage: ({ onExit }: { onExit?: () => void }) => (
-    <div data-testid="voice">
-      <button type="button" data-testid="voice-mode-exit" onClick={onExit}>
-        back
-      </button>
-    </div>
-  ),
-}));
 vi.mock("@/components/home/ChatStage", () => ({
   ChatStage: () => <div data-testid="chat">chat</div>,
 }));
@@ -53,28 +43,19 @@ describe("ChatsSurface (the front page)", () => {
   it("opens on the chat by default, with nothing above it", async () => {
     render(<ChatsSurface />);
     expect(await screen.findByTestId("chat")).toBeTruthy();
-    expect(screen.queryByTestId("voice")).toBeNull();
-    expect(screen.queryByTestId("voice-mode-exit")).toBeNull();
-    expect(screen.getByTestId("home-view").getAttribute("data-surface")).toBe("chat");
   });
 
-  it("shows voice mode when a wake-word call starts without a composer click", async () => {
+  it("keeps the conversation on screen when a wake-word call starts", async () => {
     render(<ChatsSurface />);
     expect(await screen.findByTestId("chat")).toBeTruthy();
-    act(() => useHomeStore.getState().ingest("VoiceSessionStarted", {
-      session_id: "wake-call", wake_keyword: "jarvis",
-    }, 1));
-    expect(screen.getByTestId("voice")).toBeTruthy();
-    expect(screen.queryByTestId("chat")).toBeNull();
-    expect(screen.getByTestId("home-view").getAttribute("data-surface")).toBe("voice");
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("voice");
-
-    // Returning to typing stays explicit; normal voice updates cannot undo it.
-    fireEvent.click(screen.getByTestId("voice-mode-exit"));
-    act(() => useHomeStore.getState().ingest("SystemStateChanged", {
-      previous: "LISTENING", new_state: "THINKING",
-    }, 2));
-    expect(await screen.findByTestId("chat")).toBeTruthy();
+    act(() => {
+      useHomeStore.getState().ingest("VoiceSessionStarted", { session_id: "wake-call", wake_keyword: "jarvis" }, 1);
+      useEventStore.setState({ voiceState: "listening" });
+    });
+    expect(screen.getByTestId("chat")).toBeTruthy();
+    expect(useHomeStore.getState().surface).toBe("chat");
+    act(() => useEventStore.setState({ voiceState: "idle" }));
+    expect(screen.getByTestId("chat")).toBeTruthy();
   });
 
   it("keeps an agent's chat open when Jarvis starts speaking", async () => {
@@ -86,34 +67,23 @@ describe("ChatsSurface (the front page)", () => {
     expect(useHomeStore.getState().surface).toBe("chat");
   });
 
-  it("keeps the voice lane blank after hangup and types on in the one conversation", async () => {
+  it("stays in the one conversation after hangup", async () => {
     const fetcher = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ providers: [], sessions: [], session_id: "old-chat" })));
+      new Response(JSON.stringify({ providers: [], sessions: [], session_id: "lead" })));
     vi.stubGlobal("fetch", fetcher);
     try {
-      useHomeStore.setState({ surface: "voice", continuedVoiceId: "archive" });
-      useEventStore.setState({ activeKind: "voice", activeThreadId: "archive" });
-      useHomeStore.getState().seedTranscript([{ id: "old", who: "user", text: "Old call", ts: 1 }]);
+      useAgentChatStore.setState({ activeSessionId: "lead" });
       render(<ChatsSurface />);
       await act(async () => {
         useHomeStore.getState().ingest("VoiceSessionStarted", { session_id: "call" }, 1);
         useHomeStore.getState().ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "hotkey" }, 2);
       });
-      act(() => useAgentChatStore.setState({ timeline: {
-        ...useAgentChatStore.getState().timeline,
-        items: [{ type: "user", id: "late", text: "Late stored turn", tsMs: 3, attachments: [] }],
-      } }));
+      expect(screen.getByTestId("chat")).toBeTruthy();
       expect(useHomeStore.getState().transcript).toEqual([]);
-      expect(useHomeStore.getState().freshVoicePending).toBe(true);
-      expect(useEventStore.getState().activeThreadId).toBeNull();
-      expect(screen.getByTestId("voice")).toBeTruthy();
-      fireEvent.click(screen.getByTestId("voice-mode-exit"));
-      expect(await screen.findByTestId("chat")).toBeTruthy();
-      // Back on the keyboard, the page holds the lead's one conversation.
-      await vi.waitFor(() => expect(useAgentChatStore.getState().activeSessionId).toBe("old-chat"));
-      expect(fetcher.mock.calls.some(([url, init]) => String(url) === "/api/agent-chat/voice-chat" && !init?.method)).toBe(false);
+      expect(useAgentChatStore.getState().activeSessionId).toBe("lead");
     } finally {
       vi.unstubAllGlobals();
+      useAgentChatStore.setState({ activeSessionId: null });
     }
   });
 
@@ -124,14 +94,11 @@ describe("ChatsSurface (the front page)", () => {
     expect(await screen.findByTestId("chat")).toBeTruthy();
   });
 
-  it("goes back to typing from voice mode and remembers it", async () => {
+  it("opens the chat even when an older build stored the voice surface", async () => {
     window.localStorage.setItem(STORAGE_KEY, "voice");
     useHomeStore.setState({ surface: readHomeSurface() });
     render(<ChatsSurface />);
-    expect(screen.getByTestId("voice")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("voice-mode-exit"));
     expect(await screen.findByTestId("chat")).toBeTruthy();
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("chat");
   });
 
   it("lands on the chat when the stored value is corrupt", async () => {

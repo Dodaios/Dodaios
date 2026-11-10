@@ -33,6 +33,7 @@ from dodaios.core.protocols import (
     Transcript,
 )
 from dodaios.core.redact import safe_preview
+from dodaios.trust.hooks import after_execute, before_execute
 
 from .approval import TIMEOUT_REASON, ApprovalWorkflow
 from .approval_surface import (
@@ -342,6 +343,19 @@ class ToolExecutor:
                 tool.name, decision.tier, plaus.reason, plaus.require_confirmation,
             )
 
+        # 2.5 The trust layer's second look (dodaios/trust): a send that carries
+        # a secret never runs; a hard limit or a doubtful send needs a PERSON,
+        # not a rule, a whitelist, a stance or an unattended bridge.
+        trust = before_execute(tool.name, args)
+        if trust.blocked:
+            reason = trust.block_reason()
+            await self._bus.publish(ActionDenied(trace_id=tid, tool_name=tool.name, reason=reason))
+            return ToolResult(
+                success=False,
+                output={"outcome": "outbound_blocked", "checks": trust.to_dict()["checks"]},
+                error=f"{APPROVAL_DENIED_PREFIX} ({reason})",
+            )
+
         # 3. Arm approval BEFORE publishing ActionProposed. Subscribers such as
         # TaskAutoApprover may answer synchronously from that event; registering
         # afterward loses the answer and turns a valid grant into a timeout.
@@ -349,7 +363,11 @@ class ToolExecutor:
         # Some actions need a person every time (see ``requires_human_approval``):
         # they always arm a confirmation, and neither the explicit-intent waiver
         # nor the global bypass below may answer it.
-        human_required = requires_human_approval(tool, args)
+        # The fixed set needs a click every time; a trust hard limit or a
+        # doubtful send needs a person too, but the person asking for exactly
+        # that action by name (below) counts as that person deciding.
+        fixed_human = requires_human_approval(tool, args, include_hard_limits=False)
+        human_required = fixed_human or requires_human_approval(tool, args) or trust.needs_person
         tier_confirm = human_required or self._evaluator.needs_user_confirmation(decision)
         plaus_confirm = plaus is not None and plaus.require_confirmation
         # Explicit intent (Claude-Code permission model, mandate 2026-08-08):
@@ -358,12 +376,13 @@ class ToolExecutor:
         # the TIER requirement may be waived — a plausibility-forced
         # confirmation (low STT confidence, stale wake) stays binding, because
         # the whole doubt there is whether the utterance was heard right.
-        if tier_confirm and not plaus_confirm and not human_required and user_utterance:
+        if tier_confirm and not plaus_confirm and not fixed_human and user_utterance:
             confirms = getattr(tool, "intent_confirms_args", None)
             if callable(confirms):
                 try:
                     if confirms(args, user_utterance):
                         tier_confirm = False
+                        human_required = False
                         approved_by = "explicit-intent"
                         log.info(
                             "explicit-intent: %s authorized by the utterance, "
@@ -425,11 +444,12 @@ class ToolExecutor:
             raise
 
         if approval_ticket is not None:
-            reason = (
-                "plausibility"
-                if plaus is not None and plaus.require_confirmation
-                else "risk_tier"
-            )
+            if plaus is not None and plaus.require_confirmation:
+                reason = "plausibility"
+            elif trust.needs_person and not self._evaluator.needs_user_confirmation(decision):
+                reason = "trust"
+            else:
+                reason = "risk_tier"
             # An unattended call expires immediately: it will not be waited on,
             # so advertising a 60-second window would invite a UI to offer a
             # decision that can no longer reach anybody.
@@ -521,6 +541,9 @@ class ToolExecutor:
                 decided = (
                     approval_ticket.peek() if approval_ticket is not None else None
                 )
+                if trust.needs_person:
+                    # A hard limit needs a person; a standing grant is not one.
+                    decided = None
                 if decided is None:
                     if approval_ticket is not None:
                         approval_ticket.close()
@@ -591,6 +614,7 @@ class ToolExecutor:
             return ToolResult(success=False, output=None, error=str(exc))
 
         self._record_result_origin(tool, tid, result, args)
+        after_execute(tool.name, args, result, config_snapshot)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=tid,
@@ -654,6 +678,7 @@ class ToolExecutor:
             ))
             return ToolResult(success=False, output=None, error=str(exc))
         self._record_result_origin(tool, trace_id, result, args)
+        after_execute(tool.name, args, result, config_snapshot)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=trace_id,

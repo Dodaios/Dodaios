@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Panel_ORM.T_Arena_Panel_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Panel_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "6fb0561fbfb23870fd9f359fd386cf2f344ecee77a7dea171f8a89a0ce434f4e"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "7224eb8f7563ba0822fc882dff8d287049929a5cb17299f08004b1a3c3fe9e55"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Panel_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_plate_02",
+      "map": "arm",
+      "set": "Panel"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 2048,
+    "srgb": false
+  }
+}

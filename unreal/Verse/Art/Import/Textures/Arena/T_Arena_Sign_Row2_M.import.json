@@ -1,0 +1,35 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Sign_Row2_M.T_Arena_Sign_Row2_M",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Sign_Row2_M.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "27ef2c1f9effb8076a360cc6cccbe2d261be58cda4a0c4871b274cc336c0ae67"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Sign_Row2_M",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "text": "R2"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/signage.py",
+    "function": "main"
+  },
+  "texture": {
+    "channels": {
+      "r": "paint coverage"
+    },
+    "compression": "Grayscale",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": false
+  }
+}
