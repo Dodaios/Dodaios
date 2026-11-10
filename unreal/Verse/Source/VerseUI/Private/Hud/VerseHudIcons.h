@@ -2,22 +2,26 @@
 
 #include "CoreMinimal.h"
 
+class UTexture2D;
+
 /**
- * Flat item silhouettes for the HUD loadout block. Each icon is a few convex polygons on a
- * small grid (muzzle to the right); the painter turns them into triangles, so they stay sharp
- * at every resolution and need no texture.
+ * HUD item icons: white silhouettes with soft panel shading, rendered from the weapon meshes
+ * by scripts/verse/hud_icons.py into Data/ui/icons/<item>_<height>.png. The HUD tints them.
  */
 namespace VerseHudIcons
 {
-	/** Convex polygons of an item's icon, in grid units; empty for an unknown item. */
-	const TArray<TArray<FVector2D>>& Shape(FName ItemId);
+	/** True when the item has an icon. */
+	bool Has(FName ItemId);
 
-	/** Bounds of a shape (min, max). */
-	FBox2D Bounds(const TArray<TArray<FVector2D>>& Shape);
+	/** Width over height of the item's icon; 0 when it has none. */
+	float Aspect(FName ItemId);
 
 	/**
-	 * Fits the icon into Box (keeps the aspect, centred vertically; Align -1 left, 0 centre,
-	 * 1 right) and calls Emit for every triangle. Returns false for an unknown item.
+	 * The icon texture for a draw this many pixels tall: the smallest stored height at least as
+	 * tall, else the largest. Loaded once and kept; nullptr when the file is missing.
 	 */
-	bool Triangulate(FName ItemId, const FBox2D& Box, int32 Align, TFunctionRef<void(const FVector2D&, const FVector2D&, const FVector2D&)> Emit);
+	UTexture2D* Texture(FName ItemId, float DrawHeightPx);
+
+	/** Icon folder (Data/ui/icons of the project). */
+	FString Directory();
 }
