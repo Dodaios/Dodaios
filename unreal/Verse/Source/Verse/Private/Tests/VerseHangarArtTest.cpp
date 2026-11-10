@@ -48,6 +48,8 @@ namespace VerseHangarArtTest
 		double Pitch;
 		bool bAds;
 		bool bShowBot = false;
+		/** The bot plays live (not parked) and the camera turns to it: does it animate? */
+		bool bLiveBot = false;
 	};
 
 	const FView Views[] = {
@@ -61,6 +63,7 @@ namespace VerseHangarArtTest
 		{TEXT("08_catwalk_l2"), FVector(2620.0, 1800.0, 600.0), 70.0, -12.0, false},
 		{TEXT("09_bot"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, false, true},
 		{TEXT("10_bot_ads"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, true, true},
+		{TEXT("11_bot_live"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, false, false, true},
 	};
 
 	/**
@@ -72,7 +75,16 @@ namespace VerseHangarArtTest
 		const FVector Ahead = FRotator(0.0, View.Yaw, 0.0).Vector();
 		for (TActorIterator<AVerseBotController> It(World); It; ++It)
 		{
-			It->SetActorTickEnabled(false);
+			It->SetActorTickEnabled(View.bLiveBot);
+			if (View.bLiveBot)
+			{
+				if (APawn* Bot = It->GetPawn())
+				{
+					const FVector Ahead = FRotator(0.0, View.Yaw, 0.0).Vector();
+					Bot->TeleportTo(View.Floor + Ahead * 900.0 + FVector(0.0, 0.0, 100.0), (-Ahead).Rotation(), false, true);
+				}
+				continue;
+			}
 			if (APawn* Bot = It->GetPawn())
 			{
 				if (View.bShowBot)
@@ -171,6 +183,16 @@ bool FVerseVisualHangarArtTest::RunTest(const FString&)
 			case 1:
 				// Lumen and the virtual shadow maps catch up after a teleport.
 				PC->SetControlRotation(FRotator(View.Pitch, View.Yaw, 0.0));
+				if (View.bLiveBot)
+				{
+					for (TActorIterator<AVerseBotController> It(World); It; ++It)
+					{
+						if (const APawn* Bot = It->GetPawn())
+						{
+							PC->SetControlRotation((Bot->GetActorLocation() + FVector(0.0, 0.0, 40.0) - Pawn->GetPawnViewLocation()).Rotation());
+						}
+					}
+				}
 				if (Now - State->PhaseS > 3.0 && ShadersDone())
 				{
 					FScreenshotRequest::RequestScreenshot(FPaths::Combine(State->OutDir, FString(View.Name) + TEXT(".png")), true, false);

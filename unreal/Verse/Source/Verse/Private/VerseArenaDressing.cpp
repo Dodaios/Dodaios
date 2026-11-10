@@ -629,6 +629,7 @@ void AVerseArenaGraybox::DressHall()
 
 void AVerseArenaGraybox::DressDecals()
 {
+	using namespace VerseArenaDressingPrivate;
 	// Seeded, so every duel shows the same floor: oil under the gunship and the vehicles' lanes,
 	// boot and tyre scuffs everywhere else. The launch well (x 2700..3700, y 900..1900) stays clean.
 	FRandomStream Rng(0x48414E47);
@@ -653,6 +654,37 @@ void AVerseArenaGraybox::DressDecals()
 		const bool bOil = I % 3 == 0;
 		Place(bOil ? TEXT("Arena_OilStain") : TEXT("Arena_Scuff"), At, bOil ? Rng.FRandRange(60.f, 220.f) : Rng.FRandRange(120.f, 380.f));
 	}
+	// Stencilled markings (signage.py masks): text along the lanes, row numbers at the canyon,
+	// the deck number on the hero wall. Sizes are the decal's width and height in cm.
+	auto Sign = [&](const TCHAR* Look, const FVector& At, double Yaw, double Width, double Height, bool bWall = false)
+	{
+		UDecalComponent* Decal = NewObject<UDecalComponent>(this);
+		Decal->SetDecalMaterial(MaterialFor(Look));
+		Decal->DecalSize = FVector(bWall ? 40.0 : 20.0, Width * 0.5, Height * 0.5);
+		Decal->SetFadeScreenSize(0.001f);
+		Decal->SortOrder = 2;
+		Decal->SetupAttachment(RootComponent);
+		Decal->SetWorldLocationAndRotation(At, bWall ? FRotator(0.0, Yaw, 0.0) : FRotator(-90.0, Yaw, 90.0));
+		Decal->RegisterComponent();
+		++DressingInstances;
+	};
+	Sign(TEXT("Arena_Sign_KeepClear"), FVector(3200.0, 760.0, 0.0), 0.0, 520.0, 130.0);
+	Sign(TEXT("Arena_Sign_KeepClear"), FVector(3200.0, 2040.0, 0.0), 180.0, 520.0, 130.0);
+	Sign(TEXT("Arena_Sign_Lift"), FVector(2560.0, 1400.0, 0.0), 90.0, 420.0, 105.0);
+	Sign(TEXT("Arena_Sign_Bay"), FVector(4850.0, 4120.0, 0.0), 0.0, 360.0, 90.0);
+	Sign(TEXT("Arena_Sign_Bay"), FVector(2900.0, 560.0, 0.0), 0.0, 360.0, 90.0);
+	Sign(TEXT("Arena_Sign_NoStep"), FVector(5000.0, 2000.0, 300.0), 90.0, 300.0, 75.0);
+	for (double Y = 1300.0; Y < 4200.0; Y += 1200.0)
+	{
+		Sign(TEXT("Arena_Sign_Arrow"), FVector(5850.0, Y, 0.0), 90.0, 320.0, 80.0);
+		Sign(TEXT("Arena_Sign_Arrow"), FVector(4150.0, Y + 600.0, 0.0), -90.0, 320.0, 80.0);
+	}
+	Sign(TEXT("Arena_Sign_Row1"), FVector(6180.0, 4150.0, 0.0), 0.0, 160.0, 160.0);
+	Sign(TEXT("Arena_Sign_Row2"), FVector(6780.0, 4150.0, 0.0), 0.0, 160.0, 160.0);
+	Sign(TEXT("Arena_Sign_Row3"), FVector(7380.0, 4150.0, 0.0), 0.0, 160.0, 160.0);
+	Sign(TEXT("Arena_Sign_Deck"), FVector(3700.0, HeroFaceY + 10.0, 700.0), -90.0, 500.0, 500.0, true);
+	Sign(TEXT("Arena_Sign_Deck"), FVector(6300.0, HeroFaceY + 10.0, 700.0), -90.0, 500.0, 500.0, true);
+
 	for (int32 I = 0; I < 10; ++I)
 	{
 		Place(TEXT("Arena_OilStain"), FVector(5000.0 + Rng.FRandRange(-300.f, 300.f), 2400.0 + Rng.FRandRange(-800.f, 800.f), 0.0), Rng.FRandRange(80.f, 260.f));

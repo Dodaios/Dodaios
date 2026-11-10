@@ -95,6 +95,12 @@ SURFACE_PARAMS = [
     _p("switch", "UseTriplanar", False, "Object-relative triplanar mapping for pieces without UVs"),
     _p("scalar", "TriplanarScale", 1.0, "Texture repeats per metre in triplanar mode"),
     _p(
+        "scalar",
+        "TriplanarWorld",
+        0.0,
+        "1 maps triplanar textures to the world grid (seamless across pieces)",
+    ),
+    _p(
         "switch",
         "UseTextureSet",
         False,
@@ -102,7 +108,8 @@ SURFACE_PARAMS = [
     ),
     _p("texture", "Set1_BC", WHITE, "Texture set 1 base colour (sRGB)"),
     _p("texture", "Set1_ORM", WHITE, "Texture set 1 AO/roughness/metallic"),
-    _p("texture", "Set1_N", FLAT_NORMAL, "Texture set 1 normal (UV mode only)"),
+    _p("texture", "Set1_N", FLAT_NORMAL, "Texture set 1 normal (UV or triplanar)"),
+    _p("scalar", "NormalStrength", 1.0, "Strength of the set 1 normal in triplanar mode"),
     _p("texture", "Set2_BC", WHITE, "Texture set 2 base colour (triplanar blend, noise mask)"),
     _p("texture", "Set3_BC", WHITE, "Texture set 3 base colour (triplanar blend, vertex colour B)"),
     _p("scalar", "Set2Amount", 0.0, "Share of set 2"),
@@ -310,7 +317,8 @@ return saturate(r * (0.85 + 0.3 * N.x));
 """
 
 TRIPLANAR = """
-float3 p = (WorldPos - ObjPos) * 0.01 * Scale + frac(ObjPos * 0.0137) * 7.0;
+float3 o = ObjPos * (1.0 - World);
+float3 p = (WorldPos - o) * 0.01 * Scale + frac(o * 0.0137) * 7.0;
 float3 w = pow(abs(Nrm), 4.0);
 w /= (w.x + w.y + w.z);
 float3 a = Texture2DSample(Tex, TexSampler, p.yz).rgb;
@@ -327,6 +335,30 @@ float2 g = abs(frac(p / cell + 0.5) - 0.5) * cell;
 float seam = 1.0 - smoothstep(0.5, 1.3, min(g.x, g.y));
 float bevel = 1.0 - smoothstep(1.3, 3.0, min(g.x, g.y));
 return PanelCm > 0.5 ? saturate(seam + bevel * 0.35) * PanelDark : 0.0;
+"""
+
+TRI_ORM = """
+float3 o = ObjPos * (1.0 - World);
+float3 p = (WorldPos - o) * 0.01 * Scale + frac(o * 0.0137) * 7.0;
+float3 w = pow(abs(Nrm), 4.0);
+w /= (w.x + w.y + w.z);
+float3 a = Texture2DSample(Tex, TexSampler, p.yz).rgb;
+float3 b = Texture2DSample(Tex, TexSampler, p.xz).rgb;
+float3 c = Texture2DSample(Tex, TexSampler, p.xy).rgb;
+return a * w.x + b * w.y + c * w.z;
+"""
+
+# World-space triplanar normal (UDN blend of the three projections around the vertex normal).
+TRI_NORMAL = """
+float3 o = ObjPos * (1.0 - World);
+float3 p = (WorldPos - o) * 0.01 * Scale + frac(o * 0.0137) * 7.0;
+float3 w = pow(abs(Nrm), 4.0);
+w /= (w.x + w.y + w.z);
+float2 tx = Texture2DSample(Tex, TexSampler, p.yz).rg * 2.0 - 1.0;
+float2 ty = Texture2DSample(Tex, TexSampler, p.xz).rg * 2.0 - 1.0;
+float2 tz = Texture2DSample(Tex, TexSampler, p.xy).rg * 2.0 - 1.0;
+float3 d = float3(0.0, tx.x, tx.y) * w.x + float3(ty.x, 0.0, ty.y) * w.y + float3(tz.x, tz.y, 0.0) * w.z;
+return normalize(Nrm + d * Strength);
 """
 
 FLOOR_COLOUR = """
@@ -580,6 +612,7 @@ def build_surface(g: Graph) -> None:
         "ObjPos": ("ObjPos", ""),
         "Nrm": ("Nrm", ""),
         "Scale": ("TriplanarScale", ""),
+        "World": ("TriplanarWorld", ""),
     }
     g.custom("Tri1", TRIPLANAR, {**tri_in, "Tex": ("Set1_BC", "")})
     g.custom("Tri2", TRIPLANAR, {**tri_in, "Tex": ("Set2_BC", "")})
@@ -617,16 +650,35 @@ return lerp(lerp(A, B, m2), C, m3);
         "return Texture2DSample(Tex, TexSampler, UV).rgb * 2.0 - 1.0;",
         {"Tex": ("Set1_N", ""), "UV": ("UV", "")},
     )
+    g.custom("TriOrm", TRI_ORM, {**tri_in, "Tex": ("Set1_ORM", "")})
+    g.custom(
+        "TriNrmW",
+        TRI_NORMAL,
+        {**tri_in, "Tex": ("Set1_N", ""), "Strength": ("NormalStrength", "")},
+    )
+    g.node(
+        u.MaterialExpressionTransform,
+        "TriNrm",
+        transform_source_type=u.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD,
+        transform_type=u.MaterialVectorCoordTransform.TRANSFORM_TANGENT,
+    )
+    g.link("TriNrmW", "", "TriNrm", "")
     # UseTriplanar picks the mapping, UseTextureSet picks texture vs flat white.
     g.switch("MapSw", "UseTriplanar", ("TriBlend", ""), ("UvTex", ""))
     g.switch("TexSw", "UseTextureSet", ("UseTriplanar", ""), ("White3", ""))
     g.node(u.MaterialExpressionConstant3Vector, "OrmFlat", constant=u.LinearColor(1, 1, 0, 1))
     g.node(u.MaterialExpressionConstant3Vector, "NrmFlat", constant=u.LinearColor(0, 0, 1, 1))
+    orm_map = g.switch_node("UseTriplanar", "OrmMapSw")
+    g.link("TriOrm", "", orm_map, "True")
+    g.link("UvOrm", "", orm_map, "False")
     orm_sw = g.switch_node("UseTextureSet", "OrmSw")
-    g.link("UvOrm", "", orm_sw, "True")
+    g.link("OrmMapSw", "", orm_sw, "True")
     g.link("OrmFlat", "", orm_sw, "False")
+    nrm_map = g.switch_node("UseTriplanar", "NrmMapSw")
+    g.link("TriNrm", "", nrm_map, "True")
+    g.link("UvNrm", "", nrm_map, "False")
     nrm_sw = g.switch_node("UseTextureSet", "NrmSw")
-    g.link("UvNrm", "", nrm_sw, "True")
+    g.link("NrmMapSw", "", nrm_sw, "True")
     g.link("NrmFlat", "", nrm_sw, "False")
     ins = {k: (k, "") for k in ("BaseTint", "EdgeTint", "EdgeWear", "GrimeAmount")}
     ins.update({"VC": ("VC", ""), "N": ("N", ""), "Tex": ("UseTextureSet", "")})

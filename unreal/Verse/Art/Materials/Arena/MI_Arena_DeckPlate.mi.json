@@ -1,32 +1,34 @@
 {
   "name": "MI_Arena_DeckPlate",
   "owner": "WP11",
-  "parent": "/Game/Verse/Materials/Master/M_Verse_Floor.M_Verse_Floor",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Arena_DeckPlate",
   "scalars": {
-    "GridCm": 240.0,
-    "LaneCm": 480.0,
-    "LaneWidthCm": 160.0,
-    "NoiseScale": 0.05,
-    "RoughnessMax": 0.45,
-    "RoughnessMin": 0.2,
-    "SeamCm": 1.2,
-    "WearAmount": 0.35
+    "EdgeWear": 0.1,
+    "GrimeAmount": 0.1,
+    "Metallic": 0.0,
+    "NoiseScale": 0.04,
+    "PanelCm": 240.0,
+    "RoughnessMax": 1.0,
+    "RoughnessMin": 0.75,
+    "TriplanarScale": 0.45,
+    "TriplanarWorld": 1.0
   },
   "schema": "verse.mi/1",
-  "switches": {},
-  "textures": {},
+  "switches": {
+    "UseTextureSet": true,
+    "UseTriplanar": true
+  },
+  "textures": {
+    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Deck_BC.T_Arena_Deck_BC",
+    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Deck_N.T_Arena_Deck_N",
+    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Deck_ORM.T_Arena_Deck_ORM"
+  },
   "vectors": {
     "BaseTint": [
-      0.042,
-      0.043,
-      0.047,
-      1.0
-    ],
-    "SeamTint": [
-      0.008,
-      0.008,
-      0.009,
+      1.731,
+      1.769,
+      1.923,
       1.0
     ]
   }

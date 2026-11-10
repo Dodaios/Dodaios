@@ -4,21 +4,30 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Arena_ContainerCharcoal",
   "scalars": {
-    "EdgeWear": 0.12,
-    "GrimeAmount": 0.15,
+    "EdgeWear": 0.1,
+    "GrimeAmount": 0.1,
     "Metallic": 0.3,
     "NoiseScale": 0.04,
-    "RoughnessMax": 0.75,
-    "RoughnessMin": 0.45
+    "RoughnessMax": 1.0,
+    "RoughnessMin": 0.75,
+    "TriplanarScale": 0.4,
+    "TriplanarWorld": 0.0
   },
   "schema": "verse.mi/1",
-  "switches": {},
-  "textures": {},
+  "switches": {
+    "UseTextureSet": true,
+    "UseTriplanar": true
+  },
+  "textures": {
+    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Paint_BC.T_Arena_Paint_BC",
+    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Paint_N.T_Arena_Paint_N",
+    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Paint_ORM.T_Arena_Paint_ORM"
+  },
   "vectors": {
     "BaseTint": [
-      0.07,
-      0.073,
-      0.078,
+      1.061,
+      1.106,
+      1.182,
       1.0
     ],
     "EdgeTint": [

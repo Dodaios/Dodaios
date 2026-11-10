@@ -185,10 +185,12 @@ Opaque hard surface: steel, concrete, paint, rubber.
 | `PanelDark` | scalar | How much a panel seam darkens and roughens the surface |
 | `UseTriplanar` | switch | Object-relative triplanar mapping for pieces without UVs |
 | `TriplanarScale` | scalar | Texture repeats per metre in triplanar mode |
+| `TriplanarWorld` | scalar | 1 maps triplanar textures to the world grid (seamless across pieces) |
 | `UseTextureSet` | switch | Sample Set1 (and Set2/Set3 by noise masks) instead of flat tint |
 | `Set1_BC` | texture | Texture set 1 base colour (sRGB) |
 | `Set1_ORM` | texture | Texture set 1 AO/roughness/metallic |
-| `Set1_N` | texture | Texture set 1 normal (UV mode only) |
+| `Set1_N` | texture | Texture set 1 normal (UV or triplanar) |
+| `NormalStrength` | scalar | Strength of the set 1 normal in triplanar mode |
 | `Set2_BC` | texture | Texture set 2 base colour (triplanar blend, noise mask) |
 | `Set3_BC` | texture | Texture set 3 base colour (triplanar blend, vertex colour B) |
 | `Set2Amount` | scalar | Share of set 2 |

@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Paint_BC.T_Arena_Paint_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Paint_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "3a85911e92de73851b6b0629461a938a974d88626ff13ec55198b996494f359a"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "883118fafabb56304f9e33ea2da3c183379b1c1b1c5a4702fdc335b0cf84614f"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Paint_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "rusty_painted_metal",
+      "map": "Diffuse",
+      "set": "Paint"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 2048,
+    "srgb": true
+  }
+}
