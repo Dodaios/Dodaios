@@ -7731,6 +7731,12 @@
     "connected": "{label} conectado",
     "declined": "{label} no conectado"
   },
+  "plugin_reconnect": {
+    "subtitle": "La conexión ha caducado",
+    "action": "Reconectar",
+    "waiting": "Termina de iniciar sesión",
+    "code": "Código: {code}"
+  },
   "question_card": {
     "aria": "Pregunta del agente",
     "title_one": "{agent} tiene una pregunta",

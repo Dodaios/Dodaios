@@ -7731,6 +7731,12 @@
     "connected": "{label} verbunden",
     "declined": "{label} nicht verbunden"
   },
+  "plugin_reconnect": {
+    "subtitle": "Verbindung abgelaufen",
+    "action": "Neu verbinden",
+    "waiting": "Schließ die Anmeldung ab",
+    "code": "Code: {code}"
+  },
   "question_card": {
     "aria": "Rückfrage des Agenten",
     "title_one": "{agent} hat eine Frage",

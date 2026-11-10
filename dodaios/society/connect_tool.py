@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -37,7 +37,13 @@ from .routine_runner import is_routine_session
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CONNECT_TOOL_NAME", "RequestConnectTool", "connect_save", "resolve_target"]
+__all__ = [
+    "CONNECT_TOOL_NAME",
+    "RequestConnectTool",
+    "connect_save",
+    "lead_connect_tools",
+    "resolve_target",
+]
 
 CONNECT_TOOL_NAME: Final[str] = "society_request_connect"
 
@@ -160,10 +166,26 @@ class RequestConnectTool:
         },
     }
 
-    def __init__(self, runtime: Any, agent_id: str, *, session_id: str) -> None:
+    def __init__(
+        self,
+        runtime: Any,
+        agent_id: str,
+        *,
+        session_id: str,
+        unconnected: Sequence[str] = (),
+    ) -> None:
         self._runtime = runtime
         self._agent_id = agent_id
         self._session_id = session_id
+        # A caller without a briefing (the lead's chat) learns from the tool
+        # itself which plugins it can offer.
+        offer = sorted({p for p in unconnected if p})
+        if offer:
+            self.description = (
+                f"{type(self).description} Not connected right now: {', '.join(offer)}. "
+                "When a task needs one of them, call this before anything else; do not "
+                "send the user to the Plugins page and do not answer that you cannot do it."
+            )
 
     async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
         wait_for = str(args.get("wait_for") or "").strip()
@@ -271,6 +293,26 @@ class RequestConnectTool:
         cached = getattr(self._runtime, "cached_agent", None)
         agent = cached(self._agent_id) if callable(cached) else None
         return str(getattr(agent, "name", "") or "")
+
+
+def lead_connect_tools(session: Any) -> dict[str, Any]:
+    """The same Connect card for the lead's own chat (surface ``jarvis``)."""
+    from .runtime import current_runtime
+
+    rt = current_runtime()
+    session_id = str(getattr(session, "session_id", "") or "")
+    if rt is None or not session_id or is_routine_session(session_id):
+        return {}
+    try:
+        unconnected = rt.unconnected_plugins()
+    except Exception:  # noqa: BLE001 — the card works without the list
+        log.warning("society connect: plugin state unavailable", exc_info=True)
+        unconnected = []
+    return {
+        CONNECT_TOOL_NAME: RequestConnectTool(
+            rt, rt.lead_id, session_id=session_id, unconnected=unconnected
+        )
+    }
 
 
 def _invalid(detail: str) -> ToolResult:

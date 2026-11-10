@@ -7731,6 +7731,12 @@
     "connected": "{label} 已连接",
     "declined": "{label} 未连接"
   },
+  "plugin_reconnect": {
+    "subtitle": "连接已过期",
+    "action": "重新连接",
+    "waiting": "请完成登录",
+    "code": "验证码：{code}"
+  },
   "question_card": {
     "aria": "智能体的提问",
     "title_one": "{agent} 有一个问题",

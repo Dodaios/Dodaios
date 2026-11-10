@@ -931,6 +931,14 @@ class SocietyRuntime:
         self._usable_cache = fresh
         return fresh
 
+    def unconnected_plugins(self) -> list[str]:
+        """Marketplace plugin ids without a usable connection: never connected,
+        or flagged for a new sign-in. Empty when the state cannot be read."""
+        usable = self._usable_plugins()
+        if usable is None:
+            return []
+        return sorted(usable.catalog_ids - usable.ids)
+
     def derive(self, title: str, description: str) -> tuple[list[str], dict[str, list[str]]]:
         """``(focus, approval_rules)`` for a title/description pair."""
         focus = derive_focus(title, description, self.catalog())

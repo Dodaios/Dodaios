@@ -29,6 +29,21 @@ export interface ToolChoice {
   user_added?: boolean;
 }
 
+/** The row a plugin's or CLI's logo is drawn from when only its id is known. */
+export function serviceIconRow(kind: "plugin" | "cli", id: string, label: string): ToolChoice {
+  return {
+    id: `${kind}:${id}`,
+    label,
+    description: "",
+    category: kind === "plugin" ? "plugins" : "cli",
+    group: "",
+    brand: id,
+    available: false,
+    tool_names: [],
+    skill: "",
+  };
+}
+
 export interface ToolSearchResult {
   items: ToolChoice[];
   mode: "browse" | "semantic" | "text";
