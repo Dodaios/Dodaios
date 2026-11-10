@@ -368,7 +368,7 @@ AVerseArenaGraybox* AVerseArenaGraybox::FindHall(const UWorld& World)
 	return nullptr;
 }
 
-AVerseArenaGraybox* AVerseArenaGraybox::BuildHall(UWorld& World)
+AVerseArenaGraybox* AVerseArenaGraybox::BuildHall(UWorld& World, const TArray<FVerseDeckRoom>& InKeepClear)
 {
 	if (AVerseArenaGraybox* Hall = FindHall(World))
 	{
@@ -385,12 +385,28 @@ AVerseArenaGraybox* AVerseArenaGraybox::BuildHall(UWorld& World)
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	AVerseArenaGraybox* Hall = World.SpawnActor<AVerseArenaGraybox>(Params);
+	if (Hall)
+	{
+		Hall->KeepClear = InKeepClear;
+	}
 	if (Hall && !Hall->Build(DefaultJsonPath(), EVerseGrayboxPart::Hall))
 	{
 		Hall->Destroy();
 		return nullptr;
 	}
 	return Hall;
+}
+
+bool AVerseArenaGraybox::InKeptClearRoom(const FVector& At) const
+{
+	for (const FVerseDeckRoom& Room : KeepClear)
+	{
+		if (Room.ContainsPlan(FVector2D(At.X, At.Y)))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 bool AVerseArenaGraybox::Includes(const TSharedPtr<FJsonObject>& Entry) const
