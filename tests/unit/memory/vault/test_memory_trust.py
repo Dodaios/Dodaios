@@ -210,6 +210,11 @@ def test_parse_a_markdown_memory_list():
     assert parsed.said == [] and parsed.shape == "list"
 
 
+def test_parse_skips_html_comments_across_lines():
+    text = "- Likes jazz.\n<!-- a note\nthat spans lines -->\n- Owns a bike. <!-- id --!>\n"
+    assert foreign_import.parse_upload("m.md", text).facts == ["Likes jazz.", "Owns a bike."]
+
+
 def test_parse_json_lists_and_objects():
     assert foreign_import.parse_upload("m.json", '["Likes jazz.", "Owns a bike."]').facts == [
         "Likes jazz.",

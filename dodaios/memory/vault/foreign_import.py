@@ -47,7 +47,8 @@ _MEMORY_KEYS: Final[tuple[str, ...]] = ("memory", "fact", "text", "content", "va
 #: Roles that mean "the person" in a chat export.
 _USER_ROLES: Final[frozenset[str]] = frozenset({"user", "human", "me"})
 _BULLET = re.compile(r"^\s*(?:[-*+•·]|\d{1,3}[.)])\s+")
-_COMMENT = re.compile(r"<!--.*?-->")
+#: An HTML comment, also one across lines (a Markdown export marks ids with them).
+_COMMENT = re.compile(r"<!--.*?--!?>", re.DOTALL)
 _SPEAKER = re.compile(r"^\s*(user|human|me|you|assistant|ai|bot|system)\s*:\s*(.*)$", re.I)
 
 AskModel = Callable[[str], Awaitable[Any]]
