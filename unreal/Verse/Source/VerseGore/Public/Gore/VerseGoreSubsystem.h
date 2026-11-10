@@ -173,6 +173,11 @@ private:
 	USkeletalMeshComponent* DefaultResolve(int32 PlayerId) const;
 
 	void SpawnBurst(const FVector& Origin, const FVector& Direction, int32 Count, uint32 Seed);
+	/** The local viewer's eye (first local player camera); false without one (tests, servers). */
+	bool GetViewerLocation(FVector& OutLocation) const;
+	/** Gore close to the eye is drawn smaller and sparser: 0 at the eye, 1 from NearViewRangeCm on. */
+	static float NearViewFactor(double DistanceCm);
+	static constexpr double NearViewRangeCm = 260.0;
 	void SpawnSpatter(const FVector& Origin, const FVector& Direction, int32 Traces, uint32 Seed, const AActor* Ignore);
 	void SpawnFlash(const FVector& Location);
 	bool PlaceSpatterDecal(const FVector& Location, const FVector& Normal, float Size, uint32 Seed);

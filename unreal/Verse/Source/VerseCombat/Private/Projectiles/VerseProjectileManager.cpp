@@ -5,6 +5,7 @@
 #include "Damage/VerseDamageService.h"
 #include "Destruction/VerseDestructionInterfaces.h"
 #include "Destruction/VersePenetrationTable.h"
+#include "Penetration/VersePenetrationMath.h"
 #include "Engine/World.h"
 #include "Gadgets/VerseBulwark.h"
 #include "HAL/PlatformTime.h"
@@ -217,6 +218,7 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 		Hit.DistanceM = DistanceM;
 		Hit.Damage = FVerseDamageMath::BoltDamage(*W, Body.Zone, DistanceM, Bolt.Factor);
 		Hit.PenetrationCount = uint8(FMath::Clamp(Bolt.Passes, 0, 255));
+		Hit.InstigatorId = Bolt.Fire.ShooterId;
 		if (DamageService)
 		{
 			DamageService->ApplyHit(Shooter, Victim, Hit);
@@ -304,7 +306,11 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 		PieceHit.Location = Piece.Entry;
 		PieceHit.Direction = Bolt.Dir;
 		PieceHit.InstigatorId = VerseCombatIds::IdOf(Shooter);
-		Damage->ApplyPieceDamage(PieceHit);
+		// World geometry crossed by the penetration trace has no piece slot (nothing to break).
+		if (Piece.PieceIndex != VersePenetration::NoPiece)
+		{
+			Damage->ApplyPieceDamage(PieceHit);
+		}
 
 		const FVersePenetrationRow* Row = Table->FindRow(Piece.MaterialWireId);
 		const float Cost = Row ? UVersePenetrationTable::PassCost(*Row, Piece.TracedThicknessCm) : TNumericLimits<float>::Max();

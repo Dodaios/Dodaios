@@ -183,7 +183,7 @@ those three):
 | `VerseStream` | none | |
 | `VerseAbilities` | AudioExtensions | Arc Storm's synthesised sound (a procedural sound wave) |
 | `VerseHarness` | none | |
-| `Verse` | NetCore, DeveloperSettings, EngineSettings, GameplayAbilities, GameplayTags, GameplayTasks, InputCore, Json, NavigationSystem | Settings object; the default pawn's ability system component; duel input keys, arena JSON and the duel's nav queries |
+| `Verse` | NetCore, DeveloperSettings, EngineSettings, GameplayAbilities, GameplayTags, GameplayTasks, InputCore, Json, MeshDescription, NavigationSystem, PhysicsCore, StaticMeshDescription | Settings object; the default pawn's ability system component; duel input keys, arena JSON, the duel's nav queries, the runtime arena meshes and their physics materials |
 
 ## 3. Networking
 
