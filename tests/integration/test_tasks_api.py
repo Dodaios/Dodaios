@@ -145,6 +145,22 @@ def test_list_with_state_filter(wired_server) -> None:
         assert tid2 not in ids
 
 
+def test_list_pages_with_total_and_cursor(wired_server) -> None:
+    with TestClient(wired_server.app) as client:
+        made = [
+            client.post("/api/tasks", json=_make_spec_payload(f"T{i}")).json()["id"]
+            for i in range(5)
+        ]
+        first = client.get("/api/tasks?limit=2").json()
+        assert first["total"] == 5 and len(first["tasks"]) == 2 and first["next_cursor"]
+        second = client.get(f"/api/tasks?limit=2&cursor={first['next_cursor']}").json()
+        third = client.get(f"/api/tasks?limit=2&cursor={second['next_cursor']}").json()
+        seen = [t["id"] for page in (first, second, third) for t in page["tasks"]]
+        assert sorted(seen) == sorted(made)
+        assert third["next_cursor"] is None
+        assert client.get("/api/tasks?cursor=garbage").status_code == 400
+
+
 def test_post_rejects_invalid_spec(wired_server) -> None:
     with TestClient(wired_server.app) as client:
         # delay_seconds <= 0 is blocked by Pydantic (gt=0)

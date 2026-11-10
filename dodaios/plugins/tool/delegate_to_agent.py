@@ -162,6 +162,7 @@ class DelegateToAgentTool:
             target = runtime.pick_agent(task)
         if target is None:
             return ToolResult(success=False, output=_NO_FIT[lang], error="no_agent_fits")
+        from dodaios.society.delegation_wait import ledger_job_id
         from dodaios.society.events import MsgType
 
         try:
@@ -205,6 +206,8 @@ class DelegateToAgentTool:
             "agent_id": target.agent_id,
             "agent_name": display_name(target),
             "assignment_id": env.event_id,
+            # The handle for job_status / await_jobs.
+            "job_id": ledger_job_id(env),
             "trace_id": env.trace_id,
             "reply_policy": policy,
             # Said differently than it is spelled: the reply names the agent
@@ -309,6 +312,109 @@ async def _status_target(runtime: Any, target_key: str, lang: str) -> Any:
 _BOARD_NOTE_CHARS = 200
 
 
+_STATUS_MODES: Final[frozenset[str]] = frozenset({"summary", "agent", "assignment", "events"})
+_EVENT_TEXT_CHARS = 600
+
+
+def _page_limit(value: Any, *, default: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):  # a missing or non-numeric limit means the default page size
+        return default
+    return max(1, min(number, 100))
+
+
+def _event_row(event: Any) -> dict[str, Any]:
+    """One board event as a compact row: who, what, when and the start of its text."""
+    payload = event.payload if isinstance(event.payload, dict) else {}
+    row: dict[str, Any] = {
+        "seq": event.seq,
+        "type": str(event.msg_type),
+        "from": event.from_agent,
+        "to": event.to_agent,
+        "trace_id": event.trace_id,
+        "ts_ms": event.ts_ms,
+    }
+    if payload.get("status"):
+        row["status"] = str(payload["status"])
+    text = " ".join(event.text.split())
+    if text:
+        row["text"] = text[:_EVENT_TEXT_CHARS] + ("…" if len(text) > _EVENT_TEXT_CHARS else "")
+    return row
+
+
+async def _status_summary(runtime: Any, lang: str) -> ToolResult:
+    """One line per agent: id, name, seat, busy or idle, state of its last result."""
+    from dodaios.society.events import MsgType
+
+    rows = []
+    for agent in await runtime.roster.list():
+        if agent.agent_id == runtime.lead_id:
+            continue
+        recent = await runtime.store.events_for_agent(agent.agent_id, limit=20)
+        last = next(
+            (
+                e
+                for e in reversed(recent)
+                if e.msg_type is MsgType.RESULT and e.from_agent == agent.agent_id
+            ),
+            None,
+        )
+        seat = "/".join(part for part in (agent.provider, agent.model) if part) or "default"
+        row: dict[str, Any] = {
+            "id": agent.agent_id,
+            "name": display_name(agent),
+            "seat": seat,
+            "state": "busy" if runtime.scheduler.active_runs(agent.agent_id) > 0 else "idle",
+            "last_result": str(last.payload.get("status") or "finished") if last else None,
+        }
+        if str(agent.state) != "active":
+            row["roster_state"] = str(agent.state)
+        rows.append(row)
+    if not rows:
+        return ToolResult(success=True, output=_EMPTY_ROSTER[lang])
+    return ToolResult(
+        success=True,
+        output={
+            "agents": rows,
+            "total": len(rows),
+            "next": (
+                "Pass agent (mode=agent) for one agent in detail, mode=events for the "
+                "recorded events, assignment_id for one assignment."
+            ),
+        },
+    )
+
+
+async def _status_events(
+    runtime: Any, args: dict[str, Any], target_key: str, lang: str
+) -> ToolResult:
+    """One page of recorded board events, newest first, with a cursor to older ones."""
+    agent_id = None
+    if target_key:
+        target = await _status_target(runtime, target_key, lang)
+        if isinstance(target, ToolResult):
+            return target
+        agent_id = target.agent_id
+    before = None
+    cursor = str(args.get("cursor") or "").strip()
+    if cursor:
+        if not cursor.isdigit():
+            return ToolResult(success=False, output=None, error="invalid cursor")
+        before = int(cursor)
+    limit = _page_limit(args.get("limit"), default=20)
+    page = await runtime.store.events_page(agent_id=agent_id, before_seq=before, limit=limit + 1)
+    more = len(page) > limit
+    page = page[:limit]
+    return ToolResult(
+        success=True,
+        output={
+            "events": [_event_row(e) for e in page],
+            "next_cursor": str(page[-1].seq) if more and page else None,
+        },
+    )
+
+
 class SocietyStatusTool:
     """What an agent (or the whole team) is doing — read-only, no model call."""
 
@@ -316,21 +422,50 @@ class SocietyStatusTool:
     risk_tier: str = "safe"
     description: str = (
         "Answer 'what is <agent> doing?', 'is Scout done?', 'who is on the team?' from the "
-        "agent society's board. Read-only. Pass the agent's name, or nothing for the team. "
-        "Set details=true for responsibilities, capabilities, state and recorded activity/cost "
-        "statistics (these are observations, not quality scores). Set board=true for one "
-        "short row per agent: working or idle, and its newest note. Pass assignment_id "
-        "to inspect that exact assignment; trace_id is optional. If prior tool ids are "
-        "no longer in context, use agent + latest_assignment=true to retrieve the newest "
-        "assignment you sent that agent from the stored board, including its task and "
-        "result. This means newest assignment, not an arbitrary recent event. If 'that task' "
-        "could mean an older task or several agents, clarify the agent/task first."
+        "agent society's board. Read-only. By default it returns a summary: one line per "
+        "agent (id, name, seat, busy or idle, state of its last result), small enough to "
+        "read in full. Go deeper only when you need to: mode=agent (with agent) gives one "
+        "agent's responsibilities, capabilities, state and recorded activity/cost statistics "
+        "(observations, not quality scores; details=true with agent is the same); "
+        "mode=assignment (with assignment_id) gives one assignment with its task and result; "
+        "mode=events pages through the recorded events, newest first (agent optional; pass "
+        "the returned next_cursor as cursor for older ones). Pass the agent's name for a "
+        "one-sentence status. Set board=true for one short row per agent: working or idle, "
+        "and its newest note. If prior tool ids are no longer in context, use agent + "
+        "latest_assignment=true to retrieve the newest assignment you sent that agent from "
+        "the stored board, including its task and result. This means newest assignment, "
+        "not an arbitrary recent event. If 'that task' could mean an older task or several "
+        "agents, clarify the agent/task first."
     )
     schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "agent": {"type": "string", "description": "An agent's name; omit for the team."},
-            "details": {"type": "boolean", "description": "Include actual roster and evidence."},
+            "mode": {
+                "type": "string",
+                "enum": ["summary", "agent", "assignment", "events"],
+                "description": (
+                    "summary (default): one line per agent. agent: one agent in detail. "
+                    "assignment: one assignment. events: recorded events, paged."
+                ),
+            },
+            "details": {
+                "type": "boolean",
+                "description": "With agent: the same as mode=agent. Without: the summary.",
+            },
+            "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "description": (
+                    "mode=events: events per page (default 20); "
+                    "mode=agent: events shown (default 10)."
+                ),
+            },
+            "cursor": {
+                "type": "string",
+                "description": "mode=events: the next_cursor of the previous page.",
+            },
             "board": {
                 "type": "boolean",
                 "description": "One short row per agent: working or idle, and its newest note.",
@@ -372,6 +507,10 @@ class SocietyStatusTool:
         trace_id = str(args.get("trace_id") or "").strip()
         target_key = str(args.get("agent") or "").strip()
         latest_assignment = args.get("latest_assignment") is True
+        if str(args.get("mode") or "").strip().lower() == "assignment" and not (
+            assignment_id or trace_id or latest_assignment
+        ):
+            return ToolResult(success=False, output=None, error="assignment_id required")
         if assignment_id or trace_id or latest_assignment:
             if latest_assignment and assignment_id:
                 return ToolResult(
@@ -444,34 +583,37 @@ class SocietyStatusTool:
                     "events": [e.model_dump(mode="json") for e in related],
                 },
             )
-        if args.get("details") is True:
-            targets = await runtime.roster.list()
-            if target_key:
-                target = await _status_target(runtime, target_key, lang)
-                if isinstance(target, ToolResult):
-                    return target
-                targets = [target]
-            rows = []
-            for agent in targets:
-                if agent.agent_id == runtime.lead_id:
-                    continue
-                recent = await runtime.store.events_for_agent(agent.agent_id, limit=10)
-                rows.append(
-                    {
-                        "agent": agent.to_dict(),
-                        "active_runs": runtime.scheduler.active_runs(agent.agent_id),
-                        "stats": await runtime.store.agent_stats(agent.agent_id),
-                        "recent_events": [e.model_dump(mode="json") for e in recent],
-                    }
-                )
+        mode = str(args.get("mode") or "").strip().lower()
+        if mode and mode not in _STATUS_MODES:
+            return ToolResult(
+                success=False, output=None, error=f"mode must be one of {sorted(_STATUS_MODES)}"
+            )
+        if mode == "events":
+            return await _status_events(runtime, args, target_key, lang)
+        if mode == "agent" or (args.get("details") is True and target_key):
+            if not target_key:
+                return ToolResult(success=False, output=None, error="agent required")
+            target = await _status_target(runtime, target_key, lang)
+            if isinstance(target, ToolResult):
+                return target
+            limit = _page_limit(args.get("limit"), default=10)
+            recent = await runtime.store.events_for_agent(target.agent_id, limit=limit)
             return ToolResult(
                 success=True,
                 output={
-                    "agents": rows,
+                    "agents": [
+                        {
+                            "agent": target.to_dict(),
+                            "active_runs": runtime.scheduler.active_runs(target.agent_id),
+                            "stats": await runtime.store.agent_stats(target.agent_id),
+                            "recent_events": [_event_row(e) for e in reversed(recent)],
+                        }
+                    ],
                     "measurement_note": (
                         "Runs count recorded RESULT events and finished chat turns, once "
                         "each and including failures; costs are recorded costs only. No "
-                        "independent quality rating is available."
+                        "independent quality rating is available. Recent events are newest "
+                        "first; mode=events pages further back."
                     ),
                 },
             )
@@ -499,11 +641,7 @@ class SocietyStatusTool:
                 )
             return ToolResult(success=True, output={"agents": rows})
         if not target_key:
-            agents = await runtime.roster.list()
-            names = ", ".join(a.name for a in agents if a.agent_id != runtime.lead_id)
-            if not names:
-                return ToolResult(success=True, output=_EMPTY_ROSTER[lang])
-            return ToolResult(success=True, output=_ROSTER[lang].format(names=names))
+            return await _status_summary(runtime, lang)
         target = await _status_target(runtime, target_key, lang)
         if isinstance(target, ToolResult):
             return target

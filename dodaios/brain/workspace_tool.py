@@ -173,7 +173,7 @@ class WorkspaceOrchestrationTool:
                 "items": {"type": "string"},
                 "description": (
                     "create/open_workspace/send: IDs of the visual references for this "
-                    "work order, from uploaded images or take_appshot. No paths or URLs. "
+                    "work order, from uploaded images or an appshot. No paths or URLs. "
                     "Omit for a task that does not use images."
                 ),
             },

@@ -852,3 +852,25 @@ async def test_explicit_delegation_request_executes_spawn() -> None:
     )
 
     assert len(executor.calls) == 1, "an explicit spawn request must execute"
+
+
+@pytest.mark.asyncio
+async def test_an_oversized_structured_result_reaches_the_brain_as_valid_json() -> None:
+    """A head-cut leaves invalid JSON the model cannot parse; the cap trims the
+    structure (long lists and strings) and keeps the result valid and marked."""
+    import json
+
+    class _ExecRows:
+        async def execute(self, tool: Any, args: dict[str, Any], **_: Any) -> ToolResult:
+            rows = [{"id": i, "text": "y" * 400} for i in range(2_000)]
+            return ToolResult(success=True, output={"missions": rows, "total": 2_000})
+
+    brain = _ToolThenAnswerBrain()
+    loop = ToolUseLoop(brain, {"gmail": _HugeOutputTool()}, _ExecRows())  # type: ignore[arg-type]
+    await loop.run([], user_utterance="list everything")
+    tool_msgs = [m for m in brain.requests[1].messages if getattr(m, "role", None) == "tool"]
+    inner = tool_msgs[-1].content[0]["content"]
+    assert len(inner) <= _MAX_TOOL_RESULT_CHARS
+    parsed = json.loads(inner)
+    assert parsed["truncated"] is True and parsed["output"]["total"] == 2_000
+    assert 0 < len(parsed["output"]["missions"]) < 2_000

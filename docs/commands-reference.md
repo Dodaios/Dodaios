@@ -343,10 +343,10 @@ Restart the Dodaios desktop app (voice + UI restart too).
 
 ## `missions-list` — List missions
 
-List Dodaios-Agent missions and their status, newest first. Set active to see only the ones that have not ended yet.
+List Dodaios-Agent missions and their status, newest first, one page at a time. Set active to see only the ones that have not ended yet, or state for specific states. The answer has total (all matches) and next_cursor: pass it as cursor for the next page.
 
 - **Endpoint:** `GET /api/missions`
-- **Arguments:** `active` (boolean; optional); `limit` (integer; optional)
+- **Arguments:** `active` (boolean; optional); `state` (string; optional); `limit` (integer; optional); `cursor` (string; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "show me the missions"
@@ -383,10 +383,10 @@ Give a mission that is still running the user's correction or changed wish, in t
 
 ## `tasks-list` — List tasks
 
-List scheduled and running tasks (agent routines).
+List scheduled and running tasks (agent routines), newest first, one page at a time. The answer has total (all matches) and next_cursor: pass it as cursor for the next page.
 
 - **Endpoint:** `GET /api/tasks`
-- **Arguments:** none
+- **Arguments:** `state` (string; optional); `limit` (integer; optional); `cursor` (string; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "show me my tasks"
@@ -483,7 +483,7 @@ Give ONE task to coding terminals — existing ones, brand-new ones, or both —
 
 ## `agentic-ide-spawn-terminals` — Open more Agentic-IDE terminals
 
-Open one or more additional coding terminals in the open workspace, WITHOUT giving them work. Use this only when the user asks for bare panes ('spawn five new Claude Code terminals', 'open two more Codex terminals') — that is a request for workspace panes, never for a background worker. When the new panes are also meant to DO something, use 'agentic-ide-fanout' instead, which opens and briefs them in one step. Pass count, and agent only when the user named one — the accepted ids are listed on the parameter itself, and it is the only list that is right for this install. Omitted, the new panes run whatever the last pane runs. Their call-signs are their positions in the grid (T1, T2, …), assigned by the workspace — the reply's names are the only way to address them, and calling this again never produces a name you picked. CHECK THE REPLY: 'capped' true means the workspace maximum cut the request short — say how many actually opened and name them, never report the full number as done.
+Open one or more additional coding terminals in the open workspace, WITHOUT giving them work. Use this only when the user asks for bare panes ('spawn five new Claude Code terminals', 'open two more Codex terminals') — that is a request for workspace panes, never for a background worker. When the new panes are also meant to DO something, use workspace-orchestrate create (with a prompt) instead, which opens and briefs them in one step. Pass count, and agent only when the user named one — the accepted ids are listed on the parameter itself, and it is the only list that is right for this install. Omitted, the new panes run whatever the last pane runs. Their call-signs are their positions in the grid (T1, T2, …), assigned by the workspace — the reply's names are the only way to address them, and calling this again never produces a name you picked. CHECK THE REPLY: 'capped' true means the workspace maximum cut the request short — say how many actually opened and name them, never report the full number as done.
 
 - **Endpoint:** `POST /api/agentic-ide/terminals/batch`
 - **Arguments:** `count` (integer; required); `agent` (one of: antigravity, claude, codex, cursor, deepseek-harness, glm, grok-build, kimi, opencode; optional)

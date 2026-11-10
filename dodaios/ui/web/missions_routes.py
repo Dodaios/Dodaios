@@ -26,6 +26,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
+from dodaios.core.page_cursor import decode_cursor, encode_cursor
 from dodaios.missions.diff_summary import read_mission_changes
 from dodaios.missions.events import (
     EventEnvelope,
@@ -168,13 +169,18 @@ async def list_missions(
     state: str | None = None,
     limit: int = 100,
     active: bool = False,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """List of all missions, optionally filtered by state.
+    """Missions, newest first, optionally filtered by state, one page at a time.
 
     Query parameters:
     - ``state``: comma-separated list of MissionState values (e.g. ``RUNNING,PENDING``).
-    - ``limit``: max number of entries (server cap 1000).
+    - ``limit``: max number of entries per page (server cap 1000).
     - ``active``: only missions that have not ended yet; ``state`` wins when both are given.
+    - ``cursor``: the ``next_cursor`` of the previous page.
+
+    The answer carries ``total`` (every mission the filter matches, not just
+    this page) and ``next_cursor`` (``null`` on the last page).
     """
     mgr = _require_manager(request)
 
@@ -192,26 +198,37 @@ async def list_missions(
             )
         state_filter = candidates
 
-    if state_filter is None:
-        sql = (
-            "SELECT id, prompt, state, language, created_ms, updated_ms, "
-            "iteration, cost_usd FROM missions "
-            "ORDER BY created_ms DESC LIMIT ?"
-        )
-        params: tuple[Any, ...] = (limit,)
-    else:
-        placeholders = ",".join("?" for _ in state_filter)
-        sql = (
-            "SELECT id, prompt, state, language, created_ms, updated_ms, "
-            "iteration, cost_usd FROM missions "
-            f"WHERE state IN ({placeholders}) "
-            "ORDER BY created_ms DESC LIMIT ?"
-        )
-        params = (*state_filter, limit)
-
-    cur = await mgr.store.conn.execute(sql, params)
-    rows = await cur.fetchall()
+    where = ""
+    params: list[Any] = []
+    if state_filter is not None:
+        where = f" WHERE state IN ({','.join('?' for _ in state_filter)})"
+        params.extend(state_filter)
+    cur = await mgr.store.conn.execute(
+        f"SELECT COUNT(*) FROM missions{where}",  # noqa: S608 - placeholders only
+        tuple(params),
+    )
+    total = int((await cur.fetchone())[0])
     await cur.close()
+
+    if cursor:
+        try:
+            created, row_id = decode_cursor(cursor)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid cursor") from None
+        where += (" AND" if where else " WHERE") + (
+            " (created_ms < ? OR (created_ms = ? AND id < ?))"
+        )
+        params.extend([created, created, row_id])
+    sql = (
+        "SELECT id, prompt, state, language, created_ms, updated_ms, "  # noqa: S608
+        f"iteration, cost_usd FROM missions{where} "
+        "ORDER BY created_ms DESC, id DESC LIMIT ?"
+    )
+    cur = await mgr.store.conn.execute(sql, (*params, limit + 1))
+    rows = list(await cur.fetchall())
+    await cur.close()
+    more = len(rows) > limit
+    rows = rows[:limit]
 
     missions = [
         {
@@ -226,7 +243,11 @@ async def list_missions(
         }
         for r in rows
     ]
-    return {"missions": missions, "total": len(missions)}
+    return {
+        "missions": missions,
+        "total": total,
+        "next_cursor": encode_cursor(rows[-1][4], rows[-1][0]) if more and rows else None,
+    }
 
 
 @router.get("/{mission_id}")

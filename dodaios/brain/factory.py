@@ -94,6 +94,9 @@ ROUTER_TOOLS = frozenset({
     # Direct monitor/safe actions, never a spawn (AP-5/AP-14).
     "living-page",
     "show-result-card",
+    # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
+    "job-status",
+    "await-jobs",
     # Command Registry executor (2026-07-09): run ONE curated app command
     # (dodaios/commands/registry.py) through the SAME REST endpoint the UI
     # uses, in-process via ASGI transport. Enum-constrained command_id +
@@ -286,8 +289,11 @@ SELF_MOD_TOOL_NAMES_ROUTER = frozenset({
 })
 
 
+_PHANTOM_HARNESS_REPORTED = False
+
+
 def warn_if_phantom_worker_harness(config: Any, harness_manager: Any) -> bool:
-    """Log a warning when ``[harness.jarvis_agent].enabled`` is true but unregistered.
+    """Note (once, at info level) that an enabled ``[harness.jarvis_agent]`` is unregistered.
 
     The legacy ``openclaw`` harness was removed in Welle 4 and has no
     entry-point, so an ``enabled = true`` block is INERT (config honesty,
@@ -316,13 +322,17 @@ def warn_if_phantom_worker_harness(config: Any, harness_manager: Any) -> bool:
     # name); if it ever gets registered, the warning becomes a no-op.
     if "openclaw" in available:
         return False
-    log.warning(
-        "[harness.jarvis_agent].enabled is true but 'openclaw' is not a registered "
-        "harness (available: %s) — the block is inert. Heavy agent work runs "
-        "through spawn_worker; set [harness.jarvis_agent].enabled = false to silence "
-        "this.",
-        available,
-    )
+    # Inert config is not a fault: say it once per process, at info level, and
+    # carry on (boot and every brain rebuild used to repeat a warning).
+    global _PHANTOM_HARNESS_REPORTED
+    if not _PHANTOM_HARNESS_REPORTED:
+        _PHANTOM_HARNESS_REPORTED = True
+        log.info(
+            "[harness.jarvis_agent].enabled is true but 'openclaw' is not a "
+            "registered harness (available: %s) - the block is inert and heavy "
+            "agent work runs through spawn_worker.",
+            available,
+        )
     return True
 
 
@@ -771,6 +781,16 @@ def is_worker_bootstrap_failed() -> bool:
     return bool(_WORKER_BOOTSTRAP_FAILED[0])
 
 
+def _is_jarvis_chat_session(session_id: str) -> bool:
+    """Whether ``session_id`` is a Jarvis chat: the surface that has the lead's tool set."""
+    from dodaios.society.runtime import current_runtime
+
+    runtime = current_runtime()
+    service = runtime.chat_service() if runtime is not None else None
+    session = service.store.get_session(session_id) if service is not None else None
+    return session is not None and getattr(session, "surface", "") == "jarvis"
+
+
 def _register_runtime_manager(manager: Any) -> None:
     """Publish one Brain Manager and its public tool gateway for all surfaces."""
     try:
@@ -817,6 +837,7 @@ def _register_runtime_manager(manager: Any) -> None:
                 browser_tool=browser_tool,
                 session_tools=session_tools,
                 workspace_tool=WorkspaceOrchestrationTool(WorkspaceGateway()),
+                lead_session=_is_jarvis_chat_session,
             )
         )
     except Exception as exc:  # noqa: BLE001 - registration never blocks boot
@@ -1864,6 +1885,13 @@ def _build_ack_fallback(ack_cfg: Any, preferences_provider: Any = None) -> Any:
         return None
 
 
+# Fallback names already reported as missing from the ack-provider registry.
+# The announcer and readback composer are rebuilt with every brain build, so an
+# unknown ``fallback_provider`` used to repeat this warning hundreds of times a
+# day for one unchanged config value. Report each value once per process.
+_REPORTED_MISSING_FALLBACKS: set[str] = set()
+
+
 def _build_spawn_fallback(ack_cfg: Any) -> tuple[Any, Any]:
     """Build the spawn announcer's failover ``(provider, breaker)`` or ``(None, None)``.
 
@@ -1886,12 +1914,14 @@ def _build_spawn_fallback(ack_cfg: Any) -> tuple[Any, Any]:
 
         provider_cls = REGISTRY.get(fb_name)
         if provider_cls is None:
-            log.warning(
-                "Spawn-Announcer: fallback_provider %r not in REGISTRY (have %s)"
-                " — no failover wired.",
-                fb_name,
-                sorted(REGISTRY.keys()),
-            )
+            if fb_name not in _REPORTED_MISSING_FALLBACKS:
+                _REPORTED_MISSING_FALLBACKS.add(fb_name)
+                log.warning(
+                    "Spawn-Announcer: fallback_provider %r not in REGISTRY (have %s)"
+                    " — no failover wired.",
+                    fb_name,
+                    sorted(REGISTRY.keys()),
+                )
             return None, None
         fb_provider = provider_cls(getattr(ack_cfg.providers, fb_name))
         fb_breaker = CircuitBreaker(

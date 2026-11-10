@@ -1068,8 +1068,10 @@ def _build_registry() -> tuple[AppCommand, ...]:
             id="missions-list",
             title="List missions",
             description=(
-                "List Dodaios-Agent missions and their status, newest first. Set active "
-                "to see only the ones that have not ended yet."
+                "List Dodaios-Agent missions and their status, newest first, one page at a "
+                "time. Set active to see only the ones that have not ended yet, or state "
+                "for specific states. The answer has total (all matches) and next_cursor: "
+                "pass it as cursor for the next page."
             ),
             method="GET",
             path="/api/missions",
@@ -1078,9 +1080,19 @@ def _build_registry() -> tuple[AppCommand, ...]:
                     "type": "boolean",
                     "description": "Only missions still pending, running or waiting.",
                 },
+                "state": {
+                    "type": "string",
+                    "description": (
+                        "Comma-separated mission states, e.g. RUNNING,PENDING or COMPLETED."
+                    ),
+                },
                 "limit": {
-                    "type": "integer", "minimum": 1, "maximum": 100,
-                    "description": "How many missions to return (default 100).",
+                    "type": "integer", "minimum": 1, "maximum": 100, "default": 20,
+                    "description": "How many missions per page (default 20).",
+                },
+                "cursor": {
+                    "type": "string",
+                    "description": "next_cursor of the previous page, for the older ones.",
                 },
             }},
             worker_allowed=True,
@@ -1178,9 +1190,27 @@ def _build_registry() -> tuple[AppCommand, ...]:
         AppCommand(
             id="tasks-list",
             title="List tasks",
-            description="List scheduled and running tasks (agent routines).",
+            description=(
+                "List scheduled and running tasks (agent routines), newest first, one page "
+                "at a time. The answer has total (all matches) and next_cursor: pass it as "
+                "cursor for the next page."
+            ),
             method="GET",
             path="/api/tasks",
+            params={"type": "object", "properties": {
+                "state": {
+                    "type": "string",
+                    "description": "Comma-separated task states, e.g. scheduled,running.",
+                },
+                "limit": {
+                    "type": "integer", "minimum": 1, "maximum": 100, "default": 20,
+                    "description": "How many tasks per page (default 20).",
+                },
+                "cursor": {
+                    "type": "string",
+                    "description": "next_cursor of the previous page, for the older ones.",
+                },
+            }},
             worker_allowed=True,
             ui_section="agents",
             voice_aliases={
@@ -1584,8 +1614,9 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "terminals', 'open two more Codex terminals') — that is a "
                 "request for workspace panes, never for a background worker. "
                 "When the new panes are also meant to DO something, use "
-                "'agentic-ide-fanout' instead, which opens and briefs them in "
-                "one step. Pass count, and agent only when the user named one — "
+                "workspace-orchestrate create (with a prompt) instead, which opens "
+                "and briefs them in one step. Pass count, and agent only when the "
+                "user named one — "
                 "the accepted ids are listed on the parameter itself, and it is "
                 "the only list that is right for this install. Omitted, the new "
                 "panes run whatever the "

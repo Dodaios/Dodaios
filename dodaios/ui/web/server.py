@@ -3386,6 +3386,11 @@ class WebServer:
 
         self.app.state.mission_manager = result["manager"]
         self.app.state.kontrollierer = result["kontrollierer"]
+        # Voice "cancel the mission" must also stop the in-flight run, not just
+        # flip the state: hand the manager the orchestrator's cancel hook.
+        _cancel_hook = getattr(result["kontrollierer"], "cancel_running_mission", None)
+        if callable(_cancel_hook):
+            result["manager"].bind_run_canceller(_cancel_hook)
         self.app.state.missions_budget = result["budget"]
         self.app.state.mission_announcer = result["mission_announcer"]
         # Mission-Bus -> global-bus bridge that re-publishes terminal missions

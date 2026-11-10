@@ -85,7 +85,7 @@ class VoiceChatMirror:
                 tool_calls=tuple(getattr(event, "tool_calls", ()) or ()),
             )
         except Exception as exc:  # noqa: BLE001 — an observer must never break a turn
-            log.debug("voice chat mirror skipped a turn: %s", exc)
+            log.warning("voice chat mirror skipped a turn: %s", exc)
 
     @staticmethod
     def _target_session(svc: Any, call_id: str = "", event: Any = None) -> Any | None:
@@ -110,7 +110,7 @@ class VoiceChatMirror:
             hint = str(getattr(event, "provider", "") or "") if event is not None else ""
             return lead_session(svc, provider_hint=hint)
         except Exception as exc:  # noqa: BLE001
-            log.debug("voice chat mirror could not find the conversation: %s", exc)
+            log.warning("voice chat mirror could not find the conversation: %s", exc)
             return None
 
 

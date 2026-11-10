@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from dodaios.brain.cu_gate import CU_VEHICLE_TOOL_NAMES
 from dodaios.control.cancel import CancelToken
 from dodaios.core.protocols import SupervisorToolGateway, SupervisorToolRequest
+from dodaios.core.work_board import BOARD_SOURCES, board_section
 from dodaios.live.coordination import NAMED_TOOLS
 from dodaios.live.state import LiveLedger
 from dodaios.live.tasks import BackgroundTask, TaskBoard
@@ -75,13 +76,6 @@ _CONTROL_TOOLS = frozenset({"end_call"})
 # After the user moves on, an action that is about to finish still answers its
 # own call; only one that keeps running becomes a background task.
 MOVE_ON_GRACE_S = 0.6
-# Where the user's other running work is read for the one board, by section:
-# the catalog tool that knows it and the arguments for its compact listing.
-_BOARD_SOURCES: tuple[tuple[str, str, dict], ...] = (
-    ("coding_agents", "workspace-orchestrate", {"action": "status"}),
-    ("missions", "missions-list", {"active": True, "limit": 20}),
-    ("team", "society_status", {"board": True}),
-)
 _BOARD_ERROR_CHARS = 200
 _APPROVAL_NEXT_STEP = (
     "Ask the user to approve this action. After an explicit yes, call confirm_action "
@@ -169,28 +163,6 @@ def _numbers_from_text(args: dict, schema: Any) -> dict:
             continue
         fixed[name] = number
     return fixed
-
-
-def _board_section(section: str, output: Any) -> Any:
-    """One source's listing as the board shows it; None when it has another shape."""
-    if section == "coding_agents":
-        if not isinstance(output, dict) or output.get("status") != "ok":
-            return None
-        return {key: output[key] for key in ("counts", "needs_you", "workspaces") if key in output}
-    if section == "missions":
-        response = output.get("response") if isinstance(output, dict) else None
-        missions = response.get("missions") if isinstance(response, dict) else None
-        if not isinstance(missions, list):
-            return None
-        return [
-            {"mission_id": row.get("id"), "state": row.get("state"), "request": row.get("prompt")}
-            for row in missions
-            if isinstance(row, dict)
-        ]
-    if section == "team":
-        agents = output.get("agents") if isinstance(output, dict) else None
-        return agents if isinstance(agents, list) else None
-    return None
 
 
 class LiveTools:
@@ -606,7 +578,7 @@ class LiveTools:
         that fails says so instead of emptying the whole board.
         """
         available = {descriptor.name for descriptor in self.catalog()}
-        sources = [source for source in _BOARD_SOURCES if source[1] in available]
+        sources = [source for source in BOARD_SOURCES if source[1] in available]
         answers = await asyncio.gather(
             *(self.gateway.execute(tool, dict(args), self._request(uuid4()))
               for _section, tool, args in sources),
@@ -621,7 +593,7 @@ class LiveTools:
                 board[section] = {"unavailable": "This part could not be read."}
                 continue
             output = self._result(answer).get("output")
-            rows = _board_section(section, output) if answer.success else None
+            rows = board_section(section, output) if answer.success else None
             board[section] = rows if rows is not None else {
                 "unavailable": str(answer.error or output or "No answer.")[:_BOARD_ERROR_CHARS]
             }

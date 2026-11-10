@@ -372,6 +372,31 @@ class SocietyStore:
         await cur.close()
         return [_row_to_envelope(r) for r in rows]
 
+    async def events_page(
+        self, *, agent_id: str | None = None, before_seq: int | None = None, limit: int = 20
+    ) -> list[SocietyEnvelope]:
+        """One page of the board, newest first: all events, or those of one agent.
+
+        ``before_seq`` is the cursor: only events strictly older than it.
+        """
+        clauses: list[str] = []
+        params: list[Any] = []
+        if agent_id is not None:
+            clauses.append("(from_agent = ? OR to_agent = ? OR to_agent IS NULL)")
+            params.extend([agent_id, agent_id])
+        if before_seq is not None:
+            clauses.append("seq < ?")
+            params.append(int(before_seq))
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        cur = await self.conn.execute(
+            f"SELECT {_EVENT_COLUMNS} FROM society_events{where} "  # noqa: S608 — fixed identifiers, bound values
+            "ORDER BY seq DESC LIMIT ?",
+            (*params, int(limit)),
+        )
+        rows = await cur.fetchall()
+        await cur.close()
+        return [_row_to_envelope(r) for r in rows]
+
     async def get_event(self, event_id: str) -> SocietyEnvelope | None:
         """Read a durable event by its exact id, independently of recent-history limits."""
         cur = await self.conn.execute(

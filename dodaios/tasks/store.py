@@ -432,8 +432,12 @@ class TaskStore:
         state_filter: str | list[str] | None = None,
         *,
         limit: int = 100,
+        before: tuple[int, str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Returns a list of task rows (without steps), filtered by state.
+        """Returns a list of task rows (without steps), newest first, filtered by state.
+
+        ``before`` is a ``(created_at_ns, id)`` keyset position: only rows
+        strictly older than it are returned (the page after a cursor).
 
         ``spec_json`` is included so the API can derive spec-level summary
         fields (tags, created_by, interval) without a second query per row.
@@ -444,21 +448,38 @@ class TaskStore:
             "created_at_ns, started_at_ns, finished_at_ns, attempts, last_error, "
             "spec_json FROM tasks"
         )
-        params: list[Any] = []
-        if state_filter is not None:
-            if isinstance(state_filter, str):
-                sql += " WHERE state = ?"
-                params.append(state_filter)
-            else:
-                placeholders = ",".join(["?"] * len(state_filter))
-                sql += f" WHERE state IN ({placeholders})"
-                params.extend(state_filter)
-        sql += " ORDER BY created_at_ns DESC LIMIT ?"
+        where, params = self._state_where(state_filter)
+        if before is not None:
+            where.append("(created_at_ns < ? OR (created_at_ns = ? AND id < ?))")
+            params.extend([before[0], before[0], before[1]])
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY created_at_ns DESC, id DESC LIMIT ?"
         params.append(limit)
         cur = await conn.execute(sql, tuple(params))
         rows = await cur.fetchall()
         await cur.close()
         return [dict(r) for r in rows]
+
+    async def count(self, state_filter: str | list[str] | None = None) -> int:
+        """How many tasks the state filter matches."""
+        conn = self._require_conn()
+        where, params = self._state_where(state_filter)
+        sql = "SELECT COUNT(*) FROM tasks"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        cur = await conn.execute(sql, tuple(params))
+        row = await cur.fetchone()
+        await cur.close()
+        return int(row[0]) if row else 0
+
+    @staticmethod
+    def _state_where(state_filter: str | list[str] | None) -> tuple[list[str], list[Any]]:
+        if state_filter is None:
+            return [], []
+        if isinstance(state_filter, str):
+            return ["state = ?"], [state_filter]
+        return [f"state IN ({','.join(['?'] * len(state_filter))})"], list(state_filter)
 
     async def get(self, task_id: str) -> dict[str, Any] | None:
         """Returns the full task (incl. steps), or None."""

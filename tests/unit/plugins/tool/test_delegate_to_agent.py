@@ -132,7 +132,8 @@ async def test_status_answers_from_the_board(runtime):
     rt, _ = runtime
     status = SocietyStatusTool(runtime_resolver=lambda: rt)
     team = await status.execute({"turn_language": "en"}, _ctx("who is on the team"))
-    assert team.output == "Your agents: Archivist, Scout."
+    assert team.success
+    assert [row["name"] for row in team.output["agents"]] == ["Archivist", "Scout"]
     idle = await status.execute(
         {"agent": "archivist", "turn_language": "en"}, _ctx("what is archivist doing")
     )
@@ -366,7 +367,9 @@ async def test_roster_names_do_not_claim_paused_agents_are_active(runtime):
     await rt.roster.update("scout", {"state": "paused"})
     tool = SocietyStatusTool(runtime_resolver=lambda: rt)
     result = await tool.execute({"turn_language": "en"}, _ctx())
-    assert result.output == "Your agents: Archivist, Scout."
+    rows = {row["name"]: row for row in result.output["agents"]}
+    assert set(rows) == {"Archivist", "Scout"}
+    assert rows["Scout"]["roster_state"] == "paused" and "roster_state" not in rows["Archivist"]
     await rt.roster.update("scout", {"state": "archived"})
     await rt.roster.update("archivist", {"state": "archived"})
     empty = await tool.execute({"turn_language": "en"}, _ctx())

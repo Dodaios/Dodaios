@@ -194,6 +194,8 @@ class CodingSessionControl:
                 else "uncertain",
                 "input_written": True,
                 "completed": False,
+                # Handle for job_status / await_jobs; set when the agent took the prompt.
+                **({"job_id": term.last_job_id} if str(term.last_job_id or "") else {}),
                 **(
                     {"mid_turn": True,
                      "note": "Typed into the running turn; the agent takes it at its next step."}

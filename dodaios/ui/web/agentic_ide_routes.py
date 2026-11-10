@@ -5299,6 +5299,11 @@ def _delivery_payload(delivery: object) -> dict:
         "terminal": delivery.terminal,  # type: ignore[attr-defined]
         "delivered": delivery.delivered,  # type: ignore[attr-defined]
         "submitted": delivery.submitted,  # type: ignore[attr-defined]
+        **(
+            {"job_id": delivery.job_id}  # type: ignore[attr-defined]
+            if getattr(delivery, "job_id", "")
+            else {}
+        ),
         "files": list(delivery.files),  # type: ignore[attr-defined]
         "composed_by": delivery.composed_by,  # type: ignore[attr-defined]
         "reason_code": delivery.reason_code,  # type: ignore[attr-defined]
@@ -5526,6 +5531,7 @@ async def terminal_prompt(
             "files": files,
             "prompts_sent": term.prompts_sent,
             "submitted": term.submitted,
+            **({"job_id": term.last_job_id} if term.last_job_id else {}),
             "detail": (
                 ""
                 if term.submitted is True
