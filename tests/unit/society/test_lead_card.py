@@ -7,7 +7,8 @@ society. The card is the fix, and these tests pin its contract:
 
 1. a created agent is on the very next card (no restart, no REST listing);
 2. the card is deterministic — same roster, same bytes;
-3. archived agents vanish, paused ones say so, busy ones say so;
+3. archived agents vanish and paused ones say so (live busy state and seat
+   health ride in the per-turn tail, not the cached card);
 4. the card names each agent's hands and quotes its brief;
 5. the rule block says what "agent" means and where the old system went;
 6. the realtime helper hands the planner the live names;
@@ -28,7 +29,9 @@ from dodaios.society.events import MsgType, SocietyEnvelope
 from dodaios.society.lead_card import (
     CARD_TITLE,
     lead_card_section,
+    lead_live_tail,
     render_lead_card,
+    render_live_tail,
     society_agent_names,
 )
 from dodaios.society.runtime import SocietyRuntime
@@ -95,7 +98,7 @@ async def test_a_created_agent_is_on_the_next_card(rt: SocietyRuntime):
 
     after = lead_card_section(lead_name="George")
     assert after.startswith(CARD_TITLE)
-    assert "- Gmail agent — Mailbox · specialist · idle · hands: gmail" in after
+    assert "- Gmail agent — Mailbox · specialist · active · hands: gmail" in after
     assert 'brief: "Handle my mail. Never delete anything."' in after
     assert "You are George, the lead" in after
     assert "Roster epoch: " in after
@@ -120,7 +123,9 @@ async def test_archived_vanish_paused_and_busy_say_so(rt: SocietyRuntime):
     card = lead_card_section()
     assert "- Old" not in card
     assert "- Builder · specialist · paused" in card
-    assert "- Scout · specialist · busy (1 run)" in card
+    # Busy state is live: it is NOT in the cached card, it is in the tail.
+    assert "busy" not in card
+    assert "Busy now: Scout (1 run)" in lead_live_tail()
 
 
 def test_render_lists_hands_by_grant_mode():
@@ -159,10 +164,10 @@ def test_render_lists_hands_by_grant_mode():
         terminals=("T1", "T2"),
     )
     assert "- Jarvis" not in card  # the lead never lists itself as a teammate
-    assert "- Everything · specialist · idle · hands: every connected tool" in card
-    assert "- Picky · specialist · idle · hands: Calendar" in card  # disconnected hidden
-    assert "- Bare · specialist · idle · hands: none granted yet" in card
-    assert "- Focused · specialist · idle · hands: Gmail" in card
+    assert "- Everything · specialist · active · hands: every connected tool" in card
+    assert "- Picky · specialist · active · hands: Calendar" in card  # disconnected hidden
+    assert "- Bare · specialist · active · hands: none granted yet" in card
+    assert "- Focused · specialist · active · hands: Gmail" in card
     assert (
         "Coding terminals open in the Agentic IDE right now (not society agents): T1, T2." in card
     )
@@ -331,3 +336,31 @@ async def test_direct_agent_chat_after_old_assignment_stays_silent(rt: SocietyRu
     )
     assert not [e for e in published if type(e).__name__ == "AnnouncementRequested"]
     assert not rt.chat.notices  # type: ignore[attr-defined]
+
+
+async def test_the_card_stays_byte_stable_while_a_run_starts(rt: SocietyRuntime):
+    await rt.roster.create(name="Scout", focus=["core:search-web"])
+    before = lead_card_section()
+    rt.scheduler.note_run_started("run-1", "scout")
+    assert lead_card_section() == before
+
+
+def test_live_tail_lists_busy_and_troubled_seats_only():
+    agents = [
+        SimpleNamespace(agent_id="lead", name="George", state="active"),
+        SimpleNamespace(agent_id="a1", name="Scout", state="active"),
+        SimpleNamespace(agent_id="a2", name="Mia", state="active"),
+        SimpleNamespace(agent_id="a3", name="Quiet", state="active"),
+        SimpleNamespace(agent_id="a4", name="Away", state="paused"),
+    ]
+    tail = render_live_tail(
+        agents,
+        lead_id="lead",
+        busy=lambda agent_id: 2 if agent_id == "a1" else 0,
+        health=lambda agent: "usage limit, back around 15:00" if agent.name == "Mia" else "",
+    )
+    assert tail == (
+        "[Team, live] Busy now: Scout (2 runs). "
+        "Seat health (from real calls): Mia: usage limit, back around 15:00."
+    )
+    assert render_live_tail(agents, lead_id="lead", busy=lambda _i: 0) == ""

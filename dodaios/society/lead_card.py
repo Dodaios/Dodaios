@@ -41,7 +41,9 @@ log = logging.getLogger(__name__)
 __all__ = [
     "CARD_TITLE",
     "lead_card_section",
+    "lead_live_tail",
     "render_lead_card",
+    "render_live_tail",
     "roster_epoch",
     "society_agent_names",
 ]
@@ -72,11 +74,10 @@ def roster_epoch(agents: Sequence[AgentRecord]) -> str:
     return digest[:12]
 
 
-def _state_word(agent: AgentRecord, running: int) -> str:
-    state = str(agent.state)
-    if state != "active":
-        return state
-    return f"busy ({running} run{'s' if running != 1 else ''})" if running > 0 else "idle"
+def _state_word(agent: AgentRecord) -> str:
+    """The roster state only. Live busy state and seat health ride in the
+    per-turn tail (:func:`render_live_tail`), so this card stays byte-stable."""
+    return str(agent.state)
 
 
 def _hands(agent: AgentRecord, by_id: dict[str, CapabilityRow]) -> str:
@@ -108,7 +109,7 @@ def render_lead_card(
     *,
     lead_name: str = DEFAULT_ASSISTANT_NAME,
     lead_id: str = LEAD_AGENT_ID,
-    busy: Callable[[str], int] | None = None,
+    busy: Callable[[str], int] | None = None,  # noqa: ARG001 — live state moved to the tail
     terminals: Sequence[str] = (),
     teams: Sequence[Mapping[str, Any]] = (),
 ) -> str:
@@ -133,11 +134,10 @@ def render_lead_card(
     if team:
         lines = ["Agents (name — title · tier · state · hands):"]
         for agent in team:
-            running = busy(agent.agent_id) if busy is not None else 0
             line = f"- {agent.name}"
             if agent.title.strip():
                 line += f" — {agent.title.strip()}"
-            line += f" · {agent.tier} · {_state_word(agent, running)} · {_hands(agent, by_id)}"
+            line += f" · {agent.tier} · {_state_word(agent)} · {_hands(agent, by_id)}"
             line += _brief(agent.description)
             lines.append(line)
         parts.append("\n".join(lines))
@@ -151,6 +151,70 @@ def render_lead_card(
         )
     parts.append(f"Roster epoch: {roster_epoch(team)}")
     return "\n\n".join(parts)
+
+
+def render_live_tail(
+    agents: Sequence[AgentRecord],
+    *,
+    lead_id: str = LEAD_AGENT_ID,
+    busy: Callable[[str], int] | None = None,
+    health: Callable[[AgentRecord], str] | None = None,
+) -> str:
+    """The live half of the team card: who is busy and which seat is in trouble.
+
+    Rides in the per-turn tail, never in the cached system prompt. Healthy,
+    idle agents are left out, so a quiet team adds nothing. ``""`` when there
+    is nothing to say.
+    """
+    team = sorted(
+        (a for a in agents if a.agent_id != lead_id and str(a.state) == "active"),
+        key=lambda a: a.name.casefold(),
+    )
+    busy_rows: list[str] = []
+    health_rows: list[str] = []
+    for agent in team:
+        running = busy(agent.agent_id) if busy is not None else 0
+        if running > 0:
+            busy_rows.append(f"{agent.name} ({running} run{'s' if running != 1 else ''})")
+        line = health(agent) if health is not None else ""
+        if line:
+            health_rows.append(f"{agent.name}: {line}")
+    parts: list[str] = []
+    if busy_rows:
+        parts.append("Busy now: " + ", ".join(busy_rows) + ".")
+    if health_rows:
+        parts.append("Seat health (from real calls): " + "; ".join(health_rows) + ".")
+    return "[Team, live] " + " ".join(parts) if parts else ""
+
+
+def _seat_health_line(agent: AgentRecord) -> str:
+    """The short health phrase of an agent's own model seat, or ``""`` when fine."""
+    provider = str(getattr(agent, "provider", "") or "")
+    if not provider:
+        return ""
+    from dodaios.brain.seat_health import get_seat_health
+
+    return get_seat_health().health_line(
+        provider, str(getattr(agent, "account_id", "") or ""),
+        model=str(getattr(agent, "model", "") or ""),
+    )
+
+
+def lead_live_tail() -> str:
+    """The live team state for THIS process's society, or ``""``. Sync and IO-free."""
+    rt = current_runtime()
+    if rt is None:
+        return ""
+    try:
+        return render_live_tail(
+            rt.roster.snapshot(),
+            lead_id=rt.lead_id,
+            busy=rt.scheduler.active_runs,
+            health=_seat_health_line,
+        )
+    except Exception:  # noqa: BLE001 — a convenience; the turn runs without it
+        log.debug("society: live team tail unavailable", exc_info=True)
+        return ""
 
 
 def _team_lines(
@@ -246,7 +310,6 @@ def lead_card_section(*, lead_name: str = DEFAULT_ASSISTANT_NAME) -> str:
     try:
         agents = rt.roster.snapshot()
         catalog = rt.catalog()
-        busy = rt.scheduler.active_runs
         teams = rt.team_leads.teams_snapshot()
     except Exception:  # noqa: BLE001 — the card is a convenience; the turn must run without it
         log.warning("society: lead card unavailable", exc_info=True)
@@ -256,7 +319,6 @@ def lead_card_section(*, lead_name: str = DEFAULT_ASSISTANT_NAME) -> str:
         catalog,
         lead_name=lead_name,
         lead_id=rt.lead_id,
-        busy=busy,
         terminals=_terminal_names(),
         teams=teams,
     )

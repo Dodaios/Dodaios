@@ -45,6 +45,7 @@ from uuid import UUID, uuid4
 
 # Real turn outcomes feed the passive health record behind the status dots.
 from dodaios.brain import provider_health_ledger as _health_ledger
+from dodaios.brain import seat_health as _seat_health
 from dodaios.brain.local_context import LOCAL_CONTEXT_MARKER
 
 # ONE canonical billing/budget/quota marker list, shared with the test-badge
@@ -4111,11 +4112,16 @@ class BrainManager:
         _turn_override = _TURN_OVERRIDE.get()
         if _turn_override is None or not _turn_override.system_extra:
             try:
-                from dodaios.society.lead_card import lead_card_section
+                from dodaios.society.lead_card import lead_card_section, lead_live_tail
 
                 _lead_card = lead_card_section(lead_name=name)
                 if _lead_card:
                     parts.append(_lead_card)
+                if not self._cache_optimized():
+                    # Cache-optimized turns carry the live state in the tail.
+                    _live = lead_live_tail()
+                    if _live:
+                        parts.append(_live)
             except Exception:  # noqa: BLE001 — the card is a convenience, never a turn breaker
                 log.debug("lead card section omitted", exc_info=True)
 
@@ -4294,6 +4300,10 @@ class BrainManager:
         upcoming = self._upcoming_block()
         if upcoming:
             parts.append(upcoming)
+        if private is None or not private.system_extra:
+            from dodaios.society.lead_card import lead_live_tail
+
+            parts.append(lead_live_tail())
         agentic_block = self._agentic_focus_block()
         if agentic_block:
             parts.append(agentic_block)
@@ -11462,6 +11472,15 @@ class BrainManager:
             # is not its truth.
             if turn_override is None and prov_name in self._dead_providers:
                 continue
+            # A FALLBACK whose key or login real calls found dead (a persisted
+            # verdict with a TTL) is not re-walked. The first entry is the
+            # owner's own choice: it always runs, and its failure is reported.
+            if (
+                turn_override is None
+                and idx > 0
+                and _seat_health.fallback_is_known_dead(prov_name, model)
+            ):
+                continue
             # Model-scoped dead-list: this exact (provider, model) took a
             # billing rejection earlier THIS turn but the provider itself
             # was kept alive because another model was still untried — see
@@ -13272,6 +13291,7 @@ class BrainManager:
         from dodaios.brain.background_policy import BackgroundDeferred, background_providers
         from dodaios.core.task_agent import dual_seat_subscription
 
+        attempts = _seat_health.wait_out_cooling_seats(attempts)
         if selected is not None:
             provider = str(getattr(selected, "provider", "") or "")
             if dual_seat_subscription(provider) is None:
