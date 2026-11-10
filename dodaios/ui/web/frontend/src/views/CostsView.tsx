@@ -55,6 +55,7 @@ import {
   TableRow,
 } from "@/components/extensions/primitives";
 import { CostTrendPanel } from "@/components/costs/CostTrendPanel";
+import { AgentSpendPanel, agentDisplayName } from "@/components/costs/AgentSpendPanel";
 import {
   dayBoundsMs,
   formatBucketFull,
@@ -94,6 +95,7 @@ import {
 } from "@/hooks/useCosts";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { useEventStore } from "@/store/events";
 
 type Dimension = "provider" | "model" | "role" | "surface";
 type Currency = "usd" | "eur";
@@ -105,6 +107,7 @@ const ENTRY_PAGE = 50;
 export function CostsView() {
   const t = useT();
   const queryClient = useQueryClient();
+  const assistantName = useEventStore((s) => s.assistantName) ?? "";
   const [filters, setFilters] = useState<CostFilters>(EMPTY_FILTERS);
   const [currency, setCurrency] = useState<Currency>("usd");
   const [dimension, setDimension] = useState<Dimension>("provider");
@@ -173,6 +176,7 @@ export function CostsView() {
       providers: [],
       models: [],
       refs: [],
+      agents: [],
     }));
   };
 
@@ -297,6 +301,11 @@ export function CostsView() {
           labelFor={(value) =>
             data?.top_refs.find((r) => r.key === value)?.label || `${value.slice(0, 8)}…`
           }
+          agentLabelFor={(value) => {
+            const row = data?.by_agent?.find((r) => r.key === value);
+            if (!row) return value;
+            return row.lead ? assistantName || agentDisplayName(row) : agentDisplayName(row);
+          }}
           onRemove={(key, value) => toggle(key, value)}
           onClear={() => setFilters((f) => ({ ...EMPTY_FILTERS, days: f.days }))}
         />
@@ -334,14 +343,15 @@ export function CostsView() {
         (filters.providers.length > 0 ||
           filters.models.length > 0 ||
           filters.roles.length > 0 ||
-          filters.refs.length > 0) ? (
+          filters.refs.length > 0 ||
+          filters.agents.length > 0) ? (
           <EmptyRow>
             <span>{t("costs_view.empty_filtered")}</span>{" "}
             <button
               type="button"
               className="underline underline-offset-2 hover:text-foreground"
               onClick={() =>
-                setFilters((f) => ({ ...f, providers: [], models: [], roles: [], refs: [] }))
+                setFilters((f) => ({ ...f, providers: [], models: [], roles: [], refs: [], agents: [] }))
               }
             >
               {t("costs_view.empty_filtered_action")}
@@ -439,6 +449,19 @@ export function CostsView() {
             loading={summary.isLoading}
           />
         </div>
+
+        {/* Who spent it: the assistant itself and each of its agents.
+            Held back while a backend from before `by_agent` answers: an
+            empty list there would claim no agent spent anything. */}
+        {summary.isLoading || data?.by_agent ? (
+          <AgentSpendPanel
+            rows={data?.by_agent ?? []}
+            active={filters.agents}
+            onToggle={(id) => toggle("agents", id)}
+            money={money}
+            loading={summary.isLoading}
+          />
+        ) : null}
 
         {/* Trend ------------------------------------------------------- */}
         <CostTrendPanel
@@ -753,6 +776,7 @@ const CHIP_KEYS: { key: keyof CostFilters; labelKey: string }[] = [
   { key: "roles", labelKey: "costs_view.dim_role" },
   { key: "surfaces", labelKey: "costs_view.dim_surface" },
   { key: "refs", labelKey: "costs_view.dim_ref" },
+  { key: "agents", labelKey: "costs_view.dim_agent" },
 ];
 
 function ActiveFilterChips({
@@ -760,12 +784,15 @@ function ActiveFilterChips({
   onRemove,
   onClear,
   labelFor,
+  agentLabelFor,
 }: {
   filters: CostFilters;
   onRemove: (key: keyof CostFilters, value: string) => void;
   onClear: () => void;
   /** Renders an opaque id (a session) as the words the user recognises. */
   labelFor?: (value: string) => string;
+  /** Renders an agent id as the agent's name. */
+  agentLabelFor?: (value: string) => string;
 }) {
   const t = useT();
   if (!hasActiveFilters(filters)) return null;
@@ -781,7 +808,11 @@ function ActiveFilterChips({
           >
             <span className="text-muted-foreground">{t(labelKey)}</span>
             <span className="font-medium">
-              {key === "refs" && labelFor ? labelFor(value) : value}
+              {key === "refs" && labelFor
+                ? labelFor(value)
+                : key === "agents" && agentLabelFor
+                  ? agentLabelFor(value)
+                  : value}
             </span>
             <X className="h-3 w-3 text-muted-foreground" />
           </button>

@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import Any
 
 from .ledger import DB_NAME as LEDGER_DB_NAME
-from .ledger import first_call_ms, read_usage
+from .ledger import AGENT_LABEL_PREFIX, first_call_ms, read_usage
 from .model import (
+    LEAD_AGENT,
     MISSION_SUBSCRIPTION_CLIS,
     OPENAI_CONVENTION_RUNNERS,
     ROLE_AGENT,
@@ -42,6 +43,7 @@ from .model import (
     SURFACE_VOICE,
     CostEntry,
     price_entry,
+    society_agent_of,
 )
 
 log = logging.getLogger(__name__)
@@ -297,6 +299,7 @@ def _voice_entry(
         price_source=source,
         ref_id=ref_id,
         label=label,
+        agent=LEAD_AGENT,
     )
 
 
@@ -346,9 +349,8 @@ def _agent_chat_entries(
             return
         sessions: dict[str, sqlite3.Row] = {}
         if _has_table(conn, "agent_chat_sessions"):
-            for row in conn.execute(
-                "SELECT session_id, title, provider, model FROM agent_chat_sessions"
-            ):
+            # ``SELECT *``: a store from before the ``surface`` column still reads.
+            for row in conn.execute("SELECT * FROM agent_chat_sessions"):
                 sessions[str(row["session_id"])] = row
 
         # ``turn_started`` is where the runner is named, and it is the only
@@ -439,11 +441,29 @@ def _agent_chat_entries(
                 price_source=source,
                 ref_id=str(row["session_id"] or ""),
                 label=_clip(session["title"] if session is not None else ""),
+                agent=_chat_agent(str(row["session_id"] or ""), session),
             )
     except sqlite3.Error as exc:
         log.warning("cost read model: agent chat source failed (%s)", exc)
     finally:
         conn.close()
+
+
+#: Chat surfaces where the assistant itself answers: its one conversation and
+#: the Local models setup chat. Coding threads (``agent``) and the IDE side
+#: chat (``side``) belong to no Dodaios agent.
+_LEAD_CHAT_SURFACES = frozenset({"jarvis", "local-models"})
+
+
+def _chat_agent(session_id: str, session: sqlite3.Row | None) -> str:
+    """Which Dodaios agent a chat session's turns belong to, if any."""
+    agent = society_agent_of(session_id)
+    if agent:
+        return agent
+    surface = ""
+    if session is not None and "surface" in session.keys():
+        surface = str(session["surface"] or "")
+    return LEAD_AGENT if surface in _LEAD_CHAT_SURFACES else ""
 
 
 # ---------------------------------------------------------------------------
@@ -538,6 +558,9 @@ def _mission_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterato
                 price_source=source,
                 ref_id=mission_id,
                 label=prompts.get(mission_id, ""),
+                # missions.db does not record who asked; the board files an
+                # unowned mission under the lead too (society/bridge.py).
+                agent=LEAD_AGENT,
             )
     except sqlite3.Error as exc:
         log.warning("cost read model: mission source failed (%s)", exc)
@@ -608,6 +631,7 @@ def _speech_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterator
                 label=_speech_label(stage, chars, audio_ms),
                 chars=chars,
                 audio_ms=int(audio_ms),
+                agent=LEAD_AGENT,
             )
     except sqlite3.Error as exc:
         log.warning("cost read model: speech source failed (%s)", exc)
@@ -732,6 +756,12 @@ def _ledger_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterator
         )
         # A Hermes / OpenClaw agent's model call is agent work, not background.
         runtime = row.caller == RUNTIME_CALLER
+        # The gateway labels each call ``agent:<id>``; older rows carry none.
+        runtime_agent = (
+            row.label[len(AGENT_LABEL_PREFIX):]
+            if runtime and row.label.startswith(AGENT_LABEL_PREFIX)
+            else ""
+        )
         yield CostEntry(
             ts_ms=row.ts_ms,
             surface=SURFACE_AGENT_CHAT if runtime else SURFACE_BACKGROUND,
@@ -745,9 +775,11 @@ def _ledger_entries(path: Path | None, since_ms: int, until_ms: int) -> Iterator
             price_source=source,
             ref_id="",
             label=_clip(
-                row.label or ("Hermes / OpenClaw agent" if runtime else row.caller)
+                ("Hermes / OpenClaw agent" if runtime else row.label or row.caller)
                 or "background"
             ),
+            # A background job is the assistant's own housekeeping.
+            agent=runtime_agent if runtime else LEAD_AGENT,
         )
 
 

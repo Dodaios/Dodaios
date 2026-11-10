@@ -155,6 +155,9 @@ class CostReport:
     by_model: list[dict[str, Any]]
     by_role: list[dict[str, Any]]
     by_surface: list[dict[str, Any]]
+    #: Spend per Dodaios agent (roster id; the lead is ``jarvis``). Work no
+    #: agent owns (coding threads, the Agentic IDE) is left out, not lumped in.
+    by_agent: list[dict[str, Any]]
     series: list[dict[str, Any]]
     top_refs: list[dict[str, Any]]
     models: list[dict[str, Any]]
@@ -172,6 +175,7 @@ class CostReport:
             "by_model": self.by_model,
             "by_role": self.by_role,
             "by_surface": self.by_surface,
+            "by_agent": self.by_agent,
             "series": self.series,
             "top_refs": self.top_refs,
             "models": self.models,
@@ -187,6 +191,7 @@ def filter_entries(
     roles: set[str] | None = None,
     surfaces: set[str] | None = None,
     refs: set[str] | None = None,
+    agents: set[str] | None = None,
     search: str = "",
     billing: str = "all",
 ) -> list[CostEntry]:
@@ -207,6 +212,8 @@ def filter_entries(
         if surfaces and e.surface not in surfaces:
             return False
         if refs and e.ref_id not in refs:
+            return False
+        if agents and e.agent not in agents:
             return False
         if billing == "billed" and e.price_source == "subscription":
             return False
@@ -231,6 +238,7 @@ def build_report(
     models: dict[str, Bucket] = {}
     roles: dict[str, Bucket] = {}
     surfaces: dict[str, Bucket] = {}
+    agents: dict[str, Bucket] = {}
     series: dict[str, Bucket] = {}
     refs: dict[str, Bucket] = {}
     ref_labels: dict[str, str] = {}
@@ -266,6 +274,8 @@ def build_report(
         _bucket(models, e.model or f"{e.provider} (unnamed)").add(e, member=e.provider)
         _bucket(roles, e.role).add(e, member=e.provider)
         _bucket(surfaces, e.surface).add(e, member=e.role)
+        if e.agent:
+            _bucket(agents, e.agent).add(e, member=e.model or e.provider)
         _bucket(series, _stamp(e.ts_ms, hourly)).add(e, member=e.role)
 
         if e.ref_id:
@@ -311,6 +321,7 @@ def build_report(
         by_model=_ranked(models, total_cost, total_tokens, top_n),
         by_role=_ranked(roles, total_cost, total_tokens, len(roles) or 1),
         by_surface=_ranked(surfaces, total_cost, total_tokens, len(surfaces) or 1),
+        by_agent=_ranked(agents, total_cost, total_tokens, len(agents) or 1),
         series=_series(series, total_cost, total_tokens, hourly),
         top_refs=[
             {

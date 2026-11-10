@@ -88,6 +88,24 @@ SURFACES: tuple[str, ...] = (
     SURFACE_BACKGROUND,
 )
 
+#: The lead agent's roster id (``dodaios.society.roster.LEAD_AGENT_ID``),
+#: mirrored here so the read model never imports the society runtime. Every
+#: entry the assistant itself spent (voice, its own chat, speech, background
+#: jobs, missions it delegated) is filed under it.
+LEAD_AGENT = "jarvis"
+#: Prefix of every chat session a Dodaios agent runs in: ``society:<id>``,
+#: ``society:<id>:routine:…`` for a routine run, ``society:<target>:with:<sender>``
+#: for a direct message between two. Roster ids never contain a colon.
+SOCIETY_SESSION_PREFIX = "society:"
+
+
+def society_agent_of(session_id: str) -> str:
+    """The agent id a ``society:`` chat session belongs to, else ``""``."""
+    if not session_id.startswith(SOCIETY_SESSION_PREFIX):
+        return ""
+    return session_id[len(SOCIETY_SESSION_PREFIX):].split(":", 1)[0].strip()
+
+
 # The ledger caller of every model call a Hermes / OpenClaw agent makes
 # through Jarvis' model gateway, and the chat runners those agents run on.
 # Once the gateway metered its calls, its ledger rows are the bill for those
@@ -181,6 +199,10 @@ class CostEntry:
     #: them because a character and a token are different units (BUG-177).
     chars: int = 0
     audio_ms: int = 0
+    #: Which Dodaios agent spent it: a roster id, :data:`LEAD_AGENT` for the
+    #: assistant itself, ``""`` for work no agent owns (coding threads, the
+    #: Agentic IDE).
+    agent: str = ""
 
     @property
     def tokens_total(self) -> int:
@@ -212,6 +234,7 @@ class CostEntry:
             "label": self.label,
             "chars": self.chars,
             "audio_ms": self.audio_ms,
+            "agent": self.agent,
         }
 
 
