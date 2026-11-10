@@ -541,6 +541,42 @@ def dependency_check_passes(cmd: list[str], *, label: str) -> bool:
     return True
 
 
+#: Pause before the one automatic retry of a failed ``pip install``. A dropped
+#: connection or a wheel an antivirus scanner still holds open (a Windows
+#: "Access is denied" / "used by another process" on a fresh file) usually
+#: clears within seconds; a real failure fails the same way twice.
+PIP_RETRY_PAUSE_S = 4.0
+
+#: Where the install troubleshooting lives (public docs).
+INSTALL_HELP_URL = (
+    "https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/"
+    "install-dodaios.md#troubleshooting"
+)
+
+
+def _retry_pip_install(cmd: list[str], *, label: str) -> int:
+    """Run a failed ``pip install`` once more. ``pip install`` is idempotent."""
+    import time  # noqa: PLC0415 — only the failure path needs it
+
+    note(
+        "retrying once: a dropped connection or a file briefly locked by "
+        "antivirus often clears up"
+    )
+    time.sleep(PIP_RETRY_PAUSE_S)
+    return run_quiet(cmd, label=f"{label} (retry)", cwd=repo_root())
+
+
+def print_pip_failure_help() -> None:
+    """Say what usually stops this step and where the fixes are written down."""
+    note("check your connection and free disk space, then run the installer again.")
+    if sys.platform == "win32":
+        note(
+            "if your antivirus quarantined or blocked a file, restore it and allow "
+            "the Dodaios folder, then run the installer again."
+        )
+    note(f"more help: {INSTALL_HELP_URL}")
+
+
 def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: bool) -> None:
     from scripts.native_crypto_index import pip_options
 
@@ -611,7 +647,10 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
             rc = 0 if dependency_check_passes(cmd, label=label) else 1
         else:
             rc = run_quiet(cmd, label=label, cwd=repo_root())
+            if rc != 0 and cmd[len(pip)] == "install":
+                rc = _retry_pip_install(cmd, label=label)
         if rc != 0:
+            print_pip_failure_help()
             # The advertised desktop install is the [full] profile. Continuing
             # after that profile fails would advertise a ready app without the
             # microphone, macOS bridge, or local-voice dependencies it needs.

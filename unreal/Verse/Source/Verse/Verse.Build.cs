@@ -13,5 +13,7 @@ public class Verse : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] { "GameplayAbilities", "GameplayTags", "GameplayTasks" });
 		// The duel autopilot walks nav paths; the duel subsystem writes its stats as JSON.
 		PrivateDependencyModuleNames.AddRange(new string[] { "NavigationSystem", "Json", "InputCore" });
+		// The arena graybox builds its breach frames (mesh and simple collision) at runtime.
+		PrivateDependencyModuleNames.AddRange(new string[] { "MeshDescription", "StaticMeshDescription", "PhysicsCore" });
 	}
 }

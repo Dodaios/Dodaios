@@ -369,6 +369,12 @@ def fresh_user_env(
     # case-insensitive even though a supplied test/POSIX mapping may not be.
     for transient in [key for key in env if key.upper() == WINDOWS_BRANDED_LAUNCH_ENV_VAR.upper()]:
         del env[transient]
+    # The folders this process prepended to its PATH must not pile up from one
+    # restart to the next (see ``without_repeats``).
+    from dodaios.core.path_augment import without_repeats
+
+    for name in [key for key in env if key.upper() == "PATH"]:
+        env[name] = without_repeats(env[name])
     persisted = _read_persisted()
     if persisted is None:
         return env

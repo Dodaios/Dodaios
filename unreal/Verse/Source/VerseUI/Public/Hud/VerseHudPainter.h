@@ -113,6 +113,16 @@ struct VERSEUI_API FVerseHudOptions
 	static FLinearColor CrosshairColourByName(const FString& Name);
 };
 
+/** Key names on the loadout chips (keys.json slot_* and gadget_*); empty = the default key. */
+struct VERSEUI_API FVerseHudKeys
+{
+	FText Primary;
+	FText Secondary;
+	FText Melee;
+	FText GadgetA;
+	FText GadgetB;
+};
+
 /** Everything one HUD frame depends on. */
 struct VERSEUI_API FVerseHudFrame
 {
@@ -130,6 +140,7 @@ struct VERSEUI_API FVerseHudFrame
 	int32 KillCamKillerId = INDEX_NONE;
 	/** Key name shown on the skip hint, for example "Space". */
 	FText SkipKeyName;
+	FVerseHudKeys Keys;
 	bool bReducedMotion = false;
 	/** Hide the duel blocks outside a duel (only the crosshair-free deck HUD stays). */
 	bool bInDuel = true;
@@ -155,8 +166,8 @@ private:
 	static void PaintCrosshair(const FVerseHudFrame& Frame, FVerseHudDrawList& Out);
 	static void PaintMarkers(const FVerseHudFrame& Frame, FVerseHudDrawList& Out);
 	static void PaintDamage(const FVerseHudFrame& Frame, FVerseHudDrawList& Out);
-	static void PaintVitals(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
-	static void PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
+	/** Health, weapon list and gadgets as one compact block in the bottom-right corner. */
+	static void PaintLoadout(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintScore(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintFeed(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintCentre(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
