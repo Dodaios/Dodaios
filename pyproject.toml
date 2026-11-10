@@ -824,6 +824,13 @@ navigate = "dodaios.plugins.tool.navigate:NavigateTool"
 # set on every turn that did not ask (dodaios/brain/artifact_gate.py). Never in
 # a worker set (AP-5/AP-14).
 create-artifact = "dodaios.plugins.tool.create_artifact:CreateArtifactTool"
+# Living pages (2026-11-10) - a page in the Artifacts section the lead keeps
+# current through one routine of its own (dodaios/artifacts/living*.py), and
+# the result card a multi-app request ends with. Router-tier; living-page is
+# monitor (one page + one own routine), show-result-card is safe (a card in
+# the conversation). Neither spawns (AP-5/AP-14). ADR-0011 amendment "Living pages".
+living-page = "dodaios.plugins.tool.living_page:LivingPageTool"
+show-result-card = "dodaios.plugins.tool.result_card:ResultCardTool"
 # Command Registry executor (2026-07-09) — run ONE curated app command
 # (provider switch, wake word, language, volume, missions/tasks, restart)
 # through the SAME REST endpoint the UI uses, in-process via ASGI. Enum-

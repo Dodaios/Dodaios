@@ -1948,6 +1948,10 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # dodaios/brain/artifact_gate.py), because the mandate is that an
             # artifact is asked for, never volunteered.
             "create-artifact",
+            # Living pages (2026-11-10): a page the lead keeps current and the
+            # result card of a multi-app request. Never spawns.
+            "living-page",
+            "show-result-card",
             # Agent society voice tools (2026-09-02): ONE typed ASSIGN to a
             # named agent with an immediate ack (monitor) and a read-only
             # status answer (safe). The society scheduler, not the tool,

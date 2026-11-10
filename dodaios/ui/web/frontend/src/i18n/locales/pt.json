@@ -11238,5 +11238,22 @@
       "microphone_denied": "O microfone não foi permitido.",
       "empty": "Ainda não há nada. Diga olá."
     }
+  },
+  "living_pages": {
+    "label": "Página viva",
+    "updated": "Atualizada {0}",
+    "every": "Atualiza a cada {0}",
+    "stopped": "Já não é atualizada",
+    "stop": "Parar a atualização",
+    "resume": "Voltar a atualizar",
+    "stop_failed": "Não foi possível parar a atualização.",
+    "resume_failed": "Não foi possível iniciar a atualização.",
+    "result_title": "Feito",
+    "state_created": "Criado",
+    "state_updated": "Atualizado",
+    "state_draft": "Rascunho",
+    "state_waiting": "Aguarda a tua confirmação",
+    "state_failed": "Falhou",
+    "open": "Abrir"
   }
 }

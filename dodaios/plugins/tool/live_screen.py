@@ -12,7 +12,9 @@ class LiveScreenTool:
     name = "screen_snapshot"
     description = (
         "Capture the current screen once, respecting screen privacy settings. "
-        "Use for visual questions and before desktop actions."
+        "Use for visual questions and before desktop actions. When the person says "
+        "'this' or 'that' about something in front of them ('what's this?', 'turn "
+        "this mail into an event'), look first instead of asking what they mean."
     )
     risk_tier = "monitor"
     schema = {"type": "object", "properties": {}, "additionalProperties": False}
