@@ -873,13 +873,38 @@ function settleSubagents(blocks: TurnBlock[], nowMs: number): TurnBlock[] {
 
 const SUBAGENT_STATUSES: readonly SubagentStatus[] = ["running", "done", "failed", "stopped"];
 
+/**
+ * Persisted events that carry a turn's visible work. One of them whose turn
+ * has no `turn_started` in the log (a damaged or partly restored history)
+ * opens that turn itself, so the work shows instead of being dropped.
+ * Transient live deltas (seq 0) never do.
+ */
+const TURN_CONTENT_KINDS: ReadonlySet<string> = new Set([
+  "assistant_text", "reasoning", "tool_call", "tool_result", "subagent_started",
+  "approval_required", "question_required", "credential_required", "plan_ready",
+]);
+
+function withOrphanTurn(tl: Timeline, ev: AgentChatEvent, seq: number, turnId: string): Timeline {
+  if (seq <= 0 || !turnId || !TURN_CONTENT_KINDS.has(ev.kind) || findTurn(tl.items, turnId) >= 0) return tl;
+  const turn: TurnItem = {
+    type: "turn", id: turnId, provider: "", model: "", effort: "", runner: "",
+    // Its start is unknown, so it is not shown as running: its own
+    // `turn_finished`, when the log still has one, settles it as usual.
+    status: "done",
+    blocks: [], startedMs: ev.ts_ms, durationMs: null,
+    usage: null, liveUsage: null, costUsd: null, error: null,
+  };
+  return { ...tl, items: [...tl.items, turn] };
+}
+
 /** Fold one event. Pure; returns `tl` itself when nothing changed. */
 export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
   const p = ev.payload ?? {};
   const seq = typeof ev.seq === "number" ? ev.seq : 0;
-  const base: Timeline =
-    seq > tl.lastSeq ? { ...tl, lastSeq: seq, sessionPatch: null } : tl.sessionPatch ? { ...tl, sessionPatch: null } : tl;
   const turnId = str(p.turn_id);
+  const stamped: Timeline =
+    seq > tl.lastSeq ? { ...tl, lastSeq: seq, sessionPatch: null } : tl.sessionPatch ? { ...tl, sessionPatch: null } : tl;
+  const base = withOrphanTurn(stamped, ev, seq, turnId);
   // A sub-agent's own step names the agent; it folds into that agent's conversation.
   const agentId = str(p.agent_id);
 
