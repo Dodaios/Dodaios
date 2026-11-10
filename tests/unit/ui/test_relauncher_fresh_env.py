@@ -155,10 +155,15 @@ def test_fresh_env_keeps_each_path_folder_once():
     """
     import os
 
-    vosk = os.path.join("C:", os.sep, "site-packages", "vosk")
-    webview = os.path.join("C:", os.sep, "site-packages", "webview", "lib")
-    tools = os.path.join("C:", os.sep, "tools")
-    inherited = os.pathsep.join([vosk, webview] * 10 + [tools, vosk.upper() + os.sep, ""])
+    vosk = os.path.join(os.sep, "opt", "site-packages", "vosk")
+    webview = os.path.join(os.sep, "opt", "site-packages", "webview", "lib")
+    tools = os.path.join(os.sep, "opt", "tools")
+    # The same folder spelled with a trailing separator is still the same folder;
+    # so is another letter case, where the file system ignores case.
+    respelled = [vosk + os.sep, ""]
+    if os.path.normcase("A") == os.path.normcase("a"):
+        respelled.append(vosk.upper())
+    inherited = os.pathsep.join([vosk, webview] * 10 + [tools, *respelled])
     env = relauncher.fresh_user_env({"Path": inherited, "OTHER": "x"}, _read_persisted=lambda: None)
     assert env["Path"].split(os.pathsep) == [vosk, webview, tools]
     assert env["OTHER"] == "x"
@@ -167,6 +172,6 @@ def test_fresh_env_keeps_each_path_folder_once():
 def test_a_path_without_repeats_is_passed_on_unchanged():
     import os
 
-    value = os.pathsep.join([os.path.join("C:", os.sep, "a"), os.path.join("C:", os.sep, "b")])
+    value = os.pathsep.join([os.path.join(os.sep, "opt", "a"), os.path.join(os.sep, "opt", "b")])
     env = relauncher.fresh_user_env({"PATH": value}, _read_persisted=lambda: {})
     assert env["PATH"] == value
