@@ -169,3 +169,13 @@ def test_index_keeps_good_looks_and_drops_bad_ones() -> None:
     assert index.looks[0].preview_url is None  # foreign host: dropped, never fetched
     assert index.looks[0].sha256 == "a" * 64
     assert CommunityIndex.model_validate({}).looks == []
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [{"INDEX.html": b"x"}, {"assets": b"file", "assets/x.js": b"y"}],
+    ids=["case-clash", "file-and-folder"],
+)
+def test_clashing_names_are_refused(tmp_path: Path, extra: dict[str, bytes]) -> None:
+    with pytest.raises(LookInstallError, match="clashing|file and a folder"):
+        _install(_zip(_files() | extra), tmp_path)

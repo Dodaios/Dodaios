@@ -124,6 +124,7 @@ def _members(archive: zipfile.ZipFile) -> list[tuple[zipfile.ZipInfo, str]]:
         strip = next(iter(tops)) + "/"
 
     total = 0
+    seen: set[str] = set()
     out: list[tuple[zipfile.ZipInfo, str]] = []
     for info, name in zip(infos, names, strict=True):
         mode = (info.external_attr >> 16) & 0xFFFF
@@ -134,6 +135,12 @@ def _members(archive: zipfile.ZipFile) -> list[tuple[zipfile.ZipInfo, str]]:
         rel = name[len(strip) :] if strip else name
         if not is_safe_rel_path(rel):
             raise LookInstallError(f"The archive contains a file name that is not allowed: {name}.")
+        # Names that collide on a case-insensitive disk, or a file that is
+        # also a folder of another entry, would fail half-way through unpacking.
+        folded = rel.casefold()
+        if folded in seen or any(f"{p}/" == folded[: len(p) + 1] for p in seen):
+            raise LookInstallError(f"The archive contains clashing names: {name}.")
+        seen.add(folded)
         total += info.file_size
         if total > MAX_PACK_BYTES:
             mb = MAX_PACK_BYTES // (1024 * 1024)
@@ -148,7 +155,13 @@ def _extract(data: bytes, target: Path) -> None:
     except zipfile.BadZipFile as exc:
         raise LookInstallError("The look's archive is not a valid zip file.") from exc
     with archive:
-        for info, rel in _members(archive):
+        members = _members(archive)
+        folded = {rel.casefold() for _, rel in members}
+        for _, rel in members:
+            parts = rel.casefold().split("/")
+            if any("/".join(parts[:i]) in folded for i in range(1, len(parts))):
+                raise LookInstallError(f"The archive uses '{rel}' as a file and a folder.")
+        for info, rel in members:
             dest = target.joinpath(*rel.split("/"))
             dest.parent.mkdir(parents=True, exist_ok=True)
             written = 0

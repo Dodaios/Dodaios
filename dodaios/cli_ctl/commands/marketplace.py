@@ -49,6 +49,7 @@ _SECTIONS: tuple[tuple[str, str], ...] = (
     ("skills", "skill"),
     ("plugins", "plugin"),
     ("agents", "agent"),
+    ("looks", "look"),
 )
 
 
