@@ -186,7 +186,13 @@ void UVerseBoltPresentation::HandleFire(const FVerseFireEvent& E)
 		}
 		// Every shot: a little powder smoke at the muzzle and a brass case out of the ejection port.
 		const FVector Side = FVector::CrossProduct(FVector::UpVector, B.Dir).GetSafeNormal(UE_SMALL_NUMBER, FVector::RightVector);
-		SpawnPuff(Muzzle + B.Dir * 6.0, B.Dir * 60.0 + FVector(0, 0, 18), B.SpawnTime, 0.55, 4.f, 26.f, 0.16f, FLinearColor(0.23f, 0.22f, 0.21f));
+		// Faint and small: powder smoke is a wisp that thins out in a third of a second. The viewer's own
+		// muzzle sits a hand's width from the eye, where a world puff fills the screen like a disc: the
+		// own view gets no world smoke, only other shooters' muzzles do.
+		if (!B.bOwn)
+		{
+			SpawnPuff(Muzzle + B.Dir * 6.0, B.Dir * 45.0 + FVector(0, 0, 22), B.SpawnTime, 0.38, 2.f, 11.f, 0.05f, FLinearColor(0.23f, 0.22f, 0.21f));
+		}
 		const bool bLong = !W || W->Slot != EVerseLoadoutSlot::Secondary;
 		const FVector Port = Muzzle - B.Dir * (bLong ? 42.0 : 14.0) + Side * 2.0 + FVector(0, 0, 3);
 		SpawnCasing(Port, B.Dir, bLong, B.SpawnTime);
@@ -318,11 +324,11 @@ void UVerseBoltPresentation::HandleHit(const FVerseHitEvent& E)
 	if (Surface == EVerseImpactSurface::Concrete)
 	{
 		// Concrete and plaster: a grey dust puff blown out of the hole.
-		SpawnPuff(E.ImpactWorld + Normal * 4.0, Normal * 90.0 + FVector(0, 0, 10), Now, 0.9, 6.f, 46.f, 0.32f, FLinearColor(0.32f, 0.3f, 0.27f));
+		SpawnPuff(E.ImpactWorld + Normal * 4.0, Normal * 70.0 + FVector(0, 0, 10), Now, 0.55, 3.f, 20.f, 0.12f, FLinearColor(0.32f, 0.3f, 0.27f));
 	}
 	else if (Surface == EVerseImpactSurface::Metal)
 	{
-		SpawnPuff(E.ImpactWorld + Normal * 3.0, Normal * 40.0, Now, 0.35, 3.f, 14.f, 0.12f, FLinearColor(0.16f, 0.16f, 0.16f));
+		SpawnPuff(E.ImpactWorld + Normal * 3.0, Normal * 30.0, Now, 0.25, 2.f, 8.f, 0.06f, FLinearColor(0.16f, 0.16f, 0.16f));
 	}
 }
 
@@ -338,7 +344,7 @@ void UVerseBoltPresentation::HandlePenetration(const FVersePenetrationEvent& E)
 	PlaceHole(E.Exit, Along, Surface);
 	if (Surface == EVerseImpactSurface::Concrete)
 	{
-		SpawnPuff(FVector(E.Exit) + Along * 6.0, Along * 120.0, WorldNow(), 0.8, 6.f, 40.f, 0.28f, FLinearColor(0.32f, 0.3f, 0.27f));
+		SpawnPuff(FVector(E.Exit) + Along * 6.0, Along * 90.0, WorldNow(), 0.5, 3.f, 18.f, 0.11f, FLinearColor(0.32f, 0.3f, 0.27f));
 	}
 }
 

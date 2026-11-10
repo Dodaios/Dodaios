@@ -2173,6 +2173,26 @@ class VoiceSessionEnded(Event):
 
 
 @dataclass(frozen=True, slots=True)
+class VoiceProviderRefused(Event):
+    """A realtime voice provider refused to start a call, in plain words.
+
+    Published by ``dodaios.speech.provider_refusal.announce`` the moment a
+    refusal is classified (plan / key / credit / busy / unreachable /
+    rejected), before the call either continues on another voice path or
+    ends. ``continued_on`` is ``"pipeline"`` (the classic STT->brain->TTS
+    path took the call), ``"realtime"`` (another realtime provider did) or
+    ``""`` (the call ends). ``message`` is authored, translated text — never
+    a provider body, a credential or a URL (AP-34).
+    """
+
+    session_id: str = ""
+    provider: str = ""
+    kind: str = ""
+    message: str = ""
+    continued_on: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class RealtimeSessionPostmortem(Event):
     """Health counters of one finished realtime session, for forensics.
 

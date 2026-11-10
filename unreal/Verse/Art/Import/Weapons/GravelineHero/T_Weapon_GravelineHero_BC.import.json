@@ -1,0 +1,35 @@
+{
+  "asset_path": "/Game/Verse/Weapons/GravelineHero/Textures/T_Weapon_GravelineHero_BC.T_Weapon_GravelineHero_BC",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/hero/T_Weapon_GravelineHero_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "76b2b4c15e2866b92506dae0016beaf3587c24acdb7e16f1f4726ef1aa9beca1"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Weapon_GravelineHero_BC",
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_GravelineHero"
+    },
+    "builder": "art/verse/weapons/hero/export_hero.py",
+    "function": "main"
+  },
+  "texture": {
+    "channels": {
+      "rgb": "base colour"
+    },
+    "compression": "Default",
+    "flip_green": false,
+    "group": "Weapon",
+    "max_size": 4096,
+    "srgb": true
+  }
+}

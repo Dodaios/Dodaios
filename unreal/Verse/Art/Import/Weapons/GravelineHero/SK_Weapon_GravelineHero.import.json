@@ -1,0 +1,80 @@
+{
+  "asset_path": "/Game/Verse/Weapons/GravelineHero/SK_Weapon_GravelineHero.SK_Weapon_GravelineHero",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_GravelineHero.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "dd5b9f8c07652bf328578091bb17b82ab41db222d82c929903631ad1596c84d2"
+  },
+  "kind": "skeletal_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bones": [
+      "Root",
+      "Magazine",
+      "Bolt",
+      "Trigger",
+      "SocketBase"
+    ],
+    "bounds_cm": {
+      "max": [
+        74.2,
+        3.45,
+        16.3
+      ],
+      "min": [
+        -30.0,
+        -3.1,
+        -24.244
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_GravelineHero.MI_Weapon_GravelineHero",
+        "slot": "M_Weapon_GravelineHero"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_OpticHero.MI_Weapon_OpticHero",
+        "slot": "M_Weapon_Optic"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_ReticleHero.MI_Weapon_ReticleHero",
+        "slot": "M_Weapon_Reticle"
+      }
+    ],
+    "sockets": [
+      "SOCKET_Eject",
+      "SOCKET_Muzzle",
+      "SOCKET_Sight",
+      "SOCKET_Support"
+    ],
+    "triangles": 31944,
+    "uv_sets": 1,
+    "vertices": 16200
+  },
+  "name": "SK_Weapon_GravelineHero",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_GravelineHero"
+    },
+    "builder": "art/verse/weapons/hero/export_hero.py",
+    "function": "main"
+  }
+}

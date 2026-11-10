@@ -9680,7 +9680,26 @@ class SpeechPipeline:
             explicitly_chosen = "mode" in (
                 getattr(voice_cfg, "model_fields_set", None) or ()
             )
-            if explicitly_chosen:
+            # A provider that refused has a specific sentence (plan, key,
+            # credit ...; dodaios.speech.provider_refusal). It replaces the
+            # generic "unavailable" line and is said whether or not realtime
+            # was an explicit pick: a refusal is news the person must hear.
+            refusal_notice = str(getattr(self, "_pending_voice_path_notice", "") or "")
+            self._pending_voice_path_notice = ""
+            if refusal_notice:
+                lang = _phrase_lang(self._output_language(None, ""))
+                if input_buffer is None:
+                    await self._speak_realtime_unavailable(refusal_notice)
+                else:
+                    await self._publish_event(
+                        MessageSent(
+                            source_layer="speech.pipeline",
+                            thread_id="voice",
+                            role="system",
+                            text=refusal_notice,
+                        )
+                    )
+            elif explicitly_chosen:
                 if input_buffer is None:
                     await self._speak_realtime_unavailable()
                 else:
@@ -9928,6 +9947,7 @@ class SpeechPipeline:
                 build_realtime_session,
                 realtime_implicit_usage_fallback_allowed,
             )
+            from dodaios.speech import provider_refusal
             allow_classic_fallback = realtime_implicit_usage_fallback_allowed(
                 self._config
             )
@@ -9937,8 +9957,13 @@ class SpeechPipeline:
 
         session_id = getattr(self, "_current_voice_session_id", None) or str(uuid4())
         playback = DesktopRealtimePlayback(self._player)
+        # ONE barge-in policy with the classic path ([voice] barge_in; #153).
+        from dodaios.speech.barge_in import profile_for as _barge_profile_for
+
+        barge_profile = _barge_profile_for(self._config)
         barge_detector = DesktopRealtimeBargeInDetector(
-            output_active=level_tap.playback_active
+            output_active=level_tap.playback_active,
+            **barge_profile.detector_kwargs(),
         )
         # Per-frame Silero inference runs OFF the voice event loop — the same
         # BUG-062/BUG-084 class the classic barge monitor already fixed with
@@ -9970,7 +9995,7 @@ class SpeechPipeline:
         # none to collect. Detection strictness is unchanged (0.97 / 12 frames
         # ~= 0.4 s of speech), so a cough or a door does not take the floor.
         thinking_detector = DesktopRealtimeBargeInDetector(
-            grace_s=0.05, output_active=None
+            output_active=None, **barge_profile.detector_kwargs(grace_s=0.05)
         )
         # The microphone must fall quiet ONCE before the thinking barge arms,
         # or the user's own trailing words would arm it against themselves.
@@ -10014,6 +10039,54 @@ class SpeechPipeline:
         tail_pending: deque[bytes] = deque()
         tail_pending_bytes = 0
         semantic_turn_committed = False
+        # The last provider refusal this attempt saw (plan / key / credit /
+        # busy / unreachable), classified by dodaios.speech.provider_refusal.
+        # A refusal is not a provider that might still answer: the call then
+        # continues on the classic path and the person is told why.
+        last_refusal: Any = None
+        last_refused_provider = ""
+
+        async def _announce_refusal(continued_on: str) -> None:
+            nonlocal last_refusal
+            if last_refusal is None:
+                return
+            refusal, last_refusal = last_refusal, None
+            text = await provider_refusal.announce(
+                self._bus,
+                session_id=session_id,
+                provider=last_refused_provider,
+                refusal=refusal,
+                language=_phrase_lang(self._output_language(None, "")),
+                continued_on=continued_on,
+            )
+            if continued_on == provider_refusal.CONTINUED_PIPELINE:
+                # Spoken (or shown) by _active_session once the classic path
+                # owns the microphone, instead of the generic "unavailable" line.
+                self._pending_voice_path_notice = text
+
+        def _refusal_overrides_block() -> bool:
+            """Whether the refusal seen may continue the call on the classic path
+            although the provider forbids ambient usage-billed fallback.
+
+            Only a definitive refusal of a usage-billed provider does; a
+            subscription that refused keeps the rule it was pinned for
+            (issue #828) and ends the call with the reason instead.
+            """
+            if last_refusal is None or not last_refusal.overrides_fallback_block:
+                return False
+            return not provider_refusal.provider_uses_external_login(last_refused_provider)
+
+        def _primary_refused_before() -> bool:
+            """Whether the configured primary is still under a remembered refusal
+            that lets the call continue on the classic path."""
+            nonlocal last_refusal, last_refused_provider
+            realtime_cfg = getattr(getattr(self._config, "brain", None), "realtime", None)
+            primary = str(getattr(realtime_cfg, "provider", "") or "").strip()
+            refusal = provider_refusal.fresh_refusal(primary) if primary else None
+            if refusal is None:
+                return False
+            last_refusal, last_refused_provider = refusal, primary
+            return allow_classic_fallback or _refusal_overrides_block()
         # Per-segment accumulator of the session's assistant transcript
         # deltas: registered with the PIPELINE's own text echo guard when the
         # segment closes, so a session teardown → classic fallback cannot
@@ -10209,6 +10282,7 @@ class SpeechPipeline:
         async def _send_json(message: dict[str, Any]) -> None:
             nonlocal semantic_turn_committed, speaking
             nonlocal surface_playback_epoch, surface_playback_task
+            nonlocal last_refusal, last_refused_provider
             kind = str(message.get("type", ""))
             if kind == "audio_starting":
                 # The provider handshake is ABOUT to run and can legitimately
@@ -10315,6 +10389,12 @@ class SpeechPipeline:
                     "message": str(message.get("error", "") or ""),
                     "at": time.time(),
                 }
+                refusal = provider_refusal.describe(str(message.get("error", "") or ""))
+                if refusal is not None:
+                    last_refusal = refusal
+                    last_refused_provider = str(message.get("provider", "") or "")
+                    provider_refusal.remember(last_refused_provider, refusal)
+                    await _announce_refusal(provider_refusal.CONTINUED_REALTIME)
             elif kind == "audio_failed":
                 # Terminal: no provider could open a session. Without this
                 # branch the desktop surfaces watched the connecting window
@@ -10324,6 +10404,11 @@ class SpeechPipeline:
                     "message": str(message.get("error", "") or ""),
                     "at": time.time(),
                 }
+                refusal = provider_refusal.describe(str(message.get("error", "") or ""))
+                if refusal is not None:
+                    last_refusal = refusal
+                    last_refused_provider = str(message.get("provider", "") or "")
+                    provider_refusal.remember(last_refused_provider, refusal)
             elif kind == "tts_cancel":
                 self._settle_agent_reply(completed=False)
                 _close_output_segment(preserve_echo_tail=False)
@@ -10800,8 +10885,20 @@ class SpeechPipeline:
                 build_ms = (time.monotonic() - build_started_at) * 1000.0
                 log.info("Realtime desktop session assembled in %.0f ms.", build_ms)
                 if session is None:
+                    if _primary_refused_before():
+                        # The provider said no on the last call and nothing
+                        # changed since (the factory left it out): do not
+                        # spend another 12 s on the same answer. The call
+                        # continues on the classic path and the person hears
+                        # why.
+                        reason = HANGUP_DESKTOP_FALLBACK
+                        await _announce_refusal(provider_refusal.CONTINUED_PIPELINE)
+                        return None
                     if allow_classic_fallback:
                         return None
+                    # A remembered refusal of a subscription ends the call
+                    # with its reason instead of a usage-billed path.
+                    await _announce_refusal(provider_refusal.CONTINUED_NONE)
                     log.warning(
                         "Selected realtime access is unavailable; automatic "
                         "usage-billed classic fallback is disabled."
@@ -10907,10 +11004,17 @@ class SpeechPipeline:
                         "Realtime session ended after a committed turn; refusing "
                         "unsafe audio replay through classic voice."
                     )
+                    await _announce_refusal(provider_refusal.CONTINUED_NONE)
                     return HANGUP_ERROR
                 # A startup/early provider failure has committed no semantic
                 # user turn, so classic may safely replay the retained opening.
-                if allow_classic_fallback:
+                if allow_classic_fallback or _refusal_overrides_block():
+                    # A refusal (plan / key / credit / busy) is not a provider
+                    # that might still answer: continue the call on the classic
+                    # path and say why, even for a provider that forbids
+                    # ambient usage-billed fallback (live 2026-11-10).
+                    reason = HANGUP_DESKTOP_FALLBACK
+                    await _announce_refusal(provider_refusal.CONTINUED_PIPELINE)
                     return None
                 reason = HANGUP_ERROR
                 log.warning(
@@ -10923,20 +11027,32 @@ class SpeechPipeline:
             raise
         except Exception as exc:  # noqa: BLE001 — classic fallback is load-bearing
             log.warning("Realtime desktop session failed; using pipeline: %s", exc)
+            if last_refusal is None:
+                refusal = provider_refusal.describe(exc)
+                if refusal is not None:
+                    last_refusal = refusal
+                    last_refused_provider = last_refused_provider or str(
+                        (self._last_realtime_start_error or {}).get("provider", "")
+                    )
+                    provider_refusal.remember(last_refused_provider, refusal)
             if semantic_turn_committed:
                 reason = HANGUP_ERROR
                 log.warning(
                     "Realtime failure followed a committed turn; refusing unsafe "
                     "audio replay through classic voice."
                 )
+                await _announce_refusal(provider_refusal.CONTINUED_NONE)
                 return HANGUP_ERROR
-            if allow_classic_fallback:
+            if allow_classic_fallback or _refusal_overrides_block():
+                reason = HANGUP_DESKTOP_FALLBACK
+                await _announce_refusal(provider_refusal.CONTINUED_PIPELINE)
                 return None
             reason = HANGUP_ERROR
             log.warning(
                 "Realtime startup failed; automatic usage-billed classic "
                 "fallback is disabled."
             )
+            await _announce_refusal(provider_refusal.CONTINUED_NONE)
             return HANGUP_ERROR
         finally:
             if getattr(self, "_active_realtime_handle", None) is session:
@@ -15941,6 +16057,14 @@ class SpeechPipeline:
         # ``transcript.text`` rather than the recombined ``text``, so the string
         # published for matching is the one the session recorder stored as this
         # turn's ``user_text``.
+        #
+        # "What's on today?" is answered before any of that: from the brief
+        # the lead routine wrote this morning, or the vault's dated memories,
+        # with no model turn (dodaios/speech/spoken_brief.py). The exchange is
+        # seeded into the brain's history so "move that to 3 pm" is a normal
+        # next turn in the same call.
+        if await self._maybe_spoken_brief(text, lang):
+            return True
         self._spawn_turn_polish(transcript.text, language=lang)
 
         # Continuation-Buffer (Spec: incomplete-prompt completion). If this
@@ -17746,10 +17870,50 @@ class SpeechPipeline:
         except Exception as exc:  # noqa: BLE001
             log.warning("STT-unavailable fallback speak failed: %s", exc)
 
-    async def _speak_realtime_unavailable(self) -> None:
-        """Explain a duplex failure before continuing on the classic path."""
+    async def _maybe_spoken_brief(self, text: str, lang: str) -> bool:
+        """Speak the day's brief when ``text`` asks for it; ``True`` when it did.
+
+        No model turn: the brief comes from what the lead routine already
+        wrote today, or from the vault's dated memories. The question and the
+        answer are appended to the brain's history (``seed_history`` is the
+        one documented primitive, so the current turns are re-seeded with the
+        exchange on the end) so a follow-up such as "move that to 3 pm" runs
+        as an ordinary brain turn with the brief as its context.
+        """
+        from dodaios.speech import spoken_brief
+
+        try:
+            if not spoken_brief.is_brief_request(text):
+                return False
+            brief = await spoken_brief.build(language=lang)
+        except Exception:  # noqa: BLE001 — the brain answers instead
+            log.warning("Spoken brief unavailable; the brain answers", exc_info=True)
+            return False
+        if not brief:
+            return False
+        log.info("Spoken brief answers the turn (%d chars)", len(brief))
+        await self._set_turn_state(TurnTakingState.JARVIS_SPEAKING)
+        await self._speak(brief, language=lang, kind=SPOKEN_KIND_REPLY)
+        brain = getattr(self, "_brain", None)
+        seed = getattr(brain, "seed_history", None)
+        if callable(seed):
+            try:
+                history = list(getattr(brain, "_history", None) or [])
+                seed([*history, ("user", text), ("assistant", brief)])
+            except Exception:  # noqa: BLE001 — a follow-up without context beats a broken turn
+                log.debug("spoken brief: history seed failed", exc_info=True)
+        await self._set_turn_state(TurnTakingState.LISTENING)
+        return True
+
+    async def _speak_realtime_unavailable(self, phrase: str | None = None) -> None:
+        """Explain a duplex failure before continuing on the classic path.
+
+        ``phrase`` replaces the generic line with the provider's actual
+        refusal (dodaios.speech.provider_refusal), already in the call's
+        language.
+        """
         lang = _phrase_lang(self._output_language(None, ""))
-        phrase = _REALTIME_UNAVAILABLE_PHRASE[lang]
+        phrase = phrase or _REALTIME_UNAVAILABLE_PHRASE[lang]
         try:
             await self._set_turn_state(TurnTakingState.JARVIS_SPEAKING)
             await self._speak(
@@ -18661,7 +18825,7 @@ class SpeechPipeline:
         return barged
 
     async def _barge_monitor(
-        self, *, grace_s: float = 1.5, respect_input_suppression: bool = False
+        self, *, grace_s: float | None = None, respect_input_suppression: bool = False
     ) -> bool:
         """Listen on a second mic instance for the user speaking over Jarvis'
         TTS output. Returns ``True`` as soon as that is confirmed.
@@ -18692,10 +18856,19 @@ class SpeechPipeline:
         constant stutter / multi-second pauses on the Intel-Mac test machine).
         """
         from dodaios.realtime.desktop import DesktopRealtimeBargeInDetector
+        from dodaios.speech.barge_in import profile_for
 
+        # ONE policy for both voice paths ([voice] barge_in; issue #153). The
+        # caller's explicit grace stays for the thinking-interrupt monitor;
+        # the default grace is the profile's.
+        profile = profile_for(getattr(self, "_config", None))
+        if not profile.enabled:
+            # The person chose to let the assistant finish. Nothing to listen
+            # for; the playback waiter continues on its own.
+            return False
         detector = DesktopRealtimeBargeInDetector(
-            grace_s=grace_s,
             output_active=level_tap.playback_active,
+            **profile.detector_kwargs(grace_s=grace_s),
         )
         try:
             # Model load off the event loop — it shares the turn with live

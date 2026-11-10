@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Mic, MicOff, PhoneOff, Settings2 } from "lucide-react";
 
 import { useVoiceCall } from "@/components/agentic/useVoiceCall";
@@ -30,6 +30,9 @@ const WINDOW = "call-window pointer-events-auto absolute bottom-full z-20 mb-3 f
 const END_LINGER_MS = 900;
 /** How long a failed call's note stays when nobody closes it. */
 const PROBLEM_TTL_MS = 2 * 60_000;
+
+// The voice list behind the gear: not needed for first paint.
+const CallVoicePicker = lazy(() => import("@/components/home/CallVoicePicker"));
 
 /**
  * The call, as a window over the foot of the conversation.
@@ -64,9 +67,12 @@ export function CallWindow() {
   const liveReply = useHomeStore((s) => s.liveReply);
   const pending = useHomeStore((s) => s.callPending);
   const problem = useHomeStore((s) => s.callProblem);
+  const notice = useHomeStore((s) => s.callNotice);
   const setCallProblem = useHomeStore((s) => s.setCallProblem);
   const { active, busy, connecting, toggleCall } = useVoiceCall();
   const [muted, setMuted] = useState(false);
+  // The gear opens the voice list inside the window; a new call closes it.
+  const [voicePanel, setVoicePanel] = useState(false);
   // A flip answers with the new state; an older read must not undo it.
   const flipped = useRef(false);
   const live = active || connecting;
@@ -97,6 +103,7 @@ export function CallWindow() {
     if (!live) return;
     let alive = true;
     flipped.current = false;
+    setVoicePanel(false);
     void fetch("/api/voice/mic-mute")
       .then((r) => (r.ok ? r.json() : null))
       .then((body: { muted?: boolean } | null) => {
@@ -181,15 +188,29 @@ export function CallWindow() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-foreground-strong">{name}</p>
           <p className="truncate text-xs text-muted-foreground" data-testid="call-status" aria-live="polite">{status}</p>
+          {notice?.message && (
+            // The chosen provider refused and the call went on another way:
+            // said in the backend's words, for the rest of this call.
+            <p className="mt-0.5 text-xs text-foreground-secondary [overflow-wrap:anywhere]" data-testid="call-notice" role="status">
+              {notice.message}
+            </p>
+          )}
         </div>
-        <button type="button" onClick={openSettings} data-testid="call-settings"
-          aria-label={t("home.call.settings")} title={t("home.call.settings")}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button type="button" onClick={() => setVoicePanel((open) => !open)} data-testid="call-settings"
+          aria-label={t("voice_call.voice_title")} title={t("voice_call.voice_title")} aria-pressed={voicePanel}
+          className={cn(
+            "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            voicePanel ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+          )}>
           <Settings2 className="h-4 w-4" aria-hidden />
         </button>
       </header>
 
-      {hasWords ? (
+      {voicePanel ? (
+        <Suspense fallback={<div className="relative min-h-0 flex-1" />}>
+          <CallVoicePicker onClose={() => setVoicePanel(false)} />
+        </Suspense>
+      ) : hasWords ? (
         <ScrollArea ref={rootRef} className="relative min-h-0 flex-1" data-testid="call-transcript">
           <div ref={contentRef} className="flex flex-col gap-4 px-5 pb-3 pt-4" aria-live="polite">
             {lines.map((line, i) => (

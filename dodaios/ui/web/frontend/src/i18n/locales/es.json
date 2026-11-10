@@ -7873,7 +7873,8 @@
       "crashed": "{runtime} se detuvo con un error. Inténtalo de nuevo.",
       "the_agent": "El agente"
     },
-    "technical_details": "Detalles técnicos"
+    "technical_details": "Detalles técnicos",
+    "ran": "Ejecutó"
   },
   "work_trace": {
     "tool_failed": "Falló una acción de herramienta",
@@ -10767,7 +10768,8 @@
       "group_agents": "Agentes de código",
       "group_providers": "Proveedores",
       "full": "El equipo está completo con {max} miembros.",
-      "swarm": "Un equipo grande necesita más turnos: cada paso espera a que todos los miembros hayan opinado."
+      "swarm": "Un equipo grande necesita más turnos: cada paso espera a que todos los miembros hayan opinado.",
+      "model_default": "Modelo predeterminado"
     },
     "meter_time": "{minutes} de {max_minutes} min",
     "meter_turns": "{turns} de {max_turns} turnos",
@@ -11286,5 +11288,16 @@
     "state_waiting": "Espera tu confirmación",
     "state_failed": "Falló",
     "open": "Abrir"
+  },
+  "voice_call": {
+    "voice_title": "Voz",
+    "voice_loading": "Cargando voces…",
+    "voice_none": "Esta vía de voz no ofrece voces para elegir.",
+    "voice_unavailable": "No se pudieron leer las voces.",
+    "voice_applies_next_call": "Se aplica a la próxima llamada",
+    "voice_saved": "Voz cambiada.",
+    "voice_saved_next_call": "Voz guardada para la próxima llamada.",
+    "voice_save_failed": "No se pudo cambiar la voz.",
+    "all_settings": "Todos los ajustes de voz"
   }
 }

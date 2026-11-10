@@ -69,8 +69,15 @@ public:
 	static constexpr float FlashLightForwardCm = 80.f;
 	/** Fill light on the held weapon, lumens; it sits above and right of the eye (camera space, cm, drawn space). */
 	static constexpr float FillLumens = 380.f;
+	/** Hero light rig, lumens: key and rim. */
+	static constexpr float HeroKeyLumens = 650.f;
+	static constexpr float HeroRimLumens = 200.f;
 	/** Eye to the Graveline's reflex dot while aiming, cm: far enough that the frame stays small. */
 	static constexpr double GravelineSightDistanceCm = 24.0;
+	/** Eye to the rear window of a hero holographic sight while aiming, cm. */
+	static constexpr double HeroSightDistanceCm = 15.0;
+	/** True for `/Game/Verse/Weapons/<Name>Hero/SK_Weapon_<Name>Hero` (baked hero meshes). */
+	static bool IsHeroMeshPath(const FString& Path);
 	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */
 	static constexpr float ViewmodelRoughnessMin = 0.45f;
 
@@ -119,8 +126,16 @@ private:
 	/** Soft key light on lighting channel 1: lights the held weapon only, never the world. */
 	UPROPERTY(Transient)
 	TObjectPtr<UPointLightComponent> FillLight;
+	/** Hero mesh light rig (channel 1 only): a key from above and ahead, a cool rim from the right.
+	 *  The hero mesh leaves channel 0, so hangar lights behind the eye (no body shadows them) stop
+	 *  painting the faces turned to the camera. */
+	UPROPERTY(Transient)
+	TObjectPtr<UPointLightComponent> KeyLight;
+	UPROPERTY(Transient)
+	TObjectPtr<UPointLightComponent> RimLight;
 
 	FName ShownWeaponId;
+	bool bShowingHero = false;
 	EVerseLoadoutSlot LastSlot = EVerseLoadoutSlot::Primary;
 	FName MagBone;
 	FName BoltBone;

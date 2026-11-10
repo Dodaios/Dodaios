@@ -98,21 +98,26 @@ async def get_live_options(
         "models": [{"id": m.id, "label": m.label} for m in catalog.models],
         "source": catalog.source,
         "efforts": ["", *effort_levels("openai")],
-        "voices": [
-            "quartz",
-            "ripple",
-            "vesper",
-            "willow",
-            "stone",
-            "gleam",
-            "meridian",
-            "bossa",
-            "tempo",
-            "beacon",
-            "delta",
-            "cinder",
-        ],
+        "voices": list(LIVE_API_VOICES),
     }
+
+
+#: The Live voices an API key can pick (the call window's voice picker reads
+#: the same list through ``/api/voice/voices``).
+LIVE_API_VOICES: tuple[str, ...] = (
+    "quartz",
+    "ripple",
+    "vesper",
+    "willow",
+    "stone",
+    "gleam",
+    "meridian",
+    "bossa",
+    "tempo",
+    "beacon",
+    "delta",
+    "cinder",
+)
 
 
 def _config(request: Request):

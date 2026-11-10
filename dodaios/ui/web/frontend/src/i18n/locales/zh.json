@@ -7873,7 +7873,8 @@
       "crashed": "{runtime} 因错误而停止。请重试。",
       "the_agent": "智能体"
     },
-    "technical_details": "技术详情"
+    "technical_details": "技术详情",
+    "ran": "运行了"
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",
@@ -10767,7 +10768,8 @@
       "group_agents": "编程智能体",
       "group_providers": "提供方",
       "full": "团队已满，最多 {max} 名成员。",
-      "swarm": "大团队需要更多轮次：每一步都要等所有成员发表意见。"
+      "swarm": "大团队需要更多轮次：每一步都要等所有成员发表意见。",
+      "model_default": "默认模型"
     },
     "meter_time": "{minutes} / {max_minutes} 分钟",
     "meter_turns": "{turns} / {max_turns} 轮",
@@ -11286,5 +11288,16 @@
     "state_waiting": "等待你确认",
     "state_failed": "失败",
     "open": "打开"
+  },
+  "voice_call": {
+    "voice_title": "声音",
+    "voice_loading": "正在加载声音…",
+    "voice_none": "此语音通路没有可选的声音。",
+    "voice_unavailable": "无法读取声音列表。",
+    "voice_applies_next_call": "下次通话生效",
+    "voice_saved": "声音已更改。",
+    "voice_saved_next_call": "声音已保存，下次通话生效。",
+    "voice_save_failed": "无法更改声音。",
+    "all_settings": "全部语音设置"
   }
 }

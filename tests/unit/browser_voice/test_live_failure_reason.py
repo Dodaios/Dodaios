@@ -141,7 +141,11 @@ async def test_login_and_timeout_failures_are_named(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_api_key_refusal_shows_its_authored_sentence_only(monkeypatch) -> None:
+async def test_api_key_refusal_continues_on_the_classic_path_and_says_why(monkeypatch) -> None:
+    """A usage-billed provider that said no (credit, plan, key) is not a
+    provider that might still answer: the call goes on through the classic
+    pipeline and the person is told why (dodaios/speech/provider_refusal;
+    live 2026-11-10). Raw provider text still never reaches the surface."""
     from dodaios.core.protocols import VoiceStartError
 
     error = VoiceStartError(
@@ -149,11 +153,39 @@ async def test_api_key_refusal_shows_its_authored_sentence_only(monkeypatch) -> 
         user_message="The OpenAI API account has no credit left.",
         code="no_credits",
     )
-    ws = await _run_failing_start(monkeypatch, error)
-    assert _provider_errors(ws) == [
-        f"The OpenAI API account has no credit left. {_USAGE_FALLBACK_DISABLED_NOTE}"
-    ]
+    classic = _RecSession()
+
+    class _ApiKeyRealtime(_RecSession):
+        is_realtime = True
+        allow_classic_fallback = False
+        active_provider = "openai-live"
+
+        async def handle_control(self, _msg: dict) -> None:
+            raise error
+
+    announced: list[dict] = []
+
+    async def fake_announce(bus, **kwargs):
+        announced.append(kwargs)
+        return "said"
+
+    monkeypatch.setattr("dodaios.speech.provider_refusal.announce", fake_announce)
+    state = _state(classic)
+    state.config.voice = SimpleNamespace(mode="realtime")
+    monkeypatch.setattr(route_mod, "_build_browser_session", lambda **_kwargs: _ApiKeyRealtime())
+    ws = _FakeWS(
+        [{"type": "websocket.receive", "text": '{"type":"audio_start","sample_rate":48000}'}],
+        state=state,
+    )
+    await browser_voice_ws(ws)
+    assert classic.controls == [{"type": "audio_start", "sample_rate": 48000}]
+    assert {"type": "mode_fallback", "mode": "pipeline"} in ws.sent_json
+    assert _provider_errors(ws) == []
     assert all("HTTP 429" not in str(m) for m in ws.sent_json)
+    (notice,) = announced
+    assert notice["provider"] == "openai-live"
+    assert notice["refusal"].kind == "credit"
+    assert notice["continued_on"] == "pipeline"
 
 
 def test_a_recorded_failure_code_resolves_to_its_sentence() -> None:

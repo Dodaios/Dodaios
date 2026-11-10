@@ -162,6 +162,9 @@ class LiveVoiceSession:
 
     is_realtime = True
     allow_classic_fallback = False
+    #: Why the provider refused the start, once it has
+    #: (``dodaios.speech.provider_refusal.Refusal``); ``None`` otherwise.
+    start_refusal: Any = None
 
     def __init__(
         self,
@@ -892,7 +895,11 @@ class LiveVoiceSession:
             await self._publish_phase("connecting")
             from dodaios.live.recovery import seed_messages
 
-            self._initial_seed = self._take_initial_context()
+            # The seed reads the lead's whole endless conversation out of
+            # SQLite. On the voice loop — which also serves the web routes —
+            # that read froze the app window for ~10 s at every call start
+            # (live 2026-11-10). Off the loop it costs nothing visible.
+            self._initial_seed = await asyncio.to_thread(self._take_initial_context)
             if self._initial_seed:
                 config["input"] = seed_messages(self._initial_seed, [])
 
@@ -1146,16 +1153,31 @@ class LiveVoiceSession:
             classify_provider_error,
         )
         from dodaios.realtime.session import _handshake_failure_message
+        from dodaios.speech import provider_refusal
 
-        status = classify_provider_error(str(exc))
-        health_ledger.record_status(
-            self.active_provider, health_ledger.MODALITY_REALTIME, status
-        )
+        # The authored refusal code wins over text matching: an HTTP 404 on
+        # the realtime route ("plan does not include it") classified as a bare
+        # ``error`` and was recorded nowhere (live 2026-11-10), so every next
+        # call tried the same dead provider first. The refusal is kept on the
+        # session so the surface that decides what the call does next
+        # (continue on the classic path, or end) can say why.
+        refusal = provider_refusal.describe(exc)
+        self.start_refusal = refusal
+        if refusal is not None and refusal.status:
+            provider_refusal.remember(self.active_provider, refusal)
+            status = refusal.status
+        else:
+            status = classify_provider_error(str(exc))
+            health_ledger.record_status(
+                self.active_provider, health_ledger.MODALITY_REALTIME, status
+            )
         cause = {NO_CREDITS: "no_credits", RATE_LIMITED: "rate_limited"}.get(
             status, "unavailable"
         )
         code = str(getattr(exc, "code", "") or "")
-        if code == "voice_not_offered":
+        if code == "voice_not_offered" or (
+            refusal is not None and refusal.kind == provider_refusal.KIND_PLAN
+        ):
             # Waiting does not help here: the account has to change.
             cause = "not_offered"
         elif code == "rate_limited":

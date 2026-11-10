@@ -50,6 +50,7 @@ import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { fill, useT } from "@/i18n";
 import { attachFilePasteBridge } from "@/lib/editActions";
 import { cn } from "@/lib/utils";
+import { warmVoiceCall } from "@/lib/voiceApi";
 
 /**
  * The composer — the front page's one control for talking to Jarvis by
@@ -885,6 +886,10 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
             <button
               type="button"
               onClick={voiceMode.enter}
+              // The pointer on its way to the button is the earliest moment
+              // to warm the call (imports, transport, TTS/STT); issue #154.
+              onPointerEnter={() => warmVoiceCall()}
+              onFocus={() => warmVoiceCall()}
               disabled={voiceMode.busy}
               aria-label={t("assistant_chat.voice_enter")}
               title={fill(t("assistant_chat.voice_enter_hint"), { name: assistantName })}

@@ -328,6 +328,26 @@ VFX_MATERIALS: tuple[tuple[str, str, str], ...] = (
 )
 
 
+#: Hero meshes for the person's own view (`weapons/hero`): detailed, baked skins. They are
+#: not part of the WP14 arsenal cook; the viewmodel prefers them when they are in the project.
+GRAVELINE_HERO = WeaponSpec(
+    weapon_id="graveline",
+    display_name="GravelineHero",
+    role="assault rifle, first-person hero mesh with a holographic sight",
+    asset="SK_Weapon_GravelineHero",
+    kind="skeletal",
+    bones=GRAVELINE.bones,
+    sockets=_sockets(
+        muzzle=(0.742, 0.0, 0.045),
+        sight=(0.072, 0.0, 0.1365),
+        support=(0.40, 0.0, 0.005),
+        eject=(0.12, -0.026, 0.06),
+    ),
+    triangle_cap=2 * MAX_FIRST_PERSON_TRIANGLES,
+)
+HERO: tuple[WeaponSpec, ...] = (GRAVELINE_HERO,)
+
+
 def by_id(weapon_id: str) -> WeaponSpec:
     for spec in ARSENAL:
         if spec.weapon_id == weapon_id and not spec.asset.endswith("Field"):
@@ -336,7 +356,7 @@ def by_id(weapon_id: str) -> WeaponSpec:
 
 
 def by_asset(asset: str) -> WeaponSpec:
-    for spec in ARSENAL:
+    for spec in (*ARSENAL, *HERO):
         if spec.asset == asset:
             return spec
     raise KeyError(asset)
