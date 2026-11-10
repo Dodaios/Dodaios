@@ -23,6 +23,7 @@ import { fill, useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { EmptyState } from "@/components/ui/empty-state";
+import { BrandedSelect } from "@/components/ui/select";
 import {
   MEMORY_KINDS,
   VAULT_KEYS,
@@ -432,18 +433,14 @@ function FilterSelect({
   return (
     <label className="inline-flex items-center gap-1.5 text-muted-foreground">
       {label}
-      <select
-        data-testid={testId}
+      <BrandedSelect
+        testId={testId}
+        ariaLabel={label}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-7 rounded-md border border-border bg-sheen/[0.04] px-2 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        onValueChange={onChange}
+        options={options}
+        className="w-auto min-w-0 rounded-md border border-border bg-sheen/[0.04] px-2 py-1 text-[12px]"
+      />
     </label>
   );
 }

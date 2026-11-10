@@ -90,6 +90,12 @@ function stubFetch() {
   (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
 }
 
+/** Opens a branded select and picks an option by its label. */
+function choose(testId: string, label: string) {
+  fireEvent.click(screen.getByTestId(testId));
+  fireEvent.click(within(screen.getByTestId(`${testId}-panel`)).getByRole("option", { name: label }));
+}
+
 function renderView() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -179,9 +185,9 @@ describe("MemoryView", () => {
     stubFetch();
     renderView();
     await screen.findByText("Lea is my sister.");
-    fireEvent.change(screen.getByTestId("vault-filter-origin"), { target: { value: "imported" } });
+    choose("vault-filter-origin", "Imported");
     await waitFor(() => expect(calls.some((c) => c.url.includes("origin=imported"))).toBe(true));
-    fireEvent.change(screen.getByTestId("vault-filter-period"), { target: { value: "7" } });
+    choose("vault-filter-period", "Last 7 days");
     await waitFor(() => expect(calls.some((c) => /since=\d{4}-\d{2}-\d{2}/.test(c.url))).toBe(true));
     fireEvent.click(await screen.findByTestId("vault-more"));
     await waitFor(() => expect(calls.some((c) => c.url.includes("limit=400"))).toBe(true));
@@ -191,7 +197,7 @@ describe("MemoryView", () => {
     stubFetch();
     renderView();
     await screen.findByText("Lea is my sister.");
-    fireEvent.change(screen.getByTestId("vault-sort"), { target: { value: "newest" } });
+    choose("vault-sort", "Newest first");
     await waitFor(() => expect(calls.some((c) => c.url.includes("sort=newest"))).toBe(true));
     await waitFor(() => expect(screen.getAllByTestId("vault-group")).toHaveLength(1));
     expect(screen.getAllByTestId("vault-row")).toHaveLength(3);
