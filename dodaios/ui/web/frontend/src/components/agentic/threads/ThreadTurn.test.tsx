@@ -77,8 +77,8 @@ describe("a thread turn in an agent chat", () => {
   it("reports a sub-agent without offering to open it where no conversation opens", () => {
     const task = tool("c1", "", { name: "Task", input: { description: "Scan the repo", prompt: "Scan" }, output: null, durationMs: null });
     render(<ThreadTurn turn={turn([task], "running")} prompts="inline" />);
-    const card = screen.getByTestId("thread-subagent-card");
-    expect(card.tagName).toBe("DIV");
+    fireEvent.click(screen.getByTestId("thread-subagent-run-toggle"));
+    expect(screen.getByTestId("thread-subagent-row").tagName).toBe("DIV");
     expect(screen.queryByRole("button", { name: /Open sub-agent/ })).toBeNull();
   });
 });
