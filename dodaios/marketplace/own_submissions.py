@@ -58,7 +58,7 @@ def _load() -> list[dict[str, Any]]:
     path = _path()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    except FileNotFoundError:  # nothing published from here yet: an empty list is the answer
         return []
     except (OSError, ValueError):
         log.warning("own submissions: unreadable %s, starting empty", path)
