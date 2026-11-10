@@ -71,6 +71,8 @@ function WorkRow({
   grouped = false,
   live = false,
   stamp,
+  took,
+  aside,
   ariaLabel,
   children,
 }: {
@@ -84,6 +86,10 @@ function WorkRow({
   live?: boolean;
   /** When the step began; shown while the row is hovered. */
   stamp?: number;
+  /** How long the step took ("12s"), shown with the clock on hover. */
+  took?: string;
+  /** What sits at the right end of the line: the pictures its calls brought back. */
+  aside?: ReactNode;
   ariaLabel?: string;
   children?: ReactNode;
 }) {
@@ -105,7 +111,12 @@ function WorkRow({
         expanded && "rotate-90",
       )} />
     </span>}
-    {stamp ? <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-visible/row:opacity-100">{clock(stamp)}</span> : null}
+    {stamp || aside ? <span className="ml-auto flex shrink-0 items-center gap-2.5 pl-2">
+      {stamp ? <span className="text-xs tabular-nums text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-visible/row:opacity-100">
+        {clock(stamp)}{took ? ` · ${took}` : ""}
+      </span> : null}
+      {aside}
+    </span> : null}
   </span>;
   // A line of the thread is one 28 px row that gives back 6 px above and
   // below, so the air around it matches the gap between two paragraphs.
@@ -121,9 +132,8 @@ function WorkRow({
 
 function DiffStat({ added, removed }: { added: number; removed: number }) {
   if (!added && !removed) return null;
-  return <span className="shrink-0 font-mono text-xs tabular-nums">
+  return <span className="inline-flex shrink-0 items-baseline gap-1.5 text-[13px] tabular-nums">
     {added > 0 && <span className="text-success">+{added}</span>}
-    {added > 0 && removed > 0 && " "}
     {removed > 0 && <span className="text-destructive">−{removed}</span>}
   </span>;
 }
@@ -311,6 +321,7 @@ function callLine(call: Call, t: (key: string) => string): ReactNode {
 
 function StepView({ item, running, lone = false }: { item: StretchItem; running: boolean; lone?: boolean }) {
   const t = useT();
+  const media = useContext(CallMedia);
   if (item.kind === "said") {
     const gist = thoughtGist(item.text);
     return <StepRow icon={stepIcon(item)} words={gist} live={item.live && running} testId="thread-thought" startOpen={lone}>
@@ -321,6 +332,8 @@ function StepView({ item, running, lone = false }: { item: StretchItem; running:
   const call = item.call;
   const failed = isFailed(call);
   const tail = callTail(call, t);
+  // A step that brought pictures back shows them small at its end, so the reader finds it.
+  const pictures = pictureUrls(media.get(call.block.callId) ?? []);
   return <StepRow
     icon={stepIcon(item)}
     words={callLine(call, t)}
@@ -333,9 +346,56 @@ function StepView({ item, running, lone = false }: { item: StretchItem; running:
       {tail && <span className="min-w-0 truncate text-muted-foreground/70">— {tail}</span>}
       <DiffStat added={call.added} removed={call.removed} />
       {failed && <X aria-hidden className="h-3 w-3 shrink-0 text-destructive/70" />}
+      <LinePictures urls={pictures} />
     </>}>
     <CallDetails call={call} className="" />
   </StepRow>;
+}
+
+/** The address of every picture in a call's media texts ("![image](<url>)"). */
+export function pictureUrls(texts: readonly string[]): string[] {
+  const urls: string[] = [];
+  for (const text of texts) {
+    for (const match of text.matchAll(/!\[[^\]]*\]\(<?([^)>\s]+)>?\)/g)) urls.push(match[1]);
+  }
+  // Status badges and logos are pictures of nothing the agent did.
+  return urls.filter((url) => !/\.svg(?:[?#]|$)/i.test(url) && !/badge/i.test(url));
+}
+
+/** How many pictures a line shows at its end before the rest read "+3". */
+export const LINE_PICTURES = 3;
+
+/** The pictures a line's calls brought back, small at the end of the line. */
+function LinePictures({ urls }: { urls: readonly string[] }) {
+  if (urls.length === 0) return null;
+  const shown = urls.slice(-LINE_PICTURES);
+  const more = urls.length - shown.length;
+  return <span className="flex shrink-0 items-center gap-1.5" data-testid="thread-line-pictures">
+    {more > 0 && <span className="text-xs tabular-nums text-muted-foreground">+{more}</span>}
+    {shown.map((url, index) => <img key={`${index}:${url}`} src={url} alt="" loading="lazy" decoding="async" draggable={false}
+      className="h-5 w-7 shrink-0 rounded-[4px] border border-border/80 bg-secondary object-cover object-top" />)}
+  </span>;
+}
+
+/** From a stretch's first step to the end of its last call, when every call has ended. */
+export function stretchTook(stretch: Stretch): number | null {
+  let end = 0;
+  for (const item of stretch.items) {
+    if (item.kind !== "call") continue;
+    const block = item.call.block;
+    if (block.durationMs == null) return null;
+    end = Math.max(end, block.startedMs + block.durationMs);
+  }
+  return end > stretch.startedMs && stretch.startedMs > 0 ? end - stretch.startedMs : null;
+}
+
+/** A line's words with its failure count set apart, so it reads at a glance. */
+function lineWords(label: string, calls: readonly Call[], t: (key: string) => string, lang: string): ReactNode {
+  const failed = calls.filter(isFailed).length;
+  if (calls.length < 2 || failed === 0) return label;
+  const tail = `, ${tr(t, `act.failed_${plural(lang, failed)}`, { count: failed })}`;
+  if (!label.endsWith(tail)) return label;
+  return <>{label.slice(0, -tail.length)}, <span className="text-destructive/80">{tail.slice(2)}</span></>;
 }
 
 /**
@@ -349,6 +409,8 @@ function StepView({ item, running, lone = false }: { item: StretchItem; running:
  */
 function StretchView({ stretch, running }: { stretch: Stretch; running: boolean }) {
   const t = useT();
+  const lang = t("trace_report.locale");
+  const media = useContext(CallMedia);
   const [open, setOpen] = useState(false);
   const calls = stretch.items.flatMap((item) => item.kind === "call" ? [item.call] : []);
   const said = stretch.items.flatMap((item) => item.kind === "said" ? [item] : []);
@@ -359,9 +421,11 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
   const failed = calls.length === 1 && isFailed(calls[0]);
   // What the agent is thinking right now; it folds into the card once it speaks.
   const now = stretch.live && !open ? said[said.length - 1] : undefined;
+  const pictures = pictureUrls(calls.flatMap((call) => media.get(call.block.callId) ?? []));
+  const took = stretch.live ? null : stretchTook(stretch);
   return <div className="min-w-0">
     <WorkRow
-      label={label}
+      label={calls.length > 1 ? lineWords(label, calls, t, lang) : label}
       ariaLabel={stretch.live ? fill(t("thread_turn.steps_so_far"), { summary: label, count: stretch.items.length })
         : failed ? fill(t("thread_turn.call_failed"), { call: calls[0].text }) : undefined}
       trailing={<>
@@ -369,6 +433,8 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
         {failed && <X aria-hidden className="h-3 w-3 shrink-0 text-destructive/70" />}
       </>}
       stamp={stretch.startedMs}
+      took={took != null ? traceDuration(took) : undefined}
+      aside={<LinePictures urls={pictures} />}
       live={stretch.live}
       expanded={open}
       onToggle={() => setOpen(!open)}>
