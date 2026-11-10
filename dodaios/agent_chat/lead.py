@@ -293,12 +293,26 @@ FRESH_START_SUMMARY = (
 )
 
 
+def checkpoint_for(session_id: str) -> tuple[int, str]:
+    """The lead's compaction checkpoint ``(through_seq, summary)``; ``(0, "")`` when none."""
+    archive = _archive()
+    if archive is None:
+        return 0, ""
+    try:
+        through, summary = archive.checkpoint(session_id)
+    except Exception:  # noqa: BLE001 — no summary is a usable answer
+        log.debug("lead thread: checkpoint read failed", exc_info=True)
+        return 0, ""
+    return int(through), str(summary)
+
+
 def fresh_start(svc: Any) -> int | None:
     """Start the model light without ending the conversation.
 
     Moves the compaction checkpoint to the newest event with a short note as
     its summary, so the next turn carries no earlier history. The thread,
-    its archive and the memory stay. Blocking (SQLite). Returns the event
+    its archive and the memory stay. A CLI seat also drops its vendor
+    session, so the next turn really starts a new conversation. Blocking (SQLite). Returns the event
     seq the fresh start begins after, or ``None`` when there is no
     conversation or no archive.
     """
@@ -310,6 +324,10 @@ def fresh_start(svc: Any) -> int | None:
     through = int(events[-1]["seq"]) if events else 0
     archive.ingest(session.session_id, svc.store.list_events(session.session_id))
     archive.save_checkpoint(session.session_id, through, FRESH_START_SUMMARY)
+    if session.vendor_session:
+        # A CLI seat resumes its own vendor conversation: forget it, or the next
+        # turn would carry the full old context and "fresh" would be a no-op.
+        svc.store.update_session(session.session_id, vendor_session="")
     return through
 
 

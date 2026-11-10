@@ -1718,7 +1718,7 @@ def _with_identity(
         text = identity.compact if compact else identity.text
         return f"<jarvis_identity>\n{text}\n</jarvis_identity>\n\n{prompt}"
     if not society:
-        return prompt
+        return identity.catchup + prompt if identity.catchup else prompt
     refresh = dodaios_harness.society_memory_refresh(identity.text, compact=compact)
     digest = _digest(refresh)
     sent, turns = _REFRESH_SENT.get(identity.session_id, ("", 0))
