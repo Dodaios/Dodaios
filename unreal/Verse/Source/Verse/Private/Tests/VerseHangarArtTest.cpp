@@ -64,7 +64,7 @@ namespace VerseHangarArtTest
 		// The hall around the arena (arena.md 9.3), seen from inside it (a player outside the arena
 		// is out of bounds): the apron and the parked gunship from the booth's upper room, the west
 		// bay over the fence from the west catwalk, the cranes from the gunship's roof.
-		{TEXT("09a_hall_apron"), FVector(3300.0, 4050.0, 630.0), 62.0, -6.0, false},
+		{TEXT("09a_overview_north"), FVector(4300.0, 520.0, 600.0), 75.0, -14.0, false},
 		{TEXT("09b_west_bay"), FVector(2630.0, 900.0, 600.0), 175.0, -14.0, false},
 		{TEXT("09c_roof_cranes"), FVector(5000.0, 1800.0, 300.0), 175.0, 26.0, false},
 		{TEXT("09d_east_canyon_bay"), FVector(7380.0, 3600.0, 0.0), 265.0, -2.0, false},

@@ -38,6 +38,9 @@ namespace VerseArenaArtPrivate
 	const FVector2D SkylightSize(560.0, 1400.0);
 	const FVector2D Skylights[] = {FVector2D(3400.0, 1500.0), FVector2D(5000.0, 1500.0), FVector2D(6600.0, 1500.0), FVector2D(3400.0, 3400.0),
 		FVector2D(5000.0, 3400.0), FVector2D(6600.0, 3400.0)};
+	/** Skylights over the bays and the apron: their lights cast no shadows (the frame budget). */
+	const FVector2D BaySkylights[] = {FVector2D(1000.0, 1800.0), FVector2D(1800.0, 4200.0), FVector2D(9000.0, 1800.0), FVector2D(8200.0, 3800.0),
+		FVector2D(4200.0, 5400.0), FVector2D(5800.0, 5400.0)};
 	/** Lumens of one skylight's rect light and its haze scattering (the shafts). */
 	constexpr float SkylightLumens = 60000.f;
 	constexpr float SkylightScattering = 2.0f;
@@ -129,8 +132,18 @@ void AVerseArenaGraybox::DressArtRoof()
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	UWorld* World = GetWorld();
+	TArray<TPair<FVector2D, bool>> AllSkylights;
 	for (const FVector2D& Sky : Skylights)
 	{
+		AllSkylights.Add({Sky, true});
+	}
+	for (const FVector2D& Sky : BaySkylights)
+	{
+		AllSkylights.Add({Sky, false});
+	}
+	for (const TPair<FVector2D, bool>& Entry : AllSkylights)
+	{
+		const FVector2D& Sky = Entry.Key;
 		const FVector Centre(Sky.X, Sky.Y, CeilingZ - 6.0);
 		AddTrim(TEXT("Light_CeilingPanel"), Centre, FVector(SkylightSize.X, SkylightSize.Y, 4.0), FRotator::ZeroRotator, false);
 		// The frame and the mullions of the glazing.
@@ -160,8 +173,8 @@ void AVerseArenaGraybox::DressArtRoof()
 			C->SetBarnDoorLength(60.f);
 			C->SetUseTemperature(true);
 			C->SetTemperature(6500.f);
-			C->SetCastShadows(true);
-			C->SetVolumetricScatteringIntensity(SkylightScattering);
+			C->SetCastShadows(Entry.Value);
+			C->SetVolumetricScatteringIntensity(Entry.Value ? SkylightScattering : SkylightScattering * 0.5f);
 			Spawned.Add(Rect);
 		}
 	}
@@ -505,6 +518,34 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 		AddTrim(Look, FVector(At.X, At.Y, Z), Extent, FRotator::ZeroRotator, bShadow);
 	};
 	const bool bWallLike = Id.StartsWith(TEXT("barrier_")) || Id.StartsWith(TEXT("cover_wall_")) || Id.StartsWith(TEXT("lowwall_"));
+	if (Id.StartsWith(TEXT("barrier_")) && Box->GetStringField(TEXT("zone")) == TEXT("shell"))
+	{
+		// The perimeter's inner face: lamps every 8 m, a cable run under them, power boards.
+		const FVector Inward = (FVector(5000.0, 2400.0, 0.0) - Centre) * Across;
+		const double In = Inward.X + Inward.Y >= 0.0 ? 1.0 : -1.0;
+		const double Face = Thick * 0.5;
+		const double Yaw = bLong ? (In > 0.0 ? 0.0 : 180.0) : (In > 0.0 ? -90.0 : 90.0);
+		const FRotator Flat = FRotator::MakeFromEuler(bLong ? FVector(0.0, 90.0, 0.0) : FVector(90.0, 0.0, 0.0));
+		for (double T = -Run * 0.5 + 30.0; T + 61.4 < Run * 0.5; T += 61.4)
+		{
+			const FVector At = Centre + RunDir * T + Across * (In * (Face + 4.0));
+			AddDressing(TEXT("SM_Hangar_Cables_Double"), FTransform(Flat, FVector(At.X, At.Y, 380.0)), nullptr, false);
+		}
+		int32 Index = 0;
+		for (double T = -Run * 0.5 + 200.0; T < Run * 0.5 - 100.0; T += 400.0, ++Index)
+		{
+			const FVector At = Centre + RunDir * T + Across * (In * (Face + 2.0));
+			if (Index % 2 == 0)
+			{
+				AddProp(TEXT("SM_Hangar_WallLamp"), FVector(At.X, At.Y, 330.0), Yaw);
+				AddTrim(TEXT("Arena_LampWarm"), FVector(At.X, At.Y, 338.0) + Across * (In * 10.0), FVector(16.0), FRotator::ZeroRotator, false);
+			}
+			else
+			{
+				AddProp(TEXT("SM_Hangar_PowerBox"), FVector(At.X, At.Y, 120.0) + Across * (In * 18.0), Yaw);
+			}
+		}
+	}
 	if (bWallLike && Bottom < 5.0)
 	{
 		// Cast concrete: a stepped foot on both faces and the joints between 2.4 m segments.
