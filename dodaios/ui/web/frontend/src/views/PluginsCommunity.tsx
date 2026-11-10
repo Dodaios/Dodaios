@@ -34,7 +34,15 @@ import { fill, translate, useT } from "@/i18n";
 export const MARKETPLACE_SUBMIT_URL = MARKETPLACE_REPO_URL;
 
 // Wire types — mirror /api/marketplace/community (see marketplace_routes.py).
-export interface CommunityPluginWire {
+
+/** Set on a package this install just published and the feed does not list
+ *  yet (marketplace_routes._add_own_pending). */
+export interface OwnPendingWire {
+  pending?: "checking" | "failed" | "published" | null;
+  pending_problems?: string[];
+}
+
+export interface CommunityPluginWire extends OwnPendingWire {
   name: string;
   valid: boolean;
   error?: string;
@@ -67,7 +75,7 @@ export interface CommunityPluginWire {
   post_install_hint_md?: string | null;
 }
 
-export interface CommunitySkillWire {
+export interface CommunitySkillWire extends OwnPendingWire {
   name: string;
   title: string;
   description: string;

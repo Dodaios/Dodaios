@@ -504,6 +504,25 @@ function EntryRow({
 
 /** What pressing the row leads to, in one word — or just the way in. */
 function RowState({ entry, t }: { entry: Entry; t: Translate }) {
+  if (entry.pending) {
+    const failed = entry.pending === "failed";
+    return (
+      <span
+        data-testid="store-row-pending"
+        className={cn(
+          "inline-flex shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-base",
+          failed ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {failed ? (
+          <AlertTriangle className="h-4 w-4" />
+        ) : (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        )}
+        {t(failed ? "marketplace.pending_failed" : "marketplace.pending_checking")}
+      </span>
+    );
+  }
   if (entry.updateAvailable) {
     return (
       <span className="w-[92px] shrink-0 text-right text-base font-medium text-accent">
