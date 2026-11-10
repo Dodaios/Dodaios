@@ -13,6 +13,8 @@ public class Verse : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] { "GameplayAbilities", "GameplayTags", "GameplayTasks" });
 		// The duel autopilot walks nav paths; the duel subsystem writes its stats as JSON.
 		PrivateDependencyModuleNames.AddRange(new string[] { "NavigationSystem", "Json", "InputCore" });
+		// Verse.Visual.MouseLook feeds mouse events as the default input device (IPlatformInputDeviceMapper).
+		PrivateDependencyModuleNames.Add("ApplicationCore");
 		// The arena graybox builds its breach frames (mesh and simple collision) at runtime.
 		PrivateDependencyModuleNames.AddRange(new string[] { "MeshDescription", "StaticMeshDescription", "PhysicsCore" });
 	}
