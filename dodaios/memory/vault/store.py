@@ -700,6 +700,26 @@ class MemoryVault:
             self._db.commit()
             return True
 
+    def restore(self, memories: Iterable[Memory]) -> int:
+        """Bring back versions that were just forgotten (the short undo window).
+
+        Lifts the tombstone of each version and inserts it as it was, links
+        included. Versions that exist again in the meantime are skipped.
+        Returns how many came back.
+        """
+        brought = 0
+        with self._lock:
+            for memory in memories:
+                if self.has(memory.id):
+                    continue
+                self._db.execute("DELETE FROM tombstone WHERE id=?", (memory.id,))
+                self._insert(memory)
+                brought += 1
+            if brought:
+                self._audit("restore", None, {"count": brought})
+                self._db.commit()
+        return brought
+
     def apply_tombstone(self, memory_id: str, digest: str, forgotten_at: str, reason: str) -> None:
         with self._lock:
             if self.has(memory_id):

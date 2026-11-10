@@ -57,7 +57,7 @@ def test_add_edit_history_pin_end_forget(client, vault):
     assert client.get("/api/memory/vault/items").json()["count"] == 0
     assert client.get("/api/memory/vault/items?history=true").json()["count"] == 2
 
-    assert client.delete(f"/api/memory/vault/items/{new_id}").json() == {"forgotten": 2}
+    assert client.delete(f"/api/memory/vault/items/{new_id}").json()["forgotten"] == 2
     assert client.delete(f"/api/memory/vault/items/{new_id}").status_code == 404
     actions = [e["action"] for e in client.get("/api/memory/vault/activity").json()["entries"]]
     assert "forget" in actions
@@ -104,3 +104,69 @@ def test_overview_names_what_is_in_mind_and_files_render(client, vault):
     files = client.get("/api/memory/vault/files").json()["files"]
     assert [f["name"] for f in files] == ["MEMORY.md", "profile.md", "episode.md"]
     assert "I live in Berlin." in files[1]["content"]
+
+
+def _add(client, text, **extra):
+    return client.post("/api/memory/vault/items", json={"text": text, **extra}).json()["item"]
+
+
+def test_items_filter_by_origin_date_sort_and_page(client, vault):
+    for n in range(5):
+        _add(client, f"Fact number {n} about my garden.")
+    vault.remember("Imported fact about boats.", "reference", origin="imported")
+    body = client.get("/api/memory/vault/items?origin=imported").json()
+    assert [i["text"] for i in body["items"]] == ["Imported fact about boats."]
+    assert body["total"] == 1 and body["has_more"] is False
+
+    page = client.get("/api/memory/vault/items?sort=newest&limit=4").json()
+    assert page["count"] == 4 and page["total"] == 6 and page["has_more"] is True
+    rest = client.get("/api/memory/vault/items?sort=newest&limit=4&offset=4").json()
+    assert rest["count"] == 2 and rest["has_more"] is False
+    stamps = [i["recorded_at"] for i in page["items"]]
+    assert stamps == sorted(stamps, reverse=True)
+
+    today = vault.now()[:10]
+    assert client.get(f"/api/memory/vault/items?since={today}").json()["total"] == 6
+    assert client.get("/api/memory/vault/items?until=2000-01-01").json()["total"] == 0
+    assert client.get("/api/memory/vault/items?origin=bogus").status_code == 422
+
+
+def test_bulk_forget_and_undo(client, vault):
+    a = _add(client, "I keep bees on the roof.")
+    b = _add(client, "My bike is blue.")
+    keep = _add(client, "I like quiet mornings.")
+    done = client.post("/api/memory/vault/forget", json={"ids": [a["id"], b["id"]]}).json()
+    assert done["forgotten"] == 2 and done["undo_token"]
+    assert vault.get(a["id"]) is None
+    texts = [i["text"] for i in client.get("/api/memory/vault/items").json()["items"]]
+    assert texts == [keep["text"]]
+
+    back = client.post(f"/api/memory/vault/undo/{done['undo_token']}").json()
+    assert back["restored"] == 2
+    assert vault.get(a["id"]).text == "I keep bees on the roof."
+    assert client.post(f"/api/memory/vault/undo/{done['undo_token']}").status_code == 410
+    assert client.post("/api/memory/vault/forget", json={"ids": ["nope"]}).status_code == 404
+
+
+def test_single_forget_undo_restores_the_whole_chain(client, vault):
+    first = _add(client, "I live in Hamburg.")
+    new_id = client.put(
+        f"/api/memory/vault/items/{first['id']}", json={"text": "I live in Berlin."}
+    ).json()["item"]["id"]
+    done = client.delete(f"/api/memory/vault/items/{new_id}").json()
+    assert done["forgotten"] == 2 and done["undo_seconds"] == 60
+    assert client.get("/api/memory/vault/items?history=true").json()["total"] == 0
+    client.post(f"/api/memory/vault/undo/{done['undo_token']}")
+    versions = client.get(f"/api/memory/vault/items/{new_id}/history").json()["versions"]
+    assert [v["text"] for v in versions] == ["I live in Hamburg.", "I live in Berlin."]
+
+
+def test_undo_window_expires(client, vault, monkeypatch):
+    from dodaios.ui.web import personal_memory_routes as routes
+
+    item = _add(client, "I own a red kayak.")
+    done = client.post("/api/memory/vault/forget", json={"ids": [item["id"]]}).json()
+    real = routes.time.monotonic
+    monkeypatch.setattr(routes.time, "monotonic", lambda: real() + routes.UNDO_WINDOW_SECONDS + 1)
+    assert client.post(f"/api/memory/vault/undo/{done['undo_token']}").status_code == 410
+    assert vault.get(item["id"]) is None
