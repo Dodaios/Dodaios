@@ -49,7 +49,9 @@ def test_large_catalog_is_deferred_without_model_or_reasoning_downgrade(tmp_path
         runtime = LiveTools(gateway, ledger, "s", language="en", backend_model="selected")
         eager = runtime.declarations()
         deferred = runtime.declarations(defer_catalog=True)
-        assert len(json.dumps(deferred)) < len(json.dumps(eager)) * 0.15
+        # The deferred set carries six small native tools (today_brief joined for
+        # the spoken brief), so it stays under a sixth of the eager catalog.
+        assert len(json.dumps(deferred)) < len(json.dumps(eager)) * 0.17
         assert "x" * 900 not in json.dumps(deferred)
         assert all(tool.name in deferred[1]["description"] for tool in gateway.tools)
         assert {tool["name"] for tool in deferred} == {
@@ -58,6 +60,7 @@ def test_large_catalog_is_deferred_without_model_or_reasoning_downgrade(tmp_path
             "confirm_action",
             "end_call",
             "task_status",
+            "today_brief",
         }
         config = LiveConfig(configured=True, backend_model="selected", reasoning_effort="high")
         backend = config.session_config(language="en", tools=deferred)["delegation"]["responses"]
