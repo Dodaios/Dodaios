@@ -14,7 +14,7 @@
  * - `PixelStreaming2.WebRTC.PortAllocatorFlags` without STUN and relay (loopback ICE only),
  * - `PixelStreaming2.AllowPixelStreamingCommands` false, `PixelStreaming2.KeyFilter` from
  *   the panel input policy,
- * - `t.MaxFPS` 30 for the session, restored on stop.
+ * - a 30 fps cap for the session (FVerseFramePacing stream cap), lifted on stop.
  *
  * The default streamer captures the back buffer, so for the session the window renders
  * windowed at the panel size. Start saves the window's resolution and mode, and Stop (and a
@@ -56,6 +56,4 @@ private:
 	bool bStreaming = false;
 	FWindowState SavedWindow;
 	bool bSavedWindow = false;
-	FString SavedMaxFps;
-	bool bSavedMaxFps = false;
 };

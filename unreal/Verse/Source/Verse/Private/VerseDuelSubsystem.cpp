@@ -1,4 +1,5 @@
 #include "VerseDuelSubsystem.h"
+#include "VerseFramePacing.h"
 
 #include "Bot/VerseBotTier.h"
 #include "Combat/VerseGadgetDefinition.h"
@@ -162,6 +163,10 @@ void UVerseDuelSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UVerseDuelSubsystem::Deinitialize()
 {
+	if (bDuelRunning)
+	{
+		FVerseFramePacing::SetDuelRunning(false);
+	}
 	using namespace VerseDuelPrivate;
 	if (UVerseEventHub* Hub = UVerseEventHub::Get(GetWorld()))
 	{
@@ -344,6 +349,7 @@ bool UVerseDuelSubsystem::StartDuel(FName InTier)
 	RegisterObservers();
 	ResetStats();
 	bDuelRunning = true;
+	FVerseFramePacing::SetDuelRunning(true);
 	NavChecks = 0;
 	MatchStartedAt = World->GetTimeSeconds();
 
@@ -376,6 +382,7 @@ void UVerseDuelSubsystem::LeaveDuel()
 		return;
 	}
 	bDuelRunning = false;
+	FVerseFramePacing::SetDuelRunning(false);
 	if (UVerseHangarSwitchSubsystem* Switch = UVerseHangarSwitchSubsystem::Get(World))
 	{
 		Switch->RequestArena(false, TEXT("leave_duel"));
