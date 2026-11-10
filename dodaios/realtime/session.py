@@ -1803,6 +1803,28 @@ def _preferences_block(config: Any, *, compact: bool = False) -> str:
         return ""
 
 
+async def _voice_memory_recall(text: str, *, compact: bool = False) -> str:
+    """Memories matching the caller's last sentence, or ``""``.
+
+    One local search (no model call) capped at 150 ms, so a slow disk can never
+    hold a spoken reply back.
+    """
+    if not (text or "").strip():
+        return ""
+    try:
+        from dodaios.memory.vault.runtime import turn_block
+
+        return await asyncio.wait_for(
+            asyncio.to_thread(turn_block, text, compact=compact), timeout=0.15
+        )
+    except TimeoutError:
+        log.info("realtime: memory recall skipped (over 150 ms)")
+        return ""
+    except Exception:  # noqa: BLE001 — recall is a nicety, never a turn breaker
+        log.debug("realtime: memory recall unavailable", exc_info=True)
+        return ""
+
+
 def _learned_block(*, compact: bool = False) -> str:
     """Jarvis' learned notebooks (cached snapshot; at most one ``stat``).
 
@@ -1873,6 +1895,7 @@ def _session_instructions(
     tool_directive: str = "",
     preferences: str = "",
     skill_directive: str = "",
+    memory_recall: str = "",
     skills_directive: str = "",
     workspace_directive: str = "",
     society_directive: str = "",
@@ -1957,6 +1980,8 @@ def _session_instructions(
         society_directive,
         skills_directive,
         skill_directive,
+        # Memories that match what was just said (ADR-0044), per turn.
+        memory_recall,
         history_lost_line,
         input_directive,
         clock_line,
@@ -4964,6 +4989,10 @@ class RealtimeVoiceSession:
                         turn_mode_directive = self._turn_mode_directive(
                             **turn_mode_kwargs
                         )
+                        memory_recall = await _voice_memory_recall(
+                            transcript,
+                            compact=getattr(self, "_compact_instructions", False),
+                        )
                         update_kwargs: dict[str, Any] = {
                             "instructions": _session_instructions(
                                 new_language,
@@ -5001,6 +5030,7 @@ class RealtimeVoiceSession:
                                     )
                                 ),
                                 skills_directive=self._skills_directive(),
+                                memory_recall=memory_recall,
                                 # Rebuilt per turn: panes open and close mid
                                 # call, and a roster naming a terminal that is
                                 # gone is worse than none.

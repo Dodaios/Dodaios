@@ -312,6 +312,13 @@
     "how_learn_3": "La memoria se mantiene al día",
     "how_learn_3_body": "Lo nuevo se añade, lo que cambia reemplaza la versión anterior y nada se borra salvo que lo pidas.",
     "how_footer": "Cada cambio aparece aquí y puedes deshacerlo u olvidarlo.",
-    "mode_how_short": "Cómo funciona"
+    "mode_how_short": "Cómo funciona",
+    "pause": "Pausar el aprendizaje",
+    "pause_resume": "Aprendizaje en pausa · reanudar",
+    "pause_until": "hasta {time}",
+    "pause_until_resumed": "hasta que lo reanudes",
+    "pause_hour": "Durante una hora",
+    "pause_tomorrow": "Hasta mañana por la mañana",
+    "pause_forever": "Hasta que lo vuelva a activar"
   }
 }

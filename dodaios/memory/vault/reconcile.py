@@ -56,9 +56,13 @@ _SYSTEM: Final[str] = (
     'the user asked to remember them, then with sensitivity "sensitive".\n'
     "Prefer update over add when a stored memory is on the same subject; use "
     "invalidate only when the user said a stored memory is no longer true.\n"
+    'A correction of the assistant or a standing rule ("never ...", "always ...", '
+    '"no, I meant ...") is kind procedural with "pin": true; it then rides '
+    'along in every conversation. A plan, deadline or appointment gets "due": '
+    "YYYY-MM-DD.\n"
     'Return only JSON: {{"ops": [{{"op": "add|update|invalidate", "id": "", '
     '"kind": "", "text": "", "entities": [], "evidence": "", '
-    '"sensitivity": "normal", "valid_to": ""}}]}}\n'
+    '"sensitivity": "normal", "valid_to": "", "due": "", "pin": false}}]}}\n'
     "text = one self-contained declarative sentence in the user's language, under "
     f"{MAX_TEXT_CHARS} characters, with dates as YYYY-MM-DD. entities = names of "
     "people, places, organisations or things it is about. id = the stored memory an "
@@ -82,6 +86,8 @@ class Op:
     evidence: str = ""
     sensitivity: str = "normal"
     valid_to: str | None = None
+    due_at: str | None = None
+    pin: bool = False
 
 
 def parse(text: str) -> list[dict[str, Any]]:
@@ -172,6 +178,9 @@ def validate(
             valid_to = None
         if valid_to is not None and len(valid_to) == 10:
             valid_to += "T23:59:59+00:00"
+        due_at = _iso_date(str(item.get("due") or "").strip())
+        # Only a standing rule may pin itself into every conversation.
+        pin = bool(item.get("pin")) and (kind or "") == "procedural"
         if kind == "ephemeral" and valid_to is None:
             rejected.append("ephemeral without valid_to")
             continue
@@ -186,9 +195,18 @@ def validate(
                 evidence=evidence.strip(),
                 sensitivity=sensitivity,
                 valid_to=valid_to,
+                due_at=due_at,
+                pin=pin,
             )
         )
     return accepted, rejected
+
+
+def _iso_date(value: str) -> str | None:
+    """A YYYY-MM-DD date (time optional) or None."""
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T.*)?", value):
+        return None
+    return value if "T" in value else value + "T09:00:00+00:00"
 
 
 def apply(
@@ -217,6 +235,8 @@ def apply(
                     confidence=0.8,
                     sensitivity=op.sensitivity,
                     valid_to=op.valid_to,
+                    due_at=op.due_at,
+                    pinned=op.pin,
                 )
                 written += result.action == "added"
                 if result.action == "added" and result.memory is not None and receipts is not None:
@@ -232,7 +252,10 @@ def apply(
                     origin="inferred",
                     source=src,
                     valid_to=op.valid_to,
+                    due_at=op.due_at,
                 )
+                if op.pin and result.memory is not None:
+                    vault.pin(result.memory.id, True)
                 written += result.action == "superseded"
                 if (
                     result.action == "superseded"

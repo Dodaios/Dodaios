@@ -65,6 +65,8 @@ class Memory:
     pinned: bool = False
     use_count: int = 0
     last_used_at: str | None = None
+    #: When a plan, deadline or appointment falls due (ISO date or time).
+    due_at: str | None = None
 
     def is_current(self, now: str) -> bool:
         """True while the memory is neither replaced nor past its end date."""

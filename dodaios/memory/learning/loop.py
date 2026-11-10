@@ -61,6 +61,12 @@ _BACKOFF_CAP_S: Final[float] = 3_600.0
 #: after which the turns are dropped. The reviewer asks only the Jarvis
 #: provider's seats, so a seat that keeps failing must not keep its turns forever.
 _MAX_FAILURES: Final[int] = 4
+#: Memory upkeep: first run after boot settles, then an hourly check whether
+#: the daily tidy-up is due (the pass itself runs at most once a day).
+_UPKEEP_FIRST_DELAY_S: Final[float] = 120.0
+_UPKEEP_INTERVAL_S: Final[float] = 3_600.0
+#: How often queued conversation episodes are picked up.
+_UPKEEP_TICK_S: Final[float] = 600.0
 
 
 def _seat_of(reviewer: Any) -> dict[str, str]:
@@ -99,11 +105,17 @@ class JarvisLearningLoop:
         idle_review_seconds: float = 300.0,
         compactor: Reviewer | None = None,
         vault_reviewer: Reviewer | None = None,
+        upkeep_reviewer: Reviewer | None = None,
+        episode_reviewer: Reviewer | None = None,
     ) -> None:
         self.notebook = notebook
         self._reviewer = reviewer
         #: Reviews write into the memory vault (ADR-0044) while one runs.
         self._vault_reviewer = vault_reviewer
+        #: Merges near-duplicate memories once a day (vault.consolidate).
+        self._upkeep_reviewer = upkeep_reviewer
+        #: Turns compacted conversation summaries into episodes (vault.episodes).
+        self._episode_reviewer = episode_reviewer
         self._compactor = compactor
         self._every = max(1, int(review_every_turns))
         self._idle_s = max(0.0, float(idle_review_seconds))
@@ -133,6 +145,31 @@ class JarvisLearningLoop:
             bus.subscribe(event_type, handler)
             self._subscriptions.append((event_type, handler))
         self._spawn(self._warm_and_compact(), name="jarvis-learning-warm")
+        if self._vault_reviewer is not None:
+            self._spawn(self._memory_upkeep(), name="memory-vault-upkeep")
+
+    async def _memory_upkeep(self) -> None:
+        """Background vault upkeep: learn once from the old chats, tidy up daily."""
+        from dodaios.core.config import DATA_DIR
+        from dodaios.memory.vault import backfill, calendar_sync, consolidate, episodes
+        from dodaios.memory.vault import runtime as vault_runtime
+
+        await asyncio.sleep(_UPKEEP_FIRST_DELAY_S)
+        vault = vault_runtime.active()
+        if vault is not None and self._vault_reviewer is not None and not self._stopped:
+            await backfill.run_once(vault, self._vault_reviewer, DATA_DIR)
+        last_hourly = 0.0
+        while not self._stopped:
+            vault = vault_runtime.active()
+            if vault is not None and self._episode_reviewer is not None:
+                await episodes.process(vault, self._episode_reviewer)
+            if vault is not None and time.monotonic() - last_hourly >= _UPKEEP_INTERVAL_S:
+                last_hourly = time.monotonic()
+                if self._upkeep_reviewer is not None:
+                    await consolidate.run_if_due(vault, self._upkeep_reviewer)
+                if not vault_runtime.learning_paused():
+                    await calendar_sync.sync(vault)
+            await asyncio.sleep(_UPKEEP_TICK_S)
 
     async def _warm_and_compact(self) -> None:
         await asyncio.to_thread(self.notebook.warm)
@@ -440,6 +477,10 @@ class JarvisLearningLoop:
         reviewer = self._vault_reviewer
         if reviewer is None:
             return 0, False
+        if vault_runtime.learning_paused():
+            # The user paused learning: these turns are dropped, never queued for later.
+            log.info("learning: paused by the user; %d turn(s) not reviewed", len(said))
+            return 0, True
         shown = await asyncio.to_thread(reconcile.nearest, vault, said)
         prompt = reconcile.build_prompt(said, shown)
         log.info("learning: reconciling %d picked turn(s) with the vault (%s)", len(said), reason)
@@ -657,7 +698,7 @@ def start_learning(config: Any, bus: Any) -> JarvisLearningLoop | None:
     from dodaios.memory.learning import compact
     from dodaios.memory.learning import notebook as notebook_module
     from dodaios.memory.learning.review import ModelReviewer
-    from dodaios.memory.vault import reconcile
+    from dodaios.memory.vault import consolidate, episodes, reconcile
 
     _connect_write_feedback(bus)
     _open_vault(config)
@@ -686,6 +727,20 @@ def start_learning(config: Any, bus: Any) -> JarvisLearningLoop | None:
             parser=reconcile.parse,
             max_tokens=reconcile.REVIEW_MAX_TOKENS,
             caller="memory-vault",
+        ),
+        upkeep_reviewer=ModelReviewer(
+            config,
+            system=consolidate.system_prompt,
+            parser=consolidate.parse,
+            max_tokens=consolidate.REVIEW_MAX_TOKENS,
+            caller="memory-vault-upkeep",
+        ),
+        episode_reviewer=ModelReviewer(
+            config,
+            system=episodes.system_prompt,
+            parser=episodes.parse,
+            max_tokens=episodes.REVIEW_MAX_TOKENS,
+            caller="memory-vault-episodes",
         ),
     )
     _loop.start(bus)

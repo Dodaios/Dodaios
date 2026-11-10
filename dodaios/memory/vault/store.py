@@ -20,7 +20,7 @@ import secrets
 import sqlite3
 import threading
 from collections.abc import Callable, Iterable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,7 @@ from dodaios.memory.vault.models import (
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -102,7 +102,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
 _COLUMNS = (
     "id, content_hash, kind, text, scope, valid_from, valid_to, recorded_at, "
     "expired_at, supersedes_id, origin, source, confidence, sensitivity, pinned, "
-    "use_count, last_used_at"
+    "use_count, last_used_at, due_at"
 )
 
 _CURRENT = "m.expired_at IS NULL AND (m.valid_to IS NULL OR m.valid_to > ?)"
@@ -163,6 +163,7 @@ class MemoryVault:
                 self._db.execute("PRAGMA journal_mode=WAL")
             self._db.execute("PRAGMA foreign_keys=ON")
             self._db.executescript(_SCHEMA)
+            self._migrate()
             self._db.execute(
                 "INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
@@ -222,6 +223,7 @@ class MemoryVault:
         pinned: bool = False,
         valid_from: str | None = None,
         valid_to: str | None = None,
+        due_at: str | None = None,
     ) -> WriteResult:
         """Store one memory, or return the identical one that is already current."""
         text = " ".join(text.split())
@@ -258,6 +260,7 @@ class MemoryVault:
                 confidence=max(0.0, min(1.0, float(confidence))),
                 sensitivity=sensitivity,
                 pinned=pinned,
+                due_at=due_at,
             )
             self._insert(memory)
             self._audit("add", memory.id, {"kind": kind, "origin": origin})
@@ -276,6 +279,7 @@ class MemoryVault:
         confidence: float | None = None,
         valid_from: str | None = None,
         valid_to: str | None = None,
+        due_at: str | None = None,
     ) -> WriteResult:
         """Replace a memory with a newer version and close the old one."""
         text = " ".join(text.split())
@@ -311,6 +315,7 @@ class MemoryVault:
                 confidence=old.confidence if confidence is None else confidence,
                 sensitivity=old.sensitivity,
                 pinned=old.pinned,
+                due_at=old.due_at if due_at is None else (due_at or None),
             )
             self._close(old.id, valid_to=memory.valid_from, expired_at=now)
             self._insert(memory)
@@ -597,6 +602,56 @@ class MemoryVault:
             )
         ]
 
+    def upcoming(self, *, days: int = 14) -> list[Memory]:
+        """Current memories that fall due within ``days`` (overdue ones first)."""
+        now = self.now()
+        horizon = (datetime.fromisoformat(now) + timedelta(days=days)).isoformat(timespec="seconds")
+        rows = self._db.execute(
+            f"SELECT {_prefixed()} FROM memory m WHERE {_CURRENT} "  # noqa: S608
+            "AND m.due_at IS NOT NULL AND m.due_at <= ? ORDER BY m.due_at, m.id",
+            (now, horizon),
+        )
+        return [self._row_to_memory(r) for r in rows]
+
+    # -- learning pause ------------------------------------------------------
+
+    def pause_learning(self, until: str | None) -> None:
+        """Stop background learning until ``until`` (ISO time), "forever", or resume (None)."""
+        if until is None:
+            with self._lock:
+                self._db.execute("DELETE FROM meta WHERE key='learning_paused_until'")
+                self._db.commit()
+            self._audit_commit("resume", {})
+            return
+        self.set_meta("learning_paused_until", until)
+        self._audit_commit("pause", {"until": until})
+
+    def learning_paused_until(self) -> str | None:
+        """The pause end ("forever" for no end), or None when learning runs."""
+        value = self.get_meta("learning_paused_until")
+        if value is None:
+            return None
+        if value != "forever" and value <= self.now():
+            return None
+        return value
+
+    def _audit_commit(self, action: str, detail: dict[str, Any]) -> None:
+        with self._lock:
+            self._audit(action, None, detail)
+            self._db.commit()
+
+    def _migrate(self) -> None:
+        """Bring an older vault file up to the current schema (additive only)."""
+        columns = {r["name"] for r in self._db.execute("PRAGMA table_info(memory)")}
+        if "due_at" not in columns:
+            self._db.execute("ALTER TABLE memory ADD COLUMN due_at TEXT")
+        self._db.execute("CREATE INDEX IF NOT EXISTS memory_due ON memory(due_at)")
+        self._db.execute(
+            "INSERT INTO meta(key, value) VALUES ('schema_version', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (str(SCHEMA_VERSION),),
+        )
+
     # -- import support (used by vault.portable) ----------------------------
 
     def has(self, memory_id: str) -> bool:
@@ -657,7 +712,7 @@ class MemoryVault:
 
     def _insert(self, m: Memory) -> None:
         self._db.execute(
-            f"INSERT INTO memory({_COLUMNS}) VALUES ({','.join('?' * 17)})",  # noqa: S608
+            f"INSERT INTO memory({_COLUMNS}) VALUES ({','.join('?' * 18)})",  # noqa: S608
             (
                 m.id,
                 m.content_hash,
@@ -676,6 +731,7 @@ class MemoryVault:
                 1 if m.pinned else 0,
                 m.use_count,
                 m.last_used_at,
+                m.due_at,
             ),
         )
         self._db.execute(
@@ -788,6 +844,7 @@ class MemoryVault:
             pinned=bool(row["pinned"]),
             use_count=int(row["use_count"]),
             last_used_at=row["last_used_at"],
+            due_at=row["due_at"],
         )
 
 

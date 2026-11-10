@@ -2,8 +2,8 @@
 
 Two outputs:
 
-- **Bundle** (lossless, re-importable), shaped after the open Portable Memory
-  proposal (``.mem``): ``manifest.json``, ``items/<kind>.jsonl``,
+- **Bundle** (lossless, re-importable), an open folder layout:
+  ``manifest.json``, ``items/<kind>.jsonl``,
   ``entities.jsonl``, ``audit/log.jsonl``, ``audit/tombstones.jsonl`` and
   ``CHECKSUMS``. As a folder or a zip file.
 - **Markdown** (readable): ``MEMORY.md`` plus one file per kind, which opens in

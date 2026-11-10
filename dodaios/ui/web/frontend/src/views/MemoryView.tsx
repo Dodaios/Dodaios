@@ -35,6 +35,7 @@ import { MemoryFiles } from "@/components/memoryVault/MemoryFiles";
 import { HowItWorks } from "@/components/memoryVault/HowItWorks";
 import { NewMemorySheet } from "@/components/memoryVault/NewMemorySheet";
 import { Portability } from "@/components/memoryVault/Portability";
+import { LearningPause } from "@/components/memoryVault/LearningPause";
 
 type Mode = "memories" | "files" | "how";
 
@@ -181,6 +182,7 @@ export function MemoryView(): JSX.Element {
               );
             })}
           </nav>
+          <LearningPause onError={notify} />
           <Portability onDone={(message) => void refresh().then(() => notify(message))} onError={notify} />
         </aside>
 
