@@ -662,6 +662,8 @@ interface AgenticTerminalProps {
    * shell pane, which has no conversation to read.
    */
   onOpenChat?: () => void;
+  /** Continue this pane's CLI conversation in a thread. */
+  onOpenThread?: () => void;
   /**
    * Press on the pane's header — the grip that picks this pane up.
    *
@@ -748,6 +750,7 @@ export function AgenticTerminal({
   onAttachError,
   onRestart,
   onOpenChat,
+  onOpenThread,
   restartToken = 0,
   onArrangeStart,
   showArrangeHandle = false,
@@ -3116,6 +3119,7 @@ export function AgenticTerminal({
     onRename,
     onOpenConversation: () => setHistoryOpen(true),
     onOpenChat,
+    onOpenThread,
     onReviewChanges: reviewChanges,
     onReviewChangesPrefetch: prefetchReview,
     onShowInGit: showInGit,

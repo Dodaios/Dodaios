@@ -245,7 +245,7 @@ export class AgentChatApiError extends Error {
   }
 }
 
-async function json<T>(res: Response, what: string): Promise<T> {
+export async function json<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) {
     let detail = what;
     let code = "";
@@ -418,6 +418,8 @@ export interface CreateSessionInput {
   surface?: AgentChatSurface;
   /** A coding thread's placement; empty or absent = this computer. */
   computer_id?: string;
+  /** Continue an existing Claude Code / Codex session (a uuid). */
+  vendor_session?: string;
 }
 
 export async function createAgentChatSession(input: CreateSessionInput): Promise<AgentChatSession> {

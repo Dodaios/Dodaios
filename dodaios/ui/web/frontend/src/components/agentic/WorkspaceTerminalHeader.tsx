@@ -39,6 +39,7 @@ interface Props {
   onRename?: (name: string) => Promise<boolean>;
   onOpenConversation?: () => void;
   onOpenChat?: () => void;
+  onOpenThread?: () => void;
   /** Opens the review of every uncommitted change this pane's agent made. */
   onReviewChanges?: () => void;
   /** Starts reading the review ahead of a click: on the button at once, on the title bar after a short dwell. */
@@ -83,7 +84,7 @@ export function WorkspaceTerminalHeader({
   contextMenuRequest, onSwapWithFocused, sendRightClicks = false, onToggleSendRightClicks,
   name, workspaceId, promptCount = 0, agent, agentLogoUrl, displayName, status, appearance, arranging = false,
   maximized = false, addDisabled = false, onArrangeStart, onActivate, onToggleMaximize,
-  onAdd, onClose, onRename, onOpenConversation, onOpenChat, onReviewChanges, onReviewChangesPrefetch, onShowInGit, onRestart, onFork, branch,
+  onAdd, onClose, onRename, onOpenConversation, onOpenChat, onOpenThread, onReviewChanges, onReviewChangesPrefetch, onShowInGit, onRestart, onFork, branch,
   computerName, placementItems, workspaceItems, variant = "bar", focused = false, githubStatusEnabled = true,
 }: Props) {
   const t = useT();
@@ -224,6 +225,7 @@ export function WorkspaceTerminalHeader({
           Icon: maximized ? Minimize2 : Maximize2, run: onToggleMaximize },
         onOpenConversation && { label: t("ide_panes.header.conversation_history"), run: onOpenConversation },
         onOpenChat && { label: t("ide_panes.header.open_as_chat"), run: onOpenChat },
+        onOpenThread && { label: t("ide_panes.header.open_as_thread"), run: onOpenThread },
         onReviewChanges && { label: t("ide_panes.header.review_changes"), Icon: FileDiff, run: onReviewChanges },
         onShowInGit && { label: t("ide_panes.header.show_in_git"), Icon: FolderGit2, run: onShowInGit },
         stopped && onRestart && { label: t("ide_panes.header.restart_agent"), run: onRestart },
