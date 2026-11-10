@@ -215,7 +215,7 @@ describe("ChatStage (agent chat)", () => {
     expect(within(composer).getByTestId("composer-add")).toBeTruthy();
   });
 
-  it("turns the empty composer's round button into voice mode, and into Send once there is text", () => {
+  it("turns the empty composer's round button into a call, and into Send once there is text", () => {
     useHomeStore.setState({ surface: "chat" });
     render(<ChatStage />);
     expect(screen.queryByTestId("composer-send")).toBeNull();
@@ -227,8 +227,9 @@ describe("ChatStage (agent chat)", () => {
     box.textContent = "";
     fireEvent.input(box);
     fireEvent.click(screen.getByTestId("composer-voice-mode"));
-    expect(useHomeStore.getState().surface).toBe("voice");
-    useHomeStore.setState({ surface: "chat" });
+    // A call stays in the conversation: the page does not switch away.
+    expect(useHomeStore.getState().surface).toBe("chat");
+    expect(screen.getByRole("textbox")).toBeTruthy();
   });
 
   it("restores an unsent multiline draft after leaving the chat section", () => {

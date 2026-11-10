@@ -26,11 +26,10 @@ function readOpen(): boolean {
  * ONE endless conversation with the assistant, with a voice mode inside it
  * (components/home/AssistantChat), and on wide windows an activity panel on
  * the right: what waits on the person, what runs, what finished, and the
- * morning brief. `data-surface` says which mode the chat is in (store/home.ts).
+ * morning brief. A running call shows as a card over the conversation.
  */
 export function HomeView() {
   const t = useT();
-  const surface = useHomeStore((s) => s.surface);
   const agentChatId = useHomeStore((s) => s.agentChatId);
   const [open, setOpen] = useState(readOpen);
   const remember = (next: boolean) => {
@@ -38,9 +37,9 @@ export function HomeView() {
     try { localStorage.setItem(PANEL_KEY, next ? "open" : "closed"); }
     catch { /* Storage denied: keep the choice for this visit. */ }
   };
-  const showPanel = surface === "chat" && !agentChatId;
+  const showPanel = !agentChatId;
   return (
-    <div className="flex h-full min-h-0" data-testid="home-view" data-surface={surface}>
+    <div className="flex h-full min-h-0" data-testid="home-view">
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <AssistantChat />
         {showPanel && !open && (

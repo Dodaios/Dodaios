@@ -155,6 +155,28 @@ async def voice_call() -> dict[str, Any]:
     return {"armed": not reason, "reason": reason}
 
 
+@router.get("/mic-mute")
+async def voice_mic_mute() -> dict[str, Any]:
+    """Whether the microphone is muted for the assistant (the call stays open)."""
+    pipeline = _pipeline()
+    if pipeline is None or not hasattr(pipeline, "is_muted"):
+        raise HTTPException(status_code=503, detail="voice-pipeline-unavailable")
+    return {"muted": bool(pipeline.is_muted)}
+
+
+@router.post("/mic-mute")
+async def voice_mic_mute_toggle() -> dict[str, Any]:
+    """Mute or unmute the microphone for the assistant; returns the new state.
+
+    Input only: the assistant finishes what it is saying and the call stays
+    open. Same flip as the bar's mic button (``VoiceMuteToggleRequested``).
+    """
+    pipeline = _pipeline()
+    if pipeline is None or not hasattr(pipeline, "toggle_mute"):
+        raise HTTPException(status_code=503, detail="voice-pipeline-unavailable")
+    return {"muted": bool(await pipeline.toggle_mute("call_card"))}
+
+
 @router.post("/hangup")
 async def voice_hangup() -> dict[str, Any]:
     """End the running voice conversation — the hangup key's contract."""

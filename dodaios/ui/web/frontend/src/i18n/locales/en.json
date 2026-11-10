@@ -924,6 +924,16 @@
     "verify": "Verifying"
   },
   "home": {
+    "call": {
+      "label": "Call with {name}",
+      "muted": "Microphone off",
+      "mute_failed": "The microphone could not be switched.",
+      "settings": "Voice settings",
+      "show_transcript": "Show transcript",
+      "hide_transcript": "Hide transcript",
+      "mute": "Turn the microphone off",
+      "unmute": "Turn the microphone on"
+    },
     "activity": {
       "title": "Activity",
       "open": "Show activity",

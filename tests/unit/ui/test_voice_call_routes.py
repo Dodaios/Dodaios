@@ -181,3 +181,57 @@ def test_state_clamps_a_left_over_supervisor_state_to_idle(monkeypatch):
         "voice_state": "idle",
         "browser_call": False,
     }
+
+
+class _MutePipeline:
+    """The microphone mute the call card flips: input only, the call stays open."""
+
+    def __init__(self) -> None:
+        self._muted = False
+        self.sources: list[str] = []
+
+    @property
+    def is_muted(self) -> bool:
+        return self._muted
+
+    async def toggle_mute(self, source: str = "") -> bool:
+        self.sources.append(source)
+        self._muted = not self._muted
+        return self._muted
+
+
+def test_mic_mute_reads_and_flips_the_pipeline_mute(monkeypatch) -> None:
+    pipeline = _MutePipeline()
+    client = _client(monkeypatch, pipeline)
+    assert client.get("/api/voice/mic-mute").json() == {"muted": False}
+    assert client.post("/api/voice/mic-mute").json() == {"muted": True}
+    assert client.get("/api/voice/mic-mute").json() == {"muted": True}
+    assert client.post("/api/voice/mic-mute").json() == {"muted": False}
+    assert pipeline.sources == ["call_card", "call_card"]
+
+
+def test_mic_mute_without_a_pipeline_is_503(monkeypatch) -> None:
+    client = _client(monkeypatch, None)
+    assert client.get("/api/voice/mic-mute").status_code == 503
+    assert client.post("/api/voice/mic-mute").status_code == 503
+
+
+def test_pipeline_toggle_mute_flips_and_broadcasts() -> None:
+    import asyncio
+
+    from dodaios.core.events import VoiceMuteChanged
+    from dodaios.speech.pipeline import SpeechPipeline
+
+    published: list[object] = []
+
+    class _Bus:
+        async def publish(self, event: object) -> None:
+            published.append(event)
+
+    pipeline = SpeechPipeline.__new__(SpeechPipeline)
+    pipeline._muted = False
+    pipeline._bus = _Bus()
+    assert asyncio.run(pipeline.toggle_mute("call_card")) is True
+    assert pipeline.is_muted is True
+    assert isinstance(published[-1], VoiceMuteChanged) and published[-1].muted is True
+    assert asyncio.run(pipeline.toggle_mute("call_card")) is False

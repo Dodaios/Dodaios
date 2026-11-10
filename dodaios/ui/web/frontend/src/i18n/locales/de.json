@@ -924,6 +924,16 @@
     "verify": "Prüft"
   },
   "home": {
+    "call": {
+      "label": "Anruf mit {name}",
+      "muted": "Mikro aus",
+      "mute_failed": "Das Mikrofon konnte nicht umgeschaltet werden.",
+      "settings": "Spracheinstellungen",
+      "show_transcript": "Mitschrift zeigen",
+      "hide_transcript": "Mitschrift ausblenden",
+      "mute": "Mikrofon ausschalten",
+      "unmute": "Mikrofon einschalten"
+    },
     "activity": {
       "title": "Aktivität",
       "open": "Aktivität anzeigen",
