@@ -256,8 +256,13 @@ class JarvisLearningLoop:
             return
         # What the person typed, never attachments or transport scaffolding:
         # only those words may later serve as evidence.
-        typed = [user_evidence(e) for e in events if e.get("kind") == "user_message"]
+        messages = [e for e in events if e.get("kind") == "user_message"]
+        typed = [user_evidence(e) for e in messages]
         user = typed[-1].strip() if typed else ""
+        try:
+            seq = int(messages[-1].get("seq") or 0) if messages else 0
+        except (TypeError, ValueError):
+            seq = 0  # An unnumbered event: the memory links by its quote instead.
         if not user:
             user = user_evidence({"payload": {"text": getattr(turn, "user_text", "")}}).strip()
         answer = "\n".join(
@@ -270,9 +275,18 @@ class JarvisLearningLoop:
             for e in events
             if e.get("kind") == "tool_call"
         )
+        session_id = str(getattr(session, "session_id", "") or "")
         self.record(
-            "chat:" + str(getattr(session, "session_id", "") or "unknown"),
-            Turn(user=user, assistant=answer, channel="chat", tools=tuple(t for t in tools if t)),
+            "chat:" + (session_id or "unknown"),
+            Turn(
+                user=user,
+                assistant=answer,
+                channel="chat",
+                tools=tuple(t for t in tools if t),
+                session_id=session_id,
+                turn_id=str(getattr(turn, "turn_id", "") or ""),
+                seq=seq,
+            ),
         )
 
     def record(self, key: str, turn: Turn) -> None:
@@ -303,7 +317,9 @@ class JarvisLearningLoop:
             conversation.signals[-2] = True
             conversation.unreviewed = max(conversation.unreviewed, 2)
         if request:
-            self._spawn(self._remember(turn.user, request), name="jarvis-learning-remember")
+            self._spawn(
+                self._remember(turn.user, request, turn.anchor()), name="jarvis-learning-remember"
+            )
         if request == "":
             self._schedule(key, reason="remember request", force=True)
         elif conversation.unreviewed >= self._every:
@@ -388,13 +404,18 @@ class JarvisLearningLoop:
                 conversation.unreviewed = 0
                 return 0
             said = excerpt(conversation.turns, picked)
+            # Where each picked line was said, so a memory links back to it.
+            anchors = [
+                {"user": conversation.turns[i].user, **conversation.turns[i].anchor()}
+                for i in picked
+            ]
             conversation.unreviewed = 0
             conversation.reviewing = True
             answered = False
             written = 0
             outcome = "failed"
             try:
-                written, answered = await self._review_said(said, reason)
+                written, answered = await self._review_said(said, reason, anchors)
             finally:
                 conversation.reviewing = False
                 if answered:
@@ -435,13 +456,18 @@ class JarvisLearningLoop:
                 await asyncio.to_thread(self.notebook.warm)
             return written
 
-    async def _review_said(self, said: list[dict[str, str]], reason: str) -> tuple[int, bool]:
+    async def _review_said(
+        self,
+        said: list[dict[str, str]],
+        reason: str,
+        anchors: list[dict[str, Any]] | None = None,
+    ) -> tuple[int, bool]:
         """``(changes written, a reviewer answered)``; raises only on I/O faults."""
         from dodaios.memory.vault import runtime as vault_runtime
 
         vault = vault_runtime.active()
         if vault is not None and self._vault_reviewer is not None:
-            return await self._review_into_vault(vault, said, reason)
+            return await self._review_into_vault(vault, said, reason, anchors)
         entries = await asyncio.to_thread(self.notebook.entries)
         prompt = build_prompt(said, entries=entries, usage=self.notebook.usage(entries))
         log.info("learning: reviewing %d picked turn(s) (%s)", len(said), reason)
@@ -468,7 +494,11 @@ class JarvisLearningLoop:
         return written, True
 
     async def _review_into_vault(
-        self, vault: Any, said: list[dict[str, str]], reason: str
+        self,
+        vault: Any,
+        said: list[dict[str, str]],
+        reason: str,
+        anchors: list[dict[str, Any]] | None = None,
     ) -> tuple[int, bool]:
         """One reconcile call: what was said against the nearest stored memories."""
         from dodaios.memory.vault import reconcile
@@ -500,9 +530,9 @@ class JarvisLearningLoop:
         for why in rejected:
             log.info("learning: rejected a vault op — %s", why)
         source = {"via": "review", "reason": reason, **_seat_of(reviewer)}
-        receipts: list[dict[str, str]] = []
+        receipts: list[dict[str, Any]] = []
         written = await asyncio.to_thread(
-            reconcile.apply, vault, ops, source=source, receipts=receipts
+            reconcile.apply, vault, ops, source=source, receipts=receipts, anchors=anchors
         )
         if written:
             vault_runtime.changed()
@@ -534,7 +564,7 @@ class JarvisLearningLoop:
             return 0
         return 1 if written is not None else 0
 
-    def _keep_request(self, said: str, content: str) -> int:
+    def _keep_request(self, said: str, content: str, anchor: dict[str, Any] | None = None) -> int:
         """Save an explicit remember request in the user's own words, dated.
 
         A full notebook never refuses it (it merges later); a request the
@@ -546,7 +576,7 @@ class JarvisLearningLoop:
         if vault_runtime.active() is not None:
             try:
                 result = vault_runtime.remember_explicitly(
-                    content, evidence=said, source="explicit request"
+                    content, evidence=said, source="explicit request", anchor=anchor
                 )
             except (LookupError, ValueError) as exc:
                 log.info("learning: explicit remember request not saved — %s", exc)
@@ -559,8 +589,10 @@ class JarvisLearningLoop:
             return 0
         return 1 if change is not None else 0
 
-    async def _remember(self, said: str, content: str) -> None:
-        if await asyncio.to_thread(self._keep_request, said, content):
+    async def _remember(
+        self, said: str, content: str, anchor: dict[str, Any] | None = None
+    ) -> None:
+        if await asyncio.to_thread(self._keep_request, said, content, anchor):
             await self.compact()
 
     # ── compaction ───────────────────────────────────────────────────────

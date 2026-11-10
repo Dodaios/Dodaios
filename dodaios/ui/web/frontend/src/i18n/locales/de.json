@@ -11030,5 +11030,37 @@
       "cancel": "Abbrechen"
     },
     "raw": "Rohdaten"
+  },
+  "memory_trust": {
+    "source_link": "Woher?",
+    "source_title": "Die Nachricht zeigen, aus der das stammt",
+    "source_open": "Zeigen, woher ich das weiß",
+    "source_not_loaded": "Diese Nachricht liegt weiter zurück, als das Gespräch gerade zeigt.",
+    "scope_title": "Gehört zu",
+    "scope_global": "Beides",
+    "scope_work": "Arbeit",
+    "scope_private": "Privat",
+    "scope_hint": "{name} nutzt immer alle deine Erinnerungen. Private erreichen deine anderen Agenten nie.",
+    "scope_saved": "Gespeichert",
+    "scope_filter": "Erinnerungen zeigen für",
+    "filter_all": "Alle",
+    "export_all": "Alle Erinnerungen exportieren",
+    "export_all_hint": "Ein Zip: eine JSON-Liste, lesbare Markdown-Seiten und eine Kopie, die du wieder importieren kannst.",
+    "import_open": "Von einem anderen Assistenten importieren",
+    "import_title": "Erinnerungen von einem anderen Assistenten importieren",
+    "import_hint": "Wähle die Exportdatei eines anderen Assistenten: eine Liste von Erinnerungen oder deinen Chatverlauf. Du entscheidest, welche Zeilen bleiben, bevor etwas gespeichert wird.",
+    "import_pick": "Datei wählen",
+    "import_formats": "Text, Markdown oder JSON",
+    "import_reading": "{file} wird gelesen…",
+    "import_too_large": "Die Datei ist zu groß (höchstens 20 MB).",
+    "import_found": "{count} gefunden · {kept} behalten",
+    "import_keep_all": "Alle behalten",
+    "import_drop_all": "Alle verwerfen",
+    "import_known": "schon bekannt",
+    "import_nothing": "In dieser Datei wurden keine Erinnerungen gefunden.",
+    "import_model_missing": "Die Datei enthält Gespräche, aber kein Assistenzmodell war verfügbar, um sie zu lesen. Melde dich bei einem Anbieter an und versuche es erneut.",
+    "import_save": "{count} speichern",
+    "import_saved": "{added} Erinnerungen importiert, {existing} schon bekannt.",
+    "cancel": "Abbrechen"
   }
 }

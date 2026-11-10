@@ -11030,5 +11030,37 @@
       "cancel": "Cancelar"
     },
     "raw": "Dados em bruto"
+  },
+  "memory_trust": {
+    "source_link": "De onde?",
+    "source_title": "Mostrar a mensagem de onde isto veio",
+    "source_open": "Mostrar onde aprendi isto",
+    "source_not_loaded": "Essa mensagem está mais atrás do que a conversa mostra agora.",
+    "scope_title": "Pertence a",
+    "scope_global": "Ambos",
+    "scope_work": "Trabalho",
+    "scope_private": "Privado",
+    "scope_hint": "{name} usa sempre todas as tuas memórias. As privadas nunca chegam aos teus outros agentes.",
+    "scope_saved": "Guardado",
+    "scope_filter": "Mostrar memórias de",
+    "filter_all": "Todas",
+    "export_all": "Exportar todas as memórias",
+    "export_all_hint": "Um zip: uma lista JSON, páginas Markdown legíveis e uma cópia que podes voltar a importar.",
+    "import_open": "Importar de outro assistente",
+    "import_title": "Importar memórias de outro assistente",
+    "import_hint": "Escolhe o ficheiro de exportação que outro assistente te deu: uma lista de memórias ou o teu histórico de conversas. Tu decides que linhas manter antes de algo ser guardado.",
+    "import_pick": "Escolher um ficheiro",
+    "import_formats": "Texto, Markdown ou JSON",
+    "import_reading": "A ler {file}…",
+    "import_too_large": "O ficheiro é demasiado grande (20 MB no máximo).",
+    "import_found": "{count} encontradas · {kept} mantidas",
+    "import_keep_all": "Manter todas",
+    "import_drop_all": "Descartar todas",
+    "import_known": "já conhecida",
+    "import_nothing": "Não foram encontradas memórias neste ficheiro.",
+    "import_model_missing": "O ficheiro contém conversas, mas nenhum modelo de assistente estava disponível para as ler. Inicia sessão num fornecedor e tenta de novo.",
+    "import_save": "Guardar {count}",
+    "import_saved": "{added} memórias importadas, {existing} já conhecidas.",
+    "cancel": "Cancelar"
   }
 }

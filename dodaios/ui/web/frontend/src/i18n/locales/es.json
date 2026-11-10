@@ -11030,5 +11030,37 @@
       "cancel": "Cancelar"
     },
     "raw": "Datos sin formato"
+  },
+  "memory_trust": {
+    "source_link": "¿De dónde?",
+    "source_title": "Mostrar el mensaje del que se aprendió",
+    "source_open": "Mostrar dónde lo aprendí",
+    "source_not_loaded": "Ese mensaje está más atrás de lo que muestra ahora la conversación.",
+    "scope_title": "Pertenece a",
+    "scope_global": "Ambos",
+    "scope_work": "Trabajo",
+    "scope_private": "Privado",
+    "scope_hint": "{name} siempre usa todos tus recuerdos. Los privados nunca llegan a tus otros agentes.",
+    "scope_saved": "Guardado",
+    "scope_filter": "Mostrar recuerdos de",
+    "filter_all": "Todos",
+    "export_all": "Exportar todos los recuerdos",
+    "export_all_hint": "Un zip: una lista JSON, páginas Markdown legibles y una copia que puedes volver a importar.",
+    "import_open": "Importar desde otro asistente",
+    "import_title": "Importar recuerdos de otro asistente",
+    "import_hint": "Elige el archivo de exportación que te dio otro asistente: una lista de recuerdos o tu historial de chat. Tú decides qué líneas conservar antes de guardar nada.",
+    "import_pick": "Elegir un archivo",
+    "import_formats": "Texto, Markdown o JSON",
+    "import_reading": "Leyendo {file}…",
+    "import_too_large": "El archivo es demasiado grande (20 MB como máximo).",
+    "import_found": "{count} encontrados · {kept} conservados",
+    "import_keep_all": "Conservar todos",
+    "import_drop_all": "Descartar todos",
+    "import_known": "ya conocido",
+    "import_nothing": "No se encontraron recuerdos en este archivo.",
+    "import_model_missing": "El archivo contiene conversaciones, pero no había ningún modelo de asistente disponible para leerlas. Inicia sesión en un proveedor e inténtalo de nuevo.",
+    "import_save": "Guardar {count}",
+    "import_saved": "{added} recuerdos importados, {existing} ya conocidos.",
+    "cancel": "Cancelar"
   }
 }

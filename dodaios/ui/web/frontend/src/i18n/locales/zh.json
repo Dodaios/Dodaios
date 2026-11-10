@@ -11030,5 +11030,37 @@
       "cancel": "取消"
     },
     "raw": "原始数据"
+  },
+  "memory_trust": {
+    "source_link": "来源？",
+    "source_title": "显示学到这条内容的那条消息",
+    "source_open": "显示我从哪里得知",
+    "source_not_loaded": "那条消息比对话当前显示的内容更早。",
+    "scope_title": "归属",
+    "scope_global": "两者",
+    "scope_work": "工作",
+    "scope_private": "私人",
+    "scope_hint": "{name} 始终使用你的全部记忆。私人记忆不会传给你的其他智能体。",
+    "scope_saved": "已保存",
+    "scope_filter": "显示以下记忆",
+    "filter_all": "全部",
+    "export_all": "导出全部记忆",
+    "export_all_hint": "一个 zip：JSON 列表、可读的 Markdown 页面，以及可再次导入的副本。",
+    "import_open": "从其他助手导入",
+    "import_title": "从其他助手导入记忆",
+    "import_hint": "选择其他助手给你的导出文件：记忆列表或聊天记录。保存之前，由你决定保留哪些条目。",
+    "import_pick": "选择文件",
+    "import_formats": "文本、Markdown 或 JSON",
+    "import_reading": "正在读取 {file}…",
+    "import_too_large": "文件太大（最多 20 MB）。",
+    "import_found": "找到 {count} 条 · 保留 {kept} 条",
+    "import_keep_all": "全部保留",
+    "import_drop_all": "全部舍弃",
+    "import_known": "已存在",
+    "import_nothing": "此文件中未找到记忆。",
+    "import_model_missing": "文件包含对话，但没有可用的助手模型来读取。请登录一个服务商后重试。",
+    "import_save": "保存 {count} 条",
+    "import_saved": "已导入 {added} 条记忆，{existing} 条已存在。",
+    "cancel": "取消"
   }
 }
