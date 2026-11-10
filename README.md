@@ -79,7 +79,12 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 ```
 
 You do not need Python, Git or a GPU. The installer opens the app, and you pick
-your language, wake phrase and model there. To update, run it again.
+your language, wake phrase and model there. To update, run it again. To start
+Dodaios later, use the desktop launcher or a terminal:
+
+```bash
+dodaios         # full desktop
+```
 
 > [!TIP]
 > To code with Dodaios, install and log in to at least one coding agent first,
