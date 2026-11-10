@@ -118,8 +118,9 @@ ACTING_PREAMBLE: Final[str] = (
 #: the turn itself is the worker: the background workers of old are retired.
 SYSTEM_PREAMBLE: Final[str] = (
     _SHARED_PREAMBLE
-    + " You are this turn's worker: spawn no sub-agents.\n\n"
+    + "\n\n"
     + ACTING_PREAMBLE
+    + " You are this turn's worker: spawn no sub-agents."
 )
 
 #: The closing block of a coding thread in the Agentic IDE (a Claude Code seat
