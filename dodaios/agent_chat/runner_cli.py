@@ -818,6 +818,7 @@ def plan_claude(
         identity=identity,
         env=dodaios_harness.apply_env(_account_env("claude")),
         thinking_summaries=True,
+        tool_summaries=True,
     )
 
 
@@ -865,8 +866,15 @@ def _plan_claude_code(
     identity: dodaios_harness.Identity | None,
     env: dict[str, str],
     thinking_summaries: bool = False,
+    tool_summaries: bool = False,
 ) -> CliPlan:
     mode = normalize_permission("claude-cli", permission_mode)
+    if tool_summaries:
+        # Claude Code then writes a short title after each run of tool calls
+        # ("Read a.txt", "Rewrote the parser and ran its tests"), the line a
+        # thread shows for that run. Anthropic's endpoint only: GLM's is never
+        # asked for the extra summary call.
+        env = {**env, "CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES": "true"}
     prefix = claude_argv_prefix()
     argv = [
         *prefix,
@@ -2263,6 +2271,14 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
     parent = obj.get("parent_tool_use_id")
     if parent:
         return _claude_subagent_line(obj, st, str(parent))
+
+    if kind == "tool_use_summary":
+        # The CLI's own short title for the tool calls it just made.
+        summary = " ".join(str(obj.get("summary") or "").split())
+        ids = [str(i) for i in (obj.get("preceding_tool_use_ids") or []) if i]
+        if not summary or not ids:
+            return []
+        return [make_event("tool_summary", {"turn_id": st.turn_id, "summary": summary[:200], "call_ids": ids})]
 
     if kind == "system":
         # init / hooks / status are nothing the timeline shows; a sub-agent's

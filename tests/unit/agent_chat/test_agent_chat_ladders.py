@@ -620,3 +620,15 @@ def test_anthropic_adapter_effort_and_temperature_rules():
     assert reasoning_kwargs("claude-haiku-4-5-20251001", "high") == {}
     # none/minimal mean "as little as possible" -> the lowest rung.
     assert reasoning_kwargs("claude-sonnet-5", "none")["output_config"] == {"effort": "low"}
+
+
+def test_claude_planner_asks_for_tool_summaries(monkeypatch, tmp_path: Path):
+    """Claude Code titles each run of tool calls; GLM's endpoint is never asked."""
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)
+    monkeypatch.delenv("CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES", raising=False)
+    args = dict(
+        prompt="hi", cwd=tmp_path, model="", effort="", permission_mode="default", resume=None
+    )
+    assert plan_claude(**args).env["CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES"] == "true"
+    assert "CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES" not in runner_cli.plan_glm(**args).env
