@@ -24,6 +24,11 @@ KINDS: tuple[str, ...] = (
 #: Who put the memory there.
 ORIGINS: tuple[str, ...] = ("user", "inferred", "imported")
 
+#: Which part of life a memory belongs to. ``global`` is unmarked; the user can
+#: mark one ``work`` or ``private``. The lead reads every scope; a private
+#: memory never reaches the user's other agents (``runtime.agent_block``).
+SCOPES: tuple[str, ...] = ("global", "work", "private")
+
 #: ``sensitive`` memories never enter the always-on profile block.
 SENSITIVITIES: tuple[str, ...] = ("normal", "sensitive")
 

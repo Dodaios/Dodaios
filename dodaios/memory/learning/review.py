@@ -73,6 +73,22 @@ class Turn:
     assistant: str = ""
     channel: str = "voice"
     tools: tuple[str, ...] = ()
+    #: Where the user said it, so a memory can link back to the message:
+    #: the conversation, its turn and the ``seq`` of the user message event.
+    session_id: str = ""
+    turn_id: str = ""
+    seq: int = 0
+
+    def anchor(self) -> dict[str, Any]:
+        """The message this turn's user text came from (empty values left out)."""
+        found: dict[str, Any] = {"channel": self.channel}
+        if self.session_id:
+            found["session_id"] = self.session_id
+        if self.turn_id:
+            found["turn_id"] = self.turn_id
+        if self.seq:
+            found["message_seq"] = self.seq
+        return found
 
 
 @dataclass(frozen=True, slots=True)
