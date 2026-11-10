@@ -566,6 +566,7 @@ class WebServer:
         from .missions_ws_routes import (
             router as missions_ws_router,
         )
+        from .mobile_routes import router as mobile_router
         from .onboarding_routes import router as onboarding_router
         from .outputs_routes import router as outputs_router
         from .permissions_routes import router as permissions_router
@@ -749,6 +750,8 @@ class WebServer:
         # Settings -> Computers: the user's own servers and local VMs over SSH.
         app.include_router(server_pairing_router)
         app.include_router(computers_router)
+        # Settings -> Phone: the paired phone's companion app and its pushes.
+        app.include_router(mobile_router)
         # Desktop pets — the `pet` overlay style's pets, look and visibility.
         app.include_router(pets_router)
         app.include_router(dictionary_router)
@@ -3735,6 +3738,13 @@ class WebServer:
         )
         bridge.start()
         self._channel_chat_bridge = bridge
+        try:
+            # Push to the paired phone: needs-you cards and lead notices.
+            from dodaios.mobile.notify import install as install_mobile_push
+
+            install_mobile_push(self.bus, config=self.cfg)
+        except Exception as exc:  # noqa: BLE001 — a phone push problem never breaks boot
+            logger.debug("Mobile push notifier init failed: {}", exc)
         self.app.state.channel_chat_bridge = bridge
 
         if "telegram" in manager.started():

@@ -92,6 +92,9 @@ export type SectionId =
   // Game settings: the Dodaios Verse's in-game settings menu (graphics,
   // audio, mouse, keybinds, gameplay, HUD, accessibility). A Settings-hub page.
   | "games"
+  // Phone: pair a phone with the companion app, its notifications and the
+  // owner-only WhatsApp channel (docs/mobile-companion.md). A Settings-hub page.
+  | "phone"
   | "dictionary"
   | "dictation"
   // The three tabs added by the merged voice section. "dictation" (default
@@ -149,6 +152,7 @@ export const SECTION_IDS = [
   "shortcuts",
   "pets",
   "games",
+  "phone",
   "dictionary",
   "dictation",
   // `satisfies` only catches array entries that are missing from the union,
@@ -247,6 +251,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   shortcuts: "Keyboard shortcuts",
   pets: "My Pets",
   games: "Game settings",
+  phone: "Phone",
   dictionary: "Dictionary",
   dictation: "Dictation",
   // Plain English, deliberately NOT the "{name} Voice" brand: these labels are
@@ -295,6 +300,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   shortcuts: "nav.shortcuts",
   pets: "nav.pets",
   games: "nav.games",
+  phone: "nav.phone",
   dictionary: "nav.dictionary",
   dictation: "nav.dictation",
   "voice-shortcuts": "shell_sections.voice_shortcuts",

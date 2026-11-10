@@ -53,6 +53,8 @@ KNOWN: frozenset[str] = frozenset(
         "agent-instructions",
         # Appshots: the shortcut and destination for showing the front window.
         "appshots",
+        # Phone: the paired phone's companion app, its notifications, WhatsApp.
+        "phone",
         "dictionary",
         "dictation",
         "voice-shortcuts",
