@@ -26,9 +26,9 @@ states, progress bars and informational status. Green, amber and red are status 
 | Hairline (`--border`) | `#262626` ![](https://img.shields.io/badge/_-262626?style=flat-square&labelColor=262626) | `#DBDBDB` ![](https://img.shields.io/badge/_-DBDBDB?style=flat-square&labelColor=DBDBDB) |
 | Strong rim (`--border-strong`) | `#383838` ![](https://img.shields.io/badge/_-383838?style=flat-square&labelColor=383838) | `#BDBDBD` ![](https://img.shields.io/badge/_-BDBDBD?style=flat-square&labelColor=BDBDBD) |
 | Foreground (`--foreground`) | `#FAFAFA` ![](https://img.shields.io/badge/_-FAFAFA?style=flat-square&labelColor=FAFAFA) | `#171717` ![](https://img.shields.io/badge/_-171717?style=flat-square&labelColor=171717) |
-| Secondary ink (`--foreground-secondary`) | `#B8B8B8` ![](https://img.shields.io/badge/_-B8B8B8?style=flat-square&labelColor=B8B8B8) | `#424242` ![](https://img.shields.io/badge/_-424242?style=flat-square&labelColor=424242) |
-| Muted ink (`--muted-foreground`) | `#A1A1A1` ![](https://img.shields.io/badge/_-A1A1A1?style=flat-square&labelColor=A1A1A1) | `#545454` ![](https://img.shields.io/badge/_-545454?style=flat-square&labelColor=545454) |
-| Faint ink (`--foreground-faint`) | `#7A7A7A` ![](https://img.shields.io/badge/_-7A7A7A?style=flat-square&labelColor=7A7A7A) | `#6B6B6B` ![](https://img.shields.io/badge/_-6B6B6B?style=flat-square&labelColor=6B6B6B) |
+| Secondary ink (`--foreground-secondary`) | `#C2C2C2` ![](https://img.shields.io/badge/_-C2C2C2?style=flat-square&labelColor=C2C2C2) | `#424242` ![](https://img.shields.io/badge/_-424242?style=flat-square&labelColor=424242) |
+| Muted ink (`--muted-foreground`) | `#ABABAB` ![](https://img.shields.io/badge/_-ABABAB?style=flat-square&labelColor=ABABAB) | `#545454` ![](https://img.shields.io/badge/_-545454?style=flat-square&labelColor=545454) |
+| Faint ink (`--foreground-faint`) | `#8A8A8A` ![](https://img.shields.io/badge/_-8A8A8A?style=flat-square&labelColor=8A8A8A) | `#6B6B6B` ![](https://img.shields.io/badge/_-6B6B6B?style=flat-square&labelColor=6B6B6B) |
 | Primary fill (`--primary`) | `#FAFAFA` ![](https://img.shields.io/badge/_-FAFAFA?style=flat-square&labelColor=FAFAFA) | `#171717` ![](https://img.shields.io/badge/_-171717?style=flat-square&labelColor=171717) |
 | Accent (`--accent`) | `#3D8BFF` ![](https://img.shields.io/badge/_-3D8BFF?style=flat-square&labelColor=3D8BFF) | `#096CDC` ![](https://img.shields.io/badge/_-096CDC?style=flat-square&labelColor=096CDC) |
 | Success (`--success`) | `#22C35E` ![](https://img.shields.io/badge/_-22C35E?style=flat-square&labelColor=22C35E) | `#15803D` ![](https://img.shields.io/badge/_-15803D?style=flat-square&labelColor=15803D) |
@@ -54,6 +54,12 @@ asset must stay on the same values so nothing drifts.
   the sixteen ANSI slots stay coloured, diffs stay green/red.
 - **Elevation by surface, not shadow.** Shadows exist only on popovers, dialogs and the
   composer. No glows.
+- **Dark surfaces are derived, not picked.** Every dark surface and rim is the room's
+  lightness (`--theme-base`, 4) plus a number of steps of `--theme-contrast` (1), so
+  the ladder above moves as one. Motion (`--motion-*`, 150–300 ms, exits faster) and
+  the reading column (`--reading-column` 720 px, `--reading-size` 15 px,
+  `--reading-leading` 1.7) are variables too; reduced motion and reduced transparency
+  are honoured app-wide.
 - **Both modes, always.** A colour comes from a theme token or from the per-appearance
   tables in `terminalThemes.ts`. Never hardcode one mode's value.
 - **The logo** is the hooded figure in black and white: black ink on a white tile, white ink

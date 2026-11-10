@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { OverlayTaskbarGroup } from "@/views/settings/OverlayTaskbarGroup";
@@ -74,37 +75,86 @@ interface WakeSelfTestResult {
  * costs that one panel, never the whole page. Section and row anchors keep the
  * `settings-<id>` ids the hub search and the first-run guide scroll to.
  */
-export function SettingsView({ searchTarget, onSearchTargetHandled }: {
+export function SettingsView({ searchTarget, onSearchTargetHandled, sections, title }: {
   searchTarget?: string | null;
   onSearchTargetHandled?: () => void;
+  /** Only these groups (a slice the hub nav picked); the whole page when absent. */
+  sections?: readonly string[];
+  /** The slice's own title; "General" for the whole page. */
+  title?: string;
 } = {}) {
   const t = useT();
+  const [moreOpen, setMoreOpen] = useState(() => isFoldedTarget(searchTarget));
 
   useEffect(() => {
     if (!searchTarget) return;
+    // A hit inside the folded groups opens the fold first; this effect runs
+    // again once the group is on the page.
+    if (!moreOpen && isFoldedTarget(searchTarget)) {
+      setMoreOpen(true);
+      return;
+    }
     const target = document.getElementById(`settings-${searchTarget}`);
     if (!target) return;
     target.scrollIntoView?.({ block: "start", behavior: "smooth" });
     onSearchTargetHandled?.();
-  }, [searchTarget, onSearchTargetHandled]);
+  }, [searchTarget, onSearchTargetHandled, moreOpen]);
+
+  const shown = sections ? SECTIONS.filter((section) => sections.includes(section.id)) : SECTIONS;
+  // A slice shows exactly what it names; the whole page folds the rarely
+  // changed groups under "More options".
+  const main = sections ? shown : shown.filter((section) => !FOLDED_SECTIONS.has(section.id));
+  const folded = sections ? [] : shown.filter((section) => FOLDED_SECTIONS.has(section.id));
 
   return (
     <div data-testid="settings-scroll" className="h-full min-h-0">
-      <SettingsPage title={t("settings_hub.general")}>
-        {SECTIONS.map((section) => (
-          <div
-            key={section.id}
-            id={`settings-${section.id}`}
-            data-settings-section={section.id}
-            data-tour={`settings-${section.id}`}
-            className="scroll-mt-6"
-          >
-            <SettingsGroupBoundary group={section.id}>
-              {section.render()}
-            </SettingsGroupBoundary>
+      <SettingsPage title={title ?? t("settings_hub.general")}>
+        {main.map(renderSection)}
+        {folded.length > 0 && (
+          <div data-testid="settings-more-options" className="space-y-10">
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              data-testid="settings-more-options-toggle"
+              onClick={() => setMoreOpen((open) => !open)}
+              className="group flex w-full items-center gap-2 rounded-md py-1 text-left text-base font-semibold text-foreground-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronRight
+                aria-hidden
+                className={cn("h-4 w-4 text-muted-foreground transition-transform duration-fast ease-out-soft", moreOpen && "rotate-90")}
+              />
+              <span className="flex-1">{t("design.settings.more_options")}</span>
+              {!moreOpen && (
+                <span className="text-sm font-normal text-muted-foreground">{t("design.settings.more_options_hint")}</span>
+              )}
+            </button>
+            {moreOpen && folded.map(renderSection)}
           </div>
-        ))}
+        )}
       </SettingsPage>
+    </div>
+  );
+}
+
+/** Groups the whole page folds under "More options": set once, rarely changed. */
+const FOLDED_SECTIONS: ReadonlySet<string> = new Set(["music", "overlay-taskbar", "verse"]);
+
+function isFoldedTarget(target: string | null | undefined): boolean {
+  return Boolean(target && FOLDED_SECTIONS.has(target));
+}
+
+function renderSection(section: (typeof SECTIONS)[number]) {
+  return (
+    <div
+      key={section.id}
+      id={`settings-${section.id}`}
+      data-settings-section={section.id}
+      data-tour={`settings-${section.id}`}
+      className="scroll-mt-6"
+    >
+      <SettingsGroupBoundary group={section.id}>
+        {section.render()}
+      </SettingsGroupBoundary>
     </div>
   );
 }

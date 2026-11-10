@@ -50,7 +50,7 @@ HOLDING_PAGE_FOREGROUND: dict[str, str] = {
 
 #: ``--muted-foreground``: the holding page's secondary line.
 HOLDING_PAGE_MUTED: dict[str, str] = {
-    "dark": "#a1a1a1",
+    "dark": "#ababab",
     "light": "#545454",
 }
 
@@ -60,7 +60,7 @@ _DEFAULT_THEME: Theme = "dark"
 POPOVER_COLORS = {
     "dark": {
         "background": "#1c1c1c", "hover": "#262626", "border": "#383838",
-        "foreground": "#fafafa", "muted": "#a1a1a1", "faint": "#7a7a7a",
+        "foreground": "#fafafa", "muted": "#ababab", "faint": "#8a8a8a",
         "accent": "#3d8bff",
     },
     "light": {

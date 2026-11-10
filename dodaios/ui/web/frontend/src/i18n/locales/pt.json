@@ -11061,5 +11061,34 @@
     "import_save": "Guardar {count}",
     "import_saved": "{added} memórias importadas, {existing} já conhecidas.",
     "cancel": "Cancelar"
+  },
+  "design": {
+    "settings": {
+      "group_you": "Tu",
+      "group_voice": "Voz",
+      "group_connections": "Ligações",
+      "group_agents": "Agentes",
+      "group_advanced": "Avançado",
+      "language_app": "Idioma e app",
+      "memory": "Memória",
+      "voice_wake": "Voz e palavra de ativação",
+      "dictation": "Ditado",
+      "plugins": "Plugins e canais",
+      "behavior": "Comportamento",
+      "agents": "Os seus agentes",
+      "all_settings": "Todas as definições",
+      "more_options": "Mais opções",
+      "more_options_hint": "Música, sobreposição, barra de tarefas, jogo",
+      "opens_page": "Abre a sua própria página"
+    },
+    "activity": {
+      "waiting": "Mostrar atividade: algo está em curso"
+    },
+    "greeting": {
+      "suggestions": "Sugestões",
+      "due": "Ajude-me a preparar: {text}",
+      "agent_working": "Em que está {agent} a trabalhar?",
+      "agent_waiting": "De que precisa {agent} de mim?"
+    }
   }
 }

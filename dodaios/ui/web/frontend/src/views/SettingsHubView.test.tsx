@@ -65,8 +65,13 @@ function stub(testid: string) {
 }
 
 vi.mock("@/views/SettingsView", () => ({
-  SettingsView: ({ searchTarget }: { searchTarget?: string }) => (
-    <div data-testid="TAB_SETTINGS" data-search-target={searchTarget} />
+  SettingsView: ({ searchTarget, sections, title }: { searchTarget?: string; sections?: readonly string[]; title?: string }) => (
+    <div
+      data-testid="TAB_SETTINGS"
+      data-search-target={searchTarget}
+      data-sections={sections?.join(",") ?? "all"}
+      data-title={title ?? ""}
+    />
   ),
 }));
 vi.mock("@/views/ProfileView", () => ({ ProfileView: stub("TAB_PROFILE") }));
@@ -311,5 +316,70 @@ describe("SettingsHubView health signals", () => {
     await screen.findByTestId("TAB_SETTINGS");
 
     expect(screen.queryByTestId("settings-hub-alert-apikeys")).toBeNull();
+  });
+});
+
+describe("SettingsHubView five groups", () => {
+  it("shows You, Voice, Connections, Agents and Advanced", async () => {
+    render(<SettingsHubView />);
+    await screen.findByTestId("TAB_SETTINGS");
+    for (const id of ["you", "voice", "connections", "agents", "advanced"]) {
+      expect(screen.getByTestId(`settings-hub-group-${id}`)).toBeTruthy();
+    }
+    expect(screen.getByText("design.settings.group_connections")).toBeTruthy();
+  });
+
+  it("opens a slice of the General page and highlights it", async () => {
+    render(<SettingsHubView />);
+    await screen.findByTestId("TAB_SETTINGS");
+    fireEvent.click(screen.getByTestId("settings-hub-nav-page-voice"));
+
+    expect(mockState.setActiveSection).toHaveBeenCalledWith("settings");
+    const tab = screen.getByTestId("TAB_SETTINGS");
+    expect(tab.getAttribute("data-sections")).toBe("voice,wake-word");
+    expect(tab.getAttribute("data-title")).toBe("design.settings.voice_wake");
+    expect(screen.getByTestId("settings-hub-nav-page-voice").getAttribute("aria-current")).toBe("page");
+    expect(screen.getByTestId("settings-hub-nav-settings").getAttribute("aria-current")).toBeNull();
+  });
+
+  it("returns to the whole page from All settings", async () => {
+    render(<SettingsHubView />);
+    await screen.findByTestId("TAB_SETTINGS");
+    fireEvent.click(screen.getByTestId("settings-hub-nav-page-behavior"));
+    expect(screen.getByTestId("TAB_SETTINGS").getAttribute("data-sections")).toBe("system-prompt,approvals,self-build");
+    fireEvent.click(screen.getByTestId("settings-hub-nav-settings"));
+    expect(screen.getByTestId("TAB_SETTINGS").getAttribute("data-sections")).toBe("all");
+  });
+
+  it("lands a search hit on the whole page even from a slice", async () => {
+    render(<SettingsHubView />);
+    await screen.findByTestId("TAB_SETTINGS");
+    fireEvent.click(screen.getByTestId("settings-hub-nav-page-language"));
+    fireEvent.change(screen.getByPlaceholderText("settings_hub.search_placeholder"), {
+      target: { value: "Microphone" },
+    });
+    fireEvent.click(screen.getByTestId("settings-hub-option-audio-devices"));
+    const tab = screen.getByTestId("TAB_SETTINGS");
+    expect(tab.getAttribute("data-sections")).toBe("all");
+    expect(tab.getAttribute("data-search-target")).toBe("audio-devices");
+  });
+
+  it("opens the language slice for the languages deep link", async () => {
+    mockState.activeSection = "languages";
+    render(<SettingsHubView />);
+    const tab = await screen.findByTestId("TAB_SETTINGS");
+    expect(tab.getAttribute("data-sections")).toBe("languages,app");
+    expect(screen.getByTestId("settings-hub-nav-page-language").getAttribute("aria-current")).toBe("page");
+  });
+
+  it("leaves Settings for a page of its own", async () => {
+    render(<SettingsHubView />);
+    await screen.findByTestId("TAB_SETTINGS");
+    const link = screen.getByTestId("settings-hub-nav-link-dictation");
+    expect(link.getAttribute("title")).toBe("design.settings.opens_page");
+    fireEvent.click(link);
+    expect(mockState.setActiveSection).toHaveBeenCalledWith("dictation");
+    fireEvent.click(screen.getByTestId("settings-hub-nav-link-memory"));
+    expect(mockState.setActiveSection).toHaveBeenCalledWith("memory");
   });
 });

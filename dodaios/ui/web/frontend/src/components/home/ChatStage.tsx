@@ -259,7 +259,7 @@ function ChatStageContent() {
       <div className="relative flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
         <BinaryCursorField />
         <div className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
-          <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting />} /></Suspense>
+          <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting suggestions />} /></Suspense>
         </div>
         <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
           <CallSlot />
