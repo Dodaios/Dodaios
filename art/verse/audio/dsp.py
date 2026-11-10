@@ -114,6 +114,66 @@ def modes(
     return out
 
 
+def n_wave(
+    length_s: float, dur_s: float, rise_s: float = 0.00004, offset_s: float = 0.0
+) -> np.ndarray:
+    """Supersonic shock pressure: a near-instant rise to +1, a linear fall to -1, a fast return."""
+    t = t_axis(length_s) - offset_s
+    out = np.zeros_like(t)
+    body = (t >= 0) & (t < dur_s)
+    out[body] = 1.0 - 2.0 * t[body] / dur_s
+    rise = (t >= -rise_s) & (t < 0)
+    out[rise] = 1.0 + t[rise] / rise_s
+    back = (t >= dur_s) & (t < dur_s + rise_s)
+    out[back] = -1.0 + (t[back] - dur_s) / rise_s
+    return out
+
+
+def friedlander(length_s: float, dur_s: float, decay: float = 1.6) -> np.ndarray:
+    """Blast-wave pressure: instant peak, positive phase of dur_s, then a decaying negative one."""
+    t = t_axis(length_s) / dur_s
+    return (1.0 - t) * np.exp(-decay * t)
+
+
+def peak_limit(
+    x: np.ndarray, ceiling_db: float, lookahead_s: float = 0.0015, release_s: float = 0.025
+) -> np.ndarray:
+    """Look-ahead peak limiter: shaves the crack and blast peaks, leaves the decay's shape alone."""
+    from scipy.ndimage import maximum_filter1d
+
+    ceiling = 10 ** (ceiling_db / 20)
+    look = max(1, seconds(lookahead_s))
+    ahead = maximum_filter1d(np.abs(x), size=2 * look + 1, mode="constant")
+    want = np.minimum(1.0, ceiling / np.maximum(ahead, 1e-12))
+    rel = np.exp(-1.0 / max(1.0, release_s * SR))
+    gain = np.empty_like(want)
+    g = 1.0
+    for i, w in enumerate(want):
+        g = w if w < g else w + rel * (g - w)
+        gain[i] = g
+    return x * gain
+
+
+def glide_bandpass(x: np.ndarray, f0: float, f1: float, q: float, curve: float = 3.0) -> np.ndarray:
+    """Band-pass whose centre glides exponentially from f0 to f1 (TPT state variable filter)."""
+    n = len(x)
+    k = np.exp(-curve * np.arange(n) / max(1, n))
+    fc = f1 + (f0 - f1) * k
+    g = np.tan(np.pi * np.clip(fc, 20.0, SR * 0.45) / SR)
+    damp = 1.0 / q
+    out = np.empty(n)
+    s1 = s2 = 0.0
+    for i in range(n):
+        gi = g[i]
+        hp = (x[i] - (damp + gi) * s1 - s2) / (1.0 + damp * gi + gi * gi)
+        bp = gi * hp + s1
+        s1 = gi * hp + bp
+        lp = gi * bp + s2
+        s2 = gi * bp + lp
+        out[i] = bp * damp
+    return out
+
+
 def saturate(x: np.ndarray, drive: float) -> np.ndarray:
     return np.tanh(drive * x) / np.tanh(drive)
 

@@ -163,7 +163,7 @@ offset is Movement's, not part of this contract.
 | Plate view direction `D` (BRIEF §4) | (0, -0.8660, -0.5) | | (0, -0.5, -0.8660) | |
 | Quaternion, yaw 90° about +Y: (0, 0.7071, 0, 0.7071) | | q_U = (0, 0, -0.7071, 0.7071) = yaw -90 | | -90 |
 | Yaw rate +2 rad/s | | -114.59 deg/s | | |
-| Run speed 4.8 m/s; bolt 300 m/s | | 480 cm/s; 30000 cm/s | | |
+| Run speed 4.8 m/s; rifle bullet 880 m/s | | 480 cm/s; 88000 cm/s | | |
 
 ## 4. C++ API (VerseCore)
 

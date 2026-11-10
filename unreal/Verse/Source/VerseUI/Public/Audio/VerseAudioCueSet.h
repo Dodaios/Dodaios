@@ -28,11 +28,16 @@ public:
 	FVerseAudioMixSettings Mix;
 
 	/**
-	 * Weapon sound profiles (cue prefix wpn_<profile>_, rld_<profile>_, eqp_<profile>). A weapon id
-	 * uses the first profile its name contains, else DefaultWeaponProfile.
+	 * Weapon sound profiles (cue prefix wpn_<profile>_, rld_<profile>_, eqp_<profile>, casing_<profile>).
+	 * A weapon id uses its WeaponIdProfiles entry, else the first profile its name contains, else
+	 * DefaultWeaponProfile.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
 	TArray<FName> WeaponProfiles;
+
+	/** cues.json weapon_ids: weapon id (tallow, graveline, ...) to its sound profile. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	TMap<FName, FName> WeaponIdProfiles;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
 	FName DefaultWeaponProfile = TEXT("rifle");

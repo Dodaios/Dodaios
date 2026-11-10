@@ -85,7 +85,7 @@ public:
 };
 
 /**
- * One wall piece (index 0) across the X axis at X = WallX: a bolt or sound trace that crosses it
+ * One wall piece (index 0) across the X axis at X = WallX: a bullet or sound trace that crosses it
  * enters the piece unless it is holed. Implements IVersePenetrationQuery and IVersePieceQuery
  * exactly, nothing more (work-packages.md 0.3).
  */

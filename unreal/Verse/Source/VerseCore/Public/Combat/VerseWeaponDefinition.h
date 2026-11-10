@@ -85,8 +85,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Damage", meta = (ClampMin = "0", ClampMax = "1"))
 	float FalloffMinFraction = 0.7f;
 
+	/** Muzzle velocity: pistol ~375, SMG ~400, rifle ~880, marksman ~940; gravity drops the round. */
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile", meta = (Units = "m/s"))
-	float ProjectileSpeed = 300.f;
+	float ProjectileSpeed = 880.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile", meta = (Units = "m"))
 	float MaxRange = 150.f;
@@ -201,6 +202,27 @@ public:
 	/** Presentation tag for the opponent bolt (red, README). */
 	UPROPERTY(EditDefaultsOnly, Category = "Presentation")
 	FGameplayTag BoltColorFoe;
+
+	/** Every Nth round of a weapon's shots is a tracer (0 = none); all other rounds draw no streak. */
+	UPROPERTY(EditDefaultsOnly, Category = "Presentation", meta = (ClampMin = "0"))
+	int32 TracerInterval = 4;
+
+	/** The last rounds of a magazine are tracers too (the shooter sees the magazine running dry). */
+	UPROPERTY(EditDefaultsOnly, Category = "Presentation", meta = (ClampMin = "0"))
+	int32 TracerLastRounds = 3;
+
+	/**
+	 * Whether a round draws a tracer streak: every TracerInterval-th shot counter, or one of the
+	 * last TracerLastRounds of the magazine. RoundsLeftAfterShot < 0 = unknown (interval only).
+	 */
+	bool IsTracerRound(int32 ShotCounter, int32 RoundsLeftAfterShot) const
+	{
+		if (TracerInterval > 0 && ShotCounter % TracerInterval == 0)
+		{
+			return true;
+		}
+		return RoundsLeftAfterShot >= 0 && RoundsLeftAfterShot < TracerLastRounds;
+	}
 
 	float FireInterval() const { return 60.f / RPM; }
 

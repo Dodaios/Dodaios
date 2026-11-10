@@ -151,8 +151,8 @@ weapon (`DA_Weapon_<Name>`). Text-diffable via the asset's JSON export in
 | `ZoneMultipliers` | map `EVerseHitZone` to float | Head, Neck, UpperTorso, LowerTorso, Arm, Leg |
 | `FalloffStart`, `FalloffEnd` | m | Full damage up to start, linear to `FalloffMinFraction` at end |
 | `FalloffMinFraction` | 0..1 | Damage fraction beyond `FalloffEnd` |
-| `ProjectileSpeed` | m/s | About 300, no drop |
-| `MaxRange` | m | Bolt despawns after this distance |
+| `ProjectileSpeed` | m/s | Muzzle velocity: pistol about 375, SMG about 400, rifle about 880, marksman about 940; gravity (9.81 m/s^2) drops the round |
+| `MaxRange` | m | The round despawns after this much path |
 | `PenetrationPower` | power units, 100 = the assault rifle (destruction 2) | Budget spent by pieces (section 6) |
 | `MaxPenetrations` | int, at most 3 (destruction 2) | Pieces a bolt may pass |
 | `PieceDamage` | piece hp | Damage applied to a destructible piece per hit; anchor 10 for the rifle (destruction 3.2) |
@@ -177,7 +177,9 @@ weapon (`DA_Weapon_<Name>`). Text-diffable via the asset's JSON export in
 | `BloomPerShot`, `BloomMax` | deg | Spread growth per shot and cap |
 | `BloomRecoveryRate`, `BloomRecoveryDelay` | deg/s, s | Bloom decay |
 | `NoiseLoudness` | 0..1 | Used for the bot's hearing (`FVerseNoiseEvent`) |
-| `BoltColorOwn`, `BoltColorFoe` | presentation tags | Amber own, red opponent (README) |
+| `BoltColorOwn`, `BoltColorFoe` | presentation tags | Legacy, unused since the ballistics decision: every tracer is yellow-white |
+| `TracerInterval` | int | Every Nth shot counter is a tracer round; 0 = none (`IsTracerRound`) |
+| `TracerLastRounds` | int | The last rounds of a magazine are tracers too |
 
 ### 3.1 Start values (tuning, not frozen)
 
@@ -189,7 +191,8 @@ weapon (`DA_Weapon_<Name>`). Text-diffable via the asset's JSON export in
 | BaseDamage | 28 | 34 |
 | Zones (Head, Neck, Upper, Lower, Arm, Leg) | 2.5, 1.5, 1.0, 0.9, 0.75, 0.7 | 2.2, 1.4, 1.0, 0.9, 0.75, 0.7 |
 | Falloff start / end / min | 25 m / 45 m / 0.75 | 12 m / 30 m / 0.6 |
-| ProjectileSpeed / MaxRange | 300 m/s / 150 m | 300 m/s / 100 m |
+| ProjectileSpeed / MaxRange | 880 m/s / 150 m | 375 m/s / 100 m |
+| TracerInterval / TracerLastRounds | 4 / 3 | 0 / 2 |
 | PenetrationPower / MaxPenetrations | 100 / 3 | 50 / 2 |
 | PieceDamage / HoleRadiusMm | 10 / 15 | 6 / 12 |
 | Recoil pitch `P_p(n)` | 0.45° rising to 0.62° by shot 8, hold | 1.2° |
@@ -279,13 +282,13 @@ answers the client with `Rejected`, which removes the predicted bolt.
 
 | Topic | Decision |
 |---|---|
-| Representation | Not actors. `UVerseProjectileManager` (server world subsystem) holds bolts and steps them each tick: 300 m/s = 5 m per tick, straight, no drop (README) |
+| Representation | Not actors. `UVerseProjectileManager` (server world subsystem) holds bullets and steps them each tick along their velocity with gravity: 880 m/s = 14.7 m per tick, one straight chord of the arc per tick (README "Projectiles") |
 | Latency | A new bolt is advanced by the shooter's latency (capped 250 ms) in its first step; that segment traces rewound hit bodies. Later steps trace current bodies |
 | Trace | Per step: piece proxies and world (channel `VerseBolt`), then per-bone hit bodies (channel `VerseHitBody`, frozen in `contracts/destruction.md`). Debris ignores both channels (`architecture.md` 4) |
 | Zone | The physics body hit maps to `EVerseHitZone` through a bone table in the character's physics asset |
 | Damage | `D = BaseDamage * ZoneMultipliers[zone] * falloff(distance) * penetration_factor`, falloff linear between `FalloffStart` and `FalloffEnd` down to `FalloffMinFraction`. Applied by a GAS damage effect on the server; armor (if MaxArmor > 0) absorbs first |
 | Self and friendly | No self-damage from bolts; breach charge self-damage is the gadget contract's call |
-| Client draw | Owner draws its own bolt at fire time (predicted, amber); others draw from `FVerseFireEvent` (red for the opponent). Impact VFX play from the cosmetic hit event, never from the client's own trace |
+| Client draw | Owner draws its own shot at fire time (predicted); others draw from `FVerseFireEvent`. Every shot: muzzle flash (the viewmodel's for the owner), smoke, an ejected casing; tracer rounds only: a thin yellow-white streak. Impact VFX (bullet hole by surface, sparks, dust, shards) play from the cosmetic hit event, never from the client's own trace; penetrations add holes on entry and exit |
 | Hit confirm | `ClientConfirmShot` (reliable, owner): shot counter, result (`Miss`, `HitBody`, `HitPiece`, `Blocked`, `Rejected`), zone, killing blow |
 
 ### 5.1 Fire, hit and death events
@@ -690,7 +693,7 @@ public:
   UPROPERTY(EditDefaultsOnly) TMap<EVerseHitZone, float> ZoneMultipliers;
   UPROPERTY(EditDefaultsOnly, meta=(Units="m")) float FalloffStart = 20.f, FalloffEnd = 40.f;
   UPROPERTY(EditDefaultsOnly) float FalloffMinFraction = 0.7f;
-  UPROPERTY(EditDefaultsOnly, meta=(Units="m/s")) float ProjectileSpeed = 300.f;
+  UPROPERTY(EditDefaultsOnly, meta=(Units="m/s")) float ProjectileSpeed = 880.f;  // muzzle velocity, gravity drop
   UPROPERTY(EditDefaultsOnly, meta=(Units="m")) float MaxRange = 150.f;
   UPROPERTY(EditDefaultsOnly) float PenetrationPower = 100.f;   // 100 = assault rifle (destruction 2)
   UPROPERTY(EditDefaultsOnly) int32 MaxPenetrations = 3;         // clamped to 3
