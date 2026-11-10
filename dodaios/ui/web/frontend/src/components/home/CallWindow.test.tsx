@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { CallWindow } from "@/components/home/CallWindow";
 import { useEventStore } from "@/store/events";
@@ -101,7 +101,7 @@ describe("CallWindow (a call inside the conversation)", () => {
     // The complaint this guards (maintainer, 2026-11-10): the provider refused
     // the call after twelve seconds and the screen showed nothing at all.
     useEventStore.setState({ voiceState: "error" });
-    useHomeStore.setState({ callProblem: { message: "The selected account is not offered subscription voice." } });
+    useHomeStore.setState({ callProblem: { message: "The selected account is not offered subscription voice.", at: Date.now() } });
     const { rerender } = render(<CallWindow />);
     const call = screen.getByTestId("call-window");
     expect(call.getAttribute("data-state")).toBe("failed");
@@ -122,17 +122,70 @@ describe("CallWindow (a call inside the conversation)", () => {
   });
 
   it("says so when a call failed and nobody named the reason", () => {
-    useHomeStore.setState({ callProblem: { message: "" } });
+    useHomeStore.setState({ callProblem: { message: "", at: Date.now() } });
     render(<CallWindow />);
     expect(screen.getByTestId("call-problem").textContent).toContain("No reason was reported");
   });
 
   it("shows the running call, not an old problem, once a new call is up", () => {
     useEventStore.setState({ voiceState: "listening" });
-    useHomeStore.setState({ callProblem: { message: "old" } });
+    useHomeStore.setState({ callProblem: { message: "old", at: Date.now() } });
     render(<CallWindow />);
     expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("listening");
     expect(screen.queryByTestId("call-problem")).toBeNull();
+  });
+
+  it("stays for a moment after the call ends, so a late reason lands in the same window", () => {
+    vi.useFakeTimers();
+    try {
+      useEventStore.setState({ voiceState: "listening" });
+      const { rerender } = render(<CallWindow />);
+      const call = screen.getByTestId("call-window");
+      // The call is gone: the window says so instead of vanishing.
+      useEventStore.setState({ voiceState: "idle" });
+      rerender(<CallWindow />);
+      expect(screen.getByTestId("call-window")).toBe(call);
+      expect(call.getAttribute("data-state")).toBe("ended");
+      expect(screen.getByTestId("call-status").textContent).toBe("Call ended");
+      // The reason arrives a moment later, into the same element.
+      act(() => useHomeStore.getState().setCallProblem({ message: "refused" }));
+      rerender(<CallWindow />);
+      expect(screen.getByTestId("call-window")).toBe(call);
+      expect(call.getAttribute("data-state")).toBe("failed");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("closes by itself after an ordinary hang-up", () => {
+    vi.useFakeTimers();
+    try {
+      useEventStore.setState({ voiceState: "speaking" });
+      const { rerender } = render(<CallWindow />);
+      useEventStore.setState({ voiceState: "idle" });
+      rerender(<CallWindow />);
+      expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("ended");
+      act(() => { vi.advanceTimersByTime(1000); });
+      expect(screen.queryByTestId("call-window")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets the note of a failed call go by itself after two minutes", () => {
+    vi.useFakeTimers();
+    try {
+      act(() => useHomeStore.getState().setCallProblem({ message: "refused" }));
+      render(<CallWindow />);
+      expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("failed");
+      act(() => { vi.advanceTimersByTime(119_000); });
+      expect(screen.getByTestId("call-window")).toBeTruthy();
+      act(() => { vi.advanceTimersByTime(2_000); });
+      expect(useHomeStore.getState().callProblem).toBeNull();
+      expect(screen.queryByTestId("call-window")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("hangs up with the red button", async () => {

@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- The phone companion: ONE conversation on a phone screen. A separate,
+     tiny bundle (src/mobile) that shares no module with the desktop entry, so
+     the desktop's startup bundle is byte for byte what it was. Served by
+     mobile_routes.py at /m/; pairing arrives in the URL fragment (#pair=CODE),
+     which never reaches the server. -->
+<html lang="en" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/m/manifest.json" />
+    <link rel="icon" href="/m/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/m/icon-192.png" />
+    <!-- Neutral, trademark-free title; the app replaces it with the assistant's name. -->
+    <title>Assistant</title>
+  </head>
+  <body>
+    <div id="app" class="app" aria-live="polite"></div>
+    <script type="module" src="/src/mobile/main.ts"></script>
+  </body>
+</html>
