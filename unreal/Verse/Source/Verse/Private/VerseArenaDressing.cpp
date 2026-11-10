@@ -422,7 +422,7 @@ void AVerseArenaGraybox::DressBox(const TSharedPtr<FJsonObject>& Box)
 	}
 	if (StartsWith(Id, TEXT("nacelle_")))
 	{
-		AddTrim(TEXT("Arena_SignAmber"), FVector(C.X, Max.Y + 1.0, C.Z), FVector(S.X * 0.4, 2.0, S.Z * 0.3), FRotator::ZeroRotator, false);
+		AddTrim(TEXT("Indicator_Amber"), FVector(C.X, Max.Y + 1.0, C.Z), FVector(S.X * 0.4, 2.0, S.Z * 0.3), FRotator::ZeroRotator, false);
 		return;
 	}
 	if (Id == TEXT("roof"))

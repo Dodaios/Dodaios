@@ -224,7 +224,15 @@ spawns, cover, sight lines, piece ids and the bot's data stay exactly those of `
   the pad, lane and chevron markings, a hazard edge and a red band in the launch well, floor
   lights.
 - **Light**: the fill is the world's only visible directional light while the arena stands
-  (others are muted and come back on leave); exposure EV100 4.0. Outside the editor the
+  (others are muted and come back on leave); exposure EV100 4.0. Nine broad shadowless points
+  over the arena stand in for bounce light, and the arena's post volume turns Lumen off (screen
+  space reflections and AO instead): Lumen's distance-field tracing over the stretched graybox
+  cubes drew metre-sized blocks on every big face. Big boxes render as tiles of at most 6 m;
+  their collision stays one box. Container walls render corrugated (ribs proud of both faces,
+  render only; the proxy stays the plain box).
+- **Masters**: every Verse master is flagged for instanced and Nanite meshes. Without it a
+  `-game` or packaged build drew every kit and arena surface with the engine's default
+  checker material. Outside the editor the
   engine's on-screen developer lines are off (`-ScreenMessages` keeps them).
 
 `Verse.Visual.HangarArt` tours the arena from a player's eye (both spawns, mid, cover, looking
