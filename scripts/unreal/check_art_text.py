@@ -14,8 +14,9 @@ Runs in the `unreal-static` lane and in `scripts/ci/run_gates.py`. It fails on:
   banned colour (section 8.3);
 * a `.uasset` of an imported kind under `Content/Verse/` with no record (test
   placeholders under `Content/Verse/Test/` are built in the editor and exempt), any
-  asset name outside section 3, engine sample content (section 11), and
-  banned folder names under `unreal/` and `art/verse/` (section 10.1);
+  asset name outside section 3, banned folder names under `unreal/` and `art/verse/`
+  (section 10.1), and any tracked file under a git-ignored `External/` folder
+  (section 11: third-party content whose licence forbids redistribution);
 * a `space_vectors.json` that disagrees with `art/verse/lib/ue_space.py`.
 
     python scripts/unreal/check_art_text.py           # the repository
@@ -126,10 +127,12 @@ BANNED_FOLDERS = {
 }  # fmt: skip
 ALLOWED_FOLDERS = {"unreal/Verse/Build"}
 
-#: Engine sample content (section 11, "Scan").
-ENGINE_CONTENT = re.compile(
-    r"/Game/StarterContent|/Game/Characters/Mannequins|SKM_Manny|SKM_Quinn|SK_Mannequin",
-    re.IGNORECASE,
+#: Git-ignored folders for third-party content whose licence forbids public redistribution
+#: (Fab, Megascans, paid packs; art-pipeline 11). Nothing under them is ever tracked.
+EXTERNAL_PREFIXES = (
+    "unreal/Verse/Content/Verse/External/",
+    "unreal/Verse/Art/External/",
+    "art/verse/External/",
 )
 
 #: Banned hues for MI vector parameters (section 8.3): (label, lo, hi, min sat, emissive only).
@@ -362,8 +365,6 @@ class Checker:
                     self.fail(path, f"ledger row {digest[:12]}... not in art/verse/LICENSES.md")
         elif license_.get("ledger_sha256"):
             self.fail(path, "own work cites no ledger rows")
-        if ENGINE_CONTENT.search(json.dumps(doc)):
-            self.fail(path, "engine sample content is forbidden (art-pipeline 11)")
 
     # -- placements -------------------------------------------------------
 
@@ -378,9 +379,6 @@ class Checker:
                 continue
             for error in placement.validate_file(path, known_assets=set(records)):
                 self.fail(path, error)
-            text = path.read_text(encoding="utf-8", errors="replace")
-            if ENGINE_CONTENT.search(text):
-                self.fail(path, "engine sample content is forbidden (art-pipeline 11)")
 
     # -- material instances ---------------------------------------------
 
@@ -416,6 +414,8 @@ class Checker:
                 if path.suffix not in (".uasset", ".umap"):
                     continue
                 rel = path.relative_to(self.content).with_suffix("")
+                if rel.parts[0] == "External":
+                    continue  # local-only third-party content, never tracked (section 11)
                 name = rel.name
                 object_path = f"/Game/Verse/{rel.as_posix()}.{name}"
                 on_disk.add(object_path)
@@ -427,8 +427,6 @@ class Checker:
                 if path.suffix == ".uasset" and needs_record:
                     if object_path not in records:
                         self.fail(path, "no import record in unreal/Verse/Art/Import/")
-                if ENGINE_CONTENT.search(object_path):
-                    self.fail(path, "engine sample content is forbidden (art-pipeline 11)")
         for object_path, record in sorted(records.items()):
             if object_path not in on_disk:
                 self.fail(
@@ -445,8 +443,10 @@ class Checker:
                 if part.lower() in BANNED_FOLDERS and prefix not in ALLOWED_FOLDERS:
                     self.fail(rel, f"folder name {part!r} is banned (art-pipeline 10.1)")
                     break
-            if ENGINE_CONTENT.search(rel):
-                self.fail(rel, "engine sample content is forbidden (art-pipeline 11)")
+            if rel.startswith(EXTERNAL_PREFIXES):
+                self.fail(
+                    rel, "tracked file under a git-ignored External/ folder (art-pipeline 11)"
+                )
 
     def space_vectors(self) -> None:
         path = self.art / "space_vectors.json"

@@ -1,6 +1,6 @@
 # Third-party content ledger
 
-Every third-party file used by the Verse cook. CC0 only (fonts: section "Fonts" below). Append-only.
+Provenance ledger of every third-party file used by the Verse cook: source URL and licence name per row. Any licence is allowed (decision 2026-11-10, `docs/verse/unreal/README.md` Assets); the rows below happen to be CC0. Files whose licence forbids public redistribution are never committed (git-ignored `External/` folders) but still get a row. Append-only.
 
 | Asset | File | License | Source URL | SHA-256 |
 |---|---|---|---|---|
@@ -47,7 +47,7 @@ Every third-party file used by the Verse cook. CC0 only (fonts: section "Fonts" 
 
 ## Fonts
 
-Fonts are not art assets and are the one exception to CC0 only
+Fonts are not art assets and have their own rule
 (`docs/verse/unreal/contracts/art-pipeline.md` 11). Each font ships
 unmodified next to its licence text. Append-only.
 

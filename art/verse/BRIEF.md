@@ -20,10 +20,12 @@ technicians**; the pet is the commander's **companion drone**.
 Everything is new. Nothing from the previous starship build (code, plans,
 figures, ranks, look) is reused; the old module is deleted.
 
-Legal: the Verse is an original design, the Dodaios fleet style. No film,
-series, game or other franchise is named, referenced or used as a source
-anywhere in the repository, and no third-party logo, crest, insignia, typeface,
-alien script, costume, vehicle silhouette or character is copied. Use generic
+Legal: the Verse is the Dodaios fleet style. For the Unreal Verse (`unreal/Verse`)
+the asset and naming restrictions are lifted (decision 2026-11-10,
+`docs/verse/unreal/README.md` Assets and Legal): references, real names and
+third-party assets are allowed under each asset's own licence. The legacy
+browser Verse keeps its own-design rule: no third-party logo, crest, insignia,
+typeface, alien script, costume, vehicle silhouette or character is copied. Use generic
 words ("fleet", "capital ship", "marine", "officer"). The ship's emblem is
 original.
 
@@ -154,8 +156,8 @@ beacon), **idle** (seeded off-duty life: mess, corridor, viewports), **paused**
 - Source of truth is **code**: Blender Python builders under `art/verse/`
   (kit pieces, materials, decks, characters). `.blend` files and downloaded
   textures are derived data in a git-ignored cache and are never committed.
-- Only CC0 third-party textures/HDRIs (e.g. Poly Haven), recorded in a license
-  ledger with URL and hash.
+- Third-party textures/HDRIs under any licence (e.g. Poly Haven, CC0), recorded in a
+  license ledger with URL, licence name and hash.
 - Cooked output lives in `dodaios/ui/web/frontend/public/verse/` (plates as
   AVIF tiles, glb, json). Budget for the whole cooked Verse: **≤ 160 MB**
   (up to 25 MB of it per deck for the eye-level export, docs/verse/realtime.md),

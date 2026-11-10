@@ -37,7 +37,6 @@ python scripts/unreal/perf.py run --runs 2 | compare A B | parse <csv>
 python scripts/unreal/capture.py shots --wp WP12 --subtask 12.3 | palette <png> | proof-dir --wp WP10 --subtask 10.8
 python scripts/unreal/check_bot_isolation.py                    # F1, F6
 python scripts/unreal/check_lfs.py --diff origin/main
-python scripts/unreal/check_forbidden_names.py --folders
 python scripts/unreal/done_check.py
 ```
 
@@ -47,7 +46,7 @@ Every run that starts Unreal takes the machine lock (`scripts/unreal/with_lock.p
 
 | Workflow | Runner | Trigger | Runs |
 |---|---|---|---|
-| `unreal-static.yml` | GitHub-hosted, LFS off, 5 min | PR, merge queue, main | DAG, forbidden names (files, diff, commits, PR title), folder names and engine content, F1 and F6, LFS pointers and remote objects and sizes, clang-format, art text and ledger, workflow policy, the script tests (including fork safety, A10.2) |
+| `unreal-static.yml` | GitHub-hosted, LFS off, 5 min | PR, merge queue, main | DAG, folder names and tracked External files (`check_art_text.py`), F1 and F6, LFS pointers and remote objects and sizes, clang-format, art text and ledger, workflow policy, the script tests (including fork safety, A10.2) |
 | `unreal-build.yml` | self-hosted | same-repo PR, merge queue, main | Win64 Editor and Game, automation under `-nullrhi`, netcode smoke; Linux Game cross build |
 | `unreal-gauntlet.yml` | self-hosted | merge queue (short), nightly (long) | `balance.py` and gates; nightly netcode with Iris on and off |
 | `unreal-perf.yml` | self-hosted | nightly, quiet hours | perf replay twice (budgets, 3 % stability), reference views with palette shares |
