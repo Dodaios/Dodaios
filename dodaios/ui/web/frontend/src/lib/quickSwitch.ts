@@ -75,7 +75,7 @@ const ALIASES: Partial<Record<string, readonly string[]>> = {
   agents: ["society", "world", "team", "routines", "schedule", "automations"],
   settings: ["preferences", "options", "config", "configuration", "general"],
   apikeys: ["keys", "credentials", "tokens", "providers"],
-  memory: ["notes", "knowledge", "obsidian"],
+  memory: ["wiki", "notes", "knowledge", "remember", "obsidian"],
   visualization: ["outputs", "results", "images", "pages"],
   costs: ["tokens", "usage", "money", "billing", "budget"],
   sessions: ["transcripts", "recordings", "history"],

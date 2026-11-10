@@ -8,7 +8,7 @@ import {
   Compass,
   Heart,
   type LucideIcon,
-  MapPin,
+  Lightbulb,
   Rocket,
   ScrollText,
   Sparkles,
@@ -30,7 +30,7 @@ export const KIND_STYLE: Record<MemoryKind, KindStyle> = {
   project: { icon: Rocket, hue: "266 70% 64%" },
   procedural: { icon: ScrollText, hue: "142 58% 46%" },
   episode: { icon: Sparkles, hue: "45 95% 52%" },
-  reference: { icon: MapPin, hue: "187 72% 46%" },
+  reference: { icon: Lightbulb, hue: "187 72% 46%" },
   ephemeral: { icon: CalendarClock, hue: "220 9% 56%" },
 };
 
