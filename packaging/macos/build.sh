@@ -77,6 +77,44 @@ run() {
   "$@"
 }
 
+# --- create_dmg (begin) ---
+# Build the compressed disk image. "Resource busy" from hdiutil is transient
+# (another process still holds a file or a device), so it is tried again up to
+# DMG_CREATE_ATTEMPTS times with a growing pause; any other error stops at once.
+create_dmg() {
+  local src="$1" dmg="$2"
+  local attempt=1 status out
+  local attempts="${DMG_CREATE_ATTEMPTS:-5}" pause="${DMG_RETRY_PAUSE_S:-10}"
+  while :; do
+    printf '+ hdiutil create -volname %q -srcfolder %q -fs HFS+ -format UDZO -ov %q (attempt %d)\n' \
+      "${VOLUME_NAME}" "${src}" "${dmg}" "${attempt}"
+    if [ "${DRY_RUN}" = "1" ]; then
+      return 0
+    fi
+    status=0
+    out="$(hdiutil create -volname "${VOLUME_NAME}" -srcfolder "${src}" \
+      -fs HFS+ -format UDZO -ov "${dmg}" 2>&1)" || status=$?
+    if [ -n "${out}" ]; then
+      printf '%s\n' "${out}"
+    fi
+    if [ "${status}" -eq 0 ]; then
+      return 0
+    fi
+    case "${out}" in
+      *"Resource busy"* | *"resource busy"*) ;;
+      *) return "${status}" ;;
+    esac
+    if [ "${attempt}" -ge "${attempts}" ]; then
+      return "${status}"
+    fi
+    log "hdiutil is busy, trying again in $((attempt * pause))s"
+    rm -f "${dmg}"
+    sleep $((attempt * pause))
+    attempt=$((attempt + 1))
+  done
+}
+# --- create_dmg (end) ---
+
 # True when a real build is happening; DRY_RUN skips the existence checks that
 # would otherwise abort a rehearsal on a machine with no build output.
 building() { [ "${DRY_RUN}" != "1" ]; }
@@ -419,13 +457,9 @@ log "building the disk image"
 # UDZO = zlib-compressed read-only image, the ordinary format for a downloaded
 # .dmg. HFS+ rather than APFS so the image also mounts on the older macOS
 # versions the app still supports.
-run hdiutil create \
-  -volname "${VOLUME_NAME}" \
-  -srcfolder "${STAGE_DIR}" \
-  -fs HFS+ \
-  -format UDZO \
-  -ov \
-  "${DMG_PATH}"
+# hdiutil sometimes fails with "Resource busy" on a busy machine (CI runners
+# scan new files while the image is built); create_dmg tries that again.
+create_dmg "${STAGE_DIR}" "${DMG_PATH}"
 run rm -rf "${STAGE_DIR}"
 
 if [ "${SIGNED_FOR_DISTRIBUTION}" = "1" ]; then
