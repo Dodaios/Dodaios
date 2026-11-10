@@ -8,25 +8,25 @@
     "LaneCm": 480.0,
     "LaneWidthCm": 160.0,
     "NoiseScale": 0.05,
-    "RoughnessMax": 0.38,
-    "RoughnessMin": 0.12,
+    "RoughnessMax": 0.45,
+    "RoughnessMin": 0.2,
     "SeamCm": 1.2,
-    "WearAmount": 0.4
+    "WearAmount": 0.35
   },
   "schema": "verse.mi/1",
   "switches": {},
   "textures": {},
   "vectors": {
     "BaseTint": [
-      0.075,
-      0.077,
-      0.082,
+      0.042,
+      0.043,
+      0.047,
       1.0
     ],
     "SeamTint": [
-      0.012,
-      0.012,
-      0.014,
+      0.008,
+      0.008,
+      0.009,
       1.0
     ]
   }

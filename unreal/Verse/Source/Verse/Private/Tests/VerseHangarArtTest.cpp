@@ -1,4 +1,6 @@
+#include "Controller/VerseBotController.h"
 #include "Engine/Engine.h"
+#include "EngineUtils.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/FileManager.h"
@@ -57,6 +59,20 @@ namespace VerseHangarArtTest
 		{TEXT("07_booth_l1"), FVector(3150.0, 4050.0, 300.0), 330.0, -6.0, false},
 		{TEXT("08_catwalk_l2"), FVector(2620.0, 1800.0, 600.0), 70.0, -12.0, false},
 	};
+
+	/** The tour is about the room: the bot waits, out of sight, in the armoury. */
+	void ParkBots(UWorld* World)
+	{
+		for (TActorIterator<AVerseBotController> It(World); It; ++It)
+		{
+			It->SetActorTickEnabled(false);
+			if (APawn* Bot = It->GetPawn())
+			{
+				Bot->SetActorTickEnabled(false);
+				Bot->TeleportTo(FVector(9300.0, 5600.0, 120.0), FRotator::ZeroRotator, false, true);
+			}
+		}
+	}
 
 	bool ShadersDone()
 	{
@@ -132,6 +148,7 @@ bool FVerseVisualHangarArtTest::RunTest(const FString&)
 			switch (State->Phase)
 			{
 			case 0:
+				ParkBots(World);
 				Pawn->TeleportTo(View.Floor + FVector(0.0, 0.0, 100.0), FRotator(0.0, View.Yaw, 0.0));
 				PC->SetControlRotation(FRotator(View.Pitch, View.Yaw, 0.0));
 				Pawn->GetPersonInput().SetButton(EVerseInputButton::Ads, View.bAds);

@@ -334,9 +334,9 @@ void AVerseArenaGraybox::DressBox(const TSharedPtr<FJsonObject>& Box)
 	// Columns: steel with a hazard sleeve at the foot and a lamp halfway up.
 	if (StartsWith(Id, TEXT("column_")) || StartsWith(Id, TEXT("cover_column_")))
 	{
-		for (int32 I = 0; I < 6; ++I)
+		for (int32 I = 0; I < 5; ++I)
 		{
-			AddTrim(I % 2 ? TEXT("Arena_HazardBlack") : TEXT("Arena_HazardYellow"), FVector(C.X, C.Y, 12.5 + 25.0 * I), FVector(S.X + 4.0, S.Y + 4.0, 25.0));
+			AddTrim(I % 2 ? TEXT("Arena_HazardBlack") : TEXT("Arena_HazardYellow"), FVector(C.X, C.Y, 8.0 + 16.0 * I), FVector(S.X + 4.0, S.Y + 4.0, 16.0));
 		}
 		// Flanges every 3 m read as a built-up steel column.
 		for (double Z = 300.0; Z < Max.Z - 100.0; Z += 300.0)

@@ -832,6 +832,11 @@ def _material_settings(u, name: str, mat) -> None:
     if name == "M_Verse_Decal":
         mat.set_editor_property("material_domain", u.MaterialDomain.MD_DEFERRED_DECAL)
         mat.set_editor_property("blend_mode", u.BlendMode.BLEND_TRANSLUCENT)
+    # A packaged or -game build never compiles a usage on demand: without these flags the decks'
+    # instanced and Nanite meshes render with the engine's default checker material.
+    if name not in ("M_Verse_Decal", POST_TONEMAP.name):
+        mat.set_editor_property("used_with_instanced_static_meshes", True)
+        mat.set_editor_property("used_with_nanite", True)
     for flag in ("used_with_skeletal_mesh", "used_with_static_lighting"):
         if flag == "used_with_skeletal_mesh" and name in (
             "M_Verse_Weapon",
