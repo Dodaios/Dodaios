@@ -263,7 +263,13 @@ async def run_owned_routine(
     if service is None:
         raise RuntimeError("The canonical chat service is unavailable")
     from dodaios.agent_chat.effort import default_effort
+    from dodaios.agent_chat.proactive_checks import NOTHING, precheck_skip
 
+    skipped = await precheck_skip(runtime, service, tags)
+    if skipped:
+        # Nothing a model could find: no seat, no chat, no tokens.
+        log.info("society: routine %s needs no model call (%s)", task_id, skipped)
+        return NOTHING
     cfg = runtime.config()
     provider, model, effort, account_id = await _seat_for_run(runtime, agent, task_id)
     autonomous = "autonomous" in tags

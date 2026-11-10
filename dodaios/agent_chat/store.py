@@ -764,6 +764,16 @@ class AgentChatStore:
             ).fetchall()
         return [{"kind": row["kind"], "payload": json.loads(row["payload"])} for row in rows]
 
+    def finished_turn_count(self, since_ms: int, *, exclude_session: str = "") -> int:
+        """Turns of any session that finished after ``since_ms`` (one chat left out)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM agent_chat_events WHERE kind = 'turn_finished' "
+                "AND ts_ms > ? AND session_id != ?",
+                (int(since_ms), exclude_session),
+            ).fetchone()
+        return int(row[0] or 0)
+
     def list_events(
         self, session_id: str, *, after_seq: int = 0, tail: int | None = None
     ) -> list[dict[str, Any]]:

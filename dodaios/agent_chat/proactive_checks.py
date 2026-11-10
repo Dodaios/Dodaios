@@ -107,6 +107,77 @@ def quiet_result(payload: dict[str, Any]) -> bool:
     return len("".join(ch for ch in rest if ch.isalnum())) < 24
 
 
+def skip_reason(
+    settings: ProactiveSettings,
+    *,
+    due_loops: int,
+    due_deadlines: int,
+    waiting_agents: int,
+    agent_turns_since: int,
+    external_sources: int | None,
+) -> str:
+    """Why a check needs no model call right now, or ``""`` when it must look.
+
+    Each topic names something a line of code can count: open loops and
+    deadlines that fell due, agents waiting on the person or finishing work
+    since the last check, and whether any mail or calendar account is
+    connected at all. A check whose every enabled topic counts zero has
+    nothing the model could find, so it answers :data:`NOTHING` for free.
+    ``None`` for a count means it could not be read, which always runs the
+    check (an unreadable signal never hides something).
+    """
+    if due_loops > 0:
+        return ""
+    topics = set(settings.topics)
+    if "deadlines" in topics and due_deadlines > 0:
+        return ""
+    if "agents" in topics and (waiting_agents > 0 or agent_turns_since > 0):
+        return ""
+    if topics & {"mail", "calendar"} and external_sources != 0:
+        return ""
+    return "no due loops, deadlines or agent activity, and no mail or calendar connected"
+
+
+async def precheck_skip(runtime: Any, service: Any, tags: tuple[str, ...]) -> str:
+    """:func:`skip_reason` for a live "needs you" run; ``""`` for any other routine."""
+    if CHECK_TAG not in tags:
+        return ""
+    import asyncio
+    import time
+
+    try:
+        from dodaios.agent_chat.attention import attention_of
+        from dodaios.agent_chat.lead import lead_session_id
+        from dodaios.agent_chat.open_loops import due_loops
+        from dodaios.marketplace.connect_helpers import connected_plugin_ids
+        from dodaios.marketplace.token_store import TokenStore
+        from dodaios.memory.vault.runtime import upcoming
+
+        settings = await load_settings(getattr(runtime, "store", None))
+        loops = await asyncio.to_thread(due_loops)
+        deadlines = await asyncio.to_thread(upcoming, days=0)
+        attention = attention_of(service)
+        waiting = len(await attention.items()) if attention is not None else 0
+        since_ms = int((time.time() - settings.interval_hours * 3600) * 1000)
+        turns = await asyncio.to_thread(
+            service.store.finished_turn_count,
+            since_ms,
+            exclude_session=lead_session_id(service) or "",
+        )
+        sources = await asyncio.to_thread(lambda: len(connected_plugin_ids(TokenStore())))
+        return skip_reason(
+            settings,
+            due_loops=len(loops),
+            due_deadlines=len(deadlines),
+            waiting_agents=waiting,
+            agent_turns_since=turns,
+            external_sources=sources,
+        )
+    except Exception:  # noqa: BLE001 - an unreadable signal runs the check
+        log.debug("lead check: pre-check unreadable, running the model", exc_info=True)
+        return ""
+
+
 async def run_context(task_store: Any, task_id: str, tags: tuple[str, ...]) -> str:
     """Extra prompt text for a lead routine run: the previous result and the open loops.
 
@@ -329,6 +400,8 @@ __all__ = [
     "cron_expression",
     "quiet_result",
     "quiet_routine",
+    "skip_reason",
+    "precheck_skip",
     "run_context",
     "runs_per_day",
 ]

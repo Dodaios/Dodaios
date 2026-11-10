@@ -91,6 +91,10 @@ class AgentBucket(Bucket):
     """The roster name; empty when the agent is no longer in the roster."""
     lead: bool = False
     archived: bool = False
+    reread_tokens: int = 0
+    fresh_tokens: int = 0
+    reread_share: float = 0.0
+    """Share of the agent's measured input that was re-read context (0 when unmeasured)."""
 
 
 class Totals(BaseModel):

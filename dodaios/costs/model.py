@@ -203,6 +203,10 @@ class CostEntry:
     #: assistant itself, ``""`` for work no agent owns (coding threads, the
     #: Agentic IDE).
     agent: str = ""
+    #: Of the input, what the model re-read (history, catch-up, system prompt)
+    #: versus new work, in tokens; both 0 when the turn recorded no split.
+    reread_tokens: int = 0
+    fresh_tokens: int = 0
 
     @property
     def tokens_total(self) -> int:
@@ -319,3 +323,21 @@ def price_entry(
     if not model or resolve_rates(model) is None:
         return 0.0, "unknown"
     return calculate_cost_usd(model, tokens_in, tokens_out, tokens_cached), "derived"
+
+
+def share_in_tokens(context: Any) -> tuple[int, int]:
+    """``(reread_tokens, fresh_tokens)`` of a recorded ``context``; zeros when unusable."""
+    if not isinstance(context, dict):
+        return 0, 0
+    try:
+        reread = max(0, int(context.get("reread") or 0))
+        fresh = max(0, int(context.get("fresh") or 0))
+    except (TypeError, ValueError):
+        return 0, 0
+    if context.get("unit") == "chars":
+        reread //= _CONTEXT_CHARS_PER_TOKEN
+        fresh //= _CONTEXT_CHARS_PER_TOKEN
+    return reread, fresh
+
+
+_CONTEXT_CHARS_PER_TOKEN = 4  # keep equal to agent_chat.token_efficiency.CHARS_PER_TOKEN
