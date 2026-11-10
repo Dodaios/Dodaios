@@ -234,7 +234,7 @@ describe("Sidebar new-conversation button", () => {
     useHomeStore.setState({ surface: "voice", transcript: [] });
     renderSidebar();
     const button = screen.getByTestId("sidebar-new-chat");
-    expect(button.textContent).toContain("Conversation");
+    expect(button.textContent).toContain("Dodaios");
     await act(async () => { button.click(); await Promise.resolve(); });
     expect(useHomeStore.getState().surface).toBe("chat");
     expect(useEventStore.getState().activeSection).toBe("chats");
