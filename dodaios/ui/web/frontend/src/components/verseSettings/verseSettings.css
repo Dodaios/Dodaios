@@ -1,37 +1,28 @@
-/* Settings → Game settings. The page is the Verse's own options screen, so it
-   keeps the game's dark noir surface and amber signal in both app themes. */
+/* Settings → Game settings: the Verse's options screen, full width, in the
+   app's own black-and-white tokens (light and dark theme). */
 .vs-root {
-  --vs-bg: #0d0c0b;
-  --vs-panel: #141210;
-  --vs-row: rgba(255, 244, 222, 0.035);
-  --vs-row-on: rgba(242, 180, 65, 0.075);
-  --vs-line: rgba(255, 244, 222, 0.08);
-  --vs-line-strong: rgba(255, 244, 222, 0.16);
-  --vs-ink: #ece6da;
-  --vs-ink-dim: #a39b8d;
-  --vs-ink-faint: #6f685d;
-  --vs-amber: #f2b441;
-  --vs-amber-dim: rgba(242, 180, 65, 0.55);
-  --vs-amber-fill: rgba(242, 180, 65, 0.22);
-  --vs-red: #ff6a55;
+  /* The app's own black-and-white tokens, so the menu follows the theme. */
+  --vs-bg: hsl(var(--background));
+  --vs-row: hsl(var(--foreground) / 0.025);
+  --vs-row-on: hsl(var(--foreground) / 0.07);
+  --vs-line: hsl(var(--border));
+  --vs-line-strong: hsl(var(--border-strong));
+  --vs-ink: hsl(var(--foreground));
+  --vs-ink-dim: hsl(var(--muted-foreground));
+  --vs-ink-faint: hsl(var(--foreground-faint));
+  --vs-signal: hsl(var(--foreground-strong));
+  --vs-signal-dim: hsl(var(--foreground) / 0.45);
+  --vs-signal-fill: hsl(var(--foreground) / 0.12);
+  --vs-field: hsl(var(--secondary));
+  --vs-red: hsl(var(--destructive));
   --vs-green: #6fd88a;
   position: relative;
   display: flex;
   min-height: 100%;
   flex-direction: column;
-  background:
-    radial-gradient(1200px 380px at 12% -8%, rgba(242, 180, 65, 0.07), transparent 60%),
-    linear-gradient(180deg, #11100e 0%, var(--vs-bg) 260px);
+  background: var(--vs-bg);
   color: var(--vs-ink);
   font-feature-settings: "tnum" 1;
-}
-.vs-root::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--vs-amber), transparent 55%);
-  opacity: 0.8;
 }
 .vs-center {
   align-items: center;
@@ -61,7 +52,7 @@
   text-transform: uppercase;
 }
 .vs-eyebrow {
-  color: var(--vs-amber);
+  color: var(--vs-signal);
 }
 .vs-title {
   margin-top: 6px;
@@ -70,7 +61,6 @@
   letter-spacing: 0.02em;
   line-height: 1;
   text-transform: uppercase;
-  font-style: italic;
 }
 .vs-subtitle {
   margin-top: 10px;
@@ -110,7 +100,7 @@
   gap: 2px;
   padding: 0 40px;
   border-bottom: 1px solid var(--vs-line);
-  background: rgba(13, 12, 11, 0.92);
+  background: hsl(var(--background) / 0.92);
   backdrop-filter: blur(8px);
   overflow-x: auto;
   scrollbar-width: none;
@@ -139,8 +129,7 @@
   right: 14px;
   bottom: -1px;
   height: 2px;
-  background: var(--vs-amber);
-  box-shadow: 0 0 12px rgba(242, 180, 65, 0.6);
+  background: var(--vs-signal);
 }
 .vs-keyhint {
   display: inline-grid;
@@ -167,10 +156,10 @@
   padding: 0 10px;
   border: 1px solid var(--vs-line);
   border-radius: 6px;
-  background: rgba(255, 244, 222, 0.03);
+  background: var(--vs-field);
 }
 .vs-search:focus-within {
-  border-color: var(--vs-amber-dim);
+  border-color: var(--vs-signal-dim);
 }
 .vs-search input {
   min-width: 0;
@@ -188,7 +177,7 @@
 .vs-body {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
   gap: 36px;
   padding: 18px 40px 24px;
 }
@@ -207,8 +196,7 @@
   gap: 10px;
   margin-bottom: 6px;
   padding: 0 14px;
-  color: var(--vs-amber);
-  font-style: italic;
+  color: var(--vs-signal);
   font-weight: 700;
 }
 .vs-section-title::after {
@@ -248,7 +236,7 @@
   bottom: 8px;
   width: 2px;
   border-radius: 2px;
-  background: var(--vs-amber);
+  background: var(--vs-signal);
 }
 .vs-row-label {
   display: flex;
@@ -265,7 +253,7 @@
   width: 5px;
   flex-shrink: 0;
   border-radius: 999px;
-  background: var(--vs-amber);
+  background: var(--vs-signal);
 }
 .vs-row-control {
   display: flex;
@@ -288,8 +276,8 @@
   transition: background 100ms, color 100ms;
 }
 .vs-arrow:hover {
-  background: var(--vs-amber);
-  color: #17120a;
+  background: var(--vs-signal);
+  color: hsl(var(--background));
 }
 .vs-stepper-value {
   display: flex;
@@ -301,7 +289,7 @@
   margin: 0 3px;
   padding: 0 8px;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--vs-field);
   box-shadow: inset 0 0 0 1px var(--vs-line);
   font-size: 12px;
   font-weight: 700;
@@ -321,7 +309,7 @@
   background: var(--vs-line-strong);
 }
 .vs-tick-on {
-  background: var(--vs-amber);
+  background: var(--vs-signal);
 }
 
 /* bar: filled range */
@@ -334,20 +322,20 @@
   justify-content: center;
   overflow: hidden;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--vs-field);
   box-shadow: inset 0 0 0 1px var(--vs-line);
 }
 .vs-bar-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  background: linear-gradient(90deg, rgba(242, 180, 65, 0.1), var(--vs-amber-fill));
-  border-right: 2px solid var(--vs-amber);
+  background: var(--vs-signal-fill);
+  border-right: 2px solid var(--vs-signal);
 }
 .vs-bar-text {
   position: relative;
   padding: 1px 6px;
   border-radius: 2px;
-  background: rgba(13, 12, 11, 0.72);
+  background: hsl(var(--background) / 0.8);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -369,25 +357,25 @@
   border: 1px solid var(--vs-line-strong);
   border-bottom-width: 3px;
   border-radius: 5px;
-  background: linear-gradient(180deg, #1c1a17, #121110);
+  background: var(--vs-field);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px;
   font-weight: 700;
   transition: border-color 120ms;
 }
 .vs-keycap:hover {
-  border-color: var(--vs-amber-dim);
+  border-color: var(--vs-signal-dim);
 }
 .vs-keycap-listening {
-  border-color: var(--vs-amber);
-  color: var(--vs-amber);
+  border-color: var(--vs-signal);
+  color: var(--vs-signal);
 }
 .vs-keycap-armed {
   animation: vs-pulse 1.1s ease-in-out infinite;
 }
 @keyframes vs-pulse {
   50% {
-    box-shadow: 0 0 0 4px rgba(242, 180, 65, 0.18);
+    box-shadow: 0 0 0 4px var(--vs-signal-fill);
   }
 }
 
@@ -408,7 +396,6 @@
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  font-style: italic;
 }
 .vs-detail-desc {
   margin-top: 12px;
@@ -418,7 +405,7 @@
 }
 .vs-detail-note {
   margin-top: 14px;
-  color: var(--vs-amber);
+  color: var(--vs-signal);
   font-size: 12px;
 }
 .vs-facts {
@@ -455,23 +442,22 @@
   background: var(--vs-line-strong);
 }
 .vs-impact-low {
-  background: var(--vs-green);
+  background: var(--vs-signal);
 }
 .vs-impact-medium {
-  background: var(--vs-amber);
+  background: var(--vs-signal);
 }
 .vs-impact-high {
-  background: var(--vs-red);
+  background: var(--vs-signal);
 }
 .vs-crosshair {
   margin-top: 14px;
   height: 150px;
   border-radius: 6px;
   background:
-    radial-gradient(circle at 50% 50%, rgba(255, 244, 222, 0.05), transparent 70%),
-    repeating-linear-gradient(0deg, transparent 0 23px, rgba(255, 244, 222, 0.04) 23px 24px),
-    repeating-linear-gradient(90deg, transparent 0 23px, rgba(255, 244, 222, 0.04) 23px 24px),
-    #1a1815;
+    repeating-linear-gradient(0deg, transparent 0 23px, var(--vs-row-on) 23px 24px),
+    repeating-linear-gradient(90deg, transparent 0 23px, var(--vs-row-on) 23px 24px),
+    #1b1b1b;
   box-shadow: inset 0 0 0 1px var(--vs-line);
 }
 .vs-link {
@@ -483,7 +469,7 @@
   font-size: 12px;
 }
 .vs-link:hover {
-  color: var(--vs-amber);
+  color: var(--vs-signal);
 }
 
 /* ---------------------------------------------------------------- footer */
@@ -497,7 +483,7 @@
   min-height: 52px;
   padding: 8px 40px;
   border-top: 1px solid var(--vs-line);
-  background: rgba(13, 12, 11, 0.94);
+  background: hsl(var(--background) / 0.94);
   backdrop-filter: blur(8px);
 }
 .vs-footer-msg {
@@ -530,12 +516,12 @@
   text-transform: uppercase;
 }
 .vs-button:hover {
-  border-color: var(--vs-amber-dim);
+  border-color: var(--vs-signal-dim);
 }
 .vs-button-primary {
-  border-color: var(--vs-amber);
-  background: var(--vs-amber);
-  color: #17120a;
+  border-color: var(--vs-signal);
+  background: var(--vs-signal);
+  color: hsl(var(--background));
 }
 
 @media (max-width: 1100px) {
@@ -564,4 +550,8 @@
   .vs-keycap-armed {
     animation: none;
   }
+}
+
+.vs-detail > * {
+  max-width: 520px;
 }
