@@ -156,7 +156,7 @@ async def voice_call() -> dict[str, Any]:
 
 
 @router.get("/mic-mute")
-async def voice_mic_mute() -> dict[str, Any]:
+def voice_mic_mute() -> dict[str, Any]:
     """Whether the microphone is muted for the assistant (the call stays open)."""
     pipeline = _pipeline()
     if pipeline is None or not hasattr(pipeline, "is_muted"):
