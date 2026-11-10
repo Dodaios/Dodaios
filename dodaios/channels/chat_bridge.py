@@ -116,6 +116,16 @@ class ChannelChatBridge:
             self._replies.add(task)
             task.add_done_callback(self._replies.discard)
             return
+        # Not the owner's private chat: a trigger candidate for the lead's event
+        # intake (a no-op unless the owner turned the channel source on).
+        from dodaios.lead_triggers.wiring import on_channel_message
+
+        await on_channel_message(
+            name,
+            _thread_id_for(name, msg),
+            _metadata_value(msg.metadata, "friend_id") or _metadata_value(msg.metadata, "sender"),
+            text,
+        )
         await self._bus.publish(
             MessageSent(
                 trace_id=msg.trace_id,

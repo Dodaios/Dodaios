@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAgentChatStore } from "@/store/agentChat";
 import { BrandedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { LeadTriggersSetting } from "./LeadTriggersSetting";
 import type { NoticeItem, TimelineItem, TurnItem } from "@/components/agentchat/reduce";
 
 type Brief = { available: boolean; enabled: boolean; time: string; timezone: string };
@@ -229,6 +230,7 @@ export function LeadActivityPanel({ onClose }: { onClose: () => void }) {
       <Section icon={<CircleCheck aria-hidden className="h-3.5 w-3.5" />} title={t("home.activity.done")} rows={done} empty={t("home.activity.nothing")} />
       <BriefSetting />
       <ProactiveSetting />
+      <LeadTriggersSetting />
       <p className="mt-auto flex items-center gap-2 text-xs text-foreground-faint"><Clock aria-hidden className="h-3.5 w-3.5" />{t("home.activity.scheduled_hint")}</p>
     </aside>
   );

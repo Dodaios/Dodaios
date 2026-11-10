@@ -547,6 +547,7 @@
   },
   "notify": {
     "reminder_title": "Reminder",
+    "trigger_ask": "A {source} event fits your rule \"{policy}\": {summary}. Do you want me to deal with it?",
     "an_agent": "An agent",
     "needs_you_title": "{agent} needs you",
     "needs_you_body": "Open the conversation to answer.",

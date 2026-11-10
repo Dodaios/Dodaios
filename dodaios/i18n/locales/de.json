@@ -547,6 +547,7 @@
   },
   "notify": {
     "reminder_title": "Erinnerung",
+    "trigger_ask": "Ein Ereignis aus „{source}“ passt zu deiner Regel „{policy}“: {summary}. Soll ich mich darum kümmern?",
     "an_agent": "Ein Agent",
     "needs_you_title": "{agent} braucht dich",
     "needs_you_body": "Öffne die Unterhaltung, um zu antworten.",
