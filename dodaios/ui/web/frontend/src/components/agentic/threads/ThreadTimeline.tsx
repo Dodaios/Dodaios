@@ -417,8 +417,9 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
   const said = stretch.items.flatMap((item) => item.kind === "said" ? [item] : []);
   // Only the wordless thought of a running turn: one live line, nothing to open.
   if (calls.length === 0 && said.length === 0) return running ? <WorkRow label={t("thread_turn.thinking")} live /> : null;
+  // The runtime's own title for the calls wins; else what they did, counted.
   const label = calls.length === 0 ? t(stretch.live ? "thread_turn.thinking" : "work_trace.thought")
-    : calls.length === 1 ? callWords(calls[0], t) : stretch.label;
+    : stretch.title ? stretch.title : calls.length === 1 ? callWords(calls[0], t) : stretch.label;
   const failed = calls.length === 1 && isFailed(calls[0]);
   // What the agent is thinking right now; it folds into the card once it speaks.
   const now = stretch.live && !open ? said[said.length - 1] : undefined;
@@ -426,10 +427,14 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
   const took = stretch.live ? null : stretchTook(stretch);
   return <div className="min-w-0">
     <WorkRow
-      label={calls.length > 1 ? lineWords(label, calls, t, lang) : label}
+      label={calls.length > 1 && !stretch.title ? lineWords(label, calls, t, lang) : label}
       ariaLabel={stretch.live ? fill(t("thread_turn.steps_so_far"), { summary: label, count: stretch.items.length })
         : failed ? fill(t("thread_turn.call_failed"), { call: calls[0].text }) : undefined}
       trailing={<>
+        {/* A titled line still says how many of its calls failed. */}
+        {stretch.title && calls.length > 1 && calls.some(isFailed) && <span className="shrink-0 text-[13px] text-destructive/80">
+          {tr(t, `act.failed_${plural(lang, calls.filter(isFailed).length)}`, { count: calls.filter(isFailed).length })}
+        </span>}
         <DiffStat added={stretch.added} removed={stretch.removed} />
         {failed && <X aria-hidden className="h-3 w-3 shrink-0 text-destructive/70" />}
       </>}
@@ -827,7 +832,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
       : answer ? workedFor : timed("no_answer");
-  const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { t, lang, running }).map((row) =>
+  const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { t, lang, running, titles: turn.toolTitles }).map((row) =>
     row.kind === "stretch" ? <StretchView key={row.id} stretch={row} running={running} />
       : row.kind === "agents" ? <SubagentRun key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
   const renderRow = (row: ThreadRow) => {

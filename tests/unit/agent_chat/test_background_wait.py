@@ -286,3 +286,25 @@ def test_grok_is_settled_on_its_result() -> None:
     assert not _answer_settled(st)
     _waits([{"type": "result", "subtype": "success", "result": "Done.", "session_id": "g1"}], st)
     assert _answer_settled(st)
+
+
+def test_a_tool_use_summary_becomes_the_runs_title():
+    st = _ClaudeState(turn_id="t1")
+    out = translate_claude_line(
+        {
+            "type": "tool_use_summary",
+            "summary": "Read  a.txt\nand listed files",
+            "preceding_tool_use_ids": ["toolu_1", "toolu_2"],
+            "session_id": "s",
+        },
+        st,
+    )
+    expected = {
+        "turn_id": "t1",
+        "summary": "Read a.txt and listed files",
+        "call_ids": ["toolu_1", "toolu_2"],
+    }
+    assert [(e["kind"], e["payload"]) for e in out] == [("tool_summary", expected)]
+    # Nothing to title, no event.
+    empty = {"type": "tool_use_summary", "summary": "", "preceding_tool_use_ids": ["x"]}
+    assert translate_claude_line(empty, st) == []

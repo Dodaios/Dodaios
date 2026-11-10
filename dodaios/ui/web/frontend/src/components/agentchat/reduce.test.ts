@@ -54,6 +54,17 @@ describe("agent-chat reduce", () => {
     expect(turn.blocks[0]).toMatchObject({ text: thought, durationMs: 9169, live: false });
   });
 
+  it("keeps the runtime's title for a run of calls under the run's last call", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "ts" }),
+      ev("tool_call", { turn_id: "ts", call_id: "c1", name: "Bash", input: { command: "ls" } }),
+      ev("tool_call", { turn_id: "ts", call_id: "c2", name: "Read", input: { file_path: "a.txt" } }),
+      ev("tool_summary", { turn_id: "ts", summary: "Listed files and read a.txt", call_ids: ["c1", "c2"] }),
+      ev("tool_summary", { turn_id: "ts", summary: "", call_ids: ["c1"] }),
+    ]);
+    expect((tl.items[0] as TurnItem).toolTitles).toEqual({ c2: "Listed files and read a.txt" });
+  });
+
   it("does not open a turn for an end, a usage update or a live delta alone", () => {
     const tl = reduceEvents(EMPTY_TIMELINE, [
       ev("usage_delta", { turn_id: "gone", usage: { output_tokens: 3 } }),

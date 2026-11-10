@@ -25,6 +25,8 @@ Kinds (``payload`` keys in brackets):
                         (cumulative {input_tokens, output_tokens, …})
 ``tool_call``          [turn_id, call_id, name, input]
 ``tool_result``        [turn_id, call_id, output, is_error, duration_ms]
+``tool_summary``       [turn_id, summary, call_ids]    — the CLI's short title for
+                                                         the tool calls it just made
 ``approval_required``  [turn_id, approval_id, call_id, name, input, summary]
 ``approval_resolved``  [turn_id, approval_id, decision]   decision: allow |
                         allow_always | deny | cancel | expired (nothing waits

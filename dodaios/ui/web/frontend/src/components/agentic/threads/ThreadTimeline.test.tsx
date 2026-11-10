@@ -236,3 +236,18 @@ describe("working line", () => {
     expect(screen.getByTestId("thread-working").textContent).not.toContain("Getting ready");
   });
 });
+
+describe("runtime titles", () => {
+  it("names a line by the runtime's own title for its calls, failures still counted", () => {
+    const item = turn([
+      tool("c1", "npm test"),
+      tool("c2", "npm run lint", { isError: true, output: "Exit code 1" }),
+      { kind: "text", id: "n1", text: "Lint fails." },
+    ], "running");
+    show({ ...item, toolTitles: { c2: "Ran the tests and the linter" } });
+    const line = screen.getByRole("button", { name: /^Ran the tests and the linter/ });
+    expect(line.textContent).toContain("1 failed");
+    expect(screen.queryByText(/^Ran 2 commands/)).toBeNull();
+  });
+});
+
