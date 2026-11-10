@@ -422,7 +422,7 @@ void AVerseArenaGraybox::DressBox(const TSharedPtr<FJsonObject>& Box)
 	}
 	if (StartsWith(Id, TEXT("nacelle_")))
 	{
-		AddTrim(TEXT("Arena_LampWarm"), FVector(C.X, Max.Y + 1.0, C.Z), FVector(S.X * 0.6, 2.0, S.Z * 0.6), FRotator::ZeroRotator, false);
+		AddTrim(TEXT("Arena_SignAmber"), FVector(C.X, Max.Y + 1.0, C.Z), FVector(S.X * 0.4, 2.0, S.Z * 0.3), FRotator::ZeroRotator, false);
 		return;
 	}
 	if (Id == TEXT("roof"))
@@ -481,6 +481,12 @@ void AVerseArenaGraybox::DressHall()
 				AddDressing(TEXT("SM_Wall_480_H1200"), FTransform(Facing, Module));
 			}
 			AddDressing(Index % 3 == 1 ? TEXT("SM_WallLight_480_H540") : TEXT("SM_Wall_480_H540"), FTransform(Facing, Module + FVector(0.0, 0.0, 1200.0)));
+			// Services on the walls: cable trays along every module, a power riser at every third.
+			AddDressing(TEXT("SM_Eng_CableTray_Wall"), FTransform(Facing, Face + In * 2.0 + FVector(0.0, 0.0, 380.0), FVector(2.0, 1.0, 1.0)));
+			if (Index % 3 == 0)
+			{
+				AddDressing(TEXT("SM_Eng_PowerConduit"), FTransform(Facing, Face + In * 64.0 + (Run.bAlongX ? FVector(-170.0, 0.0, 0.0) : FVector(0.0, -170.0, 0.0))));
+			}
 			// A white strip between modules, as on the reference deck.
 			const FVector Seam = Face + In * 4.0 + (Run.bAlongX ? FVector(240.0, 0.0, 0.0) : FVector(0.0, 240.0, 0.0));
 			AddTrim(TEXT("Arena_LedStrip"), Seam + FVector(0.0, 0.0, 1050.0), Run.bAlongX ? FVector(14.0, 4.0, 700.0) : FVector(4.0, 14.0, 700.0),

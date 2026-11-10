@@ -195,6 +195,38 @@ namespace VerseArenaGrayboxPrivate
 		return FBox(Min, Max);
 	}
 
+	UStaticMesh* BuildBoxMesh(const TArray<FBox>& Parts, UMaterialInterface* Material, UObject* Outer, const TCHAR* Name, bool bCollision);
+
+	/** Container wall thickness (cm, layout.py `container_wall`): the corrugation is built for it. */
+	constexpr double ContainerWallCm = 0.4;
+
+	/**
+	 * The intact look of a container wall: the unit slab with vertical ribs proud of both faces, so
+	 * the walls read as corrugated steel. Render only; the piece's proxy stays the plain box. The
+	 * ribs are sized in unit space for the 4 mm wall, which the piece scales to its real size.
+	 */
+	UStaticMesh* BuildCorrugated(int32 Axis, UMaterialInterface* Material, UObject* Outer)
+	{
+		TArray<FBox> Parts;
+		Parts.Add(FBox(FVector(-50.0), FVector(50.0)));
+		const int32 Along = Axis == 0 ? 1 : 0;           // the horizontal axis the ribs repeat along
+		const double Proud = 2.2 / ContainerWallCm * 100.0;  // 2.2 cm in unit space
+		const int32 Ribs = 22;
+		for (int32 I = 0; I < Ribs; ++I)
+		{
+			const double Mid = -50.0 + 100.0 * (I + 0.5) / Ribs;
+			FVector Min(-50.0), Max(50.0);
+			Min[Along] = Mid - 100.0 / Ribs * 0.22;
+			Max[Along] = Mid + 100.0 / Ribs * 0.22;
+			Min[Axis] = -50.0 - Proud;
+			Max[Axis] = 50.0 + Proud;
+			Min.Z = -48.0;
+			Max.Z = 48.0;
+			Parts.Add(FBox(Min, Max));
+		}
+		return BuildBoxMesh(Parts, Material, Outer, TEXT("GrayboxCorrugated"), false);
+	}
+
 	/**
 	 * A unit cube with a hole through it along Axis (the breached look and proxy of a graybox
 	 * piece), as boxes around the hole: render triangles plus one simple collision box per part.
@@ -227,7 +259,12 @@ namespace VerseArenaGrayboxPrivate
 		Make(A1, 50.0, -50.0, 50.0);   // other side
 		Make(A0, A1, -50.0, B0);       // below (or one end)
 		Make(A0, A1, B1, 50.0);        // above (or other end)
+		return BuildBoxMesh(Parts, Material, Outer, TEXT("GrayboxBreachFrame"), true);
+	}
 
+	/** Boxes (unit-cube cm) as one static mesh, optionally with one simple collision box per part. */
+	UStaticMesh* BuildBoxMesh(const TArray<FBox>& Parts, UMaterialInterface* Material, UObject* Outer, const TCHAR* Name, bool bCollision)
+	{
 		FMeshDescription Desc;
 		FStaticMeshAttributes Attr(Desc);
 		Attr.Register();
@@ -262,7 +299,7 @@ namespace VerseArenaGrayboxPrivate
 			Quad(P(0, 0, 1), P(0, 1, 1), P(1, 1, 1), P(1, 0, 1), FVector3f(0, 0, 1));
 			Quad(P(0, 1, 0), P(0, 0, 0), P(1, 0, 0), P(1, 1, 0), FVector3f(0, 0, -1));
 		}
-		UStaticMesh* Mesh = NewObject<UStaticMesh>(Outer, MakeUniqueObjectName(Outer, UStaticMesh::StaticClass(), TEXT("GrayboxBreachFrame")), RF_Transient);
+		UStaticMesh* Mesh = NewObject<UStaticMesh>(Outer, MakeUniqueObjectName(Outer, UStaticMesh::StaticClass(), Name), RF_Transient);
 		Mesh->GetStaticMaterials().Add(FStaticMaterial(Material, TEXT("Frame")));
 		UStaticMesh::FBuildMeshDescriptionsParams Params;
 		Params.bFastBuild = true;
@@ -270,6 +307,10 @@ namespace VerseArenaGrayboxPrivate
 		Params.bCommitMeshDescription = false;
 		Params.bMarkPackageDirty = false;
 		Mesh->BuildFromMeshDescriptions({&Desc}, Params);
+		if (!bCollision)
+		{
+			return Mesh;
+		}
 		Mesh->CreateBodySetup();
 		if (UBodySetup* Body = Mesh->GetBodySetup())
 		{
@@ -436,7 +477,8 @@ AVerseDestructible* AVerseArenaGraybox::SpawnPiece(UWorld& World, const TSharedP
 	Piece->SetPieceGuid(FGuid(Hash, 0x56455253u, 0x48414E47u, uint32(Kind.Class)));
 	if (UStaticMeshComponent* Render = Piece->GetRenderComponent())
 	{
-		Render->SetStaticMesh(Cube);
+		const bool bCorrugated = Kind.Class == EVersePieceClass::ContainerWall && Axis != 2 && FMath::IsNearlyEqual(Size[Axis], ContainerWallCm, 0.01);
+		Render->SetStaticMesh(bCorrugated ? BuildCorrugated(Axis, Look, this) : Cube);
 		Render->SetMaterial(0, Look);
 		Render->SetCastShadow(Kind.Class != EVersePieceClass::GlassPane);
 	}

@@ -224,7 +224,7 @@ spawns, cover, sight lines, piece ids and the bot's data stay exactly those of `
   the pad, lane and chevron markings, a hazard edge and a red band in the launch well, floor
   lights.
 - **Light**: the fill is the world's only visible directional light while the arena stands
-  (others are muted and come back on leave); exposure EV100 3.6. Outside the editor the
+  (others are muted and come back on leave); exposure EV100 4.0. Outside the editor the
   engine's on-screen developer lines are off (`-ScreenMessages` keeps them).
 
 `Verse.Visual.HangarArt` tours the arena from a player's eye (both spawns, mid, cover, looking
