@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
 import { buildThreadRows, isFailed, joinStretches, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
 import { flattenMarks } from "@/lib/plainMarks";
-import { SubagentCard, SubagentGroup } from "./ThreadSubagents";
+import { SubagentRun } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
 
@@ -203,9 +203,23 @@ function callTail(call: Call, t: (key: string) => string): string {
 /** The kinds of call a line of the thread names by what they were ("Ran a command", "Read a file"). */
 const PLAIN_KINDS: ReadonlySet<string> = new Set(["command", "read", "list", "search", "edit", "write", "image"]);
 
-/** A lone call as its line says it: what it was. What it acted on is one click away, in its row. */
+/**
+ * What the agent itself said a call is for ("Show the lines with relative
+ * links"): the short description some runtimes send along with a command.
+ */
+export function callPurpose(call: Call): string {
+  const input = call.block.input;
+  const said = input && typeof input === "object" && !Array.isArray(input) ? (input as Record<string, unknown>).description : null;
+  const text = typeof said === "string" ? said.replace(/\s+/g, " ").trim() : "";
+  return text.length > 160 ? `${text.slice(0, 159).trimEnd()}…` : text;
+}
+
+/**
+ * A lone call as its line says it: the agent's own words for it, else what it
+ * was. What it ran or acted on is one click away, in its row.
+ */
 function callWords(call: Call, t: (key: string) => string): string {
-  return PLAIN_KINDS.has(call.kind) ? capitalize(tr(t, `act.${call.kind}_one`)) : call.text;
+  return callPurpose(call) || (PLAIN_KINDS.has(call.kind) ? capitalize(tr(t, `act.${call.kind}_one`)) : call.text);
 }
 
 const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-secondary prose-p:text-foreground-secondary prose-li:text-foreground-secondary");
@@ -240,7 +254,7 @@ function ThoughtView({ text }: { text: string }) {
  */
 export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
 
-const CARD_ROW = "group/step flex w-full min-w-0 items-center gap-1.5 px-3.5 py-2 text-left text-sm leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+const CARD_ROW = "group/step flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-left text-[13px] leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
 /**
  * One row of an opened stretch's card: what the step was in the quiet tone,
@@ -279,11 +293,13 @@ function CardStep({ item, running, lone = false }: { item: StretchItem; running:
   const call = item.call;
   const failed = isFailed(call);
   const command = call.kind === "command";
+  const purpose = command ? callPurpose(call) : "";
   const tail = callTail(call, t);
   return <CardRow
-    // A command reads as what it was, then the line itself in the terminal's type.
-    label={command ? capitalize(tr(t, "act.command_one")) : call.text}
-    detail={command ? call.text : call.detail || call.result}
+    // A command reads in the agent's own words for it; without those, as what
+    // it was and then the line itself in the terminal's type.
+    label={purpose || (command ? capitalize(tr(t, "act.command_one")) : call.text)}
+    detail={purpose ? undefined : command ? call.text : call.detail || call.result}
     mono={command}
     live={call.status === "running"}
     startOpen={lone && call.kind === "image"}
@@ -293,7 +309,7 @@ function CardStep({ item, running, lone = false }: { item: StretchItem; running:
       <DiffStat added={call.added} removed={call.removed} />
       {failed && <X aria-hidden className="h-3 w-3 shrink-0 text-destructive/70" />}
     </>}>
-    <CallDetails call={call} className="px-3.5 pb-3" />
+    <CallDetails call={call} className="px-3 pb-2.5" />
   </CardRow>;
 }
 
@@ -549,9 +565,9 @@ export function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide
  * A card the turn ended on is no step: it stays with the answer it belongs to.
  */
 /**
- * Rows with each run of sub-agents spawned one after another drawn as one:
- * a lone sub-agent keeps its card, several read as one group with a line
- * each, so a batch of agents never buries the conversation in cards.
+ * Rows with each run of sub-agents spawned one after another drawn as one
+ * line of the thread ("Ran 3 sub-agents"), a lone sub-agent too, so a batch
+ * of agents reads like any other step instead of burying the conversation.
  */
 export function joinAgentRuns(rows: readonly ThreadRow[]): (ThreadRow | { kind: "agents"; id: string; blocks: ToolBlock[] })[] {
   const out: (ThreadRow | { kind: "agents"; id: string; blocks: ToolBlock[] })[] = [];
@@ -561,7 +577,7 @@ export function joinAgentRuns(rows: readonly ThreadRow[]): (ThreadRow | { kind: 
     let j = i;
     while (j + 1 < rows.length && rows[j + 1].kind === "agent") j++;
     const run = rows.slice(i, j + 1) as Extract<ThreadRow, { kind: "agent" }>[];
-    out.push(run.length === 1 ? row : { kind: "agents", id: `agents:${row.id}`, blocks: run.map((entry) => entry.block) });
+    out.push({ kind: "agents", id: `agents:${row.id}`, blocks: run.map((entry) => entry.block) });
     i = j;
   }
   return out;
@@ -695,7 +711,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
       : answer ? workedFor : timed("no_answer");
   const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { running }).map((row) =>
     row.kind === "stretch" ? <StretchView key={row.id} stretch={row} running={running} />
-      : row.kind === "agents" ? <SubagentGroup key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
+      : row.kind === "agents" ? <SubagentRun key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
   const renderRow = (row: ThreadRow) => {
     // Work is drawn as stretches (renderRows), never as a row of its own.
     if (row.kind === "work") return null;
@@ -704,7 +720,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
       <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
     </div>;
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
-    if (row.kind === "agent") return <SubagentCard key={row.id} block={row.block} turn={turn} />;
+    if (row.kind === "agent") return <SubagentRun key={row.id} blocks={[row.block]} turn={turn} />;
     // A secret is pasted where it is asked for, never into a composer.
     if (row.block.credential) return <CredentialCard key={row.id} credential={row.block.credential} />;
     if (inline) {
