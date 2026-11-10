@@ -1,7 +1,10 @@
 """HTTP API of the personal memory vault (ADR-0044, chunk 5).
 
 * ``GET    /api/memory/vault``                 stats, kinds and the prompt block.
-* ``GET    /api/memory/vault/items``           memories (``kind``, ``q``, ``history``).
+* ``GET    /api/memory/vault/items``           memories (``kind``, ``origin``, ``since``,
+  ``until``, ``q``, ``history``, ``sort``, ``offset``/``limit`` paging, ``total``).
+* ``POST   /api/memory/vault/forget``          forget a selection; answers an undo token.
+* ``POST   /api/memory/vault/undo/{token}``    bring a just-forgotten selection back.
 * ``POST   /api/memory/vault/items``           add one in the user's words.
 * ``PUT    /api/memory/vault/items/{id}``      edit: a new version supersedes it.
 * ``POST   /api/memory/vault/items/{id}/pin``  pin or unpin.
@@ -22,6 +25,9 @@ here calls a model.
 from __future__ import annotations
 
 import io
+import secrets
+import threading
+import time
 import zipfile
 from typing import Any
 
@@ -29,7 +35,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from dodaios.memory.vault.models import KINDS, SCOPES, Memory
+from dodaios.memory.vault.models import KINDS, ORIGINS, SCOPES, Memory
 
 router = APIRouter(prefix="/api/memory/vault", tags=["memory"])
 
@@ -49,6 +55,10 @@ class NewMemory(BaseModel):
 class EditMemory(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     kind: str = Field(default="", max_length=20)
+
+
+class ForgetMany(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=500)
 
 
 class PinBody(BaseModel):
@@ -82,6 +92,40 @@ class PauseBody(BaseModel):
     #: Minutes to pause; None with ``forever`` false resumes learning.
     minutes: int | None = Field(default=None, ge=1, le=60 * 24 * 365)
     forever: bool = False
+
+
+#: How long a forgotten selection can be brought back (seconds).
+UNDO_WINDOW_SECONDS = 60
+_undo_lock = threading.Lock()
+_undo: dict[str, tuple[float, list[Memory]]] = {}
+
+
+def _stash_for_undo(memories: list[Memory]) -> str:
+    """Hold the erased versions in this process only, for the undo window."""
+    now = time.monotonic()
+    token = secrets.token_urlsafe(12)
+    with _undo_lock:
+        for key in [k for k, (until, _) in _undo.items() if until <= now]:
+            del _undo[key]
+        _undo[token] = (now + UNDO_WINDOW_SECONDS, memories)
+    return token
+
+
+def _forget_chains(vault: Any, ids: list[str], reason: str) -> tuple[int, str | None]:
+    """Forget each id with its versions. Returns (rows erased, undo token)."""
+    seen: set[str] = set()
+    saved: list[Memory] = []
+    erased = 0
+    for memory_id in ids:
+        if memory_id in seen:
+            continue
+        chain = vault.history(memory_id)
+        seen.update(m.id for m in chain)
+        count = vault.forget(memory_id, reason=reason)
+        if count:
+            erased += count
+            saved.extend(chain)
+    return erased, (_stash_for_undo(saved) if saved else None)
 
 
 def _vault() -> Any:
@@ -163,22 +207,43 @@ def files() -> dict[str, Any]:
 @router.get("/items")
 def items(
     kind: str = Query(default=""),
+    origin: str = Query(default=""),
+    since: str = Query(default="", max_length=40),
+    until: str = Query(default="", max_length=40),
     q: str = Query(default="", max_length=300),
     history: bool = Query(default=False),
+    sort: str = Query(default="", pattern="^(|newest)$"),
+    offset: int = Query(default=0, ge=0),
     limit: int = Query(default=500, ge=1, le=5000),
 ) -> dict[str, Any]:
+    if origin and origin not in ORIGINS:
+        raise HTTPException(status_code=422, detail=f"unknown origin {origin!r}")
     vault = _vault()
     now = vault.now()
     if q.strip():
-        hits = vault.search(
-            q, limit=min(limit, 100), kinds=[kind] if kind else None, include_closed=history
-        )
-        rows = [{**_row(h.memory, now), "score": round(h.score, 3)} for h in hits]
+        hits = vault.search(q, limit=100, kinds=[kind] if kind else None, include_closed=history)
+        found = [(h.memory, round(h.score, 3)) for h in hits]
     else:
-        rows = [
-            _row(m, now) for m in vault.list(kind=kind or None, include_closed=history, limit=limit)
-        ]
-    return {"items": rows, "count": len(rows)}
+        found = [(m, None) for m in vault.list(kind=kind or None, include_closed=history)]
+    if origin:
+        found = [(m, s) for m, s in found if m.origin == origin]
+    if since:
+        found = [(m, s) for m, s in found if m.recorded_at[: len(since)] >= since]
+    if until:
+        found = [(m, s) for m, s in found if m.recorded_at[: len(until)] <= until]
+    if sort == "newest":
+        found.sort(key=lambda pair: (pair[0].recorded_at, pair[0].id), reverse=True)
+    total = len(found)
+    page = found[offset : offset + limit]
+    rows = [
+        {**_row(m, now), **({"score": score} if score is not None else {})} for m, score in page
+    ]
+    return {
+        "items": rows,
+        "count": len(rows),
+        "total": total,
+        "has_more": offset + len(rows) < total,
+    }
 
 
 @router.post("/items")
@@ -243,11 +308,35 @@ def end(memory_id: str) -> dict[str, Any]:
 
 @router.delete("/items/{memory_id}")
 def forget(memory_id: str) -> dict[str, Any]:
-    count = _vault().forget(memory_id, reason="forgotten in the memory section")
+    count, token = _forget_chains(_vault(), [memory_id], "forgotten in the memory section")
     if not count:
         raise HTTPException(status_code=404, detail="no such memory")
     _changed()
-    return {"forgotten": count}
+    return {"forgotten": count, "undo_token": token, "undo_seconds": UNDO_WINDOW_SECONDS}
+
+
+@router.post("/forget")
+def forget_many(body: ForgetMany) -> dict[str, Any]:
+    """Forget a selection (each with its versions); undoable for a short time."""
+    count, token = _forget_chains(
+        _vault(), body.ids, "forgotten in the memory section (selection)"
+    )
+    if not count:
+        raise HTTPException(status_code=404, detail="no such memories")
+    _changed()
+    return {"forgotten": count, "undo_token": token, "undo_seconds": UNDO_WINDOW_SECONDS}
+
+
+@router.post("/undo/{token}")
+def undo_forget(token: str) -> dict[str, Any]:
+    """Bring back what a forget just erased, while the undo window is open."""
+    with _undo_lock:
+        entry = _undo.pop(token, None)
+    if entry is None or entry[0] <= time.monotonic():
+        raise HTTPException(status_code=410, detail="the undo window has closed")
+    restored = _vault().restore(entry[1])
+    _changed()
+    return {"restored": restored}
 
 
 @router.get("/items/{memory_id}/history")

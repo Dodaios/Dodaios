@@ -50,6 +50,9 @@ __all__ = ["DispatchHook", "DeliverHook", "SocietyScheduler", "validate_result"]
 DispatchHook = Callable[[AgentRecord, SocietyEnvelope], Awaitable[str]]
 #: ``deliver(target, envelope)`` — wakes the target's canonical chat.
 DeliverHook = Callable[[AgentRecord, SocietyEnvelope], Awaitable[None]]
+#: ``preflight(provider, model, account_id)`` — ``None`` when the seat may run,
+#: else why the run would be doomed (:class:`~.seat_preflight.PreflightFailure`).
+PreflightHook = Callable[[str, str, str], Awaitable[Any]]
 
 MAX_DEPTH: Final[int] = 2
 DEFAULT_TRACE_MESSAGE_CAP: Final[int] = 24
@@ -84,6 +87,7 @@ class SocietyScheduler:
         dispatch: DispatchHook | None = None,
         deliver: DeliverHook | None = None,
         budget_tracker: Any | None = None,
+        preflight: PreflightHook | None = None,
         trace_message_cap: int = DEFAULT_TRACE_MESSAGE_CAP,
     ) -> None:
         self._store = store
@@ -91,6 +95,7 @@ class SocietyScheduler:
         self._dispatch = dispatch
         self._deliver = deliver
         self._budget = budget_tracker
+        self._preflight = preflight
         self._trace_cap = trace_message_cap
         self._delivery_lock = asyncio.Lock()
         #: run_id → agent_id of work the scheduler started and has not seen end.
@@ -239,6 +244,14 @@ class SocietyScheduler:
         if self._dispatch is None:
             await self._veto(env, FailureReason.INTERNAL_ERROR, "no dispatcher is wired")
             return
+        if self._preflight is not None and target.provider:
+            # Fail fast with the readable reason instead of a doomed run.
+            problem = await self._preflight(
+                target.provider, target.model, str(getattr(target, "account_id", "") or "")
+            )
+            if problem is not None:
+                await self._veto(env, problem.reason, problem.text)
+                return
         try:
             run_id = await self._dispatch(target, env)
         except Exception as exc:  # noqa: BLE001 — a failed spawn is a typed veto, never a crash

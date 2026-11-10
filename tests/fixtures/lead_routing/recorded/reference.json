@@ -1,0 +1,791 @@
+{
+ "seat": "reference",
+ "kind": "synthetic: derived from the expectations, not a model output",
+ "responses": {
+  "delegate-scout-research-en": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "delegate-scout-research-de": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "delegate-mailbox-invoice-en": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Mailbox"
+   }
+  },
+  "delegate-mailbox-invoice-de": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Mailbox"
+   }
+  },
+  "delegate-archivist-summary-en": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Archivist"
+   }
+  },
+  "delegate-archivist-summary-de": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Archivist"
+   }
+  },
+  "delegate-scout-es": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "delegate-scout-pt": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "delegate-team-en": {
+   "tool": "delegate_to_agent"
+  },
+  "delegate-team-de": {
+   "tool": "delegate_to_agent"
+  },
+  "delegate-tell-to-test-en": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Mailbox"
+   }
+  },
+  "delegate-background-worker-en": {
+   "tool": "spawn_worker"
+  },
+  "delegate-background-worker-de": {
+   "tool": "spawn_worker"
+  },
+  "ask-scout-sources-en": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Scout",
+    "kind": "query"
+   }
+  },
+  "ask-scout-sources-de": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Scout",
+    "kind": "query"
+   }
+  },
+  "ask-archivist-where-en": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Archivist"
+   }
+  },
+  "ask-archivist-where-de": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Archivist"
+   }
+  },
+  "ask-scout-es": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Scout"
+   }
+  },
+  "ask-scout-pt": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Scout"
+   }
+  },
+  "say-mailbox-holiday-en": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Mailbox"
+   }
+  },
+  "say-mailbox-holiday-de": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Mailbox"
+   }
+  },
+  "ask-scout-opinion-en": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Scout"
+   }
+  },
+  "pane-fix-bug-t2-en": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "resolve",
+    "task": "T2"
+   }
+  },
+  "pane-fix-bug-t2-de": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "resolve",
+    "task": "T2"
+   }
+  },
+  "pane-lint-t3-de": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "resolve",
+    "task": "T3"
+   }
+  },
+  "pane-refactor-t1-en": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "resolve",
+    "task": "T1"
+   }
+  },
+  "pane-named-codex-en": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "resolve"
+   }
+  },
+  "pane-observe-t2-en": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "observe",
+    "task": "T2"
+   }
+  },
+  "pane-observe-t4-de": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "observe",
+    "task": "T4"
+   }
+  },
+  "pane-interrupt-t4-en": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "interrupt",
+    "task": "T4"
+   }
+  },
+  "pane-create-codex-en": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "create"
+   }
+  },
+  "pane-create-claude-de": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "create"
+   }
+  },
+  "pane-git-state-en": {
+   "tool": "workspace-git"
+  },
+  "pane-git-state-de": {
+   "tool": "workspace-git"
+  },
+  "pane-fix-bug-t2-pt": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "resolve",
+    "task": "T2"
+   }
+  },
+  "pane-fix-bug-t5-es": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "action": "resolve",
+    "task": "T5"
+   }
+  },
+  "team-three-models-plan-en": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "team"
+   }
+  },
+  "team-three-models-plan-de": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "team"
+   }
+  },
+  "team-plan-build-review-de": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "team"
+   }
+  },
+  "team-plan-build-review-en": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "team"
+   }
+  },
+  "team-debate-es": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "team"
+   }
+  },
+  "team-second-opinion-pt": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "team"
+   }
+  },
+  "artifact-dashboard-en": {
+   "tool": "create_artifact"
+  },
+  "artifact-dashboard-de": {
+   "tool": "create_artifact"
+  },
+  "artifact-timeline-es": {
+   "tool": "create_artifact"
+  },
+  "artifact-living-parcels-en": {
+   "tool": "living_page"
+  },
+  "artifact-living-applications-de": {
+   "tool": "living_page"
+  },
+  "mission-list-active-en": {
+   "tool": "missions-list"
+  },
+  "mission-list-active-de": {
+   "tool": "missions-list"
+  },
+  "mission-result-en": {
+   "tool": "mission-result",
+   "input": {
+    "mission_id": "17"
+   }
+  },
+  "mission-amend-en": {
+   "tool": "mission-amend",
+   "input": {
+    "mission_id": "17"
+   }
+  },
+  "mission-cancel-de": {
+   "tool": "mission-cancel",
+   "input": {
+    "mission_id": "42"
+   }
+  },
+  "status-scout-doing-en": {
+   "tool": "society_status",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "status-scout-doing-de": {
+   "tool": "society_status",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "status-scout-done-en": {
+   "tool": "society_status",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "status-scout-done-es": {
+   "tool": "society_status",
+   "input": {
+    "agent": "Scout"
+   }
+  },
+  "status-who-on-team-en": {
+   "tool": "society_status"
+  },
+  "status-who-on-team-de": {
+   "tool": "society_status"
+  },
+  "status-board-en": {
+   "tool": "work_board"
+  },
+  "status-board-de": {
+   "tool": "work_board"
+  },
+  "status-board-pt": {
+   "tool": "work_board"
+  },
+  "status-job-finished-en": {
+   "tool": "job_status"
+  },
+  "status-job-finished-de": {
+   "tool": "job_status"
+  },
+  "status-wait-jobs-en": {
+   "tool": "await_jobs"
+  },
+  "status-tasks-en": {
+   "tool": "tasks-list"
+  },
+  "memory-search-birthday-en": {
+   "tool": "memory-search"
+  },
+  "memory-search-birthday-de": {
+   "tool": "memory-search"
+  },
+  "memory-search-history-en": {
+   "tool": "memory-search",
+   "input": {
+    "history": true
+   }
+  },
+  "memory-search-talk-de": {
+   "tool": "memory-search"
+  },
+  "memory-search-es": {
+   "tool": "memory-search"
+  },
+  "memory-forget-city-en": {
+   "tool": "memory-forget",
+   "input": {
+    "about": "Hamburg"
+   }
+  },
+  "memory-forget-city-de": {
+   "tool": "memory-forget",
+   "input": {
+    "about": "Hamburg"
+   }
+  },
+  "memory-profile-preference-en": {
+   "tool": "update_profile"
+  },
+  "memory-profile-name-de": {
+   "tool": "update_profile"
+  },
+  "memory-contact-upsert-en": {
+   "tool": "contact-upsert",
+   "input": {
+    "name": "Anna"
+   }
+  },
+  "memory-contact-lookup-de": {
+   "tool": "contact-lookup",
+   "input": {
+    "name": "Anna"
+   }
+  },
+  "settings-dark-mode-en": {
+   "tool": "set_config_value",
+   "input": {
+    "path": "theme"
+   }
+  },
+  "settings-speech-speed-de": {
+   "tool": "set_config_value",
+   "input": {
+    "path": "tts"
+   }
+  },
+  "settings-list-en": {
+   "tool": "list_mutable_settings"
+  },
+  "settings-current-value-en": {
+   "tool": "get_config_value"
+  },
+  "settings-volume-de": {
+   "tool": "tts-volume-set"
+  },
+  "settings-wake-word-en": {
+   "tool": "wake-word-set",
+   "input": {
+    "phrase": "Atlas"
+   }
+  },
+  "settings-reply-language-es": {
+   "tool": "reply-language-set",
+   "input": {
+    "language": "es"
+   }
+  },
+  "settings-reply-language-de": {
+   "tool": "reply-language-set",
+   "input": {
+    "language": "de"
+   }
+  },
+  "settings-find-action-pt": {
+   "tool": "find-app-action"
+  },
+  "settings-providers-list-en": {
+   "tool": "providers-list"
+  },
+  "mail-check-en": {
+   "tool": "gmail",
+   "input": {
+    "action": "list_messages"
+   }
+  },
+  "mail-check-de": {
+   "tool": "gmail",
+   "input": {
+    "action": "list_messages"
+   }
+  },
+  "mail-check-es": {
+   "tool": "gmail",
+   "input": {
+    "action": "list_messages"
+   }
+  },
+  "calendar-today-en": {
+   "tool": "google_calendar",
+   "input": {
+    "action": "list_events"
+   }
+  },
+  "calendar-today-de": {
+   "tool": "google_calendar",
+   "input": {
+    "action": "list_events"
+   }
+  },
+  "calendar-create-en": {
+   "tool": "google_calendar",
+   "input": {
+    "action": "create_event"
+   }
+  },
+  "calendar-create-pt": {
+   "tool": "google_calendar",
+   "input": {
+    "action": "create_event"
+   }
+  },
+  "drive-find-en": {
+   "tool": "google_drive",
+   "input": {
+    "action": "list_files"
+   }
+  },
+  "slack-search-en": {
+   "tool": "slack",
+   "input": {
+    "action": "search_messages"
+   }
+  },
+  "routine-morning-briefing-en": {
+   "tool": "society-create-routine"
+  },
+  "routine-morning-briefing-de": {
+   "tool": "society-create-routine"
+  },
+  "routine-weekly-report-es": {
+   "tool": "society-create-routine"
+  },
+  "routine-list-en": {
+   "tool": "society-list-routines"
+  },
+  "reminder-create-en": {
+   "tool": "reminders",
+   "input": {
+    "action": "create"
+   }
+  },
+  "reminder-create-de": {
+   "tool": "reminders",
+   "input": {
+    "action": "create"
+   }
+  },
+  "reminder-list-pt": {
+   "tool": "reminders",
+   "input": {
+    "action": "list"
+   }
+  },
+  "skill-create-en": {
+   "tool": "create-skill"
+  },
+  "skill-run-de": {
+   "tool": "run-skill"
+  },
+  "skill-list-en": {
+   "tool": "skills-list"
+  },
+  "costs-spent-en": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "cost"
+   }
+  },
+  "costs-spent-de": {
+   "tool": "find-app-action",
+   "input": {
+    "task": "cost"
+   }
+  },
+  "costs-open-de": {
+   "tool": "navigate",
+   "input": {
+    "section": "costs"
+   }
+  },
+  "nav-settings-en": {
+   "tool": "navigate",
+   "input": {
+    "section": "settings"
+   }
+  },
+  "nav-agents-de": {
+   "tool": "navigate",
+   "input": {
+    "section": "agents"
+   }
+  },
+  "nav-memory-es": {
+   "tool": "navigate",
+   "input": {
+    "section": "memory"
+   }
+  },
+  "nav-marketplace-en": {
+   "tool": "navigate",
+   "input": {
+    "section": "marketplace"
+   }
+  },
+  "nav-chats-pt": {
+   "tool": "navigate",
+   "input": {
+    "section": "chats"
+   }
+  },
+  "marketplace-browse-en": {
+   "tool": "marketplace-browse"
+  },
+  "web-news-en": {
+   "tool": "search_web"
+  },
+  "web-news-de": {
+   "tool": "search_web"
+  },
+  "web-weather-en": {
+   "tool": "search_web"
+  },
+  "web-price-de": {
+   "tool": "search_web"
+  },
+  "web-look-it-up-es": {
+   "tool": "search_web"
+  },
+  "web-look-it-up-pt": {
+   "tool": "search_web"
+  },
+  "browser-read-pricing-en": {
+   "tool": "society_browser"
+  },
+  "browser-read-pricing-de": {
+   "tool": "society_browser"
+  },
+  "cu-notepad-en": {
+   "tool": "computer_use"
+  },
+  "cu-notepad-de": {
+   "tool": "computer_use"
+  },
+  "cu-click-button-en": {
+   "tool": "computer_use"
+  },
+  "cu-chrome-gmail-de": {
+   "tool": "computer_use"
+  },
+  "cu-screenshot-en": {
+   "tool": "screenshot"
+  },
+  "cu-music-en": {
+   "tool": "youtube_music",
+   "input": {
+    "action": "play"
+   }
+  },
+  "cu-music-pause-de": {
+   "tool": "youtube_music",
+   "input": {
+    "action": "pause"
+   }
+  },
+  "cu-shell-status-en": {
+   "tool": "run_shell"
+  },
+  "answer-capital-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-tcp-udp-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-battery-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-translate-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-haiku-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-math-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-mutex-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-python-reverse-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-idempotent-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-hello-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-thanks-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-joke-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-sky-es": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-capital-pt": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-translate-de-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-advice-no-delegate-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-quick-fact-no-search-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "approval-send-mail-en": {
+   "tool": "gmail",
+   "input": {
+    "action": "send_message"
+   }
+  },
+  "approval-send-mail-de": {
+   "tool": "gmail",
+   "input": {
+    "action": "send_message"
+   }
+  },
+  "approval-delete-mail-en": {
+   "tool": "gmail"
+  },
+  "approval-slack-post-en": {
+   "tool": "slack",
+   "input": {
+    "action": "post_message"
+   }
+  },
+  "approval-call-de": {
+   "tool": "call-contact",
+   "input": {
+    "name": "Christoph"
+   }
+  },
+  "approval-restart-app-en": {
+   "tool": "app-restart"
+  },
+  "approval-archive-agent-en": {
+   "tool": "society-archive-agent"
+  },
+  "approval-delete-skill-de": {
+   "tool": "skill-delete"
+  },
+  "approval-install-marketplace-en": {
+   "tool": "marketplace-install"
+  },
+  "approval-lights-en": {
+   "tool": "home_assistant",
+   "input": {
+    "action": "call_service"
+   }
+  },
+  "approval-config-change-en": {
+   "tool": "set_config_value"
+  },
+  "approval-mcp-add-es": {
+   "tool": "manage-mcp-server"
+  },
+  "ambiguous-misheard-scout-en": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Sk"
+   }
+  },
+  "ambiguous-misheard-scout-de": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "Sk"
+   }
+  },
+  "ambiguous-misheard-mailbox-en": {
+   "tool": "delegate_to_agent",
+   "input": {
+    "agent": "mail"
+   }
+  },
+  "ambiguous-unnamed-agent-en": {
+   "tool": "delegate_to_agent"
+  },
+  "ambiguous-no-antecedent-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "ambiguous-mixed-language-de": {
+   "tool": "message_agent",
+   "input": {
+    "target": "Scout"
+   }
+  },
+  "ambiguous-pane-vs-agent-en": {
+   "tool": "workspace-orchestrate",
+   "input": {
+    "task": "T2"
+   }
+  },
+  "ambiguous-just-a-question-about-agents-en": {
+   "tool": "society_status"
+  }
+ }
+}

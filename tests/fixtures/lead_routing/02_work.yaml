@@ -1,0 +1,246 @@
+# Golden routing cases: coding panes, team threads, missions and artifacts, status.
+# `requires` marks cases that depend on a tool the lead catalog does not have yet;
+# the harness skips them until the tool exists.
+
+# ---- coding_pane: work in a coding pane, by its stable id ------------------
+- id: pane-fix-bug-t2-en
+  category: coding_pane
+  lang: en
+  utterance: "Fix the failing login test in T2."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T2}}
+- id: pane-fix-bug-t2-de
+  category: coding_pane
+  lang: de
+  utterance: "Behebe den fehlschlagenden Login-Test in T2."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T2}}
+- id: pane-lint-t3-de
+  category: coding_pane
+  lang: de
+  utterance: "Lass T3 die Linter-Fehler im Frontend beheben."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T3}}
+- id: pane-refactor-t1-en
+  category: coding_pane
+  lang: en
+  utterance: "Tell T1 to refactor the payment module and keep the tests green."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T1}}
+- id: pane-named-codex-en
+  category: coding_pane
+  lang: en
+  utterance: "Ask the Codex terminal to add pagination to the orders endpoint."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [resolve, send]}}
+- id: pane-observe-t2-en
+  category: coding_pane
+  lang: en
+  utterance: "What did T2 change so far?"
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [observe, context, status, inspect], "*": T2}, effect: read}
+- id: pane-observe-t4-de
+  category: coding_pane
+  lang: de
+  utterance: "Zeig mir, woran T4 gerade arbeitet."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [observe, context, status, inspect], "*": T4}, effect: read}
+- id: pane-interrupt-t4-en
+  category: coding_pane
+  lang: en
+  utterance: "Stop T4, it is going in the wrong direction."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [interrupt, close], "*": T4}}
+- id: pane-create-codex-en
+  category: coding_pane
+  lang: en
+  utterance: "Open two more Codex terminals and have them write unit tests for the billing code."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: create}}
+- id: pane-create-claude-de
+  category: coding_pane
+  lang: de
+  utterance: "Öffne ein neues Claude-Code-Terminal und lass es die README aktualisieren."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: create}}
+- id: pane-git-state-en
+  category: coding_pane
+  lang: en
+  utterance: "Which branch is the dodaios workspace on and are there open pull requests?"
+  requires: [workspace-git]
+  expect: {tool: workspace-git, effect: read}
+- id: pane-git-state-de
+  category: coding_pane
+  lang: de
+  utterance: "Auf welchem Branch steht der Workspace gerade und gibt es offene Pull Requests?"
+  requires: [workspace-git]
+  expect: {tool: workspace-git, effect: read}
+- id: pane-fix-bug-t2-pt
+  category: coding_pane
+  lang: pt
+  utterance: "Corrige o teste de login que está a falhar no T2."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T2}}
+- id: pane-fix-bug-t5-es
+  category: coding_pane
+  lang: es
+  utterance: "Pídele a T5 que arregle el error de paginación."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T5}}
+
+# ---- team_thread: several models working one task --------------------------
+- id: team-three-models-plan-en
+  category: team_thread
+  lang: en
+  utterance: "Let three models plan the migration to Postgres and compare their plans."
+  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+- id: team-three-models-plan-de
+  category: team_thread
+  lang: de
+  utterance: "Lass drei Modelle die Migration auf Postgres planen und ihre Pläne vergleichen."
+  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+- id: team-plan-build-review-de
+  category: team_thread
+  lang: de
+  utterance: "Claude soll planen, Codex bauen und Gemini prüfen: die neue Suchfunktion."
+  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+- id: team-plan-build-review-en
+  category: team_thread
+  lang: en
+  utterance: "Start a team thread: Claude plans, Codex builds, Gemini reviews the new search feature."
+  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+- id: team-debate-es
+  category: team_thread
+  lang: es
+  utterance: "Que tres modelos debatan si deberíamos migrar a microservicios."
+  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+- id: team-second-opinion-pt
+  category: team_thread
+  lang: pt
+  utterance: "Quero que três modelos dêem a sua opinião sobre a arquitetura da nova API."
+  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+
+# ---- mission_artifact: missions and artifacts -------------------------------
+- id: artifact-dashboard-en
+  category: mission_artifact
+  lang: en
+  utterance: "Build me an artifact: a dashboard of our quarterly sales by region."
+  expect: {tool: create_artifact}
+- id: artifact-dashboard-de
+  category: mission_artifact
+  lang: de
+  utterance: "Mach mir ein Artefakt draus: ein Dashboard mit unseren Quartalsumsätzen nach Region."
+  expect: {tool: create_artifact}
+- id: artifact-timeline-es
+  category: mission_artifact
+  lang: es
+  utterance: "Hazme un artefacto con una línea de tiempo de nuestro proyecto."
+  expect: {tool: create_artifact}
+- id: artifact-living-parcels-en
+  category: mission_artifact
+  lang: en
+  utterance: "Keep a page that tracks my parcels and refreshes every hour."
+  expect: {tool: living_page}
+- id: artifact-living-applications-de
+  category: mission_artifact
+  lang: de
+  utterance: "Führe eine Seite, die meine Bewerbungen verfolgt und aktuell hält."
+  expect: {tool: living_page}
+- id: mission-list-active-en
+  category: mission_artifact
+  lang: en
+  utterance: "Which missions are still running?"
+  expect: {tool: missions-list, also_accept: [work_board], effect: read}
+- id: mission-list-active-de
+  category: mission_artifact
+  lang: de
+  utterance: "Welche Missionen laufen noch?"
+  expect: {tool: missions-list, also_accept: [work_board], effect: read}
+- id: mission-result-en
+  category: mission_artifact
+  lang: en
+  utterance: "What came out of mission 17?"
+  expect: {tool: mission-result, args: {mission_id: "17"}, effect: read}
+- id: mission-amend-en
+  category: mission_artifact
+  lang: en
+  utterance: "Add to mission 17: also include the competitor prices from last year."
+  expect: {tool: mission-amend, args: {mission_id: "17"}}
+- id: mission-cancel-de
+  category: mission_artifact
+  lang: de
+  utterance: "Brich Mission 42 ab."
+  expect: {tool: mission-cancel, args: {mission_id: "42"}, approval: true}
+
+# ---- status: what is running, what became of it ------------------------------
+- id: status-scout-doing-en
+  category: status
+  lang: en
+  utterance: "What is Scout doing right now?"
+  expect: {tool: society_status, args: {agent: Scout}, effect: read}
+- id: status-scout-doing-de
+  category: status
+  lang: de
+  utterance: "Was macht Scout gerade?"
+  expect: {tool: society_status, args: {agent: Scout}, effect: read}
+- id: status-scout-done-en
+  category: status
+  lang: en
+  utterance: "Is Scout done with the report?"
+  expect: {tool: society_status, args: {agent: Scout}, effect: read}
+- id: status-scout-done-es
+  category: status
+  lang: es
+  utterance: "¿Ya terminó Scout el informe?"
+  expect: {tool: society_status, args: {agent: Scout}, effect: read}
+- id: status-who-on-team-en
+  category: status
+  lang: en
+  utterance: "Who is on my team?"
+  expect: {tool: society_status, effect: read}
+- id: status-who-on-team-de
+  category: status
+  lang: de
+  utterance: "Wer ist alles in meinem Team?"
+  expect: {tool: society_status, effect: read}
+- id: status-board-en
+  category: status
+  lang: en
+  utterance: "What is everything that is running right now, and does anything need me?"
+  requires: [work_board]
+  expect: {tool: work_board, effect: read}
+- id: status-board-de
+  category: status
+  lang: de
+  utterance: "Was läuft gerade alles und braucht etwas von mir?"
+  requires: [work_board]
+  expect: {tool: work_board, effect: read}
+- id: status-board-pt
+  category: status
+  lang: pt
+  utterance: "O que está a correr neste momento e há algo que precise de mim?"
+  requires: [work_board]
+  expect: {tool: work_board, effect: read}
+- id: status-job-finished-en
+  category: status
+  lang: en
+  utterance: "Did the job I started earlier finish?"
+  requires: [job_status]
+  expect: {tool: job_status, effect: read}
+- id: status-job-finished-de
+  category: status
+  lang: de
+  utterance: "Ist der Auftrag von vorhin schon fertig?"
+  requires: [job_status]
+  expect: {tool: job_status, effect: read}
+- id: status-wait-jobs-en
+  category: status
+  lang: en
+  utterance: "Wait until both research jobs are finished, then tell me the result."
+  requires: [await_jobs]
+  expect: {tool: await_jobs}
+- id: status-tasks-en
+  category: status
+  lang: en
+  utterance: "Which scheduled tasks are running?"
+  expect: {tool: tasks-list, also_accept: [society-list-routines, work_board], effect: read}

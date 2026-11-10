@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import attachments as chat_attachments
-from dodaios.agent_chat import turn_errors, turn_prompts
+from dodaios.agent_chat import seat_outcomes, turn_errors, turn_prompts
 from dodaios.agent_chat.approval_bridge import ChatApprovalBridge
 from dodaios.agent_chat.catalog import PROVIDER_ROWS, api_seat, offers, provider_row
 from dodaios.agent_chat.credential_requests import (
@@ -1299,6 +1299,9 @@ class AgentChatService:
             if turn_id and self.store.turn_terminal(session_id, turn_id) is not None:
                 log.warning("agent chat: ignored duplicate completion for turn %s", turn_id)
                 return
+        if event.get("kind") == "turn_finished":
+            # The raw error, before it is made readable: seat health reads its words.
+            seat_outcomes.observe_turn_finished(self, session_id, event)
         if event.get("kind") in {"turn_finished", "error"}:
             event = self._readable_error(session_id, event)
         stored = self.store.append_event(session_id, event)

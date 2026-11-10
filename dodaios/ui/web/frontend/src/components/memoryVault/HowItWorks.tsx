@@ -101,6 +101,16 @@ export function HowItWorks({
           <Step n={2} title={t("vault.how_learn_2")} body={t("vault.how_learn_2_body")} />
           <Step n={3} title={t("vault.how_learn_3")} body={t("vault.how_learn_3_body")} />
         </div>
+        <section data-testid="vault-lead-knows" className="mt-12 rounded-2xl border border-border p-5">
+          <h3 className="text-[13px] font-semibold text-foreground-strong">{fill(t("vault.lead_knows_title"), { name })}</h3>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{fill(t("vault.lead_knows_hint"), { name })}</p>
+          <pre
+            data-testid="vault-lead-knows-block"
+            className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-sheen/[0.04] p-3 text-[12px] leading-relaxed text-foreground-secondary"
+          >
+            {overview.prompt_block.trim() || fill(t("vault.lead_knows_empty"), { name })}
+          </pre>
+        </section>
         <p className="mt-6 flex items-center justify-center gap-2 text-center text-[12px] text-muted-foreground">
           <RefreshCcw className="h-3.5 w-3.5" /> {t("vault.how_footer")}
         </p>

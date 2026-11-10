@@ -53,6 +53,7 @@ from .roster import (
     conversation_session_id,
 )
 from .scheduler import DeliverHook, SocietyScheduler
+from .seat_preflight import preflight_seat
 from .seeds import seed_first_run
 from .store import SocietyStore
 from .world_feed import WorldFeed
@@ -226,6 +227,7 @@ class SocietyRuntime:
             dispatch=self._dispatch,
             deliver=deliver,
             budget_tracker=None,
+            preflight=preflight_seat,
         )
         self.bridge = MissionBridge(
             self.store, owner_of=self.owner_of, on_run_ended=self.scheduler.note_run_ended

@@ -45,6 +45,7 @@ export function Portability({
   return (
     <div className="border-t border-border p-2">
       <p className="px-2.5 pb-1 pt-1 text-[11px] leading-snug text-faint-foreground">{t("vault.portable_hint")}</p>
+      <p data-testid="vault-portable-switch" className="px-2.5 pb-1 text-[11px] leading-snug text-faint-foreground">{t("vault.portable_switch")}</p>
       <a href={exportUrl("all")} download data-testid="vault-export-all" title={t("memory_trust.export_all_hint")} className={item}>
         <Download className="h-3.5 w-3.5" /> {t("memory_trust.export_all")}
       </a>

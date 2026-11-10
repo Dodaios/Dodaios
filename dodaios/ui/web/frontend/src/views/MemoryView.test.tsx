@@ -83,11 +83,17 @@ function stubFetch() {
               ],
             }
           : url.includes("/items") && (!init || !init.method)
-            ? { items: ITEMS, count: ITEMS.length }
-            : { action: "added", item: ITEMS[0], ok: true, forgotten: 1 };
+            ? { items: ITEMS, count: ITEMS.length, total: 7, has_more: true }
+            : { action: "added", item: ITEMS[0], ok: true, forgotten: 1, undo_token: "tok1", restored: 1 };
     return { ok: true, status: 200, json: async () => body } as Response;
   });
   (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+}
+
+/** Opens a branded select and picks an option by its label. */
+function choose(testId: string, label: string) {
+  fireEvent.click(screen.getByTestId(testId));
+  fireEvent.click(within(screen.getByTestId(`${testId}-panel`)).getByRole("option", { name: label }));
 }
 
 function renderView() {
@@ -174,5 +180,53 @@ describe("MemoryView", () => {
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Forget" }));
     await waitFor(() => expect(calls.some((c) => c.init?.method === "DELETE")).toBe(true));
+  });
+  it("filters by origin and date on the server and pages with Show more", async () => {
+    stubFetch();
+    renderView();
+    await screen.findByText("Lea is my sister.");
+    choose("vault-filter-origin", "Imported");
+    await waitFor(() => expect(calls.some((c) => c.url.includes("origin=imported"))).toBe(true));
+    choose("vault-filter-period", "Last 7 days");
+    await waitFor(() => expect(calls.some((c) => /since=\d{4}-\d{2}-\d{2}/.test(c.url))).toBe(true));
+    fireEvent.click(await screen.findByTestId("vault-more"));
+    await waitFor(() => expect(calls.some((c) => c.url.includes("limit=400"))).toBe(true));
+  });
+
+  it("lists newest first as one flat list", async () => {
+    stubFetch();
+    renderView();
+    await screen.findByText("Lea is my sister.");
+    choose("vault-sort", "Newest first");
+    await waitFor(() => expect(calls.some((c) => c.url.includes("sort=newest"))).toBe(true));
+    await waitFor(() => expect(screen.getAllByTestId("vault-group")).toHaveLength(1));
+    expect(screen.getAllByTestId("vault-row")).toHaveLength(3);
+  });
+
+  it("forgets a selection after asking and can undo it", async () => {
+    stubFetch();
+    renderView();
+    await screen.findByText("Lea is my sister.");
+    fireEvent.click(screen.getByTestId("vault-select"));
+    fireEvent.click(screen.getByText("Lea is my sister."));
+    fireEvent.click(screen.getByText("We hiked on Sunday."));
+    expect(screen.getByTestId("vault-picked-count").textContent).toContain("2");
+    fireEvent.click(screen.getByTestId("vault-forget-selected"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Forget" }));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/forget") && c.init?.method === "POST")).toBe(true));
+    const post = calls.find((c) => c.url.endsWith("/forget"));
+    expect(JSON.parse(String(post?.init?.body)).ids.sort()).toEqual(["m2", "m3"]);
+    fireEvent.click(await screen.findByTestId("vault-undo"));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/undo/tok1"))).toBe(true));
+  });
+
+  it("shows the profile block the lead receives, read-only, and the provider-switch note", async () => {
+    stubFetch();
+    renderView();
+    fireEvent.click(await screen.findByTestId("vault-mode-how"));
+    const block = await screen.findByTestId("vault-lead-knows-block");
+    expect(block.textContent).toContain("Lea is my sister.");
+    expect(screen.getByTestId("vault-portable-switch").textContent).toMatch(/switch the model/i);
   });
 });

@@ -165,6 +165,8 @@ export interface Stretch {
   items: StretchItem[];
   /** What the calls did ("Ran 6 commands, edited a file"); "" for a stretch of thoughts only. */
   label: string;
+  /** The runtime's own title for these calls ("Rewrote the parser and ran its tests"), when it sent one. */
+  title?: string;
   added: number;
   removed: number;
   startedMs: number;
@@ -182,7 +184,7 @@ type StretchRow = WorkGroup | Extract<ThreadRow, { kind: "thought" }>;
  */
 export function joinStretches<T extends { kind: string }>(
   rows: readonly T[],
-  options: { t: Translate; lang: string; running: boolean },
+  options: { t: Translate; lang: string; running: boolean; titles?: Readonly<Record<string, string>> },
 ): (T | Stretch)[] {
   const out: (T | Stretch)[] = [];
   let run: StretchRow[] = [];
@@ -198,11 +200,16 @@ export function joinStretches<T extends { kind: string }>(
       items.push({ kind: "said", id: row.id, text: row.text, live: row.live, startedMs: row.block.startedMs });
     }
     const calls = items.flatMap((item) => item.kind === "call" ? [item.call] : []);
+    // A runtime titles each run of calls under the run's last call; the
+    // newest title among these calls names the whole line.
+    let title: string | undefined;
+    for (let i = calls.length - 1; i >= 0 && !title; i--) title = options.titles?.[calls[i].id];
     out.push({
       kind: "stretch",
       id: `stretch:${run[0].id}`,
       items,
       label: calls.length ? summarize(calls, options.t, options.lang, true) : "",
+      ...(title ? { title } : {}),
       added: calls.reduce((sum, call) => sum + call.added, 0),
       removed: calls.reduce((sum, call) => sum + call.removed, 0),
       startedMs: items[0]?.startedMs ?? 0,

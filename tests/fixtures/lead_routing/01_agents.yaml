@@ -1,0 +1,118 @@
+# Golden routing cases: society agents (delegate, ask, tell).
+# Every utterance is simulated user input: matching data, the content under test.
+# Schema and rules: docs/lead-routing-evals.md
+
+# ---- delegate_agent: hand work to a named society agent -------------------
+- id: delegate-scout-research-en
+  category: delegate_agent
+  lang: en
+  utterance: "Let Scout research the three best note-taking apps and write me a short comparison."
+  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+- id: delegate-scout-research-de
+  category: delegate_agent
+  lang: de
+  utterance: "Lass Scout die drei besten Notiz-Apps recherchieren und mir einen kurzen Vergleich schreiben."
+  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+- id: delegate-mailbox-invoice-en
+  category: delegate_agent
+  lang: en
+  utterance: "Mailbox, answer the invoice mail from Müller and say we pay on Friday."
+  expect: {tool: delegate_to_agent, args: {agent: Mailbox}}
+- id: delegate-mailbox-invoice-de
+  category: delegate_agent
+  lang: de
+  utterance: "Mailbox, beantworte bitte die Rechnungsmail von Müller und schreib, dass wir am Freitag zahlen."
+  expect: {tool: delegate_to_agent, args: {agent: Mailbox}}
+- id: delegate-archivist-summary-en
+  category: delegate_agent
+  lang: en
+  utterance: "Archivist, summarize last week's meeting notes into one page."
+  expect: {tool: delegate_to_agent, args: {agent: Archivist}}
+- id: delegate-archivist-summary-de
+  category: delegate_agent
+  lang: de
+  utterance: "Archivist, fass bitte die Notizen der letzten Woche auf einer Seite zusammen."
+  expect: {tool: delegate_to_agent, args: {agent: Archivist}}
+- id: delegate-scout-es
+  category: delegate_agent
+  lang: es
+  utterance: "Pídele a Scout que investigue los precios de los vuelos a Lisboa para marzo."
+  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+- id: delegate-scout-pt
+  category: delegate_agent
+  lang: pt
+  utterance: "Pede ao Scout para pesquisar os melhores hotéis em Lisboa para março."
+  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+- id: delegate-team-en
+  category: delegate_agent
+  lang: en
+  utterance: "Give that to the team: collect all open questions from the last three customer calls."
+  expect: {tool: delegate_to_agent}
+- id: delegate-team-de
+  category: delegate_agent
+  lang: de
+  utterance: "Gib das an das Team: sammelt alle offenen Fragen aus den letzten drei Kundengesprächen."
+  expect: {tool: delegate_to_agent}
+- id: delegate-tell-to-test-en
+  category: delegate_agent
+  lang: en
+  utterance: "Tell Mailbox to test the new out-of-office template and report what went wrong."
+  expect: {tool: delegate_to_agent, args: {agent: Mailbox}}
+  note: "'tell X to test Y' is an assignment, not a chat message."
+- id: delegate-background-worker-en
+  category: delegate_agent
+  lang: en
+  utterance: "Spawn a background worker that builds a small Flask app with a login page."
+  expect: {tool: spawn_worker}
+- id: delegate-background-worker-de
+  category: delegate_agent
+  lang: de
+  utterance: "Starte einen Hintergrund-Agenten, der eine kleine Flask-App mit Login-Seite baut."
+  expect: {tool: spawn_worker}
+
+# ---- ask_agent: a question to an agent, a note to an agent ----------------
+- id: ask-scout-sources-en
+  category: ask_agent
+  lang: en
+  utterance: "Ask Scout which sources he used for the market report."
+  expect: {tool: message_agent, args: {target: Scout, kind: query}}
+- id: ask-scout-sources-de
+  category: ask_agent
+  lang: de
+  utterance: "Frag Scout, welche Quellen er für den Marktbericht benutzt hat."
+  expect: {tool: message_agent, args: {target: Scout, kind: query}}
+- id: ask-archivist-where-en
+  category: ask_agent
+  lang: en
+  utterance: "Ask the Archivist where the 2024 tax documents are stored."
+  expect: {tool: message_agent, args: {target: Archivist}}
+- id: ask-archivist-where-de
+  category: ask_agent
+  lang: de
+  utterance: "Frag den Archivist, wo die Steuerunterlagen von 2024 abgelegt sind."
+  expect: {tool: message_agent, args: {target: Archivist}}
+- id: ask-scout-es
+  category: ask_agent
+  lang: es
+  utterance: "Pregúntale a Scout qué fuentes usó para el informe de mercado."
+  expect: {tool: message_agent, args: {target: Scout}}
+- id: ask-scout-pt
+  category: ask_agent
+  lang: pt
+  utterance: "Pergunta ao Scout que fontes ele usou no relatório de mercado."
+  expect: {tool: message_agent, args: {target: Scout}}
+- id: say-mailbox-holiday-en
+  category: ask_agent
+  lang: en
+  utterance: "Let Mailbox know that I am on holiday next week, no reply needed."
+  expect: {tool: message_agent, args: {target: Mailbox}}
+- id: say-mailbox-holiday-de
+  category: ask_agent
+  lang: de
+  utterance: "Sag Mailbox Bescheid, dass ich nächste Woche im Urlaub bin. Eine Antwort brauche ich nicht."
+  expect: {tool: message_agent, args: {target: Mailbox}}
+- id: ask-scout-opinion-en
+  category: ask_agent
+  lang: en
+  utterance: "What does Scout think about moving the launch to January? Ask him."
+  expect: {tool: message_agent, args: {target: Scout}}

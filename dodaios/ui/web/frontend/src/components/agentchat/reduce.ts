@@ -321,6 +321,11 @@ export interface TurnItem {
   /** The plan card of a turn that finished in plan mode. */
   plan?: PlanState;
   /**
+   * The runtime's own short titles for runs of tool calls ("Read a.txt"),
+   * keyed by the last call of the run they title (`tool_summary`).
+   */
+  toolTitles?: Readonly<Record<string, string>>;
+  /**
    * Who still works on this turn's request after it closed: the turn handed
    * its seat to the next message and the result arrives in a turn of its own.
    */
@@ -1437,6 +1442,14 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         ...turn,
         plan: { buildMode: str(p.build_mode), decision: null },
       }));
+
+    case "tool_summary": {
+      const ids = Array.isArray(p.call_ids) ? p.call_ids.map(String).filter(Boolean) : [];
+      const title = str(p.summary).trim();
+      const last = ids[ids.length - 1];
+      if (!title || !last) return base;
+      return updateTurn(base, turnId, (turn) => ({ ...turn, toolTitles: { ...turn.toolTitles, [last]: title } }));
+    }
 
     case "plan_resolved":
       return updateTurn(base, turnId, (turn) =>

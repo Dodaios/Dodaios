@@ -6,7 +6,7 @@ Command layout (Research-Doc §B line ~92):
         --sandbox workspace-write
         --ask-for-approval never
         [--output-schema <path>]
-        <prompt>
+        -            (the prompt arrives on stdin)
 
 Authentication via `OPENAI_API_KEY` from T1 `build_worker_env`. Per-worker
 `CODEX_HOME` points to `<run_dir>/.codex` so that parallel Codex workers do
@@ -43,7 +43,13 @@ def _build_codex_cmd(
     output_schema: str | None,
     extra_args: tuple[str, ...] = (),
 ) -> list[str]:
-    """Assembles the Codex CLI argv. Stable ordering for tests."""
+    """Assembles the Codex CLI argv. Stable ordering for tests.
+
+    The prompt is NOT part of the argv: it goes to stdin (``-``). Windows caps a
+    command line at 32,767 characters (8,191 behind a ``.cmd`` shim), and a long
+    task prompt in argv died at spawn with "The command line is too long".
+    ``prompt`` stays in the signature for callers; it is written by :meth:`spawn`.
+    """
     cmd: list[str] = [
         "codex",
         "exec",
@@ -56,7 +62,7 @@ def _build_codex_cmd(
     if output_schema:
         cmd += ["--output-schema", output_schema]
     cmd += list(extra_args)
-    cmd.append(prompt)  # Prompt is a positional arg at the end.
+    cmd.append("-")  # read the prompt from stdin
     return cmd
 
 
@@ -124,10 +130,18 @@ class CodexWorker:
             cmd,
             cwd=str(worktree),
             env=env,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         self.last_pid = proc.pid
+        try:
+            assert proc.stdin is not None  # noqa: S101 -- PIPE always present
+            proc.stdin.write(prompt.encode("utf-8"))
+            await proc.stdin.drain()
+            proc.stdin.close()
+        except (BrokenPipeError, ConnectionResetError):
+            logger.warning("CodexWorker[%s]: prompt stdin write failed", worker_id)
 
         try:
             job.assign(proc.pid)
