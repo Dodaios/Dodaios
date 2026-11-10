@@ -117,7 +117,6 @@ async def run_once(vault: MemoryVault, reviewer: Reviewer, data_dir: Path) -> di
             break
         said = [{"user": text} for text in turns[offset : offset + BATCH]]
         shown = await asyncio.to_thread(reconcile.nearest, vault, said)
-        calls += 1
         try:
             raw = await reviewer(reconcile.build_prompt(said, shown))
         except Exception:  # noqa: BLE001 — a provider fault ends this run; the next boot resumes
@@ -125,6 +124,9 @@ async def run_once(vault: MemoryVault, reviewer: Reviewer, data_dir: Path) -> di
             raw = None
         if raw is None:
             break
+        # Only an answered call spends the budget. A reviewer that was down for
+        # thirty boots used to end the pass as "done" with nothing read.
+        calls += 1
         ops, _ = reconcile.validate(raw, user_texts=[r["user"] for r in said], shown=shown)
         written += await asyncio.to_thread(
             reconcile.apply, vault, ops, source={"via": "chat-backfill"}

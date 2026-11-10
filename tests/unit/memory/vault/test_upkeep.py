@@ -172,3 +172,29 @@ def test_backfill_stops_on_a_failing_reviewer_and_while_paused(tmp_path, vault):
     reviewer = Scripted()
     state = asyncio.run(backfill.run_once(vault, reviewer, tmp_path))
     assert reviewer.prompts == [] and not state["done"]
+
+
+def test_a_reviewer_that_is_down_does_not_use_up_the_backfill(tmp_path, vault):
+    """Thirty boots with a dead reviewer ended the pass as done with nothing read."""
+    _old_chats(tmp_path)
+
+    class Failing:
+        async def __call__(self, prompt: str) -> Any:
+            return None
+
+    for _ in range(backfill.MAX_CALLS + 5):
+        state = asyncio.run(backfill.run_once(vault, Failing(), tmp_path))
+    assert not state["done"] and state["calls"] == 0 and state["offset"] == 0
+
+    reviewer = Scripted(
+        [
+            {
+                "op": "add",
+                "kind": "profile",
+                "text": "The user lives in Hamburg.",
+                "evidence": "I live in Hamburg",
+            }
+        ]
+    )
+    state = asyncio.run(backfill.run_once(vault, reviewer, tmp_path))
+    assert state["done"] and state["written"] == 1 and state["calls"] == 1
