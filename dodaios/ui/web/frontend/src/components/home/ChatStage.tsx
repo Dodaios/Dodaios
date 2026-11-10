@@ -22,6 +22,10 @@ import { folderLeaf } from "@/lib/folderPath";
 import { useHistoryPolling } from "@/hooks/useHistoryPolling";
 import { FolderCode } from "lucide-react";
 
+// The one-time introduction after setup (components/onboarding/conversation):
+// it shows only while the backend says it is due, else the greeting.
+const FirstConversation = lazy(() => import("@/components/onboarding/conversation/FirstConversation"));
+
 // The call window is only needed once a call runs.
 const CallWindow = lazy(() =>
   import("@/components/home/CallWindow").then((module) => ({ default: module.CallWindow })),
@@ -255,7 +259,7 @@ function ChatStageContent() {
       <div className="relative flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
         <BinaryCursorField />
         <div className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
-          <Greeting />
+          <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting />} /></Suspense>
         </div>
         <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
           <CallSlot />
@@ -298,6 +302,7 @@ function ChatStageContent() {
             traceCompanion={isJarvis}
             agentsById={faces}
           />
+          {isJarvis && <Suspense fallback={null}><FirstConversation /></Suspense>}
           <div ref={spacerRef} aria-hidden data-testid="chat-bottom-spacer" className="shrink-0" />
         </div>
       </ScrollArea>

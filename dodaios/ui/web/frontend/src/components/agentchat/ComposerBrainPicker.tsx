@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from "react";
 import { Star } from "lucide-react";
 
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
@@ -32,6 +32,12 @@ export interface BrainSection {
   /** Shown greyed: the provider is offered but not connected. */
   muted?: boolean;
 }
+
+// "Use a free local model" — loaded only when the panel offers it.
+const LocalModelQuickstart = lazy(() => import("@/components/onboarding/localModel/LocalModelQuickstart"));
+
+/** The provider the one-click local model sets up. */
+const LOCAL_SECTION = "ollama";
 
 const FAVORITES = "favorites";
 const FAVORITES_KEY = "jarvis.chat.favoriteModels";
@@ -83,6 +89,7 @@ export function ComposerBrainPicker({
   className,
   chevron = true,
   testId = "composer-model",
+  onLocalModelReady,
 }: {
   value: string;
   /** One group per provider, its id equal to that provider's section id. */
@@ -101,6 +108,11 @@ export function ComposerBrainPicker({
   chevron?: boolean;
   /** Lands on the trigger; the panel gets `${testId}-panel`. */
   testId?: string;
+  /**
+   * Offers "Use a free local model" while the local provider is browsed or
+   * nothing is connected yet; called with the model once it answers.
+   */
+  onLocalModelReady?: (model: string) => void;
 }) {
   const t = useT();
   const [favorites, toggleFavorite] = useFavoriteModels();
@@ -123,6 +135,11 @@ export function ComposerBrainPicker({
   }, [sections, providerOrder, access]);
   const activeFamily = families.find((entry) => entry.entries.some((s) => s.id === section)) ?? families[0];
   const activeSection = activeFamily?.selected.id;
+  // The one-click local model: on the local provider's own page, or anywhere
+  // while nothing at all is connected (every row greyed).
+  const offerLocal =
+    Boolean(onLocalModelReady) &&
+    (activeFamily?.entries.some((entry) => entry.id === LOCAL_SECTION) || sections.every((entry) => entry.muted));
 
   // Every row carries its star; the favourites tab lists the starred rows in
   // the order they were starred.
@@ -226,9 +243,16 @@ export function ComposerBrainPicker({
         value={value}
         groups={starred}
         browseGroups={browseGroups}
-        browseHeader={section !== FAVORITES && activeFamily ? <ModelAccessSwitch
-          options={activeFamily.options} value={activeFamily.selected.kind}
-          onChange={(kind) => rememberAccess(activeFamily.family, kind)} /> : undefined}
+        browseHeader={section !== FAVORITES && activeFamily ? <>
+          <ModelAccessSwitch
+            options={activeFamily.options} value={activeFamily.selected.kind}
+            onChange={(kind) => rememberAccess(activeFamily.family, kind)} />
+          {offerLocal && (
+            <Suspense fallback={null}>
+              <LocalModelQuickstart compact className="m-2" onReady={(plan) => onLocalModelReady?.(plan.model)} />
+            </Suspense>
+          )}
+        </> : undefined}
         aside={rail}
         onOpenChange={onOpenChange}
         onChange={(next) => {
