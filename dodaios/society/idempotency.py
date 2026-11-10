@@ -74,6 +74,7 @@ def _decode(raw: str) -> ToolResult | None:
     try:
         data = json.loads(raw)
     except ValueError:
+        log.warning("idempotency: unreadable receipt ignored")
         return None
     if not isinstance(data, dict):
         return None

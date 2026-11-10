@@ -1343,6 +1343,10 @@ class ToolUseLoop:
                         _exec_tool(tool_obj, args_in, lang), _PARALLEL_READ_TIMEOUT_S
                     )
                 except TimeoutError:
+                    log.warning(
+                        "tool_use_loop: parallel read %s abandoned after %ss",
+                        getattr(tool_obj, "name", "tool"), _PARALLEL_READ_TIMEOUT_S,
+                    )
                     return ToolResult(
                         success=False,
                         output=None,
