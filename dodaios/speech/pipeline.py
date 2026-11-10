@@ -4706,6 +4706,18 @@ class SpeechPipeline:
         """
         return self._muted
 
+    async def toggle_mute(self, source: str = "") -> bool:
+        """Flip the microphone mute for the assistant and return the new value.
+
+        The REST twin of publishing ``VoiceMuteToggleRequested``: the same
+        handler flips it and broadcasts ``VoiceMuteChanged``, so a running
+        call (``live/session.py``) and every other mirror follow.
+        """
+        from dodaios.core.events import VoiceMuteToggleRequested
+
+        await self._on_mute_toggle_requested(VoiceMuteToggleRequested(source=source))
+        return self._muted
+
     async def _on_mute_toggle_requested(
         self, event: VoiceMuteToggleRequested
     ) -> None:
