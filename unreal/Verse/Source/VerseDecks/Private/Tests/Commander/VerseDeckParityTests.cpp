@@ -3,6 +3,7 @@
 #include "Commander/VerseDeckWalk.h"
 #include "EnhancedActionKeyMapping.h"
 #include "GameFramework/InputSettings.h"
+#include "HangarSwitch/VerseHangarSwitchSubsystem.h"
 #include "InputAction.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "InputMappingContext.h"
@@ -634,6 +635,51 @@ bool FVerseDeckSaluteUniformTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("uniform worn"), W.Commander()->GetUniform(), FName(TEXT("dress")));
 	UMaterialInstanceDynamic* Material = Cast<UMaterialInstanceDynamic>(W.Commander()->Torso->GetMaterial(0));
 	TestTrue(TEXT("the body material carries the uniform colour"), Material && Material->K2_GetVectorParameterValue(TEXT("Color")).Equals(FLinearColor(0.30f, 0.05f, 0.04f, 1.f), 1e-3f));
+	return true;
+}
+
+
+// The mouse between the deck and the duel ---------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDeckMouseToDuelTest, "Verse.Decks.Commander.MouseToDuel", VERSE_PARITY_DECK_FLAGS)
+bool FVerseDeckMouseToDuelTest::RunTest(const FString& Parameters)
+{
+	// The deck hands the mouse to the duel captured (game-only, hidden cursor). It used to leave the
+	// controller in game-and-UI, where the viewport captures only while a button is held, so moving
+	// the mouse did not turn the duel camera.
+	FVerseDeckCommanderTestWorld W;
+	UVerseHangarSwitchSubsystem* Switch = UVerseHangarSwitchSubsystem::Get(W.World);
+	if (!TestNotNull(TEXT("hangar switch"), Switch))
+	{
+		return false;
+	}
+	W.Control->PickView(EVerseDeckView::Overview);
+	TestTrue(TEXT("the overview leaves the cursor free"), W.Control->GetMouseMode() == EVerseDeckMouseMode::Free && W.Controller->ShouldShowMouseCursor());
+	W.Control->PickView(EVerseDeckView::Third);
+	TestTrue(TEXT("eye level looks with a captured mouse"), W.Control->GetMouseMode() == EVerseDeckMouseMode::Look && !W.Controller->ShouldShowMouseCursor());
+
+	TestTrue(TEXT("arena requested"), Switch->RequestArena(true));
+	const bool bArena = W.StepUntil([&]() { Switch->Step(); return Switch->IsArenaOn() && !W.Control->IsDeckActive(); }, 10.0);
+	TestTrue(TEXT("the duel takes the hangar"), bArena);
+	TestTrue(TEXT("the duel gets a captured mouse, not a free cursor"), W.Control->GetMouseMode() == EVerseDeckMouseMode::Game && !W.Controller->ShouldShowMouseCursor());
+	TestTrue(TEXT("a closing menu gives the duel its captured mouse back"), UVerseDeckControlComponent::RestoreInputMode(W.World) && W.Control->GetMouseMode() == EVerseDeckMouseMode::Game);
+	W.bFocused = false;
+	W.Step(2);
+	W.bFocused = true;
+	W.Step(2);
+	TestTrue(TEXT("focus round trips in the duel keep the mouse captured"), W.Control->GetMouseMode() == EVerseDeckMouseMode::Game);
+	W.Control->SetMouseLook(false);
+	TestTrue(TEXT("deck mouse calls in the duel cannot free the cursor"), W.Control->GetMouseMode() == EVerseDeckMouseMode::Game && !W.Controller->ShouldShowMouseCursor());
+
+	// Started straight into the duel (-VerseDuel, quick_start_duel from the app): the arrival on the
+	// deck finds the arena on and must not free the cursor either.
+	W.Control->OnDeckArrived(FVerseDeckCommanderTestWorld::DeckId, W.Manifest, W.Arrival, W.Camera);
+	TestTrue(TEXT("arrival during the duel keeps the mouse captured"), W.Control->GetMouseMode() == EVerseDeckMouseMode::Game && !W.Controller->ShouldShowMouseCursor());
+
+	TestTrue(TEXT("day requested"), Switch->RequestArena(false));
+	const bool bDay = W.StepUntil([&]() { Switch->Step(); return !Switch->IsArenaOn() && !Switch->IsSwitching() && W.Control->IsDeckActive(); }, 10.0);
+	TestTrue(TEXT("the deck takes the hangar back"), bDay);
+	TestTrue(TEXT("back on the deck the deck's own mode applies"), W.Control->GetMouseMode() == EVerseDeckMouseMode::Free || W.Control->GetMouseMode() == EVerseDeckMouseMode::Look);
 	return true;
 }
 

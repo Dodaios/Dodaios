@@ -69,7 +69,8 @@ def test_verify_reports_the_missing_linux_engine_part(tmp_path: Path) -> None:
     assert "Target Platforms, Linux" in checks["linux-engine"]["fix"]
     assert checks["docker"]["status"] == "ok"
     win_only = package.verify_packaging(["win64"], engine=tmp_path, probe=probe)
-    assert {c["name"] for c in win_only} == {"chunks", "ddc"}
+    assert {c["name"] for c in win_only} == {"chunks", "ddc", "runtime-content"}
+    assert checks["runtime-content"]["status"] == "ok"
 
 
 # ------------------------------------------------------ 22.2 BuildCookRun
@@ -151,8 +152,20 @@ def test_every_deck_level_gets_its_own_chunk() -> None:
         assert by_name[deck.lower()]["maps"] == [f"/Game/Verse/Decks/{deck}/LV_{deck}"]
     block = package.chunk_ini_block(chunks)
     assert "bGenerateChunks=True" in block
-    assert 'PrimaryAssetId="Map:LV_Hangar",Rules=(Priority=14,ChunkId=4' in block
-    assert block.count("+PrimaryAssetRules=") == 4
+    # Every deck level is named for the cook; its label (DA_DeckChunk_<Deck>) picks the chunk.
+    assert block.count("+MapsToCook=") == 4
+    assert '+MapsToCook=(FilePath="/Game/Verse/Decks/Bridge/LV_Bridge")' in block
+
+
+def test_every_deck_chunk_has_its_label_asset() -> None:
+    from scripts.unreal import deck_labels
+
+    labels = deck_labels.deck_labels(package.load_chunks())
+    assert [item["chunk"] for item in labels] == [1, 2, 3, 4]
+    for item in labels:
+        relative = item["folder"].replace("/Game/", "Content/", 1) + "/" + item["name"]
+        assert (package.common.UNREAL_ROOT / "Verse" / f"{relative}.uasset").is_file(), item
+    assert f'"chunk": {labels[0]["chunk"]}' in deck_labels.editor_script(labels)
 
 
 def test_chunk_rule_problems_catch_broken_rules() -> None:
@@ -176,11 +189,55 @@ def test_chunk_rule_problems_catch_broken_rules() -> None:
 def test_missing_chunk_config_lists_what_the_ini_lacks(tmp_path: Path) -> None:
     chunks = package.load_chunks()
     (tmp_path / "Config").mkdir()
-    assert len(package.missing_chunk_config(tmp_path, chunks)) == 8
+    assert len(package.missing_chunk_config(tmp_path, chunks)) == 7
     (tmp_path / "Config/DefaultGame.ini").write_text(
         package.chunk_ini_block(chunks), encoding="utf-8"
     )
     assert package.missing_chunk_config(tmp_path, chunks) == []
+
+
+def test_the_package_carries_everything_the_game_reads_at_runtime() -> None:
+    # Data/ JSON, deck placements and assets loaded by soft path are absent from a
+    # package unless DefaultGame.ini names them (black screen with raw string keys).
+    assert package.runtime_content_problems(REPO / "unreal/Verse") == []
+
+
+def test_runtime_content_problems_name_what_is_missing(tmp_path: Path) -> None:
+    (tmp_path / "Config").mkdir()
+    (tmp_path / "Content").mkdir()
+    (tmp_path / "Data").mkdir()
+    reader = tmp_path / "Source/Mod/Private/Reader.cpp"
+    reader.parent.mkdir(parents=True)
+    reader.write_text(
+        'FPaths::Combine(FPaths::ProjectDir(), TEXT("Data"), TEXT("ui"));\n'
+        'FPaths::ProjectDir() / TEXT("Extra/file.json");\n'
+        'FPaths::Combine(FPaths::ProjectDir(), TEXT(".."), TEXT("data"));\n',
+        encoding="utf-8",
+    )
+    test = tmp_path / "Source/Mod/Private/Tests/ReaderTest.cpp"
+    test.parent.mkdir(parents=True)
+    test.write_text('FPaths::ProjectDir() / TEXT("Other/x.json");\n', encoding="utf-8")
+    problems = package.runtime_content_problems(tmp_path)
+    assert any('DirectoriesToAlwaysCook=(Path="/Game/Verse")' in p for p in problems)
+    assert any('DirectoriesToAlwaysStageAsNonUFS=(Path="../Data")' in p for p in problems)
+    assert any("Placements" in p and "does not exist" in p for p in problems)
+    reads = [p for p in problems if "reads ProjectDir()" in p]
+    assert reads == [
+        "Mod/Private/Reader.cpp reads ProjectDir()/Extra/file.json, which no "
+        "DirectoriesToAlwaysStageAsNonUFS rule stages"
+    ]
+    (tmp_path / "Art/Placements").mkdir(parents=True)
+    (tmp_path / "Config/DefaultGame.ini").write_text(
+        "\n".join(
+            [f'+DirectoriesToAlwaysCook=(Path="{d}")' for d in package.RUNTIME_COOK_DIRS]
+            + [
+                f'+DirectoriesToAlwaysStageAsNonUFS=(Path="{d}")'
+                for d in package.RUNTIME_STAGE_DIRS
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert package.runtime_content_problems(tmp_path) == reads
 
 
 def test_size_report_groups_bytes_by_deck_chunk(tmp_path: Path) -> None:
@@ -290,7 +347,7 @@ TEST_TOKEN = secrets.token_hex(8)
 FAKE_BRIDGE_STANDIN = """
 import argparse, json, os, sys, time
 p = argparse.ArgumentParser()
-for name in ("--scenario", "--report", "--discovery"):
+for name in ("--scenario", "--report", "--discovery", "--done-file"):
     p.add_argument(name)
 p.add_argument("--once", action="store_true")
 a = p.parse_args()
@@ -586,3 +643,38 @@ def test_manifest_command_refuses_a_misnamed_package_or_tag(tmp_path: Path) -> N
     package.make_full(stage, version="4.2.0", platform="Win64", out=right)
     with pytest.raises(Exception, match="does not match version"):
         package.make_release_manifest(right, [], tag="v4.3.0")
+
+
+# ---------------------------------------------------- 22.3 cold start without a log
+def test_first_frame_comes_from_the_ready_frame() -> None:
+    report = {
+        "expectations": [
+            {"type": "lifecycle.ready", "ok": True, "frame_data": {"first_frame_ms": 2231}}
+        ]
+    }
+    assert package.first_frame_ms(report) == 2231.0
+    assert package.first_frame_ms(None) is None
+    report["expectations"][0]["ok"] = False
+    assert package.first_frame_ms(report) is None
+
+
+def test_wait_for_ready_ends_on_the_done_file(tmp_path: Path) -> None:
+    done = tmp_path / "bridge-done"
+    log = tmp_path / "game.log"
+    ticks = iter(range(100))
+    seen: list[float] = []
+
+    def sleep(_seconds: float) -> None:
+        seen.append(1.0)
+        if len(seen) == 3:
+            done.write_text("done")
+
+    seconds = package.wait_for_ready(
+        log,
+        done,
+        timeout_s=10,
+        alive=lambda: True,
+        clock=lambda: float(next(ticks)),
+        sleep=sleep,
+    )
+    assert seconds is not None and len(seen) == 3

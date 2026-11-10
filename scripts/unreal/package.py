@@ -187,6 +187,14 @@ def verify_packaging(
         add("ddc", True, f"{ddc['graph']}, cap {ddc['cap_gb']} GB, {ddc['local_path']}")
     except (OSError, ValueError, KeyError, common.UnrealScriptError) as exc:
         add("ddc", False, str(exc), "fix unreal/Toolchain/ddc.json")
+    problems = runtime_content_problems(common.UNREAL_ROOT / "Verse")
+    add(
+        "runtime-content",
+        not problems,
+        "; ".join(problems) or "Data/, Art/Placements staged; /Game/Verse cooked",
+        "add the missing lines to unreal/Verse/Config/DefaultGame.ini "
+        "(RUNTIME_COOK_DIRS, RUNTIME_STAGE_DIRS in package.py)",
+    )
     if "linux" in targets:
         marker = engine / "Engine" / "Binaries" / "Linux" / "UnrealGame.target"
         add(
@@ -235,30 +243,23 @@ def cmd_verify(options: argparse.Namespace) -> int:
 # 22.2 BuildCookRun, 22.3 chunks and PSO cache
 # --------------------------------------------------------------------------- #
 def chunk_ini_block(chunks: Mapping[str, Any]) -> str:
-    """The config lines that put every deck level in its own IoStore chunk.
+    """The config lines that name every deck level for the cook and enable chunks.
 
-    ``Config/DefaultGame.ini`` belongs to the integration owner, so this block
-    is what WP22's contract change request asks to merge.
+    The chunk each deck lands in comes from its PrimaryAssetLabel
+    (``deck_labels.py``): the engine's Map rules alone leave every package in
+    chunk 0. ``Config/DefaultGame.ini`` belongs to the integration owner, so
+    this block is what WP22's contract change request asks to merge.
     """
     lines = [
         "[/Script/UnrealEd.ProjectPackagingSettings]",
         "bGenerateChunks=True",
         "bShareMaterialShaderCode=True",
         "bSharedMaterialNativeLibraries=True",
-        "",
-        "[/Script/Engine.AssetManagerSettings]",
-        '+PrimaryAssetTypesToScan=(PrimaryAssetType="Map",AssetBaseClass=/Script/Engine.World,'
-        'bHasBlueprintClasses=False,bIsEditorOnly=True,Directories=((Path="/Game/Verse/Decks")),'
-        "Rules=(Priority=-1,ChunkId=-1,bApplyRecursively=True,CookRule=Unknown))",
     ]
+    # The deck labels only sort packages into chunks; they do not pull a level
+    # into the cook. Without these the package would carry the startup deck alone.
     for chunk in sorted(chunks["chunks"], key=lambda c: c["id"]):
-        for path in chunk.get("maps", []):
-            name = path.rsplit("/", 1)[-1]
-            priority = 10 + chunk["id"]
-            lines.append(
-                f'+PrimaryAssetRules=(PrimaryAssetId="Map:{name}",Rules=(Priority={priority},'
-                f"ChunkId={chunk['id']},bApplyRecursively=True,CookRule=AlwaysCook))"
-            )
+        lines.extend(f'+MapsToCook=(FilePath="{path}")' for path in chunk.get("maps", []))
     return "\n".join(lines) + "\n"
 
 
@@ -271,6 +272,60 @@ def missing_chunk_config(project_dir: Path, chunks: Mapping[str, Any]) -> list[s
     have = {line.strip() for line in text.splitlines()}
     wanted = [line for line in chunk_ini_block(chunks).splitlines() if line and "=" in line]
     return [line for line in wanted if line not in have]
+
+
+#: Content the game loads by soft path, so no map pulls it into the cook.
+RUNTIME_COOK_DIRS = ("/Game/Verse", "/Engine/BasicShapes", "/Engine/EngineFonts")
+#: Folders the game reads as text from ``FPaths::ProjectDir()``, relative to Content/.
+RUNTIME_STAGE_DIRS = ("../Data", "../Art/Placements")
+_PROJECT_DIR_READ = re.compile(
+    r'FPaths::ProjectDir\(\)\s*(?:,|/)\s*TEXT\("([^"]+)"\)(?:\s*,\s*TEXT\("([^"]+)"\))?'
+)
+
+
+def runtime_content_problems(project_dir: Path) -> list[str]:
+    """Why a package would miss data the game reads at runtime; empty means complete.
+
+    A packaged build only carries what the cook reaches from a map plus what
+    ``DefaultGame.ini`` names. Everything else (JSON under Data/, deck placement
+    files, assets loaded by path) works in the editor and is silently absent in
+    the package, so the check runs in ``verify`` and before every ``build``.
+    """
+    try:
+        text = (project_dir / "Config" / "DefaultGame.ini").read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    have = {line.strip() for line in text.splitlines()}
+    problems = [
+        f"DefaultGame.ini lacks {line}"
+        for line in (
+            *(f'+DirectoriesToAlwaysCook=(Path="{d}")' for d in RUNTIME_COOK_DIRS),
+            *(f'+DirectoriesToAlwaysStageAsNonUFS=(Path="{d}")' for d in RUNTIME_STAGE_DIRS),
+        )
+        if line not in have
+    ]
+    content = project_dir / "Content"
+    staged = [(content / d).resolve() for d in RUNTIME_STAGE_DIRS]
+    for folder in staged:
+        if not folder.is_dir():
+            problems.append(f"stage folder {folder} does not exist")
+    source = project_dir / "Source"
+    for path in sorted(source.rglob("*.cpp")) if source.is_dir() else []:
+        rel = path.relative_to(source).as_posix()
+        if "/Tests/" in f"/{rel}" or path.stem.endswith("Test"):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in _PROJECT_DIR_READ.finditer(text):
+            fragment = "/".join(part for part in match.groups() if part)
+            if fragment.startswith(("..", "Tests", "Saved", "Intermediate")):
+                continue
+            target = (project_dir / fragment).resolve()
+            if not any(target == f or f in target.parents for f in staged):
+                problems.append(
+                    f"{rel} reads ProjectDir()/{fragment}, which no "
+                    "DirectoriesToAlwaysStageAsNonUFS rule stages"
+                )
+    return problems
 
 
 def buildcookrun_command(
@@ -449,6 +504,11 @@ def cmd_build(options: argparse.Namespace) -> int:
         )
         if options.require_chunks:
             return 1
+    runtime = runtime_content_problems(project.parent)
+    for problem in runtime:
+        common.log(f"PROBLEM {problem}")
+    if runtime:
+        return 1
     if spec.key == "linux" and not os.environ.get("LINUX_MULTIARCH_ROOT", "").strip():
         return common.exit_with(
             common.UnrealScriptError(
@@ -831,6 +891,7 @@ class FakeBridgeRun:
         self.report: dict[str, Any] | None = None
         self.process: subprocess.Popen | None = None
         self.report_path = out / "bridge-report.json"
+        self.done_path = out / "bridge-done"
 
     def env(self, base: Mapping[str, str] | None = None) -> dict[str, str]:
         return {
@@ -849,7 +910,7 @@ class FakeBridgeRun:
             self.out / "bridge-scenario.json", bridge_scenario(ready_timeout_s=self.ready_timeout_s)
         )
         discovery = self.out / "bridge-discovery.json"
-        for stale in (discovery, self.report_path):
+        for stale in (discovery, self.report_path, self.done_path):
             stale.unlink(missing_ok=True)
         command = [
             sys.executable,
@@ -859,6 +920,8 @@ class FakeBridgeRun:
             "--once",
             "--report",
             str(self.report_path),
+            "--done-file",
+            str(self.done_path),
             "--discovery",
             str(discovery),
         ]
@@ -926,6 +989,72 @@ def wait_for_marker(
     return None
 
 
+def wait_for_ready(
+    log_path: Path,
+    done_path: Path,
+    *,
+    timeout_s: float,
+    alive: Callable[[], bool],
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> float | None:
+    """Seconds until the log shows the first frame or the fake bridge saw ``lifecycle.ready``."""
+    started = clock()
+    while clock() - started < timeout_s:
+        if done_path.exists():
+            return clock() - started
+        try:
+            if FIRST_FRAME.search(log_path.read_text(encoding="utf-8", errors="replace")):
+                return clock() - started
+        except OSError:
+            pass
+        if not alive():
+            return None
+        sleep(0.05)
+    return None
+
+
+def first_frame_ms(report: Mapping[str, Any] | None) -> float | None:
+    """``first_frame_ms`` the game sent with ``lifecycle.ready``, from a fake-bridge report."""
+    for expectation in (report or {}).get("expectations", []):
+        if expectation.get("type") == "lifecycle.ready" and expectation.get("ok"):
+            value = (expectation.get("frame_data") or {}).get("first_frame_ms")
+            if isinstance(value, int | float):
+                return float(value)
+    return None
+
+
+def stop_game(process: subprocess.Popen, staged: Path) -> None:
+    """Stop the launcher stub and the game it spawned, found by their path under ``staged``.
+
+    ``Verse.exe`` starts ``Binaries/<platform>/Verse-<platform>-Shipping.exe``;
+    terminating the stub alone leaves the game running, which keeps the
+    single-instance lock and holds the files of the install.
+    """
+    import psutil
+
+    if process.poll() is None:
+        process.terminate()
+    root = staged.resolve()
+    for other in psutil.process_iter(["exe"]):
+        exe = other.info.get("exe") or ""
+        try:
+            inside = bool(exe) and Path(exe).resolve().is_relative_to(root)
+        except OSError:
+            inside = False
+        if inside:
+            try:
+                other.kill()
+                other.wait(timeout=15)
+            except psutil.Error:
+                continue
+    try:
+        process.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
 def cmd_cold_start(options: argparse.Namespace) -> int:
     spec = PLATFORMS[options.platform]
     worktree = options.worktree.resolve()
@@ -952,41 +1081,42 @@ def cmd_cold_start(options: argparse.Namespace) -> int:
     bridge = FakeBridgeRun(
         out / "bridge", token=token, ready_timeout_s=options.timeout + READY_GRACE_S
     )
+    seconds: float | None = None
     try:
         with with_lock.MachineLock(f"cold start ({worktree.name})", command), bridge:
             process = subprocess.Popen(command, cwd=str(staged), env=bridge.env())
             try:
-                seconds = wait_for_marker(
+                seconds = wait_for_ready(
                     log_path,
-                    FIRST_FRAME,
+                    bridge.done_path,
                     timeout_s=options.timeout,
                     alive=lambda: process.poll() is None,
                 )
-                if seconds is not None and process.poll() is None:
+                if seconds is not None and not bridge.done_path.exists():
                     time.sleep(READY_GRACE_S)  # let lifecycle.ready reach the bridge
             finally:
-                if process.poll() is None:
-                    process.terminate()
-                    try:
-                        process.wait(timeout=15)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                        process.wait()
+                stop_game(process, staged)
     except common.UnrealScriptError as error:
         return common.exit_with(error)
+    engine_ms = first_frame_ms(bridge.report)
     report = size_report(staged, load_chunks(), platform=spec.ue)
     problems = bridge_problems(bridge.report, require_ready=True)
-    if seconds is None:
-        problems.append("no first-frame marker in the game log")
-    elif seconds > COLD_START_BUDGET_S:
-        problems.append(f"first frame after {seconds:.1f} s (budget {COLD_START_BUDGET_S} s)")
+    # A Shipping build logs nothing, so the number that counts is the one the game
+    # itself sends with lifecycle.ready: milliseconds from engine start to the first
+    # frame. The wall clock from spawning the process to that message is kept too.
+    measured = engine_ms / 1000 if engine_ms is not None else seconds
+    if measured is None:
+        problems.append("no first frame seen (no log marker and no lifecycle.ready)")
+    elif measured > COLD_START_BUDGET_S:
+        problems.append(f"first frame after {measured:.1f} s (budget {COLD_START_BUDGET_S} s)")
     if not report["pso_cache_shipped"]:
         problems.append("no shipped PSO cache in the build (A22.2 measures with it)")
     result = {
         "schema": "verse.cold-start/1",
         "platform": spec.ue,
         "config": options.config,
-        "seconds_to_first_frame": None if seconds is None else round(seconds, 3),
+        "seconds_to_first_frame": None if measured is None else round(measured, 3),
+        "wall_seconds_to_ready": None if seconds is None else round(seconds, 3),
         "budget_s": COLD_START_BUDGET_S,
         "pass": not problems,
         "problems": problems,

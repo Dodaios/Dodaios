@@ -13,6 +13,7 @@ import importlib.util
 import json
 import math
 import random
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -832,8 +833,11 @@ def test_gore_recipes_may_use_the_gore_decal_master(tmp_path):
 
 def test_gore_folder_is_always_cooked():
     ini = (REPO_ROOT / "unreal/Verse/Config/DefaultGame.ini").read_text(encoding="utf-8")
-    section = ini.split("[/Script/UnrealEd.ProjectPackagingSettings]", 1)[1]
-    assert '+DirectoriesToAlwaysCook=(Path="/Game/Verse/Gore")' in section.split("\n[", 1)[0]
+    section = ini.split("[/Script/UnrealEd.ProjectPackagingSettings]", 1)[1].split("\n[", 1)[0]
+    # Gore is loaded by path at runtime: its own rule or a parent folder's rule must cook it.
+    cooked = re.findall(r'^\+DirectoriesToAlwaysCook=\(Path="([^"]+)"\)', section, re.MULTILINE)
+    target = "/Game/Verse/Gore"
+    assert any(target == d or target.startswith(d.rstrip("/") + "/") for d in cooked), cooked
 
 
 def test_editor_built_test_placeholders_need_no_import_record(tmp_path):

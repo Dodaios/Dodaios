@@ -785,8 +785,9 @@ void UVerseUiSubsystem::ApplyInputMode()
 		PC->SetInputMode(Mode);
 		PC->SetShowMouseCursor(true);
 	}
-	else
+	else if (!UVerseDeckControlComponent::RestoreInputMode(World))
 	{
+		// No deck control: the person's game owns the mouse (captured, hidden cursor).
 		PC->SetInputMode(FInputModeGameOnly());
 		PC->SetShowMouseCursor(false);
 	}

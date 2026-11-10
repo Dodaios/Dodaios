@@ -129,7 +129,10 @@ namespace
 		}
 		UStaticMesh* Mesh = NewObject<UStaticMesh>(GetTransientPackage(), MakeUniqueObjectName(GetTransientPackage(), UStaticMesh::StaticClass(), Name),
 			RF_Transient);
-		Mesh->GetStaticMaterials().Add(FStaticMaterial(VersePlaceholderArt::Material(), SlotName));
+		FStaticMaterial Slot(VersePlaceholderArt::Material(), SlotName);
+		// Cooked games cannot compute UV densities; uninitialised slots fire ensures on render.
+		Slot.UVChannelData = FMeshUVChannelInfo(1.f);
+		Mesh->GetStaticMaterials().Add(Slot);
 		UStaticMesh::FBuildMeshDescriptionsParams Params;
 		Params.bFastBuild = true;
 		Params.bBuildSimpleCollision = false;
