@@ -306,3 +306,46 @@ def test_build_dispatcher_accepts_tool_context() -> None:
 
     params = inspect.signature(BrainManager._build_dispatcher).parameters
     assert "tool_context" in params
+
+
+# ----------------------------------------------------------------------
+# Seat health: an unattended run waits on a seat in cooldown
+# ----------------------------------------------------------------------
+
+async def test_a_cooling_seat_is_skipped_by_a_scheduled_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dodaios.brain import seat_health
+
+    seat_health.get_seat_health().record_failure(
+        "openrouter", "", "usage limit reached, try again in 2h"
+    )
+    mgr = _manager(monkeypatch)
+    calls = _install_dispatch(monkeypatch, mgr, {
+        "openrouter": "never reached", "gemini": "digest from gemini",
+    })
+
+    out = await mgr.run_task(prompt="p", allowed_tools=("gmail",), model_tier="fast")
+
+    assert out == "digest from gemini"
+    assert [c[0] for c in calls] == ["gemini"]
+
+
+async def test_every_seat_cooling_defers_the_run_with_the_reset_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dodaios.brain import seat_health
+    from dodaios.brain.background_policy import BackgroundDeferred
+
+    health = seat_health.get_seat_health()
+    for name in ("openrouter", "gemini", "openai"):
+        health.record_failure(name, "", "usage limit reached, try again in 2h")
+    mgr = _manager(monkeypatch)
+    calls = _install_dispatch(monkeypatch, mgr, {})
+
+    with pytest.raises(BackgroundDeferred) as info:
+        await mgr.run_task(prompt="p", allowed_tools=("gmail",), model_tier="fast")
+
+    assert info.value.code == "seat_cooldown"
+    assert "usable again" in str(info.value)
+    assert calls == []

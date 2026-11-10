@@ -7,7 +7,7 @@ import logging
 from typing import Any
 from uuid import uuid4
 
-from dodaios.core.protocols import RoutineDeferred
+from dodaios.core.protocols import CapacityDeferred, RoutineDeferred
 
 from .chat_binding import SURFACE, _workspace, pair_for
 from .display_name import display_name
@@ -171,6 +171,42 @@ async def _hold_unattended_run_off_keys(
     )
 
 
+class SeatCooling(CapacityDeferred):
+    """The run's seat is in a usage-limit cooldown or needs a login; it waits."""
+
+
+async def _gate_on_seat_health(
+    provider: str, model: str, account_id: str, *, autonomous: bool
+) -> None:
+    """Fail fast on a seat that cannot run; make unattended work WAIT, not burn attempts.
+
+    A seat real calls found limited or signed out (see ``brain.seat_health``)
+    defers an unattended run with the reset time in its reason: a recurring
+    routine fires again at its next occurrence, an autonomous one pauses and
+    resumes. A person's own start ("Run now") fails at once with the readable
+    cause instead of a doomed turn. The seat is never swapped.
+    """
+    from dodaios.core.protocols import current_started_by_user
+
+    from .seat_preflight import preflight_seat
+
+    problem = await preflight_seat(provider, model, account_id)
+    if problem is None:
+        return
+    unattended = not current_started_by_user.get()
+    waits = problem.cls in ("quota", "rate_limit", "auth")
+    if unattended and waits:
+        log.info("routine: waiting on seat %s (%s)", provider, problem.cls)
+        if autonomous:
+            raise RoutineDeferred(f"Background work is waiting: {problem.text}")
+        raise SeatCooling(
+            f"This scheduled run waited: {problem.text}",
+            code="seat_cooldown",
+            provider=provider,
+        )
+    raise RuntimeError(problem.text)
+
+
 def _run_runtime(agent: Any, provider: str) -> str:
     """Which runtime a routine run uses.
 
@@ -236,6 +272,7 @@ async def run_owned_routine(
             "Background work is waiting for a subscription or local model on its owner's seat"
         )
     await _hold_unattended_run_off_keys(provider, account_id, tags)
+    await _gate_on_seat_health(provider, model, account_id, autonomous=autonomous)
     # Results nobody opens for days: pause instead of producing another one.
     from .routine_parking import maybe_park
 

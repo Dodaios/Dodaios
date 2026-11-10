@@ -474,6 +474,17 @@ def _provider_health_ledger_in_tmp(tmp_path_factory):  # noqa: ANN001
 
 
 @pytest.fixture(autouse=True)
+def _seat_health_in_memory():
+    """Seat verdicts learned from real calls never leak between tests or into
+    the developer's ``data/state``: every test starts with an empty, file-less record."""
+    from dodaios.brain import seat_health
+
+    seat_health.set_seat_health(seat_health.SeatHealth(None))
+    yield
+    seat_health.set_seat_health(seat_health.SeatHealth(None))
+
+
+@pytest.fixture(autouse=True)
 def _short_pane_delivery_waits(monkeypatch):  # noqa: ANN001
     """Fake panes never paint a composer, so the real first-prompt and
     late-arrival windows (tens of seconds) would only slow every send test.

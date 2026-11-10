@@ -766,6 +766,16 @@ def _safely(action: Callable[[], Any], what: str) -> Any:
         return None
 
 
+#: Modalities whose real calls teach :mod:`dodaios.brain.seat_health` about a seat.
+_SEAT_MODALITIES = frozenset({MODALITY_BRAIN, MODALITY_TOOL})
+
+
+def _seat_health() -> Any:
+    from dodaios.brain.seat_health import get_seat_health
+
+    return get_seat_health()
+
+
 def record_success(
     provider: str | None,
     modality: str,
@@ -780,6 +790,11 @@ def record_success(
         lambda: get_ledger().record(provider, modality, _pt.OK, source=source, model=model),
         "record_success",
     )
+    if modality in _SEAT_MODALITIES and source == SOURCE_USE:
+        _safely(
+            lambda: _seat_health().record_success(provider, "", model=model or ""),
+            "seat success",
+        )
 
 
 def record_failure(
@@ -799,6 +814,11 @@ def record_failure(
         ),
         "record_failure",
     )
+    if modality in _SEAT_MODALITIES and source == SOURCE_USE:
+        _safely(
+            lambda: _seat_health().record_failure(provider, "", error, model=model or ""),
+            "seat failure",
+        )
 
 
 def record_status(
@@ -828,6 +848,9 @@ def forget_providers(
     names = [p for p in providers if p]
     if not names:
         return
+    for name in names:
+        # A new key or login voids the seat verdicts too (no stale dead-key skip).
+        _safely(lambda name=name: _seat_health().forget(name), "seat forget")
     _safely(
         lambda: get_ledger().forget(
             names, modality=modality, keep_credential_failures=keep_credential_failures

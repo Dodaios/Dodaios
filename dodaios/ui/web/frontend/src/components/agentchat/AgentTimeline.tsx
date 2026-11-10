@@ -7,6 +7,7 @@ import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/t
 import { MessageWithChips } from "./ToolChoiceChips";
 import { MemoryLearnedNotice } from "./MemoryLearnedNotice";
 import { ChainResultCard } from "./ChainResultCard";
+import { SeatTroubleNotice } from "./SeatTroubleNotice";
 import { ReminderDueNotice } from "./reminders/ReminderDueNotice";
 import { TasksCapturedCard } from "./reminders/TasksCapturedCard";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
@@ -241,6 +242,7 @@ export function AgentTimeline({
       }
       if (item.kind === "memory_learned") return <MemoryLearnedNotice key={item.id} item={item} />;
       if (item.kind === "chain_result") return <ChainResultCard key={item.id} item={item} />;
+      if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
       if (item.kind === "reminder_due") return <ReminderDueNotice key={item.id} item={item} />;
       if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;
       if (item.kind === "context_reset") {
