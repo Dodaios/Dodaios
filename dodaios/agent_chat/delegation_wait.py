@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
@@ -101,11 +102,25 @@ class DelegationWait:
         self.started = time.monotonic()
         self.failures: dict[str, int] = {}
         self.progress: dict[str, str] = {}
+        #: The prompt the turn ran with, for a wait rebuilt after a restart.
+        self.original = ""
+        #: Every report that has arrived, in order (what a restart must keep).
+        self.results: list[dict[str, Any]] = []
+        #: Called when the set of work or its reports changes (parked_work saves it).
+        self.on_change: Callable[[], None] | None = None
+
+    def _changed(self) -> None:
+        if self.on_change is not None:
+            try:
+                self.on_change()
+            except Exception:  # noqa: BLE001 - durability is best effort; the wait goes on
+                log.warning("delegation wait: change not saved", exc_info=True)
 
     def add(self, work: DelegatedWork) -> None:
         if work.key not in self.work:
             self.work[work.key] = work
             self.deadlines[work.key] = time.monotonic() + WAIT_TIMEOUT_SECONDS
+            self._changed()
 
     async def emit(self, event: dict[str, Any]) -> None:
         if event.get("kind") != "turn_finished":
@@ -220,6 +235,8 @@ class DelegationWait:
                             )
                         )
                     self.delivered.add(key)
+                    self.results.append(row)
+                    self._changed()
                     changed = True
                 # A reserved launch can register its actual jobs after the first scan.
                 pending.update(
@@ -271,6 +288,7 @@ class DelegationWait:
 async def run_with_delegates(service: Any, handle: Any, prompt: str, run_attempt: Any) -> None:
     original = prompt
     gate = DelegationWait(handle)
+    gate.original = original
     active = replace(handle, emit=gate.emit)
     # A chat that takes the next message while this one waits (the service
     # decides which chats do); elsewhere the turn holds its seat as before.

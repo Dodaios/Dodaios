@@ -580,7 +580,9 @@ class Quests:
                 "open": env.payload.get("open", []),
                 "text": env.text,
             }
-            state = QuestState.FAILED if status == "blocked" else QuestState.DONE
+            state = (
+                QuestState.FAILED if status in ("blocked", "interrupted") else QuestState.DONE
+            )
             result["progress"] = list(quest.result.get("progress") or [])
             await self._set(quest, state=state, result_json=json.dumps(result), done_ms=env.ts_ms)
             self._attempts.pop(quest.quest_id, None)

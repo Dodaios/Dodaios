@@ -192,10 +192,14 @@ summary, the error and the cost when known.
 - History order changes in the chat: a parked request's answer is appended
   when its delegates report, possibly after later exchanges. The timeline
   marks it, and the continuation prompt tells the model to name the request.
-- Parked chat work and background tasks live in memory. A restart forgets the
-  wait, never the delegated work, whose own report still reaches the chat or
-  the next call. The jobs ledger survives the restart; rehydrating the waits
-  from it is not built yet.
+- A parked wait is saved in the chat database (`agent_chat_parked_work`) and
+  rebuilt on boot from the jobs ledger: work with durable evidence is read
+  again, work that died with the process reports `interrupted`, and the
+  earlier request is continued once. A wait older than 24 hours is reported
+  as lost, not answered late. The same restart recovery re-queues messages
+  that were waiting behind a running turn (`agent_chat_queued_messages`) and
+  closes society tasks whose watcher died with a `RESULT` of status
+  `interrupted` plus one written notice in the lead conversation.
 
 ## Not covered
 

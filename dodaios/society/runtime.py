@@ -360,6 +360,10 @@ class SocietyRuntime:
         # synchronous reader on the brain's prompt build — sees the team from
         # the first turn, not from the first REST listing.
         await self.roster.refresh()
+        # Work a previous process left claimed can never report; close it now.
+        from .boot_sweep import sweep_interrupted_runs
+
+        await sweep_interrupted_runs(self)
         # After the roster: the lead prompts read names off its snapshot.
         await self.team_leads.start()
         self._require_open_owner()

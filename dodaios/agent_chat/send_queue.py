@@ -12,13 +12,19 @@ Stop pauses the queue so the halted agent does not start the next job by
 itself; :func:`resume` lets it go on. A CLI that takes a message while it
 works (Claude Code over stream-json) is steered instead — see :func:`try_steer`.
 
-The queue lives in memory and is bounded per chat in size. Waiting for a
-credential or approval never expires an accepted message. Every queued
-message is a ``message_queued`` notice in the chat; when it
-starts (or cannot be sent) a ``message_dequeued`` notice with the same
-``queue_id`` replaces it, so the timeline shows a waiting message exactly
-while it waits. A restart forgets the queue, so opening the chat afterwards
-closes any waiting notice it left behind (:func:`close_orphans`).
+The queue is bounded per chat in size. Waiting for a credential or approval
+never expires an accepted message. Every queued message is a
+``message_queued`` notice in the chat; when it starts (or cannot be sent) a
+``message_dequeued`` notice with the same ``queue_id`` replaces it, so the
+timeline shows a waiting message exactly while it waits.
+
+The queue survives a restart: the message's full payload (text, attachments,
+tool picks, timezone, away flag) is saved in the chat database under its
+``queue_id``, and :func:`recover_waiting` puts every message whose notice has
+no matching dequeue back into the queue, in its original order. A message
+older than :data:`STALE_AFTER_S` is never sent silently on a later boot: its
+notice is closed with a written note so the person can send it again
+(:func:`close_orphans`).
 """
 
 from __future__ import annotations
@@ -26,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
@@ -36,11 +43,13 @@ log = logging.getLogger(__name__)
 __all__ = [
     "MAX_QUEUED",
     "QueueFull",
+    "STALE_AFTER_S",
     "close_orphans",
     "discard",
     "has_waiting",
     "pause",
     "queue_state",
+    "recover_waiting",
     "resume",
     "send_or_queue",
     "try_steer",
@@ -48,6 +57,8 @@ __all__ = [
 
 #: Messages one chat may hold while its agent works.
 MAX_QUEUED: Final[int] = 64
+#: A waiting message older than this is not sent on its own after a restart.
+STALE_AFTER_S: Final[float] = 24 * 3600.0
 #: How often a waiting chat checks whether its agent is free (seconds).
 _POLL_S: Final[float] = 0.5
 #: Shown in the chat for a message that never started; never provider text (AP-34).
@@ -121,6 +132,37 @@ async def _notice(svc: Any, session_id: str, payload: dict[str, Any]) -> None:
         log.warning("agent chat: queue notice not posted for %s", session_id, exc_info=True)
 
 
+def _save(svc: Any, session_id: str, item: _Queued) -> None:
+    """Keep the payload so a restart can re-enqueue the message."""
+    save = getattr(getattr(svc, "store", None), "save_queued_message", None)
+    if save is None:
+        return
+    try:
+        save(
+            item.queue_id,
+            session_id,
+            {
+                "text": item.text,
+                "attachments": item.attachments,
+                "tool_choices": item.tool_choices,
+                "timezone": item.timezone,
+                "away": item.away,
+            },
+        )
+    except Exception:  # noqa: BLE001 - the message still queues; only its durability is lost
+        log.warning("agent chat: queued message %s not saved", item.queue_id, exc_info=True)
+
+
+def _forget(svc: Any, queue_id: str) -> None:
+    forget = getattr(getattr(svc, "store", None), "delete_queued_message", None)
+    if forget is None:
+        return
+    try:
+        forget(queue_id)
+    except Exception:  # noqa: BLE001 - a stale row is harmless: its notice is closed
+        log.warning("agent chat: queued message %s not forgotten", queue_id, exc_info=True)
+
+
 async def try_steer(
     svc: Any,
     session_id: str,
@@ -181,6 +223,7 @@ async def discard(svc: Any, session_id: str, queue_id: str) -> bool:
     for item in list(pending.items):
         if item.queue_id == queue_id:
             pending.items.remove(item)
+            _forget(svc, queue_id)
             await _notice(
                 svc,
                 session_id,
@@ -258,6 +301,7 @@ async def send_or_queue(
         pending.items.appendleft(item)
     else:
         pending.items.append(item)
+    _save(svc, session_id, item)
     await _notice(
         svc,
         session_id,
@@ -282,6 +326,7 @@ async def _drain(svc: Any, session_id: str, pending: _ChatQueue) -> None:
 
 
 async def _fail(svc: Any, session_id: str, item: _Queued) -> None:
+    _forget(svc, item.queue_id)
     await _notice(
         svc,
         session_id,
@@ -320,6 +365,7 @@ async def _drain_loop(svc: Any, session_id: str, pending: _ChatQueue) -> None:
         finally:
             client_timezone.reset(token)
         pending.items.popleft()
+        _forget(svc, head.queue_id)
         await _notice(
             svc,
             session_id,
@@ -328,12 +374,43 @@ async def _drain_loop(svc: Any, session_id: str, pending: _ChatQueue) -> None:
         )
 
 
-async def close_orphans(svc: Any, session_id: str) -> int:
-    """Close waiting notices that no live queue owns any more (after a restart).
+async def recover_waiting(svc: Any) -> int:
+    """After a restart: put every chat's waiting messages back in its queue.
 
-    Returns how many were closed. Messages still queued in this process are
-    left alone.
+    Runs once when the chat service is built. Returns how many messages were
+    queued again. A chat that cannot be read is skipped and recovers when it is
+    next opened (:func:`close_orphans`).
     """
+    listing = getattr(getattr(svc, "store", None), "sessions_with_waiting_messages", None)
+    if listing is None:
+        return 0
+    try:
+        sessions = await asyncio.to_thread(listing)
+    except Exception:  # noqa: BLE001 - the chats recover one by one when they are opened
+        log.warning("agent chat: waiting messages could not be listed", exc_info=True)
+        return 0
+    restored = 0
+    for session_id in sessions:
+        try:
+            restored += (await _recover(svc, session_id))[1]
+        except Exception:  # noqa: BLE001 - one broken chat must not stop the others
+            log.warning("agent chat: recovery of %s failed", session_id, exc_info=True)
+    return restored
+
+
+async def close_orphans(svc: Any, session_id: str) -> int:
+    """Recover a chat's waiting messages after a restart; close what cannot be.
+
+    A message with a saved payload that is not stale goes back in the queue.
+    The others (older than :data:`STALE_AFTER_S`, or saved by an older build
+    without a payload) get a closing notice. Returns how many were closed.
+    Messages still queued in this process are left alone.
+    """
+    return (await _recover(svc, session_id))[0]
+
+
+async def _recover(svc: Any, session_id: str) -> tuple[int, int]:
+    """``(closed, restored)`` for one chat; one recovery at a time."""
     lock = getattr(svc, "_society_queue_recovery_lock", None)
     if lock is None:
         lock = svc._society_queue_recovery_lock = asyncio.Lock()
@@ -341,7 +418,7 @@ async def close_orphans(svc: Any, session_id: str) -> int:
         return await _close_orphans_locked(svc, session_id)
 
 
-async def _close_orphans_locked(svc: Any, session_id: str) -> int:
+async def _close_orphans_locked(svc: Any, session_id: str) -> tuple[int, int]:
     """One recovery at a time prevents duplicate receipts from GET/WS reopens."""
     live: set[str] = set()
     for _attempt in range(2):
@@ -353,13 +430,13 @@ async def _close_orphans_locked(svc: Any, session_id: str) -> int:
             events = await asyncio.to_thread(svc.store.queue_notice_events, session_id)
         except Exception:  # noqa: BLE001 — a chat that cannot be read keeps its notices
             log.warning("agent chat: waiting notices of %s not checked", session_id, exc_info=True)
-            return 0
+            return 0, 0
         if generation == getattr(svc, "_society_send_generation", 0):
             break
     else:
         # A busy process can postpone recovery until the next open/reconnect;
         # it must never overwrite a live message's successful sent receipt.
-        return 0
+        return 0, 0
     waiting: dict[str, str] = {}
     for event in events:
         payload = event.get("payload") or {}
@@ -371,6 +448,9 @@ async def _close_orphans_locked(svc: Any, session_id: str) -> int:
         elif payload.get("kind") == "message_dequeued":
             waiting.pop(queue_id, None)
     closed = 0
+    restored = 0
+    now_s = time.time()
+    saved_of = getattr(svc.store, "queued_message", None)
     for queue_id, text in waiting.items():
         # An admission may have arrived while the history read yielded. Keep
         # both snapshots so a live message that just started also stays safe.
@@ -379,11 +459,46 @@ async def _close_orphans_locked(svc: Any, session_id: str) -> int:
             live.update(item.queue_id for item in current.items)
         if queue_id in live:
             continue
-        await _notice(
-            svc,
-            session_id,
-            {"kind": "message_dequeued", "queue_id": queue_id, "status": "failed",
-             "text": text},
-        )
+        saved = None
+        if saved_of is not None:
+            try:
+                saved = await asyncio.to_thread(saved_of, queue_id)
+            except Exception:  # noqa: BLE001 - unreadable payload: the message is closed below
+                log.warning("agent chat: saved message %s unreadable", queue_id, exc_info=True)
+        stale = saved is not None and now_s - saved["queued_ms"] / 1000 > STALE_AFTER_S
+        if saved is not None and not stale:
+            _requeue(svc, session_id, queue_id, saved)
+            live.add(queue_id)
+            restored += 1
+            continue
+        _forget(svc, queue_id)
+        payload: dict[str, Any] = {
+            "kind": "message_dequeued", "queue_id": queue_id, "status": "failed", "text": text,
+        }
+        if stale:
+            # Written, never silent: the person decides whether it still applies.
+            payload["reason"] = "stale_after_restart"
+        await _notice(svc, session_id, payload)
         closed += 1
-    return closed
+    return closed, restored
+
+
+def _requeue(svc: Any, session_id: str, queue_id: str, saved: dict[str, Any]) -> None:
+    """Put a message saved before a restart back at the end of its chat's queue."""
+    attachments = saved.get("attachments")
+    tool_choices = saved.get("tool_choices")
+    item = _Queued(
+        queue_id,
+        str(saved.get("text") or ""),
+        attachments if isinstance(attachments, list) else None,
+        tool_choices if isinstance(tool_choices, list) else None,
+        saved.get("timezone") if isinstance(saved.get("timezone"), str) else None,
+        bool(saved.get("away")),
+    )
+    pending = _queues(svc).setdefault(session_id, _ChatQueue())
+    svc._society_send_generation = getattr(svc, "_society_send_generation", 0) + 1
+    pending.items.append(item)
+    if pending.drain is None or pending.drain.done():
+        pending.drain = asyncio.create_task(
+            _drain(svc, session_id, pending), name=f"chat-queue-{session_id[-24:]}"
+        )
