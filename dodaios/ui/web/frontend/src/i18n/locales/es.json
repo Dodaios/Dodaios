@@ -6677,7 +6677,17 @@
     "install_failed": "Error en la instalación ({status})",
     "contents_failed": "No se pudo leer esa entrada ({status})",
     "err_identity_start": "No se pudo iniciar el inicio de sesión ({status})",
-    "err_identity_failed": "error al iniciar sesión"
+    "err_identity_failed": "error al iniciar sesión",
+    "filter_looks": "Aspectos",
+    "shelf_looks": "Aspectos",
+    "shelf_looks_hint": "Visuales que ocupan el lugar del orbe de voz",
+    "kind_look": "Aspecto",
+    "landed_look": "Elígelo en Ajustes, junto a Apariencia.",
+    "look_home": "Ajustes",
+    "look_reach": "Solo puede dibujar. Recibe el estado de voz y el volumen, nada más: sin internet, sin archivos, sin acceso a la app.",
+    "look_license": "Licencia",
+    "look_attribution": "Créditos",
+    "look_size": "Tamaño de descarga"
   },
   "costs_view": {
     "title": "Gastos y tokens",

@@ -6677,7 +6677,17 @@
     "install_failed": "A instalação falhou ({status})",
     "contents_failed": "Não foi possível ler essa entrada ({status})",
     "err_identity_start": "Não foi possível iniciar o início de sessão ({status})",
-    "err_identity_failed": "o início de sessão falhou"
+    "err_identity_failed": "o início de sessão falhou",
+    "filter_looks": "Aspetos",
+    "shelf_looks": "Aspetos",
+    "shelf_looks_hint": "Visuais que ocupam o lugar do orbe de voz",
+    "kind_look": "Aspeto",
+    "landed_look": "Escolha-o nas Definições, junto a Aspeto da app.",
+    "look_home": "Definições",
+    "look_reach": "Só pode desenhar. Recebe o estado da voz e o volume, mais nada: sem internet, sem ficheiros, sem acesso à app.",
+    "look_license": "Licença",
+    "look_attribution": "Créditos",
+    "look_size": "Tamanho da transferência"
   },
   "costs_view": {
     "title": "Gastos e Tokens",

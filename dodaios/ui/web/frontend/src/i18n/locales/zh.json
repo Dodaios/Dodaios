@@ -6677,7 +6677,17 @@
     "install_failed": "安装失败（{status}）",
     "contents_failed": "无法读取该条目（{status}）",
     "err_identity_start": "无法开始登录（{status}）",
-    "err_identity_failed": "登录失败"
+    "err_identity_failed": "登录失败",
+    "filter_looks": "外观",
+    "shelf_looks": "外观",
+    "shelf_looks_hint": "替代语音球位置的视觉效果",
+    "kind_look": "外观",
+    "landed_look": "在设置中“外观”旁边选择它。",
+    "look_home": "设置",
+    "look_reach": "它只能绘制。它只获得语音状态和音量：无法联网、无法访问文件、无法访问应用。",
+    "look_license": "许可证",
+    "look_attribution": "署名",
+    "look_size": "下载大小"
   },
   "costs_view": {
     "title": "费用与 Token",

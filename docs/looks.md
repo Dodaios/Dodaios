@@ -89,6 +89,29 @@ fails, is replaced by the voice orb.
 - open windows, pop-ups or dialogs, or navigate the app;
 - use the microphone or the camera: the levels come from the app.
 
+## From the marketplace
+
+A look is published as a zip archive of its pack (at the zip's root or in one
+top folder). The registry's `index.json` lists it under `looks`:
+
+| Field | Rule |
+|-------|------|
+| `name` | the look id; the pack's `id` must be the same |
+| `archive_url` | https on `github.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com`, `raw.githubusercontent.com` or `dodaios.github.io` |
+| `sha256` | the archive's SHA-256, pinned by the registry |
+| `size_bytes` | the archive's size, at most 27 MB |
+| `preview_url` | optional, same hosts; any other host is dropped |
+| `title`, `description`, `publisher`, `version`, `license`, `attribution`, `source_url` | shown on the entry's page |
+
+Installing (`POST /api/marketplace/community/install/<name>`,
+`dodaios/ui/looks/install.py`) downloads over https from those hosts only,
+checks the SHA-256, refuses links, unsafe names, more than 300 files or more
+than 25 MB unpacked, checks the pack like a built-in one and moves it into
+`<DATA_DIR>/looks/<id>` with one rename. A name a built-in look owns is
+refused. Removing it (`DELETE` on the same route) puts the orb back if it was
+the active look. A look entry that breaks a rule is dropped from the feed
+alone; the rest of the index stays.
+
 ## Making a look
 
 1. Copy `dodaios/ui/looks/builtin/pulse-ring` and rename the folder.

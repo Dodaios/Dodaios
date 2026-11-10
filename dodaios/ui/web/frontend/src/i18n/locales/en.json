@@ -6677,7 +6677,17 @@
     "install_failed": "Install failed ({status})",
     "contents_failed": "Could not read that entry ({status})",
     "err_identity_start": "Sign-in start failed ({status})",
-    "err_identity_failed": "sign-in failed"
+    "err_identity_failed": "sign-in failed",
+    "filter_looks": "Looks",
+    "shelf_looks": "Looks",
+    "shelf_looks_hint": "Visuals that take the voice orb's place",
+    "kind_look": "Look",
+    "landed_look": "Pick it under Settings, next to Appearance.",
+    "look_home": "Settings",
+    "look_reach": "It can only draw. It gets the voice state and the volume, and nothing else: no internet, no files, no access to the app.",
+    "look_license": "License",
+    "look_attribution": "Credit",
+    "look_size": "Download size"
   },
   "costs_view": {
     "title": "Spend & Tokens",
