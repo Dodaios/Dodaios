@@ -775,6 +775,7 @@ void FVerseBotBrainCore::ApplyFireGate(FVerseBotIntent& Intent, const FVerseBotA
 		Intent.bWantFire = false;
 		return;
 	}
+	++FireWantTicks;
 	const UVerseBotTier& T = *Tier;
 	FVerseBotFireEvidence E;
 	E.ServerTimeMs = FrameThisTick->ServerTimeMs;
@@ -809,15 +810,33 @@ void FVerseBotBrainCore::ApplyFireGate(FVerseBotIntent& Intent, const FVerseBotA
 	{
 		// Counted apart: a fire intent without a mode of 8.4 never reaches the trigger.
 		Audit.AddBlocked();
+		++FireUnclassifiedTicks;
 		Intent.bWantFire = false;
 		return;
 	}
 	if (!bAimed)
 	{
+		++FireUnaimedTicks;
 		Intent.bWantFire = false;
 		return;
 	}
 	Audit.Add(E, Mode);
+	LastFireMode = Mode;
+	LastFireModeS = NowS;
+}
+
+void FVerseBotBrainCore::ForgetSearchTarget()
+{
+	// The target could not be walked to: the search does not pick it again for a while.
+	if (TacticsMem.bHasSearchTarget)
+	{
+		if (TacticsMem.SearchFailed.Num() >= 8)
+		{
+			TacticsMem.SearchFailed.RemoveAt(0);
+		}
+		TacticsMem.SearchFailed.Emplace(TacticsMem.SearchTarget, NowS);
+	}
+	TacticsMem.bHasSearchTarget = false;
 }
 
 FVector FVerseBotBrainCore::NextWaypoint(const FVector& Target, bool bCrouch)
@@ -839,7 +858,7 @@ FVector FVerseBotBrainCore::NextWaypoint(const FVector& Target, bool bCrouch)
 			++NavFailures;
 			bNavFailCounted = true;
 			NextDecisionS = FMath::Min(NextDecisionS, NowS + 0.2f);
-			TacticsMem.bHasSearchTarget = false;
+			ForgetSearchTarget();
 			TacticsMem.bHasFlankPoint = false;
 		}
 		return Self;
@@ -985,6 +1004,14 @@ FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& RawFrame, I
 		Belief->NoteOwnPieceChange(TacticsMem.BreachPiece, EVersePieceState::Breached);
 	}
 	Reflexes(Intent);
+	// A fire intent with the opponent in sight aims at the opponent, whatever the state's own look
+	// target (a search sweep, a cover edge): a seen opponent is never shot past (8.2).
+	if (bSightingThisTick && Intent.bWantFire && !SightingThisTick.bSpawnProtected
+		&& float(FVector::Dist(Intent.LookTarget, SightingThisTick.PelvisLocation)) >= 200.f)
+	{
+		Intent.bHasLookTarget = true;
+		Intent.LookTarget = SightingThisTick.PelvisLocation + FVector(0, 0, BrainChestCm - 70.f);
+	}
 
 	// Aim.
 	FVerseBotAimRequest AimReq;
@@ -1014,7 +1041,7 @@ FVerseInputFrame FVerseBotBrainCore::Think(const FVersePerceptFrame& RawFrame, I
 			{
 				// No progress: drop the move targets and re-plan on the next tick (6.1 path invalidation).
 				bStuckReplanned = true;
-				TacticsMem.bHasSearchTarget = false;
+				ForgetSearchTarget();
 				TacticsMem.bHasFlankPoint = false;
 				PathTarget = FVector(1.0e9);
 				NextDecisionS = NowS;

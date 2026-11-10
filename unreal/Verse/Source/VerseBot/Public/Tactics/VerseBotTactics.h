@@ -72,6 +72,8 @@ struct VERSEBOT_API FVerseBotTacticsMemory
 	bool bSearchVerifying = false;
 	/** Search: when each arena cover point was last visited this life (information gain). */
 	TMap<int32, float> Visited;
+	/** Search: targets abandoned without arriving (unreachable or blocked) and when; skipped for a while. */
+	TArray<TPair<FVector, float>, TInlineAllocator<8>> SearchFailed;
 	/** Flank: chosen point. */
 	FVector FlankPoint = FVector::ZeroVector;
 	bool bHasFlankPoint = false;

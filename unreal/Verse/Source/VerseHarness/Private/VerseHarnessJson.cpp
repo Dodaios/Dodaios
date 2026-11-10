@@ -398,6 +398,15 @@ FString FVerseJsonWriter::Number(double Value)
 	{
 		Text.LeftChopInline(1);
 	}
+	// A value that rounds to a whole number at six places ("5.000000") must not end in a bare point.
+	if (Text.EndsWith(TEXT(".")))
+	{
+		Text.LeftChopInline(1);
+	}
+	if (Text == TEXT("-0"))
+	{
+		Text = TEXT("0");
+	}
 	return Text;
 }
 

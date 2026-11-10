@@ -11,6 +11,8 @@
 #include "VerseModelController.generated.h"
 
 class APawn;
+class FVerseBotPilot;
+class UVerseBotTier;
 class UVerseHarnessPerceptFeed;
 
 /**
@@ -18,13 +20,14 @@ class UVerseHarnessPerceptFeed;
  * as the bot with person parameters and optional trick overrides. It perceives only through
  * FVersePerceptFrame (fairness F6) and acts only through FVerseInputFrame (bot.md B1).
  *
- * Until VerseBot's FVerseBotBrainCore lands (WP08) the brain is the null brain: an empty input
- * frame every tick. SetBrain plugs the real one in without touching the model or trick layers.
+ * UseBotBrain gives it the bot's brain (FVerseBotBrainCore through FVerseBotPilot) with a tier
+ * built from the person numbers; without it the brain is the null brain (an empty input frame
+ * every tick), and SetBrain plugs any other in without touching the model or trick layers.
  *
  * The loop: AttachPerception subscribes to OnPerceptFrame of the percept source (the harness
- * feed until UVersePerceptionService lands, WP07). Every frame runs Think and applies the result
- * to the possessed pawn through ApplyInputToPawn, so the trick layer acts even with the null
- * brain (a rusher runs, a silent model crouches).
+ * feed, which relays UVersePerceptionService). Every frame runs Think and applies the result to
+ * the possessed pawn through ApplyInputToPawn, so the trick layer acts even with the null brain
+ * (a rusher runs, a silent model crouches).
  */
 UCLASS()
 class VERSEHARNESS_API AVerseModelController : public AController
@@ -42,6 +45,14 @@ public:
 
 	void Configure(const FVersePersonModel& InModel, const FVerseTrickConfig& InTrick, uint32 InSeed);
 	void SetBrain(FBrain InBrain);
+
+	/**
+	 * The bot brain with person parameters (bot.md 11.1): BrainTier (kept alive here) drives
+	 * tactics, aim and reaction; the brain waits the reaction itself, so the model layer keeps only
+	 * the turn-rate limit and the trick overrides. Null removes it (null brain).
+	 */
+	void UseBotBrain(UVerseBotTier* BrainTier, uint64 BrainSeed, bool bLearning);
+	bool HasBotBrain() const { return Pilot.IsValid(); }
 
 	/** Subscribes to the feed's OnPerceptFrame and registers as an observer (one source at a time). */
 	void AttachPerception(UVerseHarnessPerceptFeed* Feed, const FVersePerceptionProfile& Profile);
@@ -90,4 +101,10 @@ private:
 	int64 FramesThought = 0;
 	TWeakObjectPtr<UVerseHarnessPerceptFeed> PerceptSource;
 	FDelegateHandle PerceptHandle;
+
+	TSharedPtr<FVerseBotPilot> Pilot;
+	UPROPERTY(Transient)
+	TObjectPtr<UVerseBotTier> PilotTier;
+	uint64 PilotSeed = 0;
+	bool bPilotLearning = true;
 };

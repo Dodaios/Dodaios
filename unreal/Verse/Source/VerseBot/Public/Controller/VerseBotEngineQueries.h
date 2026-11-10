@@ -17,10 +17,10 @@ class AController;
  *   blocked, whatever the server's current proxy shows, so a hole the bot never perceived never
  *   opens a line (DR6, F7). Glass follows the channel rules (sight passes, bolts stop).
  * - No world: every line is blocked.
- * - Paths are straight lines until NavigationSystem is linked (CCR #1162); no cover or piece data
- *   (WP11 arena data, WP06 pieces); spawn points from the level's player starts; zones a 10 m grid.
+ * - Paths on the nav mesh; cover points from FVerseBotArenaData once the runtime nav mesh is built;
+ *   no piece data (WP06); spawn points from the arena's spawn points; zones a 10 m grid.
  */
-class FVerseBotEngineQueries final : public IVerseBotWorldQueries
+class VERSEBOT_API FVerseBotEngineQueries final : public IVerseBotWorldQueries
 {
 public:
 	explicit FVerseBotEngineQueries(AController& InOwner) : Owner(&InOwner) {}
@@ -34,6 +34,9 @@ public:
 	virtual int32 GetZoneId(const FVector& Location) override;
 	virtual FVerseBotWeaponInfo GetOwnWeapon() override;
 	virtual bool CanActivateFinisher() override;
+
+	/** Static arena data (cover points); set once the nav mesh is built. */
+	void SetArena(TSharedPtr<const struct FVerseBotArenaData> InArena) { Arena = MoveTemp(InArena); }
 
 	/** True when the segment crosses the box (the believed-intact piece rule). */
 	static bool SegmentHitsBox(const FBox& Box, const FVector& From, const FVector& To);
@@ -51,4 +54,5 @@ private:
 	/** Glazing bounds: sight passes them on VerseSight, bolts stop. */
 	TArray<FBox> GlassBounds;
 	TWeakObjectPtr<UWorld> CachedWorld;
+	TSharedPtr<const struct FVerseBotArenaData> Arena;
 };

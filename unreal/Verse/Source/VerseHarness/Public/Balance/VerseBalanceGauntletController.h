@@ -76,6 +76,8 @@ public:
 
 	/** A tier-based person model (trick models "base hard", bot stand-ins) from a tier asset. */
 	static FVersePersonModel PersonFromTier(const UVerseBotTier& Tier, FName Name);
+	/** The brain tier of a person model: its BaseSkill interpolation with its own reaction, aim and learning. */
+	static UVerseBotTier* PersonTier(UObject* Outer, const FVersePersonModel& Person);
 
 private:
 	void BeginUnit();
@@ -84,7 +86,11 @@ private:
 	void Finish(const TCHAR* Why);
 	void Fail(const FString& Why);
 	AController* SpawnSlot(const FVerseHarnessSlot& Slot, const FString& TierPatchJson, uint32 SlotSeed, FString& OutError);
-	bool ConfigureBot(AController& Bot, const FVerseHarnessSlot& Slot, const FString& TierPatchJson, FString& OutError);
+	bool ConfigureBot(AController& Bot, const FVerseHarnessSlot& Slot, const FString& TierPatchJson, uint32 SlotSeed, FString& OutError);
+	/** Build the arena graybox and switch the hangar to arena mode (the duel quick start does the same). */
+	void PrepareArena(UWorld& InWorld);
+	/** A unique player id (and the bot flag) for a slot whose player state came up without one. */
+	void GiveSlotIdentity(AController& Controller, bool bBot);
 	void ResolveSpawnPair();
 	void RespawnSlot(AController& Controller, const FTransform& Where);
 	int32 MeasureSpawnSideA() const;
@@ -132,4 +138,6 @@ private:
 	/** Tier assets handed to bots and models of the current unit (kept alive for SetTier). */
 	UPROPERTY()
 	TArray<TObjectPtr<UVerseBotTier>> UnitTiers;
+	double NextBodyLogS = 0.0;
+	int32 NextSlotPlayerId = 9001;
 };
