@@ -1917,6 +1917,25 @@ async def community_install_by_name(item_id: str, request: Request) -> dict[str,
     return result
 
 
+def _installed_user_skill(name: str) -> str | None:
+    """The folder name of the installed user skill called ``name``, or None.
+
+    The name comes from the URL, so it is never joined into a path: it is
+    compared with the folders that are really there, and the folder's own name
+    is what gets returned. A name like ``../x`` then simply matches nothing.
+    """
+    from dodaios.core.paths import user_skills_dir
+
+    try:
+        for child in user_skills_dir().iterdir():
+            if child.name == name and (child / "SKILL.md").is_file():
+                return child.name
+    except OSError:
+        # No skills folder yet (or it cannot be listed): nothing is installed.
+        return None
+    return None
+
+
 @router.delete("/community/install/{item_id}")
 async def community_remove_by_name(item_id: str, request: Request) -> dict[str, Any]:
     """Remove what ``POST /community/install/{item_id}`` installed, by name.
@@ -1928,18 +1947,17 @@ async def community_remove_by_name(item_id: str, request: Request) -> dict[str, 
     it. An agent is a teammate with its own history, so it is not removed from
     here — the answer says where to do that.
     """
-    from dodaios.core.paths import user_skills_dir
-
     spec = load_catalog().by_id(item_id)
     if spec is not None and spec.source == "community":
         result = await community_uninstall(item_id)
         return {**result, "kind": "plugin", "id": item_id}
 
-    if (user_skills_dir() / item_id / "SKILL.md").exists():
+    skill_name = _installed_user_skill(item_id)
+    if skill_name is not None:
         from dodaios.ui.web.skills_routes import delete_skill
 
-        delete_skill(item_id, request)
-        return {"ok": True, "removed": True, "kind": "skill", "id": item_id}
+        delete_skill(skill_name, request)
+        return {"ok": True, "removed": True, "kind": "skill", "id": skill_name}
 
     from dodaios.marketplace import community_source
 

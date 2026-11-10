@@ -367,3 +367,34 @@ async def test_remove_by_name_of_something_not_installed_is_a_404(store: Path) -
     async with _client() as client:
         res = await client.delete("/api/marketplace/community/install/humanizer")
     assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_remove_by_name_deletes_an_installed_skill(
+    store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(store)
+    skills = store.parent / "skills"
+    (skills / "humanizer").mkdir(parents=True)
+    (skills / "humanizer" / "SKILL.md").write_text(SKILL_MD, encoding="utf-8")
+    deleted: list[str] = []
+    monkeypatch.setattr(
+        "dodaios.ui.web.skills_routes.delete_skill",
+        lambda name, request: deleted.append(name),
+    )
+    async with _client() as client:
+        res = await client.delete("/api/marketplace/community/install/humanizer")
+    assert res.status_code == 200
+    assert res.json() == {"ok": True, "removed": True, "kind": "skill", "id": "humanizer"}
+    assert deleted == ["humanizer"]
+
+
+def test_a_name_that_climbs_out_of_the_skills_folder_matches_nothing(
+    store: Path,
+) -> None:
+    outside = store.parent / "outside"
+    outside.mkdir()
+    (outside / "SKILL.md").write_text("x", encoding="utf-8")
+    (store.parent / "skills").mkdir()
+    assert marketplace_routes._installed_user_skill("../outside") is None
+    assert marketplace_routes._installed_user_skill("") is None
