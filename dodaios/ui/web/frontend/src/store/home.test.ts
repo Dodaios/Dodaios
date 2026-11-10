@@ -4,6 +4,50 @@ import { reduceLiveReply, useHomeStore } from "@/store/home";
 import { useEventStore } from "@/store/events";
 import { useAgentChatStore } from "@/store/agentChat";
 
+describe("why a call ended (the call window's note)", () => {
+  beforeEach(() => {
+    useHomeStore.getState().resetTranscript();
+    useHomeStore.setState({ callPending: false, callProblem: null, voiceSwitchStopping: false });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ providers: [], sessions: [] }))));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("notes a call that ended on an error, and keeps a named reason over an unnamed one", () => {
+    const home = useHomeStore.getState();
+    home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);
+    home.setCallProblem({ message: "The account is not offered voice." });
+    home.ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "error" }, 2);
+    expect(useHomeStore.getState().callProblem).toEqual({ message: "The account is not offered voice." });
+  });
+
+  it("notes an error end even when nothing named the reason", () => {
+    const home = useHomeStore.getState();
+    home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);
+    home.ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "error" }, 2);
+    expect(useHomeStore.getState().callProblem).toEqual({ message: "" });
+  });
+
+  it("leaves no note after an ordinary hang-up", () => {
+    const home = useHomeStore.getState();
+    home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);
+    home.ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "hotkey" }, 2);
+    expect(useHomeStore.getState().callProblem).toBeNull();
+  });
+
+  it("clears the note and the pending mark when the next call starts", () => {
+    useHomeStore.setState({ callPending: true, callProblem: { message: "old" } });
+    useHomeStore.getState().ingest("VoiceSessionStarted", { session_id: "next" }, 1);
+    expect(useHomeStore.getState().callProblem).toBeNull();
+    expect(useHomeStore.getState().callPending).toBe(false);
+  });
+
+  it("stops waiting once a problem is known", () => {
+    useHomeStore.setState({ callPending: true });
+    useHomeStore.getState().setCallProblem({ message: "refused" });
+    expect(useHomeStore.getState().callPending).toBe(false);
+  });
+});
+
 describe("voice conversation boundaries", () => {
   beforeEach(() => {
     useHomeStore.getState().resetTranscript();

@@ -938,9 +938,9 @@
       "label": "Llamada con {name}",
       "muted": "Micrófono apagado",
       "mute_failed": "No se pudo cambiar el micrófono.",
+      "failed": "La llamada no funcionó",
+      "failed_unknown": "No se informó ningún motivo. Revisa los ajustes de voz e inténtalo de nuevo.",
       "settings": "Ajustes de voz",
-      "show_transcript": "Mostrar transcripción",
-      "hide_transcript": "Ocultar transcripción",
       "mute": "Apagar el micrófono",
       "unmute": "Encender el micrófono"
     },

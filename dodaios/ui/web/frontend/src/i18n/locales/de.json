@@ -938,9 +938,9 @@
       "label": "Anruf mit {name}",
       "muted": "Mikro aus",
       "mute_failed": "Das Mikrofon konnte nicht umgeschaltet werden.",
+      "failed": "Der Anruf hat nicht geklappt",
+      "failed_unknown": "Es wurde kein Grund gemeldet. Prüfe die Stimmeinstellungen und versuch es noch einmal.",
       "settings": "Spracheinstellungen",
-      "show_transcript": "Mitschrift zeigen",
-      "hide_transcript": "Mitschrift ausblenden",
       "mute": "Mikrofon ausschalten",
       "unmute": "Mikrofon einschalten"
     },

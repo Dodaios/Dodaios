@@ -938,9 +938,9 @@
       "label": "与 {name} 通话",
       "muted": "麦克风已关闭",
       "mute_failed": "无法切换麦克风。",
+      "failed": "这次通话没有成功",
+      "failed_unknown": "没有收到原因。请检查语音设置后重试。",
       "settings": "语音设置",
-      "show_transcript": "显示转录",
-      "hide_transcript": "隐藏转录",
       "mute": "关闭麦克风",
       "unmute": "打开麦克风"
     },
