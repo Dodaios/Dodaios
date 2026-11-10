@@ -829,6 +829,15 @@ def _register_runtime_manager(manager: Any) -> None:
 
             return await tools_for_cli_session(session_id, tools, manager)
 
+        def lead_hands(session_id: str) -> dict[str, Any]:
+            # The chat's own Connect card: a brain seat has it in its kit, a CLI
+            # seat reaches it over MCP.
+            from types import SimpleNamespace
+
+            from dodaios.society.connect_tool import lead_connect_tools
+
+            return lead_connect_tools(SimpleNamespace(session_id=session_id))
+
         runtime_refs.set_brain_manager(manager)
         runtime_refs.set_supervisor_tool_gateway(
             BrainSupervisorToolGateway(
@@ -838,6 +847,7 @@ def _register_runtime_manager(manager: Any) -> None:
                 session_tools=session_tools,
                 workspace_tool=WorkspaceOrchestrationTool(WorkspaceGateway()),
                 lead_session=_is_jarvis_chat_session,
+                lead_hands=lead_hands,
             )
         )
     except Exception as exc:  # noqa: BLE001 - registration never blocks boot

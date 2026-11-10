@@ -172,8 +172,10 @@ def test_a_coding_thread_may_spawn_sub_agents(monkeypatch, tmp_path: Path):
     appended = plan.argv[plan.argv.index("--append-system-prompt") + 1]
     assert appended == dodaios_harness.CODING_PREAMBLE
     assert "sub-agent" not in appended
-    # The assistant's own chat keeps its rule: there the turn is the worker.
-    assert dodaios_harness.SYSTEM_PREAMBLE.endswith("spawn no sub-agents.")
+    # The assistant's own chat is the lead: it delegates through the Dodaios tools.
+    assert dodaios_harness.SYSTEM_PREAMBLE.endswith(
+        "do not use your vendor's own sub-agent tool."
+    )
     # No persona or reply-style rules in a coding thread: the CLI acts as in a terminal.
     for phrase in ("not technical", "No emojis", "prefer them over"):
         assert phrase not in appended
