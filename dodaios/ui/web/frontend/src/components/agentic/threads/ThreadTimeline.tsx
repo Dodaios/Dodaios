@@ -12,7 +12,8 @@ import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
-import { buildThreadRows, isFailed, joinStretches, thoughtGist, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
+import { buildThreadRows, isFailed, joinStretches, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
+import { flattenMarks } from "@/lib/plainMarks";
 import { SubagentCard, SubagentGroup } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
@@ -20,13 +21,14 @@ import { turnErrorText } from "@/components/agentchat/turnError";
 /**
  * A thread's conversation: the person's messages on the right, the agent's
  * answer as plain reading text on the left, and the work in between as a
- * quiet log. Everything the agent did between two things it said — its
- * thoughts and its calls — is ONE grey line with a chevron: the newest
- * thought's heading, else what the calls did ("Edited files, ran commands").
- * The line never opens by itself: while the turn works it reads the step the
- * agent is on, with the live shine. A click opens a card with one row per
- * step, a hairline between them; a row opens to what the call ran, the diff
- * it made or what came back, or to the whole thought. A running turn ends in "Working for 12s";
+ * quiet log. A thought the agent put into words reads as prose, a step
+ * quieter than the answer, so a turn says what it is doing from its first
+ * step on; a long thought shows its first lines and opens to the rest. The
+ * calls between two pieces of prose are ONE grey line with a chevron that
+ * says what they did ("Ran commands, edited a file"). The line never opens by
+ * itself: while the turn works it carries the live shine. A click opens a
+ * card with one row per step, a hairline between them; a row opens to what
+ * the call ran, the diff it made or what came back. A running turn ends in "Working for 12s";
  * a finished one says how long it worked and which files it changed.
  *
  * The work-log geometry and the live shine are adapted from pingdotgg/t3code
@@ -198,19 +200,26 @@ function callTail(call: Call, t: (key: string) => string): string {
   return isFailed(call) && call.reason ? call.reason : call.status === "interrupted" ? t("thread_turn.interrupted") : "";
 }
 
+/** A call in a line of the thread: a command by what it was, any other call by its own words. */
+function callWords(call: Call, t: (key: string) => string): string {
+  return call.kind === "command" ? capitalize(tr(t, "act.command_one")) : call.text;
+}
+
 /** A lone call between two things the agent said: a line of the thread that opens to its details. */
 function CallRow({ call, stamp }: { call: Call; stamp?: number }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const failed = isFailed(call);
   const running = call.status === "running";
-  const detail = call.detail || call.result;
+  const command = call.kind === "command";
+  const text = callWords(call, t);
+  const detail = command ? "" : call.detail || call.result;
   const tail = callTail(call, t);
   // The shine paints the label's own text, so a running row is one run of words.
   const label = running
-    ? [call.text, detail].filter(Boolean).join("  ")
+    ? [text, detail].filter(Boolean).join("  ")
     : <>
-      <span>{call.text}</span>
+      <span>{text}</span>
       {detail && <span className="ml-1.5 text-muted-foreground/70">{detail}</span>}
       {tail && <span className="ml-1.5 text-muted-foreground/70">— {tail}</span>}
     </>;
@@ -231,34 +240,27 @@ function CallRow({ call, stamp }: { call: Call; stamp?: number }) {
 
 const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-secondary prose-p:text-foreground-secondary prose-li:text-foreground-secondary");
 
+/** A thought longer than this shows its first lines and opens to the rest. */
+export const THOUGHT_PREVIEW = 320;
+
 /**
- * A lone thought between two things the agent said, read at a glance: one
- * grey line — its heading or first sentence. A click swaps the line for the
- * whole text; nothing long ever stands in the thread unasked, and nothing is
- * said twice.
+ * A thought the agent put into words, read as prose between its work: what
+ * it is looking at and why, a step quieter than the answer. A short thought
+ * stands whole; a long one shows its first three lines and opens to the rest.
  */
 function ThoughtView({ text }: { text: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const gist = useMemo(() => thoughtGist(text), [text]);
-  const more = gist !== text.trim();
-  if (open) {
-    return <div className="min-w-0 py-1.5" data-testid="thread-thought">
-      <div className={cn(THOUGHT_PROSE, "select-text py-0")}><ChatMarkdown text={text} /></div>
-      <button type="button" aria-expanded onClick={() => setOpen(false)}
-        className="mt-0.5 rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {t("trace_report.show_less")}
-      </button>
-    </div>;
-  }
+  const plain = useMemo(() => flattenMarks(text), [text]);
+  const long = plain.length > THOUGHT_PREVIEW;
   return <div className="min-w-0" data-testid="thread-thought">
-    {more
-      ? <button type="button" aria-expanded={false} onClick={() => setOpen(true)}
-        className="group/thought block w-full rounded-md py-1.5 text-left text-base leading-6 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {gist}
-        <ChevronRight aria-hidden className="ml-1 inline h-3.5 w-3.5 align-[-2px] opacity-60 transition duration-200 group-hover/thought:opacity-100" />
-      </button>
-      : <p className="m-0 py-1.5 text-base leading-6 text-muted-foreground">{gist}</p>}
+    {long && !open
+      ? <p className="m-0 line-clamp-3 py-1 text-base leading-6 text-foreground-secondary [overflow-wrap:anywhere]">{plain}</p>
+      : <div className={cn(THOUGHT_PROSE, "select-text")}><ChatMarkdown text={text} /></div>}
+    {long && <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}
+      className="rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {t(open ? "trace_report.show_less" : "trace_report.show_more")}
+    </button>}
   </div>;
 }
 
@@ -272,7 +274,6 @@ export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=im
 function LoneStep({ item, running }: { item: StretchItem; running: boolean }) {
   const t = useT();
   if (item.kind === "call") return <CallRow call={item.call} stamp={item.startedMs} />;
-  if (item.kind === "said") return <ThoughtView text={item.text} />;
   return running ? <WorkRow label={t("thread_turn.thinking")} live /> : null;
 }
 
@@ -308,12 +309,6 @@ function CardRow({ label, openLabel, detail, mono = false, trailing, live = fals
 
 function CardStep({ item, running }: { item: StretchItem; running: boolean }) {
   const t = useT();
-  if (item.kind === "said") {
-    const gist = thoughtGist(item.text);
-    return <CardRow label={gist} openLabel={t("work_trace.thought")} testId="thread-thought">
-      {gist !== item.text.trim() && <div className={cn(THOUGHT_PROSE, "select-text px-3.5 pb-3 pt-0 text-sm")}><ChatMarkdown text={item.text} /></div>}
-    </CardRow>;
-  }
   if (item.kind === "thought") return running ? <CardRow label={t("thread_turn.thinking")} live /> : null;
   const call = item.call;
   const failed = isFailed(call);
@@ -335,24 +330,17 @@ function CardStep({ item, running }: { item: StretchItem; running: boolean }) {
   </CardRow>;
 }
 
-/** What the running turn is on right now, for the closed line of its stretch. */
-function currentStep(stretch: Stretch, t: (key: string) => string): string {
-  const item = stretch.items[stretch.items.length - 1];
-  if (item.kind === "call") return item.call.text;
-  return item.kind === "said" ? thoughtGist(item.text) : t("thread_turn.thinking");
-}
-
 /**
- * Everything between two things the agent said, as one line: a lone step on
- * its own line, else the stretch's words with a chevron. The line stays
- * closed until the reader opens it; while the turn works in it, it reads the
- * step the agent is on. Opened, it shows a card with one row per step.
+ * The calls between two pieces of the agent's prose, as one line: a lone
+ * step on its own line, else what the calls did with a chevron. The line
+ * stays closed until the reader opens it; while the turn works in it, it
+ * carries the live shine. Opened, it shows a card with one row per step.
  */
 function StretchView({ stretch, running }: { stretch: Stretch; running: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   if (stretch.items.length === 1) return <LoneStep item={stretch.items[0]} running={running} />;
-  const label = stretch.live ? currentStep(stretch, t) : stretch.label;
+  const label = stretch.label;
   return <WorkRow
     label={label}
     ariaLabel={stretch.live ? fill(t("thread_turn.steps_so_far"), { summary: label, count: stretch.items.length }) : undefined}
@@ -643,7 +631,7 @@ function WorkingFor({ since }: { since: number }) {
 function BackgroundWait({ tasks, since }: { tasks: readonly string[]; since: number }) {
   const t = useT();
   const lang = t("trace_report.locale");
-  return <div className="min-w-0 px-1 text-sm text-muted-foreground" data-testid="thread-working">
+  return <div className="min-w-0 text-sm text-muted-foreground" data-testid="thread-working">
     <div className="flex h-6 min-w-0 items-center gap-2" data-testid="thread-waiting-background">
       <span aria-hidden className="relative flex h-1.5 w-1.5 shrink-0">
         <span className="absolute inline-flex h-full w-full rounded-full bg-primary/60 motion-safe:animate-ping" />
@@ -730,12 +718,13 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
       : answer ? workedFor : timed("no_answer");
-  const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { t, lang, running }).map((row) =>
+  const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { running }).map((row) =>
     row.kind === "stretch" ? <StretchView key={row.id} stretch={row} running={running} />
       : row.kind === "agents" ? <SubagentGroup key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
   const renderRow = (row: ThreadRow) => {
-    // Work and thoughts are drawn as stretches (renderRows), never as rows of their own.
-    if (row.kind === "work" || row.kind === "thought") return null;
+    // Work is drawn as stretches (renderRows), never as a row of its own.
+    if (row.kind === "work") return null;
+    if (row.kind === "thought") return <ThoughtView key={row.id} text={row.text} />;
     if (isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
       <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
     </div>;
@@ -797,7 +786,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {running
       ? waitingOn.length > 0
         ? <BackgroundWait tasks={waitingOn} since={turn.startedMs} />
-        : <div className="flex h-6 min-w-0 items-center px-1 text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
+        : <div className="flex h-6 min-w-0 items-center text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
           <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
             {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
         </div>
