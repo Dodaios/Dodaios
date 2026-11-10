@@ -927,9 +927,9 @@
       "label": "Chamada com {name}",
       "muted": "Microfone desligado",
       "mute_failed": "Não foi possível alternar o microfone.",
+      "failed": "A chamada não funcionou",
+      "failed_unknown": "Não foi indicado nenhum motivo. Verifica as definições de voz e tenta de novo.",
       "settings": "Configurações de voz",
-      "show_transcript": "Mostrar transcrição",
-      "hide_transcript": "Ocultar transcrição",
       "mute": "Desligar o microfone",
       "unmute": "Ligar o microfone"
     },
