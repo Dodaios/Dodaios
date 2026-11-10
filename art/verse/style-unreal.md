@@ -181,6 +181,8 @@ Opaque hard surface: steel, concrete, paint, rubber.
 | `EdgeTint` | vector | Colour of worn edges |
 | `GrimeAmount` | scalar | Strength of vertex colour G (grime) and noise grime |
 | `NoiseScale` | scalar | World noise frequency per metre |
+| `PanelCm` | scalar | World-space panel seam grid in cm on the face's plane (0 off) |
+| `PanelDark` | scalar | How much a panel seam darkens and roughens the surface |
 | `UseTriplanar` | switch | Object-relative triplanar mapping for pieces without UVs |
 | `TriplanarScale` | scalar | Texture repeats per metre in triplanar mode |
 | `UseTextureSet` | switch | Sample Set1 (and Set2/Set3 by noise masks) instead of flat tint |
@@ -262,6 +264,8 @@ Skin, cloth, gear (subsurface profile); UV0 stable for wound masks.
 | `ORMMap` | texture | AO, roughness, metallic |
 | `NormalMap` | texture | Normal |
 | `RoughnessScale` | scalar | Roughness multiplier |
+| `Roughness` | scalar | Roughness without a map (multiplies ORM green) |
+| `Metallic` | scalar | Metallic without a map (multiplies ORM blue) |
 | `Sheen` | scalar | Cloth sheen at grazing angles |
 | `SubsurfaceAmount` | scalar | Skin subsurface opacity |
 

@@ -88,6 +88,8 @@ private:
 	void Dress(UWorld& World, const TSharedPtr<class FJsonObject>& Root);
 	void DressHall();
 	void DressBox(const TSharedPtr<class FJsonObject>& Box);
+	/** Oil stains and scuffs on the arena floor (deferred decals, seeded). */
+	void DressDecals();
 	void ApplyLook(UWorld& World);
 	void RestoreLook();
 	AVerseDestructible* SpawnPiece(UWorld& World, const TSharedPtr<class FJsonObject>& Box);
@@ -129,6 +131,7 @@ private:
 	float SavedFogDensity = 0.f;
 	float SavedFogFalloff = 0.f;
 	float SavedFogStart = 0.f;
+	float SavedFogScattering = 0.2f;
 	bool bFogSaved = false;
 
 	TWeakObjectPtr<class APostProcessVolume> ArenaPost;

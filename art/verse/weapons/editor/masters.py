@@ -90,6 +90,8 @@ SURFACE_PARAMS = [
     _p("vector", "EdgeTint", (0.044, 0.050, 0.063, 1.0), "Colour of worn edges"),
     _p("scalar", "GrimeAmount", 0.5, "Strength of vertex colour G (grime) and noise grime"),
     _p("scalar", "NoiseScale", 1.5, "World noise frequency per metre"),
+    _p("scalar", "PanelCm", 0.0, "World-space panel seam grid in cm on the face's plane (0 off)"),
+    _p("scalar", "PanelDark", 0.55, "How much a panel seam darkens and roughens the surface"),
     _p("switch", "UseTriplanar", False, "Object-relative triplanar mapping for pieces without UVs"),
     _p("scalar", "TriplanarScale", 1.0, "Texture repeats per metre in triplanar mode"),
     _p(
@@ -200,6 +202,8 @@ MASTERS: list[MasterSpec] = [
             _p("texture", "ORMMap", WHITE, "AO, roughness, metallic"),
             _p("texture", "NormalMap", FLAT_NORMAL, "Normal"),
             _p("scalar", "RoughnessScale", 1.0, "Roughness multiplier"),
+            _p("scalar", "Roughness", 1.0, "Roughness without a map (multiplies ORM green)"),
+            _p("scalar", "Metallic", 1.0, "Metallic without a map (multiplies ORM blue)"),
             _p("scalar", "Sheen", 0.0, "Cloth sheen at grazing angles"),
             _p("scalar", "SubsurfaceAmount", 0.0, "Skin subsurface opacity"),
         ],
@@ -313,6 +317,16 @@ float3 a = Texture2DSample(Tex, TexSampler, p.yz).rgb;
 float3 b = Texture2DSample(Tex, TexSampler, p.xz).rgb;
 float3 c = Texture2DSample(Tex, TexSampler, p.xy).rgb;
 return a * w.x + b * w.y + c * w.z;
+"""
+
+PANEL = """
+float3 n = abs(Nrm);
+float2 p = (n.x > n.y && n.x > n.z) ? WorldPos.yz : ((n.y > n.z) ? WorldPos.xz : WorldPos.xy);
+float cell = max(PanelCm, 1.0);
+float2 g = abs(frac(p / cell + 0.5) - 0.5) * cell;
+float seam = 1.0 - smoothstep(0.5, 1.3, min(g.x, g.y));
+float bevel = 1.0 - smoothstep(1.3, 3.0, min(g.x, g.y));
+return PanelCm > 0.5 ? saturate(seam + bevel * 0.35) * PanelDark : 0.0;
 """
 
 FLOOR_COLOUR = """
@@ -617,16 +631,38 @@ return lerp(lerp(A, B, m2), C, m3);
     ins = {k: (k, "") for k in ("BaseTint", "EdgeTint", "EdgeWear", "GrimeAmount")}
     ins.update({"VC": ("VC", ""), "N": ("N", ""), "Tex": ("UseTextureSet", "")})
     g.custom("Colour", SURFACE_COLOUR, ins)
+    g.custom(
+        "Panel",
+        PANEL,
+        {
+            "WorldPos": ("WorldPos", ""),
+            "Nrm": ("Nrm", ""),
+            "PanelCm": ("PanelCm", ""),
+            "PanelDark": ("PanelDark", ""),
+        },
+        out="1",
+    )
+    g.custom(
+        "ColourPanel",
+        "return C * (1.0 - P);",
+        {"C": ("Colour", ""), "P": ("Panel", "")},
+    )
     rough = {k: (k, "") for k in ("RoughnessMin", "RoughnessMax", "EdgeWear")}
     rough.update({"VC": ("VC", ""), "N": ("N", ""), "Orm": ("OrmSw", "")})
-    g.custom("Rough", SURFACE_ROUGH, rough, out="1")
+    g.custom("RoughBase", SURFACE_ROUGH, rough, out="1")
+    g.custom(
+        "Rough",
+        "return saturate(R + P * 0.3);",
+        {"R": ("RoughBase", ""), "P": ("Panel", "")},
+        out="1",
+    )
     g.custom(
         "Metal",
         "return saturate(Metallic * Orm.b + (1.0 - Orm.b) * Metallic);",
         {"Metallic": ("Metallic", ""), "Orm": ("OrmSw", "")},
         out="1",
     )
-    g.out("Colour", "", "MP_BASE_COLOR")
+    g.out("ColourPanel", "", "MP_BASE_COLOR")
     g.out("Rough", "", "MP_ROUGHNESS")
     g.out("Metal", "", "MP_METALLIC")
     g.out("NrmSw", "", "MP_NORMAL")
@@ -744,11 +780,20 @@ def build_character(g: Graph) -> None:
     )
     g.custom(
         "Rough",
-        "return saturate(Orm.g * RoughnessScale);",
-        {"Orm": ("Orm", ""), "RoughnessScale": ("RoughnessScale", "")},
+        "return saturate(Orm.g * RoughnessScale * Roughness);",
+        {
+            "Orm": ("Orm", ""),
+            "RoughnessScale": ("RoughnessScale", ""),
+            "Roughness": ("Roughness", ""),
+        },
         out="1",
     )
-    g.custom("Metal", "return Orm.b;", {"Orm": ("Orm", "")}, out="1")
+    g.custom(
+        "Metal",
+        "return saturate(Orm.b * Metallic);",
+        {"Orm": ("Orm", ""), "Metallic": ("Metallic", "")},
+        out="1",
+    )
     g.custom(
         "Nrm",
         "return Texture2DSample(Tex, TexSampler, UV).rgb;",

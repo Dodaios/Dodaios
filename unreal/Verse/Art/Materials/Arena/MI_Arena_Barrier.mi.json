@@ -7,7 +7,8 @@
     "EdgeWear": 0.12,
     "GrimeAmount": 0.15,
     "Metallic": 0.0,
-    "NoiseScale": 0.15,
+    "NoiseScale": 0.04,
+    "PanelCm": 150.0,
     "RoughnessMax": 0.85,
     "RoughnessMin": 0.55
   },

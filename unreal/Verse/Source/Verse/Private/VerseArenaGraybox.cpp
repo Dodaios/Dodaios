@@ -57,7 +57,7 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float FillKelvin = 6500.f;
 	constexpr float FillLux = 18.f;
 	/** Soft shadowless bounce stand-ins over the arena (lumens each): faces the work lights miss stay readable. */
-	constexpr float BounceLumens = 30000.f;
+	constexpr float BounceLumens = 14000.f;
 	/** Largest rendered box edge (cm); bigger boxes render as tiles (collision stays one box). */
 	constexpr double MaxTileCm = 600.0;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
@@ -764,15 +764,19 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.LocalExposureHighlightContrastScale = 0.75f;
 		S.bOverride_LocalExposureShadowContrastScale = true;
 		S.LocalExposureShadowContrastScale = 0.75f;
-		// No Lumen in the arena: its distance-field tracing over the stretched graybox cubes draws
-		// metre-sized blocks on every big face. The shadowless bounce points are the fill, screen
-		// space AO grounds the props and screen space reflections keep the deck's sheen.
+		// Lumen GI and reflections (arena.md 9): big boxes render as tiles, so the surface cache
+		// stays fine; metal (grating, trusses, the black weapon) needs Lumen's reflections to read.
+		// The shadowless bounce points only lift what the bounce misses.
 		S.bOverride_DynamicGlobalIlluminationMethod = true;
-		S.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::None;
+		S.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::Lumen;
 		S.bOverride_ReflectionMethod = true;
-		S.ReflectionMethod = EReflectionMethod::ScreenSpace;
-		S.bOverride_ScreenSpaceReflectionIntensity = true;
-		S.ScreenSpaceReflectionIntensity = 80.f;
+		S.ReflectionMethod = EReflectionMethod::Lumen;
+		S.bOverride_IndirectLightingIntensity = true;
+		S.IndirectLightingIntensity = 1.0f;
+		S.bOverride_LumenSceneLightingQuality = true;
+		S.LumenSceneLightingQuality = 2.f;
+		S.bOverride_LumenFinalGatherQuality = true;
+		S.LumenFinalGatherQuality = 2.f;
 		S.bOverride_AmbientOcclusionIntensity = true;
 		S.AmbientOcclusionIntensity = 0.6f;
 		S.bOverride_AmbientOcclusionRadius = true;
@@ -798,6 +802,9 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		Fog->SetFogHeightFalloff(0.12f);
 		Fog->SetStartDistance(400.f);
 		Fog->SetVolumetricFog(true);
+		// Forward scattering: the work-light cones read as soft shafts toward the player.
+		SavedFogScattering = Fog->VolumetricFogScatteringDistribution;
+		Fog->SetVolumetricFogScatteringDistribution(0.55f);
 		break;
 	}
 }
@@ -825,6 +832,7 @@ void AVerseArenaGraybox::RestoreLook()
 		Fog->SetFogDensity(SavedFogDensity);
 		Fog->SetFogHeightFalloff(SavedFogFalloff);
 		Fog->SetStartDistance(SavedFogStart);
+		Fog->SetVolumetricFogScatteringDistribution(SavedFogScattering);
 	}
 	bFogSaved = false;
 }
@@ -972,7 +980,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 					C->SetMobility(EComponentMobility::Movable);
 					C->SetOuterConeAngle(float(Light->GetNumberField(TEXT("coneDeg")) * 0.5));
 					C->SetInnerConeAngle(float(Light->GetNumberField(TEXT("coneDeg")) * 0.25));
-					C->SetVolumetricScatteringIntensity(0.45f);
+					C->SetVolumetricScatteringIntensity(1.4f);
 					Component = C;
 					Spawned.Add(Spot);
 				}

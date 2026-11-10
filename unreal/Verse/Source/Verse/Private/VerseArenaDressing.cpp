@@ -1,5 +1,6 @@
 #include "VerseArenaGraybox.h"
 
+#include "Components/DecalComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Dom/JsonObject.h"
 #include "Engine/StaticMesh.h"
@@ -626,6 +627,38 @@ void AVerseArenaGraybox::DressHall()
 		TEXT("Arena_Marking"), false);
 }
 
+void AVerseArenaGraybox::DressDecals()
+{
+	// Seeded, so every duel shows the same floor: oil under the gunship and the vehicles' lanes,
+	// boot and tyre scuffs everywhere else. The launch well (x 2700..3700, y 900..1900) stays clean.
+	FRandomStream Rng(0x48414E47);
+	auto Place = [&](const TCHAR* Look, const FVector& At, double Size)
+	{
+		UDecalComponent* Decal = NewObject<UDecalComponent>(this);
+		Decal->SetDecalMaterial(MaterialFor(Look));
+		Decal->DecalSize = FVector(30.0, Size, Size * Rng.FRandRange(0.6f, 1.0f));
+		Decal->SetFadeScreenSize(0.002f);
+		Decal->SetupAttachment(RootComponent);
+		Decal->SetWorldLocationAndRotation(At, FRotator(-90.0, Rng.FRandRange(0.f, 360.f), 0.0));
+		Decal->RegisterComponent();
+		++DressingInstances;
+	};
+	for (int32 I = 0; I < 90; ++I)
+	{
+		const FVector At(Rng.FRandRange(2550.f, 7450.f), Rng.FRandRange(450.f, 4350.f), 0.0);
+		if (At.X > 2650.0 && At.X < 3750.0 && At.Y > 850.0 && At.Y < 1950.0)
+		{
+			continue;
+		}
+		const bool bOil = I % 3 == 0;
+		Place(bOil ? TEXT("Arena_OilStain") : TEXT("Arena_Scuff"), At, bOil ? Rng.FRandRange(60.f, 220.f) : Rng.FRandRange(120.f, 380.f));
+	}
+	for (int32 I = 0; I < 10; ++I)
+	{
+		Place(TEXT("Arena_OilStain"), FVector(5000.0 + Rng.FRandRange(-300.f, 300.f), 2400.0 + Rng.FRandRange(-800.f, 800.f), 0.0), Rng.FRandRange(80.f, 260.f));
+	}
+}
+
 void AVerseArenaGraybox::Dress(UWorld& World, const TSharedPtr<FJsonObject>& Root)
 {
 	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("boxes")))
@@ -633,5 +666,6 @@ void AVerseArenaGraybox::Dress(UWorld& World, const TSharedPtr<FJsonObject>& Roo
 		DressBox(Value->AsObject());
 	}
 	DressHall();
+	DressDecals();
 	UE_LOG(LogVerse, Log, TEXT("[VerseArena] dressing: %d instances on %d components"), DressingInstances, Dressing.Num());
 }

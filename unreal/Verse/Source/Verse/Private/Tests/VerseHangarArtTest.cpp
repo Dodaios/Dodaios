@@ -47,6 +47,7 @@ namespace VerseHangarArtTest
 		double Yaw;
 		double Pitch;
 		bool bAds;
+		bool bShowBot = false;
 	};
 
 	const FView Views[] = {
@@ -58,18 +59,31 @@ namespace VerseHangarArtTest
 		{TEXT("06_ads_south"), FVector(4850.0, 4250.0, 0.0), 260.0, -1.0, true},
 		{TEXT("07_booth_l1"), FVector(3150.0, 4050.0, 300.0), 330.0, -6.0, false},
 		{TEXT("08_catwalk_l2"), FVector(2620.0, 1800.0, 600.0), 70.0, -12.0, false},
+		{TEXT("09_bot"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, false, true},
+		{TEXT("10_bot_ads"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, true, true},
 	};
 
-	/** The tour is about the room: the bot waits, out of sight, in the armoury. */
-	void ParkBots(UWorld* World)
+	/**
+	 * The tour is about the room: the bot waits, out of sight, in the armoury, or (bShowBot)
+	 * stands still 7 m in front of the camera, facing it.
+	 */
+	void ParkBots(UWorld* World, const FView& View)
 	{
+		const FVector Ahead = FRotator(0.0, View.Yaw, 0.0).Vector();
 		for (TActorIterator<AVerseBotController> It(World); It; ++It)
 		{
 			It->SetActorTickEnabled(false);
 			if (APawn* Bot = It->GetPawn())
 			{
 				Bot->SetActorTickEnabled(false);
-				Bot->TeleportTo(FVector(9300.0, 5600.0, 120.0), FRotator::ZeroRotator, false, true);
+				if (View.bShowBot)
+				{
+					Bot->TeleportTo(View.Floor + Ahead * 700.0 + FVector(0.0, 0.0, 100.0), (-Ahead).Rotation(), false, true);
+				}
+				else
+				{
+					Bot->TeleportTo(FVector(9300.0, 5600.0, 120.0), FRotator::ZeroRotator, false, true);
+				}
 			}
 		}
 	}
@@ -148,7 +162,7 @@ bool FVerseVisualHangarArtTest::RunTest(const FString&)
 			switch (State->Phase)
 			{
 			case 0:
-				ParkBots(World);
+				ParkBots(World, View);
 				Pawn->TeleportTo(View.Floor + FVector(0.0, 0.0, 100.0), FRotator(0.0, View.Yaw, 0.0));
 				PC->SetControlRotation(FRotator(View.Pitch, View.Yaw, 0.0));
 				Pawn->GetPersonInput().SetButton(EVerseInputButton::Ads, View.bAds);
