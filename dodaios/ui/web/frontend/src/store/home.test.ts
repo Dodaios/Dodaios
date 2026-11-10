@@ -17,14 +17,14 @@ describe("why a call ended (the call window's note)", () => {
     home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);
     home.setCallProblem({ message: "The account is not offered voice." });
     home.ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "error" }, 2);
-    expect(useHomeStore.getState().callProblem).toEqual({ message: "The account is not offered voice." });
+    expect(useHomeStore.getState().callProblem).toMatchObject({ message: "The account is not offered voice." });
   });
 
   it("notes an error end even when nothing named the reason", () => {
     const home = useHomeStore.getState();
     home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);
     home.ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "error" }, 2);
-    expect(useHomeStore.getState().callProblem).toEqual({ message: "" });
+    expect(useHomeStore.getState().callProblem).toMatchObject({ message: "" });
   });
 
   it("leaves no note after an ordinary hang-up", () => {
@@ -35,7 +35,7 @@ describe("why a call ended (the call window's note)", () => {
   });
 
   it("clears the note and the pending mark when the next call starts", () => {
-    useHomeStore.setState({ callPending: true, callProblem: { message: "old" } });
+    useHomeStore.setState({ callPending: true, callProblem: { message: "old", at: Date.now() } });
     useHomeStore.getState().ingest("VoiceSessionStarted", { session_id: "next" }, 1);
     expect(useHomeStore.getState().callProblem).toBeNull();
     expect(useHomeStore.getState().callPending).toBe(false);

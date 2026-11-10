@@ -941,6 +941,7 @@
       "mute_failed": "No se pudo cambiar el micrófono.",
       "failed": "La llamada no funcionó",
       "failed_unknown": "No se informó ningún motivo. Revisa los ajustes de voz e inténtalo de nuevo.",
+      "ended": "Llamada finalizada",
       "settings": "Ajustes de voz",
       "mute": "Apagar el micrófono",
       "unmute": "Encender el micrófono"

@@ -941,6 +941,7 @@
       "mute_failed": "Das Mikrofon konnte nicht umgeschaltet werden.",
       "failed": "Der Anruf hat nicht geklappt",
       "failed_unknown": "Es wurde kein Grund gemeldet. Prüfe die Stimmeinstellungen und versuch es noch einmal.",
+      "ended": "Anruf beendet",
       "settings": "Spracheinstellungen",
       "mute": "Mikrofon ausschalten",
       "unmute": "Mikrofon einschalten"

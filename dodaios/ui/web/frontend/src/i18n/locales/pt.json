@@ -941,6 +941,7 @@
       "mute_failed": "Não foi possível alternar o microfone.",
       "failed": "A chamada não funcionou",
       "failed_unknown": "Não foi indicado nenhum motivo. Verifica as definições de voz e tenta de novo.",
+      "ended": "Chamada terminada",
       "settings": "Configurações de voz",
       "mute": "Desligar o microfone",
       "unmute": "Ligar o microfone"

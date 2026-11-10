@@ -941,6 +941,7 @@
       "mute_failed": "The microphone could not be switched.",
       "failed": "This call did not work",
       "failed_unknown": "No reason was reported. Check the voice settings and try again.",
+      "ended": "Call ended",
       "settings": "Voice settings",
       "mute": "Turn the microphone off",
       "unmute": "Turn the microphone on"
