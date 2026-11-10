@@ -10,6 +10,18 @@ headless box (same doctrine as the seed catalogs).
 
 Never called on the boot critical path (contract §7) — the Plugins view
 triggers a TTL-gated refresh when it opens, plus an explicit refresh button.
+
+Three things keep reading cheap:
+
+- The parsed index is held in memory and reused as long as the cache file on
+  disk is the one it was read from, so a poll costs a ``stat`` instead of
+  parsing and validating the whole feed again.
+- ``get_index(background=True)`` answers from an expired cache at once and
+  revalidates behind the response. The store opens in milliseconds; the next
+  poll shows what the revalidation brought.
+- After a failed fetch the network is left alone for a short while. An
+  offline machine then answers "stale" at once instead of waiting for the
+  connect timeout on every poll.
 """
 
 from __future__ import annotations
@@ -41,9 +53,23 @@ _FETCH_TIMEOUT = httpx.Timeout(connect=3.0, read=10.0, write=10.0, pool=10.0)
 # few hundred bytes per window, not a re-download of the index.
 _CACHE_TTL_SECONDS = 120.0
 
+# After a failed fetch, how long reads answer from what they have instead of
+# trying the network again. Short: it only has to cover the polls of an open
+# store, and the refresh button bypasses it.
+_FAILURE_BACKOFF_SECONDS = 30.0
+
 # One in-process fetch at a time — a double view-open must not race two
 # downloads into the same cache file.
 _fetch_lock = asyncio.Lock()
+
+# The parsed cache file, kept as long as the file itself is unchanged:
+# ``((path, mtime_ns, size), (fetched_at, index, etag))``.
+_memory: tuple[tuple[str, int, int], tuple[float, CommunityIndex, str | None]] | None = None
+# When the last fetch failed (``time.monotonic()``), or None.
+_last_failure: float | None = None
+# The running background revalidation, if any. Held so it is not collected
+# mid-flight and so a second poll does not start another one.
+_revalidation: asyncio.Task[None] | None = None
 
 
 class _Tolerant(BaseModel):
@@ -57,6 +83,11 @@ class _Tolerant(BaseModel):
 class CommunityPluginEntry(_Tolerant):
     name: str
     publisher: str | None = None
+    #: The publisher's numeric GitHub id. A login can be renamed and the freed
+    #: handle re-registered by somebody else; the number stays with the account.
+    publisher_id: int | None = None
+    #: The registry's own pick: the store leads with these.
+    featured: bool = False
     version: str | None = None
     published_at: str | None = None
     source_url: str | None = None
@@ -97,6 +128,8 @@ class CommunitySkillEntry(_Tolerant):
     title: str | None = None
     description: str = ""
     publisher: str | None = None
+    publisher_id: int | None = None
+    featured: bool = False
     version: str | None = None
     published_at: str | None = None
     categories: list[str] = Field(default_factory=list)
@@ -173,6 +206,7 @@ class CommunityAgentEntry(_Tolerant):
     description: str = ""
     publisher: str | None = None
     publisher_id: int | None = None
+    featured: bool = False
     version: str | None = None
     published_at: str | None = None
     categories: list[str] = Field(default_factory=list)
@@ -217,6 +251,98 @@ class CommunityIndex(_Tolerant):
         return kept
 
 
+#: How much of a derived description the store shows before it is cut.
+_MAX_DERIVED_DESCRIPTION = 280
+_HAS_WORD_RE = re.compile(r"\w")
+_FRONTMATTER_RE = re.compile(r"\A﻿?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
+
+
+def _one_paragraph(text: str) -> str:
+    """Collapse whitespace and cut at a sentence end near the limit."""
+    flat = " ".join(text.split())
+    if len(flat) <= _MAX_DERIVED_DESCRIPTION:
+        return flat
+    cut = flat[:_MAX_DERIVED_DESCRIPTION]
+    stop = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if stop >= _MAX_DERIVED_DESCRIPTION // 2:
+        return cut[: stop + 1]
+    return cut.rsplit(" ", 1)[0].rstrip(",;:") + "…"
+
+
+def skill_description(entry: CommunitySkillEntry) -> str:
+    """The description to list a skill under.
+
+    The registry copies the listing text from the submission form. When that
+    text is unusable — it has shipped a bare YAML block marker (``"|"``) where
+    a multi-line description should have been — the skill's own frontmatter
+    still says what it does, and the feed embeds the file. Reading it there
+    keeps a published skill from being listed as "No description yet."
+    """
+    listed = (entry.description or "").strip()
+    if _HAS_WORD_RE.search(listed):
+        return listed
+    skill_md = getattr(entry, "skill_md", None)
+    if not isinstance(skill_md, str):
+        return ""
+    match = _FRONTMATTER_RE.match(skill_md)
+    if match is None:
+        return ""
+    try:
+        import yaml
+
+        meta = yaml.safe_load(match.group(1))
+    except Exception:  # noqa: BLE001 - a broken frontmatter costs the fallback only
+        return ""
+    derived = meta.get("description") if isinstance(meta, dict) else None
+    if not isinstance(derived, str) or not _HAS_WORD_RE.search(derived):
+        return ""
+    return _one_paragraph(derived)
+
+
+def entry_files(entry: Any) -> list[dict[str, Any]] | None:
+    """The published files the feed embeds for an entry, or None.
+
+    ``[{"path", "size", "text"}]`` as the registry wrote them (``text`` is
+    None for a file that is not UTF-8 text or is over the embed limit). None
+    means the feed predates embedded files and the caller has to get the
+    content another way.
+    """
+    raw = getattr(entry, "files", None)
+    if not isinstance(raw, list):
+        return None
+    files: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        # A path is only ever shown, never opened, but a feed is outside
+        # input: keep it relative and free of traversal anyway.
+        if not isinstance(path, str) or not path or path.startswith(("/", "\\")):
+            continue
+        if ".." in path.replace("\\", "/").split("/"):
+            continue
+        text = item.get("text")
+        size = item.get("size")
+        files.append(
+            {
+                "path": path,
+                "size": size if isinstance(size, int) and size >= 0 else 0,
+                "text": text if isinstance(text, str) else None,
+            }
+        )
+    return files
+
+
+def reset_runtime_state() -> None:
+    """Forget everything held in memory. For tests and a changed index URL."""
+    global _memory, _last_failure, _revalidation
+    _memory = None
+    _last_failure = None
+    if _revalidation is not None and not _revalidation.done():
+        _revalidation.cancel()
+    _revalidation = None
+
+
 #: Former GitHub Pages addresses of the public registry. Pages does not follow
 #: a repository or organization rename, so a config that saved one of these
 #: reads the current deployment instead of a dead host.
@@ -237,22 +363,45 @@ def index_url() -> str:
         return MarketplaceConfig().community_index_url
 
 
+def _cache_stamp() -> tuple[str, int, int] | None:
+    """What identifies the cache file as it is on disk right now."""
+    try:
+        stat = _CACHE_PATH.stat()
+    except OSError:
+        return None
+    return (str(_CACHE_PATH), stat.st_mtime_ns, stat.st_size)
+
+
 def _read_cache_raw() -> tuple[float, CommunityIndex, str | None] | None:
     """``(fetched_at, index, etag)`` — ``etag`` is None for a cache written
-    before validators were stored, or when the host sent none."""
+    before validators were stored, or when the host sent none.
+
+    Answers from memory while the file is the one that was parsed: the feed
+    embeds every published file, and validating it on each poll is the larger
+    part of what a browse request costs.
+    """
+    global _memory
+    stamp = _cache_stamp()
+    if stamp is None:
+        _memory = None
+        return None  # no cache yet — the caller fetches the index
+    if _memory is not None and _memory[0] == stamp:
+        return _memory[1]
     try:
         raw = json.loads(_CACHE_PATH.read_text(encoding="utf-8-sig"))
         etag = raw.get("etag")
-        return (
+        hit = (
             float(raw["fetched_at"]),
             CommunityIndex.model_validate(raw["index"]),
             str(etag) if isinstance(etag, str) and etag else None,
         )
     except FileNotFoundError:
-        return None  # no cache yet — the caller fetches the index
+        return None
     except (OSError, ValueError, KeyError, ValidationError) as exc:
         logger.warning("community index: unreadable cache (%s) — refetching", exc)
         return None
+    _memory = (stamp, hit)
+    return hit
 
 
 def _read_cache() -> tuple[float, CommunityIndex] | None:
@@ -267,11 +416,13 @@ def _write_cache(index: CommunityIndex, etag: str | None = None) -> None:
     after the TTL sends it back as ``If-None-Match`` so an unchanged index
     costs a 304 instead of a download.
     """
+    global _memory
+    fetched_at = time.time()
     try:
         _CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         tmp = _CACHE_PATH.with_suffix(".json.tmp")
         payload: dict[str, Any] = {
-            "fetched_at": time.time(),
+            "fetched_at": fetched_at,
             "index": index.model_dump(mode="json"),
         }
         if etag:
@@ -281,6 +432,10 @@ def _write_cache(index: CommunityIndex, etag: str | None = None) -> None:
     except OSError as exc:
         # A read-only disk costs persistence, not the current browse.
         logger.warning("community index: cache write failed: %s", exc)
+        return
+    # The object just written is the parsed form of the file just written.
+    stamp = _cache_stamp()
+    _memory = (stamp, (fetched_at, index, etag)) if stamp is not None else None
 
 
 def cached_index() -> CommunityIndex | None:
@@ -289,9 +444,83 @@ def cached_index() -> CommunityIndex | None:
     return hit[1] if hit else None
 
 
+def _backing_off() -> bool:
+    """True while the last failed fetch is recent enough to not try again."""
+    return (
+        _last_failure is not None and (time.monotonic() - _last_failure) < _FAILURE_BACKOFF_SECONDS
+    )
+
+
+async def _fetch(
+    url: str,
+    hit: tuple[float, CommunityIndex] | None,
+    etag: str | None,
+    *,
+    force: bool,
+    transport: httpx.AsyncBaseTransport | None,
+) -> tuple[CommunityIndex | None, str]:
+    """One round trip to the registry. The caller holds ``_fetch_lock``."""
+    global _last_failure
+    # Revalidate rather than re-download when we hold the host's validator.
+    # An explicit refresh (force) asks for the body outright — the user
+    # pressed the button because they suspect the cache, so a "still the
+    # same" answer from a CDN edge would be the wrong kind of reassurance.
+    headers = {"If-None-Match": etag} if (etag and hit and not force) else {}
+    try:
+        # The index URL is configuration, but its redirects are not: the
+        # host on the other end picks them, so the chain stays on https.
+        async with httpx.AsyncClient(
+            timeout=_FETCH_TIMEOUT,
+            follow_redirects=True,
+            transport=transport,
+            **https_only_async(),
+        ) as client:
+            response = await client.get(url, headers=headers)
+            if response.status_code == 304 and hit:
+                # Same body as cached: stamp it fresh for another TTL.
+                _last_failure = None
+                _write_cache(hit[1], etag)
+                return hit[1], "fresh"
+            response.raise_for_status()
+            index = CommunityIndex.model_validate(response.json())
+            new_etag = response.headers.get("etag") or None
+    except (httpx.HTTPError, ValueError, ValidationError) as exc:
+        logger.warning("community index: fetch failed (%s)", exc)
+        _last_failure = time.monotonic()
+        if hit:
+            return hit[1], "stale"
+        return None, "unavailable"
+
+    _last_failure = None
+    _write_cache(index, new_etag)
+    return index, "fetched"
+
+
+async def _revalidate(url: str, transport: httpx.AsyncBaseTransport | None) -> None:
+    """Bring the cache up to date behind a response that was already sent."""
+    try:
+        async with _fetch_lock:
+            raw_hit = _read_cache_raw()
+            if raw_hit and (time.time() - raw_hit[0]) < _CACHE_TTL_SECONDS:
+                return  # somebody refreshed it while this task waited its turn
+            hit = (raw_hit[0], raw_hit[1]) if raw_hit else None
+            etag = raw_hit[2] if raw_hit else None
+            await _fetch(url, hit, etag, force=False, transport=transport)
+    except Exception:  # noqa: BLE001 - nobody awaits this task; it must not raise
+        logger.exception("community index: background revalidation failed")
+
+
+def _revalidate_in_background(url: str, transport: httpx.AsyncBaseTransport | None) -> None:
+    global _revalidation
+    if _revalidation is not None and not _revalidation.done():
+        return
+    _revalidation = asyncio.get_running_loop().create_task(_revalidate(url, transport))
+
+
 async def get_index(
     *,
     force: bool = False,
+    background: bool = False,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[CommunityIndex | None, str]:
     """Return ``(index, status)`` with status one of:
@@ -300,12 +529,32 @@ async def get_index(
     - ``"fresh"``     — served from a within-TTL cache, or the host confirmed
       the cached body is still current (304 Not Modified)
     - ``"fetched"``   — downloaded and cached just now
+    - ``"revalidating"`` — ``background=True`` only: served from an expired
+      cache at once, while a fetch brings it up to date behind the response
     - ``"stale"``     — network failed; serving the outdated cache honestly
     - ``"unavailable"`` — network failed and there is no cache at all
+
+    ``background`` is for browsing, where an answer now beats a current answer
+    in half a second. Anything that ACTS on the index (install, reading an
+    entry's files) leaves it off and so never runs on an index older than the
+    TTL without having asked the registry first: a delisted entry must stop
+    being installable within minutes, not whenever the store is next opened.
     """
     url = index_url()
     if not url:
         return None, "disabled"
+
+    if background and not force:
+        raw_hit = _read_cache_raw()
+        if raw_hit is not None:
+            if (time.time() - raw_hit[0]) < _CACHE_TTL_SECONDS:
+                return raw_hit[1], "fresh"
+            if _backing_off():
+                return raw_hit[1], "stale"
+            _revalidate_in_background(url, transport)
+            return raw_hit[1], "revalidating"
+        if _backing_off():
+            return None, "unavailable"
 
     async with _fetch_lock:
         raw_hit = _read_cache_raw()
@@ -313,37 +562,7 @@ async def get_index(
         etag = raw_hit[2] if raw_hit else None
         if hit and not force and (time.time() - hit[0]) < _CACHE_TTL_SECONDS:
             return hit[1], "fresh"
-
-        # Revalidate rather than re-download when we hold the host's validator.
-        # An explicit refresh (force) asks for the body outright — the user
-        # pressed the button because they suspect the cache, so a "still the
-        # same" answer from a CDN edge would be the wrong kind of reassurance.
-        headers = {"If-None-Match": etag} if (etag and hit and not force) else {}
-        try:
-            # The index URL is configuration, but its redirects are not: the
-            # host on the other end picks them, so the chain stays on https.
-            async with httpx.AsyncClient(
-                timeout=_FETCH_TIMEOUT,
-                follow_redirects=True,
-                transport=transport,
-                **https_only_async(),
-            ) as client:
-                response = await client.get(url, headers=headers)
-                if response.status_code == 304 and hit:
-                    # Same body as cached: stamp it fresh for another TTL.
-                    _write_cache(hit[1], etag)
-                    return hit[1], "fresh"
-                response.raise_for_status()
-                index = CommunityIndex.model_validate(response.json())
-                new_etag = response.headers.get("etag") or None
-        except (httpx.HTTPError, ValueError, ValidationError) as exc:
-            logger.warning("community index: fetch failed (%s)", exc)
-            if hit:
-                return hit[1], "stale"
-            return None, "unavailable"
-
-        _write_cache(index, new_etag)
-        return index, "fetched"
+        return await _fetch(url, hit, etag, force=force, transport=transport)
 
 
 __all__ = [
@@ -353,6 +572,9 @@ __all__ = [
     "CommunityPluginEntry",
     "CommunitySkillEntry",
     "cached_index",
+    "entry_files",
     "get_index",
     "index_url",
+    "reset_runtime_state",
+    "skill_description",
 ]

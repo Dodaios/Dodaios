@@ -43,8 +43,37 @@ export function fileIconFor(path: string) {
   return FileCode;
 }
 
+/**
+ * A document's leading YAML block and the prose after it.
+ *
+ * A SKILL.md opens with frontmatter between two `---` lines. Handed to the
+ * markdown renderer, that block reads as a rule followed by one giant heading
+ * (the closing `---` is a setext underline), so it is taken out first and shown
+ * as what it is: a small block of settings.
+ */
+export function splitFrontmatter(text: string): { frontmatter: string | null; body: string } {
+  const match = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(text);
+  if (!match) return { frontmatter: null, body: text };
+  return { frontmatter: match[1], body: text.slice(match[0].length) };
+}
+
 /** Rendered markdown — the body of a SKILL.md, a usage card, a README. */
 export function MarkdownBody({ text }: { text: string }) {
+  const { frontmatter, body } = splitFrontmatter(text);
+  if (frontmatter !== null) {
+    return (
+      <>
+        <pre className="mb-5 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-secondary px-4 py-3 font-mono text-meta text-muted-foreground">
+          {frontmatter}
+        </pre>
+        <MarkdownProse text={body} />
+      </>
+    );
+  }
+  return <MarkdownProse text={text} />;
+}
+
+function MarkdownProse({ text }: { text: string }) {
   return (
     <article className="prose prose-neutral max-w-none text-reading dark:prose-invert prose-headings:font-display prose-headings:tracking-tight prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-a:text-foreground-strong prose-code:text-foreground prose-pre:border prose-pre:border-border prose-pre:bg-card">
       <ReactMarkdown
