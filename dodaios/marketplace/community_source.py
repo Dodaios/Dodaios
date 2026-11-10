@@ -368,6 +368,7 @@ def _cache_stamp() -> tuple[str, int, int] | None:
     try:
         stat = _CACHE_PATH.stat()
     except OSError:
+        # No cache file yet, or it cannot be read: both mean "nothing cached".
         return None
     return (str(_CACHE_PATH), stat.st_mtime_ns, stat.st_size)
 
@@ -396,7 +397,7 @@ def _read_cache_raw() -> tuple[float, CommunityIndex, str | None] | None:
             str(etag) if isinstance(etag, str) and etag else None,
         )
     except FileNotFoundError:
-        return None
+        return None  # removed between the stat and the read: the caller fetches
     except (OSError, ValueError, KeyError, ValidationError) as exc:
         logger.warning("community index: unreadable cache (%s) — refetching", exc)
         return None

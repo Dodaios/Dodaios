@@ -1236,6 +1236,7 @@ def _converted_plugins(index: Any) -> list[tuple[Any, dict[str, Any]]]:
                     f"index name {entry.name!r} does not match manifest name {spec.id!r}"
                 )
         except AgentPluginError as exc:
+            # Not swallowed: the reason travels to the UI on an invalid entry.
             out.append((entry, {**base, "valid": False, "error": str(exc)}))
             continue
         item = spec.model_dump(mode="json")
