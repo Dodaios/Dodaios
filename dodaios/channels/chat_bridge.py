@@ -127,12 +127,13 @@ class ChannelChatBridge:
     def _lead_service(self, name: str, msg: ChannelMessage) -> Any | None:
         """The chat service when this message belongs in the lead conversation.
 
-        Only the owner's private chats qualify: a Telegram private chat or a
-        Discord direct message. A friend (``friend_id``), a group chat or a
+        Only the owner's private chats qualify: a Telegram private chat, a
+        Discord direct message or the owner's own WhatsApp chat (the channel
+        admits nobody else). A friend (``friend_id``), a group chat or a
         server channel never reaches the owner's personal conversation, and
         other channels keep their own threads.
         """
-        if self._get_chat_service is None or name not in ("telegram", "discord"):
+        if self._get_chat_service is None or name not in ("telegram", "discord", "whatsapp"):
             return None
         if _metadata_value(msg.metadata, "friend_id"):
             return None
@@ -141,6 +142,9 @@ class ChannelChatBridge:
                 if int(_metadata_value(msg.metadata, "telegram_chat_id") or "0") <= 0:
                     return None
             except ValueError:  # an unreadable chat id is not the owner's private chat
+                return None
+        elif name == "whatsapp":
+            if msg.metadata.get("whatsapp_private") is not True:
                 return None
         elif msg.metadata.get("discord_dm") is not True:
             return None
@@ -178,6 +182,9 @@ def _thread_id_for(name: str, msg: ChannelMessage) -> str:
     chat_id = _metadata_value(msg.metadata, "telegram_chat_id")
     if chat_id:
         return f"telegram:{chat_id}"
+    jid = _metadata_value(msg.metadata, "whatsapp_jid")
+    if jid:
+        return f"whatsapp:{jid}"
     channel_session = _metadata_value(msg.metadata, "channel_session_id")
     if channel_session:
         return f"{name}:{channel_session}"

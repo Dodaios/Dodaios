@@ -23,7 +23,12 @@ const STATUS_KEY: Record<VoiceState, string> = {
   error: "agentic_grid.voice_bubble.error",
 };
 
-const WINDOW = "call-window pointer-events-auto absolute bottom-full left-1/2 z-20 mb-3 flex flex-col overflow-hidden rounded-[20px] bg-background shadow-float";
+const WINDOW = "call-window pointer-events-auto absolute bottom-full z-20 mb-3 flex flex-col overflow-hidden rounded-[20px] bg-background shadow-float";
+
+/** How long the window stays after a call ends, for a reason that arrives a moment later. */
+const END_LINGER_MS = 900;
+/** How long a failed call's note stays when nobody closes it. */
+const PROBLEM_TTL_MS = 2 * 60_000;
 
 // The voice list behind the gear: not needed for first paint.
 const CallVoicePicker = lazy(() => import("@/components/home/CallVoicePicker"));
@@ -40,8 +45,10 @@ const CallVoicePicker = lazy(() => import("@/components/home/CallVoicePicker"));
  * It opens the moment a call is asked for from this window (before the host
  * answers), and for every call that runs, however it was started. When a
  * call ends on its own (the provider refused it, the connection broke) the
- * window stays and says why, until it is closed or the next call starts: a
- * call that fails must never look like nothing happened.
+ * window stays and says why, until it is closed, the next call starts, or
+ * two minutes have passed: a call that fails must never look like nothing
+ * happened. Every call leaves with a short "Call ended", so the reason of a
+ * failed one arrives in the same window.
  *
  * Its parent positions it: the window stands on the top edge of the nearest
  * positioned ancestor (`bottom: 100%`), so it is mounted inside the
@@ -68,6 +75,28 @@ export function CallWindow() {
   // A flip answers with the new state; an older read must not undo it.
   const flipped = useRef(false);
   const live = active || connecting;
+
+  // The moment the call stopped, noted while rendering so the window is
+  // still there on the very render that sees the call gone.
+  const wasLive = useRef(false);
+  const endedAt = useRef(0);
+  if (wasLive.current && !live) endedAt.current = Date.now();
+  wasLive.current = live;
+  const ending = !live && endedAt.current > 0 && Date.now() - endedAt.current < END_LINGER_MS;
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (live || !endedAt.current) return;
+    const timer = window.setTimeout(() => redraw((n) => n + 1), END_LINGER_MS + 30);
+    return () => window.clearTimeout(timer);
+  }, [live]);
+
+  // A note nobody closed goes by itself.
+  const problemAt = problem?.at ?? 0;
+  useEffect(() => {
+    if (!problemAt || live) return;
+    const timer = window.setTimeout(() => setCallProblem(null), Math.max(0, problemAt + PROBLEM_TTL_MS - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [live, problemAt, setCallProblem]);
 
   useEffect(() => {
     if (!live) return;
@@ -113,8 +142,10 @@ export function CallWindow() {
   const label = fill(t("home.call.label"), { name });
   const openSettings = () => setActiveSection("voice-api-keys");
 
-  if (!live && !pending) {
-    if (!problem) return null;
+  if (!live && !pending && !problem && !ending) return null;
+  if (!live && !pending && problem) {
+    // The note has taken over from "Call ended": closing it closes the window.
+    endedAt.current = 0;
     // The call is over and did not end by choice: say so, and say what helps.
     return (
       <section data-testid="call-window" data-state="failed" role="region" aria-label={label} className={WINDOW}>
@@ -141,10 +172,11 @@ export function CallWindow() {
   }
 
   // Asked for and not answered yet reads as connecting, whatever the state says.
-  const shown: VoiceState = live ? voiceState : "connecting";
-  const status = muted && live ? t("home.call.muted") : t(STATUS_KEY[shown] ?? STATUS_KEY.idle);
+  const shown: VoiceState = live ? voiceState : pending ? "connecting" : "idle";
+  const ended = !live && !pending;
+  const status = ended ? t("home.call.ended") : muted && live ? t("home.call.muted") : t(STATUS_KEY[shown] ?? STATUS_KEY.idle);
   return (
-    <section data-testid="call-window" data-state={shown} role="region" aria-label={label} className={WINDOW}>
+    <section data-testid="call-window" data-state={ended ? "ended" : shown} role="region" aria-label={label} className={WINDOW}>
       {/* The voice light fills the lower part of the window, behind everything. */}
       <VoiceGlow active={active} thinking={shown === "thinking" || shown === "connecting"} className="h-[68%]" />
 
@@ -195,7 +227,7 @@ export function CallWindow() {
       ) : (
         // Nothing said yet: the pet alone, doing what the call is doing.
         <div className="relative flex min-h-0 flex-1 items-center justify-center pb-4" data-testid="call-waiting">
-          <PetMark size={72} state={live ? undefined : "thinking"} reactive={live} />
+          <PetMark size={72} state={live ? undefined : pending ? "thinking" : "idle"} reactive={live} />
         </div>
       )}
 

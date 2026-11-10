@@ -56,9 +56,10 @@ interface HomeStore {
   /**
    * Why the last call ended on its own (a start the provider refused, a
    * connection that broke), until the person closes the note or calls
-   * again. An empty message means the reason is not known.
+   * again. An empty message means the reason is not known. `at` is when it
+   * was noted, so an old note does not greet someone hours later.
    */
-  callProblem: { message: string } | null;
+  callProblem: { message: string; at: number } | null;
   setCallProblem: (problem: { message: string } | null) => void;
   /**
    * A change of voice path during this call, in the backend's own words
@@ -140,9 +141,10 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   setCallPending: (callPending) => set({ callPending }),
   callProblem: null,
   // A named reason is never replaced by an unnamed one for the same call.
-  setCallProblem: (callProblem) => {
-    if (callProblem && !callProblem.message && get().callProblem?.message) return;
-    set({ callProblem, ...(callProblem ? { callPending: false } : {}) });
+  setCallProblem: (problem) => {
+    if (!problem) { set({ callProblem: null }); return; }
+    if (!problem.message && get().callProblem?.message) return;
+    set({ callProblem: { message: problem.message, at: Date.now() }, callPending: false });
   },
   callNotice: null,
   setCallNotice: (callNotice) => set({ callNotice }),
