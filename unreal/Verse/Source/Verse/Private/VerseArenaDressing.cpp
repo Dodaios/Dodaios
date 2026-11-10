@@ -305,11 +305,11 @@ void AVerseArenaGraybox::DressBox(const TSharedPtr<FJsonObject>& Box)
 			const FVector At = Start + Along * (Length * I / Posts);
 			AddTrim(TEXT("Struct_Gunmetal"), FVector(At.X, At.Y, C.Z), FVector(12.0, 12.0, S.Z));
 		}
-		for (const double Z : {Min.Z + 10.0, Min.Z + S.Z * 0.5, Max.Z - 4.0})
+		// Open rails only: a glazed screen here veiled the whole hall beyond the fence in grey.
+		for (const double Z : {Min.Z + 10.0, Min.Z + S.Z * 0.25, Min.Z + S.Z * 0.5, Min.Z + S.Z * 0.75, Max.Z - 4.0})
 		{
 			AddTrim(TEXT("Struct_Gunmetal"), FVector(C.X, C.Y, Z), bAlongX ? FVector(Length, 8.0, 8.0) : FVector(8.0, Length, 8.0));
 		}
-		AddTrim(TEXT("Glass_Viewport"), C, bAlongX ? FVector(Length, 2.0, S.Z - 20.0) : FVector(2.0, Length, S.Z - 20.0), FRotator::ZeroRotator, false);
 		return;
 	}
 	// Railings along the hidden rail boxes.
@@ -487,7 +487,7 @@ void AVerseArenaGraybox::DressHall()
 			{
 				AddDressing(TEXT("SM_Wall_480_H1200"), FTransform(Facing, Module));
 			}
-			AddDressing(Index % 3 == 1 ? TEXT("SM_WallLight_480_H540") : TEXT("SM_Wall_480_H540"), FTransform(Facing, Module + FVector(0.0, 0.0, 1200.0)));
+			AddDressing(Index % 6 == 3 ? TEXT("SM_WallLight_480_H540") : TEXT("SM_Wall_480_H540"), FTransform(Facing, Module + FVector(0.0, 0.0, 1200.0)));
 			// Services on the walls: cable trays along every module, a power riser at every third.
 			AddDressing(TEXT("SM_Eng_CableTray_Wall"), FTransform(Facing, Face + In * 2.0 + FVector(0.0, 0.0, 380.0), FVector(2.0, 1.0, 1.0)));
 			if (Index % 3 == 0)

@@ -8,10 +8,9 @@
     "GrimeAmount": 0.1,
     "Metallic": 0.0,
     "NoiseScale": 0.04,
-    "PanelCm": 150.0,
     "RoughnessMax": 1.0,
     "RoughnessMin": 0.75,
-    "TriplanarScale": 0.35,
+    "TriplanarScale": 0.3,
     "TriplanarWorld": 1.0
   },
   "schema": "verse.mi/1",
@@ -20,15 +19,15 @@
     "UseTriplanar": true
   },
   "textures": {
-    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Concrete_BC.T_Arena_Concrete_BC",
-    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Concrete_N.T_Arena_Concrete_N",
-    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Concrete_ORM.T_Arena_Concrete_ORM"
+    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Slab_BC.T_Arena_Slab_BC",
+    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Slab_N.T_Arena_Slab_N",
+    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Slab_ORM.T_Arena_Slab_ORM"
   },
   "vectors": {
     "BaseTint": [
-      1.75,
-      1.75,
-      1.72,
+      1.25,
+      1.22,
+      1.18,
       1.0
     ],
     "EdgeTint": [

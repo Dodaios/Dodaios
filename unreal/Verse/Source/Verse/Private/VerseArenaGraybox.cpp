@@ -883,7 +883,7 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		SavedFogFalloff = Fog->FogHeightFalloff;
 		SavedFogStart = Fog->StartDistance;
 		bFogSaved = true;
-		Fog->SetFogDensity(0.022f);
+		Fog->SetFogDensity(0.016f);
 		Fog->SetFogHeightFalloff(0.12f);
 		Fog->SetStartDistance(400.f);
 		Fog->SetVolumetricFog(true);

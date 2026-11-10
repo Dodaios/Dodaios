@@ -7,7 +7,9 @@
 #include "Engine/RectLight.h"
 #include "Engine/SpotLight.h"
 #include "Components/SpotLightComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Materials/MaterialInterface.h"
 #include "VerseLog.h"
 
 // The art pass of the runtime hangar (arena.md 9.3). The boxes stay the gameplay truth; this file
@@ -575,6 +577,25 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 void AVerseArenaGraybox::DressArt()
 {
 	const int32 Before = DressingInstances;
+	// The hull wall modules' backlit slots draw hundreds of small light dashes across the hall; the
+	// hangar is lit by its lamps instead, so those slots take the dark recess finish here.
+	for (const TPair<FString, TObjectPtr<UInstancedStaticMeshComponent>>& Pair : Dressing)
+	{
+		UInstancedStaticMeshComponent* Component = Pair.Value;
+		const UStaticMesh* Mesh = Component ? Component->GetStaticMesh() : nullptr;
+		if (!Mesh || !Mesh->GetName().StartsWith(TEXT("SM_Wall_480")))
+		{
+			continue;
+		}
+		const TArray<FStaticMaterial>& Slots = Mesh->GetStaticMaterials();
+		for (int32 Slot = 0; Slot < Slots.Num(); ++Slot)
+		{
+			if (Slots[Slot].MaterialInterface && Slots[Slot].MaterialInterface->GetName() == TEXT("MI_Light_Backlit"))
+			{
+				Component->SetMaterial(Slot, MaterialFor(TEXT("Recess_Dark")));
+			}
+		}
+	}
 	DressArtRoof();
 	DressArtWalls();
 	DressArtBays();
