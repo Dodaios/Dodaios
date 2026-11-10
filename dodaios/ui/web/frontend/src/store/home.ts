@@ -148,7 +148,8 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
           // Close the old timeline and unbind its backend voice context now,
           // even when the front page/card is closed. This does not start or
           // stop a call, so a later wake cannot be cancelled by a reset effect.
-          useAgentChatStore.getState().newChat();
+          // The one conversation stays on screen; only a voice archive left it.
+          if (!useAgentChatStore.getState().activeSessionId) useAgentChatStore.getState().newChat();
         }
         events.setTranscription("", true);
         // Remember this even while the card is closed. Returning to Jarvis
@@ -176,12 +177,11 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
         liveConversationId: continued && events.activeKind === "voice" && events.activeThreadId === continued
           ? continued : sessionId,
       });
-      // Wake words and external call controls start the same voice session as
-      // the composer button. Follow that session in the open Jarvis chat
-      // without starting another call or navigating away from other work.
-      if (useEventStore.getState().activeSection === "chats" && !get().agentChatId && get().surface === "chat") {
-        get().setSurface("voice");
-      }
+      // Wake words and external call controls start the same call as the
+      // composer button: the conversation stays on screen and the call card
+      // shows the call (components/home/CallCard). A stored voice surface
+      // from older builds goes back to the chat.
+      if (get().surface !== "chat") get().setSurface("chat");
     }
     const before = get().transcript;
     const after = reduceTranscript(before, name, payload, tsMs);

@@ -35,7 +35,7 @@ import { FolderCode } from "lucide-react";
  * One centred column, like a document: the greeting and the composer sit
  * in the middle of an empty page; once there are messages the column
  * scrolls and the composer docks to the bottom. The history is the
- * sidebar's (components/home/RecentChats), visible from every section.
+ * "Earlier chats" dialog's (components/home/AllChatsDialog).
  *
  * One conversation is on stage at a time. The sidebar's history mixes agent
  * chats with VOICE sessions, and a voice session opened from here is read in

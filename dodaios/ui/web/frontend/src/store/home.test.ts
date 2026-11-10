@@ -87,14 +87,13 @@ describe("voice conversation boundaries", () => {
     expect(useHomeStore.getState().transcript.map(line => line.text)).toEqual(["Fresh question"]);
   });
 
-  it("clears the selected typed timeline when its voice call ends without deleting history", () => {
+  it("keeps the conversation on screen when its call ends, without deleting history", () => {
     const session = { session_id: "typed" };
     useAgentChatStore.setState({ activeSessionId: session.session_id });
     useEventStore.setState({ activeKind: "text", activeThreadId: "typed" });
     useHomeStore.getState().ingest("VoiceSessionEnded", { hangup_reason: "hotkey" }, 1);
-    expect(useAgentChatStore.getState().activeSessionId).toBeNull();
-    expect(useAgentChatStore.getState().timeline.items).toEqual([]);
-    expect(useEventStore.getState().activeThreadId).toBeNull();
+    expect(useAgentChatStore.getState().activeSessionId).toBe("typed");
+    expect(useHomeStore.getState().transcript).toEqual([]);
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
   });
 

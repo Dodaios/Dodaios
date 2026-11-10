@@ -924,6 +924,16 @@
     "verify": "正在验证"
   },
   "home": {
+    "call": {
+      "label": "与 {name} 通话",
+      "muted": "麦克风已关闭",
+      "mute_failed": "无法切换麦克风。",
+      "settings": "语音设置",
+      "show_transcript": "显示转录",
+      "hide_transcript": "隐藏转录",
+      "mute": "关闭麦克风",
+      "unmute": "打开麦克风"
+    },
     "activity": {
       "title": "动态",
       "open": "显示动态",

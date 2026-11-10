@@ -924,6 +924,16 @@
     "verify": "Verificando"
   },
   "home": {
+    "call": {
+      "label": "Llamada con {name}",
+      "muted": "Micrófono apagado",
+      "mute_failed": "No se pudo cambiar el micrófono.",
+      "settings": "Ajustes de voz",
+      "show_transcript": "Mostrar transcripción",
+      "hide_transcript": "Ocultar transcripción",
+      "mute": "Apagar el micrófono",
+      "unmute": "Encender el micrófono"
+    },
     "activity": {
       "title": "Actividad",
       "open": "Mostrar actividad",
