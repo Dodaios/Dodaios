@@ -103,9 +103,11 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	{
 		// Graveline and any rifle without its own row: the sight sits right of and below the
 		// crosshair and the barrel points at it, so the weapon fills the lower right quarter.
+		// Aiming, the slim reflex frame sits 24 cm out: its 4 cm frame spans about a tenth of
+		// the view and the tall riser keeps rail and receiver low in the frame.
 		P.HipOffset = FVector(26.0, 11.0, -17.0);
 		P.HipRotation = FRotator(2.0, -4.0, 0.0);
-		P.SightDistance = 19.0;
+		P.SightDistance = GravelineSightDistanceCm;
 		P.KickBackCm = 2.4;
 		P.KickPitchDeg = 2.6;
 	}

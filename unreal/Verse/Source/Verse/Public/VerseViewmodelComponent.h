@@ -64,6 +64,8 @@ public:
 	static constexpr float FlashLightForwardCm = 80.f;
 	/** Fill light on the held weapon, lumens; it sits above and right of the eye (camera space, cm, drawn space). */
 	static constexpr float FillLumens = 420.f;
+	/** Eye to the Graveline's reflex dot while aiming, cm: far enough that the frame stays small. */
+	static constexpr double GravelineSightDistanceCm = 24.0;
 	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */
 	static constexpr float ViewmodelRoughnessMin = 0.45f;
 
