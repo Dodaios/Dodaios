@@ -91,6 +91,27 @@ _CONTEXT_FULL = re.compile(
 #: What the card says for a dump that names a spent allowance / a full window.
 USAGE_LIMIT_REACHED: Final = "The usage limit for this model is used up."
 CONTEXT_FULL: Final = "The conversation no longer fits this model's context window."
+#: What the card says when every provider of the brain's chain failed, by the
+#: manager's cause category. The turn is a failure, never a stored reply.
+_PROVIDER_DOWN: Final[dict[str, str]] = {
+    "missing_key": "No API key is set for this model. Add one in Settings and send again.",
+    "bad_key": "The API key for this model was rejected. Check it in Settings and send again.",
+    "account_blocked": "The provider account is blocked or out of credit. Send again once it is fixed.",
+    "vision_unsupported": "This model cannot read images. Pick another model and send again.",
+    "invalid_model": "The selected model is not available at the provider. Pick another and send again.",
+    "local_context": "The local model's context window is too small for this conversation.",
+    "context_overflow": CONTEXT_FULL,
+    "rate_limit": "The provider is rate limiting requests. Wait a moment and send again.",
+    "unreachable": "The provider could not be reached. Check the connection and send again.",
+}
+_PROVIDER_DOWN_DEFAULT: Final = "No model answered this turn. Send it again in a moment."
+
+
+def provider_down_reason(cause: str | None) -> str:
+    """A readable reason for a turn in which every provider failed."""
+    return _PROVIDER_DOWN.get(cause or "", _PROVIDER_DOWN_DEFAULT)
+
+
 #: How much of a raw dump the details keep.
 _DETAILS_MAX_CHARS: Final = 2000
 
