@@ -1,12 +1,12 @@
 """Bake and export the hero Graveline for the first-person view (bpy, Cycles).
 
-    python scripts/verse/blender.py run art/verse/weapons/hero/export_hero.py [-- size]
+    python scripts/verse/blender.py run art/verse/weapons/hero/export_hero.py [size] [--keep-maps]
 
 1. Builds the model (`graveline.build`), applies every modifier and joins the
    parts into one mesh with a vertex group per bone.
 2. Unwraps the opaque parts into one atlas and bakes the procedural materials
-   into `T_Weapon_GravelineHero_BC/_ORM/_NDX` (ORM: R ambient occlusion,
-   G roughness, B metallic; normal with green flipped for Unreal).
+   into `T_Weapon_GravelineHero_BC/_ORM/_N` (ORM: R ambient occlusion,
+   G roughness, B metallic; OpenGL normal, flipped on import).
 3. Merges the opaque slots into `M_Weapon_GravelineHero`; glass and reticle
    keep `M_Weapon_Optic` and `M_Weapon_Reticle`.
 4. Writes `SK_Weapon_GravelineHero.fbx` with the WP14 bones and this mesh's
@@ -33,22 +33,14 @@ ASSET = "SK_Weapon_GravelineHero"
 SKELETON = "SKEL_Weapon_GravelineHero"
 FOLDER = "/Game/Verse/Weapons/GravelineHero"
 SKIN = "M_Weapon_GravelineHero"
-TEXTURE_OUT = REPO / "art/verse/.cache/weapons/hero"
+TEXTURE_OUT = REPO / "art/verse/.cache/unreal/weapons/hero"
+TEXTURES = f"{FOLDER}/Textures"
 FBX_OUT = REPO / "art/verse/.cache/unreal/weapons"
 RECORDS = REPO / "unreal/Verse/Art/Import/Weapons/GravelineHero"
 KEEP_SLOTS = ("M_Weapon_Optic", "M_Weapon_Reticle")
 MI_ROOT = "/Game/Verse/Materials/Instances/Weapons"
 
-SPEC = specs.WeaponSpec(
-    weapon_id="graveline",
-    display_name="GravelineHero",
-    role="assault rifle, first-person hero mesh",
-    asset=ASSET,
-    kind="skeletal",
-    bones=specs.GRAVELINE.bones,
-    sockets=tuple(specs.Socket(n, "Root", loc) for n, loc in graveline.SOCKETS.items()),
-    triangle_cap=specs.MAX_FIRST_PERSON_TRIANGLES * 2,
-)
+SPEC = specs.GRAVELINE_HERO
 
 
 def _select_only(objs, active=None):
@@ -253,9 +245,8 @@ def bake(body, size: int) -> dict:
     orm[..., 1] = _pixels(rough)[..., 0]
     orm[..., 2] = _pixels(metal)[..., 0]
     save(f"{stem}_ORM", orm, False)
-    nrm = _pixels(normal).copy()
-    nrm[..., 1] = 1.0 - nrm[..., 1]  # OpenGL -> DirectX green
-    save(f"{stem}_NDX", nrm, False)
+    # OpenGL green; the texture record flips it on import (`flip_green`).
+    save(f"{stem}_N", _pixels(normal), False)
     return out
 
 
@@ -267,15 +258,13 @@ def merge_slots(body) -> None:
     index_of = {}
     for i, m in enumerate(mats):
         index_of[i] = new_order.index(keep[m.name]) if m and m.name in keep else 0
-    bm = bmesh.new()
-    bm.from_mesh(body.data)
-    for f in bm.faces:
-        f.material_index = index_of.get(f.material_index, 0)
-    bm.to_mesh(body.data)
-    bm.free()
+    old = [p.material_index for p in body.data.polygons]
+    # Clearing the slot list resets every face to slot 0, so the indices are set after it.
     body.data.materials.clear()
     for m in new_order:
         body.data.materials.append(m)
+    body.data.polygons.foreach_set("material_index", [index_of.get(i, 0) for i in old])
+    body.data.update()
 
 
 def armature(body):
@@ -354,17 +343,69 @@ def records(result: dict) -> None:
         "name": SKELETON,
         **common,
     }
-    for rec in (sk, skel):
+    import hashlib
+
+    textures = []
+    for kind, spec in (
+        (
+            "BC",
+            {
+                "compression": "Default",
+                "srgb": True,
+                "flip_green": False,
+                "channels": {"rgb": "base colour"},
+            },
+        ),
+        (
+            "ORM",
+            {
+                "compression": "Masks",
+                "srgb": False,
+                "flip_green": False,
+                "channels": {"r": "ambient occlusion", "g": "roughness", "b": "metallic"},
+            },
+        ),
+        (
+            "N",
+            {
+                "compression": "Normalmap",
+                "srgb": False,
+                "flip_green": True,
+                "channels": {"rgb": "tangent normal, OpenGL green"},
+            },
+        ),
+    ):
+        name = f"T_Weapon_GravelineHero_{kind}"
+        png = TEXTURE_OUT / f"{name}.png"
+        textures.append(
+            {
+                "asset_path": f"{TEXTURES}/{name}.{name}",
+                "export": {
+                    "blender": export["blender"],
+                    "file": f"art/verse/.cache/unreal/weapons/hero/{name}.png",
+                    "format": "png",
+                    "settings_id": "png-ue/1",
+                    "sha256": hashlib.sha256(png.read_bytes()).hexdigest(),
+                },
+                "kind": "texture",
+                "name": name,
+                "texture": {**spec, "group": "Weapon", "max_size": 4096},
+                **common,
+            }
+        )
+    for rec in (sk, skel, *textures):
         path = RECORDS / f"{rec['name']}.import.json"
-        path.write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        # LF on every platform: the art text check rejects CRLF records.
+        path.write_bytes((json.dumps(rec, indent=2, sort_keys=True) + "\n").encode("utf-8"))
 
 
-def main(size: int) -> None:
+def main(size: int, rebake: bool = True) -> None:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     graveline.build()
     body = join_parts()
     unwrap(body)
-    textures = bake(body, size)
+    # The unwrap is deterministic, so maps from an earlier run still fit (`--keep-maps`).
+    textures = bake(body, size) if rebake else {"kept": str(TEXTURE_OUT)}
     merge_slots(body)
     triangles = ux.triangle_count(body.data)
     vertices = len(body.data.vertices)
@@ -377,5 +418,5 @@ def main(size: int) -> None:
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    main(int(args[0]) if args else 4096)
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    main(int(args[0]) if args else 4096, rebake="--keep-maps" not in sys.argv)

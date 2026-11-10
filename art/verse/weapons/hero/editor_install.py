@@ -1,8 +1,8 @@
 """Install the hero Graveline's baked skin, optic glass and reticle (headless editor).
 
 `python art/verse/weapons/hero/install_hero.py` runs this file through
-`-ExecutePythonScript`. It imports `T_Weapon_GravelineHero_BC/_ORM/_NDX` from
-the staging folder into `/Game/Verse/Weapons/GravelineHero/Textures` and builds:
+`-ExecutePythonScript`. It loads `T_Weapon_GravelineHero_BC/_ORM/_N` (imported from
+their records by `import_art.py assets`), keeps them resident and builds:
 
 - `MI_Weapon_GravelineHero` on `M_Verse_Character` (the baked skin),
 - `MI_Weapon_OpticHero` on `M_Verse_Glass` (clear coated window),
@@ -48,33 +48,18 @@ def _save(asset, name: str) -> None:
     REPORT["instances"].append(name)
 
 
-def import_textures(source: Path) -> dict:
-    compression = u.TextureCompressionSettings
-    kinds = {"BC": None, "ORM": compression.TC_MASKS, "NDX": compression.TC_NORMALMAP}
-    tasks = []
-    for kind in kinds:
-        f = source / f"{STEM}_{kind}.png"
-        if not f.is_file():
-            REPORT["errors"].append(f"missing {f}")
-            continue
-        task = u.AssetImportTask()
-        task.filename = str(f)
-        task.destination_path = TEXTURES
-        task.automated = True
-        task.replace_existing = True
-        task.save = False
-        tasks.append(task)
-    u.AssetToolsHelpers.get_asset_tools().import_asset_tasks(tasks)
+def load_textures() -> dict:
+    """The maps `import_art.py assets` imported from their records; kept fully resident."""
     textures = {}
-    for kind, setting in kinds.items():
+    for kind in ("BC", "ORM", "N"):
         name = f"{STEM}_{kind}"
         tex = u.load_asset(f"{TEXTURES}/{name}.{name}")
         if tex is None:
-            REPORT["errors"].append(f"texture {name} did not import")
+            REPORT.setdefault("notes", []).append(f"texture {name} not imported yet")
             continue
-        if setting is not None:
-            tex.set_editor_property("compression_settings", setting)
-            tex.set_editor_property("srgb", False)
+        # The viewmodel is drawn pulled towards the eye, so the streamer judges it far away and
+        # picks blurred mips (the black optic read brown). Three maps always resident.
+        tex.set_editor_property("never_stream", True)
         u.EditorAssetLibrary.save_loaded_asset(tex, only_if_is_dirty=False)
         textures[kind] = tex
         REPORT["imported"].append(name)
@@ -84,7 +69,7 @@ def import_textures(source: Path) -> dict:
 def build_instances(textures: dict) -> None:
     mel = u.MaterialEditingLibrary
     skin = _instance("MI_Weapon_GravelineHero", "M_Verse_Character")
-    for param, kind in (("BaseColorMap", "BC"), ("ORMMap", "ORM"), ("NormalMap", "NDX")):
+    for param, kind in (("BaseColorMap", "BC"), ("ORMMap", "ORM"), ("NormalMap", "N")):
         if kind in textures:
             mel.set_material_instance_texture_parameter_value(skin, param, textures[kind])
     mel.set_material_instance_vector_parameter_value(skin, "BaseTint", u.LinearColor(1, 1, 1, 1))
@@ -136,7 +121,7 @@ def bind_slots() -> None:
 
 def main() -> None:
     try:
-        textures = import_textures(Path(os.environ["VERSE_HERO_SRC"]))
+        textures = load_textures()
         build_instances(textures)
         bind_slots()
     except Exception as error:  # report, never hang the editor

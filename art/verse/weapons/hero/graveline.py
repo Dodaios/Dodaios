@@ -12,17 +12,12 @@ working: `Root` (grip point), `Magazine`, `Bolt`, `Trigger`.
 
 from __future__ import annotations
 
+from .. import specs
 from . import kit
 
-#: Socket positions of this mesh, weapon space (metres).
-SIGHT_Z = 0.1365
-SOCKETS = {
-    "SOCKET_Muzzle": (0.742, 0.0, 0.045),
-    # The rear window of the holographic sight, centred: what the eye lines up.
-    "SOCKET_Sight": (0.072, 0.0, SIGHT_Z),
-    "SOCKET_Support": (0.40, 0.0, 0.005),
-    "SOCKET_Eject": (0.12, -0.026, 0.06),
-}
+#: Socket positions of this mesh (weapon space, metres), from `specs.GRAVELINE_HERO`.
+SOCKETS = {s.name: s.location for s in specs.GRAVELINE_HERO.sockets}
+SIGHT_Z = SOCKETS["SOCKET_Sight"][2]
 
 
 def materials() -> dict:
@@ -31,17 +26,17 @@ def materials() -> dict:
             "M_Weapon_Bronze",
             base=(0.235, 0.175, 0.105),
             worn=(0.62, 0.6, 0.57),
-            rough=0.55,
+            rough=0.64,
             wear=0.42,
             dust_amount=0.35,
             scratches=0.45,
         ),
         "anodised": kit.coated(
             "M_Weapon_Anodised",
-            base=(0.022, 0.022, 0.024),
+            base=(0.018, 0.018, 0.02),
             worn=(0.24, 0.24, 0.25),
-            rough=0.42,
-            metallic_base=0.35,
+            rough=0.62,
+            metallic_base=0.0,
             wear=0.7,
             micro=0.15,
             scratches=0.25,

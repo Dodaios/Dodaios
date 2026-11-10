@@ -253,6 +253,26 @@ void UVerseViewmodelComponent::Build()
 	FillLight->LightingChannels.bChannel1 = true;
 	FillLight->RegisterComponent();
 
+	auto MakeRigLight = [&](const TCHAR* Name, const FVector& At, const FLinearColor& Colour, float Radius) {
+		UPointLightComponent* L = NewObject<UPointLightComponent>(Owner, Name);
+		L->SetupAttachment(Camera);
+		L->SetRelativeLocation(At);
+		L->SetIntensityUnits(ELightUnits::Lumens);
+		L->SetIntensity(0.f);
+		L->SetLightColor(Colour);
+		L->SetAttenuationRadius(140.f);
+		L->SetSourceRadius(Radius);
+		L->SetCastShadows(false);
+		L->SetAffectTranslucentLighting(false);
+		L->LightingChannels.bChannel0 = false;
+		L->LightingChannels.bChannel1 = true;
+		L->SetVisibility(false);
+		L->RegisterComponent();
+		return L;
+	};
+	KeyLight = MakeRigLight(TEXT("ViewmodelKeyLight"), FVector(28.0, -14.0, 38.0), FLinearColor(1.f, 0.95f, 0.88f), 14.f);
+	RimLight = MakeRigLight(TEXT("ViewmodelRimLight"), FVector(10.0, 34.0, 2.0), FLinearColor(0.78f, 0.86f, 1.f), 6.f);
+
 	ShownWeaponId = NAME_None;
 	bHaveViewRotation = false;
 
@@ -277,7 +297,7 @@ void UVerseViewmodelComponent::TearDown()
 			Bolts->VisualMuzzle = nullptr;
 		}
 	}
-	for (USceneComponent* C : {static_cast<USceneComponent*>(FillLight.Get()), static_cast<USceneComponent*>(FlashLight.Get()), static_cast<USceneComponent*>(Flash.Get()),
+	for (USceneComponent* C : {static_cast<USceneComponent*>(KeyLight.Get()), static_cast<USceneComponent*>(RimLight.Get()), static_cast<USceneComponent*>(FillLight.Get()), static_cast<USceneComponent*>(FlashLight.Get()), static_cast<USceneComponent*>(Flash.Get()),
 			 static_cast<USceneComponent*>(Mesh.Get()), Root.Get()})
 	{
 		if (C)
@@ -285,6 +305,8 @@ void UVerseViewmodelComponent::TearDown()
 			C->DestroyComponent();
 		}
 	}
+	KeyLight = nullptr;
+	RimLight = nullptr;
 	FillLight = nullptr;
 	FlashLight = nullptr;
 	Flash = nullptr;
@@ -327,6 +349,8 @@ void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 	Mesh->SetSkinnedAssetAndUpdate(Asset);
 	Pose = PoseFor(WeaponId);
 	bShowingHero = Asset && IsHeroMeshPath(Path);
+	// The hero mesh is lit by its own rig only (see KeyLight); WP14 meshes keep the hangar lights.
+	Mesh->SetLightingChannels(!bShowingHero, true, false);
 	if (bShowingHero)
 	{
 		// The hero holographic sight: a big hooded window, seen from close like a real eye relief.
@@ -498,7 +522,9 @@ void UVerseViewmodelComponent::Step(float Dt)
 	ShowWeapon(Want);
 	const bool bVisible = bAlive && !bFinisher && Mesh->GetSkinnedAsset() != nullptr;
 	Mesh->SetVisibility(bVisible, false);
-	FillLight->SetVisibility(bVisible);
+	FillLight->SetVisibility(bVisible && !bShowingHero);
+	KeyLight->SetVisibility(bVisible && bShowingHero);
+	RimLight->SetVisibility(bVisible && bShowingHero);
 	if (!bVisible)
 	{
 		Flash->SetVisibility(false);
@@ -521,6 +547,9 @@ void UVerseViewmodelComponent::Step(float Dt)
 	}
 	// While aiming the sight sits a hand's width from the eye: the fill light would burn its inner walls white.
 	FillLight->SetIntensity(FillLumens * FMath::Lerp(1.f, 0.12f, AdsSmoothed));
+	// Aiming, the key drops so the sight housing next to the eye stays dark around its window.
+	KeyLight->SetIntensity(HeroKeyLumens * FMath::Lerp(1.f, 0.3f, AdsSmoothed));
+	RimLight->SetIntensity(HeroRimLumens * FMath::Lerp(1.f, 0.5f, AdsSmoothed));
 	FVector Pos = FMath::Lerp(Pose.HipOffset, AdsOffset, double(AdsSmoothed));
 	FRotator Rot = Pose.HipRotation * (1.f - AdsSmoothed);
 
