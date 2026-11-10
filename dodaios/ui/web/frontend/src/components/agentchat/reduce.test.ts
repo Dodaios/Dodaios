@@ -39,6 +39,21 @@ describe("agent-chat reduce", () => {
     expect(lost.blocks.map((b) => b.kind)).toEqual(["reasoning", "tool", "text"]);
   });
 
+  it("keeps one thought when a live block opens between two snapshots of it", () => {
+    const thought = "There is already a worktree that does this task.";
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "dup" }),
+      ev("reasoning_started", { turn_id: "dup" }, false),
+      ev("reasoning", { turn_id: "dup", message_id: "m1", text: thought, duration_ms: 9165 }),
+      ev("reasoning_started", { turn_id: "dup" }, false),
+      ev("reasoning", { turn_id: "dup", message_id: "m1", text: thought, duration_ms: 9169 }),
+      ev("tool_call", { turn_id: "dup", call_id: "c1", name: "Grep", input: { pattern: "x" } }),
+    ]);
+    const turn = tl.items[0] as TurnItem;
+    expect(turn.blocks.map((b) => b.kind)).toEqual(["reasoning", "tool"]);
+    expect(turn.blocks[0]).toMatchObject({ text: thought, durationMs: 9169, live: false });
+  });
+
   it("does not open a turn for an end, a usage update or a live delta alone", () => {
     const tl = reduceEvents(EMPTY_TIMELINE, [
       ev("usage_delta", { turn_id: "gone", usage: { output_tokens: 3 } }),

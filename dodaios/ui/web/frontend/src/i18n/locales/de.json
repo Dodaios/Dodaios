@@ -7938,7 +7938,21 @@
       "lookup_one": "Werkzeuge nachgeschlagen",
       "lookup_other": "Werkzeuge nachgeschlagen",
       "asked_one": "dich gefragt",
-      "asked_other": "dich gefragt"
+      "asked_other": "dich gefragt",
+      "fetch_one": "eine Seite abgerufen",
+      "fetch_other": "{count} Seiten abgerufen",
+      "todo_one": "die Aufgabenliste aktualisiert",
+      "todo_other": "die Aufgabenliste aktualisiert",
+      "message_one": "einem Agenten geschrieben",
+      "message_other": "{count} Nachrichten gesendet",
+      "agents_list_one": "die Agenten geprüft",
+      "agents_list_other": "die Agenten geprüft",
+      "stop_one": "eine Aufgabe gestoppt",
+      "stop_other": "{count} Aufgaben gestoppt",
+      "more_one": "{list} und eine weitere Aktion",
+      "more_other": "{list} und {count} weitere Aktionen",
+      "failed_one": "{count} fehlgeschlagen",
+      "failed_other": "{count} fehlgeschlagen"
     },
     "act_n": {
       "command": "{count} Befehle ausgeführt",

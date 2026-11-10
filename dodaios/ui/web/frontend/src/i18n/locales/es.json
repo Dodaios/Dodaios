@@ -7938,7 +7938,21 @@
       "lookup_one": "consultó herramientas",
       "lookup_other": "consultó herramientas",
       "asked_one": "te preguntó",
-      "asked_other": "te preguntó"
+      "asked_other": "te preguntó",
+      "fetch_one": "abrió una página",
+      "fetch_other": "abrió {count} páginas",
+      "todo_one": "actualizó la lista de tareas",
+      "todo_other": "actualizó la lista de tareas",
+      "message_one": "escribió a un agente",
+      "message_other": "envió {count} mensajes",
+      "agents_list_one": "revisó los agentes",
+      "agents_list_other": "revisó los agentes",
+      "stop_one": "detuvo una tarea",
+      "stop_other": "detuvo {count} tareas",
+      "more_one": "{list} y una acción más",
+      "more_other": "{list} y {count} acciones más",
+      "failed_one": "{count} falló",
+      "failed_other": "{count} fallaron"
     },
     "act_n": {
       "command": "ejecutó {count} comandos",
