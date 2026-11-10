@@ -509,6 +509,9 @@ def _carry_thread_conversation(runner: str, resume: str | None, env: dict[str, s
     carried into the seat this turn runs on. Filesystem work: off the loop.
     """
     pair = _SEAT_CONVERSATIONS.get(runner)
+    if resume and resume.startswith("fork:"):
+        # A pending fork reads the source conversation on this seat.
+        resume = resume[len("fork:") :]
     if not resume or pair is None:
         return
     platform, kind = pair
@@ -890,9 +893,17 @@ def _plan_claude_code(
         else:
             # No assistant identity: a coding thread, which keeps its sub-agents.
             argv += ["--append-system-prompt", dodaios_harness.CODING_PREAMBLE]
-    if resume:
-        argv += ["--resume", resume]
-        sid = resume
+    from dodaios.agent_chat.thread_sessions import split_fork
+
+    resume_id, fork_source = split_fork(resume)
+    if fork_source:
+        # A forked thread's first turn: Claude copies the source conversation
+        # under the new id (the one combination that also takes --session-id).
+        sid = str(uuid.uuid4())
+        argv += ["--resume", fork_source, "--fork-session", "--session-id", sid]
+    elif resume_id:
+        argv += ["--resume", resume_id]
+        sid = resume_id
     else:
         sid = str(uuid.uuid4())
         argv += ["--session-id", sid]
