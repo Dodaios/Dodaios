@@ -36,16 +36,21 @@ import { turnErrorText } from "@/components/agentchat/turnError";
  * MIT License, Copyright (c) 2026 T3 Tools Inc. — third_party/t3code/LICENSE.
  */
 
+/**
+ * The agent's words: 15 px on a 21 px line, full strength, never cut short.
+ * Paragraphs of one message sit half a line apart; inline code is a faint
+ * tint a pixel smaller than the text, with no border.
+ */
 export const PROSE = cn(
-  "py-1 prose prose-neutral max-w-none text-base leading-6 text-foreground dark:prose-invert dark:text-foreground [overflow-wrap:anywhere]",
+  "prose prose-neutral max-w-none text-[15px] leading-[21px] text-foreground/95 dark:prose-invert dark:text-foreground/95 [overflow-wrap:anywhere]",
   "[&>div>:first-child]:mt-0 [&>div>:last-child]:mb-0",
-  "prose-p:my-2 prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground-strong",
+  "prose-p:my-2.5 prose-p:leading-[21px] prose-p:text-foreground/95 prose-li:text-foreground/95 prose-strong:font-semibold prose-strong:text-foreground-strong",
   "prose-headings:mb-1.5 prose-headings:mt-4 prose-headings:font-semibold prose-headings:tracking-normal prose-headings:text-foreground-strong",
-  "prose-h1:text-lg prose-h2:text-base prose-h3:text-base prose-h4:text-base",
+  "prose-h1:text-lg prose-h2:text-base prose-h3:text-[15px] prose-h4:text-[15px]",
   "prose-a:text-foreground-strong prose-a:underline prose-a:decoration-border-strong prose-a:underline-offset-2",
-  "prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:font-normal prose-code:before:hidden prose-code:after:hidden",
-  "prose-pre:my-2 prose-pre:rounded-lg prose-pre:border prose-pre:border-border prose-pre:bg-card prose-pre:text-sm",
-  "prose-li:my-0.5 prose-ul:my-2 prose-ol:my-2 prose-ul:pl-5 prose-ol:pl-5",
+  "prose-code:rounded-[4px] prose-code:bg-foreground/[0.075] prose-code:px-1 prose-code:py-px prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:before:hidden prose-code:after:hidden",
+  "prose-pre:my-2.5 prose-pre:rounded-lg prose-pre:border prose-pre:border-border prose-pre:bg-card prose-pre:text-sm",
+  "prose-li:my-1 prose-li:leading-[21px] prose-ul:my-2.5 prose-ol:my-2.5 prose-ul:pl-5 prose-ol:pl-5",
   "prose-table:my-3 prose-table:text-sm prose-th:text-foreground-strong prose-td:text-foreground",
 );
 
@@ -82,26 +87,29 @@ function WorkRow({
   ariaLabel?: string;
   children?: ReactNode;
 }) {
-  const line = <span className={cn("flex min-h-6 min-w-0 items-center gap-2.5 leading-6", grouped ? "text-sm" : "text-base")}>
-    {icon && <span aria-hidden className="flex h-6 w-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{icon}</span>}
+  const line = <span className={cn("flex min-w-0 items-center", grouped ? "min-h-6 gap-2.5 text-sm leading-6" : "min-h-[21px] gap-1 text-[15px] leading-[21px]")}>
+    {icon && <span aria-hidden className="flex h-[21px] w-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">{icon}</span>}
     <span className={cn(
-      "min-w-0 truncate transition-colors",
-      "text-muted-foreground",
-      onToggle && !live && "group-hover/row:text-foreground",
+      "min-w-0 truncate transition-colors duration-100",
+      expanded ? "text-foreground-secondary" : "text-muted-foreground",
+      onToggle && !live && "group-hover/row:text-foreground-secondary group-focus-visible/row:text-foreground-secondary",
       live && "live-tool-shine",
     )}>{label}</span>
     {trailing}
-    {onToggle && <span aria-hidden className={cn("flex h-4 w-4 shrink-0 items-center justify-center", !icon && "-ml-1.5")}>
-      <ChevronRight className={cn(
-        "h-3.5 w-3.5 text-muted-foreground transition duration-200 group-hover/row:opacity-100 group-focus-visible/row:opacity-100",
+    {onToggle && <span aria-hidden className="flex h-[21px] w-3.5 shrink-0 items-center justify-center">
+      <ChevronRight strokeWidth={2.25} className={cn(
+        "h-3.5 w-3.5 transition-[transform,opacity,color] duration-100 ease-out motion-reduce:transition-none",
+        expanded ? "text-foreground-secondary" : "text-muted-foreground group-hover/row:text-foreground-secondary",
         // A line of the thread always shows that it opens; a step in a list only when pointed at.
-        icon ? "opacity-0 group-hover/row:opacity-70" : "opacity-60",
-        expanded && "rotate-90 opacity-70",
+        icon && !expanded && "opacity-0 group-hover/row:opacity-100 group-focus-visible/row:opacity-100",
+        expanded && "rotate-90",
       )} />
     </span>}
     {stamp ? <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-visible/row:opacity-100">{clock(stamp)}</span> : null}
   </span>;
-  const row = cn("group/row relative block w-full min-w-0 rounded-md text-left", grouped ? "py-0" : "py-1.5");
+  // A line of the thread is one 28 px row that gives back 6 px above and
+  // below, so the air around it matches the gap between two paragraphs.
+  const row = cn("group/row relative block w-full min-w-0 rounded-lg text-left", grouped ? "py-0" : "-my-1.5 py-[3.5px]");
   return <div className="min-w-0">
     {onToggle
       ? <button type="button" aria-expanded={expanded} aria-label={ariaLabel} onClick={onToggle}
@@ -200,9 +208,6 @@ function callTail(call: Call, t: (key: string) => string): string {
   return isFailed(call) && call.reason ? call.reason : call.status === "interrupted" ? t("thread_turn.interrupted") : "";
 }
 
-/** The kinds of call a line of the thread names by what they were ("Ran a command", "Read a file"). */
-const PLAIN_KINDS: ReadonlySet<string> = new Set(["command", "read", "list", "search", "edit", "write", "image"]);
-
 /**
  * What the agent itself said a call is for ("Show the lines with relative
  * links"): the short description some runtimes send along with a command.
@@ -216,10 +221,11 @@ export function callPurpose(call: Call): string {
 
 /**
  * A lone call as its line says it: the agent's own words for it, else what it
- * was. What it ran or acted on is one click away, in its row.
+ * did and to what ("Read src/app.ts"). A bare command line or search pattern
+ * is no sentence, so it reads "Ran a command" and shows itself one click away.
  */
 function callWords(call: Call, t: (key: string) => string): string {
-  return callPurpose(call) || (PLAIN_KINDS.has(call.kind) ? capitalize(tr(t, `act.${call.kind}_one`)) : call.text);
+  return callPurpose(call) || (call.kind === "command" || call.kind === "search" ? capitalize(tr(t, `act.${call.kind}_one`)) : call.text);
 }
 
 const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-secondary prose-p:text-foreground-secondary prose-li:text-foreground-secondary");
@@ -230,7 +236,7 @@ const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-
  */
 export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
 
-const CARD_ROW = "group/step flex w-full min-w-0 items-center gap-1.5 px-3 py-1.5 text-left text-[13px] leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+const CARD_ROW = "group/step flex w-full min-w-0 items-center gap-1.5 px-3 py-2 text-left text-sm leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
 /**
  * One row of an opened stretch's card: what the step was in the quiet tone,
@@ -249,11 +255,11 @@ function CardRow({ label, openLabel, detail, mono = false, trailing, live = fals
 }) {
   const [open, setOpen] = useState(startOpen);
   const words = <>
-    <span className={cn("truncate text-muted-foreground transition-colors", detail ? "shrink-0" : "min-w-0",
-      children && !live && "group-hover/step:text-foreground", live && "live-tool-shine")}>{open && openLabel ? openLabel : label}</span>
+    <span className={cn("truncate text-muted-foreground transition-colors duration-100", detail ? "shrink-0" : "min-w-0",
+      children && !live && "group-hover/step:text-foreground-secondary", live && "live-tool-shine")}>{open && openLabel ? openLabel : label}</span>
     {detail && <span className={cn("min-w-0 truncate text-foreground-secondary", mono && "font-mono text-[13px]")}>{detail}</span>}
     {trailing}
-    {children && <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition duration-200 group-hover/step:opacity-100", open && "rotate-90")} />}
+    {children && <ChevronRight aria-hidden strokeWidth={2.25} className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-100 ease-out group-hover/step:text-foreground-secondary motion-reduce:transition-none", open && "rotate-90")} />}
   </>;
   return <div className="min-w-0" data-testid={testId}>
     {children
@@ -268,7 +274,7 @@ function CardStep({ item, running, lone = false }: { item: StretchItem; running:
   if (item.kind === "said") {
     const gist = thoughtGist(item.text);
     return <CardRow label={gist} openLabel={t("work_trace.thought")} testId="thread-thought" startOpen={lone}>
-      {(lone || gist !== item.text.trim()) && <div className={cn(THOUGHT_PROSE, "select-text px-3 pb-2.5 pt-0 text-[13px] leading-5")}><ChatMarkdown text={item.text} /></div>}
+      {(lone || gist !== item.text.trim()) && <div className={cn(THOUGHT_PROSE, "select-text px-3 pb-2.5 pt-0 text-sm leading-[21px] prose-p:leading-[21px]")}><ChatMarkdown text={item.text} /></div>}
     </CardRow>;
   }
   if (item.kind === "thought") return running ? <CardRow label={t("thread_turn.thinking")} live /> : null;
@@ -329,11 +335,11 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
       expanded={open}
       onToggle={() => setOpen(!open)}>
       <div role="region" aria-label={t("thread_turn.steps")} data-testid="thread-steps"
-        className="mb-2 mt-0.5 divide-y divide-border overflow-hidden rounded-xl border border-border">
+        className="mb-1.5 mt-3.5 divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
         {stretch.items.map((item) => <CardStep key={item.id} item={item} running={running} lone={stretch.items.length === 1} />)}
       </div>
     </WorkRow>
-    {now && <p data-testid="thread-thought-live" className="m-0 line-clamp-3 pb-1 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">{flattenMarks(now.text)}</p>}
+    {now && <p data-testid="thread-thought-live" className="m-0 mt-3 line-clamp-3 text-sm leading-[21px] text-muted-foreground [overflow-wrap:anywhere]">{flattenMarks(now.text)}</p>}
   </div>;
 }
 
@@ -474,7 +480,7 @@ export function ChangedFiles({ turn }: { turn: TurnItem }) {
     setExpanded(true);
   };
   const title = fill(t(`thread_turn.files_changed_${plural(lang, rows.length)}`), { count: rows.length });
-  return <section aria-label={t("thread_turn.changed_files")} data-testid="thread-changed-files" className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
+  return <section aria-label={t("thread_turn.changed_files")} data-testid="thread-changed-files" className="overflow-hidden rounded-xl border border-border bg-card">
     <div className="flex items-center gap-3 border-b border-border px-3 py-3">
       <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground-secondary">
         <span className="flex h-5 w-5 items-center justify-center rounded-[5px] border-[1.5px] border-current"><Diff className="h-3 w-3" strokeWidth={2.25} /></span>
@@ -743,20 +749,22 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const shown = folded ? tail : rows;
   let extraAt = shown.length;
   if (!folded) while (extraAt > 0 && shown[extraAt - 1].kind === "text") extraAt--;
-  return <CallMedia.Provider value={pictures.byCall}><div className="min-w-0 space-y-1.5" data-testid="thread-turn" data-status={turn.status}>
+  // One 20 px gap between every block of the turn: a paragraph, a line of
+  // work, a card. Lines of work give some of it back (WorkRow).
+  return <CallMedia.Provider value={pictures.byCall}><div className="flex min-w-0 flex-col gap-5" data-testid="thread-turn" data-status={turn.status}>
     {folded && <div>
       <button type="button" aria-expanded={workOpen} onClick={() => setWorkOpen((value) => !value)} data-testid="thread-worked-for"
-        className="flex h-7 items-center gap-1 rounded-md px-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        className="-my-1.5 flex items-center gap-1 rounded-lg py-[3.5px] text-[15px] leading-[21px] text-muted-foreground transition-colors duration-100 hover:text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <span className="tabular-nums">{foldLabel}</span>
-        <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-150", workOpen && "rotate-90")} />
+        <ChevronRight aria-hidden strokeWidth={2.25} className={cn("h-3.5 w-3.5 transition-transform duration-100 ease-out motion-reduce:transition-none", workOpen && "rotate-90")} />
       </button>
-      {workOpen && <div className="space-y-1.5 pb-2 pt-1" data-testid="thread-worked-steps">
+      {workOpen && <div className="flex flex-col gap-5 pb-3 pt-6" data-testid="thread-worked-steps">
         {renderRows(work.filter((row) => row.kind !== "agent" && !isSteerRow(row) && !waiting.includes(row)))}
         {extraNodes}
       </div>}
-      <div aria-hidden className="mt-1 border-b border-border/70" />
+      <div aria-hidden className="mt-3 border-b border-border/70" />
     </div>}
-    {folded && agents.length > 0 && <div className="space-y-1.5 pt-1" data-testid="thread-turn-subagents">{renderRows(agents)}</div>}
+    {folded && agents.length > 0 && <div className="flex flex-col gap-5" data-testid="thread-turn-subagents">{renderRows(agents)}</div>}
     {folded && steers.map(renderRow)}
     {folded && waiting.map(renderRow)}
     {credentials.map((block) => <CredentialCard key={block.credential!.requestId} credential={block.credential!} />)}
@@ -766,14 +774,14 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {running
       ? waitingOn.length > 0
         ? <BackgroundWait tasks={waitingOn} since={turn.startedMs} />
-        : <div className="flex h-6 min-w-0 items-center text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
+        : <div className="-mt-1 flex h-6 min-w-0 items-center text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
           <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
             {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
         </div>
       : <>
         {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
         <ChangedFiles turn={turn} />
-        <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground" data-testid="thread-turn-closing">
+        <div className="-mt-3 flex items-center gap-1.5 text-xs text-muted-foreground empty:hidden" data-testid="thread-turn-closing">
           {!folded && closing && <span>{closing}</span>}
           {folded && !answer && <span>{t("thread_turn.no_answer")}</span>}
           {receipt && <span className="inline-flex items-center gap-1.5 tabular-nums">

@@ -7946,7 +7946,21 @@
       "lookup_one": "查找了工具",
       "lookup_other": "查找了工具",
       "asked_one": "向你提问",
-      "asked_other": "向你提问"
+      "asked_other": "向你提问",
+      "fetch_one": "打开了一个网页",
+      "fetch_other": "打开了 {count} 个网页",
+      "todo_one": "更新了待办清单",
+      "todo_other": "更新了待办清单",
+      "message_one": "给一个智能体发了消息",
+      "message_other": "发送了 {count} 条消息",
+      "agents_list_one": "查看了智能体",
+      "agents_list_other": "查看了智能体",
+      "stop_one": "停止了一个任务",
+      "stop_other": "停止了 {count} 个任务",
+      "more_one": "{list}，以及另外 1 项操作",
+      "more_other": "{list}，以及另外 {count} 项操作",
+      "failed_one": "{count} 项失败",
+      "failed_other": "{count} 项失败"
     },
     "act_n": {
       "command": "运行了 {count} 条命令",
