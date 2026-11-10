@@ -8,6 +8,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
 #include "Engine/DirectionalLight.h"
+#include "Engine/PointLight.h"
+#include "Components/PointLightComponent.h"
 #include "Engine/PostProcessVolume.h"
 #include "Engine/RectLight.h"
 #include "Engine/SpotLight.h"
@@ -53,7 +55,9 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float WorkLightKelvin = 4300.f;
 	constexpr float PracticalKelvin = 6200.f;
 	constexpr float FillKelvin = 6500.f;
-	constexpr float FillLux = 40.f;
+	constexpr float FillLux = 18.f;
+	/** Soft shadowless bounce stand-ins over the arena (lumens each): faces the work lights miss stay readable. */
+	constexpr float BounceLumens = 30000.f;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
 	const FVector DroneDocks[] = {FVector(2620.0, 2400.0, 900.0), FVector(5000.0, 4280.0, 900.0), FVector(7380.0, 2400.0, 900.0)};
 
@@ -930,6 +934,30 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 			else
 			{
 				AddTrim(TEXT("Arena_LedStrip"), At + FVector(0.0, 0.0, 2.0), FVector(160.0, 30.0, 2.0), FRotator::ZeroRotator, false);
+			}
+		}
+		// Bounce: broad, shadowless, cool points high over the arena stand in for the light the
+		// floor and walls throw back, so no face the work lights miss renders black.
+		for (const double X : {3000.0, 5000.0, 7000.0})
+		{
+			for (const double Y : {1100.0, 2400.0, 3700.0})
+			{
+				if (APointLight* Bounce = World->SpawnActor<APointLight>(FVector(X, Y, 1100.0), FRotator::ZeroRotator, Params))
+				{
+					UPointLightComponent* C = CastChecked<UPointLightComponent>(Bounce->GetLightComponent());
+					C->SetMobility(EComponentMobility::Movable);
+					C->SetIntensityUnits(ELightUnits::Lumens);
+					C->SetIntensity(BounceLumens);
+					C->SetAttenuationRadius(2600.f);
+					C->SetSourceRadius(300.f);
+					C->SetSoftSourceRadius(300.f);
+					C->SetUseTemperature(true);
+					C->SetTemperature(FillKelvin);
+					C->SetCastShadows(false);
+					C->SetSpecularScale(0.15f);
+					C->SetVolumetricScatteringIntensity(0.f);
+					Spawned.Add(Bounce);
+				}
 			}
 		}
 		ApplyLook(*World);

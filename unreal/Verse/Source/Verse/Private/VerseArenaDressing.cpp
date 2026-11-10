@@ -488,6 +488,15 @@ void AVerseArenaGraybox::DressHall()
 		}
 	}
 
+	// A continuous light line where the module rows meet, on every hull wall.
+	AddTrim(TEXT("Arena_LedStrip"), FVector(5000.0, HeroFaceY + 6.0, 1200.0), FVector(9400.0, 4.0, 8.0), FRotator::ZeroRotator, false);
+	AddTrim(TEXT("Arena_LedStrip"), FVector(WestFaceX + 6.0, 3200.0, 1200.0), FVector(4.0, 5600.0, 8.0), FRotator::ZeroRotator, false);
+	AddTrim(TEXT("Arena_LedStrip"), FVector(EastFaceX - 6.0, 3200.0, 1200.0), FVector(4.0, 5600.0, 8.0), FRotator::ZeroRotator, false);
+	for (const double X : {(300.0 + DoorMinX) * 0.5, (DoorMaxX + 9700.0) * 0.5})
+	{
+		AddTrim(TEXT("Arena_LedStrip"), FVector(X, NearFaceY - 6.0, 1200.0), FVector(DoorMinX - 300.0, 4.0, 8.0), FRotator::ZeroRotator, false);
+	}
+
 	// The 41 m hall door in the near wall.
 	AddDressing(TEXT("SM_Hangar_BlastDoor"), FTransform(FRotator(0.0, 180.0, 0.0), FVector(5000.0, NearFaceY - 70.0, 0.0)));
 

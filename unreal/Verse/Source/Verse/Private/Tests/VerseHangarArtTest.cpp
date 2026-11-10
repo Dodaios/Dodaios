@@ -141,7 +141,7 @@ bool FVerseVisualHangarArtTest::RunTest(const FString&)
 			case 1:
 				// Lumen and the virtual shadow maps catch up after a teleport.
 				PC->SetControlRotation(FRotator(View.Pitch, View.Yaw, 0.0));
-				if (Now - State->PhaseS > 3.0)
+				if (Now - State->PhaseS > 3.0 && ShadersDone())
 				{
 					FScreenshotRequest::RequestScreenshot(FPaths::Combine(State->OutDir, FString(View.Name) + TEXT(".png")), true, false);
 					State->PhaseS = Now;

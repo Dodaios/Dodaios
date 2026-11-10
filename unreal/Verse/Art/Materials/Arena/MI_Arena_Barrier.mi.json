@@ -12,9 +12,7 @@
     "RoughnessMin": 0.55
   },
   "schema": "verse.mi/1",
-  "switches": {
-    "UseTriplanar": false
-  },
+  "switches": {},
   "textures": {},
   "vectors": {
     "BaseTint": [
