@@ -2278,7 +2278,8 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         ids = [str(i) for i in (obj.get("preceding_tool_use_ids") or []) if i]
         if not summary or not ids:
             return []
-        return [make_event("tool_summary", {"turn_id": st.turn_id, "summary": summary[:200], "call_ids": ids})]
+        payload = {"turn_id": st.turn_id, "summary": summary[:200], "call_ids": ids}
+        return [make_event("tool_summary", payload)]
 
     if kind == "system":
         # init / hooks / status are nothing the timeline shows; a sub-agent's

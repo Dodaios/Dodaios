@@ -299,8 +299,12 @@ def test_a_tool_use_summary_becomes_the_runs_title():
         },
         st,
     )
-    assert [(e["kind"], e["payload"]) for e in out] == [
-        ("tool_summary", {"turn_id": "t1", "summary": "Read a.txt and listed files", "call_ids": ["toolu_1", "toolu_2"]})
-    ]
+    expected = {
+        "turn_id": "t1",
+        "summary": "Read a.txt and listed files",
+        "call_ids": ["toolu_1", "toolu_2"],
+    }
+    assert [(e["kind"], e["payload"]) for e in out] == [("tool_summary", expected)]
     # Nothing to title, no event.
-    assert translate_claude_line({"type": "tool_use_summary", "summary": "", "preceding_tool_use_ids": ["x"]}, st) == []
+    empty = {"type": "tool_use_summary", "summary": "", "preceding_tool_use_ids": ["x"]}
+    assert translate_claude_line(empty, st) == []
