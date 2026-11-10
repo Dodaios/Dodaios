@@ -63,7 +63,7 @@ public:
 	static constexpr float FlashLumens = 1200.f;
 	static constexpr float FlashLightForwardCm = 80.f;
 	/** Fill light on the held weapon, lumens; it sits above and right of the eye (camera space, cm, drawn space). */
-	static constexpr float FillLumens = 170.f;
+	static constexpr float FillLumens = 420.f;
 	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */
 	static constexpr float ViewmodelRoughnessMin = 0.45f;
 

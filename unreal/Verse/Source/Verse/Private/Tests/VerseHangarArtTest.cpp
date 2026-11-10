@@ -75,7 +75,6 @@ namespace VerseHangarArtTest
 			It->SetActorTickEnabled(false);
 			if (APawn* Bot = It->GetPawn())
 			{
-				Bot->SetActorTickEnabled(false);
 				if (View.bShowBot)
 				{
 					Bot->TeleportTo(View.Floor + Ahead * 700.0 + FVector(0.0, 0.0, 100.0), (-Ahead).Rotation(), false, true);
