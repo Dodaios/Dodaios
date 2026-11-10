@@ -839,6 +839,10 @@ await-jobs = "dodaios.plugins.tool.job_tools:AwaitJobsTool"
 # Independent check of delegated work (coding diff, artifact file, society evidence refs).
 # Read-only (safe); never spawns (AP-5/AP-14).
 verify-delegate = "dodaios.plugins.tool.verify_delegate:VerifyDelegateTool"
+# Watchdog (2026-11-11): what is stuck / what was repaired (safe, read-only) and the
+# one-click actions a watchdog notice offers (monitor). Never a spawn (AP-5/AP-14).
+watchdog-status = "dodaios.plugins.tool.watchdog_tools:WatchdogStatusTool"
+watchdog-act = "dodaios.plugins.tool.watchdog_tools:WatchdogActTool"
 # Command Registry executor (2026-07-09) — run ONE curated app command
 # (provider switch, wake word, language, volume, missions/tasks, restart)
 # through the SAME REST endpoint the UI uses, in-process via ASGI. Enum-
