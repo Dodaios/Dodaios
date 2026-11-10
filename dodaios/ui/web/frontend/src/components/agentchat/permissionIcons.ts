@@ -44,14 +44,6 @@ const GLYPHS: Record<string, LucideIcon> = {
   dontAsk: ShieldBan,
 };
 
-/** Stances in which nothing stops to ask: the agent may change anything. */
-const UNGUARDED = new Set(["bypass", "bypassPermissions", "full-access", "skip-permissions"]);
-
 export function permissionModeIcon(id: string): LucideIcon {
   return GLYPHS[id] ?? Shield;
-}
-
-/** True for a mode that lets the agent act with no approval at all. */
-export function isUnguardedPermissionMode(id: string): boolean {
-  return UNGUARDED.has(id);
 }
