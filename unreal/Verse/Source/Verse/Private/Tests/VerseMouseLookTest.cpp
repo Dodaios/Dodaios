@@ -1,4 +1,7 @@
 #include "Engine/Engine.h"
+#include "Bridge/VerseBridgeCodec.h"
+#include "Dom/JsonObject.h"
+#include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -13,7 +16,10 @@
 #include "Misc/AutomationTest.h"
 #include "ShaderCompiler.h"
 #include "Tests/AutomationCommon.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "UnrealClient.h"
+#include "VerseBridgeSubsystem.h"
 #include "VerseDefaultCharacter.h"
 #include "VerseDuelSubsystem.h"
 
@@ -23,7 +29,8 @@
 // mouse (scripts/unreal/screenshot.py runs it in -game). On a deck a click takes the mouse and
 // MouseX turns the deck camera; in the duel MouseX/MouseY turn the person's control rotation with
 // the viewport capturing permanently and the cursor hidden; a menu frees the cursor and closing it
-// gives the game the captured mouse back.
+// gives the game the captured mouse back; after the app takes the focus and shows the window
+// again (focus.app_took, lifecycle.show through the real lifecycle handler) look still works.
 
 namespace VerseMouseLookTest
 {
@@ -70,6 +77,24 @@ namespace VerseMouseLookTest
 		return Client && (Client->GetMouseCaptureMode() == EMouseCaptureMode::CapturePermanently
 			|| Client->GetMouseCaptureMode() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
 	}
+
+	/** A server frame through the real lifecycle handler (what the app sends on hide, focus and show). */
+	bool Lifecycle(UWorld* World, const TCHAR* Type, const TCHAR* Json)
+	{
+		UGameInstance* Instance = World ? World->GetGameInstance() : nullptr;
+		UVerseBridgeSubsystem* Bridge = Instance ? Instance->GetSubsystem<UVerseBridgeSubsystem>() : nullptr;
+		if (Bridge == nullptr)
+		{
+			return false;
+		}
+		TSharedPtr<FJsonObject> Data = MakeShared<FJsonObject>();
+		FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Data);
+		Bridge->Lifecycle().HandleFrame(FVerseBridgeFrame::Make(Type, Data));
+		return true;
+	}
+
+	/** lifecycle.show onto a monitor far off screen, so the test window never covers the desktop. */
+	const TCHAR* OffscreenShow = TEXT("{\"monitor\":{\"x\":-32000,\"y\":-32000,\"w\":1920,\"h\":1080,\"dpi\":96},\"reason\":\"focus_return\"}");
 
 	struct FState
 	{
@@ -210,11 +235,83 @@ bool FVerseVisualMouseLookTest::RunTest(const FString&)
 				const double Yaw = FMath::Abs(FRotator::NormalizeAxis(PC->GetControlRotation().Yaw - S->Before.Yaw));
 				AddInfo(FString::Printf(TEXT("menu closed: MouseX still turns the camera (%.2f deg)"), Yaw));
 				TestTrue(FString::Printf(TEXT("menu closed: MouseX still turns the camera (%.2f deg)"), Yaw), Yaw > 1.0);
-				Duel->LeaveDuel();
-				return true;
+				Next();
 			}
 			return false;
 		}
+		case 5:  // duel: the app takes the focus and hands it back (focus.app_took, lifecycle.show)
+			if (++S->Frames == 1)
+			{
+				TestTrue(TEXT("bridge lifecycle"), Lifecycle(World, TEXT("focus.app_took"), TEXT("{}")));
+			}
+			else if (S->Frames == 5)
+			{
+				Lifecycle(World, TEXT("lifecycle.show"), OffscreenShow);
+			}
+			else if (S->Frames == 12)
+			{
+				TestTrue(TEXT("after show: game-only input"), IsGameOnly(PC));
+				TestFalse(TEXT("after show: cursor hidden"), PC->ShouldShowMouseCursor());
+				TestTrue(TEXT("after show: the viewport captures permanently"), PermanentCapture(World));
+				TestTrue(TEXT("after show: the duel still owns a captured mouse"), Deck->GetMouseMode() == EVerseDeckMouseMode::Game);
+				S->Before = PC->GetControlRotation();
+			}
+			else if (S->Frames > 12 && S->Frames <= 30)
+			{
+				Feed(World, EKeys::MouseX, IE_Axis, 6.f);
+			}
+			else if (S->Frames == 36)
+			{
+				const double Yaw = FMath::Abs(FRotator::NormalizeAxis(PC->GetControlRotation().Yaw - S->Before.Yaw));
+				AddInfo(FString::Printf(TEXT("after show (duel): MouseX turns the camera (%.2f deg)"), Yaw));
+				TestTrue(FString::Printf(TEXT("after show (duel): MouseX turns the camera (%.2f deg)"), Yaw), Yaw > 1.0);
+				Duel->LeaveDuel();
+				Next();
+			}
+			return false;
+		case 6:  // back on the deck: focus round trip, then click to look and turn
+			if (S->Frames == 0)
+			{
+				if (!Deck->IsDeckActive() || Duel->IsDuelRunning())
+				{
+					return false;
+				}
+				S->Frames = 1;
+				Lifecycle(World, TEXT("focus.app_took"), TEXT("{}"));
+			}
+			else if (++S->Frames == 5)
+			{
+				Lifecycle(World, TEXT("lifecycle.show"), OffscreenShow);
+			}
+			else if (S->Frames == 10)
+			{
+				// Losing the window ends deck look by design (K-01); the deck is back to "click to look".
+				Deck->PickView(EVerseDeckView::Third);
+				Deck->SetMouseLook(false);
+				TestTrue(TEXT("deck after show: free cursor"), Deck->GetMouseMode() == EVerseDeckMouseMode::Free && PC->ShouldShowMouseCursor());
+				Feed(World, EKeys::LeftMouseButton, IE_Pressed, 1.f);
+			}
+			else if (S->Frames == 11)
+			{
+				Feed(World, EKeys::LeftMouseButton, IE_Released, 0.f);
+			}
+			else if (S->Frames == 16)
+			{
+				TestTrue(TEXT("deck after show: a click takes the mouse"), Deck->GetMouseMode() == EVerseDeckMouseMode::Look && IsGameOnly(PC) && PermanentCapture(World));
+				S->Before = PC->PlayerCameraManager->GetCameraRotation();
+			}
+			else if (S->Frames > 16 && S->Frames <= 56)
+			{
+				Feed(World, EKeys::MouseX, IE_Axis, 12.f);
+			}
+			else if (S->Frames == 62)
+			{
+				const double Turned = FMath::Abs(FRotator::NormalizeAxis(PC->PlayerCameraManager->GetCameraRotation().Yaw - S->Before.Yaw));
+				AddInfo(FString::Printf(TEXT("after show (deck): MouseX turns the deck camera (%.2f deg)"), Turned));
+				TestTrue(FString::Printf(TEXT("after show (deck): MouseX turns the deck camera (%.2f deg)"), Turned), Turned > 2.0);
+				return true;
+			}
+			return false;
 		default:
 			return true;
 		}
