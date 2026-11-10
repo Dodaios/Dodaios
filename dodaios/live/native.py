@@ -75,6 +75,7 @@ _DIRECT_TOOL_PREFERENCE = (
     "spotify",
     "home_assistant",
     "memory-search",
+    "reminders",
     "product_help",
 )
 

@@ -288,19 +288,87 @@ def _magazine(
         b.box((0.004, width + 0.003, 0.012), rib, P, bone="Magazine", rot=rot, chamfer=0.001)
 
 
-def _reticle_sight(
-    b: Builder, x: float, z: float, length: float = 0.10, inner: float = 0.024
-) -> None:
-    """An open box sight: four plates around a glass front lens and an amber reticle dot."""
-    wall = 0.006
-    half = inner / 2 + wall / 2
-    b.box((length, inner + 2 * wall, wall), (x, 0.0, z + half), S, chamfer=0.003)
-    b.box((length, inner + 2 * wall, wall), (x, 0.0, z - half), S, chamfer=0.003)
-    b.box((length, wall, inner), (x, half, z), S, chamfer=0.002)
-    b.box((length, wall, inner), (x, -half, z), S, chamfer=0.002)
-    b.box((0.003, inner, inner), (x + length / 2 - 0.006, 0.0, z), specs.SLOT_OPTIC, chamfer=0.0)
-    b.box((0.002, 0.003, 0.003), (x + length / 2 - 0.009, 0.0, z), specs.SLOT_RETICLE, chamfer=0.0)
-    b.box((0.08, 0.030, 0.014), (x, 0.0, z - half - 0.01), S, chamfer=0.003)  # mount
+def _segment(
+    b: Builder,
+    start: Vec3,
+    tilt: float,
+    length: float,
+    width: float,
+    depth: float,
+    slot: str,
+    bone: str,
+    chamfer: float,
+) -> Vec3:
+    """A box hanging down from `start`, tilted `tilt` degrees (negative leans its foot forward).
+
+    Returns the centre of its bottom face, where the next segment starts.
+    """
+    a = math.radians(tilt)
+    down = (-math.sin(a), 0.0, -math.cos(a))
+    centre = (start[0] + down[0] * length / 2, start[1], start[2] + down[2] * length / 2)
+    b.box((depth, width, length), centre, slot, bone=bone, rot=(0.0, tilt, 0.0), chamfer=chamfer)
+    return (start[0] + down[0] * length, start[1], start[2] + down[2] * length)
+
+
+#: The lit dot of the Graveline's reflex sight; `specs.GRAVELINE` puts `SOCKET_Sight` here.
+GRAVELINE_DOT: Vec3 = (0.1255, 0.0, 0.1475)
+
+
+def _reflex_sight(b: Builder, dot: Vec3) -> None:
+    """A low open reflex sight on a short riser: thin frame, wide glass, small amber dot.
+
+    The window is 34 x 24 mm inside 3 mm posts, so aiming through it hides almost nothing.
+    """
+    x, _, z = dot
+    inner_y, inner_z, post, depth = 0.034, 0.024, 0.003, 0.014
+    frame_x = x - 0.0035
+    base_top = z - inner_z / 2
+    # Rail clamp with its knob, riser, housing base and the emitter at its rear.
+    b.box((0.052, 0.030, 0.008), (x - 0.012, 0.0, 0.0995), S, chamfer=0.002)
+    b.prism(
+        0.0045, 0.008, (x - 0.012, 0.019, 0.0995), sides=6, slot=S, rot=(0, 0, 90), chamfer=0.001
+    )
+    riser_top = base_top - 0.008
+    riser = riser_top - 0.1035
+    # Open riser: two angled legs and a rear brace, so the rail shows through the tunnel.
+    for side in (1.0, -1.0):
+        b.box(
+            (0.042, 0.005, riser),
+            (x - 0.012, side * 0.0105, 0.1035 + riser / 2),
+            S,
+            chamfer=0.0018,
+            taper=(0.8, 0.0),
+        )
+    b.box((0.006, 0.026, riser * 0.6), (x - 0.030, 0.0, 0.1035 + riser * 0.3), S, chamfer=0.0015)
+    b.box((0.040, inner_y + 2 * post, 0.008), (x - 0.010, 0.0, base_top - 0.004), S, chamfer=0.0025)
+    b.box((0.010, 0.012, 0.004), (x - 0.025, 0.0, base_top + 0.0005), P, chamfer=0.0015)
+    # Window frame: two posts with gussets at their feet and a hood reaching a little forward.
+    for side in (1.0, -1.0):
+        y = side * (inner_y / 2 + post / 2)
+        b.box((depth, post, inner_z + post), (frame_x, y, z + post / 2), S, chamfer=0.001)
+        b.box(
+            (depth, 0.005, 0.007),
+            (frame_x, side * (inner_y / 2 + 0.0005), base_top + 0.0025),
+            S,
+            chamfer=0.0015,
+            taper=(0.6, -0.002),
+        )
+    b.box(
+        (depth + 0.006, inner_y + 2 * post, post),
+        (frame_x + 0.003, 0.0, z + inner_z / 2 + post / 2),
+        S,
+        chamfer=0.001,
+    )
+    for dx in (-0.008, 0.004):  # brightness buttons on the right of the housing
+        b.box(
+            (0.007, 0.004, 0.005),
+            (x - 0.010 + dx, -(inner_y / 2 + post + 0.0015), base_top - 0.004),
+            P,
+            chamfer=0.001,
+        )
+    glass_x = frame_x + depth / 2 - 0.001
+    b.box((0.0015, inner_y, inner_z), (glass_x, 0.0, z), specs.SLOT_OPTIC, chamfer=0.0)
+    b.box((0.001, 0.0018, 0.0018), dot, specs.SLOT_RETICLE, chamfer=0.0)
 
 
 # --------------------------------------------------------------------------
@@ -309,28 +377,142 @@ def _reticle_sight(
 
 
 def build_graveline(b: Builder) -> None:
-    b.box((0.30, 0.048, 0.05), (0.07, 0.0, 0.025), S, chamfer=0.005)
-    b.box((0.34, 0.044, 0.04), (0.09, 0.0, 0.07), S, chamfer=0.009)
-    b.box((0.28, 0.018, 0.012), (0.10, 0.0, 0.094), P, chamfer=0.004)
-    b.prism(0.034, 0.26, (0.37, 0.0, 0.045), sides=6, slot=P, chamfer=0.004)
-    for x in (0.30, 0.36, 0.42):
-        for y in (0.030, -0.030):
-            b.box((0.04, 0.006, 0.012), (x, y, 0.050), S, chamfer=0.002)
-    b.prism(0.011, 0.20, (0.58, 0.0, 0.035), sides=12, slot=S, chamfer=0.001)
-    b.prism(0.019, 0.065, (0.70, 0.0, 0.035), sides=6, slot=S, chamfer=0.003)
-    for x in (0.69, 0.71):
-        b.box((0.008, 0.042, 0.006), (x, 0.0, 0.035), P, chamfer=0.001)
-    _grip(b)
-    _trigger_group(b)
-    _magazine(b, 0.085, 0.13)
-    # stock: two struts closing on a rubber block
-    b.box((0.05, 0.040, 0.07), (-0.07, 0.0, 0.04), S, chamfer=0.006)
-    b.box((0.24, 0.020, 0.020), (-0.17, 0.0, 0.065), P, chamfer=0.005)
-    b.box((0.26, 0.020, 0.020), (-0.16, 0.0, 0.002), P, rot=(0, -9, 0), chamfer=0.005)
-    b.box((0.035, 0.036, 0.13), (-0.30, 0.0, 0.03), G, chamfer=0.008)
-    _reticle_sight(b, 0.12, 0.115)
-    b.box((0.03, 0.012, 0.012), (0.14, -0.03, 0.058), S, bone="Bolt", chamfer=0.003)
-    b.box((0.05, 0.002, 0.018), (0.15, -0.0245, 0.045), P, chamfer=0.0)
+    """Assault rifle: split upper over a lower with a flared magwell, vented handguard, top rail,
+    slotted muzzle device, skeleton stock on a tube and a low reflex sight."""
+    # -- upper receiver: two blocks with a panel break over a core that darkens the seam --
+    b.box((0.30, 0.038, 0.038), (0.10, 0.0, 0.064), P, chamfer=0.004)
+    b.box((0.145, 0.042, 0.044), (0.0175, 0.0, 0.064), S, chamfer=0.004)
+    b.box((0.161, 0.042, 0.044), (0.1745, 0.0, 0.064), S, chamfer=0.004)
+    for y in (0.0225, -0.0225):  # raised side panels on the rear block
+        b.box((0.09, 0.003, 0.022), (0.005, y, 0.062), S, chamfer=0.001)
+    b.box((0.06, 0.003, 0.020), (0.205, 0.0225, 0.062), S, chamfer=0.001)
+    # Ejection port on the right: a dark recess in a raised frame.
+    b.box((0.060, 0.002, 0.018), (0.152, -0.0215, 0.056), P, chamfer=0.0)
+    for dz in (0.0105, -0.0105):
+        b.box((0.066, 0.003, 0.003), (0.152, -0.0225, 0.056 + dz), S, chamfer=0.001)
+    for dx in (0.0315, -0.0315):
+        b.box((0.003, 0.003, 0.024), (0.152 + dx, -0.0225, 0.056), S, chamfer=0.001)
+    # End plate and the T charging handle at the rear of the upper.
+    b.box((0.012, 0.046, 0.050), (-0.061, 0.0, 0.060), S, chamfer=0.003)
+    b.box((0.016, 0.012, 0.008), (-0.072, 0.0, 0.082), S, chamfer=0.002)
+    b.box((0.010, 0.048, 0.008), (-0.082, 0.0, 0.082), S, chamfer=0.003)
+    # Side charging knob on the bolt, so it cycles with every shot.
+    b.box((0.022, 0.010, 0.010), (0.13, -0.027, 0.070), S, bone="Bolt", chamfer=0.002)
+    b.prism(
+        0.006,
+        0.010,
+        (0.13, -0.036, 0.070),
+        sides=8,
+        slot=S,
+        bone="Bolt",
+        rot=(0, 0, 90),
+        chamfer=0.0015,
+    )
+
+    # -- top rail from the end plate to the front of the handguard ------------------------
+    b.box((0.585, 0.020, 0.006), (0.2225, 0.0, 0.089), S, chamfer=0.0015)
+    for i in range(51):
+        b.box((0.006, 0.026, 0.0045), (-0.05 + 0.011 * i, 0.0, 0.0935), S, chamfer=0.0012)
+
+    # -- lower receiver, flared magwell, controls -----------------------------------------
+    b.box((0.25, 0.044, 0.040), (0.07, 0.0, 0.023), S, chamfer=0.005)
+    b.box(
+        (0.060, 0.048, 0.034),
+        (0.088, 0.0, 0.002),
+        S,
+        rot=(0, -8, 0),
+        chamfer=0.005,
+        taper=(0.85, 0.0),
+    )
+    b.box((0.050, 0.052, 0.008), (0.091, 0.0, -0.014), S, rot=(0, -8, 0), chamfer=0.003)
+    for px, pz in ((0.012, 0.028), (0.050, 0.030)):  # cross pins
+        b.prism(0.0035, 0.047, (px, 0.0, pz), sides=8, slot=S, rot=(0, 0, 90), chamfer=0.0008)
+    b.box((0.020, 0.003, 0.006), (0.004, 0.0235, 0.034), S, rot=(0, -20, 0), chamfer=0.001)
+    b.box((0.012, 0.003, 0.022), (0.118, 0.0255, 0.012), S, chamfer=0.001)  # magazine release
+
+    # -- handguard: bands and ribs around a dark core, so the vents are real openings ------
+    hx0, hx1 = 0.255, 0.53
+    hcx, hlen = (hx0 + hx1) / 2, hx1 - hx0
+    b.box((hlen - 0.004, 0.040, 0.064), (hcx, 0.0, 0.047), P, chamfer=0.006)
+    b.box((hlen, 0.050, 0.016), (hcx, 0.0, 0.078), P, chamfer=0.004)
+    b.box((hlen, 0.050, 0.020), (hcx, 0.0, 0.017), P, chamfer=0.007)
+    b.box((hlen - 0.04, 0.050, 0.007), (hcx, 0.0, 0.0485), P, chamfer=0.002)
+    b.box((0.020, 0.052, 0.074), (hx0 + 0.010, 0.0, 0.046), P, chamfer=0.005)
+    b.box((0.020, 0.052, 0.074), (hx1 - 0.010, 0.0, 0.046), P, chamfer=0.005)
+    vents, rib = 6, 0.0134
+    vent = (hlen - 0.04 - (vents - 1) * rib) / vents
+    for i in range(1, vents):
+        rx = hx0 + 0.02 + i * vent + (i - 0.5) * rib
+        b.box((rib, 0.050, 0.044), (rx, 0.0, 0.048), P, chamfer=0.002)
+    for sx in (0.30, 0.39, 0.48):  # screws through the top band
+        b.prism(0.0028, 0.053, (sx, 0.0, 0.079), sides=6, slot=S, rot=(0, 0, 90), chamfer=0.0006)
+    b.box((0.030, 0.034, 0.026), (0.503, 0.0, -0.004), P, chamfer=0.006, taper=(0.7, 0.004))
+    b.prism(0.006, 0.006, (0.47, 0.027, 0.03), sides=8, slot=S, rot=(0, 0, 90), chamfer=0.001)
+
+    # -- barrel, gas block, slotted muzzle device ----------------------------------------
+    b.prism(0.0105, 0.17, (0.585, 0.0, 0.035), sides=16, slot=S, chamfer=0.001)
+    b.box((0.024, 0.028, 0.034), (0.552, 0.0, 0.042), S, chamfer=0.004)
+    b.prism(0.016, 0.012, (0.666, 0.0, 0.035), sides=8, slot=S, chamfer=0.002)
+    b.prism(0.0125, 0.068, (0.705, 0.0, 0.035), sides=8, slot=P, chamfer=0.001)
+    for rx in (0.684, 0.700, 0.716):
+        b.prism(0.0175, 0.008, (rx, 0.0, 0.035), sides=8, slot=S, chamfer=0.0015)
+    b.prism(0.0165, 0.014, (0.737, 0.0, 0.035), sides=8, slot=S, chamfer=0.003, radius2=0.0145)
+
+    # -- pistol grip and trigger group ----------------------------------------------------
+    tilt = 18.0
+    rot = (0.0, tilt, 0.0)
+    b.box((0.036, 0.030, 0.105), _tilted(-0.012, -0.050, tilt), G, rot=rot, chamfer=0.007)
+    b.box((0.030, 0.032, 0.020), (-0.040, 0.0, 0.004), G, rot=(0, 30, 0), chamfer=0.006)
+    for i in range(3):  # finger ridges on the front strap
+        ridge = _tilted(-0.012, -0.028 - i * 0.025, tilt, 0.019)
+        b.box((0.006, 0.026, 0.012), ridge, G, rot=rot, chamfer=0.002)
+    panel = _tilted(-0.012, -0.055, tilt)
+    for y in (0.0158, -0.0158):  # textured side panels
+        b.box((0.022, 0.002, 0.062), (panel[0], y, panel[2]), P, rot=rot, chamfer=0.0006)
+    b.box((0.044, 0.034, 0.009), _tilted(-0.012, -0.104, tilt), S, rot=rot, chamfer=0.003)
+    b.box((0.072, 0.012, 0.007), (0.024, 0.0, -0.044), S, chamfer=0.0022)
+    b.box((0.014, 0.014, 0.012), (-0.010, 0.0, -0.042), S, chamfer=0.003)  # guard foot on the grip
+    b.box((0.009, 0.012, 0.044), (0.060, 0.0, -0.024), S, rot=(0, -20, 0), chamfer=0.0022)
+    b.box(
+        (0.006, 0.006, 0.026),
+        (0.033, 0.0, -0.016),
+        S,
+        bone="Trigger",
+        rot=(0, -12, 0),
+        chamfer=0.0015,
+    )
+
+    # -- curved magazine on its bone ------------------------------------------------------
+    top = (0.086, 0.0, -0.006)
+    joint = _segment(b, top, -8.0, 0.075, 0.026, 0.042, P, "Magazine", 0.004)
+    foot = _segment(b, joint, -18.0, 0.060, 0.026, 0.041, P, "Magazine", 0.004)
+    b.box((0.054, 0.032, 0.012), foot, S, bone="Magazine", rot=(0, -18, 0), chamfer=0.003)
+    lean = math.sin(math.radians(8.0))
+    for i in range(4):  # ribs on the side faces
+        cz = top[2] - 0.016 - i * 0.015
+        cx = top[0] + lean * (top[2] - cz)
+        for y in (0.0135, -0.0135):
+            b.box(
+                (0.030, 0.002, 0.004),
+                (cx, y, cz),
+                P,
+                bone="Magazine",
+                rot=(0, -8, 0),
+                chamfer=0.0007,
+            )
+
+    # -- stock: tube, collar, cheek riser, lower strut, butt block with a rubber pad -------
+    b.prism(0.015, 0.18, (-0.15, 0.0, 0.058), sides=8, slot=S, chamfer=0.002)
+    b.box((0.024, 0.034, 0.050), (-0.135, 0.0, 0.050), P, chamfer=0.005)
+    b.box((0.010, 0.006, 0.020), (-0.135, 0.0, 0.020), S, chamfer=0.0015)
+    b.box((0.17, 0.036, 0.022), (-0.225, 0.0, 0.080), P, chamfer=0.007, taper=(0.92, -0.005))
+    b.box((0.13, 0.024, 0.018), (-0.225, 0.0, 0.066), P, chamfer=0.004)  # cheek riser saddle
+    b.box((0.17, 0.022, 0.016), (-0.215, 0.0, 0.010), P, rot=(0, -17, 0), chamfer=0.005)
+    b.box((0.032, 0.040, 0.135), (-0.298, 0.0, 0.032), P, chamfer=0.008)
+    b.box((0.012, 0.042, 0.142), (-0.319, 0.0, 0.032), G, chamfer=0.004)
+    b.box((0.012, 0.006, 0.020), (-0.285, 0.023, -0.010), S, chamfer=0.0015)
+
+    _reflex_sight(b, GRAVELINE_DOT)
 
 
 def build_tallow(b: Builder) -> None:

@@ -63,7 +63,9 @@ public:
 	static constexpr float FlashLumens = 1200.f;
 	static constexpr float FlashLightForwardCm = 80.f;
 	/** Fill light on the held weapon, lumens; it sits above and right of the eye (camera space, cm, drawn space). */
-	static constexpr float FillLumens = 170.f;
+	static constexpr float FillLumens = 380.f;
+	/** Eye to the Graveline's reflex dot while aiming, cm: far enough that the frame stays small. */
+	static constexpr double GravelineSightDistanceCm = 24.0;
 	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */
 	static constexpr float ViewmodelRoughnessMin = 0.45f;
 
@@ -76,6 +78,8 @@ public:
 	FName GetShownWeaponId() const { return ShownWeaponId; }
 	bool IsBuilt() const { return Root != nullptr; }
 	bool IsShowing() const;
+	/** The drawn weapon carries a sight with its own reticle (an `Optic` material slot). */
+	bool HasOptic() const;
 	/** The muzzle socket in world space; false without a firearm drawn. */
 	bool GetMuzzleWorld(FVector& OutLocation) const;
 	/** The current offset of the mesh root from the camera, camera space (tests). */

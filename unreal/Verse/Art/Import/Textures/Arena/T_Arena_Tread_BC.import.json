@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Tread_BC.T_Arena_Tread_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Tread_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "10a69217c417725f09802ea8a12a86aee1d22b1a8da5066807057a0bb6d4dc78"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "864c9a653acd1f5034c9bbe7f955b18cc9687a81bbdfa805e7a2319939676910"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Tread_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_plate",
+      "map": "Diffuse",
+      "set": "Tread"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 2048,
+    "srgb": true
+  }
+}

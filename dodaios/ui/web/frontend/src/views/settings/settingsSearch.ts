@@ -35,6 +35,8 @@ const SEARCH_PAGES = [
   { id: "shortcuts", keys: ["shortcuts_view", "settings_view.keybinds", "settings_view.quick_switch"] },
   { id: "pets", keys: ["pets"] },
   { id: "games", keys: ["games"] },
+  { id: "notifications", keys: ["notify"] },
+  { id: "trust", keys: ["trust"] },
   { id: "costs", keys: ["costs_view"] },
   { id: "feedback", keys: ["feedback"] },
 ] as const;
