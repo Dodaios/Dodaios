@@ -1,0 +1,102 @@
+/* ── The assistant's one conversation (front page) ─────────────────────
+   A turn is two lanes: a narrow one where the assistant's pet stands, and
+   the lane its messages are written in. The pet stands beside the newest
+   turn only, at the foot of its last message, and follows the reader down a
+   long answer. Colour tokens only; both themes read the same ladder. */
+.lead-turn {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  column-gap: 0.625rem;
+  min-width: 0;
+}
+.lead-face-lane {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+}
+.lead-face {
+  position: sticky;
+  bottom: 0.5rem;
+  display: block;
+  height: 2rem;
+  width: 2rem;
+}
+.lead-turn-body {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Messages of one reply stack close together. The side the pet stands on
+   keeps tight corners, so the stack reads as one voice. */
+.lead-bubbles {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.lead-bubble {
+  min-width: 0;
+  max-width: min(100%, 34rem);
+  border-radius: 20px;
+  border-bottom-left-radius: 6px;
+  padding: 8px 16px;
+}
+.lead-bubbles > .lead-bubble:not(:first-child) {
+  border-top-left-radius: 6px;
+}
+/* A document-like reply: one piece, the full lane, a little more air. */
+.lead-bubble[data-note] {
+  max-width: 100%;
+  border-radius: 16px;
+  border-bottom-left-radius: 6px;
+  padding: 14px 18px;
+}
+.lead-bubbles[data-live] > .lead-bubble {
+  transform-origin: left bottom;
+  animation: lead-bubble-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes lead-bubble-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The person's own message mirrors the stack: its tight corner faces them. */
+.lead-bubble-own {
+  border-radius: 20px;
+  border-bottom-right-radius: 6px;
+}
+
+/* How long a finished turn took and what it used: there for whoever looks,
+   out of the way otherwise. It hangs in the gap under the turn, so showing
+   it moves nothing. */
+.lead-turn-body .trace-meta {
+  position: absolute;
+  left: 0.25rem;
+  top: 100%;
+  padding: 2px 0 0;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.lead-turn:hover .trace-meta,
+.lead-turn:focus-within .trace-meta {
+  opacity: 1;
+}
+@media (hover: none) {
+  .lead-turn-body .trace-meta {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lead-bubbles[data-live] > .lead-bubble {
+    animation: none;
+  }
+  .lead-turn-body .trace-meta {
+    transition: none;
+  }
+}

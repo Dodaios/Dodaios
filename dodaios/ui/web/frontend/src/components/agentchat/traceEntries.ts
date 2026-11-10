@@ -170,7 +170,9 @@ export function outputGist(output: string): string {
 
 /** Plumbing calls draw nothing: loading a tool's schema, polling a question card. */
 export function isPlumbing(block: ToolBlock): boolean {
-  if (isQuestionTool(block.name) && !block.question) return true;
+  // A poll that failed is told like any failed step: the fold counts it, so the
+  // opened work has to show it.
+  if (isQuestionTool(block.name) && !block.question) return !block.isError;
   if (isCredentialTool(block.name) && !block.credential && !block.isError) return true;
   if (block.name.replace(/^mcp__[^_]+__/, "") === "ToolSearch") {
     return firstString(inputRecord(block), ["query"]).startsWith("select:");
@@ -223,6 +225,43 @@ function refusalReason(reason: string, t: Translate): string | null {
   return null;
 }
 
+/**
+ * A failure a person can act on, in plain words: an expired sign-in, a
+ * refusal, a service that is slow or down. Read from the tool's first line
+ * only, so a long output that merely mentions a status code is not
+ * mistaken for one. Null when the tool's own words are the best there is.
+ */
+function knownFailure(line: string, t: Translate): string | null {
+  const http = /\bHTTP(?:\/\d(?:\.\d)?)?[ :]+(\d{3})\b|\bstatus(?: code)?[ :=]+(\d{3})\b/i.exec(line);
+  const code = http ? Number(http[1] ?? http[2]) : 0;
+  if (code === 401 || /\bunauthori[sz]ed\b|\binvalid[_ ]grant\b|\btoken (?:has |is )?expired\b/i.test(line)) return tr(t, "reason.signed_out");
+  if (code === 403) return tr(t, "reason.forbidden");
+  if (code === 429 || /\brate limit|\btoo many requests\b/i.test(line)) return tr(t, "reason.rate_limited");
+  if (code >= 500 && code <= 599) return tr(t, "reason.unavailable");
+  if (/\btimed out\b|\btimeout\b|\bETIMEDOUT\b/i.test(line)) return tr(t, "reason.timed_out");
+  return null;
+}
+
+/**
+ * Why a call failed, as one short line. The raw output stays in the call's
+ * details; the line says what a person needs to know.
+ */
+export function failureReason(raw: string, t: Translate): string {
+  const lines = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const first = (lines[0] ?? "").replace(/^tool failed:\s*/i, "");
+  const known = knownFailure(first, t);
+  if (known) return known;
+  // A bare exit code says nothing: the shell's own message follows it, and
+  // its last clause ("…/python: Permission denied") is the part that matters.
+  const exit = /^exit code (\d+)$/i.exec(first);
+  if (exit && lines.length > 1) {
+    const message = lines[1];
+    const tail = message.length > 80 ? message.slice(message.lastIndexOf(": ") + 2) : message;
+    return oneLine(`${tail || message} (${first.toLowerCase()})`, 200);
+  }
+  return oneLine(first, 200);
+}
+
 function statusOf(block: ToolBlock, turn: TurnStatus, t: Translate): { status: CallStatus; reason: string } {
   if (block.approval?.decision === "deny") {
     const rule = refusalReason(block.approval.summary || block.output || "", t);
@@ -233,7 +272,7 @@ function statusOf(block: ToolBlock, turn: TurnStatus, t: Translate): { status: C
     const raw = stripCapMarker(block.output);
     const rule = refusalReason(raw, t);
     if (rule) return { status: "blocked", reason: rule };
-    return { status: "failed", reason: oneLine(raw.split(/\r?\n/).find((line) => line.trim()) ?? "", 200) };
+    return { status: "failed", reason: failureReason(raw, t) };
   }
   return { status: "done", reason: "" };
 }

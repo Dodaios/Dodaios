@@ -180,3 +180,37 @@
   --trace-text-size: 13px;
   --trace-text-leading: 21px;
 }
+
+/* ── Trouble, said quietly ─────────────────────────────────────────────
+   A step that did not work is a small mark in the fault colour and one
+   plain sentence in the trace's own ink. The colour says what happened; it
+   never paints the sentence, and what the tool printed stays behind the
+   line. */
+.trace-flag {
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: hsl(var(--destructive));
+}
+/* A turn that ended without doing what was asked: a note on a normal
+   surface, never a red-washed panel. */
+.trace-note {
+  display: flex;
+  min-width: 0;
+  max-width: 34rem;
+  align-items: baseline;
+  gap: 0.625rem;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 21px;
+  color: hsl(var(--foreground));
+  overflow-wrap: anywhere;
+}
+.trace-note > .trace-flag {
+  transform: translateY(-1px);
+}
