@@ -1621,6 +1621,28 @@ class AgentChatService:
                 )
                 if image_context:
                     prompt += "\n\n" + image_context
+            if (
+                session.surface == "jarvis"
+                and direct_user
+                and incoming is None
+                and not control_owned
+                and text
+            ):
+                # "What's this?" / "turn this mail into an event": with Screen
+                # Context on, "this" is what is on screen (screen_reference).
+                from dodaios.agent_chat.screen_reference import screen_context_block
+
+                screen_block = await screen_context_block(
+                    text,
+                    session_id=session_id,
+                    cwd=session.cwd,
+                    locale=output_language,
+                    bus=self._bus(),
+                )
+                if screen_block:
+                    prompt += "\n\n" + screen_block
+                    if display_text is None:
+                        display_text = text
             # Agent cards serialize Add selections as capability pins. Translate the
             # browser pin to the same validated receipt used by the root composer.
             if session.surface == "jarvis" and any(

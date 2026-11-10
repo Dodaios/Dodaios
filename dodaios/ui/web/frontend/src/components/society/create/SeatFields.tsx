@@ -41,7 +41,6 @@ export interface SeatPick {
 }
 
 export function useCreateSeat() {
-  const t = useT();
   const runtimes = useAgentRuntimes();
   const [runtime, setRuntimeState] = useState<AgentRuntime>("jarvis");
   const [executionEnvironment, setExecutionEnvironment] = useState<"local" | "sandbox">("local");
@@ -59,7 +58,6 @@ export function useCreateSeat() {
     account && accountProvider ? { [accountProvider]: account } : {}, { refreshOnMount: true });
 
   const external = runtime !== "jarvis";
-  const defaultModelLabel = t("agent_chat.model_default");
   const data = runtimes.data;
   const supportedKey = list(data?.supported_providers).join(",");
   const gatewayKey = list(data?.subscription_providers).join(",");
@@ -68,11 +66,11 @@ export function useCreateSeat() {
   // Refusals only concern Hermes / OpenClaw (Claude's login billed as Extra Usage).
   const blockedKey = JSON.stringify(external && data?.access_blocked && typeof data.access_blocked === "object" ? data.access_blocked : {});
   const choices = useMemo(() => {
-    const all = modelSeats(menu.options, Array.isArray(menu.providers) ? menu.providers : [], menu.live, defaultModelLabel);
+    const all = modelSeats(menu.options, Array.isArray(menu.providers) ? menu.providers : [], menu.live);
     const split = (key: string) => key.split(",").filter(Boolean);
     const seats = external ? runtimeSeats(all, split(supportedKey), split(gatewayKey), split(loginKey)) : all;
     return providerChoices(seats, JSON.parse(accessKey) as Record<string, string[]>, external, JSON.parse(blockedKey) as AccessBlocked);
-  }, [menu.options, menu.providers, menu.live, defaultModelLabel, external, supportedKey, gatewayKey, loginKey, accessKey, blockedKey]);
+  }, [menu.options, menu.providers, menu.live, external, supportedKey, gatewayKey, loginKey, accessKey, blockedKey]);
 
   // The person's picks stay while they are offered; a pick that disappears (a
   // key removed, another runtime chosen) falls back to the first one left.
@@ -111,12 +109,11 @@ export function useCreateSeat() {
     model: option ? modelValue : undefined,
     accountId: option ? accountValue || option.accountId : undefined,
   };
-  const modelLabel = models.find((entry) => entry.id === modelValue)?.label || modelValue || defaultModelLabel;
+  const modelLabel = models.find((entry) => entry.id === modelValue)?.label || modelValue || option?.seat.provider.label || "";
 
   return {
     runtimes, menu, choices, chosen, option, models, accounts, modelValue, accountValue,
     runtime, external, executionEnvironment, ready, seatsPending, accountBlocked, selectedModelsFailed, pick, modelLabel,
-    defaultModelLabel,
     setRuntime: (next: AgentRuntime) => { setRuntimeState(next); setAccount(""); },
     setProvider: (next: string) => { setProviderId(next); setAccount(""); },
     setAccess: (kind: string) => {
@@ -243,7 +240,7 @@ export function SeatFields({ seat, disabled }: { seat: CreateSeat; disabled: boo
             searchPlaceholder={models.length >= SEARCH_FROM ? t("society.create_agent.model_search") : undefined}
             options={models.map((entry) => ({
               value: entry.id,
-              label: entry.label || entry.id || seat.defaultModelLabel,
+              label: entry.label || entry.id || option.seat.provider.label,
             }))}
           />
           <p className="cs-hint">{t("society.create_agent.model_hint")}</p>

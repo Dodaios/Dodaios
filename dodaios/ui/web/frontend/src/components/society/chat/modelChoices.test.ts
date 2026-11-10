@@ -54,8 +54,8 @@ test("free model detection does not infer price from labels, size or unrelated a
 
 test.each(["claude-cli", "codex-cli", "cursor-cli", "opencode-cli", "kimi-cli", "glm-cli", "grok-cli", "agy-cli", "dsh-cli"] as const)(
   "%s stays selectable when its own model catalog is unavailable", (runner) => {
-    const [seat] = modelSeats([option({ runner, connected: true, curated_models: [], default_model: "" })], [], {}, "Use default");
-    expect(seat.provider.curated_models).toEqual([{ id: "", label: "Use default" }]);
+    const [seat] = modelSeats([option({ runner, connected: true, curated_models: [], default_model: "" })], [], {});
+    expect(seat.provider.curated_models).toEqual([{ id: "", label: seat.provider.label }]);
     expect(visibleModels(seat, seat.provider.curated_models, false, "")).toEqual(seat.provider.curated_models);
   },
 );

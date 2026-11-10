@@ -10727,7 +10727,6 @@
       "cancel": "Voltar",
       "model_of": "Modelo do membro {number}",
       "effort_of": "Esforço do membro {number}",
-      "model_default": "Modelo predefinido",
       "effort_default": "Esforço predefinido",
       "add_pick": "Que agente de código ou fornecedor entra na equipa?",
       "search": "Pesquisar",
@@ -10736,7 +10735,8 @@
       "group_agents": "Agentes de código",
       "group_providers": "Fornecedores",
       "full": "A equipa está completa com {max} membros.",
-      "swarm": "Uma equipa grande precisa de mais turnos: cada passo espera até todos os membros darem a sua opinião."
+      "swarm": "Uma equipa grande precisa de mais turnos: cada passo espera até todos os membros darem a sua opinião.",
+      "model_default": "Modelo predefinido"
     },
     "meter_time": "{minutes} de {max_minutes} min",
     "meter_turns": "{turns} de {max_turns} turnos",
@@ -11238,6 +11238,23 @@
       "microphone_denied": "O microfone não foi permitido.",
       "empty": "Ainda não há nada. Diga olá."
     }
+  },
+  "living_pages": {
+    "label": "Página viva",
+    "updated": "Atualizada {0}",
+    "every": "Atualiza a cada {0}",
+    "stopped": "Já não é atualizada",
+    "stop": "Parar a atualização",
+    "resume": "Voltar a atualizar",
+    "stop_failed": "Não foi possível parar a atualização.",
+    "resume_failed": "Não foi possível iniciar a atualização.",
+    "result_title": "Feito",
+    "state_created": "Criado",
+    "state_updated": "Atualizado",
+    "state_draft": "Rascunho",
+    "state_waiting": "Aguarda a tua confirmação",
+    "state_failed": "Falhou",
+    "open": "Abrir"
   },
   "voice_call": {
     "voice_title": "Voz",

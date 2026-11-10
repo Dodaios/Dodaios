@@ -64,6 +64,13 @@ export interface Entry {
   agent?: AgentTemplateWire | null;
   /** Plugins only: the publisher's note on what to do after installing. */
   postInstallHint?: string | null;
+  /**
+   * This install just published it and the live feed does not list it yet:
+   * the registry checks are running ("checking"), refused it ("failed"), or
+   * passed and the feed is catching up ("published"). Not installable yet.
+   */
+  pending?: "checking" | "failed" | "published" | null;
+  pendingProblems?: string[];
 }
 
 /** Where an installed entry of this kind lives in the app. */
@@ -118,6 +125,8 @@ export function pluginEntry(p: CommunityPluginWire): Entry {
     authMode: p.auth?.mode ?? null,
     seedConflict: Boolean(p.seed_conflict),
     postInstallHint: readableText(p.post_install_hint_md),
+    pending: p.pending ?? null,
+    pendingProblems: p.pending_problems ?? [],
   };
 }
 
@@ -136,6 +145,8 @@ export function skillEntry(s: CommunitySkillWire): Entry {
     installed: Boolean(s.installed),
     featured: Boolean(s.featured),
     portableAgents: s.flavor === "portable" ? (s.compatible_agents ?? []) : null,
+    pending: s.pending ?? null,
+    pendingProblems: s.pending_problems ?? [],
   };
 }
 
@@ -161,6 +172,8 @@ export function agentEntry(a: CommunityAgentWire): Entry {
 
 /** Featured first, then the newest publication, then by name. */
 export function storeOrder(a: Entry, b: Entry): number {
+  // What you just published comes first, so you see it the moment you return.
+  if (Boolean(a.pending) !== Boolean(b.pending)) return a.pending ? -1 : 1;
   if (Boolean(a.featured) !== Boolean(b.featured)) return a.featured ? -1 : 1;
   const at = a.publishedAt ? Date.parse(a.publishedAt) : 0;
   const bt = b.publishedAt ? Date.parse(b.publishedAt) : 0;

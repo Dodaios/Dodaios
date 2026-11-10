@@ -10727,7 +10727,6 @@
       "cancel": "Volver",
       "model_of": "Modelo del miembro {number}",
       "effort_of": "Esfuerzo del miembro {number}",
-      "model_default": "Modelo predeterminado",
       "effort_default": "Esfuerzo predeterminado",
       "add_pick": "¿Qué agente de código o proveedor se une al equipo?",
       "search": "Buscar",
@@ -10736,7 +10735,8 @@
       "group_agents": "Agentes de código",
       "group_providers": "Proveedores",
       "full": "El equipo está completo con {max} miembros.",
-      "swarm": "Un equipo grande necesita más turnos: cada paso espera a que todos los miembros hayan opinado."
+      "swarm": "Un equipo grande necesita más turnos: cada paso espera a que todos los miembros hayan opinado.",
+      "model_default": "Modelo predeterminado"
     },
     "meter_time": "{minutes} de {max_minutes} min",
     "meter_turns": "{turns} de {max_turns} turnos",
@@ -11238,6 +11238,23 @@
       "microphone_denied": "No se permitió el micrófono.",
       "empty": "Aún no hay nada. Di hola."
     }
+  },
+  "living_pages": {
+    "label": "Página viva",
+    "updated": "Actualizada {0}",
+    "every": "Se actualiza cada {0}",
+    "stopped": "Ya no se actualiza",
+    "stop": "Detener la actualización",
+    "resume": "Actualizar de nuevo",
+    "stop_failed": "No se pudo detener la actualización.",
+    "resume_failed": "No se pudo iniciar la actualización.",
+    "result_title": "Hecho",
+    "state_created": "Creado",
+    "state_updated": "Actualizado",
+    "state_draft": "Borrador",
+    "state_waiting": "Espera tu confirmación",
+    "state_failed": "Falló",
+    "open": "Abrir"
   },
   "voice_call": {
     "voice_title": "Voz",

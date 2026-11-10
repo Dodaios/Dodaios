@@ -10727,7 +10727,6 @@
       "cancel": "Back",
       "model_of": "Model of member {number}",
       "effort_of": "Effort of member {number}",
-      "model_default": "Default model",
       "effort_default": "Default effort",
       "add_pick": "Which coding agent or provider joins the team?",
       "search": "Search",
@@ -10736,7 +10735,8 @@
       "group_agents": "Coding agents",
       "group_providers": "Providers",
       "full": "The team is full at {max} members.",
-      "swarm": "A big team takes more turns: each step waits until every member has had its say."
+      "swarm": "A big team takes more turns: each step waits until every member has had its say.",
+      "model_default": "Default model"
     },
     "meter_time": "{minutes} of {max_minutes} min",
     "meter_turns": "{turns} of {max_turns} turns",
@@ -11238,6 +11238,23 @@
       "microphone_denied": "The microphone was not allowed.",
       "empty": "Nothing here yet. Say hello."
     }
+  },
+  "living_pages": {
+    "label": "Living page",
+    "updated": "Updated {0}",
+    "every": "Refreshes every {0}",
+    "stopped": "Not refreshing",
+    "stop": "Stop refreshing",
+    "resume": "Refresh again",
+    "stop_failed": "The refresh could not be stopped.",
+    "resume_failed": "The refresh could not be started.",
+    "result_title": "Done",
+    "state_created": "Created",
+    "state_updated": "Updated",
+    "state_draft": "Draft",
+    "state_waiting": "Waits for your go",
+    "state_failed": "Failed",
+    "open": "Open"
   },
   "voice_call": {
     "voice_title": "Voice",
