@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Bot/VersePerceptTypes.h"
+#include "Brain/VerseBotTypes.h"
 #include "CoreMinimal.h"
 #include "Templates/Function.h"
 #include "Destruction/VerseDestructionTypes.h"
@@ -20,15 +21,8 @@ enum class EVerseBeliefSupport : uint8
 	Inferred
 };
 
-/** bot.md 4.3 states, plus Dead (the kill feed said so). */
-enum class EVerseBeliefState : uint8
-{
-	Known,
-	Tracked,
-	Rough,
-	Lost,
-	Dead
-};
+// EVerseBeliefState (bot.md 4.3 states plus Dead) is the brain's enum, so the grid and the brain
+// read one type.
 
 /** When a cell or link exists, by the believed state of the piece that gates it (destruction.md 6.1). */
 enum class EVerseBeliefGate : uint8

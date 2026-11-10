@@ -125,6 +125,7 @@ bool FVersePersonModelSet::Parse(const FString& JsonText, FVersePersonModelSet& 
 		Model.AimWanderSdDeg = Num(M, TEXT("aimWanderSdDeg"), Model.AimWanderSdDeg);
 		Model.AimWanderTheta = Num(M, TEXT("aimWanderTheta"), Model.AimWanderTheta);
 		Model.LearnWeight = Num(M, TEXT("learnWeight"), Model.LearnWeight);
+		Model.BaseSkill = FMath::Clamp(Num(M, TEXT("baseSkill"), Model.BaseSkill), 0.f, 1.f);
 		Model.bLearning = !M || !M->Find(TEXT("learning")) || Flag(M, TEXT("learning"));
 		Out.Models.Add(Model.Name, Model);
 	}

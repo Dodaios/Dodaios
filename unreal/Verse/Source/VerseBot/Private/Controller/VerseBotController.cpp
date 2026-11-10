@@ -3,6 +3,14 @@
 #include "Bot/VerseBotAdaptiveConfig.h"
 #include "Bot/VerseBotTier.h"
 #include "Brain/VerseBotBrainCore.h"
+#include "Brain/VerseBotGridBelief.h"
+#include "Controller/VerseBotArenaData.h"
+#include "Events/VerseEventHub.h"
+#include "Audit/VerseBotFireAudit.h"
+#include "Belief/VerseBeliefDebugDraw.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "Misc/Paths.h"
 #include "Controller/VerseBotEngineQueries.h"
 #include "Engine/World.h"
 #include "GameFramework/GameStateBase.h"
@@ -17,6 +25,10 @@ namespace
 {
 	const FName BotTierField(TEXT("BotTier"));
 	const FName BotSkillField(TEXT("BotEffectiveSkill"));
+	/** Match seconds between two health lines of a bot. */
+	constexpr float DiagnosticPeriodS = 30.f;
+	/** A round fired within this time after a classified trigger tick carries its mode, s. */
+	constexpr float FireAuditMatchS = 0.25f;
 
 	float SkillOf(FName TierId)
 	{
@@ -154,8 +166,92 @@ void AVerseBotController::ReceivePerceptFrame(const FVersePerceptFrame& Frame)
 {
 	PendingFrame = Frame;
 	bHasFrame = true;
+	++DiagRealFrames;
 	LastRealFrame = Frame;
 	bHasRealFrame = true;
+}
+
+void AVerseBotController::AttachArena()
+{
+	UWorld* World = GetWorld();
+	if (bArenaAttached || !World || !Brain || !DefaultQueries)
+	{
+		return;
+	}
+	IVerseBotWorldQueries& Queries = QueriesOverride ? *QueriesOverride : *DefaultQueries;
+	GridBelief = FVerseBotArenaData::AttachTo(*World, *Brain, *static_cast<FVerseBotEngineQueries*>(DefaultQueries.Get()), Queries,
+		PlayerState ? PlayerState->GetPlayerId() : INDEX_NONE);
+	if (!GridBelief)
+	{
+		return;
+	}
+	bArenaAttached = true;
+	FParse::Value(FCommandLine::Get(), TEXT("VerseBotBeliefPng="), BeliefPngDir);
+	UE_LOG(LogVerseBot, Log, TEXT("[VerseBot] %s: belief grid attached (%d cells)"), *GetName(), GridBelief->GetMap().GetGrid().NumCells());
+}
+
+void AVerseBotController::LogDiagnostics(const FVersePerceptFrame& Frame, const FVerseInputFrame& Input)
+{
+	++DiagFrames;
+	DiagSightFrames += Frame.Sightings.ContainsByPredicate([](const FVerseSightPercept& S) { return S.VisibleMask != 0; }) ? 1 : 0;
+	DiagHeardFrames += Frame.Heard.Num() > 0 ? 1 : 0;
+	DiagFireFrames += (Input.Buttons & uint32(EVerseInputButton::Fire)) != 0 ? 1 : 0;
+	const float NowS = float(Frame.ServerTimeMs) / 1000.f;
+	if (NowS < NextDiagnosticS)
+	{
+		return;
+	}
+	NextDiagnosticS = NowS + (BeliefPngDir.IsEmpty() ? DiagnosticPeriodS : 5.f);
+	const FVerseBotPresentation P = Brain->GetPresentation();
+	const APawn* Own = GetPawn();
+	UE_LOG(LogVerseBot, Log,
+		TEXT("[VerseBot] %s t=%.0f s: state %s, belief %s conf %.2f at %s, at %s, frames %d (service %d, sight %d, heard %d, fire %d; want %d, unclassified %d, unaimed %d), grid %d"),
+		*GetName(), NowS, *P.StateTag.ToString(), *UEnum::GetValueAsString(Brain->GetBelief().Summary().State), P.Confidence,
+		*P.BeliefTop.ToCompactString(), Own ? *Own->GetActorLocation().ToCompactString() : TEXT("-"), DiagFrames, DiagRealFrames, DiagSightFrames,
+		DiagHeardFrames, DiagFireFrames, Brain->FireWantTicks, Brain->FireUnclassifiedTicks, Brain->FireUnaimedTicks, bArenaAttached ? 1 : 0);
+	Brain->FireWantTicks = Brain->FireUnclassifiedTicks = Brain->FireUnaimedTicks = 0;
+	if (Brain->GetStuckEvents() > 0)
+	{
+		FString Stuck;
+		for (int32 I = 0; I < VerseBot::NumStates; ++I)
+		{
+			if (Brain->GetStuckByState()[I] > 0)
+			{
+				Stuck += FString::Printf(TEXT(" %s=%d"), VerseBot::StateName(EVerseBotState(I)), Brain->GetStuckByState()[I]);
+			}
+		}
+		UE_LOG(LogVerseBot, Log, TEXT("[VerseBot] %s stuck events %d:%s"), *GetName(), Brain->GetStuckEvents(), *Stuck);
+	}
+	DiagFrames = DiagRealFrames = DiagSightFrames = DiagHeardFrames = DiagFireFrames = 0;
+	if (GridBelief && !BeliefPngDir.IsEmpty())
+	{
+		const FVector Marks[] = {Own ? Own->GetActorLocation() : FVector::ZeroVector};
+		for (const EVerseArenaLevel Level : {EVerseArenaLevel::Floor, EVerseArenaLevel::Upper})
+		{
+			const FString Path = FPaths::Combine(BeliefPngDir, FString::Printf(TEXT("%s_%04d_L%d.png"), *GetName(), int32(NowS), int32(Level)));
+			FVerseBeliefDebugDraw::SavePng(Path, GridBelief->GetMap().GetGrid(), GridBelief->GetMap().GetDerived(), Level, 4, Marks);
+		}
+	}
+}
+
+void AVerseBotController::HandleOwnFire(const FVerseFireEvent& Event)
+{
+	// Only the own rounds: the shooter id is compared and nothing else of the event is read (F1).
+	if (!Brain || !PlayerState || Event.ShooterId != PlayerState->GetPlayerId())
+	{
+		return;
+	}
+	const UWorld* World = GetWorld();
+	const double NowS = World ? World->GetTimeSeconds() : 0.0;
+	float AtS = 0.f;
+	EVerseBotFireMode Mode = Brain->GetLastFireMode(AtS);
+	// A round belongs to the trigger tick before it; a round with no recent classified tick is unclassified.
+	if (float(LastThinkMs) / 1000.f - AtS > FireAuditMatchS)
+	{
+		Mode = EVerseBotFireMode::Unclassified;
+	}
+	UE_LOG(LogVerseBot, Log, TEXT("[VerseFireAudit] ServerTimeMs=%llu Mode=%s Bot=%s"), uint64(FMath::RoundToDouble(NowS * 1000.0)),
+		*UEnum::GetValueAsString(Mode), *GetName());
 }
 
 void AVerseBotController::ResetMatch()
@@ -246,6 +342,13 @@ void AVerseBotController::PostInitializeComponents()
 void AVerseBotController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
+	if (!FireHandle.IsValid() && HasAuthority())
+	{
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+		{
+			FireHandle = Hub->OnFire.AddUObject(this, &AVerseBotController::HandleOwnFire);
+		}
+	}
 	if (!bBrainReady)
 	{
 		ResetMatch();
@@ -267,11 +370,21 @@ void AVerseBotController::OnUnPossess()
 
 void AVerseBotController::EndPlay(const EEndPlayReason::Type Reason)
 {
+	if (FireHandle.IsValid())
+	{
+		if (UVerseEventHub* Hub = UVerseEventHub::Get(this))
+		{
+			Hub->OnFire.Remove(FireHandle);
+		}
+		FireHandle.Reset();
+	}
 	// Verse.exe exit or level change: the match memory is dropped (7.3, B8).
 	if (MatchMemory)
 	{
 		MatchMemory->ResetMatch();
 	}
+	GridBelief = nullptr;
+	bArenaAttached = false;
 	Brain.Reset();
 	bBrainReady = false;
 	Super::EndPlay(Reason);
@@ -298,10 +411,20 @@ void AVerseBotController::Tick(float DeltaSeconds)
 	// One monotonic clock for the brain: a frame never moves time backward.
 	Frame.ServerTimeMs = FMath::Max(Frame.ServerTimeMs, LastThinkMs);
 	LastThinkMs = Frame.ServerTimeMs;
+	AttachArena();
 	IVerseBotWorldQueries& Queries = QueriesOverride ? *QueriesOverride : *DefaultQueries;
 	const FVerseInputFrame Input = Brain->Think(Frame, Queries);
 	if (GetPawn())
 	{
 		ApplyInput(Input);
 	}
+	if (Brain->GetStuckEvents() != LastStuckEvents)
+	{
+		LastStuckEvents = Brain->GetStuckEvents();
+		const APawn* Own = GetPawn();
+		UE_LOG(LogVerseBot, Log, TEXT("[VerseBot] %s stuck at %s in %s, move %s"), *GetName(),
+			Own ? *Own->GetActorLocation().ToCompactString() : TEXT("-"), *Brain->GetPresentation().StateTag.ToString(),
+			*FVector(Input.Move.X, Input.Move.Y, 0.f).ToCompactString());
+	}
+	LogDiagnostics(Frame, Input);
 }

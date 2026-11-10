@@ -64,6 +64,14 @@ public:
 	/** Use an external memory (UVerseBotMatchMemory of the controller); it must outlive the brain. */
 	void UseMemory(FVerseBotMatchMemory& InMemory);
 	const IVerseBotBelief& GetBelief() const { return *Belief; }
+
+	/** Health counters (diagnostics, never read by the brain): ticks a fire intent reached the gate, was unclassified, was not yet aimed. */
+	int32 FireWantTicks = 0;
+	int32 FireUnclassifiedTicks = 0;
+	int32 FireUnaimedTicks = 0;
+
+	/** The mode of the last fire tick that reached the trigger and its time, s (F4: each round is logged with it). */
+	EVerseBotFireMode GetLastFireMode(float& OutAtS) const { OutAtS = LastFireModeS; return LastFireMode; }
 	int32 GetDecisionCount() const { return DecisionIndex; }
 	/** Number of decisions per state since Init (presentation, harness). */
 	const int32* GetStateCounts() const { return StateCounts; }
@@ -101,6 +109,7 @@ private:
 	void OnOwnDeath();
 	void OnOwnRespawn();
 	void TacticsVisibleReset();
+	void ForgetSearchTarget();
 	FVector NextWaypoint(const FVector& Target, bool bCrouch);
 
 	const UVerseBotTier* Tier = nullptr;
@@ -110,6 +119,8 @@ private:
 	FVerseBotMatchMemory OwnedMemory;
 	FVerseBotMatchMemory* Memory = &OwnedMemory;
 	FVerseBotFireAuditLog Audit;
+	EVerseBotFireMode LastFireMode = EVerseBotFireMode::Unclassified;
+	float LastFireModeS = -1.0e6f;
 	FVerseBotUtilitySelector Selector;
 	FVerseBotTacticsMemory TacticsMem;
 	FVerseBotQueryCache Cache;

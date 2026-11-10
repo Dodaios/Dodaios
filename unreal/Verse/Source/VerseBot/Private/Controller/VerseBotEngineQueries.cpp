@@ -1,5 +1,7 @@
 #include "Controller/VerseBotEngineQueries.h"
 
+#include "Controller/VerseBotArenaData.h"
+
 #include "CollisionQueryParams.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
@@ -169,6 +171,10 @@ FVerseBotPath FVerseBotEngineQueries::FindPath(const FVector& From, const FVecto
 void FVerseBotEngineQueries::GetCoverPoints(const FVector& Center, float RadiusCm, TArray<FVerseBotCoverPoint>& Out)
 {
 	Out.Reset();
+	if (Arena.IsValid())
+	{
+		Arena->PointsWithin(Center, RadiusCm, Out);
+	}
 }
 
 void FVerseBotEngineQueries::GetPieces(const FVector& Center, float RadiusCm, TArray<FVerseBotPieceInfo>& Out)
