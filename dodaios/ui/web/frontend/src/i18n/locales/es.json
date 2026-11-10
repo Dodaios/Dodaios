@@ -7874,7 +7874,8 @@
       "the_agent": "El agente"
     },
     "technical_details": "Detalles técnicos",
-    "ran": "Ejecutó"
+    "ran": "Ejecutó",
+    "getting_ready": "Preparando"
   },
   "work_trace": {
     "tool_failed": "Falló una acción de herramienta",

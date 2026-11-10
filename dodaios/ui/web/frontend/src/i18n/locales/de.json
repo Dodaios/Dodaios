@@ -7874,7 +7874,8 @@
       "the_agent": "Der Agent"
     },
     "technical_details": "Technische Details",
-    "ran": "Ausgeführt:"
+    "ran": "Ausgeführt:",
+    "getting_ready": "Wird vorbereitet"
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",
