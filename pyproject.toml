@@ -964,6 +964,11 @@ dodaios = [
     "ui/pets/builtin/*/*.png",
     "ui/pets/template/*.json",
     "ui/pets/template/*.png",
+    # Built-in looks (docs/looks.md), read via Path(__file__) in
+    # dodaios/ui/looks/loader.py.
+    "ui/looks/builtin/*/*.json",
+    "ui/looks/builtin/*/*.html",
+    "ui/looks/builtin/*/*.svg",
     # Built-in skills: SKILL.md plus their reference/asset/script support
     # files (e.g. skill-creator ships references/, scripts/, agents/,
     # assets/ alongside its SKILL.md). Extension-scoped rather than

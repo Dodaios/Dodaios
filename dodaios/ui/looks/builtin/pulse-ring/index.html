@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse Ring</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="ring"></canvas>
+<script>
+// Example look for docs/looks.md. It only listens to the host's messages
+// and draws; it loads nothing from the network.
+(() => {
+  const GOLD = [231, 196, 110];
+  const canvas = document.getElementById("ring");
+  const ctx = canvas.getContext("2d");
+  let state = "idle";
+  let input = 0;
+  let output = 0;
+  let level = 0;
+  let reducedMotion = false;
+
+  window.addEventListener("message", (event) => {
+    const msg = event.data;
+    if (!msg || typeof msg !== "object") return;
+    if (msg.type === "look:init") {
+      state = String(msg.state || "idle");
+      reducedMotion = Boolean(msg.reducedMotion);
+    } else if (msg.type === "look:state") {
+      state = String(msg.state || "idle");
+    } else if (msg.type === "look:levels") {
+      input = Math.max(0, Math.min(1, Number(msg.input) || 0));
+      output = Math.max(0, Math.min(1, Number(msg.output) || 0));
+    }
+  });
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(canvas.clientWidth * dpr);
+    canvas.height = Math.round(canvas.clientHeight * dpr);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  function rgba(alpha) {
+    return `rgba(${GOLD[0]}, ${GOLD[1]}, ${GOLD[2]}, ${alpha})`;
+  }
+
+  function frame(now) {
+    const t = now / 1000;
+    const w = canvas.width;
+    const h = canvas.height;
+    const size = Math.min(w, h);
+    ctx.clearRect(0, 0, w, h);
+
+    let target = 0;
+    if (state === "listening") target = input;
+    else if (state === "speaking") target = output;
+    level += (target - level) * 0.25;
+
+    const breathe = reducedMotion ? 0 : Math.sin(t * 1.4) * 0.02;
+    const base = size * (0.3 + breathe);
+    const radius = base * (1 + level * 0.25);
+    const cx = w / 2;
+    const cy = h / 2;
+
+    // Soft glow.
+    ctx.lineWidth = size * 0.1;
+    ctx.strokeStyle = rgba(0.12 + level * 0.25);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Main ring; dimmed while paused or in error.
+    const dim = state === "paused" || state === "error" ? 0.4 : 1;
+    ctx.lineWidth = Math.max(2, size * 0.02);
+    ctx.strokeStyle = rgba(0.95 * dim);
+    ctx.beginPath();
+    if (state === "thinking" || state === "connecting") {
+      const start = reducedMotion ? 0 : t * 3;
+      ctx.arc(cx, cy, radius, start, start + Math.PI * 1.4);
+    } else {
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+
+    // Inner ring.
+    ctx.lineWidth = Math.max(1, size * 0.008);
+    ctx.strokeStyle = rgba(0.4 * dim);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.65, 0, Math.PI * 2);
+    ctx.stroke();
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.parent.postMessage({ type: "look:ready", format: "dodaios-look/1" }, "*");
+})();
+</script>
+</body>
+</html>
