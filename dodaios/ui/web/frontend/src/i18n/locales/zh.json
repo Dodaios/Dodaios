@@ -10727,7 +10727,6 @@
       "cancel": "返回",
       "model_of": "成员 {number} 的模型",
       "effort_of": "成员 {number} 的推理强度",
-      "model_default": "默认模型",
       "effort_default": "默认强度",
       "add_pick": "哪个编程智能体或提供方加入团队？",
       "search": "搜索",

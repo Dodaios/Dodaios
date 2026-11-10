@@ -10727,7 +10727,6 @@
       "cancel": "Voltar",
       "model_of": "Modelo do membro {number}",
       "effort_of": "Esforço do membro {number}",
-      "model_default": "Modelo predefinido",
       "effort_default": "Esforço predefinido",
       "add_pick": "Que agente de código ou fornecedor entra na equipa?",
       "search": "Pesquisar",

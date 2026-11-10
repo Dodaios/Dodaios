@@ -10727,7 +10727,6 @@
       "cancel": "Volver",
       "model_of": "Modelo del miembro {number}",
       "effort_of": "Esfuerzo del miembro {number}",
-      "model_default": "Modelo predeterminado",
       "effort_default": "Esfuerzo predeterminado",
       "add_pick": "¿Qué agente de código o proveedor se une al equipo?",
       "search": "Buscar",

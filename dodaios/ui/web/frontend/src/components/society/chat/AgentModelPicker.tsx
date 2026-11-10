@@ -71,7 +71,6 @@ export function AgentModelPicker({ agent, busy, onSavingChange, anchorRef, bare 
   const chatConnections = useAgentChat((state) => state.connections);
   const { options, providers, live, modelErrors, loading: catalogLoading, refreshing: catalogRefreshing, failed: catalogFailed, refresh: refreshData } = useModelMenuData(chatCatalog, chatConnections,
     { [agent.provider]: agent.accountId ?? "", ...Object.fromEntries(Object.entries(accounts).map(([key, account]) => [key.slice(0, key.lastIndexOf(":")), account])) });
-  const defaultModelLabel = t("agent_chat.model_default");
   const runtimes = useAgentRuntimes();
   const external = Boolean(agent.runtime && agent.runtime !== "jarvis");
   const loading = catalogLoading || (external && runtimes.isPending);
@@ -81,13 +80,13 @@ export function AgentModelPicker({ agent, busy, onSavingChange, anchorRef, bare 
   const gatewayKey = (Array.isArray(runtimes.data?.subscription_providers) ? runtimes.data.subscription_providers : []).join(",");
   const loginKey = (Array.isArray(runtimes.data?.login_providers) ? runtimes.data.login_providers : []).join(",");
   const seats = useMemo(() => {
-    const all = modelSeats(options, providers ?? [], live, defaultModelLabel);
+    const all = modelSeats(options, providers ?? [], live);
     // Hermes / OpenClaw run on an API key, a local model or a subscription
     // Jarvis' model gateway serves; never a subscription CLI's own loop.
     if (!external) return all;
     const list = (key: string) => key.split(",").filter(Boolean);
     return runtimeSeats(all, list(supportedKey), list(gatewayKey), list(loginKey));
-  }, [options, providers, live, defaultModelLabel, external, supportedKey, gatewayKey, loginKey]);
+  }, [options, providers, live, external, supportedKey, gatewayKey, loginKey]);
   const accessKey = JSON.stringify(runtimes.data?.access ?? {});
   const blockedKey = JSON.stringify(external ? runtimes.data?.access_blocked ?? {} : {});
   const choices = useMemo(() => providerChoices(seats, JSON.parse(accessKey), external, JSON.parse(blockedKey)).sort((a, b) =>

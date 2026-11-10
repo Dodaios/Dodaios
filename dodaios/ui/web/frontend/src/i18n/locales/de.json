@@ -10727,7 +10727,6 @@
       "cancel": "Zurück",
       "model_of": "Modell von Mitglied {number}",
       "effort_of": "Aufwand von Mitglied {number}",
-      "model_default": "Standardmodell",
       "effort_default": "Standardaufwand",
       "add_pick": "Welcher Coding-Agent oder Anbieter kommt ins Team?",
       "search": "Suchen",

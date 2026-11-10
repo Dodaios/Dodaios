@@ -10727,7 +10727,6 @@
       "cancel": "Back",
       "model_of": "Model of member {number}",
       "effort_of": "Effort of member {number}",
-      "model_default": "Default model",
       "effort_default": "Default effort",
       "add_pick": "Which coding agent or provider joins the team?",
       "search": "Search",

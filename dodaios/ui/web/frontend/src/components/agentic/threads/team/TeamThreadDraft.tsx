@@ -18,9 +18,19 @@ import {
   type TeamSeatPick,
   type TeamThreadMode,
 } from "@/lib/teamThreadsApi";
+import { rankModels } from "@/lib/modelRanking";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { useIdeThreadsStore } from "@/store/ideThreads";
+
+/** A seat's models, strongest first; the earlier versions of each line follow the current ones. */
+function rankedOptions(seat: TeamSeat | undefined) {
+  const { current, older } = rankModels(seat?.model_options ?? []);
+  return [...current, ...older];
+}
+
+/** The model a member starts on: the seat's own choice, else its strongest model. */
+const startModel = (seat: TeamSeat | undefined) => seat?.model || rankedOptions(seat)[0]?.id || "";
 
 /** Member 1 plans, member 2 builds, every further member reviews. */
 const roleAt = (index: number): TeamRole => (index === 0 ? "planner" : index === 1 ? "builder" : "reviewer");
@@ -69,7 +79,8 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
 
   const ready = useMemo(() => (seats.data?.seats ?? []).filter((seat) => seat.ready), [seats.data]);
   const byId = useMemo(() => new Map((seats.data?.seats ?? []).map((seat) => [seat.provider, seat])), [seats.data]);
-  const team = picks ?? [];
+  // A member never sits on "the CLI's default": an empty pick takes the seat's strongest model.
+  const team = (picks ?? []).map((pick) => (pick.model ? pick : { ...pick, model: startModel(byId.get(pick.provider)) }));
   const min = seats.data?.min_members ?? 2;
   const max = seats.data?.max_members ?? 8;
   const families = new Set(team.map((pick) => byId.get(pick.provider)?.family ?? pick.provider));
@@ -90,7 +101,7 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
     setPicks(team.map((pick, at) => (at === index ? change(pick) : pick)));
   // Another seat starts on its own default model and effort; the role stays.
   const setSeat = (index: number, provider: string) => update(index, (pick) => ({
-    provider, model: byId.get(provider)?.model ?? "", ...(pick.role ? { role: pick.role } : {}),
+    provider, model: startModel(byId.get(provider)), ...(pick.role ? { role: pick.role } : {}),
   }));
   // An effort the new model does not offer goes back to the seat's own.
   const setModel = (index: number, model: string) => update(index, ({ effort, ...pick }) => {
@@ -102,7 +113,7 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
   const add = (provider: string) => {
     const seat = byId.get(provider);
     if (!seat || team.length >= max) return;
-    setPicks([...team, { provider, model: seat.model }]);
+    setPicks([...team, { provider, model: startModel(seat) }]);
     setAdded(team.length);
   };
   const remove = (index: number) => setPicks(team.filter((_, at) => at !== index));
@@ -176,7 +187,7 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
             {cast.map((pick, index) => {
               const seat = byId.get(pick.provider);
               const number = index + 1;
-              const models = seat?.model_options ?? [];
+              const models = rankedOptions(seat);
               const efforts = effortsOf(seat, pick.model ?? "");
               // One column per setting, so the rows line up whatever each seat offers.
               return <li key={index} data-testid={`team-draft-member-${index}`} className={cn(
@@ -193,7 +204,8 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
                   disabled={models.length === 0}
                   className="min-w-[10rem] flex-1 basis-40 sm:min-w-0"
                   options={[
-                    { value: "", label: t("team_threads.draft.model_default") },
+                    // A seat that lists no model can only run its CLI's own choice.
+                    ...(models.length === 0 ? [{ value: "", label: seat?.label ?? pick.provider }] : []),
                     // A model picked before the list was known stays visible as it is.
                     ...(pick.model && !models.some((option) => option.id === pick.model) ? [{ value: pick.model, label: pick.model }] : []),
                     ...models.map((option) => ({ value: option.id, label: option.label })),

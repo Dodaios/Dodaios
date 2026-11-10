@@ -65,7 +65,7 @@ export function RoutineSeatPicker({ seat, onChange, disabled }: {
   // The catalog query can resolve to anything while the backend is away; only
   // arrays reach the seat join so the picker degrades to free text, never a crash.
   const rows = Array.isArray(providers) ? providers : [];
-  const seats = modelSeats(options, rows, live, t("agent_chat.model_default"));
+  const seats = modelSeats(options, rows, live);
   const active = seats.find((s) => s.provider.id === seat.provider) ?? null;
   const models = active?.provider.curated_models ?? [];
   const efforts = active ? effortsFor(active, seat.model) : [];
@@ -120,7 +120,7 @@ export function RoutineSeatPicker({ seat, onChange, disabled }: {
             aria-label={label("model_name")}
             disabled={disabled}
             list="routine-seat-models"
-            placeholder={showAllModels ? t("agent_chat.model_default") : undefined}
+            placeholder={showAllModels ? active?.provider.label : undefined}
             value={seat.model}
             onChange={(e) => onChange({ ...seat, model: e.target.value })}
           />
