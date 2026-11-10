@@ -722,10 +722,19 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.LocalExposureHighlightContrastScale = 0.75f;
 		S.bOverride_LocalExposureShadowContrastScale = true;
 		S.LocalExposureShadowContrastScale = 0.75f;
-		// A mild Lumen boost; the shadowless bounce points carry most of the fill, since a stronger
-		// boost shows the surface cache's blocks and noise.
-		S.bOverride_IndirectLightingIntensity = true;
-		S.IndirectLightingIntensity = 1.2f;
+		// No Lumen in the arena: its distance-field tracing over the stretched graybox cubes draws
+		// metre-sized blocks on every big face. The shadowless bounce points are the fill, screen
+		// space AO grounds the props and screen space reflections keep the deck's sheen.
+		S.bOverride_DynamicGlobalIlluminationMethod = true;
+		S.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::None;
+		S.bOverride_ReflectionMethod = true;
+		S.ReflectionMethod = EReflectionMethod::ScreenSpace;
+		S.bOverride_ScreenSpaceReflectionIntensity = true;
+		S.ScreenSpaceReflectionIntensity = 80.f;
+		S.bOverride_AmbientOcclusionIntensity = true;
+		S.AmbientOcclusionIntensity = 0.6f;
+		S.bOverride_AmbientOcclusionRadius = true;
+		S.AmbientOcclusionRadius = 120.f;
 		Spawned.Add(Post);
 	}
 
