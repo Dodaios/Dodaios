@@ -1,0 +1,56 @@
+{
+  "asset_path": "/Game/Verse/Weapons/GravelineHero/SKEL_Weapon_GravelineHero.SKEL_Weapon_GravelineHero",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/weapons/SK_Weapon_GravelineHero.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "dd5b9f8c07652bf328578091bb17b82ab41db222d82c929903631ad1596c84d2"
+  },
+  "kind": "skeleton",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "mesh": {
+    "bones": [
+      "Root",
+      "Magazine",
+      "Bolt",
+      "Trigger",
+      "SocketBase"
+    ],
+    "bounds_cm": {
+      "max": [
+        74.2,
+        3.45,
+        16.3
+      ],
+      "min": [
+        -30.0,
+        -3.1,
+        -24.244
+      ]
+    },
+    "material_slots": [],
+    "sockets": [
+      "SOCKET_Eject",
+      "SOCKET_Muzzle",
+      "SOCKET_Sight",
+      "SOCKET_Support"
+    ],
+    "triangles": 31944,
+    "uv_sets": 1,
+    "vertices": 16200
+  },
+  "name": "SKEL_Weapon_GravelineHero",
+  "owner": "WP14",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "SK_Weapon_GravelineHero"
+    },
+    "builder": "art/verse/weapons/hero/export_hero.py",
+    "function": "main"
+  }
+}
