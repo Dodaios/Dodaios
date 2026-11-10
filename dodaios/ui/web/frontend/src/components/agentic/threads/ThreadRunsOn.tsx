@@ -24,7 +24,7 @@ export function ThreadRunsOn({
   if (computers.length === 0 && !computerId) return null;
   const current = computers.find((computer) => computer.id === computerId);
   return (
-    <div className="px-3 pb-1 text-xs text-muted-foreground" data-testid="thread-runs-on">
+    <div className="px-3 pt-1 text-xs text-muted-foreground" data-testid="thread-runs-on">
       <button
         type="button"
         aria-expanded={open}

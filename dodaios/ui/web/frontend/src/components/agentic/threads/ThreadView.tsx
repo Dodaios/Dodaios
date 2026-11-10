@@ -292,10 +292,12 @@ export function ThreadView({ onScreen, column }: {
 
   const runsOn = <ThreadRunsOn computerId={session?.computer_id ?? draft.computerId ?? ""} locked={running}
     onChange={(computerId) => void chatStore.getState().setDraft({ computerId })} />;
+  // The branch bar tucks under the composer card, so it must come right after
+  // it; the "Runs on" line sits below the bar.
   const strip = <>
-    {runsOn}
     <ThreadBranchBar folder={folder} draft={isDraft} checkout={checkout} onCheckout={setCheckout}
       base={base} onBase={setBase} locked={running} />
+    {runsOn}
   </>;
 
   return <div className="relative flex h-full min-h-0 flex-col" data-testid="thread-view">
