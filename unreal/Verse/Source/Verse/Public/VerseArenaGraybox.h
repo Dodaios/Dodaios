@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
+#include "Decks/VerseDeckManifest.h"
 #include "VerseArenaGraybox.generated.h"
 
 class AVerseDestructible;
@@ -63,7 +64,7 @@ public:
 	 * The hangar hall for the deck view: built unless the duel's full graybox already stands (it
 	 * contains the hall) or the level has its own arena. BuildIfMissing replaces it with the full one.
 	 */
-	static AVerseArenaGraybox* BuildHall(UWorld& World);
+	static AVerseArenaGraybox* BuildHall(UWorld& World, const TArray<FVerseDeckRoom>& KeepClear = {});
 	/** The hall-only graybox of a world, if built. */
 	static AVerseArenaGraybox* FindHall(const UWorld& World);
 
@@ -159,6 +160,9 @@ private:
 	TArray<TWeakObjectPtr<class UDirectionalLightComponent>> MutedLights;
 	FDelegateHandle FractureHandle;
 	EVerseGrayboxPart Part = EVerseGrayboxPart::Full;
+	/** Deck rooms the hall's loose props stay out of (where the deck's own stations stand). */
+	TArray<FVerseDeckRoom> KeepClear;
+	bool InKeptClearRoom(const FVector& At) const;
 	/** Whether a box, ramp or light of the JSON belongs to this part (by its "layer"). */
 	bool Includes(const TSharedPtr<class FJsonObject>& Entry) const;
 	int32 Boxes = 0;
