@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { MessengerTurn } from "./MessengerTurn";
+import { MessengerTurn, openNestedApprovals } from "./MessengerTurn";
 import { actionNoticeOf, callPresence, presenceOf } from "./messengerPresence";
 import type { ReasoningBlock, TextBlock, ToolBlock, TurnBlock, TurnItem } from "./reduce";
 
@@ -114,3 +114,25 @@ describe("MessengerTurn", () => {
 function routineDone(): ToolBlock {
   return call("society_propose_change", { kind: "routine", payload: { title: "Daily contributor check" } }, "{\"applied\": true}");
 }
+
+
+describe("a helper waiting for approval", () => {
+  const ask = (callId: string, decision: string | null): ToolBlock =>
+    call("WebFetch", { url: "https://dodaios.example" }, null, {
+      callId, approval: { approvalId: `a-${callId}`, summary: "Fetch the page", decision },
+    });
+  const helper = (blocks: TurnBlock[], callId = "spawn"): ToolBlock => call("Task", { description: "Read the website" }, null, {
+    callId,
+    subagent: {
+      description: "Read the website", agentType: "web-fetch", prompt: "", background: false, threadId: "",
+      status: "running", summary: "", activity: "", lastTool: "", tokens: null, toolUses: null,
+      durationMs: null, startedMs: 1, finishedMs: null, blocks,
+    } as unknown as ToolBlock["subagent"],
+  });
+
+  it("collects the open asks of a helper and of the helpers it started", () => {
+    const nested = helper([ask("inner-2", null)], "inner-helper");
+    const found = openNestedApprovals(helper([ask("inner-1", null), ask("done", "allow"), nested]));
+    expect(found.map((b) => b.callId)).toEqual(["inner-1", "inner-2"]);
+  });
+});

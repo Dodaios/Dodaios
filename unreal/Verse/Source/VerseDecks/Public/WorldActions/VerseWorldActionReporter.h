@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 
 struct FVerseDeckManifest;
+class FJsonObject;
 
 /** One world action for the level system (bridge-protocol.md 9, `progression.action`). */
 struct VERSEDECKS_API FVerseWorldAction
@@ -46,6 +47,9 @@ public:
 
 	/** Rooms of `Deck` visited during the current visit (sorted names, for QA and tests). */
 	TArray<FName> VisitedRooms(FName Deck) const;
+
+	/** The `data` object of the `progression.action` command for `Action` (the bridge sends it). */
+	static TSharedPtr<FJsonObject> ToBridgeData(const FVerseWorldAction& Action);
 
 	/** `{"type":"progression.action","id":..,"ts":..,"data":{"action":..,"ref":..}}` (bridge-protocol 9). */
 	static FString ToBridgeJson(const FVerseWorldAction& Action, const FString& Id, double Ts);

@@ -65,8 +65,8 @@ END = "<!-- contributors:end -->"
 EXCLUDED_LOGINS = frozenset({"claude"})
 
 #: Avatars per row, matching the layout OpenClaw uses. Purely cosmetic.
-PER_ROW = 10
-AVATAR_PX = 48
+PER_ROW = 7
+AVATAR_PX = 64
 
 #: Inline marker that scripts/ci/check_no_new_german.py skips.
 LANGUAGE_GATE_ESCAPE = "i18n-allow"
@@ -307,12 +307,14 @@ def _avatar_src(url: str) -> str:
 
 
 def _user_cell(person: dict) -> str:
+    """One table cell: the avatar with the GitHub login underneath."""
     login = person["login"]
     safe = html.escape(login, quote=True)
     return (
-        f'<a href="https://github.com/{safe}">'
+        f'<td align="center"><a href="https://github.com/{safe}">'
         f'<img src="{_avatar_src(person.get("avatar_url") or "")}" '
-        f'width="{AVATAR_PX}" height="{AVATAR_PX}" alt="{safe}"></a>'
+        f'width="{AVATAR_PX}" height="{AVATAR_PX}" alt="{safe}"><br>'
+        f"<sub><b>{safe}</b></sub></a></td>"
     )
 
 
@@ -324,7 +326,7 @@ def _marked(line: str) -> str:
 
 
 def render(people: list[dict]) -> str:
-    """An avatar grid of GitHub accounts, ``PER_ROW`` to a row.
+    """A table of GitHub accounts, ``PER_ROW`` to a row, name under each avatar.
 
     People with no linked account are left out. Their only identity is a git
     author name, which is often someone else's machine login, so printing it
@@ -334,10 +336,12 @@ def render(people: list[dict]) -> str:
     if not accounts:
         return "_Nobody yet. That first square is yours._"
     rows = [
-        _marked(" ".join(_user_cell(person) for person in accounts[i : i + PER_ROW]))
+        _marked(
+            "<tr>" + "".join(_user_cell(person) for person in accounts[i : i + PER_ROW]) + "</tr>"
+        )
         for i in range(0, len(accounts), PER_ROW)
     ]
-    return "\n".join(rows)
+    return "\n".join(["<table>", *rows, "</table>"])
 
 
 def splice(text: str, block: str) -> str:

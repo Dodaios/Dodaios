@@ -334,6 +334,9 @@ bool FVerseHarnessJsonTest::RunTest(const FString& Parameters)
 	FVerseJsonWriter W;
 	W.Str(TEXT("k"), TEXT("v")).Num(TEXT("n"), 0.25).Null(TEXT("z"));
 	TestEqual(TEXT("writer"), W.Close(), FString(TEXT("{\"k\":\"v\",\"n\":0.25,\"z\":null}")));
+	// A value just under a whole number prints as the whole number, never with a bare point (5.).
+	TestEqual(TEXT("near-whole number"), FVerseJsonWriter::Number(4.9999999), FString(TEXT("5")));
+	TestEqual(TEXT("tiny negative"), FVerseJsonWriter::Number(-0.0000001), FString(TEXT("0")));
 	return true;
 }
 

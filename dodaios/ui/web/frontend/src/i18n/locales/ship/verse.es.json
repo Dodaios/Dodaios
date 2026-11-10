@@ -159,7 +159,9 @@
       "quality.medium": "Media",
       "reduced_motion": "Menos movimiento",
       "text_size": "Tamaño del texto",
-      "ui_sound": "Sonidos de interfaz"
+      "ui_sound": "Sonidos de interfaz",
+      "quality.custom": "Personalizada",
+      "render_tier": "Renderizado actual: {tier}"
     },
     "lift": {
       "title": "Ascensor",
@@ -403,6 +405,10 @@
         "prone": "Cuerpo a tierra",
         "slide": "Deslizando",
         "stand": "De pie"
+      },
+      "perf": {
+        "fps": "{fps} FPS",
+        "full": "{fps} FPS · {ms} ms"
       }
     },
     "item": {

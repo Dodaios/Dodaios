@@ -12,7 +12,8 @@
       "aimWanderSdDeg": 0.6,
       "aimWanderTheta": 4.0,
       "learning": true,
-      "learnWeight": 0.3
+      "learnWeight": 0.3,
+      "baseSkill": 0.75
     },
     "average": {
       "description": "Slower, looser aim, little learning",
@@ -24,7 +25,8 @@
       "aimWanderSdDeg": 1.4,
       "aimWanderTheta": 2.5,
       "learning": true,
-      "learnWeight": 0.08
+      "learnWeight": 0.08,
+      "baseSkill": 0.1
     }
   },
   "tricks": {

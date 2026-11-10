@@ -22,6 +22,11 @@ namespace
 	constexpr float SearchRadiusCm = 6000.f;
 	constexpr float SearchRetargetS = 8.f;
 	constexpr int32 SearchPathChecks = 5;
+	/** Retreat lasts while the threat was seen, hurt or tracked within this many seconds. */
+	constexpr float RetreatThreatS = 8.f;
+	/** Search: an abandoned target and points within this radius are skipped for SearchFailedS. */
+	constexpr float SearchFailedRadiusCm = 400.f;
+	constexpr float SearchFailedS = 20.f;
 
 	using EState = EVerseBotState;
 
@@ -119,8 +124,12 @@ namespace VerseBotTactics
 			}
 		}
 
-		// Retreat: own health low vs the estimate, or magazine and pistol both low; + CoverUse.
-		if (bLow || bAmmoLow)
+		// Retreat: own health low vs the estimate, or magazine and pistol both low; + CoverUse. Only
+		// while the threat is fresh: health does not regenerate (combat-state, regeneration off), so
+		// a retreat without contact would hide for the rest of the match.
+		const bool bThreatFresh = bSight || Ctx.SinceSightS < RetreatThreatS || Ctx.SinceHurtS < RetreatThreatS
+			|| B.State == EVerseBeliefState::Known || B.State == EVerseBeliefState::Tracked;
+		if ((bLow || bAmmoLow) && bThreatFresh)
 		{
 			Out[int32(EState::Retreat)] = 0.5f + 0.5f * T.CoverUse + 0.3f * (1.f - Ctx.HealthFrac);
 		}
@@ -495,6 +504,21 @@ namespace VerseBotTactics
 			}
 			else if (!Mem.bHasSearchTarget || bArrived || Now >= Mem.SearchUntilS)
 			{
+				if (Mem.bHasSearchTarget && !bArrived && Now >= Mem.SearchUntilS)
+				{
+					// Not reached in time: an unreachable or blocked target is not picked again soon.
+					if (Mem.SearchFailed.Num() >= 8)
+					{
+						Mem.SearchFailed.RemoveAt(0);
+					}
+					Mem.SearchFailed.Emplace(Mem.SearchTarget, Now);
+				}
+				Mem.SearchFailed.RemoveAll([Now](const TPair<FVector, float>& F) { return Now - F.Value > SearchFailedS; });
+				auto Failed = [&Mem](const FVector& P)
+				{
+					return Mem.SearchFailed.ContainsByPredicate([&P](const TPair<FVector, float>& F)
+						{ return FVector::DistSquared(F.Key, P) < SearchFailedRadiusCm * SearchFailedRadiusCm; });
+				};
 				if (bArrived || Now >= Mem.SearchUntilS)
 				{
 					// Mark the arena points around the reached (or abandoned) target as searched.
@@ -512,7 +536,7 @@ namespace VerseBotTactics
 				for (const FVector& Cell : Cells)
 				{
 					const float Mass = Ctx.Query.BeliefMap->MassWithin(Cell, 300.f);
-					if (Mass < SearchMinMass || float(FVector::Dist2D(Cell, Self.Location)) < ArriveCm * 3.f)
+					if (Mass < SearchMinMass || float(FVector::Dist2D(Cell, Self.Location)) < ArriveCm * 3.f || Failed(Cell))
 					{
 						continue;
 					}
@@ -536,7 +560,7 @@ namespace VerseBotTactics
 						const float* Last = Mem.Visited.Find(P.Id);
 						const float Age = Last ? Now - *Last : 120.f;
 						const float Dist = float(FVector::Dist2D(P.Location, Self.Location)) / VerseBot::CmPerM;
-						if (Dist < 3.f)
+						if (Dist < 3.f || Failed(P.Location))
 						{
 							continue;
 						}

@@ -222,6 +222,40 @@ async def warm(
     return True
 
 
+async def load_now(
+    root: str,
+    model: str,
+    keep_alive: str | int | None,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+    headers: dict[str, str] | None = None,
+) -> bool:
+    """Load ``model`` into memory now with an empty ``/api/generate`` ping.
+
+    Unlike ``warm`` this is not memoized: the server unloads an idle model, so
+    a preload has to ask again each time. On a model that is already loaded
+    the ping returns at once. ``keep_alive=None`` keeps the server default.
+    Never raises.
+    """
+    payload: dict[str, Any] = {"model": model, "stream": False}
+    if keep_alive is not None:
+        payload["keep_alive"] = keep_alive
+    try:
+        async with httpx.AsyncClient(
+            timeout=_PRELOAD_TIMEOUT, transport=transport, headers=headers,
+        ) as client:
+            resp = await client.post(f"{root}/api/generate", json=payload)
+            resp.raise_for_status()
+    except Exception as exc:  # noqa: BLE001 — a preload is best-effort
+        log.info("ollama preload: %s not loaded: %s: %s", model, type(exc).__name__, exc)
+        return False
+    return True
+
+
+#: A cold load of a large model from disk can take a minute.
+_PRELOAD_TIMEOUT = 120.0
+
+
 def reset_process_memo() -> None:
     """Forget warm pings (tests, or after a server restart)."""
     _warmed.clear()

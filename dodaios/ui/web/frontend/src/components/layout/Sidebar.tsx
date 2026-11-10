@@ -26,7 +26,7 @@ import { clsx } from "clsx";
 import { cn } from "@/lib/utils";
 import { lazy, Suspense, useMemo, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { useT } from "@/i18n";
-import { RecentChats } from "@/components/home/RecentChats";
+import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { useHomeStore } from "@/store/home";
 import { LazyIdeProjectTree } from "@/components/agentic/LazyIdeProjectTree";
 import { IDE_SECTIONS } from "@/lib/ideSections";
@@ -585,7 +585,7 @@ export function Sidebar({
         </nav>}
         {!railed && (onIdeSection
           ? <LazyIdeProjectTree />
-          : <><Suspense fallback={null}><SidebarAgents /></Suspense><section className="mt-5 px-2 pb-3" aria-label={t("sidebar.recent_chats")}><RecentChats /></section></>)}
+          : <><Suspense fallback={null}><SidebarAgents /></Suspense><section className="mt-5 px-2 pb-3" aria-label={t("sidebar.earlier_chats")}><EarlierChatsLink /></section></>)}
       </div>
 
       {/* The footer is one button now, not a popup: it opens the Settings hub

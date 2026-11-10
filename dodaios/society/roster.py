@@ -24,6 +24,7 @@ import re
 import secrets
 import sqlite3
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -604,6 +605,9 @@ def _coerce(field_name: str, value: Any) -> Any:
 class Roster:
     def __init__(self, store: SocietyStore) -> None:
         self._store = store
+        #: The approval mode a new agent starts with when its creator names
+        #: none. The runtime points this at Settings -> Permissions.
+        self.default_approval_mode: Callable[[], str] = lambda: str(AgentApprovalMode.BYPASS)
         #: The live (non-archived) rows as of the last write or ``list()`` —
         #: what a synchronous reader on the brain's hot path may see without
         #: touching the database (the lead card, ``lead_card.py``). Every
@@ -662,6 +666,14 @@ class Roster:
             existing["agent_id"], {"name": f"{existing['name']} (deleted {existing['agent_id']})"}
         )
         return None
+
+    def _default_mode(self) -> str:
+        """The configured default for a new agent; Bypass when it is unreadable."""
+        try:
+            return str(AgentApprovalMode(str(self.default_approval_mode())))
+        except Exception:  # noqa: BLE001 — a broken setting must not block creation
+            log.warning("roster: unreadable default approval mode, using bypass", exc_info=True)
+            return str(AgentApprovalMode.BYPASS)
 
     async def create(
         self,
@@ -749,7 +761,7 @@ class Roster:
             "updated_ms": now,
             "workspace_dir": f"society/{agent_id}/workspace",
             "wiki_namespace": f"society/{agent_id}/",
-            "approval_mode": (None if tier_value is Tier.LEAD else str(AgentApprovalMode.BYPASS)),
+            "approval_mode": (None if tier_value is Tier.LEAD else self._default_mode()),
             "permission_ceiling": str(PermissionCeiling.ASK),
         }
         if tier_value is Tier.ORCHESTRATOR:

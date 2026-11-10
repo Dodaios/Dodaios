@@ -1,11 +1,11 @@
 import { Fragment, memo, useMemo, type ReactNode } from "react";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
 import { CircleAlert, FileText, ImageIcon } from "lucide-react";
-import type { InternalParticipant } from "./InternalMessageBubble";
-import { InternalMessageRun, groupInternalRuns, type InternalRunItem } from "./InternalMessageRun";
+import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFace } from "./InternalMessageRun";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
+import { MemoryLearnedNotice } from "./MemoryLearnedNotice";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
@@ -40,7 +40,7 @@ export function AgentTimeline({
   /** Who an internal agent message was sent to — the chat owner (defaults to the assistant). */
   recipientName?: string;
   /** Sender faces by agent id, where the caller has a roster. */
-  agentsById?: Record<string, InternalParticipant>;
+  agentsById?: Record<string, RunFace>;
   /**
    * The front page's conversation look (2026-10-01):
    * your words in a soft rounded bubble on the right, the assistant's answer
@@ -221,6 +221,17 @@ export function AgentTimeline({
             className="flex justify-end py-1 text-xs text-destructive">
             {t("society.chat.message_not_sent").replace("{0}", item.text)}
           </p>
+        );
+      }
+      if (item.kind === "memory_learned") return <MemoryLearnedNotice key={item.id} item={item} />;
+      if (item.kind === "context_reset") {
+        return (
+          <div key={item.id} data-message-id={item.id} data-testid="context-reset"
+            className="flex items-center gap-3 py-2 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" aria-hidden />
+            {t("society.chat.fresh_start_line")}
+            <span className="h-px flex-1 bg-border" aria-hidden />
+          </div>
         );
       }
       if (item.kind === "background_result_lost") {

@@ -70,8 +70,33 @@ public:
 	bool IsDormant() const { return bDormant; }
 	/** settings.changed {ui_sound}: off silences the whole Verse (parity Z-14). */
 	void SetUiSoundEnabled(bool bEnabled);
+	/** settings.changed {level_sound}: off silences the level-up bell only (parity R-12). */
+	void SetLevelSoundEnabled(bool bEnabled);
+	bool IsLevelSoundEnabled() const { return bLevelSoundEnabled; }
+	bool IsUiSoundEnabled() const { return bUiSoundEnabled; }
 	/** User volume 0..1 (parity Z-14). */
 	void SetUserVolume(float Volume);
+	/** settings.game audio volumes: linear gain per EVerseAudioBus (1 = as mixed), on the bus submixes. */
+	void SetUserBusGains(const TArray<float>& Gains);
+	float GetUserBusGain(EVerseAudioBus Bus) const { return UserBusGain.IsValidIndex(int32(Bus)) ? UserBusGain[int32(Bus)] : 1.f; }
+	/** settings.game audio.mute_unfocused while the Verse window is in the background. */
+	void SetBackgroundMuted(bool bMuted);
+	bool IsBackgroundMuted() const { return bBackgroundMuted; }
+	float GetUserVolume() const { return UserVolume; }
+
+	/**
+	 * Every cue the duel needs on its first shot: the weapon layers of each profile, reloads, impacts,
+	 * foley, melee, finishers, destruction, drones, gadgets and the UI cues (parity D-17).
+	 */
+	static TArray<FName> DuelCueIds(const TArray<FName>& WeaponProfiles);
+	/**
+	 * Duel entry: loads every variant of the duel set now (not at the first shot) and returns the
+	 * cue ids that are missing or have no sound. Runs on every cue set change; idempotent.
+	 */
+	TArray<FName> PreloadDuelSet();
+	/** Cue ids the last PreloadDuelSet found missing or silent. */
+	const TArray<FName>& GetMissingDuelCues() const { return MissingDuelCues; }
+	bool IsDuelSetPreloaded() const { return bDuelPreloaded; }
 	/** Linear master volume handed to the sink right now. */
 	float GetMasterVolume() const { return MasterVolume; }
 
@@ -182,7 +207,12 @@ private:
 	int32 PeakVoices = 0;
 	bool bDormant = false;
 	bool bUiSoundEnabled = true;
+	bool bBackgroundMuted = false;
+	bool bLevelSoundEnabled = true;
+	bool bDuelPreloaded = false;
+	TArray<FName> MissingDuelCues;
 	float UserVolume = 1.f;
+	TArray<float> UserBusGain;
 	/** Fade multiplier 0..1 towards the dormant target. */
 	float FadeLevel = 1.f;
 	float MasterVolume = 1.f;

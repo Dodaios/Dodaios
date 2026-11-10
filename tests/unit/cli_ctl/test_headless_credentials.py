@@ -46,7 +46,7 @@ else:
 
 @pytest.mark.parametrize("entrypoint", ["jarvis", "jarvisctl"])
 @pytest.mark.parametrize("command", [
-    ["auth", "status"], ["wiki", "health"], ["config", "list"], ["permissions", "status"],
+    ["auth", "status"], ["config", "list"], ["permissions", "status"],
 ])
 def test_headless_control_commands_are_quiet_across_processes(tmp_path, entrypoint, command):
     data = tmp_path / "data"

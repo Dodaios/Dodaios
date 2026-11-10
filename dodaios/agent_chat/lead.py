@@ -14,6 +14,7 @@ at and never fails because no chat was open.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 from typing import Any, Final
@@ -193,6 +194,161 @@ def voice_history(
     return kept
 
 
+def search_conversation(query: str, *, limit: int = 6) -> list[dict[str, Any]]:
+    """What was said earlier in the lead's conversation about ``query``.
+
+    Blocking (SQLite); call it off the event loop. Rows carry who said it,
+    the date and an excerpt, newest relevant first. Empty when the society
+    runtime (which owns the archive) or the conversation does not exist.
+    """
+    import datetime as _dt
+
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+    except Exception:  # noqa: BLE001 — society not loaded
+        return []
+    svc = runtime.chat_service() if runtime is not None else None
+    archive = getattr(runtime, "conversations", None) if runtime is not None else None
+    if svc is None or archive is None:
+        return []
+    sid = lead_session_id(svc)
+    if not sid or not str(query or "").strip():
+        return []
+    archive.ingest(sid, svc.store.list_events(sid))
+    rows: list[dict[str, Any]] = []
+    for hit in archive.search(sid, query, limit=max(1, min(20, limit))):
+        if hit.get("kind") not in {"user_message", "assistant_text"}:
+            continue
+        text = str(hit.get("text") or "").strip()
+        if not text:
+            continue
+        ts = int(hit.get("ts_ms") or 0)
+        rows.append(
+            {
+                "who": "user" if hit["kind"] == "user_message" else "you",
+                "date": _dt.datetime.fromtimestamp(ts / 1000).strftime("%Y-%m-%d") if ts else "",
+                "text": text[:600],
+            }
+        )
+    return rows
+
+
+async def answer_in_lead(svc: Any, text: str, *, source: str, timeout_s: float = 900.0) -> str:
+    """Send ``text`` into the lead conversation and return the reply text.
+
+    For messages from outside the app (the owner's Telegram chat). A message
+    that arrives while a turn runs waits in the conversation's queue; its own
+    turn is found by its text. Returns "" when no answer came in time.
+    """
+    from dodaios.agent_chat.send_queue import send_or_queue
+
+    session = lead_session(svc)
+    if session is None:
+        return ""
+    sid = session.session_id
+    queue = svc.subscribe(sid)
+    try:
+        turn_id, _queued = await send_or_queue(svc, sid, text)
+        log.debug("lead thread: a %s message joins the conversation", source)
+        parts: list[str] = []
+        seen_own = bool(turn_id)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout_s
+        while True:
+            left = deadline - loop.time()
+            if left <= 0:
+                return ""
+            event = await asyncio.wait_for(queue.get(), timeout=left)
+            payload = event.get("payload") or {}
+            kind = event.get("kind")
+            if not turn_id:
+                # Queued: our message starts the first turn after it appears.
+                if kind == "user_message" and str(payload.get("text") or "") == text:
+                    seen_own = True
+                elif seen_own and kind == "turn_started":
+                    turn_id = str(payload.get("turn_id") or "")
+                continue
+            if str(payload.get("turn_id") or "") != turn_id:
+                continue
+            if kind == "assistant_text":
+                parts.append(str(payload.get("text") or ""))
+            elif kind == "turn_finished":
+                return "\n".join(p for p in parts if p).strip()
+    except TimeoutError:  # no reply in time: the documented empty answer
+        return ""
+    finally:
+        svc.unsubscribe(sid, queue)
+
+
+FRESH_START_SUMMARY = (
+    "The user started fresh here. Earlier parts of this conversation are not in "
+    "context; what matters is in long-term memory, and memory-search finds what "
+    "was said before."
+)
+
+
+def fresh_start(svc: Any) -> int | None:
+    """Start the model light without ending the conversation.
+
+    Moves the compaction checkpoint to the newest event with a short note as
+    its summary, so the next turn carries no earlier history. The thread,
+    its archive and the memory stay. Blocking (SQLite). Returns the event
+    seq the fresh start begins after, or ``None`` when there is no
+    conversation or no archive.
+    """
+    session = lead_session(svc, create=False)
+    archive = _archive()
+    if session is None or archive is None:
+        return None
+    events = svc.store.list_events(session.session_id, tail=1)
+    through = int(events[-1]["seq"]) if events else 0
+    archive.ingest(session.session_id, svc.store.list_events(session.session_id))
+    archive.save_checkpoint(session.session_id, through, FRESH_START_SUMMARY)
+    return through
+
+
+async def post_learned(receipts: list[dict[str, str]]) -> None:
+    """Show in the conversation what the assistant just learned.
+
+    A written notice (``memory_learned``) with one row per change; the page
+    renders it as "Remembered: ..." with an undo. Never spoken. A missing
+    conversation or service is not an error: the memory is already saved.
+    """
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+        if svc is None:
+            return
+        session = lead_session(svc, create=False)
+        if session is None:
+            return
+        rows = [
+            {
+                "op": str(r.get("op") or ""),
+                "id": str(r.get("id") or ""),
+                "text": str(r.get("text") or ""),
+            }
+            for r in receipts[:8]
+            if r.get("text")
+        ]
+        if rows:
+            await svc.post_notice(
+                session.session_id,
+                {
+                    "kind": "memory_learned",
+                    "status": "done",
+                    "text": rows[0]["text"],
+                    "items": rows,
+                },
+            )
+    except Exception:  # noqa: BLE001 — a notice must never undo a saved memory
+        log.warning("lead thread: learned-memory notice not posted", exc_info=True)
+
+
 def _archive() -> Any | None:
     try:
         from dodaios.society.runtime import current_runtime
@@ -206,9 +362,13 @@ def _archive() -> Any | None:
 __all__ = [
     "SURFACE",
     "adopt_seat",
+    "answer_in_lead",
     "chat_seat",
+    "fresh_start",
     "is_lead",
     "lead_session",
     "lead_session_id",
+    "post_learned",
+    "search_conversation",
     "voice_history",
 ]

@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Awaitable, Callable
-from pathlib import Path
 from typing import Any, Literal
 
 log = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ BrainCallback = Callable[[str], Awaitable[str]]
 # Rationale: Hauptjarvis is a pure dispatcher. Direct actions outside this
 # list (open_app, type_text, remember, whoami …) are delegated to a background
 # worker — the router delegates them via ``spawn_worker``. Read-only lookups
-# (search-web, wiki-recall) and safe-gated direct actions
+# (search-web, memory-search) and safe-gated direct actions
 # (computer-use, cli-tools, plugin-tools) are router-tier by design — see the
 # ADR-0011 amendments (2026-05-24 CLI, 2026-05-29 Computer-Use, 2026-06-01
 # plugins, 2026-06-10 inline web search).
@@ -138,26 +137,6 @@ ROUTER_TOOLS = frozenset({
     # block, and erase a memory when the user asks. Router-tier only.
     "memory-search",
     "memory-forget",
-    # Phase B5 (recall-tool): read-only keyword search over the long-term
-    # Obsidian wiki vault. Router-tier only — never in SUB_TOOLS (AP-D9).
-    # The brain calls this when the user asks "what do we know about X" or
-    # references a past project, person, or decision by name.
-    "wiki-recall",
-    # Phase B5 follow-up: full-page reader for the wiki vault. Used after
-    # wiki-recall when the brain has narrowed to one page and needs the
-    # complete content, not the 240-char snippet.
-    "wiki-page-read",
-    # Grounded vault listing (2026-07-14): deterministic ground-truth answer
-    # for "what is in my wiki" in ONE round. Without it the brain probed
-    # blindly (index.md/SOUL.md → not found, ~14 rounds, 66 s) and recited
-    # schema.md's example layout as actual content. Read-only and safe;
-    # Jarvis-Agents may call it only through the ADR-0025 supervisor broker,
-    # never through a legacy worker tier (AP-5/AP-14). See ADR-0011.
-    "wiki-list",
-    # Phase B5 follow-up: deterministic ingest path. Lets the brain
-    # explicitly store a fact ("merk dir: …") rather than relying on the
-    # VoiceFactBridge acknowledgement heuristic.
-    "wiki-ingest",
     # CLI-Integration (2026-05-24): virtual loader that expands to one
     # ``cli_<name>`` tool per connected & usable CLI (gcloud, gh, docker, …).
     # This is the MCP/plugin model for command-line tools: only connected
@@ -359,31 +338,6 @@ def _needs_vision_engine(*, per_turn_vision: bool, cu_enabled: bool) -> bool:
     return per_turn_vision or cu_enabled
 
 
-def _resolve_wiki_vault_root(config: Any) -> Path:
-    """Resolve the wiki vault root for the router-tier context injector.
-
-    Reads ``config.wiki_integration.vault_root`` — the SAME field every
-    other wiki consumer uses (``wiki_recall._build_search_instance``,
-    ``wiki_routes._resolve_vault_root``) — and resolves it through the
-    canonical :func:`dodaios.memory.wiki.vault_root.resolve_vault_root`
-    (spec A7), so a relative root anchors to the repo root, never the
-    process CWD. Falls back to the resolver's standard
-    ``<project>/wiki/obsidian-vault`` default when the config has no
-    ``wiki_integration`` section (older config) or its value is empty.
-
-    Historical bug: this previously read ``config.memory.vault_root``,
-    a field that never existed on ``MemoryConfig`` — so it always
-    resolved to ``None`` and a user's ``[wiki_integration].vault_root``
-    was silently ignored on the voice path.
-    """
-    from dodaios.memory.wiki.vault_root import resolve_vault_root
-
-    raw = getattr(getattr(config, "wiki_integration", None), "vault_root", None)
-    if raw is not None and str(raw).strip() == "":
-        raw = None
-    return resolve_vault_root(raw).path
-
-
 def _load_tools_for_tier(
     tier: str,
     *,
@@ -547,37 +501,6 @@ def _load_tools_for_tier(
                 )
             elif ep.name == "whoami":
                 inst = cls(profile=user_profile, people=people)
-            elif ep.name == "wiki-recall":
-                # Phase B5: build VaultSearch with the configured vault root.
-                # The search instance is created once per brain build and
-                # caches file-list + mtime for fast repeated calls.
-                # Falls back to Path("wiki/obsidian-vault") when
-                # cfg.wiki_integration.vault_root is absent (Agent A defines
-                # that config field; if it is not yet merged we use the
-                # default so the tool surface stays stable).
-                from dodaios.plugins.tool.wiki_recall import _build_search_instance
-
-                inst = cls(search=_build_search_instance())
-            elif ep.name == "wiki-page-read":
-                # Phase B5 follow-up: same vault-root resolution as wiki-recall.
-                from dodaios.plugins.tool.wiki_page_read import _build_page_read_tool
-
-                inst = _build_page_read_tool()
-            elif ep.name == "wiki-list":
-                # Grounded vault listing: same vault-root resolution as the
-                # other wiki tools.
-                from dodaios.plugins.tool.wiki_list import _build_wiki_list_tool
-
-                inst = _build_wiki_list_tool()
-            elif ep.name == "wiki-ingest":
-                # Phase B5 follow-up: lazy curator resolver — the curator is
-                # constructed by ``bootstrap_wiki_integration`` after the brain
-                # is built, so the tool must defer the lookup to execute time.
-                # Mirrors the spawn-worker lazy-resolver pattern.
-                from dodaios.memory.wiki.integration import get_running_curator
-                from dodaios.plugins.tool.wiki_ingest import WikiIngestTool
-
-                inst = WikiIngestTool(curator_resolver=get_running_curator)
             elif ep.name == "create-skill":
                 # Skill authoring by voice/chat: the tool resolves the live
                 # SkillRegistry (skill_context) and the live BrainManager
@@ -1330,7 +1253,7 @@ def _phase2_full_brain(
     elif not legacy_enabled:
         log.info(
             "Legacy-Curator soft-disabled (cfg.memory.legacy_curator.enabled=false) "
-            "— wiki vault takes over fact extraction via WikiCurator/VoiceFactBridge"
+            "— the memory vault learns through the learning loop (ADR-0044)"
         )
 
     # Soft-disabling the legacy curator left USER.md with no automatic writer
@@ -1351,71 +1274,6 @@ def _phase2_full_brain(
             manager._profile_capture = profile_capture
         except Exception as exc:  # noqa: BLE001 — capture is never load-bearing
             log.warning("ProfileCaptureBridge could not be started: %s", exc)
-
-    # B5 Agent C: WikiContextInjector — router-tier only.
-    # Attempt to import Agent B's VaultSearch.  If the module is not yet
-    # merged (ImportError), pass search=None so the injector is a silent no-op.
-    if tier == "router":
-        wiki_cfg = getattr(config, "wiki_context", None)
-        wiki_enabled = bool(wiki_cfg and getattr(wiki_cfg, "enabled", True))
-        if wiki_enabled:
-            try:
-                from dodaios.brain.wiki_context import WikiContextInjector
-                from dodaios.memory.wiki.search import VaultSearch
-
-                # Resolve the vault from [wiki_integration].vault_root — the
-                # single source of truth shared with wiki-recall / wiki-page-read
-                # / wiki_routes. The hardcoded project path is the last-resort
-                # fallback only (see _resolve_wiki_vault_root).
-                vault_path = _resolve_wiki_vault_root(config)
-                search = VaultSearch(vault_path)
-                # Warm the lazy SQLite connection off the critical path
-                # (AP-26): the first per-turn search otherwise pays the
-                # open+schema check against its own latency budget.
-                import threading
-
-                threading.Thread(
-                    target=search.warm_up,
-                    name="wiki-vault-warmup",
-                    daemon=True,
-                ).start()
-                from dodaios.memory.wiki.semantic_search import get_active
-
-                manager._wiki_injector = WikiContextInjector(
-                    search=search,
-                    # The provider returns None until the user switches
-                    # semantic search on; nothing is loaded here.
-                    semantic_search=get_active,
-                    max_chars=getattr(wiki_cfg, "max_chars", 1500),
-                    latency_budget_ms=getattr(wiki_cfg, "latency_budget_ms", 150),
-                    min_keyword_length=getattr(wiki_cfg, "min_keyword_length", 3),
-                    relevance_gate=bool(getattr(wiki_cfg, "relevance_gate", True)),
-                    min_coverage=float(getattr(wiki_cfg, "min_coverage", 0.5)),
-                    strict_min_coverage=float(
-                        getattr(wiki_cfg, "strict_min_coverage", 0.75)
-                    ),
-                    min_relative_score=float(
-                        getattr(wiki_cfg, "min_relative_score", 0.35)
-                    ),
-                )
-                log.info(
-                    "WikiContextInjector active (vault=%s, budget=%dms, gate=%s)",
-                    vault_path,
-                    getattr(wiki_cfg, "latency_budget_ms", 150),
-                    "on" if getattr(wiki_cfg, "relevance_gate", True) else "off",
-                )
-            except ImportError:
-                # Agent B's search module not yet merged — fallback to no-op.
-                from dodaios.brain.wiki_context import WikiContextInjector
-                manager._wiki_injector = WikiContextInjector(search=None)
-                log.debug(
-                    "WikiContextInjector in no-op mode: dodaios.memory.wiki.search "
-                    "not available (Agent B not yet merged)"
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.warning("WikiContextInjector could not be initialised: %s", exc)
-                from dodaios.brain.wiki_context import WikiContextInjector
-                manager._wiki_injector = WikiContextInjector(search=None)
 
     manager.own_message_recorder(recorder, bus)
     return manager

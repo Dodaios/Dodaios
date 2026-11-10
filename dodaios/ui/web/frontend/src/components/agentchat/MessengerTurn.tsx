@@ -4,7 +4,7 @@ import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
 import { QuestionCard } from "./QuestionCard";
 import { ApprovalActionCard, type ApprovalDecide } from "./actionCard/ApprovalActionCard";
-import type { TurnItem } from "./reduce";
+import type { ToolBlock, TurnBlock, TurnItem } from "./reduce";
 import { actionNoticeOf, type ActionNotice } from "./messengerPresence";
 import { BotStage, useDoneFlourish } from "./botStage/BotStage";
 import { ActivityLine } from "./activity/ActivityLine";
@@ -66,9 +66,20 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
       if (block.kind !== "tool") return null;
       if (block.credential) return <CredentialCard key={block.callId} credential={block.credential} />;
       if (block.question) return <QuestionCard key={block.callId} question={block.question} />;
-      // Open, the card asks; answered, it stays as the one line that says what happened.
-      if (block.approval) return <ApprovalActionCard key={block.callId} block={block} onDecide={onDecide} />;
-      if (isSubagentCall(block)) return <SubagentCard key={block.callId} block={block} turn={turn} />;
+      // Open, the card asks. Allowed once, the step reads like any other (no
+      // "Allowed once" row per call). An "Always allowed" line stays (it holds
+      // the saved rule and its undo); refused or expired, one line says so.
+      if (block.approval && !wasAllowed(block)) return <ApprovalActionCard key={block.callId} block={block} onDecide={onDecide} />;
+      if (isSubagentCall(block)) {
+        // A helper's own tools ask through the same cards. They sit inside the
+        // folded helper card, so its open ones are lifted out here: without
+        // them the card read "Waiting for your approval" with nothing to click.
+        const asks = openNestedApprovals(block);
+        return <div key={block.callId} className="flex min-w-0 flex-col gap-1.5">
+          <SubagentCard block={block} turn={turn} />
+          {asks.map((ask) => <ApprovalActionCard key={ask.callId} block={ask} onDecide={onDecide} />)}
+        </div>;
+      }
       const notice = actionNoticeOf(block);
       if (!notice) return null;
       // The turn's own "Noted" lines open its memory receipts first, in order.
@@ -88,6 +99,25 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
     {!running ? work : null}
   </div>;
 });
+
+/** The person said yes to this one call: nothing left to show but the step itself. */
+export function wasAllowed(block: ToolBlock): boolean {
+  return block.approval?.decision === "allow";
+}
+
+/** Every still-open approval inside a helper, however deep its own helpers go. */
+export function openNestedApprovals(block: ToolBlock): ToolBlock[] {
+  const found: ToolBlock[] = [];
+  const walk = (blocks: readonly TurnBlock[]): void => {
+    for (const inner of blocks) {
+      if (inner.kind !== "tool") continue;
+      if (inner.approval && inner.approval.decision === null) found.push(inner);
+      if (inner.subagent) walk(inner.subagent.blocks);
+    }
+  };
+  walk(block.subagent?.blocks ?? []);
+  return found;
+}
 
 /** How long a sent message may wait for its turn before the stage stops reading it. */
 const AWAIT_MS = 90_000;

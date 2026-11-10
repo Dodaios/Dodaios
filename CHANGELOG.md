@@ -9,6 +9,26 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Settings → General → Permission modes: choose whether the app's own work
+  (voice, scheduled tasks, missions) runs without asking (Bypass) or asks
+  first, which mode new agents start with (Bypass, Ask, Always ask), and apply
+  that mode to all existing agents at once. Each agent can still pick its own
+  mode on its card.
+
+### Fixed
+
+- An agent set to "Bypass permissions" no longer keeps showing approval
+  cards. Choosing a mode on the agent now replaces a stricter stance picked
+  earlier in its chat (a running turn finishes in its old mode; the next one
+  uses the new choice). Plan mode stays as it was.
+- A helper that waits for an approval now shows the approval card right under
+  its card in the chat. Before, it read "Waiting for your approval" with
+  nothing to click.
+- A call you allowed once no longer leaves an "Allowed once" line in the chat;
+  the step reads like any other. "Always allowed" lines stay, with their undo.
+
 ---
 
 ## [4.2.1] — 2026-11-09

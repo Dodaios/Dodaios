@@ -386,10 +386,6 @@ def test_shipped_default_allowlist_is_read_only_knowledge() -> None:
     assert safety.worker_tool_auto_approve is True
     assert set(safety.auto_approve_tool_families) == {
         "search_web",
-        "wiki-list",
-        "wiki-recall",
-        "wiki-page-read",
-        "wiki-ingest",
         "session-latest-turn",
     }
     # No server-family prefixes in the shipped default (a prefix silently

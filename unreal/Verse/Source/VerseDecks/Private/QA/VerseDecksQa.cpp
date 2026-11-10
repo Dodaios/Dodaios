@@ -1,4 +1,5 @@
 #include "Camera/VerseDeckCamera.h"
+#include "QA/VerseDecksOverlay.h"
 #include "Decks/VerseDeckSubsystem.h"
 #include "Dom/JsonObject.h"
 #include "Qa/VerseQaRegistry.h"
@@ -126,10 +127,12 @@ void UVerseDeckSubsystem::RegisterQa()
 			QaCommands.Add(Command.Name);
 		}
 	}
+	VerseDecksOverlay::Install(*this);
 }
 
 void UVerseDeckSubsystem::UnregisterQa()
 {
+	VerseDecksOverlay::Remove(*this);
 	if (UVerseQaRegistry* Registry = UVerseQaRegistry::Get())
 	{
 		for (const FString& Command : QaCommands)

@@ -191,3 +191,22 @@ export const importBundle = (file: Blob) =>
   });
 
 export const exportUrl = (format: "bundle" | "markdown") => `${BASE}/export?format=${format}`;
+
+export interface PauseState {
+  paused: boolean;
+  until: string | null;
+}
+
+export function useLearningPause() {
+  return useQuery({
+    queryKey: ["memory-vault", "pause"],
+    queryFn: () => request<PauseState>(`${BASE}/pause`),
+  });
+}
+
+/** Pause learning for `minutes`, for good (`"forever"`), or resume (`null`). */
+export const setLearningPause = (span: number | "forever" | null) =>
+  request<PauseState>(`${BASE}/pause`, {
+    method: "PUT",
+    body: JSON.stringify(span === "forever" ? { forever: true } : span === null ? {} : { minutes: span }),
+  });

@@ -12,10 +12,8 @@ learned notebooks (`society/jarvis/MEMORY.md`, `USER.md`), `core_memory.json`,
 stores, ~30k lines, and still no answer to "what do you know about me?", no
 history of how a fact changed, and no export.
 
-What the assistants that do this well converged on in 2025–2026
-(ChatGPT saved memories and "dreaming", Claude memory and its memory tool,
-Meta Muse's `MEMORY.md`, Gemini memory, Mem0, Zep/Graphiti, Letta,
-Supermemory):
+The patterns that make long-term memory in a personal assistant work, as
+established in current memory research and practice:
 
 1. **Atomic memories, not pages.** One sentence per memory, typed, with its
    source. A page is a view, never the unit of storage.
@@ -28,10 +26,9 @@ Supermemory):
    INVALIDATE or NOOP.
 5. **The user sees and controls everything:** view, edit, pin, forget, a
    per-chat off switch.
-6. **Portable.** No provider format has won; the most complete open proposal
-   is MacPaw's Portable Memory (`.mem`): a folder of JSONL per kind, a
-   manifest, an audit log, tombstones applied first, checksums,
-   content-derived ids so a re-import merges.
+6. **Portable.** No shared format has won; an open, portable layout works:
+   a folder of JSONL per kind, a manifest, an audit log, tombstones applied
+   first, checksums, content-derived ids so a re-import merges.
 
 ## Decision
 
@@ -55,7 +52,7 @@ Supermemory):
    procedural, active projects) sits in the cached system prompt; a hybrid
    search adds the few memories relevant to the turn. Voice engines get the
    same profile block and the same search tool.
-5. **Export and import.** A `.mem`-compatible bundle (lossless) and a
+5. **Export and import.** A portable bundle (lossless) and a
    Markdown rendering (readable) from the Memory section; import is
    idempotent. The old vault, notebooks, core memory and USER.md are imported
    once, then the wiki subsystem is removed.

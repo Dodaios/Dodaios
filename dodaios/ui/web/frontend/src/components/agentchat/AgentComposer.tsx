@@ -24,7 +24,7 @@ import { useEventStore } from "@/store/events";
 import { folderLeaf } from "@/lib/folderPath";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
 import { rankModels } from "@/lib/modelRanking";
-import { isApiRunner, pickAgentChatFolder, type CuratedModel } from "@/lib/agentChatApi";
+import { isApiRunner, pickAgentChatFolder, preloadLocalModel, type CuratedModel } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 import { runningTurn } from "@/components/agentchat/reduce";
 import { permissionModeIcon } from "@/components/agentchat/permissionIcons";
@@ -208,6 +208,12 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     toggle: toggleDictation,
     stopAndSend: stopDictationAndSend,
   } = useComposerDictation(setValue, () => void onSend());
+
+  // A local model loads while the message is typed or dictated, not after send.
+  const composing = dictating || value.trim().length > 0;
+  useEffect(() => {
+    if (composing) preloadLocalModel(draft.provider, draft.model);
+  }, [composing, draft.provider, draft.model]);
 
   // Files going in with this message. Kept per chat store and session, like
   // the typed text: they belong to the sentence being typed, a chat opened

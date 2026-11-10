@@ -228,6 +228,8 @@ export interface SubagentState {
   description: string;
   /** The vendor's agent kind ("general-purpose", "Explore"); "" when it names none. */
   agentType: string;
+  /** The model it runs on, as the CLI reports or the spawn call names it; "" when unknown. */
+  model: string;
   /** The whole task the main agent gave it. */
   prompt: string;
   /** It runs beside the main agent; the spawn call's own result is only a receipt. */
@@ -659,6 +661,7 @@ function emptySubagent(startedMs: number): SubagentState {
   return {
     description: "",
     agentType: "",
+    model: "",
     prompt: "",
     background: false,
     threadId: "",
@@ -1168,8 +1171,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
     case "subagent_progress": {
       if (!agentId) return base;
       return updateTurn(base, turnId, (turn) =>
-        updateSubagent(turn, agentId, ev.ts_ms, (sub) => sub.status !== "running" ? sub : {
+        updateSubagent(turn, agentId, ev.ts_ms, (sub) => sub.status !== "running" ? { ...sub, model: str(p.model) || sub.model } : {
           ...sub,
+          model: str(p.model) || sub.model,
           activity: str(p.activity) || sub.activity,
           lastTool: str(p.last_tool) || sub.lastTool,
           tokens: num(p.tokens) ?? sub.tokens,

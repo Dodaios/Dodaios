@@ -312,6 +312,13 @@
     "how_learn_3": "记忆保持最新",
     "how_learn_3_body": "新事实会被添加，变化的内容会替换旧版本，除非你要求，否则不会删除任何内容。",
     "how_footer": "每一次更改都列在这里，你可以撤销或遗忘其中任何一项。",
-    "mode_how_short": "工作原理"
+    "mode_how_short": "工作原理",
+    "pause": "暂停学习",
+    "pause_resume": "学习已暂停 · 恢复",
+    "pause_until": "直到 {time}",
+    "pause_until_resumed": "直到你恢复",
+    "pause_hour": "暂停一小时",
+    "pause_tomorrow": "直到明天早上",
+    "pause_forever": "直到我重新开启"
   }
 }

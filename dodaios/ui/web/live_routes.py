@@ -155,7 +155,13 @@ async def get_live_profile(request: Request) -> dict:
         "subscription": {
             "account_id": status["account_id"],
             "account_connected": status["connected"],
-            "voice_status": "unverified" if status["connected"] else "unavailable",
+            # What the last call start proved for this login. A connected
+            # account the voice route refused is "unavailable" with a reason,
+            # never a bare "connected" (issue #828).
+            "voice_status": status["voice_status"],
+            "voice_code": status["voice_code"],
+            "voice_reason": status["voice_reason"],
+            "plan": status["plan"],
             "reason": status["reason"],
         },
     }
@@ -178,6 +184,9 @@ async def save_live_profile(body: LiveConfig, request: Request) -> dict:
     cfg.live = body
     cfg.brain.realtime = BrainTierConfig(provider=body.provider_id, model=effective.model)
     cfg.voice.mode = "realtime"
+    # The writer retired any classic voice profile; the running config has to
+    # agree, or the next call still resolves to that profile until a restart.
+    cfg.voice.profile = ""
     return {"profile": body.model_dump(), "applies": "next_call"}
 
 

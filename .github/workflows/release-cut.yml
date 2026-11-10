@@ -334,8 +334,11 @@ jobs:
             gh pr merge "$CANDIDATE" --merge --match-head-commit "$CANDIDATE_SHA"
           fi
           merged=""
+          # Poll with the job token: the release bot's installation token
+          # expires after an hour, and a busy queue can take longer (the
+          # v4.2.1 cut died here with "HTTP 401: Bad credentials").
           for attempt in {1..150}; do
-            merged="$(gh pr view "$CANDIDATE" --json mergeCommit --jq '.mergeCommit.oid // empty')"
+            merged="$(GH_TOKEN="$DISPATCH_TOKEN" gh pr view "$CANDIDATE" --json mergeCommit --jq '.mergeCommit.oid // empty')"
             [ -n "$merged" ] && break
             sleep 30
           done
@@ -355,7 +358,13 @@ jobs:
           git merge-base --is-ancestor "$sha" origin/main
           actual="$(python -c 'from scripts.ci.release_admit import versions; print(versions()[0])')"
           [ "$actual" = "$V" ] || { echo "::error::Merged package version changed."; exit 1; }
-          python scripts/ci/release_admit.py --ci-only --sha "$sha" --repo "$GITHUB_REPOSITORY"
+          # Judge with main's admit rules, not the ones frozen in the selected
+          # commit: a resume checks out an older commit, and its copy cannot
+          # know a fix made since (the v4.2.1 resume waited on queue evidence
+          # its old copy did not accept).
+          admit="$RUNNER_TEMP/release_admit_main.py"
+          git show origin/main:scripts/ci/release_admit.py > "$admit"
+          PYTHONPATH="$PWD" python "$admit" --ci-only --sha "$sha" --repo "$GITHUB_REPOSITORY"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
   # The frontend bundle the release ships, built from the admitted commit.

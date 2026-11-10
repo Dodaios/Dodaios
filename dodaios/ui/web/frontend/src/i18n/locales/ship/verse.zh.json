@@ -159,7 +159,9 @@
       "quality.medium": "中",
       "reduced_motion": "减少动态",
       "text_size": "文字大小",
-      "ui_sound": "界面音效"
+      "ui_sound": "界面音效",
+      "quality.custom": "自定义",
+      "render_tier": "当前渲染档位：{tier}"
     },
     "lift": {
       "title": "升降梯",
@@ -403,6 +405,10 @@
         "prone": "卧倒",
         "slide": "滑行",
         "stand": "站立"
+      },
+      "perf": {
+        "fps": "{fps} FPS",
+        "full": "{fps} FPS · {ms} ms"
       }
     },
     "item": {

@@ -46,6 +46,7 @@ FEATURE = (
     "VerseBot",
     "VerseUI",
     "VerseStream",
+    "VerseAbilities",
 )
 
 #: architecture.md section 2, "May depend on (besides engine)".
@@ -62,6 +63,7 @@ ALLOWED: dict[str, frozenset[str]] = {
     "VerseBot": frozenset({"VerseCore", "VerseMovement", "VerseCombat", "VerseDestruction"}),
     "VerseUI": frozenset({"VerseCore", "VerseBridge", "VerseCombat", "VerseCrew", "VerseDecks"}),
     "VerseStream": frozenset({"VerseCore", "VerseBridge"}),
+    "VerseAbilities": frozenset({"VerseCore", "VerseMovement"}),
     # Primary module: every runtime module except the harness.
     "Verse": frozenset(FEATURE),
     # DeveloperTool, Editor target only: every runtime module.
@@ -98,7 +100,7 @@ ENGINE: dict[str, frozenset[str]] = {
         }
     ),
     "VerseGore": frozenset({"Niagara"}),
-    "VerseDecks": frozenset({"Json"}),
+    "VerseDecks": frozenset({"Json", "InputCore", "EnhancedInput"}),
     "VerseCrew": frozenset({"Json", "NavigationSystem"}),
     "VerseScreens": frozenset({"Json"}),
     "VerseBot": frozenset(
@@ -117,6 +119,7 @@ ENGINE: dict[str, frozenset[str]] = {
         }
     ),
     "VerseStream": frozenset(),
+    "VerseAbilities": frozenset({"AudioExtensions"}),
     "Verse": frozenset(
         {
             "NetCore",
@@ -125,6 +128,9 @@ ENGINE: dict[str, frozenset[str]] = {
             "GameplayAbilities",
             "GameplayTags",
             "GameplayTasks",
+            "InputCore",
+            "Json",
+            "NavigationSystem",
         }
     ),
     "VerseHarness": frozenset(),

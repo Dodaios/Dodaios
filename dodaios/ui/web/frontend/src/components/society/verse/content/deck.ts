@@ -4,7 +4,7 @@
  * and resolved to absolute URLs. `loadDeck.ts` builds one from a cooked
  * manifest (schema verse.deck/1); the stage never reads raw manifest JSON.
  */
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import type { PlateCamera } from "../engine/plateMath";
 import type { ManifestSocketKind } from "./manifest";
 

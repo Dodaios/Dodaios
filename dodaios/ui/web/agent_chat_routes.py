@@ -265,6 +265,24 @@ class CreateSessionBody(BaseModel):
     surface: SurfaceName = "agent"
     #: A coding thread's placement: a connected computer id; "" = this computer.
     computer_id: str = ""
+    #: Continue an existing Claude Code / Codex session (a grid pane's): the
+    #: thread's next turn resumes it. Empty = a fresh conversation.
+    vendor_session: str = ""
+
+
+class ForkSessionBody(BaseModel):
+    #: Run the copy in a new git worktree on its own branch.
+    worktree: bool = False
+    #: Branch / worktree name (worktree forks only); suggested when empty.
+    name: str = Field(default="", max_length=120)
+    #: The copy's title (the client words it in the person's language).
+    title: str = Field(default="", max_length=120)
+
+
+class FromTerminalBody(BaseModel):
+    #: The grid pane's call-sign and workspace.
+    name: str = Field(min_length=1, max_length=120)
+    workspace_id: str | None = None
 
 
 class PatchSessionBody(BaseModel):
@@ -1155,6 +1173,15 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
     cwd = _folder_for(body.surface, body.cwd)
     computer_id = _validate_computer(body.computer_id, body.surface)
     try:
+        from dodaios.agent_chat.thread_sessions import clean_vendor_session
+
+        vendor = clean_vendor_session(
+            resolve_runner(body.provider, surface=body.surface, account_id=body.account_id),
+            body.vendor_session,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
         session = svc.create_session(
             computer_id=computer_id,
             provider=body.provider,
@@ -1168,6 +1195,8 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if vendor:
+        session = svc.store.update_session(session.session_id, vendor_session=vendor) or session
     if session.surface == "jarvis":
         from dodaios.agent_chat.store import ChatSelection
 
@@ -1190,6 +1219,125 @@ async def get_lead_session(request: Request) -> dict[str, Any]:
     d = session.to_dict()
     d["running"] = svc.is_running(session.session_id)
     d["lead"] = True
+    return d
+
+
+class LeadBriefBody(BaseModel):
+    enabled: bool
+    #: Local wall-clock time, ``HH:MM``.
+    time: str = "08:00"
+    #: IANA zone of the person, e.g. ``Europe/Berlin``.
+    timezone: str = ""
+
+
+@router.get("/lead/brief", summary="The morning brief's state (off until turned on)")
+async def get_lead_brief() -> dict[str, Any]:
+    from dodaios.agent_chat.proactive import brief_state
+
+    return await brief_state()
+
+
+@router.put("/lead/brief", summary="Turn the morning brief on or off, or move it")
+async def put_lead_brief(body: LeadBriefBody) -> dict[str, Any]:
+    from dodaios.agent_chat.proactive import set_brief
+
+    try:
+        return await set_brief(enabled=body.enabled, local_time=body.time, timezone=body.timezone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/lead/fresh-start", summary="Start the lead's model fresh; the thread stays")
+async def lead_fresh_start(request: Request) -> dict[str, Any]:
+    from dodaios.agent_chat.lead import fresh_start, lead_session
+
+    svc = _service(request)
+    through = await asyncio.to_thread(fresh_start, svc)
+    if through is None:
+        raise HTTPException(status_code=409, detail="The conversation is not ready yet")
+    session = lead_session(svc, create=False)
+    if session is not None:
+        await svc.post_notice(session.session_id, {"kind": "context_reset", "status": "done"})
+    return {"ok": True, "through_seq": through}
+
+
+@router.post("/sessions/from-terminal", status_code=201)
+async def thread_from_terminal(body: FromTerminalBody, request: Request) -> dict[str, Any]:
+    """A thread that continues the conversation a grid pane is having."""
+    from dodaios.agent_chat.catalog import PROVIDER_ROWS
+    from dodaios.agent_chat.thread_sessions import clean_vendor_session
+    from dodaios.agentic_ide.session import get_registry
+
+    svc = await _async_service(request)
+    registry = get_registry()
+    found = registry._locate(body.name, body.workspace_id)  # noqa: SLF001 — the grid's own lookup
+    if found is None:
+        raise HTTPException(404, "terminal not found")
+    workspace, term = found
+    row = next((r for r in PROVIDER_ROWS if r.agent == term.agent and r.runner.endswith("-cli")), None)
+    handle = term.resume
+    if row is None or handle is None:
+        raise HTTPException(409, "This terminal has no conversation a thread can continue yet.")
+    try:
+        vendor = clean_vendor_session(row.runner, handle.id)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    session = svc.create_session(
+        provider=row.id,
+        model=term.model or "",
+        effort=term.effort or None,
+        cwd=_validate_cwd(term.cwd(workspace.folder)),
+        permission_mode=normalize_permission(
+            ladder_key("agent", row.runner), term.permission_mode or ""
+        ),
+        account_id=term.account or "",
+        surface="agent",
+    )
+    session = svc.store.update_session(session.session_id, vendor_session=vendor) or session
+    d = session.to_dict()
+    d["running"] = False
+    return d
+
+
+@router.post("/sessions/{session_id}/fork", status_code=201)
+async def fork_session(
+    session_id: str, body: ForkSessionBody, request: Request
+) -> dict[str, Any]:
+    """Copy a thread into a new one, optionally in a fresh git worktree."""
+    from dodaios.agent_chat.thread_sessions import fork_session as make_fork
+    from dodaios.agentic_ide import fork as worktree_fork
+
+    svc = await _async_service(request)
+    source = svc.store.get_session(session_id)
+    if source is None:
+        raise HTTPException(404, "session not found")
+    if source.surface != "agent":
+        raise HTTPException(400, "Only coding threads can be forked.")
+    if svc.is_running(session_id):
+        raise HTTPException(409, "Wait for the thread to finish its turn before forking it.")
+    runner = resolve_runner(source.provider, surface=source.surface, account_id=source.account_id)
+    cwd = source.cwd
+    if body.worktree:
+        name = body.name.strip() or await asyncio.to_thread(
+            worktree_fork.suggest_name, cwd, source.title or "thread"
+        )
+        try:
+            created = await asyncio.to_thread(worktree_fork.create_worktree, cwd, name)
+        except worktree_fork.ForkError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        cwd = str(created.folder)
+    copy = await asyncio.to_thread(
+        make_fork,
+        svc,
+        source,
+        runner=runner,
+        cwd=cwd,
+        title=body.title.strip() or source.title,
+    )
+    d = copy.to_dict()
+    d["running"] = False
     return d
 
 
@@ -1436,6 +1584,62 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
 _WARMING: dict[str, asyncio.Task[bool]] = {}
 
 
+def _preload_local_model(session: Any) -> bool:
+    """Start loading this chat's local model (Ollama) in the background."""
+    return _preload_provider_model(
+        str(getattr(session, "provider", "") or ""), str(getattr(session, "model", "") or "")
+    )
+
+
+def _preload_provider_model(provider: str, model: str) -> bool:
+    """Start loading a local model in the background; ``True`` when one loads.
+
+    A local model that is not in memory costs a load of seconds on the first
+    message; started while the person types or dictates, the load is done
+    by the time they send. Only a brain with a ``preload`` method does
+    anything (a capability, not a provider name); every other one is a no-op.
+    """
+    from dodaios.agent_chat.runner_brain import _default_model, brain_manager
+
+    manager = brain_manager()
+    getter = getattr(manager, "_get_brain", None)
+    if manager is None or not provider or not callable(getter):
+        return False
+    key = f"local-preload:{provider}"
+    if key in _WARMING:
+        return True
+    model = model.strip() or _default_model(manager, provider)
+    try:
+        brain = getter(provider, model)
+    except Exception:  # noqa: BLE001 — an unknown provider has nothing to load
+        return False
+    preload = getattr(brain, "preload", None)
+    if not callable(preload):
+        return False
+    task = asyncio.create_task(preload(), name=f"local-model-preload-{provider}")
+    _WARMING[key] = task
+    task.add_done_callback(lambda _done: _WARMING.pop(key, None))
+    return True
+
+
+class PreloadBody(BaseModel):
+    provider: str = Field(min_length=1, max_length=64)
+    model: str = Field(default="", max_length=256)
+
+
+@router.post(
+    "/preload",
+    summary="Load a local model before the next message is sent",
+    description=(
+        "Loads the picked local model (Ollama) into memory in the background while "
+        "the person types or dictates, so the first answer does not wait for the "
+        "load. Sends no prompt. A no-op for hosted providers and coding agents."
+    ),
+)
+async def preload_model(body: PreloadBody) -> dict[str, Any]:
+    return {"loading": _preload_provider_model(body.provider, body.model)}
+
+
 @router.post(
     "/sessions/{session_id}/warm",
     summary="Get a Hermes or OpenClaw agent ready before the next message",
@@ -1451,7 +1655,7 @@ async def warm_session(session_id: str, request: Request) -> dict[str, Any]:
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
     if session.surface != "society" or not session.runtime:
-        return {"warming": False, "session_id": session_id}
+        return {"warming": _preload_local_model(session), "session_id": session_id}
     running = _WARMING.get(session_id)
     if running is None and not svc.is_running(session_id):
         from dodaios.agent_chat.runner_acp import warm_session as warm

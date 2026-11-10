@@ -312,6 +312,13 @@
     "how_learn_3": "A memória fica atualizada",
     "how_learn_3_body": "O novo é adicionado, o que muda substitui a versão antiga e nada é apagado a menos que você peça.",
     "how_footer": "Cada mudança aparece aqui, e você pode desfazer ou esquecer qualquer uma.",
-    "mode_how_short": "Como funciona"
+    "mode_how_short": "Como funciona",
+    "pause": "Pausar o aprendizado",
+    "pause_resume": "Aprendizado pausado · retomar",
+    "pause_until": "até {time}",
+    "pause_until_resumed": "até você retomar",
+    "pause_hour": "Por uma hora",
+    "pause_tomorrow": "Até amanhã de manhã",
+    "pause_forever": "Até eu ligar de novo"
   }
 }

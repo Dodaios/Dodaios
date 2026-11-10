@@ -1,4 +1,6 @@
 import { PairConversationBoundary } from "@/components/agentchat/PairConversation";
+import { InternalMessageRun, groupInternalRuns, rosterFaces } from "@/components/agentchat/InternalMessageRun";
+import { codingThreadOf } from "@/components/agentic/threads/openCodingThread";
 import {
   AgentMessageActivity,
   ChatActivity,
@@ -788,6 +790,9 @@ export function Transcript({
   // A stamp marks a pause of 15 minutes or a new day, before a speaker's run.
   const stamps = useMemo(() => stampPlan(items.map(stampEntry)), [items]);
   const assistantName = useEventStore((state) => state.assistantName);
+  // Back-to-back messages with other agents read as one line ("5 messages with Scout").
+  const rows = useMemo(() => groupInternalRuns(items, (item) => !codingThreadOf(item.message.sender_id)), [items]);
+  const faces = useMemo(() => rosterFaces(roster, (member) => societyDisplayName(member, assistantName)), [roster, assistantName]);
   // "Writing to Scout": a teammate by the name and face a person knows.
   const memberOf = useCallback((value: string) => {
     const key = value.trim().toLowerCase();
@@ -860,10 +865,19 @@ export function Transcript({
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <div ref={setRoot} className="chat-scroller min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-[calc(var(--chat-top-chrome,0px)+1.25rem)] sm:px-6" data-testid="society-transcript">
           <div ref={contentRef} className={cn(CHAT_MEASURE, "flex flex-col gap-3")}>
-          {items.map((item, index) => {
+          {rows.map((item, index) => {
+            if (item.type === "internal_run") {
+              const runStamp = stamps.has(item.id) ? item.items[0].tsMs : 0;
+              return (
+                <div key={item.id} data-chat-item={item.id} className="flex flex-col gap-2">
+                  {runStamp ? <TranscriptStamp ms={runStamp} /> : null}
+                  <InternalMessageRun run={item} agentsById={faces} recipientName={displayName} />
+                </div>
+              );
+            }
             const stamp = stamps.has(item.id) ? (item.type === "turn" ? item.startedMs : item.tsMs) : 0;
             // The live turn glides to its new height as it grows.
-            const live = index === items.length - 1 && item.type === "turn" && item.status === "running";
+            const live = index === rows.length - 1 && item.type === "turn" && item.status === "running";
             const body = item.type === "internal" ? (
               <AgentMessageActivity item={item} roster={roster} />
             ) : item.type === "user" && assignmentOf(item.text) ? (

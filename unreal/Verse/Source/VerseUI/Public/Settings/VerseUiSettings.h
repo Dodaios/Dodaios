@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "Dom/JsonObject.h"
 #include "InputCoreTypes.h"
+#include "Settings/VerseGameSettings.h"
 #include "UObject/Object.h"
 
 #include "VerseUiSettings.generated.h"
@@ -12,6 +13,7 @@
  * App-backed Verse settings (bridge-protocol 3.2 welcome.settings). The app config is their
  * truth: Verse reads them from welcome, applies settings.changed live and writes them with
  * settings.set (bridge-protocol 14), so they survive a Verse restart in the app config.
+ * settings.game (the in-game settings menu, VerseGameSettings.h) rides along in Game.
  */
 struct VERSEUI_API FVerseAppSettings
 {
@@ -30,6 +32,8 @@ struct VERSEUI_API FVerseAppSettings
 	float FovFirst = 85.f;
 	FString Quality = TEXT("auto");
 	float Volume = 0.7f;
+	/** welcome.settings.game: the in-game settings menu, flat by setting id. */
+	FVerseGameSettings Game;
 
 	/** Reads welcome.settings, or applies a settings.changed / settings.set subset over this. */
 	void ApplyJson(const TSharedPtr<FJsonObject>& Json);
@@ -40,6 +44,18 @@ struct VERSEUI_API FVerseAppSettings
 
 	static FString GoreToString(EVerseGoreLevel Level);
 	static bool GoreFromString(const FString& Text, EVerseGoreLevel& Out);
+};
+
+/**
+ * The render tier in effect (parity T-02). The person's choice is -1 (auto) or 0..4; auto shows the
+ * level the engine's benchmark picked, so the panel never says only "Auto".
+ */
+struct VERSEUI_API FVerseRenderTier
+{
+	/** The level in effect: Choice when it is 0..4, else the engine's single level (0..4), else -1. */
+	static int32 Resolve(int32 Choice, int32 EngineLevel);
+	/** strings key of a level (verse.settings.quality.<name>); an unknown level is "custom". */
+	static const TCHAR* KeyFor(int32 Level);
 };
 
 USTRUCT()
@@ -55,9 +71,10 @@ struct VERSEUI_API FVerseKeyBinding
 };
 
 /**
- * Unreal-only settings, in Unreal's user settings file (GameUserSettings.ini), so they survive
- * a restart without the app (WP18.8): duel FOV, key bindings except the return key,
- * scalability, text size, last tier.
+ * A cache of the game settings in Unreal's user settings file (GameUserSettings.ini), so the
+ * Verse starts with the last values before the app's welcome arrives (WP18.8). The app config
+ * is their truth (settings.game); the named fields mirror the matching game settings for
+ * readers of the ini (duel FOV, key bindings except the return key, quality, text size, tier).
  */
 UCLASS(Config = GameUserSettings, ConfigDoNotCheckDefaults)
 class VERSEUI_API UVerseUiUserSettings : public UObject
@@ -88,6 +105,10 @@ public:
 	/** Last tier chosen at the armoury: normal, hard, elite, adaptive. */
 	UPROPERTY(Config)
 	FName LastTier = TEXT("hard");
+
+	/** settings.game as JSON, the whole menu; empty until the first save. */
+	UPROPERTY(Config)
+	FString GameSettings;
 
 	/** Bumped on each save (tests read it back). */
 	UPROPERTY(Config)

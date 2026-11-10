@@ -26,6 +26,7 @@ public:
 	virtual void SetVoiceLocation(int32 Handle, const FVector& Location) override;
 	virtual void SetVoiceOcclusion(int32 Handle, float Gain, float LowpassHz) override;
 	virtual void SetMasterVolume(float Volume) override;
+	virtual void SetBusVolume(EVerseAudioBus Bus, float Volume) override;
 	virtual void Route(USoundBase* Sound, EVerseAudioBus Bus) override;
 	virtual void Shutdown() override;
 

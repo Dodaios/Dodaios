@@ -3,7 +3,7 @@
  * another closes the doors and opens them on that deck.
  */
 import { useRef } from "react";
-import { DECK_IDS, deckNumber, type DeckId } from "../decks";
+import { DECK_IDS, deckNumber, type DeckId } from "../../progression/decks";
 import { VerseDialog } from "./VerseDialog";
 
 interface Props {

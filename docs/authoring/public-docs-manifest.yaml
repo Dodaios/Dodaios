@@ -1,7 +1,7 @@
 version: 1
 language: en
 content_root: docs/product
-page_count: 49
+page_count: 48
 navigation_principle: reader-journey
 authoring_contract:
   audience: People using Dodaios, including readers with no software background.
@@ -467,44 +467,21 @@ pages:
     order: 1
     slug: wiki-and-memory
     file: docs/product/knowledge-and-sharing/wiki-and-memory.md
-    title: Wiki and Memory
+    title: Memory
     diataxis: explanation
-    summary: Understand what Dodaios can remember, how the Wiki connects ideas, and how memory supports chats, contacts, and agents.
+    summary: Understand what Dodaios remembers about you, how it uses that memory in each conversation, and how to correct, forget or export it.
     authoritative_sources:
       - dodaios/ui/web/frontend/src/views/MemoryView.tsx
-      - dodaios/ui/web/memory_vault_routes.py
-      - dodaios/memory/wiki/vault_model.py
-      - dodaios/ui/web/wiki_routes.py
-      - dodaios/memory/wiki/integration.py
-      - dodaios/memory/wiki/curator.py
-      - docs/adr/0013-knowledge-wiki-architecture.md
+      - dodaios/ui/web/personal_memory_routes.py
+      - dodaios/memory/vault/store.py
+      - dodaios/memory/vault/runtime.py
+      - dodaios/memory/vault/portable.py
+      - docs/adr/0044-personal-memory-vault.md
     related:
       - profile-and-contacts
-      - connect-obsidian
       - jarvis-agents
       - privacy-and-local-data
     reader_level: intermediate
-    maturity: stable
-
-  - section: Knowledge and sharing
-    section_order: 4
-    order: 2
-    slug: connect-obsidian
-    file: docs/product/knowledge-and-sharing/connect-obsidian.md
-    title: Connect an Obsidian Vault
-    diataxis: howto
-    summary: Use an existing Obsidian vault as a readable knowledge source while keeping file ownership and backups clear.
-    authoritative_sources:
-      - docs/obsidian-setup.md
-      - dodaios/ui/web/frontend/src/components/wiki/ObsidianSetupDialog.tsx
-      - dodaios/ui/web/frontend/src/components/wiki/ObsidianStatus.tsx
-      - dodaios/memory/wiki/vault_root.py
-      - dodaios/memory/wiki/watcher.py
-    related:
-      - wiki-and-memory
-      - privacy-and-local-data
-      - troubleshooting
-    reader_level: advanced
     maturity: stable
 
   - section: Knowledge and sharing
@@ -806,7 +783,7 @@ pages:
       - dodaios/core/paths.py
       - dodaios/core/redact.py
       - dodaios/state/chat_store.py
-      - dodaios/memory/wiki/secret_guard.py
+      - dodaios/memory/secret_guard.py
     related:
       - credentials-and-secrets
       - permissions
@@ -828,7 +805,7 @@ pages:
       - dodaios/core/control_key.py
       - dodaios/core/redact.py
       - dodaios/marketplace/token_store.py
-      - dodaios/memory/wiki/secret_guard.py
+      - dodaios/memory/secret_guard.py
     related:
       - providers-and-api-keys
       - privacy-and-local-data

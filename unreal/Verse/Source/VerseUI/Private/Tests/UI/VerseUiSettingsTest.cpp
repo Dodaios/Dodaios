@@ -1,3 +1,5 @@
+#include "Audio/VerseAudioSubsystem.h"
+#include "Engine/PostProcessVolume.h"
 #include "Events/VerseEventHub.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/AutomationTest.h"
@@ -7,6 +9,7 @@
 #include "Qa/VerseQaRegistry.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Settings/VerseGameSettings.h"
 #include "Settings/VerseUiSettings.h"
 #include "Tests/UI/Fakes/VerseUiFakes.h"
 #include "UObject/UnrealType.h"
@@ -39,9 +42,10 @@ namespace VerseUiSettingsTest
 		int32 Scalability;
 		float TextScale;
 		FName Tier;
+		FString Game;
 
 		explicit FUserSettingsGuard(UVerseUiUserSettings* In)
-			: Settings(In), DuelFov(In->DuelFov), Keys(In->KeyBindings), Scalability(In->Scalability), TextScale(In->TextScale), Tier(In->LastTier)
+			: Settings(In), DuelFov(In->DuelFov), Keys(In->KeyBindings), Scalability(In->Scalability), TextScale(In->TextScale), Tier(In->LastTier), Game(In->GameSettings)
 		{
 		}
 		~FUserSettingsGuard()
@@ -51,9 +55,36 @@ namespace VerseUiSettingsTest
 			Settings->Scalability = Scalability;
 			Settings->TextScale = TextScale;
 			Settings->LastTier = Tier;
+			Settings->GameSettings = Game;
 			Settings->SaveToDisk();
 		}
 	};
+
+	TArray<TSharedPtr<FJsonValue>> GoldenReplies(const FString& Name)
+	{
+		FString Json;
+		TArray<TSharedPtr<FJsonValue>> Out;
+		const FString Path = FPaths::Combine(FPaths::ProjectDir(), TEXT("Tests"), TEXT("Data"), TEXT("bridge"), TEXT("replies"), Name + TEXT(".json"));
+		if (FFileHelper::LoadFileToString(Json, *Path))
+		{
+			FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json), Out);
+		}
+		return Out;
+	}
+
+	/** The data of the first golden frame that carries a game object. */
+	TSharedPtr<FJsonObject> FirstWithGame(const TArray<TSharedPtr<FJsonValue>>& Frames)
+	{
+		for (const TSharedPtr<FJsonValue>& Frame : Frames)
+		{
+			const TSharedPtr<FJsonObject> Data = Frame->AsObject()->GetObjectField(TEXT("data"));
+			if (Data->HasField(TEXT("game")))
+			{
+				return Data;
+			}
+		}
+		return nullptr;
+	}
 }
 
 using namespace VerseUiSettingsTest;
@@ -328,6 +359,297 @@ bool FVerseUiQaStatsTest::RunTest(const FString&)
 			TestTrue(FString::Printf(TEXT("field %s (parity Q-01)"), Field), Json->HasField(Field));
 		}
 	}
+	return true;
+}
+
+// settings.game: the catalogue copy, parsing with defaults and refusals, the diff the menu sends,
+// and the golden welcome / settings.changed / settings.set frames that carry a game object.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseUiGameSettingsJsonTest, "Verse.UI.Settings.GameJson", Flags)
+bool FVerseUiGameSettingsJsonTest::RunTest(const FString&)
+{
+	const FVerseGameSettingsCatalogue& Catalogue = FVerseGameSettingsCatalogue::Get();
+	if (!TestTrue(TEXT("Data/ui/game_settings.json loads"), Catalogue.GetSettings().Num() > 80))
+	{
+		return false;
+	}
+	TestEqual(TEXT("seven tabs, as in the app"), Catalogue.GetTabs().Num(), 7);
+	TestEqual(TEXT("nine quality groups"), Catalogue.GetPresetGroups().Num(), 9);
+	const FVerseGameSettingDef* Master = Catalogue.Find(TEXT("audio.master"));
+	TestTrue(TEXT("audio.master keeps its legacy place view.volume"), Master && Master->Path == TEXT("view.volume"));
+
+	// Every label and option the in-game menu shows is in the strings (the app's verse_settings chunk).
+	FVerseUiStrings Strings;
+	Strings.LoadCatalogue(FVerseUiStrings::DefaultCatalogueDir());
+	const TSet<FString> Keys(Strings.GetKeys());
+	TestTrue(TEXT("restart note"), Keys.Contains(TEXT("verse_settings.restart")));
+	for (const FString& Tab : Catalogue.GetTabs())
+	{
+		TestTrue(FString::Printf(TEXT("tab %s"), *Tab), Keys.Contains(TEXT("verse_settings.tabs.") + Tab));
+	}
+	for (const FVerseGameSettingDef& Def : Catalogue.GetSettings())
+	{
+		if (Def.Kind == EVerseGameSettingKind::Key)
+		{
+			continue;
+		}
+		TestTrue(FString::Printf(TEXT("label %s"), *Def.Id), Keys.Contains(TEXT("verse_settings.s.") + Def.Id + TEXT(".label")));
+		TestTrue(FString::Printf(TEXT("section %s"), *Def.Section), Keys.Contains(TEXT("verse_settings.sections.") + Def.Section));
+		for (const FString& Option : Def.Options)
+		{
+			if (!FChar::IsDigit(Option[0]))
+			{
+				TestTrue(FString::Printf(TEXT("option %s of %s"), *Option, *Def.Id), Keys.Contains(TEXT("verse_settings.o.") + Option));
+			}
+		}
+	}
+
+	// Defaults, refusals, legacy ids.
+	FVerseGameSettings Game;
+	TestEqual(TEXT("default shadows"), Game.GetString(TEXT("graphics.shadows")), FString(TEXT("high")));
+	TestEqual(TEXT("default jump key"), Game.GetString(TEXT("keybinds.jump")), FString(TEXT("SpaceBar")));
+	TestEqual(TEXT("default duel FOV 100 (bot.md 3.1)"), Game.GetNumber(TEXT("controls.fov_duel")), 100.0);
+	TSharedRef<FJsonObject> Bad = MakeShared<FJsonObject>();
+	Bad->SetStringField(TEXT("graphics.shadows"), TEXT("ultra"));
+	Bad->SetNumberField(TEXT("hud.opacity"), 5.0);
+	Bad->SetNumberField(TEXT("hud.hit_markers"), 1.0);
+	Bad->SetNumberField(TEXT("nope"), 1.0);
+	Bad->SetNumberField(TEXT("audio.master"), 0.2);
+	Bad->SetStringField(TEXT("keybinds.fire"), TEXT("Escape"));
+	TestEqual(TEXT("unknown ids, bad values and legacy ids are ignored"), Game.ApplyJson(Bad), 0);
+	TestEqual(TEXT("shadows stay high"), Game.GetString(TEXT("graphics.shadows")), FString(TEXT("high")));
+	TestFalse(TEXT("a legacy id has no settings.game value"), Game.GetValue(TEXT("audio.master")).IsValid());
+	TestFalse(TEXT("Escape cannot be bound"), Game.SetString(TEXT("keybinds.fire"), TEXT("Escape")));
+
+	// welcome.settings.game (golden): every catalogue value, flat by id.
+	const TArray<TSharedPtr<FJsonValue>> Welcome = Golden(TEXT("welcome"));
+	const TSharedPtr<FJsonObject> WelcomeSettings = Welcome.Num() >= 2 ? Welcome[1]->AsObject()->GetObjectField(TEXT("data"))->GetObjectField(TEXT("settings")) : nullptr;
+	if (!TestTrue(TEXT("welcome golden fixture carries settings.game"), WelcomeSettings.IsValid() && WelcomeSettings->HasField(TEXT("game"))))
+	{
+		return false;
+	}
+	FVerseAppSettings A;
+	A.ApplyJson(WelcomeSettings);
+	TestEqual(TEXT("welcome shadows medium"), A.Game.GetString(TEXT("graphics.shadows")), FString(TEXT("medium")));
+	TestEqual(TEXT("welcome crosshair cyan"), A.Game.GetString(TEXT("hud.crosshair_color")), FString(TEXT("cyan")));
+	TestEqual(TEXT("welcome duel FOV 95"), A.Game.GetNumber(TEXT("controls.fov_duel")), 95.0);
+	const TSharedPtr<FJsonObject> WelcomeGame = WelcomeSettings->GetObjectField(TEXT("game"));
+	TestEqual(TEXT("ToJson carries exactly the ids welcome carries"), A.ToJson()->GetObjectField(TEXT("game"))->Values.Num(), WelcomeGame->Values.Num());
+
+	// The diff the in-game menu sends: only the changed ids, under game.
+	FVerseAppSettings B = A;
+	B.Game.SetString(TEXT("graphics.shadows"), TEXT("low"));
+	B.Game.SetString(TEXT("keybinds.jump"), TEXT("C"));
+	const TSharedRef<FJsonObject> Diff = A.Diff(B);
+	TestEqual(TEXT("diff has only game"), Diff->Values.Num(), 1);
+	const TSharedPtr<FJsonObject> GameDiff = Diff->GetObjectField(TEXT("game"));
+	TestEqual(TEXT("two game ids"), GameDiff->Values.Num(), 2);
+	for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : GameDiff->Values)
+	{
+		TestTrue(FString::Printf(TEXT("%s is a welcome.settings.game id"), *Pair.Key), WelcomeGame->HasField(Pair.Key));
+	}
+
+	// Golden settings.changed with a game subset applies over welcome and leaves the rest.
+	const TSharedPtr<FJsonObject> Changed = FirstWithGame(Golden(TEXT("settings.changed")));
+	if (TestNotNull(TEXT("settings.changed golden frame with game"), Changed.Get()))
+	{
+		FVerseAppSettings C = A;
+		C.ApplyJson(Changed);
+		TestEqual(TEXT("shadows low"), C.Game.GetString(TEXT("graphics.shadows")), FString(TEXT("low")));
+		TestTrue(TEXT("motion blur on"), C.Game.GetBool(TEXT("graphics.motion_blur")));
+		TestFalse(TEXT("kill cam off"), C.Game.GetBool(TEXT("gameplay.kill_cam")));
+		TestEqual(TEXT("duel FOV 105"), C.Game.GetNumber(TEXT("controls.fov_duel")), 105.0);
+		TestEqual(TEXT("jump on C"), C.Game.GetString(TEXT("keybinds.jump")), FString(TEXT("C")));
+		TestEqual(TEXT("untouched ids stay"), C.Game.GetString(TEXT("hud.crosshair_color")), FString(TEXT("cyan")));
+		TestEqual(TEXT("the diff back is exactly the changed subset"), A.Diff(C)->GetObjectField(TEXT("game"))->Values.Num(), Changed->GetObjectField(TEXT("game"))->Values.Num());
+	}
+
+	// Golden settings.set (requests and replies) apply cleanly; the reply carries the stored game.
+	const TSharedPtr<FJsonObject> Set = FirstWithGame(Golden(TEXT("settings.set")));
+	if (TestNotNull(TEXT("settings.set golden frame with game"), Set.Get()))
+	{
+		FVerseAppSettings C;
+		C.ApplyJson(Set);
+		TestEqual(TEXT("preset low"), C.Game.GetString(TEXT("graphics.preset")), FString(TEXT("low")));
+		TestEqual(TEXT("foliage low"), C.Game.GetString(TEXT("graphics.foliage")), FString(TEXT("low")));
+	}
+	for (const TSharedPtr<FJsonValue>& Exchange : GoldenReplies(TEXT("settings.set")))
+	{
+		const TSharedPtr<FJsonObject> Reply = Exchange->AsObject()->GetObjectField(TEXT("reply"))->GetObjectField(TEXT("data"));
+		const TSharedPtr<FJsonObject>* Result = nullptr;
+		if (Reply->GetBoolField(TEXT("ok")) && Reply->TryGetObjectField(TEXT("result"), Result))
+		{
+			const TSharedPtr<FJsonObject> Stored = (*Result)->GetObjectField(TEXT("settings"));
+			if (Stored->HasField(TEXT("game")))
+			{
+				FVerseAppSettings C;
+				C.ApplyJson(Stored);
+				TestEqual(TEXT("stored crosshair green"), C.Game.GetString(TEXT("hud.crosshair_color")), FString(TEXT("green")));
+				TestEqual(TEXT("stored duel FOV 90"), C.Game.GetNumber(TEXT("controls.fov_duel")), 90.0);
+			}
+		}
+	}
+	return true;
+}
+
+// The menu writes through the app settings: one settings.set per change, a preset sets every
+// quality group, one group turns it custom, a key swap travels in one patch, legacy ids keep their place.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseUiGameSettingsWriteTest, "Verse.UI.Settings.GameWrite", Flags)
+bool FVerseUiGameSettingsWriteTest::RunTest(const FString&)
+{
+	TSharedPtr<FFakeVerseUiBridgePort> Backend = MakeShared<FFakeVerseUiBridgePort>();
+	FVerseUiTestWorld W(Backend);
+	if (!TestNotNull(TEXT("UI subsystem"), W.Ui))
+	{
+		return false;
+	}
+	FUserSettingsGuard Guard(W.Ui->GetUserSettings());
+	W.Ui->ApplyWelcome(Backend->MakeWelcome());
+	Backend->Frames.Reset();
+
+	TestTrue(TEXT("preset low accepted"), W.Ui->SetGameSetting(TEXT("graphics.preset"), MakeShared<FJsonValueString>(TEXT("low"))));
+	TestEqual(TEXT("one settings.set for the preset"), Backend->Count(TEXT("settings.set")), 1);
+	const TSharedPtr<FJsonObject> PresetFrame = Backend->Frames.Last().Data;
+	TestEqual(TEXT("the frame carries only game"), PresetFrame->Values.Num(), 1);
+	TestEqual(TEXT("preset plus nine groups"), PresetFrame->GetObjectField(TEXT("game"))->Values.Num(), 10);
+	TestEqual(TEXT("shadows follow the preset"), W.Ui->GetGameString(TEXT("graphics.shadows")), FString(TEXT("low")));
+
+	Backend->Frames.Reset();
+	W.Ui->SetGameSetting(TEXT("graphics.shadows"), MakeShared<FJsonValueString>(TEXT("epic")));
+	TestEqual(TEXT("one group change"), FFakeVerseUiBridgePort::ToString(Backend->Frames.Last().Data),
+		FString(TEXT("{\"game\":{\"graphics.preset\":\"custom\",\"graphics.shadows\":\"epic\"}}")));
+
+	Backend->Frames.Reset();
+	TestFalse(TEXT("a value the catalogue refuses"), W.Ui->SetGameSetting(TEXT("graphics.shadows"), MakeShared<FJsonValueString>(TEXT("ultra"))));
+	TestFalse(TEXT("an unknown id"), W.Ui->SetGameSetting(TEXT("graphics.nope"), MakeShared<FJsonValueBoolean>(true)));
+	TestEqual(TEXT("nothing sent for refusals"), Backend->Frames.Num(), 0);
+
+	// Legacy ids write their old place.
+	W.Ui->SetGameSetting(TEXT("controls.view_mode"), MakeShared<FJsonValueString>(TEXT("first")));
+	TestEqual(TEXT("controls.view_mode writes view.mode"), FFakeVerseUiBridgePort::ToString(Backend->Frames.Last().Data), FString(TEXT("{\"view\":{\"mode\":\"first\"}}")));
+	TestEqual(TEXT("read back through the one API"), W.Ui->GetGameString(TEXT("controls.view_mode")), FString(TEXT("first")));
+
+	// A rebind onto a used key swaps both in one patch (the app store refuses a key bound twice).
+	Backend->Frames.Reset();
+	W.Ui->RebindKey(TEXT("jump"), EKeys::F);
+	TestEqual(TEXT("one settings.set for the swap"), Backend->Count(TEXT("settings.set")), 1);
+	const TSharedPtr<FJsonObject> Keys = Backend->Frames.Last().Data->GetObjectField(TEXT("game"));
+	TestEqual(TEXT("jump on F"), Keys->GetStringField(TEXT("keybinds.jump")), FString(TEXT("F")));
+	TestEqual(TEXT("interact took SpaceBar"), Keys->GetStringField(TEXT("keybinds.interact")), FString(TEXT("SpaceBar")));
+	TestEqual(TEXT("two keys in the patch"), Keys->Values.Num(), 2);
+	TestEqual(TEXT("the key map follows"), W.Ui->GetKeyMap().GetKey(TEXT("jump")), EKeys::F);
+
+	// Duel FOV, quality, text size and tier are app settings now; the ini only mirrors them.
+	W.Ui->SetDuelFov(88.f);
+	W.Ui->GetArmoury().SelectTier(TEXT("normal"));
+	W.Ui->StartDuelFromArmoury();
+	TestEqual(TEXT("duel FOV in settings.game"), W.Ui->GetGameNumber(TEXT("controls.fov_duel")), 88.0);
+	TestEqual(TEXT("tier in settings.game"), W.Ui->GetGameString(TEXT("gameplay.bot_tier")), FString(TEXT("normal")));
+	UVerseUiUserSettings* Fresh = NewObject<UVerseUiUserSettings>();
+	Fresh->ReloadFromDisk();
+	TestEqual(TEXT("ini mirrors the duel FOV"), Fresh->DuelFov, 88.f);
+	TestEqual(TEXT("ini mirrors the tier"), Fresh->LastTier, FName(TEXT("normal")));
+	TestTrue(TEXT("ini caches settings.game"), Fresh->GameSettings.Contains(TEXT("\"graphics.shadows\":\"epic\"")));
+
+	// The app is the truth: a restarted Verse takes welcome over its cache.
+	FVerseUiTestWorld Restart;
+	Restart.Ui->ApplyWelcome(Backend->MakeWelcome());
+	TestEqual(TEXT("shadows after restart"), Restart.Ui->GetGameString(TEXT("graphics.shadows")), FString(TEXT("epic")));
+	TestEqual(TEXT("jump after restart"), Restart.Ui->GetKeyMap().GetKey(TEXT("jump")), EKeys::F);
+	TestEqual(TEXT("duel FOV after restart"), Restart.Ui->GetGameNumber(TEXT("controls.fov_duel")), 88.0);
+	TestEqual(TEXT("armoury tier after restart"), Restart.Ui->GetArmoury().GetSelectedTier(), FName(TEXT("normal")));
+	return true;
+}
+
+// settings.changed {game} applies live: key map, HUD (crosshair, markers, damage numbers),
+// kill cam switch, camera effects, quality plan, audio buses, text size and the console variables.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseUiGameSettingsApplyTest, "Verse.UI.Settings.GameApply", Flags)
+bool FVerseUiGameSettingsApplyTest::RunTest(const FString&)
+{
+	FVerseUiTestWorld W;
+	if (!TestNotNull(TEXT("UI subsystem"), W.Ui))
+	{
+		return false;
+	}
+	FUserSettingsGuard Guard(W.Ui->GetUserSettings());
+	W.Ui->ApplyWelcome(W.Bridge->MakeWelcome());
+	const TSharedPtr<FJsonObject> Changed = FirstWithGame(Golden(TEXT("settings.changed")));
+	if (!TestNotNull(TEXT("settings.changed golden frame with game"), Changed.Get()))
+	{
+		return false;
+	}
+	W.Bridge->Frames.Reset();
+	W.Ui->ApplySettingsChanged(Changed);
+	TestEqual(TEXT("an applied settings.changed is not echoed"), W.Bridge->Count(TEXT("settings.set")), 0);
+
+	TestEqual(TEXT("jump on C"), W.Ui->GetKeyMap().GetKey(TEXT("jump")), EKeys::C);
+	IConsoleVariable* Fov = IConsoleManager::Get().FindConsoleVariable(TEXT("Verse.Settings.DuelFov"));
+	TestTrue(TEXT("duel FOV published"), Fov && FMath::IsNearlyEqual(Fov->GetFloat(), 105.f));
+	IConsoleVariable* Generic = IConsoleManager::Get().FindConsoleVariable(TEXT("Verse.Settings.Game.gameplay.kill_cam"));
+	TestTrue(TEXT("every id published as Verse.Settings.Game.<id>"), Generic && Generic->GetString() == TEXT("0"));
+
+	const FVerseGraphicsPlan& Plan = W.Ui->GetGraphicsPlan();
+	TestEqual(TEXT("shadow group low"), Plan.Quality.ShadowQuality, 0);
+	TestEqual(TEXT("TSR"), Plan.AntiAliasingMethod, 4);
+	TestTrue(TEXT("motion blur on in the plan"), Plan.bMotionBlur);
+	if (APostProcessVolume* Volume = W.Ui->GetSettingsPostProcess())
+	{
+		TestTrue(TEXT("unbound"), Volume->bUnbound);
+		TestFalse(TEXT("motion blur on: the level's own amount"), bool(Volume->Settings.bOverride_MotionBlurAmount));
+		TestTrue(TEXT("film grain off: overridden to 0"), Volume->Settings.bOverride_FilmGrainIntensity && Volume->Settings.FilmGrainIntensity == 0.f);
+	}
+	else
+	{
+		AddError(TEXT("no settings post-process volume in the game world"));
+	}
+
+	if (UVerseAudioSubsystem* Audio = UVerseAudioSubsystem::Get(W.World))
+	{
+		TestTrue(TEXT("ambience bus at 0.8"), FMath::IsNearlyEqual(Audio->GetUserBusGain(EVerseAudioBus::Ambience), 0.8f));
+		TestTrue(TEXT("weapons bus at effects 1.0"), FMath::IsNearlyEqual(Audio->GetUserBusGain(EVerseAudioBus::Weapons), 1.f));
+		TSharedRef<FJsonObject> Night = MakeShared<FJsonObject>();
+		TSharedRef<FJsonObject> NightGame = MakeShared<FJsonObject>();
+		NightGame->SetStringField(TEXT("audio.mix"), TEXT("night"));
+		NightGame->SetNumberField(TEXT("audio.effects"), 0.6);
+		Night->SetObjectField(TEXT("game"), NightGame);
+		W.Ui->ApplySettingsChanged(Night);
+		TestTrue(TEXT("night mode: weapons 6 dB under effects"), FMath::IsNearlyEqual(Audio->GetUserBusGain(EVerseAudioBus::Weapons), 0.3f));
+		TestTrue(TEXT("foley follows effects"), FMath::IsNearlyEqual(Audio->GetUserBusGain(EVerseAudioBus::Foley), 0.6f));
+	}
+
+	// HUD: crosshair style circle (golden), hit markers off, damage numbers on, opacity.
+	TSharedRef<FJsonObject> Hud = MakeShared<FJsonObject>();
+	TSharedRef<FJsonObject> HudGame = MakeShared<FJsonObject>();
+	HudGame->SetBoolField(TEXT("hud.hit_markers"), false);
+	HudGame->SetBoolField(TEXT("hud.damage_numbers"), true);
+	HudGame->SetStringField(TEXT("hud.performance_stats"), TEXT("full"));
+	Hud->SetObjectField(TEXT("game"), HudGame);
+	W.Ui->ApplySettingsChanged(Hud);
+	W.Game->bDuel = true;
+	W.Source->LocalId = 1;
+	FVerseHitEvent Hit;
+	Hit.InstigatorId = 1;
+	Hit.VictimId = 2;
+	Hit.Damage = 37.f;
+	UVerseEventHub::Get(W.World)->OnHit.Broadcast(Hit);
+	FVerseHudDrawList List;
+	W.Ui->BuildHudFrame(FVector2D(1920, 1080), List);
+	TestTrue(TEXT("crosshair drawn"), List.bCrosshairVisible);
+	TestEqual(TEXT("circle: 24 outline + 24 ring segments, outlined dot"), List.CountTag(TEXT("crosshair")), 24 + 24 + 2);
+	TestEqual(TEXT("hit markers off"), List.CountTag(TEXT("marker.hit")), 0);
+	const FVerseHudDrawList::FLabel* Number = List.FindLabel(TEXT("damage.number"));
+	TestTrue(TEXT("damage number 37"), Number && Number->Text.ToString() == TEXT("37"));
+	TestNotNull(TEXT("performance stats"), List.FindLabel(TEXT("performance")));
+
+	// Text size and HUD size reach the layout.
+	W.Ui->SetTextScale(1.3f);
+	TestTrue(TEXT("text size 1.3"), FMath::IsNearlyEqual(W.Ui->ComputeLayout(FVector2D(1920, 1080)).TextScale, 1.3f, 1e-3f));
+
+	// Kill cam off: a local death starts no replay.
+	FVerseDeathEvent Death;
+	Death.VictimId = 1;
+	Death.KillerId = 2;
+	UVerseEventHub::Get(W.World)->OnDeath.Broadcast(Death);
+	TestFalse(TEXT("kill cam off: no replay"), W.Ui->GetKillCam().IsPlaying());
 	return true;
 }
 

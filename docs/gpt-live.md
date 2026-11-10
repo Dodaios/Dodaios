@@ -64,6 +64,40 @@ limit alone allowed large imported schemas to overflow a 64 KiB RTC data-channel
 message before `session.started`. Discovery returns pages with `next_offset`;
 the full catalog remains reachable through discovery and `call_tool`.
 
+## Start failures
+
+A call that cannot start names its cause. The classifier is
+`dodaios/live/start_failure.py`. It returns only fixed, authored sentences:
+the plan does not offer voice, the login expired, the allowance is exhausted,
+the API key was rejected or has no credit, the network was unreachable, or
+Dodaios tools are still starting. A provider body, a credential or a URL never
+reaches the surface. An unknown failure keeps the generic line.
+
+The page names failures on the device the same way: no microphone, a busy
+microphone, a refused permission, a blocked audio connection (firewall or VPN)
+and a start timeout each have their own sentence.
+
+Signing in proves a login, not voice access. A call start records what it
+learned about the account in `live_subscription_voice.json` in the data
+directory. The settings page then shows "verified", "unverified" or
+"unavailable" with the reason, and does not show "Saved & active" for an
+account the voice route refused. The record explains and never gates: every
+call still asks the server, and a new login or a changed plan makes an old
+record stop matching.
+
+Saving GPT-Live retires a classic voice profile left in `voice.profile`. Boot
+repairs a config that still has both. With both set, no realtime session was
+built and every call ended at once.
+
+A call whose connection is lost and whose two replacement sessions failed ends
+with an error. Before, it stayed "connecting" and held the microphone until a
+manual hang-up.
+
+The page asks translators to leave it alone (`translate="no"`), and
+`lib/domMutationGuard.ts` keeps React alive when a translator or extension
+rewrites nodes anyway. A translated page used to crash with
+"Failed to execute 'insertBefore' on 'Node'".
+
 ## Qualification
 
 Synthetic live API probes have exercised tool execution, response continuation

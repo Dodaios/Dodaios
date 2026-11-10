@@ -113,6 +113,9 @@ class HostedTurn:
     lines: list[str] = field(default_factory=list)
     kept_bytes: int = 0
     truncated: bool = False
+    #: Stdout lines read so far, the next line's ``seq`` minus one. Equals
+    #: ``len(lines)`` until the cap; past it lines are numbered on, not kept.
+    seq: int = 0
     stderr_tail: deque[str] = field(default_factory=lambda: deque(maxlen=_STDERR_TAIL))
     acked: int = 0
     exit_code: int | None = None
@@ -483,11 +486,15 @@ class TurnHost:
                 return
             turn.reads += 1
             text = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-            if turn.kept_bytes + len(raw) > MAX_KEPT_BYTES:
+            turn.seq += 1
+            # Once over the cap nothing more is kept, so the kept lines stay
+            # exactly seq 1..len(lines) for a replay. The line itself still
+            # goes on below: skipping it lost the final answer and hung the turn.
+            if turn.truncated or turn.kept_bytes + len(raw) > MAX_KEPT_BYTES:
                 turn.truncated = True
-                continue
-            turn.lines.append(text)
-            turn.kept_bytes += len(raw)
+            else:
+                turn.lines.append(text)
+                turn.kept_bytes += len(raw)
             if turn.close_stdin_on and _line_type(text) == turn.close_stdin_on:
                 _close_stdin(turn)
             client = self._client
@@ -495,7 +502,7 @@ class TurnHost:
                 turn.in_flight += 1
                 try:
                     await client.send(
-                        {"ev": "line", "id": turn.turn_id, "seq": len(turn.lines), "d": text}
+                        {"ev": "line", "id": turn.turn_id, "seq": turn.seq, "d": text}
                     )
                 finally:
                     turn.in_flight -= 1
@@ -604,12 +611,11 @@ def _unread(proc: asyncio.subprocess.Process) -> int:
 
 
 def _kill(proc: asyncio.subprocess.Process) -> None:
-    if proc.returncode is not None:
-        return
-    try:
-        proc.kill()
-    except (ProcessLookupError, OSError) as exc:
-        logger.debug("Turn host: killing pid {} failed: {}", proc.pid, exc)
+    # The whole tree: a wrapper (node codex.js, claude.cmd) keeps the real
+    # agent in a child that a plain kill would leave working after Stop.
+    from dodaios.core.process_tree import kill_with_descendants
+
+    kill_with_descendants(proc)
 
 
 async def _read_frame(reader: asyncio.StreamReader) -> dict[str, Any] | None:

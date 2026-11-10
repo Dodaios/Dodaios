@@ -153,8 +153,14 @@ async def run_browser_call(
     timeout_s: float = 45.0,
     input_buffer: Any = None,
     session_id: str = "",
+    outcome: dict[str, str] | None = None,
 ) -> str:
-    """Wake hands media to the WebView; the desktop never feeds speaker echo back."""
+    """Wake hands media to the WebView; the desktop never feeds speaker echo back.
+
+    ``outcome["cause"]`` tells a start that failed apart for the caller:
+    ``"timeout"`` when no window took the call in time, ``"page_failed"`` when
+    the window reported that it could not start.
+    """
     from dodaios.core.events import BrowserVoiceRequested
     from dodaios.live import startup
 
@@ -202,14 +208,20 @@ async def run_browser_call(
             while (not pending.registered and not own_sessions()
                    and not hangup.is_set() and owns_request()):
                 if pending.failed or (session_id and active()):
+                    if outcome is not None:
+                        outcome["cause"] = "page_failed"
                     return "error"
                 await wait_change()
         if pending.failed:
+            if outcome is not None:
+                outcome["cause"] = "page_failed"
             return "error"
         while own_sessions() and not hangup.is_set() and owns_request():
             await wait_change()
     except TimeoutError:
         # The caller receives an explicit error outcome for this bounded wait.
+        if outcome is not None:
+            outcome["cause"] = "timeout"
         return "error"
     finally:
         with _request_lock:

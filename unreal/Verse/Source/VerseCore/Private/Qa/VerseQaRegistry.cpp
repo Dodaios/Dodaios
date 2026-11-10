@@ -3,6 +3,7 @@
 #include "Engine/Engine.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/OutputDevice.h"
+#include "Qa/VerseQaEngineCommands.h"
 #include "VerseLog.h"
 
 namespace
@@ -175,6 +176,32 @@ bool UVerseQaRegistry::ExecuteLine(const FString& Line, FString& OutResult) cons
 	const FString Command = Tokens[0];
 	Tokens.RemoveAt(0);
 	return Execute(Command, Tokens, OutResult);
+}
+
+void UVerseQaRegistry::RegisterDumpSection(const FString& Name, TFunction<FString()> Producer)
+{
+	if (Name.IsEmpty() || !Producer)
+	{
+		return;
+	}
+	DumpSections.Add(Name, MoveTemp(Producer));
+}
+
+void UVerseQaRegistry::UnregisterDumpSection(const FString& Name)
+{
+	DumpSections.Remove(Name);
+}
+
+void UVerseQaRegistry::SetViewmodelLayout(const FVerseViewmodelLayout& Layout)
+{
+	ViewmodelLayout = Layout;
+	OnViewmodelLayoutChanged.Broadcast(ViewmodelLayout);
+}
+
+void UVerseQaRegistry::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+	VerseQaEngine::RegisterCommands(*this);
 }
 
 void UVerseQaRegistry::Deinitialize()

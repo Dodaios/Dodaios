@@ -529,6 +529,9 @@ def _carry_thread_conversation(runner: str, resume: str | None, env: dict[str, s
     carried into the seat this turn runs on. Filesystem work: off the loop.
     """
     pair = _SEAT_CONVERSATIONS.get(runner)
+    if resume and resume.startswith("fork:"):
+        # A pending fork reads the source conversation on this seat.
+        resume = resume[len("fork:") :]
     if not resume or pair is None:
         return
     platform, kind = pair
@@ -910,9 +913,17 @@ def _plan_claude_code(
         else:
             # No assistant identity: a coding thread, which keeps its sub-agents.
             argv += ["--append-system-prompt", dodaios_harness.CODING_PREAMBLE]
-    if resume:
-        argv += ["--resume", resume]
-        sid = resume
+    from dodaios.agent_chat.thread_sessions import split_fork
+
+    resume_id, fork_source = split_fork(resume)
+    if fork_source:
+        # A forked thread's first turn: Claude copies the source conversation
+        # under the new id (the one combination that also takes --session-id).
+        sid = str(uuid.uuid4())
+        argv += ["--resume", fork_source, "--fork-session", "--session-id", sid]
+    elif resume_id:
+        argv += ["--resume", resume_id]
+        sid = resume_id
     else:
         sid = str(uuid.uuid4())
         argv += ["--session-id", sid]
@@ -1847,6 +1858,8 @@ class _ClaudeState:
     #: Grok Build: the calls whose tool can start background work; only
     #: their results are read for a task id.
     background_calls: set[str] = field(default_factory=set)
+    #: The model a sub-agent's messages last reported (sub-agent states only).
+    reported_model: str = ""
 
 
 #: Streamed characters per estimated output token (English and code average).
@@ -2017,6 +2030,18 @@ def _claude_subagent_line(
     if child is None:
         child = st.agents[parent] = _ClaudeState(turn_id=st.turn_id)
     out: list[dict[str, Any]] = []
+    # Every assistant message names the model that wrote it: the sub-agent's own,
+    # which may differ from the main agent's (a Haiku explorer under an Opus thread).
+    message = obj.get("message") if isinstance(obj.get("message"), dict) else {}
+    model = str(message.get("model") or "") if obj.get("type") == "assistant" else ""
+    if model and not model.startswith("<") and model != child.reported_model:
+        child.reported_model = model
+        out.append(
+            make_event(
+                "subagent_progress",
+                {"turn_id": st.turn_id, "agent_id": parent, "model": model},
+            )
+        )
     for event in translate_claude_line({**obj, "parent_tool_use_id": None}, child):
         if event["kind"] == "usage_delta":
             continue
@@ -5458,6 +5483,14 @@ async def _reap_after_answer(
 def _kill(proc: asyncio.subprocess.Process) -> None:
     if proc.returncode is not None:
         return
+    if isinstance(proc, asyncio.subprocess.Process):
+        # A local CLI: its wrapper (node codex.js, claude.cmd) keeps the real
+        # agent in a child that a plain kill would leave working after Stop.
+        from dodaios.core.process_tree import kill_with_descendants
+
+        kill_with_descendants(proc)
+        return
+    # A hosted or remote CLI: its own host ends the tree.
     try:
         proc.kill()
     except (ProcessLookupError, OSError) as exc:

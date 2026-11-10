@@ -138,7 +138,9 @@ jobs:
       pr_mode: ${{ steps.mode.outputs.pr_mode }}
       proven: ${{ steps.proven.outputs.proven }}
       linux_shards: ${{ steps.mode.outputs.linux_shards }}
-      windows_shards: ${{ steps.mode.outputs.windows_shards }}
+      # A pull request's own Windows selection, else the plan's full split.
+      windows_shards: ${{ steps.wintests.outputs.mode == 'selected' && steps.wintests.outputs.shards || steps.mode.outputs.windows_shards }}
+      win_selected: ${{ steps.wintests.outputs.mode == 'selected' }}
       os_matrix: ${{ steps.mode.outputs.os_matrix }}
       lane_os: ${{ steps.mode.outputs.lane_os }}
       updater_matrix: ${{ steps.mode.outputs.updater_matrix }}
@@ -276,6 +278,27 @@ jobs:
           else
             { echo "mode=none"; echo "shards=[]"; } | tee -a "$GITHUB_OUTPUT"
           fi
+      # A pull request runs the Windows tests its change can reach: 21 of 30
+      # changes merged on 2026-11-09 reached fewer than 900 of 2809 test
+      # files, most fewer than 160, and six Windows shards on every push held
+      # a third of the 60-job pool. A change that reaches everything (the
+      # pipeline, conftest, the lockfile, or no diff) runs the whole suite;
+      # one that reaches no test runs the smoke tests. The merge queue runs
+      # the whole Windows suite before anything lands.
+      - name: Select the Windows tests this change can reach (pull requests)
+        id: wintests
+        shell: bash
+        env:
+          PYTHON_LANE: ${{ steps.lanes.outputs.python }}
+          WIN_IMPACT: ${{ steps.mode.outputs.win_impact }}
+        run: |
+          : > win_tests.txt
+          if [ "$PYTHON_LANE" = "true" ] && [ "$WIN_IMPACT" = "true" ]; then
+            test -f changed.txt || : > changed.txt
+            python3 scripts/ci/select_tests.py --never-empty --changed-from changed.txt --out win_tests.txt
+          else
+            { echo "mode=all"; echo "shards=[]"; } | tee -a "$GITHUB_OUTPUT"
+          fi
       - name: Share duration snapshot with every shard
         if: steps.lanes.outputs.python == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -285,6 +308,7 @@ jobs:
             test_durations.json
             test_durations_windows.json
             mac_tests.txt
+            win_tests.txt
           if-no-files-found: error
           retention-days: 7
 
@@ -565,9 +589,8 @@ jobs:
       run:
         shell: bash
     steps:
-      # The whole suite on every tier: a Windows-only failure blocks the pull
-      # request instead of ejecting it from the merge queue.
-      # scripts/ci/select_tests.py stays for agent_land.py's local run.
+      # A pull request runs the tests its change can reach (detect selects
+      # them once); the merge queue, main and the nightly run the whole suite.
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
@@ -589,9 +612,12 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ needs.detect.outputs.windows_shards }}
+          WIN_SELECTED: ${{ needs.detect.outputs.win_selected }}
         run: |
           total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
-          python scripts/ci/run_tests_parallel.py tests \
+          selection=()
+          if [ "$WIN_SELECTED" = "true" ]; then selection=(--files-from win_tests.txt); fi
+          python scripts/ci/run_tests_parallel.py tests "${selection[@]}" \
             --shard "$SHARD/$total" \
             --durations test_durations_windows.json \
             --report "out/test-report-windows-$SHARD.json" \

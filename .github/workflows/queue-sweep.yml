@@ -1,0 +1,66 @@
+# Merge queue sweep — cancel workflow runs of merge groups that no longer exist.
+#
+# When an entry fails or leaves the queue, GitHub rebuilds every group behind
+# it on new `gh-readonly-queue/...` branches and deletes the old ones. The
+# runs it started for the old groups keep going until they finish: on
+# 2026-11-09 a third of the queue's runner minutes (1278 of 3822) went to
+# such runs, while the live groups waited 8 to 20 minutes for a free runner
+# of the 60-job pool. Entries merged as a batch (an entry further back went
+# green) leave runs behind the same way.
+#
+# A new group (`merge_group`) and a queue merge (push to main) are the moments
+# old groups disappear, so the sweep runs on both. It cancels a merge-group
+# run only when GitHub answers 404 for its branch; any other answer (an API
+# error, an outage) leaves the run alone. Runs younger than two minutes are
+# skipped, so a group whose branch is still being created is never touched.
+# No repository code is checked out or run here.
+
+name: Merge queue sweep
+
+on:
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The newest sweep sees the newest queue; an older one has nothing left to add.
+concurrency:
+  group: merge-queue-sweep
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  sweep:
+    name: cancel runs of removed merge groups
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # cancel workflow runs
+      contents: read # read the queue's branches
+    steps:
+      - name: Cancel runs whose merge-group branch is gone
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWN_RUN: ${{ github.run_id }}
+        shell: bash
+        run: |
+          # The runner starts bash with -e; a 404 from `gh api` is an answer here, not an error.
+          set +e -uo pipefail
+          now=$(date +%s)
+          for status in queued in_progress waiting pending requested; do
+            gh api "repos/$REPO/actions/runs?event=merge_group&status=$status&per_page=100" \
+              --jq '.workflow_runs[] | [.id, .head_branch, .created_at, .name] | @tsv' || true
+          done | sort -u | while IFS=$'\t' read -r id branch created name; do
+            [ -n "$id" ] && [ "$id" != "$OWN_RUN" ] || continue
+            case "$branch" in (gh-readonly-queue/*) ;; (*) continue ;; esac
+            age=$(( now - $(date -d "$created" +%s) ))
+            [ "$age" -ge 120 ] || continue
+            code=$(gh api -i "repos/$REPO/git/ref/heads/$branch" 2>/dev/null | head -n1 | awk '{print $2}' || true)
+            if [ "$code" = "404" ]; then
+              echo "Cancel '$name' run $id: $branch left the merge queue"
+              gh run cancel "$id" -R "$REPO" || echo "::warning::could not cancel run $id"
+            fi
+          done

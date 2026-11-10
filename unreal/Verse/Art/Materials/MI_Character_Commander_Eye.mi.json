@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Commander_Eye",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Eye",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.2
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.86,
+      0.85,
+      0.83,
+      1.0
+    ]
+  }
+}

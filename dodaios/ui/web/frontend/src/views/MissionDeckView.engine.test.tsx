@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
  * this file pins.
  */
 vi.mock("@/components/layout/DockRail", () => ({ DockRail: () => <nav data-testid="dock" /> }));
-vi.mock("@/components/deck/DeckWiki", () => ({
-  WikiCard: ({ className }: { className?: string }) => <section className={className}>wiki</section>,
+vi.mock("@/components/deck/DeckMemory", () => ({
+  MemoryCard: ({ className }: { className?: string }) => <section className={className}>memory</section>,
 }));
 vi.mock("@/components/deck/DeckActivityCards", () => ({
   IdeGridCard: () => <section>ide</section>,

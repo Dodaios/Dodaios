@@ -257,17 +257,6 @@ _Generated from the curated command tree by `scripts/ci/gen_cli_reference.py` �
 
 - `dodaios version` — Print the CLI version.
 
-## wiki
-
-- `dodaios wiki backfill --days --max-sessions --preview --yes --dry-run` — Backfill recent Realtime sessions through evidence-safe Wiki capture.
-- `dodaios wiki health` — Show wiki subsystem health: bootstrap, last write, chain failures, backlog (spec A5).
-- `dodaios wiki ingest <text> --source --dry-run` — Store a fact through the guarded Wiki curator.
-- `dodaios wiki page <slug>` — Read a wiki page by vault path / slug.
-- `dodaios wiki recall <query>` — Full-text search the wiki.
-- `dodaios wiki reindex --preview` — Rebuild the wiki search index from the active vault.
-- `dodaios wiki tree` — Show the vault folder tree + stats.
-- `dodaios wiki vaults` — List the user's registered Obsidian vaults (connect picker, spec A6).
-
 ## workflows
 
 - `dodaios workflows create --def --yes --dry-run` — Create a workflow from a WorkflowDef JSON document.

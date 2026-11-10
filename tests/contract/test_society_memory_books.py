@@ -211,7 +211,7 @@ def test_api_agent_prompt_does_not_read_global_profile_or_ambient_context(briefi
     manager._user_profile = manager._soul = manager._people = PrivateGlobalData()
     manager._config = SimpleNamespace(performance=SimpleNamespace(cache_optimized_prompt=True))
     manager._reply_language_directive = lambda: "REPLY LANGUAGE"
-    manager._wiki_context_suffix = "GLOBAL PRIVATE WIKI"
+    manager._memory_context_suffix = "GLOBAL PRIVATE WIKI"
     token = _TURN_OVERRIDE.set(
         TurnOverride(
             provider="test", system_extra=briefing, tool_context={"tool_origin": "society"}

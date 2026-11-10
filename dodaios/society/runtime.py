@@ -213,6 +213,7 @@ class SocietyRuntime:
         self._watchers: set[asyncio.Task[None]] = set()
         self.store = SocietyStore(self._data_dir / _DB_NAME)
         self.roster = Roster(self.store)
+        self.roster.default_approval_mode = self.default_approval_mode
         self.rooms = Rooms(self.store)
         from .meetings import Meetings
 
@@ -545,6 +546,11 @@ class SocietyRuntime:
     def chat_service(self) -> Any | None:
         """The agent-chat service, when the app has one (None in the bare runtime)."""
         return self._get_chat()
+
+    def default_approval_mode(self) -> str:
+        """The mode a new agent starts with: Settings -> Permissions, else Bypass."""
+        safety = getattr(self._get_cfg(), "safety", None)
+        return str(getattr(safety, "agent_approval_mode", "") or "bypass")
 
     def config(self) -> Any:
         """The live app config the chat binding reads provider defaults from."""

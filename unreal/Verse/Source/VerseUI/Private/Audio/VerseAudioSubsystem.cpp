@@ -165,6 +165,7 @@ void UVerseAudioSubsystem::SetCueSet(UVerseAudioCueSet* InCueSet)
 	Budget.Max = FMath::Max(1, CueSet->Mix.MaxVoices);
 	AttenuationCache.Reset();
 	RouteCueSet();
+	PreloadDuelSet();
 	ApplyMasterVolume();
 }
 
@@ -180,6 +181,10 @@ void UVerseAudioSubsystem::SetSink(TSharedPtr<IVerseAudioSink> InSink)
 	Budget.Reset();
 	Loops.Reset();
 	RouteCueSet();
+	if (UserBusGain.Num() > 0)
+	{
+		SetUserBusGains(TArray<float>(UserBusGain));
+	}
 	ApplyMasterVolume();
 }
 
@@ -264,15 +269,107 @@ void UVerseAudioSubsystem::SetUiSoundEnabled(bool bEnabled)
 	ApplyMasterVolume();
 }
 
+void UVerseAudioSubsystem::SetLevelSoundEnabled(bool bEnabled)
+{
+	bLevelSoundEnabled = bEnabled;
+}
+
+TArray<FName> UVerseAudioSubsystem::DuelCueIds(const TArray<FName>& WeaponProfiles)
+{
+	TArray<FName> Ids;
+	for (const FName& Profile : WeaponProfiles)
+	{
+		const FString P = Profile.ToString();
+		for (const TCHAR* Suffix : {TEXT("fp_mech"), TEXT("fp_body"), TEXT("tp_near"), TEXT("tp_far"), TEXT("tp_tail")})
+		{
+			Ids.Add(*FString::Printf(TEXT("wpn_%s_%s"), *P, Suffix));
+		}
+		Ids.Add(*FString::Printf(TEXT("wpn_%s_tail"), *P));
+		Ids.Add(*FString::Printf(TEXT("rld_%s_tactical"), *P));
+		Ids.Add(*FString::Printf(TEXT("rld_%s_empty"), *P));
+		Ids.Add(*FString::Printf(TEXT("eqp_%s"), *P));
+	}
+	for (const TCHAR* Id : {TEXT("bolt_flyby"), TEXT("imp_sheet_metal"), TEXT("imp_container_wall"), TEXT("imp_glass"),
+			 TEXT("imp_cladding_panel"), TEXT("imp_catwalk_grating"), TEXT("imp_ceiling_panel"), TEXT("imp_concrete"),
+			 TEXT("imp_armor_steel"), TEXT("imp_flesh"), TEXT("imp_penetration_exit"), TEXT("imp_hurt"), TEXT("fs_metal"),
+			 TEXT("fs_grating"), TEXT("fs_concrete"), TEXT("fs_rubble"), TEXT("fs_metal_boots"), TEXT("fol_slide"),
+			 TEXT("fol_land"), TEXT("fol_mantle"), TEXT("fol_lean"), TEXT("mel_knife_swing"), TEXT("mel_knife_hit"),
+			 TEXT("eqp_knife"), TEXT("fin_takedown"), TEXT("fin_struggle"), TEXT("fin_kill"), TEXT("dst_wall_panel"),
+			 TEXT("dst_cladding_wall"), TEXT("dst_container_wall"), TEXT("dst_glass_pane"), TEXT("dst_catwalk_segment"),
+			 TEXT("dst_ceiling_panel"), TEXT("dst_hole"), TEXT("dst_settle_metal"), TEXT("dst_settle_glass"),
+			 TEXT("dst_settle_dust"), TEXT("drn_flight"), TEXT("drn_weld"), TEXT("gad_bulwark_deploy"), TEXT("gad_bulwark_hum"),
+			 TEXT("gad_bulwark_destroyed"), TEXT("gad_breach_plant"), TEXT("gad_breach_detonate"), TEXT("ui_click"),
+			 TEXT("ui_confirm"), TEXT("ui_back")})
+	{
+		Ids.Add(Id);
+	}
+	return Ids;
+}
+
+TArray<FName> UVerseAudioSubsystem::PreloadDuelSet()
+{
+	MissingDuelCues.Reset();
+	if (!CueSet)
+	{
+		bDuelPreloaded = false;
+		return MissingDuelCues;
+	}
+	TArray<FName> Profiles = CueSet->WeaponProfiles;
+	Profiles.AddUnique(CueSet->DefaultWeaponProfile);
+	for (const FName& CueId : DuelCueIds(Profiles))
+	{
+		const FVerseAudioCue* Cue = CueSet->FindCue(CueId);
+		bool bAnySound = false;
+		if (Cue)
+		{
+			for (USoundBase* Sound : Cue->Variants)
+			{
+				if (Sound)
+				{
+					// Fully load it now: a first shot never waits for a PostLoad.
+					Sound->ConditionalPostLoad();
+					bAnySound = true;
+				}
+			}
+		}
+		if (!bAnySound)
+		{
+			MissingDuelCues.Add(CueId);
+			UE_LOG(LogVerseUI, Verbose, TEXT("Verse audio: duel cue %s is missing or has no sound"), *CueId.ToString());
+		}
+	}
+	bDuelPreloaded = true;
+	return MissingDuelCues;
+}
+
 void UVerseAudioSubsystem::SetUserVolume(float Volume)
 {
 	UserVolume = FMath::Clamp(Volume, 0.f, 1.f);
 	ApplyMasterVolume();
 }
 
+void UVerseAudioSubsystem::SetUserBusGains(const TArray<float>& Gains)
+{
+	UserBusGain.SetNum(VerseAudioBusCount);
+	for (int32 Bus = 0; Bus < VerseAudioBusCount; ++Bus)
+	{
+		UserBusGain[Bus] = Gains.IsValidIndex(Bus) ? FMath::Clamp(Gains[Bus], 0.f, 1.f) : 1.f;
+		if (Sink)
+		{
+			Sink->SetBusVolume(EVerseAudioBus(Bus), UserBusGain[Bus]);
+		}
+	}
+}
+
+void UVerseAudioSubsystem::SetBackgroundMuted(bool bMuted)
+{
+	bBackgroundMuted = bMuted;
+	ApplyMasterVolume();
+}
+
 void UVerseAudioSubsystem::ApplyMasterVolume()
 {
-	const bool bMuted = bDormant || !bUiSoundEnabled;
+	const bool bMuted = bDormant || !bUiSoundEnabled || bBackgroundMuted;
 	MasterVolume = bMuted ? 0.f : UserVolume * FadeLevel;
 	if (Sink)
 	{
@@ -909,6 +1006,10 @@ void UVerseAudioSubsystem::SetCrewBed(bool bOn)
 
 void UVerseAudioSubsystem::PlayUi(EVerseUiSound Sound)
 {
+	if (Sound == EVerseUiSound::LevelBell && !bLevelSoundEnabled)
+	{
+		return; // R-12: the bell is switched off, every other UI cue still plays
+	}
 	static const TCHAR* Names[] = {TEXT("ui_click"), TEXT("ui_hover"), TEXT("ui_confirm"), TEXT("ui_back"),
 		TEXT("ui_panel_open"), TEXT("ui_panel_close"), TEXT("ui_level_bell")};
 	PlayCue(Names[FMath::Clamp(int32(Sound), 0, int32(UE_ARRAY_COUNT(Names)) - 1)], FPlayParams());

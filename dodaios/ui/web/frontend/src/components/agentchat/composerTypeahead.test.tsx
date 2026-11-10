@@ -155,7 +155,8 @@ describe("composer typeahead", () => {
       "/github:issueOpen an issue",
     ]);
     expect(screen.getByTestId("composer-typeahead").textContent).toContain("Plugins");
-    const asked = new URL(String(fetchMock.mock.calls[0][0]), "http://x").searchParams;
+    const typeaheadCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/typeahead"));
+    const asked = new URL(String(typeaheadCall?.[0]), "http://x").searchParams;
     // Native CLI completions belong to the IDE chat surface.
     expect(asked.get("surface")).toBe("agent");
     expect(asked.get("provider")).toBe("claude-api");

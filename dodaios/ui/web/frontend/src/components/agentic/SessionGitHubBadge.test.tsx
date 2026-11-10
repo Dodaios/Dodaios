@@ -26,19 +26,18 @@ describe("session GitHub link", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("shows a quiet branch symbol while the branch is only local", () => {
-    render(<GitHubStatusBadge status={status({ published: false, state: "branch", number: null })} appearance="dark" />);
-    const symbol = screen.getByTestId("session-github-status");
-    expect(symbol.getAttribute("role")).toBe("img");
-    expect(symbol.getAttribute("aria-label")).toBe("owner/repo · feature/test: Not on GitHub yet");
-    expect(symbol.title).toContain("Not on GitHub yet");
-    expect(symbol.querySelectorAll("svg")).toHaveLength(1);
-    expect(screen.queryByRole("link")).toBeNull();
+  it.each([
+    status({ published: false, state: "branch", number: null }),
+    status({ published: false, available: false }),
+    status({ state: "branch", number: null, url: "https://github.com/owner/repo/tree/feature%2Ftest" }),
+  ])("shows nothing for a branch without a pull request", (value) => {
+    const { container } = render(<GitHubStatusBadge status={value} appearance="dark" />);
+    expect(container.innerHTML).toBe("");
   });
 
-  it("does not claim a local branch is unpublished while GitHub cannot be read", () => {
-    render(<GitHubStatusBadge status={status({ published: false, available: false })} appearance="dark" />);
-    expect(screen.getByTestId("session-github-status").title).toContain("GitHub status unavailable");
+  it.each(["draft", "open", "queued", "merged", "closed"] as const)("draws the %s pull request in GitHub's colour", (state) => {
+    render(<GitHubStatusBadge status={status({ state })} appearance="dark" />);
+    expect(screen.getByRole("link").querySelector("svg")?.getAttribute("class")).toMatch(/text-\[#/);
   });
 
   it("renders just one quiet icon even with running CI and merge warnings", () => {
@@ -65,15 +64,6 @@ describe("session GitHub link", () => {
     expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith("https://github.com/owner/repo/pull/7");
   });
 
-  it("opens the published branch when it has no pull request", () => {
-    render(<GitHubStatusBadge status={status({ state: "branch", number: null,
-      url: "https://github.com/owner/repo/tree/feature%2Ftest" })} appearance="dark" />);
-    const link = screen.getByRole("link", { name: /Open GitHub branch/ });
-    expect(link.getAttribute("href")).toBe("https://github.com/owner/repo/tree/feature%2Ftest");
-    fireEvent.click(link);
-    expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith("https://github.com/owner/repo/tree/feature%2Ftest");
-  });
-
   it("opens the upstream pull request for a fork's branch", () => {
     render(<GitHubStatusBadge status={status({ repo: "contributor/fork",
       url: "https://github.com/upstream/project/pull/7" })} appearance="dark" />);
@@ -83,12 +73,9 @@ describe("session GitHub link", () => {
 
   it.each(["https://github.com/", "https://github.com/owner/repo",
     "https://github.com.evil.invalid/owner/repo/pull/7", "https://github.com@evil.invalid/owner/repo/pull/7",
-    "javascript:alert(1)", "https://github.com/owner/repo/pull/0"])("falls back to the branch for invalid PR URL %s", (url) => {
-    render(<GitHubStatusBadge status={status({ url })} appearance="dark" />);
-    const link = screen.getByRole("link", { name: /Open GitHub branch/ });
-    expect(link.getAttribute("href")).toBe("https://github.com/owner/repo/tree/feature%2Ftest");
-    fireEvent.click(link);
-    expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith("https://github.com/owner/repo/tree/feature%2Ftest");
+    "javascript:alert(1)", "https://github.com/owner/repo/pull/0"])("shows nothing for an invalid PR URL %s", (url) => {
+    const { container } = render(<GitHubStatusBadge status={status({ url })} appearance="dark" />);
+    expect(container.innerHTML).toBe("");
   });
 
   it.each(["light", "dark"] as const)("uses normal %s terminal chrome", (appearance) => {
@@ -132,8 +119,8 @@ describe("a session with several branches", () => {
 
   it("shows one symbol with the number of branches and keeps the list closed", () => {
     render(<GitHubStatusBadge status={several()} appearance="dark" />);
-    const button = screen.getByRole("button", { name: /4 branches of this session, now owner\/repo · claude\/still-open/ });
-    expect(button.textContent).toBe("4");
+    const button = screen.getByRole("button", { name: /3 branches of this session, now owner\/repo · claude\/still-open/ });
+    expect(button.textContent).toBe("3");
     expect(button.querySelectorAll("svg")).toHaveLength(1);
     expect(button.getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByTestId("session-github-branches").hidden).toBe(true);
@@ -149,7 +136,6 @@ describe("a session with several branches", () => {
       "claude/still-open#9 · Open pull request",
       "claude/merged#8 · Pull request merged",
       "claude/closed#7 · Closed without merging",
-      "claude/localNot on GitHub yet",
     ]);
     expect(rows[1].className).toContain("opacity-60");
     expect(rows[0].className).not.toContain("opacity-60");
@@ -166,12 +152,10 @@ describe("a session with several branches", () => {
     expect(drag).not.toHaveBeenCalled();
   });
 
-  it("does not link a branch that is not on GitHub", () => {
+  it("leaves a branch without a pull request out of the list", () => {
     render(<GitHubStatusBadge status={several()} appearance="dark" />);
     fireEvent.click(screen.getByTestId("session-github-status"));
-    const local = screen.getByText("claude/local").closest("[role=menuitem]") as HTMLElement;
-    expect(local.tagName).toBe("DIV");
-    expect(local.getAttribute("aria-disabled")).toBe("true");
+    expect(screen.queryByText("claude/local")).toBeNull();
   });
 
   it("closes on Escape and on a press outside", () => {
@@ -204,13 +188,9 @@ describe("a session with several branches", () => {
 });
 
 describe("a status that is still being confirmed", () => {
-  it("holds the branch's place with a spinner before anything is known", () => {
-    render(<GitHubStatusBadge status={null} pending appearance="dark" />);
-    const place = screen.getByRole("status");
-    expect(place.getAttribute("aria-label")).toBe("Reading the GitHub status…");
-    expect(place.getAttribute("data-state")).toBe("loading");
-    expect(screen.getByTestId("session-github-pending").querySelector("svg")?.getAttribute("class")).toContain("animate-spin");
-    expect(screen.queryByRole("link")).toBeNull();
+  it("shows nothing before anything is known", () => {
+    const { container } = render(<GitHubStatusBadge status={null} pending appearance="dark" />);
+    expect(container.innerHTML).toBe("");
   });
 
   it("keeps an old answer's symbol inside the spinner instead of calling it unavailable", () => {
@@ -241,7 +221,7 @@ describe("a status that is still being confirmed", () => {
   });
 
   it.each(["light", "dark"] as const)("takes the pending hue from the %s pane appearance", (appearance) => {
-    render(<GitHubStatusBadge status={null} pending appearance={appearance} />);
+    render(<GitHubStatusBadge status={status()} pending appearance={appearance} />);
     const ring = screen.getByTestId("session-github-pending");
     expect(ring.style.color).toBe(appearance === "light" ? "rgb(139, 87, 0)" : "rgb(210, 148, 62)");
   });

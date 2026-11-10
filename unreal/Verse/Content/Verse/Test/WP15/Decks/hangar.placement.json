@@ -1,0 +1,1464 @@
+{
+ "schema": "verse.placement/1",
+ "deck": "hangar",
+ "zone": "crew_fixture",
+ "bounds_cm": {
+  "min": [
+   540.0,
+   540.0,
+   -10.0
+  ],
+  "max": [
+   9460.0,
+   5780.0,
+   528.1800000000001
+  ]
+ },
+ "level": "/Game/Verse/Decks/Hangar/LV_Hangar",
+ "source": {
+  "builder": "unreal/Verse/Content/Verse/Test/WP15/Tools/make_crew_fixture_decks.py",
+  "sha256": "b576620346c58e699e0f4892c539f6d4fcdc05c31c81dafb6c98369d23b8060f"
+ },
+ "generator": {
+  "script": "make_crew_fixture_decks.py",
+  "version": "1",
+  "blender": "none"
+ },
+ "placements": [],
+ "sockets": [
+  {
+   "id": "main",
+   "kind": "lift",
+   "location": [
+    6800.0,
+    5100.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "lift_lobby",
+   "station": null
+  },
+  {
+   "id": "arrivals",
+   "kind": "screen",
+   "location": [
+    5000.0,
+    5080.1,
+    110.19
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "arrivals",
+   "station": {
+    "id": "arrivals",
+    "kind": "create_agent"
+   },
+   "size_cm": [
+    70.0,
+    38.0
+   ]
+  },
+  {
+   "id": "booth_1__1",
+   "kind": "screen",
+   "location": [
+    540.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_1__2",
+   "kind": "screen",
+   "location": [
+    660.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_1__3",
+   "kind": "screen",
+   "location": [
+    780.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_2__1",
+   "kind": "screen",
+   "location": [
+    1020.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_2__2",
+   "kind": "screen",
+   "location": [
+    1140.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_2__3",
+   "kind": "screen",
+   "location": [
+    1260.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_3__1",
+   "kind": "screen",
+   "location": [
+    1500.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_3__2",
+   "kind": "screen",
+   "location": [
+    1620.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_3__3",
+   "kind": "screen",
+   "location": [
+    1740.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_4__1",
+   "kind": "screen",
+   "location": [
+    1980.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_4__2",
+   "kind": "screen",
+   "location": [
+    2100.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_4__3",
+   "kind": "screen",
+   "location": [
+    2220.0,
+    4817.86,
+    228.18
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null,
+   "size_cm": [
+    56.0,
+    30.0
+   ]
+  },
+  {
+   "id": "booth_1a",
+   "kind": "seat",
+   "location": [
+    570.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "booth_1b",
+   "kind": "seat",
+   "location": [
+    750.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "booth_2a",
+   "kind": "seat",
+   "location": [
+    1050.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "booth_2b",
+   "kind": "seat",
+   "location": [
+    1230.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "booth_3a",
+   "kind": "seat",
+   "location": [
+    1530.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "booth_3b",
+   "kind": "seat",
+   "location": [
+    1710.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "booth_4a",
+   "kind": "seat",
+   "location": [
+    2010.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "booth_4b",
+   "kind": "seat",
+   "location": [
+    2190.0,
+    4960.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "Hangar_TowTug_001__drone",
+   "kind": "spawn",
+   "location": [
+    3878.56,
+    3200.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.5,
+    0.866025
+   ],
+   "room": "flight_deck",
+   "station": null,
+   "spawn": {
+    "team": "any",
+    "duel": false
+   }
+  },
+  {
+   "id": "Hangar_TowTug_002__drone",
+   "kind": "spawn",
+   "location": [
+    3960.0,
+    5400.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "crew_bay",
+   "station": null,
+   "spawn": {
+    "team": "any",
+    "duel": false
+   }
+  },
+  {
+   "id": "arrival",
+   "kind": "spawn",
+   "location": [
+    5000.0,
+    3809.88,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null,
+   "spawn": {
+    "team": "any",
+    "duel": false
+   }
+  },
+  {
+   "id": "commander",
+   "kind": "spawn",
+   "location": [
+    7000.0,
+    5420.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "lift_lobby",
+   "station": null,
+   "spawn": {
+    "team": "any",
+    "duel": false
+   }
+  },
+  {
+   "id": "arrivals__arrival",
+   "kind": "stand",
+   "location": [
+    5000.0,
+    4992.75,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "arrivals",
+   "station": {
+    "id": "arrivals",
+    "kind": "create_agent"
+   }
+  },
+  {
+   "id": "arrivals_queue_1",
+   "kind": "stand",
+   "location": [
+    4910.0,
+    4700.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "arrivals_queue_2",
+   "kind": "stand",
+   "location": [
+    5090.0,
+    4700.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "booth_supervisor",
+   "kind": "stand",
+   "location": [
+    1380.0,
+    5780.0,
+    120.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "booth",
+   "station": null
+  },
+  {
+   "id": "welcome_01",
+   "kind": "stand",
+   "location": [
+    4700.0,
+    3870.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "welcome_02",
+   "kind": "stand",
+   "location": [
+    4700.0,
+    4050.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "welcome_03",
+   "kind": "stand",
+   "location": [
+    4700.0,
+    4230.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "welcome_04",
+   "kind": "stand",
+   "location": [
+    4700.0,
+    4410.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "welcome_05",
+   "kind": "stand",
+   "location": [
+    5300.0,
+    3870.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "welcome_06",
+   "kind": "stand",
+   "location": [
+    5300.0,
+    4050.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "welcome_07",
+   "kind": "stand",
+   "location": [
+    5300.0,
+    4230.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "welcome_08",
+   "kind": "stand",
+   "location": [
+    5300.0,
+    4410.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "arrivals",
+   "kind": "station",
+   "location": [
+    5000.0,
+    5182.75,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "arrivals",
+   "station": {
+    "id": "arrivals",
+    "kind": "create_agent"
+   }
+  },
+  {
+   "id": "lift",
+   "kind": "station",
+   "location": [
+    6800.0,
+    5240.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "lift_lobby",
+   "station": null
+  },
+  {
+   "id": "cargo_01",
+   "kind": "waypoint",
+   "location": [
+    6600.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "cargo_02",
+   "kind": "waypoint",
+   "location": [
+    7620.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "cargo_03",
+   "kind": "waypoint",
+   "location": [
+    7620.0,
+    4400.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "cargo_04",
+   "kind": "waypoint",
+   "location": [
+    8470.0,
+    4400.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "cargo_05",
+   "kind": "waypoint",
+   "location": [
+    8470.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "cargo_06",
+   "kind": "waypoint",
+   "location": [
+    9460.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "cargo_07",
+   "kind": "waypoint",
+   "location": [
+    9460.0,
+    4400.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "cargo_08",
+   "kind": "waypoint",
+   "location": [
+    6600.0,
+    4400.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "front_01",
+   "kind": "waypoint",
+   "location": [
+    2700.0,
+    4500.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "front_02",
+   "kind": "waypoint",
+   "location": [
+    4700.0,
+    4500.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "front_03",
+   "kind": "waypoint",
+   "location": [
+    6400.0,
+    4500.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "pad_01",
+   "kind": "waypoint",
+   "location": [
+    4020.0,
+    1100.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "pad_02",
+   "kind": "waypoint",
+   "location": [
+    6000.0,
+    1100.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.633988,
+    0.773343
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "pad_03",
+   "kind": "waypoint",
+   "location": [
+    6240.0,
+    2300.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.77764,
+    0.62871
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "pad_04",
+   "kind": "waypoint",
+   "location": [
+    6000.0,
+    3420.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "pad_05",
+   "kind": "waypoint",
+   "location": [
+    4020.0,
+    3420.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.719643,
+    0.694344
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "pad_06",
+   "kind": "waypoint",
+   "location": [
+    3980.0,
+    2300.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.695223,
+    0.718794
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "ramp_top",
+   "kind": "waypoint",
+   "location": [
+    5000.0,
+    3220.0,
+    160.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "wall_01",
+   "kind": "waypoint",
+   "location": [
+    600.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "wall_02",
+   "kind": "waypoint",
+   "location": [
+    2800.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "wall_03",
+   "kind": "waypoint",
+   "location": [
+    7200.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "wall_04",
+   "kind": "waypoint",
+   "location": [
+    9400.0,
+    540.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "well_01",
+   "kind": "waypoint",
+   "location": [
+    600.0,
+    2340.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "well_02",
+   "kind": "waypoint",
+   "location": [
+    3600.0,
+    2340.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.566694,
+    0.823928
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "well_03",
+   "kind": "waypoint",
+   "location": [
+    3960.0,
+    1400.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.839762,
+    0.542955
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "well_04",
+   "kind": "waypoint",
+   "location": [
+    3600.0,
+    600.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "room": "flight_deck",
+   "station": null
+  },
+  {
+   "id": "well_05",
+   "kind": "waypoint",
+   "location": [
+    600.0,
+    600.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.707107,
+    0.707107
+   ],
+   "room": "flight_deck",
+   "station": null
+  }
+ ],
+ "rooms": [
+  {
+   "id": "armoury",
+   "name": "Armoury",
+   "polygon_cm": [
+    [
+     7700.0,
+     6160.0
+    ],
+    [
+     9750.0,
+     6160.0
+    ],
+    [
+     9750.0,
+     4750.0
+    ],
+    [
+     7700.0,
+     4750.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "arrivals",
+   "name": "Arrivals",
+   "polygon_cm": [
+    [
+     4000.0,
+     6160.0
+    ],
+    [
+     6200.0,
+     6160.0
+    ],
+    [
+     6200.0,
+     4600.0
+    ],
+    [
+     4000.0,
+     4600.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "booth",
+   "name": "Control Booth",
+   "polygon_cm": [
+    [
+     300.0,
+     6160.0
+    ],
+    [
+     2500.0,
+     6160.0
+    ],
+    [
+     2500.0,
+     4720.0
+    ],
+    [
+     300.0,
+     4720.0
+    ]
+   ],
+   "z_cm": 120.0,
+   "main": false
+  },
+  {
+   "id": "crew_bay",
+   "name": "Ground Crew Bay",
+   "polygon_cm": [
+    [
+     2500.0,
+     6160.0
+    ],
+    [
+     4000.0,
+     6160.0
+    ],
+    [
+     4000.0,
+     4600.0
+    ],
+    [
+     2500.0,
+     4600.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "flight_deck",
+   "name": "Flight Deck",
+   "polygon_cm": [
+    [
+     250.0,
+     4600.0
+    ],
+    [
+     9750.0,
+     4600.0
+    ],
+    [
+     9750.0,
+     150.0
+    ],
+    [
+     250.0,
+     150.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": true
+  },
+  {
+   "id": "lift_lobby",
+   "name": "Lift Lobby",
+   "polygon_cm": [
+    [
+     6200.0,
+     6160.0
+    ],
+    [
+     7700.0,
+     6160.0
+    ],
+    [
+     7700.0,
+     4600.0
+    ],
+    [
+     6200.0,
+     4600.0
+    ]
+   ],
+   "z_cm": 0.0,
+   "main": false
+  },
+  {
+   "id": "shuttle",
+   "name": "Shuttle Cabin",
+   "polygon_cm": [
+    [
+     5085.0,
+     3320.0
+    ],
+    [
+     5085.0,
+     2860.0
+    ],
+    [
+     5193.43,
+     2860.0
+    ],
+    [
+     5177.49,
+     1927.0
+    ],
+    [
+     5075.0,
+     1927.0
+    ],
+    [
+     5075.0,
+     1820.0
+    ],
+    [
+     5205.16,
+     1820.0
+    ],
+    [
+     5146.11,
+     1550.0
+    ],
+    [
+     4853.89,
+     1550.0
+    ],
+    [
+     4794.84,
+     1820.0
+    ],
+    [
+     4925.0,
+     1820.0
+    ],
+    [
+     4925.0,
+     1927.0
+    ],
+    [
+     4822.51,
+     1927.0
+    ],
+    [
+     4806.57,
+     2860.0
+    ],
+    [
+     4915.0,
+     2860.0
+    ],
+    [
+     4915.0,
+     3320.0
+    ]
+   ],
+   "z_cm": 160.0,
+   "main": false
+  }
+ ]
+}

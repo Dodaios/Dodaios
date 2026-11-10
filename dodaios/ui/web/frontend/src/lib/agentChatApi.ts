@@ -245,7 +245,7 @@ export class AgentChatApiError extends Error {
   }
 }
 
-async function json<T>(res: Response, what: string): Promise<T> {
+export async function json<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) {
     let detail = what;
     let code = "";
@@ -402,6 +402,11 @@ export async function fetchLeadSession(): Promise<AgentChatSession> {
   return json<AgentChatSession>(await fetch("/api/agent-chat/lead"), "lead-failed");
 }
 
+/** Start the lead's model fresh; the conversation and memory stay. */
+export async function freshStartLead(): Promise<void> {
+  await json<unknown>(await fetch("/api/agent-chat/lead/fresh-start", { method: "POST" }), "fresh-start-failed");
+}
+
 export interface CreateSessionInput {
   provider: string;
   account_id?: string;
@@ -413,6 +418,8 @@ export interface CreateSessionInput {
   surface?: AgentChatSurface;
   /** A coding thread's placement; empty or absent = this computer. */
   computer_id?: string;
+  /** Continue an existing Claude Code / Codex session (a uuid). */
+  vendor_session?: string;
 }
 
 export async function createAgentChatSession(input: CreateSessionInput): Promise<AgentChatSession> {
@@ -491,6 +498,27 @@ export function warmAgentChatSession(sessionId: string): void {
 
 const WARM_COOLDOWN_MS = 60_000;
 const lastWarm = new Map<string, number>();
+
+/**
+ * Load a local model (Ollama) while the person types or dictates, so the
+ * first answer does not wait for the model to load. The backend does nothing
+ * for hosted providers. Fire and forget, at most every 30 s per model.
+ */
+export function preloadLocalModel(provider: string, model: string): void {
+  if (!provider) return;
+  const key = `${provider}/${model}`;
+  const now = Date.now();
+  if (now - (lastPreload.get(key) ?? 0) < PRELOAD_COOLDOWN_MS) return;
+  lastPreload.set(key, now);
+  void fetch("/api/agent-chat/preload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, model }),
+  }).catch(() => undefined);
+}
+
+const PRELOAD_COOLDOWN_MS = 30_000;
+const lastPreload = new Map<string, number>();
 
 /** Messages the server holds for a chat's next turn; they survive a page reload. */
 export interface AgentChatQueue {

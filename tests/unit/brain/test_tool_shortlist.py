@@ -73,32 +73,32 @@ def test_the_save_tool_outlives_a_larger_budget_squeeze_than_the_list_tool_did()
     and a budget that holds only some of the surface. Largest-first dropped
     the save tool. Priority keeps both and lets the unranked extras go."""
     tools = {
-        "wiki-list": _tool("wiki-list", size=0),
+        "memory-search": _tool("memory-search", size=0),
         "extra_a": _tool("extra_a", size=6),
         "extra_b": _tool("extra_b", size=6),
-        "wiki-ingest": _tool("wiki-ingest", size=4),
+        "remember": _tool("remember", size=4),
     }
-    budget = tool_tokens("wiki-list", tools["wiki-list"]) + tool_tokens(
-        "wiki-ingest", tools["wiki-ingest"]
+    budget = tool_tokens("memory-search", tools["memory-search"]) + tool_tokens(
+        "remember", tools["remember"]
     )
     plan = plan_surface(tools, budget_tokens=budget)
-    assert set(plan.direct) == {"wiki-ingest", "wiki-list"}
+    assert set(plan.direct) == {"remember", "memory-search"}
     assert set(plan.deferred) == {"extra_a", "extra_b"}
 
 
 def test_priority_matches_hyphen_and_underscore_spellings() -> None:
-    assert canonical("wiki-ingest") == canonical("wiki_ingest") == "wiki_ingest"
-    tools = {"zzz": _tool("zzz"), "search_web": _tool("search_web"), "wiki-recall": _tool("x")}
+    assert canonical("memory-search") == canonical("memory_search") == "memory_search"
+    tools = {"zzz": _tool("zzz"), "search_web": _tool("search_web"), "memory-search": _tool("x")}
     plan = plan_surface(tools, max_direct=2)
-    assert list(plan.direct) == ["search_web", "wiki-recall"]
+    assert list(plan.direct) == ["search_web", "memory-search"]
 
 
 def test_a_count_limit_shows_the_everyday_tools_first() -> None:
     tools = {f"other{i}": _tool(f"other{i}") for i in range(30)}
-    for name in ("search_web", "wiki-ingest", "run-skill"):
+    for name in ("search_web", "remember", "run-skill"):
         tools[name] = _tool(name)
     plan = plan_surface(tools, max_direct=5)
-    assert {"search_web", "wiki-ingest", "run-skill"} <= set(plan.direct)
+    assert {"search_web", "remember", "run-skill"} <= set(plan.direct)
     assert len(plan.direct) == 5
 
 
@@ -191,9 +191,9 @@ async def test_a_full_window_bounds_what_one_turn_reveals() -> None:
 
 
 async def test_find_tools_resolves_an_exact_name_in_either_spelling() -> None:
-    finder = FindToolsTool({"wiki-ingest": _tool("wiki-ingest"), "other": _tool("other")})
-    result = await finder.execute({"query": "wiki_ingest"}, _ctx())
-    assert [entry["name"] for entry in result.output["tools"]] == ["wiki-ingest"]
+    finder = FindToolsTool({"remember": _tool("remember"), "other": _tool("other")})
+    result = await finder.execute({"query": "remember"}, _ctx())
+    assert [entry["name"] for entry in result.output["tools"]] == ["remember"]
 
 
 async def test_find_tools_says_so_when_nothing_matches() -> None:
@@ -349,14 +349,14 @@ def test_a_small_model_is_shown_a_short_list_even_when_more_would_fit() -> None:
     """Choosing well from 80 tools is the hard part for a small model, not
     fitting them into the window."""
     tools = {f"other{i}": _tool(f"other{i}", size=0) for i in range(80)}
-    tools["wiki-ingest"] = _tool("wiki-ingest", size=4)
-    tools["wiki-list"] = _tool("wiki-list", size=0)
+    tools["remember"] = _tool("remember", size=4)
+    tools["memory-search"] = _tool("memory-search", size=0)
     surface, deferred = _mgr()._shortlist_tools(
         tools, _Brain(32_768), system_prompt="", history=None
     )
     shown = _shown(surface, deferred)
     assert len(shown) == _SMALL_MODEL_DIRECT_TOOLS + 1  # plus find_tools
-    assert {"wiki-ingest", "wiki-list", FIND_TOOLS_NAME} <= set(shown)
+    assert {"remember", "memory-search", FIND_TOOLS_NAME} <= set(shown)
     # Nothing was lost: every tool is still in the dict the loop executes from.
     assert set(tools) <= set(surface)
 

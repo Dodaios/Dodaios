@@ -640,6 +640,50 @@ async def test_the_host_closes_stdin_after_the_result_when_no_app_is_attached(
         await _stop(host, task)
 
 
+# Prints a few lines, then its result, then waits for stdin to close.
+_CHATTY_RESULT_THEN_WAIT = (
+    "import json, sys\n"
+    "for i in range(5):\n"
+    "    print('x' * 40, flush=True)\n"
+    "print(json.dumps({'type': 'result', 'subtype': 'success'}), flush=True)\n"
+    "sys.stdin.read()\n"
+)
+
+
+async def test_lines_past_the_replay_cap_still_stream_and_end_the_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Past the cap the result line used to be skipped outright: the app never
+    # saw the answer and stdin never closed, so the CLI waited for ever.
+    monkeypatch.setattr(turn_host, "MAX_KEPT_BYTES", 100)
+    host, task, port = await _start_host(tmp_path)
+    try:
+        client = await _client(port)
+        cli = await client.spawn(
+            [sys.executable, "-c", _CHATTY_RESULT_THEN_WAIT],
+            cwd=str(tmp_path),
+            env=None,
+            stdin="prompt\n",
+            keep_stdin=True,
+            meta={"turn_id": "t7"},
+            close_stdin_on="result",
+        )
+        lines = []
+        while line := await asyncio.wait_for(cli.stdout.readline(), timeout=10):
+            lines.append(line.decode().strip())
+        assert len(lines) == 6
+        assert json.loads(lines[-1])["type"] == "result"
+        assert await asyncio.wait_for(cli.wait(), timeout=10) == 0
+        turn = host._turns[cli.host_id]
+        assert turn.truncated
+        assert turn.seq == 6
+        assert len(turn.lines) == 2  # what fits under the cap: seq 1..2 for a replay
+        cli.release()
+        client.detach()
+    finally:
+        await _stop(host, task)
+
+
 def test_concurrent_first_requests_build_only_one_chat_service() -> None:
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
@@ -854,3 +898,57 @@ async def test_the_exit_is_reported_while_a_grandchild_still_holds_the_pipes(
         except (OSError, ValueError):
             pass
         await _stop(host, task)
+
+
+# Sleeps far past the test: only a kill ends it.
+_WAIT_FOREVER = "import time; time.sleep(120)"
+
+
+async def test_stop_without_a_runner_kills_only_that_threads_hosted_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    host, task, port = await _start_host(tmp_path)
+    try:
+        client = await _client(port)
+
+        async def _no_start(*, start: bool = True) -> turn_host_client.TurnHostClient:
+            return client
+
+        monkeypatch.setattr(turn_host_client, "get_client", _no_start)
+        mine = await client.spawn(
+            [sys.executable, "-c", _WAIT_FOREVER],
+            cwd=str(tmp_path),
+            env=None,
+            stdin=None,
+            keep_stdin=True,
+            meta={"turn_id": "t8", "session_id": "s-mine"},
+        )
+        other = await client.spawn(
+            [sys.executable, "-c", _WAIT_FOREVER],
+            cwd=str(tmp_path),
+            env=None,
+            stdin=None,
+            keep_stdin=True,
+            meta={"turn_id": "t9", "session_id": "s-other"},
+        )
+
+        assert await turn_host_client.kill_session_turns("s-mine") == 1
+
+        assert await asyncio.wait_for(mine.wait(), timeout=10) != 0
+        await asyncio.sleep(0.3)
+        assert other.returncode is None
+        other.kill()
+        await asyncio.wait_for(other.wait(), timeout=10)
+        client.detach()
+    finally:
+        await _stop(host, task)
+
+
+def test_the_folder_fallback_of_stop_only_matches_coding_agent_clis() -> None:
+    from dodaios.agent_chat.service import _is_agent_cli
+
+    assert _is_agent_cli(["node", "C:/npm/node_modules/@openai/codex/bin/codex.js", "-C", "/r"])
+    assert _is_agent_cli(["C:/Users/me/.local/bin/claude.exe", "-p"])
+    assert not _is_agent_cli(["powershell.exe", "-NoExit", "-Command", "cd /r"])
+    assert not _is_agent_cli(["Code.exe", "/r"])
+    assert not _is_agent_cli(["node", "server.js", "/r"])

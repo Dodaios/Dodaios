@@ -13,7 +13,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from dodaios.core.paths import user_data_dir
-from dodaios.core.protocols import ContinuousVoiceStart
+from dodaios.core.protocols import ContinuousVoiceStart, VoiceStartError
 from dodaios.core.runtime_refs import get_supervisor_tool_gateway
 from dodaios.core.turn_language import resolve_output_language
 from dodaios.live.config import LiveConfig
@@ -843,7 +843,8 @@ class LiveVoiceSession:
         profile.session_config(language=self._language, tools=[])
         gateway = get_supervisor_tool_gateway()
         if gateway is None:
-            raise RuntimeError("Dodaios tools are still starting. Try voice again shortly.")
+            starting = "Dodaios tools are still starting. Try voice again shortly."
+            raise VoiceStartError(starting, user_message=starting, code="starting")
         root = user_data_dir()
 
         async def _open_ledger() -> LiveLedger:
@@ -934,9 +935,12 @@ class LiveVoiceSession:
                             self._connection.session_id = event["session"]["id"]
                             break
                         if event.get("type") == "error":
-                            raise RuntimeError(
+                            rejected = (
                                 "OpenAI Live rejected session setup. "
                                 "Check the selected model and account access."
+                            )
+                            raise VoiceStartError(
+                                rejected, user_message=rejected, code="invalid_configuration"
                             )
             self._startup_timing.mark("provider_ready")
             self._pump_task = asyncio.create_task(self._pump(), name="live-events")
@@ -1150,9 +1154,12 @@ class LiveVoiceSession:
         cause = {NO_CREDITS: "no_credits", RATE_LIMITED: "rate_limited"}.get(
             status, "unavailable"
         )
-        if getattr(exc, "code", "") == "voice_not_offered":
+        code = str(getattr(exc, "code", "") or "")
+        if code == "voice_not_offered":
             # Waiting does not help here: the account has to change.
             cause = "not_offered"
+        elif code == "rate_limited":
+            cause = "rate_limited"
         log.warning("Live session could not start (cause=%s): %s", cause, exc)
         try:
             await self._send_json(
@@ -1766,9 +1773,59 @@ class LiveVoiceSession:
             "language": self._language, "spoken_kind": "clarify",
         })
 
-    async def _stop_recovery_for_error(self, _error: Exception) -> bool:
-        """Adapters may stop recovery for a terminal account/allowance failure."""
+    async def _stop_recovery_for_error(self, error: Exception) -> bool:
+        """Stop recovery for a failure that retrying cannot change.
+
+        A rejected credential stays rejected: retrying it kept a dead call
+        "connecting" until someone hung up by hand. Adapters extend this for
+        their own account and allowance failures.
+        """
+        status = getattr(getattr(error, "response", None), "status_code", None)
+        if status in {401, 403}:
+            await self._abandon_lost_call()
+            return True
         return False
+
+    def _recovery_exhausted(self) -> bool:
+        """Whether nothing is left that could bring this call back.
+
+        Both replacement sessions are spent and no running work, open
+        response or pending approval could still change the picture. Only new
+        input resets the budget, and input cannot arrive without a connection.
+        """
+        return (
+            self._reconnect_attempts >= 2
+            and not self._jobs
+            and not self._responses
+            and (self._tools is None or not self._tools._pending)
+        )
+
+    async def _abandon_lost_call(self) -> None:
+        """End a call that cannot reconnect, and say so.
+
+        The alternative was a call that stayed registered and "connecting"
+        forever: it held the microphone, so no new call could start either.
+        """
+        if self._closing:
+            return
+        self._failed = True
+        self._detail = "The voice connection was lost. Pending actions were not replayed."
+        log.warning("Live call ended: the voice connection could not be restored.")
+        try:
+            await self._send_json(
+                {
+                    "type": "provider_error",
+                    "error": self._detail,
+                    # Stable code the desktop UI translates; ``error`` stays.
+                    "message_code": "voice_connection_lost",
+                }
+            )
+        except Exception:  # noqa: BLE001 - the surface may already be gone
+            log.debug("Lost-call notice could not be sent", exc_info=True)
+        # The wire is gone, so no closing acknowledgement can arrive. Without
+        # this, end() waits its full budget for an event only this task reads.
+        self._closed.set()
+        await self.end(reason="error")
 
     async def _wait_for_connection(self, *, session_expired: bool = False) -> bool:
         """An upstream outage suspends the call; only its owner may hang up.
@@ -1833,6 +1890,9 @@ class LiveVoiceSession:
                 self._responses.clear()
                 if await self._recover():
                     return True
+                if self._recovery_exhausted():
+                    await self._abandon_lost_call()
+                    return False
                 log.info("Voice recovery is waiting for pending work or confirmed receipts")
             return False
         finally:

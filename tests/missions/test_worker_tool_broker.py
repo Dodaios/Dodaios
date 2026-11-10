@@ -94,10 +94,9 @@ def _wire_manager(executor: _Executor) -> None:
             "_tools": {
                 "github/list_issues": _Tool("github/list_issues"),
                 "github/read_secret": _Tool("github/read_secret"),
-                "wiki-ingest": _Tool("wiki-ingest"),
-                "wiki-list": _Tool("wiki-list", risk_tier="safe"),
-                "wiki-recall": _Tool("wiki-recall", risk_tier="safe"),
-                "wiki-page-read": _Tool("wiki-page-read", risk_tier="safe"),
+                "session-latest-turn": _Tool("session-latest-turn"),
+                "search_web": _Tool("search_web", risk_tier="safe"),
+                "contact-lookup": _Tool("contact-lookup", risk_tier="safe"),
                 "brain-switch": _Tool("brain-switch"),
                 "gmail": _Tool("gmail", risk_tier="ask"),
                 "spawn-worker": _Tool("spawn-worker"),
@@ -117,11 +116,10 @@ def _inventory() -> WorkerCapabilityInventory:
                 "env": {"ACCESS_TOKEN": "must-not-leave-supervisor"},
             }
         },
-        app_commands=("wiki-ingest",),
+        app_commands=("session-latest-turn",),
         native_tool_names=(
-            "wiki-list",
-            "wiki-recall",
-            "wiki-page-read",
+            "search_web",
+            "contact-lookup",
             "gmail",
         ),
         task_text="List the open GitHub issues and read my Gmail inbox.",
@@ -142,10 +140,9 @@ async def test_binding_is_filtered_and_executes_only_through_supervisor() -> Non
     assert binding is not None
     assert set(binding.tool_names) == {
         "github/list_issues",
-        "wiki-ingest",
-        "wiki-list",
-        "wiki-recall",
-        "wiki-page-read",
+        "session-latest-turn",
+        "search_web",
+        "contact-lookup",
         "gmail",
     }
     result = await binding.execute("github/list_issues", {"value": "open"})
@@ -195,14 +192,6 @@ async def test_cold_server_start_does_not_expire_a_new_worker_grant(monkeypatch)
 )
 def test_live_control_tools_are_forbidden_to_workers(name: str) -> None:
     assert worker_tool_name_allowed(name) is False
-
-
-@pytest.mark.parametrize(
-    "name",
-    ("wiki-list", "wiki-recall", "wiki-page-read", "wiki-ingest"),
-)
-def test_wiki_tools_are_allowed_to_workers(name: str) -> None:
-    assert worker_tool_name_allowed(name) is True
 
 
 @pytest.mark.asyncio
@@ -333,7 +322,7 @@ async def test_loopback_http_requires_env_bearer_and_revocation_is_immediate(
         broker_stdio._request,
         "POST",
         "/v1/execute",
-        {"name": "wiki-ingest", "arguments": {"value": "fact"}},
+        {"name": "session-latest-turn", "arguments": {"value": "fact"}},
     )
     assert result["success"] is True
 

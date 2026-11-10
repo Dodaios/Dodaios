@@ -1,16 +1,14 @@
-"""Deterministic background-billing state for wiki tests.
+"""Deterministic background-billing state for tests.
 
-Two pieces of process-wide state decide what a background wiki model call may
-bill: the subscription policy (``dodaios.brain.background_policy`` — a login
-probe plus a sticky "a subscription was seen" marker on disk) and the wiki's
-runaway guard (``dodaios.memory.wiki.background_guard`` — a persisted daily
-call counter and a backoff window). Both read the developer's real user-data
-directory by default, so a suite run on a machine with a signed-in CLI would
-silently switch every wiki test into subscription mode.
+Process-wide state decides what a background model call may bill: the
+subscription policy (``dodaios.brain.background_policy`` — a login probe plus
+a sticky "a subscription was seen" marker on disk). It reads the developer's
+real user-data directory by default, so a suite run on a machine with a
+signed-in CLI would silently switch every test into subscription mode.
 
-:class:`BackgroundBilling` pins both to a temporary directory and a scripted
+:class:`BackgroundBilling` pins it to a temporary directory and a scripted
 login table. The default is a key-only install: no subscription signed in,
-nothing remembered, zero calls spent.
+nothing remembered.
 """
 
 from __future__ import annotations
@@ -21,7 +19,6 @@ from pathlib import Path
 import pytest
 
 from dodaios.brain import background_policy
-from dodaios.memory.wiki.background_guard import guard
 
 
 @dataclass
@@ -45,35 +42,23 @@ class BackgroundBilling:
         """Record that a subscription was seen connected (subscription mode)."""
         background_policy.note_connected(provider)
 
-    @property
-    def calls_today(self) -> int:
-        return guard.calls_today()
-
 
 def isolate_background_billing(
     monkeypatch: pytest.MonkeyPatch,
     root: Path,
 ) -> BackgroundBilling:
-    """Point the policy and the guard at *root* and script the login probe."""
+    """Point the policy at *root* and script the login probe."""
     root.mkdir(parents=True, exist_ok=True)
     billing = BackgroundBilling(root=root)
     marker = root / "subscription_seen.json"
     monkeypatch.setattr(background_policy, "_marker_path", lambda: marker)
     background_policy.reset_for_tests()
     background_policy._probe_override = billing.logins.get  # noqa: SLF001 - test seam
-    guard.reset_for_tests(state_path=root / "wiki_background_calls.json")
-    from dodaios.memory.wiki.health import health
-
-    health.clear_background_wait()
     return billing
 
 
 def reset_background_billing() -> None:
-    from dodaios.memory.wiki.health import health
-
     background_policy.reset_for_tests()
-    guard.reset_for_tests()
-    health.clear_background_wait()
 
 
 __all__ = [

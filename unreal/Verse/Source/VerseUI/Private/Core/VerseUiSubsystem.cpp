@@ -1,15 +1,18 @@
 #include "Core/VerseUiSubsystem.h"
 
+#include "Audio/VerseAudioSubsystem.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "CanvasItem.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/VerseUiDefaultPorts.h"
 #include "Core/VerseUiTheme.h"
+#include "Input/VerseDeckControlComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/PostProcessVolume.h"
 #include "Engine/World.h"
 #include "EnhancedInputSubsystems.h"
 #include "Events/VerseEventHub.h"
@@ -17,6 +20,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/GameStateBase.h"
+#include "GameFramework/GameUserSettings.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -27,10 +31,14 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 #include "QA/VerseUiQaCommands.h"
+#include "Rendering/SlateRenderer.h"
 #include "Scalability.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
+#include "Settings/VerseGameSettings.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "UObject/UnrealType.h"
 #include "VerseLog.h"
@@ -94,6 +102,40 @@ namespace
 			Var->Set(*Value, ECVF_SetByCode);
 		}
 	}
+
+	/** An engine console variable the graphics settings own (set by code, above scalability and ini). */
+	void SetEngineCVar(const TCHAR* Name, float Value)
+	{
+		if (IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(Name))
+		{
+			Var->Set(Value, ECVF_SetByCode);
+		}
+	}
+
+	FString JsonText(const TSharedPtr<FJsonValue>& Value)
+	{
+		if (!Value.IsValid())
+		{
+			return FString();
+		}
+		switch (Value->Type)
+		{
+		case EJson::Boolean: return Value->AsBool() ? TEXT("1") : TEXT("0");
+		case EJson::Number: return FString::SanitizeFloat(Value->AsNumber());
+		default: return Value->AsString();
+		}
+	}
+
+	FString CondensedJson(const TSharedRef<FJsonObject>& Object)
+	{
+		FString Out;
+		const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
+		FJsonSerializer::Serialize(Object, Writer);
+		return Out;
+	}
+
+	const TCHAR* PresetId = TEXT("graphics.preset");
+	const TCHAR* TierId = TEXT("gameplay.bot_tier");
 }
 
 UVerseUiSubsystem* UVerseUiSubsystem::Get(const UObject* WorldContextObject)
@@ -123,9 +165,7 @@ void UVerseUiSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	HudSource = MakeShared<FVerseUiWorldHudSource>(GetWorld());
 
 	LoadData();
-	KeyMap.SetBindings(UserSettings->KeyBindings);
-	KeyMap.SetReturnKey(AppSettings.ReturnKey);
-	Armoury.SelectTier(UserSettings->LastTier);
+	LoadSettingsCache();
 	Hud.Timing.FeedMax = FMath::Max(1, Hud.Timing.FeedMax);
 
 	KillCam.OnReplayFire = [this](const FVerseFireEvent& E)
@@ -143,9 +183,8 @@ void UVerseUiSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	VerseUiQa::RegisterCommands(this);
 
-	// Publish the settings other modules read.
-	SetAppSettings(AppSettings);
-	SetDuelFov(UserSettings->DuelFov);
+	// Publish the settings other modules read (the engine side waits for play or welcome).
+	PublishSettings();
 }
 
 void UVerseUiSubsystem::OnWorldBeginPlay(UWorld& InWorld)
@@ -153,11 +192,9 @@ void UVerseUiSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	Super::OnWorldBeginPlay(InWorld);
 	BindHub();
 	AttachSlate();
-	// The saved quality level applies at start, not only when the menu changes it.
-	if (!FApp::IsUnattended() && FApp::CanEverRender())
-	{
-		ApplyScalabilityLevel(UserSettings->Scalability);
-	}
+	// The cached settings apply at start, before the app's welcome brings the stored ones.
+	bSettingsLive = true;
+	PublishSettings();
 }
 
 void UVerseUiSubsystem::Deinitialize()
@@ -170,6 +207,11 @@ void UVerseUiSubsystem::Deinitialize()
 	}
 	DetachSlate();
 	UnbindHub();
+	if (SettingsPostProcess)
+	{
+		SettingsPostProcess->Destroy();
+		SettingsPostProcess = nullptr;
+	}
 	AHUD::OnHUDPostRender.Remove(PostRenderHandle);
 	VerseUiQa::Release(this);
 	Super::Deinitialize();
@@ -329,7 +371,9 @@ void UVerseUiSubsystem::HandleDeath(const FVerseDeathEvent& Event)
 			KillCamBuffer.AddPose(Pose.PlayerId, Pose.ServerTime >= 0.0 ? Pose.ServerTime : Server, Pose.Location, Pose.Rotation);
 		}
 		ReplayBolts.Reset();
-		if (KillCam.Begin(KillCamBuffer, Event, LocalId, Now, Server, AppSettings.Gore == EVerseGoreLevel::Reduced))
+		// settings.game gameplay.kill_cam: off skips the replay; the HUD shows the respawn at once.
+		if (AppSettings.Game.GetBool(TEXT("gameplay.kill_cam"))
+			&& KillCam.Begin(KillCamBuffer, Event, LocalId, Now, Server, AppSettings.Gore == EVerseGoreLevel::Reduced))
 		{
 			ApplyKillCamView(true);
 		}
@@ -397,6 +441,28 @@ void UVerseUiSubsystem::Tick(float DeltaTime)
 	{
 		NextInputRemapAt = Now + 0.25;
 		ApplyKeyBindingsToInput();
+	}
+
+	// Frame rate for the HUD's performance stats (real time, not the world's dilated clock).
+	const float FrameMs = float(FApp::GetDeltaTime() * 1000.0);
+	if (FrameMs > 0.f)
+	{
+		SmoothedFrameMs = SmoothedFrameMs <= 0.f ? FrameMs : FMath::Lerp(SmoothedFrameMs, FrameMs, 0.1f);
+		SmoothedFps = 1000.f / FMath::Max(0.01f, SmoothedFrameMs);
+	}
+
+	// audio.mute_unfocused: silent while another window has the focus.
+	if (bSettingsLive && !FApp::IsUnattended() && FSlateApplication::IsInitialized())
+	{
+		const bool bMute = AppSettings.Game.GetBool(TEXT("audio.mute_unfocused")) && !FSlateApplication::Get().IsActive();
+		if (bMute != bBackgroundMuted)
+		{
+			bBackgroundMuted = bMute;
+			if (UVerseAudioSubsystem* Audio = UVerseAudioSubsystem::Get(this))
+			{
+				Audio->SetBackgroundMuted(bMute);
+			}
+		}
 	}
 
 	const bool bDuel = GamePort->IsDuelRunning();
@@ -544,7 +610,7 @@ FVerseUiLayout UVerseUiSubsystem::ComputeLayout(const FVector2D& Viewport) const
 		FSlateApplication::Get().GetCachedDisplayMetrics(Metrics);
 		Padding = FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W);
 	}
-	return FVerseUiLayout::Compute(Viewport, SafeFraction, Padding, UserSettings ? UserSettings->TextScale : 1.f);
+	return FVerseUiLayout::Compute(Viewport, SafeFraction, Padding, float(AppSettings.Game.GetNumber(TEXT("access.text_scale"))));
 }
 
 void UVerseUiSubsystem::BuildHudFrame(const FVector2D& Viewport, FVerseHudDrawList& Out) const
@@ -554,6 +620,14 @@ void UVerseUiSubsystem::BuildHudFrame(const FVector2D& Viewport, FVerseHudDrawLi
 	Frame.Strings = &Strings;
 	Frame.Source = HudSource.Get();
 	Frame.Layout = ComputeLayout(Viewport);
+	// settings.game hud.*: the crosshair keeps the viewport's scale, the other blocks take the HUD size.
+	Frame.Options = FVerseHudOptions::FromSettings(AppSettings.Game);
+	Frame.Options.CrosshairScale = Frame.Layout.Scale;
+	Frame.Options.Fps = SmoothedFps;
+	Frame.Options.FrameMs = SmoothedFrameMs;
+	const float HudScale = FMath::Clamp(float(AppSettings.Game.GetNumber(TEXT("hud.scale"))), 0.5f, 1.5f);
+	Frame.Layout.Scale *= HudScale;
+	Frame.Layout.TextScale *= HudScale;
 	HudSource->GetPawnState(Frame.Pawn);
 	if (!Frame.Pawn.bHealthKnown)
 	{
@@ -779,11 +853,11 @@ void UVerseUiSubsystem::ApplyWelcome(const TSharedPtr<FJsonObject>& Data)
 			Decks.Add(FName(*V->AsString()));
 		}
 	}
-	KeyMap.SetReturnKey(AppSettings.ReturnKey);
 	if (LifecycleState == FName(TEXT("booting")))
 	{
 		LifecycleState = TEXT("visible");
 	}
+	bSettingsLive = true;
 	PublishSettings();
 	RebuildScreen();
 }
@@ -796,7 +870,7 @@ void UVerseUiSubsystem::ApplySettingsChanged(const TSharedPtr<FJsonObject>& Data
 	}
 	AppSettings.ApplyJson(Data);
 	Strings.ApplySettingsChanged(Data);
-	KeyMap.SetReturnKey(AppSettings.ReturnKey);
+	bSettingsLive = true;
 	PublishSettings();
 	RebuildScreen();
 }
@@ -857,7 +931,6 @@ void UVerseUiSubsystem::SetAppSettings(const FVerseAppSettings& Next)
 {
 	const TSharedRef<FJsonObject> Diff = AppSettings.Diff(Next);
 	AppSettings = Next;
-	KeyMap.SetReturnKey(AppSettings.ReturnKey);
 	PublishSettings();
 	if (Diff->Values.Num() > 0)
 	{
@@ -890,27 +963,28 @@ void UVerseUiSubsystem::RebindKey(FName Action, const FKey& Key)
 	{
 		return;
 	}
+	// The key map swaps a key another action had, so the app gets both changes in one
+	// settings.set and its store never sees one key bound twice.
 	KeyMap.Rebind(Action, Key);
-	UserSettings->KeyBindings = KeyMap.GetBindings();
-	UserSettings->SaveToDisk();
-	const FKey NewReturn = KeyMap.GetKey(FVerseKeyMap::ReturnAction());
-	if (NewReturn != AppSettings.ReturnKey)
+	FVerseAppSettings Next = AppSettings;
+	for (const FVerseKeyMap::FAction& Each : KeyMap.GetActions())
 	{
-		FVerseAppSettings Next = AppSettings;
-		Next.ReturnKey = NewReturn;
-		SetAppSettings(Next);
+		const FKey Bound = KeyMap.GetKey(Each.Action);
+		if (Each.Action == FVerseKeyMap::ReturnAction())
+		{
+			Next.ReturnKey = Bound;
+		}
+		else
+		{
+			Next.Game.SetString(TEXT("keybinds.") + Each.Action.ToString(), Bound.GetFName().ToString());
+		}
 	}
-	else
-	{
-		PublishSettings();
-	}
+	SetAppSettings(Next);
 }
 
 void UVerseUiSubsystem::SetDuelFov(float Fov)
 {
-	UserSettings->DuelFov = Fov;
-	UserSettings->SaveToDisk();
-	PublishSettings();
+	SetGameSetting(TEXT("controls.fov_duel"), MakeShared<FJsonValueNumber>(FMath::Clamp(Fov, UVerseUiUserSettings::DuelFovMin, UVerseUiUserSettings::DuelFovMax)));
 }
 
 void UVerseUiSubsystem::ApplyScalabilityLevel(int32 Level)
@@ -930,12 +1004,7 @@ void UVerseUiSubsystem::ApplyScalabilityLevel(int32 Level)
 
 void UVerseUiSubsystem::SetScalability(int32 Level)
 {
-	UserSettings->Scalability = Level;
-	UserSettings->SaveToDisk();
-	if (!FApp::IsUnattended())
-	{
-		ApplyScalabilityLevel(UserSettings->Scalability);
-	}
+	SetGameSetting(PresetId, MakeShared<FJsonValueString>(Level >= 0 ? FVerseGameSettings::QualityName(FMath::Clamp(Level, 0, 4)) : FString(TEXT("auto"))));
 }
 
 void UVerseUiSubsystem::ResetSettings()
@@ -949,15 +1018,15 @@ void UVerseUiSubsystem::ResetSettings()
 	Next.FovFirst = Defaults.FovFirst;
 	Next.Volume = Defaults.Volume;
 	Next.ViewMode = Defaults.ViewMode;
-	SetScalability(-1);
+	Next.Game.SetString(PresetId, TEXT("auto"));
+	// One settings.set for the whole reset.
 	SetAppSettings(Next);
 	RebuildScreen();
 }
 
 void UVerseUiSubsystem::SetTextScale(float Scale)
 {
-	UserSettings->TextScale = Scale;
-	UserSettings->SaveToDisk();
+	SetGameSetting(TEXT("access.text_scale"), MakeShared<FJsonValueNumber>(FMath::Clamp(Scale, 0.8f, 1.6f)));
 	RebuildScreen();
 }
 
@@ -1032,18 +1101,389 @@ namespace
 	}
 }
 
+TSharedPtr<FJsonValue> UVerseUiSubsystem::GetGameSetting(const FString& Id) const
+{
+	const FVerseGameSettingDef* Def = FVerseGameSettingsCatalogue::Get().Find(Id);
+	if (!Def)
+	{
+		return nullptr;
+	}
+	if (Def->Path.IsEmpty())
+	{
+		return AppSettings.Game.GetValue(Id);
+	}
+	// Settings older than the catalogue keep their place in welcome.settings.
+	const FVerseAppSettings& S = AppSettings;
+	const FString& P = Def->Path;
+	if (P == TEXT("gore")) { return MakeShared<FJsonValueString>(FVerseAppSettings::GoreToString(S.Gore)); }
+	if (P == TEXT("reduced_motion")) { return MakeShared<FJsonValueBoolean>(S.bReducedMotion); }
+	if (P == TEXT("return_key")) { return MakeShared<FJsonValueString>(S.ReturnKey.GetFName().ToString()); }
+	if (P == TEXT("ui_sound")) { return MakeShared<FJsonValueBoolean>(S.bUiSound); }
+	if (P == TEXT("level_sound")) { return MakeShared<FJsonValueBoolean>(S.bLevelSound); }
+	if (P == TEXT("view.volume")) { return MakeShared<FJsonValueNumber>(S.Volume); }
+	if (P == TEXT("view.sensitivity")) { return MakeShared<FJsonValueNumber>(S.Sensitivity); }
+	if (P == TEXT("view.invert_y")) { return MakeShared<FJsonValueBoolean>(S.bInvertY); }
+	if (P == TEXT("view.fov_first")) { return MakeShared<FJsonValueNumber>(S.FovFirst); }
+	if (P == TEXT("view.fov_third")) { return MakeShared<FJsonValueNumber>(S.FovThird); }
+	if (P == TEXT("view.mode")) { return MakeShared<FJsonValueString>(S.ViewMode); }
+	return Def->Default;
+}
+
+bool UVerseUiSubsystem::GetGameBool(const FString& Id) const
+{
+	const TSharedPtr<FJsonValue> V = GetGameSetting(Id);
+	return V.IsValid() && V->Type == EJson::Boolean && V->AsBool();
+}
+
+double UVerseUiSubsystem::GetGameNumber(const FString& Id) const
+{
+	const TSharedPtr<FJsonValue> V = GetGameSetting(Id);
+	return V.IsValid() && V->Type == EJson::Number ? V->AsNumber() : 0.0;
+}
+
+FString UVerseUiSubsystem::GetGameString(const FString& Id) const
+{
+	const TSharedPtr<FJsonValue> V = GetGameSetting(Id);
+	return V.IsValid() && V->Type == EJson::String ? V->AsString() : FString();
+}
+
+bool UVerseUiSubsystem::SetGameSetting(const FString& Id, const TSharedPtr<FJsonValue>& Value)
+{
+	const FVerseGameSettingsCatalogue& Catalogue = FVerseGameSettingsCatalogue::Get();
+	const FVerseGameSettingDef* Def = Catalogue.Find(Id);
+	TSharedPtr<FJsonValue> Checked;
+	if (!Def || !Def->Check(Value, Checked))
+	{
+		return false;
+	}
+	FVerseAppSettings Next = AppSettings;
+	if (!Def->Path.IsEmpty())
+	{
+		// {"view": {"volume": 0.4}} for view.volume, then the usual parser.
+		TArray<FString> Parts;
+		Def->Path.ParseIntoArray(Parts, TEXT("."));
+		TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
+		TSharedRef<FJsonObject> Leaf = Root;
+		for (int32 I = 0; I + 1 < Parts.Num(); ++I)
+		{
+			TSharedRef<FJsonObject> Child = MakeShared<FJsonObject>();
+			Leaf->SetObjectField(Parts[I], Child);
+			Leaf = Child;
+		}
+		Leaf->SetField(Parts.Last(), Checked);
+		Next.ApplyJson(Root);
+	}
+	else
+	{
+		Next.Game.Set(Id, Checked);
+		// The page's preset rule: a level sets every quality group, one group turns it custom.
+		if (Id == PresetId)
+		{
+			const FString Level = Checked->AsString();
+			if (FVerseGameSettings::QualityIndex(Level) >= 0)
+			{
+				for (const FString& Group : Catalogue.GetPresetGroups())
+				{
+					Next.Game.SetString(Group, Level);
+				}
+			}
+		}
+		else if (Def->bPresetGroup)
+		{
+			Next.Game.SetString(PresetId, TEXT("custom"));
+		}
+	}
+	SetAppSettings(Next);
+	return true;
+}
+
+void UVerseUiSubsystem::LoadSettingsCache()
+{
+	FVerseGameSettings& Game = AppSettings.Game;
+	TSharedPtr<FJsonObject> Cached;
+	if (!UserSettings->GameSettings.IsEmpty()
+		&& FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(UserSettings->GameSettings), Cached) && Cached.IsValid())
+	{
+		Game.ApplyJson(Cached);
+		return;
+	}
+	// First start with the catalogue: carry the Unreal-only settings of before over.
+	Game.SetNumber(TEXT("controls.fov_duel"), UserSettings->DuelFov);
+	Game.SetNumber(TEXT("access.text_scale"), UserSettings->TextScale);
+	Game.SetString(TierId, UserSettings->LastTier.ToString());
+	if (UserSettings->Scalability >= 0)
+	{
+		const FString Level = FVerseGameSettings::QualityName(UserSettings->Scalability);
+		Game.SetString(PresetId, Level);
+		for (const FString& Group : FVerseGameSettingsCatalogue::Get().GetPresetGroups())
+		{
+			Game.SetString(Group, Level);
+		}
+	}
+	for (const FVerseKeyBinding& Binding : UserSettings->KeyBindings)
+	{
+		Game.SetString(TEXT("keybinds.") + Binding.Action.ToString(), Binding.Key.GetFName().ToString());
+	}
+}
+
+void UVerseUiSubsystem::SaveSettingsCache()
+{
+	if (!UserSettings)
+	{
+		return;
+	}
+	const FVerseGameSettings& Game = AppSettings.Game;
+	const FString Json = CondensedJson(Game.ToJson());
+	const float DuelFov = float(Game.GetNumber(TEXT("controls.fov_duel")));
+	const int32 Level = FVerseGameSettings::QualityIndex(Game.GetString(PresetId));
+	const float TextScale = float(Game.GetNumber(TEXT("access.text_scale")));
+	const FName Tier(*Game.GetString(TierId));
+	const TArray<FVerseKeyBinding> Bindings = KeyMap.GetBindings();
+	bool bSameBindings = Bindings.Num() == UserSettings->KeyBindings.Num();
+	for (int32 I = 0; bSameBindings && I < Bindings.Num(); ++I)
+	{
+		bSameBindings = Bindings[I].Action == UserSettings->KeyBindings[I].Action && Bindings[I].Key == UserSettings->KeyBindings[I].Key;
+	}
+	if (Json == UserSettings->GameSettings && bSameBindings && FMath::IsNearlyEqual(DuelFov, UserSettings->DuelFov)
+		&& Level == UserSettings->Scalability && FMath::IsNearlyEqual(TextScale, UserSettings->TextScale) && Tier == UserSettings->LastTier)
+	{
+		return;
+	}
+	UserSettings->GameSettings = Json;
+	UserSettings->DuelFov = DuelFov;
+	UserSettings->Scalability = Level;
+	UserSettings->TextScale = TextScale;
+	UserSettings->LastTier = Tier;
+	UserSettings->KeyBindings = Bindings;
+	UserSettings->SaveToDisk();
+}
+
 void UVerseUiSubsystem::PublishSettings()
 {
-	PublishCVar(TEXT("Verse.Settings.DuelFov"), FString::SanitizeFloat(UserSettings ? UserSettings->DuelFov : 100.f), TEXT("Duel horizontal FOV, 80-110 (VerseUI)"));
+	const FVerseGameSettings& Game = AppSettings.Game;
+
+	// Key bindings: settings.game keybinds.* and the return key.
+	TArray<FVerseKeyBinding> Bindings;
+	for (const FVerseKeyMap::FAction& Action : KeyMap.GetActions())
+	{
+		if (Action.Action == FVerseKeyMap::ReturnAction())
+		{
+			continue;
+		}
+		const FKey Key(*Game.GetString(TEXT("keybinds.") + Action.Action.ToString()));
+		if (Key.IsValid())
+		{
+			FVerseKeyBinding Binding;
+			Binding.Action = Action.Action;
+			Binding.Key = Key;
+			Bindings.Add(Binding);
+		}
+	}
+	KeyMap.SetBindings(Bindings);
+	KeyMap.SetReturnKey(AppSettings.ReturnKey);
+
+	// The armoury preselects the stored opponent tier.
+	const FName Tier(*Game.GetString(TierId));
+	if (Armoury.GetSelectedTier() != Tier)
+	{
+		Armoury.SelectTier(Tier);
+	}
+
+	PublishCVar(TEXT("Verse.Settings.DuelFov"), FString::SanitizeFloat(Game.GetNumber(TEXT("controls.fov_duel"))), TEXT("Duel horizontal FOV, 80-110 (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.FovThird"), FString::SanitizeFloat(AppSettings.FovThird), TEXT("Deck third-person FOV (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.FovFirst"), FString::SanitizeFloat(AppSettings.FovFirst), TEXT("Deck first-person FOV (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.Sensitivity"), FString::SanitizeFloat(AppSettings.Sensitivity), TEXT("Look sensitivity (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.InvertY"), AppSettings.bInvertY ? TEXT("1") : TEXT("0"), TEXT("Invert look Y (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.ReducedMotion"), AppSettings.bReducedMotion ? TEXT("1") : TEXT("0"), TEXT("Reduced motion (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.Volume"), FString::SanitizeFloat(AppSettings.Volume), TEXT("Master volume 0-1 (VerseUI)"));
+	// Every catalogue value, for the owners that cannot include VerseUI (input, camera, bot, crew).
+	for (const FVerseGameSettingDef& Def : FVerseGameSettingsCatalogue::Get().GetSettings())
+	{
+		PublishCVar(*(TEXT("Verse.Settings.Game.") + Def.Id), JsonText(GetGameSetting(Def.Id)),
+			TEXT("Verse game setting, settings.game (docs/verse/unreal/game-settings.md; VerseUI)"));
+	}
+	PublishCVar(TEXT("Verse.Settings.ViewMode"), AppSettings.ViewMode, TEXT("Deck view restored from the app config: third, first, overview (VerseUI)"));
+	// Z-14, R-12: the app-wide sound switch, the level bell switch and the volume reach the audio subsystem.
+	if (UWorld* World = GetWorld())
+	{
+		if (UVerseAudioSubsystem* Audio = World->GetSubsystem<UVerseAudioSubsystem>())
+		{
+			Audio->SetUiSoundEnabled(AppSettings.bUiSound);
+			Audio->SetLevelSoundEnabled(AppSettings.bLevelSound);
+			Audio->SetUserVolume(AppSettings.Volume);
+		}
+	}
 	WriteGoreSetting(GetWorld(), AppSettings.Gore);
-	WriteViewSettings(UserSettings ? UserSettings->DuelFov : 100.f, AppSettings);
+	WriteViewSettings(float(Game.GetNumber(TEXT("controls.fov_duel"))), AppSettings);
 	ApplyKeyBindingsToInput();
+
+	if (bSettingsLive)
+	{
+		ApplyGameSettings();
+	}
+	SaveSettingsCache();
+	OnSettingsApplied.Broadcast();
+}
+
+void UVerseUiSubsystem::ApplyGameSettings()
+{
+	const FVerseGameSettings& Game = AppSettings.Game;
+	UGameUserSettings* User = GEngine ? GEngine->GetGameUserSettings() : nullptr;
+	const FIntPoint Desktop = User ? User->GetDesktopResolution() : FIntPoint(1920, 1080);
+	GraphicsPlan = FVerseGraphicsPlan::Build(Game, Desktop);
+	ApplyPostProcess(GraphicsPlan);
+	ApplyGraphics(GraphicsPlan);
+	ApplyAudio();
+
+	// Colour-blind filter on the whole picture (the Slate renderer's colour vision correction).
+	// Never in the editor: it would tint the editor's own windows too.
+	if (!GIsEditor && !FApp::IsUnattended() && FSlateApplication::IsInitialized())
+	{
+		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
+		{
+			const FString Mode = Game.GetString(TEXT("access.colorblind"));
+			const EColorVisionDeficiency Type = Mode == TEXT("protanopia") ? EColorVisionDeficiency::Protanope
+				: Mode == TEXT("deuteranopia") ? EColorVisionDeficiency::Deuteranope
+				: Mode == TEXT("tritanopia") ? EColorVisionDeficiency::Tritanope
+				: EColorVisionDeficiency::NormalVision;
+			Renderer->SetColorVisionDeficiencyType(Type, FMath::RoundToInt(Game.GetNumber(TEXT("access.colorblind_strength"))), true, false);
+		}
+	}
+}
+
+void UVerseUiSubsystem::ApplyPostProcess(const FVerseGraphicsPlan& Plan)
+{
+	UWorld* World = GetWorld();
+	if (!World || !World->bIsWorldInitialized || !World->PersistentLevel || !World->IsGameWorld())
+	{
+		return;
+	}
+	if (!SettingsPostProcess)
+	{
+		FActorSpawnParameters Params;
+		Params.ObjectFlags |= RF_Transient;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		SettingsPostProcess = World->SpawnActor<APostProcessVolume>(Params);
+		if (!SettingsPostProcess)
+		{
+			return;
+		}
+		// Over every level volume, but it only carries the switches below.
+		SettingsPostProcess->bUnbound = true;
+		SettingsPostProcess->Priority = 10000.f;
+		SettingsPostProcess->BlendWeight = 1.f;
+	}
+	// A switch that is on leaves the level's own look; off overrides that effect to zero.
+	FPostProcessSettings& S = SettingsPostProcess->Settings;
+	S.bOverride_MotionBlurAmount = !Plan.bMotionBlur;
+	S.MotionBlurAmount = 0.f;
+	S.bOverride_DepthOfFieldFocalDistance = !Plan.bDepthOfField;
+	S.DepthOfFieldFocalDistance = 0.f;
+	S.bOverride_FilmGrainIntensity = !Plan.bFilmGrain;
+	S.FilmGrainIntensity = 0.f;
+	S.bOverride_SceneFringeIntensity = !Plan.bChromaticAberration;
+	S.SceneFringeIntensity = 0.f;
+	S.bOverride_LensFlareIntensity = !Plan.bLensFlares;
+	S.LensFlareIntensity = 0.f;
+	S.bOverride_BloomIntensity = !Plan.bBloom;
+	S.BloomIntensity = 0.f;
+}
+
+void UVerseUiSubsystem::ApplyGraphics(const FVerseGraphicsPlan& Plan)
+{
+	// Headless runs and tests compute the plan but leave the engine alone.
+	if (FApp::IsUnattended() || !FApp::CanEverRender() || !GEngine)
+	{
+		return;
+	}
+	FString Key;
+	for (const FVerseGameSettingDef& Def : FVerseGameSettingsCatalogue::Get().GetSettings())
+	{
+		if (Def.Tab == TEXT("graphics"))
+		{
+			Key += Def.Id + TEXT("=") + JsonText(AppSettings.Game.GetValue(Def.Id)) + TEXT(";");
+		}
+	}
+	if (Key == AppliedGraphicsKey)
+	{
+		return; // an audio or HUD change does not touch the display
+	}
+	AppliedGraphicsKey = Key;
+
+	UGameUserSettings* User = GEngine->GetGameUserSettings();
+	if (Plan.bAutoQuality)
+	{
+		if (User && !GIsEditor && !bBenchmarked)
+		{
+			// Auto measures this PC once per start (the engine's hardware benchmark).
+			User->RunHardwareBenchmark();
+			User->ApplyHardwareBenchmarkResults();
+			BenchmarkLevels = Scalability::GetQualityLevels();
+			bBenchmarked = true;
+		}
+		else if (GIsEditor)
+		{
+			ApplyScalabilityLevel(-1);
+		}
+		else if (User && !GIsEditor)
+		{
+			Scalability::SetQualityLevels(BenchmarkLevels, true);
+		}
+	}
+	else
+	{
+		Scalability::SetQualityLevels(Plan.Quality, true);
+	}
+
+	if (User && !GIsEditor)
+	{
+		// The display, and the user settings file the engine reads at its next start.
+		const Scalability::FQualityLevels Levels = Scalability::GetQualityLevels();
+		User->SetViewDistanceQuality(Levels.ViewDistanceQuality);
+		User->SetShadowQuality(Levels.ShadowQuality);
+		User->SetGlobalIlluminationQuality(Levels.GlobalIlluminationQuality);
+		User->SetReflectionQuality(Levels.ReflectionQuality);
+		User->SetTextureQuality(Levels.TextureQuality);
+		User->SetVisualEffectQuality(Levels.EffectsQuality);
+		User->SetPostProcessingQuality(Levels.PostProcessQuality);
+		User->SetFoliageQuality(Levels.FoliageQuality);
+		User->SetShadingQuality(Levels.ShadingQuality);
+		User->SetAntiAliasingQuality(Levels.AntiAliasingQuality);
+		User->SetResolutionScaleValueEx(Plan.ScreenPercentage);
+		User->SetFullscreenMode(Plan.WindowMode);
+		User->SetScreenResolution(Plan.Resolution);
+		User->SetFrameRateLimit(Plan.FrameLimit);
+		User->SetVSyncEnabled(Plan.bVSync);
+		// HDR needs a restart (catalogue restart flag): only the value at start applies.
+		if (!bHdrApplied && User->SupportsHDRDisplayOutput())
+		{
+			User->EnableHDRDisplayOutput(Plan.bHdr);
+		}
+		User->ApplySettings(false);
+	}
+	bHdrApplied = true;
+
+	SetEngineCVar(TEXT("r.AntiAliasingMethod"), float(Plan.AntiAliasingMethod));
+	SetEngineCVar(TEXT("r.ScreenPercentage"), Plan.ScreenPercentage);
+	SetEngineCVar(TEXT("r.Tonemapper.Sharpen"), Plan.Sharpen);
+	GEngine->DisplayGamma = Plan.DisplayGamma;
+}
+
+void UVerseUiSubsystem::ApplyAudio()
+{
+	UVerseAudioSubsystem* Audio = UVerseAudioSubsystem::Get(this);
+	if (!Audio)
+	{
+		return;
+	}
+	const FVerseAudioPlan Plan = FVerseAudioPlan::Build(AppSettings.Game, AppSettings.bUiSound);
+	Audio->SetUserVolume(AppSettings.Volume);
+	Audio->SetUserBusGains(Plan.BusGain);
+	if (!Plan.bMuteUnfocused && bBackgroundMuted)
+	{
+		bBackgroundMuted = false;
+		Audio->SetBackgroundMuted(false);
+	}
 }
 
 int32 UVerseUiSubsystem::ApplyKeyBindingsToInput()
@@ -1060,17 +1500,18 @@ int32 UVerseUiSubsystem::ApplyKeyBindingsToInput()
 
 void UVerseUiSubsystem::StartDuelFromArmoury()
 {
-	UserSettings->LastTier = Armoury.GetSelectedTier();
-	UserSettings->SaveToDisk();
+	// The chosen tier is settings.game gameplay.bot_tier (the app keeps it, the ini caches it).
+	const FName Tier = Armoury.GetSelectedTier();
+	SetGameSetting(TierId, MakeShared<FJsonValueString>(Tier.ToString()));
 	Session.Reset();
-	GamePort->StartDuel(Armoury.GetSelectedTier());
+	GamePort->StartDuel(Tier);
 	ShowScreen(EVerseUiScreen::None);
 }
 
 void UVerseUiSubsystem::QuickStartDuel()
 {
 	Session.Reset();
-	GamePort->StartDuel(UserSettings->LastTier);
+	GamePort->StartDuel(FName(*AppSettings.Game.GetString(TierId)));
 	ShowScreen(EVerseUiScreen::None);
 }
 
@@ -1143,6 +1584,12 @@ bool UVerseUiSubsystem::HandleKey(const FKey& Key)
 		ReturnToApp(TEXT("return_key"));
 		return true;
 	case EVerseUiCommand::EscMenu:
+		// On a deck, Escape first ends mouse look, then closes the crew card (parity K-05); only
+		// with nothing of the deck's open does it reach the menu.
+		if (Screen == EVerseUiScreen::None && UVerseDeckControlComponent::TryEscape(GetWorld()))
+		{
+			return true;
+		}
 		ShowScreen(Screen == EVerseUiScreen::None ? EVerseUiScreen::EscMenu
 			: Screen == EVerseUiScreen::Settings ? EVerseUiScreen::EscMenu
 			: EVerseUiScreen::None);

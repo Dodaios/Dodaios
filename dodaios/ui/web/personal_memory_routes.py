@@ -50,6 +50,12 @@ class PinBody(BaseModel):
     pinned: bool = True
 
 
+class PauseBody(BaseModel):
+    #: Minutes to pause; None with ``forever`` false resumes learning.
+    minutes: int | None = Field(default=None, ge=1, le=60 * 24 * 365)
+    forever: bool = False
+
+
 def _vault() -> Any:
     from dodaios.memory.vault.runtime import active
 
@@ -224,6 +230,37 @@ def history(memory_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="no such memory")
     now = vault.now()
     return {"versions": [_row(m, now) for m in versions]}
+
+
+@router.get("/upcoming")
+def upcoming(days: int = Query(default=14, ge=1, le=365)) -> dict[str, Any]:
+    """Memories that fall due soon: plans, deadlines, appointments (overdue first)."""
+    vault = _vault()
+    now = vault.now()
+    return {"items": [_row(m, now) for m in vault.upcoming(days=days)]}
+
+
+@router.get("/pause")
+def pause_state() -> dict[str, Any]:
+    until = _vault().learning_paused_until()
+    return {"paused": until is not None, "until": until}
+
+
+@router.put("/pause")
+def pause(body: PauseBody) -> dict[str, Any]:
+    """Pause background learning for a while, for good, or resume it."""
+    from datetime import datetime, timedelta
+
+    vault = _vault()
+    if body.forever:
+        vault.pause_learning("forever")
+    elif body.minutes:
+        end = datetime.fromisoformat(vault.now()) + timedelta(minutes=body.minutes)
+        vault.pause_learning(end.isoformat(timespec="seconds"))
+    else:
+        vault.pause_learning(None)
+    until = vault.learning_paused_until()
+    return {"paused": until is not None, "until": until}
 
 
 @router.get("/activity")

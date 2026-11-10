@@ -149,6 +149,7 @@ class SubscriptionAuth:
         self._last_token = ""
         self._failed_refresh = ""
         self._remote_account_id = ""
+        self._plan = ""
         self._refreshed_at = 0.0
         self._closing = False
         self._credential_tasks: set[asyncio.Task[SubscriptionCredentials]] = set()
@@ -182,6 +183,13 @@ class SubscriptionAuth:
             "connected": False,
             "reason": "",
             "voice_verified": False,
+            # What the last call start proved: "ready", "unavailable" or
+            # "unverified". Signing in alone never verifies voice.
+            "voice_status": "unavailable",
+            "voice_code": "",
+            "voice_reason": "",
+            # The plan the login names for itself; shown, never a gate.
+            "plan": "",
         }
         try:
             account = self._selected_account()
@@ -196,10 +204,54 @@ class SubscriptionAuth:
             result["connected"] = bool(credentials) and (not _needs_refresh(data) or bool(refresh))
             if not result["connected"]:
                 result["reason"] = "The ChatGPT login expired. Sign in again in Agent accounts."
+            else:
+                result.update(self._voice_status(account.id, credentials))
         except SubscriptionAuthError as exc:
             log.debug("ChatGPT subscription readiness unavailable (%s).", exc.code)
             result["reason"] = str(exc)
         return result
+
+    @staticmethod
+    def _voice_status(account_id: str, credentials: SubscriptionCredentials) -> dict[str, Any]:
+        """Explain the last call start for exactly this login and plan."""
+        from dodaios.live import subscription_voice_status as voice_status
+        from dodaios.plugins.realtime.openai_subscription_live import static_code_message
+
+        code = voice_status.read(
+            account_id, voice_status.identity(credentials.account_id, credentials.plan)
+        )
+        plan = credentials.plan.strip().lower()
+        plan = plan if len(plan) <= 32 and plan.replace("_", "").replace("-", "").isalnum() else ""
+        if code == "ready":
+            return {"voice_verified": True, "voice_status": "ready", "plan": plan}
+        if code:
+            return {
+                "voice_status": "unavailable",
+                "voice_code": code,
+                "voice_reason": static_code_message(code, credentials.plan),
+                "plan": plan,
+            }
+        return {"voice_status": "unverified", "plan": plan}
+
+    def record_voice_outcome(self, code: str) -> None:
+        """Remember what a call start proved about the login it actually used.
+
+        Only a start that loaded this login can say anything about it; an
+        outcome before that is not recorded. Blocking file work: call it off
+        the event loop.
+        """
+        if not self._remote_account_id:
+            return
+        from dodaios.live import subscription_voice_status as voice_status
+
+        try:
+            voice_status.record(
+                str(self._selected_account().id),
+                voice_status.identity(self._remote_account_id, self._plan),
+                code,
+            )
+        except SubscriptionAuthError:
+            log.debug("Subscription voice outcome had no account to describe.")
 
     async def credentials(self, *, force_refresh: bool = False) -> SubscriptionCredentials:
         if self._closing:
@@ -229,6 +281,7 @@ class SubscriptionAuth:
                 "The selected ChatGPT account changed. Start a new voice call to use it."
             )
         self._remote_account_id = credentials.account_id
+        self._plan = credentials.plan
         return credentials
 
     def _load_credentials(self, force_refresh: bool) -> SubscriptionCredentials:

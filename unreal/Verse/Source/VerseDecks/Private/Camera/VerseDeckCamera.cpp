@@ -1,6 +1,7 @@
 #include "Camera/VerseDeckCamera.h"
 
 #include "Camera/CameraComponent.h"
+#include "Commander/VerseDeckCommander.h"
 #include "Dom/JsonObject.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
@@ -111,7 +112,9 @@ bool AVerseDeckCamera::CommanderPose(FVerseRigBody& Out) const
 {
 	const UWorld* World = GetWorld();
 	const APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
-	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	// The deck commander when one walks the deck (stream S5), else the controller's pawn.
+	const AVerseDeckCommander* Commander = AVerseDeckCommander::Find(World);
+	const APawn* Pawn = Commander && !Commander->IsHidden() ? static_cast<const APawn*>(Commander) : (Controller ? Controller->GetPawn() : nullptr);
 	if (Pawn == nullptr)
 	{
 		return false;
@@ -136,6 +139,10 @@ TOptional<double> AVerseDeckCamera::Trace(const FVector& From, const FVector& To
 	if (const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr)
 	{
 		Params.AddIgnoredActor(Pawn);
+	}
+	if (const AVerseDeckCommander* Commander = AVerseDeckCommander::Find(World))
+	{
+		Params.AddIgnoredActor(Commander);
 	}
 	FHitResult Hit;
 	if (World->LineTraceSingleByChannel(Hit, From, To, ECC_Camera, Params))

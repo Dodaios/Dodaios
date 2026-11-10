@@ -22,7 +22,7 @@ def _manager(*, cache_optimized: bool) -> BrainManager:
     m._people = None
     m._core_memory = None
     m._system_prompt_extra = "ROUTER DISCIPLINE BLOCK"
-    m._wiki_context_suffix = _WIKI
+    m._memory_context_suffix = _WIKI
     m._reply_language = "auto"
     cfg = load_config()
     cfg.performance.cache_optimized_prompt = cache_optimized
@@ -42,7 +42,7 @@ def test_system_prompt_byte_stable_across_wiki_changes() -> None:
     # The caching guarantee: different per-turn context -> identical system prompt.
     m = _manager(cache_optimized=True)
     first = m._build_system_prompt()
-    m._wiki_context_suffix = "WIKI_CONTEXT_MARKER: something else entirely."
+    m._memory_context_suffix = "WIKI_CONTEXT_MARKER: something else entirely."
     second = m._build_system_prompt()
     assert first == second
 

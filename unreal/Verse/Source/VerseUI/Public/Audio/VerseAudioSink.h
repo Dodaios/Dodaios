@@ -46,6 +46,8 @@ public:
 	virtual void SetVoiceOcclusion(int32 Handle, float Gain, float LowpassHz) = 0;
 	/** Linear gain of the whole Verse (master gain x user volume x mute). */
 	virtual void SetMasterVolume(float Volume) = 0;
+	/** The person's gain of one bus (settings.game audio volumes), on its submix; 1 = as mixed. */
+	virtual void SetBusVolume(EVerseAudioBus Bus, float Volume) {}
 	/** Route a sound to its bus submix (a child of the Verse master submix). */
 	virtual void Route(USoundBase* Sound, EVerseAudioBus Bus) = 0;
 	virtual void Shutdown() = 0;

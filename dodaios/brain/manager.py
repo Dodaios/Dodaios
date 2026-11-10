@@ -149,7 +149,6 @@ from .voice_command_gate import match_voice_command
 
 if TYPE_CHECKING:
     from dodaios.brain.evidence_gate import EvidenceVerdict
-    from dodaios.brain.wiki_context import WikiContextInjector
     from dodaios.control.cost import CostMeter as CostMeterLike
     from dodaios.voice.contextual_readback import ReadbackComposer
 
@@ -292,6 +291,7 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "gemini": "Google Gemini",
     "antigravity": "Google Antigravity (Gemini)",
     "grok-build": "Grok Build (xAI subscription)",
+    "opencode": "OpenCode",
 }
 
 
@@ -967,7 +967,7 @@ _DETERMINISTIC_WRITE_TOOL_NAMES: frozenset[str] = frozenset({
     # NOT the hyphenated entry-point names. "update-profile" (the ep name)
     # sat here since introduction, so the signalless gate never actually
     # stripped update_profile (found in the 2026-07-06 pipeline audit).
-    "contact-upsert", "update_profile", "wiki-ingest", "google_calendar",
+    "contact-upsert", "update_profile", "remember", "google_calendar",
     "call-contact",
 })
 
@@ -2406,7 +2406,6 @@ class BrainManager:
         people: PersonStore | None = None,
         curator: Curator | None = None,
         cost_meter: "CostMeterLike | None" = None,  # noqa: UP037
-        wiki_injector: "WikiContextInjector | None" = None,  # noqa: UP037
         contacts: Any = None,
         readback_composer: "ReadbackComposer | None" = None,  # noqa: UP037
     ) -> None:
@@ -2473,13 +2472,9 @@ class BrainManager:
         # for the NEXT real turn (a drop never triggers a turn). See
         # add_dropped_context / generate. Dropped TEXT goes into _history.
         self._pending_drop_images: tuple[ImageBlock, ...] = ()
-        # B5 Agent C: wiki context injector.  None = no-op (Agent B not merged
-        # yet, or [wiki_context].enabled = false).  Set by factory.py for the
-        # router tier only; sub-tiers never get wiki injection.
-        self._wiki_injector: WikiContextInjector | None = wiki_injector
-        # Per-turn wiki context suffix; set in generate() and consumed by
-        # _build_system_prompt().  Reset to "" after each turn.
-        self._wiki_context_suffix: str = ""
+        # Per-turn memory recall (ADR-0044): set in generate(), consumed by the
+        # prompt builders, reset at the end of every turn.
+        self._memory_context_suffix: str = ""
         # Per-turn detected language (de/en/es/pt or "" when ambiguous/pinned),
         # set at the top of generate(); consumed by _reply_language_directive()
         # in auto mode to hard-pin the turn's language so a tool-synthesis turn
@@ -3482,13 +3477,9 @@ class BrainManager:
         """
         base = self._build_system_prompt()
         prompt = base
-        if self._wiki_injector is not None:
-            try:
-                prompt = await self._wiki_injector.maybe_inject(
-                    user_text=user_text, system_prompt=base
-                )
-            except Exception:  # noqa: BLE001 — the layers without the wiki are still Jarvis
-                log.debug("render_surface_prompt: wiki context skipped", exc_info=True)
+        recalled = await self._vault_recall(user_text)
+        if recalled:
+            prompt = f"{base}\n\n{recalled}"
         try:
             turn_context = self._build_turn_context()
         except Exception:  # noqa: BLE001 — the context block is a nicety
@@ -4012,23 +4003,6 @@ class BrainManager:
             except Exception:  # noqa: BLE001
                 pass
 
-        # Ambient personal knowledge: the standing identity card. A
-        # precomputed, deterministic distillation of the user's own profile
-        # page + core memory — no model call, hard-capped, and rebuilt only
-        # when its sources change, so it stays in the CACHED prefix in both
-        # prompt layouts (unlike the per-turn wiki snippets below, which move
-        # to the turn context in cache-optimized mode). Absent profile =
-        # empty string = no block. Defensive: ambient knowledge must never be
-        # able to break a prompt build.
-        try:
-            from dodaios.brain.identity_card import identity_card_block
-
-            _identity_block = identity_card_block(getattr(self, "_config", None))
-            if _identity_block:
-                parts.append(_identity_block)
-        except Exception:  # noqa: BLE001
-            pass
-
         if self._core_memory is not None:
             # Mandatory: re-read BEFORE rendering. Otherwise the LLM only sees
             # facts that existed at init time — UI additions and remember-tool
@@ -4144,14 +4118,10 @@ class BrainManager:
             if upcoming:
                 parts.append(upcoming)
 
-        # B5 Agent C: per-turn wiki context suffix.  Set by generate() via
-        # maybe_inject() just before the first provider call, consumed here,
-        # and reset to "" in the finally-block of generate().  Empty string
-        # = no injection (no-op path, search returned nothing, or timed out).
-        # Wave 2 (omni-latency): wiki context also moves to the per-turn user
-        # message in cache-optimized mode (keeps the cached system prefix stable).
-        if self._wiki_context_suffix and not self._cache_optimized():
-            parts.append(self._wiki_context_suffix)
+        # Per-turn memory recall rides on the user message in cache-optimized
+        # mode (keeps the cached system prefix stable), here otherwise.
+        if self._memory_context_suffix and not self._cache_optimized():
+            parts.append(self._memory_context_suffix)
 
         # Agentic IDE: while the user has the focused coding mode ON, this turn
         # is answered inside their open workspace — the folder, the codebase
@@ -4287,8 +4257,8 @@ class BrainManager:
         private = _TURN_OVERRIDE.get()
         if private is not None and private.tool_context.get("tool_origin") == "society":
             return "\n\n".join(parts)
-        if self._wiki_context_suffix:
-            parts.append(self._wiki_context_suffix)
+        if self._memory_context_suffix:
+            parts.append(self._memory_context_suffix)
         upcoming = self._upcoming_block()
         if upcoming:
             parts.append(upcoming)
@@ -9240,219 +9210,6 @@ class BrainManager:
                 parts.append(f"{role}: {value.strip()}")
         return "\n".join(parts) or None
 
-    async def _run_wiki_ingest_fast_path(
-        self,
-        user_text: str,
-        *,
-        trace_id: UUID | None = None,
-        use_history: bool = True,
-    ) -> str | None:
-        """Deterministic explicit wiki-write path (spec A1-A3).
-
-        Explicit "write this to the wiki" commands must not depend on the
-        router LLM picking ``wiki-ingest`` (fresh-machine forensics Bug
-        12/18). Mirrors the Computer-Use offload: immediate localized
-        progress ack, background ingest, completion announcement AFTER the
-        write — the success phrase is generated from the tool result, so
-        it can never precede (or contradict) the file on disk.
-        """
-        from dodaios.memory.wiki.intent import match_wiki_intent
-
-        if self._tool_executor is None:
-            return None
-        match = match_wiki_intent(
-            user_text,
-            prior_text=self._previous_user_turn_text(use_history=use_history),
-        )
-        if match is None:
-            return None
-        tool = self._tools.get("wiki-ingest")
-        if tool is None:
-            return None
-        lang = self._direct_ack_language(user_text)
-
-        content = match.content
-        if content is None:
-            content = self._last_exchange_text()
-        if content is None:
-            content = await self._persisted_session_exchange_text()
-        if not content or len(content.strip()) < 12:
-            return await render_readback(
-                getattr(self, "_readback_composer", None),
-                instruction=(
-                    "The user asked to write something to the wiki but no "
-                    "content could be determined; ask them to repeat it "
-                    "with the content."
-                ),
-                language=lang,
-                canned=lambda: action_phrase("wiki_nothing_to_save", lang),
-            )
-
-        tid = trace_id or uuid4()
-        bg_tasks = getattr(self, "_cu_background_tasks", None)
-        if bg_tasks is None:
-            bg_tasks = set()
-            self._cu_background_tasks = bg_tasks
-        task = asyncio.create_task(
-            self._run_wiki_ingest_background(
-                tool=tool,
-                text=content,
-                user_text=user_text,
-                trace_id=tid,
-                lang=lang,
-            ),
-            name="wiki-ingest-background",
-        )
-        # Keep a strong reference so the task is not garbage-collected
-        # mid-flight, and drop it on completion (same pattern as the
-        # Computer-Use offload above — one shared retention set).
-        bg_tasks.add(task)
-        task.add_done_callback(bg_tasks.discard)
-        return await render_readback(
-            getattr(self, "_readback_composer", None),
-            instruction=(
-                "Briefly acknowledge that you are writing this to the wiki "
-                "right now. Do NOT claim it is already saved."
-            ),
-            language=lang,
-            canned=lambda: action_phrase("wiki_saving", lang),
-            in_progress=True,
-        )
-
-    @staticmethod
-    def _short_wiki_failure_reason(diag: str | None) -> str:
-        """Distil a wiki-ingest failure diagnostic into a short spoken cause.
-
-        Keeps only the first line/sentence, strips a bare ``exit N``-style
-        opaque token (a raw exit code must never be spoken — mirror of
-        ``cu_failure_readback``'s guard), and caps the length so the failure
-        phrase stays one short clause. Returns ``""`` when nothing
-        presentable remains, in which case the caller falls back to the
-        reason-less ``wiki_save_failed`` phrase.
-        """
-        raw = (diag or "").strip()
-        if not raw:
-            return ""
-        # First line, then the first sentence within that line.
-        first_line = raw.splitlines()[0].strip()
-        m = re.match(r"^(.*?[.!?])(?:\s|$)", first_line)
-        reason = (m.group(1) if m else first_line).strip()
-        # Strip a bare "exit N" opaque token (optionally bracketed) — never
-        # speak a raw exit code.
-        reason = re.sub(
-            r"\(?\s*exit\s*\d+\s*\)?", "", reason, flags=re.IGNORECASE
-        ).strip(" .,:;-")
-        if len(reason) > 80:
-            reason = reason[:80].rstrip()
-        return reason
-
-    async def _run_wiki_ingest_background(
-        self,
-        *,
-        tool: Any,
-        text: str,
-        user_text: str,
-        trace_id: UUID,
-        lang: str,
-    ) -> None:
-        """Run wiki-ingest off the voice turn and announce the outcome.
-
-        Never raises; ALWAYS announces (zero silent drops) — mirrors
-        :meth:`_run_computer_use_background`. Nothing here is
-        user-cancellable, so there is no cancel branch.
-        """
-        out: str
-        diag: str | None = None
-        try:
-            result = await asyncio.wait_for(
-                self._tool_executor.execute(
-                    tool,
-                    {"text": text, "source": "voice:wiki-command"},
-                    user_utterance=user_text,
-                    trace_id=trace_id,
-                ),
-                timeout=90.0,
-            )
-            if result.success:
-                pages = ", ".join(
-                    line.strip(" -")
-                    for line in str(result.output or "").splitlines()
-                    if line.strip().startswith("- ") and line.strip().endswith(".md")
-                )
-                canned_ok = (
-                    action_phrase("wiki_saved_detail", lang, detail=pages)
-                    if pages else action_phrase("wiki_saved", lang)
-                )
-                out = await render_readback(
-                    getattr(self, "_readback_composer", None),
-                    instruction=(
-                        "The user's note was just written to their wiki; "
-                        "confirm naturally, keeping the page name if given."
-                    ),
-                    language=lang,
-                    canned=lambda: canned_ok,
-                    facts={"user_request": user_text, "result": canned_ok},
-                    honesty_bound=True,
-                    latency_budget_ms=2500,
-                )
-            else:
-                err = str(getattr(result, "error", "") or "").strip()
-                diag = err or "unknown"
-                # Keyless (canned) failure path is honest-with-cause: surface a
-                # short, speakable reason (mirrors wiki_saved_detail on success).
-                # The composer still gets the FULL diag via facts below.
-                short_reason = self._short_wiki_failure_reason(err)
-                canned_fail = (
-                    action_phrase("wiki_save_failed_reason", lang, reason=short_reason)
-                    if short_reason
-                    else action_phrase("wiki_save_failed", lang)
-                )
-                out = await render_readback(
-                    getattr(self, "_readback_composer", None),
-                    instruction=(
-                        "Writing the user's note to the wiki failed; tell "
-                        "them plainly, keep the reason simple, and mention "
-                        "they can check the wiki settings."
-                    ),
-                    language=lang,
-                    canned=lambda: canned_fail,
-                    facts={"user_request": user_text, "what_happened": diag},
-                    honesty_bound=False,
-                    latency_budget_ms=2500,
-                )
-        except TimeoutError:
-            diag = "wiki-ingest timeout after 90s"
-            out = await render_readback(
-                getattr(self, "_readback_composer", None),
-                instruction="Writing the note to the wiki took too long and was stopped.",
-                language=lang,
-                canned=lambda: action_phrase("wiki_save_failed", lang),
-                latency_budget_ms=2000,
-            )
-        except Exception as exc:  # noqa: BLE001 — background crash must not leak
-            log.error("wiki-ingest background task failed: %r", exc, exc_info=True)
-            diag = repr(exc)
-            out = await render_readback(
-                getattr(self, "_readback_composer", None),
-                instruction="Something went wrong while writing the note to the wiki.",
-                language=lang,
-                canned=lambda: action_phrase("wiki_save_failed", lang),
-                latency_budget_ms=2000,
-            )
-        self._append_cu_outcome_to_history(
-            user_request=user_text, outcome_text=out, diagnostic=diag,
-        )
-        try:
-            await self._bus.publish(AnnouncementRequested(
-                text=out,
-                priority="normal",
-                language=lang,
-                kind="completion",
-                detail=diag,
-            ))
-        except Exception:  # noqa: BLE001
-            log.debug("wiki-ingest completion announce failed", exc_info=True)
-
     async def _on_cu_tool_completion(self, event: Any) -> None:
         """Mirror trusted asynchronous outcomes into the live brain history.
 
@@ -10859,26 +10616,6 @@ class BrainManager:
             )
             self._skill_turn_match = None
 
-        # Wiki-write fast path (spec A1-A3): an explicit wiki target owns the
-        # turn before generic local-action, external-integration, or
-        # keyword-matched skill routing. The destination is authoritative;
-        # nouns inside the content (for example a trip to save as a fact) must
-        # never reinterpret the command as booking or dispatching that noun.
-        # Deterministic, model-independent, and confirm-after-write.
-        wiki_reply = await self._run_wiki_ingest_fast_path(
-            user_text,
-            trace_id=turn_trace_id,
-            use_history=use_history,
-        )
-        if wiki_reply is not None:
-            await self._record_response_side_effects(
-                user_text=user_text,
-                response_text=wiki_reply,
-                use_history=use_history,
-                trace_id=turn_trace_id,
-            )
-            return wiki_reply
-
         # Sibling of AD-S9: a plugin/marketplace skill that merely keyword-
         # matched an APP NAME ("Discord", "Spotify", "Slack") must NOT capture a
         # turn the deterministic desktop-control gate owns. Computer-Use is the
@@ -11523,35 +11260,6 @@ class BrainManager:
         #         "call_fail"}
         provider_errors: list[tuple[str, str, str, str]] = []
 
-        # B5 Agent C: wiki context injection — run once before the provider
-        # loop so all providers in the fallback chain see the same enriched
-        # system prompt.  The injector is a no-op when _wiki_injector is None
-        # (Agent B not merged, or [wiki_context].enabled = false).
-        # _wiki_context_suffix is reset in the finally block at the end of
-        # generate() to prevent stale context leaking into the next turn.
-        try:
-            if self._wiki_injector is not None and not (
-                turn_override is not None
-                and turn_override.tool_context.get("tool_origin") == "society"
-            ):
-                base_prompt = self._build_system_prompt()
-                injected_prompt = await self._wiki_injector.maybe_inject(
-                    user_text=user_text,
-                    system_prompt=base_prompt,
-                )
-                # Store the delta (only the appended wiki block, not the whole
-                # prompt) so _build_system_prompt() can append it once without
-                # duplicating the rest of the prompt.
-                if injected_prompt != base_prompt:
-                    # Extract only the appended wiki section
-                    self._wiki_context_suffix = injected_prompt[len(base_prompt):]
-                else:
-                    self._wiki_context_suffix = ""
-        except Exception:  # noqa: BLE001
-            # Any unexpected error in the injector must never crash a voice turn.
-            log.warning("WikiContextInjector raised unexpectedly — skipping", exc_info=True)
-            self._wiki_context_suffix = ""
-
         # Personal memory vault (ADR-0044): memories that match this message and
         # are not in the always-on block ride along in the same per-turn slot.
         if not (
@@ -11560,8 +11268,8 @@ class BrainManager:
         ):
             recalled = await self._vault_recall(user_text)
             if recalled:
-                self._wiki_context_suffix = "\n\n".join(
-                    p for p in (self._wiki_context_suffix.strip(), recalled) if p
+                self._memory_context_suffix = "\n\n".join(
+                    p for p in (self._memory_context_suffix.strip(), recalled) if p
                 )
 
         # Wave 2 (omni-latency): assemble the per-turn dynamic context (date +
@@ -12226,7 +11934,7 @@ class BrainManager:
         # (JarvisAgentAnnouncement, etc.).
         # B5 Agent C: reset per-turn wiki suffix regardless of outcome so
         # stale context cannot leak into the next voice turn.
-        self._wiki_context_suffix = ""
+        self._memory_context_suffix = ""
 
         if screen_context.has_image and not vision_capable_seen:
             from dodaios.screen_context.intent import (  # noqa: PLC0415

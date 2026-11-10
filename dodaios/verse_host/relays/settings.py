@@ -1,8 +1,9 @@
 """Locale, ``verse.*`` settings and the companion topic (BW10, BW12; contract 3.2, 12, 14).
 
-``welcome.locale`` carries the frontend i18n chunk ``ship`` for the
-person's language, read from the same JSON files the web app bundles, so a
-string change needs no Unreal rebuild. ``settings.set`` validates and writes
+``welcome.locale`` carries the frontend i18n chunks ``ship`` and
+``verse_settings`` (the in-game settings menu) for the person's language, read
+from the same JSON files the web app bundles, so a string change needs no
+Unreal rebuild. ``settings.set`` validates and writes
 the ``verse.*`` keys and answers with every setting; ``settings.changed``
 then reaches Verse and, through ``VerseSettingsChanged`` on the bus, the web
 UI. The ``companion`` topic sends the active pet and the overlay style, and
@@ -34,6 +35,8 @@ SHIP_DIR = (
     / "locales"
     / "ship"
 )
+# The in-game settings menu's labels (game_settings.CATALOGUE), shared with the app's page.
+SETTINGS_DIR = SHIP_DIR.parent / "verse_settings"
 
 
 def _flatten(prefix: str, node: Any, out: dict[str, str]) -> None:
@@ -58,11 +61,31 @@ def _chunk(lang: str, root: str) -> dict[str, str]:
     return out
 
 
-def locale_strings(lang: str, root: Path = SHIP_DIR) -> dict[str, str]:
-    """The ``ship`` chunk for ``lang`` over the English one (missing keys fall back)."""
+@lru_cache(maxsize=8)
+def _settings_chunk(lang: str, root: str) -> dict[str, str]:
+    """The ``verse_settings`` chunk (``<root>/<lang>.json``), keys ``verse_settings.*``."""
+    out: dict[str, str] = {}
+    path = Path(root) / f"{lang}.json"
+    if not path.is_file():
+        return out
+    try:
+        _flatten("", json.loads(path.read_text(encoding="utf-8")), out)
+    except (OSError, ValueError):
+        log.warning("verse locale: %s unreadable", path.name)
+    return out
+
+
+def locale_strings(
+    lang: str, root: Path = SHIP_DIR, settings_root: Path | None = SETTINGS_DIR
+) -> dict[str, str]:
+    """The ``ship`` and ``verse_settings`` chunks for ``lang`` over the English ones."""
     strings = dict(_chunk("en", str(root)))
+    if settings_root is not None:
+        strings.update(_settings_chunk("en", str(settings_root)))
     if lang != "en":
         strings.update(_chunk(lang, str(root)))
+        if settings_root is not None:
+            strings.update(_settings_chunk(lang, str(settings_root)))
     return strings
 
 

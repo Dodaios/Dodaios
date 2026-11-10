@@ -1,9 +1,12 @@
 #include "Balance/VerseModelController.h"
 
 #include "Balance/VerseHarnessPerceptFeed.h"
+#include "Bot/VerseBotTier.h"
+#include "Controller/VerseBotPilot.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
+#include "VerseCombatDriverComponent.h"
 
 AVerseModelController::AVerseModelController()
 {
@@ -64,6 +67,11 @@ void AVerseModelController::HandlePerceptFrame(AController* Observer, const FVer
 	if (APawn* Own = GetPawn())
 	{
 		ApplyInputToPawn(*this, *Own, Input);
+		// Buttons become shots, reloads, knife and gadgets through the primary module's combat driver.
+		if (UVerseCombatDriverComponent* Driver = UVerseCombatDriverComponent::FindOn(Own))
+		{
+			Driver->SetExternalFrame(Input);
+		}
 	}
 }
 
@@ -126,8 +134,34 @@ void AVerseModelController::SetBrain(FBrain InBrain)
 	Brain = InBrain ? MoveTemp(InBrain) : FBrain([](const FVersePerceptFrame&) { return FVerseInputFrame(); });
 }
 
+void AVerseModelController::UseBotBrain(UVerseBotTier* BrainTier, uint64 BrainSeed, bool bLearning)
+{
+	if (!BrainTier)
+	{
+		Pilot.Reset();
+		PilotTier = nullptr;
+		SetBrain(nullptr);
+		return;
+	}
+	PilotTier = BrainTier;
+	PilotSeed = BrainSeed;
+	bPilotLearning = bLearning;
+	Pilot = MakeShared<FVerseBotPilot>(*this);
+	Pilot->Reset(*PilotTier, PilotSeed, bPilotLearning);
+	TWeakPtr<FVerseBotPilot> Weak = Pilot;
+	SetBrain([Weak](const FVersePerceptFrame& Frame)
+	{
+		const TSharedPtr<FVerseBotPilot> Strong = Weak.Pin();
+		return Strong.IsValid() ? Strong->Think(Frame) : FVerseInputFrame();
+	});
+}
+
 void AVerseModelController::ResetMatchMemory()
 {
+	if (Pilot.IsValid() && PilotTier)
+	{
+		Pilot->Reset(*PilotTier, PilotSeed, bPilotLearning);
+	}
 	TrickState = FVerseTrickState();
 	Rng = FVerseRng(Seed, 0, EVerseRngSalt::Harness);
 	LastInput = FVerseInputFrame();
@@ -164,7 +198,9 @@ FVerseInputFrame AVerseModelController::Think(const FVersePerceptFrame& Percepts
 	bSawLastTick = bSees;
 
 	const FVerseInputFrame FromBrain = Brain(Percepts);
-	const FVerseInputFrame Limited = ApplyPersonLimits(Model, FromBrain, IsReacting(NowS), DeltaS);
+	// The bot brain waits its tier's reaction (the person's) itself; a second wait would double it.
+	const bool bReacting = !Pilot.IsValid() && IsReacting(NowS);
+	const FVerseInputFrame Limited = ApplyPersonLimits(Model, FromBrain, bReacting, DeltaS);
 	LastInput = FVerseTrickOverrides::Apply(TrickConfig, Percepts, Limited, TrickState, Rng, NowS);
 	LastInput.ServerTimeMs = Percepts.ServerTimeMs;
 	return LastInput;

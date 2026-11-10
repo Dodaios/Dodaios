@@ -159,7 +159,9 @@
       "quality.medium": "Medium",
       "reduced_motion": "Reduced motion",
       "text_size": "Text size",
-      "ui_sound": "Interface sounds"
+      "ui_sound": "Interface sounds",
+      "quality.custom": "Custom",
+      "render_tier": "Rendering now: {tier}"
     },
     "lift": {
       "title": "Lift",
@@ -403,6 +405,10 @@
         "prone": "Prone",
         "slide": "Sliding",
         "stand": "Standing"
+      },
+      "perf": {
+        "fps": "{fps} FPS",
+        "full": "{fps} FPS · {ms} ms"
       }
     },
     "item": {

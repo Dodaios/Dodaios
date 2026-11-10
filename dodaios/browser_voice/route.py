@@ -50,22 +50,28 @@ _USAGE_FALLBACK_DISABLED_DETAIL = (
     "The selected voice connection could not start. Check its connection and "
     "model settings. " + _USAGE_FALLBACK_DISABLED_NOTE
 )
+# No session could be built for the selected engine at all: its sign-in or key
+# is missing, or its plugin failed to load. The close reason alone ("realtime
+# access unavailable") told the person nothing they could act on.
+_SELECTED_VOICE_NOT_READY_DETAIL = (
+    "The selected voice connection is not set up on this installation. Open "
+    "API Keys > Live calls, check the sign-in or key, and save the voice "
+    "setup again. " + _USAGE_FALLBACK_DISABLED_NOTE
+)
 
 
 def _fallback_disabled_detail(error: BaseException | str | None) -> str:
     """The person-facing text when the selected live provider cannot start.
 
-    A classified subscription failure (plan not offered, reconnect needed,
-    allowance exhausted, ...) keeps its static message so the person learns
-    what to fix. Anything else gets the generic text: raw provider detail
-    never reaches the surface.
+    A classified failure (plan not offered, reconnect needed, allowance
+    exhausted, rejected key, no credit, unreachable network, ...) keeps its
+    static message so the person learns what to fix. Anything else gets the
+    generic text: raw provider detail never reaches the surface.
     """
     try:
-        from dodaios.plugins.realtime.openai_subscription_live import (
-            static_failure_message,
-        )
+        from dodaios.live.start_failure import start_failure_reason
 
-        reason = static_failure_message(error)
+        reason = start_failure_reason(error)
     except Exception:  # noqa: BLE001 - the generic text is always safe
         log.debug("browser_voice: failure classification unavailable", exc_info=True)
         reason = None
@@ -522,9 +528,17 @@ async def browser_voice_ws(ws: WebSocket) -> None:
         send_json=output.send_json,
     )
     if session is None:
+        fallback_disabled = not _automatic_usage_fallback_allowed(cfg)
+        if fallback_disabled:
+            try:
+                await _send_json(
+                    {"type": "provider_error", "error": _SELECTED_VOICE_NOT_READY_DETAIL}
+                )
+            except Exception:  # noqa: BLE001 - the close below still ends the call
+                log.debug("browser_voice: unavailable-engine notice not sent", exc_info=True)
         reason = (
             "realtime access unavailable"
-            if not _automatic_usage_fallback_allowed(cfg)
+            if fallback_disabled
             else _SPEECH_STACK_UNAVAILABLE_REASON
         )
         await ws.close(code=1011, reason=reason)
