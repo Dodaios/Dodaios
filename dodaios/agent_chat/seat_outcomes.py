@@ -86,7 +86,7 @@ def _observe(service: Any, session_id: str, event: dict[str, Any]) -> None:
     if failure.notify and session_id.startswith("society:"):
         try:
             loop = asyncio.get_running_loop()
-        except RuntimeError:
+        except RuntimeError:  # no running loop (sync caller): the record holds the facts
             return
         loop.create_task(_post_notice(session_id, session.provider, failure))
 

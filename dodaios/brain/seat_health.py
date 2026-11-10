@@ -298,7 +298,7 @@ class _Seat:
                 [float(r[0]), str(r[1])] for r in recent if isinstance(r, list) and len(r) == 2
             ] if isinstance(recent, list) else []
             return seat
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # a malformed persisted seat is dropped, never fatal
             return None
 
 
@@ -482,7 +482,7 @@ class SeatHealth:
         self._loaded = True
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8")) if self._path else {}
-        except FileNotFoundError:
+        except FileNotFoundError:  # no record yet: nothing has failed so far
             return
         except (OSError, ValueError):
             log.warning("seat health: unreadable record, starting empty")
