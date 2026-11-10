@@ -43,7 +43,7 @@ Receive = Callable[[], Awaitable[dict[str, Any]]]
 Send = Callable[[dict[str, Any]], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 CredentialValidator = Callable[[str], bool]
-AuthKind = Literal["control", "session", "open", "mcp", "gateway"]
+AuthKind = Literal["control", "session", "open", "mcp", "gateway", "mobile"]
 Origin = tuple[str, str, int | None]
 
 _BOOTSTRAP_TOKEN_LOCK = threading.Lock()
@@ -803,6 +803,8 @@ def _http_auth_exception(path: str, method: str) -> bool:
             and method == "POST"
         )
         or (path == "/api/computers/pairing/enter" and method in {"GET", "POST"})
+        # A phone spends a one-use pairing code inside the handler (mobile_routes).
+        or (path == "/api/mobile/pair/redeem" and method == "POST")
         or _is_static_request(path, method)
         or (path == "/api/health" and method == "GET")
         or (path == "/api/ui/shell-painted" and method == "POST")
@@ -914,6 +916,22 @@ class SurfaceSecurity:
             return False
         return gateway.verify(bearer) is not None
 
+    #: Where a paired phone's device token counts as a credential (and nowhere
+    #: else): the phone companion's own routes. It grants the lead conversation
+    #: on a phone, never the desktop settings, the Control API or a socket.
+    _MOBILE_APP_PREFIX: ClassVar[str] = "/api/mobile/app/"
+
+    def _mobile_token_accepted(self, scope: Scope, bearer: str) -> bool:
+        if scope.get("type") != "http":
+            return False
+        if not str(scope.get("path", "") or "").startswith(self._MOBILE_APP_PREFIX):
+            return False
+        try:
+            from dodaios.mobile.devices import device_token_valid
+        except Exception:  # noqa: BLE001 — no companion package → no such credential
+            return False
+        return device_token_valid(bearer)
+
     def _authenticate(self, scope: Scope) -> AuthKind | None:
         bearer_present, bearer = _presented_bearer(scope)
         if bearer_present:
@@ -930,6 +948,8 @@ class SurfaceSecurity:
                 return "mcp"
             if self._gateway_token_accepted(scope, bearer):
                 return "gateway"
+            if self._mobile_token_accepted(scope, bearer):
+                return "mobile"
             try:
                 return "session" if self._session_validator(bearer) else None
             except Exception:
