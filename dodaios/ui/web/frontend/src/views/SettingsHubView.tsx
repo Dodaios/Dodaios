@@ -81,6 +81,9 @@ const PetsTab = lazy(() =>
 const GamesTab = lazy(() =>
   import("@/views/VerseSettingsView").then((m) => ({ default: m.VerseSettingsView })),
 );
+const PhoneTab = lazy(() =>
+  import("@/views/PhoneView").then((m) => ({ default: m.PhoneView })),
+);
 const NotificationsTab = lazy(() =>
   import("@/views/NotificationsView").then((m) => ({ default: m.NotificationsView })),
 );
@@ -110,6 +113,7 @@ type HubNavId =
   | "socials"
   | "apikeys"
   | "computers"
+  | "phone"
   | "costs"
   | "feedback";
 
@@ -131,7 +135,7 @@ const HUB_NAV_GROUPS: readonly { labelKey: string; ids: readonly HubNavId[] }[] 
   },
   {
     labelKey: "settings_hub.group_system",
-    ids: ["computers", "apikeys"],
+    ids: ["computers", "phone", "apikeys"],
   },
   {
     labelKey: "settings_hub.group_activity",
@@ -147,6 +151,7 @@ const TAB_CONTENT: Record<HubNavId | "telephony-setup", LazyExoticComponent<Comp
   apikeys: ApiKeysTab,
   "telephony-setup": TelephonySetupTab,
   computers: ComputersTab,
+  phone: PhoneTab,
   appshots: AppshotsTab,
   shortcuts: ShortcutsTab,
   pets: PetsTab,
@@ -177,6 +182,8 @@ function resolveHubTab(active: string): { content: HubNavId | "telephony-setup";
       return { content: "telephony-setup", highlight: "apikeys" };
     case "computers":
       return { content: "computers", highlight: "computers" };
+    case "phone":
+      return { content: "phone", highlight: "phone" };
     case "appshots":
       return { content: "appshots", highlight: "appshots" };
     case "shortcuts":
