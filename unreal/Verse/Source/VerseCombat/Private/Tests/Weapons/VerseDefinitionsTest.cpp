@@ -136,7 +136,7 @@ bool FVerseDefinitionsStartValues::RunTest(const FString&)
 	TestEqual(TEXT("Graveline RPM"), G->RPM, 690.f);
 	TestEqual(TEXT("Graveline magazine"), G->MagazineSize, 30);
 	TestEqual(TEXT("Graveline base damage"), G->BaseDamage, 28.f);
-	TestEqual(TEXT("Graveline speed"), G->ProjectileSpeed, 300.f);
+	TestEqual(TEXT("Graveline muzzle velocity"), G->ProjectileSpeed, 880.f);
 	TestEqual(TEXT("Graveline power"), G->PenetrationPower, 100.f);
 	TestEqual(TEXT("Tallow RPM"), T->RPM, 380.f);
 	TestEqual(TEXT("Tallow fire mode"), T->FireMode, EVerseFireMode::Semi);
@@ -158,6 +158,49 @@ bool FVerseDefinitionsStartValues::RunTest(const FString&)
 	TestEqual(TEXT("Breach pawn radius"), C->PawnRadius, 3.f);
 	TestEqual(TEXT("Breach piece radius"), C->PieceBreachRadius, 150.f);
 	TestTrue(TEXT("Breach self damage"), C->bSelfDamage);
+	return true;
+}
+
+// Ballistics decision: real muzzle velocities per weapon class, tracers only on every Nth round and
+// on the last rounds of a magazine.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseDefinitionsBallistics, "Verse.Combat.Definitions.Ballistics", VERSE_WP02_TEST_FLAGS)
+bool FVerseDefinitionsBallistics::RunTest(const FString&)
+{
+	struct FWant
+	{
+		const TCHAR* Id;
+		float MinMps;
+		float MaxMps;
+	};
+	for (const FWant& Want : {FWant{TEXT("tallow"), 340.f, 420.f}, FWant{TEXT("skitter"), 380.f, 450.f},
+			 FWant{TEXT("graveline"), 840.f, 920.f}, FWant{TEXT("longsight"), 900.f, 1000.f}})
+	{
+		const UVerseWeaponDefinition* W = VerseWp02Test::Weapon(*this, Want.Id);
+		if (!W)
+		{
+			continue;
+		}
+		TestTrue(FString::Printf(TEXT("%s muzzle velocity %.0f m/s in [%.0f, %.0f]"), Want.Id, W->ProjectileSpeed, Want.MinMps, Want.MaxMps),
+			W->ProjectileSpeed >= Want.MinMps && W->ProjectileSpeed <= Want.MaxMps);
+	}
+	const UVerseWeaponDefinition* G = VerseWp02Test::Weapon(*this, TEXT("graveline"));
+	if (!G)
+	{
+		return false;
+	}
+	int32 Tracers = 0;
+	for (int32 Counter = 1; Counter <= 20; ++Counter)
+	{
+		Tracers += G->IsTracerRound(Counter, 20) ? 1 : 0;
+	}
+	TestEqual(TEXT("rifle: one tracer in four mid-magazine"), Tracers, 20 / G->TracerInterval);
+	TestFalse(TEXT("a ball round mid-magazine"), G->IsTracerRound(1, 20));
+	TestTrue(TEXT("the last rounds of a magazine are tracers"), G->IsTracerRound(1, 0) && G->IsTracerRound(1, G->TracerLastRounds - 1));
+	TestFalse(TEXT("unknown magazine: interval only"), G->IsTracerRound(1, -1));
+	if (const UVerseWeaponDefinition* T = VerseWp02Test::Weapon(*this, TEXT("tallow")))
+	{
+		TestFalse(TEXT("pistol: no tracer mid-magazine"), T->IsTracerRound(4, 10));
+	}
 	return true;
 }
 

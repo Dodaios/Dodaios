@@ -87,12 +87,12 @@ void UVerseProjectileManager::SpawnBoltFrom(const FVerseFireEvent& Fire, const U
 	Bolt.Shooter = Shooter;
 	Bolt.Position = Fire.Origin;
 	Bolt.Dir = FVector(Fire.Direction).GetSafeNormal(UE_SMALL_NUMBER, FVector::ForwardVector);
+	Bolt.Velocity = Bolt.Dir * (double(Weapon.ProjectileSpeed) * 100.0);
 	Bolt.Power = Weapon.PenetrationPower;
 
 	// The first step covers the shooter's latency (capped), against bodies rewound to the time the
 	// bolt was at each point of it: one tick-sized segment at a time.
 	const double Latency = FMath::Clamp(double(LatencyS), 0.0, double(MaxLatencyS));
-	const double Speed = Weapon.ProjectileSpeed * 100.0;
 	const double Clock = Now();
 	Bolt.Time = Clock - Latency;
 	double Remaining = Latency;
@@ -100,7 +100,7 @@ void UVerseProjectileManager::SpawnBoltFrom(const FVerseFireEvent& Fire, const U
 	{
 		const double Dt = FMath::Min(double(ServerStepS), Remaining);
 		const double PoseTime = Bolt.Time + Dt;
-		StepBolt(Bolt, Speed * Dt, PoseTime, Bolt.Time + Dt);
+		StepBolt(Bolt, Dt, PoseTime, Bolt.Time + Dt);
 		Remaining -= Dt;
 	}
 	if (Bolt.bAlive)
@@ -119,13 +119,12 @@ void UVerseProjectileManager::StepAll(float Dt, double InNow)
 		{
 			continue;
 		}
-		const UVerseWeaponDefinition* W = Bolt.Weapon.Get();
-		if (!W)
+		if (!Bolt.Weapon.IsValid())
 		{
 			Bolt.bAlive = false;
 			continue;
 		}
-		StepBolt(Bolt, W->ProjectileSpeed * 100.0 * Dt, -1.0, InNow);
+		StepBolt(Bolt, Dt, -1.0, InNow);
 	}
 	Bolts.RemoveAll([](const FVerseBolt& B) { return !B.bAlive; });
 	LastStepSeconds = FPlatformTime::Seconds() - T0;
@@ -153,7 +152,7 @@ void UVerseProjectileManager::Resolve(FVerseBolt& Bolt, EVerseShotResult Result,
 	OnBoltResolved.Broadcast(R);
 }
 
-void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double PoseTime, double EndTime)
+void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Dt, double PoseTime, double EndTime)
 {
 	const UVerseWeaponDefinition* W = Bolt.Weapon.Get();
 	if (!W)
@@ -162,16 +161,33 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 		return;
 	}
 	const double MaxRangeCm = double(W->MaxRange) * 100.0;
-	Len = FMath::Min(Len, MaxRangeCm - Bolt.Travelled);
-	if (Len <= 0.0)
+	if (Bolt.Velocity.IsNearlyZero())
+	{
+		Bolt.Velocity = Bolt.Dir * (double(W->ProjectileSpeed) * 100.0);
+	}
+	// One straight segment per step: the chord of the gravity arc over Dt (sub-millimetre off the arc).
+	const FVector Gravity(0.0, 0.0, -GravityCmS2);
+	FVector Chord = Bolt.Velocity * Dt + 0.5 * Gravity * Dt * Dt;
+	double Len = Chord.Size();
+	const double Left = MaxRangeCm - Bolt.Travelled;
+	if (Left <= 0.0 || Len <= UE_SMALL_NUMBER)
 	{
 		Resolve(Bolt, EVerseShotResult::Miss, EVerseHitZone::None, false, nullptr, Bolt.Position);
 		return;
 	}
+	double StepDt = Dt;
+	if (Len > Left)
+	{
+		const double Fraction = Left / Len;
+		StepDt = Dt * Fraction;
+		Chord *= Fraction;
+		Len = Left;
+	}
+	Bolt.Dir = Chord / Len;
 
 	AActor* Shooter = Bolt.Shooter.Get();
 	const FVector P0 = Bolt.Position;
-	const FVector P1 = P0 + Bolt.Dir * Len;
+	const FVector P1 = P0 + Chord;
 
 	// Hit bodies: rewound for the latency segments, current otherwise.
 	FVerseRewindHit Body;
@@ -364,6 +380,7 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Len, double Pose
 	}
 
 	Bolt.Position = P1;
+	Bolt.Velocity += Gravity * StepDt;
 	Bolt.Travelled += Len;
 	Bolt.Time = EndTime;
 	if (Bolt.Travelled >= MaxRangeCm - 0.01)

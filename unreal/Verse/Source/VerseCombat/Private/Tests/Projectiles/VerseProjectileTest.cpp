@@ -66,7 +66,7 @@ bool FVerseProjectileFlight::RunTest(const FString&)
 		Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(Origin, Dir, 1, W->WeaponId), *W, 0.f, nullptr);
 		TestEqual(TEXT("one bolt in flight"), Rig.Manager->NumActive(), 1);
 		const double Start = Rig.Now;
-		double MaxDrop = 0.0;
+		double MaxDropErr = 0.0;
 		int32 Ticks = 0;
 		double SpeedErr = 0.0;
 		while (Rig.Manager->NumActive() > 0 && Ticks < 10000)
@@ -79,14 +79,15 @@ bool FVerseProjectileFlight::RunTest(const FString&)
 				const FVerseBolt& B = Rig.Manager->GetBolts()[0];
 				const double Speed = FVector::Dist(Before, B.Position) / VerseWp02Test::Tick;
 				SpeedErr = FMath::Max(SpeedErr, FMath::Abs(Speed - W->ProjectileSpeed * 100.0) / (W->ProjectileSpeed * 100.0));
-				// Drop: distance of the bolt from the firing line.
-				const FVector Rel = B.Position - Origin;
-				MaxDrop = FMath::Max(MaxDrop, (Rel - Dir * FVector::DotProduct(Rel, Dir)).Size());
+				// Drop: the bullet follows the gravity arc (0.5 g t^2 below the firing line).
+				const double T = Rig.Now - Start;
+				const FVector Want = UVerseProjectileManager::BallisticPosition(Origin, Dir, W->ProjectileSpeed * 100.0, T);
+				MaxDropErr = FMath::Max(MaxDropErr, FVector::Dist(B.Position, Want));
 			}
 		}
 		const FString Id = W->WeaponId.ToString();
 		TestTrue(FString::Printf(TEXT("%s: speed within 0.5 %% (%.4f %%)"), *Id, SpeedErr * 100.0), SpeedErr <= 0.005);
-		TestTrue(FString::Printf(TEXT("%s: zero drop (%.6f cm)"), *Id, MaxDrop), MaxDrop < 0.01);
+		TestTrue(FString::Printf(TEXT("%s: on the gravity arc within 0.5 cm (%.4f cm)"), *Id, MaxDropErr), MaxDropErr < 0.5);
 		if (TestEqual(TEXT("resolved once"), Rig.Results.Num(), 1))
 		{
 			const double Range = W->MaxRange * 100.0;

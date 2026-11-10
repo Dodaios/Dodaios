@@ -106,7 +106,7 @@ public:
 	void PlayFoley(int32 PlayerId, EVerseFoley Foley, const FVector& Location);
 	void PlayEquip(int32 PlayerId, FName WeaponId);
 	void PlayKnifeSwing(int32 PlayerId, const FVector& Location);
-	/** A bolt hit world geometry that is no piece and no body. */
+	/** A bullet hit world geometry that is no piece and no body. */
 	void PlayImpact(int32 ShooterId, EVersePenetrationMaterial Material, const FVector& Location);
 	void StartDroneLoop(int32 DroneKey, bool bWelding, const FVector& Location);
 	void UpdateDroneLoop(int32 DroneKey, const FVector& Location);
@@ -138,7 +138,7 @@ private:
 		int32 SourceId = INDEX_NONE;
 		float Gain = 1.f;
 		float Loudness = 1.f;
-		/** Range instead of the cue's noise range (own bolt impacts). */
+		/** Range instead of the cue's noise range (own bullet impacts). */
 		float RangeOverrideM = 0.f;
 	};
 
@@ -178,6 +178,8 @@ private:
 	void ApplyMasterVolume();
 	void RouteCueSet();
 	FName WeaponCue(FName WeaponId, const TCHAR* Prefix, const TCHAR* Suffix) const;
+	/** Muzzle speed in m/s of the weapon's bullets: its definition's ProjectileSpeed, else Mix.BulletSpeedMps. */
+	float BulletSpeedFor(FName WeaponId) const;
 	const IVersePieceQuery& Pieces() const;
 
 	UPROPERTY(Transient)
@@ -201,6 +203,8 @@ private:
 	TArray<FPending> Pending;
 	/** Reload voice per player, stopped when the reload is cancelled. */
 	TMap<int32, int32> ReloadVoices;
+	/** Bullet speed per weapon id (m/s, 0 = no definition); a definition is looked up once, not per shot. */
+	mutable TMap<FName, float> BulletSpeedCache;
 
 	double Now = 0.0;
 	int32 NextHandle = 1;

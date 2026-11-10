@@ -121,7 +121,7 @@ struct VERSEUI_API FVerseAudioCue
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
 	FName NoiseTag;
 
-	/** Range for a spatial cue with no noise tag, and for the listener's own bolt impacts (shooter feedback). 0 = none. */
+	/** Range for a spatial cue with no noise tag, and for the listener's own bullet impacts (shooter feedback). 0 = none. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio", meta = (Units = "m"))
 	float RangeM = 0.f;
 
@@ -158,7 +158,7 @@ struct VERSEUI_API FVerseAudioMixSettings
 	FVerseAudioMixSettings();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mix")
-	float MasterGainDb = -7.7f;
+	float MasterGainDb = -5.7f;
 
 	/** Indexed by EVerseAudioBus. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mix")
@@ -192,12 +192,24 @@ struct VERSEUI_API FVerseAudioMixSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons", meta = (Units = "m"))
 	float ShotFarFullM = 35.f;
 
-	/** A bolt passing the listener closer than this plays a flyby at its closest point. */
+	/** A bullet passing the listener closer than this plays a flyby (crack and zip) at its closest point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons", meta = (Units = "m"))
 	float FlybyRadiusM = 3.5f;
 
+	/** Bullet speed for the flyby timing when the firing weapon has no definition (its ProjectileSpeed wins). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons", meta = (Units = "m/s"))
-	float BoltSpeedMps = 300.f;
+	float BulletSpeedMps = 880.f;
+
+	/** The spent casing (casing_<profile>) lands this long after the shot: a random time in [min, max]. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons", meta = (Units = "s"))
+	float CasingDelayMinS = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons", meta = (Units = "s"))
+	float CasingDelayMaxS = 0.55f;
+
+	/** The casing lands this far below the muzzle (the shooter's feet). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons", meta = (Units = "m"))
+	float CasingDropM = 1.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Destruction", meta = (Units = "s"))
 	float SettleDelayMinS = 0.6f;

@@ -1,6 +1,7 @@
 #include "Audio/VerseAudioSubsystem.h"
 
 #include "Audio/VerseAudioCueSet.h"
+#include "Combat/VerseWeaponDefinition.h"
 #include "Destruction/VerseDestructionInterfaces.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -16,6 +17,7 @@
 #include "Stubs/VerseNullStubs.h"
 #include "VerseEngineAudioSink.h"
 #include "VerseLog.h"
+#include "Weapons/VerseWeaponRegistry.h"
 
 namespace
 {
@@ -162,6 +164,7 @@ void UVerseAudioSubsystem::SetCueSet(UVerseAudioCueSet* InCueSet)
 		CueSet = NewObject<UVerseAudioCueSet>(this, NAME_None, RF_Transient); // no sounds; rules still apply
 	}
 	CueSet->RebuildIndex();
+	BulletSpeedCache.Reset();
 	Budget.Max = FMath::Max(1, CueSet->Mix.MaxVoices);
 	AttenuationCache.Reset();
 	RouteCueSet();
@@ -288,8 +291,9 @@ TArray<FName> UVerseAudioSubsystem::DuelCueIds(const TArray<FName>& WeaponProfil
 		Ids.Add(*FString::Printf(TEXT("rld_%s_tactical"), *P));
 		Ids.Add(*FString::Printf(TEXT("rld_%s_empty"), *P));
 		Ids.Add(*FString::Printf(TEXT("eqp_%s"), *P));
+		Ids.Add(*FString::Printf(TEXT("casing_%s"), *P));
 	}
-	for (const TCHAR* Id : {TEXT("bolt_flyby"), TEXT("imp_sheet_metal"), TEXT("imp_container_wall"), TEXT("imp_glass"),
+	for (const TCHAR* Id : {TEXT("bullet_flyby"), TEXT("imp_sheet_metal"), TEXT("imp_container_wall"), TEXT("imp_glass"),
 			 TEXT("imp_cladding_panel"), TEXT("imp_catwalk_grating"), TEXT("imp_ceiling_panel"), TEXT("imp_concrete"),
 			 TEXT("imp_armor_steel"), TEXT("imp_flesh"), TEXT("imp_penetration_exit"), TEXT("imp_hurt"), TEXT("fs_metal"),
 			 TEXT("fs_grating"), TEXT("fs_concrete"), TEXT("fs_rubble"), TEXT("fs_metal_boots"), TEXT("fol_slide"),
@@ -637,14 +641,33 @@ void UVerseAudioSubsystem::HandleFire(const FVerseFireEvent& Event)
 	FPlayParams Params;
 	Params.Location = Event.Origin;
 	Params.SourceId = Event.ShooterId;
-	if (IsLocal(Event.ShooterId))
+	const FVector Listener = GetListenerLocation();
+	const bool bOwnShot = IsLocal(Event.ShooterId);
+
+	// The spent casing lands at the shooter's feet a moment later; queued only when it can be heard.
+	const FName CasingCue = WeaponCue(Event.WeaponId, TEXT("casing"), TEXT(""));
+	if (const FVerseAudioCue* Casing = CueSet ? CueSet->FindCue(CasingCue) : nullptr)
+	{
+		const FVerseAudioMixSettings& Mix = CueSet->Mix;
+		FPending Drop;
+		Drop.CueId = CasingCue;
+		Drop.Params.SourceId = Event.ShooterId;
+		Drop.Params.Location = FVector(Event.Origin) - FVector(0.0, 0.0, Mix.CasingDropM * 100.0);
+		const float DropDistM = float(FVector::Dist(Listener, Drop.Params.Location) / 100.0);
+		if (bOwnShot || (Casing->RangeM > 0.f && DropDistM < Casing->RangeM))
+		{
+			Drop.At = Now + Picker.Range(FVector2D(Mix.CasingDelayMinS, FMath::Max(Mix.CasingDelayMinS, Mix.CasingDelayMaxS)));
+			Pending.Add(Drop);
+		}
+	}
+
+	if (bOwnShot)
 	{
 		PlayCue(WeaponCue(Event.WeaponId, TEXT("wpn"), TEXT("_fp_body")), Params);
 		PlayCue(WeaponCue(Event.WeaponId, TEXT("wpn"), TEXT("_fp_mech")), Params);
 		PlayCue(WeaponCue(Event.WeaponId, TEXT("wpn"), TEXT("_tail")), Params);
 		return;
 	}
-	const FVector Listener = GetListenerLocation();
 	const float DistM = float(FVector::Dist(Listener, FVector(Event.Origin)) / 100.0);
 	const float Far = Verse::Audio::ShotFarWeight(DistM, CueSet->Mix);
 	if (Far < 0.999f)
@@ -663,16 +686,28 @@ void UVerseAudioSubsystem::HandleFire(const FVerseFireEvent& Event)
 
 	float PassM = 0.f, TimeS = 0.f;
 	FVector Point;
-	if (Verse::Audio::BoltClosestApproach(Event.Origin, Event.Direction, Listener, CueSet->Mix.BoltSpeedMps, PassM, TimeS, Point)
+	if (Verse::Audio::BulletClosestApproach(Event.Origin, Event.Direction, Listener, BulletSpeedFor(Event.WeaponId), PassM, TimeS, Point)
 		&& PassM <= CueSet->Mix.FlybyRadiusM)
 	{
 		FPending Flyby;
 		Flyby.At = Now + TimeS;
-		Flyby.CueId = TEXT("bolt_flyby");
+		Flyby.CueId = TEXT("bullet_flyby");
 		Flyby.Params.Location = Point;
-		Flyby.Params.SourceId = INDEX_NONE; // the bolt, not the shooter, makes this sound
+		Flyby.Params.SourceId = INDEX_NONE; // the bullet, not the shooter, makes this sound
 		Pending.Add(Flyby);
 	}
+}
+
+float UVerseAudioSubsystem::BulletSpeedFor(FName WeaponId) const
+{
+	const float Fallback = CueSet ? CueSet->Mix.BulletSpeedMps : 880.f;
+	float* Cached = BulletSpeedCache.Find(WeaponId);
+	if (!Cached)
+	{
+		const UVerseWeaponDefinition* Weapon = WeaponId.IsNone() ? nullptr : FVerseWeaponRegistry::FindWeapon(WeaponId);
+		Cached = &BulletSpeedCache.Add(WeaponId, Weapon ? Weapon->ProjectileSpeed : 0.f);
+	}
+	return *Cached > 1.f ? *Cached : Fallback;
 }
 
 void UVerseAudioSubsystem::HandleHit(const FVerseHitEvent& Event)

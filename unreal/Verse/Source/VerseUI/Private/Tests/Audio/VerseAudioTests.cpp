@@ -106,7 +106,7 @@ namespace VerseAudioTest
 			AddCue(Set, *FString::Printf(TEXT("rld_%s_tactical"), W), true, TEXT("Noise.Reload"), 0, 7, 2, false, 1.2f);
 			AddCue(Set, *FString::Printf(TEXT("rld_%s_empty"), W), true, TEXT("Noise.Reload"), 0, 7, 2, false, 1.9f);
 		}
-		AddCue(Set, TEXT("bolt_flyby"), true, nullptr, 6, 9, 4, false, 0.35f);
+		AddCue(Set, TEXT("bullet_flyby"), true, nullptr, 6, 9, 4, false, 0.25f);
 		for (const TCHAR* M : {TEXT("sheet_metal"), TEXT("container_wall"), TEXT("glass"), TEXT("cladding_panel"),
 				 TEXT("catwalk_grating"), TEXT("ceiling_panel"), TEXT("concrete"), TEXT("armor_steel"), TEXT("flesh")})
 		{
@@ -314,7 +314,7 @@ bool FVerseAudioShotLatency::RunTest(const FString&)
 	TestTrue(TEXT("own shot plays the first-person body"), Rig.Sink->CountOf(TEXT("wpn_rifle_fp_body")) > 0);
 	TestTrue(TEXT("own pistol uses the pistol profile"), Rig.Sink->CountOf(TEXT("wpn_pistol_fp_body")) > 0);
 	TestTrue(TEXT("remote shot at 15 m plays the third-person layers"), Rig.Sink->CountOf(TEXT("wpn_rifle_tp_tail")) > 0);
-	TestTrue(TEXT("a bolt aimed at the listener flies by"), Rig.Sink->CountOf(TEXT("bolt_flyby")) > 0);
+	TestTrue(TEXT("a bullet aimed at the listener flies by"), Rig.Sink->CountOf(TEXT("bullet_flyby")) > 0);
 
 	FProof Report;
 	Report.Str(TEXT("test"), TEXT("A19.2 latency"));
@@ -323,6 +323,71 @@ bool FVerseAudioShotLatency::RunTest(const FString&)
 	Report.Str(TEXT("measures"), TEXT("synchronous issue of the play inside the FVerseFireEvent broadcast (no engine tick in this rig); ")
 		TEXT("the time to the audio render is in 19.6/mixer_load.json"));
 	WriteProof(TEXT("19.2"), TEXT("shot_latency.json"), Report);
+	return true;
+}
+
+// Bullets: the flyby crack arrives at the bullet's speed (the mix fallback for a weapon without a
+// definition), and the spent casing lands at the shooter's feet a moment after the shot, queued
+// only when the listener is within the casing cue's range.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseAudioBulletFlybyAndCasing, "Verse.UI.Audio.BulletFlybyAndCasing", VERSE_AUDIO_TEST_FLAGS)
+bool FVerseAudioBulletFlybyAndCasing::RunTest(const FString&)
+{
+	FRig Rig;
+	if (!Rig.Make(*this))
+	{
+		return false;
+	}
+	UVerseAudioCueSet* Set = Rig.Audio->GetCueSet();
+	AddCue(Set, TEXT("casing_rifle"), true, nullptr, 8, 2, 6, false, 0.45f, 4);
+	AddCue(Set, TEXT("casing_pistol"), true, nullptr, 8, 2, 6, false, 0.45f, 4);
+	Set->RebuildIndex();
+	const FVerseAudioMixSettings& Mix = Set->Mix;
+
+	// The opponent fires at the listener from 20 m; the bullet passes 1.5 m away.
+	FVerseFireEvent Far;
+	Far.ShooterId = BotId;
+	Far.WeaponId = TEXT("rifle_ar1"); // no definition: the flyby uses Mix.BulletSpeedMps
+	Far.Origin = FVector(2000.0, 0.0, 150.0);
+	Far.Direction = FVector(-1.0, 0.0, 0.0);
+	Rig.Hub->OnFire.Broadcast(Far);
+	TestEqual(TEXT("the flyby waits for the bullet"), Rig.Sink->CountOf(TEXT("bullet_flyby")), 0);
+	Rig.Advance(0.1f);
+	const FVerseAudioLogEntry* Flyby = LastOf(*Rig.Audio, TEXT("bullet_flyby"));
+	TestTrue(TEXT("a bullet passing 1.5 m away plays the flyby"), Flyby && Flyby->bAdmitted);
+	const float ExpectedS = 20.f / FMath::Max(1.f, Mix.BulletSpeedMps);
+	TestTrue(FString::Printf(TEXT("the crack arrives at bullet speed (%.3f s, one frame late at most)"), ExpectedS),
+		Flyby && Flyby->Time >= ExpectedS - KINDA_SMALL_NUMBER && Flyby->Time <= ExpectedS + 1.f / 60.f + KINDA_SMALL_NUMBER);
+	Rig.Advance(1.f);
+	TestNull(TEXT("a casing 20 m away is never queued"), LastOf(*Rig.Audio, TEXT("casing_rifle")));
+
+	// The opponent fires sideways 5 m away: its casing lands at its feet, 0.35-0.55 s later.
+	FVerseFireEvent Near = Far;
+	Near.Origin = FVector(500.0, 0.0, 150.0);
+	Near.Direction = FVector(0.0, 1.0, 0.0);
+	Rig.Hub->OnFire.Broadcast(Near);
+	TestEqual(TEXT("no casing with the shot"), Rig.Sink->CountOf(TEXT("casing_rifle")), 0);
+	Rig.Advance(Mix.CasingDelayMinS - 0.05f);
+	TestEqual(TEXT("no casing before the minimum delay"), Rig.Sink->CountOf(TEXT("casing_rifle")), 0);
+	Rig.Advance(Mix.CasingDelayMaxS - Mix.CasingDelayMinS + 0.1f);
+	TestEqual(TEXT("the casing lands once"), Rig.Sink->CountOf(TEXT("casing_rifle")), 1);
+	if (const FFakeVerseAudioSink::FPlay* Drop = Rig.Sink->LastPlayOf(TEXT("casing_rifle")))
+	{
+		TestTrue(TEXT("the opponent's casing is placed in the world"), Drop->Request.bSpatial);
+		TestTrue(TEXT("on the floor under the muzzle"),
+			Drop->Request.Location.Equals(FVector(500.0, 0.0, 150.0 - Mix.CasingDropM * 100.0), 1.0));
+	}
+
+	// The listener's own pistol: its casing plays for the person, without a range.
+	FVerseFireEvent Own;
+	Own.ShooterId = LocalId;
+	Own.WeaponId = TEXT("pistol_p1");
+	Own.Origin = FVector(0.0, 0.0, 150.0);
+	Own.Direction = FVector(1.0, 0.0, 0.0);
+	Rig.Hub->OnFire.Broadcast(Own);
+	Rig.Advance(Mix.CasingDelayMaxS + 0.05f);
+	const FFakeVerseAudioSink::FPlay* OwnDrop = Rig.Sink->LastPlayOf(TEXT("casing_pistol"));
+	TestTrue(TEXT("own pistol drops a pistol casing"), OwnDrop != nullptr);
+	TestTrue(TEXT("own casing plays at the listener"), OwnDrop && !OwnDrop->Request.bSpatial);
 	return true;
 }
 
@@ -542,7 +607,7 @@ bool FVerseAudioFairness::RunTest(const FString&)
 	Rig.Audio->PlayFootstep(LocalId, EVerseFootSurface::Metal, EVerseGait::CrouchWalk, FVector::ZeroVector);
 	TestEqual(TEXT("own crouch steps play for the person"), Rig.Sink->Plays.Num(), Before + 3);
 
-	// Bolt impact of the opponent: heard within 3 m only (Noise.Impact); own impacts are shooter feedback.
+	// Bullet impact of the opponent: heard within 3 m only (Noise.Impact); own impacts are shooter feedback.
 	FVersePenetrationEvent Pen;
 	Pen.ShooterId = BotId;
 	Pen.MaterialWireId = uint8(EVersePenetrationMaterial::Concrete);
