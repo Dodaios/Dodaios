@@ -192,7 +192,8 @@ const config: Config = {
         ],
         page: ["20px", { lineHeight: "28px", letterSpacing: "-0.015em" }],
         title: ["16px", { lineHeight: "24px" }],
-        reading: ["16px", { lineHeight: "28px" }],
+        // index.css `--reading-size` / `--reading-leading` (15 px, 1.7).
+        reading: ["var(--reading-size, 15px)", { lineHeight: "var(--reading-leading, 1.7)" }],
         body: ["14px", { lineHeight: "20px" }],
         meta: ["13px", { lineHeight: "18px" }],
         micro: ["12px", { lineHeight: "16px" }],
@@ -260,7 +261,8 @@ const config: Config = {
        * is also the line length prose stops growing at.
        */
       maxWidth: {
-        reading: "720px",
+        // index.css `--reading-column`: one place decides the measure.
+        reading: "var(--reading-column, 720px)",
         form: "640px",
         page: "1080px",
       },
@@ -299,6 +301,21 @@ const config: Config = {
         "2xl": "16px",
         "3xl": "16px",
         full: "9999px",
+      },
+      /*
+       * The motion scale (index.css `--motion-*`): arrivals take 150–300 ms on
+       * a decelerating curve, exits are faster on an accelerating one.
+       * `duration-exit` + `ease-in-soft` is the pair for anything leaving.
+       */
+      transitionDuration: {
+        fast: "var(--motion-fast, 150ms)",
+        base: "var(--motion-base, 220ms)",
+        slow: "var(--motion-slow, 300ms)",
+        exit: "var(--motion-exit, 150ms)",
+      },
+      transitionTimingFunction: {
+        "out-soft": "var(--ease-out-soft, cubic-bezier(0.22, 1, 0.36, 1))",
+        "in-soft": "var(--ease-in-soft, cubic-bezier(0.4, 0, 1, 1))",
       },
       keyframes: {
         "accordion-down": {

@@ -11299,5 +11299,34 @@
     "voice_saved_next_call": "声音已保存，下次通话生效。",
     "voice_save_failed": "无法更改声音。",
     "all_settings": "全部语音设置"
+  },
+  "design": {
+    "settings": {
+      "group_you": "你",
+      "group_voice": "语音",
+      "group_connections": "连接",
+      "group_agents": "智能体",
+      "group_advanced": "高级",
+      "language_app": "语言与应用",
+      "memory": "记忆",
+      "voice_wake": "语音与唤醒词",
+      "dictation": "听写",
+      "plugins": "插件与渠道",
+      "behavior": "行为",
+      "agents": "你的智能体",
+      "all_settings": "全部设置",
+      "more_options": "更多选项",
+      "more_options_hint": "音乐、悬浮层、任务栏、游戏",
+      "opens_page": "打开独立页面"
+    },
+    "activity": {
+      "waiting": "显示活动：有任务正在进行"
+    },
+    "greeting": {
+      "suggestions": "建议",
+      "due": "帮我准备：{text}",
+      "agent_working": "{agent} 正在做什么？",
+      "agent_waiting": "{agent} 需要我做什么？"
+    }
   }
 }
