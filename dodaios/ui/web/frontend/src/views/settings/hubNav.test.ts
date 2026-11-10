@@ -7,6 +7,8 @@ import { HUB_GROUPS, HUB_PAGES, PAGE_ENTRIES, entryKey, resolveHubTab } from "@/
 const FORMER_TABS = [
   "settings", "shortcuts", "appshots", "pets", "games", "profile",
   "agent-instructions", "socials", "computers", "apikeys", "costs", "feedback",
+  // Added on main alongside the regrouping: notifications, trust, phone.
+  "notifications", "trust", "phone",
 ];
 
 /** The General page's groups (SettingsView SECTIONS). */
