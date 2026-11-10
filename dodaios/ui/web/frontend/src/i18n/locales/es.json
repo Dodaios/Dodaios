@@ -7872,8 +7872,8 @@
     "show_more": "Mostrar más",
     "show_less": "Mostrar menos",
     "took": "Tardó {duration}",
-    "failed_count_one": "{count} falló",
-    "failed_count_other": "{count} fallaron",
+    "failed_count_one": "{count} paso no funcionó",
+    "failed_count_other": "{count} pasos no funcionaron",
     "act": {
       "command_one": "ejecutó un comando",
       "command_other": "ejecutó comandos",
@@ -7922,7 +7922,12 @@
       "plan_mode": "el modo plan solo permite leer",
       "cancelled": "se canceló",
       "timeout": "nadie lo aprobó a tiempo",
-      "no_approver": "necesitaba una aprobación y no había nadie para darla"
+      "no_approver": "necesitaba una aprobación y no había nadie para darla",
+      "signed_out": "la sesión ha caducado; vuelve a conectarlo en Plugins",
+      "forbidden": "la cuenta no tiene permiso para esto",
+      "rate_limited": "el servicio pidió ir más despacio",
+      "unavailable": "el servicio tuvo un problema por su parte",
+      "timed_out": "tardó demasiado en responder"
     },
     "family": {
       "wiki": "buscó en la wiki",

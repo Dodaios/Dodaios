@@ -7872,8 +7872,8 @@
     "show_more": "Mostrar mais",
     "show_less": "Mostrar menos",
     "took": "Demorou {duration}",
-    "failed_count_one": "{count} falhou",
-    "failed_count_other": "{count} falharam",
+    "failed_count_one": "{count} passo não funcionou",
+    "failed_count_other": "{count} passos não funcionaram",
     "act": {
       "command_one": "executou um comando",
       "command_other": "executou comandos",
@@ -7922,7 +7922,12 @@
       "plan_mode": "o modo de plano só permite leitura",
       "cancelled": "foi cancelado",
       "timeout": "ninguém o aprovou a tempo",
-      "no_approver": "precisava de aprovação e não estava ninguém para a dar"
+      "no_approver": "precisava de aprovação e não estava ninguém para a dar",
+      "signed_out": "a sessão expirou; volta a ligá-lo em Plugins",
+      "forbidden": "a conta não tem permissão para isto",
+      "rate_limited": "o serviço pediu para abrandar",
+      "unavailable": "o serviço teve um problema do lado dele",
+      "timed_out": "demorou demasiado a responder"
     },
     "family": {
       "wiki": "pesquisou a wiki",

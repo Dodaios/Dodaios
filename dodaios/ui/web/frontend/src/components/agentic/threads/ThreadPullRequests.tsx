@@ -131,8 +131,8 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
   return <>
     <span ref={anchor} role="img" aria-label={requests.map((request) => `#${request.number} · ${t(LOOK[request.state].label)}`).join(", ")}
       data-testid={`thread-prs-${sessionId}`} onMouseEnter={show} onMouseLeave={hide}
-      className={cn("flex shrink-0 items-center gap-0.5 text-xs tabular-nums", lead.tone)}>
-      <GitHubIcon name={lead.icon} width={14} height={14} className="shrink-0" />
+      className={cn("flex shrink-0 items-center gap-1 text-sm font-medium tabular-nums", lead.tone)}>
+      <GitHubIcon name={lead.icon} width={16} height={16} className="shrink-0" />
       {requests.length > 1 && <span>{requests.length}</span>}
     </span>
     {position && createPortal(<div role="menu" aria-label={t("ide_threads.pull_requests")}
