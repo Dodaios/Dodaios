@@ -7938,6 +7938,14 @@
       "asked_one": "向你提问",
       "asked_other": "向你提问"
     },
+    "act_n": {
+      "command": "运行了 {count} 条命令",
+      "read": "读取了 {count} 个文件",
+      "list": "列出了 {count} 个文件夹",
+      "edit": "编辑了 {count} 个文件",
+      "write": "创建了 {count} 个文件",
+      "image": "查看了 {count} 张图片"
+    },
     "call": {
       "read": "读取了 {target}",
       "list": "列出了 {target}",

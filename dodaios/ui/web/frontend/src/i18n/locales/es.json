@@ -7938,6 +7938,14 @@
       "asked_one": "te preguntó",
       "asked_other": "te preguntó"
     },
+    "act_n": {
+      "command": "ejecutó {count} comandos",
+      "read": "leyó {count} archivos",
+      "list": "listó {count} carpetas",
+      "edit": "editó {count} archivos",
+      "write": "creó {count} archivos",
+      "image": "vio {count} imágenes"
+    },
     "call": {
       "read": "Leyó {target}",
       "list": "Listó {target}",

@@ -7938,6 +7938,14 @@
       "asked_one": "asked you",
       "asked_other": "asked you"
     },
+    "act_n": {
+      "command": "ran {count} commands",
+      "read": "read {count} files",
+      "list": "listed {count} folders",
+      "edit": "edited {count} files",
+      "write": "created {count} files",
+      "image": "viewed {count} images"
+    },
     "call": {
       "read": "Read {target}",
       "list": "Listed {target}",

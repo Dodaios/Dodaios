@@ -104,7 +104,7 @@ export function buildThreadRows(blocks: TurnBlock[], options: { t: Translate; la
       kind: "work",
       id: `work:${items[0].id}`,
       items,
-      summary: calls.length ? summarize(calls, options.t, options.lang) : "Thinking",
+      summary: calls.length ? summarize(calls, options.t, options.lang, true) : "Thinking",
       sole: soleKind(items),
       added: calls.reduce((sum, call) => sum + call.added, 0),
       removed: calls.reduce((sum, call) => sum + call.removed, 0),
@@ -150,49 +150,74 @@ export function buildThreadRows(blocks: TurnBlock[], options: { t: Translate; la
   return rows;
 }
 
-/** One step of a stretch: a call, or the wordless thought of a running turn. */
-export type StretchItem = WorkItem;
+/** One step of a stretch: a call, the wordless thought of a running turn, or a thought in words. */
+export type StretchItem =
+  | WorkItem
+  | { kind: "said"; id: string; text: string; live: boolean; startedMs: number };
 
 /**
- * The calls the agent made between two things it said or thought in words,
- * read as ONE quiet line that opens to the single steps.
+ * Everything the agent did between two things it said: its calls and its
+ * thoughts, read as ONE quiet line that opens to the single steps.
  */
 export interface Stretch {
   kind: "stretch";
   id: string;
   items: StretchItem[];
-  /** The line's words: what the calls did ("Ran commands, edited a file"). */
+  /** What the calls did ("Ran 6 commands, edited a file"); "" for a stretch of thoughts only. */
   label: string;
   added: number;
   removed: number;
   startedMs: number;
-  /** The running turn's tail: its line reads the step the agent is on. */
+  /** The running turn's tail: its line carries the live shine. */
   live: boolean;
 }
 
+type StretchRow = WorkGroup | Extract<ThreadRow, { kind: "thought" }>;
+
 /**
- * Rows with each work group drawn as a stretch. The agent's words, its
- * thoughts in words, cards and sub-agents stay rows of their own. The stretch
- * the running turn ends on is live.
+ * Rows with each run of work groups and thoughts drawn as one stretch. The
+ * agent's words, cards and sub-agents stay rows of their own and end a
+ * stretch. A thought that only repeats the one before it is told once. The
+ * stretch the running turn ends on is live.
  */
 export function joinStretches<T extends { kind: string }>(
   rows: readonly T[],
-  options: { running: boolean },
+  options: { t: Translate; lang: string; running: boolean },
 ): (T | Stretch)[] {
-  const out: (T | Stretch)[] = rows.map((row): T | Stretch => {
-    if (row.kind !== "work") return row;
-    const group = row as unknown as WorkGroup;
-    return {
+  const out: (T | Stretch)[] = [];
+  let run: StretchRow[] = [];
+  const flush = () => {
+    if (!run.length) return;
+    const items: StretchItem[] = [];
+    let lastSaid = "";
+    for (const row of run) {
+      if (row.kind === "work") { items.push(...row.items); continue; }
+      const text = row.text.trim();
+      if (text === lastSaid) continue;
+      lastSaid = text;
+      items.push({ kind: "said", id: row.id, text: row.text, live: row.live, startedMs: row.block.startedMs });
+    }
+    const calls = items.flatMap((item) => item.kind === "call" ? [item.call] : []);
+    out.push({
       kind: "stretch",
-      id: `stretch:${group.id}`,
-      items: group.items,
-      label: group.summary,
-      added: group.added,
-      removed: group.removed,
-      startedMs: group.startedMs,
+      id: `stretch:${run[0].id}`,
+      items,
+      label: calls.length ? summarize(calls, options.t, options.lang, true) : "",
+      added: calls.reduce((sum, call) => sum + call.added, 0),
+      removed: calls.reduce((sum, call) => sum + call.removed, 0),
+      startedMs: items[0]?.startedMs ?? 0,
       live: false,
-    };
-  });
+    });
+    run = [];
+  };
+  for (const row of rows) {
+    if (row.kind === "work" || row.kind === "thought") run.push(row as unknown as StretchRow);
+    else {
+      flush();
+      out.push(row);
+    }
+  }
+  flush();
   const last = out[out.length - 1];
   if (options.running && last?.kind === "stretch") (last as Stretch).live = true;
   return out;

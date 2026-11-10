@@ -578,8 +578,14 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
   return { ...base, kind: "tool", text: label, detail: oneLine(description.detail, 100), result, bucket: `used:${label}` };
 }
 
-/** "Ran commands, searched the web, used Linear" — a stretch in one line. */
-export function summarize(calls: Call[], t: Translate, lang: string): string {
+/** The kinds of call a counted summary numbers ("ran 6 commands"). */
+const COUNTED_KINDS: ReadonlySet<string> = new Set(["command", "read", "list", "edit", "write", "image"]);
+
+/**
+ * "Ran commands, searched the web, used Linear" — a stretch in one line. With
+ * `counted`, a kind that ran more than once says how often ("ran 6 commands").
+ */
+export function summarize(calls: Call[], t: Translate, lang: string, counted = false): string {
   if (calls.length === 1) return calls[0].text;
   const counts = new Map<string, number>();
   for (const call of calls) counts.set(call.bucket, (counts.get(call.bucket) ?? 0) + 1);
@@ -589,6 +595,7 @@ export function summarize(calls: Call[], t: Translate, lang: string): string {
     if (bucket.startsWith("used:")) used.push(bucket.slice(5));
     else if (bucket.startsWith("agent:")) parts.push(bucket.slice(6));
     else if (bucket.startsWith("family:")) parts.push(tr(t, `family.${bucket.slice(7)}`));
+    else if (counted && n > 1 && COUNTED_KINDS.has(bucket)) parts.push(tr(t, `act_n.${bucket}`, { count: n }));
     else parts.push(tr(t, `act.${bucket}_${plural(lang, n)}`));
   }
   if (used.length) parts.push(tr(t, "act.used", { what: used.slice(0, 3).join(", ") }));
