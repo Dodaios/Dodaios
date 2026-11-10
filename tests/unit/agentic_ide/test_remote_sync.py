@@ -15,6 +15,7 @@ import subprocess
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -374,3 +375,284 @@ async def test_a_repo_without_commits_comes_back_too(tmp_path: Path, copies: Non
 
     assert outcome.applied, outcome.message
     assert (fresh / "draft.py").read_text(encoding="utf-8") == "print('finished')\n"
+
+
+# ---------------------------------------------------------------------------
+# a thread's turns: the work comes back after every turn
+# ---------------------------------------------------------------------------
+
+
+def _refs(repo: Path, prefix: str) -> list[str]:
+    return _git(repo, "for-each-ref", "--format=%(refname)", prefix).split()
+
+
+async def test_a_turns_work_comes_back_without_a_branch(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    placement = await remote.push_code(pool, project)
+    there = Path(placement.remote_folder)
+    (there / "app.py").write_text("print('turn one')\n", encoding="utf-8")
+    (there / "new.txt").write_text("made there\n", encoding="utf-8")
+
+    outcome = await remote.pull_code(
+        pool, project, placement.remote_folder, placement.offload_snapshot, "My VPS", per_turn=True
+    )
+
+    assert outcome.applied and outcome.changed, outcome.message
+    assert "My VPS" in outcome.message
+    assert outcome.branch is None
+    assert not _refs(project, "refs/heads/jarvis"), "a turn that fits leaves no branch behind"
+    assert (project / "app.py").read_text(encoding="utf-8") == "print('turn one')\n"
+    assert (project / "new.txt").read_text(encoding="utf-8") == "made there\n"
+
+
+async def test_a_turn_that_changed_nothing_brings_nothing_back(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    (project / "app.py").write_text("print('draft')\n", encoding="utf-8")
+    placement = await remote.push_code(pool, project)
+
+    outcome = await remote.pull_code(
+        pool, project, placement.remote_folder, placement.offload_snapshot, "vps", per_turn=True
+    )
+
+    assert not outcome.changed and not outcome.applied
+    assert outcome.message == "", "nothing to tell the reader"
+    assert not _refs(project, "refs/jarvis/return"), "nothing was packed or fetched"
+    assert (project / "app.py").read_text(encoding="utf-8") == "print('draft')\n"
+
+
+async def test_the_next_turn_starts_from_the_previous_turns_work(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    """The reported loss: the second turn's copy replaced the first turn's work."""
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    first = await remote.push_code(pool, project)
+    there = Path(first.remote_folder)
+    (there / "app.py").write_text("print('turn one')\n", encoding="utf-8")
+    (there / "feature.py").write_text("x = 1\n", encoding="utf-8")
+    await remote.pull_code(
+        pool, project, first.remote_folder, first.offload_snapshot, "vps", per_turn=True
+    )
+
+    second = await remote.push_code(pool, project)
+
+    assert Path(second.remote_folder) == there
+    assert (there / "app.py").read_text(encoding="utf-8") == "print('turn one')\n"
+    assert (there / "feature.py").read_text(encoding="utf-8") == "x = 1\n"
+    assert not _refs(there, "refs/jarvis/backup"), "nothing on the server had to be set aside"
+
+
+async def test_a_turns_work_fits_beside_an_edit_made_here_meanwhile(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    placement = await remote.push_code(pool, project)
+    (Path(placement.remote_folder) / "app.py").write_text("print('server')\n", encoding="utf-8")
+    (project / "notes.md").write_text("written here during the turn\n", encoding="utf-8")
+
+    outcome = await remote.pull_code(
+        pool, project, placement.remote_folder, placement.offload_snapshot, "vps", per_turn=True
+    )
+
+    assert outcome.applied, outcome.message
+    assert (project / "app.py").read_text(encoding="utf-8") == "print('server')\n"
+    assert (project / "notes.md").read_text(encoding="utf-8") == "written here during the turn\n"
+
+
+async def test_a_turns_work_that_collides_goes_to_a_branch_and_overwrites_nothing(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    placement = await remote.push_code(pool, project)
+    there = Path(placement.remote_folder)
+    (there / "app.py").write_text("print('server')\n", encoding="utf-8")
+    (there / "other.txt").write_text("also from the server\n", encoding="utf-8")
+    (project / "app.py").write_text("print('local meanwhile')\n", encoding="utf-8")
+
+    outcome = await remote.pull_code(
+        pool, project, placement.remote_folder, placement.offload_snapshot, "vps", per_turn=True
+    )
+
+    assert not outcome.applied and outcome.changed
+    assert outcome.branch and outcome.branch in outcome.message
+    assert (project / "app.py").read_text(encoding="utf-8") == "print('local meanwhile')\n"
+    assert not (project / "other.txt").exists(), "all of the patch or none of it"
+    assert _git(project, "show", f"{outcome.branch}:app.py") == "print('server')"
+
+
+async def test_work_left_by_an_interrupted_turn_comes_back_before_the_next_copy(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    placement = await remote.push_code(pool, project)
+    there = Path(placement.remote_folder)
+    # The turn wrote this and then the app went away: nothing brought it back.
+    (there / "app.py").write_text("print('half a turn')\n", encoding="utf-8")
+
+    outcome = await remote.pull_unreturned(pool, project, "vps")
+
+    assert outcome is not None and outcome.applied, outcome
+    assert (project / "app.py").read_text(encoding="utf-8") == "print('half a turn')\n"
+    await remote.push_code(pool, project)
+    assert (there / "app.py").read_text(encoding="utf-8") == "print('half a turn')\n"
+
+
+async def test_returned_work_is_not_brought_back_twice(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    placement = await remote.push_code(pool, project)
+    (Path(placement.remote_folder) / "app.py").write_text("print('done')\n", encoding="utf-8")
+    await remote.pull_code(
+        pool, project, placement.remote_folder, placement.offload_snapshot, "vps", per_turn=True
+    )
+
+    again = await remote.pull_unreturned(pool, project, "vps")
+
+    assert again is not None and not again.changed
+    assert not _refs(project, "refs/heads/jarvis")
+
+
+async def test_a_panes_return_also_counts_as_handed_back(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    placement = await remote.push_code(pool, project)
+    (Path(placement.remote_folder) / "app.py").write_text("print('pane')\n", encoding="utf-8")
+    await remote.pull_code(
+        pool, project, placement.remote_folder, placement.offload_snapshot, "vps"
+    )
+
+    again = await remote.pull_unreturned(pool, project, "vps")
+
+    assert again is not None and not again.changed
+
+
+async def test_no_copy_on_the_server_means_nothing_to_bring_back(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+
+    assert await remote.pull_unreturned(LocalPool(server), project, "vps") is None
+
+
+# --- the thread runner's two steps (``agent_chat.remote_thread_sync``) ------
+
+
+class _Turn:
+    """What the two steps use of a turn handle."""
+
+    turn_id = "turn-1"
+
+    def __init__(self) -> None:
+        self.notices: list[str] = []
+
+    async def emit(self, event: dict[str, Any]) -> None:
+        assert event["kind"] == "notice"
+        self.notices.append(str(event["payload"]["text"]))
+
+
+@pytest.fixture
+def thread_sync(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, copies: None) -> Any:
+    from dodaios.agent_chat import remote_thread_sync
+    from dodaios.computers import remote_terminal
+
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    monkeypatch.setattr(remote_terminal, "pool_for", lambda _computer_id: pool)
+    monkeypatch.setattr(remote_thread_sync, "_computer_name", lambda _computer_id: "My VPS")
+    return remote_thread_sync
+
+
+async def test_a_thread_turn_sends_the_folder_and_says_when_work_came_back(
+    project: Path, thread_sync: Any
+) -> None:
+    turn = _Turn()
+    placement = await thread_sync.send_folder(turn, "vps-1", project)
+    assert turn.notices == [], "a first copy has nothing to report"
+    (Path(placement.remote_folder) / "app.py").write_text("print('turn')\n", encoding="utf-8")
+
+    await thread_sync.return_work(turn, "vps-1", project, placement)
+
+    assert turn.notices == ["The changes made on My VPS are back in this folder."]
+    assert (project / "app.py").read_text(encoding="utf-8") == "print('turn')\n"
+
+
+async def test_a_thread_turn_that_changed_nothing_says_nothing(
+    project: Path, thread_sync: Any
+) -> None:
+    turn = _Turn()
+    placement = await thread_sync.send_folder(turn, "vps-1", project)
+
+    await thread_sync.return_work(turn, "vps-1", project, placement)
+
+    assert turn.notices == []
+
+
+async def test_the_next_thread_turn_first_fetches_what_an_interrupted_one_left(
+    project: Path, thread_sync: Any
+) -> None:
+    first = _Turn()
+    placement = await thread_sync.send_folder(first, "vps-1", project)
+    there = Path(placement.remote_folder)
+    (there / "app.py").write_text("print('interrupted')\n", encoding="utf-8")
+
+    second = _Turn()
+    await thread_sync.send_folder(second, "vps-1", project)
+
+    assert second.notices == ["The changes made on My VPS are back in this folder."]
+    assert (project / "app.py").read_text(encoding="utf-8") == "print('interrupted')\n"
+    assert (there / "app.py").read_text(encoding="utf-8") == "print('interrupted')\n"
+
+
+async def test_a_failed_way_back_is_told_and_does_not_fail_the_turn(
+    project: Path, thread_sync: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    turn = _Turn()
+    placement = await thread_sync.send_folder(turn, "vps-1", project)
+
+    async def broken(*_args: object, **_kwargs: object) -> object:
+        raise OSError("connection lost")
+
+    monkeypatch.setattr(remote, "pull_code", broken)
+
+    await thread_sync.return_work(turn, "vps-1", project, placement)
+
+    assert len(turn.notices) == 1
+    assert "could not be brought back from My VPS" in turn.notices[0]
+    assert "connection lost" in turn.notices[0]
+
+
+async def test_a_thread_folder_without_git_says_its_work_stays_behind(
+    tmp_path: Path, thread_sync: Any
+) -> None:
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    (plain / "main.txt").write_text("hello\n", encoding="utf-8")
+    turn = _Turn()
+    placement = await thread_sync.send_folder(turn, "vps-1", plain)
+
+    await thread_sync.return_work(turn, "vps-1", plain, placement)
+
+    assert len(turn.notices) == 1 and "no git history" in turn.notices[0]

@@ -307,6 +307,11 @@ def remote_folder_for(home: str, local_folder: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
+#: On the server: the commit whose files the server and this computer last had
+#: in common, either the snapshot it was given or the work it handed back.
+#: Files on the server that differ from it are work that has not come back.
+SYNCED_REF = "refs/jarvis/synced"
+
 # Two separate commands, never `mkdir -p "$DEST" && cd "$DEST"`: `set -e` does
 # not stop on a failure inside an && list, so a mkdir that failed left the
 # script running in the server's home folder — where it ran `git init` and a
@@ -326,9 +331,13 @@ fi
 [ -d .git ] || git init -q
 if git rev-parse -q --verify HEAD >/dev/null && [ -n "$(git status --porcelain)" ]; then
   export GIT_INDEX_FILE="$(mktemp)"; git read-tree HEAD; git add -A; t=$(git write-tree)
-  c=$(git -c user.name=Dodaios -c user.email=jarvis@localhost commit-tree "$t" -p HEAD \
-      -m "jarvis: server state before sync")
-  git update-ref "refs/jarvis/backup/$(date +%s)" "$c"
+  # Files this computer already has (given to the server, or handed back by
+  # it) need no backup: a thread would leave one behind on every turn.
+  if [ "$t" != "$(git rev-parse -q --verify "{synced}^{{tree}}" || true)" ]; then
+    c=$(git -c user.name=Dodaios -c user.email=jarvis@localhost commit-tree "$t" -p HEAD \
+        -m "jarvis: server state before sync")
+    git update-ref "refs/jarvis/backup/$(date +%s)" "$c"
+  fi
   rm -f "$GIT_INDEX_FILE"; unset GIT_INDEX_FILE
 fi
 git fetch -q "$BUNDLE" "$REF:$REF"
@@ -338,6 +347,7 @@ if [ -n "$BASE" ]; then
 fi
 git read-tree -u --reset "$SNAP"
 if [ -n "$BASE" ]; then git reset -q; fi
+git update-ref {synced} "$SNAP"
 rm -f "$BUNDLE"
 echo ok
 """
@@ -456,6 +466,7 @@ async def push_code(pool: SshPtyPool, local_folder: Path) -> Placement:
         base=shlex.quote(head or ""),
         branch=shlex.quote(branch or ""),
         snap=shlex.quote(snap),
+        synced=SYNCED_REF,
     )
     code, out, err = await pool.run(script, timeout_s=600)
     if code != 0 or "ok" not in out:
@@ -546,6 +557,12 @@ then git read-tree HEAD; set -- -p HEAD
 else set --
 fi
 git add -A; t=$(git write-tree)
+SAME={same}
+if [ -n "$SAME" ] && [ "$t" = "$(git rev-parse -q --verify "$SAME^{{tree}}" || true)" ]; then
+  rm -f "$GIT_INDEX_FILE"
+  echo unchanged
+  exit 0
+fi
 c=$(git -c user.name=Dodaios -c user.email=jarvis@localhost commit-tree "$t" "$@" \
     -m "jarvis: work from the server")
 rm -f "$GIT_INDEX_FILE"; unset GIT_INDEX_FILE
@@ -575,6 +592,8 @@ class Return:
     branch: str | None
     applied: bool
     message: str
+    #: False when the server's files were exactly what it was given.
+    changed: bool = True
 
 
 async def pull_code(
@@ -583,8 +602,17 @@ async def pull_code(
     remote_folder: str,
     offload_snapshot: str | None,
     computer_name: str,
+    *,
+    per_turn: bool = False,
 ) -> Return:
-    """Bring the server's version of the folder back."""
+    """Bring the server's version of the folder back.
+
+    ``per_turn`` is how a thread uses it, after every turn instead of once at
+    the end of a pane's stay: nothing happens when the server changed
+    nothing, the changes go into the folder whenever they fit (also beside
+    edits made here meanwhile, since ``git apply`` takes all of a patch or
+    none of it), and a branch is made only for work that does not fit.
+    """
     top = await asyncio.to_thread(git_toplevel, local_folder)
     if top is None or offload_snapshot is None:
         return Return(
@@ -608,8 +636,11 @@ async def pull_code(
         sync=shlex.quote(f"{home}/{SYNC_DIR}"),
         bundle=shlex.quote(remote_bundle),
         exclude=shlex.quote(f"^{offload_snapshot}"),
+        same=shlex.quote(offload_snapshot if per_turn else ""),
     )
     code, out, err = await pool.run(script, timeout_s=600)
+    if per_turn and code == 0 and out.strip().endswith("unchanged"):
+        return Return(branch=None, applied=False, message="", changed=False)
     lines = [line for line in out.split() if re.fullmatch(r"[0-9a-f]{40}", line)]
     if code != 0 or not lines:
         raise MoveError(f"The server's work could not be packed: {(err or out).strip()[-200:]}")
@@ -617,8 +648,16 @@ async def pull_code(
     with tempfile.TemporaryDirectory(prefix="jarvis-return-") as tmp:
         bundle = Path(tmp) / "return.bundle"
         await _download(pool, remote_bundle, bundle)
-        await pool.run(f"rm -f {shlex.quote(remote_bundle)}", timeout_s=30)
         await asyncio.to_thread(_git, top, "fetch", "-q", str(bundle), f"{ref}:{ref}")
+    # The work is in this repository now (under ``ref``), whatever happens to
+    # it next, so the server may count it as handed back.
+    await pool.run(
+        f"rm -f {shlex.quote(remote_bundle)}; cd {shlex.quote(remote_top)} && "
+        f"git update-ref {SYNCED_REF} {remote_snap}",
+        timeout_s=30,
+    )
+    if per_turn:
+        return await _apply_turn_work(top, offload_snapshot, remote_snap, computer_name)
     branch = await asyncio.to_thread(_free_branch, top, f"jarvis/{_slug(computer_name)}")
     await asyncio.to_thread(_git, top, "branch", branch, remote_snap)
     offload_tree = await asyncio.to_thread(_git, top, "rev-parse", f"{offload_snapshot}^{{tree}}")
@@ -648,6 +687,65 @@ async def pull_code(
         applied=True,
         message="The server's changes are back in this folder (also kept on " + branch + ").",
     )
+
+
+async def _apply_turn_work(top: Path, base: str, work: str, computer_name: str) -> Return:
+    """Put one turn's work from the server into the folder, or onto a branch."""
+    patch = await asyncio.to_thread(_git_bytes, top, "diff", "--binary", base, work)
+    if not patch.strip():
+        return Return(branch=None, applied=False, message="", changed=False)
+    try:
+        await asyncio.to_thread(_git, top, "apply", "--whitespace=nowarn", stdin=patch)
+    except MoveError:
+        # The patch met an edit made here meanwhile. Git applied none of it.
+        branch = await asyncio.to_thread(_free_branch, top, f"jarvis/{_slug(computer_name)}")
+        await asyncio.to_thread(_git, top, "branch", branch, work)
+        return Return(
+            branch=branch,
+            applied=False,
+            message=(
+                f"The work done on {computer_name} does not fit onto what changed in this "
+                f"folder meanwhile, so nothing was overwritten. It is on the branch {branch}."
+            ),
+        )
+    return Return(
+        branch=None,
+        applied=True,
+        message=f"The changes made on {computer_name} are back in this folder.",
+    )
+
+
+async def pull_unreturned(
+    pool: SshPtyPool, local_folder: Path, computer_name: str
+) -> Return | None:
+    """Bring back work a turn left on the server without handing it over.
+
+    A turn that ended with the app or the connection never reached its own
+    way back, and the next ``push_code`` would reset the server's copy over
+    its work. The server's ``SYNCED_REF`` names the files both sides last
+    shared, so anything else in its folder is such work. ``None`` when the
+    server has no copy of this folder yet, or one from before the marker.
+    """
+    top = await asyncio.to_thread(git_toplevel, local_folder)
+    if top is None:
+        return None
+    remote_top = remote_folder_for(await pool.home(), top)
+    code, out, _err = await pool.run(
+        f"cd {shlex.quote(remote_top)} 2>/dev/null && git rev-parse -q --verify {SYNCED_REF}",
+        timeout_s=30,
+    )
+    synced = out.strip().splitlines()[-1].strip() if out.strip() else ""
+    if code != 0 or not re.fullmatch(r"[0-9a-f]{40}", synced):
+        return None
+    try:
+        await asyncio.to_thread(_git, top, "cat-file", "-e", f"{synced}^{{commit}}")
+    except MoveError as exc:
+        # This repository never saw that commit (the folder was cloned anew).
+        raise MoveError(
+            f"{computer_name} may hold work from an earlier turn that this folder cannot "
+            "take back, because the folder was set up anew since."
+        ) from exc
+    return await pull_code(pool, local_folder, remote_top, synced, computer_name, per_turn=True)
 
 
 # ---------------------------------------------------------------------------
