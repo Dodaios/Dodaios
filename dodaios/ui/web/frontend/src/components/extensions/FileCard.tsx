@@ -259,6 +259,7 @@ export function FileCard({
   error,
   emptyLabel,
   className,
+  tree = "always",
 }: {
   /** The folder's name — the plugin id or the server name. */
   rootLabel: string;
@@ -267,8 +268,11 @@ export function FileCard({
   error?: string | null;
   emptyLabel?: string;
   className?: string;
+  /** "auto" leaves the folder column out while there is only one file. */
+  tree?: "always" | "auto";
 }) {
   const t = useT();
+  const showTree = tree === "always" || files.length > 1;
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [mode, setMode] = useState<ViewMode>("preview");
 
@@ -321,13 +325,15 @@ export function FileCard({
       </div>
 
       <div className="flex min-h-[160px]">
-        <FileTree
-          className="w-56 shrink-0 border-r border-border py-2"
-          rootLabel={rootLabel}
-          paths={files.map((f) => f.path)}
-          openPath={openPath}
-          onOpen={setOpenPath}
-        />
+        {showTree && (
+          <FileTree
+            className="w-56 shrink-0 border-r border-border py-2"
+            rootLabel={rootLabel}
+            paths={files.map((f) => f.path)}
+            openPath={openPath}
+            onOpen={setOpenPath}
+          />
+        )}
         <div className="min-w-0 flex-1">
           {loading && (
             <div className="px-6 py-6 text-sm text-muted-foreground">{t("common.loading")}</div>

@@ -501,6 +501,21 @@ describe("MarketplaceView", () => {
     ).toBe(true);
   });
 
+  it("does not offer to install a service the app already ships", async () => {
+    installFetchMock({ plugins: [{ ...INDEX.plugins[0], seed_conflict: true }] });
+    renderView();
+
+    fireEvent.click(await screen.findByText("Sentry"));
+
+    // The backend refuses this install, so the page must not promise it.
+    expect(await screen.findByText(/already built into the app/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Open in Plugins/ }));
+    await waitFor(() => {
+      expect(useEventStore.getState().activeSection).toBe("plugins");
+    });
+  });
+
   it("leads with the registry's pick and lists it only once", async () => {
     installFetchMock({ plugins: [{ ...INDEX.plugins[0], featured: true }] });
     renderView();

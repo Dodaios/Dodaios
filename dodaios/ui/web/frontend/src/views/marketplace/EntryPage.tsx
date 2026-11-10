@@ -187,6 +187,7 @@ export function EntryPage(props: EntryPageProps) {
             loading={contents.isLoading}
             error={filesError}
             emptyLabel={t("marketplace.files_none")}
+            tree="auto"
           />
         </Section>
 
@@ -222,6 +223,17 @@ function EntryAction({
   removing,
 }: EntryPageProps) {
   if (entry.broken) return null;
+
+  // The app ships this service itself. The registry entry of the same name
+  // cannot be installed over it, so the page offers the way to the real one.
+  if (entry.seedConflict) {
+    return (
+      <Button variant="outline" onClick={onOpenHome} className="shrink-0">
+        {fill(t("marketplace.open_in"), { section: t("marketplace.filter_plugins") })}
+        <ArrowUpRight />
+      </Button>
+    );
+  }
 
   if (entry.installed && !entry.updateAvailable) {
     const home = t(

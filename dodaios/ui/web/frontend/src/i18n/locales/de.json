@@ -6613,7 +6613,7 @@
     "sign_in_method": "Anmeldeweg",
     "portable_skill": "Portabler Skill — läuft auch in",
     "portable_any": "anderen Agenten, die SKILL.md lesen",
-    "seed_conflict": "Ein Plugin dieses Namens liegt der App schon bei. Dieses hier ersetzt es.",
+    "seed_conflict": "Dieser Dienst ist bereits in der App eingebaut. Du musst nichts installieren: Verbinde ihn unter Plugins.",
     "landed_open": "Zeig es mir",
     "filter_agents": "Agenten",
     "shelf_agents": "Agenten",

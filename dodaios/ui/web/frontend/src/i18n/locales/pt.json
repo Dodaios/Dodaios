@@ -6613,7 +6613,7 @@
     "sign_in_method": "Método de início de sessão",
     "portable_skill": "Skill portátil — também corre em",
     "portable_any": "outros agentes que leem SKILL.md",
-    "seed_conflict": "Já existe um plugin com este nome incluído na aplicação. Instalar este substitui-o.",
+    "seed_conflict": "Este serviço já vem integrado na app. Não há nada para instalar: ligue-o em Plugins.",
     "landed_open": "Mostrar",
     "filter_agents": "Agentes",
     "shelf_agents": "Agentes",

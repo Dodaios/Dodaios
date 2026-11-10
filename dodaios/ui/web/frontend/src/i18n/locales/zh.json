@@ -6613,7 +6613,7 @@
     "sign_in_method": "登录方式",
     "portable_skill": "可移植技能——也能运行在",
     "portable_any": "其他读取 SKILL.md 的智能体中",
-    "seed_conflict": "应用已自带同名插件。安装此插件会将其替换。",
+    "seed_conflict": "该服务已内置于应用中，无需安装：在“插件”中连接即可。",
     "landed_open": "带我去看",
     "filter_agents": "智能体",
     "shelf_agents": "智能体",
