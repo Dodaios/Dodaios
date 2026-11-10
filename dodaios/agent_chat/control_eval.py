@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import tempfile
 import uuid
 from dataclasses import replace
@@ -14,8 +15,84 @@ from dodaios.core.protocols import BrainMessage, BrainRequest
 
 from .control_types import GoalVerdict
 
+log = logging.getLogger(__name__)
+
+
+_SAME_FAMILY_NOTE = (
+    "Checked by the same model family as the worker: no other family is connected."
+)
+
+
+def _family_of(provider: str) -> str:
+    from .catalog import provider_row
+
+    row = provider_row(provider)
+    return (row.family if row is not None else "") or provider
+
+
+def pick_evaluator(session: Any) -> tuple[str, str] | None:
+    """A connected provider of ANOTHER model family than the worker's, or ``None``.
+
+    The worker must not grade its own work with the same model family (AP-22:
+    one family shares its blind spots). Candidates come from the catalog in
+    order; one counts only when it is connected (an API key is saved, or the
+    subscription login is up) and ``background_policy`` lets background work
+    use it, so an install with a subscription never bills a key for the check.
+    """
+    from dodaios.brain import background_policy
+
+    from .catalog import known_provider_ids, provider_row
+    from .runner_api import supports_api_runner
+
+    worker_family = _family_of(session.provider)
+    for provider in known_provider_ids():
+        row = provider_row(provider)
+        if row is None or row.keyless or _family_of(provider) == worker_family:
+            continue
+        if provider == session.provider or not background_policy.background_providers(
+            [provider]
+        ).permits(provider):
+            continue
+        if supports_api_runner(provider):
+            from dodaios.core.config import get_jarvis_agent_secret
+
+            connected = bool(get_jarvis_agent_secret(provider))
+        else:
+            connected = background_policy.login_state(provider) is True
+        if connected:
+            return provider, row.default_model
+    return None
+
 
 async def evaluate_goal(
+    session: Any, objective: str, events: list[dict[str, Any]], language: str = ""
+) -> GoalVerdict:
+    """Judge the goal's evidence, on a different model family than the worker when one is
+    connected; otherwise (or when that check fails) on the worker's own, with a note."""
+    try:
+        other = pick_evaluator(session)
+    except Exception:  # noqa: BLE001 - a lookup problem must not cost the verdict
+        log.warning("goal evaluator: cross-family lookup failed", exc_info=True)
+        other = None
+    if other is not None:
+        provider, model = other
+        try:
+            return await _evaluate(
+                replace(session, provider=provider, model=model, vendor_session=None),
+                objective,
+                events,
+                language,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - fall back to the worker's own family
+            log.warning("goal evaluator: %s failed, using the worker's family", provider)
+    verdict = await _evaluate(session, objective, events, language)
+    verdict.reason = f"{verdict.reason} ({_SAME_FAMILY_NOTE})"
+    return verdict
+
+
+async def _evaluate(
     session: Any, objective: str, events: list[dict[str, Any]], language: str = ""
 ) -> GoalVerdict:
     from .runner_api import TurnHandle, build_brain, supports_api_runner
