@@ -300,7 +300,11 @@ namespace VerseArenaGrayboxPrivate
 			Quad(P(0, 1, 0), P(0, 0, 0), P(1, 0, 0), P(1, 1, 0), FVector3f(0, 0, -1));
 		}
 		UStaticMesh* Mesh = NewObject<UStaticMesh>(Outer, MakeUniqueObjectName(Outer, UStaticMesh::StaticClass(), Name), RF_Transient);
-		Mesh->GetStaticMaterials().Add(FStaticMaterial(Material, TEXT("Frame")));
+		FStaticMaterial Slot(Material, TEXT("Frame"));
+		// A cooked game cannot compute UV densities (editor-only data); an uninitialised slot
+		// fires three ensures on first render, each stalling a Development build for seconds.
+		Slot.UVChannelData = FMeshUVChannelInfo(1.f);
+		Mesh->GetStaticMaterials().Add(Slot);
 		UStaticMesh::FBuildMeshDescriptionsParams Params;
 		Params.bFastBuild = true;
 		Params.bBuildSimpleCollision = false;
