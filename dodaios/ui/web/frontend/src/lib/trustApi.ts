@@ -1,0 +1,124 @@
+// Thin client for the trust layer (dodaios/ui/web/trust_routes.py). Shapes
+// mirror dodaios/trust/* one-to-one; nothing here decides behaviour.
+
+export type TrustRuleKind = "tool" | "action" | "folder" | "command";
+
+export interface TrustRule {
+  id: string;
+  tool: string;
+  kind: TrustRuleKind;
+  target: string;
+  label: string;
+  app: string;
+  source: string;
+  created_ms: number;
+}
+
+export interface AgentRule {
+  agent_id: string;
+  agent: string;
+  pattern: string;
+  app: string;
+  verb: string;
+  label: string;
+}
+
+export interface TrustRules {
+  rules: TrustRule[];
+  agent_rules: AgentRule[];
+  hard_limits: string[];
+}
+
+export interface UndoEntry {
+  id: string;
+  tool: string;
+  label: string;
+  state: "ready" | "running" | "undone" | "failed" | "expired";
+  error?: string;
+  created_ms: number;
+  expires_ms: number;
+}
+
+export interface ConnectedAccount {
+  id: string;
+  label: string;
+  category: string;
+  status: "connected" | "needs_reauth";
+}
+
+export interface ProviderInUse {
+  role: string;
+  provider: string;
+  label: string;
+  local: boolean;
+}
+
+export interface PrivacyOverview {
+  accounts: ConnectedAccount[];
+  memory: { available: boolean; count: number; learning_paused: boolean; paused_until: string | null };
+  providers: ProviderInUse[];
+  cloud: ProviderInUse[];
+  channels: string[];
+  screen_context: boolean;
+  known_recipients: number;
+}
+
+export interface KnownRecipient {
+  recipient: string;
+  first_ms: number;
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { detail?: unknown };
+      if (typeof body.detail === "string" && body.detail) detail = body.detail;
+    } catch {
+      /* a plain error body is fine */
+    }
+    throw new Error(detail);
+  }
+  return (await res.json()) as T;
+}
+
+const json = (body: unknown): RequestInit => ({
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+export const fetchTrustRules = () => request<TrustRules>("/api/trust/rules");
+
+export const revokeTrustRule = (id: string) =>
+  request<{ ok: boolean; rule: TrustRule }>(`/api/trust/rules/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const revokeAgentRule = (agentId: string, pattern: string) =>
+  request<{ ok: boolean }>(
+    `/api/trust/agent-rules/${encodeURIComponent(agentId)}?pattern=${encodeURIComponent(pattern)}`,
+    { method: "DELETE" },
+  );
+
+export async function runUndo(id: string): Promise<UndoEntry> {
+  const body = await request<{ ok: boolean; entry: UndoEntry }>(`/api/trust/undo/${encodeURIComponent(id)}`, {
+    method: "POST",
+  });
+  return body.entry;
+}
+
+export const fetchPrivacyOverview = () => request<PrivacyOverview>("/api/trust/privacy");
+
+export const fetchKnownRecipients = async () =>
+  (await request<{ recipients: KnownRecipient[] }>("/api/trust/recipients")).recipients;
+
+export const forgetRecipient = (recipient: string) =>
+  request<{ ok: boolean }>(`/api/trust/recipients?recipient=${encodeURIComponent(recipient)}`, { method: "DELETE" });
+
+/** The memory vault's learning switch (personal_memory_routes.py): off = paused for good. */
+export const setLearning = (on: boolean) =>
+  request<{ paused: boolean; until: string | null }>("/api/memory/vault/pause", json(on ? {} : { forever: true }));
+
+/** The screen-context master switch (screen_context_routes.py). */
+export const setScreenContext = (enabled: boolean) =>
+  request<{ enabled: boolean }>("/api/screen-context/settings", json({ enabled }));

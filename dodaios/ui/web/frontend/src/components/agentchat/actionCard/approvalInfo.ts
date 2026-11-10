@@ -53,6 +53,25 @@ export interface ApprovalCardInfo {
   action?: string;
   /** A file call whose target does not exist yet: the card asks to create it. */
   creates?: boolean;
+  /**
+   * A hard limit the call touches (dodaios/trust/hard_limits.py): money,
+   * credentials, permanent_delete, new_recipient. The first three offer no
+   * "Always allow" at all; a new recipient keeps the offer (the rule is fine,
+   * it just never covers a first message) and says so.
+   */
+  hardLimit?: HardLimit;
+  /** The outbound check's findings (dodaios/trust/outbound.py), read out as cautions. */
+  checks?: OutboundCheck[];
+}
+
+export type HardLimit = "money" | "credentials" | "permanent_delete" | "new_recipient";
+/** The hard limits for which no standing rule may be saved. */
+export const NO_RULE_LIMITS: ReadonlySet<HardLimit> = new Set(["money", "credentials", "permanent_delete"]);
+
+export interface OutboundCheck {
+  code: "secret" | "unknown_recipient" | "mistyped_domain" | "tone";
+  severity: "block" | "ask";
+  detail: string;
 }
 
 /** A standing rule saved from a card (`notice{kind:"approval_rule"}`). */
@@ -70,6 +89,8 @@ export interface SavedApprovalRule {
 }
 
 const KINDS = new Set<ApprovalSourceKind>(["terminal", "files", "browser", "computer", "plan", "agent", "connector", "tool"]);
+const HARD_LIMITS = new Set<HardLimit>(["money", "credentials", "permanent_delete", "new_recipient"]);
+const CHECK_CODES = new Set<OutboundCheck["code"]>(["secret", "unknown_recipient", "mistyped_domain", "tone"]);
 const CAUTIONS = new Set<ApprovalCaution>(["irreversible", "security", "data_leaves"]);
 const SCOPES = new Set<RuleScope>(["agent", "chat"]);
 const NARROWS = new Set<RuleNarrow>(["folder", "command"]);
@@ -93,7 +114,18 @@ export function parseApprovalCard(payload: Record<string, unknown>): ApprovalCar
     brief: text(payload.brief),
     rule: parseRuleOffer(payload.rule),
     ...(payload.creates === true ? { creates: true } : {}),
+    ...(HARD_LIMITS.has(text(payload.hard_limit) as HardLimit) ? { hardLimit: text(payload.hard_limit) as HardLimit } : {}),
+    ...(Array.isArray(payload.checks) ? { checks: parseChecks(payload.checks) } : {}),
   };
+}
+
+function parseChecks(raw: unknown[]): OutboundCheck[] {
+  return raw.flatMap((entry) => {
+    const row = record(entry);
+    const code = text(row?.code) as OutboundCheck["code"];
+    if (!CHECK_CODES.has(code)) return [];
+    return [{ code, severity: text(row?.severity) === "block" ? "block" : "ask", detail: text(row?.detail) }];
+  });
 }
 
 function parseRuleOffer(raw: unknown): ApprovalRuleOffer | null {

@@ -596,6 +596,7 @@ class WebServer:
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
+        from .trust_routes import router as trust_router
         from .update_routes import router as update_router
         from .voice_call_routes import router as voice_call_router
         from .wallpaper_routes import router as wallpaper_router
@@ -863,6 +864,8 @@ class WebServer:
         app.include_router(onboarding_router)
         # Personal memory vault API (ADR-0044): items, history, export, import.
         app.include_router(personal_memory_router)
+        # Trust & privacy: standing rules, undo, the "what it knows" overview.
+        app.include_router(trust_router)
         # ConnectionManager singleton for the global event stream. Attached
         # to MissionBus.subscribe_all() in start().
         app.state.missions_ws_manager = _MissionsConnMgr()

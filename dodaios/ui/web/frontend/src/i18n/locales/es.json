@@ -11029,5 +11029,30 @@
       "cancel": "Cancelar"
     },
     "raw": "Datos sin formato"
+  },
+  "trust": {
+    "nav": "Confianza y privacidad",
+    "undo": {
+      "toast": "Hecho: {what}",
+      "toast_plain": "Hecho.",
+      "button": "Deshacer",
+      "done": "Deshecho.",
+      "failed": "No se pudo deshacer."
+    },
+    "card": {
+      "always_asks": "Esto siempre pregunta; ninguna regla lo omite.",
+      "limit": {
+        "money": "Hay dinero en juego.",
+        "credentials": "Hay una contraseña o clave implicada.",
+        "permanent_delete": "Esto borra de forma definitiva.",
+        "new_recipient": "Primer mensaje a este destinatario desde aquí."
+      },
+      "check": {
+        "secret": "El texto contiene algo que parece un secreto.",
+        "unknown_recipient": "Nunca se ha escrito a: {detail}",
+        "mistyped_domain": "¿Querías decir {detail}?",
+        "tone": "El tono suena duro."
+      }
+    }
   }
 }

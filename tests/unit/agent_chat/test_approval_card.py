@@ -280,7 +280,9 @@ def test_acp_request_permission_asks_on_the_same_card(tmp_path: Path):
                 "toolCallId": "tc1",
                 "title": "rm -rf build",
                 "kind": "execute",
-                "rawInput": {"command": "rm -rf build"},
+                # Recoverable: deleting for good (``rm -rf``) is a trust hard
+                # limit, and no runtime gets to remember an "always" for it.
+                "rawInput": {"command": "trash build"},
             },
             "options": [
                 {"kind": "allow_once", "optionId": "o1"},
