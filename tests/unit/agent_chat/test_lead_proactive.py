@@ -23,9 +23,12 @@ class _TaskStore:
     def __init__(self) -> None:
         self.rows: list[dict] = []
         self.results: dict[str, str] = {}
+        self._next = 0
 
     async def insert(self, spec: TaskSpec) -> str:
-        task_id = f"task-{len(self.rows) + 1}"
+        # Ids never repeat, even after a delete (the real store uses UUIDs).
+        self._next += 1
+        task_id = f"task-{self._next}"
         self.rows.append(
             {"id": task_id, "state": "scheduled", "spec_json": spec.model_dump_json(), "spec": spec}
         )
@@ -293,6 +296,13 @@ def test_topic_change_rebuilds_an_existing_brief(world) -> None:
         after = briefs[0]["spec"]
         assert "calendar" not in after.action.prompt and "messages that wait" in after.action.prompt
         assert after.trigger.local_time == "07:00"
+        # A paused brief is left alone: rebuilding it would turn it on or lose it.
+        briefs[0]["state"] = "paused"
+        await proactive_checks.apply_settings(
+            ProactiveSettings(level="important", topics=("calendar",), timezone="Europe/Berlin")
+        )
+        paused = [r for r in _live(store, proactive.BRIEF_TAG) if r["state"] == "paused"]
+        assert len(paused) == 1 and paused[0]["spec"] is after
 
     asyncio.run(scenario())
 

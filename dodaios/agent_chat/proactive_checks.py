@@ -288,11 +288,12 @@ async def _rebuild_brief() -> None:
     from dodaios.agent_chat.proactive import brief_state, set_brief
 
     state = await brief_state()
-    if not state.get("task_id"):
+    if not state.get("task_id") or not state.get("enabled"):
+        # No brief, or a paused one: leave it as the person left it.
         return
     try:
         await set_brief(
-            enabled=bool(state.get("enabled")),
+            enabled=True,
             local_time=str(state.get("time") or ""),
             timezone=str(state.get("timezone") or ""),
         )
