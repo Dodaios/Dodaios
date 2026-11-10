@@ -7731,6 +7731,12 @@
     "connected": "{label} connected",
     "declined": "{label} not connected"
   },
+  "plugin_reconnect": {
+    "subtitle": "Connection expired",
+    "action": "Reconnect",
+    "waiting": "Finish signing in",
+    "code": "Code: {code}"
+  },
   "question_card": {
     "aria": "Question from the agent",
     "title_one": "{agent} has a question",

@@ -34,6 +34,14 @@ KEEP_GOING_ON_TOOL_FAILURE = (
     "permitted path, and never work around a denial."
 )
 
+#: Society agents: a service the task needs is offered as a Connect card in the
+#: chat (dodaios/society/connect_tool.py), not as a walk to the Plugins page.
+CONNECT_GUIDANCE = (
+    "When a task needs one of them, call society_request_connect(kind='plugin', id=...) "
+    "before anything else: it puts a Connect card with the service's logo in the chat. Do "
+    "not send the person to the Plugins page and do not answer that you cannot do it."
+)
+
 #: Society agents: the one way a secret reaches an agent (dodaios/society/credential_tool.py).
 CREDENTIAL_GUIDANCE = (
     "Secrets reach you only through society_request_credential, as environment variables "

@@ -16,6 +16,7 @@ export function ChatPromptCard({
   subtitle,
   action,
   settled,
+  className,
 }: {
   testId: string;
   tile: ReactNode;
@@ -23,12 +24,16 @@ export function ChatPromptCard({
   subtitle?: ReactNode;
   action?: ReactNode;
   settled?: { tone: "success" | "muted"; label: string };
+  className?: string;
 }) {
   return (
     <div
       data-testid={testId}
       data-state={settled ? settled.tone : "open"}
-      className="my-2 flex w-full max-w-md items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3"
+      className={cn(
+        "my-2 flex w-full max-w-md items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3",
+        className,
+      )}
     >
       <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-background text-muted-foreground">
         {tile}
@@ -54,7 +59,7 @@ export function ChatPromptCard({
   );
 }
 
-/** The card's one button: a soft pill, like the reference chat. */
+/** The card's one button: a pill in the text colour, the one thing to press. */
 export function ChatPromptButton({
   children,
   onClick,
@@ -72,7 +77,7 @@ export function ChatPromptButton({
       onClick={onClick}
       disabled={disabled}
       data-testid={testId}
-      className="shrink-0 rounded-full bg-muted px-4 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+      className="shrink-0 rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
     >
       {children}
     </button>

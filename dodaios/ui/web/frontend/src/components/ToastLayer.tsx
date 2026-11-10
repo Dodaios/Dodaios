@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -36,7 +37,8 @@ const ACCENT_FOR_KIND: Record<Toast["kind"], string> = {
   error: "text-destructive",
 };
 
-export function ToastLayer() {
+/** `children`: standing notices (a connection that ended), drawn under the toasts. */
+export function ToastLayer({ children }: { children?: ReactNode } = {}) {
   const t = useT();
   const toasts = useEventStore((s) => s.toasts);
   const dismiss = useEventStore((s) => s.dismissToast);
@@ -51,7 +53,7 @@ export function ToastLayer() {
     // shell root (an isolated stacking context) no z-index could outrank it.
     // top-12: below the caption strip — at the top edge a toast covered the
     // restart and window buttons whose outcome it reports.
-    <div className="pointer-events-none fixed right-4 top-12 z-[115] flex w-[320px] flex-col gap-2">
+    <div className="pointer-events-none fixed right-4 top-12 z-[115] flex flex-col items-end gap-2">
       {toasts.map((toast) => {
         const Icon = ICON_FOR_KIND[toast.kind];
         // A saved-file toast in the desktop shell is a native drag handle: press
@@ -75,7 +77,7 @@ export function ToastLayer() {
             }
             title={draggable ? t("file_toast.drag_hint") : undefined}
             className={cn(
-              "pointer-events-auto flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm backdrop-blur",
+              "pointer-events-auto flex w-[320px] items-start gap-3 rounded-lg border px-3 py-2.5 text-sm backdrop-blur",
               "animate-in slide-in-from-right-4 fade-in duration-200",
               STYLE_FOR_KIND[toast.kind],
               draggable && "cursor-grab active:cursor-grabbing select-none",
@@ -128,6 +130,7 @@ export function ToastLayer() {
           </div>
         );
       })}
+      {children}
     </div>,
     document.body,
   );
