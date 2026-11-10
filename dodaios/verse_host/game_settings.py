@@ -164,7 +164,7 @@ CATALOGUE: Final[tuple[Setting, ...]] = (
         "borderless",
     ),
     _choice("display.resolution", "graphics", "display", RESOLUTIONS, "native", impact="high"),
-    _choice("display.frame_limit", "graphics", "display", FRAME_LIMITS, "unlimited", impact="high"),
+    _choice("display.frame_limit", "graphics", "display", FRAME_LIMITS, "144", impact="high"),
     _toggle("display.vsync", "graphics", "display", False, impact="low"),
     _range("display.brightness", "graphics", "display", 0, 100, 1, 50),
     _toggle("display.hdr", "graphics", "display", False, restart=True),

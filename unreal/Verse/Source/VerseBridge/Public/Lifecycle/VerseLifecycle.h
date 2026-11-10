@@ -35,6 +35,7 @@ public:
 	virtual void ShowWindow(const FVerseMonitor& Monitor, const FString& ActivationToken) = 0;
 	virtual void HideWindow() = 0;
 	virtual void SetRendering(bool bOn) = 0;
+	/** The lifecycle frame cap; 0 = none (the person's limit and FVerseFramePacing rules apply). */
 	virtual void SetMaxFps(float Fps) = 0;
 	virtual void SetMuted(bool bMuted) = 0;
 	virtual void SetPaused(bool bPaused) = 0;
