@@ -9,7 +9,7 @@ import { ToolChoiceIcon } from "../ToolChoiceChips";
 import type { ToolChoice } from "../toolChoices";
 import { ActionCard, type ActionSpec, type SettledSpec } from "./ActionCard";
 import { approvalSummary, approvalTitle, cardInfoOf, detailRows, disclosureText, narrowSentence, outcomeLabel, outcomeTone, ruleSentence, sameWords, savedRuleSentence, sourceLabel, withReadableNames } from "./approvalCopy";
-import type { ApprovalCardInfo, ApprovalRuleOffer, RuleBreadth, RuleNarrow, RuleScope } from "./approvalInfo";
+import { NO_RULE_LIMITS, type ApprovalCardInfo, type ApprovalRuleOffer, type RuleBreadth, type RuleNarrow, type RuleScope } from "./approvalInfo";
 import { claimKeyboardTarget, TARGET_PRIORITY } from "./keyboardTarget";
 
 /** How a surface answers an approval: by its id, the decision, and where an "always" lives. */
@@ -76,6 +76,28 @@ function subtitleLines(info: ApprovalCardInfo, approval: ApprovalState, block: T
   if (info.why && !sameWords(info.why, what) && !sameWords(info.why, approval.summary)) {
     lines.push(fill(t("action_card.field.why"), { why: info.why }));
   }
+  lines.push(...trustLines(info, t));
+  return lines;
+}
+
+/**
+ * What the trust layer found (dodaios/trust): the hard limit this call
+ * touches and the outbound check's findings, one short sentence each. A hard
+ * limit that forbids a rule also says that no rule skips it.
+ */
+export function trustLines(info: ApprovalCardInfo, t: T): ReactNode[] {
+  const lines: ReactNode[] = [];
+  if (info.hardLimit) {
+    const limit = t(`trust.card.limit.${info.hardLimit}`);
+    const text = NO_RULE_LIMITS.has(info.hardLimit) ? `${limit} ${t("trust.card.always_asks")}` : limit;
+    lines.push(<span className="text-warning" data-testid="action-card-hard-limit">{text}</span>);
+  }
+  for (const check of info.checks ?? []) {
+    if (check.code === "unknown_recipient" && info.hardLimit === "new_recipient") continue; // said above
+    lines.push(<span className="text-warning" data-testid={`action-card-check-${check.code}`}>
+      {fill(t(`trust.card.check.${check.code}`), { detail: check.detail })}
+    </span>);
+  }
   return lines;
 }
 
@@ -100,7 +122,10 @@ function OpenApproval({ block, approval, info, onDecide }: {
   useEffect(() => () => { mounted.current = false; }, []);
   const kind = info.source.kind;
   const isPlan = kind === "plan";
-  const offer = isPlan ? null : info.rule;
+  // Money, credentials and deleting for good take no standing rule: the card
+  // offers "Allow once" and "Deny" only (trust hard limits).
+  const noRule = Boolean(info.hardLimit && NO_RULE_LIMITS.has(info.hardLimit));
+  const offer = isPlan || noRule ? null : info.rule;
   const title = approvalTitle(info, t);
 
   const decide = async (decision: ApprovalDecision, rule?: ApprovalRuleChoice) => {
@@ -267,7 +292,8 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
   const [error, setError] = useState<string | null>(null);
   const decision = approval.decision ?? "cancel";
   const title = approvalTitle(info, t);
-  const offer = info.source.kind === "plan" ? null : info.rule;
+  const noRule = Boolean(info.hardLimit && NO_RULE_LIMITS.has(info.hardLimit));
+  const offer = info.source.kind === "plan" || noRule ? null : info.rule;
   const saved = approval.rule;
 
   const save = async (id: string, rule: ApprovalRuleRequest) => {

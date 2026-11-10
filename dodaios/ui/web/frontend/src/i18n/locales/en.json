@@ -11084,5 +11084,30 @@
     "import_save": "Save {count}",
     "import_saved": "{added} memories imported, {existing} already known.",
     "cancel": "Cancel"
+  },
+  "trust": {
+    "nav": "Trust and privacy",
+    "undo": {
+      "toast": "Done: {what}",
+      "toast_plain": "Done.",
+      "button": "Undo",
+      "done": "Undone.",
+      "failed": "Could not undo."
+    },
+    "card": {
+      "always_asks": "This always asks; no rule skips it.",
+      "limit": {
+        "money": "Money is involved.",
+        "credentials": "A password or key is involved.",
+        "permanent_delete": "This deletes for good.",
+        "new_recipient": "First message to this recipient from here."
+      },
+      "check": {
+        "secret": "The text contains something that looks like a secret.",
+        "unknown_recipient": "Never written to before: {detail}",
+        "mistyped_domain": "Did you mean {detail}?",
+        "tone": "The tone reads harsh."
+      }
+    }
   }
 }
