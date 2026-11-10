@@ -39,6 +39,8 @@ export interface CommunityPluginWire {
   valid: boolean;
   error?: string;
   publisher?: string | null;
+  /** The publisher's numeric GitHub id: stable across a rename of the login. */
+  publisher_id?: number | null;
   version?: string | null;
   published_at?: string | null;
   source_url?: string | null;
@@ -70,12 +72,14 @@ export interface CommunitySkillWire {
   title: string;
   description: string;
   publisher?: string | null;
+  publisher_id?: number | null;
   version?: string | null;
   categories: string[];
   published_at?: string | null;
   source_url?: string | null;
   raw_url?: string | null;
   installed: boolean;
+  featured?: boolean;
   /**
    * Which frontmatter the published SKILL.md carries: `"jarvis"` uses this
    * app's schema (triggers, risk policy), `"portable"` is a plain Agent Skill
@@ -102,10 +106,12 @@ export interface CommunityAgentWire {
   title: string;
   description: string;
   publisher?: string | null;
+  publisher_id?: number | null;
   version?: string | null;
   published_at?: string | null;
   categories: string[];
   source_url?: string | null;
+  featured?: boolean;
   agent: AgentTemplateWire;
   /** The install would accept it (the same rule the install applies). */
   valid: boolean;
@@ -114,7 +120,7 @@ export interface CommunityAgentWire {
 }
 
 export interface CommunityResponse {
-  status: "fresh" | "fetched" | "stale" | "unavailable" | "disabled";
+  status: "fresh" | "fetched" | "revalidating" | "stale" | "unavailable" | "disabled";
   revision?: number | null;
   generated_at?: string | null;
   plugins: CommunityPluginWire[];
@@ -132,7 +138,7 @@ export interface EntryFileWire {
 }
 
 export interface EntryContentsWire {
-  kind: "skill" | "plugin";
+  kind: "skill" | "plugin" | "agent";
   name: string;
   title: string;
   root: string;
