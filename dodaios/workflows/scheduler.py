@@ -9,10 +9,8 @@ A slot that passed while the app was not running is NOT caught up: past the
 shared misfire grace (``dodaios.core.misfire``) it is recorded as a ``missed``
 run and the schedule continues from the next occurrence (BUG-212).
 
-This is deliberately not the same code-path architecture as skills-cron
-(``skills/trigger_matcher.run_cron_scheduler``) — skills yield an
-``AsyncIterator`` that the supervisor consumes; here the scheduler fires
-directly at the runner.
+Scheduled skills are not workflows: they run as lead routines
+(``skills/cron_routines.py``).
 """
 from __future__ import annotations
 

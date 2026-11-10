@@ -367,6 +367,10 @@ class SocietyRuntime:
         await self.chat_runs.start()
         self._require_open_owner()
         self.background(self.recover_reviews())
+        # Scheduled skills run as lead routines (billing hold, written results).
+        from dodaios.skills.cron_routines import keep_in_sync
+
+        self.background(keep_in_sync(self))
         self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
         log.info("society runtime started (%s)", self.store.path)
         return self

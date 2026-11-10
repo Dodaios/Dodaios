@@ -416,7 +416,6 @@ _HELD_FOR_CALL_SOURCES: frozenset[str] = frozenset(
         "workflows.runner",
         "workflows.scheduler",
         "desktop_app.conductor",
-        "skills.cron",
     }
 )
 
@@ -3201,8 +3200,6 @@ class SpeechPipeline:
         # Skills-Brain-Integration: Direct-Trigger + Cron. Ohne gesetzten
         # SkillContext bleiben beide Pfade no-op.
         self._trigger_matcher: TriggerMatcher | None = None
-        self._cron_task: asyncio.Task | None = None
-        self._cron_stop: asyncio.Event = asyncio.Event()
         # Phase-B warm-up (confirmation-audio pre-render) runs off the critical
         # path so voice can declare ready early. Kept on the instance so tests
         # (and a graceful shutdown) can await it.
@@ -5002,127 +4999,6 @@ class SpeechPipeline:
         except Exception as exc:  # noqa: BLE001
             log.warning("SkillDirectTriggered-Publish fehlgeschlagen: %s", exc)
 
-    async def _skill_cron_loop(self, stop_event: asyncio.Event) -> None:
-        """Cron scheduler for skills.
-
-        Runs as a parallel asyncio task; yields a skill when its cron trigger
-        fires and hands it to ``_handle_cron_skill`` (instruction-skill model,
-        AD-S4: the brain executes the skill; the spoken result goes out as an
-        announcement through the normal scrubbed announcement path).
-        """
-        ctx = try_get_skill_context()
-        if ctx is None:
-            return
-        if self._trigger_matcher is None:
-            self._trigger_matcher = TriggerMatcher(ctx.registry)
-        matcher = self._trigger_matcher
-        try:
-            async for skill in matcher.run_cron_scheduler(stop_event):
-                try:
-                    await self._handle_cron_skill(skill)
-                except Exception as exc:  # noqa: BLE001
-                    log.exception("Cron skill '%s' failed: %s", skill.name, exc)
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            log.exception("Skill-Cron-Loop crashed: %s", exc)
-
-    async def _handle_cron_skill(self, skill: Any) -> None:
-        """Run one scheduled skill fire through the brain (AD-S4 extension).
-
-        The brain receives a synthetic scheduled-run turn with the skill
-        noted (``note_skill_trigger`` → instruction injection + SkillInvoked
-        source="cron"); the reply is queued as a held ``AnnouncementRequested``
-        and spoken at the next call, and a total provider failure stays
-        silent. Falls back to the legacy macro runner when the
-        wired brain cannot take the handoff (echo/mock brains).
-        """
-        from dodaios.skills.schema import SkillLifecycleState
-
-        state = getattr(skill, "state", None)
-        if state not in (
-            SkillLifecycleState.ACTIVE, SkillLifecycleState.VALIDATED,
-        ):
-            log.debug("cron fire for %s skipped (state=%s)", skill.name, state)
-            return
-        fm = getattr(skill, "frontmatter", None)
-        if fm is not None and fm.risk_policy.default_tier == "block":
-            log.info("cron fire for %s skipped (block tier)", skill.name)
-            return
-
-        await self._emit_skill_direct(skill.name, "cron")
-        note = getattr(self._brain, "note_skill_trigger", None)
-        if not callable(note):
-            # Legacy fallback: no brain handoff available (echo/mock brain).
-            ctx = try_get_skill_context()
-            if ctx is not None:
-                result = await ctx.runner.run(skill, args={"_trigger": "cron"})
-                log.info(
-                    "Cron skill '%s' (legacy runner): success=%s",
-                    skill.name, result.success,
-                )
-            return
-
-        note(skill.name, source="cron")
-        # Compose the scheduled-run instruction in the conversation language so
-        # the brain answers in that language (it derives the reply language from
-        # the prompt text) — a German chat must not receive an English briefing
-        # (forensic 2026-06-23: the screenshot's English "Good morning, Chef…"
-        # announcement). ``lang`` also tags the announcement so the resolver
-        # speaks it in the same language. de strings are functional brain
-        # prompts, not user-facing artifacts (i18n-allow).
-        lang = self._output_language(None, "")
-        _prompts = {
-            "de": (
-                "[Geplanter Lauf] Es ist Zeit für den Skill '{name}'. Führe "  # i18n-allow
-                "jetzt seine Anweisungen aus und berichte das Ergebnis kurz."  # i18n-allow
-            ),
-            "es": (
-                "[ejecución programada] Es hora del skill '{name}'. Ejecuta sus "
-                "instrucciones ahora e informa brevemente el resultado."
-            ),
-            "pt": (
-                "[execução agendada] Está na hora do skill '{name}'. Executa as "
-                "suas instruções agora e informa brevemente o resultado."
-            ),
-            "en": (
-                "[scheduled run] It is time for the '{name}' skill. Execute its "
-                "instructions now and report the result briefly."
-            ),
-        }
-        reply = await self._brain(
-            _prompts.get(lang, _prompts["en"]).format(name=skill.name)
-        )
-        text = (reply or "").strip()
-        if self._brain_turn_failed():
-            # Nobody called Jarvis for this turn: a provider-chain failure on a
-            # scheduled run is not news worth speaking into an idle room (live
-            # 2026-09-29 08:00: the daily triage skill failed on every provider
-            # and Jarvis announced "my stored API key is being rejected" out of
-            # nowhere). The API-keys view shows the broken key; the log keeps
-            # the chain diagnostic.
-            log.warning(
-                "Cron skill '%s' failed on every provider; staying silent", skill.name
-            )
-            return
-        if text and self._bus is not None:
-            try:
-                # Held for the next call like every other background result
-                # (_HELD_FOR_CALL_SOURCES): a scheduled run never speaks
-                # into a room where nobody called Jarvis.
-                await self._bus.publish(
-                    AnnouncementRequested(
-                        source_layer="skills.cron",
-                        text=text,
-                        language=lang,
-                        priority="normal",
-                        kind=SPOKEN_KIND_COMPLETION,
-                    )
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.warning("cron skill announcement failed: %s", exc)
-        log.info("Cron skill '%s' executed via brain turn", skill.name)
-
     @staticmethod
     def _is_agent_reply(event: AnnouncementRequested) -> bool:
         """A readback that is owed to the user but must wait for an open call.
@@ -6853,27 +6729,13 @@ class SpeechPipeline:
             main_task = asyncio.create_task(self._state_loop(), name="state")
             main_task.add_done_callback(_log_task_exit)
 
-            # Skills-Brain-Integration: Cron-Scheduler-Task starten wenn Skills bereit.
-            # Wenn kein SkillContext gesetzt ist, ueberspringen wir den Cron-Pfad
-            # ohne Fehler (Headless-Mode, Tests).
-            self._cron_stop.clear()
-            cron_ctx = try_get_skill_context()
-            if cron_ctx is not None:
-                self._cron_task = asyncio.create_task(
-                    self._skill_cron_loop(self._cron_stop), name="skill-cron"
-                )
-                log.info("Skill-Cron-Scheduler aktiv.")
-
             try:
                 await main_task
             finally:
                 self._hotkey_trigger = None
-                self._cron_stop.set()
                 tasks_to_cancel: list[asyncio.Task] = [hotkey_task, hotkey_reload_task]
                 if wake_task is not None:
                     tasks_to_cancel.append(wake_task)
-                if self._cron_task is not None:
-                    tasks_to_cancel.append(self._cron_task)
                 for t in tasks_to_cancel:
                     t.cancel()
                 for t in tasks_to_cancel:
@@ -6887,7 +6749,6 @@ class SpeechPipeline:
                         await self._vision_provider.stop()
                     except Exception as exc:  # noqa: BLE001
                         log.debug("VisionContextProvider.stop() swallow: %s", exc)
-                self._cron_task = None
                 # Phase-B confirmation-audio render is fire-and-forget; cancel it
                 # here so it is never orphaned past pipeline shutdown.
                 await self._cancel_warmup_background()
