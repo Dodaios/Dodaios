@@ -562,9 +562,44 @@ void UVerseGoreSubsystem::HandleFinisher(const FVerseFinisherEvent& Event)
 // ---------------------------------------------------------------------------------------------
 // Bursts, spatter, flashes
 
+bool UVerseGoreSubsystem::GetViewerLocation(FVector& OutLocation) const
+{
+	const UWorld* World = GetWorld();
+	if (!World || !FApp::CanEverRender())
+	{
+		return false;
+	}
+	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+	{
+		const APlayerController* Controller = It->Get();
+		if (Controller && Controller->IsLocalController() && Controller->PlayerCameraManager)
+		{
+			OutLocation = Controller->PlayerCameraManager->GetCameraLocation();
+			return true;
+		}
+	}
+	return false;
+}
+
+float UVerseGoreSubsystem::NearViewFactor(double DistanceCm)
+{
+	constexpr double Eye = 30.0;
+	return float(FMath::Clamp((DistanceCm - Eye) / (NearViewRangeCm - Eye), 0.0, 1.0));
+}
+
 void UVerseGoreSubsystem::SpawnBurst(const FVector& Origin, const FVector& Direction, int32 Count, uint32 Seed)
 {
 	const int32 Capacity = Tuning.MaxDroplets;
+	// Near the eye a burst fills the screen: fewer and smaller droplets, none flying into the lens.
+	FVector Viewer;
+	const bool bViewer = GetViewerLocation(Viewer);
+	const double ViewDist = bViewer ? FVector::Dist(Origin, Viewer) : 1.0e9;
+	const float Near = NearViewFactor(ViewDist);
+	const FVector ToViewer = bViewer && ViewDist > 1.0 ? (Viewer - Origin) / ViewDist : FVector::ZeroVector;
+	if (Near < 1.f)
+	{
+		Count = FMath::RoundToInt32(Count * FMath::Lerp(0.2f, 1.f, Near));
+	}
 	if (Count <= 0 || Capacity <= 0)
 	{
 		return;
@@ -588,7 +623,18 @@ void UVerseGoreSubsystem::SpawnBurst(const FVector& Origin, const FVector& Direc
 		Droplet.Velocity = Dir * Tuning.DropletSpeedCm * Rng.Range(bBack ? 0.25 : 0.5, bBack ? 0.6 : 1.15);
 		Droplet.Life = Tuning.DropletLifeSeconds * float(Rng.Range(0.6, 1.2));
 		Droplet.SpawnTime = GoreTime;
-		const float Size = Tuning.DropletSizeCm * float(Rng.Range(0.5, 1.4));
+		float Size = Tuning.DropletSizeCm * float(Rng.Range(0.5, 1.4));
+		if (Near < 1.f)
+		{
+			Size *= FMath::Lerp(0.3f, 1.f, Near);
+			// A droplet heading for the eye stops well short of it (drag halves the straight-line reach).
+			if (FVector::DotProduct(Dir, ToViewer) > 0.3)
+			{
+				const double Reach = FMath::Max(0.0, ViewDist - 70.0);
+				const double MaxSpeed = Reach / FMath::Max(0.05, 0.5 * double(Droplet.Life));
+				Droplet.Velocity = Droplet.Velocity.GetClampedToMaxSize(MaxSpeed);
+			}
+		}
 
 		int32 Slot = INDEX_NONE;
 		if (DropletsSim.Num() < Capacity)
@@ -709,7 +755,13 @@ bool UVerseGoreSubsystem::PlaceSpatterDecal(const FVector& Location, const FVect
 	}
 	// A negative size marks a floor drip (its own material).
 	const bool bDrip = Size < 0.f;
-	const float Extent = FMath::Abs(Size);
+	float Extent = FMath::Abs(Size);
+	// A wall right beside the eye gets a smaller splash, not one that covers the view.
+	FVector Viewer;
+	if (GetViewerLocation(Viewer))
+	{
+		Extent *= FMath::Lerp(0.45f, 1.f, NearViewFactor(FVector::Dist(Location, Viewer)));
+	}
 	FVerseRng Rng(Seed, 7, EVerseRngSalt::None);
 	UMaterialInterface* Material = bDrip && DripMaterial ? DripMaterial.Get()
 		: (SpatterMaterials.Num() > 0 ? SpatterMaterials[Rng.RangeInt(0, SpatterMaterials.Num() - 1)].Get() : nullptr);

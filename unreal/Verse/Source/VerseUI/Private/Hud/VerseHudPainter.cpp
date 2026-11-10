@@ -455,7 +455,7 @@ void FVerseHudPainter::PaintMarkers(const FVerseHudFrame& Frame, FVerseHudDrawLi
 			for (const FVector2D& D : Diagonals)
 			{
 				const FVector2D N = D.GetSafeNormal();
-				Line(Out, C + N * L.Px(8.f), C + N * L.Px(15.f), FMath::Max(1.f, L.Px(2.f)), WithAlpha(VerseUiTheme::Text, Alpha), Tag);
+				Line(Out, C + N * L.Px(9.f), C + N * L.Px(19.f), FMath::Max(1.f, L.Px(2.5f)), WithAlpha(VerseUiTheme::Text, Alpha), Tag);
 			}
 			break;
 		}
@@ -465,7 +465,7 @@ void FVerseHudPainter::PaintMarkers(const FVerseHudFrame& Frame, FVerseHudDrawLi
 			for (const FVector2D& D : Diagonals)
 			{
 				const FVector2D N = D.GetSafeNormal();
-				Line(Out, C + N * L.Px(8.f), C + N * L.Px(17.f), FMath::Max(1.f, L.Px(2.5f)), WithAlpha(VerseUiTheme::Gold, Alpha), Tag);
+				Line(Out, C + N * L.Px(9.f), C + N * L.Px(21.f), FMath::Max(1.f, L.Px(3.f)), WithAlpha(VerseUiTheme::Gold, Alpha), Tag);
 			}
 			const float R = L.Px(5.f);
 			const FVector2D Up(0, -R), Right(R, 0), Down(0, R), Left(-R, 0);
@@ -522,9 +522,12 @@ void FVerseHudPainter::PaintDamage(const FVerseHudFrame& Frame, FVerseHudDrawLis
 		const float Angle = FMath::DegreesToRadians(IndicatorAngleDeg(Frame.View, D.FromDirection));
 		const FVector2D Dir(FMath::Sin(Angle), -FMath::Cos(Angle));
 		const FVector2D Side(-Dir.Y, Dir.X);
+		// A wide red wedge pointing out towards the shooter, with a dim arc band behind it.
 		const FVector2D Base = C + Dir * Radius;
-		const FVector2D Tip = C + Dir * (Radius + L.Px(22.f));
-		Out.Tris.Add({Tip, Base + Side * L.Px(20.f), Base - Side * L.Px(20.f), WithAlpha(VerseUiTheme::Red, Alpha), TagDamage});
+		const FVector2D Tip = C + Dir * (Radius + L.Px(30.f));
+		Out.Tris.Add({Tip, Base + Side * L.Px(30.f), Base - Side * L.Px(30.f), WithAlpha(VerseUiTheme::Red, Alpha), TagDamage});
+		const FVector2D Inner = C + Dir * (Radius - L.Px(10.f));
+		Out.Tris.Add({Base + Side * L.Px(30.f), Base - Side * L.Px(30.f), Inner, WithAlpha(VerseUiTheme::Red, Alpha * 0.45f), TagDamage});
 	}
 }
 
