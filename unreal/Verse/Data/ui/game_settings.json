@@ -59,7 +59,7 @@
       "tab": "graphics",
       "section": "display",
       "kind": "choice",
-      "default": "unlimited",
+      "default": "144",
       "options": [
         "30",
         "60",

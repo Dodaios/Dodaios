@@ -4,6 +4,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Stream/VerseStreamInputPolicy.h"
 #include "UnrealEngine.h"
+#include "VerseFramePacing.h"
 #include "VerseLog.h"
 
 namespace
@@ -124,15 +125,7 @@ void FVerseConsoleStreamDriver::Start(const FVerseStreamConfig& Config, FOnStart
 			UE_LOG(LogVerseStream, Verbose, TEXT("Panel stream: console variable %s not present"), *Setting.Key);
 		}
 	}
-	if (IConsoleVariable* MaxFps = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS")))
-	{
-		if (!bSavedMaxFps)
-		{
-			SavedMaxFps = MaxFps->GetString();
-			bSavedMaxFps = true;
-		}
-		MaxFps->Set(*FString::FromInt(Config.Fps), ECVF_SetByCode);
-	}
+	FVerseFramePacing::SetStreamCap(float(Config.Fps));
 	if (!bSavedWindow)
 	{
 		SavedWindow = CurrentWindow();
@@ -158,11 +151,7 @@ void FVerseConsoleStreamDriver::Stop()
 		bStreaming = false;
 		UE_LOG(LogVerseStream, Log, TEXT("Panel stream stopped"));
 	}
-	if (bSavedMaxFps)
-	{
-		SetVar(TEXT("t.MaxFPS"), SavedMaxFps);
-		bSavedMaxFps = false;
-	}
+	FVerseFramePacing::SetStreamCap(0.f);
 	RestoreWindow();
 	// Leave no signalling URL (it carries the streamer key) in the console variable.
 	SetVar(UrlVar, FString());

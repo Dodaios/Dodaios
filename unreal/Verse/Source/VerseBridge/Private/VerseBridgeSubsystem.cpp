@@ -17,6 +17,7 @@
 #include "Misc/Paths.h"
 #include "Qa/VerseQaRegistry.h"
 #include "Scalability.h"
+#include "VerseFramePacing.h"
 #include "VerseLog.h"
 #include "Widgets/SWindow.h"
 
@@ -78,10 +79,8 @@ public:
 
 	virtual void SetMaxFps(float Fps) override
 	{
-		if (IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS")))
-		{
-			Var->Set(Fps, ECVF_SetByCode);
-		}
+		// The frame pacer owns t.MaxFPS: 0 leaves the person's limit and the pacing rules in charge.
+		FVerseFramePacing::SetLifecycleCap(Fps);
 	}
 
 	virtual void SetMuted(bool bMuted) override
