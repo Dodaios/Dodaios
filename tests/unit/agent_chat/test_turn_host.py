@@ -859,6 +859,47 @@ async def test_duplicate_recovery_publishes_one_success_and_no_late_timeout(tmp_
         store.close()
 
 
+async def test_the_exit_is_reported_while_a_grandchild_still_holds_the_pipes(
+    tmp_path: Path,
+) -> None:
+    """The CLI exited; a process it left behind keeps stdout open. The host
+    reports the exit after a short drain instead of waiting for that process."""
+    import os
+    import signal
+
+    pidfile = tmp_path / "grandchild.pid"
+    child = (
+        "import subprocess, sys\n"
+        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'],"
+        " stdout=sys.stdout, stderr=sys.stderr)\n"
+        f"open({str(pidfile)!r}, 'w').write(str(c.pid))\n"
+        "print('answer', flush=True)\n"
+    )
+    host, task, port = await _start_host(tmp_path)
+    try:
+        client = await _client(port)
+        cli = await client.spawn(
+            [sys.executable, "-c", child],
+            cwd=str(tmp_path),
+            env=None,
+            stdin=None,
+            keep_stdin=False,
+            meta={"turn_id": "t-gc"},
+        )
+        t0 = time.monotonic()
+        assert await asyncio.wait_for(cli.stdout.readline(), 20) == b"answer\n"
+        assert await asyncio.wait_for(cli.wait(), 20) == 0
+        assert time.monotonic() - t0 < 15.0  # the grandchild holds the pipes for 30 s
+        assert await cli.stdout.readline() == b""  # EOF follows the exit
+        client.detach()
+    finally:
+        try:
+            os.kill(int(pidfile.read_text()), signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
+        await _stop(host, task)
+
+
 # Sleeps far past the test: only a kill ends it.
 _WAIT_FOREVER = "import time; time.sleep(120)"
 
