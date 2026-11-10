@@ -125,6 +125,8 @@ class JobStatusTool:
                 ), []
         except Exception as exc:  # noqa: BLE001 - said to the model, not swallowed
             return ToolResult(False, "", f"The jobs ledger is unavailable: {exc}")
+        # The read may have settled some jobs: open ones stay on top.
+        rows.sort(key=lambda job: job.settled)
         open_count = sum(1 for job in rows if not job.settled)
         output: dict[str, Any] = {
             "open": open_count,
