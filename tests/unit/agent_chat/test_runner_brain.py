@@ -470,3 +470,62 @@ def test_build_override_preserves_ultra_reasoning_effort(tmp_path):
         session, None, stance="normal", cwd=tmp_path, ref="test-ref"
     )
     assert override.reasoning_effort == "ultra"
+
+
+class _ChainDownBrain(FakeBrainManager):
+    """Every provider of the chain failed: the manager returns its spoken apology."""
+
+    async def generate(self, text: str, **kwargs: Any) -> str:
+        self.calls.append((text, dict(kwargs)))
+        kwargs["turn_override"].receipt.mark_provider_down("rate_limit")
+        return "Sorry, I cannot think right now."
+
+
+async def test_a_total_provider_outage_fails_the_turn_and_stores_no_reply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    bus = EventBus()
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: _ChainDownBrain(bus=bus))
+    monkeypatch.setattr(runner_brain, "_agent_secret", lambda _r, _p: None)
+    svc = _service(bus)
+    session = _jarvis_session(svc, tmp_path)
+    q = svc.subscribe(session.session_id)
+    await svc.send(session.session_id, "hello")
+    events = await _drain(q, "turn_finished")
+    finished = events[-1]["payload"]
+    assert finished["status"] == "error"
+    assert "rate limiting" in finished["error"]
+    assert not [e for e in events if e["kind"] == "assistant_text"]
+
+
+async def test_a_parked_brain_turn_of_one_session_never_blocks_another_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    """The lead answers while another session's brain turn waits on a slow tool."""
+    from dodaios.agent_chat import service as svc_mod
+
+    parked = asyncio.Event()
+    release = asyncio.Event()
+
+    async def run(handle, text, **_kwargs):
+        if text == "slow":
+            parked.set()
+            await release.wait()
+        await handle.emit(make_event("turn_finished", {
+            "turn_id": handle.turn_id, "status": "done", "usage": {},
+        }))
+
+    monkeypatch.setattr(svc_mod, "run_brain_turn", run)
+    monkeypatch.setattr(svc_mod, "resolve_runner", lambda *a, **kw: "brain")
+    svc = _service(None)
+    slow = _jarvis_session(svc, tmp_path)
+    lead = _jarvis_session(svc, tmp_path)
+    lead_q = svc.subscribe(lead.session_id)
+    await svc.send(slow.session_id, "slow")
+    await asyncio.wait_for(parked.wait(), 2)
+    await svc.send(lead.session_id, "quick")
+    events = await _drain(lead_q, "turn_finished", wait_s=2)
+    assert events[-1]["payload"]["status"] == "done"
+    assert svc.is_running(slow.session_id), "the slow turn is still parked"
+    release.set()
+    await svc.cancel_all()

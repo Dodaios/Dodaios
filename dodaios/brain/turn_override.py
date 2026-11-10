@@ -48,6 +48,16 @@ class TurnReceipt:
     # its answer. Callers must not label a full fallback as completed work.
     guard_failure: bool = False
     failure_reason: GuardFailureReason | Literal[""] = ""
+    # Every provider in the chain failed: no answer exists. ``provider_down_cause``
+    # is the manager's cause category (``rate_limit``, ``bad_key``, ...) or
+    # ``"unknown"``; typed chat finishes the turn as failed instead of storing
+    # the spoken apology as the reply.
+    provider_down: bool = False
+    provider_down_cause: str = ""
+
+    def mark_provider_down(self, cause: str | None) -> None:
+        self.provider_down = True
+        self.provider_down_cause = cause or "unknown"
 
     def mark_guard_failure(self, reason: GuardFailureReason) -> None:
         if not self.guard_failure:

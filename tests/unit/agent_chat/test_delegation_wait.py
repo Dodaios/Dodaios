@@ -94,7 +94,7 @@ async def test_six_delegates_finish_one_original_turn_after_all_reports(
         for e in store.list_events(session.session_id)
     )  # A reconnected UI can reconstruct the actual wait from persisted events.
     assert not any(e["kind"] == "turn_finished" for e in store.list_events(session.session_id))
-    assert not svc._brain_lock.locked()
+    assert not any(lock.locked() for lock in svc._brain_locks.values())
     ready[5] = True
     await asyncio.wait_for(task, 3)
     events = store.list_events(session.session_id)

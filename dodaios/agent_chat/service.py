@@ -516,11 +516,13 @@ class AgentChatService:
         # Jarvis surface still answers, just without tool rows and cards.
         self._bus = bus or (lambda: None)
         self._bridge: ChatApprovalBridge | None = None
-        # Brain-runner turns run one at a time across sessions: the manager
-        # keeps some per-turn state on itself (the realtime delegate lives
-        # with that too), and one person types one chat at a time. The voice
-        # is NOT held by this lock.
-        self._brain_lock = asyncio.Lock()
+        # Brain-runner turns run one at a time PER SESSION, never across
+        # sessions: the lead's typed turn must not wait behind a society
+        # agent's or a routine's long turn. The prompt inputs a turn reads
+        # (evidence directive, recall, provider identity) are ContextVar state
+        # of the manager's ``generate`` call, so concurrent sessions do not see
+        # each other's. Voice is NOT held by these locks either.
+        self._brain_locks: dict[str, asyncio.Lock] = {}
         self._running: dict[str, _Running] = {}
         # Reserved before control state is marked running. The runner has not
         # started yet, but a competing send and Stop must both see this owner.
@@ -1934,7 +1936,7 @@ class AgentChatService:
                     if vendor:
                         self.store.update_session(session_id, vendor_session=vendor)
                 elif runner == "brain":
-                    async with self._brain_lock:
+                    async with self._brain_locks.setdefault(session_id, asyncio.Lock()):
                         await run_brain_turn(
                             active_handle,
                             run_prompt,

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import asyncio
+
 import pytest
 
 from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
@@ -444,3 +446,53 @@ def test_system_prompt_carries_system_extra_after_the_manager_extra() -> None:
     assert addendum in prompt
     assert prompt.index("ROUTER DISCIPLINE BLOCK") < prompt.index(addendum)
     assert addendum not in m._build_system_prompt(), "the addendum lives for one turn only"
+
+
+# ------------------------------------------------- per-turn prompt state
+
+
+async def test_concurrent_turns_keep_their_own_evidence_directive_and_recall() -> None:
+    """Two turns in flight: each prompt carries only its own directive and recall."""
+    from dodaios.brain.manager import _BRAIN_TURN_STATE, _BrainTurnState
+
+    m = _prompt_manager()
+    m._evidence_directive = ""  # outside any turn: the inspection fallback
+    both_set = asyncio.Event()
+    armed = 0
+
+    async def turn(directive: str, recall: str) -> str:
+        nonlocal armed
+        token = _BRAIN_TURN_STATE.set(_BrainTurnState(m))
+        try:
+            m._evidence_directive = directive
+            m._memory_context_suffix = recall
+            armed += 1
+            if armed == 2:
+                both_set.set()
+            await both_set.wait()  # the other turn has written ITS values by now
+            return m._build_system_prompt()
+        finally:
+            _BRAIN_TURN_STATE.reset(token)
+
+    a, b = await asyncio.gather(
+        turn("DIRECTIVE-A call tool alpha", "RECALL-A private"),
+        turn("DIRECTIVE-B call tool beta", "RECALL-B private"),
+    )
+    assert "DIRECTIVE-A" in a and "RECALL-A" in a
+    assert "DIRECTIVE-B" not in a and "RECALL-B" not in a
+    assert "DIRECTIVE-B" in b and "RECALL-B" in b
+    assert "DIRECTIVE-A" not in b and "RECALL-A" not in b
+
+
+async def test_surface_prompt_never_carries_a_finished_turns_directive() -> None:
+    m = _prompt_manager()
+    m._evidence_directive = "DIRECTIVE-STALE you must call tool X"
+    m._active_turn_identity = ("grok", "grok-4.3")
+
+    async def no_recall(_text: str) -> str:
+        return ""
+
+    m._vault_recall = no_recall  # type: ignore[method-assign]
+    m._build_turn_context = lambda: ""  # type: ignore[method-assign]
+    prompt, _ = await m.render_surface_prompt(user_text="hi")
+    assert "DIRECTIVE-STALE" not in prompt

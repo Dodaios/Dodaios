@@ -647,7 +647,19 @@ async def run_brain_turn(
 
     if status == "done" and handle.cancel.is_set():
         status = "cancelled"
-    if status == "done":
+    if status == "done" and override.receipt.provider_down:
+        # Every provider failed: the apology the brain returns is a spoken
+        # courtesy, not an answer. Fail the turn (failed-turn card, "send
+        # again") and keep the apology out of the stored conversation.
+        from dodaios.agent_chat.turn_errors import provider_down_reason
+
+        log.warning(
+            "brain chat turn %s: every provider failed (%s)",
+            turn_id,
+            override.receipt.provider_down_cause,
+        )
+        status, error = "error", provider_down_reason(override.receipt.provider_down_cause)
+    elif status == "done":
         answer = (reply or "").strip() or "".join(seen).strip()
         if answer:
             await emit(
@@ -728,19 +740,55 @@ async def _generate(
                     session.model or None,
                     scope=f"society-compaction:{session.session_id}",
                 )
-                kwargs["history_override"] = await prepare_history(
-                    runtime,
-                    session,
-                    handle.history,
-                    text,
-                    provider,
-                    prompt_chars=len(override.system_extra) + 16000,
-                    **(
-                        {"recall_hint": "older details are summarized, ask if one is missing"}
-                        if lead_thread
-                        else {}
-                    ),
+                hint = (
+                    {"recall_hint": "older details are summarized, ask if one is missing"}
+                    if lead_thread
+                    else {}
                 )
+                prompt_chars = len(override.system_extra) + 16000
+                try:
+                    kwargs["history_override"] = await prepare_history(
+                        runtime,
+                        session,
+                        handle.history,
+                        text,
+                        provider,
+                        prompt_chars=prompt_chars,
+                        **hint,
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 — compaction must never brick the chat
+                    # The same input would fail every following turn, so answer
+                    # from the last saved summary plus the newest tail and say so.
+                    log.warning(
+                        "compaction failed for %s: %s; answering from the last summary",
+                        session.session_id,
+                        exc,
+                    )
+                    from dodaios.society.conversation import fallback_history
+
+                    kwargs["history_override"] = await fallback_history(
+                        runtime,
+                        session,
+                        handle.history,
+                        provider,
+                        prompt_chars=prompt_chars,
+                        **hint,
+                    )
+                    await handle.emit(
+                        make_event(
+                            "notice",
+                            {
+                                "kind": "context_compaction_failed",
+                                "turn_id": handle.turn_id,
+                                "text": "Older parts of this conversation could not be "
+                                "summarized this time, so this answer uses the last saved "
+                                "summary and the newest messages. Nothing was deleted.",
+                                "reason": f"{type(exc).__name__}: {exc}"[:300],
+                            },
+                        )
+                    )
         task: asyncio.Task[str] = asyncio.create_task(
             brain.generate(text, **kwargs), name=f"agent-chat-brain-{handle.turn_id[:8]}"
         )
