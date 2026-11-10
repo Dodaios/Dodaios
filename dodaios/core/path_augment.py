@@ -222,6 +222,30 @@ def fit_path_entries(entries: list[str], budget: int) -> list[str]:
     return existing
 
 
+def without_repeats(value: str) -> str:
+    """``value`` with every folder kept once, at its first (highest) position.
+
+    A repeated entry never changes what a name resolves to, so dropping it is
+    free. Keeping it is not: packages that load native libraries (vosk, the
+    WebView runtime, Qt) prepend their folder to ``PATH`` in every process, a
+    restarted app inherits its predecessor's ``PATH``, and so each restart adds
+    one more copy of each. After ten restarts in one day (the app following
+    main) the PATH was 7,942 characters, and ``npm run`` adds its own folders
+    on top: past 8,191 ``cmd.exe`` stops resolving names, every npm script
+    failed with "'vite' is not recognized", and the app could no longer
+    rebuild its own frontend (2026-11-10).
+    """
+    seen: set[str] = set()
+    kept: list[str] = []
+    for entry in value.split(os.pathsep):
+        key = _entry_key(entry) if entry else ""
+        if not entry or key in seen:
+            continue
+        seen.add(key)
+        kept.append(entry)
+    return os.pathsep.join(kept)
+
+
 def fit_spawn_path(value: str) -> str:
     """``value`` shortened to a PATH a child process can start with."""
     budget = _path_budget()
@@ -381,4 +405,5 @@ __all__ = [
     "fit_path_entries",
     "refresh_from_persistent_path",
     "resolve_node_executable",
+    "without_repeats",
 ]

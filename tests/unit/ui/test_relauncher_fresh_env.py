@@ -145,3 +145,28 @@ def test_the_registry_reader_matches_both_prefixes():
     assert relauncher._CONFIG_ENV_PREFIXES == ("DODAIOS__", "JARVIS__")
     reader = inspect.getsource(relauncher._read_windows_user_jarvis_env)
     assert "name.upper().startswith(_CONFIG_ENV_PREFIXES)" in reader
+
+
+def test_fresh_env_keeps_each_path_folder_once():
+    """Ten restarts in a day left ten copies of every DLL folder on PATH.
+
+    At 7,942 characters ``npm run`` could no longer resolve ``vite``, and the
+    app that follows main stopped rebuilding its own frontend (2026-11-10).
+    """
+    import os
+
+    vosk = os.path.join("C:", os.sep, "site-packages", "vosk")
+    webview = os.path.join("C:", os.sep, "site-packages", "webview", "lib")
+    tools = os.path.join("C:", os.sep, "tools")
+    inherited = os.pathsep.join([vosk, webview] * 10 + [tools, vosk.upper() + os.sep, ""])
+    env = relauncher.fresh_user_env({"Path": inherited, "OTHER": "x"}, _read_persisted=lambda: None)
+    assert env["Path"].split(os.pathsep) == [vosk, webview, tools]
+    assert env["OTHER"] == "x"
+
+
+def test_a_path_without_repeats_is_passed_on_unchanged():
+    import os
+
+    value = os.pathsep.join([os.path.join("C:", os.sep, "a"), os.path.join("C:", os.sep, "b")])
+    env = relauncher.fresh_user_env({"PATH": value}, _read_persisted=lambda: {})
+    assert env["PATH"] == value
