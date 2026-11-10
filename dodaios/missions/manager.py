@@ -16,12 +16,14 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
 from .event_bus import MissionBus
 from .event_store import MissionEventStore
 from .events import (
     EventEnvelope,
+    MissionCancelled,
     MissionDispatched,
     MissionLanguage,
     MissionStateChanged,
@@ -29,7 +31,7 @@ from .events import (
 )
 from .ids import uuid7_str
 from .recovery import RECOVERY_STALE_AFTER_MS, startup_recover
-from .state_machine import MissionState, transition
+from .state_machine import IllegalStateTransition, MissionState, transition
 
 if TYPE_CHECKING:
     pass
@@ -63,6 +65,7 @@ class MissionManager:
         self._store = MissionEventStore(db_path, self._bus)
         self._started = False
         self._state_locks: dict[str, asyncio.Lock] = {}
+        self._run_canceller: Callable[[str], bool] | None = None
 
     async def start(
         self,
@@ -217,6 +220,91 @@ class MissionManager:
             prompt=prompt,
             state=MissionState(state_str),
         )
+
+    # --- Voice status / cancel (deterministic mission commands) ---
+
+    def bind_run_canceller(self, canceller: Callable[[str], bool] | None) -> None:
+        """Register the hook that aborts a mission's in-flight run task.
+
+        The orchestrator owns the running asyncio tasks; the manager only owns
+        the state. Without a canceller a cancel degrades to the state flip.
+        """
+        self._run_canceller = canceller
+
+    async def _resolve_targets(self, mission_id: str | None) -> list[tuple[str, str, str]]:
+        """Non-terminal missions as ``(id, prompt, state)``; one when an id is given.
+
+        An id may be a unique prefix (voice users read the first characters).
+        """
+        active = await self._store.list_non_terminal_missions()
+        if not mission_id:
+            return active
+        wanted = mission_id.strip().lower()
+        exact = [row for row in active if row[0].lower() == wanted]
+        if exact:
+            return exact
+        return [row for row in active if row[0].lower().startswith(wanted)]
+
+    @staticmethod
+    def _short_prompt(prompt: str, limit: int = 80) -> str:
+        text = " ".join(prompt.split())
+        return text if len(text) <= limit else text[: limit - 1].rstrip() + "..."
+
+    async def jarvis_agent_status(self, mission_id: str | None = None) -> str:
+        """Plain-text status of the running mission(s) for the voice status path."""
+        self._ensure_started()
+        rows = await self._resolve_targets(mission_id)
+        if not rows:
+            if mission_id:
+                return f"No running mission matches {mission_id}."
+            return "No mission is running right now."
+        if len(rows) == 1:
+            _mid, prompt, state = rows[0]
+            return (
+                f"One mission is {state.lower().replace('_', ' ')}: "
+                f"{self._short_prompt(prompt)}"
+            )
+        parts = [
+            f"{self._short_prompt(prompt, 50)} ({state.lower().replace('_', ' ')})"
+            for _mid, prompt, state in rows[:5]
+        ]
+        more = f", and {len(rows) - 5} more" if len(rows) > 5 else ""
+        return f"{len(rows)} missions are running: " + "; ".join(parts) + more
+
+    async def jarvis_agent_cancel(self, mission_id: str | None = None) -> str:
+        """Cancel the named mission, or every running one, and confirm in plain text."""
+        self._ensure_started()
+        rows = await self._resolve_targets(mission_id)
+        if not rows:
+            if mission_id:
+                return f"No running mission matches {mission_id}."
+            return "No mission is running, so there is nothing to cancel."
+        cancelled = 0
+        for mid, _prompt, _state in rows:
+            try:
+                await self.transition_state(
+                    mid, MissionState.CANCELLED,
+                    reason="voice_cancel", source_actor="hauptjarvis",
+                )
+            except (IllegalStateTransition, KeyError):
+                continue  # finished in the meantime
+            cancelled += 1
+            if self._run_canceller is not None:
+                try:
+                    self._run_canceller(mid)
+                except Exception:  # noqa: BLE001 — the run dies at its next transition
+                    log.exception("cancel hook failed for mission %s", mid)
+            await self._store.append_and_publish(
+                EventEnvelope(
+                    mission_id=mid,
+                    source_actor="hauptjarvis",
+                    ts_ms=now_ms(),
+                    payload=MissionCancelled(cascade=True, reason="voice_cancel"),
+                )
+            )
+        if cancelled == 0:
+            return "That mission had already finished."
+        return "Cancelled the mission." if cancelled == 1 else f"Cancelled {cancelled} missions."
 
     # --- Internals ---
 

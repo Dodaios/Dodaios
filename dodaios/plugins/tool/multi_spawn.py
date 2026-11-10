@@ -29,7 +29,7 @@ class MultiSpawnTool:
     name: str = "multi_spawn"
     risk_tier: str = "monitor"
     description: str = (
-        "Runs N parallel harness calls (e.g. 3x openclaw with "
+        "Runs N parallel harness calls (e.g. 3x python-script with "
         "different prompts). For fanning out sub-tasks."
     )
     schema: dict[str, Any] = {
@@ -37,7 +37,7 @@ class MultiSpawnTool:
         "properties": {
             "harness": {
                 "type": "string",
-                "enum": ["openclaw", "codex", "python-script"],
+                "enum": ["python-script", "screenshot"],
                 "description": "Which harness to spawn N times.",
             },
             "prompts": {

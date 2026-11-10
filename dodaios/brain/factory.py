@@ -286,8 +286,11 @@ SELF_MOD_TOOL_NAMES_ROUTER = frozenset({
 })
 
 
+_PHANTOM_HARNESS_REPORTED = False
+
+
 def warn_if_phantom_worker_harness(config: Any, harness_manager: Any) -> bool:
-    """Log a warning when ``[harness.jarvis_agent].enabled`` is true but unregistered.
+    """Note (once, at info level) that an enabled ``[harness.jarvis_agent]`` is unregistered.
 
     The legacy ``openclaw`` harness was removed in Welle 4 and has no
     entry-point, so an ``enabled = true`` block is INERT (config honesty,
@@ -316,13 +319,17 @@ def warn_if_phantom_worker_harness(config: Any, harness_manager: Any) -> bool:
     # name); if it ever gets registered, the warning becomes a no-op.
     if "openclaw" in available:
         return False
-    log.warning(
-        "[harness.jarvis_agent].enabled is true but 'openclaw' is not a registered "
-        "harness (available: %s) — the block is inert. Heavy agent work runs "
-        "through spawn_worker; set [harness.jarvis_agent].enabled = false to silence "
-        "this.",
-        available,
-    )
+    # Inert config is not a fault: say it once per process, at info level, and
+    # carry on (boot and every brain rebuild used to repeat a warning).
+    global _PHANTOM_HARNESS_REPORTED
+    if not _PHANTOM_HARNESS_REPORTED:
+        _PHANTOM_HARNESS_REPORTED = True
+        log.info(
+            "[harness.jarvis_agent].enabled is true but 'openclaw' is not a "
+            "registered harness (available: %s) - the block is inert and heavy "
+            "agent work runs through spawn_worker.",
+            available,
+        )
     return True
 
 
@@ -1864,6 +1871,13 @@ def _build_ack_fallback(ack_cfg: Any, preferences_provider: Any = None) -> Any:
         return None
 
 
+# Fallback names already reported as missing from the ack-provider registry.
+# The announcer and readback composer are rebuilt with every brain build, so an
+# unknown ``fallback_provider`` used to repeat this warning hundreds of times a
+# day for one unchanged config value. Report each value once per process.
+_REPORTED_MISSING_FALLBACKS: set[str] = set()
+
+
 def _build_spawn_fallback(ack_cfg: Any) -> tuple[Any, Any]:
     """Build the spawn announcer's failover ``(provider, breaker)`` or ``(None, None)``.
 
@@ -1886,12 +1900,14 @@ def _build_spawn_fallback(ack_cfg: Any) -> tuple[Any, Any]:
 
         provider_cls = REGISTRY.get(fb_name)
         if provider_cls is None:
-            log.warning(
-                "Spawn-Announcer: fallback_provider %r not in REGISTRY (have %s)"
-                " — no failover wired.",
-                fb_name,
-                sorted(REGISTRY.keys()),
-            )
+            if fb_name not in _REPORTED_MISSING_FALLBACKS:
+                _REPORTED_MISSING_FALLBACKS.add(fb_name)
+                log.warning(
+                    "Spawn-Announcer: fallback_provider %r not in REGISTRY (have %s)"
+                    " — no failover wired.",
+                    fb_name,
+                    sorted(REGISTRY.keys()),
+                )
             return None, None
         fb_provider = provider_cls(getattr(ack_cfg.providers, fb_name))
         fb_breaker = CircuitBreaker(
