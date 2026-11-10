@@ -348,9 +348,59 @@ AVerseArenaGraybox* AVerseArenaGraybox::Find(const UWorld& World)
 {
 	for (TActorIterator<AVerseArenaGraybox> It(&World); It; ++It)
 	{
-		return *It;
+		if (IsValid(*It) && It->Part == EVerseGrayboxPart::Full && !It->IsActorBeingDestroyed())
+		{
+			return *It;
+		}
 	}
 	return nullptr;
+}
+
+AVerseArenaGraybox* AVerseArenaGraybox::FindHall(const UWorld& World)
+{
+	for (TActorIterator<AVerseArenaGraybox> It(&World); It; ++It)
+	{
+		if (IsValid(*It) && It->Part == EVerseGrayboxPart::Hall && !It->IsActorBeingDestroyed())
+		{
+			return *It;
+		}
+	}
+	return nullptr;
+}
+
+AVerseArenaGraybox* AVerseArenaGraybox::BuildHall(UWorld& World)
+{
+	if (AVerseArenaGraybox* Hall = FindHall(World))
+	{
+		return Hall;
+	}
+	if (Find(World))
+	{
+		return nullptr;  // the duel's full graybox stands, hall included
+	}
+	for (TActorIterator<AVerseSpawnPoint> It(&World); It; ++It)
+	{
+		return nullptr;  // the level has its own arena (and with it its own hall)
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AVerseArenaGraybox* Hall = World.SpawnActor<AVerseArenaGraybox>(Params);
+	if (Hall && !Hall->Build(DefaultJsonPath(), EVerseGrayboxPart::Hall))
+	{
+		Hall->Destroy();
+		return nullptr;
+	}
+	return Hall;
+}
+
+bool AVerseArenaGraybox::Includes(const TSharedPtr<FJsonObject>& Entry) const
+{
+	if (Part == EVerseGrayboxPart::Full)
+	{
+		return true;
+	}
+	FString Layer;
+	return Entry.IsValid() && Entry->TryGetStringField(TEXT("layer"), Layer) && Layer == TEXT("base");
 }
 
 AVerseArenaGraybox* AVerseArenaGraybox::BuildIfMissing(UWorld& World)
@@ -362,6 +412,11 @@ AVerseArenaGraybox* AVerseArenaGraybox::BuildIfMissing(UWorld& World)
 	for (TActorIterator<AVerseSpawnPoint> It(&World); It; ++It)
 	{
 		return nullptr;  // the level has its own arena
+	}
+	// The deck view's hall gives way: the full graybox carries the same hall plus the arena.
+	if (AVerseArenaGraybox* Hall = FindHall(World))
+	{
+		Hall->Destroy();
 	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -711,7 +766,10 @@ void AVerseArenaGraybox::Tick(float DeltaSeconds)
 			return false;
 		});
 	// Drones the manager respawns after a kill get their shell too.
-	DressDrones();
+	if (Part == EVerseGrayboxPart::Full)
+	{
+		DressDrones();
+	}
 }
 
 void AVerseArenaGraybox::ApplyLook(UWorld& World)
@@ -841,8 +899,10 @@ void AVerseArenaGraybox::RestoreLook()
 	bFogSaved = false;
 }
 
-bool AVerseArenaGraybox::Build(const FString& JsonPath)
+bool AVerseArenaGraybox::Build(const FString& JsonPath, EVerseGrayboxPart InPart)
 {
+	Part = InPart;
+	const bool bFull = Part == EVerseGrayboxPart::Full;
 	using namespace VerseArenaGrayboxPrivate;
 	UWorld* World = GetWorld();
 	FString Text;
@@ -860,8 +920,13 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("boxes")))
 	{
 		const TSharedPtr<FJsonObject> Box = Value->AsObject();
+		if (!Includes(Box))
+		{
+			continue;
+		}
 		FPieceKind Kind;
-		if (bAuthority && Box->HasField(TEXT("piece")) && PieceKindFor(Box->GetStringField(TEXT("piece")), Kind))
+		// The hall breaks nothing (no fight on the deck): its breakable boxes stand as slabs.
+		if (bAuthority && bFull && Box->HasField(TEXT("piece")) && PieceKindFor(Box->GetStringField(TEXT("piece")), Kind))
 		{
 			PieceBoxes.Add(Box);
 			continue;
@@ -898,6 +963,10 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("ramps")))
 	{
 		const TSharedPtr<FJsonObject> Ramp = Value->AsObject();
+		if (!Includes(Ramp))
+		{
+			continue;
+		}
 		const FVector Start = ReadVector(Ramp, TEXT("start"));
 		const FVector End = ReadVector(Ramp, TEXT("end"));
 		const double Width = Ramp->GetNumberField(TEXT("widthCm"));
@@ -912,7 +981,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("spawns")))
+	for (const TSharedPtr<FJsonValue>& Value : bFull ? Root->GetArrayField(TEXT("spawns")) : TArray<TSharedPtr<FJsonValue>>())
 	{
 		const TSharedPtr<FJsonObject> Spawn = Value->AsObject();
 		const FVector At = ReadVector(Spawn, TEXT("location")) + FVector(0.0, 0.0, SpawnLiftCm);
@@ -972,6 +1041,10 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 		for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("lights")))
 		{
 			const TSharedPtr<FJsonObject> Light = Value->AsObject();
+			if (!Includes(Light))
+			{
+				continue;
+			}
 			const FVector At = ReadVector(Light, TEXT("location"));
 			const FRotator Aim(Light->GetNumberField(TEXT("pitch")), 0.0, 0.0);
 			const bool bSpot = Light->GetStringField(TEXT("type")) == TEXT("spot");
@@ -1051,7 +1124,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 
 	// Navigation: LV_Hangar's bounds volume covers the arena and the nav mesh generates at runtime
 	// (Config: RuntimeGeneration=Dynamic), so the new slabs are walked as soon as their tiles rebuild.
-	if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World))
+	if (UNavigationSystemV1* Nav = bFull ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr)
 	{
 		if (!Nav->GetDefaultNavDataInstance(FNavigationSystem::DontCreate))
 		{
@@ -1061,8 +1134,8 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 			}
 		}
 	}
-	UE_LOG(LogVerse, Log, TEXT("[VerseArena] graybox built: %d slabs on %d surfaces, %d pieces, %d actors"), Boxes, Surfaces.Num(), Pieces.Num(),
-		Spawned.Num());
+	UE_LOG(LogVerse, Log, TEXT("[VerseArena] graybox built (%s): %d slabs on %d surfaces, %d pieces, %d actors"), bFull ? TEXT("hall and arena") : TEXT("hall"),
+		Boxes, Surfaces.Num(), Pieces.Num(), Spawned.Num());
 	return Boxes > 0;
 }
 
