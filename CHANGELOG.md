@@ -11,6 +11,86 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [4.2.3] — 2026-11-10
+
+### Added
+
+- Bots find each other over the nav mesh and belief grid; harness person models perceive and think (#1266)
+- Memory for the one endless conversation (#1278)
+- Apply the game settings menu in the Unreal Verse (#1237)
+- Fork, continue a CLI session, custom CLIs (#1216)
+- Add the FPS human rig, characters, clips and anim runtime (#1146)
+- Choose approval modes in Settings; fix Bypass agents still asking (#1248)
+- Show the pane header's GitHub mark only for a pull request (#1236)
+- Playable hangar duel prototype wired end to end (#1246)
+- Agent message lines wear each agent's own pet, in the agent chat too (#1273)
+- Deck commander, deck input and overlay in Unreal (stream S5) (#1276)
+- Add OpenCode as a CLI brain provider (#1268)
+- Read the work between two things the agent said as one line (#1265)
+- Spring cloak for the Sovereign (three columns, two segments) (#1271)
+- Recall, learned notices, activity panel, morning brief and channels in the one conversation (#1261)
+- Hoverboard on B for the commander (#1267)
+- Arc Storm on the commander in a new VerseAbilities module (#1262)
+- Attach the sub-agent tray to the composer and name each agent's model (#1230)
+- Add crew and daily life on the decks (#1130)
+- Offer Claude Fable 5.2 in every model picker (#1259)
+- QA hooks, parity report and app-link Gauntlet (S10: Q-02 Q-06 Q-08 Q-09 Q-11, A-01 A-05 W-01 W-02) (#1252)
+- Settings, strings and audio polish for the parity rows (N-04, N-06, R-12, R-14, T-02, V-21, Z-14, D-17, L-07, H-14) (#1247)
+- Draw the background-task wait as a heading with one line per task (#1235)
+- Show agent-to-agent messages as one centred summary line (#1240)
+- Add the bot aim model, tiers and adaptive mode (#1150)
+- Stream the Unreal Verse into the IDE side panel (#1133)
+- Add the desk terminals, chat tails, takeover and stations (#1151)
+- Run custom CLIs as thread providers (#1228)
+- Run a thread on a remote computer (#1227)
+- Draw the thread sidebar's start rows like the main navigation (#1231)
+- Give the lead one endless conversation (#1207)
+- Show each thread's pull requests in GitHub's colours (#1229)
+- Add the WP14 weapon art, master materials and noir look (#1137)
+- Call the lead from the composer and let its chat scroll to the top (#1225)
+- Rebuild Game settings as the Verse's own in-game settings menu (#1226)
+- Terminal-like approvals, plan exit and questions (#1215)
+- Keep the thread's sub-agents in the dock above the input (#1222)
+- Steer a running turn and keep queued messages on the server (#1211)
+- Native images and the CLI's own slash commands (#1213)
+- Take Grok Build and Antigravity's own thread titles (#1212)
+- Ship locale keys for stations, HUD, menus, armoury and end screen in all 5 locales (#1159, #1166) (#1204)
+- Accept the contract change requests for mantle height, physical materials, gore, audio and WP14 entry points (#1202)
+- Show worktree and short titles in the thread sidebar (#1203)
+- Show the hooded head on app icons (#1200)
+- Give many thread sub-agents one overview (#1199)
+
+### Changed
+
+- Load the local model while the message is typed (#1250)
+- Move ranks, decks and openPaneSession out of the three.js folders (#1255)
+
+### Fixed
+
+- No host-name lookup when the Verse host starts (#1284)
+- End a CLI turn when its answer is in, and make Stop fast (#1218)
+- Keep the Verse deck scenes out of the PyPI wheel (#1281)
+- Keep the merge queue sweep running past a 404 (#1279)
+- Admit a resumed cut with main's admit rules (#1275)
+- Name why a GPT-Live call cannot start and repair setups that never could (#1274)
+- Find a thread's branches and pull requests in its own record (#1269)
+- Poll for the landed candidate with the job token (#1256)
+- Stream past the replay cap, guard working threads' worktrees, stop only the thread's CLI (#1245)
+- Stop posting pictures an agent only read or searched (#1244)
+- Stop kills the agent a CLI wrapper started, not only the wrapper (#1224)
+- Keep messages, Escape and sub-agents with the thread they belong to (#1241)
+- Reach the own OAuth client form when the publisher client is ready (#1239)
+- Let the cut admit main's merge-queue run on the version commit (#1264)
+- Larger Node heap for installer builds, retry the DMG unmount (#1220)
+- Show Stop at once, before the backend confirms it (#1223)
+- Close remaining tool-surface reconciliation and delete/config gaps (#1232)
+- Keep the working state and stop control in step with the turn (#1206)
+- Close whitelist, bypass and shell-impact gaps in the tool gate (#1210)
+- Remove thread-mode runner limits (#1209)
+- Drop the 24 h Rekor age limit from the verifying installer (#1197)
+
+---
+
 ## [4.2.2] — 2026-11-10
 
 ### Added
