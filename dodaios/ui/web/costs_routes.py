@@ -532,7 +532,8 @@ def _agent_roster(data_dir: Path | None) -> dict[str, tuple[str, str]]:
         return {}
     try:
         conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=1.0)
-    except sqlite3.Error:
+    except sqlite3.Error as exc:
+        log.debug("costs: agent roster not openable, agents stay unnamed (%s)", exc)
         return {}
     try:
         rows = conn.execute("SELECT agent_id, name, state FROM society_agents").fetchall()
