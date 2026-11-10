@@ -171,4 +171,22 @@ def post_tour_complete() -> dict:
     return {"ok": True}
 
 
+class FirstConversationBody(BaseModel):
+    outcome: str
+
+
+@router.post("/first-conversation")
+def post_first_conversation(body: FirstConversationBody) -> dict:
+    """The lead conversation's introduction was answered or skipped.
+
+    It only records that the one-time introduction is over; the answers
+    themselves went to the profile and the memory vault through their own
+    routes, so nothing here can lose them.
+    """
+    if body.outcome not in st.FIRST_CONVERSATION_OUTCOMES:
+        raise HTTPException(status_code=422, detail=f"unknown outcome {body.outcome!r}")
+    st.finish_first_conversation(body.outcome, _path())
+    return {"ok": True, "outcome": body.outcome}
+
+
 __all__ = ["router"]

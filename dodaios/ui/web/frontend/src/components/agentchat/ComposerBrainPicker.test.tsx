@@ -101,6 +101,48 @@ describe("ComposerBrainPicker", () => {
   });
 });
 
+describe("ComposerBrainPicker local model offer", () => {
+  const WITH_LOCAL = [{ id: "ollama", label: "Ollama", icon: <span>O</span> }, ...SECTIONS];
+
+  beforeEach(() => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    });
+  });
+
+  function renderWith(onLocalModelReady?: (model: string) => void) {
+    render(
+      <ComposerBrainPicker
+        value={"ollama\u0001"}
+        groups={[{ id: "ollama", label: "Ollama", options: [] }, ...GROUPS]}
+        sections={WITH_LOCAL}
+        currentSection="ollama"
+        onChange={vi.fn()}
+        ariaLabel="Model"
+        fallbackLabel="Model"
+        searchPlaceholder="Search models…"
+        onLocalModelReady={onLocalModelReady}
+      />,
+    );
+  }
+
+  it("offers a free local model on the local provider's page", async () => {
+    renderWith(vi.fn());
+    fireEvent.click(screen.getByTestId("composer-model"));
+    // A lazy chunk plus a locale chunk: give a loaded machine a moment.
+    expect(await screen.findByTestId("local-model-quickstart", {}, { timeout: 5000 })).toBeTruthy();
+  });
+
+  it("stays out of the picker when the composer does not ask for it", async () => {
+    renderWith();
+    fireEvent.click(screen.getByTestId("composer-model"));
+    await screen.findByTestId("composer-model-panel");
+    expect(screen.queryByTestId("local-model-quickstart")).toBeNull();
+  });
+});
+
 describe("matchPreviews", () => {
   const image = (name: string): ChatAttachment => ({
     name,
