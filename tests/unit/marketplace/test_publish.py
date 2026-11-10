@@ -86,13 +86,14 @@ def test_valid_plugin_with_pinned_stdio() -> None:
     ("overrides", "field"),
     [
         ({"kind": "wat"}, "kind"),
-        ({"name": "UPPER"}, "name"),
-        ({"name": "double--dash"}, "name"),
+        ({"name": ""}, "name"),
+        ({"name": "x" * 65}, "name"),
         ({"version": "1.0"}, "version"),
-        ({"title": ""}, "title"),
-        ({"description": ""}, "description"),
+        (
+            {"description": "", "skill_md": "---\nname: three-point-check\n---\n\nDo it."},
+            "description",
+        ),
         ({"description": "x" * 501}, "description"),
-        ({"skill_md": "no frontmatter"}, "skill_md"),
         ({"skill_md": "---\n" + "x" * (publish.MAX_SKILL_BYTES + 1)}, "skill_md"),
     ],
 )
@@ -252,11 +253,49 @@ def test_secret_pattern_rejected() -> None:
 # not a hand-rolled subset of it.
 
 
-def test_skill_frontmatter_missing_description_is_rejected() -> None:
+def test_skill_frontmatter_missing_description_is_filled_from_the_form() -> None:
     draft = _skill_draft(skill_md="---\nname: three-point-check\n---\n\nDo the thing.")
     value, errors = publish.validate_draft(draft)
-    assert value is None
-    assert any(e["field"] == "skill_md" for e in errors)
+    assert errors == [] and value is not None
+    assert 'description: "Summarize any topic in three bullets"' in value["skill_md"]
+
+
+def test_free_text_name_becomes_the_registry_id() -> None:
+    # Special characters are welcome; the registry id is derived from the
+    # typed name and the SKILL.md frontmatter follows it, because the
+    # registry refuses a skill whose frontmatter name differs from its id.
+    draft = _skill_draft(name="STE-80 Humanizer: Größe & Ärger!", title="")  # i18n-allow
+    value, errors = publish.validate_draft(draft)
+    assert errors == [] and value is not None
+    assert value["name"] == "ste-80-humanizer-grosse-arger"
+    assert value["title"] == "STE-80 Humanizer: Größe & Ärger!"  # i18n-allow
+    assert "name: ste-80-humanizer-grosse-arger\n" in value["skill_md"]
+
+
+def test_plain_markdown_without_frontmatter_gets_one() -> None:
+    draft = _skill_draft(name="Notes", skill_md="# Notes\n\nWrite short notes.")
+    value, errors = publish.validate_draft(draft)
+    assert errors == [] and value is not None
+    assert value["skill_md"].startswith("---\nname: notes\ndescription: ")
+
+
+@pytest.mark.parametrize(
+    ("typed", "expected"),
+    [
+        ("three-point-check", "three-point-check"),
+        ("UPPER", "upper"),
+        ("double--dash", "double-dash"),
+        ("  a..b  ", "a-b"),
+        ("x" * 70, "x" * 64),
+    ],
+)
+def test_package_id(typed: str, expected: str) -> None:
+    assert publish.package_id(typed) == expected
+
+
+def test_package_id_without_letters_is_stable() -> None:
+    first = publish.package_id("🚀🚀")
+    assert first.startswith("package-") and first == publish.package_id("🚀🚀")
 
 
 def test_skill_frontmatter_risk_policy_is_rejected() -> None:
@@ -274,7 +313,7 @@ def test_invalid_skill_name_does_not_also_report_skill_md() -> None:
     # A bad top-level name must not be reused as `plugin_name` for the
     # skill_md check — that would attribute a confusing second error to the
     # wrong field for a skill_md that was otherwise fine.
-    draft = _skill_draft(name="UPPER")
+    draft = _skill_draft(name="x" * 65)
     value, errors = publish.validate_draft(draft)
     assert value is None
     assert any(e["field"] == "name" for e in errors)
@@ -300,11 +339,12 @@ def test_valid_bundled_skill_normalizes() -> None:
     assert value["skills"] == [_bundled_skill()]
 
 
-def test_bundled_skill_missing_description_is_rejected() -> None:
-    bad = _bundled_skill(skill_md="---\nname: todo-fox-tips\n---\n\nDo the thing.")
-    value, errors = publish.validate_draft(_plugin_draft(skills=[bad]))
-    assert value is None
-    assert any(e["field"] == "skills" for e in errors)
+def test_bundled_skill_folder_name_becomes_an_id() -> None:
+    odd = _bundled_skill(name="Todo Fox Tips!")
+    value, errors = publish.validate_draft(_plugin_draft(skills=[odd]))
+    assert errors == [] and value is not None
+    assert value["skills"][0]["name"] == "todo-fox-tips"
+    assert "name: todo-fox-tips\n" in value["skills"][0]["skill_md"]
 
 
 def test_bundled_skill_risk_policy_is_rejected() -> None:

@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ChevronRight,
   Check,
-  ExternalLink,
   FileText,
   FolderUp,
   Github,
@@ -29,7 +28,6 @@ import {
 } from "@/components/marketplace/PublishIdentity";
 import { fill, useLocaleChunk, useT } from "@/i18n";
 import { EXTENSION_NAMESPACE, extensionOf } from "@/lib/extensionNamespace";
-import { openExternalUrl } from "@/lib/openExternal";
 import { cn } from "@/lib/utils";
 import {
   collectDroppedFiles,
@@ -118,6 +116,9 @@ const EMPTY_DRAFT: Draft = {
   skills: [],
 };
 
+/** A name may be anything up to this length (publish.py MAX_NAME_CHARS). */
+const MAX_NAME_CHARS = 64;
+
 const SKILL_TEMPLATE = `---
 name: my-skill
 description: One sentence on when the assistant should reach for this skill.
@@ -166,7 +167,9 @@ function draftToBody(
     return {
       body: {
         ...base,
-        title: draft.title.trim(),
+        // The name is free text and is what people see; the server derives
+        // the registry id from it.
+        title: draft.name.trim() || draft.title.trim(),
         description: draft.description.trim(),
         categories: draft.categories
           .split(",")
@@ -235,7 +238,11 @@ export function PublishStudio({ onClose }: { onClose: () => void }) {
   const applyFolderDraft = (folder: FolderDraft, origin: string) => {
     setDraft({
       kind: folder.kind,
-      name: folder.name,
+      // A skill's readable title is the better name to show and edit.
+      name: (folder.kind === "skill" ? folder.title || folder.name : folder.name).slice(
+        0,
+        MAX_NAME_CHARS,
+      ),
       version: folder.version,
       title: folder.title,
       description: folder.description,
@@ -384,7 +391,19 @@ export function PublishStudio({ onClose }: { onClose: () => void }) {
             ) : disabled ? (
               <p className="text-base text-muted-foreground">{t("marketplace.studio_disabled")}</p>
             ) : stage === "done" && result ? (
-              <PublishedCard result={result} onPublishAnother={startOver} t={t} />
+              <PublishedCard
+                result={result}
+                displayName={draft.name.trim() || result.name}
+                onPublishAnother={startOver}
+                onFix={() => {
+                  setResult(null);
+                  setChecked(false);
+                  setStage("form");
+                }}
+                onClose={onClose}
+                t={t}
+              />
+
             ) : (
               <div className="space-y-8">
                 <div className="border-y border-border py-4">
@@ -441,18 +460,10 @@ export function PublishStudio({ onClose }: { onClose: () => void }) {
 // Where does the thing come from?
 // ---------------------------------------------------------------------------
 
-/** One way in, as a row: a mark, what it is, and what it leads to. */
-const SOURCE_ROW =
-  "group flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left transition-colors hover:bg-secondary " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-
-function SourceMark({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground transition-colors group-hover:bg-surface-raised group-hover:text-foreground">
-      {children}
-    </span>
-  );
-}
+/** The quieter ways in, below the drop zone: one line of links. */
+const SMALL_DOOR =
+  "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium text-foreground transition-colors hover:bg-secondary " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function SourcePicker({
   onFolder,
@@ -493,18 +504,20 @@ function SourcePicker({
   };
 
   return (
-    <div className="-mx-3">
-      {/* The folder row is also the drop target, so it is a div with a
-          button's role: a real button may not contain the second button. */}
+    <div>
+      {/* One drop zone for everything: a folder, a SKILL.md, any Markdown
+          file. Clicking it opens the file dialog with every file visible;
+          the folder dialog is one button away. A div with a button's role,
+          because a real button may not contain the two buttons inside. */}
       <div
         role="button"
         tabIndex={0}
-        aria-label={t("marketplace.studio_door_folder")}
+        aria-label={t("marketplace.studio_drop_title")}
         data-testid="studio-door-folder"
-        onClick={() => pickerRef.current?.click()}
+        onClick={() => filePickerRef.current?.click()}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") pickerRef.current?.click();
+          if (e.key === "Enter" || e.key === " ") filePickerRef.current?.click();
         }}
         onDragOver={(e) => {
           e.preventDefault();
@@ -517,31 +530,51 @@ function SourcePicker({
           const items = e.dataTransfer.items;
           void handleFiles(() => collectDroppedFiles(items), t("marketplace.studio_origin_folder"));
         }}
-        className={cn(SOURCE_ROW, "cursor-pointer items-start", dragOver && "bg-secondary")}
+        className={cn(
+          "flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          dragOver
+            ? "border-accent bg-secondary"
+            : "border-border hover:border-border-strong hover:bg-secondary/50",
+        )}
       >
-        <SourceMark>
-          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <FolderUp className="h-5 w-5" />}
-        </SourceMark>
-        <span className="min-w-0 flex-1">
-          <span className="block text-lg font-medium text-foreground-strong">
-            {t("marketplace.studio_door_folder")}
-          </span>
-          <span className="block text-base text-foreground-secondary">
-            {t("marketplace.studio_door_folder_hint")}
-          </span>
-          <button
-            type="button"
+        <span className="grid h-14 w-14 place-items-center rounded-full bg-secondary text-muted-foreground">
+          {busy ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <UploadCloud className="h-6 w-6" />
+          )}
+        </span>
+        <span className="block text-lg font-medium text-foreground-strong">
+          {t("marketplace.studio_drop_title")}
+        </span>
+        <span className="block max-w-[46ch] text-base text-foreground-secondary">
+          {t("marketplace.studio_drop_hint")}
+        </span>
+        <span className="mt-1 flex flex-wrap items-center justify-center gap-2">
+          <Button
+            size="sm"
             data-testid="studio-door-skill-file"
-            className="mt-1.5 inline-flex items-center gap-1.5 rounded-sm text-base font-medium text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={(e) => {
-              // The row itself opens the folder picker — this link must not.
               e.stopPropagation();
               filePickerRef.current?.click();
             }}
           >
-            <FileText className="h-4 w-4" />
-            {t("marketplace.studio_door_skill_file")}
-          </button>
+            <FileText className="mr-1.5 h-3.5 w-3.5" />
+            {t("marketplace.studio_pick_files")}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            data-testid="studio-door-pick-folder"
+            onClick={(e) => {
+              e.stopPropagation();
+              pickerRef.current?.click();
+            }}
+          >
+            <FolderUp className="mr-1.5 h-3.5 w-3.5" />
+            {t("marketplace.studio_pick_folder")}
+          </Button>
         </span>
         <input
           ref={pickerRef}
@@ -561,10 +594,11 @@ function SourcePicker({
             e.currentTarget.value = "";
           }}
         />
+        {/* No `accept` filter: the dialog shows every file, so a SKILL.md
+            (or any notes.md) is never hidden behind a file-type filter. */}
         <input
           ref={filePickerRef}
           type="file"
-          accept=".md,text/markdown,.json,application/json"
           multiple
           className="hidden"
           data-testid="studio-skill-file-input"
@@ -581,45 +615,31 @@ function SourcePicker({
         />
       </div>
 
-      <button type="button" onClick={onGithub} data-testid="studio-door-github" className={SOURCE_ROW}>
-        <SourceMark>
-          <Github className="h-5 w-5" />
-        </SourceMark>
-        <span className="min-w-0 flex-1">
-          <span className="block text-lg font-medium text-foreground-strong">
-            {t("marketplace.studio_door_github")}
-          </span>
-          <span className="block text-base text-foreground-secondary">
-            {t("marketplace.studio_door_github_hint")}
-          </span>
-        </span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-faint transition-colors group-hover:text-foreground" />
-      </button>
-
-      <div className="flex flex-wrap items-center gap-4 px-3 py-3">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground">
-          <PencilLine className="h-5 w-5" />
-        </span>
-        <span className="min-w-0 flex-1 basis-[220px]">
-          <span className="block text-lg font-medium text-foreground-strong">
-            {t("marketplace.studio_door_blank")}
-          </span>
-          <span className="block text-base text-foreground-secondary">
-            {t("marketplace.studio_door_blank_hint")}
-          </span>
-        </span>
-        <span className="flex shrink-0 items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={() => onBlank("skill")}>
-            {t("marketplace.kind_skill")}
-          </Button>
-          <Button size="sm" variant="secondary" onClick={() => onBlank("plugin")}>
-            {t("marketplace.kind_plugin")}
-          </Button>
-        </span>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-1 gap-y-2 text-base text-muted-foreground">
+        <span className="mr-1">{t("marketplace.studio_or")}</span>
+        <button
+          type="button"
+          onClick={onGithub}
+          data-testid="studio-door-github"
+          className={SMALL_DOOR}
+        >
+          <Github className="h-4 w-4" />
+          {t("marketplace.studio_door_github")}
+        </button>
+        <span aria-hidden>·</span>
+        <button type="button" onClick={() => onBlank("skill")} className={SMALL_DOOR}>
+          <PencilLine className="h-4 w-4" />
+          {t("marketplace.studio_write_skill")}
+        </button>
+        <span aria-hidden>·</span>
+        <button type="button" onClick={() => onBlank("plugin")} className={SMALL_DOOR}>
+          <Plug className="h-4 w-4" />
+          {t("marketplace.studio_write_plugin")}
+        </button>
       </div>
 
       {dropError && (
-        <p role="alert" className="flex items-start gap-2 px-3 pt-1 text-base text-destructive">
+        <p role="alert" className="flex items-start justify-center gap-2 pt-3 text-base text-destructive">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           {dropError}
         </p>
@@ -990,7 +1010,9 @@ function DraftForm({
   onStartOver: () => void;
   t: Translate;
 }) {
-  const errorFor = (field: string) => errors.filter((e) => e.field === field);
+  // The name is also the title, so a title error belongs under the name.
+  const errorFor = (field: string) =>
+    errors.filter((e) => e.field === field || (field === "name" && e.field === "title"));
   const generalErrors = errors.filter((e) => e.field === null);
   const skillBytes = new TextEncoder().encode(draft.skill_md).length;
 
@@ -1040,13 +1062,17 @@ function DraftForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             label={t("marketplace.studio_f_name")}
-            hint={t("marketplace.studio_f_name_hint")}
+            hint={fill(t("marketplace.studio_f_name_hint"), {
+              count: Array.from(draft.name).length,
+              max: MAX_NAME_CHARS,
+            })}
             errors={errorFor("name")}
           >
             <input
               value={draft.name}
-              onChange={(e) => set({ name: e.target.value })}
-              placeholder="my-skill"
+              onChange={(e) => set({ name: e.target.value.slice(0, MAX_NAME_CHARS) })}
+              maxLength={MAX_NAME_CHARS}
+              placeholder={t("marketplace.studio_f_title_placeholder")}
               className={inputCls(errorFor("name").length > 0)}
               data-testid="studio-name"
             />
@@ -1067,14 +1093,6 @@ function DraftForm({
 
         {draft.kind === "skill" ? (
           <>
-            <Field label={t("marketplace.studio_f_title")} errors={errorFor("title")}>
-              <input
-                value={draft.title}
-                onChange={(e) => set({ title: e.target.value })}
-                placeholder={t("marketplace.studio_f_title_placeholder")}
-                className={inputCls(errorFor("title").length > 0)}
-              />
-            </Field>
             <Field
               label={t("marketplace.studio_f_description")}
               hint={fill(t("marketplace.studio_f_description_hint"), {
@@ -1271,14 +1289,14 @@ function CardPreview({ draft, t }: { draft: Draft; t: Translate }) {
   const preview = useMemo(() => {
     if (draft.kind === "skill") {
       return {
-        title: draft.title.trim() || draft.name.trim() || t("marketplace.studio_preview_untitled"),
+        title: draft.name.trim() || draft.title.trim() || t("marketplace.studio_preview_untitled"),
         description: draft.description.trim() || t("marketplace.studio_preview_no_description"),
         detail: draft.categories
           .split(",")
           .map((c) => c.trim())
           .filter(Boolean)
           .join(" · "),
-        initial: (draft.title.trim() || draft.name.trim() || "S").slice(0, 1).toUpperCase(),
+        initial: (draft.name.trim() || draft.title.trim() || "S").slice(0, 1).toUpperCase(),
       };
     }
     let displayName = draft.name.trim();
@@ -1422,39 +1440,55 @@ function KindButton({
 }
 
 // ---------------------------------------------------------------------------
-// Station 4: the PR is open — watch the live feed until the package appears.
+// Station 4: published. The store lists it at once (marked as being
+// checked); this card follows the registry checks until it is live, and
+// shows a refusal here, in the app, with a way back to the form.
 // ---------------------------------------------------------------------------
+
+interface StatusWire {
+  live: boolean;
+  state?: "checking" | "failed" | "published" | "live";
+  problems?: string[];
+}
 
 function PublishedCard({
   result,
+  displayName,
   onPublishAnother,
+  onFix,
+  onClose,
   t,
 }: {
   result: SubmitResultWire;
+  /** What the person typed as the name; ``result.name`` is the registry id. */
+  displayName: string;
   onPublishAnother: () => void;
+  onFix: () => void;
+  onClose: () => void;
   t: Translate;
 }) {
-  const [live, setLive] = useState(false);
+  const [status, setStatus] = useState<StatusWire>({ live: false, state: "checking" });
   const [waitedOut, setWaitedOut] = useState(false);
   const queryClient = useQueryClient();
+  const live = status.live;
+  const failed = status.state === "failed";
 
-  // The moment the feed lists the entry, the store behind this overlay must
-  // list it too — the status poll above already forced the server cache, so
-  // refetching the view's query is what makes "live" visibly true.
+  // The store behind this overlay lists the package right away (marked as
+  // being checked) and follows every change of its state.
   useEffect(() => {
-    if (live) void queryClient.invalidateQueries({ queryKey: ["marketplace-community"] });
-  }, [live, queryClient]);
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-community"] });
+  }, [status.state, live, queryClient]);
 
   useEffect(() => {
-    if (live) return;
+    if (live || failed) return;
     let ticks = 0;
-    const timer = setInterval(async () => {
+    let stopped = false;
+    const poll = async () => {
       ticks += 1;
-      if (ticks > 20) {
-        // ~7 minutes of watching is enough; the PR link remains the source
-        // of truth for anything slower (checks queued, merge conflict).
+      if (ticks > 60) {
+        // ~5 minutes; the checks normally answer within one.
         setWaitedOut(true);
-        clearInterval(timer);
+        stopped = true;
         return;
       }
       try {
@@ -1467,44 +1501,78 @@ function PublishedCard({
           cache: "no-store",
         });
         if (!res.ok) return;
-        const data = (await res.json()) as { live: boolean };
-        if (data.live) {
-          setLive(true);
-          clearInterval(timer);
-        }
+        const data = (await res.json()) as StatusWire;
+        setStatus(data);
+        if (data.live || data.state === "failed") stopped = true;
       } catch {
         // Feed unreachable — keep trying until the tick budget runs out.
       }
-    }, 20_000);
+    };
+    const timer = setInterval(() => {
+      if (stopped) {
+        clearInterval(timer);
+        return;
+      }
+      void poll();
+    }, 5_000);
     return () => clearInterval(timer);
-  }, [live, result]);
+  }, [live, failed, result]);
 
   return (
     <div className="space-y-4" data-testid="studio-published">
-      <section className="relative isolate overflow-hidden rounded-2xl border border-border-strong bg-gradient-to-br from-primary/15 via-card to-card p-5">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -z-10 -right-16 -top-16 h-56 w-56 rounded-full bg-secondary blur-3xl"
-        />
+      <section
+        className={cn(
+          "rounded-2xl border p-5",
+          failed ? "border-destructive/50 bg-card" : "border-border-strong bg-card",
+        )}
+      >
         <p className="text-micro font-semibold text-muted-foreground">
-          {t("marketplace.studio_done_eyebrow")}
+          {failed ? t("marketplace.studio_done_failed_eyebrow") : t("marketplace.studio_done_eyebrow")}
         </p>
         <p className="mt-1 flex items-center gap-2 font-display text-lg font-semibold tracking-tight text-foreground">
-          <Check className="h-5 w-5 text-muted-foreground" />
-          {result.name} <span className="text-muted-foreground">v{result.version}</span>
+          {failed ? (
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+          ) : live ? (
+            <Check className="h-5 w-5 text-success" />
+          ) : (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          )}
+          {displayName} <span className="text-muted-foreground">v{result.version}</span>
         </p>
-        <p className="mt-2 max-w-xl text-xs leading-relaxed text-muted-foreground">
-          {t("marketplace.studio_done_body")}
-        </p>
+
+        {failed ? (
+          <div className="mt-3 space-y-2" data-testid="studio-published-failed">
+            <p className="text-sm text-foreground">{t("marketplace.studio_done_failed")}</p>
+            <ul className="space-y-1">
+              {(status.problems ?? []).map((problem, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-destructive">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {problem}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : live ? (
+          <p className="mt-2 text-sm text-foreground">
+            {fill(t("marketplace.studio_done_live_package"), {
+              package: displayName,
+              version: result.version,
+            })}
+          </p>
+        ) : (
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            {waitedOut ? t("marketplace.studio_done_waited_out") : t("marketplace.studio_done_body")}
+          </p>
+        )}
+
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          {(result.issue_url ?? result.pr_url) && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openExternalUrl(result.issue_url ?? result.pr_url ?? "")}
-            >
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              {t("marketplace.studio_done_view_pr")}
+          {failed ? (
+            <Button size="sm" onClick={onFix} data-testid="studio-fix">
+              {t("marketplace.studio_done_fix")}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={onClose} data-testid="studio-see-in-store">
+              {t("marketplace.studio_done_see_in_store")}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={onPublishAnother}>
@@ -1513,35 +1581,18 @@ function PublishedCard({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-border bg-card p-4">
-        {live ? (
-          <p className="flex items-center gap-2 text-sm text-foreground">
-            <Check className="h-4 w-4 text-muted-foreground" />
-            {fill(t("marketplace.studio_done_live_package"), { package: result.name, version: result.version })}
-          </p>
-        ) : waitedOut ? (
-          <p className="text-xs text-muted-foreground">{t("marketplace.studio_done_waited_out")}</p>
-        ) : (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-secondary" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-secondary" />
-            </span>
-            {t("marketplace.studio_done_watching")}
-          </p>
-        )}
-
-        {/* Gated on `live` on purpose: handed out a minute too early, the
-            command resolves against an index that does not list the entry yet
-            and fails for whoever the author sent it to. */}
-        {live && result.install && (
+      {/* Gated on `live` on purpose: handed out a minute too early, the
+          command resolves against an index that does not list the entry yet
+          and fails for whoever the author sent it to. */}
+      {live && result.install && (
+        <section className="rounded-2xl border border-border bg-card p-4">
           <InstallStandard
             install={result.install}
             heading={t("marketplace.studio_done_share_heading")}
             note={t("marketplace.studio_done_share_note")}
           />
-        )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

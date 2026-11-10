@@ -83,7 +83,7 @@ describe("folderToDraft — the folder is the classification (publishing-plan.md
   });
 
   it("rejects a folder with neither plugin.json nor SKILL.md instead of silently returning an empty draft", async () => {
-    await expect(folderToDraft([namedFile("README.md", "hello")])).rejects.toThrow(
+    await expect(folderToDraft([namedFile("notes.txt", "hello")])).rejects.toThrow(
       /no plugin\.json and no skill\.md/i,
     );
   });
@@ -103,10 +103,12 @@ describe("folderToDraft — the folder is the classification (publishing-plan.md
     expect(draft.title).toBe("Todo Triage");
   });
 
-  it("does not mistake a lone README.md without frontmatter for a skill", async () => {
-    await expect(folderToDraft([namedFile("notes.md", "# just notes")])).rejects.toThrow(
-      /named SKILL\.md or starts with YAML frontmatter/,
-    );
+  it("takes any lone Markdown file, even without frontmatter (the server adds it)", async () => {
+    const draft = await folderToDraft([namedFile("Daily Notes.md", "# just notes")]);
+    expect(draft.kind).toBe("skill");
+    expect(draft.name).toBe("daily-notes");
+    expect(draft.title).toBe("Daily Notes");
+    expect(draft.warnings).toEqual([]);
   });
 
   it("warns instead of dropping bundled skills once the 10-skill cap is exceeded", async () => {

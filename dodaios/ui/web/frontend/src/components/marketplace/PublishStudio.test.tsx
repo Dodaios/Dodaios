@@ -111,26 +111,35 @@ describe("PublishStudio", () => {
     renderStudio();
     await screen.findByTestId("studio-door-folder");
 
-    fireEvent.click(screen.getByRole("button", { name: /^Skill$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Write a skill/ }));
     const form = await screen.findByTestId("studio-form");
     expect(form).toBeTruthy();
     // The SKILL.md box is pre-filled — nobody starts at an empty document.
     expect((screen.getByDisplayValue(/name: my-skill/) as HTMLTextAreaElement).value).toContain(
       "---",
     );
-    // The live card preview follows the name.
-    fireEvent.change(screen.getByTestId("studio-name"), { target: { value: "three-point-check" } });
-    expect(screen.getByTestId("studio-card-preview").textContent).toContain("three-point-check");
+    // The name is free text, special characters included; the preview follows it.
+    fireEvent.change(screen.getByTestId("studio-name"), { target: { value: "Three Point Check!" } });
+    expect(screen.getByTestId("studio-card-preview").textContent).toContain("Three Point Check!");
+    // Never longer than 64 characters.
+    expect((screen.getByTestId("studio-name") as HTMLInputElement).maxLength).toBe(64);
 
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(await screen.findByTestId("studio-check-ok")).toBeTruthy();
     const validate = calls.find((c) => c.url === "/api/marketplace/publish/validate");
-    expect(validate?.body).toMatchObject({ kind: "skill", name: "three-point-check", version: "1.0.0" });
+    expect(validate?.body).toMatchObject({
+      kind: "skill",
+      name: "Three Point Check!",
+      title: "Three Point Check!",
+      version: "1.0.0",
+    });
 
     fireEvent.click(screen.getByTestId("studio-publish"));
     const done = await screen.findByTestId("studio-published");
-    expect(done.textContent).toContain("three-point-check");
-    expect(done.textContent).toContain("View the submission");
+    expect(done.textContent).toContain("Three Point Check!");
+    // Straight to the store: no detour through a GitHub issue.
+    expect(done.textContent).toContain("See it in the marketplace");
+    expect(done.textContent).not.toContain("View the submission");
   });
 
   it("puts a field error where the field is", async () => {
@@ -139,7 +148,7 @@ describe("PublishStudio", () => {
     });
     renderStudio();
     await screen.findByTestId("studio-door-folder");
-    fireEvent.click(screen.getByRole("button", { name: /^Skill$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Write a skill/ }));
     await screen.findByTestId("studio-form");
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect(await screen.findByText(/version must be plain SemVer/)).toBeTruthy();
@@ -150,7 +159,7 @@ describe("PublishStudio", () => {
     stubServer(SIGNED_OUT);
     renderStudio();
     await screen.findByTestId("studio-door-folder");
-    fireEvent.click(screen.getByRole("button", { name: /^Skill$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Write a skill/ }));
     await screen.findByTestId("studio-form");
     expect((screen.getByTestId("studio-publish") as HTMLButtonElement).disabled).toBe(true);
   });
@@ -169,6 +178,9 @@ describe("PublishStudio", () => {
     expect(screen.getByTestId("studio-door-skill-file")).toBeTruthy();
     const input = screen.getByTestId("studio-skill-file-input") as HTMLInputElement;
     expect(input.hasAttribute("webkitdirectory")).toBe(false);
+    // No file-type filter: the dialog shows every file.
+    expect(input.hasAttribute("accept")).toBe(false);
+    expect(screen.getByTestId("studio-door-pick-folder")).toBeTruthy();
 
     const file = new File(
       ["---\nname: todo-triage\ndescription: Sort tasks.\n---\n\nGroup by due date.\n"],
@@ -177,15 +189,15 @@ describe("PublishStudio", () => {
     );
     fireEvent.change(input, { target: { files: [file] } });
     await screen.findByTestId("studio-form");
-    // Read as a skill, name from the frontmatter — not a plugin with a missing manifest.
-    expect((screen.getByTestId("studio-name") as HTMLInputElement).value).toBe("todo-triage");
+    // Read as a skill, named after it — not a plugin with a missing manifest.
+    expect((screen.getByTestId("studio-name") as HTMLInputElement).value).toBe("Todo Triage");
   });
 
   it("speaks German when the UI does", async () => {
     stubServer(SIGNED_IN);
     setUiLanguage("de");
     renderStudio();
-    expect(await screen.findByText(/Paketordner ablegen/)).toBeTruthy(); // i18n-allow
+    expect(await screen.findByText(/Skill, Plugin oder Ordner hier ablegen/)).toBeTruthy(); // i18n-allow
     expect(screen.getByText("Im Marketplace veröffentlichen")).toBeTruthy(); // i18n-allow
   });
 });
