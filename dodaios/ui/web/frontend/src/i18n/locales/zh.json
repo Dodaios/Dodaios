@@ -810,6 +810,17 @@
     "indicator_label": "语音状态"
   },
   "sidebar": {
+    "agent_state": {
+      "working": "工作中",
+      "waiting": "需要你",
+      "paused": "已暂停"
+    },
+    "due": {
+      "title": "即将到来",
+      "overdue": "已逾期",
+      "today": "今天",
+      "tomorrow": "明天"
+    },
     "extensions_label": "插件 / 技能 / MCP",
     "pinned": "已置顶",
     "recent": "最近",

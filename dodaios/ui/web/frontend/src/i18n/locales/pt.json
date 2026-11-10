@@ -810,6 +810,17 @@
     "indicator_label": "Estado da voz"
   },
   "sidebar": {
+    "agent_state": {
+      "working": "Trabalhando",
+      "waiting": "Precisa de você",
+      "paused": "Pausado"
+    },
+    "due": {
+      "title": "Em breve",
+      "overdue": "Atrasado",
+      "today": "Hoje",
+      "tomorrow": "Amanhã"
+    },
     "extensions_label": "Plugins / Skills / MCP",
     "pinned": "Afixados",
     "recent": "Recentes",

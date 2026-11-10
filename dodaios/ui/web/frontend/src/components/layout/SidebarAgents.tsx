@@ -9,13 +9,14 @@ import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
 
 /** How many agents the sidebar names before "Show all" folds the rest out. */
-export const SIDEBAR_AGENTS_MAX = 3;
+export const SIDEBAR_AGENTS_MAX = 8;
 
 /**
  * The person's agents, most used first, between the sections and the chat
  * history — each with its own face (`AgentSwatch`).
  *
- * Three show at rest; "Show all" folds out the rest. A click opens that
+ * Up to eight show at rest, each with what it is doing right now (working,
+ * waiting on the person, paused); "Show all" folds out the rest. A click opens that
  * agent's own chat on the front page, in the column Jarvis' chat normally
  * holds (components/home/HomeAgentChat), rather than leaving for the Agents
  * page; the open one is lit like the open chat in the history below.
@@ -68,8 +69,16 @@ export default function SidebarAgents() {
                   <AgentSwatch agent={agent} size={20} />
                 </span>
                 <span className="min-w-0 flex-1 truncate">{agent.name}</span>
-                {agent.state === "working" && (
-                  <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent animate-jarvis-pulse" />
+                {agent.state !== "idle" && (
+                  <span data-testid="sidebar-agent-state" data-state={agent.state}
+                    className={cn("flex shrink-0 items-center gap-1.5 text-xs",
+                      agent.state === "waiting" ? "text-primary" : "text-foreground-faint")}>
+                    <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full",
+                      agent.state === "working" && "bg-accent animate-jarvis-pulse",
+                      agent.state === "waiting" && "bg-primary",
+                      agent.state === "paused" && "bg-foreground-faint")} />
+                    {t(`sidebar.agent_state.${agent.state}`)}
+                  </span>
                 )}
               </button>
             </li>
