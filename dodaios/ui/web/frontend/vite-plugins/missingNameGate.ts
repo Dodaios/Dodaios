@@ -18,7 +18,11 @@
  * The check starts with the build and is awaited before Vite empties the
  * output directory, so a refused build leaves the previous bundle in place
  * for the app that is serving it. Under `npm run build` the whole tree has
- * just passed `tsc -b`, and the gate skips its redundant second run.
+ * just passed `tsc -b`, and the gate skips its redundant second run. It also
+ * skips when the caller vouches for the source: the desktop app's follower
+ * (`core/main_follow.py`) sets `DODAIOS_BUNDLE_SOURCE_CHECKED=1` when the tree
+ * is byte for byte the commit CI type-checked, because a second check there
+ * costs about 2.4 GB of memory on every update.
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -162,6 +166,7 @@ export function missingNameGate(root: string): Plugin {
     apply: "build",
     buildStart() {
       if (process.env.npm_lifecycle_event === "build") return;
+      if (process.env.DODAIOS_BUNDLE_SOURCE_CHECKED === "1") return;
       pending = runTsc(root);
     },
     async buildEnd(error) {

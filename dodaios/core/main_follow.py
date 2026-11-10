@@ -73,6 +73,11 @@ _NPM_INPUTS = {f"{FRONTEND}/package.json", f"{FRONTEND}/package-lock.json"}
 _PIP_INPUTS = {"pyproject.toml", "requirements.txt"}
 #: A git lock this old belongs to no running command: one that was killed left it.
 STALE_LOCK_S = 10 * 60.0
+#: ``npm run`` script that bundles without the type check, and the variable that
+#: tells the bundler's own type-check gate (``vite-plugins/missingNameGate.ts``)
+#: the source was checked already. See :meth:`MainFollower._build`.
+BUNDLE_SCRIPT = "bundle"
+SOURCE_CHECKED_ENV = "DODAIOS_BUNDLE_SOURCE_CHECKED"
 
 
 @dataclass(slots=True)
@@ -109,9 +114,11 @@ def _run(
     timeout: float = _GIT_TIMEOUT_S,
     read_only: bool = False,
     stdin: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run ``args``; a timeout or a program that cannot start comes back as a failure."""
     env = dict(os.environ)
+    env.update(extra_env or {})
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
     # Following main never downloads the Unreal Verse's LFS binaries (``unreal/**``,
@@ -589,11 +596,43 @@ class MainFollower:
                 self._note(f"Installing the frontend packages failed: {_last_line(installed)}")
                 return False
         self.status.busy = "build"
-        built = _run([npm, "run", "build"], folder, timeout=_BUILD_TIMEOUT_S)
+        if self._source_is_checked(folder):
+            # The source is exactly what CI type-checked before the commit could
+            # land. Checking it again here held ~2.4 GB for the length of the
+            # build (measured: tsc at 2.3 GB resident beside the running app),
+            # on every update, for an answer that is already known.
+            built = _run(
+                [npm, "run", BUNDLE_SCRIPT],
+                folder,
+                timeout=_BUILD_TIMEOUT_S,
+                extra_env={SOURCE_CHECKED_ENV: "1"},
+            )
+        else:
+            built = _run([npm, "run", "build"], folder, timeout=_BUILD_TIMEOUT_S)
         if built.returncode != 0:
             self._note(f"Building the frontend failed: {_last_line(built)}")
             return False
         return True
+
+    def _source_is_checked(self, folder: Path) -> bool:
+        """Is the frontend source byte for byte what ``origin/main`` holds?
+
+        Only then may the build skip the type check: a local edit, a file a
+        session left behind or a package without the bundle script all take
+        the full ``npm run build``, which checks first.
+        """
+        try:
+            import json
+
+            scripts = json.loads((folder / "package.json").read_text(encoding="utf-8")).get(
+                "scripts", {}
+            )
+        except (OSError, ValueError):
+            return False
+        if BUNDLE_SCRIPT not in scripts:
+            return False
+        dirty = _git(["status", "--porcelain", "--untracked-files=all", "--", FRONTEND], self.root)
+        return dirty.returncode == 0 and not dirty.stdout.strip()
 
     def _install_python(self) -> bool:
         self.status.busy = "install"
