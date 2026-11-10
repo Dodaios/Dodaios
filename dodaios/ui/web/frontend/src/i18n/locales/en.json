@@ -11025,5 +11025,34 @@
       "cancel": "Cancel"
     },
     "raw": "Raw"
+  },
+  "design": {
+    "settings": {
+      "group_you": "You",
+      "group_voice": "Voice",
+      "group_connections": "Connections",
+      "group_agents": "Agents",
+      "group_advanced": "Advanced",
+      "language_app": "Language & app",
+      "memory": "Memory",
+      "voice_wake": "Voice & wake word",
+      "dictation": "Dictation",
+      "plugins": "Plugins & channels",
+      "behavior": "Behavior",
+      "agents": "Your agents",
+      "all_settings": "All settings",
+      "more_options": "More options",
+      "more_options_hint": "Music, overlay, taskbar, game",
+      "opens_page": "Opens its own page"
+    },
+    "activity": {
+      "waiting": "Show activity — something is in progress"
+    },
+    "greeting": {
+      "suggestions": "Suggestions",
+      "due": "Help me get ready for: {text}",
+      "agent_working": "What is {agent} working on?",
+      "agent_waiting": "What does {agent} need from me?"
+    }
   }
 }

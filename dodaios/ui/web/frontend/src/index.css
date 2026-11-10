@@ -555,6 +555,28 @@ label,
   :root {
     /* Original app marks sit on the same white brand tile in both themes. */
     --plugin-icon-surface: 0 0% 100%;
+
+    /* --- Motion: one short scale, shared by every theme ---------------------
+       Things arrive in 150–300 ms on a decelerating curve and leave faster on
+       an accelerating one, so an exit never holds up the next action. Every
+       transition built on these is a CSS transition, which the browser can
+       reverse mid-flight — a panel closed while it is still opening simply
+       turns around. Reduced motion collapses all of them (the floor at the
+       end of this file). */
+    --motion-fast: 150ms; /* hover, press, small toggles */
+    --motion-base: 220ms; /* panels, folds, menus arriving */
+    --motion-slow: 300ms; /* the largest moves: a side panel sliding in */
+    --motion-exit: 150ms; /* anything leaving */
+    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-soft: cubic-bezier(0.4, 0, 1, 1);
+
+    /* --- The reading column: where conversation and long text live ---------
+       One centred measure, a 15 px body and a line height of at least 1.6.
+       The chat surfaces size themselves from `max-w-reading` and
+       `text-reading`, which read these. */
+    --reading-column: 720px;
+    --reading-size: 15px;
+    --reading-leading: 1.7;
     /* --- Light: the same system, the value scale inverted ------------------
        White room, neutral near-black ink — the same zero-saturation system
        as dark. Every role below has exactly the job its dark twin has; only
@@ -776,16 +798,30 @@ label,
         100 %  foreground-strong  headings, headline numbers
          98 %  primary            near-white — a fill, never an ink */
 
+    /* --- The three inputs every dark surface is derived from ----------------
+       The ladder below is no longer a list of hand-picked greys: it is the
+       room's lightness (--theme-base) plus a number of steps, each step
+       --theme-contrast percentage points tall. Change the base and the whole
+       room brightens or darkens as one; raise the contrast and every edge
+       between two surfaces reads more clearly — without a single surface
+       drifting out of order. The accent is the third input (--accent below);
+       it marks only the primary action, the focus ring and live state.
+
+       At base 4 and contrast 1 the ladder lands exactly on the values it had
+       when it was hand-written, so nothing visibly moves. */
+    --theme-base: 4;
+    --theme-contrast: 1;
+
     /* --- The surface ladder ---------------------------------------------- */
-    --background: 0 0% 4%; /* #0A0A0A — the room, every full-bleed region */
-    --sidebar: 0 0% 6%; /* #0F0F0F — the rail, one step up, with a visible edge */
-    --card: 0 0% 9%; /* #171717 — an OBJECT: card, bubble, composer, panel */
+    --background: 0 0% calc(var(--theme-base) * 1%); /* #0A0A0A — the room, every full-bleed region */
+    --sidebar: 0 0% calc((var(--theme-base) + 2 * var(--theme-contrast)) * 1%); /* #0F0F0F — the rail, one step up, with a visible edge */
+    --card: 0 0% calc((var(--theme-base) + 5 * var(--theme-contrast)) * 1%); /* #171717 — an OBJECT: card, bubble, composer, panel */
     --card-foreground: 0 0% 98%;
-    --secondary: 0 0% 12%; /* #1F1F1F — the LIFT: hover, selected, tile, field */
+    --secondary: 0 0% calc((var(--theme-base) + 8 * var(--theme-contrast)) * 1%); /* #1F1F1F — the LIFT: hover, selected, tile, field */
     --secondary-foreground: 0 0% 98%; /* a selected label is ink-strong */
-    --muted: 0 0% 12%; /* = --secondary: the ~65 hover:bg-muted sites read this */
-    --input: 0 0% 12%; /* a field is a lift surface */
-    --popover: 0 0% 11%; /* #1C1C1C — the floating layer, plus .shadow-float */
+    --muted: var(--secondary); /* = --secondary: the ~65 hover:bg-muted sites read this */
+    --input: var(--secondary); /* a field is a lift surface */
+    --popover: 0 0% calc((var(--theme-base) + 7 * var(--theme-contrast)) * 1%); /* #1C1C1C — the floating layer, plus .shadow-float */
     --popover-foreground: 0 0% 98%;
     --user-bubble: 0 0% 16%; /* #292929 — the speaker: a quiet, legible lift */
     --user-bubble-foreground: 0 0% 98%;
@@ -803,17 +839,22 @@ label,
        On near-black a dark border around a dark fill reads as a wireframe
        with nothing inside it. Cursor's rims cover 0.2 % of its window — a
        composer outline and a few dividers, not an edge around every card. */
-    --surface-raised: 0 0% 15%; /* #262626 — pressed/selected rows, code blocks */
-    --border: 0 0% 15%; /* #262626 — a hairline visible on room, rail AND card */
-    --border-strong: 0 0% 22%; /* #383838 — input borders, focused card, float rim */
+    --surface-raised: 0 0% calc((var(--theme-base) + 11 * var(--theme-contrast)) * 1%); /* #262626 — pressed/selected rows, code blocks */
+    --border: 0 0% calc((var(--theme-base) + 11 * var(--theme-contrast)) * 1%); /* #262626 — a hairline visible on room, rail AND card */
+    --border-strong: 0 0% calc((var(--theme-base) + 18 * var(--theme-contrast)) * 1%); /* #383838 — input borders, focused card, float rim */
 
     /* --- Ink -------------------------------------------------------------- */
+    /* The three quieter inks sit a few points brighter than they used to
+       (63 → 67, 72 → 76, 48 → 54): grey labels and icons on a card were the
+       hardest thing to read in dark mode. Measured on the card (#171717):
+       muted 7.8:1 (was 6.9), secondary 10:1, faint 5.2:1 (was 4.2, below
+       AA) — every step now clears AA on every surface it sits on. */
     --foreground-strong: 0 0% 100%; /* #FFFFFF — headings, headline numbers */
     --foreground: 0 0% 98%; /* #FAFAFA — body, labels, running text */
-    --muted-foreground: 0 0% 63%; /* #A1A1A1 — labels, meta, table heads (7.9:1 on #0A0A0A) */
-    --faint-foreground: 0 0% 48%; /* #7A7A7A — placeholder + disabled ONLY (4.7:1) */
-    --foreground-faint: 0 0% 48%; /* = --faint-foreground; the Tailwind name */
-    --foreground-secondary: 0 0% 72%; /* #B8B8B8 — body on cards, descriptions */
+    --muted-foreground: 0 0% 67%; /* #ABABAB — labels, meta, table heads, icons */
+    --faint-foreground: 0 0% 54%; /* #8A8A8A — placeholder + disabled ONLY */
+    --foreground-faint: var(--faint-foreground); /* the Tailwind name */
+    --foreground-secondary: 0 0% 76%; /* #C2C2C2 — body on cards, descriptions */
 
     /* #FFFFFF, and a FILL. It sits one step past --foreground because a
        near-black ground has headroom above the ink ceiling; the light theme
@@ -2857,6 +2898,24 @@ body {
     .uw-hatch-live {
       animation: none;
     }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   prefers-reduced-transparency — solid surfaces instead of glass
+
+   Frosted layers (a blurred scrim, a glass bar) read as smeared to someone
+   who asked the OS for less transparency. Under that setting nothing blurs
+   what is behind it, and the two scrim tokens become nearly opaque, so a
+   dialog sits on a calm, solid ground. Surfaces themselves are already
+   solid tokens (see the theme blocks), so nothing else needs to change.
+   ---------------------------------------------------------------------- */
+@media (prefers-reduced-transparency: reduce) {
+  *,
+  *::before,
+  *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 

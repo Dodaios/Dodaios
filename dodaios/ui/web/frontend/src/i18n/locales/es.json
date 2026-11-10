@@ -11025,5 +11025,34 @@
       "cancel": "Cancelar"
     },
     "raw": "Datos sin formato"
+  },
+  "design": {
+    "settings": {
+      "group_you": "Tú",
+      "group_voice": "Voz",
+      "group_connections": "Conexiones",
+      "group_agents": "Agentes",
+      "group_advanced": "Avanzado",
+      "language_app": "Idioma y app",
+      "memory": "Memoria",
+      "voice_wake": "Voz y palabra de activación",
+      "dictation": "Dictado",
+      "plugins": "Plugins y canales",
+      "behavior": "Comportamiento",
+      "agents": "Tus agentes",
+      "all_settings": "Todos los ajustes",
+      "more_options": "Más opciones",
+      "more_options_hint": "Música, superposición, barra de tareas, juego",
+      "opens_page": "Abre su propia página"
+    },
+    "activity": {
+      "waiting": "Mostrar actividad: hay algo en curso"
+    },
+    "greeting": {
+      "suggestions": "Sugerencias",
+      "due": "Ayúdame a prepararme para: {text}",
+      "agent_working": "¿En qué está trabajando {agent}?",
+      "agent_waiting": "¿Qué necesita {agent} de mí?"
+    }
   }
 }
