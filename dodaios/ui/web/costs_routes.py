@@ -22,6 +22,7 @@ Loopback-only (the server binds to 127.0.0.1) — no auth token needed.
 from __future__ import annotations
 
 import logging
+import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -81,6 +82,15 @@ class Bucket(BaseModel):
 class RefBucket(Bucket):
     label: str = ""
     surface: str = ""
+
+
+class AgentBucket(Bucket):
+    """One Dodaios agent's spend; ``key`` is its roster id (``jarvis`` = the lead)."""
+
+    name: str = ""
+    """The roster name; empty when the agent is no longer in the roster."""
+    lead: bool = False
+    archived: bool = False
 
 
 class Totals(BaseModel):
@@ -160,6 +170,8 @@ class CostSummary(BaseModel):
     by_model: list[Bucket]
     by_role: list[Bucket]
     by_surface: list[Bucket]
+    by_agent: list[AgentBucket] = Field(default_factory=list)
+    """Spend per Dodaios agent, the lead included; unowned work left out."""
     series: list[Bucket]
     top_refs: list[RefBucket]
     models: list[ModelRow]
@@ -211,6 +223,7 @@ class EntryRow(BaseModel):
     price_source: str
     ref_id: str
     label: str
+    agent: str = ""
 
 
 class EntriesPage(BaseModel):
@@ -504,6 +517,51 @@ def _facets(entries: list[CostEntry]) -> Facets:
     return Facets(providers=providers, models=models, roles=roles, surfaces=surfaces)
 
 
+def _agent_roster(data_dir: Path | None) -> dict[str, tuple[str, str]]:
+    """``agent_id -> (name, state)`` from the society roster, read-only.
+
+    Read straight from ``society.db`` rather than through the society runtime:
+    this is a report, and building the runtime would start the whole agent
+    substrate just to name a few rows. A missing or locked store only costs
+    the names; the numbers stand on their own.
+    """
+    if data_dir is None:
+        return {}
+    path = Path(data_dir) / "society.db"
+    if not path.exists():
+        return {}
+    try:
+        conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=1.0)
+    except sqlite3.Error:
+        return {}
+    try:
+        rows = conn.execute("SELECT agent_id, name, state FROM society_agents").fetchall()
+    except sqlite3.Error as exc:
+        log.debug("costs: agent roster not readable (%s)", exc)
+        return {}
+    finally:
+        conn.close()
+    return {str(r[0]): (str(r[1] or ""), str(r[2] or "")) for r in rows}
+
+
+def _with_agent_names(rows: list[dict[str, Any]], data_dir: Path | None) -> list[dict[str, Any]]:
+    from dodaios.costs.model import LEAD_AGENT
+
+    roster = _agent_roster(data_dir) if rows else {}
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        name, state = roster.get(row["key"], ("", ""))
+        out.append(
+            {
+                **row,
+                "name": name,
+                "lead": row["key"] == LEAD_AGENT,
+                "archived": state == "archived",
+            }
+        )
+    return out
+
+
 def _split(values: list[str] | None) -> set[str]:
     """Accept both repeated params and one comma-separated value."""
     out: set[str] = set()
@@ -528,6 +586,7 @@ def get_summary(
     role: Annotated[list[str] | None, Query()] = None,
     surface: Annotated[list[str] | None, Query()] = None,
     ref: Annotated[list[str] | None, Query()] = None,
+    agent: Annotated[list[str] | None, Query()] = None,
     billing: Annotated[str, Query(pattern="^(all|billed|subscription)$")] = "all",
     search: str = "",
     top: Annotated[int, Query(ge=1, le=100)] = 12,
@@ -547,11 +606,13 @@ def get_summary(
         roles=_split(role),
         surfaces=_split(surface),
         refs=_split(ref),
+        agents=_split(agent),
         search=search,
         billing=billing,
     )
     report = build_report(selected, since_ms=start, until_ms=end, top_n=top)
     payload = report.to_dict()
+    payload["by_agent"] = _with_agent_names(payload["by_agent"], sources.cli_index_dir)
     payload["facets"] = _facets(entries).model_dump()
     payload["currency"] = _currency().model_dump()
     payload["sources_present"] = [p.name for p in sources.existing()]
@@ -577,6 +638,7 @@ def get_daily(
     role: Annotated[list[str] | None, Query()] = None,
     surface: Annotated[list[str] | None, Query()] = None,
     ref: Annotated[list[str] | None, Query()] = None,
+    agent: Annotated[list[str] | None, Query()] = None,
     billing: Annotated[str, Query(pattern="^(all|billed|subscription)$")] = "all",
     search: str = "",
 ) -> DailyLedger:
@@ -599,6 +661,7 @@ def get_daily(
         roles=_split(role),
         surfaces=_split(surface),
         refs=_split(ref),
+        agents=_split(agent),
         search=search,
         billing=billing,
     )
@@ -644,6 +707,7 @@ def get_entries(
     role: Annotated[list[str] | None, Query()] = None,
     surface: Annotated[list[str] | None, Query()] = None,
     ref: Annotated[list[str] | None, Query()] = None,
+    agent: Annotated[list[str] | None, Query()] = None,
     billing: Annotated[str, Query(pattern="^(all|billed|subscription)$")] = "all",
     search: str = "",
     sort: Annotated[str, Query(pattern="^(recent|cost|tokens)$")] = "recent",
@@ -660,6 +724,7 @@ def get_entries(
         roles=_split(role),
         surfaces=_split(surface),
         refs=_split(ref),
+        agents=_split(agent),
         search=search,
         billing=billing,
     )
