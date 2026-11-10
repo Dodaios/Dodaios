@@ -132,3 +132,45 @@ def test_event_loop_lag_preserves_sub_millisecond_precision(monkeypatch):
         response = client.get("/api/diagnostics/event-loop-lag")
     assert response.status_code == 200
     assert response.json() == {"lags_ms": [0.125] * 4, "max_ms": 0.125}
+
+
+def test_memory_reports_this_process_and_a_total():
+    import os
+
+    with TestClient(_app()) as client:
+        body: dict[str, Any] = client.get("/api/diagnostics/memory").json()
+
+    own = [row for row in body["processes"] if row["pid"] == os.getpid()]
+    assert len(own) == 1 and own[0]["private_mb"] > 0 and own[0]["rss_mb"] > 0
+    assert body["total"]["processes"] == len(body["processes"]) >= 1
+    assert body["total"]["private_mb"] >= own[0]["private_mb"]
+    assert any(row["package"] == "dodaios" for row in body["packages"])
+    assert "python" not in body  # the heap walk is opt-in
+
+
+def test_memory_objects_names_types_and_owners_but_no_contents():
+    secret = "do-not-return-this-" * 40_000  # one large string a module holds
+    diagnostics_routes._test_secret_holder = secret  # type: ignore[attr-defined]
+    try:
+        with TestClient(_app()) as client:
+            body: dict[str, Any] = client.get("/api/diagnostics/memory?objects=true").json()
+    finally:
+        del diagnostics_routes._test_secret_holder  # type: ignore[attr-defined]
+
+    python = body["python"]
+    assert python["tracked_objects"] > 0
+    assert any(row["type"] == "builtins.dict" for row in python["by_type"])
+    assert all(set(row) == {"type", "mb", "len", "held_by"} for row in python["largest"])
+    assert "do-not-return-this" not in str(body)
+
+
+def test_a_process_role_never_carries_a_path():
+    from dodaios.core.process_memory import _role
+
+    assert _role("python.exe", [r"C:\Users\me\python.exe", "-m", "dodaios.x", "secret.txt"]) == (
+        "dodaios.x"
+    )
+    assert _role("msedgewebview2.exe", ["x.exe", "--type=renderer", r"--user-data-dir=C:\me"]) == (
+        "webview renderer"
+    )
+    assert _role("node.exe", ["node", r"C:\Users\me\project\server.js"]) == "node.exe"

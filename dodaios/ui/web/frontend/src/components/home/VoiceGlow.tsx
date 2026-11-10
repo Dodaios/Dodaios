@@ -30,14 +30,18 @@ import { createVoiceFollower } from "@/components/home/voiceFollower";
  *
  * Purely decorative: no pointer events, hidden from screen readers.
  */
-export function VoiceGlow({ active, thinking = false }: { active: boolean; thinking?: boolean }) {
+export function VoiceGlow({ active, thinking = false, className }: {
+  active: boolean; thinking?: boolean;
+  /** Overrides the light's height where it is not a page's lower edge (the call window). */
+  className?: string;
+}) {
   const [webgl, setWebgl] = useState(webglAvailable);
   return (
     <div
       aria-hidden
       data-testid="voice-glow"
       data-renderer={webgl ? "webgl" : "css"}
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-[38vh] overflow-hidden"
+      className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[38vh] overflow-hidden", className)}
     >
       {webgl ? (
         <ShaderGlow active={active} thinking={thinking} onUnavailable={() => setWebgl(false)} />

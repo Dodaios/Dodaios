@@ -78,6 +78,22 @@ questions: which kind of work ran, and where in the app it originated.
 Switching the top-level activity area clears row-level filters that might belong
 only to the previous area. The time range and search query remain available.
 
+## See What Each Agent Used
+
+The agents panel answers who spent the money: the assistant itself, and each
+of its Dodaios agents.
+
+- The two numbers at the top split the assistant's own use from all agents
+  together.
+- The list starts with the assistant, then shows every agent by cost, with its
+  share, amount, and tokens.
+- Click an agent to narrow the whole page to that agent. Click it again, or
+  remove its chip, to see everything again.
+
+The assistant's own use covers its conversation, voice, speech, background
+jobs, and missions. Coding threads and Agentic IDE panes belong to no agent,
+so the list leaves them out. The headline totals still include them.
+
 ## Use the Trend Chart
 
 The chart shows how the selected usage changed over time. Hover a point or bar

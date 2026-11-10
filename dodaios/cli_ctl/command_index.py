@@ -159,6 +159,7 @@ COMMAND_INDEX: dict[str, tuple[str, ...]] = {
     ),
     "marketplace": (
         "install <id>",
+        "remove <id>",
         "browse",
         "list",
         "connect-pat",

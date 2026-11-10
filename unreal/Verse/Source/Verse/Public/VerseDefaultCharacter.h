@@ -14,6 +14,7 @@ class UVerseInventoryComponent;
 class UVerseMeleeComponent;
 class UVerseWeaponComponent;
 class UVerseCombatDriverComponent;
+class UVerseViewmodelComponent;
 
 /**
  * Default pawn: the WP01 first-person character (VerseMovement) with the combat parts of
@@ -24,7 +25,8 @@ class UVerseCombatDriverComponent;
  * - UVerseCombatStateComponent (phase, spawn protection),
  * - UVerseInventoryComponent and UVerseWeaponComponent (firearms, 2.2),
  * - UVerseMeleeComponent (knife and finisher, 7),
- * - UVerseGadgetComponent (Bulwark and breach charge, 2.3).
+ * - UVerseGadgetComponent (Bulwark and breach charge, 2.3),
+ * - UVerseViewmodelComponent (the person's first-person weapon).
  *
  * AVerseDefaultGameMode hands out the loadout on every spawn.
  */
@@ -53,6 +55,7 @@ public:
 	UVerseMeleeComponent* GetMelee() const { return Melee; }
 	UVerseGadgetComponent* GetGadgets() const { return Gadgets; }
 	UVerseCombatDriverComponent* GetCombatDriver() const { return CombatDriver; }
+	UVerseViewmodelComponent* GetViewmodel() const { return Viewmodel; }
 
 private:
 	void InitAbilityActorInfo();
@@ -81,4 +84,8 @@ private:
 	/** Input frame to combat (shots, reloads, slots, knife, gadgets). */
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Combat")
 	TObjectPtr<UVerseCombatDriverComponent> CombatDriver;
+
+	/** The held weapon in front of the person's camera (locally controlled persons only). */
+	UPROPERTY(VisibleAnywhere, Category = "Verse|Combat")
+	TObjectPtr<UVerseViewmodelComponent> Viewmodel;
 };

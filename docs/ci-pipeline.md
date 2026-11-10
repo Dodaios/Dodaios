@@ -713,7 +713,11 @@ tag it moves to, so the tag commit has to stay.
 carries (one cut before the switch), so it never comes back through a pull
 request. A checkout of main builds it locally: `npm run build` in
 `dodaios/ui/web/frontend`; the desktop app that follows main does that by
-itself (`main_follow.py`). Never commit the result.
+itself (`main_follow.py`). Never commit the result. When the frontend source
+is exactly what `origin/main` holds, the follower runs `npm run bundle`
+instead: the same build without the type check CI already ran, a phase that
+held about 2.4 GB before the bundling started. A checkout with a local
+frontend edit still gets the full `npm run build`.
 
 Merge queue: `max_entries_to_build` is 5 and `grouping_strategy` is
 `HEADGREEN` (ruleset 24704136; 2 → 3 on 2026-10-26, 3 → 5 and `ALLGREEN` →

@@ -1,0 +1,105 @@
+/**
+ * Client for notifications and reminders (`dodaios/ui/web/notify_routes.py`).
+ *
+ * Settings: the one switch, a choice per kind, quiet hours, Telegram
+ * approvals. Reminders: what is coming up, done, snooze, a brain dump into
+ * items. A captured item's undo forgets the memory (`personalMemoryApi`).
+ */
+
+const BASE = "/api/notify";
+
+export const NOTIFY_KINDS = ["reminder", "needs_you", "approval", "finished"] as const;
+export type NotifyKind = (typeof NOTIFY_KINDS)[number];
+
+export interface QuietHours {
+  enabled: boolean;
+  /** Local wall-clock times, `HH:MM`. */
+  start: string;
+  end: string;
+}
+
+export interface NotifySettings {
+  enabled: boolean;
+  kinds: Record<NotifyKind, boolean>;
+  quiet_hours: QuietHours;
+  telegram_approvals: boolean;
+}
+
+export interface NotifySettingsPatch {
+  enabled?: boolean;
+  kinds?: Partial<Record<NotifyKind, boolean>>;
+  quiet_hours?: Partial<QuietHours>;
+  telegram_approvals?: boolean;
+}
+
+export interface NotifyVerdict {
+  shown: boolean;
+  /** Why it was held back (`off`, `kind_off`, `quiet_hours`, `looking`), else "". */
+  held: string;
+  /** How it was shown (`shown`, `shown_no_click`, `unsupported`, `failed`). */
+  how: string;
+}
+
+export interface TelegramState {
+  connected: boolean;
+  owner_known: boolean;
+}
+
+export interface ReminderRow {
+  id: string;
+  text: string;
+  due_at: string | null;
+  kind: string;
+  reminder: boolean;
+  overdue: boolean;
+  delivered: boolean;
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  });
+  if (!response.ok) {
+    let detail = `${response.status}`;
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") detail = body.detail;
+    } catch {
+      // The status alone names the failure.
+    }
+    throw new Error(detail);
+  }
+  return (await response.json()) as T;
+}
+
+export const getNotifySettings = () => request<NotifySettings>(`${BASE}/settings`);
+
+export const putNotifySettings = (patch: NotifySettingsPatch) =>
+  request<NotifySettings>(`${BASE}/settings`, { method: "PUT", body: JSON.stringify(patch) });
+
+export const sendTestNotification = () =>
+  request<NotifyVerdict>(`${BASE}/test`, { method: "POST" });
+
+export const getTelegramState = () => request<TelegramState>(`${BASE}/telegram`);
+
+export const listReminders = (days = 14) =>
+  request<{ items: ReminderRow[] }>(`${BASE}/reminders?days=${days}`);
+
+export const markReminderDone = (id: string) =>
+  request<{ ok: boolean }>(`${BASE}/reminders/${encodeURIComponent(id)}/done`, { method: "POST" });
+
+/** Move a reminder by `minutes`, or to `until` (time words or ISO) when given. */
+export const snoozeReminder = (id: string, body: { minutes?: number; until?: string }) =>
+  request<ReminderRow>(`${BASE}/reminders/${encodeURIComponent(id)}/snooze`, {
+    method: "POST",
+    body: JSON.stringify({ ...body, timezone: localTimezone() }),
+  });
+
+export function localTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+  } catch {
+    return "";
+  }
+}

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
+  ChevronRight,
   Check,
   ExternalLink,
   FileText,
@@ -19,6 +20,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { BackLink, IconButton } from "@/components/extensions/primitives";
 import { InstallStandard, type InstallStandardWire } from "@/components/InstallStandard";
 import {
   PublishIdentityCard,
@@ -327,8 +329,14 @@ export function PublishStudio({ onClose }: { onClose: () => void }) {
   const disabled = identity.data ? !identity.data.enabled : false;
 
   // The rail: which station is lit. "live" only after a publish went through.
-  const station: 1 | 2 | 3 | 4 =
-    stage === "done" ? 4 : stage === "form" ? 3 : signedIn ? 2 : 1;
+  const stageTitle =
+    stage === "github"
+      ? t("marketplace.studio_h_github")
+      : stage === "form"
+        ? t("marketplace.studio_h_form")
+        : stage === "done"
+          ? t("marketplace.studio_h_done")
+          : t("marketplace.studio_h_source");
 
   return (
     <div
@@ -336,80 +344,55 @@ export function PublishStudio({ onClose }: { onClose: () => void }) {
       aria-modal="true"
       aria-label={t("marketplace.studio_title")}
       data-testid="publish-studio"
-      className="fixed inset-0 z-[60] flex bg-background backdrop-blur-md"
+      className="absolute inset-0 z-[60] flex flex-col bg-background"
     >
-      <button
-        type="button"
-        aria-label={t("marketplace.close")}
-        onClick={onClose}
-        className="absolute inset-0 cursor-default"
-      />
-      <div className="relative m-auto flex h-[min(92vh,56rem)] w-[min(96vw,72rem)] overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground">
-        {/* Rail */}
-        <aside className="relative isolate hidden w-60 shrink-0 flex-col border-r bg-secondary p-5 md:flex">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -z-10 -left-20 top-0 h-64 w-64 rounded-full bg-secondary blur-3xl"
-          />
-          <p className="text-micro font-semibold text-muted-foreground">
-            {t("marketplace.studio_eyebrow")}
-          </p>
-          <h2 className="mt-1 font-display text-lg font-semibold tracking-tight text-foreground">
+      <div className="flex h-12 shrink-0 items-center justify-end gap-2 px-4">
+        {signedIn && identity.data && (
+          <span className="hidden items-center gap-2 text-base text-muted-foreground sm:flex">
+            <PublisherAvatar
+              login={identity.data.login}
+              url={identity.data.avatar_url}
+              size={20}
+              className="ring-0"
+            />
+            @{identity.data.login}
+          </span>
+        )}
+        <IconButton label={t("marketplace.close")} onClick={onClose}>
+          <X className="h-4 w-4" />
+        </IconButton>
+      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="mx-auto w-full max-w-[760px] px-6 pb-24 pt-1">
+          {stage === "source" || stage === "done" ? (
+            <BackLink label={t("marketplace.title")} onClick={onClose} />
+          ) : (
+            <BackLink label={t("marketplace.studio_back")} onClick={() => setStage("source")} />
+          )}
+
+          <h1 className="mt-6 font-display text-2xl font-semibold text-foreground-strong">
             {t("marketplace.studio_title")}
-          </h2>
-          <ol className="mt-6 space-y-1">
-            <Station n={1} active={station === 1} done={signedIn} label={t("marketplace.studio_station_who")} />
-            <Station n={2} active={station === 2} done={station > 2} label={t("marketplace.studio_station_what")} />
-            <Station n={3} active={station === 3} done={station > 3} label={t("marketplace.studio_station_check")} />
-            <Station n={4} active={station === 4} done={false} label={t("marketplace.studio_station_live")} />
-          </ol>
-          <div className="mt-auto space-y-2 text-micro text-muted-foreground">
-            <p>{t("marketplace.studio_rail_note_public")}</p>
-            <p>{t("marketplace.studio_rail_note_rules")}</p>
-          </div>
-        </aside>
+          </h1>
+          <p className="mt-2 max-w-[62ch] text-lg text-muted-foreground">
+            {t("marketplace.studio_rail_note_public")}
+          </p>
 
-        {/* Work area */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center gap-3 border-b border-border px-5 py-3">
-            {stage !== "source" && stage !== "done" && (
-              <Button size="sm" variant="ghost" onClick={() => setStage("source")}>
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                {t("marketplace.studio_back")}
-              </Button>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {stage === "source" && t("marketplace.studio_h_source")}
-                {stage === "github" && t("marketplace.studio_h_github")}
-                {stage === "form" && t("marketplace.studio_h_form")}
-                {stage === "done" && t("marketplace.studio_h_done")}
-              </p>
-            </div>
-            {signedIn && identity.data && (
-              <span className="hidden items-center gap-2 rounded-full border border-border bg-background py-0.5 pl-0.5 pr-2.5 text-micro text-foreground sm:flex">
-                <PublisherAvatar login={identity.data.login} url={identity.data.avatar_url} size={20} />
-                @{identity.data.login}
-              </span>
-            )}
-            <Button size="sm" variant="ghost" onClick={onClose} aria-label={t("marketplace.close")}>
-              <X className="h-4 w-4" />
-            </Button>
-          </header>
+          <div className="mt-8">
+            {!localeReady ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : disabled ? (
+              <p className="text-base text-muted-foreground">{t("marketplace.studio_disabled")}</p>
+            ) : stage === "done" && result ? (
+              <PublishedCard result={result} onPublishAnother={startOver} t={t} />
+            ) : (
+              <div className="space-y-8">
+                <div className="border-y border-border py-4">
+                  <PublishIdentityCard identity={identity.data} loading={identity.isLoading} compact />
+                </div>
 
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="px-5 py-5">
-              {!localeReady ? (
-                <p className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </p>
-              ) : disabled ? (
-                <p className="text-sm text-muted-foreground">{t("marketplace.studio_disabled")}</p>
-              ) : stage === "done" && result ? (
-                <PublishedCard result={result} onPublishAnother={startOver} t={t} />
-              ) : (
-                <div className="space-y-5">
-                  <PublishIdentityCard identity={identity.data} loading={identity.isLoading} />
+                <section>
+                  <h2 className="mb-2 text-lg font-semibold text-foreground-strong">{stageTitle}</h2>
 
                   {stage === "source" && (
                     <SourcePicker
@@ -444,55 +427,32 @@ export function PublishStudio({ onClose }: { onClose: () => void }) {
                       t={t}
                     />
                   )}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+                </section>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }
 
-function Station({
-  n,
-  active,
-  done,
-  label,
-}: {
-  n: number;
-  active: boolean;
-  done: boolean;
-  label: string;
-}) {
+// ---------------------------------------------------------------------------
+// Where does the thing come from?
+// ---------------------------------------------------------------------------
+
+/** One way in, as a row: a mark, what it is, and what it leads to. */
+const SOURCE_ROW =
+  "group flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left transition-colors hover:bg-secondary " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+function SourceMark({ children }: { children: React.ReactNode }) {
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors",
-        active ? "bg-background text-foreground" : "text-muted-foreground",
-      )}
-      data-active={active ? "yes" : "no"}
-    >
-      <span
-        className={cn(
-          "grid h-6 w-6 shrink-0 place-items-center rounded-full border text-micro font-bold",
-          done
-            ? "border-border-strong bg-primary text-primary-foreground"
-            : active
-              ? "border-border-strong text-foreground-strong"
-              : "border-border text-muted-foreground",
-        )}
-      >
-        {done ? <Check className="h-3 w-3" /> : n}
-      </span>
-      <span className="truncate">{label}</span>
-    </li>
+    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground transition-colors group-hover:bg-surface-raised group-hover:text-foreground">
+      {children}
+    </span>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Station 2: where does the thing come from?
-// ---------------------------------------------------------------------------
 
 function SourcePicker({
   onFolder,
@@ -511,8 +471,8 @@ function SourcePicker({
   const pickerRef = useRef<HTMLInputElement | null>(null);
   // A second picker for the one-file case: a `webkitdirectory` input can only
   // ever choose a directory, so without this a skill author who has exactly
-  // one SKILL.md on disk reads the door as "plugins only" (it is not — the
-  // drop zone has always taken a lone file; only the click path refused it).
+  // one SKILL.md on disk reads the folder row as "plugins only" (it is not —
+  // the drop zone has always taken a lone file; only the click path refused it).
   const filePickerRef = useRef<HTMLInputElement | null>(null);
 
   const handleFiles = async (
@@ -533,218 +493,172 @@ function SourcePicker({
   };
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-xs font-semibold text-foreground">
-          {t("marketplace.studio_source_label")}
-        </span>
-        <span className="text-micro text-muted-foreground">
-          {t("marketplace.studio_source_hint")}
-        </span>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {/* Folder drop — the primary door, so it gets the big tile. */}
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={t("marketplace.studio_door_folder")}
-          data-testid="studio-door-folder"
-          onClick={() => pickerRef.current?.click()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") pickerRef.current?.click();
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const items = e.dataTransfer.items;
-            void handleFiles(() => collectDroppedFiles(items), t("marketplace.studio_origin_folder"));
-          }}
-          className={cn(
-            "group relative isolate flex min-h-44 cursor-pointer flex-col justify-end overflow-hidden rounded-2xl border border-dashed p-5 text-left transition-colors md:row-span-2",
-            "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            dragOver
-              ? "bg-secondary"
-              : "border-border bg-gradient-to-br from-primary/10 via-card to-card hover:border-border-strong",
-          )}
-        >
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -z-10 -right-10 -top-10 h-40 w-40 rounded-full bg-secondary blur-3xl transition-transform duration-500 group-hover:scale-125"
-          />
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-primary-foreground">
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <FolderUp className="h-5 w-5" />}
-          </span>
-          <p className="mt-4 font-display text-base font-semibold tracking-tight text-foreground">
+    <div className="-mx-3">
+      {/* The folder row is also the drop target, so it is a div with a
+          button's role: a real button may not contain the second button. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={t("marketplace.studio_door_folder")}
+        data-testid="studio-door-folder"
+        onClick={() => pickerRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") pickerRef.current?.click();
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const items = e.dataTransfer.items;
+          void handleFiles(() => collectDroppedFiles(items), t("marketplace.studio_origin_folder"));
+        }}
+        className={cn(SOURCE_ROW, "cursor-pointer items-start", dragOver && "bg-secondary")}
+      >
+        <SourceMark>
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <FolderUp className="h-5 w-5" />}
+        </SourceMark>
+        <span className="min-w-0 flex-1">
+          <span className="block text-lg font-medium text-foreground-strong">
             {t("marketplace.studio_door_folder")}
-          </p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          </span>
+          <span className="block text-base text-foreground-secondary">
             {t("marketplace.studio_door_folder_hint")}
-          </p>
+          </span>
           <button
             type="button"
             data-testid="studio-door-skill-file"
-            className="mt-3 inline-flex w-fit items-center gap-1.5 text-xs font-medium text-foreground-strong underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-1.5 inline-flex items-center gap-1.5 rounded-sm text-base font-medium text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={(e) => {
-              // The tile itself opens the folder picker — this link must not.
+              // The row itself opens the folder picker — this link must not.
               e.stopPropagation();
               filePickerRef.current?.click();
             }}
           >
-            <FileText className="h-3.5 w-3.5" />
+            <FileText className="h-4 w-4" />
             {t("marketplace.studio_door_skill_file")}
           </button>
-          <input
-            ref={pickerRef}
-            type="file"
-            multiple
-            className="hidden"
-            // Non-standard but universally supported attribute for folder pickers.
-            {...({ webkitdirectory: "" } as Record<string, string>)}
-            onChange={(e) => {
-              const list = e.currentTarget.files;
-              if (list && list.length > 0) {
-                void handleFiles(
-                  () => Promise.resolve(collectPickedFiles(list)),
-                  t("marketplace.studio_origin_folder"),
-                );
-              }
-              e.currentTarget.value = "";
-            }}
-          />
-          <input
-            ref={filePickerRef}
-            type="file"
-            accept=".md,text/markdown,.json,application/json"
-            multiple
-            className="hidden"
-            data-testid="studio-skill-file-input"
-            onChange={(e) => {
-              const list = e.currentTarget.files;
-              if (list && list.length > 0) {
-                void handleFiles(
-                  () => Promise.resolve(collectPickedFiles(list)),
-                  t("marketplace.studio_origin_file"),
-                );
-              }
-              e.currentTarget.value = "";
-            }}
-          />
-        </div>
-
-        <Door
-          icon={<Github className="h-4 w-4" />}
-          title={t("marketplace.studio_door_github")}
-          hint={t("marketplace.studio_door_github_hint")}
-          onClick={onGithub}
-          testId="studio-door-github"
+        </span>
+        <input
+          ref={pickerRef}
+          type="file"
+          multiple
+          className="hidden"
+          // Non-standard but universally supported attribute for folder pickers.
+          {...({ webkitdirectory: "" } as Record<string, string>)}
+          onChange={(e) => {
+            const list = e.currentTarget.files;
+            if (list && list.length > 0) {
+              void handleFiles(
+                () => Promise.resolve(collectPickedFiles(list)),
+                t("marketplace.studio_origin_folder"),
+              );
+            }
+            e.currentTarget.value = "";
+          }}
         />
+        <input
+          ref={filePickerRef}
+          type="file"
+          accept=".md,text/markdown,.json,application/json"
+          multiple
+          className="hidden"
+          data-testid="studio-skill-file-input"
+          onChange={(e) => {
+            const list = e.currentTarget.files;
+            if (list && list.length > 0) {
+              void handleFiles(
+                () => Promise.resolve(collectPickedFiles(list)),
+                t("marketplace.studio_origin_file"),
+              );
+            }
+            e.currentTarget.value = "";
+          }}
+        />
+      </div>
 
-        <div className="flex flex-col rounded-2xl border border-border bg-card p-4">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-secondary text-foreground">
-            <PencilLine className="h-4 w-4" />
+      <button type="button" onClick={onGithub} data-testid="studio-door-github" className={SOURCE_ROW}>
+        <SourceMark>
+          <Github className="h-5 w-5" />
+        </SourceMark>
+        <span className="min-w-0 flex-1">
+          <span className="block text-lg font-medium text-foreground-strong">
+            {t("marketplace.studio_door_github")}
           </span>
-          <p className="mt-3 text-sm font-semibold text-foreground">
+          <span className="block text-base text-foreground-secondary">
+            {t("marketplace.studio_door_github_hint")}
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-foreground-faint transition-colors group-hover:text-foreground" />
+      </button>
+
+      <div className="flex flex-wrap items-center gap-4 px-3 py-3">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground">
+          <PencilLine className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1 basis-[220px]">
+          <span className="block text-lg font-medium text-foreground-strong">
             {t("marketplace.studio_door_blank")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          </span>
+          <span className="block text-base text-foreground-secondary">
             {t("marketplace.studio_door_blank_hint")}
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => onBlank("skill")}>
-              <FileText className="mr-1.5 h-3.5 w-3.5" />
-              {t("marketplace.kind_skill")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onBlank("plugin")}>
-              <Plug className="mr-1.5 h-3.5 w-3.5" />
-              {t("marketplace.kind_plugin")}
-            </Button>
-          </div>
-        </div>
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={() => onBlank("skill")}>
+            {t("marketplace.kind_skill")}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => onBlank("plugin")}>
+            {t("marketplace.kind_plugin")}
+          </Button>
+        </span>
       </div>
 
       {dropError && (
-        <p className="flex items-start gap-2 rounded-md bg-secondary px-2 py-1.5 text-xs text-destructive">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p role="alert" className="flex items-start gap-2 px-3 pt-1 text-base text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           {dropError}
         </p>
       )}
 
       <HowPublishingWorks t={t} />
-    </section>
-  );
-}
-
-function Door({
-  icon,
-  title,
-  hint,
-  onClick,
-  testId,
-  className,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  hint: string;
-  onClick: () => void;
-  testId?: string;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-testid={testId}
-      className={cn(
-        "flex flex-col rounded-2xl border border-border bg-card p-4 text-left transition-colors",
-        "hover:border-border-strong hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        className,
-      )}
-    >
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-secondary text-foreground">
-        {icon}
-      </span>
-      <p className="mt-3 text-sm font-semibold text-foreground">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-    </button>
+    </div>
   );
 }
 
 /** The built-in author guide: the four steps and the expected folder shape,
- *  inline, so nobody needs to find a doc first. */
+ *  one press away, so nobody needs to find a doc first. */
 function HowPublishingWorks({ t }: { t: Translate }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
-      <p className="text-xs font-semibold text-foreground">
-        {t("marketplace.studio_how_title")}
-      </p>
-      <ol className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-4">
-        {[1, 2, 3, 4].map((n) => (
-          <li key={n} className="flex gap-2">
-            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border-strong text-micro font-bold text-muted-foreground">
-              {n}
-            </span>
-            {t(`marketplace.studio_how_step_${n}`)}
-          </li>
-        ))}
-      </ol>
+    <section className="mt-6 border-t border-border px-3 pt-4">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="mt-3 text-micro font-medium text-foreground-strong hover:underline"
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 rounded-sm text-base font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {open ? t("marketplace.studio_how_hide_layout") : t("marketplace.studio_how_show_layout")}
+        <ChevronRight className={cn("h-4 w-4 transition-transform", open && "rotate-90")} />
+        {t("marketplace.studio_how_title")}
       </button>
       {open && (
-        <div className="mt-2 overflow-x-auto">
-          <pre className="rounded-md border border-border bg-background p-3 font-mono text-micro text-foreground">
-            {`my-plugin/
+        <div className="mt-3 space-y-4">
+          <ol className="list-decimal space-y-1.5 pl-5 text-base text-foreground-secondary">
+            {[1, 2, 3, 4].map((n) => (
+              <li key={n}>{t(`marketplace.studio_how_step_${n}`)}</li>
+            ))}
+          </ol>
+          <p className="text-base text-muted-foreground">{t("marketplace.studio_rail_note_rules")}</p>
+          <div>
+            <p className="mb-2 text-base font-medium text-foreground">
+              {t("marketplace.studio_how_show_layout")}
+            </p>
+            <pre className="overflow-x-auto rounded-lg bg-secondary p-4 font-mono text-sm text-foreground">
+              {`my-plugin/
 ├── plugin.json                  ← ${t("marketplace.studio_layout_plugin_json")}
 ├── mcp.json                     ← ${t("marketplace.studio_layout_mcp_json")}
 ├── skills/                      ← ${t("marketplace.studio_layout_skills")}
@@ -754,10 +668,11 @@ function HowPublishingWorks({ t }: { t: Translate }) {
 
 my-skill/
 └── SKILL.md                     ← ${t("marketplace.studio_layout_skill_md")}`}
-          </pre>
-          <p className="mt-2 text-micro text-muted-foreground">
-            {t("marketplace.studio_how_layout_note")}
-          </p>
+            </pre>
+            <p className="mt-2 text-base text-muted-foreground">
+              {t("marketplace.studio_how_layout_note")}
+            </p>
+          </div>
         </div>
       )}
     </section>

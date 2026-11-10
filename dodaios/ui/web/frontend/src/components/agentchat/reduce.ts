@@ -1455,6 +1455,11 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         const rule = parseSavedRule(p as Record<string, unknown>);
         return rule ? noteApprovalRule(base, str(p.approval_id), rule, turnId) : base;
       }
+      if (kind === "undo_available") {
+        // A reversible action's undo offer is a toast (store/agentChat.ts →
+        // lib/undoToast.ts), never a row: it is gone again in seconds.
+        return base;
+      }
       if (kind === "message_dequeued") {
         // A waiting message started (or could not): its waiting line goes.
         const queueId = str(p.queue_id);

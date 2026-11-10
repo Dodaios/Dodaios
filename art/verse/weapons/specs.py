@@ -139,16 +139,18 @@ GRAVELINE = WeaponSpec(
     ),
     sockets=_sockets(
         muzzle=(0.735, 0.0, 0.035),
-        sight=(0.12, 0.0, 0.115),
+        sight=(0.1255, 0.0, 0.1475),  # the reflex dot (`build.GRAVELINE_DOT`)
         support=(0.40, 0.0, -0.005),
         eject=(0.15, -0.032, 0.045),
     ),
     design=(
-        "Monolithic slab receiver with a 45 degree chamfered spine; no carry handle, no rail lugs",
-        "Hexagonal handguard prism with three stepped vent slots per side",
-        "Squat box sight with a recessed amber dot reticle",
-        "Skeleton stock of two angled struts closing on a rubber butt block",
-        "Magazine straight and tapered, with a ribbed base plate",
+        "Split upper receiver with a panel break, raised side panels and a framed ejection port",
+        "Handguard of bands and ribs around a dark core: two rows of open vents per side",
+        "Low open reflex sight on a short riser: slim posts, wide glass, small amber dot",
+        "Top rail of cross lugs from the end plate to the handguard's front",
+        "Slotted muzzle device of three rings on a faceted core",
+        "Skeleton stock on a tube: cheek riser, angled lower strut, butt block with rubber pad",
+        "Magazine in two segments that curve forward, with side ribs and a steel base plate",
     ),
 )
 

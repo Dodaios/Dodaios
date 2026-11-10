@@ -198,6 +198,9 @@ guide loads. Do not expose that administration address directly to the internet.
 | The summary appears but no window opens | Launch was blocked, or Linux is headless | Try the registered launcher; on headless Linux, open the printed address. |
 | **Update available** never appears | The install is manual, offline, or already current | Use the package or Git workflow for an unmanaged copy. |
 | Repair cannot copy data | A file is locked or unwritable | Keep the dated backup and follow [Troubleshooting](troubleshooting) before copying manually. |
+| Windows: the antivirus blocks or quarantines Dodaios files | Behavior-based protection flags a new app that starts helper processes | Check the installer's checksum against the release, restore the quarantined files, allow the Dodaios install folder, then run the installer again. Current versions create the login shortcut without PowerShell. |
+| Windows: a download or **Dependencies** step fails once | A dropped connection, or a file the antivirus still holds open | The installer retries on its own. If it still fails, run it again; finished parts are kept. |
+| The window stays on **Updating…** | The installed interface build is missing | The page says so after a short wait, and the log names the missing folder. Run the installer again to restore it. |
 
 ## Next Steps
 

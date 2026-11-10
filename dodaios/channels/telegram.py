@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
@@ -141,6 +141,9 @@ class TelegramChannel:
         # instance is built (see FIRST_CONTACT_PAIRING_WINDOW_S).
         self._pairing_closes_at = time.monotonic() + FIRST_CONTACT_PAIRING_WINDOW_S
         self._pairing_closed_logged = False
+        #: ``(approval_id, decision, from_user_id) -> answer text`` for the
+        #: Allow / Deny buttons; set by ``channels.telegram_approvals``.
+        self.on_approval_callback: Callable[[str, str, int | None], Awaitable[str]] | None = None
 
     @classmethod
     def from_context(cls, ctx: ChannelContext) -> TelegramChannel:
@@ -179,17 +182,21 @@ class TelegramChannel:
         # delayed VoiceBootStatus(ready=True) by ~the import time; moving it to
         # a thread keeps the loop free so the "VOICE STARTING…" spinner clears
         # sooner. The module lands in sys.modules either way.
-        def _import_telegram_ext() -> tuple[Any, Any, Any]:
+        def _import_telegram_ext() -> tuple[Any, Any, Any, Any]:
+            import telegram.ext as telegram_ext  # noqa: WPS433
             from telegram.ext import (  # noqa: WPS433
                 ApplicationBuilder,
                 MessageHandler,
                 filters,
             )
-            return ApplicationBuilder, MessageHandler, filters
+            # The approval buttons need callback queries; a build of the
+            # library without them still carries messages.
+            callback_handler = getattr(telegram_ext, "CallbackQueryHandler", None)
+            return ApplicationBuilder, callback_handler, MessageHandler, filters
 
         try:
-            ApplicationBuilder, MessageHandler, filters = await asyncio.to_thread(
-                _import_telegram_ext
+            ApplicationBuilder, CallbackQueryHandler, MessageHandler, filters = (
+                await asyncio.to_thread(_import_telegram_ext)
             )
         except ImportError as exc:
             raise ChannelStartError(
@@ -207,6 +214,12 @@ class TelegramChannel:
         failure: str | None = None
         try:
             self._app = ApplicationBuilder().token(token).build()
+            # Approval buttons (telegram_approvals.py) answer through callback
+            # queries; everything else is a message.
+            if CallbackQueryHandler is not None:
+                self._app.add_handler(
+                    CallbackQueryHandler(self._on_callback_query, pattern=r"^apr:")
+                )
             self._app.add_handler(MessageHandler(filters.ALL, self._on_telegram_msg))
 
             await self._app.initialize()
@@ -506,6 +519,85 @@ class TelegramChannel:
 
     async def broadcast_event(self, event: Event) -> None:
         """No-op: Telegram routing goes through InflightMap, not broadcast."""
+
+    # ------------------------------------------------------------------
+    # Approvals (channels/telegram_approvals.py)
+    # ------------------------------------------------------------------
+
+    async def send_approval(
+        self, chat_id: int, text: str, approval_id: str, *, allow: str, deny: str
+    ) -> int | None:
+        """A waiting approval with Allow / Deny buttons; returns the message id."""
+        if self._app is None:
+            log.debug("TelegramChannel send_approval aborted: not started")
+            return None
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup  # noqa: WPS433
+
+        from dodaios.channels.telegram_approvals import callback_data
+
+        scrub = scrub_for_voice(text, language="en")
+        cleaned = scrub.cleaned.strip() or text.strip()
+        if not cleaned:
+            return None
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(allow, callback_data=callback_data("allow", approval_id)),
+                    InlineKeyboardButton(deny, callback_data=callback_data("deny", approval_id)),
+                ]
+            ]
+        )
+        try:
+            message = await self._app.bot.send_message(
+                chat_id=chat_id, text=cleaned, reply_markup=keyboard
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Telegram send_approval failed: %s", _safe_error(exc))
+            return None
+        return getattr(message, "message_id", None)
+
+    async def edit_message(self, chat_id: int, message_id: int, text: str) -> None:
+        """Replace a sent message's text and drop its buttons."""
+        if self._app is None:
+            return
+        try:
+            await self._app.bot.edit_message_text(
+                chat_id=chat_id, message_id=message_id, text=text, reply_markup=None
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Telegram edit_message failed: %s", _safe_error(exc))
+
+    async def _on_callback_query(self, update: Any, _ctx: Any) -> None:
+        """An Allow / Deny button: answer the approval, then settle the message."""
+        query = getattr(update, "callback_query", None)
+        if query is None:
+            return
+        from dodaios.channels.telegram_approvals import parse_callback
+
+        parsed = parse_callback(str(getattr(query, "data", "") or ""))
+        user = getattr(query, "from_user", None)
+        user_id = getattr(user, "id", None)
+        answer = ""
+        try:
+            if parsed is None or self.on_approval_callback is None:
+                answer = ""
+            else:
+                decision, approval_id = parsed
+                answer = await self.on_approval_callback(approval_id, decision, user_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Telegram approval callback failed: %s", _safe_error(exc))
+        try:
+            await query.answer(answer or None)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("Telegram callback answer failed: %s", _safe_error(exc))
+        if not answer:
+            return
+        message = getattr(query, "message", None)
+        original = str(getattr(message, "text", "") or "")
+        try:
+            await query.edit_message_text(text=f"{original}\n\n{answer}", reply_markup=None)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("Telegram callback edit failed: %s", _safe_error(exc))
 
     async def _send_text(self, chat_id: int, text: str, *, language: str) -> None:
         if self._app is None:

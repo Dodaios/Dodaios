@@ -18,7 +18,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Brain, History, Pin, Plus, Search, X } from "lucide-react";
+import { Brain, FileText, History, Pin, Plus, Search, X } from "lucide-react";
 import { fill, useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
@@ -30,7 +30,7 @@ import {
   useVaultOverview,
 } from "@/lib/personalMemoryApi";
 import { IN_MIND_STYLE, KIND_STYLE } from "@/components/memoryVault/kinds";
-import { MemoryBrowser, type Shelf } from "@/components/memoryVault/MemoryBrowser";
+import { MemoryBrowser, scopeOf, type Shelf } from "@/components/memoryVault/MemoryBrowser";
 import { MemoryFiles } from "@/components/memoryVault/MemoryFiles";
 import { HowItWorks } from "@/components/memoryVault/HowItWorks";
 import { NewMemorySheet } from "@/components/memoryVault/NewMemorySheet";
@@ -47,6 +47,7 @@ export function MemoryView(): JSX.Element {
   const [mode, setMode] = useState<Mode>("memories");
   const [shelf, setShelf] = useState<Shelf>("all");
   const [query, setQuery] = useState("");
+  const [space, setSpace] = useState<"all" | "work" | "private">("all");
   const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -80,7 +81,9 @@ export function MemoryView(): JSX.Element {
   const inMind = useMemo(() => new Set(overview.data?.in_mind_ids ?? []), [overview.data]);
   const stats = overview.data?.stats;
   const byKind = stats?.by_kind ?? {};
-  const all = items.data?.items ?? [];
+  const everything = items.data?.items ?? [];
+  // Work / private filter the list; the lead itself always reads all of it.
+  const all = space === "all" ? everything : everything.filter((m) => scopeOf(m) === space);
   const pinnedCount = all.filter((m) => m.pinned && m.current).length;
 
   if (overview.isError) {
@@ -163,6 +166,13 @@ export function MemoryView(): JSX.Element {
                 setShelf("history");
               }}
             />
+            <SidebarItem
+              active={mode === "files"}
+              icon={<FileText />}
+              hue="220 9% 56%"
+              label={t("vault.shelf_files")}
+              onClick={() => setMode("files")}
+            />
             <SidebarLabel>{t("vault.kinds_label")}</SidebarLabel>
             {MEMORY_KINDS.filter((kind) => (byKind[kind] ?? 0) > 0 || shelf === kind).map((kind) => {
               const Icon = KIND_STYLE[kind].icon;
@@ -197,10 +207,23 @@ export function MemoryView(): JSX.Element {
               onChange={setMode}
               options={[
                 { value: "memories", label: t("vault.mode_memories") },
-                { value: "files", label: t("vault.mode_files") },
                 { value: "how", label: t("vault.mode_how_short") },
               ]}
             />
+            {mode === "memories" && (
+              <div className="hidden md:block" data-testid="vault-scope-filter" aria-label={t("memory_trust.scope_filter")}>
+                <Segmented
+                  value={space}
+                  onChange={setSpace}
+                  testIdPrefix="vault-space"
+                  options={[
+                    { value: "all", label: t("memory_trust.filter_all") },
+                    { value: "work", label: t("memory_trust.scope_work") },
+                    { value: "private", label: t("memory_trust.scope_private") },
+                  ]}
+                />
+              </div>
+            )}
             <div className="ml-auto flex items-center gap-2">
               {mode === "memories" && (
                 <label className="relative hidden items-center sm:flex">
@@ -340,10 +363,12 @@ function Segmented<T extends string>({
   value,
   onChange,
   options,
+  testIdPrefix = "vault-mode",
 }: {
   value: T;
   onChange: (value: T) => void;
   options: Array<{ value: T; label: string }>;
+  testIdPrefix?: string;
 }) {
   return (
     <div role="tablist" className="flex h-8 items-center rounded-lg bg-sheen/[0.06] p-0.5">
@@ -353,7 +378,7 @@ function Segmented<T extends string>({
           type="button"
           role="tab"
           aria-selected={value === option.value}
-          data-testid={`vault-mode-${option.value}`}
+          data-testid={`${testIdPrefix}-${option.value}`}
           onClick={() => onChange(option.value)}
           className={cn(
             "h-7 whitespace-nowrap rounded-md px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

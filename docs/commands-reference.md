@@ -301,6 +301,16 @@ Install ONE published marketplace entry by its exact name. The kind is resolved 
 - **Desktop UI section:** `plugins`
 - **Voice example (EN):** "install that skill"
 
+## `marketplace-remove` — Remove a marketplace entry
+
+Remove ONE installed marketplace entry by its exact name. The kind is resolved by the app: a plugin is disconnected and leaves the plugin list, a skill is deleted from the skills. An agent is not removed this way; the answer says so. Only what was installed from the marketplace can be removed here.
+
+- **Endpoint:** `DELETE /api/marketplace/community/install/{item_id}`
+- **Arguments:** `item_id` (string; required)
+- **Requires confirmation:** yes
+- **Desktop UI section:** `plugins`
+- **Voice example (EN):** "remove that marketplace skill"
+
 ## `dictation-start` — Start dictation
 
 Start dictation: speak, and the transcribed text is inserted into whatever text field currently has focus. Stops with dictation-stop or the dictation shortcut.

@@ -1828,6 +1828,9 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # tools"): search and forget, router-tier only.
             "memory-search",
             "memory-forget",
+            # Reminders (dodaios/notify): dated memories delivered on time, and
+            # brain dumps into tasks. Router-tier only; never a spawn.
+            "reminders",
             # CLI-Integration (2026-05-24): virtual loader that expands to one
             # cli_<name> tool per connected & usable CLI. Router-tier only — a
             # cli_<name> tool is a direct safe-gated action, never a recursive

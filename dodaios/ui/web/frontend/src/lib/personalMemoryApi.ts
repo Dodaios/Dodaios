@@ -190,7 +190,50 @@ export const importBundle = (file: Blob) =>
     headers: { "Content-Type": "application/zip" },
   });
 
-export const exportUrl = (format: "bundle" | "markdown") => `${BASE}/export?format=${format}`;
+export const exportUrl = (format: "all" | "bundle" | "markdown") => `${BASE}/export?format=${format}`;
+
+/** Which part of life a memory belongs to; `global` is unmarked. */
+export const MEMORY_SCOPES = ["global", "work", "private"] as const;
+export type MemoryScope = (typeof MEMORY_SCOPES)[number];
+
+export const setMemoryScope = (id: string, scope: MemoryScope) =>
+  request<{ ok: boolean; scope: MemoryScope }>(`${BASE}/items/${encodeURIComponent(id)}/scope`, {
+    method: "PUT",
+    body: JSON.stringify({ scope }),
+  });
+
+/** One row of the review list an export of another assistant turns into. */
+export interface ImportCandidate {
+  text: string;
+  kind: MemoryKind;
+  /** Already in memory: shown, but not kept by default. */
+  exists: boolean;
+  /** Distilled from conversations by the model, rather than listed in the file. */
+  extracted: boolean;
+}
+
+export interface ImportReading {
+  candidates: ImportCandidate[];
+  shape: "list" | "conversations" | "mixed";
+  messages: number;
+  /** The file held conversations but no assistant model could read them. */
+  model_missing: boolean;
+}
+
+export const readForeignExport = (name: string, text: string) =>
+  request<ImportReading>(`${BASE}/import/read`, {
+    method: "POST",
+    body: JSON.stringify({ name, text }),
+  });
+
+export const saveForeignImport = (name: string, items: ImportCandidate[]) =>
+  request<{ added: number; existing: number; refused: number; failed: number }>(`${BASE}/import/save`, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      items: items.map((item) => ({ text: item.text, kind: item.kind, extracted: item.extracted })),
+    }),
+  });
 
 export interface PauseState {
   paused: boolean;

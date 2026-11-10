@@ -1,0 +1,24 @@
+{
+  "name": "MI_Arena_Scuff",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal",
+  "replaces": "M_Arena_Scuff",
+  "scalars": {
+    "NoiseScale": 9.0,
+    "Opacity": 0.3,
+    "Roughness": 0.8
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseRadialMask": true
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.11,
+      0.11,
+      0.115,
+      1.0
+    ]
+  }
+}

@@ -7,6 +7,8 @@ export const OFFICIAL_REPO_LABEL = `github.com/${OFFICIAL_REPO_SLUG}`;
 /** The community registry: where published plugins, skills and agents live. */
 export const MARKETPLACE_REPO_SLUG = "Dodaios/marketplace";
 export const MARKETPLACE_REPO_URL = `https://github.com/${MARKETPLACE_REPO_SLUG}`;
+/** The public storefront: the same catalogue, on the web. */
+export const MARKETPLACE_WEB_URL = "https://dodaios.ai/marketplace/";
 
 /**
  * Every name the app's own MCP tools server has been registered under, the

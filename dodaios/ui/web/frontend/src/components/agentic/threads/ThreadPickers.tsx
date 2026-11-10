@@ -3,14 +3,12 @@ import { brainValue, splitBrainValue } from "@/components/agentchat/AgentCompose
 import { ComposerBrainPicker, type BrainSection } from "@/components/agentchat/ComposerBrainPicker";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
-import { isUnguardedPermissionMode, permissionModeIcon } from "@/components/agentchat/permissionIcons";
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
 import { useT } from "@/i18n";
 import { isApiRunner, type CuratedModel } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 import { effortLadder } from "@/lib/effortLadder";
 import { rankModels } from "@/lib/modelRanking";
-import { cn } from "@/lib/utils";
 import type { ComposerDraft, ProviderOption } from "@/store/agentChat";
 
 /**
@@ -167,21 +165,19 @@ export function AccessPicker({ provider, draft, onPick, separated = false }: {
       groups={[{
         id: "access",
         label: t("agent_chat.pick_permission"),
-        options: modes.map((mode) => {
-          const Icon = permissionModeIcon(mode.id);
-          const unguarded = isUnguardedPermissionMode(mode.id);
-          // The description is a second line under the name, never a right-hand
-          // hint: a sentence-long hint pushed the name out of a narrow list.
-          return {
-            value: mode.id,
-            label: mode.label,
-            searchText: mode.description,
-            description: mode.description,
-            icon: <Icon aria-hidden className={cn("h-4 w-4 shrink-0", unguarded ? "text-warning" : "text-muted-foreground")} />,
-          };
-        }),
+        // Words only: a name and one plain line under it. No glyph per row
+        // and no colour on any stance, so the pick reads like the effort
+        // pick beside it. The description is a second line, never a
+        // right-hand hint: a sentence-long hint pushed the name out of a
+        // narrow list.
+        options: modes.map((mode) => ({
+          value: mode.id,
+          label: mode.label,
+          searchText: mode.description,
+          description: mode.description,
+        })),
       }]}
-      onChange={onPick} fallbackLabel={draft.permissionMode || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={340}
-      className={cn(TRIGGER, isUnguardedPermissionMode(draft.permissionMode) && "text-warning hover:text-warning")} />
+      onChange={onPick} fallbackLabel={draft.permissionMode || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={400}
+      className={TRIGGER} />
   </>;
 }

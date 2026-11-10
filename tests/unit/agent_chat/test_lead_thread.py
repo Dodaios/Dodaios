@@ -187,9 +187,16 @@ def test_learned_memories_appear_in_the_conversation(tmp_path: Path) -> None:
         vault = MemoryVault(tmp_path / "vault.db")
         receipts: list[dict[str, str]] = []
         op = reconcile.Op(
-            op="add", text="Sister's wedding is in Lisbon in June", kind="relationship"
+            op="add",
+            text="Sister's wedding is in Lisbon in June",
+            kind="relationship",
+            evidence="wedding is in Lisbon",
         )
-        assert reconcile.apply(vault, [op], source={"via": "test"}, receipts=receipts) == 1
+        anchors = [{"user": "My sister's wedding is in Lisbon in June.", "message_seq": 5}]
+        assert (
+            reconcile.apply(vault, [op], source={"via": "test"}, receipts=receipts, anchors=anchors)
+            == 1
+        )
         assert receipts[0]["op"] == "added" and receipts[0]["id"]
         from dodaios.society import runtime as society_runtime
 
@@ -202,6 +209,9 @@ def test_learned_memories_appear_in_the_conversation(tmp_path: Path) -> None:
         notices = [e for e in svc.store.list_events(sid) if e["kind"] == "notice"]
         assert notices[-1]["payload"]["kind"] == "memory_learned"
         assert "Lisbon" in notices[-1]["payload"]["items"][0]["text"]
+        # The notice links back to the message the memory was learned from.
+        assert notices[-1]["payload"]["items"][0]["message_seq"] == 5
+        assert notices[-1]["payload"]["items"][0]["evidence"] == "wedding is in Lisbon"
 
     asyncio.run(scenario())
 

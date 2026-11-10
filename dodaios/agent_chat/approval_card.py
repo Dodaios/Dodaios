@@ -31,6 +31,10 @@ event has none of them and the card falls back to the tool name and summary.
 ``brief``    the summary as the card's one-line outcome shows it: paths inside
              the chat's folder relative to it, the home folder as ``~``
              (:func:`display_paths`). The full path stays in ``detail``.
+``hard_limit`` one of ``dodaios.trust.hard_limits.HARD_LIMITS`` when the call
+             touches an action no rule may lift; the card offers no "Always".
+``checks``   the outbound check's findings (``dodaios.trust.outbound``), each
+             ``{code, severity, detail}``, read out as cautions.
 
 ``where`` and ``why`` are shortened the same way.
 """
@@ -190,6 +194,15 @@ def _describe(
     if kind == "files" and _creates_files(args, cwd):
         # "Create this file?", not "Change this file?", for a file not there yet.
         fields["creates"] = True
+    # The trust layer's verdict, for the card to say: a hard limit means no
+    # "Always allow" is offered; outbound findings are read out as cautions.
+    from dodaios.trust.hooks import before_execute
+
+    trust = before_execute(name, args)
+    if trust.hard_limit:
+        fields["hard_limit"] = trust.hard_limit
+    if trust.findings:
+        fields["checks"] = [f.to_dict() for f in trust.findings]
     return fields
 
 

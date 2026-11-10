@@ -1365,7 +1365,7 @@ async def _deltas(
     from dodaios.agent_runtimes import anthropic_history
     from dodaios.agent_runtimes.model_map import uses_claude_cli
     from dodaios.core.config import get_jarvis_agent_secret, override_provider_secrets
-    from dodaios.costs.ledger import usage_context
+    from dodaios.costs.ledger import AGENT_LABEL_PREFIX, usage_context
     from dodaios.costs.model import RUNTIME_CALLER
 
     queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=256)
@@ -1381,7 +1381,9 @@ async def _deltas(
             # A keyring read: never on the event loop.
             secret = await asyncio.to_thread(get_jarvis_agent_secret, grant.provider)
             overrides = {grant.provider: secret} if secret else {}
-            with override_provider_secrets(overrides), usage_context(RUNTIME_CALLER):
+            with override_provider_secrets(overrides), usage_context(
+                RUNTIME_CALLER, label=f"{AGENT_LABEL_PREFIX}{grant.agent_id}"
+            ):
                 if await asyncio.to_thread(uses_claude_cli, grant.provider, grant.account_id):
                     # A token minted before the agent moved onto the Claude
                     # subscription (its key removed, or pinned since).

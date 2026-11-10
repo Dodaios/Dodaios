@@ -30,15 +30,18 @@ export function transcriptFromTimeline(items: readonly TimelineItem[]): Transcri
 
 /**
  * Starting and ending a call from the front-page chat — the ONE path the
- * composer's round voice button and the call card use.
+ * composer's round voice button and the call window use.
  *
- * A call never leaves the conversation: the chat stays on screen, a small
- * call card (components/home/CallCard) shows the call and its controls, and
+ * A call never leaves the conversation: the chat stays on screen, the call
+ * window (components/home/CallWindow) shows the call and its controls, and
  * what is said lands in the conversation as ordinary messages. Before the
  * call starts, the chat on stage is bound on the backend (`bindVoiceChat`):
  * the call starts with its history and its turns are filed into it. An
  * archived voice chat opened from the history is continued as itself.
  */
+/** How long the window waits for the call's first state after the host said yes. */
+const CALL_PENDING_GRACE_MS = 2500;
+
 export function useVoiceModeSwitch() {
   const setActiveSection = useEventStore((s) => s.setActiveSection);
   const { active, busy, connecting, toggleCall } = useVoiceCall();
@@ -56,12 +59,17 @@ export function useVoiceModeSwitch() {
     setActiveSection("chats");
     if (active || busy || connecting || !connected) return;
     home.resetTranscript();
+    // The call window opens now, at the click. If the host refuses the call
+    // (a toast says why) or never answers, the window closes again.
+    home.setCallProblem(null);
+    home.setCallPending(true);
+    const release = () => window.setTimeout(() => useHomeStore.getState().setCallPending(false), CALL_PENDING_GRACE_MS);
     void bindVoiceChat(chat.activeSessionId, voiceThread)
       .catch((err: unknown) => {
         // The call still starts; it just lands in the one conversation.
         console.info("Voice chat binding failed.", err);
       })
-      .finally(() => void toggleCall());
+      .finally(() => void toggleCall().finally(release));
   }, [active, busy, connected, connecting, setActiveSection, toggleCall]);
 
   const exit = useCallback(() => {

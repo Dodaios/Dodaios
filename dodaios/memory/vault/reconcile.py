@@ -209,21 +209,50 @@ def _iso_date(value: str) -> str | None:
     return value if "T" in value else value + "T09:00:00+00:00"
 
 
+#: Fields of an anchor that say where a line was said.
+ANCHOR_KEYS: Final[tuple[str, ...]] = ("session_id", "turn_id", "message_seq", "channel")
+
+
+def anchor_for(evidence: str, anchors: list[dict[str, Any]]) -> dict[str, Any]:
+    """Where the user line an op quotes was said; ``{}`` when no line holds it.
+
+    The latest matching line wins: a fact repeated later links to where it
+    was said last.
+    """
+    quote = _norm(evidence)
+    if not quote:
+        return {}
+    for anchor in reversed(anchors):
+        if quote in _norm(str(anchor.get("user") or "")):
+            return {k: anchor[k] for k in ANCHOR_KEYS if anchor.get(k)}
+    return {}
+
+
 def apply(
     vault: MemoryVault,
     ops: list[Op],
     *,
     source: dict[str, Any],
-    receipts: list[dict[str, str]] | None = None,
+    receipts: list[dict[str, Any]] | None = None,
+    anchors: list[dict[str, Any]] | None = None,
 ) -> int:
     """Write the operations; returns how many changed the vault.
 
     ``receipts`` collects one ``{"op", "id", "text"}`` row per change, so the
     conversation can show what was learned (``agent_chat/lead.py``).
+    ``anchors`` are the reviewed user lines with where they were said
+    (``{"user", "session_id", "turn_id", "message_seq", "channel"}``); the line
+    an op quotes is recorded in its ``source`` (and its receipt), so the memory
+    links back to the message it was learned from.
     """
     written = 0
     for op in ops:
-        src = {**source, "evidence": op.evidence}
+        where = anchor_for(op.evidence, anchors or [])
+        src = {**source, **where, "evidence": op.evidence}
+        # What the conversation notice needs to jump to the message.
+        link = {k: where[k] for k in ("session_id", "turn_id", "message_seq") if k in where} | {
+            "evidence": op.evidence
+        }
         try:
             if op.op == "add":
                 result = vault.remember(
@@ -241,7 +270,12 @@ def apply(
                 written += result.action == "added"
                 if result.action == "added" and result.memory is not None and receipts is not None:
                     receipts.append(
-                        {"op": "added", "id": result.memory.id, "text": result.memory.text}
+                        {
+                            "op": "added",
+                            "id": result.memory.id,
+                            "text": result.memory.text,
+                            **link,
+                        }
                     )
             elif op.op == "update":
                 result = vault.supersede(
@@ -263,14 +297,19 @@ def apply(
                     and receipts is not None
                 ):
                     receipts.append(
-                        {"op": "updated", "id": result.memory.id, "text": result.memory.text}
+                        {
+                            "op": "updated",
+                            "id": result.memory.id,
+                            "text": result.memory.text,
+                            **link,
+                        }
                     )
             elif op.op == "invalidate":
                 before = vault.get(op.memory_id)
                 ended = vault.invalidate(op.memory_id, reason=op.evidence)
                 written += ended
                 if ended and before is not None and receipts is not None:
-                    receipts.append({"op": "ended", "id": before.id, "text": before.text})
+                    receipts.append({"op": "ended", "id": before.id, "text": before.text, **link})
         except (KeyError, ValueError) as exc:
             log.info("memory vault: skipped a %s op - %s", op.op, exc)
             continue

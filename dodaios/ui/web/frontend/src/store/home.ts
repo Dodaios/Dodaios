@@ -47,6 +47,20 @@ interface HomeStore {
    */
   liveReply: string;
   liveSessionId: string | null;
+  /**
+   * A call asked for from this window that the host has not answered yet:
+   * the call window opens at the click, not when the first state arrives.
+   */
+  callPending: boolean;
+  setCallPending: (pending: boolean) => void;
+  /**
+   * Why the last call ended on its own (a start the provider refused, a
+   * connection that broke), until the person closes the note or calls
+   * again. An empty message means the reason is not known. `at` is when it
+   * was noted, so an old note does not greet someone hours later.
+   */
+  callProblem: { message: string; at: number } | null;
+  setCallProblem: (problem: { message: string } | null) => void;
   /** History row captured when this call starts; navigation cannot reassign it. */
   liveConversationId: string | null;
   ingest: (name: string, payload: unknown, tsMs: number) => void;
@@ -115,6 +129,15 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   transcript: [],
   liveReply: "",
   liveSessionId: null,
+  callPending: false,
+  setCallPending: (callPending) => set({ callPending }),
+  callProblem: null,
+  // A named reason is never replaced by an unnamed one for the same call.
+  setCallProblem: (problem) => {
+    if (!problem) { set({ callProblem: null }); return; }
+    if (!problem.message && get().callProblem?.message) return;
+    set({ callProblem: { message: problem.message, at: Date.now() }, callPending: false });
+  },
   liveConversationId: null,
   ingest: (name, payload, tsMs) => {
     // Late captions, spoken replies, and tool traces belong to the completed
@@ -137,6 +160,10 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       const sessionId = (payload as { session_id?: string } | null)?.session_id;
       if (sessionId && get().liveSessionId && sessionId !== get().liveSessionId) return;
       const reason = (payload as { hangup_reason?: string } | null)?.hangup_reason;
+      // A call that ended on an error says so in the call window, even when
+      // nothing named the reason.
+      if (reason === "error") get().setCallProblem({ message: "" });
+      set({ callPending: false });
       // A provider handover continues the same call. A real hangup opens an
       // empty lane; the completed conversation remains in the history rail.
       if (reason !== "realtime_fallback" && reason !== "desktop_fallback") {
@@ -171,6 +198,8 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       const continued = get().continuedVoiceId;
       set({
         freshVoicePending: false,
+        callPending: false,
+        callProblem: null,
         // The lead's card shows a running call, however it was started.
         jarvisCardMode: "voice",
         liveSessionId: sessionId,
@@ -178,8 +207,8 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
           ? continued : sessionId,
       });
       // Wake words and external call controls start the same call as the
-      // composer button: the conversation stays on screen and the call card
-      // shows the call (components/home/CallCard). A stored voice surface
+      // composer button: the conversation stays on screen and the call window
+      // shows the call (components/home/CallWindow). A stored voice surface
       // from older builds goes back to the chat.
       if (get().surface !== "chat") get().setSurface("chat");
     }

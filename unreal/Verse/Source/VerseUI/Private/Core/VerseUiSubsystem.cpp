@@ -640,6 +640,16 @@ void UVerseUiSubsystem::BuildHudFrame(const FVector2D& Viewport, FVerseHudDrawLi
 	Frame.bKillCam = KillCam.IsPlaying();
 	Frame.KillCamKillerId = KillCam.GetKillerId();
 	Frame.SkipKeyName = KeyMap.GetKey(TEXT("skip_kill_cam")).GetDisplayName();
+	auto KeyName = [this](const TCHAR* Action)
+	{
+		const FKey Key = KeyMap.GetKey(Action);
+		return Key.IsValid() ? Key.GetDisplayName(false) : FText::GetEmpty();
+	};
+	Frame.Keys.Primary = KeyName(TEXT("slot_primary"));
+	Frame.Keys.Secondary = KeyName(TEXT("slot_secondary"));
+	Frame.Keys.Melee = KeyName(TEXT("slot_melee"));
+	Frame.Keys.GadgetA = KeyName(TEXT("gadget_a"));
+	Frame.Keys.GadgetB = KeyName(TEXT("gadget_b"));
 	Frame.bReducedMotion = AppSettings.bReducedMotion;
 	Frame.bInDuel = GamePort->IsDuelRunning();
 	FVerseHudPainter::Paint(Frame, Out, FVerseHudPainter::DefaultMeasure());

@@ -56,19 +56,32 @@ struct VERSEUI_API FVerseHudDrawList
 		/** Measured size, filled by the painter. */
 		FVector2D Size = FVector2D::ZeroVector;
 		FName Tag;
+		/** Font face of the default font ("BoldCondensed", ...); None = Bold or Regular from bBold. */
+		FName Typeface;
+		/** A soft drop shadow (off for text on a plate, where it only blurs). */
+		bool bShadow = true;
+	};
+	/** An item icon (Data/ui/icons), tinted, fitted into Box keeping its aspect. */
+	struct FIcon
+	{
+		FVector2D Min, Max;
+		FName ItemId;
+		FLinearColor Colour;
+		FName Tag;
 	};
 
 	TArray<FLine> Lines;
 	TArray<FRect> Rects;
 	TArray<FTri> Tris;
 	TArray<FLabel> Labels;
+	TArray<FIcon> Icons;
 
 	/** Where the crosshair centre was drawn (A18.1). */
 	FVector2D CrosshairCentre = FVector2D::ZeroVector;
 	bool bCrosshairVisible = false;
 
 	void Reset();
-	int32 Num() const { return Lines.Num() + Rects.Num() + Tris.Num() + Labels.Num(); }
+	int32 Num() const { return Lines.Num() + Rects.Num() + Tris.Num() + Labels.Num() + Icons.Num(); }
 	int32 CountTag(FName Tag) const;
 	const FLabel* FindLabel(FName Tag) const;
 };
@@ -113,6 +126,16 @@ struct VERSEUI_API FVerseHudOptions
 	static FLinearColor CrosshairColourByName(const FString& Name);
 };
 
+/** Key names on the loadout chips (keys.json slot_* and gadget_*); empty = the default key. */
+struct VERSEUI_API FVerseHudKeys
+{
+	FText Primary;
+	FText Secondary;
+	FText Melee;
+	FText GadgetA;
+	FText GadgetB;
+};
+
 /** Everything one HUD frame depends on. */
 struct VERSEUI_API FVerseHudFrame
 {
@@ -130,6 +153,7 @@ struct VERSEUI_API FVerseHudFrame
 	int32 KillCamKillerId = INDEX_NONE;
 	/** Key name shown on the skip hint, for example "Space". */
 	FText SkipKeyName;
+	FVerseHudKeys Keys;
 	bool bReducedMotion = false;
 	/** Hide the duel blocks outside a duel (only the crosshair-free deck HUD stays). */
 	bool bInDuel = true;
@@ -143,6 +167,9 @@ public:
 	/** Slate font measure when Slate runs, else a monospace estimate. */
 	static FVerseTextMeasure DefaultMeasure();
 
+	/** Measure of one face of the default font (the HUD's condensed numbers). */
+	static FVector2D MeasureFace(const FText& Value, int32 Size, FName Typeface);
+
 	static void Paint(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 
 	/** Shape signature of a marker kind (line count, rect count, tri count), for WP18.10 tests. */
@@ -155,8 +182,8 @@ private:
 	static void PaintCrosshair(const FVerseHudFrame& Frame, FVerseHudDrawList& Out);
 	static void PaintMarkers(const FVerseHudFrame& Frame, FVerseHudDrawList& Out);
 	static void PaintDamage(const FVerseHudFrame& Frame, FVerseHudDrawList& Out);
-	static void PaintVitals(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
-	static void PaintWeapon(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
+	/** Health, weapon list and gadgets as one compact block in the bottom-right corner. */
+	static void PaintLoadout(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintScore(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintFeed(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintCentre(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);

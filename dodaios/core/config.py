@@ -3693,6 +3693,13 @@ class DictationConfig(BaseModel):
     #: check. Unknown free memory (no NVIDIA tooling) never blocks the start.
     local_min_free_gb: float = Field(default=1.5, ge=0.0, le=64.0)
 
+    #: Minutes without a dictation after which the local engines (the final
+    #: pass and the live preview) are released. Each holds 1.3 to 2.1 GB of
+    #: committed memory and accelerator memory while it idles; the next
+    #: dictation starts them again in two to five seconds, from the key press.
+    #: ``0`` keeps them loaded for as long as the app runs.
+    local_idle_minutes: float = Field(default=10.0, ge=0.0, le=1440.0)
+
     #: Allow the language to change WITHIN one dictation.
     #:
     #: While this is on (the default), the final pass asks the recognizer to

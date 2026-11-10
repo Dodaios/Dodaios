@@ -1,6 +1,6 @@
 /**
- * Agent templates in the storefront: their own shelf and filter, a drawer that
- * shows the instructions and the safe defaults BEFORE the install button, an
+ * Agent templates in the store: their own group and filter, a page that
+ * shows the instructions and the safe defaults next to the install button, an
  * install that lands on the team, and the import of an exported file.
  *
  * No jest-dom in this repo — assertions use toBeTruthy()/toBeNull().
@@ -9,14 +9,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/views/ChatsView", () => ({
-  ViewHeader: ({ title, right }: { title: string; right?: React.ReactNode }) => (
-    <header>
-      <h2>{title}</h2>
-      {right}
-    </header>
-  ),
-}));
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: vi.fn() }));
 
 import { MarketplaceView } from "@/views/MarketplaceView";
@@ -107,11 +99,11 @@ afterEach(() => {
 });
 
 describe("MarketplaceView — agents", () => {
-  it("lists agents on their own shelf with their own filter", async () => {
+  it("lists agents in their own group with their own filter", async () => {
     installFetchMock();
     renderView();
     expect(await screen.findByText("Inbox Butler")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Agents 1/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Agents 1/ })).toBeTruthy();
   });
 
   it("shows the instructions and the safe defaults before installing", async () => {

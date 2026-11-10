@@ -1,8 +1,9 @@
 import { useTranscriptView } from "../society/chat/useTranscriptView";
 import { PairConversationBoundary } from "@/components/agentchat/PairConversation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useEventStore } from "@/store/events";
+import { useHomeStore } from "@/store/home";
 import { useAgentChat } from "@/components/agentchat/AgentChatStoreContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
@@ -20,6 +21,41 @@ import { fill, useT } from "@/i18n";
 import { folderLeaf } from "@/lib/folderPath";
 import { useHistoryPolling } from "@/hooks/useHistoryPolling";
 import { FolderCode } from "lucide-react";
+
+// The one-time introduction after setup (components/onboarding/conversation):
+// it shows only while the backend says it is due, else the greeting.
+const FirstConversation = lazy(() => import("@/components/onboarding/conversation/FirstConversation"));
+
+// The call window is only needed once a call runs.
+const CallWindow = lazy(() =>
+  import("@/components/home/CallWindow").then((module) => ({ default: module.CallWindow })),
+);
+
+/**
+ * The running call's window (components/home/CallWindow), hung on the top
+ * edge of whatever wraps it: the composer, so the window stands on it. It
+ * shows for every call, however it was started, the wake word and the call
+ * hotkey included.
+ */
+function CallSlot() {
+  const callLive = useEventStore((s) => Boolean(s.voiceState) && s.voiceState !== "idle" && s.voiceState !== "error");
+  // Asked for at the click, or ended on a problem that still has to be read.
+  const waiting = useHomeStore((s) => s.callPending || s.callProblem !== null);
+  // Starting a call can keep the window busy for seconds; the code is fetched
+  // beforehand so the call window is there the moment it is needed.
+  useEffect(() => {
+    const timer = window.setTimeout(() => void import("@/components/home/CallWindow"), 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
+  // Once a call has shown, the window decides for itself when to leave: it
+  // stays a moment after the call ends, so a reason that arrives right after
+  // the hang-up lands in the same window instead of a second one.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (callLive || waiting) setShown(true);
+  }, [callLive, waiting]);
+  return shown || callLive || waiting ? <Suspense fallback={null}><CallWindow /></Suspense> : null;
+}
 
 /**
  * The chat stage — the typed half of the front page: Jarvis with a keyboard.
@@ -212,7 +248,15 @@ function ChatStageContent() {
   // the composer would otherwise own. An agent chat opening clears this.
   // Only the front page shares its column with the voice archive; the IDE's
   // chat is coding sessions and never shows a spoken thread.
-  if (surface === "jarvis" && voiceThreadId && !activeSessionId) return <VoiceThreadStage />;
+  if (surface === "jarvis" && voiceThreadId && !activeSessionId) {
+    return (
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <VoiceThreadStage />
+        {/* No composer here: the call window stands on the stage's foot. */}
+        <div className="relative mx-auto mb-4 w-full max-w-[720px]"><CallSlot /></div>
+      </div>
+    );
+  }
 
   // The front page opens with the greeting alone in
   // the middle of the page, the composer already where it will stay — at the
@@ -222,9 +266,10 @@ function ChatStageContent() {
       <div className="relative flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
         <BinaryCursorField />
         <div className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
-          <Greeting />
+          <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting />} /></Suspense>
         </div>
         <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
+          <CallSlot />
           {/* The digits make way while the pointer is on the composer. */}
           <div data-binary-field-off>
             <AgentComposer autoFocus />
@@ -264,11 +309,13 @@ function ChatStageContent() {
             traceCompanion={isJarvis}
             agentsById={faces}
           />
+          {isJarvis && <Suspense fallback={null}><FirstConversation /></Suspense>}
           <div ref={spacerRef} aria-hidden data-testid="chat-bottom-spacer" className="shrink-0" />
         </div>
       </ScrollArea>
       <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
         {!atEnd && <ScrollToEndButton onClick={jumpToEnd} testId="chat-scroll-end" />}
+        {isJarvis && <CallSlot />}
         <AgentComposer />
       </div>
     </div>

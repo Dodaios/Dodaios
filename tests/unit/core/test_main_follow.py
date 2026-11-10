@@ -404,3 +404,139 @@ def test_an_interrupted_fast_forward_with_one_real_edit_is_left_alone(
     assert (app / "README.md").read_text(encoding="utf-8") == "my own notes\n"
     assert (app / "dodaios/core/new.py").read_text(encoding="utf-8") == "N = 1\n"
     assert (app / "dodaios/core/a.py").read_text(encoding="utf-8") == "A = 1\n"
+
+
+# ------------------------------------------------------------------ the bundle build
+
+
+def _npm_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[list[str], dict[str, str]]]:
+    """Record what the follower asks npm to do; git still runs for real."""
+    calls: list[tuple[list[str], dict[str, str]]] = []
+    real = main_follow._run
+
+    def fake(args: list[str], cwd: Path, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if args and args[0] == "npm-under-test":
+            calls.append((args[1:], dict(kwargs.get("extra_env") or {})))  # type: ignore[call-overload]
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return real(args, cwd, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(main_follow, "_run", fake)
+    return calls
+
+
+def _frontend(app: Path, scripts: str) -> MainFollower:
+    frontend = f"{main_follow.FRONTEND}"
+    _write(app, f"{frontend}/package.json", '{"scripts": {' + scripts + "}}\n")
+    _write(app, f"{frontend}/src/App.tsx", "export {};\n")
+    _write(app, ".gitignore", "node_modules/\n")
+    (app / frontend / "node_modules").mkdir(parents=True)
+    _git(app, "add", ".")
+    _git(app, "commit", "-q", "-m", "frontend")
+    return MainFollower(
+        app, enabled=lambda: True, idle=lambda: True, restart=lambda: True, npm="npm-under-test"
+    )
+
+
+_BOTH = '"build": "tsc -b && vite build", "bundle": "vite build"'
+
+
+def test_checked_source_is_bundled_without_a_second_type_check(
+    setup: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """tsc held 2.3 GB beside the running app on every update, for a known answer."""
+    app, _other = setup
+    follower = _frontend(app, _BOTH)
+    calls = _npm_calls(monkeypatch)
+    assert follower._build(npm_install=False)
+    assert calls == [(["run", "bundle"], {main_follow.SOURCE_CHECKED_ENV: "1"})]
+
+
+def test_a_local_frontend_edit_gets_the_full_checked_build(
+    setup: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app, _other = setup
+    follower = _frontend(app, _BOTH)
+    _write(app, f"{main_follow.FRONTEND}/src/App.tsx", "export const edited = 1;\n")
+    calls = _npm_calls(monkeypatch)
+    assert follower._build(npm_install=False)
+    assert calls == [(["run", "build"], {})]
+
+
+def test_an_untracked_frontend_file_gets_the_full_checked_build(
+    setup: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app, _other = setup
+    follower = _frontend(app, _BOTH)
+    _write(app, f"{main_follow.FRONTEND}/src/Half.tsx", "export const x = Missing;\n")
+    calls = _npm_calls(monkeypatch)
+    assert follower._build(npm_install=False)
+    assert calls == [(["run", "build"], {})]
+
+
+def test_a_package_without_the_bundle_script_builds_as_before(
+    setup: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app, _other = setup
+    follower = _frontend(app, '"build": "tsc -b && vite build"')
+    calls = _npm_calls(monkeypatch)
+    assert follower._build(npm_install=False)
+    assert calls == [(["run", "build"], {})]
+
+
+# ------------------------------------------------------------------ moved by somebody else
+
+
+def test_a_checkout_moved_by_somebody_else_is_rebuilt_and_restarted(
+    setup: tuple[Path, Path],
+) -> None:
+    """An agent's done gate fast-forwards the checkout; the app kept the old code and bundle."""
+    app, other = setup
+    recorder = Recorder()
+    follower = recorder.follower(app)
+    follower.tick()  # the commit this process started from
+    _land(
+        other,
+        {
+            "dodaios/core/a.py": "A = 2\n",
+            "dodaios/ui/web/frontend/src/App.tsx": "export {};\n",
+        },
+        "feat: both halves",
+    )
+    _git(app, "pull", "-q", "--ff-only")  # not the follower
+
+    status = follower.tick()
+
+    assert recorder.builds == [False]
+    assert recorder.restarts == 1 and not status.restart_pending
+    assert status.reason == ""
+
+
+def test_an_outside_move_waits_for_idle_and_is_handled_once(setup: tuple[Path, Path]) -> None:
+    app, other = setup
+    recorder = Recorder(idle=False)
+    follower = recorder.follower(app)
+    follower.tick()
+    _land(other, {"dodaios/core/a.py": "A = 2\n"}, "feat: two")
+    _git(app, "pull", "-q", "--ff-only")
+
+    status = follower.tick()
+    assert status.restart_pending and recorder.restarts == 0 and recorder.builds == []
+    follower.tick()
+    assert recorder.restarts == 0  # still busy: nothing is repeated, nothing is lost
+
+    recorder.idle = True
+    follower.tick()
+    assert recorder.restarts == 1
+
+
+def test_an_outside_move_of_files_the_app_never_loads_changes_nothing(
+    setup: tuple[Path, Path],
+) -> None:
+    app, other = setup
+    recorder = Recorder()
+    follower = recorder.follower(app)
+    follower.tick()
+    _land(other, {"docs/x.md": "x\n", "tests/test_x.py": "X = 1\n"}, "docs: x")
+    _git(app, "pull", "-q", "--ff-only")
+    status = follower.tick()
+    assert recorder.builds == [] and recorder.restarts == 0 and not status.restart_pending

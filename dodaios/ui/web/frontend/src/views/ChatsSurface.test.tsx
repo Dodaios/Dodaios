@@ -8,9 +8,8 @@ import { useAgentChatStore } from "@/store/agentChat";
 
 /**
  * The front page is ONE conversation, and a call happens inside it: the chat
- * stays on screen and a call card floats over it while the call runs. What
- * is under test is the shell; the composer's voice button is ChatStage's own
- * test.
+ * stays on screen while the call runs. What is under test is the shell; the
+ * composer's voice button and the call window are ChatStage's own tests.
  */
 vi.mock("@/components/home/ChatStage", () => ({
   ChatStage: () => <div data-testid="chat">chat</div>,
@@ -44,10 +43,9 @@ describe("ChatsSurface (the front page)", () => {
   it("opens on the chat by default, with nothing above it", async () => {
     render(<ChatsSurface />);
     expect(await screen.findByTestId("chat")).toBeTruthy();
-    expect(screen.queryByTestId("call-card")).toBeNull();
   });
 
-  it("keeps the conversation on screen when a wake-word call starts, with the call card over it", async () => {
+  it("keeps the conversation on screen when a wake-word call starts", async () => {
     render(<ChatsSurface />);
     expect(await screen.findByTestId("chat")).toBeTruthy();
     act(() => {
@@ -55,10 +53,8 @@ describe("ChatsSurface (the front page)", () => {
       useEventStore.setState({ voiceState: "listening" });
     });
     expect(screen.getByTestId("chat")).toBeTruthy();
-    expect(await screen.findByTestId("call-card")).toBeTruthy();
     expect(useHomeStore.getState().surface).toBe("chat");
     act(() => useEventStore.setState({ voiceState: "idle" }));
-    expect(screen.queryByTestId("call-card")).toBeNull();
     expect(screen.getByTestId("chat")).toBeTruthy();
   });
 
