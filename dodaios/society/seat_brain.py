@@ -34,8 +34,9 @@ subscription first (``memory.learning.review.seat_choices``).
 disagree:
 
 * the provider/model pair: ``chat_binding.pair_for`` for an agent;
-  ``model_selection.worker_selection`` + ``task_agent.subscription_seat`` for
-  Jarvis, exactly as ``AgentChatService.send`` reseats the front-page chat;
+  ``agent_chat.lead.lead_seat`` for Jarvis (the lead session's own pick, as
+  ``AgentChatService.send`` seats it), the configured Agents selection only
+  while there is no lead conversation;
 * the runner: ``agent_chat.service.resolve_runner``. A vendor CLI seat answers
   through that CLI's brain in structured mode; an API seat through the
   provider's own brain plugin behind the Agents-tab key
@@ -117,6 +118,8 @@ class Seat:
     #: ``[memory.learning]`` provider override, which uses the provider's
     #: ordinary credential chain.
     agent_key: bool = True
+    #: The reasoning effort the seat's chat runs at (``""`` = its default).
+    effort: str = ""
 
     @property
     def keyed(self) -> bool:
@@ -173,14 +176,19 @@ def _runtime_seat(provider: str, model: str, account: str) -> Seat:
 
 
 def jarvis_seat(config: Any) -> Seat:
-    """The Jarvis lead's seat: what the front-page chat answers on right now.
+    """The Jarvis lead's seat: what the lead conversation answers on right now.
 
-    The Agents selection (``[brain.worker]``) when one is set, mapped onto its
-    subscription seat the way ``AgentChatService.send`` maps it; otherwise the
-    Agents tier, which is what a chat with no provider of its own runs on.
+    The one definition is ``agent_chat.lead.lead_seat`` (the lead session's
+    provider and model plus the runner ``AgentChatService.send`` picks for
+    it). Only when there is no lead conversation yet does this fall back to
+    the configured Agents selection (``[brain.worker]``), mapped onto its
+    subscription seat, and then to the Agents tier.
     Blocking (the Claude login probe, the credential probes): call it in a
     thread.
     """
+    seat = _lead_session_seat()
+    if seat is not None:
+        return seat
     from dodaios.core.model_selection import worker_selection
     from dodaios.core.task_agent import subscription_seat
 
@@ -195,6 +203,23 @@ def jarvis_seat(config: Any) -> Seat:
     if not tier.ready or not tier.provider:
         raise SeatUnavailable(tier.reason or "no provider can run the Dodaios chat")
     return Seat(tier.provider, tier.model or "", resolve_runner(tier.provider, surface="jarvis"))
+
+
+def _lead_session_seat() -> Seat | None:
+    """The lead conversation's own seat, ``None`` while there is none."""
+    try:
+        from dodaios.agent_chat.lead import lead_seat
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+        found = lead_seat(svc) if svc is not None else None
+    except Exception:  # noqa: BLE001 - no chat service yet: the configured tier answers
+        log.debug("seat brain: the lead seat could not be read", exc_info=True)
+        return None
+    if found is None:
+        return None
+    return Seat(found["provider"], found["model"], found["runner"], effort=found["effort"])
 
 
 def _chat_default_model(config: Any, provider: str) -> str:

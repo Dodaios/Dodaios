@@ -22,11 +22,13 @@ Dodaios itself, tuned for a voice assistant.
    states a preference, corrects Dodaios, or names a plan, goal or deadline.
    Requests and questions ("play some music", "what's the weather") are not
    marked. A conversation with no marked turn never reaches a model.
-3. **Explicit requests (immediate, always MEMORY.md).** The conversation
+3. **Explicit requests (immediate, into the memory vault).** The conversation
    model saves "remember X" / "merk dir X" itself, while the conversation
    runs, through the `remember` tool (`dodaios/plugins/tool/remember.py`):
-   one self-contained sentence, dated, into `society/jarvis/MEMORY.md` with
-   `origin: user` and importance 10. On GPT-Live the tool sits in the voice
+   one self-contained sentence, dated, into the personal memory vault
+   (`data/memory/vault.db`, ADR-0044) with `origin: user`, applied at once
+   without a model call. Only while no vault is running does the tool fall
+   back to the `society/jarvis/MEMORY.md` notebook (importance 10). On GPT-Live the tool sits in the voice
    tool set (`BrainSupervisorToolGateway._voice_tools`; the router stays a
    pure dispatcher, ADR-0011) and the session instructions carry
    `REMEMBER_DIRECTIVE` plus the learned snapshot, so a call both sees what
@@ -50,7 +52,13 @@ Dodaios itself, tuned for a voice assistant.
    by default, on its subscription whenever it can (see "Which seat a review
    runs on and how it bills" below). A failed review is retried after a
    growing pause, and after four failures in a row its turns are dropped with
-   one log line and a `dropped` line in the ledger.
+   one log line and a `dropped` line in the ledger. A configuration fault is
+   different (a spent usage limit or quota, a 401 or 402, a missing or invalid
+   key, a signed-out subscription): retrying cannot fix it, so the turns stay
+   pending, and ONE written notice (`memory_health`) in the lead conversation
+   names the seat and the fix. The notice is posted again only when the cause
+   or the seat changes, or after a review answered and a new fault follows. It
+   is never spoken.
 5. **Validate (Python decides).** A change is written only when:
    - its `evidence` is a verbatim quote (12 characters or more) of the
      **user's** own words the review was shown. Anything only the
@@ -98,9 +106,12 @@ the subscription of the provider the person uses by default whenever it can
 
 1. **An explicit `[memory.learning].provider`** (with its `model`) wins, on
    that provider's ordinary credential.
-2. **The default seat** is the Dodaios lead's (`seat_brain.jarvis_seat`): the
-   provider, model and auth mode the front-page Dodaios chat answers on (the
-   Agents selection, else the Agents tier). When it runs on a subscription
+2. **The default seat** is the Dodaios lead's (`seat_brain.jarvis_seat`), with
+   exactly one definition, `agent_chat.lead.lead_seat`: the lead
+   conversation's own provider, model and effort, and the runner
+   `AgentChatService.send` picks for it. Only while there is no lead
+   conversation does it fall back to the Agents selection (`[brain.worker]`),
+   else the Agents tier. When it runs on a subscription
    CLI or a keyless local model, the review runs there.
 3. **A default seat that bills a per-token key** is moved onto the same
    provider family's subscription when that login is signed in right now
