@@ -1,0 +1,286 @@
+# Golden routing cases: web and browser, computer use, answering directly,
+# risky actions that must hit approval, ambiguous or misheard requests.
+
+# ---- web_browser -------------------------------------------------------------
+- id: web-news-en
+  category: web_browser
+  lang: en
+  utterance: "What are the latest headlines about the EU AI act today?"
+  expect: {tool: search_web, effect: read}
+- id: web-news-de
+  category: web_browser
+  lang: de
+  utterance: "Was sind heute die neuesten Nachrichten zum EU-KI-Gesetz?"
+  expect: {tool: search_web, effect: read}
+- id: web-weather-en
+  category: web_browser
+  lang: en
+  utterance: "What is the weather in Berlin this weekend?"
+  expect: {tool: search_web, effect: read}
+- id: web-price-de
+  category: web_browser
+  lang: de
+  utterance: "Wie steht der Bitcoin-Kurs gerade?"
+  expect: {tool: search_web, effect: read}
+- id: web-look-it-up-es
+  category: web_browser
+  lang: es
+  utterance: "Búscalo en internet: horarios del tren de Madrid a Valencia para mañana."
+  expect: {tool: search_web, effect: read}
+- id: web-look-it-up-pt
+  category: web_browser
+  lang: pt
+  utterance: "Pesquisa na internet o resultado do jogo de ontem do Benfica."
+  expect: {tool: search_web, effect: read}
+- id: browser-read-pricing-en
+  category: web_browser
+  lang: en
+  utterance: "Open the pricing page of acme-example.com in the browser and tell me the cheapest plan."
+  expect: {tool: society_browser, effect: read}
+- id: browser-read-pricing-de
+  category: web_browser
+  lang: de
+  utterance: "Geh im Browser auf die Preisseite von acme-example.com und sag mir den günstigsten Tarif."
+  expect: {tool: society_browser, effect: read}
+
+# ---- computer_use ------------------------------------------------------------
+- id: cu-notepad-en
+  category: computer_use
+  lang: en
+  utterance: "Open Notepad and type: buy milk."
+  expect: {tool: computer_use}
+- id: cu-notepad-de
+  category: computer_use
+  lang: de
+  utterance: "Öffne Notepad und schreib hinein: Milch kaufen."
+  expect: {tool: computer_use}
+- id: cu-click-button-en
+  category: computer_use
+  lang: en
+  utterance: "Click the blue Save button on my screen."
+  expect: {tool: computer_use}
+- id: cu-chrome-gmail-de
+  category: computer_use
+  lang: de
+  utterance: "Öffne Chrome und geh auf die Seite von meinem Bankkonto."
+  expect: {tool: computer_use}
+- id: cu-screenshot-en
+  category: computer_use
+  lang: en
+  utterance: "Take a screenshot and tell me what is on my screen."
+  expect: {tool: screenshot, effect: read}
+- id: cu-music-en
+  category: computer_use
+  lang: en
+  utterance: "Play some Radiohead."
+  expect: {tools: [youtube_music, spotify], args: {action: play}}
+- id: cu-music-pause-de
+  category: computer_use
+  lang: de
+  utterance: "Pausier die Musik."
+  expect: {tools: [youtube_music, spotify], args: {action: pause}}
+- id: cu-shell-status-en
+  category: computer_use
+  lang: en
+  utterance: "Run git status in my projects folder and tell me what is changed."
+  expect: {tools: [run_shell, RunCommand]}
+
+# ---- answer_directly: knowledge, writing, chat. Must not spawn or call anything ----
+- id: answer-capital-en
+  category: answer_directly
+  lang: en
+  utterance: "What is the capital of Australia?"
+  expect: {tool: none}
+- id: answer-tcp-udp-en
+  category: answer_directly
+  lang: en
+  utterance: "Explain the difference between TCP and UDP in three sentences."
+  expect: {tool: none}
+- id: answer-battery-de
+  category: answer_directly
+  lang: de
+  utterance: "Was ist der Unterschied zwischen einem Akku und einer Batterie?"
+  expect: {tool: none}
+- id: answer-translate-en
+  category: answer_directly
+  lang: en
+  utterance: "How do you say good morning in Spanish?"
+  expect: {tool: none}
+- id: answer-haiku-en
+  category: answer_directly
+  lang: en
+  utterance: "Write me a haiku about autumn."
+  expect: {tool: none}
+- id: answer-math-de
+  category: answer_directly
+  lang: de
+  utterance: "Was ist 17 mal 23?"
+  expect: {tool: none}
+- id: answer-mutex-en
+  category: answer_directly
+  lang: en
+  utterance: "What is a mutex and when would I need one?"
+  expect: {tool: none}
+- id: answer-python-reverse-en
+  category: answer_directly
+  lang: en
+  utterance: "How do I reverse a list in Python?"
+  expect: {tool: none}
+- id: answer-idempotent-de
+  category: answer_directly
+  lang: de
+  utterance: "Was bedeutet idempotent in der Informatik?"
+  expect: {tool: none}
+- id: answer-hello-de
+  category: answer_directly
+  lang: de
+  utterance: "Hallo, wie geht's dir?"
+  expect: {tool: none}
+- id: answer-thanks-en
+  category: answer_directly
+  lang: en
+  utterance: "Thanks, that is all for now."
+  expect: {tool: none}
+- id: answer-joke-en
+  category: answer_directly
+  lang: en
+  utterance: "Tell me a joke about programmers."
+  expect: {tool: none}
+- id: answer-sky-es
+  category: answer_directly
+  lang: es
+  utterance: "¿Por qué el cielo es azul?"
+  expect: {tool: none}
+- id: answer-capital-pt
+  category: answer_directly
+  lang: pt
+  utterance: "Qual é a capital do Brasil?"
+  expect: {tool: none}
+- id: answer-translate-de-en
+  category: answer_directly
+  lang: de
+  utterance: "Übersetz mir bitte: Ich hätte gern einen Tisch für zwei Personen."
+  expect: {tool: none}
+- id: answer-advice-no-delegate-en
+  category: answer_directly
+  lang: en
+  utterance: "Should I use Postgres or MySQL for a small side project? Just give me your opinion."
+  expect: {tool: none}
+  note: "An opinion is an answer, not a worker task or a team thread."
+- id: answer-quick-fact-no-search-de
+  category: answer_directly
+  lang: de
+  utterance: "Wie viele Bundesländer hat Deutschland?"
+  expect: {tool: none}
+  note: "Evergreen fact: no web search."
+
+# ---- approval: risky actions must hit an ask-tier tool ------------------------
+- id: approval-send-mail-en
+  category: approval
+  lang: en
+  utterance: "Send an email to Anna saying I will be 15 minutes late."
+  expect: {tool: gmail, args: {action: send_message}, approval: true}
+- id: approval-send-mail-de
+  category: approval
+  lang: de
+  utterance: "Schick Anna eine E-Mail, dass ich 15 Minuten später komme."
+  expect: {tool: gmail, args: {action: send_message}, approval: true}
+- id: approval-delete-mail-en
+  category: approval
+  lang: en
+  utterance: "Delete the last mail from the bank permanently."
+  expect: {tools: [gmail], approval: true}
+- id: approval-slack-post-en
+  category: approval
+  lang: en
+  utterance: "Post in #team that the release is moved to Friday."
+  expect: {tool: slack, args: {action: post_message}, approval: true}
+- id: approval-call-de
+  category: approval
+  lang: de
+  utterance: "Ruf Christoph an und sag ihm, dass das Paket da ist."
+  expect: {tool: call-contact, args: {name: Christoph}, approval: true}
+- id: approval-restart-app-en
+  category: approval
+  lang: en
+  utterance: "Restart the app."
+  expect: {tool: app-restart, approval: true}
+- id: approval-archive-agent-en
+  category: approval
+  lang: en
+  utterance: "Archive the agent Scout, we do not need him anymore."
+  expect: {tool: society-archive-agent, approval: true}
+- id: approval-delete-skill-de
+  category: approval
+  lang: de
+  utterance: "Lösche den Skill für das Daily Standup."
+  expect: {tool: skill-delete, approval: true}
+- id: approval-install-marketplace-en
+  category: approval
+  lang: en
+  utterance: "Install the PDF toolkit from the marketplace."
+  expect: {tool: marketplace-install, approval: true}
+- id: approval-lights-en
+  category: approval
+  lang: en
+  utterance: "Turn off all the lights in the living room."
+  expect: {tool: home_assistant, args: {action: call_service}, approval: true}
+- id: approval-config-change-en
+  category: approval
+  lang: en
+  utterance: "Change the default model to the cheapest one in the settings."
+  expect: {tools: [set_config_value, find-app-action], approval: false}
+  note: "A settings change is proposed (the person confirms); it is not an action to gate here."
+- id: approval-mcp-add-es
+  category: approval
+  lang: es
+  utterance: "Añade un servidor MCP nuevo para mi base de datos local."
+  expect: {tool: manage-mcp-server, approval: true}
+
+# ---- ambiguous: misheard names, missing context -----------------------------
+- id: ambiguous-misheard-scout-en
+  category: ambiguous
+  lang: en
+  utterance: "Ask Skout what he found about the competitor prices."
+  expect: {tool: message_agent, args: {target: Sk}}
+  note: "A misheard name is passed as heard; the app matches it."
+- id: ambiguous-misheard-scout-de
+  category: ambiguous
+  lang: de
+  utterance: "Lass Skaut die Preise der Konkurrenz vergleichen."
+  expect: {tool: delegate_to_agent, args: {agent: Sk}}
+- id: ambiguous-misheard-mailbox-en
+  category: ambiguous
+  lang: en
+  utterance: "Mail box, please answer the invoice mail from yesterday."
+  expect: {tool: delegate_to_agent, args: {agent: mail}}
+- id: ambiguous-unnamed-agent-en
+  category: ambiguous
+  lang: en
+  utterance: "Have someone research the best espresso machines under 400 euros."
+  expect: {tool: delegate_to_agent}
+  note: "No agent named: the lead picks the fitting one."
+- id: ambiguous-no-antecedent-en
+  category: ambiguous
+  lang: en
+  utterance: "Do that again, but faster."
+  expect: {tool: none}
+  note: "No referent and no history: answer in text, never invent a task."
+- id: ambiguous-mixed-language-de
+  category: ambiguous
+  lang: de
+  utterance: "Frag Scout mal, ob the report ready ist."
+  expect: {tool: message_agent, args: {target: Scout}}
+- id: ambiguous-pane-vs-agent-en
+  category: ambiguous
+  lang: en
+  utterance: "Have T2 fix the typo in the README."
+  requires: [workspace-orchestrate]
+  expect: {tool: workspace-orchestrate, args: {"*": T2}}
+  note: "A call-sign is a coding pane, never a society agent."
+- id: ambiguous-just-a-question-about-agents-en
+  category: ambiguous
+  lang: en
+  utterance: "What can the Archivist actually do?"
+  expect: {tools: [society_status, society-capability-catalog, society-agent-catalog], effect: read}
+  note: "A question about an agent is a read, not an assignment."
