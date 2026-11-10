@@ -1,0 +1,33 @@
+{
+  "name": "MI_Arena_BlastScreen",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_BlastScreen",
+  "scalars": {
+    "EdgeWear": 0.5,
+    "GrimeAmount": 0.55,
+    "Metallic": 0.8,
+    "NoiseScale": 1.2,
+    "RoughnessMax": 0.7,
+    "RoughnessMin": 0.4
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.06,
+      0.062,
+      0.066,
+      1.0
+    ],
+    "EdgeTint": [
+      0.3,
+      0.3,
+      0.31,
+      1.0
+    ]
+  }
+}

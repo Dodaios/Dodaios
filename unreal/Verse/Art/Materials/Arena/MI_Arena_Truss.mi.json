@@ -1,0 +1,33 @@
+{
+  "name": "MI_Arena_Truss",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_Truss",
+  "scalars": {
+    "EdgeWear": 0.5,
+    "GrimeAmount": 0.4,
+    "Metallic": 0.85,
+    "NoiseScale": 1.5,
+    "RoughnessMax": 0.6,
+    "RoughnessMin": 0.35
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.05,
+      0.052,
+      0.056,
+      1.0
+    ],
+    "EdgeTint": [
+      0.3,
+      0.3,
+      0.31,
+      1.0
+    ]
+  }
+}

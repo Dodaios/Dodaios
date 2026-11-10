@@ -1,0 +1,27 @@
+{
+  "name": "MI_Arena_ShuttleDark",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_ShuttleDark",
+  "scalars": {
+    "EdgeWear": 0.4,
+    "GrimeAmount": 0.4,
+    "Metallic": 0.4,
+    "NoiseScale": 1.4,
+    "RoughnessMax": 0.6,
+    "RoughnessMin": 0.35
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.045,
+      0.047,
+      0.05,
+      1.0
+    ]
+  }
+}

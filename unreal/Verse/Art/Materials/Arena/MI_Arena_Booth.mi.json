@@ -1,0 +1,27 @@
+{
+  "name": "MI_Arena_Booth",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_Booth",
+  "scalars": {
+    "EdgeWear": 0.35,
+    "GrimeAmount": 0.4,
+    "Metallic": 0.0,
+    "NoiseScale": 1.0,
+    "RoughnessMax": 0.7,
+    "RoughnessMin": 0.45
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.16,
+      0.165,
+      0.17,
+      1.0
+    ]
+  }
+}

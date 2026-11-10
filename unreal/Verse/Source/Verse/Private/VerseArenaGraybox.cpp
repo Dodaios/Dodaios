@@ -55,9 +55,14 @@ namespace VerseArenaGrayboxPrivate
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
 	const FVector DroneDocks[] = {FVector(2620.0, 2400.0, 900.0), FVector(5000.0, 4280.0, 900.0), FVector(7380.0, 2400.0, 900.0)};
 
-	FLinearColor ColorFor(const FString& Material)
+	FLinearColor ColorFor(const FString& Look)
 	{
-		// Charcoal hall, warm steel, muted containers; linear values (art-pipeline 8.1 shares).
+		// Stand-in colours for looks whose MI is missing: charcoal hall, muted containers.
+		const FString Material = Look.Contains(TEXT("Container")) ? FString(TEXT("container_wall"))
+			: Look.Contains(TEXT("Glass")) ? FString(TEXT("glass"))
+			: Look.Contains(TEXT("Grating")) ? FString(TEXT("catwalk_grating"))
+			: Look.Contains(TEXT("Shuttle")) ? FString(TEXT("cladding_panel"))
+			: Look;
 		if (Material == TEXT("container_wall"))
 		{
 			return FLinearColor(0.16f, 0.07f, 0.035f);
@@ -87,6 +92,30 @@ namespace VerseArenaGrayboxPrivate
 			return FLinearColor(0.12f, 0.12f, 0.125f);
 		}
 		return FLinearColor(0.18f, 0.18f, 0.18f);
+	}
+
+	/** Instance group folder of a look (`lib/unreal_materials.py` GROUPS, first match wins). */
+	const TCHAR* InstanceGroup(const FString& Look)
+	{
+		struct FGroup
+		{
+			const TCHAR* Key;
+			const TCHAR* Value;
+		};
+		static const FGroup Groups[] = {
+			{TEXT("Floor_"), TEXT("Floors")}, {TEXT("Deck_"), TEXT("Markings")}, {TEXT("Wall_"), TEXT("Walls")}, {TEXT("Ceiling_"), TEXT("Walls")},
+			{TEXT("Recess_"), TEXT("Walls")}, {TEXT("Section_"), TEXT("Walls")}, {TEXT("Struct_"), TEXT("Metal")}, {TEXT("Trim_"), TEXT("Metal")},
+			{TEXT("Rubber_"), TEXT("Metal")}, {TEXT("Hull_"), TEXT("Hull")}, {TEXT("Light_"), TEXT("Lights")}, {TEXT("Emit_"), TEXT("Lights")},
+			{TEXT("Indicator_"), TEXT("Lights")}, {TEXT("Console_"), TEXT("Consoles")}, {TEXT("Screen"), TEXT("Screens")}, {TEXT("Glass_"), TEXT("Glass")},
+		};
+		for (const auto& Group : Groups)
+		{
+			if (Look.StartsWith(Group.Key, ESearchCase::CaseSensitive))
+			{
+				return Group.Value;
+			}
+		}
+		return TEXT("Props");
 	}
 
 	FVector ReadVector(const TSharedPtr<FJsonObject>& Object, const TCHAR* Field)
@@ -292,28 +321,36 @@ AVerseArenaGraybox* AVerseArenaGraybox::BuildIfMissing(UWorld& World)
 	return Graybox;
 }
 
-UMaterialInterface* AVerseArenaGraybox::MaterialFor(const FString& Material)
+UMaterialInterface* AVerseArenaGraybox::MaterialFor(const FString& Look)
 {
 	using namespace VerseArenaGrayboxPrivate;
-	if (TObjectPtr<UMaterialInterface>* Found = Materials.Find(Material))
+	if (TObjectPtr<UMaterialInterface>* Found = Materials.Find(Look))
 	{
 		return *Found;
 	}
-	UMaterialInterface* Result = nullptr;
-	if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, MaterialPath))
+	// The kit MI (art-pipeline 7: `MI_<Name>` in the group folder of its name prefix).
+	const FString Name = TEXT("MI_") + Look;
+	const FString Path = FString::Printf(TEXT("/Game/Verse/Materials/Instances/%s/%s.%s"), InstanceGroup(Look), *Name, *Name);
+	UMaterialInterface* Result = LoadObject<UMaterialInterface>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!Result)
 	{
-		UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Base, this);
-		Mid->SetVectorParameterValue(TEXT("Color"), ColorFor(Material));
-		Result = Mid;
+		// Not built yet (import_art.py materials): a tinted basic shape keeps the arena readable.
+		if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, MaterialPath))
+		{
+			UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Base, this);
+			Mid->SetVectorParameterValue(TEXT("Color"), ColorFor(Look));
+			Result = Mid;
+		}
+		UE_LOG(LogVerse, Warning, TEXT("[VerseArena] no material instance %s, using a flat stand-in"), *Path);
 	}
-	Materials.Add(Material, Result);
+	Materials.Add(Look, Result);
 	return Result;
 }
 
-UInstancedStaticMeshComponent* AVerseArenaGraybox::SurfaceFor(const FString& Material, bool bSolid, bool bGlass)
+UInstancedStaticMeshComponent* AVerseArenaGraybox::SurfaceFor(const FString& Look, bool bSolid, bool bGlass, bool bVisible)
 {
 	using namespace VerseArenaGrayboxPrivate;
-	const FString Key = FString::Printf(TEXT("%s_%d"), *Material, bSolid ? 1 : 0);
+	const FString Key = FString::Printf(TEXT("%s_%d_%d"), *Look, bSolid ? 1 : 0, bGlass ? 1 : 0);
 	if (TObjectPtr<UInstancedStaticMeshComponent>* Found = Surfaces.Find(Key))
 	{
 		return *Found;
@@ -321,9 +358,16 @@ UInstancedStaticMeshComponent* AVerseArenaGraybox::SurfaceFor(const FString& Mat
 	UInstancedStaticMeshComponent* Surface = NewObject<UInstancedStaticMeshComponent>(this, FName(*(TEXT("Surface_") + Key)));
 	Surface->SetMobility(EComponentMobility::Static);
 	Surface->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, CubePath));
-	if (UMaterialInterface* Look = MaterialFor(Material))
+	if (!bVisible)
 	{
-		Surface->SetMaterial(0, Look);
+		// Collision only: the dressing draws what stands here (fences, railings).
+		Surface->SetVisibility(false);
+		Surface->SetCastShadow(false);
+	}
+	else if (UMaterialInterface* Material = MaterialFor(Look))
+	{
+		Surface->SetMaterial(0, Material);
+		Surface->SetCastShadow(!bGlass);
 	}
 	if (bSolid)
 	{
@@ -355,8 +399,7 @@ AVerseDestructible* AVerseArenaGraybox::SpawnPiece(UWorld& World, const TSharedP
 		return nullptr;
 	}
 	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, CubePath);
-	const FString MaterialName = Box->GetStringField(TEXT("material"));
-	UMaterialInterface* Look = MaterialFor(MaterialName);
+	UMaterialInterface* Look = MaterialFor(LookFor(Box));
 	const FVector Center = ReadVector(Box, TEXT("center"));
 	const FVector Size = ReadVector(Box, TEXT("size"));
 	const int32 Axis = ThinAxis(Size);
@@ -407,7 +450,7 @@ void AVerseArenaGraybox::SpawnDestruction(UWorld& World, const TArray<TSharedPtr
 		for (const TSharedPtr<FJsonObject>& Box : PieceBoxes)
 		{
 			const FString Material = Box->GetStringField(TEXT("material"));
-			AddSlab(SurfaceFor(Material, true, Material == TEXT("glass")),
+			AddSlab(SurfaceFor(LookFor(Box), true, Material == TEXT("glass")),
 				FTransform(FQuat::Identity, ReadVector(Box, TEXT("center")), ReadVector(Box, TEXT("size")) / 100.0));
 		}
 		return;
@@ -710,6 +753,14 @@ void AVerseArenaGraybox::SetExposureEV100(float EV100)
 
 void AVerseArenaGraybox::RestoreLook()
 {
+	for (const TWeakObjectPtr<UDirectionalLightComponent>& Light : MutedLights)
+	{
+		if (UDirectionalLightComponent* C = Light.Get())
+		{
+			C->SetVisibility(true);
+		}
+	}
+	MutedLights.Reset();
 	if (UExponentialHeightFogComponent* Fog = DeckFog.Get(); Fog && bFogSaved)
 	{
 		Fog->SetFogDensity(SavedFogDensity);
@@ -748,7 +799,9 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 		const bool bSolid = Box->GetBoolField(TEXT("solid"));
 		const FVector Center = ReadVector(Box, TEXT("center"));
 		const FVector Size = ReadVector(Box, TEXT("size"));
-		AddSlab(SurfaceFor(Material, bSolid, Material == TEXT("glass")), FTransform(FQuat::Identity, Center, Size / 100.0));
+		const FString Look = LookFor(Box);
+		const bool bVisible = Look != TEXT("Hidden");
+		AddSlab(SurfaceFor(Look, bSolid, Material == TEXT("glass"), bVisible), FTransform(FQuat::Identity, Center, Size / 100.0));
 	}
 	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("ramps")))
 	{
@@ -763,7 +816,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 		const FQuat Rotation = Basis.ToQuat();
 		const FVector Up = Rotation.GetUpVector();
 		const FVector Center = (Start + End) * 0.5 - Up * (Thick * 0.5);
-		AddSlab(SurfaceFor(TEXT("concrete"), true, false), FTransform(Rotation, Center, FVector(Along.Size(), Width, Thick) / 100.0));
+		AddSlab(SurfaceFor(TEXT("Floor_Grating"), true, false), FTransform(Rotation, Center, FVector(Along.Size(), Width, Thick) / 100.0));
 	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -783,6 +836,10 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 	{
 		SpawnDestruction(*World, PieceBoxes);
 	}
+	if (FApp::CanEverRender())
+	{
+		Dress(*World, Root);
+	}
 	if (UVerseEventHub* Hub = UVerseEventHub::Get(World))
 	{
 		FractureHandle = Hub->OnFracture.AddUObject(this, &AVerseArenaGraybox::HandleFracture);
@@ -790,12 +847,21 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 
 	if (World->GetNetMode() != NM_DedicatedServer)
 	{
-		// One shadowless cool fill keeps the space between the warm work-light cones readable (the
-		// graybox has no bounce-friendly albedo or light cards yet). One only: two directional lights
-		// compete for forward shading and volumetric fog.
+		// One shadowless cool fill keeps the space between the warm work-light cones readable. One
+		// only: two directional lights compete for forward shading and volumetric fog, so other
+		// directional lights of the world go dark while the arena stands.
+		for (TActorIterator<ADirectionalLight> It(World); It; ++It)
+		{
+			if (UDirectionalLightComponent* Other = Cast<UDirectionalLightComponent>(It->GetLightComponent()); Other && Other->IsVisible())
+			{
+				Other->SetVisibility(false);
+				MutedLights.Add(Other);
+			}
+		}
 		if (ADirectionalLight* Fill = World->SpawnActor<ADirectionalLight>(FVector(5000.0, 2400.0, 1500.0), FRotator(-26.0, 35.0, 0.0), Params))
 		{
 			UDirectionalLightComponent* C = CastChecked<UDirectionalLightComponent>(Fill->GetLightComponent());
+			C->SetForwardShadingPriority(1);
 			C->SetMobility(EComponentMobility::Movable);
 			C->SetIntensity(FillLux);
 			C->SetUseTemperature(true);

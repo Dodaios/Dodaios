@@ -1,0 +1,33 @@
+{
+  "name": "MI_Arena_ShuttleHull",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_ShuttleHull",
+  "scalars": {
+    "EdgeWear": 0.5,
+    "GrimeAmount": 0.55,
+    "Metallic": 0.0,
+    "NoiseScale": 1.1,
+    "RoughnessMax": 0.55,
+    "RoughnessMin": 0.32
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.3,
+      0.305,
+      0.31,
+      1.0
+    ],
+    "EdgeTint": [
+      0.18,
+      0.18,
+      0.18,
+      1.0
+    ]
+  }
+}

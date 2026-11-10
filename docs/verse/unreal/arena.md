@@ -202,6 +202,34 @@ from `Data/arena/hangar_graybox.json` when a duel starts and removes it on leave
 
 `Verse.Visual.HangarFeel` shows it (screenshot lane).
 
+### 9.2 Dressing
+
+The graybox boxes are the gameplay truth; what the eye sees comes from the kit
+(`VerseArenaDressing.cpp`). Nothing the dressing adds collides or touches the nav mesh, so
+spawns, cover, sight lines, piece ids and the bot's data stay exactly those of `layout.py`.
+
+- **Looks**: every box gets a kit MI by its id, zone and penetration material
+  (`AVerseArenaGraybox::LookFor`): deck plates on the floor, hull walls, painted-concrete
+  barriers, container paints per container (walls and roof share one), a light-grey gunship
+  hull, grating, the booth's panels. The arena's own instances are text in
+  `unreal/Verse/Art/Materials/Arena/` (owner WP11), built with
+  `python scripts/unreal/import_art.py materials`.
+- **Kit slots**: imports never assign materials, so `python scripts/unreal/import_art.py bind`
+  puts each mesh's MIs (from its import record) into its slots after the MIs are built.
+- **Dressing**: wall modules and machinery bays on the hull walls with white strips between
+  them, the 41 m hall door, roof girders and purlins, gantry columns, stacked containers,
+  vehicles and racks in the hall bays outside the fence, fences drawn as posts, rails and a
+  faint screen (their boxes only collide), kit railings on the rail boxes, hazard bands on
+  barriers, columns and screens, container frames, the gunship's canopy, trim and engine glow,
+  the pad, lane and chevron markings, a hazard edge and a red band in the launch well, floor
+  lights.
+- **Light**: the fill is the world's only visible directional light while the arena stands
+  (others are muted and come back on leave); exposure EV100 5.0. Outside the editor the
+  engine's on-screen developer lines are off (`-ScreenMessages` keeps them).
+
+`Verse.Visual.HangarArt` tours the arena from a player's eye (both spawns, mid, cover, looking
+up, ADS, the booth, the catwalk) into `Saved/Harness/proof/art/`.
+
 ## 10. Open items
 
 | Item | Needs |

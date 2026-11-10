@@ -1,0 +1,33 @@
+{
+  "name": "MI_Arena_DeckPlateWell",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Floor.M_Verse_Floor",
+  "replaces": "M_Arena_DeckPlateWell",
+  "scalars": {
+    "GridCm": 120.0,
+    "LaneCm": 480.0,
+    "LaneWidthCm": 160.0,
+    "NoiseScale": 0.7,
+    "RoughnessMax": 0.6,
+    "RoughnessMin": 0.3,
+    "SeamCm": 1.2,
+    "WearAmount": 0.2
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.02,
+      0.02,
+      0.022,
+      1.0
+    ],
+    "SeamTint": [
+      0.004,
+      0.004,
+      0.0045,
+      1.0
+    ]
+  }
+}

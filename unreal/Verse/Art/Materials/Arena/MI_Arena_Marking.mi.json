@@ -1,0 +1,27 @@
+{
+  "name": "MI_Arena_Marking",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_Marking",
+  "scalars": {
+    "EdgeWear": 0.6,
+    "GrimeAmount": 0.5,
+    "Metallic": 0.0,
+    "NoiseScale": 2.5,
+    "RoughnessMax": 0.7,
+    "RoughnessMin": 0.4
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.55,
+      0.55,
+      0.53,
+      1.0
+    ]
+  }
+}

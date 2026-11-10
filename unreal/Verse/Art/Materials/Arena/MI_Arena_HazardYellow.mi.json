@@ -1,0 +1,33 @@
+{
+  "name": "MI_Arena_HazardYellow",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Arena_HazardYellow",
+  "scalars": {
+    "EdgeWear": 0.6,
+    "GrimeAmount": 0.5,
+    "Metallic": 0.0,
+    "NoiseScale": 2.0,
+    "RoughnessMax": 0.75,
+    "RoughnessMin": 0.45
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTriplanar": false
+  },
+  "textures": {},
+  "vectors": {
+    "BaseTint": [
+      0.42,
+      0.27,
+      0.02,
+      1.0
+    ],
+    "EdgeTint": [
+      0.1,
+      0.1,
+      0.1,
+      1.0
+    ]
+  }
+}
