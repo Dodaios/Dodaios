@@ -7880,7 +7880,8 @@
       "the_agent": "The agent"
     },
     "technical_details": "Technical details",
-    "ran": "Ran"
+    "ran": "Ran",
+    "getting_ready": "Getting ready"
   },
   "work_trace": {
     "tool_failed": "A tool action failed",

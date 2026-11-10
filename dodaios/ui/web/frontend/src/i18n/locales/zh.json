@@ -7880,7 +7880,8 @@
       "the_agent": "智能体"
     },
     "technical_details": "技术详情",
-    "ran": "运行了"
+    "ran": "运行了",
+    "getting_ready": "正在准备"
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",

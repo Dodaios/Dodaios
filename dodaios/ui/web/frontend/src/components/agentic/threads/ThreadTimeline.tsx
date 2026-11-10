@@ -12,6 +12,7 @@ import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
+import { PetMark } from "@/components/pets/PetMark";
 import { buildThreadRows, isFailed, joinStretches, thoughtGist, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
 import { flattenMarks } from "@/lib/plainMarks";
 import { SubagentRun } from "./ThreadSubagents";
@@ -443,7 +444,9 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
         {stretch.items.map((item) => <StepView key={item.id} item={item} running={running} lone={stretch.items.length === 1} />)}
       </div>
     </WorkRow>
-    {now && <p data-testid="thread-thought-live" className="m-0 mt-3 line-clamp-3 text-sm leading-[21px] text-muted-foreground [overflow-wrap:anywhere]">{flattenMarks(now.text)}</p>}
+    {/* One short sentence of it, at reading size: the rest is in the opened list. */}
+    {now && <p data-testid="thread-thought-live" title={flattenMarks(now.text)}
+      className="m-0 mt-3 text-[15px] leading-[21px] text-foreground/95 [overflow-wrap:anywhere]">{thoughtGist(now.text)}</p>}
   </div>;
 }
 
@@ -715,6 +718,24 @@ function WorkingFor({ since }: { since: number }) {
 }
 
 /**
+ * The foot of a running turn: the person's own pet at work, its clock, and
+ * how many sub-agents work with it. Before anything has arrived (the agent is
+ * still connecting) the pet says it gets ready instead of claiming work.
+ * Screen readers hear "Working for 12s".
+ */
+function WorkingLine({ since, starting, agents }: { since: number; starting: boolean; agents: number }) {
+  const t = useT();
+  const lang = t("trace_report.locale");
+  return <div className="-mt-1 flex h-7 min-w-0 items-center gap-2.5 text-sm text-muted-foreground" data-testid="thread-working">
+    <span className="sr-only"><WorkingFor since={since} /></span>
+    <PetMark size={24} state="working" />
+    {starting && <span aria-hidden className="live-tool-shine truncate text-[15px] leading-[21px]">{t("thread_turn.getting_ready")}</span>}
+    <span aria-hidden className="shrink-0 text-xs tabular-nums text-muted-foreground/80"><Elapsed since={since} /></span>
+    {agents > 0 && <span className="truncate text-xs text-muted-foreground/80">· {fill(t(`thread_turn.subagents_working_${plural(lang, agents)}`), { count: agents })}</span>}
+  </div>;
+}
+
+/**
  * The live line of a turn whose agent ended its message and waits for its own
  * background tasks: a quiet heading with the clock, then one line per task
  * under a thin rail, so a long task name never runs into the next one.
@@ -724,15 +745,12 @@ function BackgroundWait({ tasks, since }: { tasks: readonly string[]; since: num
   const lang = t("trace_report.locale");
   return <div className="min-w-0 text-sm text-muted-foreground" data-testid="thread-working">
     <div className="flex h-6 min-w-0 items-center gap-2" data-testid="thread-waiting-background">
-      <span aria-hidden className="relative flex h-1.5 w-1.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-primary/60 motion-safe:animate-ping" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary/80" />
-      </span>
+      <PetMark size={20} state="working" />
       <span className="live-tool-shine truncate">{fill(t(`thread_turn.waiting_background_${plural(lang, tasks.length)}`), { count: tasks.length })}</span>
       <span aria-hidden className="text-muted-foreground/50">·</span>
       <span className="shrink-0 text-muted-foreground/80"><Elapsed since={since} /></span>
     </div>
-    <ul className="ml-[2.5px] mt-0.5 space-y-0.5 border-l border-border/70 pl-3.5" data-testid="thread-waiting-tasks">
+    <ul className="ml-[9.5px] mt-0.5 space-y-0.5 border-l border-border/70 pl-3.5" data-testid="thread-waiting-tasks">
       {tasks.map((task, index) => <li key={`${index}:${task}`} className="truncate text-[13px] leading-5 text-muted-foreground/90" title={task}>{task}</li>)}
     </ul>
   </div>;
@@ -878,10 +896,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {running
       ? waitingOn.length > 0
         ? <BackgroundWait tasks={waitingOn} since={turn.startedMs} />
-        : <div className="-mt-1 flex h-6 min-w-0 items-center text-sm leading-relaxed text-muted-foreground" data-testid="thread-working">
-          <span className="whitespace-nowrap"><WorkingFor since={turn.startedMs} />
-            {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
-        </div>
+        : <WorkingLine since={turn.startedMs} starting={turn.blocks.length === 0} agents={agentsWorking} />
       : <>
         {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
         <ChangedFiles turn={turn} />
