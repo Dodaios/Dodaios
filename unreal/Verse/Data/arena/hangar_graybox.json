@@ -5209,6 +5209,8 @@
  "lights": [
   {
    "id": "work_01",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     1200.0,
@@ -5223,6 +5225,8 @@
   },
   {
    "id": "work_02",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     1200.0,
@@ -5237,6 +5241,8 @@
   },
   {
    "id": "work_03",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     1200.0,
@@ -5251,6 +5257,8 @@
   },
   {
    "id": "work_04",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     1200.0,
@@ -5265,6 +5273,8 @@
   },
   {
    "id": "work_05",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     3200.0,
@@ -5279,6 +5289,8 @@
   },
   {
    "id": "work_06",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     3200.0,
@@ -5293,6 +5305,8 @@
   },
   {
    "id": "work_07",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     3200.0,
@@ -5307,6 +5321,8 @@
   },
   {
    "id": "work_08",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     3200.0,
@@ -5321,6 +5337,8 @@
   },
   {
    "id": "work_09",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     5000.0,
@@ -5335,6 +5353,8 @@
   },
   {
    "id": "work_10",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     5000.0,
@@ -5349,6 +5369,8 @@
   },
   {
    "id": "work_11",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     5000.0,
@@ -5363,6 +5385,8 @@
   },
   {
    "id": "work_12",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     5000.0,
@@ -5377,6 +5401,8 @@
   },
   {
    "id": "work_13",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     6800.0,
@@ -5391,6 +5417,8 @@
   },
   {
    "id": "work_14",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     6800.0,
@@ -5405,6 +5433,8 @@
   },
   {
    "id": "work_15",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     6800.0,
@@ -5419,6 +5449,8 @@
   },
   {
    "id": "work_16",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     6800.0,
@@ -5433,6 +5465,8 @@
   },
   {
    "id": "work_17",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     8800.0,
@@ -5447,6 +5481,8 @@
   },
   {
    "id": "work_18",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     8800.0,
@@ -5461,6 +5497,8 @@
   },
   {
    "id": "work_19",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     8800.0,
@@ -5475,6 +5513,8 @@
   },
   {
    "id": "work_20",
+   "zone": "shell",
+   "layer": "base",
    "type": "spot",
    "location": [
     8800.0,
@@ -5489,6 +5529,8 @@
   },
   {
    "id": "cat_north_a",
+   "zone": "arena_catwalks",
+   "layer": "arena",
    "type": "rect",
    "location": [
     3400.0,
@@ -5503,6 +5545,8 @@
   },
   {
    "id": "cat_north_b",
+   "zone": "arena_catwalks",
+   "layer": "arena",
    "type": "rect",
    "location": [
     5200.0,
@@ -5517,6 +5561,8 @@
   },
   {
    "id": "cat_gantry",
+   "zone": "arena_catwalks",
+   "layer": "arena",
    "type": "rect",
    "location": [
     5000.0,
@@ -5531,6 +5577,8 @@
   },
   {
    "id": "booth_a",
+   "zone": "arena_booth",
+   "layer": "arena",
    "type": "rect",
    "location": [
     3000.0,
@@ -5545,6 +5593,8 @@
   },
   {
    "id": "booth_b",
+   "zone": "arena_booth",
+   "layer": "arena",
    "type": "rect",
    "location": [
     3500.0,
@@ -5559,6 +5609,8 @@
   },
   {
    "id": "cabin_a",
+   "zone": "arena_shuttle",
+   "layer": "arena",
    "type": "rect",
    "location": [
     5000.0,
@@ -5573,6 +5625,8 @@
   },
   {
    "id": "cabin_b",
+   "zone": "arena_shuttle",
+   "layer": "arena",
    "type": "rect",
    "location": [
     5000.0,
@@ -5587,6 +5641,8 @@
   },
   {
    "id": "aisle_11",
+   "zone": "arena_canyon",
+   "layer": "arena",
    "type": "spot",
    "location": [
     6480.0,
@@ -5601,6 +5657,8 @@
   },
   {
    "id": "aisle_12",
+   "zone": "arena_canyon",
+   "layer": "arena",
    "type": "spot",
    "location": [
     7080.0,
@@ -5615,6 +5673,8 @@
   },
   {
    "id": "aisle_21",
+   "zone": "arena_canyon",
+   "layer": "arena",
    "type": "spot",
    "location": [
     6480.0,
@@ -5629,6 +5689,8 @@
   },
   {
    "id": "aisle_22",
+   "zone": "arena_canyon",
+   "layer": "arena",
    "type": "spot",
    "location": [
     7080.0,
@@ -5643,6 +5705,8 @@
   },
   {
    "id": "aisle_31",
+   "zone": "arena_canyon",
+   "layer": "arena",
    "type": "spot",
    "location": [
     6480.0,
@@ -5657,6 +5721,8 @@
   },
   {
    "id": "aisle_32",
+   "zone": "arena_canyon",
+   "layer": "arena",
    "type": "spot",
    "location": [
     7080.0,
@@ -5671,6 +5737,8 @@
   },
   {
    "id": "armoury_a",
+   "zone": "armoury",
+   "layer": "base",
    "type": "rect",
    "location": [
     8200.0,
@@ -5685,6 +5753,8 @@
   },
   {
    "id": "armoury_b",
+   "zone": "armoury",
+   "layer": "base",
    "type": "rect",
    "location": [
     9200.0,
