@@ -810,6 +810,17 @@
     "indicator_label": "Sprachstatus"
   },
   "sidebar": {
+    "agent_state": {
+      "working": "Arbeitet",
+      "waiting": "Braucht dich",
+      "paused": "Pausiert"
+    },
+    "due": {
+      "title": "Demnächst",
+      "overdue": "Überfällig",
+      "today": "Heute",
+      "tomorrow": "Morgen"
+    },
     "extensions_label": "Plugins / Skills / MCP",
     "pinned": "Angeheftet",
     "recent": "Letzte",
