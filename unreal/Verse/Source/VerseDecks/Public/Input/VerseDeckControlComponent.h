@@ -56,6 +56,19 @@ struct VERSEDECKS_API FVerseDeckPointerState
 	TWeakObjectPtr<AActor> HoverCrew;
 };
 
+/** Who has the mouse, as the deck control last told the player controller. */
+enum class EVerseDeckMouseMode : uint8
+{
+	/** Nothing applied yet. */
+	None,
+	/** On a deck with the cursor free (overview, or eye level before "click to look"). */
+	Free,
+	/** On a deck in mouse look: game-only input, hidden cursor, captured raw deltas. */
+	Look,
+	/** Off the deck (the duel owns input): game-only input, hidden cursor, captured mouse. */
+	Game,
+};
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnVerseDeckStation, const FVerseDeckStation&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnVerseDeckCrew, AActor*);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnVerseDeckFlag, bool);
@@ -91,6 +104,11 @@ public:
 	static UVerseDeckControlComponent* Ensure(APlayerController* Controller);
 	/** Escape for the in-game menu owner: true when the deck used it (parity K-05). */
 	static bool TryEscape(const UWorld* World);
+	/**
+	 * Gives the mouse back to the game after a menu closed: the deck's own mode while it owns
+	 * input, game-only (captured, hidden cursor) otherwise. False when the world has no control.
+	 */
+	static bool RestoreInputMode(const UWorld* World);
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void BeginPlay() override;
@@ -166,6 +184,8 @@ public:
 	FName GetDeck() const { return Deck; }
 	/** Off while the hangar is an arena (the duel owns input) or before the first deck. */
 	bool IsDeckActive() const { return bActive; }
+	/** The input mode this control last applied to its player controller. */
+	EVerseDeckMouseMode GetMouseMode() const { return MouseMode; }
 	const Verse::DeckInput::FContext& GetInputContext() const { return Input; }
 	/** The pawn kept out of sight on the decks (the duel body). */
 	APawn* GetParkedPawn() const { return Parked.Get(); }
@@ -213,6 +233,8 @@ private:
 	void BindInput();
 	void UnbindInput();
 	void SetDeckActive(bool bOn);
+	/** Applies the mouse mode the deck state asks for to the player controller. */
+	void ApplyInputMode();
 	void ParkPawn();
 	void UnparkPawn();
 	AVerseDeckCommander* EnsureCommander(const FTransform& Arrival);
@@ -257,6 +279,7 @@ private:
 	bool bActive = false;
 	bool bBound = false;
 	bool bWasFocused = true;
+	EVerseDeckMouseMode MouseMode = EVerseDeckMouseMode::None;
 	FDelegateHandle DrawHandle;
 	FVector LastGoodFeet = FVector::ZeroVector;
 	double FallingS = 0.0;

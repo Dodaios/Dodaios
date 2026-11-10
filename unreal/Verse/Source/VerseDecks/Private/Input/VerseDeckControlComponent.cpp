@@ -92,6 +92,17 @@ bool UVerseDeckControlComponent::TryEscape(const UWorld* World)
 	return Control && Control->IsDeckActive() && Control->HandleEscape();
 }
 
+bool UVerseDeckControlComponent::RestoreInputMode(const UWorld* World)
+{
+	UVerseDeckControlComponent* Control = Get(World);
+	if (Control == nullptr)
+	{
+		return false;
+	}
+	Control->ApplyInputMode();
+	return true;
+}
+
 FText UVerseDeckControlComponent::DefaultStationLabel(const FVerseDeckStation& Station)
 {
 	using namespace VerseDeckControlPrivate;
@@ -187,6 +198,8 @@ void UVerseDeckControlComponent::SetDeckActive(bool bOn)
 	{
 		ParkPawn();
 		BindInput();
+		// Back from the duel the deck's own mouse mode applies again (free cursor until a click).
+		ApplyInputMode();
 	}
 	else
 	{
@@ -452,6 +465,40 @@ void UVerseDeckControlComponent::ToggleMouseLook()
 	SetMouseLook(!bMouseLook);
 }
 
+void UVerseDeckControlComponent::ApplyInputMode()
+{
+	APlayerController* Controller = Cast<APlayerController>(GetOwner());
+	if (Controller == nullptr)
+	{
+		return;
+	}
+	// Off the deck the duel owns input: the mouse stays captured for look. Leaving the controller in
+	// game-and-UI here (capture only while a button is held) was why the duel camera did not turn.
+	const EVerseDeckMouseMode Mode = !bActive ? EVerseDeckMouseMode::Game
+		: bMouseLook ? EVerseDeckMouseMode::Look : EVerseDeckMouseMode::Free;
+	const bool bCaptured = Mode != EVerseDeckMouseMode::Free;
+	Controller->SetShowMouseCursor(!bCaptured);
+	if (bCaptured)
+	{
+		// Game-only input with a hidden cursor puts the viewport in high precision (raw) mouse mode (V-11).
+		Controller->SetInputMode(FInputModeGameOnly());
+	}
+	else
+	{
+		FInputModeGameAndUI GameAndUi;
+		GameAndUi.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		GameAndUi.SetHideCursorDuringCapture(false);
+		Controller->SetInputMode(GameAndUi);
+	}
+	if (Mode != MouseMode)
+	{
+		UE_LOG(LogVerse, Log, TEXT("[VerseDeckControl] mouse %s"),
+			Mode == EVerseDeckMouseMode::Game ? TEXT("game (duel owns input, captured)")
+			: Mode == EVerseDeckMouseMode::Look ? TEXT("deck look (captured)") : TEXT("deck free (cursor)"));
+	}
+	MouseMode = Mode;
+}
+
 void UVerseDeckControlComponent::SetMouseLook(bool bOn)
 {
 	bOn = bOn && IsEyeLevel() && bActive;
@@ -461,22 +508,7 @@ void UVerseDeckControlComponent::SetMouseLook(bool bOn)
 	{
 		Cam->bMouseLocked = bOn;
 	}
-	if (APlayerController* Controller = Cast<APlayerController>(GetOwner()))
-	{
-		Controller->SetShowMouseCursor(!bOn);
-		if (bOn)
-		{
-			// Game-only input with a hidden cursor puts the viewport in high precision (raw) mouse mode (V-11).
-			Controller->SetInputMode(FInputModeGameOnly());
-		}
-		else
-		{
-			FInputModeGameAndUI Mode;
-			Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-			Mode.SetHideCursorDuringCapture(false);
-			Controller->SetInputMode(Mode);
-		}
-	}
+	ApplyInputMode();
 	if (bChanged)
 	{
 		OnMouseLookChanged.Broadcast(bOn);
