@@ -481,3 +481,62 @@ def test_a_package_without_the_bundle_script_builds_as_before(
     calls = _npm_calls(monkeypatch)
     assert follower._build(npm_install=False)
     assert calls == [(["run", "build"], {})]
+
+
+# ------------------------------------------------------------------ moved by somebody else
+
+
+def test_a_checkout_moved_by_somebody_else_is_rebuilt_and_restarted(
+    setup: tuple[Path, Path],
+) -> None:
+    """An agent's done gate fast-forwards the checkout; the app kept the old code and bundle."""
+    app, other = setup
+    recorder = Recorder()
+    follower = recorder.follower(app)
+    follower.tick()  # the commit this process started from
+    _land(
+        other,
+        {
+            "dodaios/core/a.py": "A = 2\n",
+            "dodaios/ui/web/frontend/src/App.tsx": "export {};\n",
+        },
+        "feat: both halves",
+    )
+    _git(app, "pull", "-q", "--ff-only")  # not the follower
+
+    status = follower.tick()
+
+    assert recorder.builds == [False]
+    assert recorder.restarts == 1 and not status.restart_pending
+    assert status.reason == ""
+
+
+def test_an_outside_move_waits_for_idle_and_is_handled_once(setup: tuple[Path, Path]) -> None:
+    app, other = setup
+    recorder = Recorder(idle=False)
+    follower = recorder.follower(app)
+    follower.tick()
+    _land(other, {"dodaios/core/a.py": "A = 2\n"}, "feat: two")
+    _git(app, "pull", "-q", "--ff-only")
+
+    status = follower.tick()
+    assert status.restart_pending and recorder.restarts == 0 and recorder.builds == []
+    follower.tick()
+    assert recorder.restarts == 0  # still busy: nothing is repeated, nothing is lost
+
+    recorder.idle = True
+    follower.tick()
+    assert recorder.restarts == 1
+
+
+def test_an_outside_move_of_files_the_app_never_loads_changes_nothing(
+    setup: tuple[Path, Path],
+) -> None:
+    app, other = setup
+    recorder = Recorder()
+    follower = recorder.follower(app)
+    follower.tick()
+    _land(other, {"docs/x.md": "x\n", "tests/test_x.py": "X = 1\n"}, "docs: x")
+    _git(app, "pull", "-q", "--ff-only")
+    status = follower.tick()
+    assert recorder.builds == [] and recorder.restarts == 0 and not status.restart_pending
