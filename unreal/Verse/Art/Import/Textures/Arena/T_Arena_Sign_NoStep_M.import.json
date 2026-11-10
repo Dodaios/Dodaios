@@ -1,0 +1,35 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Sign_NoStep_M.T_Arena_Sign_NoStep_M",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Sign_NoStep_M.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "784f62cab2249cdaeb9fe0d7c8de9893181d23fea2c6ab2a7490dc7a1bf6c27f"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Sign_NoStep_M",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "text": "NO STEP"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/signage.py",
+    "function": "main"
+  },
+  "texture": {
+    "channels": {
+      "r": "paint coverage"
+    },
+    "compression": "Grayscale",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

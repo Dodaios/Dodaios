@@ -20,6 +20,11 @@ def load(path: Path = PATH) -> dict[str, dict]:
 def merge(found: dict[str, dict], path: Path = PATH) -> None:
     """Add (or replace) material tints, sorted, as stable text."""
     known = load(path)
-    known.update(found)
+    for name, tint in found.items():
+        # A colour taken from the builder's own palette beats a viewport placeholder (node-built
+        # materials read as 0.8 grey in the viewport).
+        if known.get(name, {}).get("source") == "builder" and tint.get("source") == "viewport":
+            continue
+        known[name] = tint
     text = json.dumps(dict(sorted(known.items())), indent=1, sort_keys=True) + "\n"
     path.write_bytes(text.encode("utf-8"))

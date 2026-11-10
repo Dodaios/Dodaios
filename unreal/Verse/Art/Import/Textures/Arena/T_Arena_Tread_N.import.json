@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Tread_N.T_Arena_Tread_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Tread_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "6ebfe4b5fb6915cac54151bf98cc50895908318166e372d389d9f39e20d061ee"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "146f8c00874a584bcc4a184643e72f160da2a7568d469198e02b26c9ff93cf43"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Tread_N",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_plate",
+      "map": "nor_gl",
+      "set": "Tread"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 2048,
+    "srgb": false
+  }
+}

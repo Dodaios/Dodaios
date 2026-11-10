@@ -11,7 +11,7 @@ code. With `VERSE_PIPELINE_QUIT=1` the editor quits when the command is done.
 Commands: `assets [--only A,B] [--no-save]`, `placements --deck D [--zone Z]
 [--dry-run]`, `validate [--only A,B]`, `calib [--importer interchange|legacy]`,
 `masters [--only M_A] [--no-save]`, `materials [--only MI_A] [--no-save]`,
-`lookdev`, `wp14 [--no-lookdev]` (WP14, art-pipeline 2). A command that needs
+`bind [--only SM_A] [--no-save]`, `lookdev`, `wp14 [--no-lookdev]` (WP14, art-pipeline 2). A command that needs
 rendered frames may return `{"deferred": true}`; it then writes the report and
 quits the editor itself.
 """
@@ -43,7 +43,7 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--only", default="")
     calib = sub.add_parser("calib")
     calib.add_argument("--importer", choices=("interchange", "legacy"))
-    for name in ("masters", "materials"):
+    for name in ("masters", "materials", "bind"):
         cmd = sub.add_parser(name)
         cmd.add_argument("--only", default="")
         cmd.add_argument("--no-save", action="store_true")
@@ -82,6 +82,10 @@ def dispatch(argv: list[str]) -> dict:
         from verse_pipeline import materials
 
         return materials.run(_only(options.only), save=not options.no_save)
+    if options.command == "bind":
+        from verse_pipeline import bind
+
+        return bind.run(_only(options.only), save=not options.no_save)
     if options.command == "lookdev":
         return _wp14("lookdev").run()
     if options.command == "wp14":

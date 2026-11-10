@@ -98,6 +98,14 @@ def _name_sockets(unreal, mesh, spec) -> list[str]:
         short = socket.name.removeprefix("SOCKET_")
         if socket.name not in existing and short in existing:
             subsystem.rename_socket(mesh, short, socket.name)
+        elif socket.name in existing and short in existing:
+            # A re-import keeps the contract socket from the last import and adds the fresh
+            # one under its short name: move the contract socket onto the fresh transform.
+            # Both carriers (`SocketBase`, the spec bone) coincide, so the local transform holds.
+            fresh = mesh.find_socket(short)
+            kept = mesh.find_socket(socket.name)
+            for prop in ("relative_location", "relative_rotation", "relative_scale"):
+                kept.set_editor_property(prop, fresh.get_editor_property(prop))
     errors = []
     by_name = {
         str(item.get_editor_property("socket_name")): item
