@@ -16,6 +16,7 @@
 class AActor;
 class AHUD;
 class ACameraActor;
+class APostProcessVolume;
 class APawn;
 class SVerseUiRoot;
 class UCanvas;
@@ -62,9 +63,35 @@ public:
 	void SetReturnKey(const FKey& Key);
 	void SetAppSettings(const FVerseAppSettings& Next);
 	void RebindKey(FName Action, const FKey& Key);
+	/** controls.fov_duel */
 	void SetDuelFov(float Fov);
+	/** graphics.preset: -1 auto, 0..4 low..cinematic (sets every quality group). */
 	void SetScalability(int32 Level);
+	/** access.text_scale */
 	void SetTextScale(float Scale);
+
+	/**
+	 * The one read API of the in-game settings menu (docs/verse/unreal/game-settings.md): the
+	 * current value of a catalogue id, settings.game or a legacy place ("controls.view_mode"
+	 * reads view.mode). Null for an unknown id. Systems without a VerseUI dependency read the
+	 * same values from the console variables Verse.Settings.Game.<id>.
+	 */
+	TSharedPtr<FJsonValue> GetGameSetting(const FString& Id) const;
+	bool GetGameBool(const FString& Id) const;
+	double GetGameNumber(const FString& Id) const;
+	FString GetGameString(const FString& Id) const;
+	/**
+	 * Changes one catalogue value through the app settings (one settings.set). A quality preset
+	 * sets every quality group; changing one group turns the preset to custom. False when the
+	 * catalogue refuses the value.
+	 */
+	bool SetGameSetting(const FString& Id, const TSharedPtr<FJsonValue>& Value);
+	/** Broadcast after the settings were applied (welcome, settings.changed or the menu). */
+	FSimpleMulticastDelegate OnSettingsApplied;
+	/** What the graphics settings asked of the engine last. */
+	const FVerseGraphicsPlan& GetGraphicsPlan() const { return GraphicsPlan; }
+	/** The unbound post-process volume that carries the camera effect switches. */
+	APostProcessVolume* GetSettingsPostProcess() const { return SettingsPostProcess; }
 	/** Settings reset (parity T-01): sensitivity 1, invert off, quality auto, FOV 70/85, volume 0.7, view third. */
 	void ResetSettings();
 
@@ -178,6 +205,29 @@ private:
 	void UpdatePause();
 	double LocalNow() const;
 	void PublishSettings();
+	/** Seeds the settings from the user settings file cache before welcome arrives. */
+	void LoadSettingsCache();
+	/** Mirrors the settings into the user settings file (a cache; the app config is the truth). */
+	void SaveSettingsCache();
+	/** Applies settings.game to the engine, the audio mix, the HUD and the armoury. */
+	void ApplyGameSettings();
+	void ApplyGraphics(const FVerseGraphicsPlan& Plan);
+	void ApplyPostProcess(const FVerseGraphicsPlan& Plan);
+	void ApplyAudio();
+	/** True once the world plays or the app's welcome arrived: settings then reach the engine. */
+	bool bSettingsLive = false;
+	bool bBenchmarked = false;
+	/** The levels the hardware benchmark chose (preset auto). */
+	Scalability::FQualityLevels BenchmarkLevels;
+	bool bHdrApplied = false;
+	bool bBackgroundMuted = false;
+	FString AppliedGraphicsKey;
+	FVerseGraphicsPlan GraphicsPlan;
+	float SmoothedFps = 0.f;
+	float SmoothedFrameMs = 0.f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<APostProcessVolume> SettingsPostProcess;
 
 	void HandleHit(const FVerseHitEvent& Event);
 	void HandleDeath(const FVerseDeathEvent& Event);

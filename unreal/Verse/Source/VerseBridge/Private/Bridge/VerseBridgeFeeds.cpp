@@ -440,6 +440,25 @@ void FVerseSettingsFeed::ApplyChanged(const TSharedPtr<FJsonObject>& Data)
 				Strings.Add(S.Key, S.Value->AsString());
 			}
 		}
+		else if ((P.Key == TEXT("view") || P.Key == TEXT("game")) && P.Value.IsValid() && P.Value->Type == EJson::Object)
+		{
+			// view and game arrive as subsets of the changed ids: merge them into what welcome gave.
+			const TSharedPtr<FJsonObject>* Have = nullptr;
+			if (Settings->TryGetObjectField(P.Key, Have) && Have && (*Have).IsValid())
+			{
+				TSharedRef<FJsonObject> Merged = MakeShared<FJsonObject>();
+				Merged->Values = (*Have)->Values;
+				for (const TPair<FString, TSharedPtr<FJsonValue>>& Field : P.Value->AsObject()->Values)
+				{
+					Merged->Values.Add(Field.Key, Field.Value);
+				}
+				Settings->SetObjectField(P.Key, Merged);
+			}
+			else
+			{
+				Settings->Values.Add(P.Key, P.Value);
+			}
+		}
 		else
 		{
 			Settings->Values.Add(P.Key, P.Value);

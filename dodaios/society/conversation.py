@@ -426,6 +426,12 @@ async def prepare_history(
             if boundary is not None:
                 through = boundary
                 await asyncio.to_thread(archive.save_checkpoint, sid, through, summary)
+                if getattr(session, "surface", "") == "jarvis":
+                    # The lead's one conversation: what happened becomes episode
+                    # memories (ADR-0044). Agents' own threads stay out of the vault.
+                    from dodaios.memory.vault.runtime import record_checkpoint
+
+                    record_checkpoint(sid, through, summary)
         remaining = [e for e in events if int(e.get("seq") or 0) > through]
         if retained_request is not None and int(retained_request.get("seq") or 0) <= through:
             # Keep the last human request verbatim even if its unusually long

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from dodaios.verse_host.relays.settings import SHIP_DIR, locale_strings
+from dodaios.verse_host.relays.settings import SETTINGS_DIR, SHIP_DIR, locale_strings
 
 REPO = Path(__file__).resolve().parents[3]
 UNREAL_UI = REPO / "unreal" / "Verse" / "Data" / "ui"
@@ -60,6 +60,8 @@ def _own_chunk(lang: str) -> dict[str, str]:
 
     for path in sorted(SHIP_DIR.glob(f"*.{lang}.json")):
         walk("", json.loads(path.read_text(encoding="utf-8")))
+    # The in-game settings menu reads the app's own settings page chunk (verse_settings.*).
+    walk("", json.loads((SETTINGS_DIR / f"{lang}.json").read_text(encoding="utf-8")))
     return out
 
 
@@ -95,3 +97,18 @@ def test_welcome_locale_resolves_dotted_keys_under_a_leaf() -> None:
     assert strings["verse.settings.quality"] == "Grafikqualität"  # i18n-allow
     assert strings["verse.settings.quality.high"] == "Hoch"
     assert strings["verse.tier.adaptive.desc"].startswith("Beginnt")
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_unreal_fallback_carries_the_settings_menu_chunk(lang: str) -> None:
+    """strings.<lang>.json repeats the verse_settings chunk, so the menu reads well offline."""
+    unreal = json.loads((UNREAL_UI / f"strings.{lang}.json").read_text(encoding="utf-8"))["strings"]
+    chunk = {k: v for k, v in _own_chunk(lang).items() if k.startswith("verse_settings.")}
+    assert chunk
+    assert {k: unreal.get(k) for k in chunk} == chunk
+
+
+def test_welcome_locale_carries_the_settings_menu_labels() -> None:
+    strings = locale_strings("de")
+    assert strings["verse_settings.s.graphics.shadows.label"] == "Schatten"
+    assert strings["verse_settings.tabs.keybinds"]

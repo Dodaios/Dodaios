@@ -405,6 +405,10 @@
         "prone": "Deitado",
         "slide": "Deslizando",
         "stand": "Em pé"
+      },
+      "perf": {
+        "fps": "{fps} FPS",
+        "full": "{fps} FPS · {ms} ms"
       }
     },
     "item": {

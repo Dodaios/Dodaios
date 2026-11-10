@@ -405,6 +405,10 @@
         "prone": "Cuerpo a tierra",
         "slide": "Deslizando",
         "stand": "De pie"
+      },
+      "perf": {
+        "fps": "{fps} FPS",
+        "full": "{fps} FPS · {ms} ms"
       }
     },
     "item": {

@@ -266,3 +266,103 @@ def learned_user_name() -> str | None:
             if match:
                 return match.group(1)
     return None
+
+
+# -- dates, pause ------------------------------------------------------------
+
+
+def dated_notes(*, days: int = 30) -> list[tuple[Any, str]]:
+    """``(date, text)`` for current memories falling due soon, for "coming up" grounding."""
+    from datetime import date as _date
+
+    vault = _active
+    if vault is None:
+        return []
+    try:
+        memories = vault.upcoming(days=days)
+    except Exception:  # noqa: BLE001 — dates are grounding, never a turn breaker
+        log.debug("memory vault: upcoming read failed", exc_info=True)
+        return []
+    notes = []
+    for memory in memories:
+        try:
+            notes.append((_date.fromisoformat((memory.due_at or "")[:10]), memory.text))
+        except ValueError:  # an unreadable date is left out of the list
+            continue
+    return notes
+
+
+def upcoming(*, days: int = 14) -> list[Any]:
+    """Current memories due within ``days`` (overdue first); ``[]`` without a vault."""
+    vault = _active
+    return [] if vault is None else vault.upcoming(days=days)
+
+
+def learning_paused() -> bool:
+    """True while the user has paused background learning."""
+    vault = _active
+    if vault is None:
+        return False
+    try:
+        return vault.learning_paused_until() is not None
+    except Exception:  # noqa: BLE001 — an unreadable flag must not stop learning silently
+        log.warning("memory vault: pause flag unreadable", exc_info=True)
+        return False
+
+
+#: Kinds the user's agents may read: how the user wants things done, nothing private.
+AGENT_KINDS = ("preference", "procedural")
+AGENT_BLOCK_MAX_CHARS = 1200
+
+
+def agent_block(*, max_chars: int = AGENT_BLOCK_MAX_CHARS) -> str:
+    """The user's preferences and standing instructions for their agents (read-only).
+
+    Agents never see profile facts, people, places or anything sensitive, and
+    they cannot write or forget memories (ADR-0044).
+    """
+    vault = _active
+    if vault is None:
+        return ""
+    try:
+        memories = [
+            m
+            for kind in AGENT_KINDS
+            for m in vault.list(kind=kind)
+            if m.sensitivity == "normal" and m.scope == "global"
+        ]
+    except Exception:  # noqa: BLE001 — the agents work on without the user's preferences
+        log.debug("memory vault: agent block unavailable", exc_info=True)
+        return ""
+    memories.sort(key=lambda m: (not m.pinned, m.kind != "procedural", m.recorded_at))
+    header = (
+        "## How the user wants things done\n"
+        "From the user's own memory, read-only; follow it unless the task says otherwise."
+    )
+    lines: list[str] = []
+    used = len(header)
+    for memory in memories:
+        line = f"- {memory.text}"
+        if used + len(line) + 1 > max_chars:
+            break
+        lines.append(line)
+        used += len(line) + 1
+    return header + "\n" + "\n".join(lines) if lines else ""
+
+
+def record_checkpoint(session: str, through_seq: int, summary: str) -> bool:
+    """Queue a compacted part of the lead conversation for episode memories.
+
+    Cheap and synchronous (one meta write); the background upkeep distills the
+    queue. False when no vault runs, learning is paused, or it was queued already.
+    """
+    vault = _active
+    if vault is None or learning_paused():
+        return False
+    from dodaios.memory.vault.episodes import enqueue
+
+    try:
+        return enqueue(vault, session, through_seq, summary)
+    except Exception:  # noqa: BLE001 — compaction must never fail over memory
+        log.warning("memory vault: could not queue a conversation checkpoint", exc_info=True)
+        return False

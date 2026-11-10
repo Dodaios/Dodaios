@@ -256,8 +256,9 @@ def upcoming_notes(*, today: date | None = None) -> list[tuple[date, str]]:
     """What the assistant may bring up next, for the assistant page; ``[]`` on a fault."""
     try:
         from dodaios.memory.learning.notebook import dated_notes
+        from dodaios.memory.vault.runtime import dated_notes as vault_dated_notes
 
-        notes = dated_notes()
+        notes = list(dated_notes()) + list(vault_dated_notes())
     except Exception:  # noqa: BLE001 — the page renders without the list
         log.debug("initiative: dated notes unavailable", exc_info=True)
         return []

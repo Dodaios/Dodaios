@@ -7,6 +7,7 @@
 
 class SBox;
 class UVerseUiSubsystem;
+struct FVerseGameSettingDef;
 
 /**
  * Slate root of the Verse menus over the game viewport: the Verse bar (WP18.7) and one screen
@@ -29,10 +30,17 @@ public:
 	FName GetListeningAction() const { return ListeningAction; }
 	void StopListening() { ListeningAction = NAME_None; }
 
-	/** Settings page index (tests and captures pick a page). */
+	/** Settings page index, one per catalogue tab (tests and captures pick a page). */
 	void SetSettingsPage(int32 Page);
+	int32 GetSettingsPage() const { return SettingsPage; }
 
-	static constexpr int32 NumSettingsPages = 5;
+	/** The tabs of the game settings catalogue (graphics, audio, controls, keybinds, gameplay, interface, accessibility). */
+	static int32 NumSettingsPages();
+
+	/** The value a settings row shows ("High", "On", "85%"). */
+	static FText SettingValueText(const UVerseUiSubsystem& Ui, const FVerseGameSettingDef& Def);
+	/** One press of a row's previous (-1) or next (+1) button. */
+	static void StepSetting(UVerseUiSubsystem& Ui, const FVerseGameSettingDef& Def, int32 Direction);
 
 private:
 	TSharedRef<SWidget> BuildScreen();

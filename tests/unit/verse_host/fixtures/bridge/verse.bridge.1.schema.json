@@ -888,15 +888,7 @@
           "$ref": "#/$defs/view_settings"
         },
         "game": {
-          "type": "object",
-          "additionalProperties": {
-            "type": [
-              "string",
-              "number",
-              "boolean"
-            ]
-          },
-          "description": "In-game settings menu, flat by setting id (dodaios/verse_host/game_settings.py). Additive; announced as the game_settings feature."
+          "$ref": "#/$defs/game_settings"
         }
       },
       "additionalProperties": false
@@ -3152,6 +3144,10 @@
         "view": {
           "$ref": "#/$defs/view_settings"
         },
+        "game": {
+          "$ref": "#/$defs/game_settings",
+          "description": "Only the changed setting ids."
+        },
         "lang": {
           "type": "string",
           "minLength": 1
@@ -3350,6 +3346,10 @@
         },
         "view": {
           "$ref": "#/$defs/view_settings"
+        },
+        "game": {
+          "$ref": "#/$defs/game_settings",
+          "description": "Any subset; checked against the catalogue."
         }
       },
       "additionalProperties": false,
@@ -3950,6 +3950,17 @@
         "seq",
         "re"
       ]
+    },
+    "game_settings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      },
+      "description": "In-game settings menu, flat by setting id (dodaios/verse_host/game_settings.py). Additive; announced as the game_settings feature."
     }
   }
 }
