@@ -134,6 +134,7 @@ const CLI_HELPERS: Record<string, string> = {
   sendmessage: "message",
   listagents: "agents_list",
   taskstop: "stop", killshell: "stop", killbash: "stop",
+  monitor: "watch",
 };
 
 /** Buckets whose count is the number of distinct targets, not of calls. */

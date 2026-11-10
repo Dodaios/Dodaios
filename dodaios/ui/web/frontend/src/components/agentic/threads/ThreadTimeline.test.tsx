@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ToolBlock, TurnBlock, TurnItem, TurnStatus } from "@/components/agentchat/reduce";
-import { projectPath, ThreadTimeline } from "./ThreadTimeline";
+import { pictureUrls, projectPath, ThreadTimeline } from "./ThreadTimeline";
 
 const tool = (id: string, command: string, over: Partial<ToolBlock> = {}): ToolBlock => ({
   kind: "tool", callId: id, name: "Bash", input: { command }, output: "ok", isError: false,
@@ -188,5 +188,36 @@ describe("projectPath", () => {
     expect(projectPath("/home/me/repo/src/a.ts", "/home/me/repo/")).toBe("src/a.ts");
     expect(projectPath("src/a.ts", "/home/me/repo")).toBe("src/a.ts");
     expect(projectPath("/etc/x/y/z/a.conf", "/home/me/repo")).toBe("…/y/z/a.conf");
+  });
+});
+
+describe("line indicators", () => {
+  const media = (id: string, url: string): TurnBlock => ({ kind: "text", id: `media-${id}`, text: `![image](<${url}>)` });
+
+  it("reads picture addresses and leaves badges and logos out", () => {
+    expect(pictureUrls(["![image](</api/media/a.png>)", "![image](https://x.test/b.jpg)"])).toEqual(["/api/media/a.png", "https://x.test/b.jpg"]);
+    expect(pictureUrls(["![image](<https://github.com/o/r/actions/workflows/ci.yml/badge.svg>)", "![logo](/brand/logo.svg)"])).toEqual([]);
+  });
+
+  it("shows the pictures a line's calls brought back at its end, the newest three and a count", () => {
+    const blocks: TurnBlock[] = [];
+    for (let i = 1; i <= 5; i++) blocks.push(tool(`c${i}`, `shot ${i}`), media(`m${i}`, `/api/media/${i}.png`));
+    show(turn([...blocks, { kind: "text", id: "n1", text: "Looks right." }], "running"));
+    const pictures = screen.getByTestId("thread-line-pictures");
+    expect(pictures.querySelectorAll("img")).toHaveLength(3);
+    expect(pictures.textContent).toBe("+2");
+    expect(pictures.querySelectorAll("img")[2].getAttribute("src")).toBe("/api/media/5.png");
+  });
+
+  it("sets a line's failures apart and says how long it took", () => {
+    show(turn([
+      tool("c1", "npm test", { startedMs: 1_000, durationMs: 2_000 }),
+      tool("c2", "npm run lint", { isError: true, output: "Exit code 1", startedMs: 4_000, durationMs: 8_000 }),
+      { kind: "text", id: "n1", text: "Lint fails." },
+    ]));
+    fireEvent.click(screen.getByTestId("thread-worked-for"));
+    const line = screen.getByRole("button", { name: /^Ran 2 commands/ });
+    expect(line.querySelector("[class*='text-destructive/80']")?.textContent).toBe("1 failed");
+    expect(line.textContent).toContain("· 11s");
   });
 });
