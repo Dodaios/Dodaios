@@ -11406,9 +11406,12 @@ class SpeechPipeline:
         from dodaios.dictation.local_final import LocalFinalSTT
 
         if isinstance(primary, LocalFinalSTT):
-            status["local"] = bool(primary.is_warm)
-            status["detail"] = "" if primary.is_warm else str(primary.unavailable_reason)
-            if primary.is_warm:
+            # An engine released for idleness is still the one in front: the
+            # next dictation starts it again (dodaios/dictation/idle_release.py).
+            in_front = bool(primary.is_warm or primary.is_resting)
+            status["local"] = in_front
+            status["detail"] = "" if in_front else str(primary.unavailable_reason)
+            if in_front:
                 status["provider"] = primary.provider_label
                 status["model"] = primary.last_used_model
                 status["fallback"] = alternates[0] if alternates else ""
@@ -12372,6 +12375,17 @@ class SpeechPipeline:
             self._dictation_warmup_task = None
             return fresh
 
+    @staticmethod
+    def _dictation_idle_release_s(dictation_cfg: Any) -> float:
+        """Seconds without a dictation after which the local engines are released."""
+        from dodaios.dictation.idle_release import DEFAULT_IDLE_MINUTES
+
+        minutes = getattr(dictation_cfg, "local_idle_minutes", None)
+        try:
+            return max(0.0, float(DEFAULT_IDLE_MINUTES if minutes is None else minutes)) * 60.0
+        except (TypeError, ValueError):
+            return DEFAULT_IDLE_MINUTES * 60.0
+
     def _dictation_local_final(self, dictation_cfg: Any) -> Any:
         """The out-of-process on-device final-pass provider, or ``None``.
 
@@ -12403,6 +12417,7 @@ class SpeechPipeline:
             return LocalFinalSTT(
                 model or DEFAULT_FINAL_MODEL,
                 min_free_gb=float(min_free if min_free is not None else 0.0),
+                idle_release_s=self._dictation_idle_release_s(dictation_cfg),
             )
         except Exception as exc:  # noqa: BLE001 — the cloud chain is still a chain
             log.warning("Local dictation engine unavailable (%s); using the chain.", exc)
@@ -12522,6 +12537,14 @@ class SpeechPipeline:
         # a widely used pattern in this repo's unit tests, which bypass
         # ``__init__`` entirely.
         cfg = getattr(self, "_dictation_cfg", None)
+        # The live line's engine may have been released while nobody dictated;
+        # start it with the key press instead of with the first preview tick.
+        try:
+            from dodaios.dictation.local_preview import dictation_starting
+
+            dictation_starting(self._dictation_idle_release_s(cfg))
+        except Exception as exc:  # noqa: BLE001 — the preview only decorates
+            log.debug("dictation preview restart skipped: %s", exc)
         target = getattr(self, "_dictation_target", "chat")
         buffer = bytearray()
         started_at = time.monotonic()

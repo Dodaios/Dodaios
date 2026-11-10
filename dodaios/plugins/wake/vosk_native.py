@@ -67,7 +67,45 @@ def import_vosk() -> ModuleType:
                 raise ImportError(f"vosk unavailable: {exc}") from exc
             raise
         _import_failure = None
+        cap_loader_threads(module)
         return module
+
+
+#: ``kaldi::g_num_threads`` as libvosk exports it (Itanium name mangling).
+_LOADER_THREADS_SYMBOL = "_ZN5kaldi13g_num_threadsE"
+
+
+def cap_loader_threads(module: ModuleType) -> bool:
+    """Load vosk models on one Kaldi thread instead of eight; ``True`` if set.
+
+    ``vosk.Model(...)`` computes the i-vector extractor's derived variables on
+    ``kaldi::g_num_threads`` (8) threads at once. Each of them calls into the
+    OpenBLAS inside libvosk, and that OpenBLAS maps a 128 MB scratch buffer per
+    concurrent caller and keeps it for the life of the process. Windows charges
+    the whole buffer against the page file whether or not it is ever touched.
+    Measured with the two small wake models (40 MB each on disk): 822 MB
+    committed after both loads, 1,336 MB on a bad run, against 437 MB with one
+    loader thread. Decoding needs one buffer only, because every native call
+    already runs behind ``_LOCK``. Load time did not change measurably.
+
+    Windows only: Linux and macOS do not charge untouched mappings. A libvosk
+    that does not export the symbol keeps its eight threads; nothing is patched.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        folder = os.path.dirname(str(getattr(module, "__file__", "") or ""))
+        library = os.path.join(folder, "libvosk.dll")
+        if not os.path.isfile(library):
+            return False
+        # vosk loaded this file already; the same path yields the same module.
+        handle = ctypes.CDLL(library)
+        ctypes.c_int.in_dll(handle, _LOADER_THREADS_SYMBOL).value = 1
+    except Exception:  # noqa: BLE001 - an optimisation: a different build loads as before
+        return False
+    return True
 
 # One worker that does nothing but let recognizers die. ``vosk_recognizer_free``
 # (KaldiRecognizer.__del__) is a native call measured at 15 s on a cold, paging

@@ -26,7 +26,12 @@ configured cloud provider:
   later — no press is ever lost to the local engine being unavailable;
 * a call that outlives its ceiling leaves a response in the pipe; the next
   call kills the worker rather than reading someone else's answer (AP-24:
-  a wedged native engine is recovered by replacing it, never by waiting).
+  a wedged native engine is recovered by replacing it, never by waiting);
+* a worker nobody has used for a while is released, because it holds about
+  2 GB of committed memory and 1 GB of accelerator memory while it idles
+  (:mod:`dodaios.dictation.idle_release`). The next dictation starts it again
+  when the key goes down, and a press that ends before it is up waits a few
+  seconds for it instead of sending the audio to the cloud.
 
 Nothing here is Windows-specific: the worker is our own interpreter running
 our own module, the free-memory probe reports "unknown" where there is no
@@ -44,6 +49,7 @@ import time
 from typing import Any
 
 from dodaios.core.protocols import Transcript
+from dodaios.dictation.idle_release import DEFAULT_IDLE_MINUTES, IdleRelease
 
 log = logging.getLogger(__name__)
 
@@ -107,6 +113,13 @@ AUTO_LANGUAGE = "auto"
 #: a full card into a slow cloud.
 _RETRY_AFTER_S = 60.0
 
+#: How long a press waits for a worker that is starting again after an idle
+#: release. That start reads the weights from the file cache (4.4 to 5.1 s
+#: measured on a loaded machine) and began when the key went down, so the wait
+#: is the rest of it. A first start after boot can take minutes and is never
+#: waited for here; that press goes to the next provider as before.
+_RESTART_WAIT_S = 6.0
+
 
 def _concrete_language(language: str | None) -> str | None:
     """A decoder-ready language code, or ``None`` to let Whisper detect one.
@@ -153,6 +166,7 @@ class LocalFinalSTT:
         compute: str = FINAL_COMPUTE,
         allow_cpu: bool = False,
         beam_size: int = FINAL_BEAM_SIZE,
+        idle_release_s: float = DEFAULT_IDLE_MINUTES * 60.0,
     ) -> None:
         self._model_name = str(model_name or DEFAULT_FINAL_MODEL).strip()
         self._min_free_gb = max(0.0, float(min_free_gb))
@@ -181,6 +195,15 @@ class LocalFinalSTT:
         self._spawn_in_flight = False
         self._next_attempt_at = 0.0
         self._last_refusal = ""
+        #: Releases the worker after ``idle_release_s`` without a dictation.
+        self._idle = IdleRelease(
+            idle_release_s, self._release_idle_worker, name="dictation-final-idle"
+        )
+        #: True from an idle release until the worker is up again (or its start
+        #: failed): the engine is in front, it only has to start.
+        self._resting = False
+        #: True for the instant the idle release holds the call lock.
+        self._releasing = False
 
     # ------------------------------------------------------------------
     # Identity — read by the chain, the history row and the health panel
@@ -217,6 +240,16 @@ class LocalFinalSTT:
         return self._spawn_in_flight
 
     @property
+    def is_resting(self) -> bool:
+        """True while the worker is released for idleness, not for a failure.
+
+        The engine is still the one in front: the next dictation starts it
+        again. The status card reads this so a released engine is not shown as
+        "the cloud provider answers".
+        """
+        return self._resting and self._worker is None
+
+    @property
     def device(self) -> str:
         """``"cuda"`` / ``"cpu"`` of the live worker, ``""`` without one."""
         return self._device
@@ -237,6 +270,7 @@ class LocalFinalSTT:
         press asks again after :data:`_RETRY_AFTER_S`. Raising here would only
         turn a full card into a warning nobody can act on.
         """
+        self._idle.touch()  # a dictation is starting: this is use
         self._ensure_worker()
 
     def recover(self) -> None:
@@ -244,6 +278,47 @@ class LocalFinalSTT:
         with self._spawn_lock:
             self._drop_worker_locked()
             self._next_attempt_at = 0.0
+
+    def _release_idle_worker(self) -> bool:
+        """Idle-watch callback: put the unused worker down. ``False`` = busy.
+
+        Both locks are taken without waiting, so a decode or a start in flight
+        simply means "not idle". They are held only for the swap; the kill and
+        the wait for the process run after they are free again.
+        """
+        if not self._call_lock.acquire(blocking=False):
+            return False
+        self._releasing = True
+        try:
+            if not self._spawn_lock.acquire(blocking=False):
+                return False
+            try:
+                if self._idle.due_in() > 0:
+                    return False  # used between the watch's look and this lock
+                worker, self._worker = self._worker, None
+                if worker is None:
+                    return True
+                self._device = ""
+                self._engine_compute = ""
+                self._next_attempt_at = 0.0
+                self._last_refusal = ""
+                self._resting = True
+            finally:
+                self._spawn_lock.release()
+        finally:
+            self._releasing = False
+            self._call_lock.release()
+        log.info(
+            "Local dictation engine released after %.0f min without a dictation "
+            "(%s); the next dictation starts it again.",
+            self._idle.idle_s / 60.0,
+            self._model_name,
+        )
+        try:
+            worker.close()
+        except Exception as exc:  # noqa: BLE001 - a dead worker is the goal state
+            log.debug("local dictation: idle worker close skipped (%s)", exc)
+        return True
 
     def close(self) -> None:
         self.recover()
@@ -268,7 +343,11 @@ class LocalFinalSTT:
             raise LocalEngineUnavailable(
                 f"the dictation worker takes 16 kHz audio, not {sample_rate} Hz"
             )
-        if not self._call_lock.acquire(blocking=False):
+        acquired = self._call_lock.acquire(blocking=False)
+        if not acquired and self._releasing:
+            # The idle release holds the lock for the swap of one reference.
+            acquired = self._call_lock.acquire(timeout=0.2)
+        if not acquired:
             if self._probe_running:
                 # Only ever set while the card is busy and a cloud is behind.
                 raise LocalEngineUnavailable(
@@ -285,10 +364,16 @@ class LocalFinalSTT:
         # its asyncio waiter. Releasing it on timeout lets the next request
         # consume the previous request's response from the same pipe (AP-24).
         guard = self._call_lock
+        #: Set by the reader once the worker holds this call's audio.
+        decoding = threading.Event()
+        #: Set here when the caller stopped waiting for this call.
+        abandoned = threading.Event()
 
         def read() -> Transcript:
             try:
-                return self._transcribe_blocking(pcm_bytes, language)
+                return self._transcribe_blocking(
+                    pcm_bytes, language, decoding=decoding, abandoned=abandoned
+                )
             finally:
                 guard.release()
 
@@ -296,9 +381,12 @@ class LocalFinalSTT:
         try:
             return await asyncio.shield(work)
         except asyncio.CancelledError:
-            # Keep a cold build single-flight. An active decoder, however,
-            # must be killed so its blocked pipe reader can finish.
-            if self._worker is not None:
+            abandoned.set()
+            # Keep a build single-flight: a reader that is still waiting for
+            # the worker to start has sent nothing, and sees ``abandoned``
+            # before it does. An active decoder, however, must be killed so
+            # its blocked pipe reader can finish.
+            if self._worker is not None and decoding.is_set():
                 await asyncio.to_thread(self.recover)
 
             def consume(done: asyncio.Task) -> None:
@@ -312,7 +400,15 @@ class LocalFinalSTT:
             work.add_done_callback(consume)
             raise
 
-    def _transcribe_blocking(self, pcm_bytes: bytes, language: str | None) -> Transcript:
+    def _transcribe_blocking(
+        self,
+        pcm_bytes: bytes,
+        language: str | None,
+        *,
+        decoding: threading.Event | None = None,
+        abandoned: threading.Event | None = None,
+    ) -> Transcript:
+        self._idle.touch()
         if self._contended and self.cloud_behind:
             # A saturated card decodes at speech speed: the cloud behind us
             # answers in about a second. Crossable, so the chain moves on.
@@ -324,12 +420,18 @@ class LocalFinalSTT:
         worker = self._ensure_worker(blocking=False)
         if worker is None:
             raise LocalEngineUnavailable(self._last_refusal or "no local dictation worker")
+        if abandoned is not None and abandoned.is_set():
+            # The caller left while the worker was starting. Decoding now would
+            # hold the call lock against the next press for nobody.
+            raise LocalEngineUnavailable("the caller stopped waiting for the local engine")
         import numpy as np
 
         samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
         asked_for = _concrete_language(language)
         beam_size = self.current_beam_size
         started = time.perf_counter()
+        if decoding is not None:
+            decoding.set()
         try:
             segments, info = worker.transcribe(samples, language=asked_for, beam_size=beam_size)
         except Exception as exc:  # noqa: BLE001 — classified as crossable below
@@ -366,6 +468,7 @@ class LocalFinalSTT:
         audio_s = len(pcm_bytes) / 32_000.0
         decode_s = time.perf_counter() - started
         self._note_decode_speed(audio_s, decode_s, beam_size)
+        self._idle.touch()
         log.info(
             "Local dictation final pass: %.1fs of audio in %.2fs on %s (%s, beam %d).",
             audio_s,
@@ -466,9 +569,15 @@ class LocalFinalSTT:
         thread for the length of a cold model load — 137 s on the 2026-09-03
         boot, during which every dictation would otherwise have stalled.
         """
-        if self._worker is not None:
-            return self._worker  # set once, never mutated in place
-        if not self._spawn_lock.acquire(blocking=blocking):
+        worker = self._worker
+        if worker is not None:
+            return worker  # set once, never mutated in place
+        if not self._spawn_lock.acquire(blocking=blocking) and not (
+            # Starting again after an idle release: the weights are in the file
+            # cache and the start began with the key press, so the rest of it
+            # is a few seconds. Waiting keeps the audio on this machine.
+            self._resting and self._spawn_lock.acquire(timeout=_RESTART_WAIT_S)
+        ):
             raise LocalEngineUnavailable(
                 "the local dictation engine is still starting; this call goes to the next provider"
             )
@@ -487,6 +596,7 @@ class LocalFinalSTT:
         self._next_attempt_at = now + _RETRY_AFTER_S
         refusal = self._spawn_refusal()
         if refusal:
+            self._resting = False  # declined, which the status card must say
             self._last_refusal = refusal
             log.info("Local dictation engine not started: %s", refusal)
             return None
@@ -499,6 +609,7 @@ class LocalFinalSTT:
         finally:
             self._spawn_in_flight = False
         if worker is None:
+            self._resting = False  # no longer "only resting": the start failed
             self._last_refusal = "the dictation worker did not come up"
             # A cold build can outlast the retry interval. Start the cooldown
             # when it fails, or the very next transcription launches another
@@ -506,6 +617,7 @@ class LocalFinalSTT:
             self._next_attempt_at = time.monotonic() + _RETRY_AFTER_S
             return None
         device = str(getattr(worker, "device", "") or "")
+        self._resting = False
         if device == "cpu" and not self._allow_cpu:
             # A beam-search turbo decode of a 25 s window on a CPU takes
             # longer than the cloud round-trip it would replace; the
@@ -521,6 +633,7 @@ class LocalFinalSTT:
         self._device = device
         self._engine_compute = str(getattr(worker, "compute", "") or "")
         self._last_refusal = ""
+        self._idle.arm()
         # Timed: a cold load is two orders of magnitude slower than a warm one
         # (137 s against 3.5 s measured), and the number is the only way to see
         # from the log which one a boot got.
@@ -567,6 +680,8 @@ class LocalFinalSTT:
         worker, self._worker = self._worker, None
         self._device = ""
         self._engine_compute = ""
+        self._resting = False
+        self._idle.disarm()
         if worker is None:
             return
         try:
