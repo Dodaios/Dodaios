@@ -9,6 +9,10 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [4.2.2] — 2026-11-10
+
 ### Added
 
 - Settings → General → Permission modes: choose whether the app's own work
