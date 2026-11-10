@@ -557,12 +557,44 @@ async def browser_voice_ws(ws: WebSocket) -> None:
         nonlocal session
         if not bool(getattr(session, "is_realtime", False)):
             return False
-        if not bool(getattr(session, "allow_classic_fallback", True)):
+        from dodaios.speech import provider_refusal
+
+        # A usage-billed provider that SAID NO (plan, key, credit, settings)
+        # is not a provider that might still answer: the call continues on
+        # the classic path even though the provider forbids ambient fallback,
+        # and the person hears and reads why (live 2026-11-10: a plan without
+        # the realtime route ended every call after 12 s with nothing shown).
+        # A subscription that refused keeps its rule (issue #828): the call
+        # ends with the reason, never on a usage-billed path it was pinned
+        # to avoid. A transient failure (busy, unreachable) keeps it too.
+        refusal = getattr(session, "start_refusal", None) or provider_refusal.describe(
+            error if error is not None else reason
+        )
+        refusal_continues = refusal is not None and refusal.overrides_fallback_block
+        refused_provider = str(getattr(session, "active_provider", "") or "")
+        refusal_language = str(getattr(session, "_language", "") or "")
+
+        async def _announce(continued_on: str) -> None:
+            if refusal is None:
+                return
+            await provider_refusal.announce(
+                bus,
+                session_id=session_id,
+                provider=refused_provider,
+                refusal=refusal,
+                language=refusal_language,
+                continued_on=continued_on,
+            )
+
+        if not bool(getattr(session, "allow_classic_fallback", True)) and (
+            not refusal_continues or semantic_turn_committed
+        ):
             log.warning(
                 "browser_voice: selected realtime provider failed; automatic "
                 "usage-billed fallback is disabled: %s",
                 reason,
             )
+            await _announce(provider_refusal.CONTINUED_NONE)
             await session.end(reason=HANGUP_ERROR)
             try:
                 await _send_json(
@@ -586,6 +618,7 @@ async def browser_voice_ws(ws: WebSocket) -> None:
                 "refusing unsafe classic replay: %s",
                 reason,
             )
+            await _announce(provider_refusal.CONTINUED_NONE)
             await session.end(reason=HANGUP_ERROR)
             try:
                 await _send_json(
@@ -615,9 +648,11 @@ async def browser_voice_ws(ws: WebSocket) -> None:
             send_json=output.send_json,
         )
         if fallback is None:
+            await _announce(provider_refusal.CONTINUED_NONE)
             await ws.close(code=1011, reason=_SPEECH_STACK_UNAVAILABLE_REASON)
             return False
         session = fallback
+        await _announce(provider_refusal.CONTINUED_PIPELINE)
         await _send_json({"type": "mode_fallback", "mode": "pipeline"})
         if audio_start_control is not None:
             try:

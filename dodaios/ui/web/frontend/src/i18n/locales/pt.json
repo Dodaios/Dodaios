@@ -10767,7 +10767,8 @@
       "group_agents": "Agentes de código",
       "group_providers": "Fornecedores",
       "full": "A equipa está completa com {max} membros.",
-      "swarm": "Uma equipa grande precisa de mais turnos: cada passo espera até todos os membros darem a sua opinião."
+      "swarm": "Uma equipa grande precisa de mais turnos: cada passo espera até todos os membros darem a sua opinião.",
+      "model_default": "Modelo predefinido"
     },
     "meter_time": "{minutes} de {max_minutes} min",
     "meter_turns": "{turns} de {max_turns} turnos",
@@ -11286,5 +11287,16 @@
     "state_waiting": "Aguarda a tua confirmação",
     "state_failed": "Falhou",
     "open": "Abrir"
+  },
+  "voice_call": {
+    "voice_title": "Voz",
+    "voice_loading": "A carregar vozes…",
+    "voice_none": "Este caminho de voz não tem vozes para escolher.",
+    "voice_unavailable": "Não foi possível ler as vozes.",
+    "voice_applies_next_call": "Aplica-se à próxima chamada",
+    "voice_saved": "Voz alterada.",
+    "voice_saved_next_call": "Voz guardada para a próxima chamada.",
+    "voice_save_failed": "Não foi possível alterar a voz.",
+    "all_settings": "Todas as definições de voz"
   }
 }

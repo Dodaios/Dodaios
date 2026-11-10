@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -147,7 +148,11 @@ async def test_a_second_read_reuses_the_parsed_index(store: Path) -> None:
 async def test_a_changed_cache_file_is_read_again(store: Path) -> None:
     _seed(store, revision=1)
     first, _ = await community_source.get_index()
+    before = os.stat(store)
     _seed(store, revision=2)
+    # Same size, and on a coarse-clock filesystem possibly the same mtime: move
+    # the mtime forward so the change is visible the way a real rewrite is.
+    os.utime(store, ns=(before.st_atime_ns, before.st_mtime_ns + 2_000_000_000))
     second, _ = await community_source.get_index()
     assert first is not None and second is not None
     assert (first.revision, second.revision) == (1, 2)

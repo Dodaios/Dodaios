@@ -556,7 +556,10 @@ async def test_declarations_respect_the_providers_budget(call, make_provider):
     try:
         tools = provider.opened_with[0].tools
         names = [tool["name"] for tool in tools]
-        builtins = ("end_call", "discover_tools", "call_tool", "confirm_action", "task_status")
+        builtins = (
+            "end_call", "discover_tools", "call_tool", "confirm_action",
+            "today_brief", "task_status",
+        )
         for builtin in builtins:
             assert builtin in names
         described = [tool["description"].split(": ", 1)[0] for tool in tools[len(builtins):]]

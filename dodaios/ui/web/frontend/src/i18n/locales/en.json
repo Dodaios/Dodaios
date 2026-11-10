@@ -10767,7 +10767,8 @@
       "group_agents": "Coding agents",
       "group_providers": "Providers",
       "full": "The team is full at {max} members.",
-      "swarm": "A big team takes more turns: each step waits until every member has had its say."
+      "swarm": "A big team takes more turns: each step waits until every member has had its say.",
+      "model_default": "Default model"
     },
     "meter_time": "{minutes} of {max_minutes} min",
     "meter_turns": "{turns} of {max_turns} turns",
@@ -11286,5 +11287,16 @@
     "state_waiting": "Waits for your go",
     "state_failed": "Failed",
     "open": "Open"
+  },
+  "voice_call": {
+    "voice_title": "Voice",
+    "voice_loading": "Loading voices…",
+    "voice_none": "This voice path has no voice to choose from.",
+    "voice_unavailable": "The voices could not be read.",
+    "voice_applies_next_call": "Applies to the next call",
+    "voice_saved": "Voice changed.",
+    "voice_saved_next_call": "Voice saved for the next call.",
+    "voice_save_failed": "The voice could not be changed.",
+    "all_settings": "All voice settings"
   }
 }

@@ -10767,7 +10767,8 @@
       "group_agents": "Coding-Agents",
       "group_providers": "Anbieter",
       "full": "Das Team ist mit {max} Mitgliedern voll.",
-      "swarm": "Ein großes Team braucht mehr Züge: Jeder Schritt wartet, bis alle Mitglieder sich geäußert haben."
+      "swarm": "Ein großes Team braucht mehr Züge: Jeder Schritt wartet, bis alle Mitglieder sich geäußert haben.",
+      "model_default": "Standardmodell"
     },
     "meter_time": "{minutes} von {max_minutes} Min.",
     "meter_turns": "{turns} von {max_turns} Zügen",
@@ -11286,5 +11287,16 @@
     "state_waiting": "Wartet auf dein Okay",
     "state_failed": "Fehlgeschlagen",
     "open": "Öffnen"
+  },
+  "voice_call": {
+    "voice_title": "Stimme",
+    "voice_loading": "Stimmen werden geladen…",
+    "voice_none": "Für diesen Sprachweg gibt es keine Stimme zur Auswahl.",
+    "voice_unavailable": "Die Stimmen konnten nicht gelesen werden.",
+    "voice_applies_next_call": "Gilt ab dem nächsten Anruf",
+    "voice_saved": "Stimme geändert.",
+    "voice_saved_next_call": "Stimme für den nächsten Anruf gespeichert.",
+    "voice_save_failed": "Die Stimme konnte nicht geändert werden.",
+    "all_settings": "Alle Spracheinstellungen"
   }
 }

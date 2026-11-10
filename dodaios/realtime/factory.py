@@ -61,7 +61,12 @@ def _configured_provider_ids(cfg: Any) -> list[str]:
         value = str(provider_id or "").strip()
         if value and value in installed and value not in ordered:
             ordered.append(value)
-    return ordered
+    # A provider that refused the last call (plan, key, credit, busy) goes
+    # last for a while, so the next call opens with one that works instead
+    # of failing on the same answer first (dodaios/speech/provider_refusal).
+    from dodaios.speech.provider_refusal import order_by_health
+
+    return order_by_health(ordered)
 
 
 def realtime_implicit_usage_fallback_allowed(cfg: Any) -> bool:

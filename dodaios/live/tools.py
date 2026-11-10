@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 # history inside the 64 KiB message limit of smaller WebRTC clients.
 _CATALOG_BYTE_BUDGET = 24_000
 _BUILTIN_TOOLS = frozenset(
-    {"discover_tools", "call_tool", "confirm_action", "end_call", "task_status"}
+    {"discover_tools", "call_tool", "confirm_action", "end_call", "task_status", "today_brief"}
 )
 # An approval is a short answer made only of go-ahead words: "Ja, send ihn"
 # approves (refused live 2026-10-01 by an exact-phrase list), while "yes,
@@ -310,6 +310,16 @@ class LiveTools:
                 "Resume the exact pending action the user approved. Never infer approval.",
                 {"approval_id": {"type": "string"}},
                 ["approval_id"],
+            ),
+            function(
+                "today_brief",
+                "The user's day today as Dodaios already knows it: this morning's brief "
+                "when one was written, otherwise today's appointments and deadlines from "
+                "memory. Use it for 'what's on today', 'my day', 'brief me' and read the "
+                "text aloud as it is. For a follow-up that changes an item ('move that to "
+                "3 pm') use the calendar tool with the item named here.",
+                {},
+                [],
             ),
             function(
                 "task_status",
@@ -787,6 +797,10 @@ class LiveTools:
             return discover(self.catalog(), str(args.get("query", "")), offset)
         if name == "task_status":
             return await self._task_status(args)
+        if name == "today_brief":
+            from dodaios.speech.spoken_brief import build
+
+            return {"success": True, "brief": await build(language=self.language)}
         if name == "confirm_action":
             approval_id = str(args.get("approval_id", ""))
             if approval_id not in self._pending and len(self._pending) == 1:
@@ -955,7 +969,7 @@ class LiveTools:
 
     def _reads_only(self, name: str, args: dict) -> bool:
         """A safe permission tier does not imply a read: internal sends are safe."""
-        if name == "discover_tools":
+        if name in {"discover_tools", "today_brief"}:
             return True
         if name == "call_tool":
             name = str(args.get("name", ""))

@@ -51,6 +51,74 @@ export function requestVoiceHangup(): Promise<VoiceHangupAnswer> {
   return post<VoiceHangupAnswer>("/api/voice/hangup");
 }
 
+/** Two warms closer together than this are one warm (the host debounces too). */
+export const WARM_MIN_INTERVAL_MS = 20_000;
+let lastWarmAt = Number.NEGATIVE_INFINITY;
+
+/**
+ * Warm the next call while the pointer is still on its way to the button
+ * (issue #154): imports, the provider transport, the TTS and STT clients.
+ * Fire-and-forget and silent — a warm that fails changes nothing the person
+ * can see, the call simply starts cold as it did before. `now` is for tests.
+ */
+export function warmVoiceCall(now: number = Date.now()): boolean {
+  if (now - lastWarmAt < WARM_MIN_INTERVAL_MS) return false;
+  lastWarmAt = now;
+  void fetch("/api/voice/warm", { method: "POST", cache: "no-store", keepalive: true }).catch(
+    () => undefined,
+  );
+  return true;
+}
+
+/** Forget the last warm (tests). */
+export function resetVoiceWarm(): void {
+  lastWarmAt = Number.NEGATIVE_INFINITY;
+}
+
+export interface CallVoice {
+  id: string;
+  label: string;
+}
+
+export interface CallVoices {
+  /** Which engine speaks: a Live-surface provider, another realtime provider, or classic TTS. */
+  path: "live" | "realtime" | "tts";
+  provider: string;
+  voices: CallVoice[];
+  /** The voice in use, "" when the engine's default speaks. */
+  current: string;
+  default: string;
+  /** Whether a pick reaches a running call or only the next one. */
+  applies: "now" | "next_call";
+}
+
+/** The voices the current voice path can speak with (GET /api/voice/voices). */
+export async function fetchCallVoices(): Promise<CallVoices> {
+  const res = await fetch("/api/voice/voices", { cache: "no-store" });
+  if (!res.ok) throw new Error(fill(translate("voice.request_failed"), { status: res.status }));
+  return (await res.json()) as CallVoices;
+}
+
+/** Pick a voice for the current voice path (PUT /api/voice/voices). */
+export async function setCallVoice(voice: string): Promise<{ applies: "now" | "next_call" }> {
+  const res = await fetch("/api/voice/voices", {
+    method: "PUT",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ voice }),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      detail = String(((await res.json()) as { detail?: unknown }).detail ?? "");
+    } catch {
+      /* a non-JSON error body — the status line below still names the failure */
+    }
+    throw new Error(detail || fill(translate("voice.request_failed"), { status: res.status }));
+  }
+  return (await res.json()) as { applies: "now" | "next_call" };
+}
+
 /**
  * Whether the configured realtime transport needs a browser-supplied WebRTC
  * offer at all (`requires_webrtc_offer` from GET /api/settings/voice-mode).
