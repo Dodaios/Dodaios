@@ -22,6 +22,7 @@ import { applyStarterPlan, getStarterPlans, selectStarterPlan, type StarterPlan 
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { planKeysComplete, primarySlot, slotConfigured, slotEffective, startableProviders } from "../brainPlans";
+import { LocalModelQuickstart } from "../localModel/LocalModelQuickstart";
 
 /** How a subscription reads its CLI login, and when it counts as signed in. */
 export interface SubscriptionSpec {
@@ -516,6 +517,14 @@ export function ConnectStep({ onConnectedChange }: { onConnectedChange: (any: bo
           onKeyChanged={onKeyChanged}
         />
       ))}
+      {/* No subscription and no key: a free model on this computer. */}
+      <LocalModelQuickstart
+        className="mt-1"
+        onReady={() => {
+          onReady("local", true);
+          void refetch();
+        }}
+      />
       {others.length > 0 && (
         <div className="pt-1">
           <button

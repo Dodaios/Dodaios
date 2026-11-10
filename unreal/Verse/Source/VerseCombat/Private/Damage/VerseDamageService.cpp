@@ -9,8 +9,48 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerState.h"
 
+namespace VerseCombatIdsPrivate
+{
+	/**
+	 * The last player id each pawn carried. A bolt in flight or a planted charge outlives its
+	 * owner's possession (the respawn unpossesses the old body), and the kill still belongs to
+	 * the player who fired it, never to "the world". Game thread only.
+	 */
+	TMap<TWeakObjectPtr<const AActor>, int32>& LastKnown()
+	{
+		static TMap<TWeakObjectPtr<const AActor>, int32> Map;
+		return Map;
+	}
+
+	void Remember(const AActor* Actor, int32 Id)
+	{
+		if (!IsInGameThread())
+		{
+			return;
+		}
+		TMap<TWeakObjectPtr<const AActor>, int32>& Map = LastKnown();
+		if (Map.Num() > 256)
+		{
+			for (auto It = Map.CreateIterator(); It; ++It)
+			{
+				if (!It.Key().IsValid())
+				{
+					It.RemoveCurrent();
+				}
+			}
+		}
+		Map.Add(Actor, Id);
+	}
+
+	const int32* Recall(const AActor* Actor)
+	{
+		return IsInGameThread() ? LastKnown().Find(Actor) : nullptr;
+	}
+}
+
 int32 VerseCombatIds::IdOf(const AActor* Actor)
 {
+	using namespace VerseCombatIdsPrivate;
 	if (!Actor)
 	{
 		return -1;
@@ -19,12 +59,25 @@ int32 VerseCombatIds::IdOf(const AActor* Actor)
 	{
 		if (const APlayerState* Ps = Pawn->GetPlayerState())
 		{
+			Remember(Pawn, Ps->GetPlayerId());
 			return Ps->GetPlayerId();
+		}
+		if (const int32* Known = Recall(Pawn))
+		{
+			return *Known;
 		}
 	}
 	if (const APlayerState* Ps = Cast<APlayerState>(Actor))
 	{
 		return Ps->GetPlayerId();
+	}
+	// A gadget or projectile actor speaks for the pawn that placed it.
+	if (const APawn* By = Actor->GetInstigator(); By && By != Actor)
+	{
+		if (By->GetPlayerState() || Recall(By))
+		{
+			return IdOf(By);
+		}
 	}
 	// Actors without a player state (gadgets' owners in tests, targets): stable, never -1.
 	return -2 - int32(Actor->GetUniqueID() & 0x3FFFFFFF);
@@ -61,7 +114,13 @@ float UVerseDamageService::ApplyHit(AActor* Instigator, AActor* Victim, FVerseHi
 	}
 	const float T = Now();
 	Hit.ServerTime = T;
+	// A caller that knows the shooter's player id (a bolt or charge whose pawn has gone) keeps it.
+	const int32 KnownInstigatorId = Hit.InstigatorId;
 	Hit.InstigatorId = VerseCombatIds::IdOf(Instigator);
+	if (Hit.InstigatorId < 0 && KnownInstigatorId > 0)
+	{
+		Hit.InstigatorId = KnownInstigatorId;
+	}
 	Hit.VictimId = VerseCombatIds::IdOf(Victim);
 	Hit.bHeadshot = Hit.Zone == EVerseHitZone::Head ? 1 : 0;
 
