@@ -48,6 +48,8 @@ from dodaios.missions.stream_evidence import (
     UNDERLYING_REQUEST_LEAD,
     strip_spawn_meta,
 )
+from dodaios.orchestrator import mission_jobs
+from dodaios.orchestrator.jobs import with_job_id
 from dodaios.voice.action_phrases import action_phrase, resolve_ambient_language
 
 log = logging.getLogger(__name__)
@@ -703,6 +705,15 @@ class SpawnWorkerTool:
         self._last_spawn_turn = order_turn
         self._last_spawn_order = order
         launched = False
+        # The job exists before the mission does: its id goes into this result,
+        # and the turn that ordered it is held open for it (delegated work).
+        job_id = mission_jobs.begin(
+            "mission",
+            ctx=ctx,
+            title=(target or action)[:120],
+            manager=manager,
+            meta={"utterance": utterance[:300]},
+        )
         try:
             # 1. UI/Telemetry-Announce — kein Voice-ACK (Pipeline filtert Empty).
             await self._bus.publish(
@@ -726,6 +737,7 @@ class SpawnWorkerTool:
                     # must be in the same language the pipeline will wrap it
                     # in.
                     readback_language=ack_language,
+                    job_id=job_id,
                 ),
                 # NOTE: prefix "jarvis-agent-" is a live matching key, not a
                 # cosmetic label — dodaios/brain/manager.py
@@ -740,6 +752,7 @@ class SpawnWorkerTool:
                 # Announce or task-launch failed before the bg task could own
                 # the decrement — release the gate so it never wedges shut.
                 self._active_dispatches -= 1
+                mission_jobs.failed(job_id, "The mission was never launched.")
 
         # Compose the CONTEXT-aware spoken acknowledgement AFTER the dispatch
         # is armed (AD-OE1: the promise follows the handover, never delays
@@ -756,8 +769,14 @@ class SpawnWorkerTool:
         )
         return ToolResult(
             success=True,
-            output=ack,
-            artifacts=({"background_task": True, "utterance": utterance},),
+            output=with_job_id(ack, job_id, ctx),
+            artifacts=(
+                {
+                    "background_task": True,
+                    "utterance": utterance,
+                    **({"job_id": job_id} if job_id else {}),
+                },
+            ),
         )
 
     async def _background_dispatch(
@@ -769,6 +788,7 @@ class SpawnWorkerTool:
         *,
         mission_language: str = "en",
         readback_language: str | None = None,
+        job_id: str | None = None,
     ) -> None:
         """Laeuft im Background. Dispatched + executes eine Mission.
 
@@ -813,7 +833,9 @@ class SpawnWorkerTool:
                 language=mission_language,
                 source_actor="hauptjarvis",
             )
+            mission_jobs.linked(job_id, mission_id)
             if kontrollierer is None:
+                mission_jobs.failed(job_id, "No mission runner is available.")
                 log.warning(
                     "spawn_worker: mission %s dispatched but no Kontrollierer "
                     "available — mission stays PENDING until next app start "
@@ -835,9 +857,11 @@ class SpawnWorkerTool:
             await kontrollierer.run_mission(mission_id)
         except asyncio.CancelledError:
             log.info("Agent background dispatch cancelled (app shutdown)")
+            mission_jobs.interrupted(job_id, "The dispatch was cancelled.")
             raise  # Propagieren, damit Loop sauber aufraeumt.
         except BaseException as exc:  # noqa: BLE001
             log.exception("Background agent dispatch crashed")
+            mission_jobs.failed(job_id, f"{type(exc).__name__}: {exc}")
             await self._publish_dispatch_failure(
                 utterance, f"{type(exc).__name__}: {exc}",
             )

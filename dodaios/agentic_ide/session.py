@@ -1235,6 +1235,8 @@ class Terminal:
     # Was the last prompt Jarvis sent typed into a RUNNING turn (native
     # steering) rather than at an idle prompt? Read by the delivery receipt.
     last_send_mid_turn: bool = False
+    # The jobs-ledger id of the newest tracked submission (dodaios.orchestrator.jobs).
+    last_job_id: str = ""
     # A hand-pressed Enter on an injected prompt is being checked against the
     # screen. Kept explicit so another Enter stays on the verified path rather
     # than being mistaken for a brand-new manual instruction.

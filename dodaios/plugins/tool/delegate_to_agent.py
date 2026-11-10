@@ -162,6 +162,7 @@ class DelegateToAgentTool:
             target = runtime.pick_agent(task)
         if target is None:
             return ToolResult(success=False, output=_NO_FIT[lang], error="no_agent_fits")
+        from dodaios.society.delegation_wait import ledger_job_id
         from dodaios.society.events import MsgType
 
         try:
@@ -205,6 +206,8 @@ class DelegateToAgentTool:
             "agent_id": target.agent_id,
             "agent_name": display_name(target),
             "assignment_id": env.event_id,
+            # The handle for job_status / await_jobs.
+            "job_id": ledger_job_id(env),
             "trace_id": env.trace_id,
             "reply_policy": policy,
             # Said differently than it is spelled: the reply names the agent
