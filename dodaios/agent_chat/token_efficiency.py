@@ -19,7 +19,10 @@ turn's own events, and says so in ``unit``.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Final, NamedTuple
+
+log = logging.getLogger(__name__)
 
 #: Characters per token for converting a character split into token terms.
 CHARS_PER_TOKEN: Final[int] = 4
@@ -77,6 +80,7 @@ def _sum(usage: dict[str, Any], keys: tuple[str, ...]) -> int:
         try:
             total += max(0, int(usage.get(key) or 0))
         except (TypeError, ValueError):
+            log.debug("token efficiency: unreadable usage value %r", key)
             continue
     return total
 
@@ -131,5 +135,6 @@ def annotate_turn_finished(store: Any, session_id: str, event: dict[str, Any]) -
             payload.get("usage"), history_chars=basis.history_chars, turn_events=turn_events
         )
     except Exception:  # noqa: BLE001 - a measurement never blocks the turn's end
+        log.debug("token efficiency: split not recorded for %s", session_id, exc_info=True)
         return event
     return {**event, "payload": {**payload, "context": context}}

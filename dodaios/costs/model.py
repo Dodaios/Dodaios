@@ -26,6 +26,7 @@ but no invoice carries it, so it is named rather than mixed in silently.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -333,6 +334,7 @@ def share_in_tokens(context: Any) -> tuple[int, int]:
         reread = max(0, int(context.get("reread") or 0))
         fresh = max(0, int(context.get("fresh") or 0))
     except (TypeError, ValueError):
+        logging.getLogger(__name__).debug("costs: unreadable re-read split %r", context)
         return 0, 0
     if context.get("unit") == "chars":
         reread //= _CONTEXT_CHARS_PER_TOKEN
