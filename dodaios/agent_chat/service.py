@@ -233,10 +233,11 @@ def resolve_runner(
 
     On the Jarvis surface the API path is Jarvis' own brain (``brain``): the
     same set of providers, driven by ``BrainManager.generate`` instead of the
-    coding agent's tool loop. That surface has no CLI seats at all
-    (``SurfaceKit.cli_seats``, maintainer 2026-08-26), so a vendor CLI never
-    answers there — not even the dual Claude row, which runs on the Anthropic
-    API behind its key like every other seat.
+    coding agent's tool loop. That surface also seats vendor CLIs
+    (``SurfaceKit.cli_seats`` is on): a CLI-backed row, and the dual Claude row
+    while Claude Code is installed, answers through its CLI runner as Jarvis
+    (``runner_cli`` with the identity). A surface whose kit has no CLI seats
+    answers on its API runner only.
 
     ``account_id`` is the seat's login, or a reserved access value
     (``catalog.ACCESS_ACCOUNTS``) that pins the dual Claude row to its API key
