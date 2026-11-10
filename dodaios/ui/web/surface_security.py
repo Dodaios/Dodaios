@@ -815,6 +815,17 @@ def _http_auth_exception(path: str, method: str) -> bool:
     )
 
 
+def _look_frame_request(path: str, method: str) -> bool:
+    """A read of a look's frame file (``looks_routes.py``, docs/looks.md).
+
+    The look runs in a sandboxed frame with an opaque origin, so its own loads
+    arrive with ``Origin: null`` and no credential. These files are public
+    pack content, every response limits the frame to its own folder by CSP,
+    and only GET and HEAD pass; every other route keeps refusing the frame.
+    """
+    return method in {"GET", "HEAD"} and path.startswith("/looks-frame/")
+
+
 def _mission_inner_auth_socket(path: str) -> bool:
     if path == "/api/missions/ws":
         return True
@@ -1188,6 +1199,9 @@ class SurfaceSecurity:
         if chrome_transport_allowed(scope):
             # These exact local transports authenticate their first payload;
             # the extension never receives the general app control credential.
+            await self.app(scope, receive, send)
+            return
+        if kind == "http" and _look_frame_request(path, method):
             await self.app(scope, receive, send)
             return
         if not self.origin_is_trusted(scope):

@@ -3671,6 +3671,14 @@
       "land_warning": "A listed repository's code changes without you looking at the pull request first. Only add repositories you trust the tests of.",
       "land_add": "Add repository",
       "land_remove": "Remove {repo}"
+    },
+    "look": {
+      "title": "Look",
+      "description": "What shows in the app where the voice orb sits. Looks come from the Community Marketplace and can only draw: they get the voice state and the volume, nothing else.",
+      "orb": "Voice orb (default)",
+      "by": "by {author}",
+      "saved": "Look switched.",
+      "failed": "This look did not start, so the voice orb is showing instead."
     }
   },
   "telephony_view": {

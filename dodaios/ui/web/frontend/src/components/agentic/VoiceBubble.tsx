@@ -88,6 +88,7 @@ import {
 } from "./paneDrop";
 import { useDragSessionEnd } from "./dragSessionEnd";
 import { VoiceOrb } from "./VoiceOrb";
+import { LookSlot } from "@/components/looks/LookSlot";
 import { VoiceBubbleNotice } from "./VoiceBubbleNotice";
 import { useVoiceCall } from "./useVoiceCall";
 
@@ -699,7 +700,9 @@ export function VoiceBubble({
             (busy || connecting || dropPhase === "reading") && "cursor-wait opacity-80",
           )}
         >
-          <VoiceOrb state={voiceState} size={132} />
+          <LookSlot state={voiceState} className="h-[132px] w-[132px]">
+            <VoiceOrb state={voiceState} size={132} />
+          </LookSlot>
         </button>
       </div>
 

@@ -3671,6 +3671,14 @@
       "land_warning": "O código de um repositório da lista muda sem que veja primeiro o pull request. Adicione apenas repositórios em cujos testes confia.",
       "land_add": "Adicionar repositório",
       "land_remove": "Remover {repo}"
+    },
+    "look": {
+      "title": "Aspeto",
+      "description": "O que aparece na app no lugar do orbe de voz. Os aspetos vêm do Marketplace da comunidade e só podem desenhar: recebem o estado da voz e o volume, mais nada.",
+      "orb": "Orbe de voz (predefinido)",
+      "by": "de {author}",
+      "saved": "Aspeto alterado.",
+      "failed": "Este aspeto não arrancou, por isso aparece o orbe de voz."
     }
   },
   "telephony_view": {

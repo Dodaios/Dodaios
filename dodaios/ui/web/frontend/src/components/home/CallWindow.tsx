@@ -4,6 +4,7 @@ import { Mic, MicOff, PhoneOff, Settings2 } from "lucide-react";
 import { useVoiceCall } from "@/components/agentic/useVoiceCall";
 import { TranscriptLine } from "@/components/home/VoiceStage";
 import { VoiceGlow } from "@/components/home/VoiceGlow";
+import { LookSlot } from "@/components/looks/LookSlot";
 import { PetMark } from "@/components/pets/PetMark";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
@@ -171,7 +172,9 @@ export function CallWindow() {
   return (
     <section data-testid="call-window" data-state={ended ? "ended" : shown} role="region" aria-label={label} className={WINDOW}>
       {/* The voice light fills the lower part of the window, behind everything. */}
-      <VoiceGlow active={active} thinking={shown === "thinking" || shown === "connecting"} className="h-[68%]" />
+      <LookSlot state={shown} className="absolute inset-x-0 bottom-0 h-[68%] w-full">
+        <VoiceGlow active={active} thinking={shown === "thinking" || shown === "connecting"} className="h-[68%]" />
+      </LookSlot>
 
       <header className="relative flex items-center gap-2.5 px-4 pt-3.5">
         {hasWords && <PetMark size={32} reactive />}
