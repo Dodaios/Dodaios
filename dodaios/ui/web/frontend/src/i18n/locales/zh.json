@@ -7862,8 +7862,8 @@
     "show_more": "显示更多",
     "show_less": "收起",
     "took": "用时 {duration}",
-    "failed_count_one": "{count} 个失败",
-    "failed_count_other": "{count} 个失败",
+    "failed_count_one": "{count} 个步骤未成功",
+    "failed_count_other": "{count} 个步骤未成功",
     "act": {
       "command_one": "运行了一条命令",
       "command_other": "运行了多条命令",
@@ -7912,7 +7912,12 @@
       "plan_mode": "计划模式只允许读取",
       "cancelled": "它被取消了",
       "timeout": "没有人及时批准",
-      "no_approver": "它需要审批，但当时没人能批准"
+      "no_approver": "它需要审批，但当时没人能批准",
+      "signed_out": "登录已过期；请在插件中重新连接",
+      "forbidden": "该账号无权执行此操作",
+      "rate_limited": "服务要求放慢速度",
+      "unavailable": "服务自身出现了问题",
+      "timed_out": "响应时间过长"
     },
     "family": {
       "wiki": "搜索了知识库",

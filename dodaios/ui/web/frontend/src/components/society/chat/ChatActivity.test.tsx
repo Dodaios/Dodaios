@@ -77,14 +77,16 @@ it("keeps live and interrupted conversation tools in the left lane", () => {
   expect(screen.getByTestId("work-trace").className).toMatch(/self-start/);
 });
 
-it("keeps a failed tool visible while folding the surrounding work", () => {
+it("folds a failed tool with the surrounding work and names it on the fold", () => {
   const tool: ToolBlock = { kind: "tool", callId: "a", name: "read_file", input: { path: "report.csv" }, output: "Report contents", isError: false, durationMs: 100, approval: null, startedMs: 0 };
   render(<WorkTrace conversation status="done" startedMs={0} durationMs={2000} blocks={[
     tool,
     { ...tool, callId: "error", isError: true, output: "Upload failed" },
     { kind: "text", id: "reply", text: "I could not finish." },
   ]} />);
-  expect(screen.getByText("Upload failed")).toBeTruthy();
+  // The failure does not stand in the chat; the fold says a step did not work.
+  expect(screen.queryByText("Upload failed")).toBeNull();
+  expect(screen.getByTestId("trace-failed-count").textContent).toBe("1 step did not work");
   expect(screen.getByText("I could not finish.")).toBeTruthy();
   expect(screen.queryByText(/: Upload failed/)).toBeNull();
   openWork();

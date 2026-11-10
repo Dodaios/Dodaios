@@ -7862,8 +7862,8 @@
     "show_more": "Mehr anzeigen",
     "show_less": "Weniger anzeigen",
     "took": "Dauer: {duration}",
-    "failed_count_one": "{count} fehlgeschlagen",
-    "failed_count_other": "{count} fehlgeschlagen",
+    "failed_count_one": "{count} Schritt hat nicht geklappt",
+    "failed_count_other": "{count} Schritte haben nicht geklappt",
     "act": {
       "command_one": "hat einen Befehl ausgeführt",
       "command_other": "hat Befehle ausgeführt",
@@ -7912,7 +7912,12 @@
       "plan_mode": "im Planmodus ist nur Lesen erlaubt",
       "cancelled": "es wurde abgebrochen",
       "timeout": "niemand hat es rechtzeitig freigegeben",
-      "no_approver": "es brauchte eine Freigabe und niemand war da, um sie zu geben"
+      "no_approver": "es brauchte eine Freigabe und niemand war da, um sie zu geben",
+      "signed_out": "die Anmeldung ist abgelaufen; verbinde es unter Plugins neu",
+      "forbidden": "das Konto darf das nicht",
+      "rate_limited": "der Dienst hat um eine Pause gebeten",
+      "unavailable": "der Dienst hatte selbst ein Problem",
+      "timed_out": "die Antwort hat zu lange gedauert"
     },
     "family": {
       "wiki": "im Wiki gesucht",

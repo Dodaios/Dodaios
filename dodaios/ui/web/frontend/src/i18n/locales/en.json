@@ -7862,8 +7862,8 @@
     "show_more": "Show more",
     "show_less": "Show less",
     "took": "Took {duration}",
-    "failed_count_one": "{count} failed",
-    "failed_count_other": "{count} failed",
+    "failed_count_one": "{count} step did not work",
+    "failed_count_other": "{count} steps did not work",
     "act": {
       "command_one": "ran a command",
       "command_other": "ran commands",
@@ -7912,7 +7912,12 @@
       "plan_mode": "plan mode only allows reading",
       "cancelled": "it was cancelled",
       "timeout": "nobody approved it in time",
-      "no_approver": "it needed an approval and nobody was there to give it"
+      "no_approver": "it needed an approval and nobody was there to give it",
+      "signed_out": "the sign-in has expired; reconnect it under Plugins",
+      "forbidden": "the account is not allowed to do this",
+      "rate_limited": "the service asked to slow down",
+      "unavailable": "the service had a problem on its side",
+      "timed_out": "it took too long to answer"
     },
     "family": {
       "wiki": "searched the wiki",
