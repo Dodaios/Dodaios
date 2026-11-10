@@ -189,6 +189,32 @@ _SKILL_TURN_STATE: ContextVar[_SkillTurnState | None] = ContextVar(
     default=None,
 )
 
+
+class _BrainTurnState:
+    """Task-local prompt inputs of ONE ``generate`` call.
+
+    The evidence directive, the memory-recall suffix and the answering
+    provider's identity used to live on the manager, so a voice turn and a
+    typed, society or routine turn running at the same time read each other's
+    values into their system prompt. A turn now owns them through a ContextVar
+    (the same pattern as ``_SkillTurnState``); a prompt built outside any turn
+    (``render_surface_prompt``) installs an empty one.
+    """
+
+    __slots__ = ("active_turn_identity", "evidence_directive", "memory_context_suffix", "owner")
+
+    def __init__(self, owner: Any) -> None:
+        self.owner = owner
+        self.evidence_directive = ""
+        self.memory_context_suffix = ""
+        self.active_turn_identity: tuple[str, str | None] | None = None
+
+
+_BRAIN_TURN_STATE: ContextVar[_BrainTurnState | None] = ContextVar(
+    "dodaios.brain.manager.brain_turn_state",
+    default=None,
+)
+
 #: Bounds for the conversation-context block appended to a Computer-Use goal.
 #: The deterministic gate ships the RAW current utterance as the mission goal;
 #: a correction / follow-up turn ("that is the wrong server", "do it with
@@ -3475,7 +3501,13 @@ class BrainManager:
         nothing is stored on the manager, so a voice turn running alongside
         sees no trace of it.
         """
-        base = self._build_system_prompt()
+        # An empty turn state: this prompt never carries a voice turn's
+        # evidence directive, recall or provider identity.
+        empty_token = _BRAIN_TURN_STATE.set(_BrainTurnState(self))
+        try:
+            base = self._build_system_prompt()
+        finally:
+            _BRAIN_TURN_STATE.reset(empty_token)
         prompt = base
         recalled = await self._vault_recall(user_text)
         if recalled:
@@ -5102,7 +5134,6 @@ class BrainManager:
     # mandatory-tool directive + the tool that must stay visible even on a
     # smalltalk-classified turn ("was steht heute an" matches the smalltalk
     # allowlist forms). Reset at the start of every generate() turn.
-    _evidence_directive: str = ""
     _evidence_required_tool: str = ""
     # True when the mandated tool this turn is a WRITE/create action (e.g.
     # contact-upsert) rather than a read lookup — switches the honest backstop
@@ -5112,6 +5143,55 @@ class BrainManager:
     # so an unmet mandate's spoken fallback can NAME the capability instead of
     # the generic "the tool" (B3, 2026-06-30). Reset per turn.
     _evidence_required_domain: str = ""
+
+    def _local_brain_turn_state(self) -> _BrainTurnState | None:
+        state = _BRAIN_TURN_STATE.get()
+        return state if state is not None and state.owner is self else None
+
+    @property
+    def _evidence_directive(self) -> str:
+        state = self._local_brain_turn_state()
+        if state is not None:
+            return state.evidence_directive
+        return self.__dict__.get("_evidence_directive_last", "")
+
+    @_evidence_directive.setter
+    def _evidence_directive(self, value: str) -> None:
+        state = self._local_brain_turn_state()
+        if state is not None:
+            state.evidence_directive = value
+        else:
+            self.__dict__["_evidence_directive_last"] = value
+
+    @property
+    def _memory_context_suffix(self) -> str:
+        state = self._local_brain_turn_state()
+        if state is not None:
+            return state.memory_context_suffix
+        return self.__dict__.get("_memory_context_suffix_last", "")
+
+    @_memory_context_suffix.setter
+    def _memory_context_suffix(self, value: str) -> None:
+        state = self._local_brain_turn_state()
+        if state is not None:
+            state.memory_context_suffix = value
+        else:
+            self.__dict__["_memory_context_suffix_last"] = value
+
+    @property
+    def _active_turn_identity(self) -> tuple[str, str | None] | None:
+        state = self._local_brain_turn_state()
+        if state is not None:
+            return state.active_turn_identity
+        return self.__dict__.get("_active_turn_identity_last")
+
+    @_active_turn_identity.setter
+    def _active_turn_identity(self, value: tuple[str, str | None] | None) -> None:
+        state = self._local_brain_turn_state()
+        if state is not None:
+            state.active_turn_identity = value
+        else:
+            self.__dict__["_active_turn_identity_last"] = value
 
     def _local_skill_turn_state(self) -> _SkillTurnState | None:
         state = _SKILL_TURN_STATE.get()
@@ -10254,6 +10334,8 @@ class BrainManager:
         )
         skill_state = _SkillTurnState(self)
         skill_token = _SKILL_TURN_STATE.set(skill_state)
+        brain_state = _BrainTurnState(self)
+        brain_state_token = _BRAIN_TURN_STATE.set(brain_state)
         try:
             return await self._generate(
                 user_text,
@@ -10280,6 +10362,11 @@ class BrainManager:
             self._skill_turn_content_fallback = skill_state.content
             self._skill_turn_source_fallback = skill_state.source
             self._skill_injected_inline_fallback = skill_state.injected_inline
+            # Same for the last turn's directive and answering identity: only
+            # inspectable once the turn is over, never read by a concurrent one.
+            self._evidence_directive_last = brain_state.evidence_directive
+            self._active_turn_identity_last = brain_state.active_turn_identity
+            _BRAIN_TURN_STATE.reset(brain_state_token)
             _SKILL_TURN_STATE.reset(skill_token)
             _TURN_OVERRIDE.reset(override_token)
             TURN_LANGUAGE.reset(language_token)
@@ -10293,7 +10380,10 @@ class BrainManager:
         provider writes underneath is tagged and not counted a second time."""
         from dodaios.costs.ledger import usage_context
 
-        with usage_context("voice-turn"):
+        # Voice turns are "voice-turn"; a typed chat, society or routine turn
+        # (it carries a per-turn override) is tagged by its own surface.
+        caller = "voice-turn" if _TURN_OVERRIDE.get() is None else "agent-chat"
+        with usage_context(caller):
             return await self._generate_untagged(user_text, *args, **kwargs)
 
     async def _generate_untagged(
@@ -11962,9 +12052,10 @@ class BrainManager:
                 "Spoken fallback used instead of chain diagnostic: %s",
                 _format_provider_chain_error(provider_errors),
             )
-            return await self._provider_down_reply(
-                trace_uuid, cause=_primary_provider_down_cause(provider_errors)
-            )
+            down_cause = _primary_provider_down_cause(provider_errors)
+            if turn_override is not None:
+                turn_override.receipt.mark_provider_down(down_cause)
+            return await self._provider_down_reply(trace_uuid, cause=down_cause)
 
         # Text-serialized calls are recovered inside BrainDispatcher's shared
         # ToolUseLoop, where the exact turn-scoped tool surface, deadline,

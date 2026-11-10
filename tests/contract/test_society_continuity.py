@@ -11,7 +11,7 @@ import pytest
 from dodaios.agent_chat import runner_brain
 from dodaios.agent_chat.service import AgentChatService
 from dodaios.agent_chat.store import AgentChatStore
-from dodaios.core.protocols import ChatTurn, current_chat_turn
+from dodaios.core.protocols import BrainDelta, ChatTurn, current_chat_turn
 from dodaios.society.agent_tools import ProposeChangeTool
 from dodaios.society.conversation import ConversationArchive, prepare_history
 from dodaios.society.conversation_tool import ConversationRecallTool
@@ -403,3 +403,46 @@ async def test_smaller_model_can_recompact_an_existing_summary(world):
     history = await prepare_history(rt, session, events, "role", provider)
     assert provider.calls and "Gmail" in str(history[0].content)
     assert len(rt.conversations.checkpoint(session.session_id)[1]) < 1000
+
+
+class _LengthLimitedProvider(SummaryProvider):
+    """Every summary hits its length limit: compaction can never finish."""
+
+    async def complete(self, request):
+        self.calls.append(request)
+        yield BrainDelta(content="half a summ", finish_reason="length")
+
+
+async def test_failed_compaction_still_answers_the_turn_with_a_notice(world):
+    rt, _, session, fake = world
+    provider = _LengthLimitedProvider()
+    fake._get_brain = lambda *_a, **_k: provider
+    events = [message(1, "Gmail role: prepare drafts only.")]
+    events += [
+        message(i, f"Older exchange {i}. " + "detail " * 120,
+                "assistant_text" if i % 2 == 0 else "user_message")
+        for i in range(2, 60)
+    ]
+    events.append(message(60, "NEWEST QUESTION about drafts"))
+    emitted: list[dict] = []
+
+    async def emit(event):
+        emitted.append(event)
+
+    handle = SimpleNamespace(
+        session=session, history=events, output_language="", continuation=False,
+        turn_id="t-1", trace_id="trace", cancel=asyncio.Event(), emit=emit,
+    )
+    from dodaios.brain.turn_override import TurnOverride
+
+    override = TurnOverride(provider="openai")
+    reply = await runner_brain._generate(
+        fake, "NEWEST QUESTION about drafts", handle, override, lambda _c: None
+    )
+    assert reply == "Hello from Jarvis"
+    assert provider.calls, "the summary was attempted"
+    notices = [e for e in emitted if e["kind"] == "notice"]
+    assert [n["payload"]["kind"] for n in notices] == ["context_compaction_failed"]
+    history = fake.calls[-1][1]["history_override"]
+    assert any("NEWEST QUESTION" in str(m.content) for m in history)
+    assert rt.conversations.checkpoint(session.session_id) == (0, "")
