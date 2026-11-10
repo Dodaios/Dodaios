@@ -53,6 +53,18 @@ struct VERSEUI_API FVerseHudGadgetState
 	float CooldownRemaining = 0.f;
 };
 
+/** One weapon of the loadout, for the HUD's weapon list. */
+struct VERSEUI_API FVerseHudWeaponSlot
+{
+	EVerseLoadoutSlot Slot = EVerseLoadoutSlot::Primary;
+	FName WeaponId;
+	int32 Magazine = 0;
+	int32 MagazineSize = 0;
+	int32 Reserve = 0;
+	/** False for melee: the row shows no ammo. */
+	bool bUsesAmmo = true;
+};
+
 /** The local pawn as the HUD shows it (bot.md 3.3: only what the person may know). */
 struct VERSEUI_API FVerseHudPawnState
 {
@@ -80,6 +92,8 @@ struct VERSEUI_API FVerseHudPawnState
 	float ReloadProgress = 0.f;
 	bool bTacticalReload = true;
 
+	/** The whole loadout in slot order (primary, secondary, melee); empty when unknown. */
+	TArray<FVerseHudWeaponSlot> Weapons;
 	TArray<FVerseHudGadgetState> Gadgets;
 };
 

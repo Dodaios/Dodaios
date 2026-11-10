@@ -152,6 +152,22 @@ void FVerseDuelHudSource::GetPawnState(FVerseHudPawnState& Out) const
 	if (const UVerseInventoryComponent* Inventory = UVerseInventoryComponent::FindOn(Pawn))
 	{
 		Out.ActiveSlot = Inventory->ActiveSlot;
+		for (const EVerseLoadoutSlot Which : {EVerseLoadoutSlot::Primary, EVerseLoadoutSlot::Secondary, EVerseLoadoutSlot::Melee})
+		{
+			const FVerseWeaponSlotState* Held = Inventory->GetSlotState(Which);
+			const UVerseWeaponDefinition* HeldDef = Held ? Held->Definition.Get() : nullptr;
+			if (!HeldDef)
+			{
+				continue;
+			}
+			FVerseHudWeaponSlot& Row = Out.Weapons.AddDefaulted_GetRef();
+			Row.Slot = Which;
+			Row.WeaponId = HeldDef->WeaponId;
+			Row.Magazine = Held->Magazine;
+			Row.MagazineSize = HeldDef->MagazineSize;
+			Row.Reserve = Held->Reserve;
+			Row.bUsesAmmo = Which != EVerseLoadoutSlot::Melee;
+		}
 		const FVerseWeaponSlotState* Slot = Inventory->GetActiveState();
 		const UVerseWeaponDefinition* Def = Slot ? Slot->Definition.Get() : nullptr;
 		if (Def && Inventory->ActiveSlot != EVerseLoadoutSlot::Melee)

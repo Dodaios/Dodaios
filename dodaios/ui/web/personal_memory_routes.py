@@ -9,8 +9,11 @@
 * ``DELETE /api/memory/vault/items/{id}``      forget it and every version.
 * ``GET    /api/memory/vault/items/{id}/history``
 * ``GET    /api/memory/vault/activity``        recent changes.
-* ``GET    /api/memory/vault/export``          zip: ``format=bundle`` or ``markdown``.
+* ``PUT    /api/memory/vault/items/{id}/scope`` mark it work, private or neither.
+* ``GET    /api/memory/vault/export``          zip: ``format=all``, ``bundle`` or ``markdown``.
 * ``POST   /api/memory/vault/import``          a bundle zip as the request body.
+* ``POST   /api/memory/vault/import/read``     another assistant's export -> review list.
+* ``POST   /api/memory/vault/import/save``     save the rows the person kept.
 
 Handlers are plain ``def`` so FastAPI runs them off the event loop. Nothing
 here calls a model.
@@ -26,11 +29,13 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from dodaios.memory.vault.models import KINDS, Memory
+from dodaios.memory.vault.models import KINDS, SCOPES, Memory
 
 router = APIRouter(prefix="/api/memory/vault", tags=["memory"])
 
 _MAX_IMPORT_BYTES = 100 * 1024 * 1024
+#: Largest export of another assistant read in one upload (characters).
+_MAX_FOREIGN_CHARS = 20 * 1024 * 1024
 
 
 class NewMemory(BaseModel):
@@ -48,6 +53,29 @@ class EditMemory(BaseModel):
 
 class PinBody(BaseModel):
     pinned: bool = True
+
+
+class ScopeBody(BaseModel):
+    scope: str = Field(max_length=20)
+
+
+class ForeignUpload(BaseModel):
+    #: The file name, only to tell JSON from text.
+    name: str = Field(default="", max_length=300)
+    #: The file's text, read in the browser.
+    text: str = Field(min_length=1, max_length=_MAX_FOREIGN_CHARS)
+
+
+class ForeignItem(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    kind: str = Field(default="", max_length=20)
+    extracted: bool = False
+
+
+class ForeignSave(BaseModel):
+    name: str = Field(default="", max_length=300)
+    items: list[ForeignItem] = Field(default_factory=list, max_length=500)
+    scope: str = Field(default="global", max_length=20)
 
 
 class PauseBody(BaseModel):
@@ -276,15 +304,107 @@ def activity(limit: int = Query(default=50, ge=1, le=500)) -> dict[str, Any]:
     return {"entries": [{**e, "text": texts.get(e.get("memory_id") or "", "")} for e in entries]}
 
 
+@router.put("/items/{memory_id}/scope")
+def set_scope(memory_id: str, body: ScopeBody) -> dict[str, Any]:
+    """Mark a memory work or private, or unmark it (``global``)."""
+    if body.scope not in SCOPES:
+        raise HTTPException(status_code=422, detail=f"unknown scope {body.scope!r}")
+    if not _vault().set_scope(memory_id, body.scope):
+        raise HTTPException(status_code=404, detail="no such memory")
+    _changed()
+    return {"ok": True, "scope": body.scope}
+
+
+@router.post("/import/read")
+async def import_read(body: ForeignUpload) -> dict[str, Any]:
+    """Read another assistant's export into a review list; nothing is saved.
+
+    A memory list is read without a model; the person's messages of a chat
+    export go through one extraction call per chunk, on the assistant's seat.
+    """
+    import asyncio
+
+    from dodaios.memory.vault import foreign_import
+
+    vault = _vault()
+    parsed = await asyncio.to_thread(foreign_import.parse_upload, body.name, body.text)
+    facts: list[str] = list(parsed.facts)
+    extracted: list[str] = []
+    model_missing = False
+    if parsed.said:
+        ask = _extractor()
+        if ask is None:
+            model_missing = True
+        else:
+            rows, answered = await foreign_import.extract(parsed.said, ask)
+            model_missing = not answered and bool(foreign_import.worth_reading(parsed.said))
+            extracted = [r["text"] for r in rows]
+    listed = await asyncio.to_thread(foreign_import.candidates, vault, facts)
+    found = await asyncio.to_thread(foreign_import.candidates, vault, extracted, extracted=True)
+    seen = {row["text"].casefold() for row in listed}
+    rows = listed + [row for row in found if row["text"].casefold() not in seen]
+    return {
+        "candidates": rows[: foreign_import.MAX_CANDIDATES],
+        "shape": parsed.shape,
+        "messages": len(parsed.said),
+        "model_missing": model_missing,
+    }
+
+
+@router.post("/import/save")
+def import_save(body: ForeignSave) -> dict[str, Any]:
+    """Save the rows the person kept, with origin ``imported``."""
+    from dodaios.memory.vault import foreign_import
+
+    vault = _vault()
+    try:
+        counts = foreign_import.save(
+            vault,
+            [item.model_dump() for item in body.items],
+            file=body.name,
+            scope=body.scope,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if counts["added"]:
+        _changed()
+    return counts
+
+
+def _extractor() -> Any | None:
+    """The model call that reads a chat export, on the assistant's own seat."""
+    from dodaios.core.runtime_refs import get_brain_manager
+    from dodaios.memory.learning.review import ModelReviewer
+    from dodaios.memory.vault import foreign_import
+
+    config = getattr(get_brain_manager(), "_config", None)
+    if config is None:
+        return None
+    return ModelReviewer(
+        config,
+        system=foreign_import.extract_system_prompt,
+        parser=foreign_import.parse_extracted,
+        max_tokens=foreign_import.EXTRACT_MAX_TOKENS,
+        caller="memory-import",
+    )
+
+
 @router.get("/export")
 def export(
-    kind: str = Query(default="bundle", alias="format", pattern="^(bundle|markdown)$"),
+    kind: str = Query(default="bundle", alias="format", pattern="^(bundle|markdown|all)$"),
 ) -> Response:
-    from dodaios.memory.vault.portable import export_zip_bytes, markdown_files
+    from dodaios.memory.vault.portable import (
+        everything_zip_bytes,
+        export_zip_bytes,
+        markdown_files,
+    )
 
     vault = _vault()
     stamp = vault.now()[:10]
-    if kind == "bundle":
+    if kind == "all":
+        data = everything_zip_bytes(vault)
+        name = f"my-memory-{stamp}-all.zip"
+    elif kind == "bundle":
         data = export_zip_bytes(vault)
         name = f"my-memory-{stamp}.zip"
     else:

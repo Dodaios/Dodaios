@@ -4,6 +4,11 @@
 ``os.replace``) under one process-wide lock, so a crash mid-write leaves the
 previous file intact and two requests never interleave a read-modify-write.
 No secrets are ever written here.
+
+A record this version cannot read (written by a newer version, or edited by
+hand) is not listed, and every write carries it over exactly as it stands.
+Dropping it on the next write would delete a computer for good because of a
+single field.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ import tempfile
 import threading
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -82,10 +88,14 @@ class ComputerStore:
     # -- file I/O ----------------------------------------------------------
 
     def _read(self) -> list[Computer]:
+        return self._read_file()[0]
+
+    def _read_file(self) -> tuple[list[Computer], list[Any]]:
+        """The records, and the entries that are not readable as one."""
         try:
             raw = self._path.read_text(encoding="utf-8")
         except FileNotFoundError:  # no file yet simply means no computers yet
-            return []
+            return [], []
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
@@ -94,20 +104,26 @@ class ComputerStore:
             backup = self._path.with_suffix(".corrupt.json")
             log.warning("computers: %s is not JSON; moved aside to %s", self._path, backup)
             os.replace(self._path, backup)
-            return []
+            return [], []
+        items = data.get("computers", []) if isinstance(data, dict) else []
         rows: list[Computer] = []
-        for item in data.get("computers", []) if isinstance(data, dict) else []:
+        unreadable: list[Any] = []
+        for item in items if isinstance(items, list) else []:
             try:
                 rows.append(Computer.model_validate(item))
             except ValidationError as exc:
-                log.warning("computers: skipping an unreadable record: %s", exc)
-        return rows
+                unreadable.append(item)
+                log.warning("computers: one record is unreadable and stays in the file: %s", exc)
+        return rows, unreadable
 
     def _write(self, rows: list[Computer]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        # Callers hold the lock from their read to this write, so the file
+        # still holds the unreadable entries their read passed over.
+        unreadable = self._read_file()[1]
         payload = {
             "version": _FILE_VERSION,
-            "computers": [row.model_dump(mode="json") for row in rows],
+            "computers": [row.model_dump(mode="json") for row in rows] + unreadable,
         }
         fd, tmp = tempfile.mkstemp(prefix=".computers.", suffix=".tmp", dir=self._path.parent)
         try:

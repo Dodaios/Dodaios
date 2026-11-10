@@ -30,7 +30,40 @@ BRIEF_PROMPT: Final[str] = (
     "Read only: do not send, change, book or delete anything."
 )
 
+#: The brief's sections per proactivity topic (``proactive_settings.TOPICS``).
+_BRIEF_SECTIONS: Final[dict[str, str]] = {
+    "calendar": "today's calendar (time, title, place)",
+    "mail": "messages that wait for the user's reply",
+    "agents": (
+        "work you or the user's agents finished since the last brief and work "
+        "that waits on the user; open decisions"
+    ),
+    "deadlines": "anything due today that you know from memory",
+}
+
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def brief_prompt(settings: Any | None = None) -> str:
+    """The brief's prompt, covering only the topics the person left on.
+
+    Without settings, or with every topic on, this is :data:`BRIEF_PROMPT`.
+    With every topic off the brief still runs: it then covers the calendar
+    alone, so a brief the person turned on never comes back empty.
+    """
+    from dodaios.agent_chat.proactive_settings import TOPICS
+
+    topics = tuple(settings.topics) if settings is not None else TOPICS
+    if set(topics) >= set(TOPICS):
+        return BRIEF_PROMPT
+    sections = [_BRIEF_SECTIONS[t] for t in TOPICS if t in topics] or [
+        _BRIEF_SECTIONS["calendar"]
+    ]
+    return (
+        "Write the user's morning brief for today. Cover, most important first and "
+        "only what applies: " + "; ".join(sections) + ". Keep it short and grouped "
+        "under plain headings. Read only: do not send, change, book or delete anything."
+    )
 
 
 def _runtime() -> Any | None:
@@ -117,16 +150,21 @@ async def set_brief(*, enabled: bool, local_time: str, timezone: str) -> dict[st
         ZoneInfo(timezone)
     except Exception as exc:  # noqa: BLE001 — any lookup failure is a bad zone
         raise ValueError("timezone must be an IANA zone such as Europe/Berlin") from exc
+    from dodaios.agent_chat.proactive_checks import ADAPTIVE_TAG
+    from dodaios.agent_chat.proactive_settings import load_settings
+
+    settings = await load_settings(getattr(runtime, "store", None))
     spec = build_task_spec(
         lead,
         title=BRIEF_TITLE,
-        prompt=BRIEF_PROMPT,
+        prompt=brief_prompt(settings),
         schedule={"kind": "calendar", "local_time": local_time, "timezone": timezone},
     )
-    spec = spec.model_copy(update={"tags": (*spec.tags, BRIEF_TAG)})
+    # Adaptive: the next brief sees the previous one and does not repeat it.
+    spec = spec.model_copy(update={"tags": (*spec.tags, BRIEF_TAG, ADAPTIVE_TAG)})
     await create_routine(task_store, scheduler, spec)
     log.info("lead brief: scheduled daily at %s %s", local_time, timezone)
     return await brief_state()
 
 
-__all__ = ["BRIEF_PROMPT", "BRIEF_TAG", "brief_state", "set_brief"]
+__all__ = ["BRIEF_PROMPT", "BRIEF_TAG", "brief_prompt", "brief_state", "set_brief"]

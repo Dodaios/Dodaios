@@ -145,3 +145,33 @@ def test_the_registry_reader_matches_both_prefixes():
     assert relauncher._CONFIG_ENV_PREFIXES == ("DODAIOS__", "JARVIS__")
     reader = inspect.getsource(relauncher._read_windows_user_jarvis_env)
     assert "name.upper().startswith(_CONFIG_ENV_PREFIXES)" in reader
+
+
+def test_fresh_env_keeps_each_path_folder_once():
+    """Ten restarts in a day left ten copies of every DLL folder on PATH.
+
+    At 7,942 characters ``npm run`` could no longer resolve ``vite``, and the
+    app that follows main stopped rebuilding its own frontend (2026-11-10).
+    """
+    import os
+
+    vosk = os.path.join(os.sep, "opt", "site-packages", "vosk")
+    webview = os.path.join(os.sep, "opt", "site-packages", "webview", "lib")
+    tools = os.path.join(os.sep, "opt", "tools")
+    # The same folder spelled with a trailing separator is still the same folder;
+    # so is another letter case, where the file system ignores case.
+    respelled = [vosk + os.sep, ""]
+    if os.path.normcase("A") == os.path.normcase("a"):
+        respelled.append(vosk.upper())
+    inherited = os.pathsep.join([vosk, webview] * 10 + [tools, *respelled])
+    env = relauncher.fresh_user_env({"Path": inherited, "OTHER": "x"}, _read_persisted=lambda: None)
+    assert env["Path"].split(os.pathsep) == [vosk, webview, tools]
+    assert env["OTHER"] == "x"
+
+
+def test_a_path_without_repeats_is_passed_on_unchanged():
+    import os
+
+    value = os.pathsep.join([os.path.join(os.sep, "opt", "a"), os.path.join(os.sep, "opt", "b")])
+    env = relauncher.fresh_user_env({"PATH": value}, _read_persisted=lambda: {})
+    assert env["PATH"] == value

@@ -272,6 +272,11 @@ static void FillFightFrame(FFakeVerseHudSource& Source, FVerseHudModel& Model)
 	Source.Pawn.Reserve = 90;
 	Source.Pawn.bReloading = true;
 	Source.Pawn.ReloadProgress = 0.4f;
+	Source.Pawn.Weapons = {
+		{EVerseLoadoutSlot::Primary, TEXT("graveline"), 7, 30, 90, true},
+		{EVerseLoadoutSlot::Secondary, TEXT("tallow"), 12, 12, 48, true},
+		{EVerseLoadoutSlot::Melee, TEXT("hookbill"), 0, 0, 0, false},
+	};
 	Source.Pawn.Gadgets = {{TEXT("bulwark"), 1, 1, 0.f}, {TEXT("breach_charge"), 1, 2, 0.f}};
 	Source.SpreadDeg = 1.2f;
 	Model.SetLocalPlayerId(1);
@@ -292,6 +297,61 @@ static void FillFightFrame(FFakeVerseHudSource& Source, FVerseHudModel& Model)
 	D.Cause = EVerseDamageSource::Finisher;
 	D.RespawnAt = 103.0;
 	Model.OnDeath(D, 0.0);
+}
+
+// The loadout block: one column bottom right with a row per weapon, the drawn one lit and
+// carrying the ammo, the bound keys on the chips, icons for known items, health at the foot.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseUiHudLoadoutTest, "Verse.UI.Hud.Loadout", Flags)
+bool FVerseUiHudLoadoutTest::RunTest(const FString&)
+{
+	const FVerseUiStrings Strings = LoadStrings();
+	FFakeVerseHudSource Source;
+	FVerseHudModel Model;
+	FillFightFrame(Source, Model);
+	Source.Pawn.bReloading = false;
+	FVerseHudFrame Frame;
+	Frame.Model = &Model;
+	Frame.Strings = &Strings;
+	Frame.Source = &Source;
+	Frame.Layout = FVerseUiLayout::Compute(FVector2D(1920, 1080), 0.025f, FMargin(0), 1.f);
+	Frame.Keys.Secondary = FText::AsCultureInvariant(TEXT("Q"));
+	Source.GetPawnState(Frame.Pawn);
+	FVerseHudDrawList List;
+	FVerseHudPainter::Paint(Frame, List, FVerseHudPainter::DefaultMeasure());
+
+	const FVerseHudDrawList::FLabel* Mag = List.FindLabel(TEXT("weapon.magazine"));
+	const FVerseHudDrawList::FLabel* Health = List.FindLabel(TEXT("vitals.health"));
+	TestNotNull(TEXT("active magazine"), Mag);
+	TestNotNull(TEXT("health number"), Health);
+	if (!Mag || !Health)
+	{
+		return false;
+	}
+	TestEqual(TEXT("magazine value"), Mag->Text.ToString(), FString(TEXT("7")));
+	TestEqual(TEXT("one magazine per slot: the drawn one big, the other weapon small"), List.CountTag(TEXT("weapon.slot_magazine")), 1);
+	TestTrue(TEXT("the active weapon has an icon"), List.CountTag(TEXT("weapon.icon")) > 0);
+	TestTrue(TEXT("the holstered weapons have icons"), List.CountTag(TEXT("weapon.slot_icon")) > 0);
+	TestNull(TEXT("no name text where an icon exists"), List.FindLabel(TEXT("weapon.name")));
+	TestTrue(TEXT("one column on the right half"), Mag->Position.X > 1920 * 0.75 && Health->Position.X > 1920 * 0.75);
+	TestTrue(TEXT("health sits under the weapons"), Health->Position.Y > Mag->Position.Y);
+	TestTrue(TEXT("compact: the whole block is under 260 px wide"), Mag->Position.X + Mag->Size.X - Health->Position.X < 260.0);
+
+	bool bQ = false;
+	bool bOne = false;
+	for (const FVerseHudDrawList::FLabel& Label : List.Labels)
+	{
+		bQ |= Label.Text.ToString() == TEXT("Q");
+		bOne |= Label.Tag == TEXT("weapon.key") && Label.Text.ToString() == TEXT("1");
+	}
+	TestTrue(TEXT("a bound key shows on its chip"), bQ);
+	TestTrue(TEXT("an unbound key falls back to the default"), bOne);
+
+	// Kill cam: only the health line stays.
+	Frame.bKillCam = true;
+	FVerseHudPainter::Paint(Frame, List, FVerseHudPainter::DefaultMeasure());
+	TestEqual(TEXT("no weapon rows in the kill cam"), List.CountTag(TEXT("weapon")), 0);
+	TestNotNull(TEXT("health in the kill cam"), List.FindLabel(TEXT("vitals.health")));
+	return true;
 }
 
 // Regression: canvas text items need a runtime-cache UFont or the engine skips them, which left

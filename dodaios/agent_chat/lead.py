@@ -309,7 +309,7 @@ def fresh_start(svc: Any) -> int | None:
     return through
 
 
-async def post_learned(receipts: list[dict[str, str]]) -> None:
+async def post_learned(receipts: list[dict[str, Any]]) -> None:
     """Show in the conversation what the assistant just learned.
 
     A written notice (``memory_learned``) with one row per change; the page
@@ -331,6 +331,12 @@ async def post_learned(receipts: list[dict[str, str]]) -> None:
                 "op": str(r.get("op") or ""),
                 "id": str(r.get("id") or ""),
                 "text": str(r.get("text") or ""),
+                # Where it was said, so the notice links back to the message.
+                **{
+                    k: r[k]
+                    for k in ("session_id", "turn_id", "message_seq", "evidence")
+                    if r.get(k)
+                },
             }
             for r in receipts[:8]
             if r.get("text")

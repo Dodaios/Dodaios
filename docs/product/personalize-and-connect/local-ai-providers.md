@@ -45,6 +45,16 @@ speed up Whisper or a Brain model, but is not required for Nemotron or Piper.
 
 ### Ollama
 
+**One click:** select **Use a free local model** in the setup window's
+Connect step, in the first conversation, or in the chat's model picker on the
+Ollama page. The app reads this computer's graphics memory and RAM, installs
+Ollama if it is missing, starts it, downloads the model that fits (or uses a
+suitable one you already have), and makes it the Brain. A progress bar shows
+the download. If the download stops, **Try again** continues where it
+stopped.
+
+To set it up by hand instead:
+
 1. Install and start Ollama.
 2. Open **API Keys & Providers > Brain > Ollama (local)**.
 3. Keep the default server address for this computer, or enter a trusted
