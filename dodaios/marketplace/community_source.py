@@ -214,6 +214,77 @@ class CommunityAgentEntry(_Tolerant):
     agent: dict[str, Any] = Field(default_factory=dict)
 
 
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+class CommunityLookEntry(_Tolerant):
+    """A published look (``kind: "look"``, docs/looks.md).
+
+    The registry pins the archive's SHA-256 and size; the app downloads only
+    from the hosts ``dodaios.ui.looks.install.ALLOWED_HOSTS`` names and checks
+    the archive again as a pack before anything is unpacked into place.
+    """
+
+    name: str
+    title: str | None = None
+    description: str = ""
+    publisher: str | None = None
+    publisher_id: int | None = None
+    featured: bool = False
+    version: str | None = None
+    published_at: str | None = None
+    license: str | None = None
+    attribution: str | None = None
+    source_url: str | None = None
+    preview_url: str | None = None
+    archive_url: str
+    sha256: str
+    size_bytes: int
+
+    @field_validator("name")
+    @classmethod
+    def _look_id(cls, value: str) -> str:
+        from dodaios.ui.looks.manifest import LOOK_ID_RE, RESERVED_IDS
+
+        if not LOOK_ID_RE.fullmatch(value) or value in RESERVED_IDS:
+            raise ValueError("not a look id")
+        return value
+
+    @field_validator("archive_url")
+    @classmethod
+    def _archive_host(cls, value: str) -> str:
+        from dodaios.ui.looks.install import allowed_url
+
+        if not allowed_url(value):
+            raise ValueError("archive_url must be https on an allowed host")
+        return value
+
+    @field_validator("preview_url")
+    @classmethod
+    def _preview_host(cls, value: str | None) -> str | None:
+        from dodaios.ui.looks.install import allowed_url
+
+        # A preview from anywhere else is dropped, never fetched.
+        return value if value is None or allowed_url(value) else None
+
+    @field_validator("sha256")
+    @classmethod
+    def _hex_digest(cls, value: str) -> str:
+        value = value.strip().lower()
+        if not _SHA256_RE.fullmatch(value):
+            raise ValueError("sha256 must be 64 hex digits")
+        return value
+
+    @field_validator("size_bytes")
+    @classmethod
+    def _size(cls, value: int) -> int:
+        from dodaios.ui.looks.install import MAX_ARCHIVE_BYTES
+
+        if not 0 < value <= MAX_ARCHIVE_BYTES:
+            raise ValueError("size_bytes is out of range")
+        return value
+
+
 class CommunityIndex(_Tolerant):
     revision: int = 0
     generated_at: str | None = None
@@ -221,6 +292,23 @@ class CommunityIndex(_Tolerant):
     skills: list[CommunitySkillEntry] = Field(default_factory=list)
     #: Absent on an index from a registry older than agent templates.
     agents: list[CommunityAgentEntry] = Field(default_factory=list)
+    #: Absent on an index from a registry older than looks.
+    looks: list[CommunityLookEntry] = Field(default_factory=list)
+
+    @field_validator("looks", mode="before")
+    @classmethod
+    def _drop_invalid_looks(cls, value: Any) -> list[Any]:
+        if not isinstance(value, list):
+            return []
+        kept: list[Any] = []
+        for item in value:
+            try:
+                kept.append(CommunityLookEntry.model_validate(item))
+            except ValidationError as exc:
+                # One bad entry costs exactly itself, never the whole index.
+                name = item.get("name") if isinstance(item, dict) else None
+                logger.warning("community index: dropping look %r: %s", name, exc.errors()[:1])
+        return kept
 
     @field_validator("agents", mode="after")
     @classmethod

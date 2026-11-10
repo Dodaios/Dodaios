@@ -1267,6 +1267,7 @@ def _community_payload(
     plugins: list[dict[str, Any]] = []
     skills: list[dict[str, Any]] = []
     agents: list[dict[str, Any]] = []
+    looks: list[dict[str, Any]] = []
     if index is not None:
         for entry, converted in _converted_plugins(index):
             if not converted["valid"]:
@@ -1338,6 +1339,29 @@ def _community_payload(
                 }
             )
 
+        from dodaios.ui.looks.install import installed_ids
+
+        installed_looks = installed_ids()
+        for look in getattr(index, "looks", []):
+            looks.append(
+                {
+                    "name": look.name,
+                    "title": look.title or look.name,
+                    "description": look.description,
+                    "publisher": look.publisher,
+                    "publisher_id": look.publisher_id,
+                    "featured": look.featured,
+                    "version": look.version,
+                    "published_at": look.published_at,
+                    "license": look.license,
+                    "attribution": look.attribution,
+                    "source_url": look.source_url,
+                    "preview_url": look.preview_url,
+                    "size_bytes": look.size_bytes,
+                    "installed": look.name in installed_looks,
+                }
+            )
+
     _add_own_pending(index, plugins, skills)
 
     return {
@@ -1347,6 +1371,7 @@ def _community_payload(
         "plugins": plugins,
         "skills": skills,
         "agents": agents,
+        "looks": looks,
     }
 
 
@@ -1901,6 +1926,39 @@ async def _install_community_agent(entry: Any, request: Request) -> dict[str, An
     }
 
 
+async def _install_community_look(entry: Any) -> dict[str, Any]:
+    """Download, check and unpack a marketplace look (docs/looks.md)."""
+    from dodaios.ui.looks.install import (
+        MAX_ARCHIVE_BYTES,
+        LookInstallError,
+        download,
+        install_archive,
+    )
+
+    try:
+        data = await download(entry.archive_url, max_bytes=min(entry.size_bytes, MAX_ARCHIVE_BYTES))
+        manifest = await asyncio.to_thread(
+            install_archive, data, look_id=entry.name, sha256=entry.sha256
+        )
+    except LookInstallError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "ok": True,
+        "kind": "look",
+        "id": manifest.id,
+        "title": manifest.name,
+        "publisher": entry.publisher,
+        "version": manifest.version,
+        "source_url": entry.source_url,
+        "location": f"looks/{manifest.id}",
+        "state": "installed",
+        # A look needs no account or key: it is usable once picked.
+        "ready": True,
+        "problem": None,
+        "next_action": "pick",
+    }
+
+
 def _install_by_name_404(item_id: str, index: Any) -> HTTPException:
     """404 that names the closest existing entry instead of a dead end."""
     import difflib
@@ -1911,6 +1969,7 @@ def _install_by_name_404(item_id: str, index: Any) -> HTTPException:
             [e.name for e in index.plugins]
             + [s.name for s in index.skills]
             + [a.name for a in index.agents]
+            + [lk.name for lk in getattr(index, "looks", [])]
         )
     close = difflib.get_close_matches(item_id, names, n=1, cutoff=0.6)
     hint = f" Closest match: {close[0]!r}." if close else ""
@@ -1934,15 +1993,18 @@ async def community_install_by_name(item_id: str, request: Request) -> dict[str,
     from dodaios.marketplace import community_source
 
     index, _ = await community_source.get_index()
-    plugin_entry = skill_entry = agent_entry = None
+    plugin_entry = skill_entry = agent_entry = look_entry = None
     if index is not None:
         plugin_entry = next((e for e in index.plugins if e.name == item_id), None)
         skill_entry = next((s for s in index.skills if s.name == item_id), None)
         agent_entry = next((a for a in index.agents if a.name == item_id), None)
-    if plugin_entry is None and skill_entry is None and agent_entry is None:
+        look_entry = next((lk for lk in index.looks if lk.name == item_id), None)
+    if plugin_entry is None and skill_entry is None and agent_entry is None and look_entry is None:
         raise _install_by_name_404(item_id, index)
 
-    if agent_entry is not None:
+    if look_entry is not None and plugin_entry is None and skill_entry is None:
+        result = await _install_community_look(look_entry)
+    elif agent_entry is not None:
         result = await _install_community_agent(agent_entry, request)
     elif skill_entry is not None:
         result = await _install_community_skill(skill_entry, request)
@@ -1992,6 +2054,23 @@ def _installed_user_skill(name: str) -> str | None:
     return None
 
 
+async def _reset_active_look_if(request: Request, look_id: str) -> None:
+    """A removed look that was active hands its place back to the orb."""
+    from dodaios.core.config import ORB_LOOK_ID
+
+    ui = getattr(getattr(request.app.state, "config", None), "ui", None)
+    if ui is None or getattr(ui, "look_id", None) != look_id:
+        return
+    try:
+        ui.look_id = ORB_LOOK_ID
+        from dodaios.core import config_writer
+        from dodaios.core.config import resolve_config_path
+
+        await asyncio.to_thread(config_writer.set_look_id, ORB_LOOK_ID, path=resolve_config_path())
+    except Exception as exc:  # noqa: BLE001 - the app falls back to the orb anyway
+        log.warning("resetting look_id after removing %s failed: %s", look_id, exc)
+
+
 @router.delete("/community/install/{item_id}")
 async def community_remove_by_name(item_id: str, request: Request) -> dict[str, Any]:
     """Remove what ``POST /community/install/{item_id}`` installed, by name.
@@ -2007,6 +2086,13 @@ async def community_remove_by_name(item_id: str, request: Request) -> dict[str, 
     if spec is not None and spec.source == "community":
         result = await community_uninstall(item_id)
         return {**result, "kind": "plugin", "id": item_id}
+
+    from dodaios.ui.looks.install import installed_ids, uninstall
+
+    if item_id in installed_ids():
+        await asyncio.to_thread(uninstall, item_id)
+        await _reset_active_look_if(request, item_id)
+        return {"ok": True, "removed": True, "kind": "look", "id": item_id}
 
     skill_name = _installed_user_skill(item_id)
     if skill_name is not None:

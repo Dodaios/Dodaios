@@ -4,7 +4,7 @@
  * A plugin wears its service's brand, the same three tiers the built-in Plugins
  * catalog uses (full-colour mark on the app-icon surface, else the brand glyph
  * on the brand colour, else a monogram). An agent wears the look its template
- * carries. A skill has no artwork, so it gets a two-letter monogram on a tint
+ * carries. A look shows its preview picture. A skill has no artwork, so it gets a two-letter monogram on a tint
  * derived from its name: the same skill is the same colour in the list, on its
  * page and on the website.
  */
@@ -69,7 +69,21 @@ export function EntryMark({ entry, size = "row" }: { entry: Entry; size?: MarkSi
     );
   }
 
-  if (entry.kind === "skill") {
+  if (entry.kind === "look" && entry.previewUrl && !failed) {
+    return (
+      <div className={cn(box, "bg-secondary")}>
+        <img
+          src={entry.previewUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    );
+  }
+
+  if (entry.kind === "skill" || entry.kind === "look") {
     return (
       <div
         className={cn(box, TINT, "font-display font-semibold tracking-tight", LETTERS[size])}

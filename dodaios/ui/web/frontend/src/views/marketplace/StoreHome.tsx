@@ -257,6 +257,7 @@ function FilterTabs({
     plugin: t("marketplace.filter_plugins"),
     skill: t("marketplace.filter_skills"),
     agent: t("marketplace.filter_agents"),
+    look: t("marketplace.filter_looks"),
     installed: t("marketplace.installed"),
     mine: t("marketplace.filter_mine"),
   };
@@ -293,11 +294,13 @@ const KIND_TITLE: Record<Kind, string> = {
   plugin: "marketplace.shelf_plugins",
   skill: "marketplace.shelf_skills",
   agent: "marketplace.shelf_agents",
+  look: "marketplace.shelf_looks",
 };
 const KIND_HINT: Record<Kind, string> = {
   plugin: "marketplace.shelf_plugins_hint",
   skill: "marketplace.shelf_skills_hint",
   agent: "marketplace.shelf_agents_hint",
+  look: "marketplace.shelf_looks_hint",
 };
 
 /** A store this small is one short list; a lead entry would only repeat it. */

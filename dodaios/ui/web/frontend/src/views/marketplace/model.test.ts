@@ -119,6 +119,7 @@ describe("filterCounts", () => {
       plugin: 1,
       skill: 2,
       agent: 0,
+      look: 0,
       installed: 2,
       mine: 2,
     });
@@ -155,5 +156,35 @@ describe("splitFrontmatter", () => {
 
   it("reads Windows line endings", () => {
     expect(splitFrontmatter("---\r\nname: a\r\n---\r\nBody").frontmatter).toBe("name: a");
+  });
+});
+
+describe("looks in the store", () => {
+  it("turns a published look into an entry that lands in Settings", async () => {
+    const { entriesOf, filterCounts, HOME_SECTION } = await import("./model");
+    const entries = entriesOf({
+      status: "fresh",
+      plugins: [],
+      skills: [],
+      looks: [
+        {
+          name: "neat-ring",
+          title: "Neat Ring",
+          description: "A ring.",
+          license: "Apache-2.0",
+          attribution: "|",
+          preview_url: "https://raw.githubusercontent.com/a/b/main/p.png",
+          size_bytes: 2 * 1024 * 1024,
+          installed: false,
+        },
+      ],
+    });
+    expect(entries).toHaveLength(1);
+    const [look] = entries;
+    expect(look.kind).toBe("look");
+    expect(look.previewUrl).toContain("raw.githubusercontent.com");
+    expect(look.attribution).toBeNull(); // a bare "|" is not a credit line
+    expect(filterCounts(entries, null).look).toBe(1);
+    expect(HOME_SECTION.look).toBe("settings");
   });
 });

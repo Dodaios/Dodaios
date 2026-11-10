@@ -6677,7 +6677,17 @@
     "install_failed": "Installation fehlgeschlagen ({status})",
     "contents_failed": "Dieser Eintrag konnte nicht gelesen werden ({status})",
     "err_identity_start": "Anmeldung konnte nicht gestartet werden ({status})",
-    "err_identity_failed": "Anmeldung fehlgeschlagen"
+    "err_identity_failed": "Anmeldung fehlgeschlagen",
+    "filter_looks": "Looks",
+    "shelf_looks": "Looks",
+    "shelf_looks_hint": "Visuals, die den Platz des Sprach-Orbs einnehmen",
+    "kind_look": "Look",
+    "landed_look": "Wähle ihn in den Einstellungen aus, neben Darstellung.",
+    "look_home": "Einstellungen",
+    "look_reach": "Er kann nur zeichnen. Er bekommt den Sprachzustand und die Lautstärke, sonst nichts: kein Internet, keine Dateien, kein Zugriff auf die App.",
+    "look_license": "Lizenz",
+    "look_attribution": "Urheber",
+    "look_size": "Downloadgröße"
   },
   "costs_view": {
     "title": "Kosten & Tokens",
