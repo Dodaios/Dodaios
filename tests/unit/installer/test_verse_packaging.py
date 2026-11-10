@@ -69,7 +69,8 @@ def test_verify_reports_the_missing_linux_engine_part(tmp_path: Path) -> None:
     assert "Target Platforms, Linux" in checks["linux-engine"]["fix"]
     assert checks["docker"]["status"] == "ok"
     win_only = package.verify_packaging(["win64"], engine=tmp_path, probe=probe)
-    assert {c["name"] for c in win_only} == {"chunks", "ddc"}
+    assert {c["name"] for c in win_only} == {"chunks", "ddc", "runtime-content"}
+    assert checks["runtime-content"]["status"] == "ok"
 
 
 # ------------------------------------------------------ 22.2 BuildCookRun
@@ -193,6 +194,50 @@ def test_missing_chunk_config_lists_what_the_ini_lacks(tmp_path: Path) -> None:
         package.chunk_ini_block(chunks), encoding="utf-8"
     )
     assert package.missing_chunk_config(tmp_path, chunks) == []
+
+
+def test_the_package_carries_everything_the_game_reads_at_runtime() -> None:
+    # Data/ JSON, deck placements and assets loaded by soft path are absent from a
+    # package unless DefaultGame.ini names them (black screen with raw string keys).
+    assert package.runtime_content_problems(REPO / "unreal/Verse") == []
+
+
+def test_runtime_content_problems_name_what_is_missing(tmp_path: Path) -> None:
+    (tmp_path / "Config").mkdir()
+    (tmp_path / "Content").mkdir()
+    (tmp_path / "Data").mkdir()
+    reader = tmp_path / "Source/Mod/Private/Reader.cpp"
+    reader.parent.mkdir(parents=True)
+    reader.write_text(
+        'FPaths::Combine(FPaths::ProjectDir(), TEXT("Data"), TEXT("ui"));\n'
+        'FPaths::ProjectDir() / TEXT("Extra/file.json");\n'
+        'FPaths::Combine(FPaths::ProjectDir(), TEXT(".."), TEXT("data"));\n',
+        encoding="utf-8",
+    )
+    test = tmp_path / "Source/Mod/Private/Tests/ReaderTest.cpp"
+    test.parent.mkdir(parents=True)
+    test.write_text('FPaths::ProjectDir() / TEXT("Other/x.json");\n', encoding="utf-8")
+    problems = package.runtime_content_problems(tmp_path)
+    assert any('DirectoriesToAlwaysCook=(Path="/Game/Verse")' in p for p in problems)
+    assert any('DirectoriesToAlwaysStageAsNonUFS=(Path="../Data")' in p for p in problems)
+    assert any("Placements" in p and "does not exist" in p for p in problems)
+    reads = [p for p in problems if "reads ProjectDir()" in p]
+    assert reads == [
+        "Mod/Private/Reader.cpp reads ProjectDir()/Extra/file.json, which no "
+        "DirectoriesToAlwaysStageAsNonUFS rule stages"
+    ]
+    (tmp_path / "Art/Placements").mkdir(parents=True)
+    (tmp_path / "Config/DefaultGame.ini").write_text(
+        "\n".join(
+            [f'+DirectoriesToAlwaysCook=(Path="{d}")' for d in package.RUNTIME_COOK_DIRS]
+            + [
+                f'+DirectoriesToAlwaysStageAsNonUFS=(Path="{d}")'
+                for d in package.RUNTIME_STAGE_DIRS
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert package.runtime_content_problems(tmp_path) == reads
 
 
 def test_size_report_groups_bytes_by_deck_chunk(tmp_path: Path) -> None:

@@ -187,6 +187,14 @@ def verify_packaging(
         add("ddc", True, f"{ddc['graph']}, cap {ddc['cap_gb']} GB, {ddc['local_path']}")
     except (OSError, ValueError, KeyError, common.UnrealScriptError) as exc:
         add("ddc", False, str(exc), "fix unreal/Toolchain/ddc.json")
+    problems = runtime_content_problems(common.UNREAL_ROOT / "Verse")
+    add(
+        "runtime-content",
+        not problems,
+        "; ".join(problems) or "Data/, Art/Placements staged; /Game/Verse cooked",
+        "add the missing lines to unreal/Verse/Config/DefaultGame.ini "
+        "(RUNTIME_COOK_DIRS, RUNTIME_STAGE_DIRS in package.py)",
+    )
     if "linux" in targets:
         marker = engine / "Engine" / "Binaries" / "Linux" / "UnrealGame.target"
         add(
@@ -264,6 +272,60 @@ def missing_chunk_config(project_dir: Path, chunks: Mapping[str, Any]) -> list[s
     have = {line.strip() for line in text.splitlines()}
     wanted = [line for line in chunk_ini_block(chunks).splitlines() if line and "=" in line]
     return [line for line in wanted if line not in have]
+
+
+#: Content the game loads by soft path, so no map pulls it into the cook.
+RUNTIME_COOK_DIRS = ("/Game/Verse", "/Engine/BasicShapes", "/Engine/EngineFonts")
+#: Folders the game reads as text from ``FPaths::ProjectDir()``, relative to Content/.
+RUNTIME_STAGE_DIRS = ("../Data", "../Art/Placements")
+_PROJECT_DIR_READ = re.compile(
+    r'FPaths::ProjectDir\(\)\s*(?:,|/)\s*TEXT\("([^"]+)"\)(?:\s*,\s*TEXT\("([^"]+)"\))?'
+)
+
+
+def runtime_content_problems(project_dir: Path) -> list[str]:
+    """Why a package would miss data the game reads at runtime; empty means complete.
+
+    A packaged build only carries what the cook reaches from a map plus what
+    ``DefaultGame.ini`` names. Everything else (JSON under Data/, deck placement
+    files, assets loaded by path) works in the editor and is silently absent in
+    the package, so the check runs in ``verify`` and before every ``build``.
+    """
+    try:
+        text = (project_dir / "Config" / "DefaultGame.ini").read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    have = {line.strip() for line in text.splitlines()}
+    problems = [
+        f"DefaultGame.ini lacks {line}"
+        for line in (
+            *(f'+DirectoriesToAlwaysCook=(Path="{d}")' for d in RUNTIME_COOK_DIRS),
+            *(f'+DirectoriesToAlwaysStageAsNonUFS=(Path="{d}")' for d in RUNTIME_STAGE_DIRS),
+        )
+        if line not in have
+    ]
+    content = project_dir / "Content"
+    staged = [(content / d).resolve() for d in RUNTIME_STAGE_DIRS]
+    for folder in staged:
+        if not folder.is_dir():
+            problems.append(f"stage folder {folder} does not exist")
+    source = project_dir / "Source"
+    for path in sorted(source.rglob("*.cpp")) if source.is_dir() else []:
+        rel = path.relative_to(source).as_posix()
+        if "/Tests/" in f"/{rel}" or path.stem.endswith("Test"):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in _PROJECT_DIR_READ.finditer(text):
+            fragment = "/".join(part for part in match.groups() if part)
+            if fragment.startswith(("..", "Tests", "Saved", "Intermediate")):
+                continue
+            target = (project_dir / fragment).resolve()
+            if not any(target == f or f in target.parents for f in staged):
+                problems.append(
+                    f"{rel} reads ProjectDir()/{fragment}, which no "
+                    "DirectoriesToAlwaysStageAsNonUFS rule stages"
+                )
+    return problems
 
 
 def buildcookrun_command(
@@ -442,6 +504,11 @@ def cmd_build(options: argparse.Namespace) -> int:
         )
         if options.require_chunks:
             return 1
+    runtime = runtime_content_problems(project.parent)
+    for problem in runtime:
+        common.log(f"PROBLEM {problem}")
+    if runtime:
+        return 1
     if spec.key == "linux" and not os.environ.get("LINUX_MULTIARCH_ROOT", "").strip():
         return common.exit_with(
             common.UnrealScriptError(
