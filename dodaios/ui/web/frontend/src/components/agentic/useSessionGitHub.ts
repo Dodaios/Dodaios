@@ -19,6 +19,10 @@ export interface SessionGitHubStatus {
   merge_status?: string;
   review?: string;
   locked?: boolean;
+  /** The pull request's title and size in changed lines. Absent from an older backend. */
+  title?: string;
+  additions?: number;
+  deletions?: number;
   /** The session's other branches, newest first. Absent from an older backend. */
   others?: SessionGitHubStatus[];
 }
