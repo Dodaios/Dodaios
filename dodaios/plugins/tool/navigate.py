@@ -80,6 +80,9 @@ KNOWN: frozenset[str] = frozenset(
         "shortcuts",
         # Built for you: what the self-building loop made, with keep and undo.
         "self-build",
+        # Trust & privacy: what runs without asking, what is known and where
+        # it goes. A Settings-hub page.
+        "trust",
     }
 )
 
@@ -287,6 +290,14 @@ _ALIASES: dict[str, str] = {
     "quiet hours": "notifications",
     "benachrichtigungen": "notifications",  # i18n-allow: input vocab
     "notificaciones": "notifications",  # i18n-allow: input vocab
+    "trust": "trust",
+    "trust and privacy": "trust",
+    "privacy": "trust",
+    "permissions": "trust",
+    "what you may do": "trust",
+    "vertrauen": "trust",  # i18n-allow: input vocab
+    "datenschutz": "trust",  # i18n-allow: input vocab
+    "privacidad": "trust",  # i18n-allow: input vocab
     "game settings": "games",
     "gaming settings": "games",
     "games": "games",

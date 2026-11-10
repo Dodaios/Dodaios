@@ -36,6 +36,7 @@ const SEARCH_PAGES = [
   { id: "pets", keys: ["pets"] },
   { id: "games", keys: ["games"] },
   { id: "notifications", keys: ["notify"] },
+  { id: "trust", keys: ["trust"] },
   { id: "costs", keys: ["costs_view"] },
   { id: "feedback", keys: ["feedback"] },
 ] as const;

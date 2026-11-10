@@ -11086,6 +11086,31 @@
     "import_saved": "{added} Erinnerungen importiert, {existing} schon bekannt.",
     "cancel": "Abbrechen"
   },
+  "trust": {
+    "nav": "Vertrauen und Privatsphäre",
+    "undo": {
+      "toast": "Erledigt: {what}",
+      "toast_plain": "Erledigt.",
+      "button": "Rückgängig",
+      "done": "Rückgängig gemacht.",
+      "failed": "Konnte nicht rückgängig gemacht werden."
+    },
+    "card": {
+      "always_asks": "Hier wird immer gefragt; keine Regel überspringt das.",
+      "limit": {
+        "money": "Es geht um Geld.",
+        "credentials": "Ein Passwort oder Schlüssel ist beteiligt.",
+        "permanent_delete": "Das löscht endgültig.",
+        "new_recipient": "Erste Nachricht an diesen Empfänger von hier aus."
+      },
+      "check": {
+        "secret": "Der Text enthält etwas, das wie ein Geheimnis aussieht.",
+        "unknown_recipient": "Noch nie angeschrieben: {detail}",
+        "mistyped_domain": "Meintest du {detail}?",
+        "tone": "Der Ton wirkt harsch."
+      }
+    }
+  },
   "notify": {
     "title": "Benachrichtigungen",
     "subtitle": "So erreicht dich Dodaios, während die App im Hintergrund ist.",

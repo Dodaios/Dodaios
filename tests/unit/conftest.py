@@ -38,6 +38,28 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _fresh_trust_stores(tmp_path_factory: pytest.TempPathFactory):
+    """Every test starts with empty trust stores (dodaios/trust).
+
+    The standing rules and the known recipients persist under the data dir on
+    purpose; between tests that persistence would leak one test's "always
+    allow" or "already wrote to a@b.c" into the next one's approval card.
+    """
+    from dodaios.trust.recipients import KnownRecipients, set_known_recipients
+    from dodaios.trust.rules import TrustRules, set_trust_rules
+    from dodaios.trust.undo import undo_ledger
+
+    root = tmp_path_factory.mktemp("trust")
+    set_trust_rules(TrustRules(root / "rules.json"))
+    set_known_recipients(KnownRecipients(root / "recipients.json"))
+    undo_ledger()._reset_for_tests()
+    yield
+    set_trust_rules(None)
+    set_known_recipients(None)
+    undo_ledger()._reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
 def _polish_pass_holds_no_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the polish pass see an empty provider chain, as a keyless host does."""
     from dodaios.dictation import polish

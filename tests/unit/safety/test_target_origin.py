@@ -242,8 +242,17 @@ def _executor(bus: EventBus) -> ToolExecutor:
     return ToolExecutor(bus, RiskTierEvaluator(SafetyConfig()), ApprovalWorkflow(bus))
 
 
+def _recipient_is_known(address: str) -> None:
+    """A first mail to someone always asks (trust hard limit); these tests are
+    about the origin record, so the address has been written to before."""
+    from dodaios.trust.recipients import known_recipients
+
+    known_recipients().remember([address])
+
+
 @pytest.mark.asyncio
 async def test_the_executor_records_the_origin_and_changes_nothing_else() -> None:
+    _recipient_is_known("ops@elsewhere.example")
     bus = _Bus()
     executor = _executor(bus)
     trace = uuid4()
@@ -408,6 +417,7 @@ def test_an_address_with_umlauts_is_found() -> None:
 async def test_a_confirmation_carries_the_origin_too() -> None:
     from dodaios.core.events import ActionApprovalRequired
 
+    _recipient_is_known("ops@elsewhere.example")
     bus = _Bus()
     executor = ToolExecutor(
         bus, RiskTierEvaluator(SafetyConfig(approval_mode="bypass")), ApprovalWorkflow(bus)
