@@ -29,6 +29,7 @@ resolution can tie two fast appends.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import uuid
@@ -37,6 +38,8 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat.events import is_transient, now_ms
+
+log = logging.getLogger(__name__)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS agent_chat_sessions (
@@ -822,6 +825,7 @@ class AgentChatStore:
         try:
             payload = json.loads(row["payload"])
         except ValueError:
+            log.warning("agent chat: saved message %s is damaged", queue_id)
             return None
         if not isinstance(payload, dict):
             return None
@@ -932,6 +936,7 @@ class AgentChatStore:
                     "created_ms": int(r["created_ms"]),
                 })
             except (ValueError, TypeError):
+                log.warning("agent chat: parked wait row damaged, dropped")
                 continue  # a damaged row is dropped rather than blocking boot
         return out
 
