@@ -339,7 +339,8 @@
     "shortcuts": "Atalhos de teclado",
     "pets": "Os meus Pets",
     "self_build": "Feito para si",
-    "games": "Configurações de jogos"
+    "games": "Configurações de jogos",
+    "notifications": "Notificações"
   },
   "assistant_view": {
     "header_named": "O teu assistente em {0}, despertado por “{1}”.",
@@ -11061,5 +11062,46 @@
     "import_save": "Guardar {count}",
     "import_saved": "{added} memórias importadas, {existing} já conhecidas.",
     "cancel": "Cancelar"
+  },
+  "notify": {
+    "title": "Notificações",
+    "subtitle": "É assim que o Dodaios avisa você enquanto o app está em segundo plano.",
+    "enabled": "Notificações na área de trabalho",
+    "enabled_hint": "Texto silencioso na sua área de trabalho. Nada é falado.",
+    "kinds_title": "Avise-me quando",
+    "kind_reminder": "um lembrete vencer",
+    "kind_needs_you": "um agente precisar de mim",
+    "kind_approval": "uma aprovação estiver aguardando",
+    "kind_finished": "um agente terminar",
+    "quiet_title": "Não perturbe",
+    "quiet_hint": "Sem notificações entre estes horários.",
+    "quiet_from": "De",
+    "quiet_to": "Até",
+    "telegram_title": "Aprovações no Telegram",
+    "telegram_hint": "Uma aprovação pendente também chega ao seu chat do Telegram, com botões Permitir e Recusar.",
+    "telegram_not_connected": "Conecte o Telegram em Plugins para usar isto.",
+    "test": "Enviar uma notificação de teste",
+    "test_shown": "Exibida.",
+    "test_held": "Retida: {reason}",
+    "test_unsupported": "Este sistema não tem notificações na área de trabalho.",
+    "load_failed": "Não foi possível carregar as configurações.",
+    "save_failed": "A alteração não foi salva."
+  },
+  "reminders": {
+    "due_title": "Lembrete",
+    "done": "Feito",
+    "marked_done": "Feito",
+    "snooze": "Adiar",
+    "snooze_15": "15 min",
+    "snooze_1h": "1 hora",
+    "snooze_3h": "3 horas",
+    "snooze_tomorrow": "Amanhã",
+    "snoozed_until": "Adiado até {when}",
+    "captured_title": "{count} itens capturados",
+    "captured_one": "1 item capturado",
+    "undo": "Desfazer",
+    "undone": "Removido",
+    "task": "Tarefa",
+    "failed": "Não funcionou. Tente de novo."
   }
 }

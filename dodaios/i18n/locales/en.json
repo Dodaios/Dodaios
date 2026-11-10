@@ -526,5 +526,24 @@
       "title": "Fix issue #{number} in {repo}: {title}",
       "case": "Issue #{number} in {repo} looks right for an unattended agent ({signal}). A coding agent would work on it on your subscription while you are away, in its own worktree and branch, and run the tests ({tests}). The result is a pull request that closes the issue, a draft unless you let this repository land on its own. {url}"
     }
+  },
+  "notify": {
+    "reminder_title": "Reminder",
+    "an_agent": "An agent",
+    "needs_you_title": "{agent} needs you",
+    "needs_you_body": "Open the conversation to answer.",
+    "approval_title": "{agent} is waiting for your approval",
+    "approval_body": "Allow or deny in the app.",
+    "finished_title": "{agent} finished",
+    "finished_body": "The result is in its conversation.",
+    "telegram_approval": "{agent} asks to run {tool}: {summary}",
+    "telegram_allow": "Allow",
+    "telegram_deny": "Deny",
+    "telegram_allowed": "Allowed from Telegram.",
+    "telegram_denied": "Denied from Telegram.",
+    "telegram_settled": "Decided in the app.",
+    "telegram_expired": "This request is no longer open.",
+    "test_title": "Notifications are on",
+    "test_body": "This is how Dodaios reaches you while the app is in the background."
   }
 }

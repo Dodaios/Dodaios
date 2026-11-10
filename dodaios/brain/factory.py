@@ -137,6 +137,10 @@ ROUTER_TOOLS = frozenset({
     # block, and erase a memory when the user asks. Router-tier only.
     "memory-search",
     "memory-forget",
+    # Reminders (dodaios/notify): "remind me Friday at 9 about the taxes"
+    # becomes a dated memory delivered on time; a brain dump becomes tasks.
+    # Router-tier only; a direct safe action, never a spawn.
+    "reminders",
     # CLI-Integration (2026-05-24): virtual loader that expands to one
     # ``cli_<name>`` tool per connected & usable CLI (gcloud, gh, docker, …).
     # This is the MCP/plugin model for command-line tools: only connected
