@@ -177,7 +177,7 @@ export function AccessPicker({ provider, draft, onPick, separated = false }: {
           description: mode.description,
         })),
       }]}
-      onChange={onPick} fallbackLabel={draft.permissionMode || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={340}
+      onChange={onPick} fallbackLabel={draft.permissionMode || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={400}
       className={TRIGGER} />
   </>;
 }
