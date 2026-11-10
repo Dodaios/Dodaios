@@ -131,6 +131,7 @@ ENGINE: dict[str, frozenset[str]] = {
             "InputCore",
             "Json",
             "NavigationSystem",
+            "StaticMeshDescription",
         }
     ),
     "VerseHarness": frozenset(),
