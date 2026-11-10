@@ -1,18 +1,20 @@
-/* The call window: about the size of a phone screen laid on the foot of the
-   conversation, never wider than the reading column and never taller than
-   the room above the composer. It rises from the composer when a call
-   starts. */
+/* The call window stands on the composer and is exactly as wide as it, so
+   the two read as one piece and the conversation behind is covered cleanly
+   (a narrower window left slivers of the messages showing at its sides). It
+   is never taller than the room above the composer, and rises from the
+   composer when a call starts. The side inset is the composer wrapper's own
+   padding. */
 .call-window {
-  width: min(580px, calc(100% - 3rem));
+  left: 1.5rem;
+  right: 1.5rem;
   height: min(460px, calc(100vh - 17rem));
   min-height: 220px;
-  transform: translateX(-50%);
   transform-origin: 50% 100%;
   animation: call-window-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes call-window-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.97); }
-  to { opacity: 1; transform: translateX(-50%); }
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .call-window {
