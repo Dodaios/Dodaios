@@ -316,7 +316,7 @@ _EVENT_TEXT_CHARS = 600
 def _page_limit(value: Any, *, default: int) -> int:
     try:
         number = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # a missing or non-numeric limit means the default page size
         return default
     return max(1, min(number, 100))
 
