@@ -3,6 +3,7 @@
 #include "Brushes/SlateColorBrush.h"
 #include "Core/VerseUiSubsystem.h"
 #include "Core/VerseUiTheme.h"
+#include "Settings/VerseGameSettings.h"
 #include "Scalability.h"
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateTypes.h"
@@ -49,25 +50,6 @@ namespace
 		static const FButtonStyle Primary = Make(true);
 		return bPrimary ? Primary : Normal;
 	}
-
-	FText OnOff(const UVerseUiSubsystem* Ui, bool bOn)
-	{
-		return Ui->GetStrings().Get(bOn ? TEXT("verse.ui.on") : TEXT("verse.ui.off"));
-	}
-
-
-	const TCHAR* ScalabilityKey(int32 Level)
-	{
-		switch (Level)
-		{
-		case 0: return TEXT("verse.settings.quality.low");
-		case 1: return TEXT("verse.settings.quality.medium");
-		case 2: return TEXT("verse.settings.quality.high");
-		case 3: return TEXT("verse.settings.quality.epic");
-		case 4: return TEXT("verse.settings.quality.cinematic");
-		default: return TEXT("verse.settings.quality.auto");
-		}
-	}
 }
 
 void SVerseUiRoot::Construct(const FArguments& InArgs, UVerseUiSubsystem* InOwner)
@@ -110,7 +92,7 @@ void SVerseUiRoot::Refresh()
 
 void SVerseUiRoot::SetSettingsPage(int32 Page)
 {
-	SettingsPage = FMath::Clamp(Page, 0, NumSettingsPages - 1);
+	SettingsPage = FMath::Clamp(Page, 0, NumSettingsPages() - 1);
 	if (PageSlot.IsValid())
 	{
 		PageSlot->SetContent(BuildSettingsPage());
@@ -133,7 +115,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildScreen()
 
 TSharedRef<SWidget> SVerseUiRoot::Label(TAttribute<FText> Text, float Size, bool bBold, const FLinearColor& Colour)
 {
-	const float Scale = Owner.IsValid() && Owner->GetUserSettings() ? Owner->GetUserSettings()->TextScale : 1.f;
+	const float Scale = Owner.IsValid() ? FMath::Clamp(float(Owner->GetGameNumber(TEXT("access.text_scale"))), 0.8f, 1.6f) : 1.f;
 	return SNew(STextBlock)
 		.Text(Text)
 		.Font(FCoreStyle::GetDefaultFontStyle(bBold ? "Bold" : "Regular", FMath::RoundToInt(Size * Scale)))
@@ -308,17 +290,15 @@ TSharedRef<SWidget> SVerseUiRoot::BuildEscMenu()
 
 TSharedRef<SWidget> SVerseUiRoot::BuildSettings()
 {
+	// The tabs of the app's Game settings page (game_settings.py TABS), same order, same strings.
 	TSharedRef<SHorizontalBox> Tabs = SNew(SHorizontalBox);
-	static const TCHAR* PageKeys[NumSettingsPages] = {
-		TEXT("verse.settings.page.gameplay"), TEXT("verse.settings.page.controls"), TEXT("verse.settings.page.audio"),
-		TEXT("verse.settings.page.video"), TEXT("verse.settings.page.access"),
-	};
+	const TArray<FString>& TabIds = FVerseGameSettingsCatalogue::Get().GetTabs();
 	TWeakPtr<SVerseUiRoot> Self = SharedThis(this);
-	for (int32 I = 0; I < NumSettingsPages; ++I)
+	for (int32 I = 0; I < TabIds.Num(); ++I)
 	{
 		Tabs->AddSlot().FillWidth(1.f).Padding(FMargin(2.f, 0.f))
 		[
-			Button(S(PageKeys[I]), FSimpleDelegate::CreateLambda([Self, I] { if (TSharedPtr<SVerseUiRoot> P = Self.Pin()) { P->SetSettingsPage(I); } }), false,
+			Button(S(TEXT("verse_settings.tabs.") + TabIds[I]), FSimpleDelegate::CreateLambda([Self, I] { if (TSharedPtr<SVerseUiRoot> P = Self.Pin()) { P->SetSettingsPage(I); } }), false,
 				TAttribute<bool>::CreateLambda([Self, I] { TSharedPtr<SVerseUiRoot> P = Self.Pin(); return P.IsValid() && P->SettingsPage == I; }))
 		];
 	}
@@ -328,7 +308,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettings()
 		+ SVerticalBox::Slot().AutoHeight()
 		[
 			SNew(SBox)
-			.HeightOverride(520.f)
+			.HeightOverride(560.f)
 			[
 				SAssignNew(PageSlot, SBox)
 			]
@@ -353,53 +333,113 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettings()
 			]
 		];
 	PageSlot->SetContent(BuildSettingsPage());
-	return Panel(TEXT("verse.settings.title"), Body, 1000.f);
+	return Panel(TEXT("verse.settings.title"), Body, 1240.f);
+}
+
+int32 SVerseUiRoot::NumSettingsPages()
+{
+	return FMath::Max(1, FVerseGameSettingsCatalogue::Get().GetTabs().Num());
+}
+
+FText SVerseUiRoot::SettingValueText(const UVerseUiSubsystem& Ui, const FVerseGameSettingDef& Def)
+{
+	const FVerseUiStrings& Strings = Ui.GetStrings();
+	const TSharedPtr<FJsonValue> Value = Ui.GetGameSetting(Def.Id);
+	if (!Value.IsValid())
+	{
+		return FText::GetEmpty();
+	}
+	switch (Def.Kind)
+	{
+	case EVerseGameSettingKind::Toggle:
+		return Strings.Get(Value->AsBool() ? TEXT("verse.ui.on") : TEXT("verse.ui.off"));
+	case EVerseGameSettingKind::Choice:
+	{
+		// Resolutions and frame rates are numbers; every other option has a word.
+		const FString Option = Value->AsString();
+		return !Option.IsEmpty() && FChar::IsDigit(Option[0]) ? FText::AsCultureInvariant(Option) : Strings.Get(TEXT("verse_settings.o.") + Option);
+	}
+	case EVerseGameSettingKind::Range:
+	{
+		const double N = Value->AsNumber();
+		if (Def.Unit == TEXT("%"))
+		{
+			return Strings.Percent(Def.Max <= 2.0 ? N : N / 100.0);
+		}
+		if (Def.Unit == TEXT("x"))
+		{
+			return Strings.Number(N, 2);
+		}
+		return Strings.Number(N, Def.Step < 1.0 ? 2 : 0);
+	}
+	case EVerseGameSettingKind::Key:
+		return FKey(*Value->AsString()).GetDisplayName();
+	}
+	return FText::GetEmpty();
+}
+
+void SVerseUiRoot::StepSetting(UVerseUiSubsystem& Ui, const FVerseGameSettingDef& Def, int32 Direction)
+{
+	const TSharedPtr<FJsonValue> Value = Ui.GetGameSetting(Def.Id);
+	if (!Value.IsValid())
+	{
+		return;
+	}
+	switch (Def.Kind)
+	{
+	case EVerseGameSettingKind::Toggle:
+		Ui.SetGameSetting(Def.Id, MakeShared<FJsonValueBoolean>(!Value->AsBool()));
+		break;
+	case EVerseGameSettingKind::Choice:
+	{
+		const int32 Count = Def.Options.Num();
+		if (Count > 0)
+		{
+			const int32 Index = FMath::Max(0, Def.OptionIndex(Value->AsString()));
+			Ui.SetGameSetting(Def.Id, MakeShared<FJsonValueString>(Def.Options[((Index + Direction) % Count + Count) % Count]));
+		}
+		break;
+	}
+	case EVerseGameSettingKind::Range:
+	{
+		// At most about 40 presses end to end: the catalogue step times 1, 2, 5, 10, 20 or 50.
+		const double Steps = (Def.Max - Def.Min) / FMath::Max(Def.Step, 1e-6);
+		double Stride = Def.Step;
+		for (const int32 K : {1, 2, 5, 10, 20, 50})
+		{
+			Stride = Def.Step * K;
+			if (Steps / K <= 40.0)
+			{
+				break;
+			}
+		}
+		const double Next = FMath::Clamp(FMath::RoundToDouble((Value->AsNumber() + Stride * Direction) / Def.Step) * Def.Step, Def.Min, Def.Max);
+		if (Def.Id == TEXT("access.text_scale"))
+		{
+			Ui.SetTextScale(float(Next)); // rebuilds the menus at the new size
+		}
+		else
+		{
+			Ui.SetGameSetting(Def.Id, MakeShared<FJsonValueNumber>(Next));
+		}
+		break;
+	}
+	case EVerseGameSettingKind::Key:
+		break; // keys rebind on the keybinds page
+	}
 }
 
 TSharedRef<SWidget> SVerseUiRoot::BuildSettingsPage()
 {
 	TWeakObjectPtr<UVerseUiSubsystem> Ui = Owner;
 	TSharedRef<SScrollBox> Box = SNew(SScrollBox);
-	auto Add = [&Box](TSharedRef<SWidget> W) { Box->AddSlot().Padding(FMargin(0.f, 4.f))[W]; };
-	auto App = [Ui]() -> FVerseAppSettings { return Ui.IsValid() ? Ui->GetAppSettings() : FVerseAppSettings(); };
-	auto SetApp = [Ui](TFunction<void(FVerseAppSettings&)> Change)
-	{
-		if (Ui.IsValid())
-		{
-			FVerseAppSettings Next = Ui->GetAppSettings();
-			Change(Next);
-			Ui->SetAppSettings(Next);
-		}
-	};
+	auto Add = [&Box](TSharedRef<SWidget> W, float Top = 4.f) { Box->AddSlot().Padding(FMargin(0.f, Top, 12.f, 4.f))[W]; };
+	const FVerseGameSettingsCatalogue& Catalogue = FVerseGameSettingsCatalogue::Get();
+	const FString Tab = Catalogue.GetTabs().IsValidIndex(SettingsPage) ? Catalogue.GetTabs()[SettingsPage] : FString();
 
-	switch (SettingsPage)
+	if (Tab == TEXT("keybinds"))
 	{
-	case 0: // Gameplay and view
-		Add(Stepper(TEXT("verse.settings.gore"),
-			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Ui->GetStrings().Get(Ui->GetAppSettings().Gore == EVerseGoreLevel::Full ? TEXT("verse.settings.gore.full") : TEXT("verse.settings.gore.reduced")) : FText(); }),
-			[Ui](int32) { if (Ui.IsValid()) { Ui->SetGore(Ui->GetAppSettings().Gore == EVerseGoreLevel::Full ? EVerseGoreLevel::Reduced : EVerseGoreLevel::Full); } }));
-		Add(Stepper(TEXT("verse.settings.reduced_motion"),
-			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? OnOff(Ui.Get(), Ui->GetAppSettings().bReducedMotion) : FText(); }),
-			[Ui](int32) { if (Ui.IsValid()) { Ui->SetReducedMotion(!Ui->GetAppSettings().bReducedMotion); } }));
-		Add(Stepper(TEXT("verse.settings.duel_fov"),
-			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Ui->GetStrings().Number(Ui->GetUserSettings()->DuelFov) : FText(); }),
-			[Ui](int32 D) { if (Ui.IsValid()) { Ui->SetDuelFov(Ui->GetUserSettings()->DuelFov + 5.f * D); } }));
-		Add(Stepper(TEXT("verse.settings.fov_third"),
-			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Number(App().FovThird) : FText(); }),
-			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.FovThird = FMath::Clamp(S.FovThird + 5.f * D, 50.f, 110.f); }); }));
-		Add(Stepper(TEXT("verse.settings.fov_first"),
-			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Number(App().FovFirst) : FText(); }),
-			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.FovFirst = FMath::Clamp(S.FovFirst + 5.f * D, 50.f, 110.f); }); }));
-		Add(Stepper(TEXT("verse.settings.sensitivity"),
-			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Number(App().Sensitivity, 1) : FText(); }),
-			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.Sensitivity = FMath::Clamp(FMath::RoundToFloat((S.Sensitivity + 0.1f * D) * 10.f) / 10.f, 0.1f, 5.f); }); }));
-		Add(Stepper(TEXT("verse.settings.invert_y"),
-			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? OnOff(Ui.Get(), App().bInvertY) : FText(); }),
-			[SetApp](int32) { SetApp([](FVerseAppSettings& S) { S.bInvertY = !S.bInvertY; }); }));
-		break;
-
-	case 1: // Controls
-	{
+		// Rebinding writes settings.game keybinds.* (and return_key) through the app settings.
 		TWeakPtr<SVerseUiRoot> Self = SharedThis(this);
 		for (const FVerseKeyMap::FAction& Action : Owner->GetKeyMap().GetActions())
 		{
@@ -427,32 +467,34 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettingsPage()
 					]
 				]);
 		}
-		break;
+		return Box;
 	}
 
-	case 2: // Audio
-		Add(Stepper(TEXT("verse.settings.volume"),
-			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? Ui->GetStrings().Percent(App().Volume) : FText(); }),
-			[SetApp](int32 D) { SetApp([D](FVerseAppSettings& S) { S.Volume = FMath::Clamp(FMath::RoundToFloat((S.Volume + 0.05f * D) * 20.f) / 20.f, 0.f, 1.f); }); }));
-		Add(Stepper(TEXT("verse.settings.ui_sound"),
-			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? OnOff(Ui.Get(), App().bUiSound) : FText(); }),
-			[SetApp](int32) { SetApp([](FVerseAppSettings& S) { S.bUiSound = !S.bUiSound; }); }));
-		Add(Stepper(TEXT("verse.settings.level_sound"),
-			TAttribute<FText>::CreateLambda([Ui, App] { return Ui.IsValid() ? OnOff(Ui.Get(), App().bLevelSound) : FText(); }),
-			[SetApp](int32) { SetApp([](FVerseAppSettings& S) { S.bLevelSound = !S.bLevelSound; }); }));
-		break;
-
-	case 3: // Video
-		Add(Stepper(TEXT("verse.settings.quality"),
-			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Ui->GetStrings().Get(ScalabilityKey(Ui->GetUserSettings()->Scalability)) : FText(); }),
-			[Ui](int32 D)
-			{
-				if (Ui.IsValid())
-				{
-					const int32 Next = Ui->GetUserSettings()->Scalability + D;
-					Ui->SetScalability(Next > 4 ? -1 : (Next < -1 ? 4 : Next));
-				}
-			}));
+	FString Section;
+	bool bFirst = true;
+	for (const FVerseGameSettingDef& Def : Catalogue.GetSettings())
+	{
+		if (Def.Tab != Tab || Def.Kind == EVerseGameSettingKind::Key)
+		{
+			continue;
+		}
+		if (Def.Section != Section)
+		{
+			Section = Def.Section;
+			Add(Label(S(TEXT("verse_settings.sections.") + Section), 13.f, true, VerseUiTheme::Amber), bFirst ? 0.f : 14.f);
+			bFirst = false;
+		}
+		const FVerseGameSettingDef Entry = Def;
+		Add(Stepper(TEXT("verse_settings.s.") + Def.Id + TEXT(".label"),
+			TAttribute<FText>::CreateLambda([Ui, Entry] { return Ui.IsValid() ? SettingValueText(*Ui, Entry) : FText(); }),
+			[Ui, Entry](int32 D) { if (Ui.IsValid()) { StepSetting(*Ui, Entry, D); } }));
+		if (Def.bRestart)
+		{
+			Add(Label(S(TEXT("verse_settings.restart")), 12.f, false, VerseUiTheme::TextDim), 0.f);
+		}
+	}
+	if (Tab == TEXT("graphics"))
+	{
 		// T-02: the tier in effect, also while the choice is Auto.
 		Add(Label(TAttribute<FText>::CreateLambda([Ui]
 			{
@@ -464,15 +506,11 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSettingsPage()
 				FFormatNamedArguments Args;
 				Args.Add(TEXT("tier"), Ui->GetStrings().Get(FVerseRenderTier::KeyFor(Level)));
 				return Ui->GetStrings().Format(TEXT("verse.settings.render_tier"), Args);
-			}), 13.f, false, VerseUiTheme::TextDim));
-		break;
-
-	default: // Accessibility
-		Add(Stepper(TEXT("verse.settings.text_size"),
-			TAttribute<FText>::CreateLambda([Ui] { return Ui.IsValid() ? Ui->GetStrings().Percent(Ui->GetUserSettings()->TextScale) : FText(); }),
-			[Ui](int32 D) { if (Ui.IsValid()) { Ui->SetTextScale(Ui->GetUserSettings()->TextScale + 0.1f * D); } }));
-		Add(Label(S(TEXT("verse.settings.markers_note")), 13.f, false, VerseUiTheme::TextDim));
-		break;
+			}), 13.f, false, VerseUiTheme::TextDim), 14.f);
+	}
+	if (Tab == TEXT("accessibility"))
+	{
+		Add(Label(S(TEXT("verse.settings.markers_note")), 13.f, false, VerseUiTheme::TextDim), 14.f);
 	}
 	return Box;
 }
@@ -591,7 +629,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildEndOfSet()
 		[
 			Label(Strings.Format(TEXT("verse.end.score"), ScoreArgs), 34.f, true, End.Outcome == EVerseSetOutcome::Won ? VerseUiTheme::Gold : VerseUiTheme::Text)
 		]
-		+ SVerticalBox::Slot().AutoHeight()[Table];
+		+ SVerticalBox::Slot().AutoHeight()[Owner->GetGameBool(TEXT("gameplay.show_duel_stats")) ? Table : SNullWidget::NullWidget];
 	if (End.bShowSkill)
 	{
 		FFormatNamedArguments SkillArgs;
@@ -634,7 +672,7 @@ TSharedRef<SWidget> SVerseUiRoot::BuildSessionSummary()
 	SetsArgs.Add(TEXT("won"), Strings.Number(Summary.PersonKills));
 	SetsArgs.Add(TEXT("lost"), Strings.Number(Summary.OpponentKills));
 	Body->AddSlot().AutoHeight().Padding(FMargin(0.f, 0.f, 0.f, 14.f))[Label(Strings.Format(TEXT("verse.end.sets"), SetsArgs), 26.f, true, VerseUiTheme::Text)];
-	if (Summary.SetIndex > 0)
+	if (Summary.SetIndex > 0 && Owner->GetGameBool(TEXT("gameplay.show_duel_stats")))
 	{
 		Body->AddSlot().AutoHeight()[BuildStatsTable(Summary)];
 	}

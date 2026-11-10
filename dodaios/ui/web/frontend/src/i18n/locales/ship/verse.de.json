@@ -405,6 +405,10 @@
         "prone": "Liegend",
         "slide": "Rutschend",
         "stand": "Stehend"
+      },
+      "perf": {
+        "fps": "{fps} FPS",
+        "full": "{fps} FPS · {ms} ms"
       }
     },
     "item": {

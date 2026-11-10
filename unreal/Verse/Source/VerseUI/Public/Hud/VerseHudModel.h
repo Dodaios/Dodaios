@@ -18,6 +18,8 @@ struct VERSEUI_API FVerseHitMarker
 	EVerseHitMarkerKind Kind = EVerseHitMarkerKind::Hit;
 	double StartTime = 0.0;
 	float Duration = 0.f;
+	/** Damage of the hit (damage numbers, settings.game hud.damage_numbers). */
+	float Damage = 0.f;
 };
 
 /** Damage direction: where the bolt came from, in world space, so it turns with the view. */

@@ -51,6 +51,15 @@ def test_keybinds_match_the_unreal_key_file() -> None:
     assert {a["action"]: a["key"] for a in actions} == {a: k for a, k, _ in G.KEYBINDS}
 
 
+def test_unreal_catalogue_file_matches() -> None:
+    """VerseUI reads Data/ui/game_settings.json; it must be catalogue_json() exactly."""
+    path = REPO / G.UNREAL_CATALOGUE
+    if not path.is_file():
+        pytest.skip("Unreal project not in this checkout")
+    text = path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+    assert text == G.unreal_catalogue_text(), "run: python -m dodaios.verse_host.game_settings"
+
+
 def test_locale_has_every_setting() -> None:
     en = json.loads(
         (REPO / "dodaios/ui/web/frontend/src/i18n/locales/verse_settings/en.json").read_text(

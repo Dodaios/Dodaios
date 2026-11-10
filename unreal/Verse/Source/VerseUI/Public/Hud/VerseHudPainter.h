@@ -6,6 +6,7 @@
 #include "Hud/VerseHudModel.h"
 
 class FVerseUiStrings;
+struct FVerseGameSettings;
 class UCanvas;
 class UFont;
 
@@ -75,6 +76,43 @@ struct VERSEUI_API FVerseHudDrawList
 /** Text measure: text, point size, bold -> size in pixels. */
 using FVerseTextMeasure = TFunction<FVector2D(const FText&, int32, bool)>;
 
+enum class EVerseCrosshairStyle : uint8
+{
+	Cross,
+	Dot,
+	CrossDot,
+	Circle,
+};
+
+/** The person's HUD and crosshair choices (settings.game hud.*); defaults are the catalogue's. */
+struct VERSEUI_API FVerseHudOptions
+{
+	/** Alpha of every block but the crosshair, 0.2 .. 1. */
+	float Opacity = 1.f;
+	bool bHitMarkers = true;
+	bool bDamageNumbers = false;
+	bool bDamageDirection = true;
+	/** hud.performance_stats: 0 off, 1 frame rate, 2 frame rate and frame time. */
+	int32 PerformanceStats = 0;
+	float Fps = 0.f;
+	float FrameMs = 0.f;
+
+	EVerseCrosshairStyle CrosshairStyle = EVerseCrosshairStyle::CrossDot;
+	FLinearColor CrosshairColour = FLinearColor(1.00f, 0.55f, 0.08f, 1.f);
+	/** Catalogue units: size 1 .. 10, thickness 1 .. 4, gap 0 .. 10. */
+	float CrosshairSize = 4.f;
+	float CrosshairThickness = 2.f;
+	float CrosshairGap = 3.f;
+	bool bCrosshairOutline = true;
+	/** The lines open with the weapon's spread, and the spread circle shows. */
+	bool bCrosshairDynamic = true;
+	/** Geometry scale of the crosshair (the viewport's, without the HUD size choice); 0 = the layout's. */
+	float CrosshairScale = 0.f;
+
+	static FVerseHudOptions FromSettings(const FVerseGameSettings& Game);
+	static FLinearColor CrosshairColourByName(const FString& Name);
+};
+
 /** Everything one HUD frame depends on. */
 struct VERSEUI_API FVerseHudFrame
 {
@@ -95,6 +133,7 @@ struct VERSEUI_API FVerseHudFrame
 	bool bReducedMotion = false;
 	/** Hide the duel blocks outside a duel (only the crosshair-free deck HUD stays). */
 	bool bInDuel = true;
+	FVerseHudOptions Options;
 };
 
 /** Builds the HUD draw list (WP18.1-18.4, 18.10). */
@@ -121,6 +160,8 @@ private:
 	static void PaintScore(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintFeed(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 	static void PaintCentre(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
+	static void PaintDamageNumber(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
+	static void PaintPerformance(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure);
 };
 
 /** Draws a list on a canvas (game HUD post-render, or a render target for captures). */
